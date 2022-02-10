@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -283,7 +283,7 @@ DllMainThreadAttach()
          */
         LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1,
             "DllMain: initializing new thread " TIDFMT "\n", d_r_get_thread_id());
-        dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
+        dynamo_thread_init(NULL, NULL, NULL, false);
     }
 }
 #    endif
@@ -597,12 +597,10 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                                 BUFFER_SIZE_ELEMENTS(os_edition));
     read_version_registry_value(L"ReleaseId", os_release_id,
                                 BUFFER_SIZE_ELEMENTS(os_release_id));
-#    ifdef CLIENT_INTERFACE
     ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
            sizeof(((dr_os_version_info_t *)0)->release_id));
     ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
            sizeof(((dr_os_version_info_t *)0)->edition));
-#    endif
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
@@ -1175,6 +1173,9 @@ d_r_os_init(void)
         os_user_directory_supports_ownership();
     is_wow64_process(NT_CURRENT_PROCESS);
     is_in_ntdll(get_ntdll_base());
+#    ifndef X64
+    nt_get_context64_size();
+#    endif
 
     os_take_over_init();
 
@@ -1224,13 +1225,15 @@ os_fast_exit(void)
      *
      * The curiosity is also relaxed if we enter DR using the API
      */
-    ASSERT_CURIOSITY(reached_image_entry_yet() ||
+    ASSERT_CURIOSITY(reached_image_entry_yet() || standalone_library ||
                      RUNNING_WITHOUT_CODE_CACHE() IF_APP_EXPORTS(|| dr_api_entry)
                      /* Clients can go native.  XXX: add var for whether client did? */
-                     IF_CLIENT_INTERFACE(|| CLIENTS_EXIST()));
+                     || CLIENTS_EXIST());
 
     DOLOG(1, LOG_TOP, { print_mem_quota(); });
     DOLOG(1, LOG_TOP, { print_mem_stats(); });
+
+    os_take_over_exit();
 
 #    ifdef WINDOWS_PC_SAMPLE
     if (dynamo_options.profile_pcs) {
@@ -1310,7 +1313,6 @@ os_slow_exit(void)
     syscall_interception_exit();
     aslr_exit();
     eventlog_slow_exit();
-    os_take_over_exit();
 
     tls_dcontext_offs = TLS_UNINITIALIZED;
 }
@@ -1639,7 +1641,6 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
      * the freed TEB tls slots */
 }
 
-#    ifdef CLIENT_INTERFACE
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
 os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
@@ -1655,7 +1656,6 @@ os_tls_cfree(uint offset, uint num_slots)
 {
     return (bool)tls_cfree(true, offset, num_slots);
 }
-#    endif
 
 /* os_data is unused */
 void
@@ -1881,7 +1881,7 @@ takeover_table_entry_free(dcontext_t *dcontext, void *e)
         close_handle(data->thread_handle);
     if (data->cxt64_alloc != NULL) {
         global_heap_free(data->cxt64_alloc,
-                         MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+                         nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
     }
 #    endif
     global_heap_free(data, sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
@@ -1894,13 +1894,9 @@ os_take_over_init(void)
         GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TAKEOVER,
         80 /* load factor: not perf-critical */, HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
         takeover_table_entry_free _IF_DEBUG("takeover table"));
-}
-
-/* Only called on slow exit */
-static void
-os_take_over_exit(void)
-{
-    generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
+#    ifndef X64
+    d_r_set_ss_selector();
+#    endif
 }
 
 /* We need to distinguish a thread intercepted via APC hook but that is in ntdll
@@ -2051,6 +2047,13 @@ thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
 }
 
+static void
+thread_attach_context_revert_from_data(CONTEXT *cxt INOUT, takeover_data_t *data)
+{
+    cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
+    thread_attach_restore_full_state(data);
+}
+
 void
 thread_attach_context_revert(CONTEXT *cxt INOUT)
 {
@@ -2060,8 +2063,7 @@ thread_attach_context_revert(CONTEXT *cxt INOUT)
                                                   (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, read, unlock);
     if (data != NULL && data != INVALID_PAYLOAD) {
-        cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
-        thread_attach_restore_full_state(data);
+        thread_attach_context_revert_from_data(cxt, data);
         thread_attach_remove_from_table(data);
     } else
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
@@ -2075,6 +2077,55 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc)
     generic_hash_remove(GLOBAL_DCONTEXT, takeover_table,
                         (ptr_uint_t)dcontext->owning_thread);
     TABLE_RWLOCK(takeover_table, write, unlock);
+}
+
+static void
+os_take_over_exit(void)
+{
+    if (takeover_table == NULL)
+        return;
+    /* There may be threads we tried to attach to that were never scheduled.  We
+     * can't just check init_apc_go_native in thread_attach_takeover_callee because
+     * it can't just return to go native: it's not interception a static PC, and the
+     * continuation PC is stored in our heap which we'll free when we exit!  Just
+     * waiting for these threads prior to detach is not guaranteed, so instead we
+     * just revert the attach.
+     */
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    TABLE_RWLOCK(takeover_table, write, lock);
+    int iter = 0;
+    takeover_data_t *data;
+    ptr_uint_t key;
+    do {
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, takeover_table, iter, &key,
+                                         (void **)&data);
+        if (iter < 0)
+            break;
+        CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
+        HANDLE handle = thread_handle_from_id(data->tid);
+        LOG(GLOBAL, LOG_THREADS, 1,
+            "Reverting attached-but-never-scheduled thread " TIDFMT "\n", data->tid);
+        if (nt_thread_suspend(handle, NULL) && NT_SUCCESS(nt_get_context(handle, cxt))) {
+            thread_attach_context_revert_from_data(cxt, data);
+            if (!NT_SUCCESS(nt_set_context(handle, cxt)) ||
+                !nt_thread_resume(handle, NULL)) {
+                SYSLOG_INTERNAL_WARNING(
+                    "Failed to resume attached-but-never-scheduled thread " TIDFMT,
+                    data->tid);
+            }
+        } else {
+            SYSLOG_INTERNAL_WARNING(
+                "Failed to suspend attached-but-never-scheduled thread " TIDFMT,
+                data->tid);
+        }
+        iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, takeover_table, iter, key);
+    } while (true);
+    TABLE_RWLOCK(takeover_table, write, unlock);
+    generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
+    takeover_table = NULL;
+    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 #    ifndef X64
@@ -2381,14 +2432,14 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
     /* WOW64 context setting is fragile: we need the raw x64 context as well.
      * We can't easily use nt_initialize_context so we manually set the flags.
      */
-    buf = (byte *)global_heap_alloc(MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+    buf = (byte *)global_heap_alloc(nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
     cxt64 = (CONTEXT_64 *)ALIGN_FORWARD(buf, 0x10);
     cxt64->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
     if (!thread_get_context_64(hthread, cxt64)) {
         LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to get x64 cxt for thread " TIDFMT "\n",
             tid);
         ASSERT_NOT_REACHED();
-        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        global_heap_free(buf, nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
         return;
     }
     LOG(GLOBAL, LOG_THREADS, 2,
@@ -2404,7 +2455,7 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
         /* In x86 mode, so not inside the wow64 layer.  Context setting should
          * work fine.
          */
-        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        global_heap_free(buf, nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
         return;
     }
     /* Could be in ntdll or user32 or anywhere a syscall is made, so we don't
@@ -2436,7 +2487,7 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
         data->cxt64 = cxt64;
         data->cxt64_alloc = buf;
     } else {
-        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        global_heap_free(buf, nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
     }
 }
 #    endif
@@ -2446,8 +2497,19 @@ static bool
 os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool suspended)
 {
     bool success = true;
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+
+    if (DYNAMO_OPTION(skip_terminating_threads)) {
+        if (nt_is_thread_terminating(hthread)) {
+            // Takeover fails when attaching and trying to takeover terminating threads.
+            // Luckily, we don't really need to take over them.
+            return success;
+        }
+    }
+
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     ASSERT(tid == thread_id_from_handle(hthread));
     if ((suspended || nt_thread_suspend(hthread, NULL)) &&
         NT_SUCCESS(nt_get_context(hthread, cxt))) {
@@ -2474,6 +2536,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         if (is_in_dynamo_dll((app_pc)cxt->CXT_XIP) ||
             new_thread_is_waiting_for_dr_init(tid, (app_pc)cxt->CXT_XIP)) {
             LOG(GLOBAL, LOG_THREADS, 1, "\tthread " TIDFMT " is already waiting\n", tid);
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
             return true; /* it's waiting for us to take it over */
         }
         /* Avoid double-takeover.
@@ -2509,8 +2572,10 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                  * know if it does.
                  */
                 ASSERT_CURIOSITY(false && "thread takeover context reverted!");
-            } else
+            } else {
+                heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                 return true;
+            }
         } else {
             thread_record_t *tr = thread_lookup(tid);
             data = (takeover_data_t *)global_heap_alloc(sizeof(*data)
@@ -2554,6 +2619,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to suspend/query thread " TIDFMT "\n", tid);
         success = false;
     }
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return success;
 }
 
@@ -2582,7 +2648,7 @@ dcontext_t *
 os_thread_take_over_secondary(priv_mcontext_t *mc)
 {
     IF_DEBUG(int r =)
-    dynamo_thread_init(NULL, mc, NULL _IF_CLIENT_INTERFACE(false));
+    dynamo_thread_init(NULL, mc, NULL, false);
     ASSERT(r == SUCCESS);
     return get_thread_private_dcontext();
 }
@@ -2653,8 +2719,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                       * XXX i#95: we need a synchall-style loop for known threads as
                       * they can be in DR for syscall hook handling.
                       */
-                     (is_thread_currently_native(tr)
-                          IF_CLIENT_INTERFACE(&&!IS_CLIENT_THREAD(tr->dcontext)))) &&
+                     (is_thread_currently_native(tr) &&
+                      !IS_CLIENT_THREAD(tr->dcontext))) &&
                     threads[i].tid != my_id) {
                     LOG(GLOBAL, LOG_THREADS, 1,
                         "TAKEOVER: taking over thread " TIDFMT "\n", threads[i].tid);
@@ -2713,9 +2779,23 @@ thread_attach_setup(priv_mcontext_t *mc)
     TABLE_RWLOCK(takeover_table, write, unlock);
     if (data == NULL || data == INVALID_PAYLOAD) {
         ASSERT(standalone_library);
-        /* in release better to let thread run native than to crash */
+        /* In release better to let thread run native than to crash.
+         * However, returning here does not just go back native: we've lost the
+         * PC to go back to and the thread will just crash.
+         */
+        ASSERT_NOT_REACHED();
         EXITING_DR();
         return;
+    }
+    if (init_apc_go_native) {
+        /* We can't return back through the interception routine since the return
+         * point is dynamic.  We directly do an NtContinue.  (For threads that
+         * are still not scheduled when we go to exit, os_take_over_exit()
+         * sets the context back).
+         */
+        mc->pc = data->continuation_pc;
+        thread_set_self_mcontext(mc);
+        ASSERT_NOT_REACHED();
     }
     /* Preclude double takeover if we become suspended while in ntdll */
     data->in_progress = true;
@@ -2724,7 +2804,7 @@ thread_attach_setup(priv_mcontext_t *mc)
      * already initialized.
      */
     if (!is_thread_initialized()) {
-        int rc = dynamo_thread_init(NULL, mc, NULL _IF_CLIENT_INTERFACE(false));
+        int rc = dynamo_thread_init(NULL, mc, NULL, false);
         ASSERT(rc == SUCCESS);
     }
     dcontext = get_thread_private_dcontext();
@@ -2756,7 +2836,6 @@ thread_attach_setup(priv_mcontext_t *mc)
  * CLIENT THREADS
  */
 
-#    ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 /* i#41/PR 222812: client threads
  * * thread must have dcontext since many API routines require one and we
  *   don't expose GLOBAL_DCONTEXT (xref PR 243008, PR 216936, PR 536058)
@@ -2793,12 +2872,6 @@ client_thread_target(void *param)
     ASSERT(IS_CLIENT_THREAD(dcontext));
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", d_r_get_thread_id());
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
-
-    /* i#2335: we support setup separate from start, and we want to allow a client
-     * to create a client thread during init, but we do not support that thread
-     * executing until the app has started (b/c we have no signal handlers in place).
-     */
-    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 
@@ -2861,7 +2934,6 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     CLIENT_ASSERT(res, "error closing thread handle");
     return res;
 }
-#    endif CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 
 int
 get_os_version()
@@ -3140,6 +3212,28 @@ is_phandle_me(HANDLE phandle)
     }
 }
 
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+
+    return -1;
+}
+
+/* Returns the application's command-line arguments. */
+int
+get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+
+    return -1;
+}
+
 /* used only in get_dynamorio_library_path() but file level namespace
  * so it is easily available to windbg scripts */
 static char dynamorio_library_path[MAXIMUM_PATH];
@@ -3243,8 +3337,8 @@ should_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
 
 /* cxt may be NULL if -inject_at_create_process */
 static int
-inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
-                    inject_setting_mask_t should_inject)
+inject_into_process(dcontext_t *dcontext, HANDLE process_handle, HANDLE thread_handle,
+                    CONTEXT *cxt, inject_setting_mask_t should_inject)
 {
     /* Here in fact we don't want to have the default argument override
        mechanism take place.  If an app specific AUTOINJECT value is
@@ -3256,6 +3350,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
        to have them use the same library.
     */
     char library_path_buf[MAXIMUM_PATH];
+    char alt_arch_path[MAXIMUM_PATH];
     char *library = library_path_buf;
     bool res;
 
@@ -3269,8 +3364,9 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
      * unless the child is in fact explicit in which case we just use the global library.
      */
 
+    bool custom_library = false;
     switch (err) {
-    case GET_PARAMETER_SUCCESS: break;
+    case GET_PARAMETER_SUCCESS: custom_library = true; break;
     case GET_PARAMETER_NOAPPSPECIFIC:
         /* We got the global key's library, use parent's library instead if the only
          * reason we're injecting is -follow_children (i.e. reading RUNUNDER gave us
@@ -3285,8 +3381,38 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
     default: ASSERT_NOT_REACHED();
     }
 
+    if (!custom_library IF_X64(&&!DYNAMO_OPTION(inject_x64))) {
+        if (IF_NOT_X64(!) is_32bit_process(process_handle)) {
+            /* The build system passes us the LIBDIR_X{86,64} defines. */
+#    define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
+#    define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
+            strncpy(alt_arch_path, library, BUFFER_SIZE_ELEMENTS(alt_arch_path));
+            /* Assumption: libdir name is not repeated elsewhere in path */
+            char *libdir =
+                strstr(alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
+            if (libdir != NULL) {
+                const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
+                /* Do NOT place the NULL. */
+                strncpy(libdir, newdir, strlen(newdir));
+                NULL_TERMINATE_BUFFER(alt_arch_path);
+                library = alt_arch_path;
+                LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
+                    "alternate-bitwidth library path: %s", library);
+            } else {
+                REPORT_FATAL_ERROR_AND_EXIT(
+                    INJECTION_LIBRARY_MISSING, 3, get_application_name(),
+                    get_application_pid(),
+                    "<failed to determine alternate bitwidth path>");
+            }
+        }
+    }
+
     LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1, "\tinjecting %s into child process\n",
         library);
+    if (!os_file_exists(library, false)) {
+        REPORT_FATAL_ERROR_AND_EXIT(INJECTION_LIBRARY_MISSING, 3, get_application_name(),
+                                    get_application_pid(), library);
+    }
 
     if (DYNAMO_OPTION(aslr_dr) &&
         /* case 8749 - can't aslr dr for thin_clients */
@@ -3309,7 +3435,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
          * but if it does could fall back to late injection (though we can't
          * be sure that would work, i.e. early thread process for ex.) or
          * do a SYSLOG error. */
-        res = inject_into_new_process(process_handle, library,
+        res = inject_into_new_process(process_handle, thread_handle, library,
                                       DYNAMO_OPTION(early_inject_map),
                                       early_inject_location, early_inject_address);
     } else {
@@ -3329,6 +3455,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
     return true;
 }
 
+/* Does not support 32-bit asking about a 64-bit process. */
 bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
 {
@@ -3345,37 +3472,42 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
      * but no easy way to do either here.  FIXME
      */
     process_id_t pid = process_id_from_handle(process_handle);
-    if (pid == 0)
+    if (pid == 0) {
+        LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2, "%s: failed to get pid\n");
         return true;
+    }
     if (!is_pid_me(pid)) {
-        ptr_uint_t peb = (ptr_uint_t)get_peb(process_handle);
-        if (cxt->THREAD_START_ARG == peb)
+        uint64 peb = get_peb_maybe64(process_handle);
+        uint64 start_arg =
+            IF_X64_ELSE(cxt->THREAD_START_ARG64,
+                        is_32bit_process(process_handle) ? cxt->THREAD_START_ARG32
+                                                         : cxt->THREAD_START_ARG64);
+        LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2,
+            "%s: pid=" PIFX " vs me=" PIFX ", arg=" PFX " vs peb=" PFX "\n", __FUNCTION__,
+            pid, get_process_id(), start_arg, peb);
+        if (start_arg == peb)
             return true;
         else if (is_wow64_process(process_handle) &&
                  get_os_version() >= WINDOWS_VERSION_VISTA) {
             /* i#816: for wow64 process PEB query will be x64 while thread addr
              * will be the x86 PEB.  On Vista and Win7 the x86 PEB seems to
              * always be one page below but we don't want to rely on that, and
-             * it doesn't hold on Win8.  Instead we ensure the start addr is
-             * a one-page alloc whose first 3 fields match the x64 PEB:
-             * boolean flags, Mutant, and ImageBaseAddress.
+             * it doesn't hold on Win8.  Instead we ensure the start addr's
+             * first 3 fields match the x64 PEB: boolean flags, Mutant, and
+             * ImageBaseAddress.
+             *
+             * XXX: We now have get_peb32() with a thread handle.  But this is no
+             * longer used for the default injection.
              */
             int64 peb64[3];
             int peb32[3];
             byte *base = NULL;
-            size_t sz = get_allocation_size_ex(process_handle,
-                                               (byte *)cxt->THREAD_START_ARG, &base);
-            LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2,
-                "%s: pid=" PIFX " vs me=" PIFX ", arg=" PFX " vs peb=" PFX "\n",
-                __FUNCTION__, pid, get_process_id(), cxt->THREAD_START_ARG, peb);
-            if (sz != PAGE_SIZE || base != (byte *)cxt->THREAD_START_ARG)
-                return false;
-            if (!nt_read_virtual_memory(process_handle, (const void *)peb, peb64,
-                                        sizeof(peb64), &sz) ||
+            size_t sz;
+            if (!read_remote_memory_maybe64(process_handle, peb, peb64, sizeof(peb64),
+                                            &sz) ||
                 sz != sizeof(peb64) ||
-                !nt_read_virtual_memory(process_handle,
-                                        (const void *)cxt->THREAD_START_ARG, peb32,
-                                        sizeof(peb32), &sz) ||
+                !read_remote_memory_maybe64(process_handle, start_arg, peb32,
+                                            sizeof(peb32), &sz) ||
                 sz != sizeof(peb32))
                 return false;
             LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2,
@@ -3392,9 +3524,12 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
 /* Depending on registry and options maybe inject into child process with
  * handle process_handle.  Called by SYS_CreateThread in pre_system_call (in
  * which case cxt is non-NULL) and by CreateProcess[Ex] in post_system_call (in
- * which case cxt is NULL). */
+ * which case cxt is NULL).
+ * Does not support cross-arch injection for cxt!=NULL.
+ */
 bool
-maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt)
+maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
+                          HANDLE thread_handle, CONTEXT *cxt)
 {
     /* if inject_at_create_process becomes dynamic, need to move this check below
      * the synchronize dynamic options */
@@ -3435,9 +3570,11 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *
             } else {
                 injected = true; /* attempted, at least */
                 ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject));
-                /* FIXME : if not -early_inject, we are going to read and write
-                 * to cxt, which may be unsafe */
-                if (inject_into_process(dcontext, process_handle, cxt, should_inject)) {
+                /* XXX: if not -early_inject, we are going to read and write
+                 * to cxt, which may be unsafe.
+                 */
+                if (inject_into_process(dcontext, process_handle, thread_handle, cxt,
+                                        should_inject)) {
                     check_for_run_once(process_handle, rununder_mask);
                 }
             }
@@ -4128,7 +4265,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
         } else {
             bool needs_processing = false;
             int num_threads = 0;
-            thread_record_t **all_threads = NULL;
+            thread_record_t **thread_table = NULL;
 
             /* For hotp_only, image processing is done in two steps.  The
              * first one is done without suspending all threads (expensive if
@@ -4147,7 +4284,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                dynamo_initialized ? &needs_processing : NULL, NULL, 0);
             if (needs_processing) {
                 DEBUG_DECLARE(bool ok =)
-                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                        /* Case 6821: other synch-all-thread uses that
                                         * only care about threads carrying fcache
                                         * state can ignore us
@@ -4158,9 +4295,9 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                         * FIXME: retry instead? */
                                        THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
                 ASSERT(ok);
-                hotp_process_image(base, add, false, false, NULL, all_threads,
+                hotp_process_image(base, add, false, false, NULL, thread_table,
                                    num_threads);
-                end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+                end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
             }
         }
     }
@@ -4339,7 +4476,7 @@ find_executable_vm_areas()
         bool skip = dynamo_vm_area_overlap(pb, pb + mbi.RegionSize) &&
             !is_in_dynamo_dll(pb) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
-            IF_CLIENT_INTERFACE(&&!is_in_client_lib(pb));
+            && !is_in_client_lib(pb);
         bool full_image = true;
         ASSERT(pb == mbi.BaseAddress);
         DOLOG(2, LOG_VMAREAS, {
@@ -4540,7 +4677,7 @@ get_thread_private_dcontext(void)
 {
     /* This routine cannot be used before processwide os_init sets up the TLS index. */
     if (tls_dcontext_offs == TLS_UNINITIALIZED)
-        return (IF_CLIENT_INTERFACE(standalone_library ? GLOBAL_DCONTEXT :) NULL);
+        return standalone_library ? GLOBAL_DCONTEXT : NULL;
     /*
      * We don't need to check whether this thread has been initialized under us -
      * Windows sets the value to 0 for us, so we'll just return NULL.
@@ -5019,26 +5156,34 @@ os_thread_terminate(thread_record_t *tr)
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(tr->dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
+    bool res = false;
     if (thread_get_context(tr, cxt)) {
         context_to_mcontext(mc, cxt);
-        return true;
+        res = true;
     }
-    return false;
+    heap_free(tr->dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    return res;
 }
 
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(tr->dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* i#1033: get the context from the dst thread to make sure
      * segments are correctly set.
      */
     thread_get_context(tr, cxt);
     mcontext_to_context(cxt, mc, false /* !set_cur_seg */);
-    return thread_set_context(tr, cxt);
+    bool res = thread_set_context(tr, cxt);
+    heap_free(tr->dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    return res;
 }
 
 bool
@@ -5066,8 +5211,24 @@ thread_set_self_context(void *cxt)
 void
 thread_set_self_mcontext(priv_mcontext_t *mc)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    /* We can't use heap for our CONTEXT as we have no opportunity to free it.
+     * We assume call paths can handle a large stack buffer as size something
+     * larger than the largest Win10 x64 CONTEXT at this time, which is 3375 bytes.
+     */
+    char buf[4096];
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    CONTEXT *cxt;
+    if (bufsz > sizeof(buf)) {
+        /* Fallback: leak memory rather than failing.
+         * We could conceivably store it in the dcontext for freeing later.
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE("CONTEXT stack buffer too small in %s",
+                                     __FUNCTION__);
+        char *lost = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+        cxt = nt_initialize_context(lost, bufsz, cxt_flags);
+    } else
+        cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* need ss and cs for setting my own context */
     mcontext_to_context(cxt, mc, true /* set_cur_seg */);
     thread_set_self_context(cxt);
@@ -5351,19 +5512,18 @@ os_countdown_messagebox(char *message, int time_in_milliseconds)
 }
 #    endif /* FANCY_COUNTDOWN */
 
-#    if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t
 load_shared_library(const char *name, bool client)
 {
-#        ifdef STATIC_LIBRARY
+#    ifdef STATIC_LIBRARY
     if (strcmp(name, get_application_name()) == 0) {
         wchar_t wname[MAX_PATH];
         snwprintf(wname, BUFFER_SIZE_ELEMENTS(wname), L"%hs", name);
         NULL_TERMINATE_BUFFER(wname);
         return get_module_handle(wname);
     }
-#        endif
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+#    endif
+    if (INTERNAL_OPTION(private_loader)) {
         /* We call locate_and_load_private_library() to support searching for
          * a pathless name.
          */
@@ -5375,9 +5535,7 @@ load_shared_library(const char *name, bool client)
         return load_library(buf);
     }
 }
-#    endif
 
-#    if defined(CLIENT_INTERFACE)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name)
 {
@@ -5387,7 +5545,7 @@ lookup_library_routine(shlib_handle_t lib, const char *name)
 void
 unload_shared_library(shlib_handle_t lib)
 {
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         unload_private_library((app_pc)lib);
     } else {
         free_library(lib);
@@ -5417,7 +5575,6 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
     ASSERT(addr == NULL || (addr >= *start && addr < *end));
     return true;
 }
-#    endif /* defined(CLIENT_INTERFACE) */
 
 /* Returns base of the "allocation region" containing pc for allocated memory,
  * Note the current protection settings may not be uniform in the whole region.
@@ -5609,8 +5766,9 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
             do {
                 /* sanity checks */
                 if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi) ||
-                    mbi.State == MEM_FREE || mbi.AllocationBase != alloc_base ||
-                    mbi.RegionSize == 0)
+                    mbi.State == MEM_FREE ||
+                    /* This happens: i#4588.  But it's ok to bail in this loop. */
+                    mbi.AllocationBase != alloc_base || mbi.RegionSize == 0)
                     break;
                 if ((byte *)mbi.BaseAddress + mbi.RegionSize <= pc) {
                     forward_query_start = (byte *)mbi.BaseAddress + mbi.RegionSize;
@@ -5630,7 +5788,7 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
         do {
             if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
                 break;
-            if (mbi.State == MEM_FREE || mbi.AllocationBase != alloc_base)
+            if (mbi.State == MEM_FREE)
                 break;
             ASSERT(mbi.RegionSize > 0); /* if > 0, we will NOT infinite loop */
             if ((byte *)mbi.BaseAddress + mbi.RegionSize > pc) {
@@ -5639,6 +5797,10 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
                  * that all-same-prot region
                  */
                 ASSERT(pc >= (byte *)mbi.BaseAddress);
+                /* We don't check for a mismatch in alloc base *before* we reach the
+                 * target b/c we've seen cases with anomalous alloc bases: i#4588.
+                 */
+                ASSERT(mbi.AllocationBase == alloc_base);
                 info->base_pc = mbi.BaseAddress;
                 info->size = mbi.RegionSize;
                 set_memtype_from_mbi(&mbi, info);
@@ -5789,7 +5951,7 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
                   * We would test dcontext->nudge_thread but that's not set yet. */
                  is_wow64_process(NT_CURRENT_PROCESS)))
                /* client threads use dstack as sole stack */
-               IF_CLIENT_INTERFACE(|| is_dynamo_address(stack_base)));
+               || is_dynamo_address(stack_base));
         if (dcontext == NULL) {
             if (base != NULL)
                 *base = stack_base;
@@ -6929,7 +7091,7 @@ os_open(const char *fname, int os_open_flags)
 
     /* clients are allowed to open the file however they want, xref PR 227737 */
     ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ||
-                           standalone_library IF_CLIENT_INTERFACE(|| CLIENTS_EXIST())) &&
+                           standalone_library || CLIENTS_EXIST()) &&
                           "symlink risk PR 213492");
 
     return os_internal_create_file(
@@ -8379,42 +8541,34 @@ mutex_free_contended_event(mutex_t *lock)
  * requires a non-NULL dcontext to be passed.
  */
 static bool
-os_wait_event(event_t e,
-              int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
-                  _IF_CLIENT_INTERFACE(dcontext_t *dcontext)
-                      _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+os_wait_event(event_t e, int timeout_ms, bool set_safe_for_synch, dcontext_t *dcontext,
+              priv_mcontext_t *mc)
 {
     wait_status_t res;
     bool reported_timeout = false;
     LARGE_INTEGER timeout;
 
-#    ifdef CLIENT_INTERFACE
     if (mc != NULL) {
         ASSERT(dcontext != NULL);
         *get_mcontext(dcontext) = *mc;
     }
-#    endif
 
     KSTART(wait_event);
     /* we allow using this in release builds as well */
     if (timeout_ms == 0 && DYNAMO_OPTION(deadlock_timeout) > 0) {
         timeout.QuadPart =
             -((int)DYNAMO_OPTION(deadlock_timeout)) * TIMER_UNITS_PER_MILLISECOND;
-#    ifdef CLIENT_INTERFACE
         /* if set_safe_for_synch dcontext must be non-NULL */
         ASSERT(!set_safe_for_synch || dcontext != NULL);
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = true;
         if (mc != NULL)
             set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
-#    endif
         res = nt_wait_event_with_timeout(e, &timeout /* debug timeout */);
-#    ifdef CLIENT_INTERFACE
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = false;
         if (mc != NULL)
             set_synch_state(dcontext, THREAD_SYNCH_NONE);
-#    endif
         if (res == WAIT_SIGNALED) {
             KSTOP(wait_event);
             return true; /* all went well */
@@ -8453,21 +8607,17 @@ os_wait_event(event_t e,
         });
     }
     /* fallback to waiting forever */
-#    ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = true;
     if (mc != NULL)
         set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
-#    endif
     if (timeout_ms > 0)
         timeout.QuadPart = -timeout_ms * TIMER_UNITS_PER_MILLISECOND;
     res = nt_wait_event_with_timeout(e, timeout_ms > 0 ? &timeout : INFINITE_WAIT);
-#    ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = false;
     if (mc != NULL)
         set_synch_state(dcontext, THREAD_SYNCH_NONE);
-#    endif
     if (reported_timeout) {
         /* Our wait eventually succeeded so not truly a deadlock.  Syslog a
          * warning to that effect. */
@@ -8500,11 +8650,10 @@ os_wait_handle(HANDLE h, uint64 timeout_ms)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 void
-mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
 {
     contention_event_t event =
         mutex_get_contended_event(&lock->contended_event, SynchronizationEvent);
-#    ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool set_safe_for_sync =
         (dcontext != NULL && IS_CLIENT_THREAD(dcontext) &&
@@ -8515,10 +8664,7 @@ mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc
        client_thread_safe_for_sync flag.
     */
     ASSERT(!(set_safe_for_sync && mc != NULL));
-#    endif
-    os_wait_event(event,
-                  0 _IF_CLIENT_INTERFACE(set_safe_for_sync) _IF_CLIENT_INTERFACE(dcontext)
-                      _IF_CLIENT_INTERFACE(mc));
+    os_wait_event(event, 0, set_safe_for_sync, dcontext, mc);
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8537,9 +8683,7 @@ rwlock_wait_contended_writer(read_write_lock_t *rwlock)
 {
     contention_event_t event =
         mutex_get_contended_event(&rwlock->writer_waiting_readers, SynchronizationEvent);
-    os_wait_event(event,
-                  0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
-                      _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(event, 0, false, NULL, NULL);
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8562,9 +8706,7 @@ rwlock_wait_contended_reader(read_write_lock_t *rwlock)
 {
     contention_event_t notify_readers =
         mutex_get_contended_event(&rwlock->readers_waiting_writer, SynchronizationEvent);
-    os_wait_event(notify_readers,
-                  0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
-                      _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(notify_readers, 0, false, NULL, NULL);
     /* the event was signaled, and only a single threads waiting on
      * this event are released, if this was indeed the last reader
      */
@@ -8615,9 +8757,7 @@ reset_event(event_t e)
 bool
 wait_for_event(event_t e, int timeout_ms)
 {
-    return os_wait_event(e,
-                         timeout_ms _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
-                             _IF_CLIENT_INTERFACE(NULL));
+    return os_wait_event(e, timeout_ms, false, NULL, NULL);
 }
 
 timestamp_t
@@ -8934,21 +9074,23 @@ earliest_inject_init(byte *arg_ptr)
     earliest_args_t *args = (earliest_args_t *)arg_ptr;
 
     /* Set up imports w/o making any library calls */
-    if (!privload_bootstrap_dynamorio_imports(args->dr_base, args->ntdll_base)) {
+    if (!privload_bootstrap_dynamorio_imports((byte *)(ptr_int_t)args->dr_base,
+                                              (byte *)(ptr_int_t)args->ntdll_base)) {
         /* XXX: how handle failure?  too early to ASSERT.  how bail?
          * should we just silently go native?
          */
     } else {
-        /* Restore +rx to hook location before DR init scans it */
+        /* Restore the prior protections to the hook location before DR init scans it. */
         uint old_prot;
-        if (!bootstrap_protect_virtual_memory(args->hook_location, EARLY_INJECT_HOOK_SIZE,
-                                              PAGE_EXECUTE_READ, &old_prot)) {
+        if (!bootstrap_protect_virtual_memory((byte *)(ptr_int_t)args->hook_location,
+                                              EARLY_INJECT_HOOK_SIZE, args->hook_prot,
+                                              &old_prot)) {
             /* XXX: again, how handle failure? */
         }
     }
 
     /* We can't walk Ldr list to get this so set it from parent args */
-    set_ntdll_base(args->ntdll_base);
+    set_ntdll_base((byte *)(ptr_int_t)args->ntdll_base);
 
     /* We can't get DR path from Ldr list b/c DR won't be in there even once
      * it's initialized so we pass it in from parent.
@@ -8973,7 +9115,7 @@ void
 earliest_inject_cleanup(byte *arg_ptr)
 {
     earliest_args_t *args = (earliest_args_t *)arg_ptr;
-    byte *tofree = args->tofree_base;
+    byte *tofree = (byte *)(ptr_int_t)args->tofree_base;
     NTSTATUS res;
 
     /* Free tofree (which contains args).

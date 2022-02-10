@@ -107,6 +107,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         }
         if (drmgr_is_emulation_start(instr)) {
             emulated_instr_t emulated_instr;
+            emulated_instr.size = sizeof(emulated_instr);
             CHECK(drmgr_get_emulated_instr_data(instr, &emulated_instr),
                   "drmgr_get_emulated_instr_data() failed");
             if (instr_is_gather(emulated_instr.instr) ||

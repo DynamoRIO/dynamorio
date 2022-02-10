@@ -1,17 +1,44 @@
 Index: libelftc/elftc_set_timestamps.c
 ===================================================================
---- libelftc/elftc_set_timestamps.c    (revision 3248)
-+++ libelftc/elftc_set_timestamps.c    (working copy)
-@@ -49,6 +49,12 @@
- #define        LIBELFTC_HAVE_UTIMES    1
+--- libelftc/elftc_set_timestamps.c	(revision 3819)
++++ libelftc/elftc_set_timestamps.c	(working copy)
+@@ -49,6 +49,11 @@
+ #define	LIBELFTC_HAVE_UTIMES	1
  #endif
-
-+// by Qin Zhao: no utimes on Android
+ 
 +#if LIBELFTC_HAVE_UTIMES
 +# undef LIBELFTC_HAVE_UTIMES
 +# define LIBELFTC_HAVE_UTIMES 0
 +#endif
 +
- #if    LIBELFTC_HAVE_UTIMES
+ #if	LIBELFTC_HAVE_UTIMES
  #include <sys/time.h>
  #else
+
+Index: libelf/libelf_ar.c
+===================================================================
+--- libelf/libelf_ar.c	(revision 3816)
++++ libelf/libelf_ar.c	(working copy)
+@@ -465,7 +465,7 @@
+ 			goto symtaberror;
+ 
+ 		GET_WORD(p, off);
+-		if (off >= e->e_rawsize)
++		if (off >= (uint32_t)e->e_rawsize)
+ 			goto symtaberror;
+ 
+ 		sym->as_off = (off_t) off;
+
+Index: libelf/libelf_open.c
+===================================================================
+--- libelf/libelf_open.c	(revision 3819)
++++ libelf/libelf_open.c	(working copy)
+@@ -137,7 +137,7 @@
+ 		return (NULL);
+ 	}
+ 
+-	mode = sb.st_mode;
++	mode = (mode_t)sb.st_mode;
+ 	fsize = (size_t) sb.st_size;
+ 
+ 	/*

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -43,11 +43,16 @@
  * - mem ref instr: e.g., { type = 42 (call), size = 5, addr = 0x7f59c2d002d3 }
  * - mem ref info:  e.g., { type = 1 (write), size = 8, addr = 0x7ffeacab0ec8 }.
  *
+ * Each memory-referencing instruction is output as an instruction entry followed
+ * by a sequence of loads and stores performed by that instruction, if any.
+ *
  * This sample illustrates
  * - the use of drutil_expand_rep_string() to expand string loops to obtain
- *   every memory reference,
+ *   every memory reference;
+ * - the use of drx_expand_scatter_gather() to expand scatter/gather instrs
+ *   into a set of functionally equivalent stores/loads;
  * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
- *   memory references,
+ *   memory references;
  * - the use of drutil_insert_get_mem_addr() to insert instructions to compute
  *   the address of each memory reference.
  *
@@ -59,10 +64,12 @@
 
 #include <stdio.h>
 #include <stddef.h> /* for offsetof */
+#include <string.h>
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "drx.h"
 #include "utils.h"
 
 enum {
@@ -97,8 +104,9 @@ typedef struct {
 } per_thread_t;
 
 static client_id_t client_id;
-static void *mutex;     /* for multithread support */
-static uint64 num_refs; /* keep a global memory reference count */
+static void *mutex;        /* for multithread support */
+static uint64 num_refs;    /* keep a global memory reference count */
+static bool log_to_stderr; /* for testing */
 
 /* Allocated TLS slot offsets */
 enum {
@@ -223,7 +231,7 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref
 
 /* insert inline code to add an instruction entry into the buffer */
 static void
-instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
+instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where, instr_t *instr)
 {
     /* We need two scratch registers */
     reg_id_t reg_ptr, reg_tmp;
@@ -238,10 +246,10 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
     }
     insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     (ushort)instr_get_opcode(where));
+                     (ushort)instr_get_opcode(instr));
     insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     (ushort)instr_length(drcontext, where));
-    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, instr_get_app_pc(where));
+                     (ushort)instr_length(drcontext, instr));
+    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, instr_get_app_pc(instr));
     insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(mem_ref_t));
     /* Restore scratch registers */
     if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
@@ -281,28 +289,38 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
  * with an instruction entry and memory reference entries.
  */
 static dr_emit_flags_t
-event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
                       bool for_trace, bool translating, void *user_data)
 {
     int i;
 
-    if (!instr_is_app(instr))
-        return DR_EMIT_DEFAULT;
-    if (!instr_reads_memory(instr) && !instr_writes_memory(instr))
-        return DR_EMIT_DEFAULT;
-
-    /* insert code to add an entry for app instruction */
-    instrument_instr(drcontext, bb, instr);
-
-    /* insert code to add an entry for each memory reference opnd */
-    for (i = 0; i < instr_num_srcs(instr); i++) {
-        if (opnd_is_memory_reference(instr_get_src(instr, i)))
-            instrument_mem(drcontext, bb, instr, instr_get_src(instr, i), false);
+    /* Insert code to add an entry for each app instruction. */
+    /* Use the drmgr_orig_app_instr_* interface to properly handle our own use
+     * of drutil_expand_rep_string() and drx_expand_scatter_gather() (as well
+     * as another client/library emulating the instruction stream).
+     */
+    instr_t *instr_fetch = drmgr_orig_app_instr_for_fetch(drcontext);
+    if (instr_fetch != NULL &&
+        (instr_reads_memory(instr_fetch) || instr_writes_memory(instr_fetch))) {
+        DR_ASSERT(instr_is_app(instr_fetch));
+        instrument_instr(drcontext, bb, where, instr_fetch);
     }
 
-    for (i = 0; i < instr_num_dsts(instr); i++) {
-        if (opnd_is_memory_reference(instr_get_dst(instr, i)))
-            instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i), true);
+    /* Insert code to add an entry for each memory reference opnd. */
+    instr_t *instr_operands = drmgr_orig_app_instr_for_operands(drcontext);
+    if (instr_operands == NULL ||
+        (!instr_reads_memory(instr_operands) && !instr_writes_memory(instr_operands)))
+        return DR_EMIT_DEFAULT;
+    DR_ASSERT(instr_is_app(instr_operands));
+
+    for (i = 0; i < instr_num_srcs(instr_operands); i++) {
+        if (opnd_is_memory_reference(instr_get_src(instr_operands, i)))
+            instrument_mem(drcontext, bb, where, instr_get_src(instr_operands, i), false);
+    }
+
+    for (i = 0; i < instr_num_dsts(instr_operands); i++) {
+        if (opnd_is_memory_reference(instr_get_dst(instr_operands, i)))
+            instrument_mem(drcontext, bb, where, instr_get_dst(instr_operands, i), true);
     }
 
     /* insert code to call clean_call for processing the buffer */
@@ -316,8 +334,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          * Using a fault to handle a full buffer should be more robust, and the
          * forthcoming buffer filling API (i#513) will provide that.
          */
-        IF_AARCHXX_ELSE(!instr_is_exclusive_store(instr), true))
-        dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
+        IF_AARCHXX_ELSE(!instr_is_exclusive_store(instr_operands), true))
+        dr_insert_clean_call(drcontext, bb, where, (void *)clean_call, false, 0);
 
     return DR_EMIT_DEFAULT;
 }
@@ -332,6 +350,9 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
+    }
+    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+        DR_ASSERT(false);
     }
     return DR_EMIT_DEFAULT;
 }
@@ -355,18 +376,22 @@ event_thread_init(void *drcontext)
 
     data->num_refs = 0;
 
-    /* We're going to dump our data to a per-thread file.
-     * On Windows we need an absolute path so we place it in
-     * the same directory as our library. We could also pass
-     * in a path as a client argument.
-     */
-    data->log =
-        log_file_open(client_id, drcontext, NULL /* using client lib path */, "memtrace",
+    if (log_to_stderr) {
+        data->logf = stderr;
+    } else {
+        /* We're going to dump our data to a per-thread file.
+         * On Windows we need an absolute path so we place it in
+         * the same directory as our library. We could also pass
+         * in a path as a client argument.
+         */
+        data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
+                                  "memtrace",
 #ifndef WINDOWS
-                      DR_FILE_CLOSE_ON_FORK |
+                                  DR_FILE_CLOSE_ON_FORK |
 #endif
-                          DR_FILE_ALLOW_LARGE);
-    data->logf = log_stream_from_file(data->log);
+                                      DR_FILE_ALLOW_LARGE);
+        data->logf = log_stream_from_file(data->log);
+    }
     fprintf(data->logf, "Format: <data address>: <data size>, <(r)ead/(w)rite/opcode>\n");
 }
 
@@ -379,7 +404,8 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    log_stream_close(data->logf); /* closes fd too */
+    if (!log_to_stderr)
+        log_stream_close(data->logf); /* closes fd too */
     dr_raw_mem_free(data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
@@ -402,6 +428,7 @@ event_exit(void)
     dr_mutex_destroy(mutex);
     drutil_exit();
     drmgr_exit();
+    drx_exit();
 }
 
 DR_EXPORT void
@@ -411,7 +438,19 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drreg_options_t ops = { sizeof(ops), 3, false };
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init())
+
+    if (argc > 1) {
+        if (argc == 2 && strcmp(argv[1], "-log_to_stderr") == 0)
+            log_to_stderr = true;
+        else {
+            dr_fprintf(STDERR,
+                       "Error: unknown options: only -log_to_stderr is supported\n");
+            dr_abort();
+        }
+    }
+
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init() ||
+        !drx_init())
         DR_ASSERT(false);
 
     /* register events */

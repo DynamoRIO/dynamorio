@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -76,6 +77,9 @@ main(int argc, char **argv)
     USE_USER32();
 
     print("fib(%d)=%d\n", 5, fib(5));
+    /* Enable use as a shorter test for tool.drcacheof.func_view. */
+    if (argc > 1 && strcmp(argv[1], "only_5") == 0)
+        return 0;
     print("fib(%d)=%d\n", 15, fib(15));
     /* deep recursion */
     print("fib(%d)=%d\n", 25, fib(25));

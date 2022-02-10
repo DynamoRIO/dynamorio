@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,14 +79,14 @@ pipe_dir()
 }
 
 named_pipe_t::named_pipe_t()
-    : fd(-1)
+    : fd_(-1)
 {
     // empty
 }
 
 // We avoid extra string copies by constructing with the name where possible.
 named_pipe_t::named_pipe_t(const char *name)
-    : fd(-1)
+    : fd_(-1)
 {
     set_name(name); // guaranteed to succeed
 }
@@ -95,11 +95,11 @@ named_pipe_t::named_pipe_t(const char *name)
 bool
 named_pipe_t::set_name(const char *name)
 {
-    if (fd == -1) {
+    if (fd_ == -1) {
         if (name[0] == '/')
-            pipe_name = name;
+            pipe_name_ = name;
         else
-            pipe_name = std::string(std::string(pipe_dir()) + "/" + name);
+            pipe_name_ = std::string(std::string(pipe_dir()) + "/" + name);
         return true;
     }
     return false;
@@ -108,14 +108,14 @@ named_pipe_t::set_name(const char *name)
 std::string
 named_pipe_t::get_name() const
 {
-    return pipe_name;
+    return pipe_name_;
 }
 
 bool
 named_pipe_t::create()
 {
     umask(0);
-    if (mkfifo(pipe_name.c_str(), PIPE_PERMS) != 0)
+    if (mkfifo(pipe_name_.c_str(), PIPE_PERMS) != 0)
         return false;
     return true;
 }
@@ -124,15 +124,15 @@ bool
 named_pipe_t::destroy()
 {
     close();
-    return (unlink(pipe_name.c_str()) == 0);
+    return (unlink(pipe_name_.c_str()) == 0);
 }
 
 bool
 named_pipe_t::open_for_write()
 {
     // This should block until a reader connects
-    fd = ::open(pipe_name.c_str(), O_WRONLY);
-    if (fd < 0)
+    fd_ = ::open(pipe_name_.c_str(), O_WRONLY);
+    if (fd_ < 0)
         return false;
     return true;
 }
@@ -142,8 +142,8 @@ named_pipe_t::open_for_read()
 {
     // XXX: we may want to add optional nonblocking support via O_NONBLOCK here,
     // or maybe better via fcntl to keep separate from swapping in dr_open_file().
-    fd = ::open(pipe_name.c_str(), O_RDONLY);
-    if (fd < 0)
+    fd_ = ::open(pipe_name_.c_str(), O_RDONLY);
+    if (fd_ < 0)
         return false;
     return true;
 }
@@ -151,9 +151,9 @@ named_pipe_t::open_for_read()
 bool
 named_pipe_t::close()
 {
-    if (fd != -1)
-        ::close(fd);
-    fd = -1;
+    if (fd_ != -1)
+        ::close(fd_);
+    fd_ = -1;
     return true;
 }
 
@@ -161,7 +161,7 @@ bool
 named_pipe_t::maximize_buffer()
 {
 #ifdef LINUX
-    return fcntl(fd, F_SETPIPE_SZ, PIPE_BUF_MAX_SIZE) == PIPE_BUF_MAX_SIZE;
+    return fcntl(fd_, F_SETPIPE_SZ, PIPE_BUF_MAX_SIZE) == PIPE_BUF_MAX_SIZE;
 #else
     // MacOS does not have F_SETPIPE_SZ and there is no way to change the buffer
     // size.  The kernel will automatically increase it up to 64K AFAIK.
@@ -172,15 +172,15 @@ named_pipe_t::maximize_buffer()
 const std::string &
 named_pipe_t::get_pipe_path() const
 {
-    return pipe_name;
+    return pipe_name_;
 }
 
 bool
-named_pipe_t::set_fd(int fd_)
+named_pipe_t::set_fd(int fd)
 {
-    // Not allowed to clobber an existing fd!
-    if (fd == -1) {
-        fd = fd_;
+    // Not allowed to clobber an existing fd_!
+    if (fd_ == -1) {
+        fd_ = fd;
         return true;
     }
     return false;
@@ -191,7 +191,7 @@ named_pipe_t::read(void *buf OUT, size_t sz)
 {
     int res = -1;
     while (true) {
-        res = ::read(fd, buf, sz);
+        res = ::read(fd_, buf, sz);
         if (res == -1 && errno == EINTR)
             continue;
         break;
@@ -210,7 +210,7 @@ named_pipe_t::write(const void *buf IN, size_t sz)
 {
     int res = -1;
     while (true) {
-        res = ::write(fd, buf, sz);
+        res = ::write(fd_, buf, sz);
         if (res == -1 && errno == EINTR)
             continue;
         break;

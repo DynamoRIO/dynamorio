@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -103,14 +103,14 @@ protected:
     void
     print_shard_results(const shard_data_t *shard);
 
-    const reuse_distance_knobs_t knobs;
-    const size_t line_size_bits;
+    const reuse_distance_knobs_t knobs_;
+    const size_t line_size_bits_;
     static const std::string TOOL_NAME;
     // In parallel operation the keys are "shard indices": just ints.
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex;
+    std::mutex shard_map_mutex_;
 };
 
 /* A doubly linked list node for the cache line reference info */
@@ -157,22 +157,22 @@ struct line_ref_t {
 // more efficient computation of the depth.  Each node in the skip
 // list stores its depth from the front.
 struct line_ref_list_t {
-    line_ref_t *head;       // the most recently accessed cache line
-    line_ref_t *gate;       // the earliest cache line refs within the threshold
-    uint64_t cur_time;      // current time stamp
-    uint64_t unique_lines;  // the total number of unique cache lines accessed
-    uint64_t threshold;     // the reuse distance threshold
-    uint64_t skip_distance; // distance between skip list nodes
-    bool verify_skip;       // check results using brute-force walks
+    line_ref_t *head_;       // the most recently accessed cache line
+    line_ref_t *gate_;       // the earliest cache line refs within the threshold
+    uint64_t cur_time_;      // current time stamp
+    uint64_t unique_lines_;  // the total number of unique cache lines accessed
+    uint64_t threshold_;     // the reuse distance threshold
+    uint64_t skip_distance_; // distance between skip list nodes
+    bool verify_skip_;       // check results using brute-force walks
 
-    line_ref_list_t(uint64_t reuse_threshold, uint64_t skip_dist, bool verify)
-        : head(NULL)
-        , gate(NULL)
-        , cur_time(0)
-        , unique_lines(0)
-        , threshold(reuse_threshold)
-        , skip_distance(skip_dist)
-        , verify_skip(verify)
+    line_ref_list_t(uint64_t reuse_threshold_, uint64_t skip_dist, bool verify)
+        : head_(NULL)
+        , gate_(NULL)
+        , cur_time_(0)
+        , unique_lines_(0)
+        , threshold_(reuse_threshold_)
+        , skip_distance_(skip_dist)
+        , verify_skip_(verify)
     {
     }
 
@@ -180,9 +180,9 @@ struct line_ref_list_t {
     {
         line_ref_t *ref;
         line_ref_t *next;
-        if (head == NULL)
+        if (head_ == NULL)
             return;
-        for (ref = head; ref != NULL; ref = next) {
+        for (ref = head_; ref != NULL; ref = next) {
             next = ref->next;
             delete ref;
         }
@@ -191,7 +191,7 @@ struct line_ref_list_t {
     bool
     ref_is_distant(line_ref_t *ref)
     {
-        if (gate == NULL || ref->time_stamp >= gate->time_stamp)
+        if (gate_ == NULL || ref->time_stamp >= gate_->time_stamp)
             return false;
         return true;
     }
@@ -200,7 +200,7 @@ struct line_ref_list_t {
     print_list()
     {
         std::cerr << "Reuse tag list:\n";
-        for (line_ref_t *node = head; node != NULL; node = node->next) {
+        for (line_ref_t *node = head_; node != NULL; node = node->next) {
             std::cerr << "\tTag 0x" << std::hex << node->tag;
             if (node->depth != -1) {
                 std::cerr << " depth=" << std::dec << node->depth << " prev=" << std::hex
@@ -230,7 +230,7 @@ struct line_ref_list_t {
     }
 
     // Add a new cache line to the front of the list.
-    // We may need to move gate forward if there are more cache lines
+    // We may need to move gate_ forward if there are more cache lines
     // than the threshold so that the gate points to the earliest
     // referenced cache line within the threshold.
     void
@@ -238,33 +238,33 @@ struct line_ref_list_t {
     {
         if (DEBUG_VERBOSE(3))
             std::cerr << "Add tag 0x" << std::hex << ref->tag << "\n";
-        // update head
-        ref->next = head;
-        if (head != NULL)
-            head->prev = ref;
-        head = ref;
-        if (gate == NULL)
-            gate = head;
-        // move gate forward if necessary
-        if (unique_lines > threshold)
-            gate = gate->prev;
-        unique_lines++;
-        head->time_stamp = cur_time++;
+        // update head_
+        ref->next = head_;
+        if (head_ != NULL)
+            head_->prev = ref;
+        head_ = ref;
+        if (gate_ == NULL)
+            gate_ = head_;
+        // move gate_ forward if necessary
+        if (unique_lines_ > threshold_)
+            gate_ = gate_->prev;
+        unique_lines_++;
+        head_->time_stamp = cur_time_++;
 
         // Add a new skip node if necessary.
-        // We don't bother keeping one right at the front: too much overhead.
+        // We don't bother keeping one right at the front: too much overhead_.
         uint64_t count = 0;
         line_ref_t *node, *skip = NULL;
-        for (node = head; node != NULL && node->depth == -1; node = node->next) {
+        for (node = head_; node != NULL && node->depth == -1; node = node->next) {
             ++count;
-            if (count == skip_distance)
+            if (count == skip_distance_)
                 skip = node;
         }
-        if (count >= 2 * skip_distance - 1) {
+        if (count >= 2 * skip_distance_ - 1) {
             assert(skip != NULL);
             if (DEBUG_VERBOSE(3))
                 std::cerr << "New skip node for tag 0x" << std::hex << skip->tag << "\n";
-            skip->depth = skip_distance - 1;
+            skip->depth = skip_distance_ - 1;
             if (node != NULL) {
                 assert(node->prev_skip == NULL);
                 node->prev_skip = skip;
@@ -280,8 +280,8 @@ struct line_ref_list_t {
     }
 
     // Move a referenced cache line to the front of the list.
-    // We need to move the gate pointer forward if the referenced cache
-    // line is the gate cache line or any cache line after.
+    // We need to move the gate_ pointer forward if the referenced cache
+    // line is the gate_ cache line or any cache line after.
     // Returns the reuse distance of ref.
     int_least64_t
     move_to_front(line_ref_t *ref)
@@ -292,14 +292,14 @@ struct line_ref_list_t {
         line_ref_t *next;
 
         ref->total_refs++;
-        if (ref == head)
+        if (ref == head_)
             return 0;
         if (ref_is_distant(ref)) {
             ref->distant_refs++;
-            gate = gate->prev;
-        } else if (ref == gate) {
-            // move gate if ref is the gate.
-            gate = gate->prev;
+            gate_ = gate_->prev;
+        } else if (ref == gate_) {
+            // move gate_ if ref is the gate_.
+            gate_ = gate_->prev;
         }
 
         // Compute reuse distance.
@@ -312,12 +312,12 @@ struct line_ref_list_t {
         else
             --dist; // Don't count self.
 
-        if (DEBUG_VERBOSE(0) && verify_skip) {
+        if (DEBUG_VERBOSE(0) && verify_skip_) {
             // Compute reuse distance with a full list walk as a sanity check.
             // This is a debug-only option, so we guard with DEBUG_VERBOSE(0).
             // Yes, the option check branch shows noticeable overhead without it.
             int_least64_t brute_dist = 0;
-            for (prev = head; prev != ref; prev = prev->next)
+            for (prev = head_; prev != ref; prev = prev->next)
                 ++brute_dist;
             if (brute_dist != dist) {
                 std::cerr << "Mismatch!  Brute=" << brute_dist << " vs skip=" << dist
@@ -347,10 +347,10 @@ struct line_ref_list_t {
             next->prev = prev;
         // move ref to the front
         ref->prev = NULL;
-        ref->next = head;
-        head->prev = ref;
-        head = ref;
-        head->time_stamp = cur_time++;
+        ref->next = head_;
+        head_->prev = ref;
+        head_ = ref;
+        head_->time_stamp = cur_time_++;
 
         if (DEBUG_VERBOSE(3))
             print_list();

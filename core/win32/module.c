@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,7 +74,6 @@ module_area_free_IAT(module_area_t *ma);
 static bool
 get_module_resource_version_info(app_pc mod_base, version_info_t *info_out);
 
-#ifdef CLIENT_INTERFACE
 typedef struct _pe_module_import_iterator_t {
     dr_module_import_t module_import; /* module import returned by next() */
 
@@ -100,7 +99,6 @@ typedef struct _pe_symbol_import_iterator_t {
     IMAGE_THUNK_DATA *cur_thunk;
     bool hasnext; /* set to false on error or end */
 } pe_symbol_import_iterator_t;
-#endif /* CLIENT_INTERFACE */
 
 /****************************************************************************
  * Section-to-file table for i#138 and PR 213463 (case 9028)
@@ -308,7 +306,6 @@ lookup_module_info(module_info_vector_t *v, app_pc addr)
 {
     /* BINARY SEARCH -- assumes the vector is kept sorted by add & remove! */
     module_info_t key = { addr, addr + 1 }; /* end is open */
-#    ifdef NOLIBC
     /* FIXME : copied from find_predecessor(), would be nice to share with
      * that routine and with binary range search (w/linear backsearch) in
      * vmareas.c */
@@ -327,9 +324,6 @@ lookup_module_info(module_info_vector_t *v, app_pc addr)
         }
     }
     return NULL;
-#    else
-    return bsearch(&key, v->buf, v->length, sizeof(module_info_t), module_info_compare);
-#    endif
 }
 
 #    define INITIAL_MODULE_NUMBER 4
@@ -1891,7 +1885,7 @@ get_module_preferred_base(app_pc pc)
     /* we return NULL on error above, make sure no one actually sets their
      * preferred base address to NULL */
     ASSERT_CURIOSITY(OPT_HDR(nt, ImageBase) != 0);
-    return (app_pc)OPT_HDR(nt, ImageBase);
+    return (app_pc)(ptr_int_t)OPT_HDR(nt, ImageBase);
 }
 
 /* we simply test if allocation bases of a region are the same */
@@ -2047,21 +2041,18 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
                 get_module_name(base, buf, BUFFER_SIZE_ELEMENTS(buf));
                 if (buf[0] == '\0' && is_in_dynamo_dll(base))
                     path = get_dynamorio_library_path();
-                IF_CLIENT_INTERFACE({
-                    if (path[0] == '\0' && is_in_client_lib(base))
-                        path = get_client_path_from_addr(base);
-                    if (path[0] == '\0' && INTERNAL_OPTION(private_loader)) {
-                        privmod_t *privmod;
-                        acquire_recursive_lock(&privload_lock);
-                        privmod = privload_lookup_by_base(base);
-                        if (privmod != NULL) {
-                            dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s",
-                                        privmod->path);
-                            path = buf;
-                        }
-                        release_recursive_lock(&privload_lock);
+                if (path[0] == '\0' && is_in_client_lib(base))
+                    path = get_client_path_from_addr(base);
+                if (path[0] == '\0' && INTERNAL_OPTION(private_loader)) {
+                    privmod_t *privmod;
+                    acquire_recursive_lock(&privload_lock);
+                    privmod = privload_lookup_by_base(base);
+                    if (privmod != NULL) {
+                        dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s", privmod->path);
+                        path = buf;
                     }
-                });
+                    release_recursive_lock(&privload_lock);
+                }
                 if (path[0] != '\0')
                     name = get_short_name(path);
                 /* Set the path too.  We could avoid a strdup by sharing the
@@ -6359,7 +6350,40 @@ module_contains_addr(module_area_t *ma, app_pc pc)
     return (pc >= ma->start && pc < ma->end);
 }
 
-#ifdef CLIENT_INTERFACE
+bool
+module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
+                    OUT byte **data_start, OUT byte **data_end)
+{
+    IMAGE_NT_HEADERS *nt;
+    IMAGE_DATA_DIRECTORY *data_dir;
+    IMAGE_TLS_DIRECTORY *tls_dir = NULL;
+    VERIFY_NT_HEADER(module_base);
+    ASSERT(is_readable_pe_base(module_base));
+    nt = NT_HEADER(module_base);
+    data_dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_TLS;
+    if (data_dir->VirtualAddress == 0)
+        return false;
+    if (data_dir->Size < sizeof(*tls_dir)) {
+        SYSLOG_INTERNAL_WARNING("Module " PFX " TLS dir has invalid size %d", module_base,
+                                data_dir->Size);
+        return false;
+    }
+    tls_dir = (IMAGE_TLS_DIRECTORY *)(module_base + data_dir->VirtualAddress);
+    ASSERT(is_readable_without_exception((app_pc)tls_dir, sizeof(*tls_dir)));
+    /* We don't need RVA_TO_VA: the addresses here are all virtual and are relocated. */
+    if (callbacks != NULL)
+        *callbacks = (void **)tls_dir->AddressOfCallBacks;
+    if (index != NULL)
+        *index = (int *)tls_dir->AddressOfIndex;
+    if (data_start != NULL)
+        *data_start = (byte *)tls_dir->StartAddressOfRawData;
+    if (data_end != NULL)
+        *data_end = (byte *)tls_dir->EndAddressOfRawData;
+    /* Apparently SizeOfZeroFill is ignored by the Windows loader so we do as well.
+     * There are no Characteristics for x86 or arm.
+     */
+    return true;
+}
 
 /* Returns true if the next module import was read and is valid.
  */
@@ -6586,5 +6610,3 @@ dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
         dr_module_import_iterator_stop(iter->mod_iter);
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
-
-#endif /* CLIENT_INTERFACE */

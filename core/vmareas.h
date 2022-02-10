@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -499,13 +499,11 @@ vm_area_coarse_iter_next(vmvector_iterator_t *vmvi, app_pc end);
 void
 vm_area_coarse_iter_stop(vmvector_iterator_t *vmvi);
 
-#ifdef CLIENT_INTERFACE
 /* To give clients a chance to process pcaches as we load them, we
  * delay the loading until we've initialized the clients.
  */
 void
 vm_area_delay_load_coarse_units(void);
-#endif
 
 void
 executable_areas_lock(void);

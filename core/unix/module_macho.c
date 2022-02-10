@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -192,6 +192,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                              * not seen this too-large size.
                              */
                             if (os_get_version() < MACOS_VERSION_MOJAVE &&
+                                seg_start < shared_end &&
                                 seg_start + seg->vmsize > shared_end) {
                                 LOG(GLOBAL, LOG_VMAREAS, 4,
                                     "%s: truncating __LINKEDIT size from " PIFX

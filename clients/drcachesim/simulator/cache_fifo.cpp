@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,25 +39,25 @@
 // be cleared. The counter of the next block will be set to 1.
 
 bool
-cache_fifo_t::init(int associativity_, int block_size_, int total_size,
-                   caching_device_t *parent_, caching_device_stats_t *stats_,
-                   prefetcher_t *prefetcher_, bool inclusive_, bool coherent_cache_,
-                   int id_, snoop_filter_t *snoop_filter_,
-                   const std::vector<caching_device_t *> &children_)
+cache_fifo_t::init(int associativity, int block_size, int total_size,
+                   caching_device_t *parent, caching_device_stats_t *stats,
+                   prefetcher_t *prefetcher, bool inclusive, bool coherent_cache, int id,
+                   snoop_filter_t *snoop_filter,
+                   const std::vector<caching_device_t *> &children)
 {
     // Works in the same way as the base class,
     // except that the counters are initialized in a different way.
 
-    bool ret_val = cache_t::init(associativity_, block_size_, total_size, parent_, stats_,
-                                 prefetcher_, inclusive_, coherent_cache_, id_,
-                                 snoop_filter_, children_);
+    bool ret_val =
+        cache_t::init(associativity, block_size, total_size, parent, stats, prefetcher,
+                      inclusive, coherent_cache, id, snoop_filter, children);
     if (ret_val == false)
         return false;
 
     // Create a replacement pointer for each set, and
     // initialize it to point to the first block.
-    for (int i = 0; i < blocks_per_set; i++) {
-        get_caching_device_block(i << assoc_bits, 0).counter = 1;
+    for (int i = 0; i < blocks_per_set_; i++) {
+        get_caching_device_block(i << assoc_bits_, 0).counter_ = 1;
     }
     return true;
 }
@@ -74,12 +74,12 @@ int
 cache_fifo_t::replace_which_way(int block_idx)
 {
     // We replace the block whose counter is 1.
-    for (int i = 0; i < associativity; i++) {
-        if (get_caching_device_block(block_idx, i).counter == 1) {
+    for (int i = 0; i < associativity_; i++) {
+        if (get_caching_device_block(block_idx, i).counter_ == 1) {
             // clear the counter of the victim block
-            get_caching_device_block(block_idx, i).counter = 0;
+            get_caching_device_block(block_idx, i).counter_ = 0;
             // set the next block as victim
-            get_caching_device_block(block_idx, (i + 1) & (associativity - 1)).counter =
+            get_caching_device_block(block_idx, (i + 1) & (associativity_ - 1)).counter_ =
                 1;
             return i;
         }

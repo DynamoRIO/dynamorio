@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +49,6 @@
 #define IDD_SYSTEMWIDE_CONFIRMATION 141
 #define IDB_BITMAP1 146
 #define IDB_BITMAP2 147
-#define IDB_LOGO_VMWARE 153
 #define IDB_LOGO_DYNAMORIO 157
 #define IDC_OPTIONS_EDIT 1000
 #define IDC_OPTIONS_LIST 1001

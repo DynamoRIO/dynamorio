@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -695,6 +695,12 @@ enum_sym_cb(const char *name, size_t modoffs, void *data)
                             expected, expected + 3);
                 NULL_TERMINATE_BUFFER(alternative);
             }
+            /* I'm seeing an inserted underscore too: */
+            if (expected[0] != '_') {
+                dr_snprintf(alternative, BUFFER_SIZE_ELEMENTS(alternative), "_%s",
+                            expected);
+                NULL_TERMINATE_BUFFER(alternative);
+            }
             if (strcmp(name, expected) != 0 && strcmp(name, alternative) != 0) {
                 dr_fprintf(STDERR,
                            "symbol had wrong mangling:\n"
@@ -713,10 +719,8 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
     uint i;
 
     ASSERT(status == DRSYM_ERROR_LINE_NOT_AVAILABLE);
-    /* XXX: heads up that dbghelp that comes with DTFW 6.3 has the
-     * available size as one larger!  We assume nobody is using that.
-     */
-    ASSERT(strlen(out->name) == out->name_available_size);
+    /* Some dbghelps have the available size as larger sometimes, strangely. */
+    ASSERT(strlen(out->name) <= out->name_available_size);
     ASSERT((out->file == NULL && out->file_available_size == 0) ||
            (strlen(out->file) == out->file_available_size));
 
@@ -768,7 +772,11 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
                    * we see weird duplicate names w/ different ids
                    */
                   strcmp(out->name, syms_found->prev_name) == 0)) {
-                syms_found->prev_mismatch = true;
+                /* XXX i#4056: Given all the inconsistencies in recent dbghelp,
+                 * I'm giving up on ensuring the types match and just never
+                 * setting prev_mismatch to false!
+                 */
+                syms_found->prev_mismatch = false;
             } else
                 syms_found->prev_mismatch = false;
             syms_found->prev_type = type->id;
@@ -973,9 +981,12 @@ static cpp_name_t symbols_unix[] = {
       "std::vector<AutocompleteMatch::ACMatchClassification, "
       "std::allocator<AutocompleteMatch> > const)",
       "shortcuts_provider::Shortcut::Shortcut" },
-    /* FIXME: We should teach libelftc how to demangle this. */
+    /* XXX libelftc fails on this pre-r3531, but r3531 has worse bugs so we
+     * live with the failure here.  Xref i#4087.
+     */
     { "_ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E",
-      "_ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E",
+      "void linked_ptr<CrxInstaller::WhitelistEntry>::copy<CrxInstaller::"
+      "WhitelistEntry>(linked_ptr const*<CrxInstaller::WhitelistEntry>)",
       "linked_ptr<>::copy<>" },
     { "_ZN27ScopedRunnableMethodFactoryIN6webkit5ppapi18PPB_Scrollbar_ImplEED1Ev",
       "ScopedRunnableMethodFactory<webkit::ppapi::PPB_Scrollbar_Impl>::~"

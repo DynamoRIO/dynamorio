@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -83,7 +83,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
  *
  * \return the opened file id.
  */
-typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flag);
+typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flags);
 
 /**
  * Function for file read.
@@ -208,14 +208,6 @@ drmemtrace_status_t
 drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
                           drmemtrace_exit_func_t exit_func, void *exit_func_arg);
 
-/**
- * The name of the file in -offline mode where module data is written.
- * Its creation can be customized using drmemtrace_custom_module_data()
- * and then modified before passing to raw2trace via
- * drmodtrack_add_custom_data() and drmodtrack_offline_write().
- */
-#define DRMEMTRACE_MODULE_LIST_FILENAME "modules.log"
-
 DR_EXPORT
 /**
  * Retrieves the full path to the output directory in -offline mode
@@ -227,26 +219,49 @@ drmemtrace_get_output_path(OUT const char **path);
 DR_EXPORT
 /**
  * Retrieves the full path to the file in -offline mode where module data is written.
- * Its creation can be customized using drmemtrace_custom_module_data() with
- * corresponding post-processing with raw2trace_t::handle_custom_data().
+ * The basename of the file is
+ * #DRMEMTRACE_MODULE_LIST_FILENAME.  Its creation can be customized using
+ * drmemtrace_custom_module_data() with corresponding post-processing with
+ * raw2trace_t::handle_custom_data().
  */
 drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path);
 
 DR_EXPORT
 /**
+ * Retrieves the full path to the file in -offline mode where function tracing
+ * information is written.  The basename of the file is
+ * #DRMEMTRACE_FUNCTION_LIST_FILENAME.  Each "library!symbol" function that was traced
+ * occupies one line of the file, with comma-separated values preceding it: its
+ * numeric identifier used in trace entries; the number of its arguments that are
+ * recorded; its address in hexadecimal format; and optional flags such as \"noret\".
+ * For example:
+ *
+ *   4,1,0x7fff2348ac,libc!malloc
+ *   5,1,0x7fff267d52,noret,libc!free
+ *
+ * There can be multiple symbols mapping to the same address and thus to the sam
+ * identifier; each will have its own line in the file.
+ */
+drmemtrace_status_t
+drmemtrace_get_funclist_path(OUT const char **path);
+
+DR_EXPORT
+/**
  * Adds custom data stored with each module in the module list produced for
- * offline trace post-processing.  The \p load_cb is called for each new module,
+ * offline trace post-processing.  The \p load_cb is called for each segment
+ * of each new module (with \p seg_idx indicating the segment number, starting at 0),
  * and its return value is the data that is stored.  That data is later printed
  * to a string with \p print_cb, which should return the number of characters
- * printed or -1 on error.  The data is freed with \p free_cb.
+ * printed or -1 on error.  The data is freed with \p free_cb.  Each is called
+ * separately for each segment of each module.
  *
  * On the post-processing side, the user should create a custom post-processor
  * by linking with raw2trace and calling raw2trace_t::handle_custom_data() to provide
  * parsing and processing routines for the custom data.
  */
 drmemtrace_status_t
-drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module),
+drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data));
 

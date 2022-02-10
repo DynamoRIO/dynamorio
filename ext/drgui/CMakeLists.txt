@@ -1,5 +1,5 @@
 # ***************************************************************************
-# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
 # Copyright (c) 2013 Branden Clark  All rights reserved.
 # ***************************************************************************
 
@@ -45,21 +45,13 @@ elseif ("${CMAKE_VERSION}" VERSION_LESS "3.2")
   message(STATUS "WARNING: CMake version is < 3.2: DrGUI will NOT be built")
 else () # Qt5 and CMake 3.2+
   # Build Qt Visualizer
-  cmake_minimum_required(VERSION 3.2)
+  cmake_minimum_required(VERSION 3.7)
 
   message(STATUS "Found Qt 5: DrGUI will be built")
 
   include(../../make/policies.cmake NO_POLICY_SCOPE)
 
   cmake_policy(SET CMP0043 OLD)
-
-  # DR's boundary of 2 causes alignment issues with Qt, so we stick to default.
-  # This is okay because this is a standalone app, and does not need to match
-  # DynamoRIO.
-  if (NOT WIN32)
-    string(REPLACE "-mpreferred-stack-boundary=2 " "" CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}")
-  endif (NOT WIN32)
 
   # Set ouput_dir since drgui_qt is the only executable extension
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_BIN}")

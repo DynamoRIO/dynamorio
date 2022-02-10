@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,7 +52,7 @@ protected:
     void
     destroy_analysis_tools();
 
-    static const int max_num_tools = 8;
+    static const int max_num_tools_ = 8;
 };
 
 #endif /* _ANALYZER_MULTI_H_ */

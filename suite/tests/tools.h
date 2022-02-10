@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,6 +73,10 @@
 #else
 #    include <windows.h>
 #    include <process.h> /* _beginthreadex */
+#    include <stdlib.h>  /* _set_error_mode */
+#    if defined(DEBUG) && !defined(NO_DBG_CRT)
+#        include <crtdbg.h>
+#    endif
 #    include "../../core/win32/os_public.h"
 #    define NTSTATUS DWORD
 #    define NT_SUCCESS(status) (status >= 0)
@@ -273,7 +277,7 @@ typedef enum {
 #else
 /* FIXME: varargs for windows...for now since we don't care about efficiency we do this:
  */
-static void
+static inline void
 VERBOSE_PRINT(const char *fmt, ...)
 {
 }
@@ -357,7 +361,18 @@ int
 code_dec(int foo);
 int
 dummy(void);
-#ifdef AARCHXX
+#ifdef DR_HOST_NOT_TARGET
+static inline void
+tools_clear_icache(void *start, void *end)
+{
+    /* We need this function to build, but we expect to never run it for host!=target
+     * (an artifact of imperfect DR modularity for managed execution vs utility
+     * library: i#1684, etc.).
+     */
+    assert(false);
+}
+#elif defined(AARCHXX)
+/* In tools.c asm code. */
 void
 tools_clear_icache(void *start, void *end);
 #endif
@@ -430,13 +445,13 @@ size(Code_Snippet func)
     return ret_val;
 }
 
-static int
+static inline int
 test(void *foo, int val)
 {
     return (*(int (*)(int))foo)(val);
 }
 
-static int
+static inline int
 call(Code_Snippet func, int val)
 {
     switch (func) {
@@ -501,7 +516,7 @@ copy_to_buf_cross_page(char *buf, size_t buf_len, size_t *copied_len, Code_Snipp
     return copy_to_buf_normal(buf, buf_len, copied_len, func);
 }
 
-static char *
+static inline char *
 copy_to_buf(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func,
             Copy_Mode mode)
 {
@@ -645,7 +660,7 @@ protect_mem_check(void *start, size_t len, int prot, int expected);
 void *
 reserve_memory(int size);
 
-static void
+static inline void
 test_print(void *buf, int n)
 {
     print("%d\n", test(buf, n));
@@ -682,7 +697,33 @@ signal_handler(int sig)
                 MessageBeep(0); \
         } while (0)
 
-#    define OS_INIT() set_global_filter()
+/* We can't put this in tools.c b/c we have some tests that link /MT even in
+ * debug build.
+ */
+#    if defined(DEBUG) && !defined(NO_DBG_CRT)
+#        define DISABLE_POPUPS()                                                      \
+            do {                                                                      \
+                /* Avoid pop-up messageboxes in tests. */                             \
+                if (!IsDebuggerPresent()) {                                           \
+                    /* Control CRT-internal asserts and _ASSERT, etc. */              \
+                    /* Set for _CRT_{WARN,ERROR,ASSERT}. */                           \
+                    for (int i = 0; i < _CRT_ERRCNT; i++) {                           \
+                        _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG); \
+                        _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);                    \
+                    }                                                                 \
+                    /* This may control assert() and _wassert() in release build. */  \
+                    _set_error_mode(_OUT_TO_STDERR);                                  \
+                }                                                                     \
+            } while (0)
+#    else
+#        define DISABLE_POPUPS() /* Nothing. */
+#    endif
+
+#    define OS_INIT()            \
+        do {                     \
+            DISABLE_POPUPS();    \
+            set_global_filter(); \
+        } while (0)
 
 /* XXX: when updating here, update core/os_exports.h too */
 #    define WINDOWS_VERSION_10_1803 105

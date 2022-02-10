@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -78,25 +78,31 @@ run_fibers(void *arg)
 static void
 fls_index_iter(void)
 {
-#define FLS_COUNT 128
-    DWORD idx[FLS_COUNT];
+    /* To keep the test passing on machines with 128 and 4096 we walk up
+     * and break when we hit a failure.
+     */
+#define FLS_MAX_COUNT 16 * 1024
+    DWORD idx[FLS_MAX_COUNT];
     int i;
     bool ran_out = false;
-    for (i = 0; i < FLS_COUNT; i++) {
+    for (i = 0; i < FLS_MAX_COUNT; i++) {
         idx[i] = FlsAlloc(fls_delete);
         if (verbose)
             print("request %d => index %d\n", i, idx[i]);
         /* We need to update FLS_MAX_COUNT in kernel32_proc.c if the max ever
          * goes up.  Several slots should already be taken by static libc.
+         * Update: The max on Win10 1909 (and probably earlier Win10) is 4096,
+         * and the slots are no longer kept in the PEB.
          */
         if (!ran_out && idx[i] == FLS_OUT_OF_INDEXES) {
-            print("ran out of FLS slots\n");
+            print("ran out of FLS slots\n", i);
             ran_out = true;
+            break;
         }
     }
-    for (i = 0; i < FLS_COUNT; i++) {
-        if (idx[i] != FLS_OUT_OF_INDEXES)
-            FlsFree(idx[i]);
+    for (int j = 0; j < i; j++) {
+        if (idx[j] != FLS_OUT_OF_INDEXES)
+            FlsFree(idx[j]);
     }
 }
 
@@ -148,4 +154,8 @@ main()
     }
 
     print("all done\n");
+    /* With VS2017 the main fiber's fls_delete is *not* called (natively), so we
+     * explicitly delete it in order to match the test output.
+     */
+    DeleteFiber(fiber_main);
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -289,10 +289,8 @@ void
 module_list_remove(app_pc base, size_t view_size)
 {
     /* lookup and free module */
-#ifdef CLIENT_INTERFACE
     module_data_t *client_data = NULL;
     bool inform_client = false;
-#endif
     module_area_t *ma;
 
     /* note that vmvector_lookup doesn't protect the custom data,
@@ -309,7 +307,6 @@ module_list_remove(app_pc base, size_t view_size)
         (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>"
                                               : GET_MODULE_NAME(&ma->names));
 
-#ifdef CLIENT_INTERFACE
     /* inform clients of module unloads, we copy the data now and wait to
      * call the client till after we've released the module areas lock */
     if (CLIENTS_EXIST()
@@ -328,7 +325,6 @@ module_list_remove(app_pc base, size_t view_size)
     os_get_module_info_write_lock();
     ma = (module_area_t *)vmvector_lookup(loaded_module_areas, base);
     ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
-#endif
 
     native_exec_module_unload(ma);
 
@@ -658,7 +654,13 @@ ensure_section_readable(app_pc module_base, app_pc seg_start, size_t seg_len,
 
     /* on X86-32 as long as any of RWX is set the contents is readable */
     if (TESTANY(OS_IMAGE_EXECUTE | OS_IMAGE_READ | OS_IMAGE_WRITE, seg_chars)) {
-        ASSERT(is_readable_without_exception(intersection_start, intersection_len));
+        /* We're mid-load and on recent ld.so segments spanning a gap are mprotected
+         * to noaccess *before* their contents are mapped.  The text segment of
+         * interest should be mapped but we haven't yet updated allmem.
+         * Thus we must query the OS.
+         */
+        ASSERT(
+            is_readable_without_exception_query_os(intersection_start, intersection_len));
         return true;
     }
     /* such a mapping could potentially be used for some protection
@@ -737,7 +739,7 @@ restore_unreadable_section(app_pc module_base, app_pc seg_start, size_t seg_len,
 void
 module_calculate_digest(OUT module_digest_t *digest, app_pc module_base,
                         size_t module_size, bool full_digest, bool short_digest,
-                        uint short_digest_size, uint sec_char_include,
+                        size_t short_digest_size, uint sec_char_include,
                         uint sec_char_exclude)
 {
     struct MD5Context md5_short_cxt;

@@ -1,0 +1,13 @@
+Index: libelf/libelf_ar.c
+===================================================================
+--- libelf/libelf_ar.c	(revision 3816)
++++ libelf/libelf_ar.c	(working copy)
+@@ -465,7 +465,7 @@
+ 			goto symtaberror;
+ 
+ 		GET_WORD(p, off);
+-		if (off >= e->e_rawsize)
++		if (off >= (uint32_t)e->e_rawsize)
+ 			goto symtaberror;
+ 
+ 		sym->as_off = (off_t) off;

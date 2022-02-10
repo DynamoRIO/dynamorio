@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -46,6 +46,7 @@
 #include "rseq_linux.h"
 #include "../fragment.h"
 #include "decode.h"
+#include "instrument.h"
 #include <stddef.h>
 #ifdef HAVE_RSEQ
 #    include <linux/rseq.h>
@@ -87,6 +88,7 @@ typedef struct _rseq_region_t {
     app_pc start;
     app_pc end;
     app_pc handler;
+    app_pc final_instr_pc;
     /* We need to preserve input registers for targeting "start" instead of "handler"
      * for our 2nd invocation, if they're written in the rseq region.  We only support
      * GPR inputs.  We document that we do not support any other inputs (no flags, no
@@ -184,6 +186,18 @@ rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *hand
         *reg_written = info->reg_written;
     if (reg_written_size != NULL)
         *reg_written_size = sizeof(info->reg_written) / sizeof(info->reg_written[0]);
+    return true;
+}
+
+bool
+rseq_set_final_instr_pc(app_pc start, app_pc final_instr_pc)
+{
+    rseq_region_t *info;
+    if (!vmvector_lookup_data(d_r_rseq_areas, start, NULL, NULL, (void **)&info))
+        return false;
+    if (final_instr_pc < start || final_instr_pc >= info->end)
+        return false;
+    info->final_instr_pc = final_instr_pc;
     return true;
 }
 
@@ -316,7 +330,11 @@ rseq_analyze_instructions(rseq_region_t *info)
                                         "Rseq sequence contains invalid instructions");
             ASSERT_NOT_REACHED();
         }
-        if (instr_is_syscall(&instr)) {
+        if (instr_is_syscall(&instr)
+            /* Allow a syscall for our test in debug build. */
+            IF_DEBUG(
+                &&!check_filter("api.rseq;linux.rseq;linux.rseq_table;linux.rseq_noarray",
+                                get_short_name(get_application_name())))) {
             REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
                                         get_application_name(), get_application_pid(),
                                         "Rseq sequence contains a system call");
@@ -373,6 +391,7 @@ rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
     info->start = (app_pc)(ptr_uint_t)entry->start_ip + load_offs;
     info->end = info->start + entry->post_commit_offset;
     info->handler = (app_pc)(ptr_uint_t)entry->abort_ip + load_offs;
+    info->final_instr_pc = NULL; /* Only set later at block building time. */
     int signature;
     if (!d_r_safe_read(info->handler - sizeof(signature), sizeof(signature),
                        &signature)) {
@@ -578,6 +597,9 @@ rseq_process_module_cleanup:
     return res;
 }
 
+/* If we did not observe the app invoke SYS_rseq (because we attached mid-run)
+ * we must search for its TLS location.
+ */
 static int
 rseq_locate_tls_offset(void)
 {
@@ -587,20 +609,26 @@ rseq_locate_tls_offset(void)
      * struct using heuristics, because the system call was poorly designed and will not
      * let us replace the app's. Alternatives of no local copy have worse problems.
      */
-    /* Static TLS is at a negative offset from the app library segment base.  We simply
-     * search all possible aligned slots.  Typically there are <64 possible slots.
+    /* We simply search all possible aligned slots.  Typically there
+     * are <64 possible slots.
      */
     int offset = 0;
     byte *addr = get_app_segment_base(LIB_SEG_TLS);
     byte *seg_bottom;
-    if (addr > 0 && get_memory_info(addr, &seg_bottom, NULL, NULL)) {
+    size_t seg_size;
+    if (addr > 0 && get_memory_info(addr, &seg_bottom, &seg_size, NULL)) {
         LOG(GLOBAL, LOG_LOADER, 3, "rseq within static TLS " PFX " - " PFX "\n",
             seg_bottom, addr);
         /* struct rseq_cs is aligned to 32. */
         int alignment = __alignof(struct rseq_cs);
         int i;
-        for (i = 0; addr - i * alignment >= seg_bottom; i++) {
-            byte *try_addr = addr - i * alignment;
+        /* For x86, static TLS is at a negative offset from the app library segment
+         * base, while for aarchxx it is positive.
+         */
+        for (i = 0; IF_X86_ELSE(addr - i * alignment >= seg_bottom,
+                                addr + i * alignment < seg_bottom + seg_size);
+             i++) {
+            byte *try_addr = IF_X86_ELSE(addr - i * alignment, addr + i * alignment);
             ASSERT(try_addr >= seg_bottom); /* For loop guarantees this. */
             /* Our strategy is to check all of the aligned static TLS addresses to
              * find the registered one.  Our caller is not supposed to call here
@@ -624,9 +652,9 @@ rseq_locate_tls_offset(void)
             if (res == -EPERM) {
                 /* Found it! */
                 LOG(GLOBAL, LOG_LOADER, 2,
-                    "Found struct rseq @ " PFX " for thread => %s:-0x%x\n", try_addr,
-                    get_register_name(LIB_SEG_TLS), i * alignment);
-                offset = -i * alignment;
+                    "Found struct rseq @ " PFX " for thread => %s:%s0x%x\n", try_addr,
+                    get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""), i * alignment);
+                offset = IF_X86_ELSE(-i * alignment, i * alignment);
             }
             break;
         }
@@ -648,8 +676,9 @@ rseq_process_syscall(dcontext_t *dcontext)
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         constant_offset = (prior == 0 || prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
-            "Observed struct rseq @ " PFX " for thread => %s:-0x%x\n", app_addr,
-            get_register_name(LIB_SEG_TLS), -rseq_tls_offset);
+            "Observed struct rseq @ " PFX " for thread => %s:%s0x%x\n", app_addr,
+            get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""),
+            IF_X86_ELSE(-rseq_tls_offset, rseq_tls_offset));
     } else
         constant_offset = (seg_base + rseq_tls_offset == app_addr);
     if (!constant_offset) {
@@ -718,4 +747,36 @@ rseq_module_init(module_area_t *ma, bool at_map)
     if (rseq_enabled) {
         rseq_process_module(ma, at_map);
     }
+}
+
+void
+rseq_process_native_abort(dcontext_t *dcontext)
+{
+    /* Raise a transfer event. */
+    LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 2, "Abort triggered in rseq native code\n");
+    /* We do not know the precise interruption point but we try to present something
+     * reasonable.
+     */
+    rseq_region_t *info = NULL;
+    priv_mcontext_t *source_mc = NULL;
+    if (dcontext->last_fragment != NULL &&
+        vmvector_lookup_data(d_r_rseq_areas, dcontext->last_fragment->tag, NULL, NULL,
+                             (void **)&info)) {
+        /* An artifact of our run-twice solution is that clients have already seen
+         * the whole sequence when any abort anywhere in the native execution occurs.
+         * We thus give the source PC as the final instr in the region, and use the
+         * target context as the rest of the context.
+         */
+        source_mc = HEAP_TYPE_ALLOC(dcontext, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
+        *source_mc = *get_mcontext(dcontext);
+        source_mc->pc = info->final_instr_pc;
+    }
+    get_mcontext(dcontext)->pc = dcontext->next_tag;
+    if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, osc_empty, NULL, source_mc,
+                               dcontext->next_tag, get_mcontext(dcontext)->xsp, osc_empty,
+                               get_mcontext(dcontext), 0)) {
+        dcontext->next_tag = canonicalize_pc_target(dcontext, get_mcontext(dcontext)->pc);
+    }
+    if (source_mc != NULL)
+        HEAP_TYPE_FREE(dcontext, source_mc, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
 }

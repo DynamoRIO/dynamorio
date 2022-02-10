@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,8 +46,11 @@
  * Creates an analysis tool which counts the number of instances of each opcode
  * in the trace.  This tool needs access to the modules.log and original libraries
  * and binaries from the traced execution.  It does not support online analysis.
+ * An alternate search path for the libraries in the modules.log can be specified
+ * in "alt_module_path".
  */
 analysis_tool_t *
-opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0);
+opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0,
+                       const std::string &alt_module_dir = "");
 
 #endif /* _OPCODE_MIX_CREATE_H_ */

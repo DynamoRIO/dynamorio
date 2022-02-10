@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -85,7 +85,7 @@ set(ROOT_SRCS
 
 # drfrontendlib doesn't want NOT_DYNAMORIO_CORE, so we set that individually
 # on all the other targets.  They all want this:
-add_definitions(-DNOT_DYNAMORIO_CORE_PROPER)
+add_definitions(-DNOT_DYNAMORIO_CORE_PROPER -DDYNAMORIO_INTERNAL)
 
 if (WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE)
@@ -107,7 +107,7 @@ if (WIN32)
 
   add_library(policy_static ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS})
   set_target_properties(policy_static PROPERTIES
-    COMPILE_FLAGS "${libutil_cflags} -DNOT_DYNAMORIO_CORE")
+    COMPILE_FLAGS "${libutil_cflags}" COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE")
   set_target_properties(policy_static PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
   add_gen_events_deps(policy_static)
@@ -117,7 +117,7 @@ if (WIN32)
 else () # UNIX
   # Most of it is unported.  We're just reusing some utils.c and the config
   # file writing code currently.
-  set(DRCONFIG_SRCS dr_config.c utils.c)
+  set(DRCONFIG_SRCS dr_config.c utils.c ${PROJECT_SOURCE_DIR}/core/io.c)
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)
@@ -144,7 +144,8 @@ set_target_properties(drconfiglib PROPERTIES
   # Since it's hard to pass spaces in defines (I can get a " through using
   # \\\\\\\" but no spaces) we put strings in resources.rc and select
   # using RC_ defines.
-  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB -DNOT_DYNAMORIO_CORE"
+  COMPILE_FLAGS "${libutil_cflags}"
+  COMPILE_DEFINITIONS "RC_IS_DRCONFIGLIB;NOT_DYNAMORIO_CORE"
   # put in lib dir
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(drconfiglib)
@@ -160,7 +161,8 @@ if (WIN32)
   add_executable(dumpevts dumpevts.c elm.c ${RESOURCES})
   set_target_properties(dumpevts PROPERTIES
     # Set define parameters for resources.rc
-    COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DUMPEVTS -DNOT_DYNAMORIO_CORE")
+    COMPILE_FLAGS "${libutil_cflags}"
+    COMPILE_DEFINITIONS "RC_IS_DUMPEVTS;NOT_DYNAMORIO_CORE")
   set_target_properties(dumpevts PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
   add_gen_events_deps(dumpevts)
@@ -171,12 +173,15 @@ if (WIN32)
       ${RESOURCES} mfapi.c mfapi.res)
     set_target_properties(mfapi PROPERTIES
       # Set define parameters for resources.rc
-      COMPILE_FLAGS "${libutil_cflags} -DRC_IS_MFAPI -DNOT_DYNAMORIO_CORE")
+      COMPILE_FLAGS "${libutil_cflags}"
+      COMPILE_DEFINITIONS "RC_IS_MFAPI;NOT_DYNAMORIO_CORE")
     set_target_properties(mfapi PROPERTIES
       LINK_FLAGS "${libutil_ldflags}")
     add_gen_events_deps(mfapi)
   endif (MFAPI_ENABLED)
 endif ()
+
+DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_config.h dr_config.h)
 
 install_exported_target(drconfiglib ${INSTALL_LIB_BASE})
 DR_export_target(drconfiglib)
@@ -186,7 +191,7 @@ DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 # drconfiglib now uses drfront_access()
 # drconfiglib needs drlibc for dr_fpu_exception_init()
 target_link_libraries(drconfiglib drfrontendlib drlibc)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drconfiglib drmemfuncs)
 endif ()
@@ -202,10 +207,11 @@ if (UNIX)
   # We need drlibc for module-parsing routines.
   target_link_libraries(drfrontendlib drlibc)
 endif ()
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drfrontendlib drmemfuncs)
 endif ()
 add_static_lib_debug_info(drfrontendlib "${INSTALL_BIN}")
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/dr_frontend.h dr_frontend.h)

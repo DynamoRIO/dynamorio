@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -119,6 +119,7 @@ else ()
 endif ()
 
 include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
 
 ###########################################################################
 # utility functions
@@ -141,6 +142,12 @@ endif (UNIX)
 # configuration options
 
 # many are core-specific
+
+# whether this build of DynamoRIO is meant for distribution, in which case
+# glibc should not have any too-recent imports. See core/CMake_readelf.cmake
+# for more information. This is off by default, but gets set by
+# make/package.cmake.
+option(BUILD_PACKAGE "build DynamoRIO for packaging purposes by performing glibc checks" OFF)
 
 # configurations that also have defines
 option(DRSTATS_DEMO "build DRstats without the no-longer-supported Run, etc. controls" ON)
@@ -207,12 +214,34 @@ endif ()
 
 # The target architecture.
 # For cross-compilation this should still work as you're supposed to set this var.
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+# X64 mean 64-bit generically, whether AMD64 or AARCH64.
+set(TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}" CACHE STRING "Target architecture")
+if (TARGET_ARCH MATCHES "^arm")
   set(ARM 1) # This means AArch32.
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(X64 OFF)
+  message(STATUS "Building for ARM")
+elseif (TARGET_ARCH MATCHES "^aarch64")
   set(AARCH64 1)
+  set(X64 1)
+  message(STATUS "Building for AArch64")
 else ()
   set(X86 1) # This means IA-32 or AMD64
+  message(STATUS "Building for x86")
+  # Whether 64-bit is expected to be selected by user setting up compiler
+  # prior to invoking CMake: it has to be that way for Windows, and for
+  # Linux the user should set CFLAGS to -m32 or -m64
+  # to override gcc's default.  To simplify matters we only look at
+  # CMAKE_C_SIZEOF_DATA_PTR, controlled by CFLAGS, so the user doesn't
+  # have to also set CXXFLAGS (CMAKE_SIZEOF_VOID_P happens
+  # to come from CXXFLAGS).  (CMAKE_C_SIZEOF_DATA_PTR can be relied on
+  # to be set in all CMake versions we support.)
+  # For target!=host, we still need the host compiler to match the target,
+  # so we do not support differing bitwidths.
+  if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+    set(X64 ON)
+  else ()
+    set(X64 OFF)
+  endif ()
 endif ()
 
 if (X86)
@@ -232,48 +261,72 @@ else ()
   set(ARCH_NAME_SHARED ${ARCH_NAME})
 endif ()
 
-# The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
-# Whether 64-bit is expected to be selected by user setting up compiler
-# prior to invoking CMake: it has to be that way for Windows, and for
-# Linux the user should set CFLAGS to -m32 or -m64
-# to override gcc's default.  To simplify matters we only look at
-# CMAKE_C_SIZEOF_DATA_PTR, controlled by CFLAGS, so the user doesn't
-# have to also set CXXFLAGS (CMAKE_SIZEOF_VOID_P happens
-# to come from CXXFLAGS).  (CMAKE_C_SIZEOF_DATA_PTR can be relied on
-# to be set in all CMake versions we support.)
-if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
-  set(X64 ON)
-else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
-  set(X64 OFF)
-endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+# The execution architecture, which might differ from the target for building
+# an AArch64 decoder to execute on x86 machines (i#1684).
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(DR_HOST_ARM 1)
+  set(DR_HOST_ARCH_NAME "arm")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(DR_HOST_AARCH64 1)
+  set(DR_HOST_ARCH_NAME "aarch64")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+  set(DR_HOST_X64 1)
+elseif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+  set(DR_HOST_X86 1)
+  set(DR_HOST_ARCH_NAME "x86")
+  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
+  set(DR_HOST_X64 1)
+else ()
+  set(DR_HOST_X86 1)
+  set(DR_HOST_ARCH_NAME "x86")
+  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
+endif ()
+if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
+  set(DR_HOST_NOT_TARGET 1)
+  if (WIN32)
+    # TODO i#1684: Fix Windows compiler warnings for AArch64 on x86.
+    message(FATAL_ERROR "Host != target is not yet supported on Windows")
+  endif ()
+  if ((DR_HOST_X64 AND NOT X64) OR (NOT DR_HOST_X64 AND X64))
+    # XXX i#1345: We need to resolve the hardcoded ELF bitwidth types.
+    # We likely also have general C type issues if the host is 32-bit.
+    message(FATAL_ERROR "Different-bitwidth host-vs-target not supported: i#1345.")
+  endif ()
+  if (ARM)
+    # TODO i#1684: We don't have full support for targeting arm in i386 yet.
+    message(FATAL_ERROR "Targeting ARM on i386 is not yet supported: i#1684.")
+  endif ()
+endif ()
+
+# Support for running cross-compiled tests under emulation.
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+  find_program(QEMU_BINARY qemu-${CMAKE_SYSTEM_PROCESSOR} DOC "QEMU emulation tool")
+  if (NOT QEMU_BINARY)
+    message(STATUS "Did not find qemu-${CMAKE_SYSTEM_PROCESSOR}: tests will not run")
+  else ()
+    message(STATUS "Found qemu-${CMAKE_SYSTEM_PROCESSOR} for tests under emulation")
+  endif ()
+endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
-# high-level configurations
-option(VMAP "client support" ON)
-option(VPS "security support but no client support")
-option(VMSAFE "client support including security API")
-if (VMAP)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-endif (VMAP)
-if (VMSAFE)
-  set(PROGRAM_SHEPHERDING 1)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-  set(HOT_PATCHING_INTERFACE 1)
-endif (VMSAFE)
-if (VPS)
-  set(PROGRAM_SHEPHERDING 1)
-  set(HOT_PATCHING_INTERFACE 1)
-  set(PROCESS_CONTROL 1)
-  if (WIN32)
-    set(GBOP 1)
-  endif (WIN32)
-endif (VPS)
+# We no longer support building without a client interface: it is always enabled.
 
-# temporary: once build+support issues fixed, remove and add HOT_PATCHING_INTERFACE
-# to VMAP by default
+# TODO i#4819: Remove {DR_}APP_EXPORTS and replace with a runtime option.
+# We'll still need something to swap DR_APP_API from import to export and
+# set that for static DR, but the rest of the defines can go.
+set(APP_EXPORTS 1)
+
+# TODO: Consider removing these no-longer-maintained options:
+# - VMKERNEL
+# - PROGRAM_SHEPHERDING
+# - PROCESS_CONTROL
+# - GBOP
+
+# TODO: Revive HOT_PATCHING_INTERFACE and combine with PROBE.
 option(PROBE "enable not-yet-supported Probe API")
 mark_as_advanced(PROBE)
 if (PROBE)
@@ -317,8 +370,10 @@ endif ()
 if (X86)
   set(ANNOTATIONS_DEFAULT ON)
 else ()
+  # TODO i#1672: Add annotation support to AArchXX.
   set(ANNOTATIONS_DEFAULT OFF)
 endif ()
+# TODO i#4819: Remove the define and replace with a runtime option.
 option(ANNOTATIONS "annotations" ${ANNOTATIONS_DEFAULT})
 
 if (WIN32)
@@ -361,10 +416,10 @@ endif (VMKERNEL)
 
 # we do not support most users choosing these
 mark_as_advanced(
+  PROGRAM_SHEPHERDING
+  PROCESS_CONTROL
+  GBOP
   VMKERNEL
-  VMAP
-  VMSAFE
-  VPS
   KSTATS
   CALLPROF
   PROFILE
@@ -492,9 +547,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: when updating this, update the git tag in .travis.yml.
+# N.B.: when updating this, update the default version in ci-package.yml.
 # We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "7.91.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "9.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -508,6 +563,8 @@ set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")
 set(PACKAGE_PLATFORM "" CACHE STRING "Platform for package name (should have trailing -)")
+set(PACKAGE_SUBSYS "" CACHE STRING
+  "Platform for sub-system name (should have leading -: e.g., -EABIHF")
 mark_as_advanced(
   VERSION_NUMBER
   VERSION_COMMA_DELIMITED
@@ -515,6 +572,7 @@ mark_as_advanced(
   UNIQUE_BUILD_NUMBER
   CUSTOM_PRODUCT_NAME
   PACKAGE_PLATFORM
+  PACKAGE_SUBSYS
   )
 # This is hardcoded in globals_shared.h: going to leave it that way, but
 # adding indirection within cmake files
@@ -530,12 +588,40 @@ set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 ###########################################################################
 # toolchain
 
+# Figure out avx flags before asm setup, which requires it.
+set(proc_supports_avx OFF)
+set(proc_supports_avx2 OFF)
+set(proc_supports_avx512 OFF)
+if (X86 AND UNIX)
+  set(CFLAGS_AVX "-mavx")
+  # BMI2 instructions are typically also supported on AVX2 processors.
+  set(CFLAGS_AVX2 "-mavx2 -mbmi2")
+  set(CFLAGS_AVX512 "-mavx512f")
+  check_avx_processor_and_compiler_support(proc_supports_avx)
+  check_avx2_processor_and_compiler_support(proc_supports_avx2)
+  check_avx512_processor_and_compiler_support(proc_supports_avx512)
+endif ()
+
+# Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise
+# um/winnt.h provided since Windows 10.0.22000 will error.
+if (NOT UNIX)
+  if (X64)
+    add_definitions(-D_AMD64_)
+  else (X64)
+    add_definitions(-D_X86_)
+  endif (X64)
+endif (NOT UNIX)
+
 # Set up assembly support and CMAKE_CPP.
 # Note that in cmake < 2.6.4, I had to fix a bug in
 # /usr/share/cmake/Modules/CMakeASMInformation.cmake
 # where @VAR@ expansion was used, which only works for configure_file()
 #   now fixed in CMake/Modules/CMakeASMInformation.cmake:1.5
 # See top of top-level CMakeLists.txt for our workaround.
+if (NOT UNIX)
+  get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
+endif (NOT UNIX)
+
 set(cpp2asm_newline_script_path "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake")
 include(make/cpp2asm_support.cmake)
 if (UNIX)
@@ -583,40 +669,27 @@ else (UNIX)
     message(FATAL_ERROR "cl (Microsoft C++ compiler) is required to build")
   endif (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")
 
-  # CMake older than 2.6.3 does not automatically look for ml or ml64
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # CMAKE_C_COMPILER doesn't have full path, unless user has in PATH
-    if (MSVC10)
-      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\10.0\\Setup\\VC;ProductDir] REALPATH)
-    elseif (MSVC90)
-      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\9.0\\Setup\\VC;ProductDir] REALPATH)
-    elseif (MSVC80)
-      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\8.0\\Setup\\VC;ProductDir] REALPATH)
-    endif()
-    if (X64)
-      set(cl_path "${vc_dir}/bin/amd64")
-    else (X64)
-      set(cl_path "${vc_dir}/bin")
-    endif (X64)
-    # while we can get the cl path, we can't run cl b/c mspdb80.dll must
-    # be on the PATH: so even w/ VS generators we require PATH to be set.
-    if ("${CMAKE_C_COMPILER}" STREQUAL "cl")
-      set(CMAKE_C_COMPILER "${cl_path}/${CMAKE_C_COMPILER}")
-    endif ()
-  else ()
-    get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
-  endif ()
-
   # cmake has CMAKE_RC_COMPILER, but no message compiler
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # this path is only present for 2008+, but we currently require PATH to
-    # be set up anyway
-    get_filename_component(sdk_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH)
-    if (X64)
-      set(sdk_bindir "${sdk_dir}/bin/x64")
-    else (X64)
-      set(sdk_bindir "${sdk_dir}/bin")
-    endif (X64)
+    # First checks for the Windows SDK through Windows Kits.
+    get_filename_component(kits_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]" REALPATH)
+
+    if (EXISTS ${kits_dir})
+      if (X64)
+        set(sdk_bindir "${kits_dir}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64")
+      else (X64)
+        set(sdk_bindir "${kits_dir}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x86")
+      endif (X64)
+    else (EXISTS ${kits_dir})
+      # this path is only present for 2008+, but we currently require PATH to
+      # be set up anyway
+      get_filename_component(sdk_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH)
+      if (X64)
+        set(sdk_bindir "${sdk_dir}/bin/x64")
+      else (X64)
+        set(sdk_bindir "${sdk_dir}/bin")
+      endif (X64)
+    endif (EXISTS ${kits_dir})
   endif ()
   if (NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
     # For MinGW (MSYS Makefiles) we do not have a message compiler.
@@ -691,6 +764,7 @@ endmacro()
 set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
+CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
 if (UNIX)
   set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
   # -std=c99 doesn't quite work
@@ -705,29 +779,29 @@ if (UNIX)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
-  # now that the user must set non-default -mNN we don't nec. need these:
+  # Prefer the new 'override' keyword.
+  CHECK_CXX_COMPILER_FLAG("-Wsuggest-override" suggest_override_avail)
+  if (suggest_override_avail)
+    set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
+  endif ()
   if (X86)
     if (X64)
-      set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
       set(LD_FLAGS "-melf_x86_64")
     else (X64)
-      set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
-      # i#847 keep stack boundary 4-byte aligned (except on Mac)
-      # XXX i#1800: clang does not support -mpreferred-stack-boundary=2 or
-      # an equivalent flag, so clang's build may not run legacy binaries.
-      if (NOT CMAKE_COMPILER_IS_CLANG)
-        set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
-      elseif (NOT APPLE)
-        message(STATUS "WARNING: 32-bit clang lacks stack alignment control:")
-        message(STATUS "  resulting build may not run all apps correctly")
-      endif ()
       set(LD_FLAGS "-melf_i386")
     endif (X64)
   elseif (ARM)
     # i#1551: add necessary flags for ARM build.
     if (X64)
     else (X64)
-      set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
+      # On newer gcc versions such as 11.2 we need an explicit +fp to denote our
+      # gnueablihf hardware-fp-capabilities target.
+      CHECK_C_COMPILER_FLAG("-march=armv7-a+fp" armv7_fp_available)
+      if (armv7_fp_available)
+        set(BASE_CFLAGS "-mthumb -march=armv7-a+fp ${BASE_CFLAGS}")
+      else ()
+        set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
+      endif ()
       set(LD_FLAGS "-marmelf_linux_eabi")
       if (ANDROID OR CMAKE_C_LIBRARY_ARCHITECTURE MATCHES "gnueabi$")
         # We use eabihf by default for ARM build.
@@ -1094,16 +1168,16 @@ endif (UNIX)
 #   Release => -O3 -NDEBUG
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT} $ENV{CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT} $ENV{CXXFLAGS}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
     # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT} $ENV{CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT} $ENV{CXXFLAGS}")
 endif (DEBUG)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
@@ -1115,8 +1189,17 @@ endif (NOT DISABLE_WARNINGS)
 
 if (LINUX)
   CHECK_INCLUDE_FILE("linux/rseq.h" HAVE_RSEQ)
+  CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
 else ()
   set(HAVE_RSEQ OFF)
+  set(HAVE_LIBUNWIND_H OFF)
+endif ()
+
+# Currently only AArch64 targets supported for half-precision FP.
+if (DR_HOST_AARCH64)
+  set(HAVE_HALF_FLOAT ON)
+else ()
+  set(HAVE_HALF_FLOAT OFF)
 endif ()
 
 ###########################################################################
@@ -1140,6 +1223,7 @@ else (DEBUG)
 endif (DEBUG)
 set(INSTALL_INCLUDE include)
 set(INSTALL_DOCS docs)
+set(INSTALL_DOCS_EMBED docs_embed)
 # samples are installed via api/samples/ separate CMake project
 set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE}")
@@ -1236,13 +1320,18 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages.
+# 8.xx broke backcompat by reordering the AArch64 opcode enum an changing
+#   drcachesim field names, drmodtrack callbacks,
+#   emulated_instr_t fields, drcov output, drcachesim view counting, and
+#   drcachesim child statistics.
+# 7.92 broke backcompat by changing 32-bit stack alignment to 16.
 # 7.91 broke backcompat by adding a field to instr_t .
 # 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
 # 6.0 broke backcompat in Linux injection, mod load event, etc.
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "791")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "900")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
@@ -1259,8 +1348,7 @@ configure_file(
   ${PROJECT_BINARY_DIR}/configure.h
   )
 
-# We want a define that's set to all the options for the C code,
-# and a var set to all the options for genapi.pl.
+# We want a define that's set to all the options.
 # Something like cpp -dN but we need it on Windows and want only defines.
 # Strategy: add -D<define> token after each #define, and then run
 # cpp => left with just the -D<define> that are defined.
@@ -1354,13 +1442,23 @@ SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE RelWithDebIn
   set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
 endmacro(DR_export_target)
 
+file(MAKE_DIRECTORY ${BUILD_INCLUDE})
+macro(DR_export_header src_path dst_fname)
+  # This is not COPYONLY nor @ONLY so this will expand ${} references, which
+  # we do have in dr_api.h.
+  configure_file(${src_path} ${BUILD_INCLUDE}/${dst_fname})
+endmacro()
+
 # We rely on dbghelp >= 6.0 for any use of drsyms: some sample clients and some
 # tests in our suite.
 # The system dbghelp pre-Vista is too old, so we copy one from VS.
 # We locate it here for use in both subdirs.
 if (X64)
   set(PROGFILES "$ENV{PROGRAMW6432}") # cmake is 32-bit
-  set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  set(PROGFILES32 "$ENV{ProgramFiles\(x86\)}")
+  if ("${PROGFILES32}" STREQUAL "")
+    set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  endif ()
   set(ARCH_SFX "x64")
 else (X64)
   set(PROGFILES "$ENV{PROGRAMFILES}")
@@ -1368,6 +1466,7 @@ else (X64)
   set(ARCH_SFX "x86")
 endif (X64)
 set(dbghelp_paths
+  "${PROGFILES32}/Microsoft Visual Studio/*/Professional/Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll")
 if (X64)
@@ -1439,44 +1538,24 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-if (NOT X86)
-  # FIXME i#1551: fail to install necessary package on Linux ARM
-  # XXX i#1730: if we enable this we'll need to disable for cross-compilation
+if (ANDROID)
+  # TODO i#1874: Android does not build drcachesim or drcpusim, which have
+  # references spread throughout the docs.
   option(BUILD_DOCS "build documentation" OFF)
 else ()
   option(BUILD_DOCS "build documentation" ON)
 endif ()
 
-if (VMSAFE)
-  # I did not preserve VMSAFE docs building: to reactivate it, need to
-  # add the missing transformations mentioned in api/docs/CMakeLists.txt
-  # and fix genapi.pl on lib/dr_config.h to handle the outer ifdef WINDOWS
-  # (ends up keeping 1st endif in 1st enum).
-  set(BUILD_DOCS OFF)
-endif (VMSAFE)
-
-if (NOT CLIENT_INTERFACE)
-  set(BUILD_SAMPLES OFF)
-  set(BUILD_EXT OFF)
-  set(BUILD_CLIENTS OFF)
-endif (NOT CLIENT_INTERFACE)
-
 # We include all tests and build them at configure time if requested.
 # An alternative is to keep them in separate projects and only build
 # when we run them via --build-and-test.
 option(BUILD_TESTS "build tests" OFF)
+# This is to disable the default -msgbox_mask.
+option(AUTOMATED_TESTING "build for automated testing" OFF)
 if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
-  set(proc_supports_avx OFF)
-  set(proc_supports_avx512 OFF)
-  if (UNIX)
-    set(CFLAGS_AVX "-mavx")
-    set(CFLAGS_AVX512 "-mavx512f")
-    check_avx_processor_and_compiler_support(proc_supports_avx)
-    check_avx512_processor_and_compiler_support(proc_supports_avx512)
-  endif ()
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
@@ -1496,7 +1575,11 @@ endif (BUILD_TOOLS)
 if (BUILD_DRSTATS)
   # i#1376: we have our own variant of the standard FindMFC.cmake
   # so we can pass -D_UNICODE, as MBCS MFC support is not part of VS2013.
-  find_package(MFCUnicode)
+  # Update: To get things going with VS2017 I'm switching to the regular one
+  # to get some version of DRstats building.  We don't really use it much
+  # anymore; only if someone notices any unicode issues is it worth more time
+  # updating make/modules/FindMFCUnicode.cmake.
+  find_package(MFC)
   if (NOT MFC_FOUND)
     message(STATUS "MFC not found: disabling DRstats")
     set(BUILD_DRSTATS OFF)
@@ -1583,9 +1666,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
 )
 # we need to strip out the #include of configure.h
-DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
-  string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
-  file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
+DR_install(FILES ${BUILD_CMAKE}/cpp2asm_defines.h DESTINATION ${INSTALL_CMAKE})
 
 # export docs support, with consistent names
 DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_rundoxygen.cmake
@@ -1597,53 +1678,37 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_doxyutils.cmake
 
 ###########################################################################
 
+# clear tools file to avoid duplicates on re-configure
+if (X64)
+  set(TOOLS_LISTNAME "list64")
+else ()
+  set(TOOLS_LISTNAME "list32")
+endif ()
+file(WRITE ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "")
+DR_install(FILES ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} DESTINATION tools)
+
 function (register_tool_file name)
-  if (X64)
-    set(listname "list64")
-  else ()
-    set(listname "list32")
-  endif ()
-  if (NOT DEBUG) # avoid duplicates for release + debug
-    DR_install(CODE "file(APPEND \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"${name}\\n\"\n)")
-  endif ()
+  file(APPEND ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "${name}\n")
 endfunction ()
 
-# used by docs, samples, and tests, so here instead of in core/CMakeLists.txt
-if (CLIENT_INTERFACE OR APP_EXPORTS)
-  # set VERSION_NUMBER_INTEGER in dr_api.h
-  configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
-    ${BUILD_INCLUDE}/dr_api.h)
-  if (NOT ANNOTATIONS)
-    # Kind of a hack, in case the user explicitly disables annotations
-    file(READ ${BUILD_INCLUDE}/dr_api.h contents)
-    string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
-    file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
-  endif ()
-  set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
-  add_custom_target(api_headers
-    DEPENDS ${EXTRA_HEADERS})
-  if (AARCH64)
-    add_dependencies(api_headers gen_aarch64_codec)
-  endif()
+# Used by docs, samples, and tests, so here instead of in core/CMakeLists.txt.
+# Set VERSION_NUMBER_INTEGER in dr_api.h:
+DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h dr_api.h)
+if (NOT ANNOTATIONS)
+  # Kind of a hack, in case the user explicitly disables annotations
+  file(READ ${BUILD_INCLUDE}/dr_api.h contents)
+  string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
+  file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
+endif ()
+add_custom_target(api_headers)
+if (AARCH64)
+  add_dependencies(api_headers gen_aarch64_codec gen_aarch64_opcodes)
+endif()
 
-  file(MAKE_DIRECTORY ${BUILD_INCLUDE})
-  # technically only the headers in the genapi.pl list
-  file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
-    core/arch/*/*.h ext/*/*.h)
-  add_custom_command(
-    OUTPUT ${EXTRA_HEADERS} # among other files
-    DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
-            ${header_files}
-    COMMAND ${PERL_EXECUTABLE}
-    ARGS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
-        -core ${PROJECT_SOURCE_DIR}/core
-        -header ${BUILD_INCLUDE} "${defines} -DAPI_EXPORT_ONLY"
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
-    VERBATIM # recommended: p260
-    )
-  DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .
-    REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
-endif (CLIENT_INTERFACE OR APP_EXPORTS)
+DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_app.h dr_app.h)
+
+DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .
+  REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 
 # Used by tests in multiple places, and by some drcachesim non-test binaries.
 if (UNIX)
@@ -1686,15 +1751,18 @@ function (link_with_pthread target)
 endfunction ()
 
 # zlib and snappy are used for some clients/ and tests.
-if (CMAKE_CROSSCOMPILING)
-  # find_package looks at the host system.
-  # XXX i#2285: we should re-visit the CMAKE_FIND_ROOT_PATH settings!
-  set(ZLIB_FOUND OFF)
-else ()
-  find_package(ZLIB)
-  # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
-  if (UNIX AND X64)
-    find_library(libsnappy snappy)
+find_package(ZLIB)
+# On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
+if (UNIX AND X64)
+  find_library(libsnappy snappy)
+
+  # Locate non-standard snappy directories on macOS.
+  # TODO: Write proper package for snappy lookup.
+  if (libsnappy AND APPLE)
+    find_path(SNAPPY_INCLUDE_DIR snappy.h HINTS /usr/local/include)
+    find_path(SNAPPY_LIB_DIR libsnappy.a HINTS /usr/local/lib)
+    include_directories(${SNAPPY_INCLUDE_DIR})
+    link_directories(${SNAPPY_LIB_DIR})
   endif ()
 endif ()
 
@@ -1703,101 +1771,36 @@ if (BUILD_CLIENTS)
   add_subdirectory(clients)
 endif (BUILD_CLIENTS)
 
-if (CLIENT_INTERFACE OR APP_EXPORTS)
+if (BUILD_DOCS)
+  find_package(Doxygen)
+  if (NOT DOXYGEN_FOUND)
+    # We require for any automated suite on Linux or Windows.
+    if (TEST_SUITE AND NOT APPLE)
+      message(FATAL_ERROR "doxygen is required to build the documentation")
+    else ()
+      # Non-fatal for a single, un-official build.
+      message(WARNING "doxygen not found: documentation will NOT be built")
+      set(BUILD_DOCS OFF)
+    endif ()
+  endif (NOT DOXYGEN_FOUND)
+
   if (BUILD_DOCS)
-    find_package(ImageMagick COMPONENTS mogrify)
-    if (NOT ImageMagick_mogrify_FOUND)
-      # cmake 2.6.0 does not set the _FOUND vars, just the exec path,
-      # and it uses all caps
-      if (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-      else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR "ImageMagick is required to build the documentation")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ImageMagick not found: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-    endif (NOT ImageMagick_mogrify_FOUND)
-    mark_as_advanced(ImageMagick_EXECUTABLE_DIR)
-
-    find_package(Doxygen)
-    if (NOT DOXYGEN_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "doxygen is required to build the documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "doxygen not found: documentation will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    endif (NOT DOXYGEN_FOUND)
-
-    include(${PROJECT_SOURCE_DIR}/make/FindFig2Dev.cmake)
-    if (NOT FIG2DEV_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "fig2dev (from transfig) is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "fig2dev (from transfig) not found: docs will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    endif (NOT FIG2DEV_FOUND)
-
-    # fig2dev needs ghostscript to produce tiff files (not to produce eps)
-    include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
-    if (NOT GHOSTSCRIPT_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
-        message(FATAL_ERROR "ghostscript is required to build documentation")
-      else ()
-        # Non-fatal for a single, un-official build, or on Windows
-        message(WARNING "ghostscript not found: documentation will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    else (NOT GHOSTSCRIPT_FOUND)
-      # must be on path.  we can't just literally check the path
-      # b/c of cygwin issues: c:/cygwin/bin vs /usr/bin, etc.
-      get_filename_component(gs_name ${GHOSTSCRIPT_EXECUTABLE} NAME)
-      find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
-      if (NOT GHOSTSCRIPT_ON_PATH)
-        # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX AND NOT APPLE)
-          message(FATAL_ERROR
-            "ghostscript is installed, but must be on PATH for fig2dev to find it")
-        else ()
-          # Non-fatal for a single, un-official build, or on Windows
-          message(WARNING "ghostscript not on PATH: documentation will NOT be built")
-          set(BUILD_DOCS OFF)
-        endif ()
-      endif (NOT GHOSTSCRIPT_ON_PATH)
-      mark_as_advanced(GHOSTSCRIPT_ON_PATH)
-    endif (NOT GHOSTSCRIPT_FOUND)
-
-    if (BUILD_DOCS)
-      add_subdirectory(api/docs)
-    else (BUILD_DOCS)
-      message("*** NOT building documentation *** (must re-enable BUILD_DOCS manually if fix up the component paths)")
-      # Note the difference between cache vars and live vars in CMake.
-      # The cache var indicates "would like to build docs" and the live var
-      # "capable of building docs."  The problem is that if we FORCE the
-      # cache var OFF as further confirmation of the warning message, the
-      # user must not only fix up the paths in the required component vars
-      # but also re-enable BUILD_DOCS before re-configuring due to our
-      # guard above.  An alternative is to add an option BUILD_DOCS_CAPABLE
-      # as an informational message that is peristent and right next to the
-      # real option, but I think forcing the user to re-enable BUILD_DOCS
-      # is actually simpler and reasonable.
-      set(BUILD_DOCS OFF CACHE BOOL "build documentation" FORCE)
-    endif (BUILD_DOCS)
+    add_subdirectory(api/docs)
+  else (BUILD_DOCS)
+    message("*** NOT building documentation *** (must re-enable BUILD_DOCS manually if fix up the component paths)")
+    # Note the difference between cache vars and live vars in CMake.
+    # The cache var indicates "would like to build docs" and the live var
+    # "capable of building docs."  The problem is that if we FORCE the
+    # cache var OFF as further confirmation of the warning message, the
+    # user must not only fix up the paths in the required component vars
+    # but also re-enable BUILD_DOCS before re-configuring due to our
+    # guard above.  An alternative is to add an option BUILD_DOCS_CAPABLE
+    # as an informational message that is peristent and right next to the
+    # real option, but I think forcing the user to re-enable BUILD_DOCS
+    # is actually simpler and reasonable.
+    set(BUILD_DOCS OFF CACHE BOOL "build documentation" FORCE)
   endif (BUILD_DOCS)
-else (CLIENT_INTERFACE OR APP_EXPORTS)
-  message("no documentation will be built for this target")
-endif (CLIENT_INTERFACE OR APP_EXPORTS)
+endif (BUILD_DOCS)
 
 ###########################################################################
 # Style checks:
@@ -1878,26 +1881,15 @@ if (BUILD_TOOLS OR WIN32)
     )
 endif (BUILD_TOOLS OR WIN32)
 
-if (DO_DR_INSTALL AND BUILD_DOCS)
-  # cannot use DR_install because it breaks at ;
-  install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/docs/DynamoRIO.html\" \"<html>\n<head>\n<meta http-equiv=\\\"refresh\\\" content=\\\"0; URL=./html/index.html\\\">\n</head><body></body>\")")
-endif (DO_DR_INSTALL AND BUILD_DOCS)
+if (BUILD_DOCS)
+  file(WRITE ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html "<html>\n<head>\n<meta http-equiv=\"refresh\" content=\"0; URL=./html/index.html\">\n</head><body></body>")
+  DR_install(FILES ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html DESTINATION docs)
+endif (BUILD_DOCS)
 
 # create empty logs dir for release package
-# be sure to escape ",$ since evaluated at install time not configure time
-# with DR_install macro we need double-escape for $
-DR_install(CODE "file(MAKE_DIRECTORY \"\\\${CMAKE_INSTALL_PREFIX}/logs\")")
 # CPack seems to ignore empty dirs so add a README file
-DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
-
-# i#1509: generate a list of tools for drrun usage messages.
-# This is fragile: we rely on package.cmake building release first, so we
-# can clear out the list file, and then append to it in debug builds.
-# A solution that searches at install time also has problems (with ordering
-# of subdirs).  Long-term we should add a dir iterator to drrun.
-if (NOT_DEBUG)
-  DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"\")")
-endif ()
+file(WRITE ${PROJECT_BINARY_DIR}/logs/README "Empty dir for debug-build log files.\n")
+DR_install(FILES ${PROJECT_BINARY_DIR}/logs/README DESTINATION logs)
 
 ###########################################################################
 
@@ -1940,7 +1932,7 @@ DR_target_install_dst(${INSTALL_CMAKE} EXPORT ${exported_targets_name})
 # CPACK_INSTALL_CMAKE_PROJECTS variable is set to point at all 4 builds,
 # "make package" will produce a package from all 4 installs.
 
-# FIXME i#74: create source tarball via 'make package_source'
+# TODO i#74: create source tarball via 'make package_source'
 # Just need to exclude exports/ (or move exports/ to ../?) and
 # other files inside source dir (or run on untouched source dir)
 # and update package.{sh,bat}.
@@ -1957,11 +1949,12 @@ if (UNIX)
   set(CPACK_STRIP_FILES OFF)
   if (APPLE)
     set(CPACK_SYSTEM_NAME "MacOS")
+  elseif (ANDROID)
+    set(CPACK_SYSTEM_NAME "Android")
   else ()
     set(CPACK_SYSTEM_NAME "Linux")
   endif ()
 else (UNIX)
-  # FIXME: try Windows NSIS
   set(CPACK_GENERATOR "ZIP")
   set(CPACK_SOURCE_GENERATOR "ZIP")
   set(CPACK_SYSTEM_NAME "Windows")
@@ -1987,8 +1980,14 @@ string(REGEX REPLACE
 # CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the extension: but maybe
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
+# We omit the -NN suffix for the build number if it is zero.
+if ("${BUILD_NUMBER}" STREQUAL "0")
+  set(PACKAGE_SUFFIX "")
+else ()
+  set(PACKAGE_SUFFIX "-${BUILD_NUMBER}")
+endif ()
 set(CPACK_PACKAGE_FILE_NAME
-  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
+  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}${PACKAGE_SUBSYS}-${CPACK_PACKAGE_VERSION}${PACKAGE_SUFFIX}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")

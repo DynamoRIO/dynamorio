@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,11 +39,19 @@
 #include "cache.h"
 
 class cache_lru_t : public cache_t {
+public:
+    bool
+    init(int associativity, int line_size, int total_size, caching_device_t *parent,
+         caching_device_stats_t *stats, prefetcher_t *prefetcher, bool inclusive = false,
+         bool coherent_cache = false, int id_ = -1,
+         snoop_filter_t *snoop_filter_ = nullptr,
+         const std::vector<caching_device_t *> &children = {}) override;
+
 protected:
-    virtual void
-    access_update(int line_idx, int way);
-    virtual int
-    replace_which_way(int line_idx);
+    void
+    access_update(int line_idx, int way) override;
+    int
+    replace_which_way(int line_idx) override;
 };
 
 #endif /* _CACHE_LRU_H_ */

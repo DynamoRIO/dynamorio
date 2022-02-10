@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,67 +50,12 @@
 #    endif
 #endif
 
-/* DR_API EXPORT TOFILE dr_defines.h */
-/* DR_API EXPORT BEGIN */
-/****************************************************************************
- * GENERAL TYPEDEFS AND DEFINES
- */
-
-/**
- * @file dr_defines.h
- * @brief Basic defines and type definitions.
- */
-
-#ifdef API_EXPORT_ONLY
-/* A client's target operating system and architecture must be specified. */
-#    if !defined(LINUX) && !defined(WINDOWS) && !defined(MACOS)
-#        error Target operating system unspecified: define WINDOWS, LINUX, or MACOS
-#    endif
+#ifdef DR_NO_FAST_IR
+#    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
 #endif
-
-#ifdef API_EXPORT_ONLY
-#    if defined(X86_32) || defined(X86_64)
-#        define X86
-#        if (defined(X86_64) && defined(X86_32)) || defined(ARM_32) || defined(ARM_64)
-#            error Target architecture over-specified: must define only one
-#        endif
-#    elif defined(ARM_32)
-#        define ARM
-#        define AARCHXX
-#        if defined(X86_32) || defined(X86_64) || defined(ARM_64)
-#            error Target architecture over-specified: must define only one
-#        endif
-#    elif defined(ARM_64)
-#        define AARCH64
-#        define AARCHXX
-#        if defined(X86_32) || defined(X86_64) || defined(ARM_32)
-#            error Target architecture over-specified: must define only one
-#        endif
-#    else
-#        error Target architecture unknown: define X86_32, X86_64, ARM_32, or ARM_64
-#    endif
-#endif
-
-#if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
-#    define X64
-#endif
-
-#if (defined(LINUX) || defined(MACOS)) && !defined(UNIX)
-#    define UNIX
-#endif
-
-#ifdef API_EXPORT_ONLY
-#    ifdef WINDOWS
-#        define WIN32_LEAN_AND_MEAN
-#        include <windows.h>
-#        include <winbase.h>
-#    else
-#        include <stdio.h>
-#        include <stdlib.h>
-#    endif
-#    include <stdarg.h> /* for varargs */
-#endif
-/* DR_API EXPORT END */
 
 /* Internally, ensure these defines are set */
 #if defined(X86) && !defined(X64) && !defined(X86_32)
@@ -119,298 +64,21 @@
 #if defined(X86) && defined(X64) && !defined(X86_64)
 #    define X86_64
 #endif
+#if defined(AARCHXX) && !defined(X64) && !defined(ARM_32)
+#    define ARM_32
+#endif
+#if defined(AARCHXX) && defined(X64) && !defined(ARM_64)
+#    define ARM_64
+#endif
+
+#include "globals_api.h"
 
 #include <limits.h> /* for USHRT_MAX */
 #ifdef UNIX
 #    include <signal.h>
 #endif
+
 #include "c_defines.h"
-/* DR_API EXPORT VERBATIM */
-#ifdef UNIX
-#    include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
-#endif
-#ifdef WINDOWS
-/* allow nameless struct/union */
-#    pragma warning(disable : 4201)
-/* VS2005 warns about comparison operator results being cast to bool (i#523) */
-#    if _MSC_VER >= 1400 && _MSC_VER < 1500
-#        pragma warning(disable : 4244)
-#    endif
-#endif
-
-#ifdef WINDOWS
-#    define DR_EXPORT __declspec(dllexport)
-#    define LINK_ONCE __declspec(selectany)
-#    define ALIGN_VAR(x) __declspec(align(x))
-#    define INLINE_FORCED __forceinline
-#    define WEAK /* no equivalent, but .obj overrides .lib */
-#    define NOINLINE __declspec(noinline)
-#else
-/* We assume gcc is being used.  If the client is using -fvisibility
- * (in gcc >= 3.4) to not export symbols by default, setting
- * USE_VISIBILITY_ATTRIBUTES will properly export.
- */
-#    ifdef USE_VISIBILITY_ATTRIBUTES
-#        define DR_EXPORT __attribute__((visibility("default")))
-#    else
-#        define DR_EXPORT
-#    endif
-#    define LINK_ONCE __attribute__((weak))
-#    define ALIGN_VAR(x) __attribute__((aligned(x)))
-#    define INLINE_FORCED inline
-#    define WEAK __attribute__((weak))
-#    define NOINLINE __attribute__((noinline))
-#endif
-
-/* DR_API EXPORT END */
-/* DR_API EXPORT BEGIN */
-
-#ifdef AVOID_API_EXPORT
-/* We want a consistent size so we stay away from MAX_PATH.
- * MAX_PATH is 260 on Windows, but 4096 on Linux, should up this.
- * XXX: should undef MAX_PATH and define it to an error-producing value
- * and clean up all uses of it
- */
-#endif
-/**
- * Maximum file path length define meant to replace platform-specific defines
- * such as MAX_PATH and PATH_MAX.
- * Currently, internal stack size limits prevent this from being much larger
- * on UNIX.
- */
-#ifdef WINDOWS
-#    define MAXIMUM_PATH 260
-#else
-#    define MAXIMUM_PATH 512
-#endif
-
-/* DR_API EXPORT END */
-/* DR_API EXPORT VERBATIM */
-#ifndef NULL
-#    ifdef __cplusplus
-#        define NULL nullptr
-#    else
-#        define NULL ((void *)0)
-#    endif
-#endif
-
-/* on Windows where bool is char casting can truncate non-zero to zero
- * so we use this macro
- */
-#define CAST_TO_bool(x) (!!(x))
-
-#ifndef DR_DO_NOT_DEFINE_uint
-typedef unsigned int uint;
-#endif
-#ifndef DR_DO_NOT_DEFINE_ushort
-typedef unsigned short ushort;
-#endif
-#ifndef DR_DO_NOT_DEFINE_byte
-typedef unsigned char byte;
-#endif
-#ifndef DR_DO_NOT_DEFINE_sbyte
-typedef signed char sbyte;
-#endif
-typedef byte *app_pc;
-
-typedef void (*generic_func_t)();
-
-#ifdef DR_DEFINE_FOR_uint64
-#    undef DR_DO_NOT_DEFINE_uint64
-#endif
-
-#ifdef DR_DEFINE_FOR_int64
-#    undef DR_DO_NOT_DEFINE_int64
-#endif
-
-#ifdef WINDOWS
-#    ifndef DR_DEFINE_FOR_uint64
-#        define DR_DEFINE_FOR_uint64 unsigned __int64
-#    endif
-#    ifndef DR_DEFINE_FOR_int64
-#        define DR_DEFINE_FOR_int64 __int64
-#    endif
-#    ifdef X64
-typedef __int64 ssize_t;
-#    else
-typedef int ssize_t;
-#    endif
-#    define _SSIZE_T_DEFINED
-#    ifndef INT64_FORMAT
-#        define INT64_FORMAT "I64"
-#    endif
-#else /* Linux */
-#    ifdef X64
-#        ifndef DR_DEFINE_FOR_uint64
-#            define DR_DEFINE_FOR_uint64 unsigned long int
-#        endif
-#        ifndef DR_DEFINE_FOR_int64
-#            define DR_DEFINE_FOR_int64 long int
-#        endif
-#        ifndef INT64_FORMAT
-#            define INT64_FORMAT "l"
-#        endif
-#    else
-#        ifndef DR_DEFINE_FOR_uint64
-#            define DR_DEFINE_FOR_uint64 unsigned long long int
-#        endif
-#        ifndef DR_DEFINE_FOR_int64
-#            define DR_DEFINE_FOR_int64 long long int
-#        endif
-#        ifndef INT64_FORMAT
-#            define INT64_FORMAT "ll"
-#        endif
-#    endif
-#endif
-
-#ifndef DR_DO_NOT_DEFINE_int64
-typedef DR_DEFINE_FOR_int64 int64;
-#endif
-#ifndef DR_DO_NOT_DEFINE_uint64
-typedef DR_DEFINE_FOR_uint64 uint64;
-#endif
-
-/* DR_API EXPORT END */
-/* DR_API EXPORT BEGIN */
-
-/* a register value: could be of any type; size is what matters. */
-#ifdef X64
-typedef uint64 reg_t;
-#else
-typedef uint reg_t;
-#endif
-/* integer whose size is based on pointers: ptr diff, mask, etc. */
-typedef reg_t ptr_uint_t;
-#ifdef X64
-typedef int64 ptr_int_t;
-#else
-typedef int ptr_int_t;
-#endif
-/* for memory region sizes, use size_t */
-
-/**
- * Application offset from module base.
- * PE32+ modules are limited to 2GB, but not ELF x64 med/large code model.
- */
-typedef size_t app_rva_t;
-
-#define PTR_UINT_0 ((ptr_uint_t)0U)
-#define PTR_UINT_1 ((ptr_uint_t)1U)
-#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
-
-#ifdef WINDOWS
-typedef ptr_uint_t thread_id_t;
-typedef ptr_uint_t process_id_t;
-#elif defined(MACOS)
-typedef uint64 thread_id_t;
-typedef pid_t process_id_t;
-#else /* Linux */
-typedef pid_t thread_id_t;
-typedef pid_t process_id_t;
-#endif
-
-#define INVALID_PROCESS_ID PTR_UINT_MINUS_1
-
-#ifdef API_EXPORT_ONLY
-#    ifdef WINDOWS
-/* since a FILE cannot be used outside of the DLL it was created in,
- * we have to use HANDLE on Windows
- * we hide the distinction behind the file_t type
- */
-typedef HANDLE file_t;
-/** The sentinel value for an invalid file_t. */
-#        define INVALID_FILE INVALID_HANDLE_VALUE
-/* dr_get_stdout_file and dr_get_stderr_file return errors as
- * INVALID_HANDLE_VALUE.  We leave INVALID_HANDLE_VALUE as is,
- * since it equals INVALID_FILE
- */
-/** The file_t value for standard output. */
-#        define STDOUT (dr_get_stdout_file())
-/** The file_t value for standard error. */
-#        define STDERR (dr_get_stderr_file())
-/** The file_t value for standard input. */
-#        define STDIN (dr_get_stdin_file())
-#    endif
-#endif
-
-#ifdef UNIX
-typedef int file_t;
-/** The sentinel value for an invalid file_t. */
-#    define INVALID_FILE -1
-/** Allow use of stdout after the application closes it. */
-extern file_t our_stdout;
-/** Allow use of stderr after the application closes it. */
-extern file_t our_stderr;
-/** Allow use of stdin after the application closes it. */
-extern file_t our_stdin;
-/** The file_t value for standard output. */
-#    define STDOUT our_stdout
-/** The file_t value for standard error. */
-#    define STDERR our_stderr
-/** The file_t value for standard error. */
-#    define STDIN our_stdin
-#endif
-
-#ifdef AVOID_API_EXPORT
-/* Note that we considered using a 128-bit GUID for the client ID,
- * but decided it was unnecessary since the client registration
- * routine will complain about conflicting IDs.  Also, we're storing
- * this value in the registry, so no reason to make it any longer
- * than we have to.
- */
-#endif
-/**
- * ID used to uniquely identify a client.  This value is set at
- * client registration and passed to the client in dr_client_main().
- */
-typedef uint client_id_t;
-
-#ifdef API_EXPORT_ONLY
-#    ifndef DR_FAST_IR
-/**
- * Internal structure of opnd_t is below abstraction layer.
- * But compiler needs to know field sizes to copy it around
- */
-typedef struct {
-#        ifdef X64
-    uint black_box_uint;
-    uint64 black_box_uint64;
-#        else
-    uint black_box_uint[3];
-#        endif
-} opnd_t;
-
-/**
- * Internal structure of instr_t is below abstraction layer, but we
- * provide its size so that it can be used in stack variables
- * instead of always allocated on the heap.
- */
-typedef struct {
-#        ifdef X64
-    uint black_box_uint[26];
-#        else
-    uint black_box_uint[17];
-#        endif
-} instr_t;
-#    else
-struct _opnd_t;
-typedef struct _opnd_t opnd_t;
-struct _instr_t;
-typedef struct _instr_t instr_t;
-#    endif /* !DR_FAST_IR */
-#endif     /* API_EXPORT_ONLY */
-
-#ifndef IN
-#    define IN /* marks input param */
-#endif
-#ifndef OUT
-#    define OUT /* marks output param */
-#endif
-#ifndef INOUT
-#    define INOUT /* marks input+output param */
-#endif
-
-/* DR_API EXPORT END */
 
 #ifdef X64
 #    define POINTER_MAX ULLONG_MAX
@@ -505,10 +173,12 @@ typedef struct _instr_t instr_t;
 #    define IF_LINUX(x) x
 #    define IF_LINUX_ELSE(x, y) x
 #    define IF_LINUX_(x) x,
+#    define _IF_LINUX(x) , x
 #else
 #    define IF_LINUX(x)
 #    define IF_LINUX_ELSE(x, y) y
 #    define IF_LINUX_(x)
+#    define _IF_LINUX(x)
 #endif
 
 #ifdef MACOS
@@ -601,29 +271,6 @@ typedef struct _instr_t instr_t;
 #    define IF_HOTP(x)
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    define IF_CLIENT_INTERFACE(x) x
-#    define IF_NOT_CLIENT_INTERFACE(x)
-#    define IF_CLIENT_INTERFACE_ELSE(x, y) x
-#    define _IF_CLIENT_INTERFACE(x) , x
-#    define _IF_NOT_CLIENT_INTERFACE(x)
-/* _IF_CLIENT_INTERFACE is too long */
-#    define _IF_CLIENT(x) , x
-#else
-#    define IF_CLIENT_INTERFACE(x)
-#    define IF_NOT_CLIENT_INTERFACE(x) x
-#    define IF_CLIENT_INTERFACE_ELSE(x, y) y
-#    define _IF_CLIENT_INTERFACE(x)
-#    define _IF_NOT_CLIENT_INTERFACE(x) , x
-#    define _IF_CLIENT(x)
-#endif
-
-#ifdef CUSTOM_TRACES
-#    define IF_CUSTOM_TRACES(x) x
-#else
-#    define IF_CUSTOM_TRACES(x)
-#endif
-
 #ifdef DR_APP_EXPORTS
 #    define IF_APP_EXPORTS(x) x
 #else
@@ -660,130 +307,22 @@ typedef struct _instr_t instr_t;
 #    define IF_UNIT_TEST_ELSE(x, y) y
 #endif
 
-/* DR_API EXPORT TOFILE dr_defines.h */
-/* DR_API EXPORT BEGIN */
-#ifdef X86
-#    define IF_X86(x) x
-#    define IF_X86_ELSE(x, y) x
-#    define IF_X86_(x) x,
-#    define _IF_X86(x) , x
-#    define IF_NOT_X86(x)
-#    define IF_NOT_X86_(x)
-#    define _IF_NOT_X86(x)
+#ifdef AUTOMATED_TESTING
+#    define IF_AUTOMATED_ELSE(x, y) x
 #else
-#    define IF_X86(x)
-#    define IF_X86_ELSE(x, y) y
-#    define IF_X86_(x)
-#    define _IF_X86(x)
-#    define IF_NOT_X86(x) x
-#    define IF_NOT_X86_(x) x,
-#    define _IF_NOT_X86(x) , x
+#    define IF_AUTOMATED_ELSE(x, y) y
 #endif
 
-#ifdef ARM
-#    define IF_ARM(x) x
-#    define IF_ARM_ELSE(x, y) x
-#    define IF_ARM_(x) x,
-#    define _IF_ARM(x) , x
-#    define IF_NOT_ARM(x)
-#    define _IF_NOT_ARM(x)
+#ifdef DR_HOST_X86
+#    define IF_HOST_X86_ELSE(x, y) x
 #else
-#    define IF_ARM(x)
-#    define IF_ARM_ELSE(x, y) y
-#    define IF_ARM_(x)
-#    define _IF_ARM(x)
-#    define IF_NOT_ARM(x) x
-#    define _IF_NOT_ARM(x) , x
+#    define IF_HOST_X86_ELSE(x, y) y
 #endif
-
-#ifdef AARCH64
-#    define IF_AARCH64(x) x
-#    define IF_AARCH64_ELSE(x, y) x
-#    define IF_AARCH64_(x) x,
-#    define _IF_AARCH64(x) , x
-#    define IF_NOT_AARCH64(x)
-#    define _IF_NOT_AARCH64(x)
+#ifdef DR_HOST_X64
+#    define IF_HOST_X64_ELSE(x, y) x
 #else
-#    define IF_AARCH64(x)
-#    define IF_AARCH64_ELSE(x, y) y
-#    define IF_AARCH64_(x)
-#    define _IF_AARCH64(x)
-#    define IF_NOT_AARCH64(x) x
-#    define _IF_NOT_AARCH64(x) , x
+#    define IF_HOST_X64_ELSE(x, y) y
 #endif
-
-#ifdef AARCHXX
-#    define IF_AARCHXX(x) x
-#    define IF_AARCHXX_ELSE(x, y) x
-#    define IF_AARCHXX_(x) x,
-#    define _IF_AARCHXX(x) , x
-#    define IF_NOT_AARCHXX(x)
-#    define _IF_NOT_AARCHXX(x)
-#else
-#    define IF_AARCHXX(x)
-#    define IF_AARCHXX_ELSE(x, y) y
-#    define IF_AARCHXX_(x)
-#    define _IF_AARCHXX(x)
-#    define IF_NOT_AARCHXX(x) x
-#    define _IF_NOT_AARCHXX(x) , x
-#endif
-
-#ifdef ANDROID
-#    define IF_ANDROID(x) x
-#    define IF_ANDROID_ELSE(x, y) x
-#    define IF_NOT_ANDROID(x)
-#else
-#    define IF_ANDROID(x)
-#    define IF_ANDROID_ELSE(x, y) y
-#    define IF_NOT_ANDROID(x) x
-#endif
-
-#ifdef X64
-#    define IF_X64(x) x
-#    define IF_X64_ELSE(x, y) x
-#    define IF_X64_(x) x,
-#    define _IF_X64(x) , x
-#    define IF_NOT_X64(x)
-#    define _IF_NOT_X64(x)
-#else
-#    define IF_X64(x)
-#    define IF_X64_ELSE(x, y) y
-#    define IF_X64_(x)
-#    define _IF_X64(x)
-#    define IF_NOT_X64(x) x
-#    define _IF_NOT_X64(x) , x
-#endif
-
-#if defined(X86) && !defined(X64)
-#    define IF_X86_32(x) x
-#else
-#    define IF_X86_32(x)
-#endif
-
-#if defined(X86) && defined(X64)
-#    define IF_X86_64(x) x
-#    define IF_X86_64_ELSE(x, y) x
-#    define IF_X86_64_(x) x,
-#    define _IF_X86_64(x) , x
-#    define IF_NOT_X86_64(x)
-#    define _IF_NOT_X86_64(x)
-#else
-#    define IF_X86_64(x)
-#    define IF_X86_64_ELSE(x, y) y
-#    define IF_X86_64_(x)
-#    define _IF_X86_64(x)
-#    define IF_NOT_X86_64(x) x
-#    define _IF_NOT_X86_64(x) , x
-#endif
-
-#if defined(X64) || defined(ARM)
-#    define IF_X64_OR_ARM(x) x
-#    define IF_NOT_X64_OR_ARM(x)
-#else
-#    define IF_X64_OR_ARM(x)
-#    define IF_NOT_X64_OR_ARM(x) x
-#endif
-/* DR_API EXPORT END */
 
 typedef enum {
     SYSLOG_INFORMATION = 0x1,
@@ -804,9 +343,7 @@ typedef enum {
  * so it can be used in files that require all asserts to be client asserts. */
 #define DYNAMO_OPTION_NOT_STRING(opt) (dynamo_options.opt)
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-#    define EXPOSE_INTERNAL_OPTIONS
-#endif
+#define EXPOSE_INTERNAL_OPTIONS
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 /* Use only for experimental non-release options */
@@ -866,14 +403,6 @@ typedef int64 ssize_t;
 #    else
 typedef int ssize_t;
 #    endif
-/* PR 232882: %I32x printf format code not supported on NT's ntdll */
-#    ifdef X64
-#        define ZHEX32_FORMAT_STRING "%08I32x"
-#        define HEX32_FORMAT_STRING "%I32x"
-#    else
-#        define ZHEX32_FORMAT_STRING "%08x"
-#        define HEX32_FORMAT_STRING "%x"
-#    endif
 /* VC6 doesn't define the standard ULLONG_MAX */
 #    if _MSC_VER <= 1200 && !defined(ULLONG_MAX)
 #        define ULLONG_MAX _UI64_MAX
@@ -883,42 +412,6 @@ typedef uint64 timestamp_t;
 #endif
 
 #define FIXED_TIMESTAMP_FORMAT "%10" INT64_FORMAT "u"
-
-/* DR_API EXPORT TOFILE dr_defines.h */
-/* DR_API EXPORT BEGIN */
-#define UINT64_FORMAT_CODE INT64_FORMAT "u"
-#define INT64_FORMAT_CODE INT64_FORMAT "d"
-#define UINT64_FORMAT_STRING "%" UINT64_FORMAT_CODE
-#define INT64_FORMAT_STRING "%" INT64_FORMAT_CODE
-#define HEX64_FORMAT_STRING "%" INT64_FORMAT "x"
-#define ZHEX64_FORMAT_STRING "%016" INT64_FORMAT "x"
-#ifdef API_EXPORT_ONLY
-#    define ZHEX32_FORMAT_STRING "%08x"
-#    define HEX32_FORMAT_STRING "%x"
-/* Convenience defines for cross-platform printing */
-#    ifdef X64
-#        define PFMT ZHEX64_FORMAT_STRING
-#        define PIFMT HEX64_FORMAT_STRING
-#        define SZFMT INT64_FORMAT_STRING
-#    else
-#        define PFMT ZHEX32_FORMAT_STRING
-#        define PIFMT HEX32_FORMAT_STRING
-#        define SZFMT "%d"
-#    endif
-#endif
-/* DR_API EXPORT END */
-/* workaround for lack of defines stack and assumption in genapi.pl
- * that ignored defines are outermost */
-/* DR_API EXPORT BEGIN */
-#ifdef API_EXPORT_ONLY
-#    define PFX "%p"        /**< printf format code for pointers */
-#    define PIFX "0x" PIFMT /**< printf format code for pointer-sized integers */
-#endif
-
-#ifndef INFINITE
-#    define INFINITE 0xFFFFFFFF
-#endif
-/* DR_API EXPORT END */
 
 /* Statistics are 64-bit for x64, 32-bit for x86, so we don't have overflow
  * for pointer-sized stats.
@@ -930,71 +423,19 @@ typedef int64 stats_int_t;
 typedef int stats_int_t;
 #endif
 
-/* For printing pointers: we do not use %p as gcc prepends 0x and uses
- * lowercase while cl does not prepend, puts leading 0's, and uses uppercase.
- * Also, the C standard does not allow min width for %p.
- * However, with our own d_r_vsnprintf, we are able to use %p and thus satisfy
- * format string compiler warnings.
- * Two macros:
- * - PFMT == Pointer Format == with leading zeros
- * - PIFMT == Pointer Integer Format == no leading zeros
- * Convenience macros to shrink long lines:
- * - PFX == Pointer Format with leading 0x
- * - PIFX == Pointer Integer Format with leading 0x
- * For printing memory region sizes:
- * - SZFMT == Size Format
- * - SSZFMT == Signed Size Format
- * For printing 32-bit integers as hex we use %x.  We could use a macro
- * there and then disallow %x, to try and avoid 64-bit printing bugs,
- * but it wouldn't be a panacea.
- */
 #define L_UINT64_FORMAT_STRING L"%" L_EXPAND_LEVEL(UINT64_FORMAT_CODE)
-#ifdef X64
-#    define PFMT ZHEX64_FORMAT_STRING
-#    define PIFMT HEX64_FORMAT_STRING
-#    define SZFMT UINT64_FORMAT_STRING
-#    define SSZFMT INT64_FORMAT_STRING
-#    define SZFC UINT64_FORMAT_CODE
-#    define SSZFC INT64_FORMAT_CODE
-#else
-#    define PFMT ZHEX32_FORMAT_STRING
-#    define PIFMT HEX32_FORMAT_STRING
-#    define SZFMT "%u"
-#    define SSZFMT "%d"
-#    define SZFC "u"
-#    define SSZFC "d"
-#endif
 #define L_PFMT L"%016" L_EXPAND_LEVEL(INT64_FORMAT) L"x"
-#define PFX "%p"
-#define PIFX "0x" PIFMT
-
-/* DR_API EXPORT BEGIN */
-/* printf codes for {thread,process}_id_t */
-#ifdef WINDOWS
-#    define PIDFMT SZFMT /**< printf format code for process_id_t */
-#    define TIDFMT SZFMT /**< printf format code for thread_id_t */
-#else
-#    define PIDFMT "%d" /**< printf format code for process_id_t */
-#    ifdef MACOS
-#        define TIDFMT                                                   \
-            UINT64_FORMAT_STRING /**< printf format code for thread_id_t \
-                                  */
-#    else
-#        define TIDFMT "%d" /**< printf format code for thread_id_t */
-#    endif
-#endif
-/* DR_API EXPORT END */
 
 /* Maximum length of any registry parameter. Note that some are further
  * restricted to MAXIMUM_PATH from their usage. */
 #define MAX_REGISTRY_PARAMETER 512
-#if defined(PARAMS_IN_REGISTRY) || !defined(CLIENT_INTERFACE)
+#ifdef PARAMS_IN_REGISTRY
 /* Maximum length of option string in the registry */
 #    define MAX_OPTIONS_STRING 512
 #    define MAX_CONFIG_VALUE MAX_REGISTRY_PARAMETER
 #else
 /* Maximum length of option string from config file.
- * For CLIENT_INTERFACE we need more than 512 bytes to fit multiple options
+ * For clients we need more than 512 bytes to fit multiple options
  * w/ paths.  However, we have stack buffers in config.c and options.c
  * (look for MAX_OPTION_LENGTH there), so we can't make this too big
  * unless we increase the default -stack_size even further.
@@ -1127,11 +568,11 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #    define DYNAMORIO_VAR_HOT_PATCH_MODES_ID DYNAMORIO_HOT_PATCH_MODES
 #endif
 #ifdef PROCESS_CONTROL
-#    define DYNAMORIO_VAR_APP_PROCESS_WHITELIST_ID DYNAMORIO_APP_PROCESS_WHITELIST
-#    define DYNAMORIO_VAR_ANON_PROCESS_WHITELIST_ID DYNAMORIO_ANON_PROCESS_WHITELIST
+#    define DYNAMORIO_VAR_APP_PROCESS_ALLOWLIST_ID DYNAMORIO_APP_PROCESS_ALLOWLIST
+#    define DYNAMORIO_VAR_ANON_PROCESS_ALLOWLIST_ID DYNAMORIO_ANON_PROCESS_ALLOWLIST
 
-#    define DYNAMORIO_VAR_APP_PROCESS_BLACKLIST_ID DYNAMORIO_APP_PROCESS_BLACKLIST
-#    define DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST_ID DYNAMORIO_ANON_PROCESS_BLACKLIST
+#    define DYNAMORIO_VAR_APP_PROCESS_BLOCKLIST_ID DYNAMORIO_APP_PROCESS_BLOCKLIST
+#    define DYNAMORIO_VAR_ANON_PROCESS_BLOCKLIST_ID DYNAMORIO_ANON_PROCESS_BLOCKLIST
 #endif
 
 #define DYNAMORIO_VAR_CONFIGDIR STRINGIFY(DYNAMORIO_VAR_CONFIGDIR_ID)
@@ -1153,15 +594,15 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #    define DYNAMORIO_VAR_HOT_PATCH_MODES STRINGIFY(DYNAMORIO_VAR_HOT_PATCH_MODES_ID)
 #endif
 #ifdef PROCESS_CONTROL
-#    define DYNAMORIO_VAR_APP_PROCESS_WHITELIST \
-        STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_WHITELIST_ID)
-#    define DYNAMORIO_VAR_ANON_PROCESS_WHITELIST \
-        STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST_ID)
+#    define DYNAMORIO_VAR_APP_PROCESS_ALLOWLIST \
+        STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_ALLOWLIST_ID)
+#    define DYNAMORIO_VAR_ANON_PROCESS_ALLOWLIST \
+        STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_ALLOWLIST_ID)
 
-#    define DYNAMORIO_VAR_APP_PROCESS_BLACKLIST \
-        STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST_ID)
-#    define DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST \
-        STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST_ID)
+#    define DYNAMORIO_VAR_APP_PROCESS_BLOCKLIST \
+        STRINGIFY(DYNAMORIO_VAR_APP_PROCESS_BLOCKLIST_ID)
+#    define DYNAMORIO_VAR_ANON_PROCESS_BLOCKLIST \
+        STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_BLOCKLIST_ID)
 #endif
 
 #ifdef UNIX
@@ -1199,15 +640,15 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
             L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_MODES)
 #    endif
 #    ifdef PROCESS_CONTROL
-#        define L_DYNAMORIO_VAR_APP_PROCESS_WHITELIST \
-            L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_WHITELIST)
-#        define L_DYNAMORIO_VAR_ANON_PROCESS_WHITELIST \
-            L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST)
+#        define L_DYNAMORIO_VAR_APP_PROCESS_ALLOWLIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_ALLOWLIST)
+#        define L_DYNAMORIO_VAR_ANON_PROCESS_ALLOWLIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_ALLOWLIST)
 
-#        define L_DYNAMORIO_VAR_APP_PROCESS_BLACKLIST \
-            L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST)
-#        define L_DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST \
-            L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST)
+#        define L_DYNAMORIO_VAR_APP_PROCESS_BLOCKLIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_APP_PROCESS_BLOCKLIST)
+#        define L_DYNAMORIO_VAR_ANON_PROCESS_BLOCKLIST \
+            L_EXPAND_LEVEL(DYNAMORIO_VAR_ANON_PROCESS_BLOCKLIST)
 #    endif
 
 #    define L_PRODUCT_NAME L_EXPAND_LEVEL(PRODUCT_NAME)
@@ -1521,15 +962,6 @@ typedef struct {
 #    define NUDGESIG_SIGNUM SIGILL
 #endif
 
-/* Define AVOID_API_EXPORT here rather than in configure.h.
- * This way it will just be used for compling dr code and not for
- * genapi.pl which generates client header files.  In otherwords, this allows
- * having code that isn't visible in the client headers but is visible for dr
- * builds.  This helps sharing types and code between dr and client, but with
- * some hidden extras for dr builds.
- */
-#define AVOID_API_EXPORT 1
-
 #ifdef HOT_PATCHING_INTERFACE
 /* These type definitions define the hot patch interface between the core &
  * the node manager.
@@ -1542,150 +974,7 @@ typedef struct {
  */
 #    define HOTP_POLICY_ID_LENGTH 9
 
-/* DR_API EXPORT TOFILE dr_probe.h */
-/* DR_API EXPORT BEGIN */
-
-/** Describes the status of a probe at any given point.  The status is returned
- * by dr_register_probes() in the dr_probe_desc_t structure for each probe
- * specified.  It can be obtained for individual probes by calling
- * dr_get_probe_status().
- */
-typedef enum {
-    /* Error codes. */
-
-    /** Exceptions during callback execution and other unknown errors. */
-    DR_PROBE_STATUS_ERROR = 1,
-
-    /** An invalid or unknown probe ID was specified with dr_get_probe_status(). */
-    DR_PROBE_STATUS_INVALID_ID = 2,
-
-    /* All the invalid states listed below may arise statically (at the
-     * time of parsing the probes, i.e., inside dr_register_probes() or
-     * dynamically (i.e., when modules are loaded or unloaded)).
-     */
-
-    /** The numeric virtual address specified for the probe insertion location
-     * or the callback function is invalid.
-     */
-    DR_PROBE_STATUS_INVALID_VADDR = 3,
-
-    /** The pointer to the name of the library containing the probe insertion
-     * location or the callback function is invalid or the library containing
-     * the callback function can't be loaded.
-     */
-    DR_PROBE_STATUS_INVALID_LIB = 4,
-
-    /** The library offset for either the probe insertion location or the
-     * callback function is invalid; for ex., if the offset is out of bounds.
-     */
-    DR_PROBE_STATUS_INVALID_LIB_OFFS = 5,
-
-    /** The pointer to the name of the exported function, where the probe is to
-     * be inserted or which is the callback function, is invalid or the exported
-     * function doesn't exist.
-     */
-    DR_PROBE_STATUS_INVALID_FUNC = 6,
-
-    /* Codes for pending cases, i.e., valid probes haven't been inserted
-     * because certain events haven't transpired.
-     */
-
-    /** The numeric virtual address specified for the probe insertion location
-     * or the callback function isn't executable.  This may be so at the time
-     * of probe registration or latter if the memory protections are changed.
-     * An inserted probe might reach this state if the probe insertion point or
-     * the callback function is made non-executable after being executable.
-     */
-    DR_PROBE_STATUS_VADDR_NOT_EXEC = 7,
-
-    /** The library where the probe is to be inserted isn't in the process. */
-    DR_PROBE_STATUS_LIB_NOT_SEEN = 8,
-
-    /** Execution hasn't reached the probe insertion point yet.  This is valid
-     * for Code Manipulation mode only because in that mode probes are inserted
-     * only in the dynamic instruction stream.
-     */
-    DR_PROBE_STATUS_WAITING_FOR_EXEC = 9,
-
-    /** Either the library where the probe is to be inserted has been unloaded
-     * or the library containing the callback function has been unloaded.
-     */
-    DR_PROBE_STATUS_LIB_UNLOADED = 10,
-
-    /* Miscellaneous status codes. */
-
-    /** Probe was successfully inserted. */
-    DR_PROBE_STATUS_INJECTED = 11,
-
-    /** One or more aspects of the probe aren't supported as of now. */
-    DR_PROBE_STATUS_UNSUPPORTED = 12,
-
-#    ifdef AVOID_API_EXPORT
-    /* DON'T CHANGE THE VALUES OF THE DR_* CONSTANTS DEFINED ABOVE.  They are
-     * exported to clients, whereas constants in this ifdef aren't.  Any change
-     * to those values will likely break old clients with newer versions of DR
-     * (backward compatibility).  New status codes should go after
-     * DR_PROBE_STATUS_UNSUPPORTED.
-     */
-    /* Note: constants are numbered to prevent the compiler from resetting the
-     * sequence based on the symbolic assignments below.  HOTP_INJECT_DETECT
-     * ended up getting the same number as one the values above!  Ditto with
-     * HOTP_INJECT_OFF.  Though these duplications only broke the tools build
-     * they can cause subtle runtime errors, so forcing numbers.
-     */
-
-    /* The constants below are used only for LiveShields.  */
-
-    /* Defines the current injection status of a policy, i.e., was it injected
-     * or not, why and why not?  Today we don't distinguish the reasons for
-     * error cases, i.e., all of them are rolled into one.
-     *
-     * Constants list from most important status to least, from a reporting
-     * point of view; don't change this arbitrarily.
-     *
-     * CAUTION: Any changes to this will break drview, so they must be kept in
-     * sync.
-     */
-
-    /* Deactivation, exception, error, etc. */
-    HOTP_INJECT_ERROR = DR_PROBE_STATUS_ERROR,
-
-    /* Completely injected in protect mode. */
-    HOTP_INJECT_PROTECT = DR_PROBE_STATUS_INJECTED,
-
-    /* Completely injected in detect mode.  Not applicable to probes as they
-     * don't have detectors.  Restart numbering at 100 to give enough room for
-     * future probe status constants.
-     */
-    HOTP_INJECT_DETECT = 100,
-
-    /* One or more patch points in a vulnerability have been patched, but not
-     * all, yet.  N/A to probes as they can't group multiple patch points.
-     */
-    HOTP_INJECT_IN_PROGRESS = 101,
-
-    /* Vulnerability was matched and is ready for injection, but no patch point
-     * has been seen yet.
-     */
-    HOTP_INJECT_PENDING = DR_PROBE_STATUS_WAITING_FOR_EXEC,
-
-    /* Vulnerability hasn't been matched yet.  May mean that it is not yet
-     * vulnerable (because all dlls haven't been loaded) or just not vulnerable
-     * at all;  there is no way to distinguish between the two.
-     */
-    HOTP_INJECT_NO_MATCH = DR_PROBE_STATUS_LIB_NOT_SEEN,
-
-    /*
-    TODO: must distinguish between no match & vulnerable vs. no match & not
-          vulnerable; future work if needed.
-    HOTP_INJECT_NO_MATCH_VULNERABLE,
-    HOTP_INJECT_NO_MATCH_NOT_VULNERABLE,
-    */
-
-    HOTP_INJECT_OFF = 102 /* Policy has been turned off, so no injection. */
-#    endif                /* AVOID_API_EXPORT */
-} dr_probe_status_t;
-/* DR_API EXPORT END */
+#    include "probe_api.h"
 
 typedef dr_probe_status_t hotp_inject_status_t;
 
@@ -1798,212 +1087,9 @@ enum {
  * so we have no alignment declarations there at the moment either.
  */
 
-/* DR_API EXPORT TOFILE dr_defines.h */
-/* DR_API EXPORT BEGIN */
-/** 128-bit XMM register. */
-typedef union _dr_xmm_t {
-#ifdef X64
-    uint64 u64[2]; /**< Representation as 2 64-bit integers. */
-#endif
-    uint u32[4];                  /**< Representation as 4 32-bit integers. */
-    byte u8[16];                  /**< Representation as 16 8-bit integers. */
-    reg_t reg[IF_X64_ELSE(2, 4)]; /**< Representation as 2 or 4 registers. */
-} dr_xmm_t;
-
-/** 256-bit YMM register. */
-typedef union _dr_ymm_t {
-#ifdef AVOID_API_EXPORT
-    /* We avoid having 8-byte-aligned fields here for 32-bit: they cause
-     * cl to add padding in app_state_at_intercept_t and unprotected_context_t,
-     * which messes up our interception stack layout and our x86.asm offsets.
-     * We don't access these very often, so we just omit this field.
-     *
-     * With the new dr_mcontext_t's size field pushing its ymm field to 0x44
-     * having an 8-byte-aligned field here adds 4 bytes padding.
-     * We could shrink PRE_XMM_PADDING for client header files but simpler
-     * to just have u64 only be there for 64-bit for clients.
-     * We do the same thing for dr_xmm_t just to look consistent.
-     */
-#endif
-#ifdef API_EXPORT_ONLY
-#    ifdef X64
-    uint64 u64[4]; /**< Representation as 4 64-bit integers. */
-#    endif
-#endif
-    uint u32[8];                  /**< Representation as 8 32-bit integers. */
-    byte u8[32];                  /**< Representation as 32 8-bit integers. */
-    reg_t reg[IF_X64_ELSE(4, 8)]; /**< Representation as 4 or 8 registers. */
-} dr_ymm_t;
-
-/** 512-bit ZMM register. */
-typedef union _dr_zmm_t {
-#ifdef API_EXPORT_ONLY
-#    ifdef X64
-    uint64 u64[8]; /**< Representation as 8 64-bit integers. */
-#    endif
-#endif
-    uint u32[16];                  /**< Representation as 16 32-bit integers. */
-    byte u8[64];                   /**< Representation as 64 8-bit integers. */
-    reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 8 or 16 registers. */
-} dr_zmm_t;
-
-/** AVX-512 OpMask (k-)register. */
-#ifdef AVOID_API_EXPORT
-/* The register may be only 16 bits wide on systems without AVX512BW, but can be up to
- * MAX_KL = 64 bits.
- */
-#endif
-typedef uint64 dr_opmask_t;
-
-#if defined(AARCHXX)
-/**
- * 128-bit ARM SIMD Vn register.
- * In AArch64, align to 16 bytes for better performance.
- * In AArch32, we're not using any uint64 fields here to avoid alignment
- * padding in sensitive structs. We could alternatively use pragma pack.
- */
-#    ifdef X64
-typedef union ALIGN_VAR(16) _dr_simd_t {
-    byte b;      /**< Bottom  8 bits of Vn == Bn. */
-    ushort h;    /**< Bottom 16 bits of Vn == Hn. */
-    uint s;      /**< Bottom 32 bits of Vn == Sn. */
-    uint d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
-    uint q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint u32[4]; /**< The full 128-bit register. */
-} dr_simd_t;
-#    else
-typedef union _dr_simd_t {
-    uint s[4];   /**< Representation as 4 32-bit Sn elements. */
-    uint d[4];   /**< Representation as 2 64-bit Dn elements: d[3]:d[2]; d[1]:d[0]. */
-    uint u32[4]; /**< The full 128-bit register. */
-} dr_simd_t;
-#    endif
-#    ifdef X64
-#        define MCXT_NUM_SIMD_SLOTS                                  \
-            32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
-                */
-#    else
-#        define MCXT_NUM_SIMD_SLOTS                                  \
-            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
-                */
-#    endif
-#    define PRE_SIMD_PADDING                                       \
-        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
-           */
-#    define MCXT_NUM_OPMASK_SLOTS                                    \
-        0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
-           * if architecture supports.                               \
-           */
-
-#elif defined(X86)
-
-#    ifdef AVOID_API_EXPORT
-/* If this is increased, you'll probably need to increase the size of
- * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update MCXT_NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
- * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
- * adding new ones, so code operating on XMM often also operates on YMM,
- * and thus some *XMM* macros also apply to *YMM*.
- */
-#    endif
-#    ifdef X64
-#        ifdef WINDOWS
-/* TODO i#1312: support AVX-512 extended registers. */
-/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t pre AVX-512 in-use. */
-#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 6
-/**< Number of [xyz]mm0-5 reg slots in dr_mcontext_t */
-#            define MCXT_NUM_SIMD_SLOTS 6
-#        else
-/**< Number of [xyz]mm-15 reg slots in dr_mcontext_t pre AVX-512 in-use. */
-#            define MCXT_NUM_SIMD_SSE_AVX_SLOTS 16
-/**< Number of [xyz]mm0-31 reg slots in dr_mcontext_t */
-#            define MCXT_NUM_SIMD_SLOTS 32
-#        endif
-/**< Bytes of padding before simd dr_mcontext_t slots */
-#        define PRE_XMM_PADDING 48
-#    else
-/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t pre AVX-512 in-use. */
-#        define MCXT_NUM_SIMD_SSE_AVX_SLOTS 8
-/**< Number of [xyz]mm0-7 reg slots in dr_mcontext_t */
-#        define MCXT_NUM_SIMD_SLOTS 8
-/**< Bytes of padding before simd dr_mcontext_t slots */
-#        define PRE_XMM_PADDING 24
-#    endif
-/**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, if architecture supports. */
-#    define MCXT_NUM_OPMASK_SLOTS 8
-#else
-#    error NYI
-#endif /* AARCHXX/X86 */
-
-#ifdef DR_NUM_SIMD_SLOTS_COMPATIBILITY
-
-#    undef NUM_SIMD_SLOTS
-/**
- * Number of saved SIMD slots in dr_mcontext_t.
- */
-#    define NUM_SIMD_SLOTS proc_num_simd_saved()
-
-#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
-
-#endif /* DR_NUM_SIMD_SLOTS_COMPATIBILITY */
-
-/** Values for the flags field of dr_mcontext_t */
-typedef enum {
-    /**
-     * On x86, selects the xdi, xsi, xbp, xbx, xdx, xcx, xax, and r8-r15 fields (i.e.,
-     * all of the general-purpose registers excluding xsp, xip, and xflags).
-     * On ARM, selects r0-r12 and r14.
-     * On AArch64, selects r0-r30.
-     */
-    DR_MC_INTEGER = 0x01,
-#ifdef AVOID_API_EXPORT
-/* XXX i#2710: The link register should be under DR_MC_CONTROL */
-#endif
-    /**
-     * On x86, selects the xsp, xflags, and xip fields.
-     * On ARM, selects the sp, pc, and cpsr fields.
-     * On AArch64, selects the sp, pc, and nzcv fields.
-     * \note: The xip/pc field is only honored as an input for
-     * dr_redirect_execution(), and as an output for system call
-     * events.
-     */
-    DR_MC_CONTROL = 0x02,
-    /**
-     * Selects the simd fields.  This flag is ignored unless
-     * dr_mcontext_xmm_fields_valid() returns true.  If
-     * dr_mcontext_xmm_fields_valid() returns false, the application values of
-     * the multimedia registers remain in the registers themselves.
-     */
-    DR_MC_MULTIMEDIA = 0x04,
-    /** Selects all fields */
-    DR_MC_ALL = (DR_MC_INTEGER | DR_MC_CONTROL | DR_MC_MULTIMEDIA),
-} dr_mcontext_flags_t;
-
-/**
- * Machine context structure.
- */
-typedef struct _dr_mcontext_t {
-    /**
-     * The size of this structure.  This field must be set prior to filling
-     * in the fields to support forward compatibility.
-     */
-    size_t size;
-    /**
-     * The valid fields of this structure.  This field must be set prior to
-     * filling in the fields.  For input requests (dr_get_mcontext()), this
-     * indicates which fields should be written.  Writing the multimedia fields
-     * frequently can incur a performance hit.  For output requests
-     * (dr_set_mcontext() and dr_redirect_execution()), this indicates which
-     * fields will be copied to the actual context.
-     */
-    dr_mcontext_flags_t flags;
-#include "mcxtx.h"
-} dr_mcontext_t;
-/* DR_API EXPORT END */
-
 /* Internal machine context structure */
 typedef struct _priv_mcontext_t {
-#include "mcxtx.h"
+#include "mcxtx_api.h"
 } priv_mcontext_t;
 
 #endif /* _GLOBALS_SHARED_H_ */

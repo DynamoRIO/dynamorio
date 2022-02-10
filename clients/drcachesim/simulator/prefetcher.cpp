@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
 #include "../common/memref.h"
 
 prefetcher_t::prefetcher_t(int block_size)
-    : block_size(block_size)
+    : block_size_(block_size)
 {
     // Nothing else to do.
 }
@@ -47,7 +47,7 @@ prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in)
 {
     // We implement a simple next-line prefetcher.
     memref_t memref = memref_in;
-    memref.data.addr += block_size;
+    memref.data.addr += block_size_;
     memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
     cache->request(memref);
 }

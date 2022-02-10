@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +38,7 @@
 #include "../globals.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "instrument.h" /* for dr_insert_call() */
 
@@ -288,7 +288,8 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* For far-away targets, we branch to the stub and use an
      * indirect branch from there:
@@ -326,7 +327,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
     if (FRAG_IS_THUMB(f->flags)) {
         return ((*stub_pc) & 0xf) == (DR_REG_PC - DR_REG_R0);
@@ -336,7 +337,7 @@ stub_is_patched(fragment_t *f, cache_pc stub_pc)
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     /* XXX: we're called even for a near link, so try to avoid any writes or flushes */
     if (FRAG_IS_THUMB(f->flags)) {
@@ -593,68 +594,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 
 /* helper functions for emit_fcache_enter_common */
 
-#define OPND_ARG1 opnd_create_reg(DR_REG_R0)
-
-/* Load DR's TLS base to dr_reg_stolen via reg_base */
-static void
-insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_base)
-{
-    /* load TLS base from user-read-only-thread-ID register
-     * mrc p15, 0, reg_base, c13, c0, 3
-     */
-    PRE(ilist, where,
-        INSTR_CREATE_mrc(dcontext, opnd_create_reg(reg_base),
-                         OPND_CREATE_INT(USR_TLS_COPROC_15), OPND_CREATE_INT(0),
-                         opnd_create_reg(DR_REG_CR13), opnd_create_reg(DR_REG_CR0),
-                         OPND_CREATE_INT(USR_TLS_REG_OPCODE)));
-    /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
-    PRE(ilist, where,
-        XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
-                          OPND_CREATE_MEMPTR(reg_base, DR_TLS_BASE_OFFSET)));
-}
-
-/* Having only one thread register (TPIDRURO) shared between app and DR,
- * we steal a register for DR's TLS base in the code cache,
- * and store DR's TLS base into an private lib's TLS slot for accessing in C code.
- * On entering the code cache (fcache_enter):
- * - grab gen routine's parameter dcontext and put it into REG_DCXT
- * - load DR's TLS base into dr_reg_stolen from privlib's TLS
- */
-void
-append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
-{
-#ifdef UNIX
-    instr_t *no_signals = INSTR_CREATE_label(dcontext);
-    /* save callee-saved reg in case we return for a signal */
-    APP(ilist,
-        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
-                          opnd_create_reg(REG_DCXT)));
-#endif
-    ASSERT_NOT_IMPLEMENTED(!absolute &&
-                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
-    /* grab gen routine's parameter dcontext and put it into REG_DCXT */
-    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT), OPND_ARG1 /*r0*/));
-#ifdef UNIX
-    APP(ilist,
-        INSTR_CREATE_ldrsb(dcontext, opnd_create_reg(DR_REG_R2),
-                           OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
-    APP(ilist,
-        XINST_CREATE_cmp(dcontext, opnd_create_reg(DR_REG_R2), OPND_CREATE_INT8(0)));
-    APP(ilist,
-        INSTR_PRED(INSTR_CREATE_b(dcontext, opnd_create_instr(no_signals)), DR_PRED_LE));
-    /* restore callee-saved reg */
-    APP(ilist,
-        XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
-                          opnd_create_reg(DR_REG_R1)));
-    APP(ilist, INSTR_CREATE_bx(dcontext, opnd_create_reg(DR_REG_LR)));
-    APP(ilist, no_signals);
-#endif
-
-    /* set up stolen reg */
-    insert_load_dr_tls_base(dcontext, ilist, NULL /*append*/, SCRATCH_REG0);
-}
-
 void
 append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist, bool absolute,
                          bool shared)
@@ -710,6 +649,10 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      * XXX: we just want to remove the stolen reg from the reg list,
      * so instead of having this extra store, we should provide a help
      * function to create the reg list.
+     * This means that the mcontext stolen reg slot holds DR's base instead of
+     * the app's value while we're in the cache, which can be confusing: but we have
+     * to get the official value from TLS on signal and other transitions anyway,
+     * and DR's base makes it easier to spot bugs than a prior app value.
      */
     APP(ilist, SAVE_TO_DC(dcontext, dr_reg_stolen, REG_OFFSET(dr_reg_stolen)));
     /* prepare for ldm */
@@ -948,6 +891,11 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist,
         INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),
                          OPND_TLS_FIELD(TLS_MASK_SLOT(ibl_code->branch_type))));
+    /* We need the mask load to have Aqcuire semantics to pair with the Release in
+     * update_lookuptable_tls() and avoid the reader here seeing a new mask with
+     * an old table.
+     */
+    APP(&ilist, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISHLD)));
     APP(&ilist,
         INSTR_CREATE_and(dc, OPREG(DR_REG_R1), OPREG(DR_REG_R1), OPREG(DR_REG_R2)));
     APP(&ilist,
@@ -981,6 +929,15 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Hit path */
     /* XXX: add stats via sharing code with x86 */
+
+    /* Save next tag to TLS_REG4_SLOT in case it is needed for the
+     * target_delete_entry path.
+     * XXX: Instead of using a TLS slot, it will be more performant for the hit path to
+     * let the relevant data be passed to the target_delete_entry code using r0 and use
+     * load-into-PC for the jump below.
+     */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
+
     APP(&ilist,
         INSTR_CREATE_ldr(dc, OPREG(DR_REG_R0),
                          OPND_CREATE_MEMPTR(
@@ -1027,14 +984,27 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
         APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(load_tag)));
     }
 
-    /* Target delete entry */
+    /* Target delete entry.
+     * We just executed the hit path, so the app's r1 and r2 values are still in
+     * their TLS slots, and &linkstub is still in the r3 slot.
+     */
     APP(&ilist, target_delete_entry);
     add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
                      (ptr_uint_t *)&ibl_code->target_delete_entry);
-    /* We just executed the hit path, so the app's r1 and r2 values are still in
-     * their TLS slots, and &linkstub is still in the r3 slot.
+
+    /* Get the next fragment tag from TLS_REG4_SLOT. Note that this already has
+     * the LSB cleared, so we jump over the following sequence to avoid redoing.
      */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
+
+    /* Save &linkstub_ibl_deleted to TLS_REG3_SLOT; it will be restored to r0 below. */
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
+                                     opnd_create_reg(DR_REG_R1), &ilist, NULL, NULL,
+                                     NULL);
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
+
+    APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(miss)));
 
     /* Unlink path: entry from stub */
     APP(&ilist, unlinked);

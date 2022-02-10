@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,8 @@
 #    include <sys/mman.h>
 #endif
 #include <limits.h>
+#include <stdlib.h>
+#include <string.h>
 
 char *global;
 #define SIZE 10
@@ -528,6 +530,56 @@ memory_iteration_test(void)
     }
 }
 
+static void
+alignment_test(void)
+{
+    dr_fprintf(STDERR, "  testing alignment....");
+    /* The standard alignment guarantee is 16-byte for 64-bit, 8-byte for 32-bit: */
+#define EXPECT_ALIGN IF_X64_ELSE(16, 8)
+    /* Alloc many times since half of the new allocations will align accidentally,
+     * and if there are free list entries it could be more than half.
+     */
+#define NUM_TRIES 8
+    /* We use a bit pattern that doesn't match DR's 0xab, 0xbc, and 0xcd fills. */
+#define PATTERN 0x77
+#define DR_PATTERN 0xab
+    void *mem[NUM_TRIES];
+    /* See if DR is using a known fill pattern (we have to pass -checklevel 3
+     * to get the pattern for client/privlib allocs).
+     */
+    mem[0] = malloc(4);
+    bool filled = ((byte *)mem[0])[0] == DR_PATTERN;
+    free(mem[0]);
+    /* Try several sizes since DR's bucket sizes can make one particular bucket
+     * over-align more often than others.
+     */
+    for (size_t sz = 4; sz < 64; sz += 4) {
+        for (int i = 0; i < NUM_TRIES; ++i) {
+            mem[i] = malloc(sz);
+            ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
+            size_t smaller_sz = sz / 2;
+            size_t larger_sz = sz * 2 + 2;
+            mem[i] = realloc(mem[i], smaller_sz);
+            ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
+            /* Ensure the values get preserved. */
+            memset(mem[i], PATTERN, smaller_sz);
+            mem[i] = realloc(mem[i], larger_sz);
+            ASSERT(ALIGNED(mem[i], EXPECT_ALIGN));
+            for (size_t j = 0; j < smaller_sz; ++j)
+                ASSERT(((byte *)mem[i])[j] == PATTERN);
+            if (filled) {
+                /* Make sure we copied the right size and no more. */
+                for (size_t j = smaller_sz; j < larger_sz; ++j) {
+                    ASSERT(((byte *)mem[i])[j] == DR_PATTERN);
+                }
+            }
+        }
+        for (int i = 0; i < NUM_TRIES; ++i)
+            free(mem[i]);
+    }
+    dr_fprintf(STDERR, "success\n");
+}
+
 #ifdef UNIX
 static void
 calloc_test(void)
@@ -575,6 +627,13 @@ inline_alloc_test(void)
 #endif
 #ifdef X64
     reachability_test();
+#endif
+#if defined(LINUX) && defined(X86_64)
+    /* i#4335: Test allocation of more than 2.8GB in unreachable heap */
+    for (int i = 0; i != 50; ++i) {
+        if (malloc(100000000) == NULL)
+            dr_fprintf(STDERR, "Failed to allocate\n");
+    }
 #endif
 }
 
@@ -696,6 +755,7 @@ dr_init(client_id_t id)
     custom_unix_test();
 #endif
     memory_iteration_test();
+    alignment_test();
 
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);

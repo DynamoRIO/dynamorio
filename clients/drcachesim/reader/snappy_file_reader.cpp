@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,45 +43,45 @@ mask_crc32(uint32_t checksum)
 
 } // namespace
 
-constexpr size_t snappy_reader_t::max_block_size;
-constexpr size_t snappy_reader_t::max_compressed_size;
-constexpr size_t snappy_reader_t::checksum_size;
-constexpr char snappy_reader_t::magic[];
+constexpr size_t snappy_reader_t::max_block_size_;
+constexpr size_t snappy_reader_t::max_compressed_size_;
+constexpr size_t snappy_reader_t::checksum_size_;
+constexpr char snappy_reader_t::magic_[];
 
 snappy_reader_t::snappy_reader_t(std::ifstream *stream)
-    : fstream(stream)
-    , uncompressed_buf(max_block_size + checksum_size)
-    , compressed_buf(max_compressed_size + checksum_size)
-    , seen_magic(false)
+    : fstream_(stream)
+    , uncompressed_buf_(max_block_size_ + checksum_size_)
+    , compressed_buf_(max_compressed_size_ + checksum_size_)
+    , seen_magic_(false)
 {
 }
 bool
 snappy_reader_t::read_magic(uint32_t size)
 {
-    if (size > strlen(magic)) {
-        ERRMSG("Magic block size too large. Got %u, want %zu\n", size, strlen(magic));
+    if (size > strlen(magic_)) {
+        ERRMSG("Magic block size too large. Got %u, want %zu\n", size, strlen(magic_));
         return false;
     }
 
-    fstream->read(uncompressed_buf.data(), size);
-    if (!(*fstream)) {
+    fstream_->read(uncompressed_buf_.data(), size);
+    if (!(*fstream_)) {
         return false;
     }
-    if (strncmp(uncompressed_buf.data(), magic, size) != 0) {
-        uncompressed_buf[size] = '\0';
-        ERRMSG("Unknown file type, got magic %s, want %s\n", uncompressed_buf.data(),
-               magic);
+    if (strncmp(uncompressed_buf_.data(), magic_, size) != 0) {
+        uncompressed_buf_[size] = '\0';
+        ERRMSG("Unknown file type, got magic %s, want %s\n", uncompressed_buf_.data(),
+               magic_);
         return false;
     }
-    seen_magic = true;
+    seen_magic_ = true;
     return true;
 }
 
 bool
 snappy_reader_t::check_magic()
 {
-    if (!seen_magic) {
-        ERRMSG("Unknown file type, must start with magic chunk %s\n", magic);
+    if (!seen_magic_) {
+        ERRMSG("Unknown file type, must start with magic chunk %s\n", magic_);
         return false;
     }
     return true;
@@ -91,52 +91,52 @@ bool
 snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
 {
     char *buf =
-        (type == COMPRESSED_DATA) ? compressed_buf.data() : uncompressed_buf.data();
-    size_t max_size = (type == COMPRESSED_DATA) ? max_compressed_size : max_block_size;
-    max_size += checksum_size;
-    if (size < checksum_size || size > max_size) {
+        (type == COMPRESSED_DATA) ? compressed_buf_.data() : uncompressed_buf_.data();
+    size_t max_size = (type == COMPRESSED_DATA) ? max_compressed_size_ : max_block_size_;
+    max_size += checksum_size_;
+    if (size < checksum_size_ || size > max_size) {
         ERRMSG("Corrupted chunk header. Size %u, want <= %zu >= %zu.\n", size, max_size,
-               checksum_size);
+               checksum_size_);
         return false;
     }
 
-    fstream->read(buf, size);
-    if (!(*fstream)) {
+    fstream_->read(buf, size);
+    if (!(*fstream_)) {
         return false;
     }
 
     uint32_t read_checksum = 0;
     memcpy(&read_checksum, buf, 4);
 
-    src.reset(new snappy::ByteArraySource(&uncompressed_buf[checksum_size],
-                                          size - checksum_size));
+    src_.reset(new snappy::ByteArraySource(&uncompressed_buf_[checksum_size_],
+                                           size - checksum_size_));
 
     // Potentially uncompress.
     if (type == COMPRESSED_DATA) {
         size_t uncompressed_chunk_size;
-        if (!snappy::GetUncompressedLength(&compressed_buf[checksum_size],
-                                           size - checksum_size,
+        if (!snappy::GetUncompressedLength(&compressed_buf_[checksum_size_],
+                                           size - checksum_size_,
                                            &uncompressed_chunk_size)) {
             ERRMSG("Failed getting snappy-compressed chunk length.\n");
             return false;
         }
-        if (uncompressed_chunk_size > max_block_size) {
+        if (uncompressed_chunk_size > max_block_size_) {
             ERRMSG("Uncompressed chunk larger than maximum size. Want <= %zu, got %zu\n",
-                   max_block_size, uncompressed_chunk_size);
+                   max_block_size_, uncompressed_chunk_size);
             return false;
         }
 
-        if (!snappy::RawUncompress(&compressed_buf[checksum_size], size - checksum_size,
-                                   uncompressed_buf.data())) {
+        if (!snappy::RawUncompress(&compressed_buf_[checksum_size_],
+                                   size - checksum_size_, uncompressed_buf_.data())) {
             ERRMSG("Failed decompressing snappy chunk\n");
             return false;
         }
-        src.reset(new snappy::ByteArraySource(uncompressed_buf.data(),
-                                              uncompressed_chunk_size));
+        src_.reset(new snappy::ByteArraySource(uncompressed_buf_.data(),
+                                               uncompressed_chunk_size));
     }
 
     size_t dummy;
-    uint32_t checksum = mask_crc32(crc32c(src->Peek(&dummy), src->Available()));
+    uint32_t checksum = mask_crc32(crc32c(src_->Peek(&dummy), src_->Available()));
     if (checksum != read_checksum) {
         ERRMSG("Checksum failure on snappy block. Want %x, got %x\n", read_checksum,
                checksum);
@@ -149,8 +149,8 @@ bool
 snappy_reader_t::read_new_chunk()
 {
     char buf[4];
-    fstream->read(buf, 4);
-    if (!(*fstream)) {
+    fstream_->read(buf, 4);
+    if (!(*fstream_)) {
         return false;
     }
     chunk_type_t type = static_cast<chunk_type_t>(buf[0]);
@@ -168,15 +168,15 @@ snappy_reader_t::read_new_chunk()
     case PADDING:
         if (!check_magic())
             return false;
-        fstream->seekg(size, fstream->cur);
-        return !!fstream;
+        fstream_->seekg(size, fstream_->cur);
+        return !!fstream_;
         break;
     default:
         if (!check_magic())
             return false;
         if (type >= SKIP_BEGIN && type <= SKIP_END) {
-            fstream->seekg(size, fstream->cur);
-            return !!fstream;
+            fstream_->seekg(size, fstream_->cur);
+            return !!fstream_;
         } else {
             ERRMSG("Unknown chunk type %d\n", type);
             return false;
@@ -191,14 +191,14 @@ snappy_reader_t::read(size_t size, OUT void *to)
     size_t to_read = size;
     while (to_read > 0) {
         size_t available = 0;
-        if (src)
-            available = src->Available();
+        if (src_)
+            available = src_->Available();
 
         size_t will_read = std::min(available, to_read);
         if (will_read > 0) {
             size_t src_len;
-            memcpy(to_buf, src->Peek(&src_len), will_read);
-            src->Skip(will_read);
+            memcpy(to_buf, src_->Peek(&src_len), will_read);
+            src_->Skip(will_read);
             to_read -= will_read;
             to_buf += will_read;
             continue;
@@ -226,7 +226,7 @@ file_reader_t<snappy_reader_t>::open_single_file(const std::string &path)
     if (!*file)
         return false;
     VPRINT(this, 1, "Opened snappy input file %s\n", path.c_str());
-    input_files.emplace_back(file);
+    input_files_.emplace_back(file);
     return true;
 }
 
@@ -236,10 +236,10 @@ file_reader_t<snappy_reader_t>::read_next_thread_entry(size_t thread_index,
                                                        OUT trace_entry_t *entry,
                                                        OUT bool *eof)
 {
-    int len = input_files[thread_index].read(sizeof(*entry), entry);
+    int len = input_files_[thread_index].read(sizeof(*entry), entry);
     // Returns less than asked-for for end of file, or –1 for error.
     if (len < (int)sizeof(*entry)) {
-        *eof = input_files[thread_index].eof();
+        *eof = input_files_[thread_index].eof();
         return false;
     }
     VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",

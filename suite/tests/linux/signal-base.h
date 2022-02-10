@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -77,6 +77,14 @@ static sigjmp_buf env;
 #    define ITERS 500000
 #endif
 
+#ifdef AARCHXX
+/* i#4719: Work around QEMU bugs where QEMU can't handle signals 63 or 64. */
+#    undef SIGRTMAX
+#    define SIGRTMAX 62
+#    undef __SIGRTMAX
+#    define __SIGRTMAX SIGRTMAX
+#endif
+
 static int a[ITERS];
 
 /* strategy: anything that won't be the same across multiple runs,
@@ -90,7 +98,11 @@ static int timer_hits = 0;
 #include <errno.h>
 
 static void
-signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+#if defined(ARM) && !defined(USE_SIGSTACK)
+    /* Test a variety of ISA transitions by tying this to USE_SIGSTACK. */
+    __attribute__((target("arm")))
+#endif
+    signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
     print("signal_handler: sig=%d, retaddr=0x%08x, ucxt=0x%08x\n", sig, *(&sig - 1),
@@ -145,7 +157,10 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         void *pc = (void *)sc->SC_XIP;
         /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
          * sources. */
-        assert(__SIGRTMAX == 64 && __SIGRTMAX == SIGRTMAX);
+#    ifndef AARCHXX /* i#4719: Work around QEMU bugs handling signals 63,64. */
+        assert(__SIGRTMAX == 64);
+#    endif
+        assert(__SIGRTMAX == SIGRTMAX);
 #    if VERBOSE
         print("Got SIGRTMAX @ 0x%08x\n", pc);
 #    else
@@ -193,7 +208,11 @@ custom_intercept_signal(int sig, handler_t handler)
 }
 
 int
-main(int argc, char *argv[])
+#if defined(ARM) && !defined(BLOCK_IN_HANDLER)
+    /* Test a variety of ISA transitions by tying this to BLOCK_IN_HANDLER. */
+    __attribute__((target("arm")))
+#endif
+    main(int argc, char *argv[])
 {
     double res = 0.;
     int i, j, rc;

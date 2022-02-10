@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -119,13 +119,14 @@ read_hotp_status(const HANDLE hproc, const void *table_ptr,
         (hotp_policy_status_t *)((char *)&((*hotp_status)->policy_status_array) +
                                  sizeof(void *));
 
-    DO_DEBUG(DL_VERB, printf("np = %d\n", (*hotp_status)->num_policies); {
-        UINT i;
-        for (i = 0; i < (*hotp_status)->num_policies; i++)
-            printf(" patch %s, status=%d\n",
-                   (*hotp_status)->policy_status_array[i].policy_id,
-                   (*hotp_status)->policy_status_array[i].inject_status);
-    });
+    DO_DEBUG(
+        DL_VERB, printf("np = %d\n", (*hotp_status)->num_policies); {
+            UINT i;
+            for (i = 0; i < (*hotp_status)->num_policies; i++)
+                printf(" patch %s, status=%d\n",
+                       (*hotp_status)->policy_status_array[i].policy_id,
+                       (*hotp_status)->policy_status_array[i].inject_status);
+        });
 
     return ERROR_SUCCESS;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2020 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -93,13 +93,12 @@ struct cache_params_t {
 class config_reader_t {
 public:
     config_reader_t();
-    ~config_reader_t();
     bool
-    configure(const std::string &config_file, cache_simulator_knobs_t &knobs,
+    configure(std::istream *config_file, cache_simulator_knobs_t &knobs,
               std::map<std::string, cache_params_t> &caches);
 
 private:
-    std::ifstream fin;
+    std::istream *fin_;
 
     bool
     configure_cache(cache_params_t &cache);

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -91,23 +92,23 @@ print_moduledb_exempt_lists(file_t file);
 
 #ifdef PROCESS_CONTROL
 #    define PROCESS_CONTROL_MODE_OFF 0x0
-#    define PROCESS_CONTROL_MODE_WHITELIST 0x1
-#    define PROCESS_CONTROL_MODE_BLACKLIST 0x2
+#    define PROCESS_CONTROL_MODE_ALLOWLIST 0x1
+#    define PROCESS_CONTROL_MODE_BLOCKLIST 0x2
 
-/* This mode is identical to whitelist mode, but requires that the user specify
+/* This mode is identical to allowlist mode, but requires that the user specify
  * an exe by name and its hashes; no anonymous hashes or exe names with no
  * hashes.  Case 10969. */
-#    define PROCESS_CONTROL_MODE_WHITELIST_INTEGRITY 0x4
+#    define PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY 0x4
 
-#    define IS_PROCESS_CONTROL_MODE_WHITELIST() \
-        (TEST(PROCESS_CONTROL_MODE_WHITELIST, DYNAMO_OPTION(process_control)))
-#    define IS_PROCESS_CONTROL_MODE_BLACKLIST() \
-        (TEST(PROCESS_CONTROL_MODE_BLACKLIST, DYNAMO_OPTION(process_control)))
-#    define IS_PROCESS_CONTROL_MODE_WHITELIST_INTEGRITY() \
-        (TEST(PROCESS_CONTROL_MODE_WHITELIST_INTEGRITY, DYNAMO_OPTION(process_control)))
+#    define IS_PROCESS_CONTROL_MODE_ALLOWLIST() \
+        (TEST(PROCESS_CONTROL_MODE_ALLOWLIST, DYNAMO_OPTION(process_control)))
+#    define IS_PROCESS_CONTROL_MODE_BLOCKLIST() \
+        (TEST(PROCESS_CONTROL_MODE_BLOCKLIST, DYNAMO_OPTION(process_control)))
+#    define IS_PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY() \
+        (TEST(PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY, DYNAMO_OPTION(process_control)))
 #    define IS_PROCESS_CONTROL_ON()                                                    \
-        (IS_PROCESS_CONTROL_MODE_WHITELIST() || IS_PROCESS_CONTROL_MODE_BLACKLIST() || \
-         IS_PROCESS_CONTROL_MODE_WHITELIST_INTEGRITY())
+        (IS_PROCESS_CONTROL_MODE_ALLOWLIST() || IS_PROCESS_CONTROL_MODE_BLOCKLIST() || \
+         IS_PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY())
 
 void
 process_control(void);

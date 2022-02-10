@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -43,17 +43,15 @@
 #include "instrument.h"
 #include "../hashtable.h"
 #include "disassemble.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "../clean_call_opt.h"
-
-#ifdef CLIENT_INTERFACE /* around whole file */
 
 /* make code more readable by shortening long lines
  * we mark everything we add as a meta-instr to avoid hitting
  * client asserts on setting translation fields
  */
-#    define POST instrlist_meta_postinsert
-#    define PRE instrlist_meta_preinsert
+#define POST instrlist_meta_postinsert
+#define PRE instrlist_meta_preinsert
 
 void
 analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
@@ -359,12 +357,13 @@ check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_p
     app_pc tmp_pc;
     opnd_t src = OPND_CREATE_INTPTR(next_pc);
     instr_init(dcontext, &ins);
-    TRY_EXCEPT(dcontext, { tmp_pc = decode(dcontext, tgt_pc, &ins); },
-               {
-                   ASSERT_CURIOSITY(false && "crashed while decoding clean call");
-                   instr_free(dcontext, &ins);
-                   return NULL;
-               });
+    TRY_EXCEPT(
+        dcontext, { tmp_pc = decode(dcontext, tgt_pc, &ins); },
+        {
+            ASSERT_CURIOSITY(false && "crashed while decoding clean call");
+            instr_free(dcontext, &ins);
+            return NULL;
+        });
     DOLOG(3, LOG_CLEANCALL, { disassemble_with_bytes(dcontext, tgt_pc, THREAD); });
     /* "pop %r1" or "mov [%rsp] %r1" */
     if (!(((instr_get_opcode(&ins) == OP_pop) ||
@@ -385,12 +384,13 @@ check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_p
     ci->num_instrs++;
     instr_reset(dcontext, &ins);
     if (tgt_pc != next_pc) { /* a callout */
-        TRY_EXCEPT(dcontext, { tmp_pc = decode(dcontext, tmp_pc, &ins); },
-                   {
-                       ASSERT_CURIOSITY(false && "crashed while decoding clean call");
-                       instr_free(dcontext, &ins);
-                       return NULL;
-                   });
+        TRY_EXCEPT(
+            dcontext, { tmp_pc = decode(dcontext, tmp_pc, &ins); },
+            {
+                ASSERT_CURIOSITY(false && "crashed while decoding clean call");
+                instr_free(dcontext, &ins);
+                return NULL;
+            });
         if (!instr_is_return(&ins)) {
             instr_free(dcontext, &ins);
             return NULL;
@@ -773,7 +773,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
         insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
     }
 
-#    ifndef X64
+#ifndef X64
     ASSERT(!cci->reg_skip[0]);
     /* Move xax to the scratch slot of the local.  We only allow at most one
      * local stack access, so the callee either does not use the argument, or
@@ -784,9 +784,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
     PRE(ilist, where,
         INSTR_CREATE_mov_st(dcontext, callee_info_slot_opnd(ci, SLOT_LOCAL, 0),
                             opnd_create_reg(DR_REG_XAX)));
-#    endif
+#endif
 }
-
-#endif /* CLIENT_INTERFACE */
 
 /***************************************************************************/

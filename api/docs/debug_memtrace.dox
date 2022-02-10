@@ -1,0 +1,114 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_debug_memtrace DrCacheSim Offline Trace Debugging
+
+This page contains tips for troubleshooting issues when using the
+[DrCacheSim](@ref page_drcachesim) tool's
+[offline memory address traces](@ref sec_drcachesim_offline).
+
+# Thread Interleaving Granularity
+
+Each thread has a 32K buffer and when it fills up, or when a system call is about to be executed, the buffer is written out to a per-thread file with a header attached which has a timestamp and cpu identifier.  Thus the thread interleaving and cpu scheduling can be reconstructed with a granularity of these buffers.
+
+# Viewing binary trace files
+
+## Viewing raw, pre-processed files
+
+Each offline_entry_t struct is 8 bytes, so it's easy to view the records as 8-byte entries:
+
+```
+$ od -t x8 -A x drmemtrace.simple_app.09291.0000.dir/raw/drmemtrace.simple_app.09291.0000.raw  | tail
+06ed10 200080080007c170 00007fd5a8a49700
+06ed20 00007fd5a8a496a8 2000e0080007c187
+06ed30 00007ffdee8cd0f8 00007ffdee8cd100
+06ed40 00007ffdee8cd108 00007ffdee8cd110
+06ed50 00007ffdee8cd118 200060080003c15b
+06ed60 200040080003c164 00007ffdee8cd118
+06ed70 2000a008000c1180 00007fd5a8a47e68
+06ed80 20006008000c11b1 802e9f9036480c5d
+06ed90 c100000000000000
+06ed98
+```
+
+Cheat sheet:
+
+- c000000000000001 is a header (ver 1)
+- c100000000000000 is a footer
+- 8* is a timestamp
+- 6* is a pid
+- 4* is a tid
+- 2* are PC entries
+- a* is an arm iflush
+- c2* is a marker
+- c203* is a cpu id
+- c200* is kernel event; c201* is kernel xfer
+
+## Viewing post-processed files
+
+trace_entry_t is 12 bytes and is turned into memref_t by reader_t and its subclasses.
+To view the 12-byte entries I use `od` or `hexdump` to split into 6 2-byte entries and then combine the final 4 into an 8-byte little-endian field using `awk`:
+
+```
+$ zcat drmemtrace.tool.drcacheoff.burst_malloc.211917.2237.dir/trace/drmemtrace.tool.drcacheoff.burst_malloc.211917.8542.trace.gz | od -A x -t x2 -w12 | awk '{printf "%s | %s %s %s%s%s%s\n", $1, $2, $3, $7, $6, $5, $4}' | head
+000000 | 0019 0000 0000000000000001
+00000c | 0016 0004 0000000000033bcd
+000018 | 0018 0004 0000000000033bcd
+000024 | 001c 0002 002eff22e15562f3
+000030 | 001c 0003 0000000000000000
+00003c | 000a 0003 0000555ec5db2e40
+000048 | 0000 0004 00007ffed4b546ac
+```
+
+The printed columns are "offset | type size addr".
+Type cheat sheet (from trace_type_t enum):
+- 0x19 header
+- 0x16 thread
+- 0x18 pid
+- 0x1c marker: 2=timestamp; 3=cpuid
+- 0x0a instr (non-cti)
+- 0x0e direct call
+- 0x00 load
+- 0x01 store
+- 0x1d: non-fetched instr
+- 0x1a footer
+
+type_is_instr: 0xa-0x10 + 0x1e
+
+## Viewing instruction disassembly
+
+You can use the `view` analysis tool with `skip_refs` and `sim_refs` parameters to select a window, or for small traces you can re-post-process with `raw2trace` with high verbosity (`-verbose 4` is good).
+
+ ****************************************************************************
+ */

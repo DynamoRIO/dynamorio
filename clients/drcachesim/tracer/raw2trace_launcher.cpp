@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,6 +54,11 @@ static droption_t<std::string>
               "Specifies the path to the output directory where per-thread output files "
               "will be written.  If unspecified, -indir/trace/ is used.");
 
+static droption_t<std::string> op_alt_module_dir(
+    DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
+    "Specifies a directory to look for binaries needed to post-process "
+    "the trace.  This directory takes precedence over the recorded path.");
+
 static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", 0,
                                            "Verbosity level for diagnostic output",
                                            "Verbosity level for diagnostic output.");
@@ -93,8 +98,9 @@ _tmain(int argc, const TCHAR *targv[])
     std::string dir_err = dir.initialize(op_indir.get_value(), op_outdir.get_value());
     if (!dir_err.empty())
         FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
-    raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, NULL,
-                          op_verbose.get_value(), op_jobs.get_value());
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, NULL,
+                          op_verbose.get_value(), op_jobs.get_value(),
+                          op_alt_module_dir.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

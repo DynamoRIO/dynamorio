@@ -43,7 +43,7 @@
 #include "../globals.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrument.h"
 
 static const reg_id_t pushad_registers[] = { REG_EDI, REG_ESI, REG_EBP, REG_R8D,

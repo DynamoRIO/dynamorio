@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020-2021 Google, Inc. All rights reserved.
  * Copyright (c) 2018 Arm Limited. All rights reserved.
  * **********************************************************/
 
@@ -39,7 +40,7 @@
 #    define DR_FAST_IR 1
 #endif
 
-/* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
+/* Uses the DR API, using DR as a standalone library, rather than
  * being a client library working with DR on a target program.
  */
 
@@ -70,14 +71,17 @@ test_fmov_general(void *dc)
     instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_D10),
                                       opnd_create_reg(DR_REG_W9));
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_S10),
                                       opnd_create_reg(DR_REG_X9));
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_W10),
                                       opnd_create_reg(DR_REG_X9));
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 }
 
 static void
@@ -94,61 +98,74 @@ test_sve_int_bin_pred_log(void *dc)
         dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P7),
         opnd_create_reg(DR_REG_Z5), opnd_create_reg(DR_REG_Z13), OPND_CREATE_BYTE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_eor_sve_pred(
         dc, opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_P4),
         opnd_create_reg(DR_REG_Z9), opnd_create_reg(DR_REG_Z2), OPND_CREATE_DOUBLE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_and_sve_pred(
         dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P1),
         opnd_create_reg(DR_REG_Z1), opnd_create_reg(DR_REG_Z23), OPND_CREATE_SINGLE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_bic_sve_pred(
         dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P2),
         opnd_create_reg(DR_REG_Z3), opnd_create_reg(DR_REG_Z24), OPND_CREATE_HALF());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     /* Make sure predicate registers P8-P15 are not accepted. */
     instr = INSTR_CREATE_orr_sve_pred(
         dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P8),
         opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z13), OPND_CREATE_BYTE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_eor_sve_pred(
         dc, opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_P9),
         opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_Z2), OPND_CREATE_DOUBLE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_and_sve_pred(
         dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P10),
         opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_Z23), OPND_CREATE_SINGLE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_and_sve_pred(
         dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P11),
         opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_Z23), OPND_CREATE_SINGLE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_bic_sve_pred(
         dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P12),
         opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_HALF());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_and_sve_pred(
         dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P13),
         opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_Z23), OPND_CREATE_SINGLE());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_bic_sve_pred(
         dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P14),
         opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_HALF());
+    ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 
     instr = INSTR_CREATE_bic_sve_pred(
         dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P15),
         opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_HALF());
     ASSERT(!instr_is_encoding_possible(instr));
+    instr_destroy(dc, instr);
 }
 
 int
@@ -167,5 +184,8 @@ main(int argc, char *argv[])
     print("test_sve_int_bin_pred_log complete\n");
 
     print("All tests complete\n");
+#ifndef STANDALONE_DECODER
+    dr_standalone_exit();
+#endif
     return 0;
 }

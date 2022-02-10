@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,6 +98,7 @@ STATS_DEF("SetContextThread w/o CONTEXT_CONTROL", num_app_setcontext_no_control)
 STATS_DEF("Re-takeovers after native", num_retakeover_after_native)
 #else
 RSTATS_DEF("Total signals delivered", num_signals)
+RSTATS_DEF("Total signals delivered to native threads", num_native_signals)
 RSTATS_DEF("Signals dropped", num_signals_dropped)
 RSTATS_DEF("Signals in coarse units delayed", num_signals_coarse_delayed)
 #endif
@@ -245,6 +246,7 @@ STATS_DEF("Cache consistency flushes that flushed nothing", num_empty_flushes)
 STATS_DEF("Cache consistency flushes via synchall", flush_synchall)
 STATS_DEF("Thread not translated in synchall flush (race)", flush_synchall_races)
 STATS_DEF("Thread not synched with in synchall flush", flush_synchall_fail)
+RSTATS_DEF("Synch attempt failure b/c not at safe spot", synchs_not_at_safe_spot)
 STATS_DEF("Cache consistency coarse units flushed", flush_coarse_units)
 STATS_DEF("Cache consistency persisted units flushed", flush_persisted_units)
 STATS_DEF("Cache consistency persisted flushed at unload", flush_persisted_unload)
@@ -484,9 +486,7 @@ STATS_DEF("Fragments deleted after selfmod", num_fragments_deleted_selfmod)
 STATS_DEF("Fragments deleted for munmap or RO consistency",
           num_fragments_deleted_consistency)
 STATS_DEF("Fragments deleted for copy & replace", num_fragments_deleted_copy_and_replace)
-#ifdef CLIENT_INTERFACE
 STATS_DEF("Fragments deleted by client interface", num_fragments_deleted_client)
-#endif
 #ifdef SIDELINE
 STATS_DEF("Fragments deleted by sideline replacement", num_fragments_deleted_sideline)
 #endif
@@ -512,6 +512,8 @@ STATS_DEF("Dead shared IBT tables freed: at exit",
 STATS_DEF("Shared IBT tables freed: immediately", num_shared_ibt_tables_freed_immediately)
 STATS_DEF("Pvt ptrs to shared tables updated at-sys walks",
           num_shared_tables_updated_atsyscall)
+STATS_DEF("Pvt ptrs to shared tables updated at delete exits",
+          num_shared_tables_updated_delete)
 STATS_DEF("IBT unlinked entries NOT moved on resize", num_ibt_unlinked_entries_not_moved)
 STATS_DEF("BB fragments in 3 IBL tables", num_bbs_in_3_ibl_tables)
 STATS_DEF("BB fragments in 2 IBL tables", num_bbs_in_2_ibl_tables)
@@ -552,11 +554,9 @@ STATS_DEF("Trace fragments extended, ibl exits updated", num_traces_ibl_extended
 STATS_DEF("Trace fragments extended w/shared syscall block",
           num_traces_shared_syscall_extended)
 #endif
-#ifdef CUSTOM_TRACES
 STATS_DEF("Custom traces extended beyond normal stop", custom_traces_stop_late)
 STATS_DEF("Custom traces stopped early", custom_traces_stop_early)
 STATS_DEF("Shadowed bbs built for custom traces", custom_traces_bbs_built)
-#endif
 STATS_DEF("Recreated fragments, total", num_recreated_fragments)
 STATS_DEF("Recreated fragments, traces", num_recreated_traces)
 STATS_DEF("Recreations via app re-decode", recreate_via_app_ilist)
@@ -693,9 +693,7 @@ STATS_DEF("Fcache exits, going native", num_exits_native)
 #ifdef HOT_PATCHING_INTERFACE
 STATS_DEF("Fcache exits, hot patching control flow change", num_exits_hot_patch)
 #endif
-#ifdef CLIENT_INTERFACE
 STATS_DEF("Fcache exits, client redirecting", num_exits_client_redirect)
-#endif
 STATS_DEF("Fcache entrances aborted b/c target missing", num_entrances_aborted)
 STATS_DEF("Fcache exits, from traces", num_trace_exits)
 STATS_DEF("Fcache exits, from BBs", num_bb_exits)
@@ -905,10 +903,8 @@ STATS_DEF("Peak total reserved memory", peak_reserved_memory_capacity)
 STATS_DEF("Guard pages, reserved virtual pages", guard_pages)
 STATS_DEF("Peak guard pages, reserved virtual pages", peak_guard_pages)
 
-#ifdef CLIENT_INTERFACE
 RSTATS_DEF("Current client raw mmap size", client_raw_mmap_size)
 RSTATS_DEF("Peak client raw mmap size", peak_client_raw_mmap_size)
-#endif
 RSTATS_DEF("Current stack capacity (bytes)", stack_capacity)
 RSTATS_DEF("Peak stack capacity (bytes)", peak_stack_capacity)
 STATS_DEF("Mmaps sharing stack alloc region", mmap_share_stack_region)
@@ -973,16 +969,28 @@ STATS_DEF("Peak total unallocatable free space", peak_total_wasted_vsize)
 STATS_DEF("Number of unaligned allocations (TEB's etc.)", unaligned_allocations)
 STATS_DEF("Peak unaligned allocations", peak_unaligned_allocations)
 #endif
-RSTATS_DEF("Current vmm blocks for heap", vmm_blocks_heap)
-RSTATS_DEF("Peak vmm blocks for heap", peak_vmm_blocks_heap)
-RSTATS_DEF("Current vmm blocks for cache", vmm_blocks_cache)
-RSTATS_DEF("Peak vmm blocks for cache", peak_vmm_blocks_cache)
-RSTATS_DEF("Current vmm blocks for stack", vmm_blocks_stack)
-RSTATS_DEF("Peak vmm blocks for stack", peak_vmm_blocks_stack)
-RSTATS_DEF("Current vmm blocks for special heap", vmm_blocks_special_heap)
-RSTATS_DEF("Peak vmm blocks for special heap", peak_vmm_blocks_special_heap)
-RSTATS_DEF("Current vmm blocks for special mmap", vmm_blocks_special_mmap)
-RSTATS_DEF("Peak vmm blocks for special mmap", peak_vmm_blocks_special_mmap)
+RSTATS_DEF("Current vmm blocks for unreachable heap", vmm_blocks_unreach_heap)
+RSTATS_DEF("Peak vmm blocks for unreachable heap", peak_vmm_blocks_unreach_heap)
+RSTATS_DEF("Current vmm blocks for stack", vmm_blocks_unreach_stack)
+RSTATS_DEF("Peak vmm blocks for stack", peak_vmm_blocks_unreach_stack)
+RSTATS_DEF("Current vmm blocks for unreachable special heap",
+           vmm_blocks_unreach_special_heap)
+RSTATS_DEF("Peak vmm blocks for unreachable special heap",
+           peak_vmm_blocks_unreach_special_heap)
+RSTATS_DEF("Current vmm blocks for unreachable special mmap",
+           vmm_blocks_unreach_special_mmap)
+RSTATS_DEF("Peak vmm blocks for unreachable special mmap",
+           peak_vmm_blocks_unreach_special_mmap)
+RSTATS_DEF("Current vmm blocks for reachable heap", vmm_blocks_reach_heap)
+RSTATS_DEF("Peak vmm blocks for reachable heap", peak_vmm_blocks_reach_heap)
+RSTATS_DEF("Current vmm blocks for cache", vmm_blocks_reach_cache)
+RSTATS_DEF("Peak vmm blocks for cache", peak_vmm_blocks_reach_cache)
+RSTATS_DEF("Current vmm blocks for reachable special heap", vmm_blocks_reach_special_heap)
+RSTATS_DEF("Peak vmm blocks for reachable special heap",
+           peak_vmm_blocks_reach_special_heap)
+RSTATS_DEF("Current vmm blocks for reachable special mmap", vmm_blocks_reach_special_mmap)
+RSTATS_DEF("Peak vmm blocks for reachable special mmap",
+           peak_vmm_blocks_reach_special_mmap)
 STATS_DEF("Our virtual memory blocks in use", vmm_vsize_blocks_used)
 STATS_DEF("Peak our virtual memory blocks in use", peak_vmm_vsize_blocks_used)
 STATS_DEF("Wasted vmm space due to alignment", vmm_vsize_wasted)
@@ -1034,8 +1042,6 @@ STATS_DEF("-pad_jmps no shift stubs shared bb", pad_jmps_shared_bb_num_stubs_no_
 STATS_DEF("-pad_jmps inserted nops shared bb", pad_jmps_shared_bb_num_nops)
 STATS_DEF("-pad_jmps inserted nop bytes shared bb", pad_jmps_shared_bb_nop_bytes)
 STATS_DEF("-pad_jmps no pad exits shared bb", pad_jmps_shared_bb_num_no_pad_exits)
-STATS_DEF("-pad_jmps_mark_no_trace untraceable bbs", pad_jmps_mark_no_trace)
-STATS_DEF("-pad_jmps_mark_no_trace block trace on reemit", pad_jmps_block_trace_reemit)
 
 /* shtrace to avoid going over 60 columns */
 STATS_DEF("-pad_jmps body bytes shtrace", pad_jmps_shared_trace_body_bytes)
@@ -1228,7 +1234,9 @@ STATS_DEF("Clean Call analyzed", cleancall_analyzed)
 STATS_DEF("Clean Call inserted", cleancall_inserted)
 STATS_DEF("Clean Call inlined", cleancall_inlined)
 STATS_DEF("Clean Call [xyz]mm skipped", cleancall_simd_skipped)
+#ifdef X86
 STATS_DEF("Clean Call mask skipped", cleancall_opmask_skipped)
+#endif
 STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
 STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
 /* i#107 handle application using same segment register */
@@ -1242,4 +1250,8 @@ STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
 RSTATS_DEF("Rseq regions identified", num_rseq_regions)
 RSTATS_DEF("Rseq instrumented stores elided", num_rseq_stores_elided)
 RSTATS_DEF("Rseq native calls inserted", num_rseq_native_calls_inserted)
+#endif
+#ifdef AARCHXX
+RSTATS_DEF("Load-exclusive instrs converted to CAS", num_ldex2cas)
+RSTATS_DEF("Store-exclusive instrs converted to CAS", num_stex2cas)
 #endif

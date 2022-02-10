@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -38,7 +38,7 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#define MODULE_FILE_VERSION 4
+#define MODULE_FILE_VERSION 5
 
 #define NUM_GLOBAL_MODULE_CACHE 8
 #define NUM_THREAD_MODULE_CACHE 4
@@ -55,10 +55,9 @@ typedef struct _module_entry_t {
      */
     module_data_t *data;
     void *custom;
-#ifndef WINDOWS
     /* The file offset of the segment */
     uint64 offset;
-#endif
+    app_pc preferred_base;
 } module_entry_t;
 
 typedef struct _module_table_t {
@@ -80,7 +79,7 @@ static int tls_idx = -1;
 static module_table_t module_table;
 
 /* Custom per-module field support. */
-static void *(*module_load_cb)(module_data_t *module);
+static void *(*module_load_cb)(module_data_t *module, int seg_idx);
 static int (*module_print_cb)(void *data, char *dst, size_t max_len);
 static const char *(*module_parse_cb)(const char *src, OUT void **data);
 static void (*module_free_cb)(void *data);
@@ -117,11 +116,10 @@ static void
 module_table_entry_free(void *tofree)
 {
     module_entry_t *entry = (module_entry_t *)tofree;
-    if (entry->id == entry->containing_id) {
-        if (module_free_cb != NULL)
-            module_free_cb(((module_entry_t *)entry)->custom);
+    if (module_free_cb != NULL)
+        module_free_cb(((module_entry_t *)entry)->custom);
+    if (entry->id == entry->containing_id) /* Else a sub-entry which shares data. */
         dr_free_module_data(((module_entry_t *)entry)->data);
-    } /* else a sub-entry which shares custom and data */
     dr_global_free(entry, sizeof(module_entry_t));
 }
 
@@ -190,9 +188,12 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         entry->unload = false;
         entry->data = dr_copy_module_data(data);
         if (module_load_cb != NULL)
-            entry->custom = module_load_cb(entry->data);
+            entry->custom = module_load_cb(entry->data, 0);
         drvector_append(&module_table.vector, entry);
-#ifndef WINDOWS
+        entry->preferred_base = data->preferred_base;
+#ifdef WINDOWS
+        entry->offset = 0;
+#else
         entry->offset = data->segments[0].offset;
         uint j;
         module_entry_t *sub_entry;
@@ -208,10 +209,12 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             sub_entry->start = data->segments[j].start;
             sub_entry->end = data->segments[j].end;
             sub_entry->unload = false;
-            /* These fields are shared. */
-            sub_entry->data = entry->data;
-            sub_entry->custom = entry->custom;
+            sub_entry->data = entry->data; /* Shared among all segments. */
+            if (module_load_cb != NULL)
+                sub_entry->custom = module_load_cb(sub_entry->data, j);
             sub_entry->offset = data->segments[j].offset;
+            sub_entry->preferred_base =
+                (sub_entry->start - entry->start) + entry->preferred_base;
             drvector_append(&module_table.vector, sub_entry);
             global_module_cache_add(module_table.cache, sub_entry);
         }
@@ -232,16 +235,20 @@ pc_is_in_module(module_entry_t *entry, app_pc pc)
 }
 
 static inline void
-lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *mod_base)
+lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *seg_base,
+                         OUT app_pc *mod_base)
 {
     if (mod_index != NULL)
         *mod_index = entry->id; /* We expose the segment. */
+    if (seg_base != NULL)
+        *seg_base = entry->start;
     if (mod_base != NULL)
         *mod_base = entry->data->start; /* Yes, absolute base, not segment base. */
 }
 
-drcovlib_status_t
-drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base)
+static drcovlib_status_t
+drmodtrack_lookup_helper(void *drcontext, app_pc pc, OUT uint *mod_index,
+                         OUT app_pc *seg_base, OUT app_pc *mod_base)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     module_entry_t *entry;
@@ -257,7 +264,7 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
                 thread_module_cache_adjust(data->cache, entry, i,
                                            NUM_THREAD_MODULE_CACHE);
             }
-            lookup_helper_set_fields(entry, mod_index, mod_base);
+            lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
             return DRCOVLIB_SUCCESS;
         }
     }
@@ -266,7 +273,7 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
     for (i = 0; i < NUM_GLOBAL_MODULE_CACHE; i++) {
         entry = module_table.cache[i];
         if (pc_is_in_module(entry, pc)) {
-            lookup_helper_set_fields(entry, mod_index, mod_base);
+            lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
             return DRCOVLIB_SUCCESS;
         }
     }
@@ -284,9 +291,22 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
         entry = NULL;
     }
     if (entry != NULL)
-        lookup_helper_set_fields(entry, mod_index, mod_base);
+        lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
     drvector_unlock(&module_table.vector);
     return entry == NULL ? DRCOVLIB_ERROR_NOT_FOUND : DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base)
+{
+    return drmodtrack_lookup_helper(drcontext, pc, mod_index, NULL, mod_base);
+}
+
+drcovlib_status_t
+drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
+                          OUT app_pc *segment_base)
+{
+    return drmodtrack_lookup_helper(drcontext, pc, segment_index, segment_base, NULL);
 }
 
 static void
@@ -393,6 +413,7 @@ typedef struct _module_read_entry_t {
     char path_buf[MAXIMUM_PATH];
     void *custom;
     uint64 offset;
+    app_pc preferred_base;
 } module_read_entry_t;
 
 typedef struct _module_read_info_t {
@@ -408,9 +429,10 @@ module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t 
 {
     int len, total_len = 0;
     len = dr_snprintf(buf, size,
-                      "%3u, %3u, " PFX ", " PFX ", " PFX ", " ZHEX64_FORMAT_STRING ", ",
+                      "%3u, %3u, " PFX ", " PFX ", " PFX ", " ZHEX64_FORMAT_STRING
+                      ", " PFX ", ",
                       idx, entry->containing_id, entry->base, entry->base + entry->size,
-                      entry->entry, entry->offset);
+                      entry->entry, entry->offset, entry->preferred_base);
     if (len == -1)
         return -1;
     buf += len;
@@ -460,10 +482,11 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
 #endif
     read_entry.path = full_path;
     read_entry.custom = entry->custom;
-#ifndef WINDOWS
-    // For unices we record the physical offset from the backing file.
+    /* For unices we record the physical offset from the backing file
+     *(always 0 on Windows).
+     */
     read_entry.offset = entry->offset;
-#endif
+    read_entry.preferred_base = entry->preferred_base;
     return module_read_entry_print(&read_entry, entry->id, buf, size);
 }
 
@@ -482,7 +505,9 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
     buf += len;
     size -= len;
 
-    len = dr_snprintf(buf, size, "Columns: id, containing_id, start, end, entry, offset");
+    len = dr_snprintf(
+        buf, size,
+        "Columns: id, containing_id, start, end, entry, offset, preferred_base");
     if (len == -1)
         return DRCOVLIB_ERROR_BUF_TOO_SMALL;
     buf += len;
@@ -653,7 +678,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                 mod_id != i)
                 goto read_error;
         } else {
-            app_pc end;
+            app_pc end = NULL;
             if (version == 2) {
                 if (dr_sscanf(buf, "%u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
                               &info->mod[i].base, &end, &info->mod[i].entry) != 4 ||
@@ -661,25 +686,35 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                     goto read_error;
                 info->mod[i].containing_id = mod_id;
                 buf = skip_commas_and_spaces(buf, 4);
-            } else if (version == 3) {
+                if (buf == NULL)
+                    goto read_error;
+            } else if (version >= 3) {
+                info->mod[i].offset = (uint64)-1;
+                info->mod[i].preferred_base = (app_pc)-1L;
                 if (dr_sscanf(buf, "%u, %u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
                               &info->mod[i].containing_id, &info->mod[i].base, &end,
                               &info->mod[i].entry) != 5 ||
                     mod_id != i)
                     goto read_error;
                 buf = skip_commas_and_spaces(buf, 5);
-            } else { // version == 4
-                if (dr_sscanf(buf,
-                              "%u, %u, " PIFX ", " PIFX ", " PIFX ", " HEX64_FORMAT_STRING
-                              ", ",
-                              &mod_id, &info->mod[i].containing_id, &info->mod[i].base,
-                              &end, &info->mod[i].entry, &info->mod[i].offset) != 6 ||
-                    mod_id != i)
+                if (buf == NULL)
                     goto read_error;
-                buf = skip_commas_and_spaces(buf, 6);
+                if (version >= 4) {
+                    if (dr_sscanf(buf, HEX64_FORMAT_STRING ", ", &info->mod[i].offset) !=
+                        1)
+                        goto read_error;
+                    buf = skip_commas_and_spaces(buf, 1);
+                    if (buf == NULL)
+                        goto read_error;
+                }
+                if (version >= 5) {
+                    if (dr_sscanf(buf, PIFX ", ", &info->mod[i].preferred_base) != 1)
+                        goto read_error;
+                    buf = skip_commas_and_spaces(buf, 1);
+                    if (buf == NULL)
+                        goto read_error;
+                }
             }
-            if (buf == NULL)
-                goto read_error;
             info->mod[i].size = end - info->mod[i].base;
 #ifdef WINDOWS
             if (dr_sscanf(buf, "0x%x, 0x%x, ", &info->mod[i].checksum,
@@ -741,6 +776,8 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
         out->index = index;
     if (out->struct_size > offsetof(drmodtrack_info_t, offset))
         out->offset = info->mod[index].offset;
+    if (out->struct_size > offsetof(drmodtrack_info_t, preferred_base))
+        out->preferred_base = info->mod[index].preferred_base;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -792,7 +829,7 @@ drmodtrack_offline_exit(void *handle)
 }
 
 drcovlib_status_t
-drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module),
+drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
                            const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data))

@@ -77,10 +77,45 @@ test_LSB(void)
     ASSERT(dr_get_isa_mode(GD) == DR_ISA_ARM_A32);
 }
 
+/* XXX: It would be nice to share some of this code w/ the other
+ * platforms but we'd need cross-platform register references or keep
+ * the encoded instr around and compare operands or sthg.
+ */
+static void
+test_noalloc(void)
+{
+    byte buf[128];
+    byte *pc, *end;
+
+    instr_t *to_encode = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_R0),
+                                           OPND_CREATE_MEMPTR(DR_REG_R0, 0));
+    end = instr_encode(GD, to_encode, buf);
+    ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
+    instr_destroy(GD, to_encode);
+
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(GD, &noalloc);
+    instr_t *instr = instr_from_noalloc(&noalloc);
+    pc = decode(GD, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_R0);
+
+    instr_reset(GD, instr);
+    pc = decode(GD, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_R0);
+
+    /* There should be no leak reported even w/o a reset b/c there's no
+     * extra heap.
+     */
+}
+
 int
 main()
 {
     test_LSB();
+
+    test_noalloc();
 
     printf("done\n");
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,6 +39,8 @@
 
 #ifndef OS_SHARED_H
 #define OS_SHARED_H
+
+#include "os_api.h"
 
 enum { VM_ALLOCATION_BOUNDARY = 64 * 1024 }; /* 64KB allocation size for Windows */
 
@@ -255,44 +257,12 @@ get_segment_base(uint seg);
 byte *
 get_app_segment_base(uint seg);
 
-#ifdef CLIENT_INTERFACE
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
 os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment);
 
 bool
 os_tls_cfree(uint offset, uint num_slots);
-#endif
-
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * STATE SWAPPING TYPES
- */
-
-/**
- * Flags that control the behavior of dr_switch_to_app_state_ex()
- * and dr_switch_to_dr_state_ex().
- */
-typedef enum {
-#ifdef WINDOWS
-    DR_STATE_PEB = 0x0001,          /**< Switch the PEB pointer. */
-    DR_STATE_TEB_MISC = 0x0002,     /**< Switch miscellaneous TEB fields. */
-    DR_STATE_STACK_BOUNDS = 0x0004, /**< Switch the TEB stack bounds fields. */
-    DR_STATE_ALL = ~0,              /**< Switch all state. */
-#else
-    /**
-     * On Linux, DR's own TLS can optionally be swapped, but this is risky
-     * and not recommended as incoming signals are not properly handled when in
-     * such a state.  Thus DR_STATE_ALL does *not* swap it.
-     */
-    DR_STATE_DR_TLS = 0x0001,
-    DR_STATE_ALL = (~0) & (~DR_STATE_DR_TLS), /**< Switch all normal state. */
-    DR_STATE_GO_NATIVE = ~0,                  /**< Switch all state.  Use with care. */
-#endif
-} dr_state_flags_t;
-
-/* DR_API EXPORT END */
 
 bool
 os_should_swap_state(void);
@@ -314,6 +284,11 @@ char *
 get_application_pid(void);
 char *
 get_application_name(void);
+
+int
+num_app_args();
+int
+get_app_args(OUT dr_app_arg_t *args_array, int args_count);
 const char *
 get_application_short_name(void);
 char *
@@ -371,9 +346,7 @@ enum {
     DUMPCORE_DEADLOCK = 0x0004,
     DUMPCORE_ASSERTION = 0x0008,
     DUMPCORE_FATAL_USAGE_ERROR = 0x0010,
-#ifdef CLIENT_INTERFACE
     DUMPCORE_CLIENT_EXCEPTION = 0x0020,
-#endif
     DUMPCORE_TIMEOUT = 0x0040,
     DUMPCORE_CURIOSITY = 0x0080,
 #ifdef HOT_PATCHING_INTERFACE /* Part of fix for 5357 & 5988. */
@@ -390,9 +363,7 @@ enum {
     DUMPCORE_HOTP_DETECTION = 0x2000,  /* not on by default in DEBUG */
     DUMPCORE_HOTP_PROTECTION = 0x4000, /* not on by default in DEBUG */
 #endif
-#ifdef CLIENT_INTERFACE
     DUMPCORE_DR_ABORT = 0x8000,
-#endif
     /* all exception cases here are off by default since we expect them to
      * usually be the app's fault (or normal behavior for the app) */
     DUMPCORE_FORGE_ILLEGAL_INST = 0x10000,
@@ -410,15 +381,9 @@ enum {
 #ifdef UNIX
     DUMPCORE_OPTION_PAUSE = DUMPCORE_WAIT_FOR_DEBUGGER | DUMPCORE_INTERNAL_EXCEPTION |
         DUMPCORE_SECURITY_VIOLATION | DUMPCORE_DEADLOCK | DUMPCORE_ASSERTION |
-        DUMPCORE_FATAL_USAGE_ERROR |
-#    ifdef CLIENT_INTERFACE
-        DUMPCORE_CLIENT_EXCEPTION |
-#    endif
+        DUMPCORE_FATAL_USAGE_ERROR | DUMPCORE_CLIENT_EXCEPTION |
         DUMPCORE_UNSUPPORTED_APP | DUMPCORE_TIMEOUT | DUMPCORE_CURIOSITY |
-#    ifdef CLIENT_INTERFACE
-        DUMPCORE_DR_ABORT |
-#    endif
-        DUMPCORE_OUT_OF_MEM | DUMPCORE_OUT_OF_MEM_SILENT,
+        DUMPCORE_DR_ABORT | DUMPCORE_OUT_OF_MEM | DUMPCORE_OUT_OF_MEM_SILENT,
 #endif
 };
 void
@@ -431,31 +396,6 @@ void
 os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
           va_list args);
 
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * CLIENT AUXILIARY LIBRARY TYPES
- */
-
-#if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
-/**
- * A handle to a loaded client auxiliary library.  This is a different
- * type than module_handle_t and is not necessarily the base address.
- */
-typedef void *dr_auxlib_handle_t;
-/** An exported routine in a loaded client auxiliary library. */
-typedef void (*dr_auxlib_routine_ptr_t)();
-#    if defined(WINDOWS) && !defined(X64)
-/**
- * A handle to a loaded 64-bit client auxiliary library.  This is a different
- * type than module_handle_t and is not necessarily the base address.
- */
-typedef uint64 dr_auxlib64_handle_t;
-/** An exported routine in a loaded 64-bit client auxiliary library. */
-typedef uint64 dr_auxlib64_routine_ptr_t;
-#    endif
-/* DR_API EXPORT END */
-
 /* Note that this is NOT identical to module_handle_t: on Linux this
  * is a pointer to a loader data structure and NOT the base address
  * (xref PR 366195).
@@ -466,13 +406,7 @@ typedef void (*shlib_routine_ptr_t)();
 
 shlib_handle_t
 load_shared_library(const char *name, bool reachable);
-#elif defined(WINDOWS) && !defined(X64)
-/* Used for non-CLIENT_INTERFACE as well */
-typedef uint64 dr_auxlib64_handle_t;
-typedef uint64 dr_auxlib64_routine_ptr_t;
-#endif
 
-#if defined(CLIENT_INTERFACE)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name);
 void
@@ -485,92 +419,8 @@ shared_library_error(char *buf, int maxlen);
 bool
 shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
                       OUT byte **start, OUT byte **end);
-#endif
 char *
 get_dynamorio_library_path(void);
-
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * MEMORY INFORMATION TYPES
- */
-
-#define DR_MEMPROT_NONE 0x00  /**< No read, write, or execute privileges. */
-#define DR_MEMPROT_READ 0x01  /**< Read privileges. */
-#define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
-#define DR_MEMPROT_EXEC 0x04  /**< Execute privileges. */
-#define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
-/**
- * DR's default cache consistency strategy modifies the page protection of
- * pages containing code, making them read-only.  It pretends on application
- * and client queries that the page is writable.  On a write fault
- * to such a region by the application or by client-added instrumentation, DR
- * automatically handles the fault and makes the page writable.  This requires
- * flushing the code from the code cache, which can only be done safely when in
- * an application context.  Thus, a client writing to such a page is only
- * supported when these criteria are met:
- *
- * -# The client code must be in an application code cache context.  This rules
- *    out all event callbacks (including the basic block event) except for the
- *    pre and post system call events and the nudge event.
- * -# The client must not hold any locks.  An exception is a lock marked as
- *    an application lock (via dr_mutex_mark_as_app(), dr_rwlock_mark_as_app(),
- *    or dr_recurlock_mark_as_app()).
- * -# The client code must not rely on returning to a particular point in the
- *    code cache, as that point might be flushed and removed during the write
- *    fault processing.  This rules out a clean call (unless
- *    dr_redirect_execution() is used), but does allow something like
- *    drwrap_replace_native() which uses a continuation strategy.
- *
- * A client write fault that does not meet the first two criteria will result in
- * a fatal error report and an abort.  It is up to the client to ensure it
- * satisifies the third criterion.
- *
- * Even when client writes do meet these criteria, for performance it's best for
- * clients to avoid writing to such memory.
- */
-#define DR_MEMPROT_PRETEND_WRITE 0x10
-/**
- * In addition to the appropriate DR_MEMPROT_READ and/or DR_MEMPROT_EXEC flags,
- * this flag will be set for the VDSO and VVAR pages on Linux.
- * The VVAR pages may only be identified by DR on kernels that explicitly label
- * the pages in the /proc/self/maps file (kernel 3.15 and above).
- * In some cases, accessing the VVAR pages can cause problems
- * (e.g., https://github.com/DynamoRIO/drmemory/issues/1778).
- */
-#define DR_MEMPROT_VDSO 0x20
-
-/**
- * Flags describing memory used by dr_query_memory_ex().
- */
-typedef enum {
-    DR_MEMTYPE_FREE,     /**< No memory is allocated here */
-    DR_MEMTYPE_IMAGE,    /**< An executable file is mapped here */
-    DR_MEMTYPE_DATA,     /**< Some other data is allocated here */
-    DR_MEMTYPE_RESERVED, /**< Reserved address space with no physical storage */
-    DR_MEMTYPE_ERROR,    /**< Query failed for unspecified reason */
-    /**
-     * Query failed due to the address being located in Windows kernel space.
-     * No further information is available so iteration must stop.
-     */
-    DR_MEMTYPE_ERROR_WINKERNEL,
-} dr_mem_type_t;
-
-/**
- * Describes a memory region.  Used by dr_query_memory_ex().
- */
-typedef struct _dr_mem_info_t {
-    /** Starting address of memory region */
-    byte *base_pc;
-    /** Size of region */
-    size_t size;
-    /** Protection of region (DR_MEMPROT_* flags) */
-    uint prot;
-    /** Type of region */
-    dr_mem_type_t type;
-} dr_mem_info_t;
-
-/* DR_API EXPORT END */
 
 #define MEMPROT_NONE DR_MEMPROT_NONE
 #define MEMPROT_READ DR_MEMPROT_READ
@@ -597,6 +447,7 @@ typedef struct _dr_mem_info_t {
  * It uses a function call so be careful where performance is critical.
  */
 #define PAGE_START(x) (((ptr_uint_t)(x)) & ~(os_page_size() - 1))
+#define PAGE_START64(x) (((uint64)(x)) & ~((uint64)os_page_size() - 1))
 
 size_t
 os_page_size(void);
@@ -1075,7 +926,7 @@ ksynch_var_initialized(KSYNCH_TYPE *var);
  * \p mc must be valid (e.g. PC, control, integer, MMX fields).
  */
 void
-mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc));
+mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc);
 void
 mutex_notify_released_lock(mutex_t *lock);
 void
@@ -1212,16 +1063,14 @@ intercept_function_t(app_state_at_intercept_t *args);
 
 /* opcodes and encoding constants that we sometimes directly use */
 #ifdef X86
-/* FIXME: if we add more opcodes maybe should be exported by arch/ */
+/* XXX: if we add more opcodes maybe should be exported by ir/ */
 enum {
     JMP_REL32_OPCODE = 0xe9,
     JMP_REL32_SIZE = 5, /* size in bytes of 32-bit rel jmp */
     CALL_REL32_OPCODE = 0xe8,
-#    ifdef X64
     JMP_ABS_IND64_OPCODE = 0xff,
     JMP_ABS_IND64_SIZE = 6, /* size in bytes of a 64-bit abs ind jmp */
     JMP_ABS_MEM_IND64_MODRM = 0x25,
-#    endif
 };
 #elif defined(AARCHXX)
 enum {
@@ -1276,7 +1125,12 @@ enum {
      * on some app libraries being initialized
      */
     INJECT_LOCATION_ImageEntry = 7,
-    INJECT_LOCATION_MAX = INJECT_LOCATION_ImageEntry,
+    /* Similar in lateness to ImageEntry, but is more robust in that it does not
+     * rely on reaching the image entry, which not all apps do (e.g., .NET).
+     * This is equivalent to RtlUserThreadStart.
+     */
+    INJECT_LOCATION_ThreadStart = 8,
+    INJECT_LOCATION_MAX = INJECT_LOCATION_ThreadStart,
 };
 #endif
 
@@ -1339,13 +1193,17 @@ unload_private_library(app_pc modbase);
 app_pc
 locate_and_load_private_library(const char *name, bool reachable);
 void
-loader_init(void);
+loader_init_prologue(void);
+void
+loader_init_epilogue(dcontext_t *dcontext);
 void
 loader_exit(void);
 void
 loader_thread_init(dcontext_t *dcontext);
 void
 loader_thread_exit(dcontext_t *dcontext);
+void
+loader_make_exit_calls(dcontext_t *dcontext);
 bool
 in_private_library(app_pc pc);
 void

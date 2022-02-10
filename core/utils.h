@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -141,14 +141,10 @@ ignore_assert(const char *assert_file_line, const char *expr);
 void
 external_error(const char *file, int line, const char *msg);
 
-#ifdef CLIENT_INTERFACE
-#    ifdef DEBUG
-#        define CLIENT_ASSERT(x, msg) apicheck(x, msg)
-#    else
-#        define CLIENT_ASSERT(x, msg) /* PR 215261: nothing in release builds */
-#    endif
+#ifdef DEBUG
+#    define CLIENT_ASSERT(x, msg) apicheck(x, msg)
 #else
-#    define CLIENT_ASSERT(x, msg) ASSERT_MESSAGE(CHKLVL_ASSERTS, msg, x)
+#    define CLIENT_ASSERT(x, msg) /* PR 215261: nothing in release builds */
 #endif
 
 #ifdef DR_APP_EXPORTS
@@ -300,10 +296,8 @@ typedef struct _mutex_t {
 #        define MAX_MUTEX_CALLSTACK 4
     byte *callstack[MAX_MUTEX_CALLSTACK];
     /* keep as last item so not initialized in INIT_LOCK_NO_TYPE */
-#        ifdef CLIENT_INTERFACE
     /* i#779: support DR locks used as app locks */
     bool app_lock;
-#        endif
 #    else
 #        define MAX_MUTEX_CALLSTACK 0 /* cannot use */
 #    endif                            /* MUTEX_CALLSTACK */
@@ -385,9 +379,7 @@ enum {
 
     LOCK_RANK(protect_info), /* < cache and heap traversal locks */
 
-#    if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
     LOCK_RANK(sideline_mutex),
-#    endif
 
     LOCK_RANK(shared_cache_flush_lock), /* < shared_cache_count_lock,
                                            < shared_delete_lock,
@@ -405,9 +397,7 @@ enum {
     LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(shared_cache_count_lock),
 
-#    if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
     LOCK_RANK(fragment_delete_mutex), /* > shared_vm_areas */
-#    endif
 
     LOCK_RANK(tracedump_mutex), /* > fragment_delete_mutex, > shared_vm_areas */
 
@@ -486,7 +476,6 @@ enum {
     LOCK_RANK(patch_proof_areas),      /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(emulate_write_areas),    /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(IAT_areas),              /* < dynamo_areas < global_alloc_lock */
-#    ifdef CLIENT_INTERFACE
     /* PR 198871: this same label is used for all client locks */
     LOCK_RANK(dr_client_mutex),            /* > module_data_lock */
     LOCK_RANK(client_thread_count_lock),   /* > dr_client_mutex */
@@ -495,9 +484,8 @@ enum {
                                               global_alloc_lock */
     LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
     LOCK_RANK(client_tls_lock),            /* > dr_client_mutex */
-#    endif
-    LOCK_RANK(intercept_hook_lock), /* < table_rwlock */
-    LOCK_RANK(privload_lock),       /* < modlist_areas, < table_rwlock */
+    LOCK_RANK(intercept_hook_lock),        /* < table_rwlock */
+    LOCK_RANK(privload_lock),              /* < modlist_areas, < table_rwlock */
 #    ifdef LINUX
     LOCK_RANK(sigfdtable_lock), /* < table_rwlock */
 #    endif
@@ -534,14 +522,15 @@ enum {
 #    ifdef WINDOWS
     LOCK_RANK(drwinapi_localheap_lock), /* < global_alloc_lock */
 #    endif
-#    ifdef CLIENT_INTERFACE
     LOCK_RANK(client_aux_libs),
-#        ifdef WINDOWS
+#    ifdef WINDOWS
     LOCK_RANK(client_aux_lib64_lock),
-#        endif
 #    endif
 #    ifdef WINDOWS
     LOCK_RANK(alt_tls_lock),
+#    endif
+#    ifdef UNIX
+    LOCK_RANK(detached_sigact_lock),
 #    endif
     /* ADD HERE a lock around section that may allocate memory */
 
@@ -723,30 +712,30 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
             0, INVALID_THREAD_ID, 0, KSYNCH_TYPE_STATIC_INIT, KSYNCH_TYPE_STATIC_INIT \
     }
 
-#define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock)                                \
-    do {                                                                          \
-        read_write_lock_t initializer_##lock = STRUCTURE_TYPE(read_write_lock_t){ \
-            INIT_LOCK_NO_TYPE(#lock "(readwrite)"                                 \
-                                    "@" __FILE__ ":" STRINGIFY(__LINE__),         \
-                              LOCK_RANK(lock)),                                   \
-            0,                                                                    \
-            INVALID_THREAD_ID,                                                    \
-            0,                                                                    \
-            KSYNCH_TYPE_STATIC_INIT,                                              \
-            KSYNCH_TYPE_STATIC_INIT                                               \
-        };                                                                        \
-        var = initializer_##lock;                                                 \
+#define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock)                                 \
+    do {                                                                           \
+        read_write_lock_t initializer_##lock = STRUCTURE_TYPE(read_write_lock_t) { \
+            INIT_LOCK_NO_TYPE(#lock "(readwrite)"                                  \
+                                    "@" __FILE__ ":" STRINGIFY(__LINE__),          \
+                              LOCK_RANK(lock)),                                    \
+            0,                                                                     \
+            INVALID_THREAD_ID,                                                     \
+            0,                                                                     \
+            KSYNCH_TYPE_STATIC_INIT,                                               \
+            KSYNCH_TYPE_STATIC_INIT                                                \
+        };                                                                         \
+        var = initializer_##lock;                                                  \
     } while (0)
 
-#define ASSIGN_INIT_RECURSIVE_LOCK_FREE(var, lock)                              \
-    do {                                                                        \
-        recursive_lock_t initializer_##lock = STRUCTURE_TYPE(recursive_lock_t){ \
-            INIT_LOCK_NO_TYPE(#lock "(recursive)"                               \
-                                    "@" __FILE__ ":" STRINGIFY(__LINE__),       \
-                              LOCK_RANK(lock)),                                 \
-            INVALID_THREAD_ID, 0                                                \
-        };                                                                      \
-        var = initializer_##lock;                                               \
+#define ASSIGN_INIT_RECURSIVE_LOCK_FREE(var, lock)                               \
+    do {                                                                         \
+        recursive_lock_t initializer_##lock = STRUCTURE_TYPE(recursive_lock_t) { \
+            INIT_LOCK_NO_TYPE(#lock "(recursive)"                                \
+                                    "@" __FILE__ ":" STRINGIFY(__LINE__),        \
+                              LOCK_RANK(lock)),                                  \
+            INVALID_THREAD_ID, 0                                                 \
+        };                                                                       \
+        var = initializer_##lock;                                                \
     } while (0)
 
 #define INIT_SPINLOCK_FREE(lock) \
@@ -775,7 +764,6 @@ d_r_mutex_unlock(mutex_t *mutex);
 void
 d_r_mutex_fork_reset(mutex_t *mutex);
 #endif
-#ifdef CLIENT_INTERFACE
 void
 d_r_mutex_mark_as_app(mutex_t *lock);
 /* Use this version of 'lock' when obtaining a lock in an app context. In the
@@ -785,7 +773,6 @@ d_r_mutex_mark_as_app(mutex_t *lock);
  */
 void
 d_r_mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
-#endif
 
 /* spinmutex synchronization */
 bool
@@ -830,7 +817,6 @@ void
 release_recursive_lock(recursive_lock_t *lock);
 bool
 self_owns_recursive_lock(recursive_lock_t *lock);
-#ifdef CLIENT_INTERFACE
 /* Use this version of 'lock' when obtaining a lock in an app context. In the
  * case that there is contention on this lock, this thread will be marked safe
  * to be relocated and even detached. The current thread's mcontext may be
@@ -838,7 +824,6 @@ self_owns_recursive_lock(recursive_lock_t *lock);
  */
 void
 acquire_recursive_app_lock(recursive_lock_t *mutex, priv_mcontext_t *mc);
-#endif
 
 /* A read write lock allows multiple readers or alternatively a single writer */
 void
@@ -1181,16 +1166,16 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 /* We define MAX_LOG_LENGTH_MINUS_ONE for splitting long buffers.
  * It must be a raw numeric constant as we STRINGIFY it.
  */
-#if defined(PARAMS_IN_REGISTRY) || !defined(CLIENT_INTERFACE)
+#ifdef PARAMS_IN_REGISTRY
 #    define MAX_LOG_LENGTH IF_X64_ELSE(1280, 768)
 #    define MAX_LOG_LENGTH_MINUS_ONE IF_X64_ELSE(1279, 767)
 #else
 /* need more space for printing out longer option strings */
-/* CLIENT_INTERFACE build has larger stack and 2048 option length so go bigger
- * so clients don't have dr_printf truncated as often
+/* For client we have a larger stack and 2048 option length so go bigger
+ * so clients don't have dr_printf truncated as often.
  */
-#    define MAX_LOG_LENGTH IF_CLIENT_INTERFACE_ELSE(2048, 1384)
-#    define MAX_LOG_LENGTH_MINUS_ONE IF_CLIENT_INTERFACE_ELSE(2047, 1383)
+#    define MAX_LOG_LENGTH 2048
+#    define MAX_LOG_LENGTH_MINUS_ONE 2047
 #endif
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
@@ -1223,7 +1208,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #    endif /* INTERNAL */
 #    define THREAD          \
         ((dcontext == NULL) \
-             ? INVALID_FILE \
+             ? main_logfile \
              : ((dcontext == GLOBAL_DCONTEXT) ? main_logfile : dcontext->logfile))
 #    define THREAD_GET get_thread_private_logfile()
 #    define GLOBAL main_logfile
@@ -1405,6 +1390,7 @@ extern mutex_t do_threshold_mutex;
         if ((dc__local == NULL || dc__local == GLOBAL_DCONTEXT) &&              \
             !dynamo_initialized) {                                              \
             try__except = &global_try_except;                                   \
+            IF_UNIX(global_try_tid = get_sys_thread_id());                      \
         } else {                                                                \
             if (dc__local == GLOBAL_DCONTEXT)                                   \
                 dc__local = get_thread_private_dcontext();                      \
@@ -1413,6 +1399,7 @@ extern mutex_t do_threshold_mutex;
         }                                                                       \
         ASSERT(try__except != NULL);                                            \
         TRY(try__except, try_statement, EXCEPT(try__except, except_statement)); \
+        IF_UNIX(global_try_tid = INVALID_THREAD_ID);                            \
     } while (0)
 
 /* these use do..while w/ a local to avoid double-eval of dcontext */
@@ -1431,29 +1418,33 @@ extern mutex_t do_threshold_mutex;
     } while (0)
 
 /* internal versions */
-#define TRY(try_pointer, try_statement, except_or_finally)                     \
-    do {                                                                       \
-        try_except_context_t try__state;                                       \
-        /* must be current thread -> where we'll fault */                      \
-        /* We allow NULL solely to avoid duplicating try_statement in          \
-         * TRY_EXCEPT_ALLOW_NO_DCONTEXT.                                       \
-         */                                                                    \
-        ASSERT((try_pointer) == &global_try_except || (try_pointer) == NULL || \
-               (try_pointer) == &get_thread_private_dcontext()->try_except);   \
-        if ((try_pointer) != NULL) {                                           \
-            try__state.prev_context = (try_pointer)->try_except_state;         \
-            (try_pointer)->try_except_state = &try__state;                     \
-        }                                                                      \
-        if ((try_pointer) == NULL || DR_SETJMP(&try__state.context) == 0) {    \
-            try_statement /* TRY block */ /* make sure there is no return in   \
-                                             try_statement */                  \
-                if ((try_pointer) != NULL)                                     \
-            {                                                                  \
-                POP_TRY_BLOCK(try_pointer, try__state);                        \
-            }                                                                  \
-        }                                                                      \
-        except_or_finally                                                      \
-        /* EXCEPT or FINALLY will POP_TRY_BLOCK on exception */                \
+#define TRY(try_pointer, try_statement, except_or_finally)                             \
+    do {                                                                               \
+        try_except_context_t try__state;                                               \
+        /* must be current thread -> where we'll fault */                              \
+        /* We allow NULL solely to avoid duplicating try_statement in                  \
+         * TRY_EXCEPT_ALLOW_NO_DCONTEXT.                                               \
+         */                                                                            \
+        ASSERT(                                                                        \
+            (try_pointer) == &global_try_except || (try_pointer) == NULL ||            \
+            (try_pointer) == &get_thread_private_dcontext()->try_except ||             \
+            (try_pointer) == /* A currently-native thread: */                          \
+                &thread_lookup(IF_UNIX_ELSE(get_sys_thread_id(), d_r_get_thread_id())) \
+                     ->dcontext->try_except);                                          \
+        if ((try_pointer) != NULL) {                                                   \
+            try__state.prev_context = (try_pointer)->try_except_state;                 \
+            (try_pointer)->try_except_state = &try__state;                             \
+        }                                                                              \
+        if ((try_pointer) == NULL || DR_SETJMP(&try__state.context) == 0) {            \
+            try_statement /* TRY block */ /* make sure there is no return in           \
+                                             try_statement */                          \
+                if ((try_pointer) != NULL)                                             \
+            {                                                                          \
+                POP_TRY_BLOCK(try_pointer, try__state);                                \
+            }                                                                          \
+        }                                                                              \
+        except_or_finally                                                              \
+        /* EXCEPT or FINALLY will POP_TRY_BLOCK on exception */                        \
     } while (0)
 
 /* implementation notes: */
@@ -1704,10 +1695,10 @@ enum { LONGJMP_EXCEPTION = 1 };
 #    define DOCHECKINT(level, statement) /* nothing */
 #endif
 
-/* for use in CLIENT_ASSERT or elsewhere that exists even if
- * STANDALONE_DECODER is defined, unless CLIENT_INTERFACE is off
+/* For use in CLIENT_ASSERT or elsewhere that exists even if
+ * STANDALONE_DECODER is defined.
  */
-#if defined(DEBUG) && (defined(CLIENT_INTERFACE) || !defined(STANDALONE_DECODER))
+#ifdef DEBUG
 #    define DEBUG_EXT_DECLARE(declaration) declaration
 #else
 #    define DEBUG_EXT_DECLARE(declaration)
@@ -1956,9 +1947,7 @@ enum { LONGJMP_EXCEPTION = 1 };
 #endif
 
 extern const char *exception_label_core;
-#ifdef CLIENT_INTERFACE
 extern const char *exception_label_client;
-#endif
 /* These should be the same size for our report_exception_skip_prefix() */
 #define CRASH_NAME "internal crash"
 #define STACK_OVERFLOW_NAME "stack overflow"
@@ -2277,19 +2266,17 @@ utils_init(void);
 void
 utils_exit(void);
 
-#ifdef NOLIBC
-#    ifdef WINDOWS
-#        ifdef isprint
-#            undef isprint
+#ifdef WINDOWS
+#    ifdef isprint
+#        undef isprint
 bool
 isprint(int c);
-#        endif
+#    endif
 
-#        ifdef isdigit
-#            undef isdigit
+#    ifdef isdigit
+#        undef isdigit
 bool
 isdigit(int c);
-#        endif
 #    endif
 #endif
 
@@ -2327,9 +2314,9 @@ void
 divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint precision,
                     uint *top, uint *bottom);
 
-#if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
-/* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
- * preserve floating point state to call this function!!
+/* For printing a float.
+ * NOTE: You must preserve x87 floating point state to call this function, unless
+ * you can prove the compiler will never use x87 state for float operations.
  * Usage : given double/float a; uint c, d and char *s tmp; dp==double_print
  *         parameterized on precision p width w
  * note that %f is eqv. to %.6f
@@ -2338,7 +2325,6 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint 
  */
 void
 double_print(double val, uint precision, uint *top, uint *bottom, const char **sign);
-#endif /* DEBUG || INTERNAL */
 
 #ifdef CALL_PROFILE
 /* Max depth of call stack to maintain.
@@ -2356,6 +2342,12 @@ profile_callers_exit(void);
 /* an ASSERT replacement for use in unit tests */
 #    define FAIL() EXPECT(true, false)
 #    define EXPECT(expr, expected)                                     \
+        do {                                                           \
+            ptr_uint_t value_once = (ptr_uint_t)(expr);                \
+            EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected); \
+        } while (0)
+
+#    define EXPECT_EQ(expr, expected)                                  \
         do {                                                           \
             ptr_uint_t value_once = (ptr_uint_t)(expr);                \
             EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected); \

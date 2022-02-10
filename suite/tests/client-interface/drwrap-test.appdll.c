@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -152,6 +152,34 @@ skip_flags(int x, int y)
 
 void *level2_ptr;
 
+/* If we export these, they are called through the PLT or IAT, which we do not
+ * support for call sites (yet: i#4070).  So we have public pointers to them
+ * and leave the functions themselves non-exported to ensure we get direct calls.
+ */
+static int
+direct_call1(int x, int y)
+{
+    return x + y;
+}
+
+static int
+direct_call2(int x, int y)
+{
+    return direct_call1(y, x) + 1;
+}
+
+EXPORT int (*direct_call1_ptr)(int, int) = direct_call1;
+EXPORT int (*direct_call2_ptr)(int, int) = direct_call2;
+
+static void
+test_direct_calls(void)
+{
+    direct_call1(42, 17);
+    direct_call2(17, 42);
+    /* Now make a call where we'll miss the post when using DRWRAP_NO_DYNAMIC_RETADDRS. */
+    (*direct_call1_ptr)(42, 17);
+}
+
 /***************************************************************************
  * test longjmp
  */
@@ -211,6 +239,46 @@ longdone(void)
     print("longdone\n");
 }
 
+/***************************************************************************
+ * Test DRWRAP_REPLACE_RETADDR.
+ */
+
+void
+tailcall_test2(void);
+
+void
+print_from_asm(int val)
+{
+    print("%s %d\n", __FUNCTION__, val);
+}
+
+int EXPORT
+called_indirectly_subcall(int y)
+{
+    print("%s %d\n", __FUNCTION__, y);
+    return y + 1;
+}
+
+int EXPORT
+called_indirectly(int x)
+{
+    int z = called_indirectly_subcall(x + 1);
+    print("%s %d => %d\n", __FUNCTION__, x, z);
+    return z;
+}
+
+static void
+test_replace_retaddr(void)
+{
+    int (*indir)(int) = called_indirectly;
+    (*called_indirectly)(42);
+    tailcall_test2();
+}
+
+/***************************************************************************
+ * Top level.
+ */
+
 void
 run_tests(void)
 {
@@ -236,6 +304,8 @@ run_tests(void)
     skipme(&x);
     postonly(&x);
 
+    test_direct_calls();
+
     /* test delayed flushing that doesn't flush until 1024 executions */
     x = 0;
     for (res = 0; res < 2048; res++)
@@ -245,6 +315,8 @@ run_tests(void)
     if (setjmp(mark) == 0)
         longstart();
     longdone();
+
+    test_replace_retaddr();
 }
 
 #    ifdef WINDOWS
@@ -296,6 +368,60 @@ GLOBAL_LABEL(FUNCNAME:)
 # endif
 # ifndef ARM
         ret /* won't get here */
+# endif
+        END_FUNC(FUNCNAME)
+#  undef FUNCNAME
+
+
+DECL_EXTERN(print_from_asm)
+#  define FUNCNAME tailcall_test2
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+# ifdef X86
+        ADD_STACK_ALIGNMENT_NOSEH
+# elif defined(AARCH64)
+        stp      x29, x30, [sp, #-16]!
+# elif defined(ARM)
+        push     {lr}
+        sub      sp, #12 /* Maintain 16-byte alignment. */
+# endif
+        mov      REG_SCRATCH0, HEX(1)
+        CALLC1(GLOBAL_REF(print_from_asm), REG_SCRATCH0)
+# ifdef X86
+        RESTORE_STACK_ALIGNMENT
+# elif defined(AARCH64)
+        ldp      x29, x30, [sp], #16
+# elif defined(ARM)
+        add      sp, #12
+        pop      {lr}
+# endif
+        JUMP     GLOBAL_REF(tailcall_tail)
+        END_FUNC(FUNCNAME)
+#  undef FUNCNAME
+
+
+#  define FUNCNAME tailcall_tail
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+# ifdef X86
+        ADD_STACK_ALIGNMENT_NOSEH
+# elif defined(AARCH64)
+        stp      x29, x30, [sp, #-16]!
+# elif defined(ARM)
+        push     {lr}
+        sub      sp, #12 /* Maintain 16-byte alignment. */
+# endif
+        mov      REG_SCRATCH0, HEX(7)
+        CALLC1(GLOBAL_REF(print_from_asm), REG_SCRATCH0)
+# ifdef X86
+        RESTORE_STACK_ALIGNMENT
+        ret
+# elif defined(AARCH64)
+        ldp      x29, x30, [sp], #16
+        ret
+# elif defined(ARM)
+        add      sp, #12
+        pop      {pc}
 # endif
         END_FUNC(FUNCNAME)
 

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -35,6 +35,7 @@
 # * cmd = command to run
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * cmp = file containing output to compare stdout to
+# * capture = if "stderr", captures stderr instead of stdout
 
 # intra-arg space=@@ and inter-arg space=@
 string(REGEX REPLACE "@@" " " cmd "${cmd}")
@@ -62,11 +63,26 @@ file(READ "${cmp}" str)
 # file, but that gets really slow (30s for 750KB strings) so now we require
 # strict matches.
 
-if (NOT "${cmd_out}" STREQUAL "${str}")
+set(output "${cmd_out}")
+if ("${capture}" STREQUAL "stderr")
+  set(output "${cmd_err}")
+endif ()
+
+if (NOT "${output}" STREQUAL "${str}")
   # make it easier to debug
   set(tmp "${cmp}-out")
-  file(WRITE "${tmp}" "${cmd_out}")
+  file(WRITE "${tmp}" "${output}")
   set(tmp2 "${cmp}-expect")
   file(WRITE "${tmp2}" "${str}")
+
+  set(diffcmd "diff")
+  execute_process(COMMAND ${diffcmd} ${tmp} ${tmp2}
+    RESULT_VARIABLE dcmd_result
+    ERROR_VARIABLE dcmd_err
+    OUTPUT_VARIABLE dcmd_out)
+
+  message(STATUS "diff: ${dcmd_out}")
+
   message(FATAL_ERROR "output in ${tmp} failed to match expected output in ${tmp2}")
+
 endif ()

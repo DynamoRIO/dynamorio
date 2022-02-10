@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,22 +44,16 @@ flexibility but complicates transparency.  To achieve transparency,
 DynamoRIO cannot make any assumptions about a program's stack usage, heap
 usage, or any of its dependencies on the instruction set architecture or
 operating system.  DynamoRIO's transparency restrictions necessarily apply
-to a client as\if vmsafe well (though they are lessened when using the Probe API in
-lightweight mode).\else well.\endif
+to a client as well.
 
 Contents:
 - \ref sec_trans_resource
 - \ref sec_trans_unmod
 - \ref sec_trans_pretend
 - \ref sec_trans_alertable
-\if vmsafe
-- \ref sec_trans_probe
-\endif
 
 We first describe each of the three transparency categories for DynamoRIO
-and their ramifications for clients using the code cache.  \if vmsafe
-Finally, we discuss transparency issues for the Probe API, which has
-fewer limitations. \endif
+and their ramifications for clients using the code cache.
 
 ***************************************************************************
 \section sec_trans_resource Resource Usage Conflicts
@@ -100,8 +94,11 @@ API.  We do not recommend that a client invoke its own system calls as
 this bypasses DynamoRIO's monitoring of changes to the process address
 space and changes to threads or control flow.
 
-We provide limited support to assist in using statically linked libraries
-in a client: see \ref sec_extlibs.
+DynamoRIO does have its own loader and through it support is provided
+to clients to use external libraries while isolating them from the
+libraries used by the application: see \ref sec_extlibs.  This support
+is limited, however, and there are libraries that are not supported
+today.
 
 In addition to Library Transparency, several other types of transparency
 are of concern to a client:
@@ -116,7 +113,9 @@ Transparency: see below) or with application memory bugs (Error
 Transparency: see below).  DynamoRIO obtains its memory directly from
 system calls and parcels it out internally with a custom memory manager.
 It exports its heap allocation routines through its API to ensure that
-clients maintain Heap Transparency (see \ref sec_utils).
+clients maintain Heap Transparency (see \ref sec_utils).  Calls to malloc in
+external libraries used by clients are also redirected to DynamoRIO's internal
+heap.
 
 \par Input/Output Transparency
 
@@ -143,16 +142,16 @@ lead to deadlocks.
 As many aspects of the application as possible should be left unchanged:
 
 \anchor sec_trans_floating_point
-\par Floating Point State Transparency
+\par X87 Floating Point State Transparency
 
 Because it is expensive to do so and rarely necessary, on x86 DynamoRIO does
-\e NOT save or restore the floating point state or MMX (64-bit) registers
+\e NOT save or restore the x87 floating point state or MMX (64-bit) registers
 during a context switch away from the application.  The larger multimedia
-registers that are separated from the floating point state (SSE and beyond)
+registers (XMM, YMM, ZMM, whether holding floating-point or integer values)
 are preserved, but if at any time a
-client wishes to use floating point or MMX operations, it
+client wishes to use x87 floating point or MMX operations, it
 must explicitly preserve the state.  The dr_insert_clean_call() routine
-takes a boolean indicating whether floating point state should be preserved
+takes a boolean indicating whether x87 floating point state should be preserved
 across the call; this is the most convenient method for saving the state.
 
 The state can alternatively be saved explicitly from C code using:
@@ -177,7 +176,8 @@ proc_save_fpstate(fp_align);
 \endcode
 
 Note that floating point operations include almost any operation that
-acts on a float, even printing one with %%f.
+acts on a float, even printing one with %%f, on older compilers.  Modern compilers
+typically do not use x87 operations.
 
 The XMM (128-bit) and larger registers are saved by DynamoRIO on context switches and
 clean calls.  See also the dr_mcontext_xmm_fields_valid() routine.
@@ -319,20 +319,6 @@ issues noted above.
 
 On Windows, DynamoRIO does not support a client making alertable system
 calls.  See \ref sec_alertable for more information.
-
-\if vmsafe
-***************************************************************************
-\section sec_trans_probe Transparency of Probe API Clients
-
-For the Probe API, any particular probe routine is interrupting the
-application at a single, known point.  If the client is certain that this
-is a safe point for invoking shared resources or performing other actions
-that are risky when attempted at arbitrary points, then they may be
-invoked.  However, be warned that it can be difficult to be certain that
-library routines are safe, as they may themselves acquire locks or call
-other routines that are not safe.
-
-\endif
 
 ***************************************************************************
 ****************************************************************************

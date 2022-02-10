@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -165,5 +165,6 @@ main(int argc, char *argv[])
     dr_unmap_file(map_base, map_size);
     dr_close_file(f);
     dr_close_file(outf);
+    dr_standalone_exit();
     return 0;
 }

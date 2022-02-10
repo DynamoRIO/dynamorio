@@ -1,0 +1,73 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_contributing Contributing to DynamoRIO
+
+<div style="display:none;">
+\subpage page_code_reviews
+\subpage page_workflow
+\subpage page_code_content
+\subpage page_code_style
+\subpage page_code_tips
+\subpage page_new_release
+\subpage page_triager
+</div>
+
+If you would like to contribute code to DynamoRIO, we do not require a formal contributor license agreement or transfer of copyright.  Contributions are implicitly assumed to be offered under terms of [DynamoRIO's license](@ref page_license).
+
+If you would like to contribute an individual source code change to
+DynamoRIO by having an existing developer commit it, submit a patch
+following our
+[Code Review process for non-project members](@ref sec_code_review_non_member).
+
+If you would like to become a project member and contribute directly, please contact us.  Normally you would first submit a few small patches as a non-member to demonstrate your work.  When you become a member, by accepting write access to the repository you will also be implicitly agreeing to abide by all policies and conventions of the DynamoRIO project.  This includes agreeing to submit all changes to at least one other project member for code review and to abide by reasonable requests for modifications to your proposed changes.
+
+To contribute a new client framework or set of client utility routines,
+consider adding a new DynamoRIO Extension.  A DynamoRIO Extension is a
+shared or static library that is packaged with DynamoRIO for easy use by
+clients.  Its sources live in the DynamoRIO repository in the ext/
+directory, and its documentation is included as a section in the DynamoRIO documentation.
+
+Please look over our guidelines, including [Workflow](@ref page_workflow),
+[Code Reviews](@ref page_code_reviews), [Code Content](@ref page_code_content), and
+[Code Style](@ref page_code_style), before
+writing new DynamoRIO code.
+(In particular: *do not force push* to a branch shared in a pull request!)
+
+# Project Ideas
+
+See [the Dr. Memory project list](https://github.com/DynamoRIO/drmemory/wiki/Projects), which includes DynamoRIO-specific projects.  Also search the issue tracker for the ["help wanted"](https://github.com/DynamoRIO/dynamorio/issues?utf8=%E2%9C%93&q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22) and ["good first issue"](https://github.com/DynamoRIO/dynamorio/issues?utf8=%E2%9C%93&q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22%20) labels.
+
+ ****************************************************************************
+ */

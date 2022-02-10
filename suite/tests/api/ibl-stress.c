@@ -37,10 +37,14 @@
 #include "thread.h"
 #include "condvar.h"
 
-#ifdef LARGER_TEST
+#if defined(LARGER_TEST)
 /* 20K sequences gives us ~150K bbs. */
 #    define NUM_SEQUENCES 20000
 #    define NUM_THREADS 16
+#elif defined(TEST_FAR_LINK_AARCH64)
+/* These values trigger far fragment linking path on AArch64. */
+#    define NUM_SEQUENCES 150000
+#    define NUM_THREADS 8
 #else
 /* We scale down from the larger size which more readily exposes races
  * to a size suitable for a regression test on a small-sized VM.
@@ -60,9 +64,12 @@
 /***************************************************************************
  * Synthetic code generation
  */
-
-#ifndef X86
-#    error Non-x86 is not supported.
+#if defined(X86)
+#    define DR_REG0 DR_REG_XAX
+#elif defined(AARCH64)
+#    define DR_REG0 DR_REG_X0
+#else
+#    error Only X86 and AArch64 are supported.
 #endif
 
 static byte *generated_code;
@@ -86,9 +93,41 @@ append_ilist(instrlist_t *ilist, byte *encode_pc, instr_t *instr)
     return encode_pc + instr_length(GLOBAL_DCONTEXT, instr);
 }
 
+#ifdef AARCH64
+static byte *
+generate_stack_push(instrlist_t *ilist, byte *encode_pc, reg_id_t reg_1, reg_id_t reg_2)
+{
+    encode_pc =
+        append_ilist(ilist, encode_pc,
+                     XINST_CREATE_store_pair(
+                         GLOBAL_DCONTEXT,
+                         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -16, OPSZ_16),
+                         opnd_create_reg(reg_1), opnd_create_reg(reg_2)));
+    encode_pc =
+        append_ilist(ilist, encode_pc,
+                     XINST_CREATE_sub(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XSP),
+                                      OPND_CREATE_INT(16)));
+}
+
+static byte *
+generate_stack_pop(instrlist_t *ilist, byte *encode_pc, reg_id_t reg_1, reg_id_t reg_2)
+{
+    encode_pc =
+        append_ilist(ilist, encode_pc,
+                     XINST_CREATE_load_pair(
+                         GLOBAL_DCONTEXT, opnd_create_reg(reg_1), opnd_create_reg(reg_2),
+                         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_16)));
+    encode_pc =
+        append_ilist(ilist, encode_pc,
+                     XINST_CREATE_add(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XSP),
+                                      OPND_CREATE_INT(16)));
+}
+#endif
+
 static byte *
 generate_stack_accesses(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
 {
+#ifdef X86
     encode_pc =
         append_ilist(ilist, encode_pc,
                      INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XBP)));
@@ -109,6 +148,17 @@ generate_stack_accesses(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
         ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XBX)));
     encode_pc = append_ilist(
         ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XBP)));
+#else
+    encode_pc = generate_stack_push(ilist, encode_pc, DR_REG_X0, DR_REG_X1);
+    encode_pc = generate_stack_push(ilist, encode_pc, DR_REG_X2, DR_REG_X3);
+    encode_pc = generate_stack_push(ilist, encode_pc, DR_REG_X4, DR_REG_X5);
+    encode_pc = generate_stack_push(ilist, encode_pc, DR_REG_X6, DR_REG_X7);
+    encode_pc = generate_stack_pop(ilist, encode_pc, DR_REG_X6, DR_REG_X7);
+    encode_pc = generate_stack_pop(ilist, encode_pc, DR_REG_X4, DR_REG_X5);
+    encode_pc = generate_stack_pop(ilist, encode_pc, DR_REG_X2, DR_REG_X3);
+    encode_pc = generate_stack_pop(ilist, encode_pc, DR_REG_X0, DR_REG_X1);
+
+#endif
     return encode_pc;
 }
 
@@ -117,16 +167,25 @@ generate_direct_call(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
 {
     instr_t *callee = INSTR_CREATE_label(GLOBAL_DCONTEXT);
     instr_t *after_callee = INSTR_CREATE_label(GLOBAL_DCONTEXT);
+#ifdef AARCH64
+    // Push link register for nested returns.
+    encode_pc = generate_stack_push(ilist, encode_pc, DR_REG_X29, DR_REG_LR);
+#endif
+
     encode_pc = append_ilist(
-        ilist, encode_pc, INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(callee)));
+        ilist, encode_pc, XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(callee)));
     drvector_append(tags, encode_pc);
+#ifdef AARCH64
+    encode_pc = generate_stack_pop(ilist, encode_pc, DR_REG_X29, DR_REG_LR);
+#endif
+
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_jmp(GLOBAL_DCONTEXT, opnd_create_instr(after_callee)));
+                     XINST_CREATE_jump(GLOBAL_DCONTEXT, opnd_create_instr(after_callee)));
     drvector_append(tags, encode_pc);
     encode_pc = append_ilist(ilist, encode_pc, callee);
     encode_pc = generate_stack_accesses(ilist, tags, encode_pc);
-    encode_pc = append_ilist(ilist, encode_pc, INSTR_CREATE_ret(GLOBAL_DCONTEXT));
+    encode_pc = append_ilist(ilist, encode_pc, XINST_CREATE_return(GLOBAL_DCONTEXT));
     drvector_append(tags, encode_pc);
     encode_pc = append_ilist(ilist, encode_pc, after_callee);
     return encode_pc;
@@ -139,24 +198,30 @@ generate_indirect_call(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
     instr_t *after_callee = INSTR_CREATE_label(GLOBAL_DCONTEXT);
     instr_t *first, *last;
     instrlist_insert_mov_instr_addr(GLOBAL_DCONTEXT, callee, generated_code,
-                                    opnd_create_reg(DR_REG_XAX), ilist, NULL, &first,
-                                    &last);
+                                    opnd_create_reg(DR_REG0), ilist, NULL, &first, &last);
     while (first != NULL && first != last) {
         print_instr_pc(first, encode_pc);
         encode_pc += instr_length(GLOBAL_DCONTEXT, first);
         first = instr_get_next(first);
     }
+#ifdef AARCH64
+    // Push link register for nested returns.
+    encode_pc = generate_stack_push(ilist, encode_pc, DR_REG_X29, DR_REG_LR);
+#endif
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_call_ind(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XAX)));
+                     XINST_CREATE_call_reg(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG0)));
     drvector_append(tags, encode_pc);
+#ifdef AARCH64
+    encode_pc = generate_stack_pop(ilist, encode_pc, DR_REG_X29, DR_REG_LR);
+#endif
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_jmp(GLOBAL_DCONTEXT, opnd_create_instr(after_callee)));
+                     XINST_CREATE_jump(GLOBAL_DCONTEXT, opnd_create_instr(after_callee)));
     drvector_append(tags, encode_pc);
     encode_pc = append_ilist(ilist, encode_pc, callee);
     encode_pc = generate_stack_accesses(ilist, tags, encode_pc);
-    encode_pc = append_ilist(ilist, encode_pc, INSTR_CREATE_ret(GLOBAL_DCONTEXT));
+    encode_pc = append_ilist(ilist, encode_pc, XINST_CREATE_return(GLOBAL_DCONTEXT));
     drvector_append(tags, encode_pc);
     encode_pc = append_ilist(ilist, encode_pc, after_callee);
     return encode_pc;
@@ -168,8 +233,7 @@ generate_indirect_jump(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
     instr_t *target = INSTR_CREATE_label(GLOBAL_DCONTEXT);
     instr_t *first, *last;
     instrlist_insert_mov_instr_addr(GLOBAL_DCONTEXT, target, generated_code,
-                                    opnd_create_reg(DR_REG_XAX), ilist, NULL, &first,
-                                    &last);
+                                    opnd_create_reg(DR_REG0), ilist, NULL, &first, &last);
     while (first != NULL && first != last) {
         print_instr_pc(first, encode_pc);
         encode_pc += instr_length(GLOBAL_DCONTEXT, first);
@@ -177,7 +241,7 @@ generate_indirect_jump(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
     }
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_jmp_ind(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XAX)));
+                     XINST_CREATE_jump_reg(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG0)));
     drvector_append(tags, encode_pc);
     encode_pc = append_ilist(ilist, encode_pc, target);
     encode_pc = generate_stack_accesses(ilist, tags, encode_pc);
@@ -187,9 +251,9 @@ generate_indirect_jump(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
 static void
 generate_code()
 {
-    const size_t sequence_size = 73; /* Measured manually. */
+    const size_t sequence_size = IF_X86_ELSE(73, 340); /* Measured manually. */
     /* The final return takes up 1 byte. */
-    code_size = NUM_SEQUENCES * sequence_size + 1;
+    code_size = NUM_SEQUENCES * sequence_size + IF_X86_ELSE(1, 4);
     generated_code =
         (byte *)allocate_mem(code_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
     assert(generated_code != NULL);
@@ -215,7 +279,7 @@ generate_code()
         encode_pc = generate_indirect_jump(ilist, &tags, encode_pc);
     }
     /* The outer level is a function. */
-    encode_pc = append_ilist(ilist, encode_pc, INSTR_CREATE_ret(GLOBAL_DCONTEXT));
+    encode_pc = append_ilist(ilist, encode_pc, XINST_CREATE_return(GLOBAL_DCONTEXT));
 
     byte *end_pc = instrlist_encode(GLOBAL_DCONTEXT, ilist, generated_code, true);
     assert(end_pc <= generated_code + code_size);

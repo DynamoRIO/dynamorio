@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,13 +41,15 @@
 
 class raw2trace_directory_t {
 public:
-    raw2trace_directory_t(unsigned int verbosity_in = 0)
-        : modfile_bytes(nullptr)
-        , modfile(INVALID_FILE)
-        , indir("")
-        , outdir("")
-        , verbosity(verbosity_in)
+    raw2trace_directory_t(unsigned int verbosity = 0)
+        : modfile_bytes_(nullptr)
+        , modfile_(INVALID_FILE)
+        , indir_("")
+        , outdir_("")
+        , verbosity_(verbosity)
     {
+        // We use DR API routines so we need to initialize.
+        dr_standalone_init();
     }
     ~raw2trace_directory_t();
 
@@ -60,13 +62,19 @@ public:
     // failure.
     std::string
     initialize_module_file(const std::string &module_file_path);
+    // Use this instead of initialize() to only read the funcion map file.
+    // Returns "" on success or an error message on failure.
+    // On success, pushes the parsed entries from the file into "entries".
+    std::string
+    initialize_funclist_file(const std::string &funclist_file_path,
+                             OUT std::vector<std::vector<std::string>> *entries);
 
     static std::string
     tracedir_from_rawdir(const std::string &rawdir);
 
-    char *modfile_bytes;
-    std::vector<std::istream *> in_files;
-    std::vector<std::ostream *> out_files;
+    char *modfile_bytes_;
+    std::vector<std::istream *> in_files_;
+    std::vector<std::ostream *> out_files_;
 
 private:
     std::string
@@ -75,10 +83,10 @@ private:
     open_thread_files();
     std::string
     open_thread_log_file(const char *basename);
-    file_t modfile;
-    std::string indir;
-    std::string outdir;
-    unsigned int verbosity;
+    file_t modfile_;
+    std::string indir_;
+    std::string outdir_;
+    unsigned int verbosity_;
 };
 
 #endif /* _RAW2TRACE_DIRECTORY_H_ */

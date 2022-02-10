@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -156,6 +156,11 @@ test_avx512_restore_gather_mask_fault(uint32_t *ref_sparse_test_buf,
                                       uint32_t *test_idx32_vec);
 /* See comment above. */
 void
+test_avx512_restore_gather_scratch_xmm_fault(uint32_t *ref_sparse_test_buf,
+                                             uint32_t *test_idx32_vec,
+                                             uint32_t *scratch_xmm_val);
+/* See comment above. */
+void
 test_avx512_restore_gather_mask_clobber(uint32_t *ref_sparse_test_buf,
                                         uint32_t *test_idx32_vec);
 /* See comment above. */
@@ -166,6 +171,12 @@ test_avx512_restore_gather_mask_update(uint32_t *ref_sparse_test_buf,
 void
 test_avx512_restore_scatter_mask_fault(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
                                        uint32_t *output_sparse_test_buf OUT);
+/* See comment above. */
+void
+test_avx512_restore_scatter_scratch_xmm_fault(uint32_t *xmm_ymm_zmm,
+                                              uint32_t *test_idx32_vec,
+                                              uint32_t *output_sparse_test_buf OUT,
+                                              uint32_t *scratch_xmm_fault);
 /* See comment above. */
 void
 test_avx512_restore_scatter_mask_clobber(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
@@ -180,6 +191,11 @@ test_avx512_restore_scatter_mask_update(uint32_t *xmm_ymm_zmm, uint32_t *test_id
 void
 test_avx2_restore_gather_mask_update(uint32_t *ref_sparse_test_buf,
                                      uint32_t *test_idx32_vec);
+/* See comment above. */
+void
+test_avx2_restore_gather_scratch_xmm_fault(uint32_t *ref_sparse_test_buf,
+                                           uint32_t *test_idx32_vec,
+                                           uint32_t *scratch_xmm_val);
 #    endif
 
 #    define SPARSE_FACTOR 4
@@ -195,7 +211,7 @@ test_avx2_restore_gather_mask_update(uint32_t *ref_sparse_test_buf,
 
 #    ifdef UNIX
 static SIGJMP_BUF mark;
-
+static uint32_t scratch_xmm_val[] = { 0xdead, 0xbeef, 0x8bad, 0xf00d };
 static int
 get_xstate_area_offs(int xstate_component)
 {
@@ -218,6 +234,39 @@ signal_handler_check_k0(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
      * 32-bit mode by the kernel.
      */
 #        endif
+    SIGLONGJMP(mark, 1);
+}
+
+static bool
+check_scratch_xmm_val(ucontext_t *ucxt, int xmm_reg_id)
+{
+    kernel_fpstate_t *fp = (kernel_fpstate_t *)ucxt->uc_mcontext.fpregs;
+#        ifdef X64
+    return fp->xmm_space[xmm_reg_id * 4] == scratch_xmm_val[0] &&
+        fp->xmm_space[xmm_reg_id * 4 + 1] == scratch_xmm_val[1] &&
+        fp->xmm_space[xmm_reg_id * 4 + 2] == scratch_xmm_val[2] &&
+        fp->xmm_space[xmm_reg_id * 4 + 3] == scratch_xmm_val[3];
+#        else
+    return fp->_xmm[xmm_reg_id].element[0] == scratch_xmm_val[0] &&
+        fp->_xmm[xmm_reg_id].element[1] == scratch_xmm_val[1] &&
+        fp->_xmm[xmm_reg_id].element[2] == scratch_xmm_val[2] &&
+        fp->_xmm[xmm_reg_id].element[3] == scratch_xmm_val[3];
+#        endif
+}
+
+static void
+signal_handler_check_xmm2(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (!check_scratch_xmm_val(ucxt, 2))
+        print("Scratch xmm2 not restored\n");
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+signal_handler_check_xmm3(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (!check_scratch_xmm_val(ucxt, 3))
+        print("Scratch xmm3 not restored\n");
     SIGLONGJMP(mark, 1);
 }
 
@@ -432,6 +481,10 @@ test_avx2_avx512_scatter_gather(void)
                             ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
                             output_xmm_ymm_zmm))
         return false;
+#        ifdef X64
+    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+     * scatter/gather versions in 32-bit mode.
+     */
     if (!test_avx512_gather(test_avx512_vpgatherdq, ref_sparse_test_buf,
                             ref_idx32_val64_xmm_ymm_zmm, test_idx32_vec,
                             output_xmm_ymm_zmm))
@@ -456,6 +509,7 @@ test_avx2_avx512_scatter_gather(void)
                             ref_idx64_val64_xmm_ymm_zmm, test_idx64_vec,
                             output_xmm_ymm_zmm))
         return false;
+#        endif
     /* As pointed out above, the scatter tests scatter data from ref_xmm_ymm_zmm into the
      * array output_sparse_test_buf. It's the inverse of the gather test, so the source
      * data for each xmm, ymm, and zmm scatter instruction is concatenated in
@@ -471,6 +525,10 @@ test_avx2_avx512_scatter_gather(void)
                              false /* check full sparse array */,
                              false /* 32-bit values */, output_sparse_test_buf))
         return false;
+#        ifdef X64
+    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+     * scatter/gather versions in 32-bit mode.
+     */
     if (!test_avx512_scatter(test_avx512_vpscatterdq, ref_sparse_test_buf,
                              ref_idx32_val64_xmm_ymm_zmm, test_idx32_vec,
                              true /* check half of sparse array */,
@@ -501,16 +559,26 @@ test_avx2_avx512_scatter_gather(void)
                              true /* check half of sparse array */,
                              true /* 64-bit values */, output_sparse_test_buf))
         return false;
+#        endif
 #    endif
 #    ifdef __AVX__
-    if (!test_avx2_gather(test_avx2_vpgatherdd, ref_sparse_test_buf,
-                          ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
-                          output_xmm_ymm_zmm))
-        return false;
+    /* Run in a loop to trigger trace creation and stress things like cloning
+     * (i#3962).
+     */
+    for (int i = 0; i < 100; i++) {
+        if (!test_avx2_gather(test_avx2_vpgatherdd, ref_sparse_test_buf,
+                              ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
+                              output_xmm_ymm_zmm))
+            return false;
+    }
     if (!test_avx2_gather(test_avx2_vgatherdps, ref_sparse_test_buf,
                           ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
                           output_xmm_ymm_zmm))
         return false;
+#        ifdef X64
+    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+     * scatter/gather versions in 32-bit mode.
+     */
     if (!test_avx2_gather(test_avx2_vpgatherdq, ref_sparse_test_buf,
                           ref_idx32_val64_xmm_ymm_zmm, test_idx32_vec,
                           output_xmm_ymm_zmm))
@@ -535,6 +603,7 @@ test_avx2_avx512_scatter_gather(void)
                           ref_idx64_val64_xmm_ymm_zmm, test_idx64_vec,
                           output_xmm_ymm_zmm))
         return false;
+#        endif
 #    endif
 #    ifdef UNIX
 #        ifdef __AVX512F__
@@ -542,12 +611,30 @@ test_avx2_avx512_scatter_gather(void)
     /* This index will cause a fault. The index number is arbitrary.*/
     test_idx32_vec[9] = 0xefffffff;
     print("Test restoring the AVX-512 gather scratch mask register upon a fault\n");
-    if (SIGSETJMP(mark) == 0)
+    if (SIGSETJMP(mark) == 0) {
         test_avx512_restore_gather_mask_fault(ref_sparse_test_buf, test_idx32_vec);
+        print("ERROR: Expected a fault\n");
+    }
     print("Test restoring the AVX-512 scatter scratch mask register upon a fault\n");
     if (SIGSETJMP(mark) == 0) {
         test_avx512_restore_scatter_mask_fault(ref_idx32_val32_xmm_ymm_zmm,
                                                test_idx32_vec, output_sparse_test_buf);
+        print("ERROR: Expected a fault\n");
+    }
+
+    intercept_signal(SIGSEGV, (handler_3_t)&signal_handler_check_xmm2, false);
+    print("Test restoring the AVX-512 gather scratch xmm register upon a fault\n");
+    if (SIGSETJMP(mark) == 0) {
+        test_avx512_restore_gather_scratch_xmm_fault(ref_sparse_test_buf, test_idx32_vec,
+                                                     scratch_xmm_val);
+        print("ERROR: Expected a fault\n");
+    }
+    print("Test restoring the AVX-512 scatter scratch xmm register upon a fault\n");
+    if (SIGSETJMP(mark) == 0) {
+        test_avx512_restore_scatter_scratch_xmm_fault(
+            ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec, output_sparse_test_buf,
+            scratch_xmm_val);
+        print("ERROR: Expected a fault\n");
     }
     /* We will get the SIGILL from a ud2 instruction that the client will insert. */
     intercept_signal(SIGILL, (handler_3_t)&signal_handler_check_k0, false);
@@ -584,6 +671,14 @@ test_avx2_avx512_scatter_gather(void)
     print("Test updating the AVX2 gather mask register upon translation events\n");
     if (SIGSETJMP(mark) == 0)
         test_avx2_restore_gather_mask_update(ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec);
+    print("Test restoring the AVX2 gather scratch xmm register upon a fault\n");
+    intercept_signal(SIGSEGV, (handler_3_t)&signal_handler_check_xmm3, false);
+    test_idx32_vec[1] = 0xefffffff;
+    if (SIGSETJMP(mark) == 0) {
+        test_avx2_restore_gather_scratch_xmm_fault(ref_idx32_val32_xmm_ymm_zmm,
+                                                   test_idx32_vec, scratch_xmm_val);
+        print("ERROR: Expected a fault\n");
+    }
 #    endif
     return true;
 }
@@ -596,7 +691,6 @@ main(void)
      */
     if (test_avx2_avx512_scatter_gather())
         print("AVX2/AVX-512 scatter/gather checks ok\n");
-
     return 0;
 }
 
@@ -900,7 +994,7 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
         /* uint32_t *xmm_ymm_zmm */                          @N@\
         mov         REG_XAX, ARG1                            @N@\
         /* uint32_t *output_sparse_test_buf OUT */           @N@\
-        mov        REG_XCX, ARG3                             @N@\
+        mov         REG_XCX, ARG3                            @N@\
         /* uint32_t *test_idx32_vec */                       @N@\
         mov         REG_XDX, ARG2                            @N@\
         PUSH_CALLEE_SAVED_REGS()                             @N@\
@@ -932,6 +1026,55 @@ TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_clobber,
 TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_update,
                                        TEST_AVX512_SCATTER_MASK_UPDATE_MARKER)
 
+#define TEST_AVX512_GATHER_SCRATCH_XMM_RESTORE_EVENT(name)  @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                            @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                             @N@\
+        /* uint32_t *ref_sparse_test_buf */                 @N@\
+        mov        REG_XAX, ARG1                            @N@\
+        /* uint32_t *scratch_xmm_val */                     @N@\
+        mov        REG_XCX, ARG3                            @N@\
+        /* uint32_t *test_idx32_vec */                      @N@\
+        mov        REG_XDX, ARG2                            @N@\
+        PUSH_CALLEE_SAVED_REGS()                            @N@\
+        sub        REG_XSP, FRAME_PADDING                   @N@\
+        END_PROLOG                                          @N@\
+        vmovdqu32  xmm2, [REG_XCX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
+        movw       dx, 0xffff                               @N@\
+        kmovw      k1, edx                                  @N@\
+        vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]          @N@\
+        add        REG_XSP, FRAME_PADDING                   @N@\
+        POP_CALLEE_SAVED_REGS()                             @N@\
+        ret                                                 @N@\
+        END_FUNC(FUNCNAME(name))
+
+#define TEST_AVX512_SCATTER_SCRATCH_XMM_RESTORE_EVENT(name)  @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                              @N@\
+        /* uint32_t *xmm_ymm_zmm */                          @N@\
+        mov         REG_XAX, ARG1                            @N@\
+        /* uint32_t *scratch_xmm_val */                      @N@\
+        mov         REG_XDI, ARG4                            @N@\
+        /* uint32_t *output_sparse_test_buf OUT */           @N@\
+        mov         REG_XCX, ARG3                            @N@\
+        /* uint32_t *test_idx32_vec */                       @N@\
+        mov         REG_XDX, ARG2                            @N@\
+        PUSH_CALLEE_SAVED_REGS()                             @N@\
+        sub         REG_XSP, FRAME_PADDING                   @N@\
+        END_PROLOG                                           @N@\
+        vmovdqu32   xmm2, [REG_XDI]                          @N@\
+        vmovdqu32   zmm0, [REG_XAX + 48]                     @N@\
+        vmovdqu32   zmm1, [REG_XDX]                          @N@\
+        movw        dx, 0xffff                               @N@\
+        kmovw       k1, edx                                  @N@\
+        vpscatterdd [REG_XCX + zmm1 * 4] {k1}, zmm0          @N@\
+        add         REG_XSP, FRAME_PADDING                   @N@\
+        POP_CALLEE_SAVED_REGS()                              @N@\
+        ret                                                  @N@\
+        END_FUNC(FUNCNAME(name))
+
+TEST_AVX512_GATHER_SCRATCH_XMM_RESTORE_EVENT(restore_gather_scratch_xmm_fault)
+TEST_AVX512_SCATTER_SCRATCH_XMM_RESTORE_EVENT(restore_scatter_scratch_xmm_fault)
 #endif /* __AVX512F__ */
 
 /****************************************************************************
@@ -1075,6 +1218,29 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                          @N@\
  */
 TEST_AVX2_GATHER_MASK_RESTORE_EVENT(restore_gather_mask_update,
                                     TEST_AVX2_GATHER_MASK_UPDATE_MARKER)
+
+#define TEST_AVX2_GATHER_SCRATCH_XMM_RESTORE_EVENT(name)  @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                          @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                           @N@\
+        /* uint32_t *ref_sparse_test_buf */               @N@\
+        mov           REG_XAX, ARG1                       @N@\
+        /* uint32_t *scratch_xmm_val */                   @N@\
+        mov           REG_XCX, ARG3                       @N@\
+        /* uint32_t *test_idx32_vec */                    @N@\
+        mov           REG_XDX, ARG2                       @N@\
+        PUSH_CALLEE_SAVED_REGS()                          @N@\
+        sub           REG_XSP, FRAME_PADDING              @N@\
+        END_PROLOG                                        @N@\
+        vmovdqu       xmm3, [REG_XCX]                     @N@\
+        vmovdqu       ymm1, [REG_XDX]                     @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                    @N@\
+        vpgatherdd    ymm0, [REG_XAX + ymm1 * 4], ymm2    @N@\
+        add           REG_XSP, FRAME_PADDING              @N@\
+        POP_CALLEE_SAVED_REGS()                           @N@\
+        ret                                               @N@\
+        END_FUNC(FUNCNAME(name))
+
+TEST_AVX2_GATHER_SCRATCH_XMM_RESTORE_EVENT(restore_gather_scratch_xmm_fault)
 
 #endif /* __AVX__ */
 

@@ -1,0 +1,292 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_ldstex Exclusive Monitors
+
+\tableofcontents
+
+# Overview
+
+This document explores the challenging problem of handling exclusive monitors on the ARM/AArch64 architecture in the DynamoRIO dynamic binary instrumentation system.  After explaining why the problem is so difficult, several possible solutions are presented and discussed.
+
+# What is an Exclusive Monitor?
+
+The ARM/AArch64 architecture contains a version of load-locked/store-conditional synchronization primitives involving exclusive monitors.  A pair of instructions defines the synchronization region: the load-exclusive and the store-exclusive instructions.  The load-exclusive sets up an exclusive monitor on the memory containing the load’s address.  The subsequent store-exclusive succeeds only if there has been no intervening access to the monitored memory since the load-exclusive.  This provides a read-modify-write synchronization primitive.
+
+Below are some examples from libc.  The first one is an atomic subtract with acquire semantics on the load-exclusive:
+
+```
+1f404:   ldaxr   w1, [x0]
+1f408:   sub     w2, w1, #0x1
+1f40c:   stxr    w3, w2, [x0]
+1f410:   cbnz    w3, 1f404 <__libc_start_main@@GLIBC_2.17+0x17c>
+```
+
+The success of the store-exclusive is returned in the first operand, w3 above, with the cbnz looping on failure (non-zero).
+
+Another example is a store-if-zero with a comparison and conditional branch between the load-exclusive and store-exclusive:
+
+```
+20e9c:   ldaxr   w2, [x0]
+20ea0:   cmp     w2, #0x0
+20ea4:   b.ne    20eb0 <__gconv_get_alias_db@@GLIBC_PRIVATE+0xae0>
+20ea8:   stxr    w3, w1, [x0]
+20eac:   cbnz    w3, 20e9c <__gconv_get_alias_db@@GLIBC_PRIVATE+0xacc>
+```
+
+Theoretically there could be many branches in between: these sequences are not limited to a single shape.  Fortunately they cannot be nested, as each hardware thread supports only one monitor.  ARM/AArch64 also strongly recommends limiting sequences to 128 bytes and avoiding memory accesses, cache invalidations, indirect branches, and other actions inside the sequence.
+
+In libc, these sequences seem to come in only a few varieties: the two above, plus an even simpler form with no instructions in the middle:
+
+```
+20ee0:   ldxr    w1, [x0]
+20ee4:   stlxr   w3, w2, [x0]
+20ee8:   cbnz    w3, 20ee0 <__gconv_get_alias_db@@GLIBC_PRIVATE+0xb10>
+```
+
+The load-exclusive and store-exclusive instructions are intended to always be used in pairs.  A load-exclusive without a corresponding store-exclusive would simply waste hardware resources by engaging the monitor, causing potential performance loss.  A store-exclusive without a prior load-exclusive produces undefined behavior but should be expected to fail.
+
+The exclusive monitor is cleared not only with an intervening access by another thread.  It will  be cleared by cache evictions, TLB maintenance, or other events.  The instruction `clrex` will clear the monitor as well and is meant for paths exiting the monitor region without executing the store-exclusive.  The monitor will also be cleared by too many memory references even to unrelated addresses inside the monitored region, which leads to our problem, described next.
+
+# The Problem with Instrumenting Exclusive Monitors
+
+The exclusive monitor can be cleared by any memory operation between the load-exclusive and store-exclusive.  Just how sensitive the monitor is depends on the particular hardware implementation, with some allowing several loads or stores while others clear the monitor with a single load.  Since dynamic instrumentation routinely adds additional memory loads and stores in between application instructions, it is in danger of breaking every monitor in the application.  Sensitive hardware is common enough that we cannot simply refuse to run on such hardware, and some tools insert extensive instrumentation that would fail on all hardware (for example, see below regarding clean calls).
+
+## Consequences: Infinite Loop!
+
+The application must be prepared for monitor failure (which can also occur due to unpredictable cache evictions or other hardware events), and will always try again in a loop if the exclusive-store fails.  When inserted instrumentation causes the store-exclusive to fail every time, the application enters an infinite loop and does not make forward progress.
+
+## Problem Not Limited by Tool Type
+
+Even without a target tool like drcachesim's memory tracer inserting loads and stores,
+the core DynamoRIO instrumentation engine has several cases where it inserts memory
+operations between application instructions.
+
+DynamoRIO steals a register on ARM/AArch64.  If the exclusive-load or exclusive-store
+uses the stolen register, the engine must add instructions to use the diverted stolen
+register slot.  These added instructions include loads and stores and can break the
+monitor.  When the entire exclusive-load exclusive-store sequence is in a single block,
+tool instrumentation and stolen register handling can in some cases plan ahead and insert
+all added memory references before or after the entire sequence (with complications where
+tool instrumentation wants to mirror execution flow, but if there is a fault or
+predicated execution it can be challenging to instrument too far away from the target
+instruction).  However, these sequences frequently include branches and cross blocks, as
+discussed below.
+
+For sequences where the load-exclusive is in a different block than the corresponding
+store-exclusive, there are multiple scenarios where DynamoRIO can insert loads and stores
+in between the two.  First, an unlinked block will execute many loads and stores on its
+path into DynamoRIO and inside DynamoRIO system code.  Thus, on first execution of a pair
+of split load-exclusive and store-exclusive blocks, the store-exclusive will likely fail
+due to all of the operations in between while building its block.  Even once the two
+blocks are linked, though, if the blocks are too far apart for a single branch
+instruction to reach, DynamoRIO jumps through an exit stub which contains loads and
+stores in order to reach the target block (see \ref page_aarch64_far).
+
+The operations after an unlinked block also affect trace building.  During trace
+discovery, DynamoRIO unlinks each block before execution to identify the sequence of
+blocks to use for the new trace.  It assumes that unlinking does not perturb the
+application.  However, the unlink path's memory operations are likely to cause monitor
+failure, leading the trace stopping after the store-exclusive block and not capturing the
+hot path in the primary trace.  Secondary traces on the exits should still include the
+proper code in the final set of traces, but with sub-optimal layout.
+
+Additionally, application indirect branches under DynamoRIO load entries from a
+hashtable, so an indirect branch between a load-exclusive and store-exclusive, while
+perhaps unlikely to occur in most code, is another case where even without a tool adding
+additional instrumentation the core DynamoRIO engine has a potential problem.
+
+## Problem Exacerbated by Intervening Branches
+
+DynamoRIO (and tools built on it) operates at a block level and rarely performs any actions that cross blocks.  Typical load-exclusive store-exclusive sequences contain conditional branches in the middle, meaning the sequences cross multiple blocks.  This means that any handling of the sequence is not a local intra-block affair, further complicating solutions.
+
+Creating a superblock is one possible solution.  However, it is not something normally done, and would complicate many parts of the interface and assumptions made by the core engine, tools, and tool libraries.
+
+# Initial Implemented Solution: Just Avoid Clean Calls
+
+Initially, the problem we observed on 32-bit ARM was with inserting clean calls inside the monitor region.  A clean call inserts a long string of memory references in order to save application machine state and invoke an external function.  We observed the problem with the drcachesim memory tracing tool, which inserts a clean call at the end of every block.  Our solution was to simply shift this clean call to be after the store-exclusive, which worked on some hardware.  But on other hardware, particularly Thunder X1, this was not enough: the smaller number of inserted memory references for recording the memory trace cleared the monitor.  On that hardware and other sensitive processors, users have also observed the stolen register handling code by itself causing hangs.
+
+# Proposed Solution A: Super-Instruction
+
+One idea is to convert the instruction sequence from the exclusive-load to the exclusive-store into a single super-instruction which appears as one atomic entity in the internal representation of the instrumentation engine.  The engine and any tools will insert any new instructions either before or after the monolithic sequence, thereby avoiding breaking the monitor.
+
+This is implemented today under the `-unsafe_build_ldstex` option.
+
+Advantages:
+- Relatively simple to implement for well-behaved, constrained sequences.
+
+Disadvantages:
+- Tools that require observing all application instructions may fail.  For example, a tracing tool would fail to include instruction fetches for all but the first instruction in the sequence, and taint-tracking or other dataflow-sensitive tools may fail altogether to handle the non-standard super-instruction, breaking their operation.  This is really a solution targeting just the core engine and is not tool-friendly.
+- Identifying or converting the sequence may fail on complicated, multi-block sequences.
+
+# Proposed Solution B: Compare-and-Swap Simulation
+
+The idea here is inspired by the QEMU and Valgrind solutions.  The QEMU solution is described in Section 4.3 of "Cross-ISA Machine Emulation for Multicores" by Cota, et al.: http://www.cs.columbia.edu/~luca/research/cota_CGO17.pdf  The Valgrind solution is discussed in the issue tracker entry linked below.
+
+The idea is to simulate the original load-exclusive store-exclusive atomic sequence with a weaker compare-and-swap atomic sequence which does not have limitations about inserting memory operations.  The weaker sequence does not have the exact same semantics of the original, but it is pretty close, and the claim is that the difference almost never matters for real programs.  Compare-and-swap does not detect intervening changes by another thread(s) in a combination of two writes which end up restoring the original value.  This is called the ABA problem. The claim that the ABA problem does not matter states that portable synchronization code will not rely on a monitor as not all architectures provide load-locked/store-conditional synchronization primitives: thus, portable code should target the least-common-denominator of compare-and-swap (e.g., cmpxchg on x86).
+
+To preserve the store-exclusive behavior as closely as possible, the proposal is to store the address, value, and size in thread-local storage when a load-exclusive is observed.  The store-exclusive then checks for matches in those fields before performing its compare-and-swap (which is itself implemented with a load-exclusive, store-exclusive sequence, but of course we completely control it and avoid any memory operations inside it).
+
+This solution thus acts separately on the load-exclusive from the store-exclusive, and is indifferent to what happens in between them: as it takes no action in between, any number of branches can occur, and any number of dynamic paths can be handled.
+
+Here is an example code transformation where this original application code spread across two dynamic basic blocks:
+
+```
+<block 1>
+1:      ldaxr   w1, [x2]
+        cmp     w1, wzr
+        b.ne    2f
+
+<block 2>
+        stxr    w3, w0, [x2]
+        cbnz    w3, 1b
+2:
+```
+
+becomes the following code.  Bear in mind that this is treated as two separate blocks, as normal, with the load-exclusive instrumentation occurring on the first block, and the store-exclusive transformation on the second block, completely separately from each other.
+
+```
+<block 1>
+1:      ldar    w1, [x2]
+        stp     x2, x1, [x28, #<monitor-addr-slot>]  // monitor-value-slot adjacent.
+        str     x0, [x28, #<x0-spill-slot>]  // Spill a scratch reg.
+        movz    x0, #4
+        str     x0, [x28, #<monitor-size-slot>]
+        ldr     x0, [x28, #<x0-spill-slot>] // Restore the scratch reg.
+        cmp     w1, wzr
+        b.ne    2f
+
+<block2>
+        str     x0, [x28, #<x0-spill-slot>]  // Spill a scratch reg.
+        ldr     x0, [x28, #<monitor-addr-slot>]
+        sub     x3, x2, x0                     // Avoid cmp to preserve flags.
+        cbnz    x3, no_match                   // Write to w3 for the app cbnz.
+        ldr     w0, [x28, #<monitor-size-slot>]
+        sub     x3, x0, #4
+        cbnz    x3, no_match
+        ldr     x0, [x28, #<monitor-value-slot>]
+        ldaxr   w3, [x2]
+        sub     w3, w0, w3
+        cbnz    w3, no_match
+        stxr    w3, w0, [x2]
+        b       completed
+no_match:
+        clrex
+        stxr    w3, w0, [x2]  // Properly raise a fault, if any.
+completed:
+        ldr     x0, [x28, #<x0-spill-slot>]  // Restore scratch reg.
+        cbnz    w3, 1b
+2:
+```
+
+The transformation is careful to reproduce a fault even when the main store-exclusive is skipped, by repeating it on the `no_match` path.
+
+One complication is multiple different load-exclusive opcodes pairing with a single store-exclusive.  Possible ways to handle this include:
+- Flushing the fragment every time the opcode differs and generating the same single-load-opcode code as above.  This could become an overhead issue and we'd want to split the page off to avoid flushing the entire code segment every time.
+- Flushing the fragment and adding separate versions for each opcode seen so far, inside the same fragment.
+- Returning to dispatch and using non-code-cache generated code created at initialization time, with a variant created for every load-exclusive store-exclusive opcode pair.  This would require special translation support.
+- Storing the load opcode into its own TLS slot, but we do not know what to compare it with when we reach the store-exclusive, especially for cases like dr_prepopulate_cache().
+- Just always using the acquire version for the store-exclusive size.  Since the size must match, this is the only variation, and it should not affect correctness to add the barriers even when they are not needed.  This is the solution that we choose.
+
+There are other complexities, such as saving and comparing a second value in another TLS slot for pair opcodes, and handling a load-exclusive that discards a result by targeting the zero register.  32-bit ARM raises even more issues, such as requiring saving the flags, requiring consecutive registers for pair opcodes, and predication, all of which add further complexity.
+
+This solution should also act on a `clrex` instruction, clearing the stored monitor values in order to avoid incorrect success in a load-exclusive, `clrex`, store-exclusive sequence.
+
+If the store-exclusive uses the stolen register: it is best to integrate stolen register mangling with exclusive monitor mangling.  To avoid translation complexities in identifying the TLS loads and stores here, we should adopt a different strategy from regular stolen register handling: we should modify the application instruction to use the swap register, and should be careful to have all additional scratch register spills and restores outside of the compare-and-swap exclusive monitor region.
+
+For a load-exclusive and store-exclusive in the same block, we can optimize by eliminating the stores and loads to TLS and directly using the values in registers, and comparing the sizes statically.
+
+Our scheme above checks for strict equality of the base address and memory operand size between the load-exclusive and store-exclusive.  On some processors, if the stxr's address range is a subset of the ldxp's range, it will succeed, even if the size or base address are not identical.  However, the manual states that this is `CONSTRAINED UNPREDICTABLE` behavior: Section B2.9.5 says "software can rely on a LoadExcl / StoreExcl pair to eventually succeed only if the LoadExcl and the StoreExcl have the same transaction size."  Similarly for the target address and register count.  Thus, given the complexity of trying to match the actual processor behavior and comparing ranges and whatnot, we're ok with DR enforcing a strict equality, until or unless we see real apps relying on processor quirks.
+
+Advantages:
+- Relatively simple to implement.
+- No need to identify the entire sequence ahead of time: can handle arbitrary code in between the load-exclusive and store-exclusive.
+- Preserves the original opcodes and code layout for tools.
+
+Disadvantages:
+- Does not preserve the precise semantics of the original code and could lead to subtle synchronization bugs in the application.
+
+We could insert a counter into the original loop (after the store-exclusive to avoid perturbing the monitor) and only if it seems to be making no progress would we then move to a compare-and-swap, thus avoiding the semantic difference for at least some hardware and some monitor sequences.
+
+# Proposed Solution C: Atomic Add Conversion
+
+In some cases, a load-exclusive store-exclusive sequence is used to perform an atomic add or subtract.  ARM v8.1 added dedicated atomic add instructions.  We could convert the monitor-using sequence to instead use the new instructions, avoiding the instrumentation issues.
+
+Advantages:
+- Preserves synchronization semantics.
+
+Disadvantages:
+- Only applies to a subset of monitor-using code.
+- Only works on ARM v8.1-capable processors.
+- Requires identifying the whole sequence ahead of time.
+- Modifies the original application code, affecting tools that want to observe an unmodified application.  (Unless we tried to move the transformation to post-instrumentation time, which is rather difficult for a multi-instruction transformation.)
+
+# Proposed Solution D: Run Twice
+
+One idea is to treat these sequences in a similar manner to restartable sequences (“rseq”), which have relatively similar restrictions on execution.  We handle those by running them twice, once with instrumentation and once “for real” natively with no instrumentation: \ref page_rseq.
+
+We’d execute the whole sequence in a normal manner, with regular instrumentation.  We’d remember the prior load-exclusive.  When we see a store-exclusive, we then insert a native copy of the whole sequence since the load-exclusive, which is executed if the store-exclusive fails.  If the native store-exclusive also fails, it would loop back to the start of the instrumented load-exclusive and repeat the whole process.
+
+Embedding a native sequence may be more complicated than for rseq, which has severe restrictions on the code range and on side effects.  It is possible there could be memory stores (which happen to not break the monitor on the target hardware) which would be complex to checkpoint, though we could argue that the code should always handle running multiple times on an monitor failure.  There could also be different paths taken between the two executions, or predicated instructions with different behavior.
+
+Advantages:
+- Tools see the original code, with some caveats below.
+
+Disadvantages:
+- Tools may never see a success case and only see the store-exclusive fail.
+- Tools will not see the native execution, yet it may have side effects, unlike rseq, not captured by the tool or different from typical runs, or behavior differing from the instrumented execution that could cause errors in taint tracking or other dataflow-sensitive tools or inaccurate memory or instruction trace recordings.
+- It is complex to embed the whole sequence: it is less bounded than for rseq.
+- We would need special mangling for the stolen register: we would have to swap the stolen register before the whole embedded loop.  For rseq we could more simply apply regular mangling to the native sequence.
+- This approach might fail on complex multi-path blocks that are too difficult to embed.  Even for rseq we ended up with a number of assumptions we do not handle when broken and we simply fail.
+- The application might not loop and not handle the 2nd execution with side effects?  This seems very pathological however, unlike rseq where a restart need not be handled.
+
+# Combining Solutions
+
+We could take multiple solutions and use one as a fallback for another when something fails: e.g., using a run-twice solution for simple sequences, but falling back to compare-and-swap for complex sequence shapes that are difficult to embed.  We could use similar ideas to the counter discussed above to measure whether progress is being made, avoiding the drawbacks of these solutions when the underlying hardware seems fine with the extra memory operations being inserted at the moment.
+
+# Decision: Compare-and-Swap
+
+The plan is to implement the compare-and-swap solution, which is the simplest and most tool-friendly of the proposals.  It will be under an option so it can be disabled.  Only if we actually find an application where the weaker semantics causes a problem will we implement an alternative or multi-layer solution.
+
+# Issue Tracker References
+
+Issue tracker entries covering this problem include:
+- [i#1698: ldrex..strex pair constraints challenge instrumentation and even core operation](https://github.com/DynamoRIO/dynamorio/issues/1698)
+- [i#3005: exclusive store workaround fails on some AArch64 hardware w/ multi-block sequences](https://github.com/DynamoRIO/dynamorio/issues/3005)
+- [i#4263: use new ARM atomics where available, for DR and even for the app](https://github.com/DynamoRIO/dynamorio/issues/4263)
+- [Valgrind issue #369459](https://bugs.kde.org/show_bug.cgi?id=369459)
+
+
+ ****************************************************************************
+ */

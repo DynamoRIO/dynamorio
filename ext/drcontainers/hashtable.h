@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,7 +52,7 @@ extern "C" {
 /**
  * \addtogroup drcontainers Container Data Structures
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** The type of hash key */
 typedef enum {
@@ -80,6 +80,11 @@ typedef struct _hashtable_config_t {
     size_t size;           /**< The size of the hashtable_config_t struct used */
     bool resizable;        /**< Whether the table should be resized */
     uint resize_threshold; /**< Resize the table at this % full */
+    /**
+     * Called whenever an entry is removed, with the key passed in.  If "str_dup" is set
+     * to true in hashtable_init() or hashtable_init_ex(), this field is ignored.
+     */
+    void (*free_key_func)(void *);
 } hashtable_config_t;
 
 typedef struct _hashtable_t {
@@ -355,7 +360,7 @@ hashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
                     size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
                     bool (*process_payload)(void *key, void *payload, ptr_int_t shift));
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

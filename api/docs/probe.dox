@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,7 +34,7 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\if vmsafe
+\if probe_interface_enabled
 \page API_probe Probe API
 
 The Probe API provides an interface that enables a client to insert

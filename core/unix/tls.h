@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -129,7 +129,10 @@ typedef struct _our_modify_ldt_t {
 static inline ptr_uint_t
 read_thread_register(reg_id_t reg)
 {
-#if defined(MACOS64)
+#ifdef DR_HOST_NOT_TARGET
+    ptr_uint_t sel = 0;
+    ASSERT_NOT_REACHED();
+#elif defined(MACOS64)
     ptr_uint_t sel;
     if (reg == SEG_GS) {
         asm volatile("mov %%gs:%1, %0" : "=r"(sel) : "m"(*(void **)0));
@@ -191,7 +194,10 @@ read_thread_register(reg_id_t reg)
 static inline bool
 write_thread_register(void *val)
 {
-#    ifdef AARCH64
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_REACHED();
+    return false;
+#    elif defined(AARCH64)
     asm volatile("msr tpidr_el0, %0" : : "r"(val));
     return true;
 #    else
@@ -263,6 +269,16 @@ typedef struct _os_local_state_t {
 #endif
     void *app_lib_tls_base; /* for mangling segmented memory ref */
     void *app_alt_tls_base; /* for mangling segmented memory ref */
+
+/* FIXME i#3990: For MACOS, we use a union to save tls space. Unfortunately, this
+ * results in not initialising client tls slots which are allocated using
+ * dr_raw_tls_calloc. Figuring where to perform memset to clear os_seg_info is not
+ * apparently clear due to interleaved thread and instrum inits.
+ */
+#ifdef LINUX
+    os_seg_info_t os_seg_info;
+    void *client_tls[MAX_NUM_CLIENT_TLS];
+#else
     union {
         /* i#107: We use space in os_tls to store thread area information
          * thread init. It will not conflict with the client_tls usage,
@@ -271,6 +287,7 @@ typedef struct _os_local_state_t {
         os_seg_info_t os_seg_info;
         void *client_tls[MAX_NUM_CLIENT_TLS];
     };
+#endif
 } os_local_state_t;
 
 os_local_state_t *

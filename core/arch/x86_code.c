@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -299,8 +299,7 @@ new_thread_setup(priv_mcontext_t *mc)
     set_thread_register_from_clone_record(crec);
 #    endif
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc,
-                            crec _IF_CLIENT_INTERFACE(false));
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
@@ -346,8 +345,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
         d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc,
-                            crec _IF_CLIENT_INTERFACE(false));
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);

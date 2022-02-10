@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,12 +49,10 @@
 #    include "moduledb.h" /* for process_control() */
 #endif
 
-#include "fragment.h"  /* needed for perscache.h */
-#include "perscache.h" /* for coarse_units_freeze_all() */
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h" /* for instrement_nudge() */
-#endif
-#include "fcache.h" /* for reset routines */
+#include "fragment.h"   /* needed for perscache.h */
+#include "perscache.h"  /* for coarse_units_freeze_all() */
+#include "instrument.h" /* for instrement_nudge() */
+#include "fcache.h"     /* for reset routines */
 
 #ifdef WINDOWS
 static void
@@ -101,7 +99,7 @@ generic_nudge_target(nudge_arg_t *arg)
 bool
 nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
 {
-    /* Note - for supporting detach with CLIENT_INTERFACE and nudge threads we need that
+    /* Note - for supporting detach with  clients and nudge threads we need that
      * no lock grabbing or other actions that would interfere with the detaching process
      * occur in the cleanup path here. */
 
@@ -157,11 +155,14 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
         ASSERT_OWN_NO_LOCKS();
 
 #    ifdef WINDOWS
-        /* if exiting the process, os_loader_exit will swap to app, and we want to
-         * remain private during exit (esp client exit)
+        /* We want to remain private during exit (esp client exit and loader_thread_exit
+         * calling privlib entries).  Thus we do *not* call swap_peb_pointer().
+         * For exit_process, os_loader_exit will swap to app.
+         * XXX: For thread exit: somebody should swap to app later: but
+         * os_thread_not_under_dynamo() doesn't seem to (unlike UNIX) (and if we
+         * change that we should call it *after* loader_thread_exit()!).
+         * It's not that important I guess: the thread is exiting.
          */
-        if (!exit_process && dcontext != NULL)
-            swap_peb_pointer(dcontext, false /*to app*/);
 #    endif
 
         /* if freeing the app stack we must be on the dstack when we cleanup */
@@ -249,7 +250,11 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
 
     /* Xref case 552, the nudge_target value provides a reasonable measure
      * of security against an attacker leveraging this routine. */
-    if (dcontext->nudge_target != (void *)generic_nudge_target) {
+    if (dcontext->nudge_target !=
+        (void *)generic_nudge_target
+            /* Allow a syscall for our test in debug build. */
+            IF_DEBUG(&&!check_filter("win32.tls.exe",
+                                     get_short_name(get_application_name())))) {
         /* FIXME - should we report this likely attempt to attack us? need
          * a unit test for this (though will then have to tone this down). */
         ASSERT(false && "unauthorized thread tried to nudge");
@@ -371,17 +376,15 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
         nudge_action_mask &= ~NUDGE_GENERIC(persist);
         coarse_units_freeze_all(false /*!in-place==persist*/);
     }
-#ifdef CLIENT_INTERFACE
     if (TEST(NUDGE_GENERIC(client), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(client);
         instrument_nudge(dcontext, arg->client_id, arg->client_arg);
     }
-#endif
 #ifdef PROCESS_CONTROL
     if (TEST(NUDGE_GENERIC(process_control), nudge_action_mask)) { /* Case 8594 */
         nudge_action_mask &= ~NUDGE_GENERIC(process_control);
         /* Need to synchronize because process control can be switched between
-         * on (white or black list) & off.  FIXME - the nudge mask should specify this,
+         * on (allow or block list) & off.  FIXME - the nudge mask should specify this,
          * but doesn't hurt to do it again. */
         synchronize_dynamic_options();
         if (IS_PROCESS_CONTROL_ON())

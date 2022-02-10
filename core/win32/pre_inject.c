@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -172,9 +172,10 @@ display_error(char *msg)
 typedef int (*int_func_t)();
 typedef void (*void_func_t)();
 
-/* in arch/x86.asm */
+/* in drlibc_x86.asm */
 extern int
-switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3);
+switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3, void *arg4,
+                      void *arg5, void *arg6);
 
 static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
 {
@@ -333,14 +334,14 @@ static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
         VERBOSE_MESSAGE("about to inject dynamorio");
 #ifndef X64
         if (x64_in_wow64)
-            res = switch_modes_and_call(init_func, NULL, NULL, NULL);
+            res = switch_modes_and_call(init_func, NULL, NULL, NULL, NULL, NULL, NULL);
         else
 #endif
             res = (*init_func)();
         VERBOSE_MESSAGE("dynamorio_app_init() returned %d\n", res);
 #ifndef X64
         if (x64_in_wow64)
-            switch_modes_and_call(take_over_func, NULL, NULL, NULL);
+            switch_modes_and_call(take_over_func, NULL, NULL, NULL, NULL, NULL, NULL);
         else
 #endif
             (*take_over_func)();

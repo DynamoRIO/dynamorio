@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "analysis_tool.h"
 
@@ -78,6 +79,11 @@ protected:
             func_arg_markers += rhs.func_arg_markers;
             func_retval_markers += rhs.func_retval_markers;
             other_markers += rhs.other_markers;
+            icache_flushes += rhs.icache_flushes;
+            dcache_flushes += rhs.dcache_flushes;
+            for (const uint64_t addr : rhs.unique_pc_addrs) {
+                unique_pc_addrs.insert(addr);
+            }
             return *this;
         }
         memref_tid_t tid = 0;
@@ -93,6 +99,9 @@ protected:
         int_least64_t func_arg_markers = 0;
         int_least64_t func_retval_markers = 0;
         int_least64_t other_markers = 0;
+        int_least64_t icache_flushes = 0;
+        int_least64_t dcache_flushes = 0;
+        std::unordered_set<uint64_t> unique_pc_addrs;
         std::string error;
     };
     static bool
@@ -100,11 +109,11 @@ protected:
                  const std::pair<memref_tid_t, counters_t *> &r);
 
     // The keys here are int for parallel, tid for serial.
-    std::unordered_map<memref_tid_t, counters_t *> shard_map;
+    std::unordered_map<memref_tid_t, counters_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex;
-    unsigned int knob_verbose;
+    std::mutex shard_map_mutex_;
+    unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
 };
 

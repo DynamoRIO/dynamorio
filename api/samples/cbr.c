@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -232,10 +232,14 @@ insert(hash_table_t table, app_pc addr, cbr_state_t state)
 static void
 at_taken(app_pc src, app_pc targ)
 {
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    /*
+     * We've found that the time taken to zero a large struct shows up as
+     * noticeable overhead for optimized clients. So, instead of using partial
+     * struct initialization, we set the fields required individually.
+     */
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     void *drcontext = dr_get_current_drcontext();
 
     /*
@@ -253,7 +257,7 @@ at_taken(app_pc src, app_pc targ)
      */
     dr_flush_region(src, 1);
     dr_get_mcontext(drcontext, &mcontext);
-    mcontext.pc = targ;
+    mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), targ);
     dr_redirect_execution(&mcontext);
 }
 
@@ -261,10 +265,14 @@ at_taken(app_pc src, app_pc targ)
 static void
 at_not_taken(app_pc src, app_pc fall)
 {
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    /*
+     * We've found that the time taken to zero a large struct shows up as
+     * noticeable overhead for optimized clients. So, instead of using partial
+     * struct initialization, we set the fields required individually.
+     */
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     void *drcontext = dr_get_current_drcontext();
 
     /*
@@ -346,10 +354,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             /* Callout for the not-taken case.  Insert after
              * the cbr (i.e., 3rd argument is NULL).
              */
-            dr_insert_clean_call(drcontext, bb, NULL, (void *)at_not_taken,
-                                 false /* don't save fp state */,
-                                 2 /* 2 args for at_not_taken */, OPND_CREATE_INTPTR(src),
-                                 OPND_CREATE_INTPTR(fall));
+            dr_insert_clean_call_ex(drcontext, bb, NULL, (void *)at_not_taken,
+                                    DR_CLEANCALL_READS_APP_CONTEXT |
+                                        DR_CLEANCALL_MULTIPATH,
+                                    2 /* 2 args for at_not_taken */,
+                                    OPND_CREATE_INTPTR(src), OPND_CREATE_INTPTR(fall));
         }
 
         /* After the callout, jump to the original fallthrough
@@ -372,10 +381,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
         if (insert_taken) {
             /* Callout for the taken case */
-            dr_insert_clean_call(drcontext, bb, NULL, (void *)at_taken,
-                                 false /* don't save fp state */,
-                                 2 /* 2 args for at_taken */, OPND_CREATE_INTPTR(src),
-                                 OPND_CREATE_INTPTR(targ));
+            dr_insert_clean_call_ex(drcontext, bb, NULL, (void *)at_taken,
+                                    DR_CLEANCALL_READS_APP_CONTEXT |
+                                        DR_CLEANCALL_MULTIPATH,
+                                    2 /* 2 args for at_taken */, OPND_CREATE_INTPTR(src),
+                                    OPND_CREATE_INTPTR(targ));
         }
 
         /* After the callout, jump to the original target

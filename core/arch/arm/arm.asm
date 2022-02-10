@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -120,7 +120,6 @@ call_dispatch_alt_stack_no_free:
         END_FUNC(call_switch_stack)
 
 
-#ifdef CLIENT_INTERFACE
 /*
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
@@ -165,7 +164,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      REG_SP, REG_R4
         pop      {REG_R1-REG_R5, pc} /* don't need r1-r3 values but this is simplest */
         END_FUNC(dr_call_on_clean_stack)
-#endif /* CLIENT_INTERFACE */
 
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
@@ -412,56 +410,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         END_FUNC(safe_read_asm)
 
 
-#ifdef UNIX
-/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
- */
-
-/* Private memcpy.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        ldrb     REG_R3, [ARG2]
-        strb     REG_R3, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG2, ARG2, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memcpy)
-
-/* Private memset.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        strb     ARG2, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memset)
-
-/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-#endif /* UNIX */
-
-
-#ifdef CLIENT_INTERFACE
 /* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
  *
  * int dr_try_start(try_except_context_t *cxt) ;
@@ -518,8 +466,6 @@ GLOBAL_LABEL(our_cpuid:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(our_cpuid)
 
-#endif /* CLIENT_INTERFACE */
-
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)
 GLOBAL_LABEL(client_int_syscall:)
@@ -543,12 +489,28 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-
+/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                             void *ctid, void (*func)(void))
+ */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-        /* FIXME i#1551: NYI on ARM */
-        mov      r0, #0
+        /* Save callee-saved regs we clobber in the parent. */
+        push     {r4, r5, r7}
+        ldr      r4, [sp, #12] /* ARG5 minus the pushes above */
+        ldr      r5, [sp, #16] /* ARG6 minus the pushes above */
+        /* All args are now in syscall registers. */
+        /* Push func on the new stack. */
+        stmdb    ARG2!, {r5}
+        mov      r7, #SYS_clone
+        svc      0
+        cmp      r0, #0
+        bne      dynamorio_clone_parent
+        ldmia    sp!, {r0}
+        blx      r0
         bl       GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+        pop      {r4, r5, r7}
+        bx       lr
         END_FUNC(dynamorio_clone)
 
         DECLARE_FUNC(dynamorio_sigreturn)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -323,13 +323,38 @@ main(int argc, char **argv)
     /* Test xsave for drutil_opnd_mem_size_in_bytes. We're assuming that
      * xsave support is available and enabled, which should be the case
      * on all machines we're running on.
+     * Ideally we'd run whatever cpuid invocations are needed to figure out the exact
+     * size but 16K is more than enough for the foreseeable future: it's 576 bytes
+     * with SSE and ~2688 for AVX-512.
      */
-    char ALIGN_VAR(64) buffer[2048];
-    __asm("or $-1, %%eax\n"
-          "\txsave %0"
+    char ALIGN_VAR(64) buffer[16 * 1024];
+    __asm("xor %%edx, %%edx\n\t"
+          "or $-1, %%eax\n\t"
+          "xsave %0\n\t"
           : "=m"(buffer)
           :
-          : "eax");
+          : "eax", "edx", "memory");
+#    endif
+
+    /* Test rep string expansions. */
+    char buf1[1024];
+    char buf2[1024];
+#    ifdef X86_64
+    __asm("lea %[buf1], %%rdi\n\t"
+          "lea %[buf2], %%rsi\n\t"
+          "mov %[count], %%ecx\n\t"
+          "rep movsq\n\t"
+          :
+          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2), [ count ] "i"(sizeof(buf1))
+          : "ecx", "rdi", "rsi", "memory");
+#    elif defined(X86_32)
+    __asm("lea %[buf1], %%edi\n\t"
+          "lea %[buf2], %%esi\n\t"
+          "mov %[count], %%ecx\n\t"
+          "rep movsd\n\t"
+          :
+          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2), [ count ] "i"(sizeof(buf1))
+          : "ecx", "edi", "esi", "memory");
 #    endif
 
     intervals = 10;

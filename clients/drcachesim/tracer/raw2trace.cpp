@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,12 +65,14 @@
         fprintf(stderr, "[drmemtrace]: "); \
     } while (0)
 
-#define VPRINT(level, ...)                \
-    do {                                  \
-        if (this->verbosity >= (level)) { \
-            VPRINT_HEADER();              \
-            fprintf(stderr, __VA_ARGS__); \
-        }                                 \
+// We fflush for Windows cygwin where stderr is not flushed.
+#define VPRINT(level, ...)                 \
+    do {                                   \
+        if (this->verbosity_ >= (level)) { \
+            VPRINT_HEADER();               \
+            fprintf(stderr, __VA_ARGS__);  \
+            fflush(stderr);                \
+        }                                  \
     } while (0)
 
 static online_instru_t instru(NULL, false, NULL);
@@ -113,61 +115,66 @@ trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
  * Module list
  */
 
-const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data) = nullptr;
-void (*module_mapper_t::user_free)(void *data) = nullptr;
-bool module_mapper_t::has_custom_data_global = true;
+const char *(*module_mapper_t::user_parse_)(const char *src, OUT void **data) = nullptr;
+void (*module_mapper_t::user_free_)(void *data) = nullptr;
+int (*module_mapper_t::user_print_)(void *data, char *dst, size_t max_len) = nullptr;
+bool module_mapper_t::has_custom_data_global_ = true;
 
 module_mapper_t::module_mapper_t(
-    const char *module_map_in, const char *(*parse_cb)(const char *src, OUT void **data),
+    const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
-    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity_in)
-    : modmap(module_map_in)
-    , cached_user_free(free_cb)
-    , verbosity(verbosity_in)
+    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
+    const std::string &alt_module_dir)
+    : modmap_(module_map)
+    , cached_user_free_(free_cb)
+    , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
     // we make sure to reset it afterwards.
-    DR_ASSERT(user_parse == nullptr);
-    DR_ASSERT(user_free == nullptr);
+    DR_ASSERT(user_parse_ == nullptr);
+    DR_ASSERT(user_free_ == nullptr);
+    DR_ASSERT(user_print_ == nullptr);
 
-    user_parse = parse_cb;
-    user_process = process_cb;
-    user_process_data = process_cb_user_data;
-    user_free = free_cb;
-    // has_custom_data_global is potentially mutated in parse_custom_module_data.
+    user_parse_ = parse_cb;
+    user_process_ = process_cb;
+    user_process_data_ = process_cb_user_data;
+    user_free_ = free_cb;
+    // has_custom_data_global_ is potentially mutated in parse_custom_module_data.
     // It is assumed to be set to 'true' initially.
-    has_custom_data_global = true;
+    has_custom_data_global_ = true;
 
-    last_error = do_module_parsing();
+    last_error_ = do_module_parsing();
 
-    // capture has_custom_data_global's value for this instance.
-    has_custom_data = has_custom_data_global;
+    // capture has_custom_data_global_'s value for this instance.
+    has_custom_data_ = has_custom_data_global_;
 
-    user_parse = nullptr;
-    user_free = nullptr;
+    user_parse_ = nullptr;
+    user_free_ = nullptr;
 }
 
 module_mapper_t::~module_mapper_t()
 {
-    // update user_free
-    user_free = cached_user_free;
+    // update user_free_
+    user_free_ = cached_user_free_;
     // drmodtrack_offline_exit requires the parameter to be non-null, but we
     // may not have even initialized the modhandle yet.
-    if (modhandle != nullptr && drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
+    if (modhandle_ != nullptr &&
+        drmodtrack_offline_exit(modhandle_) != DRCOVLIB_SUCCESS) {
         WARN("Failed to clean up module table data");
     }
-    user_free = nullptr;
-    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
+    user_free_ = nullptr;
+    for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
-        if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
-            bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
+        if (!mvi->is_external && mvi->map_seg_base != NULL && mvi->total_map_size != 0) {
+            bool ok = dr_unmap_executable_file(mvi->map_seg_base, mvi->total_map_size);
             if (!ok)
                 WARN("Failed to unmap module %s", mvi->path);
         }
     }
-    modhandle = nullptr;
-    modvec.clear();
+    modhandle_ = nullptr;
+    modvec_.clear();
 }
 
 std::string
@@ -176,10 +183,10 @@ raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT voi
                                                           void *data, void *user_data),
                                 void *process_cb_user_data, void (*free_cb)(void *data))
 {
-    user_parse = parse_cb;
-    user_process = process_cb;
-    user_process_data = process_cb_user_data;
-    user_free = free_cb;
+    user_parse_ = parse_cb;
+    user_process_ = process_cb;
+    user_process_data_ = process_cb_user_data;
+    user_free_ = free_cb;
     return "";
 }
 
@@ -194,16 +201,16 @@ module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
         version != CUSTOM_MODULE_VERSION) {
         // It's not what we expect.  We try to handle legacy formats before bailing.
         static bool warned_once;
-        has_custom_data_global = false;
+        has_custom_data_global_ = false;
         if (!warned_once) { // Race is fine: modtrack parsing is global already.
             WARN("Incorrect module field version %d: attempting to handle legacy format",
                  version);
             warned_once = true;
         }
-        // First, see if the user_parse is happy:
-        if (user_parse != nullptr) {
+        // First, see if the user_parse_ is happy:
+        if (user_parse_ != nullptr) {
             void *user_data;
-            buf = (*user_parse)(buf, &user_data);
+            buf = (*user_parse_)(buf, &user_data);
             if (buf != nullptr) {
                 // Assume legacy format w/ user data but none of our own.
                 custom_module_data_t *custom_data = new custom_module_data_t;
@@ -239,29 +246,39 @@ module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
         custom_data->contents = buf;
         buf += custom_data->contents_size;
     }
-    if (user_parse != nullptr)
-        buf = (*user_parse)(buf, &custom_data->user_data);
+    if (user_parse_ != nullptr)
+        buf = (*user_parse_)(buf, &custom_data->user_data);
     *data = custom_data;
     return buf;
+}
+
+int
+module_mapper_t::print_custom_module_data(void *data, char *dst, size_t max_len)
+{
+    custom_module_data_t *custom_data = (custom_module_data_t *)data;
+    return offline_instru_t::print_module_data_fields(
+        dst, max_len, custom_data->contents, custom_data->contents_size, user_print_,
+        custom_data->user_data);
 }
 
 void
 module_mapper_t::free_custom_module_data(void *data)
 {
     custom_module_data_t *custom_data = (custom_module_data_t *)data;
-    if (user_free != nullptr)
-        (*user_free)(custom_data->user_data);
+    if (user_free_ != nullptr)
+        (*user_free_)(custom_data->user_data);
     delete custom_data;
 }
 
 std::string
 raw2trace_t::do_module_parsing()
 {
-    if (!module_mapper) {
-        module_mapper = module_mapper_t::create(modmap, user_parse, user_process,
-                                                user_process_data, user_free, verbosity);
+    if (!module_mapper_) {
+        module_mapper_ = module_mapper_t::create(modmap_, user_parse_, user_process_,
+                                                 user_process_data_, user_free_,
+                                                 verbosity_, alt_module_dir_);
     }
-    return module_mapper->get_last_error();
+    return module_mapper_->get_last_error();
 }
 
 std::string
@@ -273,18 +290,18 @@ module_mapper_t::do_module_parsing()
                                    free_custom_module_data) != DRCOVLIB_SUCCESS) {
         return "Failed to set up custom module parser";
     }
-    if (drmodtrack_offline_read(INVALID_FILE, modmap, NULL, &modhandle, &num_mods) !=
+    if (drmodtrack_offline_read(INVALID_FILE, modmap_, NULL, &modhandle_, &num_mods) !=
         DRCOVLIB_SUCCESS)
         return "Failed to parse module file";
-    modlist.resize(num_mods);
+    modlist_.resize(num_mods);
     for (uint i = 0; i < num_mods; i++) {
-        modlist[i].struct_size = sizeof(modlist[i]);
-        if (drmodtrack_offline_lookup(modhandle, i, &modlist[i]) != DRCOVLIB_SUCCESS)
+        modlist_[i].struct_size = sizeof(modlist_[i]);
+        if (drmodtrack_offline_lookup(modhandle_, i, &modlist_[i]) != DRCOVLIB_SUCCESS)
             return "Failed to query module file";
-        if (user_process != nullptr) {
-            custom_module_data_t *custom = (custom_module_data_t *)modlist[i].custom;
+        if (user_process_ != nullptr) {
+            custom_module_data_t *custom = (custom_module_data_t *)modlist_[i].custom;
             std::string error =
-                (*user_process)(&modlist[i], custom->user_data, user_process_data);
+                (*user_process_)(&modlist_[i], custom->user_data, user_process_data_);
             if (!error.empty())
                 return error;
         }
@@ -295,71 +312,115 @@ module_mapper_t::do_module_parsing()
 std::string
 raw2trace_t::read_and_map_modules()
 {
-    if (!module_mapper) {
+    if (!module_mapper_) {
         auto err = do_module_parsing();
         if (!err.empty())
             return err;
     }
 
-    set_modvec(&module_mapper->get_loaded_modules());
-    return module_mapper->get_last_error();
+    set_modvec_(&module_mapper_->get_loaded_modules());
+    return module_mapper_->get_last_error();
 }
 
+// Maps each module into the address space.
+// There are several types of mapping entries in the module list:
+// 1) Raw bits directly stored.  It is simply pointed at.
+// 2) Extra segments for a module.  A single mapping is used for all
+//    segments, so extras are ignored.
+// 3) A main segment.  The module's file is located by first looking in
+//    the alt_module_dir_; if not found, the path present during tracing
+//    is searched.
 void
 module_mapper_t::read_and_map_modules()
 {
-    if (!last_error.empty())
+    if (!last_error_.empty())
         return;
-    for (auto it = modlist.begin(); it != modlist.end(); ++it) {
+    for (auto it = modlist_.begin(); it != modlist_.end(); ++it) {
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
         if (custom_data != nullptr && custom_data->contents_size > 0) {
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
-                   (int)modvec.size(), info.path, custom_data->contents_size,
+                   (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
-            modvec.push_back(
-                module_t(info.path, info.start, (byte *)custom_data->contents,
-                         custom_data->contents_size, true /*external data*/));
+            modvec_.push_back(
+                module_t(info.path, info.start, (byte *)custom_data->contents, 0,
+                         custom_data->contents_size, custom_data->contents_size,
+                         true /*external data*/));
         } else if (strcmp(info.path, "<unknown>") == 0 ||
                    // This should only happen with legacy trace data that's missing
                    // the vdso contents.
-                   (!has_custom_data && strcmp(info.path, "[vdso]") == 0)) {
+                   (!has_custom_data_ && strcmp(info.path, "[vdso]") == 0)) {
             // We won't be able to decode.
-            modvec.push_back(module_t(info.path, info.start, NULL, 0));
+            modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
         } else if (info.containing_index != info.index) {
-            // For split segments, drmodtrack_lookup() gave the lowest base addr,
-            // so our PC offsets are from that.  We assume that the single mmap of
-            // the first segment thus includes the other segments and that we don't
-            // need another mmap.
-            VPRINT(1, "Separate segment assumed covered: module %d seg " PFX " = %s\n",
-                   (int)modvec.size(), info.start, info.path);
-            modvec.push_back(module_t(info.path,
-                                      // We want the low base not segment base.
-                                      modvec[info.containing_index].orig_base,
-                                      // 0 size indicates this is a secondary segment.
-                                      modvec[info.containing_index].map_base, 0));
+            // For split segments, we assume our mapped layout matches the original.
+            byte *seg_map_base = modvec_[info.containing_index].map_seg_base +
+                (info.start - modvec_[info.containing_index].orig_seg_base);
+            VPRINT(1, "Secondary segment: module %d seg %p-%p = %s\n",
+                   (int)modvec_.size(), seg_map_base, seg_map_base + info.size,
+                   info.path);
+            // We did not map writable segments.  We can't easily detect an internal
+            // unmapped writable segment, but for those off the end of our mapping we
+            // can avoid pretending there's anything there.
+            bool off_end =
+                (size_t)(info.start - modvec_[info.containing_index].orig_seg_base) >=
+                modvec_[info.containing_index].total_map_size;
+            DR_ASSERT(off_end ||
+                      info.start - modvec_[info.containing_index].orig_seg_base +
+                              info.size <=
+                          modvec_[info.containing_index].total_map_size);
+            modvec_.push_back(module_t(
+                info.path, info.start, off_end ? NULL : seg_map_base,
+                off_end ? 0 : info.start - modvec_[info.containing_index].orig_seg_base,
+                off_end ? 0 : info.size,
+                // 0 total size indicates this is a secondary segment.
+                0));
         } else {
-            size_t map_size;
-            byte *base_pc =
-                dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            size_t map_size = 0;
+            byte *base_pc = NULL;
+            if (!alt_module_dir_.empty()) {
+                // First try the specified module dir.  It takes precedence to allow
+                // overriding the recorded path even when an identical-seeming path
+                // exists on the processing machine (e.g., system libraries).
+                // XXX: We should add a checksum on UNIX to match Windows and have
+                // a sanity check on the library version.
+                std::string basename(info.path);
+                size_t sep_index = basename.find_last_of(DIRSEP ALT_DIRSEP);
+                if (sep_index != std::string::npos)
+                    basename = std::string(basename, sep_index + 1, std::string::npos);
+                std::string new_path = alt_module_dir_ + DIRSEP + basename;
+                VPRINT(2, "Trying to map %s\n", new_path.c_str());
+                base_pc = dr_map_executable_file(new_path.c_str(),
+                                                 DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
+            if (base_pc == NULL) {
+                // Try the recorded path.
+                VPRINT(2, "Trying to map %s\n", info.path);
+                base_pc =
+                    dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
                 // but we expect to not care enough about code in DR).
                 if (strstr(info.path, "dynamorio") != NULL)
-                    modvec.push_back(module_t(info.path, info.start, NULL, 0));
+                    modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
                 else {
-                    last_error = "Failed to map module " + std::string(info.path);
+                    last_error_ = "Failed to map module " + std::string(info.path);
                     return;
                 }
             } else {
-                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(), base_pc,
-                       info.path);
-                modvec.push_back(module_t(info.path, info.start, base_pc, map_size));
+                VPRINT(1, "Mapped module %d @%p-%p (-%p segment) = %s\n",
+                       (int)modvec_.size(), base_pc, base_pc + map_size,
+                       base_pc + info.size, info.path);
+                // Be sure to only use the initial segment size to avoid covering
+                // another mapping in a segment gap (i#4731).
+                modvec_.push_back(
+                    module_t(info.path, info.start, base_pc, 0, info.size, map_size));
             }
         }
     }
-    VPRINT(1, "Successfully read %zu modules\n", modlist.size());
+    VPRINT(1, "Successfully read %zu modules\n", modlist_.size());
 }
 
 std::string
@@ -374,44 +435,46 @@ raw2trace_t::do_module_parsing_and_mapping()
 std::string
 raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address)
 {
-    *mapped_address = module_mapper->find_mapped_trace_address(trace_address);
-    return module_mapper->get_last_error();
+    *mapped_address = module_mapper_->find_mapped_trace_address(trace_address);
+    return module_mapper_->get_last_error();
 }
 
+// The output range is really a segment and not the whole module.
 app_pc
 module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
                                           OUT size_t *module_size)
 {
-    if (modhandle == nullptr || modlist.empty()) {
-        last_error = "Failed to call get_module_list() first";
+    if (modvec_.empty()) {
+        last_error_ = "Failed to call get_loaded_modules() first";
         return nullptr;
     }
 
     // For simplicity we do a linear search, caching the prior hit.
-    if (trace_address >= last_orig_base &&
-        trace_address < last_orig_base + last_map_size) {
+    if (trace_address >= last_orig_base_ &&
+        trace_address < last_orig_base_ + last_map_size_) {
         if (module_start != nullptr)
-            *module_start = last_map_base;
+            *module_start = last_map_base_;
         if (module_size != nullptr)
-            *module_size = last_map_size;
-        return trace_address - last_orig_base + last_map_base;
+            *module_size = last_map_size_;
+        return trace_address - last_orig_base_ + last_map_base_;
     }
-    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
+    for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
-        if (trace_address >= mvi->orig_base &&
-            trace_address < mvi->orig_base + mvi->map_size) {
-            app_pc mapped_address = trace_address - mvi->orig_base + mvi->map_base;
-            last_orig_base = mvi->orig_base;
-            last_map_size = mvi->map_size;
-            last_map_base = mvi->map_base;
+        if (trace_address >= mvi->orig_seg_base &&
+            trace_address < mvi->orig_seg_base + mvi->seg_size) {
+            app_pc mapped_address =
+                trace_address - mvi->orig_seg_base + mvi->map_seg_base;
+            last_orig_base_ = mvi->orig_seg_base;
+            last_map_size_ = mvi->seg_size;
+            last_map_base_ = mvi->map_seg_base;
             if (module_start != nullptr)
-                *module_start = last_map_base;
+                *module_start = last_map_base_;
             if (module_size != nullptr)
-                *module_size = last_map_size;
+                *module_size = last_map_size_;
             return mapped_address;
         }
     }
-    last_error = "Trace address not found";
+    last_error_ = "Trace address not found";
     return nullptr;
 }
 
@@ -421,6 +484,22 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
     return find_mapped_trace_bounds(trace_address, nullptr, nullptr);
 }
 
+drcovlib_status_t
+module_mapper_t::write_module_data(char *buf, size_t buf_size,
+                                   int (*print_cb)(void *data, char *dst, size_t max_len),
+                                   OUT size_t *wrote)
+{
+    user_print_ = print_cb;
+    drcovlib_status_t res =
+        drmodtrack_add_custom_data(nullptr, print_custom_module_data,
+                                   parse_custom_module_data, free_custom_module_data);
+    if (res == DRCOVLIB_SUCCESS) {
+        res = drmodtrack_offline_write(modhandle_, buf, buf_size, wrote);
+    }
+    user_print_ = nullptr;
+    return res;
+}
+
 /***************************************************************************
  * Top-level
  */
@@ -428,10 +507,13 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
 std::string
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
+    int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
+        ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
+        : TRACE_ENTRY_VERSION;
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
-    entry.addr = TRACE_ENTRY_VERSION;
+    entry.addr = version;
     if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
         return "Failed to write header to output file";
 
@@ -445,14 +527,21 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
     tdata->tid = tid;
+    tdata->cache_line_size = header.cache_line_size;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
-    // Write out the tid, pid, and timestamp.
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
+    // Write the version, arch, and other type flags.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
+    // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
+    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
+                                                 header.cache_line_size);
+
     if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
     // We have to write this now before we append any bb entries.
@@ -473,8 +562,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // We look for the initial header here rather than the top of
         // process_thread_file() to support use cases where buffers are passed from
         // another source.
-        tdata->saw_header =
-            trace_metadata_reader_t::is_thread_start(in_entry, &tdata->error);
+        tdata->saw_header = trace_metadata_reader_t::is_thread_start(
+            in_entry, &tdata->error, &tdata->version, &tdata->file_type);
+        VPRINT(2, "Trace file version is %d; type is %d\n", tdata->version,
+               tdata->file_type);
         if (!tdata->error.empty())
             return tdata->error;
         if (tdata->saw_header) {
@@ -503,12 +594,14 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             }
             continue;
         }
-        // Append any delayed branch, but not until we output all (non-xfer) markers to
-        // ensure we group them all with the timestamp for this thread segment.
-        if (!(entry.extended.type == OFFLINE_TYPE_EXTENDED &&
-              entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_EVENT &&
-              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_XFER)) {
+        // Append delayed branches at the end or before xfer markers; else, delay
+        // until we see a non-cti inside a block, to handle double branches (i#5141)
+        // and to group all (non-xfer) markers with a new timestamp.
+        if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+            (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
+             (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+              (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER)))) {
             tdata->error = append_delayed_branch(tdata);
             if (!tdata->error.empty())
                 return tdata->error;
@@ -597,77 +690,159 @@ raw2trace_t::do_conversion()
     std::string error = read_and_map_modules();
     if (!error.empty())
         return error;
-    if (thread_data.empty())
+    if (thread_data_.empty())
         return "No thread files found.";
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
-    if (worker_count == 0) {
-        for (size_t i = 0; i < thread_data.size(); ++i) {
-            error = process_thread_file(&thread_data[i]);
+    if (worker_count_ == 0) {
+        for (size_t i = 0; i < thread_data_.size(); ++i) {
+            error = process_thread_file(&thread_data_[i]);
             if (!error.empty())
                 return error;
+            count_elided_ += thread_data_[i].count_elided;
         }
     } else {
         // The files can be converted concurrently.
         std::vector<std::thread> threads;
-        VPRINT(1, "Creating %d worker threads\n", worker_count);
-        threads.reserve(worker_count);
-        for (int i = 0; i < worker_count; ++i) {
+        VPRINT(1, "Creating %d worker threads\n", worker_count_);
+        threads.reserve(worker_count_);
+        for (int i = 0; i < worker_count_; ++i) {
             threads.push_back(
-                std::thread(&raw2trace_t::process_tasks, this, &worker_tasks[i]));
+                std::thread(&raw2trace_t::process_tasks, this, &worker_tasks_[i]));
         }
         for (std::thread &thread : threads)
             thread.join();
-        for (auto &tdata : thread_data) {
+        for (auto &tdata : thread_data_) {
             if (!tdata.error.empty())
-                return error;
+                return tdata.error;
+            count_elided_ += tdata.count_elided;
         }
     }
-    VPRINT(1, "Successfully converted %zu thread files\n", thread_data.size());
+    VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n",
+           count_elided_);
+    VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
 
-const instr_summary_t *
-raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
-                               app_pc orig)
+raw2trace_t::block_summary_t *
+raw2trace_t::lookup_block_summary(void *tls, app_pc block_start)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    const app_pc decode_pc = *pc;
-    // For rep string loops we expect the same PC many times in a row.
-    if (decode_pc == tdata->last_decode_pc) {
-        *pc = tdata->last_summary->next_pc();
-        return tdata->last_summary;
+    if (block_start == tdata->last_decode_block_start) {
+        VPRINT(5, "Using last block summary " PFX " for " PFX "\n",
+               tdata->last_block_summary, tdata->last_decode_block_start);
+        return tdata->last_block_summary;
     }
-    const instr_summary_t *ret = static_cast<const instr_summary_t *>(
-        hashtable_lookup(&decode_cache[tdata->worker], decode_pc));
-    if (ret == nullptr) {
-        instr_summary_t *desc = new instr_summary_t();
-        if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
-            WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
-                 modvec()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
-            delete desc;
-            return nullptr;
-        }
-        hashtable_add(&decode_cache[tdata->worker], decode_pc, desc);
-        ret = desc;
-    } else {
-        /* XXX i#3129: Log some rendering of the instruction summary that will be
-         * returned.
-         */
-        *pc = ret->next_pc();
+    block_summary_t *ret = static_cast<block_summary_t *>(
+        hashtable_lookup(&decode_cache_[tdata->worker], block_start));
+    if (ret != nullptr) {
+        DEBUG_ASSERT(ret->start_pc == block_start);
+        tdata->last_decode_block_start = block_start;
+        tdata->last_block_summary = ret;
+        VPRINT(5, "Caching last block summary " PFX " for " PFX "\n",
+               tdata->last_block_summary, tdata->last_decode_block_start);
     }
-    tdata->last_decode_pc = decode_pc;
-    tdata->last_summary = ret;
     return ret;
 }
 
+instr_summary_t *
+raw2trace_t::lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+                                  app_pc block_start, int index, app_pc pc,
+                                  OUT block_summary_t **block_summary)
+{
+    block_summary_t *block = lookup_block_summary(tls, block_start);
+    if (block_summary != nullptr)
+        *block_summary = block;
+    if (block == nullptr)
+        return nullptr;
+    DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
+    if (block->instrs[index].pc() == nullptr)
+        return nullptr;
+    DEBUG_ASSERT(pc == block->instrs[index].pc());
+    return &block->instrs[index];
+}
+
 bool
-instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
-                           OUT instr_summary_t *desc, uint verbosity)
+raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
+                                  app_pc block_start, int index, app_pc pc)
+{
+    return lookup_instr_summary(tls, modidx, modoffs, block_start, index, pc, nullptr) !=
+        nullptr;
+}
+
+instr_summary_t *
+raw2trace_t::create_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+                                  block_summary_t *block, app_pc block_start,
+                                  int instr_count, int index, INOUT app_pc *pc,
+                                  app_pc orig)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (block == nullptr) {
+        block = new block_summary_t(block_start, instr_count);
+        DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
+        hashtable_add(&decode_cache_[tdata->worker], block_start, block);
+        VPRINT(5, "Created new block summary " PFX " for " PFX "\n", block, block_start);
+        tdata->last_decode_block_start = block_start;
+        tdata->last_block_summary = block;
+    }
+    instr_summary_t *desc = &block->instrs[index];
+    if (!instr_summary_t::construct(dcontext_, block_start, pc, orig, desc, verbosity_)) {
+        WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
+             modvec_()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
+        return nullptr;
+    }
+    return desc;
+}
+
+const instr_summary_t *
+raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+                               app_pc block_start, int instr_count, int index,
+                               INOUT app_pc *pc, app_pc orig)
+{
+    block_summary_t *block;
+    const instr_summary_t *ret =
+        lookup_instr_summary(tls, modidx, modoffs, block_start, index, *pc, &block);
+    if (ret == nullptr) {
+        return create_instr_summary(tls, modidx, modoffs, block, block_start, instr_count,
+                                    index, pc, orig);
+    }
+    *pc = ret->next_pc();
+    return ret;
+}
+
+// These flags are difficult to set on construction: because one instr_t may have
+// multiple flags, we'd need get_instr_summary() to take in a vector or sthg.
+// Instead we set after the fact.
+bool
+raw2trace_t::set_instr_summary_flags(void *tls, uint64 modidx, uint64 modoffs,
+                                     app_pc block_start, int instr_count, int index,
+                                     app_pc pc, app_pc orig, bool write, int memop_index,
+                                     bool use_remembered_base, bool remember_base)
+{
+    block_summary_t *block;
+    instr_summary_t *desc =
+        lookup_instr_summary(tls, modidx, modoffs, block_start, index, pc, &block);
+    if (desc == nullptr) {
+        app_pc pc_copy = pc;
+        desc = create_instr_summary(tls, modidx, modoffs, block, block_start, instr_count,
+                                    index, &pc_copy, orig);
+    }
+    if (desc == nullptr)
+        return false;
+    if (write)
+        desc->set_mem_dest_flags(memop_index, use_remembered_base, remember_base);
+    else
+        desc->set_mem_src_flags(memop_index, use_remembered_base, remember_base);
+    return true;
+}
+
+bool
+instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
+                           app_pc orig_pc, OUT instr_summary_t *desc, uint verbosity)
 {
     struct instr_destroy_t {
-        instr_destroy_t(void *dcontext_in, instr_t *instr_in)
-            : dcontext(dcontext_in)
-            , instr(instr_in)
+        instr_destroy_t(void *dcontext, instr_t *instr)
+            : dcontext(dcontext)
+            , instr(instr)
         {
         }
         void *dcontext;
@@ -681,7 +856,8 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
     instr_t *instr = instr_create(dcontext);
     instr_destroy_t instr_collector(dcontext, instr);
 
-    *pc = decode(dcontext, *pc, instr);
+    desc->pc_ = *pc;
+    *pc = decode_from_copy(dcontext, *pc, orig_pc, instr);
     if (*pc == nullptr || !instr_valid(instr)) {
         return false;
     }
@@ -689,12 +865,15 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
         // This is called for look-ahead and look-behind too so we leave the
         // main instr disasm to log_instruction and have high verbosity here.
         instr_set_translation(instr, orig_pc);
-        dr_print_instr(dcontext, STDOUT, instr, "<caching:> ");
+        dr_fprintf(STDERR, "<caching for start=" PFX "> ", block_start);
+        dr_print_instr(dcontext, STDERR, instr, "");
     }
     desc->next_pc_ = *pc;
+    DEBUG_ASSERT(desc->next_pc_ > desc->pc_);
     desc->packed_ = 0;
 
     bool is_prefetch = instr_is_prefetch(instr);
+    bool is_flush = instru_t::instr_is_flush(instr);
     bool reads_memory = instr_reads_memory(instr);
     bool writes_memory = instr_writes_memory(instr);
 
@@ -709,22 +888,33 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
     if (instr_is_cti(instr))
         desc->packed_ |= kIsCtiMask;
 
+#ifdef AARCH64
+    bool is_dc_zva = instru_t::is_aarch64_dc_zva_instr(instr);
+    if (is_dc_zva)
+        desc->packed_ |= kIsAarch64DcZvaMask;
+#endif
+
+#ifdef X86
+    if (instr_is_scatter(instr) || instr_is_gather(instr))
+        desc->packed_ |= kIsScatterOrGatherMask;
+#endif
     desc->type_ = instru_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
+    desc->flush_type_ = is_flush ? instru_t::instr_to_flush_type(instr) : 0;
     desc->length_ = static_cast<byte>(instr_length(dcontext, instr));
 
     if (reads_memory || writes_memory) {
         for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) {
             opnd_t op = instr_get_src(instr, i);
             if (opnd_is_memory_reference(op))
-                desc->mem_srcs_and_dests_.push_back(op);
+                desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
         }
         desc->num_mem_srcs_ = static_cast<uint8_t>(desc->mem_srcs_and_dests_.size());
 
         for (int i = 0, e = instr_num_dsts(instr); i < e; ++i) {
             opnd_t op = instr_get_dst(instr, i);
             if (opnd_is_memory_reference(op))
-                desc->mem_srcs_and_dests_.push_back(op);
+                desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
         }
     }
     return true;
@@ -739,6 +929,7 @@ raw2trace_t::get_next_entry(void *tls)
     // be i/o bound (or ISA decode bound) and aren't worried about some extra copies
     // from the vector.
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    tdata->last_entry_is_split = false;
     if (!tdata->pre_read.empty()) {
         tdata->last_entry = tdata->pre_read[0];
         tdata->pre_read.erase(tdata->pre_read.begin(), tdata->pre_read.begin() + 1);
@@ -747,13 +938,38 @@ raw2trace_t::get_next_entry(void *tls)
                                       sizeof(tdata->last_entry)))
             return nullptr;
     }
+    VPRINT(5, "[get_next_entry]: type=%d\n",
+           // Some compilers think .addr.type is "int" while others think it's "unsigned
+           // long".  We avoid dueling warnings by casting to int.
+           static_cast<int>(tdata->last_entry.addr.type));
     return &tdata->last_entry;
+}
+
+const offline_entry_t *
+raw2trace_t::get_next_entry_keep_prior(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        // Cannot record two live split entries.
+        return nullptr;
+    }
+    VPRINT(4, "Remembering split entry for unreading both at once\n");
+    tdata->last_split_first_entry = tdata->last_entry;
+    const offline_entry_t *next = get_next_entry(tls);
+    // Set this *after* calling get_next_entry as it clears the field.
+    tdata->last_entry_is_split = true;
+    return next;
 }
 
 void
 raw2trace_t::unread_last_entry(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        VPRINT(4, "Unreading both parts of split entry at once\n");
+        tdata->pre_read.push_back(tdata->last_split_first_entry);
+        tdata->last_entry_is_split = false;
+    }
     tdata->pre_read.push_back(tdata->last_entry);
 }
 
@@ -770,9 +986,12 @@ raw2trace_t::append_delayed_branch(void *tls)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->delayed_branch.empty())
         return "";
-    VPRINT(4, "Appending delayed branch for thread %d\n", tdata->index);
-    if (!tdata->out_file->write(&tdata->delayed_branch[0], tdata->delayed_branch.size()))
-        return "Failed to write to output file";
+    for (const auto &contents : tdata->delayed_branch) {
+        VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n",
+               reinterpret_cast<const trace_entry_t *>(&contents[0])->addr, tdata->index);
+        if (!tdata->out_file->write(&contents[0], contents.size()))
+            return "Failed to write to output file";
+    }
     tdata->delayed_branch.clear();
     return "";
 }
@@ -798,10 +1017,9 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
                                     const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    CHECK(tdata->delayed_branch.empty(), "Failed to flush delayed branch");
-    tdata->delayed_branch.insert(tdata->delayed_branch.begin(),
-                                 reinterpret_cast<const char *>(start),
-                                 reinterpret_cast<const char *>(end));
+    std::vector<char> contents(reinterpret_cast<const char *>(start),
+                               reinterpret_cast<const char *>(end));
+    tdata->delayed_branch.push_back(contents);
     return "";
 }
 
@@ -830,20 +1048,24 @@ raw2trace_t::on_thread_end(void *tls)
 void
 raw2trace_t::log(uint level, const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    if (verbosity >= level) {
+    if (verbosity_ >= level) {
+        va_list args;
+        va_start(args, fmt);
         VPRINT_HEADER();
         vfprintf(stderr, fmt, args);
+#ifdef WINDOWS
+        // We fflush for Windows cygwin where stderr is not flushed.
+        fflush(stderr);
+#endif
+        va_end(args);
     }
-    va_end(args);
 }
 
 void
 raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
 {
-    if (verbosity >= level) {
-        disassemble_from_copy(dcontext, decode_pc, orig_pc, STDOUT, true /*pc*/,
+    if (verbosity_ >= level) {
+        disassemble_from_copy(dcontext_, decode_pc, orig_pc, STDOUT, true /*pc*/,
                               false /*bytes*/);
     }
 }
@@ -862,17 +1084,39 @@ raw2trace_t::was_prev_instr_rep_string(void *tls)
     return tdata->prev_instr_was_rep_string;
 }
 
-raw2trace_t::raw2trace_t(const char *module_map_in,
-                         const std::vector<std::istream *> &thread_files_in,
-                         const std::vector<std::ostream *> &out_files_in,
-                         void *dcontext_in, unsigned int verbosity_in,
-                         int worker_count_in)
-    : trace_converter_t(dcontext_in)
-    , worker_count(worker_count_in)
-    , user_process(nullptr)
-    , user_process_data(nullptr)
-    , modmap(module_map_in)
-    , verbosity(verbosity_in)
+int
+raw2trace_t::get_version(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->version;
+}
+
+size_t
+raw2trace_t::get_cache_line_size(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->cache_line_size;
+}
+
+offline_file_type_t
+raw2trace_t::get_file_type(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->file_type;
+}
+
+raw2trace_t::raw2trace_t(const char *module_map,
+                         const std::vector<std::istream *> &thread_files,
+                         const std::vector<std::ostream *> &out_files, void *dcontext,
+                         unsigned int verbosity, int worker_count,
+                         const std::string &alt_module_dir)
+    : trace_converter_t(dcontext)
+    , worker_count_(worker_count)
+    , user_process_(nullptr)
+    , user_process_data_(nullptr)
+    , modmap_(module_map)
+    , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     if (dcontext == NULL) {
 #ifdef ARM
@@ -881,75 +1125,91 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
         dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
 #endif
     }
-    thread_data.resize(thread_files_in.size());
-    for (size_t i = 0; i < thread_data.size(); ++i) {
-        thread_data[i].index = static_cast<int>(i);
-        thread_data[i].thread_file = thread_files_in[i];
-        thread_data[i].out_file = out_files_in[i];
+    thread_data_.resize(thread_files.size());
+    for (size_t i = 0; i < thread_data_.size(); ++i) {
+        thread_data_[i].index = static_cast<int>(i);
+        thread_data_[i].thread_file = thread_files[i];
+        thread_data_[i].out_file = out_files[i];
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
     // static work assigment.  This won't be as load balanced as a dynamic work
     // queue but it is much simpler.
-    if (worker_count < 0) {
-        worker_count = std::thread::hardware_concurrency();
-        if (worker_count > kDefaultJobMax)
-            worker_count = kDefaultJobMax;
+    if (worker_count_ < 0) {
+        worker_count_ = std::thread::hardware_concurrency();
+        if (worker_count_ > kDefaultJobMax)
+            worker_count_ = kDefaultJobMax;
     }
-    int cache_count = worker_count;
-    if (worker_count > 0) {
-        worker_tasks.resize(worker_count);
+    int cache_count = worker_count_;
+    if (worker_count_ > 0) {
+        worker_tasks_.resize(worker_count_);
         int worker = 0;
-        for (size_t i = 0; i < thread_data.size(); ++i) {
+        for (size_t i = 0; i < thread_data_.size(); ++i) {
             VPRINT(2, "Worker %d assigned trace thread %zd\n", worker, i);
-            worker_tasks[worker].push_back(&thread_data[i]);
-            thread_data[i].worker = worker;
-            worker = (worker + 1) % worker_count;
+            worker_tasks_[worker].push_back(&thread_data_[i]);
+            thread_data_[i].worker = worker;
+            worker = (worker + 1) % worker_count_;
         }
     } else
         cache_count = 1;
-    decode_cache.resize(cache_count);
+    decode_cache_.resize(cache_count);
     for (int i = 0; i < cache_count; ++i) {
         // We go ahead and start with a reasonably large capacity.
         // We do not want the built-in mutex: this is per-worker so it can be lockless.
-        hashtable_init_ex(&decode_cache[i], 16, HASH_INTPTR, false, false, NULL, NULL,
-                          NULL);
+        hashtable_init_ex(&decode_cache_[i], 16, HASH_INTPTR, false, false, nullptr,
+                          nullptr, nullptr);
         // We pay a little memory to get a lower load factor, unless we have
         // many duplicated tables.
         hashtable_config_t config = { sizeof(config), true,
-                                      worker_count <= 8
+                                      worker_count_ <= 8
                                           ? 40U
-                                          : (worker_count <= 16 ? 50U : 60U) };
-        hashtable_configure(&decode_cache[i], &config);
+                                          : (worker_count_ <= 16 ? 50U : 60U) };
+        hashtable_configure(&decode_cache_[i], &config);
     }
 }
 
 raw2trace_t::~raw2trace_t()
 {
-    module_mapper.reset();
-    for (size_t i = 0; i < decode_cache.size(); ++i) {
+    module_mapper_.reset();
+    for (size_t i = 0; i < decode_cache_.size(); ++i) {
         // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
         // so we have to explicitly free the payloads.
-        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache[i].table_bits); j++) {
-            for (hash_entry_t *e = decode_cache[i].table[j]; e != NULL; e = e->next) {
-                delete (static_cast<instr_summary_t *>(e->payload));
+        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache_[i].table_bits); j++) {
+            for (hash_entry_t *e = decode_cache_[i].table[j]; e != NULL; e = e->next) {
+                delete (static_cast<block_summary_t *>(e->payload));
             }
         }
-        hashtable_delete(&decode_cache[i]);
+        hashtable_delete(&decode_cache_[i]);
     }
 }
 
 bool
-trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry, std::string *error)
+trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
+                                         OUT std::string *error, OUT int *version,
+                                         OUT offline_file_type_t *file_type)
 {
     *error = "";
     if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
         entry->extended.ext != OFFLINE_EXT_TYPE_HEADER) {
         return false;
     }
-    if (entry->extended.valueA != OFFLINE_FILE_VERSION) {
+    int ver = static_cast<int>(entry->extended.valueA);
+    if (version != nullptr)
+        *version = ver;
+    offline_file_type_t type = static_cast<offline_file_type_t>(entry->extended.valueB);
+    if (file_type != nullptr)
+        *file_type = type;
+    if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {
         std::stringstream ss;
-        ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
-           << (int)entry->extended.valueA;
+        ss << "Version mismatch: found " << ver << " but we require between "
+           << OFFLINE_FILE_VERSION_OLDEST_SUPPORTED << " and " << OFFLINE_FILE_VERSION;
+        *error = ss.str();
+        return false;
+    }
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
+        !TESTANY(build_target_arch_type(), type)) {
+        std::stringstream ss;
+        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
+           << " but tools built for " << trace_arch_string(build_target_arch_type());
         *error = ss.str();
         return false;
     }
@@ -960,7 +1220,7 @@ std::string
 trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
 {
     std::string error;
-    if (is_thread_start(entry, &error))
+    if (is_thread_start(entry, &error, nullptr, nullptr))
         return "";
     if (error.empty())
         return "Thread log file is corrupted: missing version entry";
@@ -982,12 +1242,20 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 
     size_t timestamp_pos = 0;
     std::string error;
-    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error) &&
+    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
+                                                 nullptr) &&
         error.empty()) {
         if (size < 4)
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+        // XXX: Make it easier to add more markers. Iterate over the entries until
+        // the timestamp entry or some non-meta entry is encountered.
         if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
-            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID)
+            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID ||
+            (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
+             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
+             offline_entries[timestamp_pos].extended.valueB !=
+                 TRACE_MARKER_TYPE_CACHE_LINE_SIZE))
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
         ++timestamp_pos;
     }
@@ -997,4 +1265,23 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 
     *timestamp = offline_entries[timestamp_pos].timestamp.usec;
     return DRMEMTRACE_SUCCESS;
+}
+
+void
+raw2trace_t::add_to_statistic(void *tls, raw2trace_statistic_t stat, int value)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    switch (stat) {
+    case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
+    default: DR_ASSERT(false);
+    }
+}
+
+uint64
+raw2trace_t::get_statistic(raw2trace_statistic_t stat)
+{
+    switch (stat) {
+    case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
+    default: DR_ASSERT(false); return 0;
+    }
 }

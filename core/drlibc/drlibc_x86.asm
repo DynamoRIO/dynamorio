@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -43,7 +43,7 @@
 #include "../arch/asm_defines.asm"
 #include "../arch/x86/x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
 #ifdef MACOS
-# include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_MACH */
+# include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_* */
 #endif
 START_FILE
 
@@ -67,8 +67,8 @@ GLOBAL_LABEL(dynamorio_syscall:)
         mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
         mov      rax, ARG1 /* sysnum: only need eax, but need rax for ARG1 (or movzx) */
 #  ifdef MACOS
-        /* for now we assume a BSD syscall */
-        or       rax, 0x2000000
+        /* For now we assume a BSD syscall */
+        or       rax, SYSCALL_NUM_MARKER_BSD
 #  endif
         cmp      REG_XBX, 0
         je       syscall_ready
@@ -95,7 +95,8 @@ syscall_ready:
         push     REG_XBP
         push     REG_XSI
         push     REG_XDI
-        /* add 16 to skip the 4 pushes
+        /* Add 16 to skip the 4 pushes.
+         * XXX: We do not align the stack to 16 b/c the kernel doesn't care.
          * XXX: rather than this dispatch, could have separate routines
          * for each #args, or could just blindly read upward on the stack.
          * for dispatch, if assume size of mov instr can do single ind jmp */
@@ -516,20 +517,32 @@ sml_return_to_32:
         END_FUNC(FUNCNAME)
 
 /*
- * int switch_modes_and_call(uint64 func, void *arg1, void *arg2, void *arg3)
+ * void d_r_set_ss_selector()
+ */
+DECL_EXTERN(d_r_ss_value)
+# undef FUNCNAME
+# define FUNCNAME d_r_set_ss_selector
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      eax, ss
+        mov      DWORD SYMREF(d_r_ss_value), eax
+        ret
+        END_FUNC(FUNCNAME)
+
+/*
+ * int switch_modes_and_call(invoke_uint64_t *args)
  */
 # undef FUNCNAME
 # define FUNCNAME switch_modes_and_call
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov      eax, esp    /* get.. */
-        add      eax, ARG_SZ /* ...address of func */
-        mov      ecx, ARG3 /* arg1 */
-        mov      edx, ARG4 /* arg2 */
-        /* save callee-saved registers */
+        mov      eax, ARG1
+        /* Save callee-saved registers. */
         push     ebx
-        mov      ebx, ARG6 /* really ARG5==arg3, but we have 1 push */
-        /* far jmp to next instr w/ 64-bit switch: jmp 0033:<smc_transfer_to_64> */
+        push     esi
+        push     edi
+        push     ebp
+        /* Far jmp to next instr w/ 64-bit switch: jmp 0033:<smc_transfer_to_64>. */
         RAW(ea)
         DD offset smc_transfer_to_64
         DB CS64_SELECTOR
@@ -538,33 +551,54 @@ smc_transfer_to_64:
     /* Below here is executed in 64-bit mode, but with guarantees that
      * no address is above 4GB, as this is a WOW64 process.
      */
-        /* save WOW64 state */
+        /* Save WOW64 calee-saved registers. */
         RAW(41) push     esp /* push r12 */
         RAW(41) push     ebp /* push r13 */
         RAW(41) push     esi /* push r14 */
         RAW(41) push     edi /* push r15 */
-        RAW(44) mov      eax, ebx /* mov arg3 from ebx to r8d (3rd arg slot) */
-        /* align the stack pointer */
+        /* Align the stack pointer. */
         mov      ebx, esp        /* save esp in callee-preserved reg */
-        sub      esp, 32         /* call conv */
         and      esp, HEX(fffffff0) /* align to 16-byte boundary */
-        /* arg1 is already in rcx, arg2 in rdx, and arg3 now in r8 */
-        RAW(48) mov eax, DWORD [eax] /* mov rax, qword ptr [rax] */
+        /* Set up args on the stack. */
+        RAW(48) mov      ecx, DWORD [eax + 8*6] /* load args.arg6 */
+        push     ecx /* push args.arg6 */
+        RAW(48) mov      ecx, DWORD [eax + 8*5] /* load args.arg5 */
+        push     ecx /* push args.arg5 */
+        sub      esp, 32         /* Leave slots for args 1-4. */
+        /* arg1 is already in rcx, arg2 in rdx, arg3 in r8, arg4 in r9 */
+        RAW(4c) mov      ecx, DWORD [eax + 8*4] /* load args.arg4 into r9 */
+        RAW(4c) mov      eax, DWORD [eax + 8*3] /* load args.arg3 into r8 */
+        RAW(48) mov      edx, DWORD [eax + 8*2] /* load args.arg2 into rdx */
+        RAW(48) mov      ecx, DWORD [eax + 8*1] /* load args.arg1 into rcx */
+        RAW(48) mov      eax, DWORD [eax] /* load args.func into rax */
         call     eax             /* call rax */
-        mov      esp, ebx        /* restore esp */
-        /* restore WOW64 state */
+        mov      esp, ebx        /* restore rsp */
+        /* Restore WOW64 callee-saved regs. */
         RAW(41) pop      edi /* pop r15 */
         RAW(41) pop      esi /* pop r14 */
         RAW(41) pop      ebp /* pop r13 */
         RAW(41) pop      esp /* pop r12 */
-        /* far jmp to next instr w/ 32-bit switch: jmp 0023:<smc_return_to_32> */
+        /* Far jmp to next instr w/ 32-bit switch: jmp 0023:<smc_return_to_32>. */
         push     offset smc_return_to_32  /* 8-byte push */
         mov      dword ptr [esp + 4], CS32_SELECTOR /* top 4 bytes of prev push */
         jmp      fword ptr [esp]
 smc_return_to_32:
         add      esp, 8          /* clean up far jmp target */
-        pop      ebx             /* restore callee-saved reg */
-        ret                      /* return value already in eax */
+        /* i#4091: Work around an AMD processor bug where after switching from 64-bit
+         * back to 32-bit, if a thread switch happens around the same time, the
+         * SS segment descriptor gets corrupted somehow and any ESP reference
+         * raises an access violation with an undocumented Parameter[0]=00000003.
+         * Re-instating the proper descriptor by re-loading the selector seems
+         * to solve the problem.
+         */
+        mov      ebx, DWORD SYMREF(d_r_ss_value)
+        mov      ss, ebx
+        /* Restore callee-saved regs. */
+        pop      ebp
+        pop      edi
+        pop      esi
+        pop      ebx
+        ret /* return value already in eax */
         END_FUNC(FUNCNAME)
 
 #endif /* WINDOWS && !X64 */
@@ -588,7 +622,7 @@ GLOBAL_LABEL(load_dynamo:)
        and invoked upon return from the injector. When it is invoked,
        it expects the app's stack to look like this:
 
-                xsp-->| &LoadLibrary  |  for x64 xsp must be 16-aligned
+                xsp-->| &LoadLibrary  |  xsp must be 16-aligned
                       | &dynamo_path  |
                       | &GetProcAddr  |
                       | &dynamo_entry |___
@@ -646,7 +680,7 @@ load_dynamo_repeatme:
         jg       load_dynamo_repeat_outer
 
 # ifdef X64
-        /* xsp is 8-aligned and our pop makes it 16-aligned */
+        /* xsp is 8-aligned and our pop makes it 16-aligned NOCHECK BAIL ON WINDOWS WHICH DOESN"T REQUIRE 16-BYTE ALIGN? */
 # endif
         /* TOS has &DebugBreak */
         pop      REG_XBX /* pop   REG_XBX = &DebugBreak */
@@ -656,7 +690,9 @@ load_dynamo_repeatme:
         pop      REG_XBX /* pop   REG_XBX = &LoadLibraryA */
         /* TOS has &dynamo_path */
         pop      REG_XAX /* for 32-bit we're doing "pop eax, push eax" */
+        sub      REG_XSP, FRAME_ALIGNMENT - ARG_SZ*2 /* Align to 16. */
         CALLWIN1(REG_XBX, REG_XAX) /* call LoadLibraryA  (in kernel32.lib) */
+        add      REG_XSP, FRAME_ALIGNMENT - ARG_SZ*2 /* Undo align. */
 
         /* check result */
         cmp      REG_XAX, 0
@@ -670,6 +706,7 @@ load_dynamo_success:
         /* dynamo_handle is now in REG_XAX (returned by call LoadLibrary) */
         /* TOS has &dynamo_entry */
         pop      REG_XDI /* for 32-bit we're doing "pop edi, push edi" */
+        /* Stack is now 16-byte aligned. */
         CALLWIN2(REG_XBX, REG_XAX, REG_XDI) /* call GetProcAddress */
         cmp      REG_XAX, 0
         je       load_dynamo_failure

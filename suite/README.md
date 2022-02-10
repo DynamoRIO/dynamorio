@@ -1,3 +1,3 @@
 The black box test suite for DynamoRIO resides in this directory.
-See the [wiki page](https://github.com/DynamoRIO/dynamorio/wiki/Test-Suite) for details
-and instructions to run the tests.
+See the [web page](https://dynamorio.org/page_test_suite.html) for details
+and instructions on runnning the tests.

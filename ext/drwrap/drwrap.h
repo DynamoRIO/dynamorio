@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -39,7 +39,7 @@ extern "C" {
 /**
  * \addtogroup drwrap Function Wrapping and Replacing
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /* Users of drwrap need to use the drmgr versions of these events to ensure
  * that drwrap's actions occur at the right time.
@@ -278,8 +278,9 @@ DR_EXPORT
  * by calling \p pre_func_cb prior to every invocation of \p original
  * and calling \p post_func_cb after every invocation of \p original.
  * One of the callbacks can be NULL, but not both. Uses the default
- * calling convention for the platform (see DRWRAP_CALLCONV_DEFAULT
- * in #drwrap_callconv_t).
+ * calling convention for the platform (see #DRWRAP_CALLCONV_DEFAULT
+ * in #drwrap_callconv_t) and passes both #DR_CLEANCALL_READS_APP_CONTEXT
+ * and #DR_CLEANCALL_WRITES_APP_CONTEXT to the insertion of the calls.
  *
  * Wrap requests should normally be made up front during process
  * initialization or module load (see
@@ -312,6 +313,10 @@ DR_EXPORT
  * DRWRAP_UNWIND_ON_EXCEPTION flag to drwrap_wrap_ex() to ensure that
  * all post-call callbacks will be called on an exception.
  *
+ * This routine may call dr_unlink_flush_region(), which means that it
+ * cannot be called while any locks are held that could block a thread
+ * processing a registered event callback or cache callout.
+ *
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_INSERT_DRWRAP and its name is
  * DRMGR_PRIORITY_NAME_DRWRAP.
@@ -339,6 +344,27 @@ typedef enum {
      * heuristics are not guaranteed.
      */
     DRWRAP_UNWIND_ON_EXCEPTION = 0x01,
+    /**
+     * If this flag is set, then post-call callbacks are only invoked from return
+     * sites that can be identified statically.  Static identification happens in
+     * two ways: from observing a CALL instruction, and from drwrap_mark_as_post_call().
+     * Dynamically observing return addresses from inside callees incurs overhead
+     * due to synchronization costs, with further overhead to replace existing
+     * code with instrumented code.  When this flag is set, some post-call callbacks
+     * may be missed.
+     */
+    DRWRAP_NO_DYNAMIC_RETADDRS = 0x02,
+    /**
+     * If this flag is set, then post-call points are identified by changing the
+     * application return address upon entering the callee.  This is more efficient than
+     * the default method, which requires shared storage and locks and flushing.
+     * However, this does violate transparency, and may cause some applications to fail.
+     * In particular, detaching on AArchXX requires scanning the stack to find where the
+     * return address was stored, which could conceivably replace an integer or
+     * non-pointer value that happens to match the sentinel used.  Use this at your own
+     * risk.
+     */
+    DRWRAP_REPLACE_RETADDR = 0x04,
 } drwrap_wrap_flags_t;
 
 /* offset of drwrap_callconv_t in drwrap_wrap_flags_t */
@@ -391,7 +417,7 @@ typedef enum {
 #endif
     /** The platform-specific calling convention for a vararg function. */
     DRWRAP_CALLCONV_VARARG = DRWRAP_CALLCONV_DEFAULT,
-    /* Mask for isolating the calling convention from other flags. */
+    /** Mask for isolating the calling convention from other flags. */
     DRWRAP_CALLCONV_MASK = 0xff000000
 } drwrap_callconv_t;
 
@@ -409,7 +435,11 @@ DR_EXPORT
  * and drwrap_get_arg() for \p func will either access the wrong argument
  * value, or will access a register or stack slot that does not contain
  * any argument value. If no calling convention is specified, defaults
- * to DRWRAP_CALLCONV_DEFAULT.
+ * to #DRWRAP_CALLCONV_DEFAULT.
+ *
+ * This routine may call dr_unlink_flush_region(), which means that it
+ * cannot be called while any locks are held that could block a thread
+ * processing a registered event callback or cache callout.
  */
 bool
 drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
@@ -451,6 +481,7 @@ DR_EXPORT
  * Returns the machine context of the wrapped function represented by
  * \p wrapcxt corresponding to the application state at the time
  * of the pre-function or post-function wrap callback.
+ * The pc field is set appropriately.
  * In order for any changes to the returned context to take
  * effect, drwrap_set_mcontext() must be called.
  *
@@ -748,7 +779,35 @@ DR_EXPORT
 bool
 drwrap_is_post_wrap(app_pc pc);
 
-/*@}*/ /* end doxygen group */
+/** An integer sized for support by dr_atomic_addX_return_sum(). */
+typedef ptr_int_t atomic_int_t;
+
+/**
+ * Contains statistics retrievable by drwrap_get_stats().
+ */
+typedef struct _drwrap_stats_t {
+    /** The size of this structure. Set this to sizeof(drwrap_stats_t). */
+    size_t size;
+    /**
+     * The total number of code cache flushes.  These occur due to return points
+     * already existing in the cache; replacing existing instrumentation; and
+     * removing wrap or replace instrumentation.
+     */
+    atomic_int_t flush_count;
+} drwrap_stats_t;
+
+DR_EXPORT
+/**
+ * Retrieves various statistics exported by DR as global, process-wide values.
+ * The API is not thread-safe.
+ * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
+ * value, with the size field set (see dr_stats_t).
+ * Returns false if stats are not enabled.
+ */
+bool
+drwrap_get_stats(INOUT drwrap_stats_t *stats);
+
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

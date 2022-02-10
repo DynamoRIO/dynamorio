@@ -1,0 +1,42 @@
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+---- <application exited with code 0> ----
+Cache simulation results:
+Core #0 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                                0
+    Misses:                             .*
+    Compulsory misses:                  *[0-9,\.]*
+    Invalidations:                       0
+    Miss rate:                      100.00%
+  L1D stats:
+    Hits:                                0
+    Misses:                              0
+    Compulsory misses:                   *[0-9,\.]*
+    Invalidations:                       0
+Core #1 \(0 thread\(s\)\)
+Core #2 \(0 thread\(s\)\)
+Core #3 \(0 thread\(s\)\)
+LL stats:
+    Hits:                                0
+    Misses:                             .*
+    Compulsory misses:                  *[0-9,\.]*
+    Invalidations:                       0
+    Miss rate:                      100.00%
+
+===========================================================================
+Trace invariant checks passed

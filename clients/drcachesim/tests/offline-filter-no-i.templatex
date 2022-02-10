@@ -1,0 +1,25 @@
+Hello, world!
+Cache simulation results:
+Core #0 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                                0
+    Misses:                              0
+    Compulsory misses:                   *[0-9,\.]*
+    Invalidations:                       0
+  L1D stats:
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *0
+.*   Miss rate:                   *[1-9]?[0-9][,\.]..%
+Core #1 \(0 thread\(s\)\)
+Core #2 \(0 thread\(s\)\)
+Core #3 \(0 thread\(s\)\)
+LL stats:
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *0
+.*   Local miss rate:        *[0-9,.]*%
+    Child hits:                   *[0-9,\.]*
+    Total miss rate:              *[1-9]?[0-9][,\.]..%

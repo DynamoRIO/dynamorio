@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_tool DynamoRIO-Based Tools
+\page page_tool Available Tools
 
 A collection of powerful DynamoRIO-based tools are provided for direct use.
 A tool can be invoked using the option \p -t with the tool name.
@@ -50,6 +50,17 @@ REPLACE_WITH_GENDOX_SUBPAGES
 - \subpage page_drstrace
 - \subpage page_drltrace
 - \subpage page_symquery
+- \subpage page_additional_tools
+
+
+\page page_additional_tools Additional Sample Tools
+
+DynamoRIO provides a number of additional tools that do not each contain a
+separate front-end or extensive documentation.  These samples are meant as
+starting points for building customized tools, but can also be used
+directly with the \p -c option to \p drrun.  They are listed and described
+at \ref API_samples.
+
 */
 
 /**

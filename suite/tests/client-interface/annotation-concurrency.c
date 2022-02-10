@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -63,6 +63,15 @@
 #    include <unistd.h>
 #endif
 
+#ifdef ANNOTATIONS_DISABLED
+/* TODO i#1672: Add annotation support to AArchXX.
+ * For now, we provide a fallback so we can build this app for use with
+ * drcachesim tests.
+ */
+#    undef DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO
+#    define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() (true)
+#endif
+
 #define MAX_ITERATIONS 10
 #define MAX_THREADS 8
 #define TOLERANCE 1.0E-5
@@ -107,8 +116,8 @@ static void (*jacobi)(double *dst, double *src, double **coefficients, double *r
 static void
 print_usage()
 {
-    print("usage: jacobi { A | B | C }<thread-count>\n");
-    print(" e.g.: jacobi A4\n");
+    print("usage: jacobi { A | B | C } <thread-count> [matrix-size iters]\n");
+    print(" e.g.: jacobi A 4\n");
 }
 
 #ifdef WINDOWS
@@ -126,7 +135,7 @@ find_function(MODULE_TYPE jacobi_module, const char *name)
 static void *
 find_function(MODULE_TYPE jacobi_module, const char *name)
 {
-    char *error;
+    const char *error;
     void *function = dlsym(jacobi_module, name);
     error = dlerror();
     if (error != NULL) {
@@ -188,8 +197,8 @@ main(int argc, char **argv)
 #endif
 
     /* Parse and evaluate arguments */
-    if (argc != 4) {
-        print("Wrong number of arguments--found %d but expected 3.\n", argc);
+    if (argc != 4 && argc != 6) {
+        print("Wrong number of arguments--found %d but expected 3 or 5.\n", argc);
         for (i = 1; i < argc; i++)
             print("\targ: '%s'\n", argv[i]);
         print_usage();
@@ -234,13 +243,19 @@ main(int argc, char **argv)
 
     class_id = *argv[2] - 'A';
     num_threads = atoi(argv[3]);
+    int total_iterations = MAX_ITERATIONS;
+    matrix_size = 512;
+    if (argc == 6) {
+        matrix_size = atoi(argv[4]);
+        total_iterations = atoi(argv[5]);
+    }
 
     if (num_threads > MAX_THREADS) {
         print("\nMaximum thread count is %d. Exiting now.\n", MAX_THREADS);
         exit(1);
     }
     if ((class_id >= 0) && (class_id <= 2))
-        matrix_size = 512 * (1 << class_id);
+        matrix_size = matrix_size * (1 << class_id);
     else {
         print("Unknown class id\n");
         print_usage();
@@ -270,6 +285,8 @@ main(int argc, char **argv)
         }
         rhs_vector[i_row] = (double)(2 * row_sum) - (double)(i_row + 1);
     }
+
+    TEST_ANNOTATION_GET_PC();
 
     TEST_ANNOTATION_TEN_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
@@ -388,7 +405,7 @@ main(int argc, char **argv)
 
         TEST_ANNOTATION_EIGHT_ARGS(iteration, 2, 3, 4, 5, 6, 7, 18);
         TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 28);
-    } while ((distance(x_old, x_new) >= TOLERANCE) && (iteration < MAX_ITERATIONS));
+    } while ((distance(x_old, x_new) >= TOLERANCE) && (iteration < total_iterations));
 
     print("\n");
     print("\n     The Jacobi Method For AX=B .........DONE");

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -77,17 +77,13 @@ app_pc KiFastSystemCallRet_address = NULL;
 
 /*******************************************************/
 
-#ifdef CLIENT_INTERFACE
 /* i#1230: we support a limited number of extra interceptions.
  * We add extra slots to all of the arrays.
  */
-#    define CLIENT_EXTRA_TRAMPOLINE 12
-#    define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
+#define CLIENT_EXTRA_TRAMPOLINE 12
+#define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
 /* no lock needed since only supported during dr_client_main */
 static uint syscall_extra_idx;
-#else
-#    define TRAMPOLINE_MAX SYS_MAX
-#endif
 
 const char *SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
@@ -687,13 +683,13 @@ syscall_while_native(app_state_at_intercept_t *state)
         dcontext->thread_record->retakeover = false;
         return AFTER_INTERCEPT_TAKE_OVER; /* syscall under DR */
     } else if (!dcontext->thread_record->under_dynamo_control
-                    /* xref PR 230836 */
-                    IF_CLIENT_INTERFACE(&&!IS_CLIENT_THREAD(dcontext))
-                /* i#1318: may get here from privlib at exit, at least until we
-                 * redirect *everything*.  From privlib we need to keep
-                 * the syscall native as DR locks may be held.
-                 */
-                IF_CLIENT_INTERFACE(&&dcontext->whereami == DR_WHERE_APP)) {
+               /* xref PR 230836 */
+               && !IS_CLIENT_THREAD(dcontext)
+               /* i#1318: may get here from privlib at exit, at least until we
+                * redirect *everything*.  From privlib we need to keep
+                * the syscall native as DR locks may be held.
+                */
+               && dcontext->whereami == DR_WHERE_APP) {
         /* assumption is that any known native thread is one we control in general,
          * just not right now while in a native_exec_list dll */
         STATS_INC(num_syscall_trampolines_native);
@@ -801,19 +797,6 @@ syscall_while_native(app_state_at_intercept_t *state)
      * when priv libs call routines we haven't yet redirected.  Best to disable
      * the syslog for clients (we still have the log warning).
      */
-#ifndef CLIENT_INTERFACE
-    DODEBUG({
-        /* Unfortunately we use various ntdll routines (most notably Ldr*)
-         * that may be hooked (hook code could do anything including making
-         * system calls).  Also some the of the ntdll Rtl routines we
-         * import may be similarly ill behaved (though we don't believe any
-         * of the currently used ones are problematic). Also calling
-         * through Sygate hooks may reach here.
-         */
-        SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
-                                     syscall_names[sysnum]);
-    });
-#endif
     STATS_INC(num_syscall_trampolines_DR);
     LOG(THREAD, LOG_SYSCALLS, 1, "WARNING: syscall_while_native: syscall from DR %s\n",
         syscall_names[sysnum]);
@@ -838,10 +821,8 @@ static inline bool
 intercept_native_syscall(int SYSnum)
 {
     ASSERT(SYSnum < TRAMPOLINE_MAX);
-#ifdef CLIENT_INTERFACE
     if ((uint)SYSnum >= SYS_MAX + syscall_extra_idx)
         return false;
-#endif
     /* Don't hook all syscalls for thin_client. */
     if (DYNAMO_OPTION(thin_client) && !intercept_syscall_for_thin_client(SYSnum))
         return false;
@@ -1191,6 +1172,9 @@ thread_handle_to_pid(HANDLE thread_handle, thread_id_t tid /*optional*/)
     if (tid != INVALID_THREAD_ID) {
         /* Get a handle with more privileges */
         thread_handle = thread_handle_from_id(tid);
+        process_id_t pid = process_id_from_thread_handle(thread_handle);
+        close_handle(thread_handle);
+        return pid;
     }
     return process_id_from_thread_handle(thread_handle);
 }
@@ -1398,7 +1382,7 @@ presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
      * children) FIXME
      * if not injecting at all we won't change cxt.
      */
-    maybe_inject_into_process(dcontext, process_handle, cxt);
+    maybe_inject_into_process(dcontext, process_handle, thread_handle, cxt);
 
     if (is_phandle_me(process_handle))
         pre_second_thread();
@@ -1488,12 +1472,13 @@ static const wchar_t *const wenv_to_propagate[] = {
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate) / sizeof(env_to_propagate[0]))
 
-/* read env var from remote process:
+/* Read env var from remote process:
  * - return true on read successfully or until end of reading
  * - skip DR env vars
+ * Handles both 32-bit and 64-bit remote processes.
  */
-static wchar_t *
-get_process_env_var(HANDLE phandle, wchar_t *env_ptr, wchar_t *buf, size_t toread)
+static uint64
+get_process_env_var(HANDLE phandle, uint64 env_ptr, wchar_t *buf, size_t toread)
 {
     int i;
     size_t got;
@@ -1504,17 +1489,16 @@ get_process_env_var(HANDLE phandle, wchar_t *env_ptr, wchar_t *buf, size_t torea
         /* if an env var is too long we're ok: DR vars will fit, and if longer we'll
          * handle rest next call.
          */
-        if (!nt_read_virtual_memory(phandle, env_ptr, buf, toread, &got)) {
+        if (!read_remote_memory_maybe64(phandle, env_ptr, buf, toread, &got)) {
             /* may have crossed page boundary and the next page is inaccessible */
-            byte *start = (byte *)env_ptr;
-            if (PAGE_START(start) != PAGE_START(start + toread)) {
-                ASSERT((size_t)((byte *)ALIGN_FORWARD(start, PAGE_SIZE) - start) <=
-                       toread);
-                toread = (byte *)ALIGN_FORWARD(start, PAGE_SIZE) - start;
-                if (!nt_read_virtual_memory(phandle, env_ptr, buf, toread, &got))
-                    return NULL;
+            uint64 start = env_ptr;
+            if (PAGE_START64(start) != PAGE_START64(start + toread)) {
+                ASSERT((size_t)(ALIGN_FORWARD(start, PAGE_SIZE) - start) <= toread);
+                toread = (size_t)(ALIGN_FORWARD(start, PAGE_SIZE) - start);
+                if (!read_remote_memory_maybe64(phandle, env_ptr, buf, toread, &got))
+                    return 0;
             } else
-                return NULL;
+                return 0;
             continue;
         }
         buf[got / sizeof(buf[0]) - 1] = '\0';
@@ -1528,16 +1512,20 @@ get_process_env_var(HANDLE phandle, wchar_t *env_ptr, wchar_t *buf, size_t torea
         }
         if (keep_env)
             return env_ptr;
-        env_ptr += wcslen(buf) + 1;
+        env_ptr += (wcslen(buf) + 1) * sizeof(wchar_t);
     }
-    return false;
+    return 0;
 }
 
 /* called at presys-ResumeThread to append DR env vars in the target process PEB */
 static bool
-add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
+add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, uint64 env_ptr, bool peb_is_32)
 {
-    wchar_t *env, *cur;
+    union {
+        uint64 base64;
+        uint base32;
+    } env_base;
+    uint64 env, cur;
     size_t tot_sz = 0, app_sz, sz;
     size_t got;
     wchar_t *new_env = NULL;
@@ -1561,29 +1549,30 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
         return true; /* nothing to do */
     }
 
-    ASSERT(env_ptr != NULL);
-    if (!nt_read_virtual_memory(phandle, env_ptr, &env, sizeof(env), NULL))
+    ASSERT(env_ptr != 0);
+    if (!read_remote_memory_maybe64(phandle, env_ptr, &env_base, sizeof(env_base), NULL))
         goto add_dr_env_failure;
-    if (env != NULL) {
+    env = peb_is_32 ? env_base.base32 : env_base.base64;
+    if (env != 0) {
         /* compute size of current env block, and check for existing DR vars */
         cur = env;
         while (true) {
             /* for simplicity we do a syscall for each var */
             cur = get_process_env_var(phandle, cur, buf, sizeof(buf));
-            if (cur == NULL)
+            if (cur == 0)
                 return false;
             if (buf[0] == '\0')
                 break;
             tot_sz += wcslen(buf) + 1;
-            cur += wcslen(buf) + 1;
+            cur += (wcslen(buf) + 1) * sizeof(wchar_t);
         }
         tot_sz++; /* final 0 marking end */
         /* from here on out, all *sz vars are total bytes, not wchar_t elements */
-        tot_sz *= sizeof(*env);
+        tot_sz *= sizeof(wchar_t);
     }
     app_sz = tot_sz;
-    LOG(THREAD, LOG_SYSCALLS, 2, "%s: orig app env vars at " PFX "-" PFX "\n",
-        __FUNCTION__, env, env + app_sz / sizeof(*env));
+    LOG(THREAD, LOG_SYSCALLS, 2, "%s: orig app env vars at 0x%I64x-0x%I64x\n",
+        __FUNCTION__, env, env + app_sz / sizeof(wchar_t));
 
     /* calculate size needed for adding DR env vars.
      * for each var, we truncate if too big for buf.
@@ -1596,11 +1585,16 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
                 SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
                 sz_var[i] = BUFFER_SIZE_ELEMENTS(buf);
             }
-            sz_var[i] *= sizeof(*env);
+            sz_var[i] *= sizeof(wchar_t);
             tot_sz += sz_var[i];
         }
     }
-    /* allocate a new env block and copy over the old */
+    /* Allocate a new env block and copy over the old.
+     * We're fine being limited to low addresses for parent32 child64
+     * (NtWow64AllocateVirtualMemory64 is win8+ only).
+     * That means we can also use the regular write, protect, and free calls below
+     * for the new block (but not the original PEB addresses).
+     */
     res = nt_remote_allocate_virtual_memory(phandle, &new_env, tot_sz, PAGE_READWRITE,
                                             MEM_COMMIT);
     if (!NT_SUCCESS(res)) {
@@ -1609,30 +1603,30 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
         goto add_dr_env_failure;
     }
     LOG(THREAD, LOG_SYSCALLS, 2, "%s: new app env vars allocated at " PFX "-" PFX "\n",
-        __FUNCTION__, new_env, new_env + tot_sz / sizeof(*env));
+        __FUNCTION__, new_env, new_env + tot_sz / sizeof(wchar_t));
     cur = env;
     sz = 0;
     while (true) {
         /* for simplicity we do a syscall for each var */
         size_t towrite = 0;
         cur = get_process_env_var(phandle, cur, buf, sizeof(buf));
-        if (cur == NULL)
+        if (cur == 0)
             goto add_dr_env_failure;
         if (buf[0] == '\0')
             break;
         towrite = (wcslen(buf) + 1);
-        res = nt_raw_write_virtual_memory(phandle, new_env + sz / sizeof(*env), buf,
-                                          towrite * sizeof(*env), &got);
+        res = nt_raw_write_virtual_memory(phandle, new_env + sz / sizeof(wchar_t), buf,
+                                          towrite * sizeof(wchar_t), &got);
         if (!NT_SUCCESS(res)) {
             LOG(THREAD, LOG_SYSCALLS, 2,
                 "%s copy: got status " PFX ", wrote " PIFX " vs requested " PIFX "\n",
                 __FUNCTION__, res, got, towrite);
             goto add_dr_env_failure;
         }
-        sz += towrite * sizeof(*env);
-        cur += towrite;
+        sz += towrite * sizeof(wchar_t);
+        cur += towrite * sizeof(wchar_t);
     }
-    ASSERT(sz == app_sz - sizeof(*env) /* before final 0 */);
+    ASSERT(sz == app_sz - sizeof(wchar_t) /* before final 0 */);
 
     /* add DR env vars at the end.
      * XXX: is alphabetical sorting relied upon?  adding to end is working.
@@ -1642,31 +1636,40 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
             _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S", wenv_to_propagate[i],
                        get_config_val(env_to_propagate[i]));
             NULL_TERMINATE_BUFFER(buf);
-            if (!nt_write_virtual_memory(phandle, new_env + sz / sizeof(*env), buf,
+            if (!nt_write_virtual_memory(phandle, new_env + sz / sizeof(wchar_t), buf,
                                          sz_var[i], NULL))
                 goto add_dr_env_failure;
+            LOG(THREAD, LOG_SYSCALLS, 2, "%s: wrote DR env var |%S| to 0x%I64x\n",
+                __FUNCTION__, buf, new_env + sz / sizeof(wchar_t));
             sz += sz_var[i];
         }
     }
-    ASSERT(sz == tot_sz - sizeof(*env) /* before final 0 */);
+    ASSERT(sz == tot_sz - sizeof(wchar_t) /* before final 0 */);
     /* write final 0 */
     buf[0] = 0;
-    if (!nt_write_virtual_memory(phandle, new_env + sz / sizeof(*env), buf, sizeof(*env),
-                                 NULL))
+    if (!nt_write_virtual_memory(phandle, new_env + sz / sizeof(wchar_t), buf,
+                                 sizeof(wchar_t), NULL))
         goto add_dr_env_failure;
 
     /* install new env */
-    if (!nt_remote_protect_virtual_memory(phandle, (byte *)PAGE_START(env_ptr), PAGE_SIZE,
-                                          PAGE_READWRITE, &old_prot)) {
-        LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to mark " PFX " writable\n",
-            __FUNCTION__, env_ptr);
+    if (!remote_protect_virtual_memory_maybe64(phandle, PAGE_START64(env_ptr), PAGE_SIZE,
+                                               PAGE_READWRITE, &old_prot)) {
+        LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to mark 0x%I64x writable\n",
+            __FUNCTION__, PAGE_START64(env_ptr));
         goto add_dr_env_failure;
     }
-    if (!nt_write_virtual_memory(phandle, env_ptr, &new_env, sizeof(new_env), NULL))
+    union {
+        uint64 ptr64;
+        uint ptr32;
+    } new_env_remote;
+    new_env_remote.ptr64 = (uint64)new_env;
+    new_env_remote.ptr32 = (uint)(ptr_uint_t)new_env;
+    if (!write_remote_memory_maybe64(phandle, env_ptr, &new_env_remote, peb_is_32 ? 4 : 8,
+                                     NULL))
         goto add_dr_env_failure;
-    if (!nt_remote_protect_virtual_memory(phandle, (byte *)PAGE_START(env_ptr), PAGE_SIZE,
-                                          old_prot, &old_prot)) {
-        LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to restore " PFX " to " PIFX "\n",
+    if (!remote_protect_virtual_memory_maybe64(phandle, PAGE_START64(env_ptr), PAGE_SIZE,
+                                               old_prot, &old_prot)) {
+        LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to restore 0x%I64x to " PIFX "\n",
             __FUNCTION__, env_ptr, old_prot);
         /* not a fatal error */
     }
@@ -1674,7 +1677,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
      * is on the app heap so we can't.  we could query and see if it's
      * a separate alloc.  for now we just leave it be.
      */
-    LOG(THREAD, LOG_SYSCALLS, 2, "%s: installed new env " PFX " at " PFX "\n",
+    LOG(THREAD, LOG_SYSCALLS, 2, "%s: installed new env " PFX " at 0x%I64x\n",
         __FUNCTION__, new_env, env_ptr);
     return true;
 
@@ -1685,10 +1688,10 @@ add_dr_env_failure:
                 __FUNCTION__, new_env);
         }
         if (old_prot != PAGE_NOACCESS) {
-            if (!nt_remote_protect_virtual_memory(phandle, (byte *)PAGE_START(env_ptr),
-                                                  PAGE_SIZE, old_prot, &old_prot)) {
+            if (!remote_protect_virtual_memory_maybe64(phandle, PAGE_START64(env_ptr),
+                                                       PAGE_SIZE, old_prot, &old_prot)) {
                 LOG(THREAD, LOG_SYSCALLS, 1,
-                    "%s: failed to restore " PFX " to " PIFX "\n", __FUNCTION__, env_ptr,
+                    "%s: failed to restore 0x%I64x to " PIFX "\n", __FUNCTION__, env_ptr,
                     old_prot);
             }
         }
@@ -1700,13 +1703,104 @@ add_dr_env_failure:
  * first thread).  Retrieves context from thread handle.
  */
 static bool
-not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
+not_first_thread_in_new_process(dcontext_t *dcontext, HANDLE process_handle,
+                                HANDLE thread_handle)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+#ifndef X64
+    bool peb_is_32 = is_32bit_process(process_handle);
+    if (!peb_is_32) {
+        /* XXX: We need to use CONTEXT_64 and thread_get_context_64 for parent32,child64.
+         * We only need this for pre-Vista, so just xp64, where we are not willing
+         * to put much effort: for now we bail (we never supported cross-arch
+         * injection in the past in any case).
+         */
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "32-bit parent's 64-bit child not supported on XP");
+    }
+#endif
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
+    bool res = false;
     if (NT_SUCCESS(nt_get_context(thread_handle, cxt)))
-        return !is_first_thread_in_new_process(process_handle, cxt);
-    return false;
+        res = !is_first_thread_in_new_process(process_handle, cxt);
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    return res;
+}
+
+/* The caller should already have checked should_inject_into_process().
+ * The child thread should be suspended.
+ * This routine directly invokes REPORT_FATAL_ERROR_AND_EXIT on errors.
+ */
+static void
+propagate_options_via_env_vars(dcontext_t *dcontext, HANDLE process_handle,
+                               HANDLE thread_handle)
+{
+    /* For -follow_children we propagate env vars (current
+     * DYNAMORIO_RUNUNDER, DYNAMORIO_OPTIONS, DYNAMORIO_AUTOINJECT, and
+     * DYNAMORIO_LOGDIR) to the child to support a simple run-all-children
+     * model without requiring setting up config files for children.
+     */
+    uint64 peb;
+    bool peb_is_32 = is_32bit_process(process_handle)
+        // If x64 client targeting WOW64 we need to
+        // target x64 PEB.
+        IF_X64(&&!DYNAMO_OPTION(inject_x64));
+    size_t sz_read;
+    union {
+        uint64 ptr_64;
+        uint ptr_32;
+    } params_ptr;
+    if (process_handle == INVALID_HANDLE_VALUE) {
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Option propagation failed to acquire child handle");
+        return; /* Not reached. */
+    }
+    /* We have to write to the 32-bit env block for a 32-bit target process. */
+#ifdef X64
+    if (peb_is_32)
+        peb = get_peb32(process_handle, thread_handle);
+    else
+#endif
+        peb = get_peb_maybe64(process_handle);
+    if (peb == 0) {
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Option propagation failed to find PEB");
+        close_handle(process_handle); /* Not reached. */
+        return;                       /* Not reached. */
+    }
+    if (!read_remote_memory_maybe64(
+            process_handle,
+            peb +
+                (peb_is_32 ? X86_PROCESS_PARAM_PEB_OFFSET : X64_PROCESS_PARAM_PEB_OFFSET),
+            &params_ptr, sizeof(params_ptr), &sz_read) ||
+        sz_read != sizeof(params_ptr) ||
+        (peb_is_32 ? (params_ptr.ptr_32 == 0) : (params_ptr.ptr_64 == 0))) {
+        REPORT_FATAL_ERROR_AND_EXIT(
+            FOLLOW_CHILD_FAILED, 3, get_application_name(), get_application_pid(),
+            "Option propagation failed to find ProcessParameters");
+    }
+    uint64 params_base = peb_is_32 ? params_ptr.ptr_32 : params_ptr.ptr_64;
+    uint64 env_ptr;
+    if (IF_X64(!) peb_is_32)
+        env_ptr = params_base + offsetof(RTL_USER_PROCESS_PARAMETERS, Environment);
+    else {
+        env_ptr = params_base +
+            offsetof(IF_X64_ELSE(RTL_USER_PROCESS_PARAMETERS_32,
+                                 RTL_USER_PROCESS_PARAMETERS_64),
+                     Environment);
+    }
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "inserting DR env vars to child &pp->Environment=0x%I64x\n", env_ptr);
+    if (!add_dr_env_vars(dcontext, process_handle, env_ptr, peb_is_32)) {
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Option propagation failed to add DR env vars");
+    }
 }
 
 /* NtResumeThread */
@@ -1718,11 +1812,11 @@ presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
     process_id_t pid = thread_handle_to_pid(thread_handle, tid);
     LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
         "syscall: NtResumeThread pid=%d tid=%d\n", pid, tid);
-    if (DYNAMO_OPTION(follow_children) && pid != POINTER_MAX && !is_pid_me(pid)) {
-        /* For -follow_children we propagate env vars (current
-         * DYNAMORIO_RUNUNDER, DYNAMORIO_OPTIONS, DYNAMORIO_AUTOINJECT, and
-         * DYNAMORIO_LOGDIR) to the child to support a simple run-all-children
-         * model without requiring setting up config files for children.
+    if (get_os_version() < WINDOWS_VERSION_VISTA && DYNAMO_OPTION(follow_children) &&
+        pid != POINTER_MAX && !is_pid_me(pid)) {
+        /* For Vista+ we propagate in postsys_CreateUserProcess.  Waiting until here
+         * requires not_first_thread_in_new_process() which currently does not
+         * support cross-arch, so we only propagate here for pre-Vista.
          *
          * It's possible the app is explicitly resuming a thread in another
          * process and this has nothing to do with a new process: but our env
@@ -1730,54 +1824,26 @@ presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
          *
          * For pre-Vista, the initial thread is always suspended, and is either
          * resumed inside kernel32!CreateProcessW or by the app, so we should
-         * always see a resume.  For Vista+ NtCreateUserProcess has suspend as a
-         * param and ideally we should replace the env pre-NtCreateUserProcess,
-         * but we have yet to get that to work, so for now we rely on
-         * Vista+ process creation going through the kernel32 routines,
-         * which do hardcode the thread as being suspended.
+         * always see a resume.
          */
-        PEB *peb;
         HANDLE process_handle = process_handle_from_id(pid);
-        RTL_USER_PROCESS_PARAMETERS *pp = NULL;
         if (process_handle == INVALID_HANDLE_VALUE) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: error acquiring process handle for pid=" PIFX "\n", pid);
-            return;
+            REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Option propagation failed to acquire handle");
+            return; /* Not reached. */
         }
         if (!should_inject_into_process(dcontext, process_handle, NULL, NULL)) {
             LOG(THREAD, LOG_SYSCALLS, 1,
                 "Not injecting so not setting DR env vars in pid=" PIFX "\n", pid);
             return;
         }
-        if (not_first_thread_in_new_process(process_handle, thread_handle)) {
+        if (not_first_thread_in_new_process(dcontext, process_handle, thread_handle)) {
             LOG(THREAD, LOG_SYSCALLS, 1,
                 "Not first thread so not setting DR env vars in pid=" PIFX "\n", pid);
             return;
         }
-        peb = get_peb(process_handle);
-        if (peb == NULL) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: error acquiring PEB for pid=" PIFX "\n", pid);
-            close_handle(process_handle);
-            return;
-        }
-        if (!nt_read_virtual_memory(process_handle, &peb->ProcessParameters, &pp,
-                                    sizeof(pp), NULL) ||
-            pp == NULL) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: error acquiring ProcessParameters for pid=" PIFX "\n", pid);
-            close_handle(process_handle);
-            return;
-        }
-        LOG(THREAD, LOG_SYSCALLS, 2,
-            "inserting DR env vars to pid=" PIFX " &pp->Environment=" PFX "\n", pid,
-            &pp->Environment);
-        if (!add_dr_env_vars(dcontext, process_handle, (wchar_t **)&pp->Environment)) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: unable to add DR env vars for child pid=" PIFX "\n", pid);
-            close_handle(process_handle);
-            return;
-        }
+        propagate_options_via_env_vars(dcontext, process_handle, thread_handle);
         close_handle(process_handle);
     }
 }
@@ -1805,10 +1871,8 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         copy_mcontext(mc, &mcontext);
         mc->pc = SYSCALL_PC(dcontext);
 
-#ifdef CLIENT_INTERFACE
         /* make sure client nudges are finished */
         wait_for_outstanding_nudges();
-#endif
 
         /* FIXME : issues with cleaning up here what if syscall fails */
         DEBUG_DECLARE(ok =)
@@ -2008,8 +2072,10 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
              * FIXME: this isn't transparent as we have to clobber
              * fields in the app cxt: should restore in post-syscall.
              */
-            char buf[MAX_CONTEXT_SIZE];
-            CONTEXT *alt_cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+            DWORD cxt_flags = CONTEXT_DR_STATE;
+            size_t bufsz = nt_get_context_size(cxt_flags);
+            char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+            CONTEXT *alt_cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             STATS_INC(num_app_setcontext_no_control);
             if (thread_get_context(tr, alt_cxt) &&
                 translate_context(tr, alt_cxt, true /*set memory*/)) {
@@ -2036,6 +2102,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
                 intercept = false;
                 ASSERT_NOT_REACHED();
             }
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
         }
         if (intercept) {
             /* modify the being-set cxt so that we retain control */
@@ -2092,6 +2159,64 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
     }
     d_r_mutex_unlock(&thread_initexit_lock);
     return execute_syscall;
+}
+
+/* NtSetInformationProcess */
+static bool
+presys_SetInformationProcess(dcontext_t *dcontext, reg_t *param_base)
+{
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    PROCESSINFOCLASS class = (PROCESSINFOCLASS)sys_param(dcontext, param_base, 1);
+    void *info = (void *)sys_param(dcontext, param_base, 2);
+    ULONG info_len = (ULONG)sys_param(dcontext, param_base, 3);
+    LOG(THREAD, LOG_SYSCALLS, 2, "NtSetInformationProcess %p %d %p %d\n", process_handle,
+        class, info, info_len);
+    if (!should_swap_teb_static_tls())
+        return true;
+    if (class != ProcessTlsInformation)
+        return true;
+    if (!is_phandle_me(process_handle)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("ProcessTlsInformation on another process");
+        return true;
+    }
+    LOG(THREAD, LOG_SYSCALLS, 2, "ProcessTlsInformation: pausing all other threads\n");
+    thread_record_t **threads;
+    int num_threads, i;
+    if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER,
+                                &threads, &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                                /* Ignore failures to suspend: best-effort. */
+                                THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("Failed to suspend for ProcessTlsInformation");
+        return true;
+    }
+    /* Ensure each thread has the app TEB.ThreadLocalStoragePointer value. */
+    bool *swapped =
+        (bool *)global_heap_alloc(num_threads * sizeof(bool) HEAPACCT(ACCT_THREAD_MGT));
+    for (i = 0; i < num_threads; i++) {
+        if (!os_using_app_state(threads[i]->dcontext)) {
+            swapped[i] = true;
+            os_swap_context(threads[i]->dcontext, true /*to app*/, DR_STATE_TEB_MISC);
+        } else
+            swapped[i] = false;
+    }
+    /* We're holding the initexit lock so we can't safely enter the fcache for
+     * a regular app syscall.  We instead emulate the syscall ourselves.
+     * We assume it's not alertable and no callback will come in.
+     */
+    NTSTATUS return_val =
+        nt_set_information_process_for_app(process_handle, class, info, info_len);
+    SET_RETURN_VAL(dcontext, return_val);
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "\tNtSetInformationProcess(%p, %d, %p, %d) => %d on behalf of app\n",
+        process_handle, class, info, info_len, return_val);
+    /* Swap the TEB fields back to DR. */
+    for (i = 0; i < num_threads; i++) {
+        if (swapped[i])
+            os_swap_context(threads[i]->dcontext, false /*to priv*/, DR_STATE_TEB_MISC);
+    }
+    global_heap_free(swapped, num_threads * sizeof(bool) HEAPACCT(ACCT_THREAD_MGT));
+    end_synch_with_all_threads(threads, num_threads, true /*resume*/);
+    return false;
 }
 
 /* Assumes mc is app state prior to system call.
@@ -2839,7 +2964,12 @@ pre_system_call(dcontext_t *dcontext)
     reg_t *param_base = pre_system_call_param_base(mc);
     dr_where_am_i_t old_whereami = dcontext->whereami;
     dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
-    IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
+    /* XXX i#49: mc->rax's top bits are non-zero in 32-bit mode for
+     * reasons we do not yet understand.
+     * For now we disable the assert for mixed-mode.
+     */
+    IF_X64(
+        ASSERT(is_wow64_process(NT_CURRENT_PROCESS) || CHECK_TRUNCATE_TYPE_int(mc->xax)));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
     KSTART(pre_syscall);
@@ -2955,6 +3085,8 @@ pre_system_call(dcontext_t *dcontext)
         execute_syscall = presys_TerminateProcess(dcontext, param_base);
     } else if (sysnum == syscalls[SYS_TerminateThread]) {
         presys_TerminateThread(dcontext, param_base);
+    } else if (sysnum == syscalls[SYS_SetInformationProcess]) {
+        execute_syscall = presys_SetInformationProcess(dcontext, param_base);
     } else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
                /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
                sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
@@ -3036,7 +3168,7 @@ pre_system_call(dcontext_t *dcontext)
          * now.
          */
     } else if (sysnum == syscalls[SYS_RaiseException]) {
-        IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
+        check_app_stack_limit(dcontext);
         /* FIXME i#1691: detect whether we're inside SEH handling already, in which
          * case this process is about to die by this secondary exception and
          * we want to do a normal exit and give the client a chance to clean up.
@@ -3086,84 +3218,104 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     });
 
     /* Even though syscall succeeded we use safe_read to be sure */
-    if (success && d_r_safe_read(proc_handle_ptr, sizeof(proc_handle), &proc_handle) &&
-        d_r_safe_read(thread_handle_ptr, sizeof(thread_handle), &thread_handle)) {
-        ACCESS_MASK rights = nt_get_handle_access_rights(proc_handle);
+    if (!success || !d_r_safe_read(proc_handle_ptr, sizeof(proc_handle), &proc_handle) ||
+        !d_r_safe_read(thread_handle_ptr, sizeof(thread_handle), &thread_handle))
+        return;
 
-        if (TESTALL(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE |
-                        PROCESS_QUERY_INFORMATION,
-                    rights)) {
-            if (create_suspended) {
-                char buf[MAX_CONTEXT_SIZE];
-                CONTEXT *context;
-                CONTEXT *cxt = NULL;
-                int res;
-                /* Since this syscall is vista+ only, whether a wow64 process
-                 * has no bearing (xref i#381)
-                 */
-                ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
-                if (!DYNAMO_OPTION(early_inject)) {
-                    /* If no early injection we have to do thread injection, and
-                     * on Vista+ we don't see the
-                     * NtCreateThread so we do it here.  PR 215423.
-                     */
-                    context = nt_initialize_context(buf, CONTEXT_DR_STATE);
-                    res = nt_get_context(thread_handle, context);
-                    if (NT_SUCCESS(res))
-                        cxt = context;
-                    else {
-                        /* FIXME i#49: cross-arch injection can end up here w/
-                         * STATUS_INVALID_PARAMETER.  Need to use proper platform's
-                         * CONTEXT for target.
-                         */
-                        DODEBUG({
-                            if (is_wow64_process(NT_CURRENT_PROCESS) &&
-                                !is_wow64_process(proc_handle)) {
-                                SYSLOG_INTERNAL_WARNING_ONCE(
-                                    "Injecting from 32-bit into 64-bit process is not "
-                                    "yet supported.");
-                            }
-                        });
-                        LOG(THREAD, LOG_SYSCALLS, 1,
-                            "syscall: NtCreateUserProcess: WARNING: failed to get cxt of "
-                            "thread (" PIFX ") so can't follow children on WOW64.\n",
-                            res);
-                    }
-                }
-                if ((cxt != NULL || DYNAMO_OPTION(early_inject)) &&
-                    maybe_inject_into_process(dcontext, proc_handle, cxt) &&
-                    cxt != NULL) {
-                    /* injection routine is assuming doesn't have to install cxt */
-                    res = nt_set_context(thread_handle, cxt);
-                    if (!NT_SUCCESS(res)) {
-                        LOG(THREAD, LOG_SYSCALLS, 1,
-                            "syscall: NtCreateUserProcess: WARNING: failed to set cxt of "
-                            "thread (" PIFX ") so can't follow children on WOW64.\n",
-                            res);
-                    }
-                }
-            } else {
-                LOG(THREAD, LOG_SYSCALLS, 1,
-                    "syscall: NtCreateUserProcess first thread not suspended "
-                    "can't safely follow children.\n");
-                ASSERT_NOT_IMPLEMENTED(create_suspended);
-                /* FIXME - NYI - should change in pre and resume the thread
-                 * after we inject. */
-            }
-        } else {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "syscall: NtCreateUserProcess unable to get sufficient rights"
-                " to follow children\n");
-            /* This happens for Vista protected processes (drm). xref 8485 */
-            /* FIXME - could check against executable file name from
-             * thread_stuff to see if this was a process we're configured to
-             * protect. */
-            SYSLOG_INTERNAL_WARNING("Insufficient permissions to examine "
-                                    "child process\n");
-        }
-        /* Case 9173: guard against pid reuse */
-        dcontext->aslr_context.last_child_padded = 0;
+    /* Case 9173: guard against pid reuse */
+    dcontext->aslr_context.last_child_padded = 0;
+
+    ACCESS_MASK rights = nt_get_handle_access_rights(proc_handle);
+    if (!TESTALL(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE |
+                     PROCESS_QUERY_INFORMATION,
+                 rights)) {
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "syscall: NtCreateUserProcess unable to get sufficient rights"
+            " to follow children\n");
+        /* This happens for Vista protected processes (drm). xref 8485 */
+        /* FIXME - could check against executable file name from
+         * thread_stuff to see if this was a process we're configured to
+         * protect. */
+        /* XXX: Should we make this a fatal release build error? */
+        SYSLOG_INTERNAL_WARNING("Insufficient permissions to examine "
+                                "child process\n");
     }
+    if (!create_suspended) {
+        /* For Vista+ NtCreateUserProcess has suspend as a
+         * param and ideally we should replace the env pre-NtCreateUserProcess,
+         * but we have yet to get that to work, so for now we rely on
+         * Vista+ process creation going through the kernel32 routines,
+         * which do hardcode the thread as being suspended.
+         * TODO: We should change the parameter to ensure the thread is suspended.
+         */
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "syscall: NtCreateUserProcess first thread not suspended "
+            "can't safely follow children.\n");
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Child thread not created suspended");
+    }
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *context;
+    CONTEXT *cxt = NULL;
+    int res;
+    /* Since this syscall is vista+ only, whether a wow64 process
+     * has no bearing (xref i#381)
+     */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
+    if (!DYNAMO_OPTION(early_inject)) {
+        /* If no early injection we have to do thread injection, and
+         * on Vista+ we don't see the NtCreateThread so we do it here.  PR 215423.
+         */
+        context = nt_initialize_context(buf, bufsz, cxt_flags);
+        res = nt_get_context(thread_handle, context);
+        if (NT_SUCCESS(res))
+            cxt = context;
+        else {
+            /* FIXME i#49: cross-arch injection can end up here w/
+             * STATUS_INVALID_PARAMETER.  Need to use proper platform's
+             * CONTEXT for target.
+             */
+            DODEBUG({
+                if (is_wow64_process(NT_CURRENT_PROCESS) &&
+                    !is_wow64_process(proc_handle)) {
+                    SYSLOG_INTERNAL_WARNING_ONCE(
+                        "Injecting from 32-bit into 64-bit "
+                        "is not supported for -no_early_inject.");
+                }
+            });
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "syscall: NtCreateUserProcess: WARNING: failed to get cxt of "
+                "thread (" PIFX ") so can't follow children on WOW64.\n",
+                res);
+            REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Failed to get context of child thread");
+        }
+    }
+    ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject)); /* Else, exited above. */
+    /* Do the actual injection. */
+    if (!maybe_inject_into_process(dcontext, proc_handle, thread_handle, cxt)) {
+        heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+        return;
+    }
+    propagate_options_via_env_vars(dcontext, proc_handle, thread_handle);
+    if (cxt != NULL) {
+        /* injection routine is assuming doesn't have to install cxt */
+        res = nt_set_context(thread_handle, cxt);
+        if (!NT_SUCCESS(res)) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "syscall: NtCreateUserProcess: WARNING: failed to set cxt of "
+                "thread (" PIFX ") so can't follow children on WOW64.\n",
+                res);
+            REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Failed to set context of child thread");
+        }
+    }
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 /* NtGetContextThread */
@@ -3175,7 +3327,6 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     CONTEXT *cxt = (CONTEXT *)postsys_param(dcontext, param_base, 1);
     thread_record_t *trec;
     thread_id_t tid = thread_handle_to_tid(thread_handle);
-    char buf[MAX_CONTEXT_SIZE];
     CONTEXT *alt_cxt;
     CONTEXT *xlate_cxt;
     LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
@@ -3184,6 +3335,10 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         thread_handle, tid, cxt->ContextFlags, cxt->CXT_XIP, mc->xax);
     if (!success)
         return;
+
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
 
     /* FIXME : we are going to read/write the context argument which is
      * potentially unsafe, since success it must have been readable when
@@ -3229,7 +3384,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
              * no further permissions are needed to acquire them so we
              * get our own context w/ them.
              */
-            alt_cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+            alt_cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             /* if asking for own context, thread_get_context() will point at
              * dynamorio_syscall_* and we'll fail to translate so we special-case
              */
@@ -3245,6 +3400,8 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 /* FIXME: just don't translate -- right now won't hurt us since
                  * we don't translate other than the pc anyway.
                  */
+                d_r_mutex_unlock(&thread_initexit_lock);
+                heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                 return;
             }
             xlate_cxt = alt_cxt;
@@ -3314,6 +3471,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         SELF_PROTECT_LOCAL(trec->dcontext, READONLY);
     }
     d_r_mutex_unlock(&thread_initexit_lock);
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 /* NtSuspendThread */
@@ -3351,8 +3509,10 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
      * synch, use trylocks in case suspended thread is holding any locks */
     if (d_r_mutex_trylock(&thread_initexit_lock)) {
         if (!mutex_testlock(&all_threads_lock)) {
-            char buf[MAX_CONTEXT_SIZE];
-            CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+            DWORD cxt_flags = CONTEXT_DR_STATE;
+            size_t bufsz = nt_get_context_size(cxt_flags);
+            char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+            CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             thread_record_t *tr;
             /* know thread isn't holding any of the locks we will need */
             LOG(THREAD, LOG_SYNCH, 2,
@@ -3375,10 +3535,12 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                     LOG(THREAD, LOG_SYNCH, 2,
                         "SuspendThread suspended thread " TIDFMT " at good place\n", tid);
                     SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
+                    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                     return;
                 }
                 SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
             }
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
         } else {
             LOG(THREAD, LOG_SYNCH, 2,
                 "SuspendThread couldn't get all_threads_lock to test if thread " TIDFMT
@@ -3462,7 +3624,6 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* NtQueryInformationThread */
 static void
 postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool success)
@@ -3485,7 +3646,6 @@ postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool suc
         }
     }
 }
-#endif
 
 /* NtOpenThread */
 static void
@@ -4185,7 +4345,6 @@ postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* i#537: sysenter returns to KiFastSystemCallRet from kernel, and returns to DR
  * from there. We restore the correct app return target and re-execute
  * KiFastSystemCallRet to make sure client see the code at KiFastSystemCallRet.
@@ -4196,13 +4355,11 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     reg_t adjust_esp;
     ASSERT(get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
            KiFastSystemCallRet_address != NULL);
-#    ifdef CLIENT_INTERFACE
     /* We don't want to do this adjustment until after the final syscall
      * in any invoke-another sequence (i#1210)
      */
     if (instrument_invoke_another_syscall(dcontext))
         return;
-#    endif
     /* If this thread is native, don't disrupt the return-to-native */
     if (!dcontext->thread_record->under_dynamo_control)
         return;
@@ -4211,7 +4368,6 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     get_mcontext(dcontext)->xsp = adjust_esp;
     dcontext->asynch_target = KiFastSystemCallRet_address;
 }
-#endif
 
 /* NOTE : no locks can be grabbed on the path to SuspendThread handling code */
 void
@@ -4257,15 +4413,11 @@ post_system_call(dcontext_t *dcontext)
         }
     } else if (sysnum == syscalls[SYS_OpenThread]) {
         postsys_OpenThread(dcontext, param_base, success);
-    }
-#ifdef CLIENT_INTERFACE
-    else if (sysnum == syscalls[SYS_QueryInformationThread]) {
+    } else if (sysnum == syscalls[SYS_QueryInformationThread]) {
         postsys_QueryInformationThread(dcontext, param_base, success);
-    }
-#endif
-    else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
-             /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
-             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
+    } else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
+               /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
+               sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
         KSTART(post_syscall_alloc);
         postsys_AllocateVirtualMemory(dcontext, param_base, success, sysnum);
         KSTOP(post_syscall_alloc);
@@ -4301,7 +4453,7 @@ post_system_call(dcontext_t *dcontext)
                 "syscall post: NtCreateProcess section @" PFX "\n", base);
         });
         if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
-            maybe_inject_into_process(dcontext, proc_handle, NULL);
+            maybe_inject_into_process(dcontext, proc_handle, NULL, NULL);
     } else if (sysnum == syscalls[SYS_CreateProcessEx]) {
         HANDLE *process_handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
         uint access_mask = (uint)postsys_param(dcontext, param_base, 1);
@@ -4324,7 +4476,7 @@ post_system_call(dcontext_t *dcontext)
             }
         });
         if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
-            maybe_inject_into_process(dcontext, proc_handle, NULL);
+            maybe_inject_into_process(dcontext, proc_handle, NULL, NULL);
     } else if (sysnum == syscalls[SYS_CreateUserProcess]) {
         postsys_CreateUserProcess(dcontext, param_base, success);
     } else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
@@ -4421,7 +4573,6 @@ post_system_call(dcontext_t *dcontext)
 #endif /* DEBUG */
     }
 
-#ifdef CLIENT_INTERFACE
     /* The instrument_post_syscall should be called after DR finishes all
      * its operations. Xref to i#1.
      */
@@ -4436,7 +4587,6 @@ post_system_call(dcontext_t *dcontext)
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         KiFastSystemCallRet_address != NULL)
         restore_for_KiFastSystemCallRet(dcontext);
-#endif
 
     /* stats lock grabbing ok here, any synch with suspended threads taken
      * care of already */
@@ -4454,7 +4604,6 @@ post_system_call(dcontext_t *dcontext)
  * SYSTEM CALL API
  */
 
-#ifdef CLIENT_INTERFACE
 DR_API
 reg_t
 dr_syscall_get_param(void *drcontext, int param_num)
@@ -4605,11 +4754,11 @@ dr_syscall_invoke_another(void *drcontext)
             mc->xdx = mc->xsp + XSP_SZ;
         }
     }
-#    ifdef X64
+#ifdef X64
     else if (get_syscall_method() == SYSCALL_METHOD_SYSCALL) {
         /* sys_param_addr() is already using r10 */
     }
-#    endif
+#endif
 }
 
 DR_API
@@ -4648,4 +4797,3 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args, int wo
         idx);
     return true;
 }
-#endif /* CLIENT_INTERFACE */

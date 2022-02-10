@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -72,5 +72,6 @@ main(int argc, char *argv[])
 
     symres = drsym_exit();
     assert(symres == DRSYM_SUCCESS);
+    dr_standalone_exit();
     return 0;
 }

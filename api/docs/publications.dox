@@ -1,0 +1,197 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_publications Academic Publications
+
+- [[pdf](http://groups.csail.mit.edu/commit/papers/2015/mendis-pldi15-helium.pdf)]
+ Charith Mendis, Jeffrey Bosboom, Kevin Wu, Shoaib Kamil, Jonathan Ragan-Kelley,
+ Sylvain Paris, Qin Zhao, and Saman Amarasinghe.
+ <b>Helium: Lifting High-Performance Stencil Kernels from Stripped x86 Binaries
+ to Halide DSL Code</b>.
+ 2015 Conference on Programming Language Design and Implementation (PLDI-15).
+
+-  [[pdf](https://www.burningcutlery.com/derek/docs/dgc-CGO15.pdf)]
+ Byron Hawkins, Brian Demsky, Derek Bruening, and Qin Zhao.
+ <b>Optimizing Binary Translation for Dynamically Generated Code</b>.
+ [2015 International Symposium on Code Generation
+ and Optimization (CGO-15)](http://www.cgo.org/cgo2015/), February 2015, San Francisco, CA.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/instant-profiling-CGO13.pdf)]
+ Hyoun Kyu Cho, Tipp Moseley, Richard Hank, Derek Bruening, and Scott Mahlke.
+ <b>Instant Profiling: Instrumentation Sampling for Profiling Datacenter
+ Applications</b>.
+ [2013 International Symposium on Code Generation
+ and Optimization (CGO-13)](http://www.cgo.org/cgo2013/), February 2013, Shenzhen, China.
+
+- [[pdf](http://www.cs.toronto.edu/~peter/feiner_asplos_2012.pdf)]
+ Peter Feiner, Angela Demke Brown, and Ashvin Goel.
+ <b>Comprehensive Kernel Instrumentation via Dynamic Binary Translation</b>.
+ [
+ International Conference on Architectural Support for Programming Languages
+ and Operating Systems (ASPLOS-12)](http://research.microsoft.com/en-us/um/cambridge/events/asplos_2012/), March 2012,
+ London, UK.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/transparency-VEE12.pdf)]
+ Derek Bruening, Qin Zhao, and Saman Amarasinghe.
+ <b>Transparent Dynamic Instrumentation</b>.
+ [International
+ Conference on Virtual Execution Environments (VEE-12)](http://www.cl.cam.ac.uk/research/srg/netos/vee_2012/), March 2012,
+ London, UK.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/drmem-CGO11.pdf)]
+ Derek Bruening and Qin Zhao.
+ <b>Practical Memory Checking with Dr. Memory</b>.
+ [International
+ Symposium on Code Generation and Optimization (CGO-11)](http://www.cgo.org), April 2011,
+ Chamonix, France.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/cache-contention-vee11.pdf)]
+ Qin Zhao, David Koh, Syed Raza, Derek Bruening, Saman Amarasinghe, and Weng-Fai Wong.
+ <b>Dynamic Cache Contention Detection in Multi-threaded Applications</b>.
+ [International
+ Conference on Virtual Execution Environments (VEE-11)](http://www.cs.technion.ac.il/~erez/vee11/VEE_2011/Home_Page.html), March 2011,
+ Newport Beach, CA.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/ems64-ISMM10.pdf)]
+ Qin Zhao, Derek Bruening, and Saman Amarasinghe.
+ <b>Efficient Memory Shadowing for 64-bit Architectures</b>.
+ [International Symposium
+ on Memory Management (ISMM-10)](http://www.cs.purdue.edu/ISMM10/), June 2010.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/umbra-CGO10.pdf)]
+ Qin Zhao, Derek Bruening, and Saman Amarasinghe.
+ <b>Umbra: Efficient and Scalable Memory Shadowing</b>.
+ [International
+ Symposium on Code Generation and Optimization (CGO-10)](http://www.cgo.org), April 2010.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/zhao-million-watchpoints-CC08.pdf)]
+ Qin Zhao, Rodric M. Rabbah, Saman Amarasinghe, Larry Rudolph, and Weng-Fai Wong.
+ <b>How to Do a Million Watchpoints: Efficient Debugging Using Dynamic
+ Instrumentation</b>.
+ International Conference on Compiler Construction (CC 2008), March 2008.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/procshared-VEE08.pdf)]
+ Derek Bruening and Vladimir Kiriansky.
+ <b>Process-Shared and Persistent Code Caches</b>.
+ [International
+ Conference on Virtual Execution Environments (VEE-08)](http://vee08.cs.tcd.ie/), March 2008.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/PiPA-pipelined-profiling-cgo08.pdf)]
+ Qin Zhao, Ioana Cutcutache, and Weng-Fai Wong.
+ <b>PiPA: Pipelined Profiling and Analysis on Multi-Core Systems</b>.
+ [International
+ Symposium on Code Generation and Optimization (CGO-08)](http://www.cgo.org), March 2008.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/zhao-introspection-cgo07.pdf)]
+ Qin Zhao, Rodric M. Rabbah, Saman P. Amarasinghe, Larry Rudolph, and Weng-Fai Wong.
+ <b>Ubiquitous Memory Introspection.</b>.
+ [International
+ Symposium on Code Generation and Optimization (CGO-07)](http://www.cgo.org), March 2007.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/zhao-DEP-pact06.pdf)]
+ Qin Zhao, Joon Edward Sim, Weng-Fai Wong, and Larry Rudolph.
+ <b>DEP: Detailed Execution Profile</b>.
+ International Conference on Parallel Architectures and Compilation
+ Techniques (PACT-06)</a>, September 2006.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/tainttrace-iscc06.pdf)]
+ Winnie Cheng, Qin Zhao, Bei Yu, and Scott Hiroshige.
+ <b>TaintTrace: Efficient Flow Tracing with Dynamic Binary Rewriting</b>.
+ IEEE Symposium on Computers and Communications (ISCC '06), June 2006.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/threadshared-CGO06.pdf)]
+ Derek Bruening, Vladimir Kiriansky, Timothy Garnett, and Sanjeev Banerji.
+ <b>Thread-Shared Software Code Caches</b>.
+ [International
+ Symposium on Code Generation and Optimization (CGO-06)](http://www.cgo.org), March 2006.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/cacheconscap-CGO05.pdf)]
+   [[ps.gz](https://www.burningcutlery.com/derek/docs/cacheconscap-CGO05.ps.gz)]
+ Derek Bruening and Saman Amarasinghe.
+ <b>Maintaining Consistency and Bounding Capacity of Software Code Caches</b>.
+ [International
+ Symposium on Code Generation and Optimization (CGO-05)](http://www.cgo.org), March 2005.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/phd.pdf)]
+   [[ps.gz](https://www.burningcutlery.com/derek/docs/phd.ps.gz)]
+   [[defense](https://www.burningcutlery.com/derek/phd.html)]
+ Derek Bruening.
+ <b>Efficient, Transparent, and Comprehensive Runtime Code Manipulation</b>.
+ Ph.D. Thesis, MIT, September 2004.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/IVME03.pdf)]
+     Gregory Sullivan, Derek Bruening, Iris Baron, Timothy Garnett, and
+ Saman Amarasinghe.
+ <b>Dynamic Native Optimization of Interpreters</b>.
+ [ACM Workshop on
+ Interpreters, Virtual Machines and Emulators (IVME-03)](http://www.cs.tcd.ie/David.Gregg/ivme03/), June 2003.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/adaptive-CGO03.pdf)]
+   [[ps.gz](https://www.burningcutlery.com/derek/docs/adaptive-CGO03.ps.gz)]
+     Derek Bruening, Timothy Garnett, and Saman Amarasinghe.
+ <b>An Infrastructure for Adaptive Dynamic Optimization</b>.
+ [International
+ Symposium on Code Generation and Optimization (CGO-03)](http://www.cgo.org), March 2003.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/security-usenix.pdf)]
+   [[ps.gz](https://www.burningcutlery.com/derek/docs/security-usenix.ps.gz)]
+ Vladimir Kiriansky, Derek Bruening, and Saman Amarasinghe.
+ <b>Secure Execution Via Program Shepherding</b>.
+ [11th USENIX Security
+ Symposium](http://www.usenix.org/events/sec02/), August 2002.
+
+- [[pdf](https://www.burningcutlery.com/derek/docs/win32-FDDO.pdf)]
+   [[ps.gz](https://www.burningcutlery.com/derek/docs/win32-FDDO.ps.gz)]
+     Derek Bruening, Evelyn Duesterwald, and Saman Amarasinghe.
+ <b>Design and Implementation of a Dynamic Optimization Framework for
+ Windows</b>.
+ [4th ACM Workshop on Feedback-Directed and Dynamic
+ Optimization (FDDO-4)](http://www.cesr.ncsu.edu/fddo4/index.html), December 2001.
+
+
+
+<b>ACM and IEEE-mandated Copyright Notice</b>
+
+The documents listed above are included by the contributing authors
+as a means to ensure timely dissemination of scholarly and
+technical work on a non-commercial basis. Copyright and all rights
+therein are maintained by the authors or by other copyright
+holders, notwithstanding that they have offered their works here
+electronically. It is understood that all persons copying this
+information will adhere to the terms and constraints invoked by
+each author's copyright. These works may not be reposted without
+the explicit permission of the copyright holder.
+
+ ****************************************************************************
+ */

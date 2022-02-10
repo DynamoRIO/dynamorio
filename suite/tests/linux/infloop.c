@@ -54,6 +54,7 @@ main(int argc, const char *argv[])
 {
     int arg_offs = 1;
     long long counter = 0;
+    bool for_attach = false;
     while (arg_offs < argc && argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-v") == 0) {
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
@@ -62,15 +63,23 @@ main(int argc, const char *argv[])
             intercept_signal(SIGTERM, (handler_3_t)signal_handler, false);
             print("starting\n");
             arg_offs++;
+        } else if (strcmp(argv[arg_offs], "-attach") == 0) {
+            for_attach = true;
+            arg_offs++;
         } else
             return 1;
     }
 
     while (1) {
-        /* workaround for PR 213040 and i#1087: prevent loop from being coarse
-         * by using a non-ignorable system call
+        /* XXX i#38: We're seeing mprotect fail strangely on attach right before
+         * DR takes over.  For now we avoid it in that test.
          */
-        protect_mem((void *)signal_handler, 1, ALLOW_READ | ALLOW_EXEC);
+        if (!for_attach) {
+            /* workaround for PR 213040 and i#1087: prevent loop from being coarse
+             * by using a non-ignorable system call
+             */
+            protect_mem((void *)signal_handler, 1, ALLOW_READ | ALLOW_EXEC);
+        }
         /* don't spin forever to avoid hosing machines if test harness somehow
          * fails to kill.  15 billion syscalls takes ~ 1 minute.
          */

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,8 +42,8 @@ the syntax of the policy definition message is as follows:
 <policy_message> ::==
  POLICY_VERSION=<string>
  APPINITFLAGS=<string>
- APPINITWHITELIST=<string>
- APPINITBLACKLIST=<string>
+ APPINITALLOWLIST=<string>
+ APPINITBLOCKLIST=<string>
  GLOBAL_PROTECT=<boolean>
  <application_block>*
 
@@ -67,13 +68,13 @@ the syntax of the policy definition message is as follows:
 
 details:
 
-(1) the APPINITFLAGS, together with the APPINITBLACKLIST and
-    APPINITWHITELIST, controls how our bootstrap dll is added to the
+(1) the APPINITFLAGS, together with the APPINITBLOCKLIST and
+    APPINITALLOWLIST, controls how our bootstrap dll is added to the
     AppInit_DLLs registry key. the value of the flags should be a sum
     of the APPINIT_* flags as defined in share/config.h
 
-    the APPINITBLACKLIST and APPINITWHITELIST values are only used if
-    specified by the flags. we'll provide the whitelist/blacklist.
+    the APPINITBLOCKLIST and APPINITALLOWLIST values are only used if
+    specified by the flags. we'll provide the allowlist/blocklist.
 
 
 (2) GLOBAL_PROTECT: OPTIONAL: if this is 0, then protection is

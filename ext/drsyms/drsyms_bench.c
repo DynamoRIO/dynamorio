@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -136,4 +136,5 @@ main(int argc, char **argv)
     enumerate_with_flags(modpath, DRSYM_DEFAULT_FLAGS);
 
     drsym_exit();
+    dr_standalone_exit();
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,12 +38,6 @@
 #include "tools.h"
 #ifndef LINUX
 #    error Only Linux is supported.
-#endif
-/* TODO i#2350: Port this to other platforms and bitwidths.  There is a lot of
- * assembly which makes that non-trivial work.
- */
-#if !defined(X86) || !defined(X64)
-#    error Only x86_64 is supported.
 #endif
 #include "../../core/unix/include/syscall.h"
 #ifndef HAVE_RSEQ

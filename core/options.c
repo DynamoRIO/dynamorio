@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -122,7 +122,7 @@ typedef enum option_modifier_t {
     OPTION_MOD_DYNAMIC
 } option_modifier_t;
 
-typedef uint uint_size;
+typedef ptr_uint_t uint_size;
 typedef uint uint_time;
 typedef ptr_uint_t uint_addr;
 
@@ -152,6 +152,36 @@ const internal_options_t default_internal_options = {
 #    undef OPTION_COMMAND_INTERNAL
 #    undef OPTION_COMMAND
 #endif
+
+/* Definitions for our default values.  See options.h for why we can't
+ * have them in an enum in the header.
+ */
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* We don't have strings in the default values. */
+#define OPTION_STRING(x) 0
+#define EMPTY_STRING 0
+#define liststring_t int
+#define pathstring_t int
+#define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
+                       description, flag, pcache)                                 \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                statement, description, flag, pcache)           \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#include "optionsx.h"
+#undef liststring_t
+#undef pathstring_t
+#undef OPTION_COMMAND
+#undef OPTION_COMMAND_INTERNAL
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* Restore. */
+#define OPTION_STRING(x) x
+#define EMPTY_STRING \
+    {                \
+        0            \
+    }
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    define OPTION_COMMAND_INTERNAL OPTION_COMMAND
@@ -262,23 +292,72 @@ adjust_defaults_for_page_size(options_t *options)
      * future be many more options that depend on the page size.
      */
 
-    /* Some of these are a small multiple of the page size because they include
-     * one or two guard pages.
+    /* To save space, we trade off some stability/security/debugging value of guard
+     * pages by only having them for thread-shared allocations (i#4424).
+     * Since 99% of our allocs are in the vmm, there should still be enough guards
+     * sprinkled to be quite helpful, and we have separate stack guard pages.
      */
+    options->per_thread_guard_pages = false;
+
     options->vmm_block_size = ALIGN_FORWARD(options->vmm_block_size, page_size);
     options->stack_size = MAX(ALIGN_FORWARD(options->stack_size, page_size), page_size);
 #    ifdef UNIX
     options->signal_stack_size =
         MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), page_size);
 #    endif
+    /* These per-thread sizes do *not* have guard pages (i#4424) and
+     * we keep them as small as we can to avoid wasting space.
+     * We'd need sub-page allocs (i#4415) to go any smaller.
+     */
     options->initial_heap_unit_size =
-        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size), 3 * page_size);
+        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size), page_size);
     options->initial_heap_nonpers_size =
-        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size), 3 * page_size);
+        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size), page_size);
+    /* We increase the global units to have a higher content-to-guard-page ratio. */
     options->initial_global_heap_unit_size = MAX(
-        ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size), 3 * page_size);
+        ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size), 8 * page_size);
+    options->max_heap_unit_size =
+        MAX(ALIGN_FORWARD(options->max_heap_unit_size, page_size), 64 * page_size);
     options->heap_commit_increment =
         ALIGN_FORWARD(options->heap_commit_increment, page_size);
+    /* The cache options must all match for x64.  We go ahead and make them the
+     * same for 32-bit as well: the shared cache these days should have large units.
+     */
+    options->cache_shared_bb_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_shared_bb_unit_max, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_shared_bb_unit_init, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_upgrade = MAX(
+        ALIGN_FORWARD(options->cache_shared_bb_unit_upgrade, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_quadruple = MAX(
+        ALIGN_FORWARD(options->cache_shared_bb_unit_quadruple, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_max = MAX(
+        ALIGN_FORWARD(options->cache_shared_trace_unit_max, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_init = MAX(
+        ALIGN_FORWARD(options->cache_shared_trace_unit_init, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_shared_trace_unit_upgrade, page_size),
+            8 * page_size);
+    options->cache_shared_trace_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_shared_trace_unit_quadruple, page_size),
+            8 * page_size);
+    /* Private units just need to be page sized for possible selfprot. */
+    options->cache_bb_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_max, page_size), page_size);
+    options->cache_bb_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_init, page_size), page_size);
+    options->cache_bb_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_upgrade, page_size), page_size);
+    options->cache_bb_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_quadruple, page_size), page_size);
+    options->cache_trace_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_max, page_size), page_size);
+    options->cache_trace_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_init, page_size), page_size);
+    options->cache_trace_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_upgrade, page_size), page_size);
+    options->cache_trace_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_quadruple, page_size), page_size);
     options->cache_commit_increment =
         ALIGN_FORWARD(options->cache_commit_increment, page_size);
 #endif /* !NOT_DYNAMORIO_CORE */
@@ -416,13 +495,13 @@ parse_uint(uint *var, void *value)
 }
 
 static void
-parse_uint_size(uint *var, void *value)
+parse_uint_size(ptr_uint_t *var, void *value)
 {
     char unit;
-    int num;
-    int factor = 0;
+    ptr_int_t num;
+    ptr_int_t factor = 0;
 
-    if (sscanf((char *)value, "%d%c", &num, &unit) == 1) {
+    if (sscanf((char *)value, SZFMT "%c", &num, &unit) == 1) {
         /* no unit specifier, default unit is Kilo for compatibility */
         factor = 1024;
     } else {
@@ -434,7 +513,7 @@ parse_uint_size(uint *var, void *value)
         case 'M': // Mega (bytes)
         case 'm': factor = 1024 * 1024; break;
         case 'G': // Giga (bytes)
-        case 'g': factor = 1024 * 1024 * 1024; break;
+        case 'g': factor = 1024ULL * 1024 * 1024; break;
         default:
             /* var should be pre-initialized to default */
             OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4,
@@ -674,20 +753,21 @@ set_dynamo_options_other_process(options_t *options, const char *optstr)
  * option value
  */
 bool
-check_param_bounds(uint *val, uint min, uint max, const char *name)
+check_param_bounds(ptr_uint_t *val, ptr_uint_t min, ptr_uint_t max, const char *name)
 {
     bool ret = false;
-    uint new_val;
+    ptr_uint_t new_val;
     if ((max == 0 && *val != 0 && *val < min) ||
         (max > 0 && (*val < min || *val > max))) {
         if (max == 0) {
             new_val = min;
-            USAGE_ERROR("%s must be >= %u, resetting from %u to %u", name, min, *val,
-                        new_val);
+            USAGE_ERROR("%s must be >= " SZFMT ", resetting from " SZFMT " to " SZFMT,
+                        name, min, *val, new_val);
         } else {
             new_val = max;
-            USAGE_ERROR("%s must be >= %u and <= %u, resetting from %u to %u", name, min,
-                        max, *val, new_val);
+            USAGE_ERROR("%s must be >= " SZFMT " and <= " SZFMT ", resetting from " SZFMT
+                        " to " SZFMT,
+                        name, min, max, *val, new_val);
         }
         *val = new_val;
         ret = true;
@@ -696,7 +776,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         if (*val == 0) {
             LOG(GLOBAL, LOG_CACHE, 1, "%s: <unlimited>\n", name);
         } else {
-            LOG(GLOBAL, LOG_CACHE, 1, "%s: %u KB\n", name, *val / 1024);
+            LOG(GLOBAL, LOG_CACHE, 1, "%s: " SZFMT " KB\n", name, *val / 1024);
         }
     });
     return ret;
@@ -728,9 +808,19 @@ PRINT_STRING_uint(char *optionbuff, const void *val_ptr, const char *option)
 static void
 PRINT_STRING_uint_size(char *optionbuff, const void *val_ptr, const char *option)
 {
-    uint value = *(const uint *)val_ptr;
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d%s ", option,
-             (value % 1024 == 0 ? value / 1024 : value), (value % 1024 == 0 ? "K" : "B"));
+    ptr_uint_t value = *(const ptr_uint_t *)val_ptr;
+    char code = 'B';
+    if (value >= 1024ULL * 1024 * 1024 && value % 1024ULL * 1024 * 1024 == 0) {
+        value = value / (1024ULL * 1024 * 1024);
+        code = 'G';
+    } else if (value >= 1024 * 1024 && value % 1024 * 1024 == 0) {
+        value = value / (1024 * 1024);
+        code = 'M';
+    } else if (value >= 1024 && value % 1024 == 0) {
+        value = value / 1024;
+        code = 'K';
+    }
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s " SZFMT "%c ", option, value, code);
 }
 static void
 PRINT_STRING_uint_time(char *optionbuff, const void *val_ptr, const char *option)
@@ -799,7 +889,9 @@ DIFF_uint(const void *ptr1, const void *ptr2)
 static int
 DIFF_uint_size(const void *ptr1, const void *ptr2)
 {
-    return DIFF_uint(ptr1, ptr2);
+    ptr_uint_t val1 = *(const ptr_uint_t *)(ptr1);
+    ptr_uint_t val2 = *(const ptr_uint_t *)(ptr2);
+    return val1 != val2;
 }
 static int
 DIFF_uint_time(const void *ptr1, const void *ptr2)
@@ -809,7 +901,7 @@ DIFF_uint_time(const void *ptr1, const void *ptr2)
 static int
 DIFF_uint_addr(const void *ptr1, const void *ptr2)
 {
-    return DIFF_uint(ptr1, ptr2);
+    return DIFF_uint_size(ptr1, ptr2);
 }
 static int
 DIFF_pathstring_t(const void *ptr1, const void *ptr2)
@@ -854,7 +946,7 @@ COPY_uint(void *ptr1, const void *ptr2)
 static void
 COPY_uint_size(void *ptr1, const void *ptr2)
 {
-    COPY_uint(ptr1, ptr2);
+    *(ptr_uint_t *)(ptr1) = *(const ptr_uint_t *)(ptr2);
 }
 static void
 COPY_uint_time(void *ptr1, const void *ptr2)
@@ -864,7 +956,7 @@ COPY_uint_time(void *ptr1, const void *ptr2)
 static void
 COPY_uint_addr(void *ptr1, const void *ptr2)
 {
-    *(ptr_uint_t *)(ptr1) = *(const ptr_uint_t *)(ptr2);
+    COPY_uint_size(ptr1, ptr2);
 }
 static void
 COPY_pathstring_t(void *ptr1, const void *ptr2)
@@ -1017,7 +1109,6 @@ update_dynamic_options(options_t *options, options_t *new_options)
     return updated;
 }
 
-#ifdef CLIENT_INTERFACE
 void
 options_enable_code_api_dependences(options_t *options)
 {
@@ -1037,13 +1128,13 @@ options_enable_code_api_dependences(options_t *options)
      * tail end of a multi-64K-region stack.
      */
     options->stack_size = MAX(options->stack_size, 56 * 1024);
-#    ifdef UNIX
+#ifdef UNIX
     /* We assume that clients avoid private library code, within reason, and
      * don't need as much space when handling signals.  We still raise the
      * limit a little while saving some per-thread space.
      */
     options->signal_stack_size = MAX(options->signal_stack_size, 32 * 1024);
-#    endif
+#endif
 
     /* For CI builds we'll disable elision by default since we
      * expect most CI users will prefer a view of the
@@ -1082,11 +1173,7 @@ options_enable_code_api_dependences(options_t *options)
 
     /* Don't randomize dynamorio.dll */
     IF_WINDOWS(options->aslr_dr = false;)
-
-    /* FIXME PR 215179 on getting rid of this tracing restriction. */
-    options->pad_jmps_mark_no_trace = true;
 }
-#endif
 
 /****************************************************************************/
 #ifndef NOT_DYNAMORIO_CORE
@@ -1143,6 +1230,13 @@ static bool
 check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
+#    ifdef AARCH64
+    if (!DYNAMO_OPTION(bb_prefixes)) {
+        USAGE_ERROR("bb_prefixes must be true on AArch64");
+        dynamo_options.bb_prefixes = true;
+        changed_options = true;
+    }
+#    endif
 #    ifdef EXPOSE_INTERNAL_OPTIONS
     if (DYNAMO_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
         USAGE_ERROR("vmm_block_size (%d) must be >= %d, setting to min",
@@ -1215,21 +1309,9 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 
-#    if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
+#    if defined(TRACE_HEAD_CACHE_INCR)
     if (DYNAMO_OPTION(pad_jmps)) {
         USAGE_ERROR("-pad_jmps not supported in this build yet");
-    }
-#    endif
-
-#    if defined(UNIX) || defined(CLIENT_INTERFACE)
-    if (DYNAMO_OPTION(pad_jmps) && !DYNAMO_OPTION(pad_jmps_mark_no_trace) &&
-        DYNAMO_OPTION(enable_traces)
-#        ifndef UNIX
-        && INTERNAL_OPTION(code_api)
-#        endif
-    ) {
-        USAGE_ERROR("-pad_jmps isn't safe with code_api or on Linux without "
-                    "-pad_jmps_mark_no_trace when traces are enabled");
     }
 #    endif
 
@@ -1237,16 +1319,6 @@ check_option_compatibility_helper(int recurse_count)
      * warn of unfinished and untested self-protection options
      * FIXME: update once these features are complete
      */
-#    if defined(WINDOWS) && !defined(NOLIBC)
-    if (TEST(SELFPROT_ANY_DATA_SECTION, dynamo_options.protect_mask)) {
-        /* since libc routines are embedded in our dll and we run
-         * them from the code cache we hit write faults
-         */
-        USAGE_ERROR("Cannot protect data segment w/ a non-NOLIBC build");
-        dynamo_options.protect_mask &= ~SELFPROT_ANY_DATA_SECTION;
-        changed_options = true;
-    }
-#    endif
     if (
 #    ifdef WINDOWS
         /* FIXME: CACHE isn't multithread safe yet */
@@ -1280,31 +1352,28 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 #    endif
-#    ifdef CLIENT_INTERFACE
     /* case 9714: The client interface is compatible with the current default
      * protect_mask of 0x101, but is incompatible with the following:
      */
     if (TESTANY(SELFPROT_DATA_CXTSW | SELFPROT_GLOBAL | SELFPROT_DCONTEXT |
                     SELFPROT_LOCAL | SELFPROT_CACHE | SELFPROT_STACK,
                 dynamo_options.protect_mask)) {
-        USAGE_ERROR("CLIENT_INTERFACE incompatible with protect_mask %x at this time",
+        USAGE_ERROR("client support incompatible with protect_mask %x at this time",
                     dynamo_options.protect_mask);
         dynamo_options.protect_mask &=
             ~(SELFPROT_DATA_CXTSW | SELFPROT_GLOBAL | SELFPROT_DCONTEXT | SELFPROT_LOCAL |
               SELFPROT_CACHE | SELFPROT_STACK);
         changed_options = true;
     }
-#    endif
-#    ifdef CUSTOM_TRACES
     if (PRIVATE_TRACES_ENABLED() && DYNAMO_OPTION(shared_bbs)) {
         /* Due to complications with shadowing, we do not support
-         * private traces and shared bbs
+         * private traces and shared bbs if we allow clients to make custom
+         * traces (which is always enabled).
          */
-        USAGE_ERROR("CUSTOM_TRACES incompatible with private traces and shared bbs");
+        USAGE_ERROR("private traces incompatible with shared bbs");
         dynamo_options.shared_bbs = false;
         changed_options = true;
     }
-#    endif
     /****************************************************************************/
 
 #    if defined(PROFILE_RDTSC) && defined(SIDELINE)
@@ -1582,11 +1651,6 @@ check_option_compatibility_helper(int recurse_count)
             changed_options = true;
         }
 #        endif
-#        ifdef CUSTOM_EXIT_STUBS
-        USAGE_ERROR("CUSTOM_EXIT_STUBS requires -indirect_stubs, enabling");
-        dynamo_options.indirect_stubs = true;
-        changed_options = true;
-#        endif
 #        ifdef HASHTABLE_STATISTICS
         if ((!DYNAMO_OPTION(shared_traces) && DYNAMO_OPTION(inline_trace_ibl)) ||
             (!DYNAMO_OPTION(shared_bbs) && DYNAMO_OPTION(inline_bb_ibl))) {
@@ -1833,14 +1897,12 @@ check_option_compatibility_helper(int recurse_count)
         SET_DEFAULT_VALUE(native_exec_hook_conflict);
         changed_options = true;
     }
-#        ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && !INTERNAL_OPTION(private_loader)) {
         /* The private peb is set up in loader.c */
         USAGE_ERROR("-private_peb requires -private_loader");
         dynamo_options.private_peb = false;
         changed_options = true;
     }
-#        endif
 #    endif
 
 #    ifdef WINDOWS
@@ -1917,7 +1979,6 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 #        endif /* KSTATS */
-#        ifdef CLIENT_INTERFACE
     /* Probe API needs hot_patching.  Also, for the time being at least,
      * liveshields shouldn't be on when probe api is on.
      */
@@ -1933,24 +1994,21 @@ check_option_compatibility_helper(int recurse_count)
             changed_options = true;
         }
     }
-#        endif /* CLIENT_INTERFACE */
-#    endif     /* HOT_PATCHING_INTERFACE */
-#    ifdef CLIENT_INTERFACE
+#    endif /* HOT_PATCHING_INTERFACE */
     /* i#660/PR 226578 - Probe API doesn't flush pcaches conflicting with hotpatches. */
     if (DYNAMO_OPTION(probe_api) && DYNAMO_OPTION(use_persisted)) {
         USAGE_ERROR("-probe_api and -use_persisted aren't compatible");
         dynamo_options.use_persisted = false;
         changed_options = true;
     }
-#        ifdef UNIX
+#    ifdef UNIX
     /* PR 304708: we intercept all signals for a better client interface */
     if (DYNAMO_OPTION(code_api) && !DYNAMO_OPTION(intercept_all_signals)) {
         USAGE_ERROR("-code_api requires -intercept_all_signals");
         dynamo_options.intercept_all_signals = true;
         changed_options = true;
     }
-#        endif
-#    endif /* CLIENT_INTERFACE */
+#    endif
 #    ifdef UNIX
     if (DYNAMO_OPTION(max_pending_signals) < 1) {
         USAGE_ERROR("-max_pending_signals must be at least 1");
@@ -1980,13 +2038,13 @@ check_option_compatibility_helper(int recurse_count)
     }
 #    endif
 
-#    if defined(UNIX) && defined(CLIENT_INTERFACE)
+#    ifdef UNIX
     if (DYNAMO_OPTION(early_inject) && !DYNAMO_OPTION(private_loader)) {
         USAGE_ERROR("-early_inject requires -private_loader, turning on -private_loader");
         dynamo_options.private_loader = true;
         changed_options = true;
     }
-#    endif /* UNIX && CLIENT_INTERFACE */
+#    endif
 
 #    ifdef WINDOWS
     if (DYNAMO_OPTION(inject_at_create_process) && !DYNAMO_OPTION(early_inject)) {
@@ -2137,21 +2195,13 @@ check_option_compatibility_helper(int recurse_count)
 #        endif /* !NOT_DYNAMORIO_CORE */
 #    endif     /* WINDOWS */
 
-#    ifdef CLIENT_INTERFACE
     if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
         !(INTERNAL_OPTION(code_api) ||
           INTERNAL_OPTION(probe_api) IF_PROG_SHEP(|| DYNAMO_OPTION(security_api)))) {
         USAGE_ERROR("-client_lib requires at least one API flag");
     }
-#    endif
 
     if (DYNAMO_OPTION(coarse_units)) {
-#    ifdef CUSTOM_EXIT_STUBS
-        USAGE_ERROR("-coarse_units incompatible with CUSTOM_EXIT_STUBS: disabling");
-        dynamo_options.coarse_units = false;
-        changed_options = true;
-#    endif
-#    ifdef CLIENT_INTERFACE
         if (DYNAMO_OPTION(bb_prefixes)) {
             /* coarse_units doesn't support prefixes in general.
              * the variation by addr prefix according to processor type
@@ -2161,7 +2211,6 @@ check_option_compatibility_helper(int recurse_count)
             dynamo_options.coarse_units = false;
             changed_options = true;
         }
-#    endif
         if (!DYNAMO_OPTION(shared_bbs)) {
             USAGE_ERROR("-coarse_units requires -shared_bbs, enabling");
             dynamo_options.shared_bbs = true;
@@ -2245,7 +2294,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 #    endif
 
-#    if defined(UNIX) && defined(CLIENT_INTERFACE)
+#    ifdef UNIX
 #        if (defined(ARM) || defined(LINUX)) && !defined(STATIC_LIBRARY)
     if (!INTERNAL_OPTION(private_loader)) {
         /* On ARM, to make DR work in gdb, we must use private loader to make
@@ -2348,9 +2397,7 @@ check_option_compatibility_helper(int recurse_count)
     changed_options = heap_check_option_compatibility() || changed_options;
 
     changed_options = os_check_option_compatibility() || changed_options;
-#        if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     disassemble_options_init();
-#        endif
 #    endif
 
     if (changed_options) {
@@ -2399,7 +2446,7 @@ options_init()
                                sizeof(d_r_option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
         ret = set_dynamo_options(&dynamo_options, d_r_option_string);
-#    if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)
+#    ifdef STATIC_LIBRARY
     /* For dynamorio_static, we always enable code_api as it's a pain to set
      * DR runtime options -- unless otherwise requested.
      */
@@ -2577,8 +2624,6 @@ get_process_options(HANDLE process_handle)
 }
 #    endif /* WINDOWS */
 
-#    ifdef CLIENT_INTERFACE
-
 /* Function for identifying string type. */
 static bool
 is_string_type(enum option_type_t type)
@@ -2629,7 +2674,6 @@ dr_get_integer_option(const char *option_name, uint64 *val OUT)
     }
     return false;
 }
-#    endif /* CLIENT_INTERFACE */
 
 #endif /* NOT_DYNAMORIO_CORE */
 
@@ -2711,6 +2755,19 @@ unit_test_options(void)
     set_dynamo_options_defaults(&dynamo_options);
     get_dynamo_options_string(&dynamo_options, buf, MAXIMUM_PATH, 1);
     print_file(STDERR, "default ops string: %s\n", buf);
+
+#    ifdef X64
+    /* Sanity-check pointer-sized integer values handling >int sizes. */
+    set_dynamo_options(&dynamo_options, "-vmheap_size 16384M -persist_short_digest 8K");
+    EXPECT_EQ(dynamo_options.vmheap_size, 16 * 1024 * 1024 * 1024ULL);
+    char opstring[MAX_OPTIONS_STRING];
+    /* Ensure we print it back out with the shortest value+suffix.
+     * We include a smaller option to ensure we avoid printing out "0G".
+     */
+    get_dynamo_options_string(&dynamo_options, opstring, sizeof(opstring), true);
+    EXPECT_EQ(0, strcmp(opstring, "-vmheap_size 16G -persist_short_digest 8K "));
+#    endif
+
     SELF_PROTECT_OPTIONS();
     d_r_write_unlock(&options_lock);
 }

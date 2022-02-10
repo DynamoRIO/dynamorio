@@ -1,0 +1,132 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_tutorial_secdev16 SecDev 2016 Tutorial: Using Dr. Fuzz, Dr. Memory, and Custom Dynamic Tools for Secure Development
+
+3:30pm-5:00pm
+on Friday November 4, 2016 at [IEEE SecDev](http://secdev.ieee.org/).
+
+# Audience
+
+Researchers and professionals interested in using advanced fuzz testing
+tools or memory error identification tools or in building custom dynamic
+program analysis tools.
+
+# Abstract
+
+This tutorial will present two tools that can be integrated into a secure software development approach, as well as describing how custom tools can be built utilizing the same underlying tool platform.
+
+The first tool is Dr. Fuzz, a fuzz testing tool that targets functions.  Dr. Fuzz allows users to repeatedly execute one function in a target application with different execution contexts or argument inputs.  Function fuzzing allows for more direct and targeted testing than whole-process fuzzing.  Dr. Fuzz supports corpus-based fuzzing, dictionary-based mutation, and custom mutators.  Dr. Fuzz can target binaries without requiring source code access or recompilation, allowing testing of third-party libraries, of applications for which recompilation is expensive, or of actual production binaries rather than only testing special builds.
+
+The second tool is Dr. Memory [[1](#ref1)], a memory monitoring tool that identifies memory-related programming errors such as accesses of uninitialized memory, accesses to unallocated memory, accesses to freed memory, double frees, memory leaks, and (on Windows) handle leaks and GDI API usage errors.  Dr. Memory helps developers to locate both stability and security bugs. Dr. Memory is especially effective when combined with Dr. Fuzz, allowing for critical bugs to be found as the input space is explored.
+
+Both Dr. Fuzz and Dr. Memory are built on the DynamoRIO [[2](#ref2)] dynamic instrumentation tool platform.  DynamoRIO's API can be used to build custom tools that utilize dynamic code manipulation for a variety of instrumentation, profiling, analysis, and introspection tasks.  DynamoRIO can also be used to build security policy enforcement systems, such as Program Shepherding [[3](#ref3)].
+
+Dr. Fuzz, Dr. Memory, and DynamoRIO are all open-source and publicly available [[4](#ref4)].  They operate on Linux, Windows, and Android on IA-32, AMD64, and ARM platforms.
+
+
+# What You Will Learn
+
+In this tutorial you will learn:
+
+-  How to use and extend Dr. Fuzz, an in-process function fuzzing tool.
+-  How to combine Dr. Fuzz with Dr. Memory to identify memory errors and
+  with Dr. Cov for code coverage-guided fuzzing.
+-  How these tools work and how their underlying dynamic binary
+  instrumentation platform, DynamoRIO, works.
+-  Examples of other security/analysis/vulnerability discovery tools that
+  can be build on top of DynamoRIO.
+
+
+
+# Download Virtual Machine
+
+
+We are providing instructions and material to follow along with
+demonstrations during the tutorial presentation and to serve as starting
+points for further hands-on exploration.  One option is to use
+[our
+VMware virtual machine image](https://drive.google.com/open?id=0B5KF1WTPY_itZmZ5T0Q3azhmUnc).  Please download it before the tutorial, and
+see [our
+instructions](https://drive.google.com/open?id=0B5KF1WTPY_itcXNjSW91bkxUTDg) for how to log in after booting with VMware Player.
+
+
+Another option is to use your own Ubuntu 14.04 machine (virtual or
+otherwise) and install [our files](https://drive.google.com/open?id=0B5KF1WTPY_itR01lZWJhUXZKTXc) inside it.  Simply untar
+the package into ~/SecDev16 so that your command lines will match [our
+instructions](
+https://drive.google.com/open?id=0B5KF1WTPY_itcXNjSW91bkxUTDg).
+
+
+# Slides
+
+
+The slides from the presentation are [now available](https://docs.google.com/presentation/d/1cpOvQ16AZZ674E5EPz0H_PHFeFII1z22xof2yCKZhjI/edit?usp=sharing).
+
+
+# Organizers
+
+
+- Derek Bruening** is the primary author of the DynamoRIO tool platform.
+  Derek is currently a Software Engineer at Google.
+  Previously he built DynamoRIO-based tools at VMware and co-founded
+  Determina, whose Memory Firewall security technology was based on
+  DynamoRIO.  Derek holds a PhD and MEng from MIT.
+
+- Qin Zhao** is a Software Engineer at Google. He holds a
+PhD from NUS (National University of Singapore).  He has built several
+large tools and frameworks with DynamoRIO, including the debugging
+framework EDDI and parallel memory profiler and analyzer PiPA.
+
+
+# Questions
+
+Questions about the tutorial can be sent to the
+[DynamoRIO-Users](http://groups.google.com/group/DynamoRIO-Users)
+mailing list.
+
+
+# References
+
+-# <a name="ref1"></a>Derek Bruening and Qin Zhao.  ["Practical Memory Checking with Dr. Memory"](http://www.burningcutlery.com/derek/docs/drmem-CGO11.pdf). International Symposium on Code Generation and Optimization (CGO-11), April 2011.
+
+-# <a name="ref2"></a>Derek Bruening, Timothy Garnett, and Saman Amarasinghe.  ["An Infrastructure for Adaptive Dynamic Optimization"](http://www.burningcutlery.com/derek/docs/adaptive-CGO03.pdf). International Symposium on Code Generation and Optimization (CGO-03), March 2003. 10 years later named the Most Influential Paper from CGO 2003.
+
+-# <a name="ref3"></a>Vladimir Kiriansky, Derek Bruening, and Saman Amarasinghe. ["Secure Execution Via Program Shepherding"](http://www.burningcutlery.com/derek/docs/security-usenix.pdf). 11th USENIX Security Symposium, August 2002.
+
+-# <a name="ref4"></a>[http://drmemory.org](http://drmemory.org) and [http://dynamorio.org](http://dynamorio.org)
+
+
+ ****************************************************************************
+ */

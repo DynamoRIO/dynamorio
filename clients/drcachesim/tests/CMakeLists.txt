@@ -31,7 +31,7 @@
 # This is NOT a CMake file for building the various test suite executables in
 # this tests/ directory: this is only for the --build-and-test test!
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 project(DynamoRIO_drmemtrace)
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
 
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "../fcache.h"
@@ -85,6 +85,10 @@ byte *app_sysenter_instr_addr = NULL;
 static bool sysenter_hook_failed = false;
 #endif
 
+#ifdef WINDOWS
+bool gencode_swaps_teb_tls;
+#endif
+
 #ifdef X86
 bool *d_r_avx512_code_in_use = NULL;
 bool d_r_client_avx512_code_in_use = false;
@@ -108,9 +112,13 @@ reg_spill_tls_offs(reg_id_t reg)
     case SCRATCH_REG1: return TLS_REG1_SLOT;
     case SCRATCH_REG2: return TLS_REG2_SLOT;
     case SCRATCH_REG3: return TLS_REG3_SLOT;
-#ifdef AARCH64
+#ifdef AARCHXX
     case SCRATCH_REG4: return TLS_REG4_SLOT;
-    case SCRATCH_REG5: return TLS_REG5_SLOT;
+    case SCRATCH_REG5:
+        return TLS_REG5_SLOT;
+        /* We do not include the stolen reg slot b/c its load+stores are reversed
+         * and must be special-cased vs other spills.
+         */
 #endif
     }
     /* don't assert if another reg passed: used on random regs looking for spills */
@@ -161,7 +169,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file, const char *code_descri
                 print_file(file, "fcache_return:\n");
             else if (last_pc == code->do_syscall)
                 print_file(file, "do_syscall:\n");
-#    ifdef ARM
+#    ifdef AARCHXX
             else if (last_pc == code->fcache_enter_gonative)
                 print_file(file, "fcache_enter_gonative:\n");
 #    endif
@@ -198,10 +206,8 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file, const char *code_descri
                 print_file(file, "fcache_return_coarse:\n");
             else if (last_pc == code->trace_head_return_coarse)
                 print_file(file, "trace_head_return_coarse:\n");
-#    ifdef CLIENT_INTERFACE
             else if (last_pc == code->special_ibl_xfer[CLIENT_IBL_IDX])
                 print_file(file, "client_ibl_xfer:\n");
-#    endif
 #    ifdef UNIX
             else if (last_pc == code->special_ibl_xfer[NATIVE_PLT_IBL_IDX])
                 print_file(file, "native_plt_ibl_xfer:\n");
@@ -394,7 +400,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     pc = emit_new_thread_dynamo_start(GLOBAL_DCONTEXT, pc);
 #endif
 
-#ifdef ARM
+#ifdef AARCHXX
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->fcache_enter_gonative = pc;
     pc = emit_fcache_enter_gonative(GLOBAL_DCONTEXT, gencode, pc);
@@ -450,10 +456,8 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
 #endif
 
     if (!special_ibl_xfer_is_thread_private()) {
-#ifdef CLIENT_INTERFACE
         gencode->special_ibl_xfer[CLIENT_IBL_IDX] = pc;
         pc = emit_client_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
-#endif
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
@@ -554,6 +558,11 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
     shared_gencode_emit(gencode _IF_X86_64(x86_mode));
     release_final_page(gencode);
 
+#ifdef WINDOWS
+    /* Ensure the swapping is known at init time and never changes. */
+    gencode_swaps_teb_tls = should_swap_teb_static_tls();
+#endif
+
     DOLOG(3, LOG_EMIT, {
         dump_emitted_routines(
             GLOBAL_DCONTEXT, GLOBAL,
@@ -593,26 +602,31 @@ arch_reset_stolen_reg(void)
      * shared_code, which means we do not need to update each thread's pointers
      * to gencode stored in TLS.
      */
+#    ifdef ARM
     dr_isa_mode_t old_mode;
-    dcontext_t *dcontext;
-#    ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #    endif
+    dcontext_t *dcontext;
     if (DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset) == dr_reg_stolen)
         return;
     SYSLOG_INTERNAL_INFO("swapping stolen reg from %s to %s", reg_names[dr_reg_stolen],
                          reg_names[DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset)]);
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
+#    ifdef ARM
     dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, &old_mode);
+#    endif
 
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dr_reg_stolen = DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset);
     ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX);
+    protect_generated_code(shared_code, WRITABLE);
     shared_gencode_emit(shared_code);
+    protect_generated_code(shared_code, READONLY);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
+#    ifdef ARM
     dr_set_isa_mode(dcontext, old_mode, NULL);
+#    endif
     DOLOG(3, LOG_EMIT, {
         dump_emitted_routines(GLOBAL_DCONTEXT, GLOBAL, "swap stolen reg", shared_code,
                               shared_code->gen_end_pc);
@@ -719,7 +733,7 @@ d_r_arch_init(void)
     /* Try to catch errors in x86.asm offsets for dcontext_t */
     ASSERT(sizeof(unprotected_context_t) ==
            sizeof(priv_mcontext_t) + IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8) +
-               IF_CLIENT_INTERFACE_ELSE(5 * sizeof(reg_t), 0));
+               5 * sizeof(reg_t));
 
     interp_init();
 
@@ -1171,6 +1185,11 @@ arch_thread_init(dcontext_t *dcontext)
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state())
                          IF_WINDOWS(|| DYNAMO_OPTION(tls_align != 0)));
 
+#ifdef WINDOWS
+    /* Ensure the swapping is known at init time and never changes. */
+    ASSERT(gencode_swaps_teb_tls == should_swap_teb_static_tls());
+#endif
+
 #if defined(X86) && defined(X64)
     /* PR 244737: thread-private uses only shared gencode on x64 */
     ASSERT(dcontext->private_code == NULL);
@@ -1212,9 +1231,14 @@ arch_thread_init(dcontext_t *dcontext)
      */
     ASSERT(GENCODE_COMMIT_SIZE < GENCODE_RESERVE_SIZE);
     /* case 9474; share allocation unit w/ thread-private stack */
-    code = heap_mmap_reserve_post_stack(
-        dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
-        MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    code =
+        heap_mmap_reserve_post_stack(dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+                                     MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+                                     /* We pass VMM_PER_THREAD here, but not on the
+                                      * incremental commits: it's only needed on the
+                                      * reserve + unreserve.
+                                      */
+                                     VMM_SPECIAL_MMAP | VMM_REACHABLE | VMM_PER_THREAD);
     ASSERT(code != NULL);
     dcontext->private_code = (void *)code;
 
@@ -1339,10 +1363,8 @@ arch_thread_init(dcontext_t *dcontext)
         (linkstub_t *)get_reset_linkstub(), pc, LINK_DIRECT);
 
     if (special_ibl_xfer_is_thread_private()) {
-#ifdef CLIENT_INTERFACE
         code->special_ibl_xfer[CLIENT_IBL_IDX] = pc;
         pc = emit_client_ibl_xfer(dcontext, pc, code);
-#endif
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
@@ -1437,7 +1459,7 @@ arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks)
     if (!detach_stacked_callbacks)
 #endif
         heap_munmap_post_stack(dcontext, dcontext->private_code, GENCODE_RESERVE_SIZE,
-                               VMM_SPECIAL_MMAP | VMM_REACHABLE);
+                               VMM_SPECIAL_MMAP | VMM_REACHABLE | VMM_PER_THREAD);
 }
 
 #ifdef WINDOWS
@@ -1865,7 +1887,7 @@ get_fcache_enter_private_routine(dcontext_t *dcontext)
 fcache_enter_func_t
 get_fcache_enter_gonative_routine(dcontext_t *dcontext)
 {
-#ifdef ARM
+#ifdef AARCHXX
     generated_code_t *code = THREAD_GENCODE(dcontext);
     return (fcache_enter_func_t)convert_data_to_function(code->fcache_enter_gonative);
 #else
@@ -2014,13 +2036,11 @@ get_special_ibl_xfer_entry(dcontext_t *dcontext, int index)
     return code->special_ibl_xfer[index];
 }
 
-#ifdef CLIENT_INTERFACE
 cache_pc
 get_client_ibl_xfer_entry(dcontext_t *dcontext)
 {
     return get_special_ibl_xfer_entry(dcontext, CLIENT_IBL_IDX);
 }
-#endif
 
 #ifdef UNIX
 cache_pc
@@ -2301,8 +2321,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
             }
         };
 #else
-    static const char *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] =
-        {
+    static const char
+        *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
             { "shared_unlinked_bb_ibl", "shared_delete_bb_ibl", "shared_bb_far",
               "shared_bb_far_unlinked", "shared_bb_ibl", "shared_bb_ibl_template" },
             { "shared_unlinked_trace_ibl", "shared_delete_trace_ibl", "shared_trace_far",
@@ -2332,8 +2352,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
     /* ibl_type is valid and will give routine or template name, and qualifier */
 
     *ibl_brtype_name = get_branch_type_name(ibl_type.branch_type);
-    return ibl_routine_names IF_X86_64(
-        [mode])[ibl_type.source_fragment_type][ibl_type.link_state];
+    return ibl_routine_names IF_X86_64([mode])[ibl_type.source_fragment_type]
+                                              [ibl_type.link_state];
 }
 
 static inline ibl_code_t *
@@ -2985,11 +3005,22 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
         res = false;
         goto hook_vsyscall_return;
     }
-    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    byte *base_pc;
+    size_t vsyscall_size;
+    get_memory_info(vsyscall_page_start, &base_pc, &vsyscall_size, &prot);
+    if (base_pc != vsyscall_page_start) {
+        LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "vsyscall page %p is not the base of its area %p\n",
+            vsyscall_sysenter_return_pc, base_pc);
+    }
     if (!TEST(MEMPROT_WRITE, prot)) {
-        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
-        if (!res)
+        res = set_protection(vsyscall_page_start, vsyscall_size, prot | MEMPROT_WRITE);
+        if (!res) {
+            LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                "failed to mark vsyscall page %p writable\n",
+                vsyscall_sysenter_return_pc);
             goto hook_vsyscall_return;
+        }
     }
 
     LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1, "Hooking vsyscall page @ " PFX "\n",
@@ -3053,7 +3084,7 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
          * hook once its in if we failed to re-protect: we're going to have to
          * trust the app code here anyway */
         DEBUG_DECLARE(bool ok =)
-        set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        set_protection(vsyscall_page_start, vsyscall_size, prot);
         ASSERT(ok);
     }
 hook_vsyscall_return:
@@ -3081,9 +3112,17 @@ unhook_vsyscall(void)
     ASSERT(!sysenter_hook_failed);
     ASSERT(vsyscall_sysenter_return_pc != NULL);
     ASSERT(vsyscall_syscall_end_pc != NULL);
-    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    byte *base_pc;
+    size_t vsyscall_size;
+    get_memory_info(vsyscall_page_start, &base_pc, &vsyscall_size, &prot);
+    if (base_pc != vsyscall_page_start) {
+        LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "vsyscall page %p is not the base of its area %p\n",
+            vsyscall_sysenter_return_pc, base_pc);
+        return false;
+    }
     if (!TEST(MEMPROT_WRITE, prot)) {
-        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
+        res = set_protection(vsyscall_page_start, vsyscall_size, prot | MEMPROT_WRITE);
         if (!res)
             return false;
     }
@@ -3092,7 +3131,7 @@ unhook_vsyscall(void)
     if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
         memset(vmcode_get_writable_addr(vsyscall_syscall_end_pc), RAW_OPCODE_nop, len);
     if (!TEST(MEMPROT_WRITE, prot)) {
-        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        res = set_protection(vsyscall_page_start, vsyscall_size, prot);
         ASSERT(res);
     }
     return true;
@@ -3234,7 +3273,15 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         ASSERT(get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED ||
                get_syscall_method() == SYSCALL_METHOD_INT);
 #    ifdef LINUX
-        if (new_method == SYSCALL_METHOD_SYSENTER) {
+
+        /* i#4407: An OP_syscall instruction on 32-bit AMD returns to a hardcoded vsyscall
+         * PC no matter where it is. Thus we must hook the vsyscall just like we do for
+         * OP_sysenter.
+         */
+        if (new_method ==
+            SYSCALL_METHOD_SYSENTER IF_X86_32(||
+                                              (new_method == SYSCALL_METHOD_SYSCALL &&
+                                               cpu_info.vendor == VENDOR_AMD))) {
 #        ifndef HAVE_TLS
             if (DYNAMO_OPTION(hook_vsyscall)) {
                 /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */
@@ -3281,6 +3328,10 @@ get_syscall_method(void)
 bool
 does_syscall_ret_to_callsite(void)
 {
+    /* We hook vsyscall page in AMD 32-bit (LOL64) */
+    if (syscall_method == SYSCALL_METHOD_SYSCALL && cpu_info.vendor == VENDOR_AMD)
+        return IF_X86_64_ELSE(true, false);
+
     return (syscall_method == SYSCALL_METHOD_INT ||
             syscall_method == SYSCALL_METHOD_SYSCALL ||
             syscall_method ==
@@ -3593,7 +3644,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\n\t\tr12=\"" PFX "\"\n\t\tr13=\"" PFX "\""
                    "\n\t\tr14=\"" PFX "\"\n\t\tr15=\"" PFX "\""
 #    endif /* X64 */
-#elif defined(ARM)
+#elif defined(AARCHXX)
                    "\n\t\tr0=\"" PFX "\"\n\t\tr1=\"" PFX "\""
                    "\n\t\tr2=\"" PFX "\"\n\t\tr3=\"" PFX "\""
                    "\n\t\tr4=\"" PFX "\"\n\t\tr5=\"" PFX "\""
@@ -3621,7 +3672,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\tr8  = " PFX "\n\tr9  = " PFX "\n\tr10 = " PFX "\n\tr11 = " PFX "\n"
                    "\tr12 = " PFX "\n\tr13 = " PFX "\n\tr14 = " PFX "\n\tr15 = " PFX "\n"
 #    endif /* X64 */
-#elif defined(ARM)
+#elif defined(AARCHXX)
                    "\tr0  = " PFX "\n\tr1  = " PFX "\n\tr2  = " PFX "\n\tr3  = " PFX "\n"
                    "\tr4  = " PFX "\n\tr5  = " PFX "\n\tr6  = " PFX "\n\tr7  = " PFX "\n"
                    "\tr8  = " PFX "\n\tr9  = " PFX "\n\tr10 = " PFX "\n\tr11 = " PFX "\n"
@@ -3680,6 +3731,10 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }
+        for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+            print_file(f, dump_xml ? "\t\tk%d= \"" PFX "\"\n" : "\tk%d= " PFX "\n", i,
+                       context->opmask[i]);
+        }
         DOLOG(2, LOG_INTERP, {
             /* Not part of mcontext but useful for tracking app behavior */
             if (!dump_xml) {
@@ -3689,7 +3744,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             }
         });
     }
-#elif defined(ARM)
+#elif defined(AARCHXX)
     {
         int i, j;
         /* XXX: should be proc_num_simd_saved(). */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -90,8 +90,8 @@ public:
      * error message.
      */
     analysis_tool_t()
-        : success(true){};
-    virtual ~analysis_tool_t(){}; /**< Destructor. */
+        : success_(true) {};
+    virtual ~analysis_tool_t() {}; /**< Destructor. */
     /**
      * Tools are encouraged to perform any initialization that might fail here rather
      * than in the constructor.  On an error, this returns an error string.  On success,
@@ -105,17 +105,19 @@ public:
     /** Returns whether the tool was created successfully. */
     virtual bool operator!()
     {
-        return !success;
+        return !success_;
     }
     /** Returns a description of the last error. */
     virtual std::string
     get_error_string()
     {
-        return error_string;
+        return error_string_;
     }
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry and
      * takes whatever actions the tool needs to perform its analysis.
+     * If it prints, it should leave the i/o state in a default format
+     * (std::dec) to support multiple tools.
      * The return value indicates whether it was successful.
      * On failure, get_error_string() returns a descriptive message.
      */
@@ -123,6 +125,8 @@ public:
     process_memref(const memref_t &memref) = 0;
     /**
      * This routine reports the results of the trace analysis.
+     * It should leave the i/o state in a default format (std::dec) to support
+     * multiple tools.
      * The return value indicates whether it was successful.
      * On failure, get_error_string() returns a descriptive message.
      */
@@ -215,8 +219,8 @@ public:
     }
 
 protected:
-    bool success;
-    std::string error_string;
+    bool success_;
+    std::string error_string_;
 };
 
 #endif /* _ANALYSIS_TOOL_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,8 +30,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-
-/* compile with make VMAP=1 for a vmap version (makefile defaults to VMSAFE version) */
 
 #include "configure.h"
 
@@ -133,6 +131,8 @@ const char *usage_str =
     " -- <app and args to run>\n"
     "   or: " TOOLNAME " [options] [DR options] -t <tool> [tool options]"
     " -- <app and args to run>\n"
+    "   or: " TOOLNAME " [options] [DR options] -c32 <32-bit-client> [client options]"
+    " -- -c64 <64-bit-client> [client options] -- <app and args to run>\n"
 #    endif
     ;
 #endif
@@ -182,7 +182,7 @@ const char *options_list_str =
     "                          If a local file already exists it will take precedence.\n"
     "       -norun             Create a configuration that excludes the application\n"
     "                          from running under DR control.  Useful for following\n"
-    "                          all child processes except a handful (blacklist).\n"
+    "                          all child processes except a handful (blocklist).\n"
 #endif
     "       -debug             Use the DR debug library\n"
     "       -32                Target 32-bit or WOW64 applications\n"
@@ -214,6 +214,14 @@ const char *options_list_str =
     "                           to separate the app executable.  Neither the path nor\n"
     "                           the options may contain semicolon characters or\n"
     "                           all 3 quote characters (\", \', `).\n"
+    "\n"
+    "        -c32 <32-bit-path> <options>* -- -c64 <64-bit-path> <options>*\n"
+    "                           Registers two versions of one client to run alongside\n"
+    "                           DR.  Use this to specify two versions of a client to\n"
+    "                           handle applications which create other-bitwidth child\n"
+    "                           processes.  The options for the 32-bit client are\n"
+    "                           separated from the \"-c64\" by \"--\".  The behavior\n"
+    "                           otherwise matches \"-c\".\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
     "                          Use -c instead, unless you need to set the client ID.\n"
@@ -281,14 +289,41 @@ const char *options_list_str =
     "       -static            Do not inject under the assumption that the application\n"
     "                          is statically linked with DynamoRIO.  Instead, trigger\n"
     "                          automated takeover.\n"
+#    ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
+    "       -late              Requests late injection.\n"
+#    endif
 #    ifdef UNIX       /* FIXME i#725: Windows attach NYI */
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
-    "       -late              Requests late injection.\n"
 #        endif
-    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
-    "                          for pid to launch and inject into a new process.\n"
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
+#    endif
+#    ifdef UNIX
+    "       -attach <pid>      Attach to the process with the given pid.\n"
+    "                          Attaching is an experimental feature and is not yet\n"
+    "                          as well-supported as launching a new process.\n"
+    "                          When attaching to a process in the middle of a blocking\n"
+    "                          system call, DynamoRIO will wait until it returns.\n"
+#        ifdef X86
+    "                          Use -skip_syscall to force interruption.\n"
+    "       -skip_syscall      (Experimental)\n"
+    "                          Only works with -attach.\n"
+    "                          Attaching to a process will force blocking system calls\n"
+    "                          to fail with EINTR.\n"
+#        endif
+#    endif
+#    ifdef WINDOWS
+    "       -attach <pid>      Attach to the process with the given pid.\n"
+    "                          Attaching is an experimental feature and is not yet\n"
+    "                          as well-supported as launching a new process.\n"
+    "                          Attaching to a process in the middle of a blocking\n"
+    "                          system call could fail.\n"
+    "                          Try takeover_sleep and larger takeovers to increase\n"
+    "                          the chances of success:\n"
+    "       -takeover_sleep    Sleep 1 millisecond between takeover attempts.\n"
+    "       -takeovers <num>   Number of takeover attempts. Defaults to 8.\n"
+    "                          The larger, the more likely attach will succeed,\n"
+    "                          however, the attach process will take longer.\n"
 #    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
@@ -533,12 +568,10 @@ register_proc(const char *process, process_id_t pid, bool global, const char *dr
         error("cannot access DynamoRIO root directory %s", dr_root);
         return false;
     }
-#ifdef CLIENT_INTERFACE
     if (dr_mode == DR_MODE_NONE) {
         error("you must provide a DynamoRIO mode");
         return false;
     }
-#endif
 
     /* warn if the DR root directory doesn't look right, unless -norun,
      * in which case don't bother
@@ -601,7 +634,7 @@ check_client_lib(const char *client_lib)
 bool
 register_client(const char *process_name, process_id_t pid, bool global,
                 dr_platform_t dr_platform, client_id_t client_id, const char *path,
-                const char *options)
+                bool is_alt_bitwidth, const char *options)
 {
     size_t priority;
     dr_config_status_t status;
@@ -618,21 +651,26 @@ register_client(const char *process_name, process_id_t pid, bool global,
     /* just append to the existing client list */
     priority = dr_num_registered_clients(process_name, pid, global, dr_platform);
 
-    info("registering client with id=%d path=|%s| ops=|%s|", client_id, path, options);
-    status = dr_register_client(process_name, pid, global, dr_platform, client_id,
-                                priority, path, options);
-
+    info("registering client with id=%d path=|%s| ops=|%s|%s", client_id, path, options,
+         is_alt_bitwidth ? " alt-bitwidth" : "");
+    dr_config_client_t info;
+    info.struct_size = sizeof(info);
+    info.id = client_id;
+    info.priority = priority;
+    info.path = (char *)path;
+    info.options = (char *)options;
+    info.is_alt_bitwidth = is_alt_bitwidth;
+    status = dr_register_client_ex(process_name, pid, global, dr_platform, &info);
     if (status != DR_SUCCESS) {
         if (status == DR_CONFIG_STRING_TOO_LONG) {
-            error("client %s registration failed: option string too long: \"%s\"",
-                  path == NULL ? "<null>" : path, options);
+            error("client %s registration failed: option string too long: \"%s\"", path,
+                  options);
         } else if (status == DR_CONFIG_OPTIONS_INVALID) {
             error("client %s registration failed: options cannot contain ';' or all "
                   "3 quote types: %s",
-                  path == NULL ? "<null>" : path, options);
+                  path, options);
         } else {
-            error("client %s registration failed with error code %d",
-                  path == NULL ? "<null>" : path, status);
+            error("client %s registration failed with error code %d", path, status);
         }
         return false;
     }
@@ -718,20 +756,37 @@ write_pid_to_file(const char *pidfile, process_id_t pid)
 
 #if defined(DRCONFIG) || defined(DRRUN)
 static void
-append_client(const char *client, int id, const char *client_ops,
+append_client(const char *client, int id, const char *client_ops, bool is_alt_bitwidth,
               char client_paths[MAX_CLIENT_LIBS][MAXIMUM_PATH],
               client_id_t client_ids[MAX_CLIENT_LIBS],
-              const char *client_options[MAX_CLIENT_LIBS], size_t *num_clients)
+              const char *client_options[MAX_CLIENT_LIBS],
+              bool alt_bitwidth[MAX_CLIENT_LIBS], size_t *num_clients)
 {
+    size_t index = *num_clients;
+    /* Handle "-c32 -c64" order for native 64-bit where we want to swap the 32
+     * and 64 to get the alt last.
+     */
+    if (index > 0 && id == client_ids[index - 1] && alt_bitwidth[index - 1] &&
+        !is_alt_bitwidth) {
+        /* Insert this one before the prior one by first copying the prior to index. */
+        client_ids[index] = client_ids[index - 1];
+        alt_bitwidth[index] = alt_bitwidth[index - 1];
+        _snprintf(client_paths[index], BUFFER_SIZE_ELEMENTS(client_paths[index]), "%s",
+                  client_paths[index - 1]);
+        NULL_TERMINATE_BUFFER(client_paths[index]);
+        client_options[index] = client_options[index - 1];
+        index = index - 1;
+    }
     /* We support an empty client for native -t usage */
     if (client[0] != '\0') {
-        get_absolute_path(client, client_paths[*num_clients],
-                          BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]));
-        NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
-        info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
+        get_absolute_path(client, client_paths[index],
+                          BUFFER_SIZE_ELEMENTS(client_paths[index]));
+        NULL_TERMINATE_BUFFER(client_paths[index]);
+        info("client %d path: %s", (int)index, client_paths[index]);
     }
-    client_ids[*num_clients] = id;
-    client_options[*num_clients] = client_ops;
+    client_ids[index] = id;
+    client_options[index] = client_ops;
+    alt_bitwidth[index] = is_alt_bitwidth;
     (*num_clients)++;
 }
 #endif
@@ -764,9 +819,14 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
 
 #if defined(DRCONFIG) || defined(DRRUN)
 /* Returns the path to the client library.  Appends to extra_ops.
- * A tool config file must contain one of these line types:
+ * A tool config file must contain one of these line types, or two if
+ * they are a pair of CLIENT32_* and CLIENT64_* specifiers:
  *   CLIENT_ABS=<absolute path to client>
  *   CLIENT_REL=<path to client relative to DR root>
+ *   CLIENT32_ABS=<absolute path to 32-bit client>
+ *   CLIENT32_REL=<path to 32-bit client relative to DR root>
+ *   CLIENT64_ABS=<absolute path to 64-bit client>
+ *   CLIENT64_REL=<path to 64-bit client relative to DR root>
  * It can contain as many DR_OP= lines as desired.  Each must contain
  * one DynamoRIO option token:
  *   DR_OP=<DR option token>
@@ -794,9 +854,10 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
  */
 static bool
 read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platform,
-               char *client, size_t client_size, char *ops, size_t ops_size,
-               size_t *ops_sofar, char *tool_ops, size_t tool_ops_size,
-               size_t *tool_ops_sofar, char *native_path OUT, size_t native_path_size)
+               char *client, size_t client_size, char *alt_client, size_t alt_size,
+               char *ops, size_t ops_size, size_t *ops_sofar, char *tool_ops,
+               size_t tool_ops_size, size_t *tool_ops_sofar, char *native_path OUT,
+               size_t native_path_size)
 {
     FILE *f;
     char config_file[MAXIMUM_PATH];
@@ -835,12 +896,45 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
                                  client);
             }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT64_REL=", "CLIENT32_REL=")) == line) {
+            _snprintf(client, client_size, "%s/%s", dr_root,
+                      line + strlen(IF_X64_ELSE("CLIENT64_REL=", "CLIENT32_REL=")));
+            client[client_size - 1] = '\0';
+            found_client = true;
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 client);
+            }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT32_REL=", "CLIENT64_REL=")) == line) {
+            _snprintf(alt_client, alt_size, "%s/%s", dr_root,
+                      line + strlen(IF_X64_ELSE("CLIENT32_REL=", "CLIENT64_REL=")));
+            alt_client[alt_size - 1] = '\0';
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 alt_client);
+            }
         } else if (strstr(line, "CLIENT_ABS=") == line) {
             strncpy(client, line + strlen("CLIENT_ABS="), client_size);
             found_client = true;
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
                                  client);
+            }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT64_ABS=", "CLIENT32_ABS=")) == line) {
+            strncpy(client, line + strlen(IF_X64_ELSE("CLIENT64_ABS=", "CLIENT32_ABS=")),
+                    client_size);
+            found_client = true;
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 client);
+            }
+        } else if (strstr(line, IF_X64_ELSE("CLIENT32_ABS=", "CLIENT64_ABS=")) == line) {
+            strncpy(alt_client,
+                    line + strlen(IF_X64_ELSE("CLIENT32_ABS=", "CLIENT64_ABS=")),
+                    alt_size);
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
+                                 alt_client);
             }
         } else if (strstr(line, "DR_OP=") == line) {
             if (strcmp(line, "DR_OP=") != 0) {
@@ -985,6 +1079,7 @@ _tmain(int argc, TCHAR *targv[])
     client_id_t client_ids[MAX_CLIENT_LIBS] = {
         0,
     };
+    bool alt_bitwidth[MAX_CLIENT_LIBS];
     size_t num_clients = 0;
     char single_client_ops[DR_MAX_OPTIONS_LENGTH];
 #endif
@@ -994,11 +1089,7 @@ _tmain(int argc, TCHAR *targv[])
     dr_operation_mode_t dr_mode = DR_MODE_NONE;
 #    else
     /* only one choice so no -mode */
-#        ifdef CLIENT_INTERFACE
     dr_operation_mode_t dr_mode = DR_MODE_CODE_MANIPULATION;
-#        else
-    dr_operation_mode_t dr_mode = DR_MODE_NONE;
-#        endif
 #    endif
 #endif /* !DRINJECT */
     char extra_ops[MAX_OPTIONS_STRING];
@@ -1011,6 +1102,7 @@ _tmain(int argc, TCHAR *targv[])
 #ifdef WINDOWS
     /* FIXME i#840: Implement nudges on Linux. */
     bool nudge_all = false;
+    bool use_late_injection = false;
     process_id_t nudge_pid = 0;
     client_id_t nudge_id = 0;
     uint64 nudge_arg = 0;
@@ -1033,8 +1125,10 @@ _tmain(int argc, TCHAR *targv[])
     time_t start_time, end_time;
 #    else
     bool use_ptrace = false;
+    bool wait_syscall = true;
     bool kill_group = false;
 #    endif
+    process_id_t attach_pid = 0;
     char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
@@ -1055,6 +1149,7 @@ _tmain(int argc, TCHAR *targv[])
     char native_tool[MAXIMUM_PATH];
 #endif
 #ifdef DRRUN
+    char exe[MAXIMUM_PATH];
     void *tofree = NULL;
     bool configure = true;
 #endif
@@ -1171,32 +1266,66 @@ _tmain(int argc, TCHAR *targv[])
             limit = -1;
             continue;
         }
+#    ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
+        else if (strcmp(argv[i], "-late") == 0) {
+            /* Appending -no_early_inject to extra_ops communicates our intentions
+             * to drinjectlib on UNIX, as well as the core for all platforms.
+             */
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-no_early_inject");
+#        ifdef WINDOWS
+            use_late_injection = true;
+#        endif
+            continue;
+        }
+#    endif
+        else if (strcmp(argv[i], "-attach") == 0) {
+            if (i + 1 >= argc)
+                usage(false, "attach requires a process id");
+            const char *pid_str = argv[++i];
+            process_id_t pid = strtoul(pid_str, NULL, 10);
+            if (pid == ULONG_MAX)
+                usage(false, "attach expects an integer pid: '%s'", pid_str);
+            if (pid == 0) {
+                usage(false, "attach passed an invalid pid: '%s'", pid_str);
+            }
+            attach_pid = pid;
+#    ifdef UNIX
+            use_ptrace = true;
+#    endif
+#    ifdef WINDOWS
+            use_late_injection = true;
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-skip_terminating_threads");
+#    endif
+            continue;
+        } else if (strcmp(argv[i], "-takeovers") == 0) {
+            const char *num_attemps = argv[++i];
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-takeover_attempts %s", num_attemps);
+            continue;
+        } else if (strcmp(argv[i], "-takeover_sleep") == 0) {
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-sleep_between_takeovers");
+            continue;
+        }
+#    ifdef UNIX
+#        ifdef X86
+        else if (strcmp(argv[i], "-skip_syscall") == 0) {
+            wait_syscall = false;
+            continue;
+        }
+#        endif
+#    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {
             /* Undocumented option for using ptrace on a fresh process. */
             use_ptrace = true;
             continue;
-        } else if (strcmp(argv[i], "-attach") == 0) {
-            const char *pid_str = argv[++i];
-            process_id_t pid = strtoul(pid_str, NULL, 10);
-            if (pid == ULONG_MAX)
-                usage(false, "-attach expects an integer pid");
-            if (pid != 0)
-                usage(false, "attaching to running processes is not yet implemented");
-            use_ptrace = true;
-            /* FIXME: use pid below to attach. */
-            continue;
         }
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
         else if (strcmp(argv[i], "-early") == 0) {
             /* Now the default: left here just for back-compat */
-            continue;
-        } else if (strcmp(argv[i], "-late") == 0) {
-            /* Appending -no_early_inject to extra_ops communicates our intentions
-             * to drinjectlib.
-             */
-            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
-                             "-no_early_inject");
             continue;
         }
 #        endif
@@ -1315,8 +1444,8 @@ _tmain(int argc, TCHAR *targv[])
                 client = argv[++i];
                 id = strtoul(argv[++i], NULL, 16);
                 ops = argv[++i];
-                append_client(client, id, ops, client_paths, client_ids, client_options,
-                              &num_clients);
+                append_client(client, id, ops, false, client_paths, client_ids,
+                              client_options, alt_bitwidth, &num_clients);
             }
         } else if (strcmp(argv[i], "-ops") == 0) {
             /* support repeating the option (i#477) */
@@ -1359,8 +1488,10 @@ _tmain(int argc, TCHAR *targv[])
          * optionsx.h to do otherwise, or to sanity check the DR options here.
          */
         else if (argv[i][0] == '-') {
+            bool expect_extra_double_dash = false;
             while (i < argc) {
                 if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "-t") == 0 ||
+                    strcmp(argv[i], "-c32") == 0 || strcmp(argv[i], "-c64") == 0 ||
                     strcmp(argv[i], "--") == 0) {
                     break;
                 }
@@ -1368,14 +1499,24 @@ _tmain(int argc, TCHAR *targv[])
                                  &extra_ops_sofar, "\"%s\"", argv[i]);
                 i++;
             }
-            if (i < argc && (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "-c") == 0)) {
+            if (i < argc &&
+                (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "-c") == 0 ||
+                 strcmp(argv[i], "-c32") == 0 || strcmp(argv[i], "-c64") == 0)) {
                 const char *client;
                 char client_buf[MAXIMUM_PATH];
+                char alt_buf[MAXIMUM_PATH];
+                alt_buf[0] = '\0';
                 size_t client_sofar = 0;
+                bool is_alt_bitwidth = false;
                 if (i + 1 >= argc)
                     usage(false, "too few arguments to %s", argv[i]);
-                if (num_clients != 0)
+                if (num_clients != 0 &&
+                    (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "-t") == 0))
                     usage(false, "Cannot use -client with %s.", argv[i]);
+                if (strcmp(argv[i], "-c32") == 0)
+                    expect_extra_double_dash = true;
+                if (strcmp(argv[i], IF_X64_ELSE("-c32", "-c64")) == 0)
+                    is_alt_bitwidth = true;
                 client = argv[++i];
                 single_client_ops[0] = '\0';
 
@@ -1385,7 +1526,8 @@ _tmain(int argc, TCHAR *targv[])
                      * The user must use -c or -client to do that.
                      */
                     if (!read_tool_file(client, dr_root, dr_platform, client_buf,
-                                        BUFFER_SIZE_ELEMENTS(client_buf), extra_ops,
+                                        BUFFER_SIZE_ELEMENTS(client_buf), alt_buf,
+                                        BUFFER_SIZE_ELEMENTS(alt_buf), extra_ops,
                                         BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
                                         single_client_ops,
                                         BUFFER_SIZE_ELEMENTS(single_client_ops),
@@ -1409,10 +1551,16 @@ _tmain(int argc, TCHAR *targv[])
                                      &client_sofar, "\"%s\"", argv[i]);
                     i++;
                 }
-                append_client(client, 0, single_client_ops, client_paths, client_ids,
-                              client_options, &num_clients);
+                append_client(client, 0, single_client_ops, is_alt_bitwidth, client_paths,
+                              client_ids, client_options, alt_bitwidth, &num_clients);
+                if (alt_buf[0] != '\0') {
+                    append_client(alt_buf, 0, single_client_ops, true, client_paths,
+                                  client_ids, client_options, alt_bitwidth, &num_clients);
+                }
             }
-            if (i < argc && strcmp(argv[i], "--") == 0) {
+            if (i < argc && strcmp(argv[i], "--") == 0 &&
+                (!expect_extra_double_dash ||
+                 (i + 1 < argc && strcmp(argv[i + 1], "-c64") != 0))) {
                 i++;
                 goto done_with_options;
             }
@@ -1439,10 +1587,28 @@ done_with_options:
 
 #if defined(DRRUN) || defined(DRINJECT)
 #    ifdef DRRUN
+    if (attach_pid != 0) {
+        ssize_t size = 0;
+#        ifdef UNIX
+        char exe_str[MAXIMUM_PATH];
+        _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
+        NULL_TERMINATE_BUFFER(exe_str);
+        size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
+        if (size > 0) {
+            if (size < BUFFER_SIZE_ELEMENTS(exe))
+                exe[size] = '\0';
+            else
+                NULL_TERMINATE_BUFFER(exe);
+        } else {
+            usage(false, "attach to invalid pid");
+        }
+#        endif /* UNIX */
+        app_name = exe;
+    }
     /* Support no app if the tool has its own frontend, under the assumption
      * it may have post-processing or other features.
      */
-    if (i < argc || native_tool[0] == '\0') {
+    if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
 #    endif
         if (i >= argc)
             usage(false, "%s", "no app specified");
@@ -1529,7 +1695,7 @@ done_with_options:
             die();
         for (j = 0; j < num_clients; j++) {
             if (!register_client(process, 0, global, dr_platform, client_ids[j],
-                                 client_paths[j], client_options[j]))
+                                 client_paths[j], alt_bitwidth[j], client_options[j]))
                 die();
         }
     } else if (action == action_unregister) {
@@ -1599,7 +1765,8 @@ done_with_options:
         /* If this is the first setting of AppInit on NT, warn about reboot */
         if (!dr_syswide_is_on(dr_platform, dr_root)) {
             if (platform == PLATFORM_WIN_NT_4) {
-                warn("on Windows NT, applications will not be taken over until reboot");
+                warn("on Windows NT, applications will not be taken over until "
+                     "reboot");
             } else if (platform >= PLATFORM_WIN_7) {
                 /* i#323 will fix this but good to warn the user */
                 warn("on Windows 7+, syswide_on relaxes system security by removing "
@@ -1644,13 +1811,24 @@ done_with_options:
     if (limit == 0 && !use_ptrace && !kill_group) {
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
+    } else if (attach_pid != 0) {
+        errcode =
+            dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
     } else
-#    endif /* UNIX */
+#    elif defined(WINDOWS)
+    if (attach_pid != 0) {
+        errcode = dr_inject_process_attach(attach_pid, &inject_data, &app_name);
+    } else
+#    endif /* WINDOWS */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
         info("created child with pid " PIDFMT " for %s",
              dr_inject_get_process_id(inject_data), app_name);
     }
+#    ifdef WINDOWS
+    if (use_late_injection)
+        dr_inject_use_late_injection(inject_data);
+#    endif
 #    ifdef UNIX
     if (limit != 0 && kill_group) {
         /* Move the child to its own process group. */
@@ -1712,7 +1890,7 @@ done_with_options:
         for (j = 0; j < num_clients; j++) {
             if (!register_client(process, dr_inject_get_process_id(inject_data), global,
                                  dr_platform, client_ids[j], client_paths[j],
-                                 client_options[j]))
+                                 alt_bitwidth[j], client_options[j]))
                 goto error;
         }
     }
@@ -1725,6 +1903,8 @@ done_with_options:
             goto error;
         } else {
             info("using ptrace to inject");
+            if (wait_syscall)
+                warn("using experimental attach feature; if it hangs, try -skip_syscall");
         }
     }
     if (kill_group) {
@@ -1739,6 +1919,10 @@ done_with_options:
 
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
 #    ifdef DRRUN
+        if (attach_pid != 0) {
+            error("unable to attach; check pid and system ptrace permissions");
+            goto error;
+        }
         error("unable to inject: exec of |%s| failed", drlib_path);
 #    else
         error("unable to inject: did you forget to run drconfig first?");
@@ -1779,7 +1963,8 @@ done_with_options:
         success = true; /* Don't kill the child if we're not waiting. */
     }
 
-    exitcode = dr_inject_process_exit(inject_data, !success /*kill process*/);
+    exitcode = dr_inject_process_exit(
+        inject_data, attach_pid != 0 ? false : !success /*kill process*/);
 
     if (limit < 0)
         exitcode = 0; /* Return success if we didn't wait. */
@@ -1792,8 +1977,10 @@ error:
     /* we created the process suspended so if we later had an error be sure
      * to kill it instead of leaving it hanging
      */
-    if (inject_data != NULL)
-        dr_inject_process_exit(inject_data, true /*kill process*/);
+    if (inject_data != NULL) {
+        dr_inject_process_exit(inject_data,
+                               attach_pid != 0 ? false : true /*kill process*/);
+    }
 #    ifdef DRRUN
     if (tofree != NULL)
         free(tofree);

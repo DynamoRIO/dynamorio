@@ -76,10 +76,167 @@ test_get_size()
     }
 }
 
+static void
+test_opnd_compute_address()
+{
+    dr_mcontext_t mc = { .size = sizeof(mc),
+                         .flags = DR_MC_ALL,
+                         .r0 = 256,
+                         .r1 = 4,
+                         .r2 = 8,
+                         .r3 = -4,
+                         .r4 = -8,
+                         .xsp = 16 };
+
+    opnd_t memref;
+    app_pc loc;
+
+    /* No shift or extend */
+
+    // ldr w0, [sp]
+    // 16 + 0 = 16
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_NULL, DR_EXTEND_UXTX, false,
+                                           0, 0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [sp, #4]
+    // 16 + 4 = 20
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_NULL, DR_EXTEND_UXTX, false,
+                                           4, 0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [sp, #-4]
+    // 16 - 4 = 12
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_NULL, DR_EXTEND_UXTX, false,
+                                           -4, 0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    /* Shift and extend: 32 bit variant */
+
+    // ldr w0, [sp, w2, uxtw #0]
+    // 16 + 8 = 24
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_W2, DR_EXTEND_UXTW, false,
+                                           0, 0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [sp, w2, uxtw #3]
+    // 16 + (8 << 2) = 48
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_W2, DR_EXTEND_UXTW, true, 0,
+                                           0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [sp, x1, lsl #0]
+    // 16 + 4 = 20
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_X1, DR_EXTEND_UXTX, false,
+                                           0, 0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [sp, x1, lsl #3]
+    // 16 + (4 << 2) = 32
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_X1, DR_EXTEND_UXTX, true, 0,
+                                           0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [x0, w4, sxtw #0]
+    // 256 - 8 = 248
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_W4, DR_EXTEND_SXTW, false, 0,
+                                           0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [x0, w4, sxtw #3]
+    // 256 - (8 << 2) = 224
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_W4, DR_EXTEND_SXTW, true, 0,
+                                           0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [x0, w3, sxtx #0]
+    // 256 - 4 = 252
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_X3, DR_EXTEND_SXTX, false, 0,
+                                           0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr w0, [x0, w3, sxtx #3]
+    // 256 - (4 << 2) = 240
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_X3, DR_EXTEND_SXTX, true, 0,
+                                           0, OPSZ_4);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    /* Shift and extend: 64 bit variant */
+
+    // ldr x0, [sp, w2, uxtw #0]
+    // 16 + 8 = 24
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_W2, DR_EXTEND_UXTW, false,
+                                           0, 0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr x0, [sp, w2, uxtw #3]
+    // 16 + (8 << 3) = 80
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_W2, DR_EXTEND_UXTW, true, 0,
+                                           0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr x0, [sp, x1, lsl #0]
+    // 16 + 4 = 20
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_X1, DR_EXTEND_UXTX, false,
+                                           0, 0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr x0, [sp, x1, lsl #3]
+    // 16 + (4 << 3) = 48
+    memref = opnd_create_base_disp_aarch64(DR_REG_XSP, DR_REG_X1, DR_EXTEND_UXTX, true, 0,
+                                           0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr x0, [x0, w4, sxtw #0]
+    // 256 - 8 = 248
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_W4, DR_EXTEND_SXTW, false, 0,
+                                           0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr x0, [x0, w4, sxtw #3]
+    // 256 - (8 << 3) = 192
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_W4, DR_EXTEND_SXTW, true, 0,
+                                           0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr x0, [x0, w3, sxtx #0]
+    // 256 - 4 = 252
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_X3, DR_EXTEND_SXTX, false, 0,
+                                           0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+
+    // ldr x0, [x0, w3, sxtx #3]
+    // 256 - (4 << 3) = 224
+    memref = opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_X3, DR_EXTEND_SXTX, true, 0,
+                                           0, OPSZ_8);
+    loc = opnd_compute_address(memref, &mc);
+    printf("location: %ld\n", (reg_t)loc);
+}
+
 int
 main(int argc, char *argv[])
 {
     test_get_size();
+
+    test_opnd_compute_address();
 
     printf("all done\n");
     return 0;

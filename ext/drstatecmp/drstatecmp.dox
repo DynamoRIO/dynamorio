@@ -1,0 +1,138 @@
+/* **********************************************************
+ * Copyright (c) 2021 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drstatecmp Machine State Comparison Library
+
+The \p drstatecmp DynamoRIO Machine State Comparison Extension provides mechanisms
+to enable systematic and exhaustive machine state comparisons across instrumentation
+sequences. These comparisons will detect instrumentation-induced corruptions of the
+application's machine state that would typically lead to obscure bugs.
+
+ - \ref sec_drstatecmp_init
+ - \ref sec_drstatecmp_checks
+ - \ref sec_drstatecmp_machine_state_saved
+ - \ref sec_drstatecmp_vs_drbbdup
+
+\section sec_drstatecmp_init Setup
+
+To use \p drstatecmp with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drstatecmp) \endcode
+
+That will automatically set up the include path and library dependence.
+
+The initialization routine \p drstatecmp_init() enables the insertion of the machine state
+checks. When drstatecmp is linked but the client does not invoke \p drstatecmp_init(),
+there are no inserted checks and no overhead to the client. Thus, a client can wrap the
+initialization of drstatecmp with a flag or an ifdef and invoke it only on debug builds.
+Each call to \p drstatecmp_init() should be paired with a call to \p drstatecmp_exit() on
+client exit.
+
+\section sec_drstatecmp_checks Checks
+
+There are two types of checks depending on whether a basic block has any side-effects.
+Only checks for side-effect-free basic blocks are currently supported.
+
+\subsection sec_drstatecmp_checks_side_effects_free Side-effect-free Basic Blocks
+
+Side-effect-free basic blocks are duplicated and executed twice, once with the full
+instrumentation sequence and once with no instrumentation except for a state comparison at
+the end. Essentially, we check whether the machine state at the end of the basic block
+execution is the same with and without instrumentation code. This check should catch any
+state clobbering by instrumentation.
+
+Beyond instrumentation bugs, drstatecmp can also catch bugs introduced in the
+application-to-application phase. To that end, instead of using for re-execution the
+post-app2app-phase version of each side-effect-free basic block (i.e.,
+instrumentation-free copy but with potentially modified application instructions), it uses
+the pre-app2app-phase version (contains only the original app instructions), unless any of
+original app instructions requires emulation (i.e., not executable).
+
+The duplication of side-effect-free basic blocks and the checks insertion occurs at
+drmgr's post-instrumentation stage. An instrumentation-free copy of each side-effect-free
+basic block is appended immediately after the instrumented version of the basic block.
+Before the execution of the instrumented basic block, its machine state is saved. This
+state will be used for state restoration before the re-execution of the basic block. At
+the end of the instrumented basic block, code is inserted to save the current state for
+later comparison and then restore the machine state to the state before executing the
+instrumented basic block. At the end of the instrumentation-free copy of the basic block,
+a clean call is inserted that compares the current machine state of the
+instrumentation-free basic block with the machine state that was saved at the end of the
+instrumented basic block. A user-supplied callback is invoked in case of any state
+mismatch. If the user provides no such callback, \p DR_ASSERT_MSG is triggered on
+mismatches.
+
+\subsection sec_drstatecmp_checks_side_effects Basic Blocks with Side Effects
+
+Checking basic blocks with side effects is not yet implemented but this section serves
+as a high-level design overview. Instructions with side effects include instructions that
+write to memory, interrupts, and system calls.
+
+Basic blocks with side-effects cannot be executed twice (at least not without a lot of
+extra complexity to monitor and restore memory state). In this case, the checks are
+inserted throughout the basic block whenever needed taking into account the app
+instructions, existing instrumentation, and the lazy restoration by drreg. As a result,
+incomplete-decoder bugs and lazy-condition-drreg bugs will not be detected.
+
+Some of the side effects could be handled in a way that enables re-execution of more
+basic blocks. For example, system calls could be executed once in the original basic
+block and then in the basic block copy the system call is just emulated by using
+the return value seen in the first execution. Other side effects such as storing to
+memory can be executed only once in cases where the stored value is not loaded
+within the basic block. Memory could also be handled by saving and restoring the
+memory state in addition to the machine state. Naturally, monitoring of the written
+memory addresses is needed to limit the memory state size.
+
+
+\section sec_drstatecmp_machine_state_saved Machine States Saved
+
+During execution, thread-local storage is used to keep two machine states for each
+side-effect-free basic block. One is the state of the instrumented basic block before its
+execution (used for state restoration) and the other is the state of the instrumented
+basic block after its execution (used for state comparison).
+
+\section sec_drstatecmp_vs_drbbdup Comparison with DrBBDup
+
+The main functionality and most of the complexity of DrStateCmp is the machine state
+comparison and the instrumentation added to enable it. The basic block duplication is
+relatively simple and a small part of DrStateCmp's code, and even though there is a bit of
+redundancy for this part, the use case in DrStateCmp is different enough from what DrBBDup
+provides so that DrBBDup cannot be used as it is (or with minimum changes). A main
+difference is that DrBBDup dispatches control according to runtime conditions and only one
+copy/case is executed every time. Instead, for duplicated basic blocks DrStateCmp executes
+both the instrumented basic block and its non-instrumented copy.
+
+*/

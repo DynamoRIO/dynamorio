@@ -187,6 +187,30 @@ function (check_avx_processor_and_compiler_support out)
   set(${out} ${proc_found_avx} PARENT_SCOPE)
 endfunction (check_avx_processor_and_compiler_support)
 
+function (check_avx2_processor_and_compiler_support out)
+  if (WIN32)
+    # XXX i#1312: add Windows support.
+    message(FATAL_ERROR "Windows not supported yet.")
+  endif ()
+  include(CheckCSourceRuns)
+  set(avx2_prog "#include <immintrin.h>
+                int main() {
+                  register __m256 ymm0 asm(\"ymm0\");
+                  (void)ymm0;
+                  asm volatile(\"vpsravd %ymm0, %ymm1, %ymm0\");
+                  return 0;
+                }")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX2})
+  check_c_source_runs("${avx2_prog}" proc_found_avx2)
+  if (proc_found_avx2)
+    message(STATUS "Compiler and processor support AVX2.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support AVX2. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_avx2} PARENT_SCOPE)
+endfunction (check_avx2_processor_and_compiler_support)
+
 function (check_avx512_processor_and_compiler_support out)
   if (WIN32)
     # XXX i#1312: add Windows support.

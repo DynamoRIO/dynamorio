@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,6 +53,13 @@ static uint counterB;
 static uint counterC;
 static uint counterD;
 #endif
+#if defined(AARCH64)
+static uint64 counterE;
+static uint64 counterF;
+#endif
+#if defined(AARCHXX)
+static uint counterG;
+#endif
 
 static void
 event_exit(void)
@@ -61,6 +68,13 @@ event_exit(void)
     CHECK(counterB == 2 * counterA, "counter inc messed up");
 #if defined(ARM)
     CHECK(counterD == 2 * counterA, "counter inc messed up");
+#endif
+#if defined(AARCH64)
+    CHECK(counterE == 2 * counterA, "64-bit counter inc messed up");
+    CHECK(counterF == 2 * counterA, "64-bit counter inc with acq_rel messed up");
+#endif
+#if defined(AARCHXX)
+    CHECK(counterG == 2 * counterA, "32-bit counter inc with acq_rel messed up");
 #endif
     dr_fprintf(STDERR, "event_exit\n");
 }
@@ -98,7 +112,11 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                               /* DRX_COUNTER_LOCK is not yet supported on ARM */
                               IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
     drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
-                              IF_NOT_X86_(SPILL_SLOT_2) & counterB, 2,
+                              IF_NOT_X86_(SPILL_SLOT_2) & counterB, 3,
+                              IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+    /* Ensure subtraction works. */
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
+                              IF_NOT_X86_(SPILL_SLOT_2) & counterB, -1,
                               IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
     instrlist_meta_preinsert(bb, first, INSTR_CREATE_label(drcontext));
 #if defined(ARM)
@@ -114,6 +132,16 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
                               IF_NOT_X86_(SPILL_SLOT_2) & counterD, 2,
                               IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+#endif
+#if defined(AARCH64)
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, SPILL_SLOT_2, &counterE,
+                              2, DRX_COUNTER_64BIT);
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, SPILL_SLOT_2, &counterF,
+                              2, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ);
+#endif
+#if defined(AARCHXX)
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, SPILL_SLOT_2, &counterG,
+                              2, DRX_COUNTER_REL_ACQ);
 #endif
     /* Exercise drx's basic block termination with a zero-cost label */
     drx_tail_pad_block(drcontext, bb);
@@ -173,6 +201,45 @@ test_unique_files(void)
     CHECK(res, "drx_open_unique_appid_dir failed");
 }
 
+static void
+test_instrlist()
+{
+
+    void *drcontext;
+    instrlist_t *bb;
+    size_t size;
+
+    drcontext = dr_get_current_drcontext();
+
+    bb = instrlist_create(drcontext);
+    instrlist_init(bb);
+
+    size = drx_instrlist_size(bb);
+    CHECK(size == 0, "drmgr_get_bb_size should return 0");
+    size = drx_instrlist_app_size(bb);
+    CHECK(size == 0, "drmgr_get_bb_app_size should return 0");
+
+#ifdef X86
+    instr_t *instr;
+    instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XCX),
+                                OPND_CREATE_MEMPTR(DR_REG_XBP, 8));
+    instrlist_append(bb, instr);
+    instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XDI),
+                                OPND_CREATE_MEMPTR(DR_REG_XBP, 16));
+    instrlist_append(bb, instr);
+    instr = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_XDI),
+                             opnd_create_reg(DR_REG_XCX));
+    instrlist_meta_append(bb, instr);
+
+    size = drx_instrlist_size(bb);
+    CHECK(size == 3, "drmgr_get_bb_size should return 3");
+    size = drx_instrlist_app_size(bb);
+    CHECK(size == 2, "drmgr_get_bb_app_size should return 2");
+#endif
+
+    instrlist_clear_and_destroy(drcontext, bb);
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -184,4 +251,5 @@ dr_init(client_id_t id)
     dr_register_nudge_event(event_nudge, id);
     dr_register_bb_event(event_basic_block);
     test_unique_files();
+    test_instrlist();
 }

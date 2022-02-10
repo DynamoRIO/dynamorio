@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -663,4 +663,11 @@ drsym_obj_debug_path(void)
     /* XXX: figure out where cygwin is really installed */
     /* XXX: also search mingw debug path */
     return "c:\\cygwin\\lib\\debug";
+}
+
+const char *
+drsym_obj_build_id(void *mod_in)
+{
+    /* NYI.  Are build id-based dirs used on cygwin? */
+    return NULL;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,9 +60,7 @@
 #    include "events.h" /* event log messages - not supported yet on Linux  */
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef DEBUG
 #    include "synch.h" /* all_threads_synch_lock */
@@ -747,11 +745,16 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
     print_file(outf, " %s", area->comment);
     DOLOG(1, LOG_VMAREAS, {
         IF_NO_MEMQUERY(extern vm_area_vector_t * all_memory_areas;)
+        extern vm_area_vector_t *fcache_unit_areas;   /* fcache.c */
+        extern vm_area_vector_t *loaded_module_areas; /* module_list.c */
         app_pc modbase =
             /* avoid rank order violation */
             IF_NO_MEMQUERY(v == all_memory_areas ? NULL :)
-            /* i#1649: avoid rank order for dynamo_areas */
-            (v == dynamo_areas ? NULL : get_module_base(area->start));
+            /* i#1649: avoid rank order for dynamo_areas and for other vectors. */
+            ((v == dynamo_areas || v == fcache_unit_areas ||
+              v == loaded_module_areas IF_LINUX(|| v == d_r_rseq_areas))
+                 ? NULL
+                 : get_module_base(area->start));
         if (modbase != NULL &&
             /* avoid rank order violations */
             v != dynamo_areas && v != written_areas &&
@@ -1504,7 +1507,11 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     int min = 0;
     int max = v->length - 1;
 
-    ASSERT(start < end || end == NULL /* wraparound */);
+    /* We support an empty range start==end in general but we do
+     * complain about 0..0 to catch bugs like i#4097.
+     */
+    ASSERT(start != NULL || end != NULL);
+    ASSERT(start <= end || end == NULL /* wraparound */);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, READWRITE);
     LOG(GLOBAL, LOG_VMAREAS, 7, "Binary search for " PFX "-" PFX " on this vector:\n",
@@ -1515,7 +1522,7 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
         int i = (min + max) / 2;
         if (end != NULL && end <= v->buf[i].start)
             max = i - 1;
-        else if (start >= v->buf[i].end)
+        else if (start >= v->buf[i].end || start == end)
             min = i + 1;
         else {
             if (area != NULL || index != NULL) {
@@ -1539,7 +1546,7 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     /* now max < min */
     LOG(GLOBAL, LOG_VMAREAS, 7, "\tdid not find " PFX "-" PFX "!\n", start, end);
     if (index != NULL) {
-        ASSERT((max < 0 || v->buf[max].end <= start) &&
+        ASSERT((max < 0 || v->buf[max].end <= start || start == end) &&
                (min > v->length - 1 || v->buf[min].start >= end));
         *index = max;
     }
@@ -2739,11 +2746,10 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
 #endif
         ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
         if (TEST(FRAG_COARSE_GRAIN, frag_flags) && DYNAMO_OPTION(use_persisted) &&
-            info ==
-                NULL
-                    /* if clients are present, don't load until after they're initialized
-                     */
-                    IF_CLIENT_INTERFACE(&&(dynamo_initialized || !CLIENTS_EXIST()))) {
+            info == NULL
+            /* if clients are present, don't load until after they're initialized
+             */
+            && (dynamo_initialized || !CLIENTS_EXIST())) {
             vm_area_t *area;
             if (lookup_addr(executable_areas, start, &area))
                 info = (coarse_info_t *)area->custom.client;
@@ -2840,7 +2846,6 @@ remove_executable_region(app_pc start, size_t size, bool have_writelock)
     return remove_executable_vm_area(start, start + size, have_writelock);
 }
 
-#ifdef CLIENT_INTERFACE
 /* To give clients a chance to process pcaches as we load them, we
  * delay the loading until we've initialized the clients.
  */
@@ -2879,7 +2884,6 @@ vm_area_delay_load_coarse_units(void)
     }
     d_r_write_unlock(&executable_areas->lock);
 }
-#endif
 
 /* case 10995: we have to delay freeing un-executed coarse units until
  * we can release the exec areas lock when we flush an un-executed region.
@@ -3165,9 +3169,7 @@ static bool
 executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_area,
                              /* first_match_start is only set for !are_all_matching */
                              app_pc *first_match_start,
-                             bool are_all_matching /* ALL when true,
-                                                      EXISTS when false */
-                             ,
+                             bool are_all_matching /* ALL when true, EXISTS when false */,
                              uint match_vm_flags, uint match_frag_flags)
 {
     /* binary search below will assure that we hold an executable_areas lock */
@@ -3176,6 +3178,9 @@ executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_are
     vm_area_t *area;
     if (found_area != NULL)
         *found_area = false;
+    /* For flushing the whole address space make sure we don't pass 0..0. */
+    if (page_end == NULL && page_start == NULL)
+        page_start = (app_pc)1UL;
     ASSERT(page_start < page_end || page_end == NULL); /* wraparound */
     /* We have subpage regions from some of our rules, we should return true
      * if any area on the list that overlaps the pages enclosing the addr_[start,end)
@@ -4355,21 +4360,22 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
          */
         if (DYNAMO_OPTION(detect_mode_max) > 0) {
             /* global counter for violations in all threads */
-            DO_THRESHOLD_SAFE(DYNAMO_OPTION(detect_mode_max), FREQ_PROTECTED_SECTION,
-                              { /* < max */
-                                LOG(GLOBAL, LOG_ALL, 1,
-                                    "security_violation: allowing violation #%d "
-                                    "[max %d], tid=" TIDFMT "\n",
-                                    do_threshold_cur, DYNAMO_OPTION(detect_mode_max),
-                                    d_r_get_thread_id());
-                              },
-                              { /* >= max */
-                                allow = false;
-                                LOG(GLOBAL, LOG_ALL, 1,
-                                    "security_violation: reached maximum allowed %d, "
-                                    "tid=" TIDFMT "\n",
-                                    DYNAMO_OPTION(detect_mode_max), d_r_get_thread_id());
-                              });
+            DO_THRESHOLD_SAFE(
+                DYNAMO_OPTION(detect_mode_max), FREQ_PROTECTED_SECTION,
+                { /* < max */
+                  LOG(GLOBAL, LOG_ALL, 1,
+                      "security_violation: allowing violation #%d "
+                      "[max %d], tid=" TIDFMT "\n",
+                      do_threshold_cur, DYNAMO_OPTION(detect_mode_max),
+                      d_r_get_thread_id());
+                },
+                { /* >= max */
+                  allow = false;
+                  LOG(GLOBAL, LOG_ALL, 1,
+                      "security_violation: reached maximum allowed %d, "
+                      "tid=" TIDFMT "\n",
+                      DYNAMO_OPTION(detect_mode_max), d_r_get_thread_id());
+                });
         } else {
             LOG(GLOBAL, LOG_ALL, 1,
                 "security_violation: allowing violation, no max, tid=%d\n",
@@ -4415,9 +4421,9 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
                    e.g. attacked handler can still point to valid RET */
                 bool global_max_reached = true;
                 /* check global counter as well */
-                DO_THRESHOLD_SAFE(DYNAMO_OPTION(throw_exception_max),
-                                  FREQ_PROTECTED_SECTION, { global_max_reached = false; },
-                                  { global_max_reached = true; });
+                DO_THRESHOLD_SAFE(
+                    DYNAMO_OPTION(throw_exception_max), FREQ_PROTECTED_SECTION,
+                    { global_max_reached = false; }, { global_max_reached = true; });
                 if (!global_max_reached) {
                     thread_local->thrown_exceptions++;
                     LOG(GLOBAL, LOG_ALL, 1,
@@ -4478,14 +4484,12 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
     }
     ASSERT(action_selected);
 
-#    ifdef CLIENT_INTERFACE
     /* Case 9712: Inform the client of the security violation and
      * give it a chance to modify the action.
      */
     if (CLIENTS_EXIST()) {
         instrument_security_violation(dcontext, addr, violation_type, &action);
     }
-#    endif
 
     /* now we know what is the chosen action and we can report */
     if (TEST(OPTION_REPORT, type_handling))
@@ -4863,7 +4867,7 @@ check_origins_bb_pattern(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t
      * all of these must be targeted by a call
      */
     if (instr_get_opcode(first) == OP_mov_imm ||
-        /* funny case where store of immed is mov_st -- see arch/decode_table.c */
+        /* funny case where store of immed is mov_st -- see ir/decode_table.c */
         (instr_get_opcode(first) == OP_mov_st &&
          opnd_is_immed(instr_get_src(first, 0)))) {
         bool ok = false;
@@ -5175,7 +5179,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     mark_module_exempted(addr);
                     allow = true;
                 } else {
-                    uint prot = 0;
+                    uint memprot = 0;
                     list_default_or_append_t deflist = LIST_NO_MATCH;
                     /* Xref case 10526, in the common case app_mem_prot_change() adds
                      * this region, however it can miss -> rx transitions if they
@@ -5183,8 +5187,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                      * require signifigant restructuring of that routine, see comments
                      * there) so we also check here. */
                     if (DYNAMO_OPTION(executable_if_rx_text) &&
-                        get_memory_info(addr, NULL, NULL, &prot) &&
-                        (TEST(MEMPROT_EXEC, prot) && !TEST(MEMPROT_WRITE, prot))) {
+                        get_memory_info(addr, NULL, NULL, &memprot) &&
+                        (TEST(MEMPROT_EXEC, memprot) && !TEST(MEMPROT_WRITE, memprot))) {
                         /* matches -executable_if_rx_text */
                         /* case 9799: we don't mark exempted for default-on options */
                         allow = true;
@@ -5263,7 +5267,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
             if (is_in_dot_data_section(modbase, addr, &sec_start, &sec_end)) {
                 bool allow = false;
                 bool onlist = false;
-                uint prot = 0;
+                uint memprot = 0;
                 if (!DYNAMO_OPTION(executable_if_dot_data) &&
                     DYNAMO_OPTION(exempt_dot_data) &&
                     !IS_STRING_OPTION_EMPTY(exempt_dot_data_list)) {
@@ -5300,8 +5304,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     allow = true;
                     ;
                 }
-                if (!allow && get_memory_info(addr, NULL, NULL, &prot) &&
-                    TEST(MEMPROT_EXEC, prot)) {
+                if (!allow && get_memory_info(addr, NULL, NULL, &memprot) &&
+                    TEST(MEMPROT_EXEC, memprot)) {
                     /* check the _x versions */
                     if (!DYNAMO_OPTION(executable_if_dot_data_x) &&
                         DYNAMO_OPTION(exempt_dot_data_x) &&
@@ -6116,7 +6120,7 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         /* assumption: preload/preinject library is not on DR area list since unloaded */
         if (!is_in_dynamo_dll(base) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
-            IF_CLIENT_INTERFACE(&&!is_in_client_lib(base)))
+            && !is_in_client_lib(base))
             return false;
     }
 
@@ -6136,8 +6140,7 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                /* i#626: we skip is_no_stack because of no mcontext at init time,
                 * we also assume that no alloc overlaps w/ stack at init time.
                 */
-               (IF_CLIENT_INTERFACE(dynamo_initialized &&) !is_on_stack(dcontext, base,
-                                                                        NULL))) {
+               (dynamo_initialized && !is_on_stack(dcontext, base, NULL))) {
         LOG(GLOBAL, LOG_VMAREAS, 1,
             "WARNING: " PFX "-" PFX " is writable, NOT adding to executable list\n", base,
             base + size);
@@ -6516,9 +6519,10 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
             os_terminate(dcontext, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         } else {
-            SYSLOG_INTERNAL_WARNING_ONCE("Application changing protections of "
-                                         "%s memory at least once (" PFX "-" PFX ")",
-                                         target_area_name, base, base + size);
+            /* On Win10 this happens in every run so we do not syslog. */
+            LOG(THREAD, LOG_VMAREAS, 1,
+                "Application changing protections of %s memory (" PFX "-" PFX ")",
+                target_area_name, base, base + size);
             if (how_handle == DR_MODIFY_NOP) {
                 /* we use a separate list, rather than a flag on DR areas, as the
                  * affected region could include non-DR memory
@@ -7461,10 +7465,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
          */
         os_check_new_app_module(dcontext, pc);
 #endif
-#ifdef CLIENT_INTERFACE
         /* i#884: module load event is now on first execution */
         instrument_module_load_trigger(pc);
-#endif
         if (!own_execareas_writelock)
             d_r_read_lock(&executable_areas->lock);
         ok = lookup_addr(executable_areas, pc, &area);
@@ -7577,7 +7579,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              */
             bool is_being_unloaded = false;
 
-#ifdef CLIENT_INTERFACE
             /* Clients are allowed to use DR-allocated memory as app code:
              * we give up some robustness by allowing any DR-allocated memory
              * outside of the code cache that is marked as +x (we do not allow
@@ -7590,7 +7591,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (is_in_dr && INTERNAL_OPTION(code_api) && TEST(MEMPROT_EXEC, prot) &&
                 !in_fcache(pc))
                 is_in_dr = false; /* allow it */
-#endif
 
             if (!is_allocated_mem) {
                 /* case 9022 - Kaspersky sports JMPs to a driver in
@@ -8262,7 +8262,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * is best done prior to drreg storing them elsewhere; plus, it makes it
              * easier to turn on full_decode for simpler mangling.
              */
-            bool entered_rseq = false;
+            bool entered_rseq = false, exited_rseq = false;
             app_pc rseq_start, next_boundary = NULL;
             if (vmvector_lookup_data(d_r_rseq_areas, pc, &rseq_start, &next_boundary,
                                      NULL)) {
@@ -8272,6 +8272,14 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                 app_pc prev_end;
                 if (vmvector_lookup_prev_next(d_r_rseq_areas, pc, NULL, &prev_end,
                                               &next_boundary, NULL)) {
+                    if (tag < prev_end) {
+                        /* Avoiding instructions after the rseq endpoint simplifies
+                         * drmemtrace and other clients when the native rseq execution
+                         * aborts, and shrinks the block with the large native rseq
+                         * mangling.
+                         */
+                        exited_rseq = true;
+                    }
                     if (prev_end == pc)
                         next_boundary = prev_end;
                 }
@@ -8279,11 +8287,11 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (next_boundary != NULL && next_boundary < *stop) {
                 /* Ensure we check again before we hit a boundary. */
                 *stop = next_boundary;
-                if (xfer && (entered_rseq || pc == next_boundary)) {
-                    LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
-                        "Stopping bb at rseq boundary " PFX "\n", pc);
-                    result = false;
-                }
+            }
+            if (xfer && (entered_rseq || exited_rseq || pc == next_boundary)) {
+                LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
+                    "Stopping bb at rseq boundary " PFX "\n", pc);
+                result = false;
             }
         }
 #endif
@@ -8292,10 +8300,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     }
 
     /* we are building a real bb, assert consistency checks */
-    /* XXX i#1979: These memqueries are surprisingly slow on Mac64.
-     * Investigation is needed.
+    /* XXX i#4257: These memqueries are surprisingly slow on Mac64 and AArch64.
+     * Investigation is needed.  For now we avoid them in default debug runs.
      */
-    DOCHECK(IF_MACOS64_ELSE(3, 1), {
+    DOCHECK(IF_MACOS64_ELSE(3, IF_AARCH64_ELSE(3, 1)), {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||
@@ -11818,6 +11826,40 @@ unit_test_vmareas(void)
     check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(2), 0, 0, NULL);
     check_vec(&v, 1, INT_TO_PC(2), INT_TO_PC(3), 0, FRAG_SELFMOD_SANDBOXED, NULL);
     check_vec(&v, 2, INT_TO_PC(3), INT_TO_PC(4), 0, 0, NULL);
+    remove_vm_area(&v, INT_TO_PC(0), UNIVERSAL_REGION_END, false);
+
+    /* TEST 6: Binary search.
+     */
+    add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, INT_TO_PC(4), INT_TO_PC(5), 0, 0, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, INT_TO_PC(7), INT_TO_PC(9), 0, 0, NULL _IF_DEBUG("C"));
+    vm_area_t *container = NULL;
+    int index = -1;
+    bool found = binary_search(&v, INT_TO_PC(2), INT_TO_PC(3), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(container->start, 1);
+    EXPECT(container->end, 3);
+    EXPECT(index, 0);
+    found = binary_search(&v, INT_TO_PC(6), INT_TO_PC(7), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 1);
+    /* Test start==end. */
+    found = binary_search(&v, INT_TO_PC(8), INT_TO_PC(8), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 2);
+    /* Test wraparound searching to NULL (i#4097). */
+    found = binary_search(&v, INT_TO_PC(1), INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 0);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 1);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 2);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 2);
 
     vmvector_tests();
 }

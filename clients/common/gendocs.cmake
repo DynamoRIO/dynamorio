@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -33,14 +33,21 @@
 # * dst
 # * prog = the app that spits out the option list
 # * prog_arg = arg to app, if any
+# * CMAKE_CROSSCOMPILING = whether cross-compiling and thus this program
+#   will not execute.
 
-execute_process(COMMAND ${prog} ${prog_arg}
-  RESULT_VARIABLE prog_result
-  ERROR_VARIABLE prog_err
-  OUTPUT_VARIABLE prog_out
-  )
-if (prog_result OR prog_err)
-  message(FATAL_ERROR "*** ${prog} failed: ***\n${prog_err}")
+if (CMAKE_CROSSCOMPILING)
+  # i#1730: This is better than failing.
+  set(prog_out "The options list is not currently able to be generated for cross-compiled builds (https://github.com/DynamoRIO/dynamorio/issues/1730).  Please see the online documentation or run the tool with -help.")
+else ()
+  execute_process(COMMAND ${prog} ${prog_arg}
+    RESULT_VARIABLE prog_result
+    ERROR_VARIABLE prog_err
+    OUTPUT_VARIABLE prog_out
+    )
+  if (prog_result OR prog_err)
+    message(FATAL_ERROR "*** ${prog} failed: ***\n${prog_err}")
+  endif ()
 endif ()
 
 file(READ "${src}" content)

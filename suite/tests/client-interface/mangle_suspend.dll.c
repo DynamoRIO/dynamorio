@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -198,11 +198,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             /* This is expected to be in a separate thread that the test creates. The
              * test is just executing the label instructions in a loop.
              */
-            dr_insert_clean_call(drcontext, bb, inst, suspend_test_1_func, false, 0);
+            dr_insert_clean_call_ex(drcontext, bb, inst, suspend_test_1_func,
+                                    DR_CLEANCALL_READS_APP_CONTEXT, 0);
         }
     } else if (subaction == SUSPEND_VAL_TEST_2_C) {
         if (instr_is_label(inst)) {
-            dr_insert_clean_call(drcontext, bb, inst, suspend_test_2_func, false, 0);
+            dr_insert_clean_call_ex(drcontext, bb, inst, suspend_test_2_func,
+                                    DR_CLEANCALL_READS_APP_CONTEXT, 0);
         }
     }
 

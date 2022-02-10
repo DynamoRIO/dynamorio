@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -42,13 +42,9 @@
 This section is divided into the following subsections:
 
  - \ref sec_package
-\ifnot vmsafe
  - \ref sec_changes
-\endif
  - \ref sec_limits
-\ifnot vmsafe
  - \ref sec_future
-\endif
 
 ***************************************************************************
 \htmlonly
@@ -89,18 +85,14 @@ The following are part of the DynamoRIO release distribution:
  - Header files for the DynamoRIO APIs.
  - This documentation.
  - \ref API_samples "Sample clients".
-\ifnot vmsafe
  - A graphical statistics viewer \c DRstats.exe that displays internal
    DynamoRIO statistics as well as custom statistics defined
    by a client (see \ref sec_drstats) (Windows package only).
    DynamoRIO exports a large number of statistics in its debug build, and
    a handful in release builds.
-\endif
-\ifnot vmsafe
  - A binary tracedump reader, which also functions as a sample
    client using DynamoRIO as a standalone library (see \ref
    sec_standalone).
-\endif
  - A number of end-user tools including a code coverage tool (see \ref
    page_drcov), a multi-process cache simulator (see \ref page_drcachesim),
    a last-level cache miss analyzer (see \ref page_drcachesim),
@@ -118,7 +110,6 @@ files in the resulting directory tree:
 find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx {} \;
 \endcode
 
-\ifnot vmsafe
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -133,7 +124,171 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+The changes between version \DR_VERSION and 9.0.0 include the following compatibility
+changes:
+ - Introduced a new CMake option called BUILD_PACKAGE to skip glibc
+   compatibility checks. This is off by default such that building DynamoRIO
+   from source is straight-forward to do on rolling release Linux
+   distributions, and enabled by make/package.cmake when building a
+   distributable version of DynamoRIO.
+
+Further non-compatibility-affecting changes include:
+ - Added alias support to droption.
+ - The drcpusim option -blacklist was renamed to -blocklist but the old name
+   is still accepted.
+
+The changes between version 9.0.0 and 8.0.0 include the following compatibility
+changes:
+
+ - The AArch64 opcode enum ordering changed.
+ - A source compatibilty change in drcachesim analysis tools for users
+   who have created derived classes from existing analysis tools:
+   member fields of classes are now following a consistent style with
+   an underscore suffix.  References to renamed fields will need to be
+   updated.
+ - A change in the load callbacks used with drmodtrack_add_custom_data()
+   and drmemtrace_custom_module_data(): they each take an additional parameter, the
+   segment index.  The custom data field is now per-segment and not per-module,
+   and all callbacks are invoked separately for each segment.
+
+The changes between version \DR_VERSION and 8.0.0 include the following minor
+compatibility changes:
+
+ - drconfiglib (and thus drrun and drconfig) now sets only the new client path
+   options which are added in this release to support other-bitwidth child processes.
+   This means that a drconfiglib from this version will not properly configure for a
+   DynamoRIO core library from a prior version.
+ - A new option -ldstex2cas is on by default on ARM and AArch64.  This converts
+   load-exclusive store-exclusive sequences to use compare-and-swap instead,
+   which enables normal instrumentation of such sequences without clearing
+   the exclusive monitor and causing infinite loops.  However, the compare-
+   and-swap's semantics are not identical: it does not detect "ABA" changes and
+   could cause errors in lock-free data structures or other application constructs.
+   See \ref sec_ldrex for more information.
+ - The header file dr_tools.h has been split up, with module information now in a new
+   file dr_modules.h, os-specific queries in dr_os_api.h, and tracedump types in
+   dr_tracedump.h.  dr_api.h includes the new files, so users including dr_api.h are
+   unaffected.
+ - The header files dr_ir_utils.h, dr_ir_opnd.h, dr_ir_instr.h, and dr_ir_instrlist.h
+   have been split up, with encoding routines now in a new file dr_ir_encode.h,
+   decoding routines in dr_ir_decode.h, disassembly routines in dr_ir_disassemble.h.
+   dr_api.h includes the new files, so users including dr_api.h are unaffected.
+ - The routines dr_insert_save_fpstate(), dr_insert_restore_fpstate(),
+   and dr_insert_get_seg_base() moved from dr_proc.h to dr_ir_utils.h.
+ - Added a flags field to #emulated_instr_t and two emulator-set flags values:
+   #DR_EMULATE_REST_OF_BLOCK, indicating an emulation sequence that has no end label
+   and includes the rest of the block; and #DR_EMULATE_INSTR_ONLY, indicating
+   an emulation for which instrumentation should still examine the
+   emulation sequence for observing data operations.  A third value is set by
+   drmgr_in_emulation_region(): #DR_EMULATE_IS_FIRST_INSTR.  This flag addition preserves
+   binary compatibility, but source code that did not zero the structure could end
+   up with an uninitialized flags field when calling drmgr_insert_emulation_start().
+ - drcov's output now uses a module segment offset, rather than a module base offset.
+   This better supports modules with code beyond the first segment and with
+   gaps between segments.
+ - Changed the drcachesim view tool's behavior to count all trace entries, rather
+   than just instructions, with respect to the -skip_refs and -sim_refs flags.
+   This matches the cache and TLB simulator behavior.
+ - drcachesim's child cache statistics now include hits from all lower levels and
+   not just the immediately lower level child caches.
+ - For AArch64 the OP_sys opcode is still implemented but has been split up
+   into its data and instruction cache opcodes. In cases where OP_sys was used
+   with enums representing data and instruction cache opcodes, OP_sys is no
+   longer used, replaced by the relevant data and instruction cache opcodes
+   starting with OP_dc_ and OP_ic_, e.g. OP_ic_ivau, OP_dc_zva.
+
+Further non-compatibility-affecting changes include:
+
+ - On x86 Windows, different-bitwidth child processes are now followed into.
+   The default injection method has also changed to a new method relying on
+   an image entry hook in some cases.  The old behavior can be requested by
+   passing "-late" to drrun or calling dr_inject_use_late_injection().
+ - Added drmgr_register_opcode_instrumentation_event() and
+   drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
+   opcode event instrumentation.
+ - Added dr_num_app_args(), dr_get_app_args() and dr_app_arg_as_cstring() to
+   enable the gathering of application command-line args. Currently, implemented
+   for Unix systems only.
+ - Added dr_get_error_code() to obtain the error code of the last failed API routine.
+   Not all API routines support the setting of error codes. Please look at their
+   documentation to check if they do.
+ - Added -instr_only_trace option to drcachesim.
+ - Added other-bitwidth child process support, with the other client library
+   specified by "-c32" "-c64" to drrun or drdeploy, by dr_register_client_ex()
+   with #dr_config_client_t.is_alt_bitwidth=true to drconfiglib, and by
+   CLIENT{32,64}_{ABS,REL} in tool files.
+   Added dr_get_client_info_ex() and dr_client_iterator_next_ex() to support
+   querying other-bitwidth client registration.
+ - Added a new drcachesim option \p -max_global_trace_refs for specifying a global
+   trace size limit that does not terminate the process.
+ - Added opnd_create_immed_double(), opnd_get_immed_double() and
+   opnd_is_immed_double() to enable the creation and handling of double
+   precision floating-point operands.
+ - Added dr_flush_region_ex API that accepts a callback to be executed after synch
+   flush but before the threads are resumed. The existing dr_flush_region API
+   is modified to invoke dr_flush_region_ex with a NULL callback.
+ - Added instr_is_exclusive_load().
+ - Added XINST_CREATE_store_pair() and XINST_CREATE_load_pair().
+ - Added instr_replace_reg_resize() and opnd_replace_reg_resize().
+ - Added #DRX_COUNTER_REL_ACQ flag to optionally enable release-acquire semantics for
+   drx_insert_counter_update() on AArchXX.
+ - Added a preferred base field to the #_module_data_t struct and to the
+   #_drmodtrack_info_t struct.
+ - Added support for running under QEMU via the \ref op_xarch_root "-xarch_root"
+   runtime option which locates guest system libraries and enables workarounds for
+   problems with QEMU's threads.
+ - Added dr_is_detaching(), an API to query whether detach is in progress.
+ - Added instr_zeroes_zmmh() that returns true if an instruction clears the
+   upper bits of a ZMM register with zeros.
+ - Added instr_clear_label_callback().
+ - Added #DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS to #drreg_bb_properties_t to
+   enable logic that avoids conflicts in spill slots when drreg is used to reserve
+   registers in multiple phases.
+ - Added drmgr_in_emulation_region(), drmgr_orig_app_instr_for_fetch(), and
+   drmgr_orig_app_instr_for_operands() for more conveniently handling emulation.
+ - Added the reconstructed #instrlist_t when available for the faulting fragment
+   to #dr_fault_fragment_info_t. This makes it available to the restore state
+   event callback(s) via the #dr_restore_state_info_t arg.
+ - Added the source context for restartable sequence aborts (#DR_XFER_RSEQ_ABORT)
+   which was previously missing.
+ - Added a #TRACE_MARKER_TYPE_VERSION entry to drmemtrace traces.
+ - Augmented drmemtrace #TRACE_MARKER_TYPE_KERNEL_EVENT entries with the absolute
+   PC of the interruption point, including for restartable sequence aborts, which
+   now also have an additional #TRACE_MARKER_TYPE_RSEQ_ABORT identifier.
+ - Added a fifth instrumentation phase (meta_instru) that executes after the
+   insertion of instrumentation and instrumentation optimizations. Its primary purpose
+   is to enable debugging of instrumentation sequences and detection of
+   instrumentation-induced bugs.
+ - Added \p drstatecmp Extension which provides mechanisms to enable systematic
+   and exhaustive machine state comparisons across instrumentation sequences.
+ - Added drmodtrack_lookup_segment().
+ - Added a new drrun option \p -attach for attaching to a running process.
+   This is currently an experimental option and is not yet as well-supported
+   as launching a new process.  It is only supported on x86 at this time.
+ - Added \ref page_drcallstack Extension for walking application callstacks, with
+   an initial Linux-only implementation.
+ - Added new #dr_cleancall_save_t flags which are required for proper interaction
+   between clean calls and drreg: #DR_CLEANCALL_READS_APP_CONTEXT must be set for
+   dr_get_mcontext() to obtain the proper values, and #DR_CLEANCALL_WRITES_APP_CONTEXT
+   must be set to ensure that dr_set_mcontext() is persistent.
+   If the call may be skipped by tool-inserted control flow, #DR_CLEANCALL_MULTIPATH
+   must additionally be set.
+ - Added a new event dr_register_clean_call_insertion_event(), meant for use by
+   register management libraries.
+ - Added drreg_statelessly_restore_all().
+ - Completed drx_expand_scatter_gather() support for emulating x86 scatter/gather
+   instructions using a sequence of scalar stores/loads. The scalar store/load
+   sequence makes it easier for clients to instrument each memory access.
+
+**************************************************
+<hr>
+
+Version 8.0.0 includes Dr. Memory and the
+Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
+provides the umbra, drsyscall, and drsymcache Extensions for use by
+clients.
+
+The changes between version 8.0.0 and 7.1.0 include the following compatibility
 changes:
 
  - Changed the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
@@ -143,8 +298,22 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
+ - Added a requirement that a C++11-compliant compiler be used with \ref page_droption.
+ - Changed the syntax of the drcachesim -record_function option.  It no longer takes
+   in an identifier: the identifier is computed by the tracer.  It thus takes pairs,
+   with an optional third argument for flags such as "noret" to indicate that the
+   return value should not be recorded.
+   The tracer writes out a file listing functions traced and their identifiers
+   with "id,library!symbol" on each line of the file.
+ - Added free_key_func to the drcontainers hashtable_configure(), which adds a field
+   to #hashtable_config_t.  Binary compatibility is maintained via the size field
+   of the struct, but users who were not zeroing the whole structure and who update
+   and recompile without setting the field may see crashes due to
+   free_key_func being uninitialized.
+ - Changed the 32-bit x86 stack alignment of DynamoRIO and clients built using
+   DR's CMake configuration from 4 to 16 on Linux to match modern conventions.
 
-The changes between version \DR_VERSION and 7.1.0 include the following minor
+The changes between version 8.0.0 and 7.1.0 include the following minor
 compatibility changes:
 
  - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
@@ -174,6 +343,13 @@ compatibility changes:
  - Changed the #PFX format string specifier to use %p rather than %x internally.
  - DR no longer forwards _snprintf, _snwprintf, _vsnprintf, sprintf, or sscanf to
    ntdll.  Clients should use the dr_-prefixed versions of these functions.
+ - PC-relative control transfer instructions are now auto-re-relativized by the
+   general decoder and encoder.  This affects clients and standalone tools that use
+   decode_from_copy() or instr_encode_to_copy() or instrlist_encode_to_copy().
+   Previously, re-relativization for instruction references only happened when an
+   instruction was re-encoded.  This auto-PC-relativization can be avoided by calling
+   instr_set_rip_rel_valid() and setting the validity of the PC-relative data to false.
+ - Fixed major synchronization bugs on ARM and AArch64.
 
 Further non-compatibility-affecting changes include:
 
@@ -221,6 +397,45 @@ Further non-compatibility-affecting changes include:
    to get the static number of supported SIMD vectors.
  - Added drmgr_register_low_on_memory_event(), drmgr_unregister_low_on_memory_event()
    and their variants so that drmgr can support low-on-memory events.
+ - Added drmgr_is_first_nonlabel_instr() and instrlist_first_nonlabel().
+ - Added a new standalone tool "drdisas" which disassembles raw bytes using
+   DR's decoder.
+ - Added decode_sizeof_ex() and instr_get_rel_data_or_instr_target() handling
+   relative instruction references.
+ - Added drx_instrlist_size() and drx_instrlist_app_size() to obtain the size
+   of a basic block.
+ - Added drreg_restore_all() to restore all unreserved registers currently
+   maintained by drreg.
+ - Added a func_view tool to drcachesim for analyzing function traces.
+ - Added a non-heap-using instruction structure #instr_noalloc_t for use when
+   decoding in a signal handler, along with instr_noalloc_init() and
+   instr_from_noalloc().
+ - Added drwrap_get_stats().
+ - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
+   of missing some post-call callbacks.
+ - Added #DRWRAP_REPLACE_RETADDR for an alternative method of setting up post-call
+   control points by replacing return addresses.  This does not work for every
+   application, but reduces overhead.
+ - Added -record_dynsym_only to drcachesim for faster function tracing symbol
+   lookups when internal symbols are not needed.
+ - Added -record_replace_retaddr_only to drcachesim for faster function tracing
+   wrapping for well-behaved applications.
+ - Added dr_merge_arith_flags() as a convenience routine to merge arithmetic flags
+   for restoration done by outlined code.
+ - Added dr_annotation_pass_pc() to obtain the interrupted PC in an annotation
+   handler.
+ - Added atomics for safe and visible aligned loads and stores on all platforms:
+   dr_atomic_load32(), dr_atomic_store32(), dr_atomic_load64() dr_atomic_store64().
+ - The state restore event (dr_register_restore_state_event()) is now called for
+   all translation attempts, even when the register state already contains
+   application values, to allow clients to restore memory.
+ - Added the function dr_get_process_id_from_drcontext() for obtaining a process ID
+   associated with the given drcontext, which may be different from the current
+   dr_get_process_id() in some contexts.
+ - The private loader's malloc redirection now guarantees double-pointer-sized
+   alignment, to match what system-provided allocators use.
+ - Added a new DR extension, namely "drbbdup", which enables different case
+   instrumentation of the same basic block by duplicating code.
 
 **************************************************
 <hr>
@@ -1226,7 +1441,7 @@ The changes between version 2.0.0 and 1.5.0 are:
    - configuration does NOT enable systemwide injection by default:
      use the -syswide_on parameter to drconfig or drrun for that
      (it requires administrative privileges)
-   .
+
    \b IMPORTANT: On Linux, if you're using custom injection via
    raw environment variables rather than using the \p drdeploy script,
    you must also set DYNAMORIO_RUNUNDER to 1 for injection to work with
@@ -1528,8 +1743,6 @@ The major changes between the 0.9.5 and 0.9.4 releases are:
  - The full API is now documented in html and pdf for easy browsing.
  - Numerous type and routine name changes.
 
-\endif
-
 
 ***************************************************************************
 \htmlonly
@@ -1553,34 +1766,6 @@ using system-interacting library routines.
 See \ref sec_extlibs for further details.
   - Currently, the communication API provided by DynamoRIO is limited to file
 I/O and nudges.
-\if vmsafe
-  - The security agent on the security monitor VM has no direct
-    relationship with DynamoRIO.  However, the VMsafe solution provider
-    can architect their own communication channel between the security
-    agent on the security monitor VM and the client by using an agent on
-    the client's VM as an intermediary.
- \anchor limits_winlogon
-  - There is a known false positive in the anti-piracy DRM code in the
-    Windows Genuine Advantage component of winlogon.exe.  This code
-    performs deliberate obfuscation and violations of standard coding
-    behavior.
-\endif
-\if vmsafe
-  - The client can run in only one mode at a time, which cannot be changed during the
-execution of the process.  Mode change can be done only on a subsequent
-application restart.
-  - The client should call only the API corresponding to the mode it was started
-in.  Mixing API from different modes can lead to unspecified results and is
-not supported.
-  - Probe API allows only one registration of probes, which must occur in
-    dr_init().
-  - Probes can be specified only with library names and offsets from the base
-    of the library in memory (\ref DR_PROBE_ADDR_LIB_OFFS).
-  - When a probe callback finishes execution it can't request DynamoRIO to
-    perform any actions like logging, control flow changes, etc.
-  - Probe locations can't include system call wrappers in ntdll.dll, i.e.,
-    ntdll!Nt* routines can't be probe locations.
-\endif
 
 \subsection sec_limit_platforms Platform Limitations
   - This version of DynamoRIO supports Windows 8, 8.1, and 10.
@@ -1610,6 +1795,11 @@ not supported.
     through the Windows-On-Windows or WOW64 emulator so system call and
     indirect call processing clients must be aware of
     #instr_is_wow64_syscall().
+  - On all versions of Windows, attaching DynamoRIO to an already-running
+    process can result in loss of control if the attach point is in the
+    middle of an operating system event callback. From the callback return
+    point until the next system call hook, no instructions will be observed
+    by a client.
 \anchor limits_64bit
   - This release of DynamoRIO supports running
     64-bit Windows applications, using the 64-bit DynamoRIO build, on
@@ -1666,23 +1856,18 @@ not supported.
     to enable prioritizing memory usage and the \ref op_speed "-opt_speed option"
     to prioritize performance at the cost of more complex basic blocks that
     cross control transfers.
-  - The performance \if vmsafe of Code Manipulation Mode and Memory
-    Firewall Mode \endif when starting up large desktop applications
+  - The performance when starting up large desktop applications
     may be noticeably worse than native.  Upcoming releases will
-    address this issue. \if vmsafe Note that Probe Mode incurs
-    significantly less overhead than the other modes. \endif
-  - The performance \if vmsafe of Code Manipulation Mode \endif when
+    address this issue.
+  - The performance when
     running  Java, .Net, Flash or similar managed execution
     applications can be noticeably worse then native.  This can
     include applications that load these components as in-process
     plugins (such as Internet Explorer). Upcoming releases will
-    address this issue.  \if vmsafe Probe Mode and Memory Firewall
-    Mode are not affected. \endif
-  - When using \if vmsafe Code Manipulation Mode or Memory Firewall
-    Mode \else DynamoRIO \endif on all or many processes on a system
+    address this issue.
+  - When using DynamoRIO on all or many processes on a system
     simultaneously, memory usage may become a factor.  Upcoming
-    releases will address this issue.  \if vmsafe Note that Probe Mode
-    incurs significantly less overhead than the other modes. \endif
+    releases will address this issue.
 
 \subsection sec_limit_deploy Deployment Limitations
 
@@ -1709,8 +1894,7 @@ not supported.
     user32.dll will not be run under control of DynamoRIO using
     system-wide injection unless its
     parent process (typically cmd.exe or explorer.exe, for manually
-    launched applications) is already under DynamoRIO control
-    \if vmsafe (the parent can be in any mode)\endif. Only some small
+    launched applications) is already under DynamoRIO control.  Only some small
     non-graphical applications do not link with user32.dll.
   - When invoking an application in any way that is not from a parent
     process under DynamoRIO control, DynamoRIO takes control a little
@@ -1732,7 +1916,7 @@ not supported.
     client will be able to display a messagebox when running in said
     services (they have no associated visible window station). See
     dr_messagebox().
-  - On Windows Vista \if vmsafe in Code Manipulation Mode \endif the code from
+  - On Windows Vista the code from
     certain dlls (found mostly in services) and the code subsequently
     called from those dlls is run natively and is not visible to the
     instrumentation APIs.  This only applies to dlls that have a .pexe
@@ -1762,7 +1946,6 @@ not supported.
   - On Linux, the private loader will fail to load libpthread.so.  Therefore
     clients and the libraries they use cannot link against libpthread.so.
 
-\ifnot vmsafe
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1787,7 +1970,5 @@ We hope to include the following major features in future releases:
 To discuss current and future features, join the <a
 href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users
 group</a>.
-
-\endif
 
 */

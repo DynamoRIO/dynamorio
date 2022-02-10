@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -126,6 +126,8 @@ typedef struct _elf_info_t {
     byte *map_base;
     ptr_uint_t load_base;
     drsym_debug_kind_t debug_kind;
+#define MAX_BUILD_ID_LENGTH 128
+    char build_id[MAX_BUILD_ID_LENGTH];
 } elf_info_t;
 
 /* Looks for a section with real data, not just a section with a header */
@@ -164,6 +166,52 @@ find_elf_section_by_name(Elf *elf, const char *match_name)
         }
     }
     return NULL;
+}
+
+/* Reads the build id into mod->build_id. */
+static void
+read_build_id(Elf *elf, elf_info_t *mod)
+{
+    Elf_Scn *scn;
+    for (scn = elf_getscn(elf, 0); scn != NULL; scn = elf_nextscn(elf, scn)) {
+        Elf_Shdr *section_header = elf_getshdr(scn);
+        if (section_header == NULL || section_header->sh_type != SHT_NOTE)
+            continue;
+        Elf_Data *data = elf_getdata(scn, NULL);
+        Elf_Note *note = (Elf_Note *)data->d_buf;
+        if (note->n_type == NT_GNU_BUILD_ID) {
+            /* Following the note are the name and value. */
+            byte *src = ((byte *)(note + 1)) + note->n_namesz;
+            size_t size = note->n_descsz;
+            if ((byte *)data->d_buf + data->d_size < src + note->n_descsz) {
+                NOTIFY_ELF("note data is shorter than specified length");
+                size = (byte *)data->d_buf + data->d_size - src;
+            }
+            char *dst = mod->build_id;
+            for (int i = 0; i < size; i++) {
+                /* We're writing 3 chars at a time (2 digits + newline). */
+                if (dst + 3 > mod->build_id + MAX_BUILD_ID_LENGTH) {
+                    NOTIFY_ELF("build id is too long");
+                    /* It is already null-terminated from the prior write.  Return
+                     * the truncated id.  It will likely still work for buildid-dir
+                     * purposes where we only need the 1st 2 chars, and the rest
+                     * come from the debuglink name.
+                     */
+                    return;
+                }
+                unsigned int val = (unsigned int)*src;
+                int len = dr_snprintf(dst, 3, "%02x", val);
+                if (len < 0) {
+                    NOTIFY_ELF("malformed build id");
+                    mod->build_id[0] = '\0';
+                    return;
+                }
+                dst += len;
+                src++;
+            }
+            return;
+        }
+    }
 }
 
 /* Iterates the program headers for an ELF object and returns the minimum
@@ -259,6 +307,8 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
     if (find_elf_section_by_name(mod->elf, ".debug_line") != NULL) {
         mod->debug_kind |= DRSYM_LINE_NUMS | DRSYM_DWARF_LINE;
     }
+
+    read_build_id(mod->elf, mod);
 
     return (void *)mod;
 }
@@ -429,6 +479,13 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     }
 
     return DRSYM_ERROR_SYMBOL_NOT_FOUND;
+}
+
+const char *
+drsym_obj_build_id(void *mod_in)
+{
+    elf_info_t *mod = (elf_info_t *)mod_in;
+    return mod->build_id;
 }
 
 /******************************************************************************

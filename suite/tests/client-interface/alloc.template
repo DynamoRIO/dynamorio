@@ -7,6 +7,7 @@ thank you for testing the client interface
 #else
   testing custom Linux alloc....success
 #endif
+  testing alignment....success
 thread initialization:
   testing local memory alloc....success
   testing global memory alloc...success

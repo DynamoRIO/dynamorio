@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -37,7 +37,7 @@ extern "C" {
 /**
  * \addtogroup drutil Instrumentation Utilities
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /***************************************************************************
  * INIT
@@ -144,6 +144,11 @@ DR_EXPORT
  * instructions after the loop) and then exanding it into a
  * multi-instruction loop.
  *
+ * Clients applying this expansion are encouraged to use emulation-aware
+ * instrumentation via drmgr_orig_app_instr_for_fetch() and
+ * drmgr_orig_app_instr_for_operands() in order to observe the original
+ * string loop opcode with the expanded memory operands.
+ *
  * WARNING: The added multi-instruction loop contains several
  * control-transfer instructions and is not straight-line code, which
  * can complicate subsequent analysis routines.
@@ -185,7 +190,18 @@ bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
                             OUT instr_t **stringop);
 
-/*@}*/ /* end doxygen group */
+DR_EXPORT
+/**
+ * Returns whether the given instr is a stringop loop.
+ *
+ * @param[in]  inst        The instr to inspect.
+ *
+ * \return whether given instr is a stringop loop.
+ */
+bool
+drutil_instr_is_stringop_loop(instr_t *inst);
+
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

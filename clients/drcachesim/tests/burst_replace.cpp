@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -139,8 +139,12 @@ local_create_dir(const char *dir)
 }
 
 static void *
-load_cb(module_data_t *module)
+load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
+    if (seg_idx > 0)
+        return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
@@ -163,7 +167,7 @@ parse_cb(const char *src, OUT void **data)
 static std::string
 process_cb(drmodtrack_info_t *info, void *data, void *user_data)
 {
-    assert((app_pc)data == info->start || info->containing_index != info->index);
+    assert((app_pc)data == info->start);
     assert(user_data == MAGIC_VALUE);
     return "";
 }
@@ -189,15 +193,24 @@ post_process()
         std::string dir_err = dir.initialize(raw_dir, "");
         assert(dir_err.empty());
         std::unique_ptr<module_mapper_t> module_mapper = module_mapper_t::create(
-            dir.modfile_bytes, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+            dir.modfile_bytes_, parse_cb, process_cb, MAGIC_VALUE, free_cb);
         assert(module_mapper->get_last_error().empty());
         // Test back-compat of deprecated APIs.
-        raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, NULL);
+        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, NULL);
         std::string error =
             raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
         assert(error.empty());
         error = raw2trace.do_module_parsing();
         assert(error.empty());
+        // Test writing module data and reading it back in.
+        char buf[128 * 204];
+        size_t wrote;
+        drcovlib_status_t res = module_mapper->write_module_data(
+            buf, BUFFER_SIZE_BYTES(buf), print_cb, &wrote);
+        assert(res == DRCOVLIB_SUCCESS);
+        std::unique_ptr<module_mapper_t> remapper =
+            module_mapper_t::create(buf, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(remapper->get_last_error().empty());
     }
     /* Now write a final trace to a location that the drcachesim -indir step
      * run by the outer test harness will find (TRACE_FILENAME).
@@ -205,12 +218,14 @@ post_process()
     raw2trace_directory_t dir;
     std::string dir_err = dir.initialize(raw_dir, "");
     assert(dir_err.empty());
-    raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, dr_context, 0);
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, dr_context,
+                          0);
     std::string error =
         raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
     assert(error.empty());
     error = raw2trace.do_conversion();
     assert(error.empty());
+    dr_standalone_exit();
 }
 
 int

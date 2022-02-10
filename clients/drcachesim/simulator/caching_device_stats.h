@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +38,9 @@
 
 #include "caching_device_block.h"
 #include <string>
+#include <map>
 #include <stdint.h>
+#include <limits>
 #ifdef HAS_ZLIB
 #    include <zlib.h>
 #endif
@@ -49,9 +51,107 @@ enum invalidation_type_t {
     INVALIDATION_COHERENCE,
 };
 
+enum class metric_name_t {
+    HITS,
+    MISSES,
+    HITS_AT_RESET,
+    MISSES_AT_RESET,
+    COMPULSORY_MISSES,
+    CHILD_HITS,
+    CHILD_HITS_AT_RESET,
+    INCLUSIVE_INVALIDATES,
+    COHERENCE_INVALIDATES,
+    PREFETCH_HITS,
+    PREFETCH_MISSES,
+    FLUSHES
+};
+
+struct bound {
+    addr_t beg;
+    addr_t end;
+};
+
+class access_count_t {
+public:
+    access_count_t(int block_size)
+        : block_size_(block_size)
+    {
+        if (!IS_POWER_OF_2(block_size)) {
+            ERRMSG("Block size should be a power of 2.");
+            return;
+        }
+        int block_size_bits = compute_log2(block_size);
+        block_size_mask_ = ~((1 << block_size_bits) - 1);
+    }
+
+    // Takes non-aligned address and inserts bound consisting of the nearest multiples
+    // of the block_size.
+    void
+    insert(addr_t addr_beg, std::map<addr_t, addr_t>::iterator next_it)
+    {
+        // Round the address down to the nearest multiple of the block_size.
+        addr_beg &= block_size_mask_;
+        addr_t addr_end = addr_beg + block_size_;
+
+        // Detect the overflow and assign maximum possible value to the addr_end.
+        if (addr_beg > addr_end) {
+            addr_end = std::numeric_limits<addr_t>::max();
+        }
+
+        std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);
+
+        // Current bound -> (addr_beg...addr_end) connects previous and
+        // next bound
+        if (prev_it != bounds.rend() && prev_it->second == addr_beg &&
+            next_it != bounds.end() && next_it->first == addr_end) {
+            prev_it->second = next_it->second;
+            bounds.erase(next_it);
+            // Current bound extends previous bound
+        } else if (prev_it != bounds.rend() && prev_it->second == addr_beg) {
+            prev_it->second = addr_end;
+            // Current bound extends next bound
+        } else if (next_it != bounds.end() && next_it->first == addr_end) {
+            addr_t bound_end = next_it->second;
+            // We need to reinsert the element when changing key value.
+            // Iterator hint should provide costant complexity of this operation.
+            bounds.erase(next_it++);
+            bounds.emplace_hint(next_it, addr_beg, bound_end);
+        } else {
+            bounds.emplace_hint(next_it, addr_beg, addr_end);
+        }
+    }
+
+    // Takes non-aligned address. Returns:
+    // - boolean value indicating whether the address has ever been accessed
+    // - iterator to the bound where the address is located or the element which should
+    //   be provided as a hint when inserting new bound with given address.
+    std::pair<bool, std::map<addr_t, addr_t>::iterator>
+    lookup(addr_t addr)
+    {
+        // Function upper_bound returns bound which beginning is larger
+        // then the addr.
+        auto next_it = bounds.upper_bound(addr);
+        std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);
+
+        if (prev_it != bounds.rend() && addr >= prev_it->first &&
+            addr < prev_it->second) {
+            return std::make_pair(true, prev_it.base());
+        } else {
+            return std::make_pair(false, next_it);
+        }
+    }
+
+private:
+    // Bounds are members of the std::map. The beginning of the bound is stored
+    // as a key and the end as a value.
+    std::map<addr_t, addr_t> bounds;
+    int block_size_mask_ = 0;
+    int block_size_;
+};
+
 class caching_device_stats_t {
 public:
-    explicit caching_device_stats_t(const std::string &miss_file,
+    explicit caching_device_stats_t(const std::string &miss_file, int block_size,
                                     bool warmup_enabled = false,
                                     bool is_coherent = false);
     virtual ~caching_device_stats_t();
@@ -74,15 +174,26 @@ public:
 
     virtual bool operator!()
     {
-        return !success;
+        return !success_;
     }
 
     // Process invalidations due to cache inclusions or external writes.
     virtual void
-    invalidate(invalidation_type_t invalidation_type_);
+    invalidate(invalidation_type_t invalidation_type);
+
+    int_least64_t
+    get_metric(metric_name_t metric) const
+    {
+        if (stats_map_.find(metric) != stats_map_.end()) {
+            return stats_map_.at(metric);
+        } else {
+            ERRMSG("Wrong metric name.\n");
+            return 0;
+        }
+    }
 
 protected:
-    bool success;
+    bool success_;
 
     // print different groups of information, beneficial for code reuse
     virtual void
@@ -97,30 +208,40 @@ protected:
     virtual void
     dump_miss(const memref_t &memref);
 
-    int_least64_t num_hits;
-    int_least64_t num_misses;
-    int_least64_t num_child_hits;
+    void
+    check_compulsory_miss(addr_t addr);
 
-    int_least64_t num_inclusive_invalidates;
-    int_least64_t num_coherence_invalidates;
+    int_least64_t num_hits_;
+    int_least64_t num_misses_;
+    int_least64_t num_compulsory_misses_;
+    int_least64_t num_child_hits_;
+
+    int_least64_t num_inclusive_invalidates_;
+    int_least64_t num_coherence_invalidates_;
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.
-    int_least64_t num_hits_at_reset;
-    int_least64_t num_misses_at_reset;
-    int_least64_t num_child_hits_at_reset;
+    int_least64_t num_hits_at_reset_;
+    int_least64_t num_misses_at_reset_;
+    int_least64_t num_child_hits_at_reset_;
     // Enabled if options warmup_refs > 0 || warmup_fraction > 0
-    bool warmup_enabled;
+    bool warmup_enabled_;
 
     // Print out write invalidations if cache is coherent.
-    bool is_coherent;
+    bool is_coherent_;
+
+    // References to the properties with statistics are held in the map with the
+    // statistic name as the key. Sample map element: {HITS, num_hits_}
+    std::map<metric_name_t, int_least64_t &> stats_map_;
 
     // We provide a feature of dumping misses to a file.
-    bool dump_misses;
+    bool dump_misses_;
+
+    access_count_t access_count_;
 #ifdef HAS_ZLIB
-    gzFile file;
+    gzFile file_;
 #else
-    FILE *file;
+    FILE *file_;
 #endif
 };
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -230,6 +230,8 @@ tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elements*/)
 typedef struct _dr_inject_info_t {
     PROCESS_INFORMATION pi;
     bool using_debugger_injection;
+    bool using_thread_injection;
+    bool attached;
     TCHAR wimage_name[MAXIMUM_PATH];
     /* We need something to point at for dr_inject_get_image_name so we just
      * keep a utf8 buffer as well.
@@ -817,10 +819,10 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
      * if we have our own version of CreateProcess that doesn't check the
      * debugger key */
     info->using_debugger_injection = using_debugger_key_injection(info->wimage_name);
-
     if (info->using_debugger_injection) {
         unset_debugger_key_injection();
     }
+    info->using_thread_injection = false;
 
     /* Must specify TRUE for bInheritHandles so child inherits stdin! */
     res = CreateProcess(wapp_name, wapp_cmdline, NULL, NULL, TRUE,
@@ -840,6 +842,125 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
 
     *data = (void *)info;
     return errcode;
+}
+
+static int
+create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD tid OUT)
+{
+    uint64 kernel32;
+    uint64 sleep_address;
+    bool target_is_32;
+
+    *thread_handle = NULL;
+    *tid = 0;
+
+    target_is_32 = is_32bit_process(process_handle);
+    kernel32 = find_remote_dll_base(process_handle, !target_is_32, "kernel32.dll");
+    if (kernel32 == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    sleep_address = get_remote_proc_address(process_handle, kernel32, "SleepEx");
+    if (sleep_address == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    *thread_handle = CreateRemoteThread(process_handle, NULL, 0,
+                                        (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
+                                        (LPVOID)(SIZE_T)INFINITE, CREATE_SUSPENDED, tid);
+    if (*thread_handle == NULL) {
+        return GetLastError();
+    }
+
+    return ERROR_SUCCESS;
+}
+
+DYNAMORIO_EXPORT
+int
+dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
+{
+    dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
+    memset(info, 0, sizeof(*info));
+    bool received_initial_debug_event = false;
+    DEBUG_EVENT dbgevt = { 0 };
+    wchar_t exe_path[MAX_PATH];
+    DWORD exe_path_size = MAX_PATH;
+    wchar_t *exe_name;
+    HANDLE process_handle;
+    int res;
+
+    *data = info;
+
+    if (DebugActiveProcess((DWORD)pid) == false) {
+        return GetLastError();
+    }
+
+    DebugSetProcessKillOnExit(false);
+
+    info->using_debugger_injection = false;
+    info->attached = true;
+
+    do {
+        dbgevt.dwProcessId = (DWORD)pid;
+        WaitForDebugEvent(&dbgevt, INFINITE);
+        ContinueDebugEvent(dbgevt.dwProcessId, dbgevt.dwThreadId, DBG_CONTINUE);
+
+        if (dbgevt.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT) {
+            received_initial_debug_event = true;
+        }
+    } while (received_initial_debug_event == false);
+
+    info->pi.dwProcessId = dbgevt.dwProcessId;
+
+    DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hProcess,
+                    GetCurrentProcess(), &info->pi.hProcess, 0, FALSE,
+                    DUPLICATE_SAME_ACCESS);
+
+    process_handle = info->pi.hProcess;
+
+    /* XXX i#725: Attach does not begin as long as the injected thread is blocking.
+     * To overcome it, We create a new thread in the target process that will live
+     * as long as the target lives, and inject into it.
+     * For better transparency we should exit the thread immediately after injection.
+     * Would require changing termination assumptions in win32/syscall.c.
+     */
+    res = create_attach_thread(process_handle, &info->pi.hThread, &info->pi.dwThreadId);
+    if (res != ERROR_SUCCESS) {
+        return res;
+    }
+
+    BOOL(__stdcall * query_full_process_image_name_w)
+    (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
+        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
+
+    if (query_full_process_image_name_w(process_handle, 0, exe_path, &exe_path_size) ==
+        0) {
+        return GetLastError();
+    }
+
+    exe_name = wcsrchr(exe_path, '\\');
+    if (exe_name == NULL) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    wchar_to_char(info->image_name, BUFFER_SIZE_ELEMENTS(info->image_name), exe_name,
+                  wcslen(exe_name) * sizeof(wchar_t));
+
+    char_to_tchar(info->image_name, info->wimage_name,
+                  BUFFER_SIZE_ELEMENTS(info->image_name));
+
+    *app_name = info->image_name;
+
+    return ERROR_SUCCESS;
+}
+
+DYNAMORIO_EXPORT
+bool
+dr_inject_use_late_injection(void *data)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
+    info->using_thread_injection = true;
+    return true;
 }
 
 DYNAMORIO_EXPORT
@@ -914,12 +1035,24 @@ dr_inject_process_inject(void *data, bool force_injection, const char *library_p
 #endif
 
     inject_init();
-    /* FIXME PR 211367: use early_inject instead of this late injection!
-     * but non-trivial to gather the relevant addresses: so wait for
-     * earliest injection => i#234/PR 204587 prereq?
+    /* Like the core, we use map injection, which supports cross-arch injection, is
+     * in some ways cleaner than thread injection, and supports early injection at
+     * various points.  For now we use the (late) thread entry as the takeover point.
+     * TODO PR 211367: use earlier injection instead of this late injection!
+     * But it's non-trivial to gather the relevant addresses.
+     * i#234/PR 204587 is a prereq?
      */
-    if (!inject_into_thread(info->pi.hProcess, &cxt, info->pi.hThread,
-                            (char *)library_path)) {
+    bool res = false;
+    /* We provide a way to fall back on thread injection. */
+    if (info->using_thread_injection) {
+        res = inject_into_thread(info->pi.hProcess, &cxt, info->pi.hThread,
+                                 (char *)library_path);
+    } else {
+        res = inject_into_new_process(info->pi.hProcess, info->pi.hThread,
+                                      (char *)library_path, true /*map*/,
+                                      INJECT_LOCATION_ThreadStart, NULL);
+    }
+    if (!res) {
         close_handle(info->pi.hProcess);
         TerminateProcess(info->pi.hProcess, 0);
         return false;
@@ -932,6 +1065,10 @@ bool
 dr_inject_process_run(void *data)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
+    if (info->attached == true) {
+        /* detach the debugger */
+        DebugActiveProcessStop(info->pi.dwProcessId);
+    }
     /* resume the suspended app process so its main thread can run */
     ResumeThread(info->pi.hThread);
     close_handle(info->pi.hThread);

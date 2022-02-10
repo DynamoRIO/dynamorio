@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -70,6 +70,8 @@ void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
     struct fpsimd_context *fpc = (struct fpsimd_context *)sc_full->fp_simd_state;
+    if (fpc == NULL)
+        return;
     ASSERT(fpc->head.magic == FPSIMD_MAGIC);
     ASSERT(fpc->head.size == sizeof(struct fpsimd_context));
     mc->fpsr = fpc->fpsr;
@@ -82,6 +84,8 @@ void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     struct fpsimd_context *fpc = (struct fpsimd_context *)sc_full->fp_simd_state;
+    if (fpc == NULL)
+        return;
     struct _aarch64_ctx *next = (void *)((char *)fpc + sizeof(struct fpsimd_context));
     fpc->head.magic = FPSIMD_MAGIC;
     fpc->head.size = sizeof(struct fpsimd_context);

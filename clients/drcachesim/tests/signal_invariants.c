@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 /* Adapted from suite/tests/pthreads/ptsig.c, with extra cases added.
- * This is a test of signal corner cases.  It partners with trace_invariants.cpp,
+ * This is a test of signal corner cases.  It partners with invariant_checker.cpp,
  * passing annotations to indicate places to check.
  */
 

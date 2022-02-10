@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,11 +41,12 @@
 #include "fragment.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "instrument.h"
 #include "hotpatch.h"
 #include "hotpatch_interface.h"
+#include "probe_api.h"
 #include "moduledb.h" /* macros for nudge; can be moved with nudge to os.c */
 
 #ifndef WINDOWS
@@ -604,7 +605,7 @@ hotp_dump_reg_state(const hotp_context_t *reg_state, const app_pc eip,
 #    endif
 static void
 hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
-                       const thread_record_t **all_threads, const int num_threads);
+                       const thread_record_t **thread_table, const int num_threads);
 static void
 hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
                        hotp_patch_point_t *cur_ppoint);
@@ -670,13 +671,11 @@ static vm_area_vector_t *hotp_patch_point_areas;
 static hotp_globals_t *hotp_globals;
 #    endif
 
-#    ifdef CLIENT_INTERFACE
 /* Global counter used to generate unique ids for probes.  This is updated
  * atomically and isn't guarded by any lock.  See GENERATE_PROBE_ID() for
  * details.
  */
 static unsigned int probe_id_counter;
-#    endif
 /*----------------------------------------------------------------------------*/
 /* Function definitions. */
 
@@ -1154,9 +1153,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
             return;
         }
     } else {
-#    ifdef CLIENT_INTERFACE
         ASSERT(DYNAMO_OPTION(probe_api));
-#    endif
     }
 
     /* Compute dll cache path, i.e., $DYNAMORIO_HOME/lib/hotp/<engine>/ */
@@ -1333,15 +1330,15 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
      */
     for (i = 0; i < num_mode_update_entries; i++) {
         bool matched = false;
-        char *temp, *policy_id;
+        char *split, *policy_id;
 
         SET_STR_PTR(policy_id, start);
-        temp = strchr(policy_id, ':');
-        if (temp == NULL)
+        split = strchr(policy_id, ':');
+        if (split == NULL)
             goto error_reading_policy;
-        *temp++ = '\0'; /* TODO: during file mapping, this won't work */
+        *split++ = '\0'; /* TODO: during file mapping, this won't work */
 
-        SET_NUM(mode, uint, MODE, temp);
+        SET_NUM(mode, uint, MODE, split);
 
         /* Must set mode for all vulnerabilities with a matching policy_id, not
          * just the first one.
@@ -2043,16 +2040,16 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
 static void
 hotp_process_image_helper(const app_pc base, const bool loaded,
                           const bool own_hot_patch_lock, const bool just_check,
-                          bool *needs_processing, const thread_record_t **all_threads,
+                          bool *needs_processing, const thread_record_t **thread_table,
                           const int num_threads, const bool ldr_safety,
                           vm_area_vector_t *toflush);
 void
 hotp_process_image(const app_pc base, const bool loaded, const bool own_hot_patch_lock,
                    const bool just_check, bool *needs_processing,
-                   const thread_record_t **all_threads, const int num_threads)
+                   const thread_record_t **thread_table, const int num_threads)
 {
     hotp_process_image_helper(base, loaded, own_hot_patch_lock, just_check,
-                              needs_processing, all_threads, num_threads, false, NULL);
+                              needs_processing, thread_table, num_threads, false, NULL);
 }
 
 /* Helper routine for seeing if point is in hotp_ppoint_vec */
@@ -2138,7 +2135,7 @@ hotp_perscache_overlap(uint vul, uint set, uint module, app_pc base, size_t imag
 static void
 hotp_process_image_helper(const app_pc base, const bool loaded,
                           const bool own_hot_patch_lock, const bool just_check,
-                          bool *needs_processing, const thread_record_t **all_threads,
+                          bool *needs_processing, const thread_record_t **thread_table,
                           const int num_threads_arg, const bool ldr_safety,
                           vm_area_vector_t *toflush)
 {
@@ -2488,7 +2485,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                                     hotp_ppoint_areas_add(&ppoint_desc);
 
                                 if (DYNAMO_OPTION(hotp_only)) {
-                                    hotp_only_inject_patch(&ppoint_desc, all_threads,
+                                    hotp_only_inject_patch(&ppoint_desc, thread_table,
                                                            num_threads);
                                 }
                             }
@@ -2727,7 +2724,7 @@ hotp_policy_list_exit:
  *
  */
 static void
-hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
+hotp_walk_loader_list(thread_record_t **thread_table, const int num_threads,
                       vm_area_vector_t *toflush, bool probe_init)
 {
     /* This routine will go away; till then need to compile on linux.  Not walking
@@ -2741,7 +2738,7 @@ hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
     LIST_ENTRY *e, *start;
     LDR_MODULE *mod;
 
-    /* For hotp_only, all_threads can be valid, i.e., all known threads may be
+    /* For hotp_only, thread_table can be valid, i.e., all known threads may be
      * suspended.  Even if they are not, all synch locks will be held, so that
      * module processing can happen without races.  Check for that.
      * Note: for -probe_api, this routine can be called during dr init time,
@@ -2762,12 +2759,8 @@ hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
      * implementing pcache flushes for probe api - till then this assert is
      * relaxed.
      */
-#        ifdef CLIENT_INTERFACE
     ASSERT(toflush != NULL || DYNAMO_OPTION(hotp_only) ||
            (DYNAMO_OPTION(probe_api) && !DYNAMO_OPTION(use_persisted)));
-#        else
-    ASSERT(toflush != NULL || DYNAMO_OPTION(hotp_only));
-#        endif
 
     start = &ldr->InLoadOrderModuleList;
     for (e = start->Flink; e != start; e = e->Flink) {
@@ -2775,7 +2768,7 @@ hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
 
         /* TODO: ASSERT that the module is loaded? */
         hotp_process_image_helper(mod->BaseAddress, true, probe_init ? false : true,
-                                  false, NULL, all_threads, num_threads, false /*!ldr*/,
+                                  false, NULL, thread_table, num_threads, false /*!ldr*/,
                                   toflush);
 
         /* TODO: make hotp_process_image() emit different log messages
@@ -2965,7 +2958,7 @@ nudge_action_read_policies(void)
     hotp_vul_t *old_vul_table = NULL, *new_vul_table = NULL;
     uint num_old_vuls = 0, num_new_vuls;
     int num_threads = 0;
-    thread_record_t **all_threads = NULL;
+    thread_record_t **thread_table = NULL;
 
     STATS_INC(hotp_num_policy_nudge);
     /* Fix for case 6090;  TODO: remove when -hotp_policy_size is removed */
@@ -3041,7 +3034,7 @@ nudge_action_read_policies(void)
         if (DYNAMO_OPTION(hotp_only)) {
 #    ifdef WINDOWS
             DEBUG_DECLARE(bool ok =)
-            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                    /* Case 6821: other synch-all-thread uses that
                                     * only care about threads carrying fcache
                                     * state can ignore us
@@ -3086,7 +3079,7 @@ nudge_action_read_policies(void)
         hotp_init_policy_status_table();
         if (!DYNAMO_OPTION(hotp_only))
             vmvector_init_vector(&toflush, 0); /* no lock init needed since not used */
-        hotp_walk_loader_list(all_threads, num_threads,
+        hotp_walk_loader_list(thread_table, num_threads,
                               DYNAMO_OPTION(hotp_only) ? NULL : &toflush,
                               false /* !probe_init */);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -3095,7 +3088,7 @@ nudge_action_read_policies(void)
         d_r_write_unlock(&hotp_vul_table_lock);
 #    ifdef WINDOWS
         if (DYNAMO_OPTION(hotp_only)) {
-            end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+            end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
         }
 #    endif
 
@@ -3193,7 +3186,7 @@ hotp_nudge_handler(uint nudge_action_mask)
     }
 
     if (TEST(NUDGE_GENERIC(mode), nudge_action_mask)) {
-        thread_record_t **all_threads = NULL;
+        thread_record_t **thread_table = NULL;
         int num_threads = 0;
         hotp_policy_mode_t *old_modes = NULL;
         vm_area_vector_t toflush; /* never initialized for hotp_only */
@@ -3209,7 +3202,7 @@ hotp_nudge_handler(uint nudge_action_mask)
         /* Suspend all threads (for hotp_only) and grab locks. */
         if (DYNAMO_OPTION(hotp_only)) {
             DEBUG_DECLARE(bool ok =)
-            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                    /* Case 6821: other synch-all-thread uses that
                                     * only care about threads carrying fcache
                                     * state can ignore us
@@ -3242,14 +3235,14 @@ hotp_nudge_handler(uint nudge_action_mask)
 
         if (!DYNAMO_OPTION(hotp_only))
             vmvector_init_vector(&toflush, 0); /* no lock init needed since not used */
-        hotp_walk_loader_list(all_threads, num_threads,
+        hotp_walk_loader_list(thread_table, num_threads,
                               DYNAMO_OPTION(hotp_only) ? NULL : &toflush,
                               false /* !probe_init */);
 
         /* Release all locks. */
         d_r_write_unlock(&hotp_vul_table_lock);
         if (DYNAMO_OPTION(hotp_only)) {
-            end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+            end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
         }
 
         /* If modes did change, then we need to flush out patches that were
@@ -3971,7 +3964,7 @@ patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
  */
 static void
 hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
-                       const thread_record_t **all_threads, const int num_threads)
+                       const thread_record_t **thread_table, const int num_threads)
 {
     hotp_vul_t *vul;
     hotp_set_t *set;
@@ -3984,13 +3977,13 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
 
     ASSERT(DYNAMO_OPTION(hotp_only));
 
-    /* At startup there should be no other thread than this, so all_threads
+    /* At startup there should be no other thread than this, so thread_table
      * won't be valid.
      */
     if (num_threads != HOTP_ONLY_NUM_THREADS_AT_INIT) {
-        ASSERT(ppoint_desc != NULL && all_threads != NULL);
+        ASSERT(ppoint_desc != NULL && thread_table != NULL);
     } else {
-        ASSERT(ppoint_desc != NULL && all_threads == NULL);
+        ASSERT(ppoint_desc != NULL && thread_table == NULL);
     }
 
     /* Check if it is safe to patch, i.e., no known threads should be running
@@ -4210,14 +4203,14 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
 
         for (i = 0; i < num_threads; i++) {
             /* Skip the current thread; nudge thread's Eip isn't relevant. */
-            if (my_tid == all_threads[i]->id)
+            if (my_tid == thread_table[i]->id)
                 continue;
 
             /* App thread can't be in the core holding a lock when suspended. */
-            ASSERT(thread_owns_no_locks(all_threads[i]->dcontext));
+            ASSERT(thread_owns_no_locks(thread_table[i]->dcontext));
 
             cxt.ContextFlags = CONTEXT_FULL; /* PR 264138: don't need xmm regs */
-            res = thread_get_context((thread_record_t *)all_threads[i], &cxt);
+            res = thread_get_context((thread_record_t *)thread_table[i], &cxt);
             ASSERT(res);
             eip = (app_pc)cxt.CXT_XIP;
 
@@ -4248,7 +4241,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                 cxt.CXT_XIP =
                     (ptr_uint_t)(cur_ppoint->app_code_copy +
                                  (eip - (module->base_address + cur_ppoint->offset)));
-                res = thread_set_context((thread_record_t *)all_threads[i], &cxt);
+                res = thread_set_context((thread_record_t *)thread_table[i], &cxt);
                 ASSERT(res);
             }
         }
@@ -4426,7 +4419,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
     app_pc base;
     bool needs_processing = false;
     int num_threads = 0;
-    thread_record_t **all_threads = NULL;
+    thread_record_t **thread_table = NULL;
 #    ifdef WINDOWS
     DEBUG_DECLARE(bool ok;)
 #    endif
@@ -4478,7 +4471,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
 #    ifdef WINDOWS
     /* Ok, let's suspend all threads and do the injection/removal. */
     DEBUG_DECLARE(ok =)
-    synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads, &num_threads,
+    synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table, &num_threads,
                            /* Case 6821: other synch-all-thread uses that
                             * only care about threads carrying fcache
                             * state can ignore us
@@ -4502,7 +4495,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
         DODEBUG(hotp_globals->ldr_safe_hook_injection = true;); /* Case 7998. */
         DODEBUG(hotp_globals->ldr_safe_hook_removal = false;);  /* Case 7832. */
         hotp_process_image_helper(base, true, true, false, NULL,
-                                  (const thread_record_t **)all_threads, num_threads,
+                                  (const thread_record_t **)thread_table, num_threads,
                                   true, NULL);
         DODEBUG(hotp_globals->ldr_safe_hook_injection = false;);
         /* Similarly, hotp_remove_patches_from_module() is inefficient too.
@@ -4518,7 +4511,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
     }
     d_r_write_unlock(&hotp_vul_table_lock);
 #    ifdef WINDOWS
-    end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+    end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
 #    endif
 }
 
@@ -5717,267 +5710,6 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
 }
 
 #    endif /* GBOP */
-#    ifdef CLIENT_INTERFACE
-/*----------------------------------------------------------------------------*/
-/* TODO: move all probe api into a separate file - cleaner */
-/* Adding a few data types to see if doxygen works.  Will update later.
- */
-/* DR_API EXPORT TOFILE dr_probe.h */
-/* DR_API EXPORT BEGIN */
-/**
- * @file dr_probe.h
- * @brief Support for the Probe API.
- *
- *  Describes all the data types and functions associated with the \ref
- * API_probe.
- */
-
-/** Specifies what type of computation to use when computing the address of a
- * probe insertion point or callback function.
- */
-typedef enum {
-    /** Use the raw virtual address specified. */
-    DR_PROBE_ADDR_VIRTUAL,
-
-    /** Compute address by adding the offset specified to the base of the
-     * library specified.
-     *
-     * For probe insertion, if library isn't loaded, the insertion will be
-     * aborted.  For computing callback function address if the library isn't
-     * loaded, it will be loaded and then the address computation will be done;
-     * if it can't be loaded, probe request is aborted.
-     */
-    DR_PROBE_ADDR_LIB_OFFS,
-
-    /** Compute address by getting the address of the specified exported
-     * function from the specified library.
-     *
-     * If the exported function specified isn't available either for the probe
-     * insertion point or for the callback function, the probe insertion is
-     * aborted.  For computing callback function address if the library isn't
-     * loaded, it will be loaded and then the address computation will be done;
-     * if it can't be loaded, probe request is aborted. */
-    DR_PROBE_ADDR_EXP_FUNC,
-} dr_probe_addr_t;
-
-/** Defines the location where a probe is to be inserted or callback function
- * defined as an offset within a library. */
-typedef struct {
-    /** IN - Full name of the library. */
-    /* FIXME PR 533522: explicitly specify what type of name should be used
-     * here: full path, dr_module_preferred_name(), pe (exports) name, what?
-     * seems broken since need full path to load a lib but that won't match?
-     */
-    char *library;
-
-    /** IN - Offset to use inside library.  If out of bounds of library, probe
-     * request is aborted.  Offset can point to non text location as long as it
-     * is marked executable (i.e., ..x). */
-    app_rva_t offset;
-} dr_probe_lib_offs_t;
-
-/** Defines the location where a probe is to be inserted or callback function
- * defined as an exported function within a library. */
-typedef struct {
-    /** IN - Full name of the library. */
-    /* FIXME PR 533522: explicitly specify what type of name should be used
-     * here: full path, dr_module_preferred_name(), pe (exports) name, what?
-     * seems broken since need full path to load a lib but that won't match?
-     */
-    char *library;
-
-    /** IN - Name of exported function inside library.  If the function can't
-     * be found in the library, then this probe request is aborted. */
-    char *func;
-} dr_probe_exp_func_t;
-
-/** Defines a memory location where a probe is to be inserted or where a
- * callback function exists.  One of three types of address computation as
- * described by dr_probe_addr_t is used to identify the location.
- */
-typedef struct {
-    /** IN - Specifies the type of address computation to use. */
-    dr_probe_addr_t type;
-
-    union {
-        /** IN - Raw virtual address in the process space. */
-        app_pc vaddr;
-
-        /** IN - Library offset in the process space. */
-        dr_probe_lib_offs_t lib_offs;
-
-        /** IN - Exported function in the process space. */
-        dr_probe_exp_func_t exp_func;
-    };
-} dr_probe_location_t;
-
-/* DR_API EXPORT END */
-/* FIXME: hotp_exec_status_t in hotpatch_interface.h is what's really used
- * in the code so once we start adding actual values here we should merge
- * the two
- */
-/* DR_API EXPORT BEGIN */
-/**
- * Specifies what action to take upon return of a probe callback function.
- * Additional options will be added in future releases.
- */
-typedef enum {
-    /** Continue execution normally after the probe. */
-    DR_PROBE_RETURN_NORMAL = 0,
-} dr_probe_return_t;
-
-/**
- * This structure describes the characteristics of a probe.  It is used to add,
- * update, and remove probes using dr_register_probes().
- */
-typedef struct {
-    /**
-     * IN - Pointer to the name of the probe.  This string does not need
-     * to be persistent beyond the call to dr_register_probes(): a copy will
-     * be made.
-     */
-    char *name;
-
-    /**
-     * IN - Location where the probe is to be inserted.  If inserting inside a
-     * library, the insertion will be done only if the library is loaded, the
-     * location falls within its bounds and the location is marked executable.
-     * If inserting outside a library the memory location should be allocated
-     * and marked executable.  If neither, the probe will be put in a pending
-     * state where its id will be NULL and its status reflecting the state.
-     */
-    dr_probe_location_t insert_loc;
-
-    /**
-     * IN - Location of the callback function.  If callback is inside a
-     * library, the library location will be used if it is within its bounds
-     * and is marked executable; if library isn't loaded, an attempt will be
-     * made to load it.  If using a raw virtual address, then that location
-     * should be mapped and marked executable.  If neither is true, the probe
-     * insertion or update will be aborted and status updated accordingly.
-     *
-     * The callback function itself should have this signature:
-     *
-     *   dr_probe_return_t probe_callback(priv_mcontext_t *mc);
-     *
-     * Note that the \p xip field of the \p priv_mcontext_t passed in will
-     * NOT be set.
-     */
-    dr_probe_location_t callback_func;
-
-    /** OUT - Upon successful probe insertion a unique id will be created. */
-    unsigned int id;
-
-    /** OUT - Specifies the current status of the probe. */
-    dr_probe_status_t status;
-} dr_probe_desc_t;
-
-/******************************************************************************/
-DR_API
-/**
- * Allows the caller to insert probes into specified executable memory
- * locations in the process address space.  Upon subsequent execution of
- * instructions at these memory locations the appropriate probes will be
- * triggered and the corresponding callback functions will be invoked.
- * Subsequent calls to dr_register_probes() will allow the caller to remove,
- * update and add more probes.
- *
- * @param       probes  Pointer to an array of probe descriptors of type
- *                      dr_probe_desc_t.  Each descriptor describes the
- *                      location of the probe, the callback function and other
- *                      data.  This is an in/out parameter, see dr_probe_desc_t
- *                      for details.  If probes isn't NULL, points to valid
- *                      memory and num_probes is greater than 0, id and status
- *                      for each probe are set in the corresponding
- *                      dr_probe_desc_t.  If probes is NULL or num_probes is 0,
- *                      nothing is set in probes.  Invalid memory may trigger
- *                      an exception.
- *
- * @param [in]  num_probes  Specifies the number of probe descriptors in
- *                          the array pointed to by probes.
- *
- * \remarks
- * If a probe definition is invalid, it will not be registered, i.e. DynamoRIO
- *  will not retain its definition.  The error code will be returned in the
- *  status field in of that probe's dr_probe_desc_t element and the
- *  corresponding id field in dr_probe_desc_t is set to NULL.
- *
- * \remarks
- * When a client calls dr_register_probes() from dr_client_main() (which is the
- *  earliest dr_register_probes() can be called), not all valid probes are
- *  guaranteed to be inserted upon retrun from dr_register_probes().  Some
- *  valid probes may not be inserted if the target module has not been loaded,
- *  the insertion point is not executable, or the memory is otherwise
- *  inaccessible.  In such cases, DynamoRIO retains all valid probe
- *  information and inserts these probes when the memory locations become
- *  available.
- *
- * \remarks
- * When dr_register_probes() is called after dr_client_main(), the behavior is
- *  identical to being called from dr_client_main() with one caveat: even valid probes
- *  aren't guaranteed to be registered when dr_register_probes() returns.
- *  However, valid probes will be registered within a few milliseconds usually.
- *  To prevent performance and potential deadlock issues, it is recommended
- *  that a client shouldn't wait in a loop till the probe status changes.
- *  Instead, clients should check probe status at a later callback.
- *
- * \remarks
- * A client can determine the status of a registered probe in one of two ways.
- *  1) Read it from the status field in the associated dr_probe_desc_t element
- *  when dr_register_probes() returns, or 2) call dr_get_probe_status() with
- *  the id of the probe.
- *
- * \remarks
- * To add, remove or update currently registered probes dr_register_probes()
- *  should be called again with a new set of probe definitions.  The new list
- *  of probes completely replaces the existing probes.  That is, existing
- *  probes not specified in the new list are removed from the process.
- *
- * \remarks
- * The probe insertion address has limitations.  5 bytes beginning at the start
- *  of a probe insertion address should have specific characteristics.  No
- *  instruction should straddle this start of this region, i.e., the probe
- *  insertion address should be the beginning of an instruction.  Also, no flow
- *  of control should jump into the middle of this 5 byte region beginning at
- *  the probe insertion address.  Further, there should be no int instructions
- *  in this region.  call and jump instructions are allowed in this region as
- *  long as they don't terminate before the end of the region, i.e., no other
- *  instruction should start after them in this region (as it will allow
- *  control flow to return to the middle of this region).  If these rules are
- *  not adhered to the results are be unspecified; may result in process crash.
- *  The above mentioned restrictions hold only when using \ref API_probe not
- *  when using API_BT or both simultaneously.
- *
- * \remarks
- * If only the \ref API_probe is used 5 bytes starting at the probe insertion
- *  address will be modified.  If the process will read this memory then the
- *  probe should be moved to another location or removed to avoid unknown
- *  changes in process behavior.  If the client will read this memory, then it
- *  has to do so before requesting probe insertion.
- *
- * \see dr_get_probe_status().
- */
-void
-dr_register_probes(dr_probe_desc_t *probes, unsigned int num_probes);
-
-DR_API
-/** Used to get the current status of a probe.
- *
- * \param[in]   id  Unique identifier of the probe for which status is desired.
- *
- * \param[out]  status  Pointer to user allocated data of type dr_probe_status_t
- *                      in which the status of the probe specified by id is
- *                      returned.  If id matches and status isn't NULL, the
- *                      status for the matching probe is returned.  If id
- *                      doesn't match or if status is NULL, nothing is
- *                      returned in status.
- *
- * \return      If id matches and status is copied successfully, 1 is returned,
- *              else 0 is returned.
- */
-int
-dr_get_probe_status(unsigned int id, dr_probe_status_t *status);
-/* DR_API EXPORT END */
 
 /* Both dr_{insert,update}_probes() will be replaced by dr_register_probes() -
  * PR 225547.  The user will call the same routine to insert or update probes.
@@ -6167,7 +5899,7 @@ dr_register_probes(dr_probe_desc_t *probes, unsigned int num_probes)
         /* Precedence hasn't been implemented yet, however, if it had been,
          * then we don't want gbop hooks to interfere with client probes.
          */
-#        define HOTP_PROBE_PRECEDENCE (HOTP_ONLY_GBOP_PRECEDENCE - 1)
+#    define HOTP_PROBE_PRECEDENCE (HOTP_ONLY_GBOP_PRECEDENCE - 1)
         ppoint->precedence = HOTP_PROBE_PRECEDENCE;
 
         /* id generation should be the last step because parsing of a
@@ -6311,8 +6043,7 @@ dr_get_probe_status(unsigned int id, dr_probe_status_t *status)
     d_r_read_unlock(&hotp_vul_table_lock);
     return res;
 }
-#    endif /* CLIENT_INTERFACE */
-#endif     /* HOT_PATCHING_INTERFACE */
+#endif /* HOT_PATCHING_INTERFACE */
 
 /* Got hotp_read_policy_defs() working, so this can be used for testing now. */
 #ifdef HOT_PATCHING_INTERFACE_UNIT_TESTS

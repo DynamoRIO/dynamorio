@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -36,7 +36,7 @@
 
 #include "../globals.h"
 #include "../module_shared.h"
-#include "os_private.h"
+#include "drlibc_unix.h"
 #include "module_private.h"
 #include "../utils.h"
 #include "instrument.h"
@@ -95,7 +95,6 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * file (e.g., .o file) we don't want to treat as a module
          */
         (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)) {
-#ifdef CLIENT_INTERFACE
         /* i#157, we do more check to make sure we load the right modules,
          * i.e. 32/64-bit libraries.
          * We check again in privload_map_and_relocate() in loader for nice
@@ -104,15 +103,23 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * standalone mode tools like those using drsyms (i#1532) or
          * dr_map_executable_file, but we just don't support that yet until we
          * remove our hardcoded type defines in module_elf.h.
+         *
+         * i#1684: We do allow mixing arches of the same bitwidth to better support
+         * drdecode tools.  We have no standalone_library var access here to limit
+         * this relaxation to tools; we assume DR managed code will hit other
+         * problems later for the wrong arch and that recognizing an other-arch
+         * file as an ELF won't cause problems.
          */
         if ((elf_header.e_version != 1) ||
             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
             (memory &&
-             elf_header.e_machine !=
-                 IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                             IF_X64_ELSE(EM_AARCH64, EM_ARM))))
-            return false;
+#ifdef X64
+             elf_header.e_machine != EM_X86_64 && elf_header.e_machine != EM_AARCH64
+#else
+             elf_header.e_machine != EM_386 && elf_header.e_machine != EM_ARM
 #endif
+             ))
+            return false;
         /* FIXME - should we add any of these to the check? For real
          * modules all of these should hold. */
         ASSERT_CURIOSITY(elf_header.e_version == 1);
@@ -120,9 +127,13 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
                          elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
         ASSERT_CURIOSITY(!memory ||
-                         elf_header.e_machine ==
-                             IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386),
-                                         IF_X64_ELSE(EM_AARCH64, EM_ARM)));
+#ifdef X64
+                         elf_header.e_machine == EM_X86_64 ||
+                         elf_header.e_machine == EM_AARCH64
+#else
+                         elf_header.e_machine == EM_386 || elf_header.e_machine == EM_ARM
+#endif
+        );
         return true;
     }
     return false;
@@ -175,6 +186,12 @@ module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
                                         i * sizeof(ELF_PROGRAM_HEADER_TYPE));
         if (prog_hdr->p_type == PT_LOAD) {
             /* ELF requires p_vaddr to already be aligned to p_align */
+            /* XXX i#4737: Our PAGE_SIZE may not match the size on a cross-arch file
+             * that was loaded on another machine.  We're also ignoring
+             * prog_hdr->p_align here as it is actually complex to use: some loaders
+             * (notably some kernels) seem to ignore it.  These corner cases are left
+             * as unsolved for now.
+             */
             min_vaddr =
                 MIN(min_vaddr, (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE));
             if (min_vaddr == (app_pc)prog_hdr->p_vaddr)
@@ -359,7 +376,8 @@ elf_loader_read_headers(elf_loader_t *elf, const char *filename)
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                      unmap_fn_t unmap_func, prot_fn_t prot_func,
-                     check_bounds_fn_t check_bounds_func, modload_flags_t flags)
+                     check_bounds_fn_t check_bounds_func, memset_fn_t memset_func,
+                     modload_flags_t flags)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -394,9 +412,13 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                                 * base, in which case the map can be anywhere
                                 */
                                ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
-                               (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
+                               (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0) |
+                               (TEST(MODLOAD_IS_APP, flags) ? MAP_FILE_APP : 0));
     if (lib_base == NULL)
         return NULL;
+    LOG(GLOBAL, LOG_LOADER, 3,
+        "%s: initial reservation " PFX "-" PFX " vs preferred " PFX "\n", __FUNCTION__,
+        lib_base, lib_base + initial_map_size, map_base);
     if (TEST(MODLOAD_SEPARATE_BSS, flags) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
     else
@@ -425,9 +447,18 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             (ELF_PROGRAM_HEADER_TYPE *)((byte *)elf->phdrs + i * elf_hdr->e_phentsize);
         if (prog_hdr->p_type == PT_LOAD) {
             bool do_mmap = true;
+            /* XXX i#4737: Our PAGE_SIZE may not match the size on a cross-arch file
+             * that was loaded on another machine.  We're also ignoring
+             * prog_hdr->p_align here as it is actually complex to use: some loaders
+             * (notably some kernels) seem to ignore it.  These corner cases are left
+             * as unsolved for now.
+             */
             seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE) + delta;
             seg_end =
                 (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_filesz, PAGE_SIZE) +
+                delta;
+            app_pc mem_end =
+                (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_memsz, PAGE_SIZE) +
                 delta;
             seg_size = seg_end - seg_base;
             if (seg_base != last_end) {
@@ -438,7 +469,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             seg_prot = module_segment_prot_to_osprot(prog_hdr);
             pg_offs = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
             if (TEST(MODLOAD_SKIP_WRITABLE, flags) && TEST(MEMPROT_WRITE, seg_prot) &&
-                seg_end == lib_end) {
+                mem_end == lib_end) {
                 /* We only actually skip if it's the final segment, to allow
                  * unmapping with a single mmap and not worrying about sthg
                  * else having been unmapped at the end in the meantime.
@@ -470,16 +501,11 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                     /* fill zeros at extend size */
                     file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
                     if (seg_end > file_end + delta) {
-                        if (!TEST(MODLOAD_SEPARATE_PROCESS, flags)) {
-                            memset(file_end + delta, 0, seg_end - (file_end + delta));
-                        } else {
-                            /* FIXME i#37: use a remote memset to zero out this gap or
-                             * fix it up in the child.  There is typically one RW
-                             * PT_LOAD segment for .data and .bss.  If .data ends and
-                             * .bss starts before filesz bytes, we need to zero the .bss
-                             * bytes manually.
-                             */
-                        }
+                        /* There is typically one RW PT_LOAD segment for .data and
+                         * .bss.  If .data ends and .bss starts before filesz bytes,
+                         * we need to zero the .bss bytes manually.
+                         */
+                        (*memset_func)(file_end + delta, 0, seg_end - (file_end + delta));
                     }
                 }
             }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
 #include "../fcache.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "instrument.h" /* for dr_insert_call() */
 
@@ -132,21 +132,22 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* x86 doesn't use this approach to linking */
     ASSERT_NOT_REACHED();
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
     /* x86 doesn't use this approach to linking */
     return false;
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     /* x86 doesn't use this approach to linking: nothing to do */
 }
@@ -175,7 +176,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
     /* FIXME : would be better to use a instr_is_cti_long or some such
      * also should check for addr16 flag (we shouldn't have any prefixes) */
     ASSERT((instr_is_cti(inst) && !instr_is_cti_short(inst) &&
-            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN),
+            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN | PREFIX_PRED_MASK),
                      instr_get_prefixes(inst))) ||
            instr_is_cti_short_rewrite(inst, NULL));
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(
@@ -377,11 +378,13 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
         if (instr_is_exit_cti(inst)) {
             /* see if we need to be able to patch this instruction */
             if (is_exit_cti_patchable(dcontext, inst, f->flags)) {
-                /* see if we are crossing a cache line, offset is the start of
-                 * the next instr here so need to see if the dword ending at
-                 * offset crosses a cache line */
+                /* See if we are crossing a cache line.  Offset is the start of
+                 * the current instr.
+                 */
                 uint nop_length =
                     patchable_exit_cti_align_offs(dcontext, inst, starting_pc + offset);
+                LOG(THREAD, LOG_INTERP, 4, "%s: F%d @" PFX " cti shift needed: %d\n",
+                    __FUNCTION__, f->id, starting_pc + offset, nop_length);
                 if (first_patch_offset < 0)
                     first_patch_offset = offset;
                 if (nop_length > 0) {
@@ -409,23 +412,9 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                             instr_shrink_to_32_bits(nop_inst);
                         }
 #endif
-                        /* We expect bbs to never need this if
-                         * -pad_jmps_shift_bb except on UNIX (signal fence exit) and
-                         * CLIENT_INTERFACE (client can re-arrange fragment) where we
-                         * -pad_jmps_mark_no_trace.  We rely on having not
-                         * inserted any nops into traceable bbs in interp (so that we
-                         * don't have to remove them when we build the trace).
-                         * FIXME add tracing support so we don't have to mark
-                         * CANNOT_BE_TRACE (see PR 215179). */
-                        if (emitting && DYNAMO_OPTION(pad_jmps_mark_no_trace) &&
-                            !TEST(FRAG_IS_TRACE, f->flags)) {
-                            f->flags |= FRAG_CANNOT_BE_TRACE;
-                            STATS_INC(pad_jmps_mark_no_trace);
-                        } else {
-                            ASSERT(TEST(FRAG_IS_TRACE, f->flags) ||
-                                   TEST(FRAG_CANNOT_BE_TRACE, f->flags) ||
-                                   !INTERNAL_OPTION(pad_jmps_shift_bb));
-                        }
+                        LOG(THREAD, LOG_INTERP, 4,
+                            "Marking exit branch as having nop padding\n");
+                        instr_branch_set_padded(inst, true);
                         instrlist_preinsert(ilist, inst, nop_inst);
                         /* sanity check */
                         ASSERT((int)nop_length == instr_length(dcontext, nop_inst));
@@ -457,9 +446,6 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
             instr_set_note(inst, (void *)(ptr_uint_t)offset); /* used by instr_encode */
         offset += instr_length(dcontext, inst);
     }
-#ifdef CUSTOM_EXIT_STUBS
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
     return start_shift;
 }
 
@@ -769,18 +755,11 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
      * state (we do have multi-stage modifications for inlined stubs)
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#endif
 
     if (DYNAMO_OPTION(indirect_stubs)) {
         /* go to start of 5-byte jump instruction at end of exit stub */
         stub_size = exit_stub_size(dcontext, target_tag, f->flags);
-#ifdef CUSTOM_EXIT_STUBS
-        pc = fixed_stub_pc + stub_size - 5;
-#else
         pc = stub_pc + stub_size - 5;
-#endif
     } else {
         /* cti goes straight to ibl, and must be a jmp, not jcc,
          * except for -unsafe_ignore_eflags_trace stay-on-trace cmp,jne
@@ -878,11 +857,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * on the cti targets, we must calculate them at a consistent
      * state (we do have multi-stage modifications for inlined stubs)
      */
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#else
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#endif
     ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
@@ -913,11 +888,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         if (DYNAMO_OPTION(indirect_stubs)) {
             /* go to start of 5-byte jump instruction at end of exit stub */
             stub_size = exit_stub_size(dcontext, target_tag, f->flags);
-#ifdef CUSTOM_EXIT_STUBS
-            pc = fixed_stub_pc + stub_size - 5;
-#else
             pc = stub_pc + stub_size - 5;
-#endif
         } else {
             /* cti goes straight to ibl, and must be a jmp, not jcc */
             pc = EXIT_CTI_PC(f, l);
@@ -949,13 +920,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 #endif
         /* need to make branch target the unlink entry point inside exit stub */
         if (ibl_code->ibl_head_is_inlined) {
-#ifdef CUSTOM_EXIT_STUBS
-            /* FIXME: now custom code will be skipped!!! */
-            cache_pc target = fixed_stub_pc;
-#else
-        cache_pc target = stub_pc;
-#endif
-
+            cache_pc target = stub_pc;
             /* now add offset of unlinked entry */
             target += ibl_code->inline_unlink_offs;
             patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), target,
@@ -1177,7 +1142,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
         ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc)pc) - f->start_pc);
         f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
     } else {
-#ifdef CLIENT_INTERFACE
         if (dynamo_options.bb_prefixes) {
             pc = insert_restore_register(dcontext, f, pc, REG_XCX);
 
@@ -1185,7 +1149,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
             ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc)pc) - f->start_pc);
             f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
         } /* else, no prefix */
-#endif
     }
     /* make sure emitted size matches size we requested */
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));

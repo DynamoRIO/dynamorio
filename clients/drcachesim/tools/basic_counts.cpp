@@ -47,14 +47,14 @@ basic_counts_tool_create(unsigned int verbose)
 }
 
 basic_counts_t::basic_counts_t(unsigned int verbose)
-    : knob_verbose(verbose)
+    : knob_verbose_(verbose)
 {
     // Empty.
 }
 
 basic_counts_t::~basic_counts_t()
 {
-    for (auto &iter : shard_map) {
+    for (auto &iter : shard_map_) {
         delete iter.second;
     }
 }
@@ -69,8 +69,8 @@ void *
 basic_counts_t::parallel_shard_init(int shard_index, void *worker_data)
 {
     auto counters = new counters_t;
-    std::lock_guard<std::mutex> guard(shard_map_mutex);
-    shard_map[shard_index] = counters;
+    std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard_map_[shard_index] = counters;
     return reinterpret_cast<void *>(counters);
 }
 
@@ -94,6 +94,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     counters_t *counters = reinterpret_cast<counters_t *>(shard_data);
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
+        counters->unique_pc_addrs.insert(memref.instr.addr);
     } else if (memref.data.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
     } else if (type_is_prefetch(memref.data.type)) {
@@ -120,6 +121,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
     } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
         counters->tid = memref.exit.tid;
+    } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
+        counters->icache_flushes++;
+    } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {
+        counters->dcache_flushes++;
     }
     return true;
 }
@@ -128,14 +133,14 @@ bool
 basic_counts_t::process_memref(const memref_t &memref)
 {
     counters_t *counters;
-    const auto &lookup = shard_map.find(memref.data.tid);
-    if (lookup == shard_map.end()) {
+    const auto &lookup = shard_map_.find(memref.data.tid);
+    if (lookup == shard_map_.end()) {
         counters = new counters_t;
-        shard_map[memref.data.tid] = counters;
+        shard_map_[memref.data.tid] = counters;
     } else
         counters = lookup->second;
     if (!parallel_shard_memref(reinterpret_cast<void *>(counters), memref)) {
-        error_string = counters->error;
+        error_string_ = counters->error;
         return false;
     }
     return true;
@@ -152,18 +157,22 @@ bool
 basic_counts_t::print_results()
 {
     counters_t total;
-    for (const auto &shard : shard_map) {
+    for (const auto &shard : shard_map_) {
         total += *shard.second;
     }
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
     std::cerr << std::setw(12) << total.instrs << " total (fetched) instructions\n";
+    std::cerr << std::setw(12) << total.unique_pc_addrs.size()
+              << " total unique (fetched) instructions\n";
     std::cerr << std::setw(12) << total.instrs_nofetch
               << " total non-fetched instructions\n";
     std::cerr << std::setw(12) << total.prefetches << " total prefetches\n";
     std::cerr << std::setw(12) << total.loads << " total data loads\n";
     std::cerr << std::setw(12) << total.stores << " total data stores\n";
-    std::cerr << std::setw(12) << shard_map.size() << " total threads\n";
+    std::cerr << std::setw(12) << total.icache_flushes << " total icache flushes\n";
+    std::cerr << std::setw(12) << total.dcache_flushes << " total dcache flushes\n";
+    std::cerr << std::setw(12) << shard_map_.size() << " total threads\n";
     std::cerr << std::setw(12) << total.sched_markers << " total scheduling markers\n";
     std::cerr << std::setw(12) << total.xfer_markers << " total transfer markers\n";
     std::cerr << std::setw(12) << total.func_id_markers << " total function id markers\n";
@@ -176,18 +185,24 @@ basic_counts_t::print_results()
     std::cerr << std::setw(12) << total.other_markers << " total other markers\n";
 
     // Print the threads sorted by instrs.
-    std::vector<std::pair<memref_tid_t, counters_t *>> sorted(shard_map.begin(),
-                                                              shard_map.end());
+    std::vector<std::pair<memref_tid_t, counters_t *>> sorted(shard_map_.begin(),
+                                                              shard_map_.end());
     std::sort(sorted.begin(), sorted.end(), cmp_counters);
     for (const auto &keyvals : sorted) {
         std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
         std::cerr << std::setw(12) << keyvals.second->instrs
                   << " (fetched) instructions\n";
+        std::cerr << std::setw(12) << keyvals.second->unique_pc_addrs.size()
+                  << " unique (fetched) instructions\n";
         std::cerr << std::setw(12) << keyvals.second->instrs_nofetch
                   << " non-fetched instructions\n";
         std::cerr << std::setw(12) << keyvals.second->prefetches << " prefetches\n";
         std::cerr << std::setw(12) << keyvals.second->loads << " data loads\n";
         std::cerr << std::setw(12) << keyvals.second->stores << " data stores\n";
+        std::cerr << std::setw(12) << keyvals.second->icache_flushes
+                  << " icache flushes\n";
+        std::cerr << std::setw(12) << keyvals.second->dcache_flushes
+                  << " dcache flushes\n";
         std::cerr << std::setw(12) << keyvals.second->sched_markers
                   << " scheduling markers\n";
         std::cerr << std::setw(12) << keyvals.second->xfer_markers

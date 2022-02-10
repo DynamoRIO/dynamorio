@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,90 +31,12 @@
  * DAMAGE.
  */
 
-#ifndef MODULE_LIST_H
-#define MODULE_LIST_H
+#ifndef MODULE_SHARED_H
+#define MODULE_SHARED_H
 
 #include "heap.h" /* for HEAPACCT */
-
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * MODULE INFORMATION TYPES
- */
-
-/**
- * Type used for dr_get_proc_address().  This can be obtained from the
- * #_module_data_t structure.  It is equivalent to the base address of
- * the module on both Windows and Linux.
- */
-#ifdef AVOID_API_EXPORT
-/* Rather than using a void * for the module base, we forward declare a struct
- * that we never define.  This prevents usage errors such as passing a
- * module_data_t* to dr_get_proc_address().
- */
-#endif
-struct _module_handle_t;
-typedef struct _module_handle_t *module_handle_t;
-
-#ifdef WINDOWS
-
-#    define MODULE_FILE_VERSION_INVALID ULLONG_MAX
-
-/**
- * Used to hold .rsrc section version number information. This number is usually
- * presented as p1.p2.p3.p4 by PE parsing tools.
- */
-typedef union _version_number_t {
-    uint64 version; /**< Representation as a 64-bit integer. */
-    struct {
-        uint ms;    /**< */
-        uint ls;    /**< */
-    } version_uint; /**< Representation as 2 32-bit integers. */
-    struct {
-        ushort p2;   /**< */
-        ushort p1;   /**< */
-        ushort p4;   /**< */
-        ushort p3;   /**< */
-    } version_parts; /**< Representation as 4 16-bit integers. */
-} version_number_t;
-
-#endif
-
-/* DR_API EXPORT END */
-
+#include "module_api.h"
 #include "module.h" /* include os_specific header */
-
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-
-/**
- * Holds the names of a module.  This structure contains multiple
- * fields corresponding to different sources of a module name.  Note
- * that some of these names may not exist for certain modules.  It is
- * highly likely, however, that at least one name is available.  Use
- * dr_module_preferred_name() on the parent _module_data_t to get the
- * preferred name of the module.
- */
-typedef struct _module_names_t {
-    const char *module_name; /**< On windows this name comes from the PE header exports
-                              * section (NULL if the module has no exports section).  On
-                              * Linux the name will come from the ELF DYNAMIC program
-                              * header (NULL if the module has no SONAME entry). */
-    const char *file_name; /**< The file name used to load this module. Note - on Windows
-                            * this is not always available. */
-#ifdef WINDOWS
-    const char *exe_name;  /**< If this module is the main executable of this process then
-                            * this is the executable name used to launch the process (NULL
-                            * for all other modules). */
-    const char *rsrc_name; /**< The internal name given to the module in its resource
-                            * section. Will be NULL if the module has no resource section
-                            * or doesn't set this field within it. */
-#else                      /* UNIX */
-    uint64 inode; /**< The inode of the module file mapped in. */
-#endif
-} module_names_t;
-
-/* DR_API EXPORT END */
 
 #ifdef WINDOWS
 /* Introduced as part of case 9842; see module_names_t above.  Shouldn't
@@ -203,11 +125,9 @@ enum {
     /* do not created a persistent cache from this module */
     MODULE_DO_NOT_PERSIST = 0x00000040,
 #endif
-#ifdef CLIENT_INTERFACE
     MODULE_NULL_INSTRUMENT = 0x00000080,
     /* we use this to send just one module load event on 1st exec (i#884) */
     MODULE_LOAD_EVENT = 0x00000100,
-#endif
 };
 
 /**************** init/exit routines *****************/
@@ -368,15 +288,13 @@ get_proc_address_ex(module_base_t lib, const char *name, const char **forwarder 
 generic_func_t
 get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwarder OUT);
 
-#    ifdef CLIENT_INTERFACE
 generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name);
-#    endif
 
 #endif /* WINDOWS */
 
 #ifdef WINDOWS
-void *
+uint64
 get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code);
 #endif
 
@@ -464,7 +382,7 @@ typedef struct {
 void
 module_calculate_digest(/*OUT*/ module_digest_t *digest, app_pc module_base,
                         size_t module_size, bool full_digest, bool short_digest,
-                        uint short_digest_size, uint sec_char_include,
+                        size_t short_digest_size, uint sec_char_include,
                         uint sec_char_exclude);
 
 /* actually in utils.c since os-independent */
@@ -492,9 +410,9 @@ typedef struct _privmod_t {
     char path[MAXIMUM_PATH];
     uint ref_count;
     bool externally_loaded;
-#ifdef CLIENT_INTERFACE
     bool is_client; /* or Extension */
-#endif
+    bool called_proc_entry;
+    bool called_proc_exit;
     struct _privmod_t *next;
     struct _privmod_t *prev;
     void *os_privmod_data;
@@ -542,6 +460,10 @@ typedef enum {
     MODLOAD_SEPARATE_BSS = 0x0008,
     /* Indicates that the module is being loaded in another process. */
     MODLOAD_SEPARATE_PROCESS = 0x0010,
+    /* For use with elf_loader_map_phdrs().  Avoids MAP_32BIT and other DR-mem-only
+     * distortions for app mappings (e.g., early inject mapping the interpreter).
+     */
+    MODLOAD_IS_APP = 0x0020,
 } modload_flags_t;
 
 /* This function is used for loading non-private libs as well as private. */
@@ -595,7 +517,7 @@ void
 privload_os_finalize(privmod_t *privmod_t);
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason);
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason);
 
 bool
 privload_process_imports(privmod_t *mod);
@@ -636,7 +558,7 @@ os_loader_init_prologue(void);
  * will release privload_lock.
  */
 void
-os_loader_init_epilogue(void);
+os_loader_init_epilogue();
 
 void
 os_loader_exit(void);
@@ -670,4 +592,51 @@ bool
 privload_attach_parent_console(app_pc app_kernel32);
 #endif
 
-#endif /* MODULE_LIST_H */
+/* Redirected functions for loaded module,
+ * they are also used by __wrap_* functions in instrument.c
+ */
+
+#ifdef DEBUG
+/* i#975: used for debug checks for static-link-ready clients. */
+#    define DR_DISALLOW_UNSAFE_STATIC_NAME "_DR_DISALLOW_UNSAFE_STATIC_"
+extern bool disallow_unsafe_static_calls;
+#endif
+
+/* For all heap allocation redirection routines:
+ * The returned address is guaranteed to be double-pointer-aligned:
+ * aligned to 16 bytes for 64-bit; aligned to 8 bytes for 32-bit.
+ */
+#define STANDARD_HEAP_ALIGNMENT IF_X64_ELSE(16, 8)
+
+void *
+redirect_calloc(size_t nmemb, size_t size);
+
+void *
+redirect_malloc(size_t size);
+
+void
+redirect_free(void *mem);
+
+void *
+redirect_realloc(void *mem, size_t size);
+
+char *
+redirect_strdup(const char *str);
+
+size_t
+redirect_malloc_requested_size(void *mem);
+
+#ifdef DEBUG
+void *
+redirect_malloc_initonly(size_t size);
+void *
+redirect_realloc_initonly(void *mem, size_t size);
+void *
+redirect_calloc_initonly(size_t nmemb, size_t size);
+void
+redirect_free_initonly(void *mem);
+char *
+redirect_strdup_initonly(const char *str);
+#endif
+
+#endif /* MODULE_SHARED_H */

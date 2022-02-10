@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@ XOPCODE(x_and, and, and_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(sub, sub, sub, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub_s, sub, sub_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub, lea, sub, 0, REGARG(XAX), IMMARG(OPSZ_4))
-OPCODE (xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
+OPCODE(xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(arpl, arpl, arpl, X86_ONLY, MEMARG(OPSZ_2), REGARG(AX))
 OPCODE(lea, lea, lea, 0, REGARG(EAX), MEMARG(OPSZ_lea))
 OPCODE(mov_ld, mov_ld, mov_ld, 0, REGARG(EAX), MEMARG(OPSZ_4))
@@ -141,11 +141,11 @@ OPCODE(cvttps2pi, cvttps2pi, cvttps2pi, 0, REGARG(MM0), MEMARG(OPSZ_16))
 OPCODE(cvttss2si, cvttss2si, cvttss2si, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(cvttpd2pi, cvttpd2pi, cvttpd2pi, 0, REGARG(MM0), MEMARG(OPSZ_16))
 OPCODE(cvttsd2si, cvttsd2si, cvttsd2si, 0, REGARG(EAX), MEMARG(OPSZ_8))
-OPCODE(cvtps2pi, cvtps2pi, cvtps2pi, 0, REGARG(MM0), MEMARG(OPSZ_16))
+OPCODE(cvtps2pi, cvtps2pi, cvtps2pi, 0, REGARG(MM0), MEMARG(OPSZ_8))
 OPCODE(cvtss2si, cvtss2si, cvtss2si, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(cvtpd2pi, cvtpd2pi, cvtpd2pi, 0, REGARG(MM0), MEMARG(OPSZ_16))
 OPCODE(cvtsd2si, cvtsd2si, cvtsd2si, 0, REGARG(EAX), MEMARG(OPSZ_8))
-OPCODE(cvtps2pd, cvtps2pd, cvtps2pd, 0, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(cvtps2pd, cvtps2pd, cvtps2pd, 0, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(cvtss2sd, cvtss2sd, cvtss2sd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_4))
 OPCODE(cvtpd2ps, cvtpd2ps, cvtpd2ps, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(cvtsd2ss, cvtsd2ss, cvtsd2ss, 0, REGARG_PARTIAL(XMM0, OPSZ_4), MEMARG(OPSZ_8))

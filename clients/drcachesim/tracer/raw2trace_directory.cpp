@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,7 @@
 #    include <windows.h>
 #endif
 #ifdef HAS_ZLIB
+#    include "common/gzip_istream.h"
 #    include "common/gzip_ostream.h"
 #endif
 
@@ -74,7 +75,7 @@
 
 #define VPRINT(level, ...)                     \
     do {                                       \
-        if (this->verbosity >= (level)) {      \
+        if (this->verbosity_ >= (level)) {     \
             fprintf(stderr, "[drmemtrace]: "); \
             fprintf(stderr, __VA_ARGS__);      \
         }                                      \
@@ -83,14 +84,17 @@
 std::string
 raw2trace_directory_t::open_thread_files()
 {
-    VPRINT(1, "Iterating dir %s\n", indir.c_str());
+    VPRINT(1, "Iterating dir %s\n", indir_.c_str());
     directory_iterator_t end;
-    directory_iterator_t iter(indir);
+    directory_iterator_t iter(indir_);
     if (!iter) {
-        return "Failed to list directory " + indir + ": " + iter.error_string();
+        return "Failed to list directory " + indir_ + ": " + iter.error_string();
     }
-    for (; iter != end; ++iter)
-        open_thread_log_file((*iter).c_str());
+    for (; iter != end; ++iter) {
+        std::string error = open_thread_log_file((*iter).c_str());
+        if (!error.empty())
+            return error;
+    }
     return "";
 }
 
@@ -100,24 +104,43 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     char path[MAXIMUM_PATH];
     CHECK(basename[0] != '/', "dir iterator entry %s should not be an absolute path\n",
           basename);
-    // Skip the module list log.
-    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0)
+    // Skip the auxiliary files.
+    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0 ||
+        strcmp(basename, DRMEMTRACE_FUNCTION_LIST_FILENAME) == 0)
         return "";
     // Skip any non-.raw in case someone put some other file in there.
-    const char *basename_pre_suffix = strrchr(basename, '.');
-    if (basename_pre_suffix != nullptr)
-        basename_pre_suffix = strstr(basename_pre_suffix, OUTFILE_SUFFIX);
+    const char *basename_dot = strrchr(basename, '.');
+    if (basename_dot == nullptr)
+        return "";
+    const char *basename_pre_suffix = nullptr;
+    bool is_gzipped = false;
+#ifdef HAS_ZLIB
+    basename_pre_suffix =
+        strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
+    if (basename_pre_suffix != nullptr) {
+        is_gzipped = true;
+    }
+#endif
+    if (basename_pre_suffix == nullptr)
+        basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX);
     if (basename_pre_suffix == nullptr)
         return "";
-    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", indir.c_str(), DIRSEP,
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", indir_.c_str(), DIRSEP,
                     basename) <= 0) {
         return "Failed to get full path of file " + std::string(basename);
     }
     NULL_TERMINATE_BUFFER(path);
-    in_files.push_back(new std::ifstream(path, std::ifstream::binary));
-    if (!(*in_files.back()))
+    std::istream *ifile;
+#ifdef HAS_ZLIB
+    if (is_gzipped)
+        ifile = new gzip_istream_t(path);
+#endif
+    if (!is_gzipped)
+        ifile = new std::ifstream(path, std::ifstream::binary);
+    in_files_.push_back(ifile);
+    if (!(*in_files_.back()))
         return "Failed to open thread log file " + std::string(path);
-    std::string error = raw2trace_t::check_thread_file(in_files.back());
+    std::string error = raw2trace_t::check_thread_file(in_files_.back());
     if (!error.empty()) {
         return "Failed sanity checks for thread log file " + std::string(path) + ": " +
             error;
@@ -130,8 +153,8 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
                     basename_pre_suffix - 1 - basename, basename) <= 0) {
         return "Failed to compute output name for file " + std::string(basename);
     }
-    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s.%s", outdir.c_str(), DIRSEP,
-                    outname, TRACE_SUFFIX) <= 0) {
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s.%s", outdir_.c_str(),
+                    DIRSEP, outname, TRACE_SUFFIX) <= 0) {
         return "Failed to compute full path of output file for " + std::string(basename);
     }
     std::ostream *ofile;
@@ -140,8 +163,8 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
 #else
     ofile = new std::ofstream(path, std::ofstream::binary);
 #endif
-    out_files.push_back(ofile);
-    if (!(*out_files.back()))
+    out_files_.push_back(ofile);
+    if (!(*out_files_.back()))
         return "Failed to open output file " + std::string(path);
     VPRINT(1, "Opened output file %s\n", path);
     return "";
@@ -150,15 +173,15 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
 std::string
 raw2trace_directory_t::read_module_file(const std::string &modfilename)
 {
-    modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
-    if (modfile == INVALID_FILE)
+    modfile_ = dr_open_file(modfilename.c_str(), DR_FILE_READ);
+    if (modfile_ == INVALID_FILE)
         return "Failed to open module file " + modfilename;
     uint64 modfile_size;
-    if (!dr_file_size(modfile, &modfile_size))
+    if (!dr_file_size(modfile_, &modfile_size))
         return "Failed to get module file size: " + modfilename;
     size_t modfile_size_ = (size_t)modfile_size;
-    modfile_bytes = new char[modfile_size_];
-    if (dr_read_file(modfile, modfile_bytes, modfile_size_) < (ssize_t)modfile_size_)
+    modfile_bytes_ = new char[modfile_size_];
+    if (dr_read_file(modfile_, modfile_bytes_, modfile_size_) < (ssize_t)modfile_size_)
         return "Didn't read whole module file " + modfilename;
     return "";
 }
@@ -201,40 +224,40 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
 }
 
 std::string
-raw2trace_directory_t::initialize(const std::string &indir_in,
-                                  const std::string &outdir_in)
+raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir)
 {
-    indir = indir_in;
-    outdir = outdir_in;
+    indir_ = indir;
+    outdir_ = outdir;
 #ifdef WINDOWS
     // Canonicalize.
-    std::replace(indir.begin(), indir.end(), ALT_DIRSEP[0], DIRSEP[0]);
+    std::replace(indir_.begin(), indir_.end(), ALT_DIRSEP[0], DIRSEP[0]);
 #endif
     // Remove trailing slashes.
-    while (indir.back() == DIRSEP[0])
-        indir.pop_back();
-    if (!directory_iterator_t::is_directory(indir))
-        return "Directory does not exist: " + indir;
+    while (indir_.back() == DIRSEP[0])
+        indir_.pop_back();
+    if (!directory_iterator_t::is_directory(indir_))
+        return "Directory does not exist: " + indir_;
     // Support passing both base dir and raw/ subdir.
-    if (indir.rfind(OUTFILE_SUBDIR) == std::string::npos ||
-        indir.rfind(OUTFILE_SUBDIR) < indir.size() - strlen(OUTFILE_SUBDIR)) {
-        indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
+    if (indir_.rfind(OUTFILE_SUBDIR) == std::string::npos ||
+        indir_.rfind(OUTFILE_SUBDIR) < indir_.size() - strlen(OUTFILE_SUBDIR)) {
+        indir_ += std::string(DIRSEP) + OUTFILE_SUBDIR;
     }
-    // Support a default outdir.
-    if (outdir.empty()) {
-        outdir = tracedir_from_rawdir(indir);
-        if (!directory_iterator_t::is_directory(outdir)) {
-            if (!directory_iterator_t::create_directory(outdir)) {
-                return "Failed to create output dir " + outdir;
+    // Support a default outdir_.
+    if (outdir_.empty()) {
+        outdir_ = tracedir_from_rawdir(indir_);
+        if (!directory_iterator_t::is_directory(outdir_)) {
+            if (!directory_iterator_t::create_directory(outdir_)) {
+                return "Failed to create output dir " + outdir_;
             }
         }
     }
     std::string modfilename =
-        indir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
-    read_module_file(modfilename);
+        indir_ + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
+    std::string err = read_module_file(modfilename);
+    if (!err.empty())
+        return err;
 
-    open_thread_files();
-    return "";
+    return open_thread_files();
 }
 
 std::string
@@ -243,18 +266,41 @@ raw2trace_directory_t::initialize_module_file(const std::string &module_file_pat
     return read_module_file(module_file_path);
 }
 
+std::string
+raw2trace_directory_t::initialize_funclist_file(
+    const std::string &funclist_file_path,
+    OUT std::vector<std::vector<std::string>> *entries)
+{
+    std::ifstream stream(funclist_file_path);
+    if (!stream.good())
+        return "Failed to open " + funclist_file_path;
+    std::string line;
+    while (std::getline(stream, line)) {
+        std::vector<std::string> fields;
+        size_t comma;
+        do {
+            comma = line.find(',');
+            fields.push_back(line.substr(0, comma));
+            line.erase(0, comma + 1);
+        } while (comma != std::string::npos);
+        entries->push_back(fields);
+    }
+    return "";
+}
+
 raw2trace_directory_t::~raw2trace_directory_t()
 {
-    if (modfile_bytes != nullptr)
-        delete[] modfile_bytes;
-    if (modfile != INVALID_FILE)
-        dr_close_file(modfile);
-    for (std::vector<std::istream *>::iterator fi = in_files.begin();
-         fi != in_files.end(); ++fi) {
+    if (modfile_bytes_ != nullptr)
+        delete[] modfile_bytes_;
+    if (modfile_ != INVALID_FILE)
+        dr_close_file(modfile_);
+    for (std::vector<std::istream *>::iterator fi = in_files_.begin();
+         fi != in_files_.end(); ++fi) {
         delete *fi;
     }
-    for (std::vector<std::ostream *>::iterator fo = out_files.begin();
-         fo != out_files.end(); ++fo) {
+    for (std::vector<std::ostream *>::iterator fo = out_files_.begin();
+         fo != out_files_.end(); ++fo) {
         delete *fo;
     }
+    dr_standalone_exit();
 }

@@ -77,7 +77,8 @@ setup(void)
         fail("timer_create");
 }
 
-static int try
+static int
+try
     (uint64_t time)
     {
         struct itimerspec spec = { { 0, 0 },
@@ -111,7 +112,8 @@ main()
 #if VERBOSE
         print("%8d %llu\n", i, (unsigned long long)time);
 #endif
-        int r = try
+        int r =
+        try
             (time);
         ++counts[r];
 
