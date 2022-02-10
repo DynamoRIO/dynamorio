@@ -2472,7 +2472,10 @@ options_exit()
 void
 options_detach()
 {
+    /* We do not use options_make_writable() as locks are already gone at this point. */
+    SELF_UNPROTECT_OPTIONS();
     dynamo_options = default_options;
+    /* Not worth bothering to re-protect. */
 }
 
 /* this function returns holding the options lock */
