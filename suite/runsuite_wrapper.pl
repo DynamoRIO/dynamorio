@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright () 2016-2021 Google, Inc.  All rights reserved.
+# Copyright () 2016-2022 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -222,6 +222,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.cbr4' => 1, # i#4792
                 'code_api|win32.hookerfirst' => 1, # i#4870
                 'code_api|client.attach_test' => 1, # i#725
+                'code_api|client.winxfer' => 1, # i#4732
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972
@@ -301,7 +302,12 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # These are important tests so we only ignore in the long suite,
                 # in an attempt to still detect fails-every-time breakage until we
                 # can reproduce and fix these failures while keeping merges green.
-                $ignore_failures_64{'code_api|tool.drcachesim.simple-config-file'} = 1; # i#1807
+                $ignore_failures_32{'code_api|tool.drcachesim.invariants'} = 1; # i#3320
+                $ignore_failures_32{'code_api|tool.drcachesim.threads-with-config-file'} = 1; # i#3320
+                $ignore_failures_32{'code_api|tool.drcachesim.simple-config-file'} = 1; # i#3320
+                $ignore_failures_64{'code_api|tool.drcachesim.invariants'} = 1; # i#3320
+                $ignore_failures_64{'code_api|tool.drcachesim.threads-with-config-file'} = 1; # i#3320
+                $ignore_failures_64{'code_api|tool.drcachesim.simple-config-file'} = 1; # i#3320
             }
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
@@ -360,6 +366,11 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 'code_api,opt_speed|common.fib' => 1, # i#1807: Undiagnosed timeout.
                 'prof_pcs|common.nativeexec_exe_opt' => 1, # i#2052
+                'prof_pcs|common.nativeexec_retakeover_opt' => 1, # i#2052
+                'prof_pcs|common.nativeexec_bindnow_opt' => 1, # i#2052
+                'prof_pcs,thread_private|common.nativeexec_exe_opt' => 1, # i#2052
+                'prof_pcs,thread_private|common.nativeexec_retakeover_opt' => 1, # i#2052
+                'prof_pcs,thread_private|common.nativeexec_bindnow_opt' => 1, # i#2052
                 );
             %ignore_failures_64 = (
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
@@ -372,6 +383,12 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'common.nativeexec_exe' => 1, # i#5010 Ignored for all options.
                 'common.nativeexec_bindnow' => 1, # i#5010 Ignored for all options.
                 'code_api,opt_speed|common.floatpc_xl8all' => 1, # i#1807
+                'prof_pcs|common.nativeexec_exe_opt' => 1, # i#2052
+                'prof_pcs|common.nativeexec_retakeover_opt' => 1, # i#2052
+                'prof_pcs|common.nativeexec_bindnow_opt' => 1, # i#2052
+                'prof_pcs,thread_private|common.nativeexec_exe_opt' => 1, # i#2052
+                'prof_pcs,thread_private|common.nativeexec_retakeover_opt' => 1, # i#2052
+                'prof_pcs,thread_private|common.nativeexec_bindnow_opt' => 1, # i#2052
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,
@@ -380,6 +397,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 $ignore_failures_32{'code_api|api.startstop'} = 1; # i#4604
                 $ignore_failures_64{'code_api|api.detach_state'} = 1; # i#5123
                 $ignore_failures_64{'code_api|client.cleancallsig'} = 1; # i#1807
+                $ignore_failures_64{'code_api|client.drx_buf-test'} = 1; # i#2657
             }
             $issue_no = "#2941";
         }

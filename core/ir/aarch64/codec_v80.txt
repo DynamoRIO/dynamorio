@@ -248,8 +248,8 @@ x1011010100xxxxxxxxx01xxxxxxxxxx  r   81        csneg            wx0 : wx5 wx16 
 01011110000xxxxx000001xxxxxxxxxx  n   88          dup            dq0 : dq5 imm5
 00001110000xxxxx000001xxxxxxxxxx  n   88          dup             d0 : d5 imm5
 01001110000xxxxx000001xxxxxxxxxx  n   88          dup             q0 : q5 imm5
-00001110000xxxxx000011xxxxxxxxxx  n   88          dup             d0 : w5 imm5
-01001110000xxxxx000011xxxxxxxxxx  n   88          dup             q0 : x5 imm5
+00001110000xxxxx000011xxxxxxxxxx  n   88          dup             d0 : wx5_imm5 bhs_imm5_sz_s
+01001110000xxxxx000011xxxxxxxxxx  n   88          dup             q0 : wx5_imm5 bhsd_imm5_sz_s
 x1001010xx1xxxxxxxxxxxxxxxxxxxxx  n   89          eon            wx0 : wx5 wx16 shift4 imm6
 x10100100xxxxxxxxxxxxxxxxxxxxxxx  n   90          eor      logic_imm
 x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90          eor            wx0 : wx5 wx16 shift4 imm6
@@ -428,7 +428,7 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126      fcvtzu            wx0 : d5 scale
 00011110011xxxxxxxx10000000xxxxx  n   147        fmov             d0 : fpimm13
 0001111000100111000000xxxxxxxxxx  n   147        fmov             s0 : w5
 1001111001100111000000xxxxxxxxxx  n   147        fmov             d0 : x5
-1001111010101111000000xxxxxxxxxx  n   147        fmov             q0 : x5 # only sets the bit top half of q0
+1001111010101111000000xxxxxxxxxx  n   147        fmov   q0 vindex_D1 : x5 d_const_sz
 0001111000100110000000xxxxxxxxxx  n   147        fmov             w0 : s5
 1001111001100110000000xxxxxxxxxx  n   147        fmov             x0 : d5
 00011110xx100000010000xxxxxxxxxx  n   147        fmov     float_reg0 : float_reg5
@@ -490,7 +490,7 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126      fcvtzu            wx0 : d5 scale
 11010101000010000111000100011111  n   577  ic_ialluis                :
 110101010000101101110101001xxxxx  n   578     ic_ivau                : memx0
 01101110000xxxxx0xxxx1xxxxxxxxxx  n   171         ins        q0 imm5 : q5 imm4idx
-01001110000xxxxx000111xxxxxxxxxx  n   171         ins        q0 imm5 : wx5_imm5
+01001110000xxxxx000111xxxxxxxxxx  n   171         ins    q0 imm5_idx : wx5_imm5 bhsd_imm5_sz
 11010101000000110011xxxx11011111  n   172         isb                : imm4
 0x001100010000000010xxxxxxxxxxxx  n   173         ld1  vt0 vt1 vt2 vt3 : memvm vmsz
 0x001100010000000110xxxxxxxxxxxx  n   173         ld1    vt0 vt1 vt2 : memvm vmsz
@@ -933,8 +933,8 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363        sdiv            wx0 : wx5 wx16
 01001110xx1xxxxx101000xxxxxxxxxx  n   396      smlsl2             q0 : q5 q16 bhs_sz
 0100111110xxxxxx0110x0xxxxxxxxxx  n   396      smlsl2             q0 : dq5 dq16 vindex_SD sd_sz
 0100111101xxxxxx0110x0xxxxxxxxxx  n   396      smlsl2             q0 : dq5 dq16_h_sz vindex_H h_sz
-00001110000xxxxx001011xxxxxxxxxx  n   397        smov             w0 : d5 imm5
-01001110000xxxxx001011xxxxxxxxxx  n   397        smov             x0 : q5 imm5
+00001110000xxxxx001011xxxxxxxxxx  n   397        smov             w0 : q5 imm5_idx bh_imm5_sz
+01001110000xxxxx001011xxxxxxxxxx  n   397        smov             x0 : q5 imm5_idx bhs_imm5_sz
 10011011001xxxxx1xxxxxxxxxxxxxxx  n   398      smsubl             x0 : w5 w16 x10
 10011011010xxxxx0^^^^^xxxxxxxxxx  n   399       smulh             x0 : x5 x16
 00001110xx1xxxxx110000xxxxxxxxxx  n   400       smull             q0 : d5 d16 bhs_sz
@@ -1296,7 +1296,8 @@ x0011010110xxxxx000010xxxxxxxxxx  n   511        udiv            wx0 : wx5 wx16
 01101110xx1xxxxx101000xxxxxxxxxx  n   525      umlsl2             q0 : q0 q5 q16 bhs_sz
 0110111101xxxxxx0110x0xxxxxxxxxx  n   525      umlsl2             q0 : q0 q5 dq16_h_sz vindex_H hs_sz
 0110111110xxxxxx0110x0xxxxxxxxxx  n   525      umlsl2             q0 : q0 q5 dq16 vindex_SD sd_sz
-0x001110000xxxxx001111xxxxxxxxxx  n   526        umov     wx0_imm5_q : q5 imm5
+00001110000xxxxx001111xxxxxxxxxx  n   526        umov             w0 : q5 imm5_idx bhs_imm5_sz
+01001110000x1000001111xxxxxxxxxx  n   526        umov             x0 : q5 imm5_idx d_const_sz
 10011011101xxxxx1xxxxxxxxxxxxxxx  n   527      umsubl             x0 : w5 w16 x10
 10011011110xxxxx0^^^^^xxxxxxxxxx  n   528       umulh             x0 : x5 x16
 00101110xx1xxxxx110000xxxxxxxxxx  n   529       umull             q0 : d5 d16 bhs_sz
