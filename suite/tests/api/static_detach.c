@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,6 +79,13 @@ do_some_work(void)
 int
 main(int argc, const char *argv[])
 {
+    /* XXX: Should we have drrun -noinject, which is used for these api/ tests,
+     * set env vars on Windows to avoid us having to set this here (otherwise
+     * the re-attach run prints out DR info messages and fails the test)?
+     */
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc"))
+        dr_fprintf(STDERR, "Failed to set env var!\n");
+
     print("pre-DR init\n");
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());

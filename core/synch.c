@@ -2278,4 +2278,5 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_detaching_flag = LOCK_FREE_STATE;
     EXITING_DR();
+    options_detach();
 }

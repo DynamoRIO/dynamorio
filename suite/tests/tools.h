@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -831,6 +831,27 @@ my_setenv(const char *var, const char *value)
     return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
+#endif
+}
+
+static inline bool
+my_getenv(const char *var, char *dest, size_t size)
+{
+#ifdef UNIX
+    const char *value = getenv(var);
+    if (value == NULL)
+        return false;
+    strncpy(dest, value, size);
+    dest[size - 1] = 0;
+    return true;
+#else
+    unsigned int ret = GetEnvironmentVariable(var, dest, (DWORD)size);
+    if (ret == 0) {
+        fprintf(stderr, "Env variable %s returned 0 (not found?)\n", var);
+    } else if (ret > size) {
+        fprintf(stderr, "Env variable %s needs %u bytes of space!\n", var, ret);
+    }
+    return ret > 0 && ret <= size;
 #endif
 }
 

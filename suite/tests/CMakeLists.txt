@@ -797,9 +797,10 @@ function(torunonly_ci test realexe realclient source client_ops dr_ops exe_ops)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
+  set(${test}_pass_opts_via_env OFF PARENT_SCOPE)
 endfunction(torunonly_ci)
 
-function(torunonly_api test realexe source dr_ops exe_ops use_decoder)
+function(torunonly_api test realexe source dr_ops exe_ops use_decoder pass_opts_via_env)
   set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
   if (realexe)
     set(${test}_realtest ${realexe} PARENT_SCOPE)
@@ -807,6 +808,7 @@ function(torunonly_api test realexe source dr_ops exe_ops use_decoder)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+  set(${test}_pass_opts_via_env ${pass_opts_via_env} PARENT_SCOPE)
   # If using drdecodelib, the app does not load DR, so no reason to use drrun
   # to set options (plus drrun will create a never-deleted .1config file).
   if (use_decoder)
@@ -856,9 +858,10 @@ endfunction(add_api_exe)
 # tobuild_api builds an API test which uses the either DR as a dynamic or
 # static library, depending on use_static_DR. It is a macro so the
 # PARENT_SCOPE in torunonly_api will reach caller of this.
-macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR)
+macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR pass_opts_via_env)
   add_api_exe(${test} ${source} ${use_decoder} ${use_static_DR})
-  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
+  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder}
+    ${pass_opts_via_env})
 endmacro(tobuild_api)
 
 # tobuild_static_nohide_api builds a static API test which uses the
@@ -870,7 +873,7 @@ endmacro(tobuild_api)
 # plumbing for no clear gain.
 macro(tobuild_static_nohide_api test source dr_ops exe_ops use_decoder)
   add_api_exe(${test} ${source} ${use_decoder} ON)
-  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
+  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder} OFF OFF)
   get_target_property(lib_list ${test} LINK_LIBRARIES)
   list(REMOVE_ITEM lib_list dynamorio_static)
   set_property(TARGET ${test} PROPERTY LINK_LIBRARIES ${lib_list} )
@@ -1234,7 +1237,9 @@ endfunction(runtest_cmd)
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
 # and ${key}_postcmd, which points to the post-processing executable if necessary.
-function(torun test key source native standalone_dr dr_ops exe_ops added_out)
+# If pass_opts_via_env is ON, we pass the computed DynamoRIO options as the
+# DYNAMORIO_OPTIONS environment variable for the test run.
+function(torun test key source native standalone_dr dr_ops exe_ops added_out pass_opts_via_env)
   # Avoid running some tests with invalid option combinations.  For example,
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
@@ -1512,6 +1517,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
   endif ()
 
+  if (pass_opts_via_env)
+    string(REPLACE ";" " " runops_string "${runops}")
+    set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
+  endif (pass_opts_via_env)
+
   if (WIN32)
     # With i#265/PR 486139 we use local one-time config files instead of
     # global reg keys and can thus run multiple instances of the same
@@ -1570,7 +1580,7 @@ endfunction ()
 function(torun_normal name test ops)
   strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops};${ops}"
-    "${${test}_exe_ops}" added)
+    "${${test}_exe_ops}" added OFF)
   ops2testprefix(myprefix "${ops}")
   set_properties(${name} ${test} ${myprefix})
 endfunction(torun_normal)
@@ -1594,12 +1604,12 @@ function(torun_ci name test ops)
     # end-user tool
     torun("${name}" ${test} ${${test}_source} OFF OFF
       "${${test}_dr_ops};${ops};-t;${${test}_toolname};${cli_ops}"
-      "${${test}_exe_ops}" added)
+      "${${test}_exe_ops}" added OFF)
   else ()
     # simple client
     torun("${name}" ${test} ${${test}_source} OFF OFF
       "${${test}_dr_ops};${ops};-c;${${test}_client_path};${cli_ops}"
-      "${${test}_exe_ops}" added)
+      "${${test}_exe_ops}" added OFF)
   endif ()
   if (added)
     set_properties(${name} ${test} ${myprefix})
@@ -1609,14 +1619,14 @@ endfunction(torun_ci)
 function(torun_api name test ops)
   strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} ON ${${test}_standalone_dr}
-    "${${test}_dr_ops};${ops}" "${${test}_exe_ops}" added)
+    "${${test}_dr_ops};${ops}" "${${test}_exe_ops}" added ${${test}_pass_opts_via_env})
 endfunction(torun_api)
 
 function(torunonly_native name realexe expect source exe_ops)
   strings2lists(${name} ops)
   set(${name}_expectbase ${expect})
   set(${name}_realtest ${realexe})
-  torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added)
+  torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added OFF)
 endfunction(torunonly_native)
 
 function(torun_runall name test ops)
@@ -1815,7 +1825,7 @@ else ()
 endif ()
 if (NOT ANDROID)
   # XXX i#1874: get working on Android
-  tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
+  tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64)
     # The ir_aarch64.expect file is too large for CMake's regexes.
     set(api.ir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
@@ -1848,12 +1858,12 @@ if (NOT ANDROID)
   endif ()
 
   if (AARCH64)
-    tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
+    tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
   endif (AARCH64)
 endif ()
 
 # test static decoder library
-tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
+tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
 if (AARCH64)
   # The ir_aarch64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
@@ -1862,12 +1872,12 @@ endif ()
 
 if (ARM)
   if (NOT ANDROID) # XXX i#1874: get working on Android
-    tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
+    tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF OFF)
   endif ()
 elseif (AARCH64)
-  tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
+  tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF OFF)
 else ()
-  tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
+  tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF OFF)
 endif ()
 
 if (BUILD_CLIENTS)
@@ -1884,19 +1894,19 @@ if (BUILD_CLIENTS)
     set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
   endif ()
   torunonly_api(tool.drdisas drdisas
-    "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
+    "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON OFF)
   if (ARM)
     torunonly_api(tool.drdisas_thumb drdisas
       # Pass -thumb as a "DR op" to define it in the .template file.
       "../../clients/drdisas/test_simple.template"
-      "-thumb" "-mode;thumb;${drdisas_args}" ON)
+      "-thumb" "-mode;thumb;${drdisas_args}" ON OFF)
   endif ()
   # Test syntax
   # XXX i#:4021: ARM/AARCH64 not yet supported.
   if (X86)
       set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
       torunonly_api(tool.drdisas_syntax drdisas
-          "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
+          "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON OFF)
   endif ()
 endif ()
 
@@ -1918,7 +1928,7 @@ if (DR_HOST_NOT_TARGET)
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
       "offline-altbindir.c" ""
       "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
-      OFF)
+      OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
@@ -2102,13 +2112,13 @@ endif ()
 if (NOT ANDROID) # XXX i#1874: get working on Android
   # We don't want to link with DR.  We hack that for now by requesting drdecode so
   # we'll get the arch defs.  XXX: Add a better way!
-  tobuild_api(libutil.frontend_test libutil/frontend_test.c "" "" ON OFF)
+  tobuild_api(libutil.frontend_test libutil/frontend_test.c "" "" ON OFF OFF)
   target_link_libraries(libutil.frontend_test drfrontendlib)
 endif ()
 
 set(dr_root ${PROJECT_BINARY_DIR})
 # Just like frontend_test we request drdecode.
-tobuild_api(libutil.drconfig_test libutil/drconfig_test.c "" "${dr_root}" ON OFF)
+tobuild_api(libutil.drconfig_test libutil/drconfig_test.c "" "${dr_root}" ON OFF OFF)
 target_link_libraries(libutil.drconfig_test drconfiglib)
 if (WIN32)
   # We have to copy drconfiglib.dll into the bin dir.
@@ -2692,7 +2702,7 @@ if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
   if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
     set(client.drwrap-test-detach_no_reg_compat)
     tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
-      "" "" OFF ON)
+      "" "" OFF ON OFF)
     use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
     link_with_pthread(client.drwrap-test-detach)
   endif ()
@@ -2825,7 +2835,7 @@ endif ()
 if (ARM AND NOT ANDROID)
   # i#2580: DT_RUNPATH is not yet supported on android so we disable this test on
   # android
-  tobuild_api(api.it api/it_arm.c "" "" OFF OFF)
+  tobuild_api(api.it api/it_arm.c "" "" OFF OFF OFF)
 endif(ARM AND NOT ANDROID)
 
 if (ARM)
@@ -2836,21 +2846,21 @@ if (ARM)
     # For now our template is DR syntax.
     add_api_exe(api.dis api/dis.c OFF OFF)
     torunonly_api(api.disA32 api.dis api/dis.c ""
-      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armA32-randtest.raw;-arm" OFF)
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armA32-randtest.raw;-arm" OFF OFF)
     set(api.disA32_expectbase "dis-armA32")
     torunonly_api(api.disT32 api.dis api/dis.c ""
-      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armT32-randtest.raw;-thumb" OFF)
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armT32-randtest.raw;-thumb" OFF OFF)
     set(api.disT32_expectbase "dis-armT32")
   endif ()
 elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
   torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF)
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
   add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
-  tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF)
+  tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF OFF)
 elseif (X86)
   tobuild_api(api.dis api/dis.c "-syntax_intel"
-    "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF OFF)
+    "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF OFF OFF)
   if (X64)
     set(api.dis_expectbase "dis-x64")
   else ()
@@ -2858,12 +2868,12 @@ elseif (X86)
   endif ()
 endif (ARM)
 
-tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
+tobuild_api(api.startstop api/startstop.c "" "" OFF OFF OFF)
 link_with_pthread(api.startstop)
-tobuild_api(api.detach api/detach.c "" "" OFF OFF)
+tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
 link_with_pthread(api.detach)
 if (LINUX AND X64) # Will take extra work to port to 32-bit.
-  tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
+  tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
   link_with_pthread(api.detach_state)
@@ -2879,7 +2889,7 @@ if (LINUX AND X64) # Will take extra work to port to 32-bit.
 endif ()
 if (UNIX)
   if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
-    tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF)
+    tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF OFF)
     link_with_pthread(api.detach_signal)
   endif ()
 endif ()
@@ -2892,23 +2902,24 @@ if (NOT WIN32) # XXX i#2611: fix for Windows
   endif ()
   set(detach_spawn_stress_name api.detach_spawn_stress_FLAKY)
   set(detach_spawn_quick_exit_name api.detach_spawn_quick_exit)
-  tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
+  tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF OFF)
   link_with_pthread(${detach_spawn_name})
-  tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF)
+  tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF OFF)
   link_with_pthread(${detach_spawn_stress_name})
-  tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" "" OFF OFF)
+  tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" ""
+    OFF OFF OFF)
   link_with_pthread(${detach_spawn_quick_exit_name})
 endif ()
 if (X86)
   if (X64)
     tobuild_api(decenc.drdecode_decenc_x86_64
-      ../../third_party/binutils/test_decenc/drdecode_decenc_x86_64.c "" "" OFF OFF)
+      ../../third_party/binutils/test_decenc/drdecode_decenc_x86_64.c "" "" OFF OFF OFF)
     target_include_directories(decenc.drdecode_decenc_x86_64 PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
     set(decenc.drdecode_decenc_x86_64_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   else ()
     tobuild_api(decenc.drdecode_decenc_x86
-      ../../third_party/binutils/test_decenc/drdecode_decenc_x86.c "" "" OFF OFF)
+      ../../third_party/binutils/test_decenc/drdecode_decenc_x86.c "" "" OFF OFF OFF)
     target_include_directories(decenc.drdecode_decenc_x86 PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/binutils/test_decenc/)
     set(decenc.drdecode_decenc_x86_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
@@ -2924,7 +2935,7 @@ if (X86 OR AARCH64) # Generated code is x86- or AArch64-specific.
   endif ()
 
   tobuild_api(api.ibl-stress api/ibl-stress.c
-    "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+    "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF OFF)
   use_DynamoRIO_extension(api.ibl-stress drcontainers)
   link_with_pthread(api.ibl-stress)
 
@@ -2942,7 +2953,7 @@ if (X86 OR AARCH64) # Generated code is x86- or AArch64-specific.
 
   if (AARCH64)
     tobuild_api(api.ibl-stress-aarch64-far-link_LONG api/ibl-stress.c
-      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF OFF)
     append_property_string(TARGET api.ibl-stress-aarch64-far-link_LONG COMPILE_FLAGS
       "-DTEST_FAR_LINK_AARCH64")
     set(api.ibl-stress-aarch64-far-link_LONG_timeout 900)
@@ -2959,7 +2970,7 @@ if (WIN32)
     DOC "path to MinGW libstdc++-6.dll")
   if (mingwlib)
     message(STATUS "Found ${mingwlib}, enabling api.symtest")
-    tobuild_api(api.symtest api/symtest.c "" "${mingwlib}" OFF OFF)
+    tobuild_api(api.symtest api/symtest.c "" "${mingwlib}" OFF OFF OFF)
     use_DynamoRIO_extension(api.symtest drsyms)
   endif ()
 endif ()
@@ -2968,29 +2979,32 @@ endif ()
 # XXX i#1996: not fully supported on Android yet
 # XXX i#1997: not fully supported on Mac yet
 if (NOT ANDROID AND NOT APPLE)
-  tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
+  tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_startstop ${libmath})
   if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
-    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
+    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
     target_link_libraries(api.static_noclient ${libmath})
   endif ()
-  tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
+  tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON OFF)
   target_link_libraries(api.static_noinit ${libmath})
-  tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
+  tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON OFF)
   target_link_libraries(api.static_detach ${libmath})
-  tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON)
+  tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_prepop ${libmath})
+  tobuild_api(api.static_reattach_client_flags api/static_reattach_client_flags.c
+    "" "" OFF ON ON)
+  target_link_libraries(api.static_reattach_client_flags ${libmath})
 
   if (NOT WIN32)
-    tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON)
+    tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON OFF)
     target_link_libraries(api.static_signal ${libmath})
     link_with_pthread(api.static_signal)
     # i#2119: test invoking the app's handler on a DR fault.
-    tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON)
+    tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON OFF)
     target_link_libraries(api.static_crash ${libmath})
     # XXX i#2346: add delayed sideline thread exit on Windows
     # FIXME i#297: static_sideline is flaky and sometimes hangs on exit.
-    tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON)
+    tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON OFF)
     target_link_libraries(api.static_sideline_FLAKY ${libmath})
     link_with_pthread(api.static_sideline_FLAKY)
 
@@ -3021,7 +3035,7 @@ if (NOT ANDROID AND NOT APPLE)
   endif ()
 
   if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
-    tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
+    tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF OFF)
     link_with_pthread(api.thread_churn)
   endif ()
 endif ()
@@ -3095,7 +3109,7 @@ if (proc_supports_avx512)
       "${CFLAGS_AVX512}")
     get_client_path(client_path api.startstop_avx512lazy.dll api.startstop_avx512lazy)
     tobuild_api(api.startstop_avx512lazy api/startstop_avx512lazy.c
-      "-client_lib ${client_path}" "" OFF OFF)
+      "-client_lib ${client_path}" "" OFF OFF OFF)
     append_property_string(TARGET api.startstop_avx512lazy COMPILE_FLAGS
       "${CFLAGS_AVX512}")
     append_property_string(TARGET api.startstop_avx512lazy.dll COMPILE_FLAGS
@@ -3499,7 +3513,7 @@ if (BUILD_CLIENTS)
     if (ZLIB_FOUND)
       torunonly_api(tool.drcacheoff.legacy "${drcachesim_path}" "offline-legacy.c" ""
         "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz"
-        OFF)
+        OFF OFF)
       set(tool.drcacheoff.legacy_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
@@ -3510,12 +3524,12 @@ if (BUILD_CLIENTS)
       # with a parallel tool (basic_counts)
       torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy.c" ""
         "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-simulator_type;basic_counts"
-        OFF)
+        OFF OFF)
 
       # with a legacy serial tool (full simulator)
       torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy-serial.c" ""
         "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir"
-        OFF)
+        OFF OFF)
       set(tool.drcacheoff.snappy_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     endif()
@@ -3596,7 +3610,7 @@ if (BUILD_CLIENTS)
       torunonly_api(tool.drcacheoff.func_view_noret "${drcachesim_path}"
         "offline-func_view_noret.c" ""
         "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-func-trace;-simulator_type;func_view"
-        OFF)
+        OFF OFF)
       set(tool.drcacheoff.func_view_noret_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.func_view_noret_rawtemp ON) # no preprocessor
@@ -3861,7 +3875,7 @@ if (BUILD_CLIENTS)
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
       "offline-altbindir.c" ""
       "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
-      OFF)
+      OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
@@ -3877,7 +3891,7 @@ if (BUILD_CLIENTS)
     torunonly_api(tool.drcacheoff.legacy-int-offs "${drcachesim_path}"
       "offline-legacy-int-offs.c" ""
       "-indir;${locdir};-simulator_type;basic_counts;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
-      OFF)
+      OFF OFF)
     set(tool.drcacheoff.legacy-int-offs_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
@@ -4350,7 +4364,7 @@ if (UNIX)
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     # We build with static DR to also test client interactions.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON)
+    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
     set(api.rseq_expectbase rseq_client)

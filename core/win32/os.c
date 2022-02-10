@@ -8436,6 +8436,9 @@ detach_helper(int detach_type)
         ASSERT_NOT_REACHED();
         return;
     }
+    /* NB: since we cleaned up during detach_on_permanent_stack, much of DR will
+     * no longer work (even options have been reset to their default values).
+     */
 
     /* FIXME : unload dll, be able to have thread continue etc. */
 
