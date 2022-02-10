@@ -1182,9 +1182,10 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     vmm_heap_exit();
     diagnost_exit();
     data_section_exit();
-    /* funny dependences: options exit just frees lock, not destroying
+    /* Funny dependences: options exit just frees lock, not destroying
      * any options that are needed for other exits, so do it prior to
-     * checking locks in debug build
+     * checking locks in debug build.  We have a separate options_detach()
+     * which resets options for re-attach.
      */
     options_exit();
     utils_exit();

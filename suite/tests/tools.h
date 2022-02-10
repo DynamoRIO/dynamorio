@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -845,7 +845,7 @@ my_getenv(const char *var, char *dest, size_t size)
     dest[size - 1] = 0;
     return true;
 #else
-    unsigned int ret = GetEnvironmentVariable(var, dest, size);
+    unsigned int ret = GetEnvironmentVariable(var, dest, (DWORD)size);
     if (ret == 0) {
         fprintf(stderr, "Env variable %s returned 0 (not found?)\n", var);
     } else if (ret > size) {

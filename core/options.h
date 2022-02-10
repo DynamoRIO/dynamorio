@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -273,14 +273,14 @@ check_param_bounds(ptr_uint_t *val, ptr_uint_t min, ptr_uint_t max, const char *
 int
 options_init(void);
 
-/* only frees a lock, does not destroy any options info other exit
- * routines might need. See options_detach for resetting options
- * back to defaults for static re-attach.
+/* Only frees a lock: does not destroy any options info other exit routines
+ * might need (due to orderings during exit). See options_detach for resetting
+ * options back to defaults for static re-attach.
  */
 void
 options_exit(void);
 
-/* resets options to default values for the purpose of a full cleanup
+/* Resets options to default values for the purpose of a full cleanup
  * during static detach. It is called after nearly all other cleanup has
  * occurred.
  */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2458,14 +2458,17 @@ options_init()
     return ret;
 }
 
-/* clean up dynamo options state */
+/* Clean up dynamo option state.  We can't clear/reset actual option values here,
+ * as those are used in other exit routines called later.  We have a separate
+ * options_detach() for that.
+ */
 void
 options_exit()
 {
     DELETE_READWRITE_LOCK(options_lock);
 }
 
-/* reset dynamo options to defaults */
+/* Reset dynamo options to defaults. */
 void
 options_detach()
 {
