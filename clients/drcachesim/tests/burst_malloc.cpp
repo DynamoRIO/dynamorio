@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -157,6 +157,7 @@ main(int argc, const char *argv[])
                    // Test aliases with differing arg counts.
                    " -record_function \"has_aliases|2&alias_1arg|1&alias_3args|3\""
 #endif
+                   // Deliberately test a duplication warning on "malloc".
                    // Test large values that require two entries.
                    " -record_function \"malloc|1&return_big_value|1\"'"))
         std::cerr << "failed to set env var!\n";

@@ -43,6 +43,7 @@ declaration and parsing for both clients and standalone programs.
  - \ref sec_droption_types
  - \ref sec_droption_html
  - \ref sec_droption_aliases
+ - \ref sec_droption_reattach
 
 \section sec_droption_setup Setup
 
@@ -189,5 +190,13 @@ droption_t<std::string> op_blocklist(
     "The blocklist is a :-separated list of library names for which violations "
     "should not be reported.");
 \endcode
+
+\section sec_droption_reattach Clearing Accumulated Values on Re-attach
+
+For options that accumulate values (#DROPTION_FLAG_ACCUMULATE), a
+re-attach with a statically linked client will keep the old value from
+the prior attach.  The `droption_parser_t::clear_values()` function
+can be called from the client on exit or initialization to clear all
+the values.
 
 */

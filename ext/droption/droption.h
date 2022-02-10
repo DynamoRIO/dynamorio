@@ -342,6 +342,22 @@ public:
         return names_[0];
     }
 
+    /**
+     * For clients statically linked into the target application, global state is not
+     * reset between a detach and re-attach.  Thus, #DROPTION_FLAG_ACCUMULATE options
+     * will append to their values from the prior run.  This function is provided for
+     * a client to call on detach or re-attach to reset these values.
+     */
+    static void
+    clear_values()
+    {
+        for (std::vector<droption_parser_t *>::iterator opi = allops().begin();
+             opi != allops().end(); ++opi) {
+            droption_parser_t *op = *opi;
+            op->clear_value();
+        }
+    }
+
 protected:
     virtual bool
     option_takes_arg() const = 0;
@@ -357,6 +373,8 @@ protected:
     clamp_value() = 0;
     virtual std::string
     default_as_string() const = 0;
+    virtual void
+    clear_value() = 0;
 
     // To avoid static initializer ordering problems we use a function:
     static std::vector<droption_parser_t *> &
@@ -510,6 +528,14 @@ public:
     get_value() const
     {
         return value_;
+    }
+
+    /** Resets the value of this option to the default value. */
+    void
+    clear_value() override
+    {
+        value_ = defval_;
+        is_specified_ = false;
     }
 
     /** Returns the separator of the option value
