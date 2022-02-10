@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -2000,6 +2000,8 @@ event_exit(void)
     drmgr_exit();
     func_trace_exit();
     drx_exit();
+    /* Avoid accumulation of option values on static-link re-attach. */
+    droption_parser_t::clear_values();
 }
 
 static bool
