@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,7 +61,7 @@ OPCODE(fdecstp, fdecstp, fdecstp, 0)
 OPCODE(fincstp, fincstp, fincstp, 0)
 OPCODE(fnclex, fnclex, fnclex, 0)
 OPCODE(fninit, fninit, fninit, 0)
-OPCODE(sysret, sysret, sysret, 0)
+OPCODE(sysret, sysret, sysret, X64_ONLY)
 OPCODE(femms, femms, femms, 0)
 OPCODE(swapgs, swapgs, swapgs, X64_ONLY)
 OPCODE(vmcall, vmcall, vmcall, X64_ONLY)
@@ -80,7 +80,7 @@ OPCODE(fcompp, fcompp, fcompp, 0)
 OPCODE(lahf, lahf, lahf, 0)
 OPCODE(sysenter, sysenter, sysenter, 0)
 OPCODE(sysexit, sysexit, sysexit, 0)
-OPCODE(syscall, syscall, syscall, 0)
+OPCODE(syscall, syscall, syscall, X64_ONLY)
 OPCODE(daa, daa, daa, X86_ONLY)
 OPCODE(das, das, das, X86_ONLY)
 OPCODE(aaa, aaa, aaa, X86_ONLY)
