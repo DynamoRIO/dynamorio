@@ -747,6 +747,10 @@
     instr_create_0dst_1src((dc), OP_vmsave, opnd_create_reg(DR_REG_XAX))
 #define INSTR_CREATE_skinit(dc) \
     instr_create_0dst_1src((dc), OP_skinit, opnd_create_reg(DR_REG_EAX))
+#ifndef X64
+#    define INSTR_CREATE_sysret(dc) \
+        instr_create_0dst_0src((dc), OP_sysret, opnd_create_reg(DR_REG_XCX))
+#endif
 /** @} */ /* end doxygen group */
 
 /* no destination, 2 explicit sources */
@@ -1170,6 +1174,10 @@
     instr_create_1dst_0src((dc), OP_lahf, opnd_create_reg(DR_REG_AH))
 #define INSTR_CREATE_sysenter(dc) \
     instr_create_1dst_0src((dc), OP_sysenter, opnd_create_reg(DR_REG_XSP))
+#ifndef X64
+#    define INSTR_CREATE_syscall(dc) \
+        instr_create_1dst_0src((dc), OP_syscall, opnd_create_reg(DR_REG_XCX))
+#endif
 #define INSTR_CREATE_salc(dc) \
     instr_create_1dst_0src((dc), OP_salc, opnd_create_reg(DR_REG_AL))
 /** @} */ /* end doxygen group */

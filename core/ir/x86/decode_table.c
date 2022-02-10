@@ -1981,10 +1981,9 @@ const instr_info_t * const op_instr[] =
 #define xcx TYPE_XREG, REG_ECX
 
 #ifdef X64
-#   define r11 TYPE_REG, DR_REG_R11
+#   define na_x11 TYPE_REG, DR_REG_R11
 #else
-/* Keep ifdefs out of the table. */
-#   define r11 TYPE_NONE, OPSZ_NA
+#   define na_x11 TYPE_NONE, OPSZ_NA
 #endif
 #define cs  TYPE_REG, SEG_CS
 #define ss  TYPE_REG, SEG_SS
@@ -2423,10 +2422,10 @@ const instr_info_t second_byte[] = {
   {OP_lsl, 0x0f0310, "lsl", Gv, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
   {INVALID, 0x0f0410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* XXX: writes ss and cs */
-  {OP_syscall, 0x0f0510, "syscall", xcx, r11, xx, xx, xx, no, x, NA}, /* AMD/x64 only */
+  {OP_syscall, 0x0f0510, "syscall", xcx, na_x11, xx, xx, xx, no, x, NA}, /* AMD/x64 only */
   {OP_clts, 0x0f0610, "clts", xx, xx, xx, xx, xx, no, x, END_LIST},
   /* XXX: writes ss and cs */
-  {OP_sysret, 0x0f0710, "sysret", xx, xx, xcx, r11, xx, no, x, NA}, /* AMD/x64 only */
+  {OP_sysret, 0x0f0710, "sysret", xx, xx, xcx, na_x11, xx, no, x, NA}, /* AMD/x64 only */
   /* 08 */
   {OP_invd, 0x0f0810, "invd", xx, xx, xx, xx, xx, no, x, END_LIST},
   {OP_wbinvd, 0x0f0910, "wbinvd", xx, xx, xx, xx, xx, no, x, END_LIST},
