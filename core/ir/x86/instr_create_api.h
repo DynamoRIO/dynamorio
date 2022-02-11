@@ -749,7 +749,7 @@
     instr_create_0dst_1src((dc), OP_skinit, opnd_create_reg(DR_REG_EAX))
 #ifndef X64
 #    define INSTR_CREATE_sysret(dc) \
-        instr_create_0dst_0src((dc), OP_sysret, opnd_create_reg(DR_REG_XCX))
+        instr_create_0dst_1src((dc), OP_sysret, opnd_create_reg(DR_REG_XCX))
 #endif
 /** @} */ /* end doxygen group */
 
