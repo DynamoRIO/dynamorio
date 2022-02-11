@@ -3534,7 +3534,7 @@ create_int_syscall_instr(dcontext_t *dcontext)
          * to avoid tripping up Sygate. */
         return INSTR_CREATE_call(dcontext, opnd_create_pc(int_syscall_address));
     } else {
-        return INSTR_CREATE_int(dcontext, opnd_create_immed_int(sbyte)0x2e, OPSZ_1));
+        return INSTR_CREATE_int(dcontext, opnd_create_immed_int((sbyte)0x2e, OPSZ_1));
     }
 #    else
     /* if uninitialized just guess int, we'll patch up later */
