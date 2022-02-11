@@ -28804,3 +28804,401 @@ d5034fff : msr DAIFClr, #0xf                         : msr    %daifclr $0x0f
 9e28039a : fcvtps x26, s28                           : fcvtps %s28 -> %x26
 9e28001e : fcvtps x30, s0                            : fcvtps %s0 -> %x30
 
+
+# TBZ     <R><t>, #<imm1>, #<imm2> (TBZ-R.II-only_testbranch)
+36040000 : tbz w0, #0x0, #-0x8000                    : tbz    $0x000000000fff8000 %w0 $0x00
+36148002 : tbz w2, #0x2, #-0x7000                    : tbz    $0x000000000fff9000 %w2 $0x02
+36250004 : tbz w4, #0x4, #-0x6000                    : tbz    $0x000000000fffa000 %w4 $0x04
+36358006 : tbz w6, #0x6, #-0x5000                    : tbz    $0x000000000fffb000 %w6 $0x06
+36460008 : tbz w8, #0x8, #-0x4000                    : tbz    $0x000000000fffc000 %w8 $0x08
+36568009 : tbz w9, #0xa, #-0x3000                    : tbz    $0x000000000fffd000 %w9 $0x0a
+3667000b : tbz w11, #0xc, #-0x2000                   : tbz    $0x000000000fffe000 %w11 $0x0c
+3677800d : tbz w13, #0xe, #-0x1000                   : tbz    $0x000000000ffff000 %w13 $0x0e
+3680000f : tbz w15, #0x10, #0x0                      : tbz    $0x0000000010000000 %w15 $0x10
+36887ff1 : tbz w17, #0x11, #0xffc                    : tbz    $0x0000000010000ffc %w17 $0x11
+3698fff3 : tbz w19, #0x13, #0x1ffc                   : tbz    $0x0000000010001ffc %w19 $0x13
+36a97ff5 : tbz w21, #0x15, #0x2ffc                   : tbz    $0x0000000010002ffc %w21 $0x15
+36b9fff6 : tbz w22, #0x17, #0x3ffc                   : tbz    $0x0000000010003ffc %w22 $0x17
+36ca7ff8 : tbz w24, #0x19, #0x4ffc                   : tbz    $0x0000000010004ffc %w24 $0x19
+36dafffa : tbz w26, #0x1b, #0x5ffc                   : tbz    $0x0000000010005ffc %w26 $0x1b
+36fbfffe : tbz w30, #0x1f, #0x7ffc                   : tbz    $0x0000000010007ffc %w30 $0x1f
+b6040000 : tbz x0, #0x20, #-0x8000                   : tbz    $0x000000000fff8000 %x0 $0x20
+b6148002 : tbz x2, #0x22, #-0x7000                   : tbz    $0x000000000fff9000 %x2 $0x22
+b6250004 : tbz x4, #0x24, #-0x6000                   : tbz    $0x000000000fffa000 %x4 $0x24
+b6358006 : tbz x6, #0x26, #-0x5000                   : tbz    $0x000000000fffb000 %x6 $0x26
+b6460008 : tbz x8, #0x28, #-0x4000                   : tbz    $0x000000000fffc000 %x8 $0x28
+b6568009 : tbz x9, #0x2a, #-0x3000                   : tbz    $0x000000000fffd000 %x9 $0x2a
+b667000b : tbz x11, #0x2c, #-0x2000                  : tbz    $0x000000000fffe000 %x11 $0x2c
+b677800d : tbz x13, #0x2e, #-0x1000                  : tbz    $0x000000000ffff000 %x13 $0x2e
+b680000f : tbz x15, #0x30, #0x0                      : tbz    $0x0000000010000000 %x15 $0x30
+b6887ff1 : tbz x17, #0x31, #0xffc                    : tbz    $0x0000000010000ffc %x17 $0x31
+b698fff3 : tbz x19, #0x33, #0x1ffc                   : tbz    $0x0000000010001ffc %x19 $0x33
+b6a97ff5 : tbz x21, #0x35, #0x2ffc                   : tbz    $0x0000000010002ffc %x21 $0x35
+b6b9fff6 : tbz x22, #0x37, #0x3ffc                   : tbz    $0x0000000010003ffc %x22 $0x37
+b6ca7ff8 : tbz x24, #0x39, #0x4ffc                   : tbz    $0x0000000010004ffc %x24 $0x39
+b6dafffa : tbz x26, #0x3b, #0x5ffc                   : tbz    $0x0000000010005ffc %x26 $0x3b
+b6fbfffe : tbz x30, #0x3f, #0x7ffc                   : tbz    $0x0000000010007ffc %x30 $0x3f
+
+# BRK     #<imm> (BRK-I-EX_exception)
+d4200000 : brk #0x0                                  : brk    $0x0000
+d4220000 : brk #0x1000                               : brk    $0x1000
+d4240000 : brk #0x2000                               : brk    $0x2000
+d4260000 : brk #0x3000                               : brk    $0x3000
+d4280000 : brk #0x4000                               : brk    $0x4000
+d42a0000 : brk #0x5000                               : brk    $0x5000
+d42c0000 : brk #0x6000                               : brk    $0x6000
+d42e0000 : brk #0x7000                               : brk    $0x7000
+d4300000 : brk #0x8000                               : brk    $0x8000
+d431ffe0 : brk #0x8fff                               : brk    $0x8fff
+d433ffe0 : brk #0x9fff                               : brk    $0x9fff
+d435ffe0 : brk #0xafff                               : brk    $0xafff
+d437ffe0 : brk #0xbfff                               : brk    $0xbfff
+d439ffe0 : brk #0xcfff                               : brk    $0xcfff
+d43bffe0 : brk #0xdfff                               : brk    $0xdfff
+d43fffe0 : brk #0xffff                               : brk    $0xffff
+
+# B      .<suffix.cond> #<imm> (BCC-I-only_condbranch)
+17fc0000 : b #-0x100000                              : b      $0x000000000ff00000
+17fc8000 : b #-0xe0000                               : b      $0x000000000ff20000
+17fd0000 : b #-0xc0000                               : b      $0x000000000ff40000
+17fd8000 : b #-0xa0000                               : b      $0x000000000ff60000
+17fe0000 : b #-0x80000                               : b      $0x000000000ff80000
+17fe8000 : b #-0x60000                               : b      $0x000000000ffa0000
+17ff0000 : b #-0x40000                               : b      $0x000000000ffc0000
+17ff8000 : b #-0x20000                               : b      $0x000000000ffe0000
+14000000 : b #0x0                                    : b      $0x0000000010000000
+14007fff : b #0x1fffc                                : b      $0x000000001001fffc
+1400ffff : b #0x3fffc                                : b      $0x000000001003fffc
+14017fff : b #0x5fffc                                : b      $0x000000001005fffc
+1401ffff : b #0x7fffc                                : b      $0x000000001007fffc
+14027fff : b #0x9fffc                                : b      $0x000000001009fffc
+1402ffff : b #0xbfffc                                : b      $0x00000000100bfffc
+1403ffff : b #0xffffc                                : b      $0x00000000100ffffc
+
+# DCPS1   #<imm> (DCPS1-I-DC_exception)
+d4a00001 : dcps1 #0x0                                : dcps1  $0x0000
+d4a20001 : dcps1 #0x1000                             : dcps1  $0x1000
+d4a40001 : dcps1 #0x2000                             : dcps1  $0x2000
+d4a60001 : dcps1 #0x3000                             : dcps1  $0x3000
+d4a80001 : dcps1 #0x4000                             : dcps1  $0x4000
+d4aa0001 : dcps1 #0x5000                             : dcps1  $0x5000
+d4ac0001 : dcps1 #0x6000                             : dcps1  $0x6000
+d4ae0001 : dcps1 #0x7000                             : dcps1  $0x7000
+d4b00001 : dcps1 #0x8000                             : dcps1  $0x8000
+d4b1ffe1 : dcps1 #0x8fff                             : dcps1  $0x8fff
+d4b3ffe1 : dcps1 #0x9fff                             : dcps1  $0x9fff
+d4b5ffe1 : dcps1 #0xafff                             : dcps1  $0xafff
+d4b7ffe1 : dcps1 #0xbfff                             : dcps1  $0xbfff
+d4b9ffe1 : dcps1 #0xcfff                             : dcps1  $0xcfff
+d4bbffe1 : dcps1 #0xdfff                             : dcps1  $0xdfff
+d4bfffe1 : dcps1 #0xffff                             : dcps1  $0xffff
+
+# SVC     #<imm> (SVC-I-EX_exception)
+d4000001 : svc #0x0                                  : svc    $0x0000
+d4020001 : svc #0x1000                               : svc    $0x1000
+d4040001 : svc #0x2000                               : svc    $0x2000
+d4060001 : svc #0x3000                               : svc    $0x3000
+d4080001 : svc #0x4000                               : svc    $0x4000
+d40a0001 : svc #0x5000                               : svc    $0x5000
+d40c0001 : svc #0x6000                               : svc    $0x6000
+d40e0001 : svc #0x7000                               : svc    $0x7000
+d4100001 : svc #0x8000                               : svc    $0x8000
+d411ffe1 : svc #0x8fff                               : svc    $0x8fff
+d413ffe1 : svc #0x9fff                               : svc    $0x9fff
+d415ffe1 : svc #0xafff                               : svc    $0xafff
+d417ffe1 : svc #0xbfff                               : svc    $0xbfff
+d419ffe1 : svc #0xcfff                               : svc    $0xcfff
+d41bffe1 : svc #0xdfff                               : svc    $0xdfff
+d41fffe1 : svc #0xffff                               : svc    $0xffff
+
+# RET     <Xn> (RET-R-64R_branch_reg)
+d65f0000 : ret x0                                    : ret    %x0
+d65f0040 : ret x2                                    : ret    %x2
+d65f0080 : ret x4                                    : ret    %x4
+d65f00c0 : ret x6                                    : ret    %x6
+d65f0100 : ret x8                                    : ret    %x8
+d65f0120 : ret x9                                    : ret    %x9
+d65f0160 : ret x11                                   : ret    %x11
+d65f01a0 : ret x13                                   : ret    %x13
+d65f01e0 : ret x15                                   : ret    %x15
+d65f0220 : ret x17                                   : ret    %x17
+d65f0260 : ret x19                                   : ret    %x19
+d65f02a0 : ret x21                                   : ret    %x21
+d65f02c0 : ret x22                                   : ret    %x22
+d65f0300 : ret x24                                   : ret    %x24
+d65f0340 : ret x26                                   : ret    %x26
+d65f03c0 : ret x30                                   : ret    %x30
+
+# DRPS     (DRPS--64E_branch_reg)
+d6bf03e0 : drps                                      : drps
+
+# HLT     #<imm> (HLT-I-EX_exception)
+d4400000 : hlt #0x0                                  : hlt    $0x0000
+d4420000 : hlt #0x1000                               : hlt    $0x1000
+d4440000 : hlt #0x2000                               : hlt    $0x2000
+d4460000 : hlt #0x3000                               : hlt    $0x3000
+d4480000 : hlt #0x4000                               : hlt    $0x4000
+d44a0000 : hlt #0x5000                               : hlt    $0x5000
+d44c0000 : hlt #0x6000                               : hlt    $0x6000
+d44e0000 : hlt #0x7000                               : hlt    $0x7000
+d4500000 : hlt #0x8000                               : hlt    $0x8000
+d451ffe0 : hlt #0x8fff                               : hlt    $0x8fff
+d453ffe0 : hlt #0x9fff                               : hlt    $0x9fff
+d455ffe0 : hlt #0xafff                               : hlt    $0xafff
+d457ffe0 : hlt #0xbfff                               : hlt    $0xbfff
+d459ffe0 : hlt #0xcfff                               : hlt    $0xcfff
+d45bffe0 : hlt #0xdfff                               : hlt    $0xdfff
+d45fffe0 : hlt #0xffff                               : hlt    $0xffff
+
+# TBNZ    <R><t>, #<imm1>, #<imm2> (TBNZ-R.II-only_testbranch)
+37040000 : tbnz w0, #0x0, #-0x8000                   : tbnz   $0x000000000fff8000 %w0 $0x00
+37148002 : tbnz w2, #0x2, #-0x7000                   : tbnz   $0x000000000fff9000 %w2 $0x02
+37250004 : tbnz w4, #0x4, #-0x6000                   : tbnz   $0x000000000fffa000 %w4 $0x04
+37358006 : tbnz w6, #0x6, #-0x5000                   : tbnz   $0x000000000fffb000 %w6 $0x06
+37460008 : tbnz w8, #0x8, #-0x4000                   : tbnz   $0x000000000fffc000 %w8 $0x08
+37568009 : tbnz w9, #0xa, #-0x3000                   : tbnz   $0x000000000fffd000 %w9 $0x0a
+3767000b : tbnz w11, #0xc, #-0x2000                  : tbnz   $0x000000000fffe000 %w11 $0x0c
+3777800d : tbnz w13, #0xe, #-0x1000                  : tbnz   $0x000000000ffff000 %w13 $0x0e
+3780000f : tbnz w15, #0x10, #0x0                     : tbnz   $0x0000000010000000 %w15 $0x10
+37887ff1 : tbnz w17, #0x11, #0xffc                   : tbnz   $0x0000000010000ffc %w17 $0x11
+3798fff3 : tbnz w19, #0x13, #0x1ffc                  : tbnz   $0x0000000010001ffc %w19 $0x13
+37a97ff5 : tbnz w21, #0x15, #0x2ffc                  : tbnz   $0x0000000010002ffc %w21 $0x15
+37b9fff6 : tbnz w22, #0x17, #0x3ffc                  : tbnz   $0x0000000010003ffc %w22 $0x17
+37ca7ff8 : tbnz w24, #0x19, #0x4ffc                  : tbnz   $0x0000000010004ffc %w24 $0x19
+37dafffa : tbnz w26, #0x1b, #0x5ffc                  : tbnz   $0x0000000010005ffc %w26 $0x1b
+37fbfffe : tbnz w30, #0x1f, #0x7ffc                  : tbnz   $0x0000000010007ffc %w30 $0x1f
+b7040000 : tbnz x0, #0x20, #-0x8000                  : tbnz   $0x000000000fff8000 %x0 $0x20
+b7148002 : tbnz x2, #0x22, #-0x7000                  : tbnz   $0x000000000fff9000 %x2 $0x22
+b7250004 : tbnz x4, #0x24, #-0x6000                  : tbnz   $0x000000000fffa000 %x4 $0x24
+b7358006 : tbnz x6, #0x26, #-0x5000                  : tbnz   $0x000000000fffb000 %x6 $0x26
+b7460008 : tbnz x8, #0x28, #-0x4000                  : tbnz   $0x000000000fffc000 %x8 $0x28
+b7568009 : tbnz x9, #0x2a, #-0x3000                  : tbnz   $0x000000000fffd000 %x9 $0x2a
+b767000b : tbnz x11, #0x2c, #-0x2000                 : tbnz   $0x000000000fffe000 %x11 $0x2c
+b777800d : tbnz x13, #0x2e, #-0x1000                 : tbnz   $0x000000000ffff000 %x13 $0x2e
+b780000f : tbnz x15, #0x30, #0x0                     : tbnz   $0x0000000010000000 %x15 $0x30
+b7887ff1 : tbnz x17, #0x31, #0xffc                   : tbnz   $0x0000000010000ffc %x17 $0x31
+b798fff3 : tbnz x19, #0x33, #0x1ffc                  : tbnz   $0x0000000010001ffc %x19 $0x33
+b7a97ff5 : tbnz x21, #0x35, #0x2ffc                  : tbnz   $0x0000000010002ffc %x21 $0x35
+b7b9fff6 : tbnz x22, #0x37, #0x3ffc                  : tbnz   $0x0000000010003ffc %x22 $0x37
+b7ca7ff8 : tbnz x24, #0x39, #0x4ffc                  : tbnz   $0x0000000010004ffc %x24 $0x39
+b7dafffa : tbnz x26, #0x3b, #0x5ffc                  : tbnz   $0x0000000010005ffc %x26 $0x3b
+b7fbfffe : tbnz x30, #0x3f, #0x7ffc                  : tbnz   $0x0000000010007ffc %x30 $0x3f
+
+# BR      <Xn> (BR-R-64_branch_reg)
+d61f0000 : br x0                                     : br     %x0
+d61f0040 : br x2                                     : br     %x2
+d61f0080 : br x4                                     : br     %x4
+d61f00c0 : br x6                                     : br     %x6
+d61f0100 : br x8                                     : br     %x8
+d61f0120 : br x9                                     : br     %x9
+d61f0160 : br x11                                    : br     %x11
+d61f01a0 : br x13                                    : br     %x13
+d61f01e0 : br x15                                    : br     %x15
+d61f0220 : br x17                                    : br     %x17
+d61f0260 : br x19                                    : br     %x19
+d61f02a0 : br x21                                    : br     %x21
+d61f02c0 : br x22                                    : br     %x22
+d61f0300 : br x24                                    : br     %x24
+d61f0340 : br x26                                    : br     %x26
+d61f03c0 : br x30                                    : br     %x30
+
+# B       #<imm> (B-I-only_branch_imm)
+16000000 : b #-0x8000000                             : b      $0x0000000008000000
+16400000 : b #-0x7000000                             : b      $0x0000000009000000
+16800000 : b #-0x6000000                             : b      $0x000000000a000000
+16c00000 : b #-0x5000000                             : b      $0x000000000b000000
+17000000 : b #-0x4000000                             : b      $0x000000000c000000
+17400000 : b #-0x3000000                             : b      $0x000000000d000000
+17800000 : b #-0x2000000                             : b      $0x000000000e000000
+17c00000 : b #-0x1000000                             : b      $0x000000000f000000
+14000000 : b #0x0                                    : b      $0x0000000010000000
+143fffff : b #0xfffffc                               : b      $0x0000000010fffffc
+147fffff : b #0x1fffffc                              : b      $0x0000000011fffffc
+14bfffff : b #0x2fffffc                              : b      $0x0000000012fffffc
+14ffffff : b #0x3fffffc                              : b      $0x0000000013fffffc
+153fffff : b #0x4fffffc                              : b      $0x0000000014fffffc
+157fffff : b #0x5fffffc                              : b      $0x0000000015fffffc
+15ffffff : b #0x7fffffc                              : b      $0x0000000017fffffc
+
+# BLR     <Xn> (BLR-R-64_branch_reg)
+d63f0000 : blr x0                                    : blr    %x0 -> %x30
+d63f0040 : blr x2                                    : blr    %x2 -> %x30
+d63f0080 : blr x4                                    : blr    %x4 -> %x30
+d63f00c0 : blr x6                                    : blr    %x6 -> %x30
+d63f0100 : blr x8                                    : blr    %x8 -> %x30
+d63f0120 : blr x9                                    : blr    %x9 -> %x30
+d63f0160 : blr x11                                   : blr    %x11 -> %x30
+d63f01a0 : blr x13                                   : blr    %x13 -> %x30
+d63f01e0 : blr x15                                   : blr    %x15 -> %x30
+d63f0220 : blr x17                                   : blr    %x17 -> %x30
+d63f0260 : blr x19                                   : blr    %x19 -> %x30
+d63f02a0 : blr x21                                   : blr    %x21 -> %x30
+d63f02c0 : blr x22                                   : blr    %x22 -> %x30
+d63f0300 : blr x24                                   : blr    %x24 -> %x30
+d63f0340 : blr x26                                   : blr    %x26 -> %x30
+d63f03c0 : blr x30                                   : blr    %x30 -> %x30
+
+# HVC     #<imm> (HVC-I-EX_exception)
+d4000002 : hvc #0x0                                  : hvc    $0x0000
+d4020002 : hvc #0x1000                               : hvc    $0x1000
+d4040002 : hvc #0x2000                               : hvc    $0x2000
+d4060002 : hvc #0x3000                               : hvc    $0x3000
+d4080002 : hvc #0x4000                               : hvc    $0x4000
+d40a0002 : hvc #0x5000                               : hvc    $0x5000
+d40c0002 : hvc #0x6000                               : hvc    $0x6000
+d40e0002 : hvc #0x7000                               : hvc    $0x7000
+d4100002 : hvc #0x8000                               : hvc    $0x8000
+d411ffe2 : hvc #0x8fff                               : hvc    $0x8fff
+d413ffe2 : hvc #0x9fff                               : hvc    $0x9fff
+d415ffe2 : hvc #0xafff                               : hvc    $0xafff
+d417ffe2 : hvc #0xbfff                               : hvc    $0xbfff
+d419ffe2 : hvc #0xcfff                               : hvc    $0xcfff
+d41bffe2 : hvc #0xdfff                               : hvc    $0xdfff
+d41fffe2 : hvc #0xffff                               : hvc    $0xffff
+
+# CBZ     <Xt>, #<imm> (CBZ-R.I-64_compbranch)
+b4800000 : cbz x0, #-0x100000                        : cbz    $0x000000000ff00000 %x0
+b4900002 : cbz x2, #-0xe0000                         : cbz    $0x000000000ff20000 %x2
+b4a00004 : cbz x4, #-0xc0000                         : cbz    $0x000000000ff40000 %x4
+b4b00006 : cbz x6, #-0xa0000                         : cbz    $0x000000000ff60000 %x6
+b4c00008 : cbz x8, #-0x80000                         : cbz    $0x000000000ff80000 %x8
+b4d00009 : cbz x9, #-0x60000                         : cbz    $0x000000000ffa0000 %x9
+b4e0000b : cbz x11, #-0x40000                        : cbz    $0x000000000ffc0000 %x11
+b4f0000d : cbz x13, #-0x20000                        : cbz    $0x000000000ffe0000 %x13
+b400000f : cbz x15, #0x0                             : cbz    $0x0000000010000000 %x15
+b40ffff1 : cbz x17, #0x1fffc                         : cbz    $0x000000001001fffc %x17
+b41ffff3 : cbz x19, #0x3fffc                         : cbz    $0x000000001003fffc %x19
+b42ffff5 : cbz x21, #0x5fffc                         : cbz    $0x000000001005fffc %x21
+b43ffff6 : cbz x22, #0x7fffc                         : cbz    $0x000000001007fffc %x22
+b44ffff8 : cbz x24, #0x9fffc                         : cbz    $0x000000001009fffc %x24
+b45ffffa : cbz x26, #0xbfffc                         : cbz    $0x00000000100bfffc %x26
+b47ffffe : cbz x30, #0xffffc                         : cbz    $0x00000000100ffffc %x30
+
+# DCPS2   #<imm> (DCPS2-I-DC_exception)
+d4a00002 : dcps2 #0x0                                : dcps2  $0x0000
+d4a20002 : dcps2 #0x1000                             : dcps2  $0x1000
+d4a40002 : dcps2 #0x2000                             : dcps2  $0x2000
+d4a60002 : dcps2 #0x3000                             : dcps2  $0x3000
+d4a80002 : dcps2 #0x4000                             : dcps2  $0x4000
+d4aa0002 : dcps2 #0x5000                             : dcps2  $0x5000
+d4ac0002 : dcps2 #0x6000                             : dcps2  $0x6000
+d4ae0002 : dcps2 #0x7000                             : dcps2  $0x7000
+d4b00002 : dcps2 #0x8000                             : dcps2  $0x8000
+d4b1ffe2 : dcps2 #0x8fff                             : dcps2  $0x8fff
+d4b3ffe2 : dcps2 #0x9fff                             : dcps2  $0x9fff
+d4b5ffe2 : dcps2 #0xafff                             : dcps2  $0xafff
+d4b7ffe2 : dcps2 #0xbfff                             : dcps2  $0xbfff
+d4b9ffe2 : dcps2 #0xcfff                             : dcps2  $0xcfff
+d4bbffe2 : dcps2 #0xdfff                             : dcps2  $0xdfff
+d4bfffe2 : dcps2 #0xffff                             : dcps2  $0xffff
+
+# ERET     (ERET--64E_branch_reg)
+d69f03e0 : eret                                      : eret
+
+# DCPS3   #<imm> (DCPS3-I-DC_exception)
+d4a00003 : dcps3 #0x0                                : dcps3  $0x0000
+d4a20003 : dcps3 #0x1000                             : dcps3  $0x1000
+d4a40003 : dcps3 #0x2000                             : dcps3  $0x2000
+d4a60003 : dcps3 #0x3000                             : dcps3  $0x3000
+d4a80003 : dcps3 #0x4000                             : dcps3  $0x4000
+d4aa0003 : dcps3 #0x5000                             : dcps3  $0x5000
+d4ac0003 : dcps3 #0x6000                             : dcps3  $0x6000
+d4ae0003 : dcps3 #0x7000                             : dcps3  $0x7000
+d4b00003 : dcps3 #0x8000                             : dcps3  $0x8000
+d4b1ffe3 : dcps3 #0x8fff                             : dcps3  $0x8fff
+d4b3ffe3 : dcps3 #0x9fff                             : dcps3  $0x9fff
+d4b5ffe3 : dcps3 #0xafff                             : dcps3  $0xafff
+d4b7ffe3 : dcps3 #0xbfff                             : dcps3  $0xbfff
+d4b9ffe3 : dcps3 #0xcfff                             : dcps3  $0xcfff
+d4bbffe3 : dcps3 #0xdfff                             : dcps3  $0xdfff
+d4bfffe3 : dcps3 #0xffff                             : dcps3  $0xffff
+
+# CBNZ    <Wt>, #<imm> (CBNZ-R.I-32_compbranch)
+35800000 : cbnz w0, #-0x100000                       : cbnz   $0x000000000ff00000 %w0
+35900002 : cbnz w2, #-0xe0000                        : cbnz   $0x000000000ff20000 %w2
+35a00004 : cbnz w4, #-0xc0000                        : cbnz   $0x000000000ff40000 %w4
+35b00006 : cbnz w6, #-0xa0000                        : cbnz   $0x000000000ff60000 %w6
+35c00008 : cbnz w8, #-0x80000                        : cbnz   $0x000000000ff80000 %w8
+35d00009 : cbnz w9, #-0x60000                        : cbnz   $0x000000000ffa0000 %w9
+35e0000b : cbnz w11, #-0x40000                       : cbnz   $0x000000000ffc0000 %w11
+35f0000d : cbnz w13, #-0x20000                       : cbnz   $0x000000000ffe0000 %w13
+3500000f : cbnz w15, #0x0                            : cbnz   $0x0000000010000000 %w15
+350ffff1 : cbnz w17, #0x1fffc                        : cbnz   $0x000000001001fffc %w17
+351ffff3 : cbnz w19, #0x3fffc                        : cbnz   $0x000000001003fffc %w19
+352ffff5 : cbnz w21, #0x5fffc                        : cbnz   $0x000000001005fffc %w21
+353ffff6 : cbnz w22, #0x7fffc                        : cbnz   $0x000000001007fffc %w22
+354ffff8 : cbnz w24, #0x9fffc                        : cbnz   $0x000000001009fffc %w24
+355ffffa : cbnz w26, #0xbfffc                        : cbnz   $0x00000000100bfffc %w26
+357ffffe : cbnz w30, #0xffffc                        : cbnz   $0x00000000100ffffc %w30
+
+# SMC     #<imm> (SMC-I-EX_exception)
+d4000003 : smc #0x0                                  : smc    $0x0000
+d4020003 : smc #0x1000                               : smc    $0x1000
+d4040003 : smc #0x2000                               : smc    $0x2000
+d4060003 : smc #0x3000                               : smc    $0x3000
+d4080003 : smc #0x4000                               : smc    $0x4000
+d40a0003 : smc #0x5000                               : smc    $0x5000
+d40c0003 : smc #0x6000                               : smc    $0x6000
+d40e0003 : smc #0x7000                               : smc    $0x7000
+d4100003 : smc #0x8000                               : smc    $0x8000
+d411ffe3 : smc #0x8fff                               : smc    $0x8fff
+d413ffe3 : smc #0x9fff                               : smc    $0x9fff
+d415ffe3 : smc #0xafff                               : smc    $0xafff
+d417ffe3 : smc #0xbfff                               : smc    $0xbfff
+d419ffe3 : smc #0xcfff                               : smc    $0xcfff
+d41bffe3 : smc #0xdfff                               : smc    $0xdfff
+d41fffe3 : smc #0xffff                               : smc    $0xffff
+
+# CBNZ    <Xt>, #<imm> (CBNZ-R.I-64_compbranch)
+b5800000 : cbnz x0, #-0x100000                       : cbnz   $0x000000000ff00000 %x0
+b5900002 : cbnz x2, #-0xe0000                        : cbnz   $0x000000000ff20000 %x2
+b5a00004 : cbnz x4, #-0xc0000                        : cbnz   $0x000000000ff40000 %x4
+b5b00006 : cbnz x6, #-0xa0000                        : cbnz   $0x000000000ff60000 %x6
+b5c00008 : cbnz x8, #-0x80000                        : cbnz   $0x000000000ff80000 %x8
+b5d00009 : cbnz x9, #-0x60000                        : cbnz   $0x000000000ffa0000 %x9
+b5e0000b : cbnz x11, #-0x40000                       : cbnz   $0x000000000ffc0000 %x11
+b5f0000d : cbnz x13, #-0x20000                       : cbnz   $0x000000000ffe0000 %x13
+b500000f : cbnz x15, #0x0                            : cbnz   $0x0000000010000000 %x15
+b50ffff1 : cbnz x17, #0x1fffc                        : cbnz   $0x000000001001fffc %x17
+b51ffff3 : cbnz x19, #0x3fffc                        : cbnz   $0x000000001003fffc %x19
+b52ffff5 : cbnz x21, #0x5fffc                        : cbnz   $0x000000001005fffc %x21
+b53ffff6 : cbnz x22, #0x7fffc                        : cbnz   $0x000000001007fffc %x22
+b54ffff8 : cbnz x24, #0x9fffc                        : cbnz   $0x000000001009fffc %x24
+b55ffffa : cbnz x26, #0xbfffc                        : cbnz   $0x00000000100bfffc %x26
+b57ffffe : cbnz x30, #0xffffc                        : cbnz   $0x00000000100ffffc %x30
+
+# BL      #<imm> (BL-I-only_branch_imm)
+96000000 : bl #-0x8000000                            : bl     $0x0000000008000000 -> %x30
+96400000 : bl #-0x7000000                            : bl     $0x0000000009000000 -> %x30
+96800000 : bl #-0x6000000                            : bl     $0x000000000a000000 -> %x30
+96c00000 : bl #-0x5000000                            : bl     $0x000000000b000000 -> %x30
+97000000 : bl #-0x4000000                            : bl     $0x000000000c000000 -> %x30
+97400000 : bl #-0x3000000                            : bl     $0x000000000d000000 -> %x30
+97800000 : bl #-0x2000000                            : bl     $0x000000000e000000 -> %x30
+97c00000 : bl #-0x1000000                            : bl     $0x000000000f000000 -> %x30
+94000000 : bl #0x0                                   : bl     $0x0000000010000000 -> %x30
+943fffff : bl #0xfffffc                              : bl     $0x0000000010fffffc -> %x30
+947fffff : bl #0x1fffffc                             : bl     $0x0000000011fffffc -> %x30
+94bfffff : bl #0x2fffffc                             : bl     $0x0000000012fffffc -> %x30
+94ffffff : bl #0x3fffffc                             : bl     $0x0000000013fffffc -> %x30
+953fffff : bl #0x4fffffc                             : bl     $0x0000000014fffffc -> %x30
+957fffff : bl #0x5fffffc                             : bl     $0x0000000015fffffc -> %x30
+95ffffff : bl #0x7fffffc                             : bl     $0x0000000017fffffc -> %x30
+
+# CBZ     <Wt>, #<imm> (CBZ-R.I-32_compbranch)
+34800000 : cbz w0, #-0x100000                        : cbz    $0x000000000ff00000 %w0
+34900002 : cbz w2, #-0xe0000                         : cbz    $0x000000000ff20000 %w2
+34a00004 : cbz w4, #-0xc0000                         : cbz    $0x000000000ff40000 %w4
+34b00006 : cbz w6, #-0xa0000                         : cbz    $0x000000000ff60000 %w6
+34c00008 : cbz w8, #-0x80000                         : cbz    $0x000000000ff80000 %w8
+34d00009 : cbz w9, #-0x60000                         : cbz    $0x000000000ffa0000 %w9
+34e0000b : cbz w11, #-0x40000                        : cbz    $0x000000000ffc0000 %w11
+34f0000d : cbz w13, #-0x20000                        : cbz    $0x000000000ffe0000 %w13
+3400000f : cbz w15, #0x0                             : cbz    $0x0000000010000000 %w15
+340ffff1 : cbz w17, #0x1fffc                         : cbz    $0x000000001001fffc %w17
+341ffff3 : cbz w19, #0x3fffc                         : cbz    $0x000000001003fffc %w19
+342ffff5 : cbz w21, #0x5fffc                         : cbz    $0x000000001005fffc %w21
+343ffff6 : cbz w22, #0x7fffc                         : cbz    $0x000000001007fffc %w22
+344ffff8 : cbz w24, #0x9fffc                         : cbz    $0x000000001009fffc %w24
+345ffffa : cbz w26, #0xbfffc                         : cbz    $0x00000000100bfffc %w26
+347ffffe : cbz w30, #0xffffc                         : cbz    $0x00000000100ffffc %w30
