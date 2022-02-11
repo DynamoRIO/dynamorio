@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -511,7 +511,6 @@
 #define INSTR_CREATE_fincstp(dc) instr_create_0dst_0src((dc), OP_fincstp)
 #define INSTR_CREATE_fnclex(dc) instr_create_0dst_0src((dc), OP_fnclex)
 #define INSTR_CREATE_fninit(dc) instr_create_0dst_0src((dc), OP_fninit)
-#define INSTR_CREATE_sysret(dc) instr_create_0dst_0src((dc), OP_sysret)
 #define INSTR_CREATE_femms(dc) instr_create_0dst_0src((dc), OP_femms)
 #define INSTR_CREATE_swapgs(dc) instr_create_0dst_0src((dc), OP_swapgs)
 #define INSTR_CREATE_vmcall(dc) instr_create_0dst_0src((dc), OP_vmcall)
@@ -748,6 +747,10 @@
     instr_create_0dst_1src((dc), OP_vmsave, opnd_create_reg(DR_REG_XAX))
 #define INSTR_CREATE_skinit(dc) \
     instr_create_0dst_1src((dc), OP_skinit, opnd_create_reg(DR_REG_EAX))
+#ifndef X64
+#    define INSTR_CREATE_sysret(dc) \
+        instr_create_0dst_1src((dc), OP_sysret, opnd_create_reg(DR_REG_XCX))
+#endif
 /** @} */ /* end doxygen group */
 
 /* no destination, 2 explicit sources */
@@ -924,6 +927,11 @@
 #define INSTR_CREATE_invlpga(dc)                                          \
     instr_create_0dst_2src((dc), OP_invlpga, opnd_create_reg(DR_REG_XAX), \
                            opnd_create_reg(DR_REG_ECX))
+#ifdef X64
+#    define INSTR_CREATE_sysret(dc)                                          \
+        instr_create_0dst_2src((dc), OP_sysret, opnd_create_reg(DR_REG_XCX), \
+                               opnd_create_reg(DR_REG_R11))
+#endif
 /* no destination, 3 implicit sources */
 #define INSTR_CREATE_wrmsr(dc)                                          \
     instr_create_0dst_3src((dc), OP_wrmsr, opnd_create_reg(DR_REG_EDX), \
@@ -1166,8 +1174,10 @@
     instr_create_1dst_0src((dc), OP_lahf, opnd_create_reg(DR_REG_AH))
 #define INSTR_CREATE_sysenter(dc) \
     instr_create_1dst_0src((dc), OP_sysenter, opnd_create_reg(DR_REG_XSP))
-#define INSTR_CREATE_syscall(dc) \
-    instr_create_1dst_0src((dc), OP_syscall, opnd_create_reg(DR_REG_XCX))
+#ifndef X64
+#    define INSTR_CREATE_syscall(dc) \
+        instr_create_1dst_0src((dc), OP_syscall, opnd_create_reg(DR_REG_XCX))
+#endif
 #define INSTR_CREATE_salc(dc) \
     instr_create_1dst_0src((dc), OP_salc, opnd_create_reg(DR_REG_AL))
 /** @} */ /* end doxygen group */
@@ -4478,6 +4488,8 @@
 /** @} */ /* end doxygen group */
 
 /* 2 implicit destinations, no sources */
+/** @name 2 implicit destinations, no sources */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
@@ -4486,6 +4498,12 @@
 #define INSTR_CREATE_rdtsc(dc)                                          \
     instr_create_2dst_0src((dc), OP_rdtsc, opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX))
+#ifdef X64
+#    define INSTR_CREATE_syscall(dc)                                          \
+        instr_create_2dst_0src((dc), OP_syscall, opnd_create_reg(DR_REG_XCX), \
+                               opnd_create_reg(DR_REG_R11))
+#endif
+/** @} */ /* end doxygen group */
 
 /* 2 destinations: 1 implicit, 1 source */
 /** @name 2 destinations: 1 implicit, 1 source */
