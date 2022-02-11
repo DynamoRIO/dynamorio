@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -435,8 +435,8 @@ enum {
 #define RAW_INSERT_INT8(pos, value)                    \
     do {                                               \
         ASSERT(CHECK_TRUNCATE_TYPE_sbyte((int)value)); \
-        *(char *)(pos) = (char)(value);                \
-        (pos) += sizeof(char);                         \
+        *(sbyte *)(pos) = (sbyte)(value);              \
+        (pos) += sizeof(sbyte);                        \
     } while (0)
 
 #define RAW_PUSH_INT64(pos, value)                                                 \
@@ -1296,7 +1296,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         *cur_local_pos++ = MOV_IMM8_2_RM8;
         *cur_local_pos++ = MOV_deref_disp8_EAX_2_EAX_RM;
         RAW_INSERT_INT8(cur_local_pos, i);
-        RAW_INSERT_INT8(cur_local_pos, (char)hook_buf[i]);
+        RAW_INSERT_INT8(cur_local_pos, (sbyte)hook_buf[i]);
     }
 
     /* Call DR earliest-takeover routine w/ retaddr pointing at hooked

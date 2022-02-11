@@ -774,6 +774,9 @@ if (UNIX)
   set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
+  # Ensure DR is interoperable with other toolchains: do not assume char is signed
+  # (see i#1034 where this caused problems in the past).
+  set(BASE_CFLAGS "${BASE_CFLAGS} -funsigned-char")
   # Ubuntu defaults to -fstack-protector these days, which depends on app TLS.
   CHECK_C_COMPILER_FLAG("-fno-stack-protector" no_stack_protector_avail)
   if (no_stack_protector_avail)

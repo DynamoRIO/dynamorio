@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1665,7 +1665,7 @@ decode_cti(void *drcontext, byte *pc, instr_t *instr)
         instr_set_num_opnds(dcontext, instr, 2, 2);
         instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
         instr_set_dst(instr, 1, opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_4));
-        instr_set_src(instr, 0, opnd_create_immed_int((char)byte1, OPSZ_1));
+        instr_set_src(instr, 0, opnd_create_immed_int((sbyte)byte1, OPSZ_1));
         instr_set_src(instr, 1, opnd_create_reg(REG_XSP));
         instr_set_raw_bits(instr, start_pc, sz);
         instr_set_rip_rel_pos(instr, rip_rel_pos);

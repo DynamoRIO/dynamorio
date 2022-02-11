@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -420,7 +420,7 @@ read_immed(byte *pc, decode_info_t *di, opnd_size_t size, ptr_int_t *result)
      */
     switch (size) {
     case OPSZ_1:
-        *result = (ptr_int_t)(char)*pc; /* sign-extend */
+        *result = (ptr_int_t)(sbyte)*pc; /* sign-extend */
         pc++;
         break;
     case OPSZ_2:
@@ -584,7 +584,7 @@ read_modrm(byte *pc, decode_info_t *di)
         } else if (di->mod == 1) {
             /* 1-byte disp */
             di->has_disp = true;
-            di->disp = (int)(char)*pc; /* sign-extend */
+            di->disp = (int)(sbyte)*pc; /* sign-extend */
             pc++;
         } else {
             di->has_disp = false;
@@ -617,7 +617,7 @@ read_modrm(byte *pc, decode_info_t *di)
         } else if (di->mod == 1) {
             /* 1-byte disp */
             di->has_disp = true;
-            di->disp = (int)(char)*pc; /* sign-extend */
+            di->disp = (int)(sbyte)*pc; /* sign-extend */
             pc++;
         } else {
             di->has_disp = false;

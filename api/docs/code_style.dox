@@ -231,6 +231,7 @@ simple scalar type function parameters as `const`.
   };
   ```
 
+-# Do not assume that `char` is signed: use our `sbyte` typedef for a signed one-byte type.
 
 
 # Commenting Conventions
