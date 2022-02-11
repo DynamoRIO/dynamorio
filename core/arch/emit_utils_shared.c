@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3557,10 +3557,8 @@ create_syscall_instr(dcontext_t *dcontext)
         return create_int_syscall_instr(dcontext);
     } else if (method == SYSCALL_METHOD_SYSENTER) {
         return INSTR_CREATE_sysenter(dcontext);
-#    ifdef X64
     } else if (method == SYSCALL_METHOD_SYSCALL) {
         return INSTR_CREATE_syscall(dcontext);
-#    endif
     }
 
 #    ifdef WINDOWS
