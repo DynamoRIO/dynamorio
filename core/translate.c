@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -175,6 +175,18 @@ instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
         opnd_is_base_disp(instr_get_src(inst, 0))) {
         reg_id_t dst = opnd_get_reg(instr_get_dst(inst, 0));
         opnd_t memref = instr_get_src(inst, 0);
+        int disp = opnd_get_disp(memref);
+        if (reg_is_gpr(dst) && reg_is_pointer_sized(dst) &&
+            opnd_get_index(memref) == DR_REG_NULL &&
+            disp ==
+                offsetof(dcontext_t, rseq_entry_state) +
+                    sizeof(reg_t) * (dst - DR_REG_START_GPR))
+            return true;
+    } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_st, OP_str) &&
+               opnd_is_reg(instr_get_src(inst, 0)) &&
+               opnd_is_base_disp(instr_get_dst(inst, 0))) {
+        reg_id_t dst = opnd_get_reg(instr_get_src(inst, 0));
+        opnd_t memref = instr_get_dst(inst, 0);
         int disp = opnd_get_disp(memref);
         if (reg_is_gpr(dst) && reg_is_pointer_sized(dst) &&
             opnd_get_index(memref) == DR_REG_NULL &&
