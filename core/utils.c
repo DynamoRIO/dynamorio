@@ -2546,7 +2546,7 @@ strcasecmp_with_wildcards(const char *regexp, const char *consider)
             return -1;
         } else if (*consider == '\0')
             return 1;
-        ASSERT(*regexp != EOF && *consider != EOF);
+        ASSERT((sbyte)*regexp != EOF && (sbyte)*consider != EOF);
         cr = (char)tolower(*regexp);
         cc = (char)tolower(*consider);
         if (cr != '?' && cr != cc) {
