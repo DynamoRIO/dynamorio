@@ -391,7 +391,8 @@ static inline byte *
 atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
 {
     ssize_t towrite = pipe_end - pipe_start;
-    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() && towrite > 0);
+    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size());
+    DR_ASSERT(towrite > 0);
     if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite) {
         FATAL("Fatal error: failed to write to pipe\n");
     }
