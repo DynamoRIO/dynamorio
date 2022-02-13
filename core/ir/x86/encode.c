@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2628,7 +2628,7 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
                           "encode_cti error: target beyond 8-bit reach");
             return NULL;
         }
-        *((char *)pc) = (char)offset;
+        *((sbyte *)pc) = (sbyte)offset;
         pc++;
     } else {
         /* 32-bit offset */
@@ -2717,7 +2717,7 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         /* We only support non-4-byte rip-rel disps for 1-byte instr-final (jcc_short). */
         if (rip_rel_pos + 1 == instr->length) {
             ASSERT(CHECK_TRUNCATE_TYPE_sbyte(new_offs));
-            *((char *)dst_pc) = (char)new_offs;
+            *((sbyte *)dst_pc) = (sbyte)new_offs;
         } else {
             ASSERT(rip_rel_pos + 4 <= instr->length);
             ASSERT(CHECK_TRUNCATE_TYPE_int(new_offs));

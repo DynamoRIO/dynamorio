@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -119,7 +119,7 @@ static const byte fixed_length[256] = {
    use this table if we've seen a operand-size prefix byte to adjust
    the fixed_length from dword to word.
  */
-static const signed char immed_adjustment[256] = {
+static const sbyte immed_adjustment[256] = {
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 0 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 1 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 2 */
@@ -143,7 +143,7 @@ static const signed char immed_adjustment[256] = {
 
 #ifdef X64
 /* for x64 Intel, Jz is always a 64-bit addr ("f64" in Intel table) */
-static const signed char immed_adjustment_intel64[256] = {
+static const sbyte immed_adjustment_intel64[256] = {
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 0 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 1 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 2 */
@@ -171,7 +171,7 @@ static const signed char immed_adjustment_intel64[256] = {
  * indexed by the 1st (primary) opcode byte.
  * The value here is doubled for x64 mode.
  */
-static const signed char disp_adjustment[256] = {
+static const sbyte disp_adjustment[256] = {
     0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0 */
     0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 1 */
     0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 2 */
@@ -199,7 +199,7 @@ static const signed char disp_adjustment[256] = {
  * default-size adjustments (positive numbers) and rex.w-prefix-based
  * adjustments (negative numbers, to be made positive when applied).
  */
-static const char x64_adjustment[256] = {
+static const sbyte x64_adjustment[256] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 0 */
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 1 */
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 2 */
@@ -1665,7 +1665,7 @@ decode_cti(void *drcontext, byte *pc, instr_t *instr)
         instr_set_num_opnds(dcontext, instr, 2, 2);
         instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
         instr_set_dst(instr, 1, opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_4));
-        instr_set_src(instr, 0, opnd_create_immed_int((char)byte1, OPSZ_1));
+        instr_set_src(instr, 0, opnd_create_immed_int((sbyte)byte1, OPSZ_1));
         instr_set_src(instr, 1, opnd_create_reg(REG_XSP));
         instr_set_raw_bits(instr, start_pc, sz);
         instr_set_rip_rel_pos(instr, rip_rel_pos);

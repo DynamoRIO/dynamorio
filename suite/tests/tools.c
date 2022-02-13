@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -453,7 +453,7 @@ nolibc_memset(void *dst, int val, size_t size)
     size_t i;
     char *buf = (char *)dst;
     for (i = 0; i < size; i++) {
-        buf[i] = (char)val;
+        buf[i] = (sbyte)val;
     }
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -965,8 +965,8 @@ bb_process_ubr(dcontext_t *dcontext, build_bb_t *bb)
                 /* we hooked deep need to add the int 2e instruction */
                 /* can't use create_syscall_instr because of case 5217 hack */
                 ASSERT(get_syscall_method() == SYSCALL_METHOD_INT);
-                bb->instr =
-                    INSTR_CREATE_int(dcontext, opnd_create_immed_int((char)0x2e, OPSZ_1));
+                bb->instr = INSTR_CREATE_int(dcontext,
+                                             opnd_create_immed_int((sbyte)0x2e, OPSZ_1));
                 if (bb->record_translation)
                     instr_set_translation(bb->instr, translation);
                 ASSERT(instr_is_syscall(bb->instr) &&

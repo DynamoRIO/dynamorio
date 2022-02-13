@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1092,7 +1092,7 @@ gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds, opnd_t *ar
 #        ifdef X64
     APP(ilist, INSTR_CREATE_syscall(dc));
 #        else
-    APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((char)0x80)));
+    APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((sbyte)0x80)));
 #        endif
 #    else
     /* FIXME i#1551: NYI on ARM */

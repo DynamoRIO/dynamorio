@@ -3534,12 +3534,12 @@ create_int_syscall_instr(dcontext_t *dcontext)
          * to avoid tripping up Sygate. */
         return INSTR_CREATE_call(dcontext, opnd_create_pc(int_syscall_address));
     } else {
-        return INSTR_CREATE_int(dcontext, opnd_create_immed_int((char)0x2e, OPSZ_1));
+        return INSTR_CREATE_int(dcontext, opnd_create_immed_int((sbyte)0x2e, OPSZ_1));
     }
 #    else
     /* if uninitialized just guess int, we'll patch up later */
 
-    return INSTR_CREATE_int(dcontext, opnd_create_immed_int((char)0x80, OPSZ_1));
+    return INSTR_CREATE_int(dcontext, opnd_create_immed_int((sbyte)0x80, OPSZ_1));
 #    endif
 }
 #endif
@@ -3550,7 +3550,7 @@ create_syscall_instr(dcontext_t *dcontext)
     int method = get_syscall_method();
 #ifdef AARCHXX
     if (method == SYSCALL_METHOD_SVC || method == SYSCALL_METHOD_UNINITIALIZED) {
-        return INSTR_CREATE_svc(dcontext, opnd_create_immed_int((char)0x0, OPSZ_1));
+        return INSTR_CREATE_svc(dcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
     }
 #elif defined(X86)
     if (method == SYSCALL_METHOD_INT || method == SYSCALL_METHOD_UNINITIALIZED) {
@@ -4777,7 +4777,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         if (interrupt != 0) {
 #ifdef X86
             syscall = INSTR_CREATE_int(dcontext,
-                                       opnd_create_immed_int((char)interrupt, OPSZ_1));
+                                       opnd_create_immed_int((sbyte)interrupt, OPSZ_1));
 #endif
             IF_ARM(ASSERT_NOT_REACHED());
         } else
@@ -5036,7 +5036,7 @@ emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                       uint *syscall_offs /*OUT*/)
 {
     instr_t *gateway = INSTR_CREATE_int(
-        dcontext, opnd_create_immed_int((char)VMKUW_SYSCALL_GATEWAY, OPSZ_1));
+        dcontext, opnd_create_immed_int((sbyte)VMKUW_SYSCALL_GATEWAY, OPSZ_1));
     return emit_do_syscall_common(dcontext, code, pc, fcache_return_pc, false,
                                   thread_shared, false, gateway, syscall_offs);
 }

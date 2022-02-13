@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -351,7 +351,8 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
     entry.size = 0;
     for (i = 0; i < num_delay_instrs; i++) {
         // Fill instr size into bundle entry
-        entry.length[entry.size++] = (char)instr_length(drcontext, delay_instrs[i]);
+        entry.length[entry.size++] =
+            (unsigned char)instr_length(drcontext, delay_instrs[i]);
         // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
         if (entry.size == sizeof(entry.length) || i == num_delay_instrs - 1) {
             insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
