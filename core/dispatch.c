@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1149,7 +1149,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
          * Do not bother to try to update on an exit due to a signal
          * (so signals_pending>0; for <0 we're in the handler).
          */
-        if (IF_UNIX_ELSE(dcontext->signals_pending <= 0, false)) {
+        if (IF_UNIX_ELSE(dcontext->signals_pending <= 0, true)) {
             SELF_PROTECT_LOCAL(dcontext, WRITABLE);
             /* update IBL target table if target is a valid IBT */
             /* FIXME: This is good for modularity but adds
@@ -1338,8 +1338,11 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
     }
 #endif
 
+    /* A count of cache exits is a useful enough metric to gauge performance
+     * problems that we pay for a counter in release build.
+     */
+    RSTATS_INC(num_exits);
 #if defined(DEBUG) || defined(KSTATS)
-    STATS_INC(num_exits);
     ASSERT(dcontext->last_exit != NULL);
 
     /* special exits that aren't from real fragments */
