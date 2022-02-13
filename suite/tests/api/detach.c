@@ -82,13 +82,13 @@ func_3(void)
          * all, to test table lookups (as in i#5352).
          */
         if (i % 4 == 0)
-            res += cos(1. / (double)(i % 4));
+            res += cos(1. / (double)(i + 1));
         else if (i % 4 == 1)
-            res += cos(1. / (double)(i % 4));
+            res += cos(1. / (double)(i + 2));
         else if (i % 4 == 2)
-            res += cos(1. / (double)(i % 4));
+            res += cos(1. / (double)(i + 3));
         else if (i % 4 == 3)
-            res += cos(1. / (double)(i % 4));
+            res += cos(1. / (double)(i + 4));
     }
     if (res == 0.)
         print("result is 0\n");
