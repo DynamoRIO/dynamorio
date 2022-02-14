@@ -133,11 +133,15 @@ changes:
    distributable version of DynamoRIO.
 
 Further non-compatibility-affecting changes include:
+ - Fixed a significant performance regression between 8.0.0 and 9.0.0
+   (between 8.0.18740 and 8.0.18747) affecting Windows programs with
+   varying indirect branches on hot code paths.
  - Added alias support to droption.
  - The drcpusim option -blacklist was renamed to -blocklist but the old name
    is still accepted.
  - Added droption_parser_t::clear_values() for re-setting accumulating option
    values on re-attach for statically linked clients.
+ - Added the count of cache exits to #dr_stats_t.
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:

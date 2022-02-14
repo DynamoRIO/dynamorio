@@ -865,6 +865,8 @@ typedef struct _dr_stats_t {
     uint64 peak_vmm_blocks_reach_special_mmap;
     /** Signals delivered to native threads. */
     uint64 num_native_signals;
+    /** Number of exits from the code cache. */
+    uint64 num_cache_exits;
 } dr_stats_t;
 
 /**
