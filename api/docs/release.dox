@@ -124,7 +124,10 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 9.0.0 include the following compatibility
+The changes between version \DR_VERSION and 9.0.1 include the following changes:
+ - Nothing yet (placeholder).
+
+The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
  - Introduced a new CMake option called BUILD_PACKAGE to skip glibc
    compatibility checks. This is off by default such that building DynamoRIO
