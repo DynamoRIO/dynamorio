@@ -2509,20 +2509,6 @@ encode_opnd_exp_imm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-/* sysops: immediate operand for SYS instruction which specifies SYS operations */
-
-static inline bool
-decode_opnd_sysops(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_int(5, 14, false, 0, OPSZ_2, 0, enc, opnd);
-}
-
-static inline bool
-encode_opnd_sysops(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_int(5, 14, false, 0, 0, opnd, enc_out);
-}
-
 /* sysreg: system register, operand of MRS/MSR */
 
 static inline bool
