@@ -1,0 +1,6 @@
+wrapme: arg 2
+first wrapme returned 2
+wrapme: arg 42
+second wrapme returned 42
+loaded library
+thank you for testing the client interface

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -66,6 +66,9 @@ DR_EXPORT
  * normally) but each call must be paired with a corresponding call to
  * drwrap_exit().
  *
+ * Some drwrap behavior must be set by calling drwrap_set_global_flags() *before*
+ * calling this routine.
+ *
  * \return whether successful.
  */
 bool
@@ -77,6 +80,34 @@ DR_EXPORT
  */
 void
 drwrap_exit(void);
+
+/***************************************************************************
+ * CONTROL INVERSION
+ */
+
+/**
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
+ * must call this function from a drmgr analysis event handler
+ * (typically registered with
+ * drmgr_register_bb_instrumentation_event()).  For best results the
+ * calling handler should use a priority of
+ * #DRMGR_PRIORITY_INSERT_DRWRAP.
+ */
+dr_emit_flags_t
+drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                       bool translating, OUT void **user_data);
+
+/**
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
+ * must call this function from a drmgr insertion event handler
+ * (typically registered with
+ * drmgr_register_bb_instrumentation_event()).  For best results the
+ * calling handler should use a priority of
+ * #DRMGR_PRIORITY_INSERT_DRWRAP.
+ */
+dr_emit_flags_t
+drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                     bool for_trace, bool translating, void *user_data);
 
 /***************************************************************************
  * FUNCTION REPLACING
@@ -751,6 +782,16 @@ typedef enum {
      * Once set, this flag cannot be unset.
      */
     DRWRAP_FAST_CLEANCALLS = 0x08,
+    /**
+     * This flag must only be set before calling drwrap_init().  If set, drwrap will not
+     * register for the drmgr analysis or insertion events.  The user must instead
+     * explicitly invoke drwrap_invoke_analysis() and drwrap_invoke_insert() from its
+     * own handler for those events.  This "inverted control" mode is provided for
+     * better compatibility with drbbdup where the user wishes to only perform wrapping
+     * in a subset of the drbbdup cases.  Only wrapping is supported this way, not
+     * replacing, at this time.
+     */
+    DRWRAP_INVERT_CONTROL = 0x10,
 } drwrap_global_flags_t;
 
 DR_EXPORT

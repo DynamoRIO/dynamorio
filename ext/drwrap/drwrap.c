@@ -946,9 +946,11 @@ drwrap_init(void)
     drmgr_init();
     if (!drmgr_register_bb_app2app_event(drwrap_event_bb_app2app, &pri_replace))
         return false;
-    if (!drmgr_register_bb_instrumentation_event(drwrap_event_bb_analysis,
-                                                 drwrap_event_bb_insert, &pri_insert))
-        return false;
+    if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        if (!drmgr_register_bb_instrumentation_event(drwrap_event_bb_analysis,
+                                                     drwrap_event_bb_insert, &pri_insert))
+            return false;
+    }
     if (!drmgr_register_restore_state_ex_event(drwrap_event_restore_state_ex))
         return false;
 
@@ -963,7 +965,9 @@ drwrap_init(void)
                       false /*!str_dup*/, false /*!synch*/, post_call_entry_free, NULL,
                       NULL);
     post_call_rwlock = dr_rwlock_create();
-    wrap_lock = dr_recurlock_create();
+    /* This lock may have been set up by drwrap_set_global_flags() (in this thread). */
+    if (wrap_lock == NULL)
+        wrap_lock = dr_recurlock_create();
     drmgr_register_module_unload_event(drwrap_event_module_unload);
 
     tls_idx = drmgr_register_tls_field();
@@ -1005,12 +1009,27 @@ drwrap_exit(void)
     if (count != 0)
         return;
 
+    if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        if (!drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis))
+            ASSERT(false, "failed to unregister in drwrap_exit");
+    }
     if (!drmgr_unregister_bb_app2app_event(drwrap_event_bb_app2app) ||
-        !drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis) ||
         !drmgr_unregister_restore_state_ex_event(drwrap_event_restore_state_ex) ||
         !drmgr_unregister_module_unload_event(drwrap_event_module_unload) ||
+        !drmgr_unregister_thread_init_event(drwrap_thread_init) ||
+        !drmgr_unregister_thread_exit_event(drwrap_thread_exit) ||
         !drmgr_unregister_tls_field(tls_idx))
         ASSERT(false, "failed to unregister in drwrap_exit");
+
+#ifdef WINDOWS
+    if (sysnum_NtContinue != -1) {
+        if (!dr_unregister_filter_syscall_event(drwrap_event_filter_syscall) ||
+            !drmgr_unregister_pre_syscall_event(drwrap_event_pre_syscall))
+            ASSERT(false, "failed to unregister in drwrap_exit");
+    }
+    if (!drmgr_unregister_exception_event_ex(drwrap_event_exception))
+        ASSERT(false, "failed to unregister in drwrap_exit");
+#endif
 
     if (dr_is_detaching()) {
         memset(&drwrap_stats, 0, sizeof(drwrap_stats_t));
@@ -1030,6 +1049,7 @@ drwrap_exit(void)
     hashtable_delete(&post_call_table);
     dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
+    wrap_lock = NULL; /* For re-attach early drwrap_set_global_flags(). */
     drmgr_exit();
 
     while (post_call_notify_list != NULL) {
@@ -1085,7 +1105,21 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
 {
     drwrap_global_flags_t old_flags;
     bool res;
+    /* This can be called prior to drwrap_init().
+     * We only support this being done in the single DR-initialization thread.
+     */
+    if (wrap_lock == NULL) {
+        ASSERT(dr_atomic_load32(&drwrap_init_count) == 0,
+               "Unsupported race between drwrap_init() and drwrap_set_global_flags()");
+        wrap_lock = dr_recurlock_create();
+    }
     dr_recurlock_lock(wrap_lock);
+    if (dr_atomic_load32(&drwrap_init_count) > 0 &&
+        /* After drwrap_init() was called, control inversion cannot be changed. */
+        (flags & DRWRAP_INVERT_CONTROL) != (global_flags & DRWRAP_INVERT_CONTROL)) {
+        dr_recurlock_unlock(wrap_lock);
+        return false;
+    }
     /* if anyone asks for safe, be safe.
      * since today the only 2 flags ask for safe, we can accomplish that
      * by simply or-ing in each request.
@@ -1097,6 +1131,38 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
     res = (global_flags != old_flags);
     dr_recurlock_unlock(wrap_lock);
     return res;
+}
+
+DR_EXPORT
+dr_emit_flags_t
+drwrap_invoke_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                      bool translating)
+{
+    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+    return drwrap_event_bb_app2app(drcontext, tag, bb, for_trace, translating);
+}
+
+DR_EXPORT
+dr_emit_flags_t
+drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                       bool translating, OUT void **user_data)
+{
+    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+    return drwrap_event_bb_analysis(drcontext, tag, bb, for_trace, translating,
+                                    user_data);
+}
+
+DR_EXPORT
+dr_emit_flags_t
+drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                     bool for_trace, bool translating, void *user_data)
+{
+    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+    return drwrap_event_bb_insert(drcontext, tag, bb, inst, for_trace, translating,
+                                  user_data);
 }
 
 /***************************************************************************
