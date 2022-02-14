@@ -1241,7 +1241,7 @@ x1101011xx0xxxxxxxxxxxxxxxxxxxxx  w   473        subs            wx0 : wx5 wx16 
 11111000011xxxxx100000xxxxxxxxxx  n   485        swpl        x0 mem0 : x16 mem0
 00111000011xxxxx100000xxxxxxxxxx  n   486       swplb        w0 mem0 : w16 mem0
 01111000011xxxxx100000xxxxxxxxxx  n   487       swplh        w0 mem0 : w16 mem0
-1101010100001xxxxxxxxxxxxxxxxxxx  n   488         sys                : sysops memx0
+1101010100001xxxxxxxxxxxxxxxxxxx  n   488         sys             x0 : op1 crn imm4 op2
 1101010100101xxxxxxxxxxxxxxxxxxx  n   489        sysl             x0 : op1 crn imm4 op2
 0x001110000xxxxx0xx000xxxxxxxxxx  n   490         tbl            dq0 : dq5 dq16 len
 x0110111xxxxxxxxxxxxxxxxxxxxxxxx  n   491        tbnz            tbz
