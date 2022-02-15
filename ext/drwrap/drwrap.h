@@ -85,6 +85,7 @@ drwrap_exit(void);
  * CONTROL INVERSION
  */
 
+DR_EXPORT
 /**
  * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
  * must call this function from a drmgr analysis event handler
@@ -97,6 +98,7 @@ dr_emit_flags_t
 drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                        bool translating, OUT void **user_data);
 
+DR_EXPORT
 /**
  * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
  * must call this function from a drmgr insertion event handler

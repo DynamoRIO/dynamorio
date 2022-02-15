@@ -43,7 +43,7 @@ wrapme(int x)
     return x;
 }
 
-int
+void
 run_tests(void)
 {
     print("first wrapme returned %d\n", wrapme(2));

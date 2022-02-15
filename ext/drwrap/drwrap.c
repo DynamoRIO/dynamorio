@@ -1027,7 +1027,7 @@ drwrap_exit(void)
             !drmgr_unregister_pre_syscall_event(drwrap_event_pre_syscall))
             ASSERT(false, "failed to unregister in drwrap_exit");
     }
-    if (!drmgr_unregister_exception_event_ex(drwrap_event_exception))
+    if (!drmgr_unregister_exception_event(drwrap_event_exception))
         ASSERT(false, "failed to unregister in drwrap_exit");
 #endif
 
@@ -1135,21 +1135,11 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
 
 DR_EXPORT
 dr_emit_flags_t
-drwrap_invoke_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                      bool translating)
-{
-    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
-           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
-    return drwrap_event_bb_app2app(drcontext, tag, bb, for_trace, translating);
-}
-
-DR_EXPORT
-dr_emit_flags_t
 drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                        bool translating, OUT void **user_data)
 {
     ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
-           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_analysis");
     return drwrap_event_bb_analysis(drcontext, tag, bb, for_trace, translating,
                                     user_data);
 }
