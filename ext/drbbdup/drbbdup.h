@@ -158,6 +158,20 @@ typedef void (*drbbdup_analyze_case_t)(void *drcontext, void *tag, instrlist_t *
                                        IN void **case_analysis_data);
 
 /**
+ * Identical to #drbbdup_analyze_case_t except for two extra parameters, "for_trace"
+ * and "translating", and the return value.  These all match the same parameters and
+ * return values used with #drmgr_analysis_cb_t and dr_register_bb_event().
+ * The returned flags will be merged in the same manner as for #drmgr_analysis_cb_t.
+ *
+ */
+typedef dr_emit_flags_t (*drbbdup_analyze_case_ex_t)(void *drcontext, void *tag,
+                                                     instrlist_t *bb, bool for_trace,
+                                                     bool translating, uintptr_t encoding,
+                                                     void *user_data,
+                                                     void *orig_analysis_data,
+                                                     IN void **case_analysis_data);
+
+/**
  * Destroys analysis data \p case_analysis_data for the case with encoding \p encoding.
  *
  * The function is not invoked by drbbdup if \p case_analysis_data was set to NULL by the
@@ -320,6 +334,11 @@ typedef struct {
      * avoids an extra scratch register.  Set to 0 to indicate there is no bound.
      */
     uintptr_t max_case_encoding;
+    /**
+     * Identical to analyze_case but taking extra parameters and with a return value.
+     * Only one of this field or the analyze_case field can be set.
+     */
+    drbbdup_analyze_case_ex_t analyze_case_ex;
     /**
      * Identical to instrument_instr but taking extra parameters and with a return value.
      * Either this or the instrument_instr field must be set.

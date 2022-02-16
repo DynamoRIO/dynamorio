@@ -636,21 +636,30 @@ drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
 /* Performs analysis specific to a case. */
 static void *
 drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
-                         instrlist_t *bb, instr_t *start, const drbbdup_case_t *case_info,
-                         void *orig_analysis_data, OUT instr_t **next)
+                         instrlist_t *bb, instr_t *start, bool for_trace,
+                         bool translating, const drbbdup_case_t *case_info,
+                         void *orig_analysis_data, OUT instr_t **next,
+                         INOUT dr_emit_flags_t *emit_flags)
 {
-    if (opts.analyze_case == NULL) {
+    if (opts.analyze_case == NULL && opts.analyze_case_ex == NULL) {
         return NULL;
     }
 
     void *case_analysis_data = NULL;
+    dr_emit_flags_t flags = DR_EMIT_DEFAULT;
     if (manager->enable_dup) {
         instr_t *pre = NULL;  /* used for stitching */
         instr_t *post = NULL; /* used for stitching */
         instrlist_t *case_bb = drbbdup_extract_bb_copy(drcontext, bb, start, &pre, &post);
         /* Let the user analyse the BB for the given case. */
-        opts.analyze_case(drcontext, tag, case_bb, case_info->encoding, opts.user_data,
-                          orig_analysis_data, &case_analysis_data);
+        if (opts.analyze_case_ex != NULL) {
+            flags |= opts.analyze_case_ex(drcontext, tag, case_bb, for_trace, translating,
+                                          case_info->encoding, opts.user_data,
+                                          orig_analysis_data, &case_analysis_data);
+        } else {
+            opts.analyze_case(drcontext, tag, case_bb, case_info->encoding,
+                              opts.user_data, orig_analysis_data, &case_analysis_data);
+        }
         drbbdup_stitch_bb_copy(drcontext, bb, case_bb, pre, post);
         if (next != NULL)
             *next = drbbdup_next_start(post);
@@ -658,11 +667,19 @@ drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
         /* For bb with no wanted copies, simply invoke the call-back with the original
          * bb.
          */
-        opts.analyze_case(drcontext, tag, bb, case_info->encoding, opts.user_data,
-                          orig_analysis_data, &case_analysis_data);
+        if (opts.analyze_case_ex != NULL) {
+            flags |= opts.analyze_case_ex(drcontext, tag, bb, for_trace, translating,
+                                          case_info->encoding, opts.user_data,
+                                          orig_analysis_data, &case_analysis_data);
+        } else {
+            opts.analyze_case(drcontext, tag, bb, case_info->encoding, opts.user_data,
+                              orig_analysis_data, &case_analysis_data);
+        }
         if (next != NULL)
             *next = NULL;
     }
+    if (emit_flags != NULL)
+        *emit_flags |= flags;
 
     return case_analysis_data;
 }
@@ -690,15 +707,16 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     pt->orig_analysis_data = drbbdup_do_orig_analysis(manager, drcontext, tag, bb, first);
 
     /* Perform analysis for each (non-default) case. */
+    dr_emit_flags_t flags = DR_EMIT_DEFAULT;
     if (manager->enable_dup) {
         ASSERT(manager->cases != NULL, "case information must exit");
         int i;
         for (i = 0; i < opts.non_default_case_limit; i++) {
             case_info = &manager->cases[i];
             if (case_info->is_defined) {
-                pt->case_analysis_data[i] =
-                    drbbdup_do_case_analysis(manager, drcontext, tag, bb, first,
-                                             case_info, pt->orig_analysis_data, &first);
+                pt->case_analysis_data[i] = drbbdup_do_case_analysis(
+                    manager, drcontext, tag, bb, first, for_trace, translating, case_info,
+                    pt->orig_analysis_data, &first, &flags);
             }
         }
     }
@@ -709,11 +727,12 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     case_info = &manager->default_case;
     ASSERT(case_info->is_defined, "default case must be defined");
     pt->default_analysis_data = drbbdup_do_case_analysis(
-        manager, drcontext, tag, bb, first, case_info, pt->orig_analysis_data, NULL);
+        manager, drcontext, tag, bb, first, for_trace, translating, case_info,
+        pt->orig_analysis_data, NULL, &flags);
 
     dr_rwlock_read_unlock(rw_lock);
 
-    return DR_EMIT_DEFAULT;
+    return flags;
 }
 
 /****************************************************************************
@@ -1760,18 +1779,25 @@ drbbdup_thread_exit(void *drcontext)
 static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
 {
-    if (ops_in != NULL && ops_in->set_up_bb_dups != NULL &&
-        ops_in->non_default_case_limit > 0 &&
-        /* Exactly one of these must be set. */
-        ((ops_in->instrument_instr != NULL &&
-          (ops_in->struct_size < offsetof(drbbdup_options_t, instrument_instr_ex) ||
-           opts.instrument_instr_ex == NULL)) ||
-         (ops_in->instrument_instr == NULL &&
-          (ops_in->struct_size > offsetof(drbbdup_options_t, instrument_instr_ex) &&
-           ops_in->instrument_instr_ex != NULL))))
-        return DRBBDUP_ERROR_INVALID_PARAMETER;
-
-    return false;
+    if (ops_in == NULL)
+        return false;
+    if (ops_in->set_up_bb_dups == NULL)
+        return false;
+    if (ops_in->non_default_case_limit == 0)
+        return false;
+    if (ops_in->struct_size < offsetof(drbbdup_options_t, analyze_case_ex)) {
+        if (ops_in->instrument_instr == NULL)
+            return false;
+        return true;
+    }
+    /* Only one of these can be set. */
+    if (ops_in->analyze_case != NULL && ops_in->analyze_case_ex != NULL)
+        return false;
+    /* Exactly one of these must be set. */
+    if ((ops_in->instrument_instr != NULL && ops_in->instrument_instr_ex != NULL) ||
+        (ops_in->instrument_instr == NULL && ops_in->instrument_instr_ex == NULL))
+        return false;
+    return true;
 }
 
 static bool

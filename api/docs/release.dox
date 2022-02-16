@@ -129,7 +129,7 @@ changes:
  - Nothing yet (placeholder).
 
 Further non-compatibility-affecting changes include:
- - Added a new field instrument_instr_ex to #drbbdup_options_t.
+ - Added new fields analyze_case_ex and instrument_instr_ex to #drbbdup_options_t.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
