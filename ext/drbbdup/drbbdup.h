@@ -205,6 +205,18 @@ typedef void (*drbbdup_instrument_instr_t)(void *drcontext, void *tag, instrlist
                                            void *orig_analysis_data,
                                            void *case_analysis_data);
 
+/**
+ * Identical to #drbbdup_instrument_instr_t except for two extra parameters, "for_trace"
+ * and "translating", and the return value.  These all match the same parameters and
+ * return values used with #drmgr_insertion_cb_t and dr_register_bb_event().
+ * The returned flags will be merged in the same manner as for #drmgr_insertion_cb_t.
+ *
+ */
+typedef dr_emit_flags_t (*drbbdup_instrument_instr_ex_t)(
+    void *drcontext, void *tag, instrlist_t *bb, instr_t *instr, instr_t *where,
+    bool for_trace, bool translating, uintptr_t encoding, void *user_data,
+    void *orig_analysis_data, void *case_analysis_data);
+
 /***************************************************************************
  * INIT
  */
@@ -255,7 +267,7 @@ typedef struct {
     drbbdup_destroy_case_analysis_t destroy_case_analysis;
     /**
      * A user-defined call-back function that instruments an instruction with respect to a
-     * particular case.
+     * particular case.  Either this or the instrument_instr_ex field must be set.
      */
     drbbdup_instrument_instr_t instrument_instr;
     /**
@@ -308,6 +320,11 @@ typedef struct {
      * avoids an extra scratch register.  Set to 0 to indicate there is no bound.
      */
     uintptr_t max_case_encoding;
+    /**
+     * Identical to instrument_instr but taking extra parameters and with a return value.
+     * Either this or the instrument_instr field must be set.
+     */
+    drbbdup_instrument_instr_ex_t instrument_instr_ex;
 } drbbdup_options_t;
 
 /**

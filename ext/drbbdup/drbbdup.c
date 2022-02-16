@@ -1170,15 +1170,16 @@ drbbdup_insert_dispatch_end(void *drcontext, app_pc translation_pc, void *tag,
     drbbdup_insert_landing_restoration(drcontext, bb, where, manager);
 }
 
-static void
+static dr_emit_flags_t
 drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                         instr_t *where, drbbdup_per_thread *pt,
-                         drbbdup_manager_t *manager)
+                         instr_t *where, bool for_trace, bool translating,
+                         drbbdup_per_thread *pt, drbbdup_manager_t *manager)
 {
     drbbdup_case_t *drbbdup_case = NULL;
     void *analysis_data = NULL;
 
-    ASSERT(opts.instrument_instr, "instrument call-back function cannot be NULL");
+    ASSERT(opts.instrument_instr != NULL || opts.instrument_instr_ex != NULL,
+           "one of the instrument call-back functions must be non-NULL");
     ASSERT(pt->case_index != DRBBDUP_IGNORE_INDEX, "case index cannot be ignored");
 
     if (pt->case_index == DRBBDUP_DEFAULT_INDEX) {
@@ -1197,20 +1198,29 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
     }
 
     ASSERT(drbbdup_case->is_defined, "case must be defined upon instrumentation");
-    opts.instrument_instr(drcontext, tag, bb, instr, where, drbbdup_case->encoding,
-                          opts.user_data, pt->orig_analysis_data, analysis_data);
+    if (opts.instrument_instr_ex != NULL) {
+        return opts.instrument_instr_ex(drcontext, tag, bb, instr, where, for_trace,
+                                        translating, drbbdup_case->encoding,
+                                        opts.user_data, pt->orig_analysis_data,
+                                        analysis_data);
+    } else {
+        opts.instrument_instr(drcontext, tag, bb, instr, where, drbbdup_case->encoding,
+                              opts.user_data, pt->orig_analysis_data, analysis_data);
+        return DR_EMIT_DEFAULT;
+    }
 }
 
 /* Support different instrumentation for different bb copies. Tracks which case is
  * currently being considered via an index (namely pt->case_index) in thread-local
  * storage, and update this index upon encountering the start/end of bb copies.
  */
-static void
+static dr_emit_flags_t
 drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
-                        instr_t *instr, drbbdup_per_thread *pt,
-                        drbbdup_manager_t *manager)
+                        instr_t *instr, bool for_trace, bool translating,
+                        drbbdup_per_thread *pt, drbbdup_manager_t *manager)
 {
     drbbdup_case_t *drbbdup_case = NULL;
+    dr_emit_flags_t flags = DR_EMIT_DEFAULT;
     ASSERT(manager->cases != NULL, "case info should not be NULL");
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
 
@@ -1282,7 +1292,8 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
     } else if (drbbdup_is_at_end(instr)) {
         /* Handle last special instruction (if present). */
         if (is_last_special) {
-            drbbdup_instrument_instr(drcontext, tag, bb, last, instr, pt, manager);
+            flags = drbbdup_instrument_instr(drcontext, tag, bb, last, instr, for_trace,
+                                             translating, pt, manager);
             if (pt->case_index == DRBBDUP_DEFAULT_INDEX) {
                 pt->case_index =
                     DRBBDUP_IGNORE_INDEX; /* Ignore remaining instructions. */
@@ -1294,14 +1305,16 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
         ASSERT(drbbdup_is_special_instr(instr), "ignored instr should be cti or syscall");
     } else {
         /* Instrument instructions inside the bb specified by pt->case_index. */
-        drbbdup_instrument_instr(drcontext, tag, bb, instr, instr, pt, manager);
+        flags = drbbdup_instrument_instr(drcontext, tag, bb, instr, instr, for_trace,
+                                         translating, pt, manager);
     }
+    return flags;
 }
 
-static void
+static dr_emit_flags_t
 drbbdup_instrument_without_dups(void *drcontext, void *tag, instrlist_t *bb,
-                                instr_t *instr, drbbdup_per_thread *pt,
-                                drbbdup_manager_t *manager)
+                                instr_t *instr, bool for_trace, bool translating,
+                                drbbdup_per_thread *pt, drbbdup_manager_t *manager)
 {
     ASSERT(manager->cases == NULL, "case info should not be needed");
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
@@ -1316,7 +1329,8 @@ drbbdup_instrument_without_dups(void *drcontext, void *tag, instrlist_t *bb,
     /* No dups wanted! Just instrument normally using default case. */
     ASSERT(pt->case_index == DRBBDUP_DEFAULT_INDEX,
            "case index should direct to default case");
-    drbbdup_instrument_instr(drcontext, tag, bb, instr, instr, pt, manager);
+    return drbbdup_instrument_instr(drcontext, tag, bb, instr, instr, for_trace,
+                                    translating, pt, manager);
 }
 
 /* Invokes user call-backs to destroy analysis data.
@@ -1363,7 +1377,8 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     app_pc pc = instr_get_app_pc(drbbdup_first_app(bb));
     ASSERT(pc != NULL, "pc cannot be NULL");
 
-    ASSERT(opts.instrument_instr != NULL, "instrumentation call-back must not be NULL");
+    ASSERT(opts.instrument_instr != NULL || opts.instrument_instr_ex != NULL,
+           "instrumentation call-back must not be NULL");
 
     /* Start off with the default case index. */
     if (drmgr_is_first_instr(drcontext, instr))
@@ -1374,17 +1389,21 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
     ASSERT(manager != NULL, "manager cannot be NULL");
 
-    if (manager->enable_dup)
-        drbbdup_instrument_dups(drcontext, pc, tag, bb, instr, pt, manager);
-    else
-        drbbdup_instrument_without_dups(drcontext, tag, bb, instr, pt, manager);
+    dr_emit_flags_t flags = DR_EMIT_DEFAULT;
+    if (manager->enable_dup) {
+        flags |= drbbdup_instrument_dups(drcontext, pc, tag, bb, instr, for_trace,
+                                         translating, pt, manager);
+    } else {
+        flags |= drbbdup_instrument_without_dups(drcontext, tag, bb, instr, for_trace,
+                                                 translating, pt, manager);
+    }
 
     if (drmgr_is_last_instr(drcontext, instr))
         drbbdup_destroy_all_analyses(drcontext, manager, pt);
 
     dr_rwlock_read_unlock(rw_lock);
 
-    return DR_EMIT_DEFAULT;
+    return flags;
 }
 
 static bool
@@ -1741,9 +1760,16 @@ drbbdup_thread_exit(void *drcontext)
 static bool
 drbbdup_check_options(drbbdup_options_t *ops_in)
 {
-    if (ops_in != NULL && ops_in->set_up_bb_dups != NULL && ops_in->instrument_instr &&
-        ops_in->non_default_case_limit > 0)
-        return true;
+    if (ops_in != NULL && ops_in->set_up_bb_dups != NULL &&
+        ops_in->non_default_case_limit > 0 &&
+        /* Exactly one of these must be set. */
+        ((ops_in->instrument_instr != NULL &&
+          (ops_in->struct_size < offsetof(drbbdup_options_t, instrument_instr_ex) ||
+           opts.instrument_instr_ex == NULL)) ||
+         (ops_in->instrument_instr == NULL &&
+          (ops_in->struct_size > offsetof(drbbdup_options_t, instrument_instr_ex) &&
+           ops_in->instrument_instr_ex != NULL))))
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
 
     return false;
 }
