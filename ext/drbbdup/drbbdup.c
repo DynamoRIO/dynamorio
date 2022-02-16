@@ -155,6 +155,9 @@ static bool
 drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding_check,
                                   bool check_default);
 
+static void
+drbbdup_handle_new_case();
+
 static uintptr_t *
 drbbdup_get_tls_raw_slot_addr(drbbdup_thread_slots_t slot_idx)
 {
@@ -449,6 +452,9 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
             if (!manager->enable_dynamic_handling)
                 stats.no_dynamic_handling_count++;
             dr_mutex_unlock(stat_mutex);
+        }
+        if (manager->enable_dynamic_handling && new_case_cache_pc == NULL) {
+            new_case_cache_pc = init_fp_cache(drbbdup_handle_new_case);
         }
     }
 
@@ -1057,6 +1063,9 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
     opnd_t drbbdup_opnd = opnd_create_reg(manager->scratch_reg);
 
     instr_t *done_label = INSTR_CREATE_label(drcontext);
+
+    ASSERT(new_case_cache_pc,
+           "new case cache for dynamic handling must be already initialised.");
 
     /* Check whether case limit has not been reached. */
     if (drbbdup_do_dynamic_handling(manager)) {
@@ -1790,9 +1799,7 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (tls_idx == -1)
         return DRBBDUP_ERROR;
 
-    new_case_cache_pc = init_fp_cache(drbbdup_handle_new_case);
-    if (new_case_cache_pc == NULL)
-        return DRBBDUP_ERROR;
+    ASSERT(new_case_cache_pc == NULL, "should be equal to NULL (as lazily initialised).");
 
     /* Initialise hash table that keeps track of defined cases per
      * basic block.
@@ -1824,7 +1831,9 @@ drbbdup_exit(void)
     ref_count--;
 
     if (ref_count == 0) {
-        destroy_fp_cache(new_case_cache_pc);
+        /* Destroy only if initialised (which is done in a lazy fashion). */
+        if (new_case_cache_pc != NULL)
+            destroy_fp_cache(new_case_cache_pc);
 
         if (!drmgr_unregister_bb_app2app_event(drbbdup_duplicate_phase) ||
             !drmgr_unregister_bb_instrumentation_ex_event(NULL, drbbdup_analyse_phase,
