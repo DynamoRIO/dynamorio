@@ -135,8 +135,8 @@ typedef struct {
     instr_t *last_instr;           /* The last instr of the bb copy being considered. */
 } drbbdup_per_thread;
 
-static uint ref_count = 0;        /* Instance count of drbbdup. */
-static hashtable_t manager_table; /* Maps bbs with book-keeping data. */
+static int drbbdup_init_count = 0; /* Instance count of drbbdup. */
+static hashtable_t manager_table;  /* Maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
 
@@ -1588,7 +1588,7 @@ destroy_fp_cache(app_pc cache_pc)
 drbbdup_status_t
 drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding)
 {
-    if (ref_count == 0)
+    if (drbbdup_init_count == 0)
         return DRBBDUP_ERROR_NOT_INITIALIZED;
 
     drbbdup_manager_t *manager = (drbbdup_manager_t *)drbbdup_ctx;
@@ -1750,8 +1750,10 @@ drbbdup_check_case_opnd(opnd_t case_opnd)
 drbbdup_status_t
 drbbdup_init(drbbdup_options_t *ops_in)
 {
+    int count = dr_atomic_add32_return_sum(&drbbdup_init_count, 1);
+
     /* Return with error if drbbdup has already been initialised. */
-    if (ref_count != 0)
+    if (count != 1)
         return DRBBDUP_ERROR_ALREADY_INITIALISED;
 
     if (!drbbdup_check_options(ops_in))
@@ -1812,18 +1814,15 @@ drbbdup_init(drbbdup_options_t *ops_in)
             return DRBBDUP_ERROR;
     }
 
-    ref_count++;
-
     return DRBBDUP_SUCCESS;
 }
 
 drbbdup_status_t
 drbbdup_exit(void)
 {
-    DR_ASSERT(ref_count > 0);
-    ref_count--;
+    int count = dr_atomic_add32_return_sum(&drbbdup_init_count, -1);
 
-    if (ref_count == 0) {
+    if (count == 0) {
         destroy_fp_cache(new_case_cache_pc);
 
         if (!drmgr_unregister_bb_app2app_event(drbbdup_duplicate_phase) ||
