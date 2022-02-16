@@ -885,6 +885,11 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data);
 
+static dr_emit_flags_t
+drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                             instr_t *where, bool for_trace, bool translating,
+                             void *user_data);
+
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 
@@ -1147,12 +1152,12 @@ drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tra
 DR_EXPORT
 dr_emit_flags_t
 drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                     bool for_trace, bool translating, void *user_data)
+                     instr_t *where, bool for_trace, bool translating, void *user_data)
 {
     ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
            "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
-    return drwrap_event_bb_insert(drcontext, tag, bb, inst, for_trace, translating,
-                                  user_data);
+    return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
+                                        translating, user_data);
 }
 
 /***************************************************************************
@@ -2356,8 +2361,9 @@ drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 }
 
 static dr_emit_flags_t
-drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                       bool for_trace, bool translating, void *user_data)
+drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                             instr_t *where, bool for_trace, bool translating,
+                             void *user_data)
 {
     dr_emit_flags_t res = DR_EMIT_DEFAULT;
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr
@@ -2391,7 +2397,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
             ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
             : 0;
         flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
-        dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_in_callee, flags,
+        dr_insert_clean_call_ex(drcontext, bb, where, (void *)drwrap_in_callee, flags,
                                 IF_X86_ELSE(2, 3), OPND_CREATE_INTPTR((ptr_int_t)arg1),
                                 /* pass in xsp to avoid dr_get_mcontext */
                                 opnd_create_reg(DR_REG_XSP)
@@ -2400,20 +2406,20 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     dr_recurlock_unlock(wrap_lock);
 
     if (post_call_lookup_for_instru(instr_get_app_pc(inst) /*normalized*/)) {
-        drwrap_insert_post_call(drcontext, bb, inst, pc);
+        drwrap_insert_post_call(drcontext, bb, where, pc);
     }
 
     if (dr_fragment_app_pc(tag) == (app_pc)replace_retaddr_sentinel) {
-        drwrap_insert_post_call(drcontext, bb, inst, pc);
+        drwrap_insert_post_call(drcontext, bb, where, pc);
         /* The post-call C code put the real retaddr into the DR slot that will be
          * used by dr_redirect_native_target().
          */
         app_pc tgt = dr_redirect_native_target(drcontext);
         reg_id_t scratch = RETURN_POINT_SCRATCH_REG;
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)tgt,
-                                         opnd_create_reg(scratch), bb, inst, NULL, NULL);
+                                         opnd_create_reg(scratch), bb, where, NULL, NULL);
         instrlist_meta_preinsert(
-            bb, inst, XINST_CREATE_jump_reg(drcontext, opnd_create_reg(scratch)));
+            bb, where, XINST_CREATE_jump_reg(drcontext, opnd_create_reg(scratch)));
         /* This unusual transition confuses DR trying to stitch blocks together into
          * a trace.
          */
@@ -2438,6 +2444,14 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     }
 
     return res;
+}
+
+static dr_emit_flags_t
+drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                       bool for_trace, bool translating, void *user_data)
+{
+    return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, inst, for_trace,
+                                        translating, user_data);
 }
 
 static void

@@ -105,7 +105,7 @@ event_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
         /* drwrap guarantees it doesn't need "for_trace", "translating", or
          * a non-DR_EMIT_DEFAULT return value for drwrap_wrap().
          */
-        drwrap_invoke_insert(drcontext, tag, bb, instr, /*for_trace=*/false,
+        drwrap_invoke_insert(drcontext, tag, bb, instr, where, /*for_trace=*/false,
                              /*translating=*/false, case_analysis_data);
     }
 }

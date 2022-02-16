@@ -92,7 +92,9 @@ DR_EXPORT
  * (typically registered with
  * drmgr_register_bb_instrumentation_event()).  For best results the
  * calling handler should use a priority of
- * #DRMGR_PRIORITY_INSERT_DRWRAP.
+ * #DRMGR_PRIORITY_INSERT_DRWRAP or the equivalent ordering within drbbdup.
+ * Currently, the "for_trace" and "translating" parameters are ignored, and
+ * the return value is always #DR_EMIT_DEFAULT.
  */
 dr_emit_flags_t
 drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
@@ -105,11 +107,13 @@ DR_EXPORT
  * (typically registered with
  * drmgr_register_bb_instrumentation_event()).  For best results the
  * calling handler should use a priority of
- * #DRMGR_PRIORITY_INSERT_DRWRAP.
+ * #DRMGR_PRIORITY_INSERT_DRWRAP or the equivalent ordering within drbbdup.
+ * Currently, the "for_trace" and "translating" parameters are ignored, and
+ * the return value is always #DR_EMIT_DEFAULT.
  */
 dr_emit_flags_t
 drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                     bool for_trace, bool translating, void *user_data);
+                     instr_t *where, bool for_trace, bool translating, void *user_data);
 
 /***************************************************************************
  * FUNCTION REPLACING
