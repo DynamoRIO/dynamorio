@@ -64,10 +64,11 @@ typedef enum {
     DRBBDUP_ERROR_INVALID_OPND,            /**< Operation failed: invalid case opnd. */
     DRBBDUP_ERROR_CASE_ALREADY_REGISTERED, /**< Operation failed: already registered. */
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
-    DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
-    DRBBDUP_ERROR,                         /**< Operation failed. */
-    DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
-    DRBBDUP_ERROR_NOT_INITIALIZED,         /**< Operation failed: not initialized. */
+    DRBBDUP_ERROR_ALREADY_INITIALISED, /**< DRBBDUP can only be initialised once. This is
+                                          a fatal error. */
+    DRBBDUP_ERROR,                     /**< Operation failed. */
+    DRBBDUP_ERROR_UNSET_FEATURE,       /**< Operation failed: feature not set. */
+    DRBBDUP_ERROR_NOT_INITIALIZED,     /**< Operation failed: not initialized. */
 } drbbdup_status_t;
 
 /***************************************************************************
