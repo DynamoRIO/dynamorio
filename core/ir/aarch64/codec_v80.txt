@@ -272,7 +272,7 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90          eor            wx0 : wx5 wx16 
 0x0011100x1xxxxx110101xxxxxxxxxx  n   98         fadd            dq0 : dq5 dq16 sd_sz
 00011110xx1xxxxx001010xxxxxxxxxx  n   98         fadd     float_reg0 : float_reg5 float_reg16
 0x1011100x1xxxxx110101xxxxxxxxxx  n   99        faddp            dq0 : dq5 dq16 sd_sz
-0111111000110000110110xxxxxxxxxx  n   99        faddp             s0 : q5 sd_sz
+0111111000110000110110xxxxxxxxxx  n   99        faddp             s0 : d5 sd_sz
 0111111001110000110110xxxxxxxxxx  n   99        faddp             d0 : q5 sd_sz
 00011110xx1xxxxxxxxx01xxxxx0xxxx  w   100       fccmp     float_reg5 : float_reg16 cond nzcv
 00011110xx1xxxxxxxxx01xxxxx1xxxx  w   101      fccmpe     float_reg5 : float_reg16 cond nzcv
@@ -338,8 +338,8 @@ x001111001110001000000xxxxxxxxxx  n   116      fcvtmu            wx0 : d5
 0111111000100001101110xxxxxxxxxx  n   116      fcvtmu             s0 : s5
 0111111001100001101110xxxxxxxxxx  n   116      fcvtmu             d0 : d5
 0x1011100x100001101110xxxxxxxxxx  n   116      fcvtmu            dq0 : dq5 sd_sz
-000011100x100001011010xxxxxxxxxx  n   117       fcvtn            dq0 : dq5 sd_sz
-010011100x100001011010xxxxxxxxxx  n   118      fcvtn2            dq0 : dq5 sd_sz
+000011100x100001011010xxxxxxxxxx  n   117       fcvtn             d0 : q5 sd_sz
+010011100x100001011010xxxxxxxxxx  n   118      fcvtn2             q0 : q5 sd_sz
 0001111000100000000000xxxxxxxxxx  n   119      fcvtns             w0 : s5
 1001111000100000000000xxxxxxxxxx  n   119      fcvtns             x0 : s5
 0001111001100000000000xxxxxxxxxx  n   119      fcvtns             w0 : d5
