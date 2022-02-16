@@ -158,6 +158,9 @@ drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding
 static void
 drbbdup_handle_new_case();
 
+static app_pc
+init_fp_cache(void (*clean_call_func)());
+
 static uintptr_t *
 drbbdup_get_tls_raw_slot_addr(drbbdup_thread_slots_t slot_idx)
 {
