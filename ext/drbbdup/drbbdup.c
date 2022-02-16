@@ -1753,8 +1753,12 @@ drbbdup_init(drbbdup_options_t *ops_in)
     int count = dr_atomic_add32_return_sum(&drbbdup_init_count, 1);
 
     /* Return with error if drbbdup has already been initialised. */
-    if (count != 1)
+    if (count != 1) {
+        /* XXX: We do not revert back the counter and therefore consider this error as
+         * fatal! */
+        ASSERT(false, "drbbdup has already been initialised");
         return DRBBDUP_ERROR_ALREADY_INITIALISED;
+    }
 
     if (!drbbdup_check_options(ops_in))
         return DRBBDUP_ERROR_INVALID_PARAMETER;
