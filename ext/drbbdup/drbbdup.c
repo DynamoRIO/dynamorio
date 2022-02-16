@@ -1562,7 +1562,7 @@ drbbdup_handle_new_case()
 static app_pc
 init_fp_cache(void (*clean_call_func)())
 {
-	/* Assumes caller manages synchronisation. */
+    /* Assumes caller manages synchronisation. */
     app_pc cache_pc;
     instrlist_t *ilist;
     void *drcontext = dr_get_current_drcontext();
