@@ -219,6 +219,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         dr_insert_clean_call(drcontext, bb, where, print_case, false, 1,
                              OPND_CREATE_INTPTR(encoding));
     }
+    return DR_EMIT_DEFAULT;
 }
 
 static void
