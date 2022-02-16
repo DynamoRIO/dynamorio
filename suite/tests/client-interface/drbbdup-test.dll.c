@@ -254,8 +254,9 @@ event_exit(void)
     /* Sanity check that the _ex parameters are passed.
      * We'd like to test the dr_emit_flags_t return value too but it's not
      * easy to do that.
+     * XXX i#1668,i#2974: x86-only because traces are not yet implemented on aarchxx.
      */
-    CHECK(count_for_trace > 0, "for_trace was never passed");
+    IF_X86(CHECK(count_for_trace > 0, "for_trace was never passed"));
 
     drmgr_exit();
 }
