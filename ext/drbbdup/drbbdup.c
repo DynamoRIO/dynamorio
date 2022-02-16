@@ -1064,7 +1064,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
 
     instr_t *done_label = INSTR_CREATE_label(drcontext);
 
-    ASSERT(new_case_cache_pc,
+    ASSERT(new_case_cache_pc != NULL,
            "new case cache for dynamic handling must be already initialised.");
 
     /* Check whether case limit has not been reached. */
