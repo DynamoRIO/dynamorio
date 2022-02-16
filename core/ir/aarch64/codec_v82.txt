@@ -43,18 +43,18 @@
 0x101110010xxxxx000101xxxxxxxxxx  n   99     faddp  dq0 : dq5 dq16 h_sz
 0101111000110000110110xxxxxxxxxx  n   99     faddp   h0 : q5 h_sz
 0x001110010xxxxx001001xxxxxxxxxx  n   102    fcmeq  dq0 : dq5 dq16 h_sz
-0x00111011111000110110xxxxxxxxxx  n   102    fcmeq  dq0 : dq5 h_sz
-0101111011111000110110xxxxxxxxxx  n   102    fcmeq   h0 : h5
+0x00111011111000110110xxxxxxxxxx  n   102    fcmeq  dq0 : dq5 zero_fp_const h_sz
+0101111011111000110110xxxxxxxxxx  n   102    fcmeq   h0 : h5 zero_fp_const
 0x101110010xxxxx001001xxxxxxxxxx  n   103    fcmge  dq0 : dq5 dq16 h_sz
-0x10111011111000110010xxxxxxxxxx  n   103    fcmge  dq0 : dq5 h_sz
-0111111011111000110010xxxxxxxxxx  n   103    fcmge   h0 : h5
+0x10111011111000110010xxxxxxxxxx  n   103    fcmge  dq0 : dq5 zero_fp_const h_sz
+0111111011111000110010xxxxxxxxxx  n   103    fcmge   h0 : h5 zero_fp_const
 0x101110110xxxxx001001xxxxxxxxxx  n   104    fcmgt  dq0 : dq5 dq16 h_sz
-0x00111011111000110010xxxxxxxxxx  n   104    fcmgt  dq0 : dq5 h_sz
-0101111011111000110010xxxxxxxxxx  n   104    fcmgt   h0 : h5
-0111111011111000110110xxxxxxxxxx  n   105    fcmle   h0 : h5
-0101111011111000111010xxxxxxxxxx  n   106    fcmlt   h0 : h5
+0x00111011111000110010xxxxxxxxxx  n   104    fcmgt  dq0 : dq5 zero_fp_const h_sz
+0101111011111000110010xxxxxxxxxx  n   104    fcmgt   h0 : h5 zero_fp_const
+0111111011111000110110xxxxxxxxxx  n   105    fcmle   h0 : h5 zero_fp_const
+0101111011111000111010xxxxxxxxxx  n   106    fcmlt   h0 : h5 zero_fp_const
 00011110111xxxxx001000xxxxx10000  w   108    fcmpe      : h5 h16
-0001111011100000001000xxxxx11000  w   108    fcmpe      : h5
+0001111011100000001000xxxxx11000  w   108    fcmpe      : h5 zero_fp_const
 0001111000100011110000xxxxxxxxxx  n   110     fcvt   h0 : s5
 0001111001100011110000xxxxxxxxxx  n   110     fcvt   h0 : d5
 0001111011100010010000xxxxxxxxxx  n   110     fcvt   s0 : h5

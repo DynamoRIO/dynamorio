@@ -1351,6 +1351,26 @@ encode_opnd_vindex_D1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return false;
 }
 
+/* Zero_const: implicit imm, always 0 */
+
+static inline bool
+decode_opnd_zero_fp_const(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_immed_float(0);
+    return true;
+}
+
+static inline bool
+encode_opnd_zero_fp_const(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_float(opnd))
+        return false;
+
+    if (opnd_get_immed_float(opnd) == 0)
+        return true;
+    return false;
+}
+
 /* nzcv: flag bit specifier for conditional compare */
 
 static inline bool

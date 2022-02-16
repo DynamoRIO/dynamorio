@@ -277,34 +277,36 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90          eor            wx0 : wx5 wx16 
 00011110xx1xxxxxxxxx01xxxxx0xxxx  w   100       fccmp     float_reg5 : float_reg16 cond nzcv
 00011110xx1xxxxxxxxx01xxxxx1xxxx  w   101      fccmpe     float_reg5 : float_reg16 cond nzcv
 0x0011100x1xxxxx111001xxxxxxxxxx  n   102       fcmeq            dq0 : dq5 dq16 sd_sz
-0x0011101x100000110110xxxxxxxxxx  n   102       fcmeq            dq0 : dq5 sd_sz
-0101111010100000110110xxxxxxxxxx  n   102       fcmeq             s0 : s5
-0101111011100000110110xxxxxxxxxx  n   102       fcmeq             d0 : d5
+0x0011101x100000110110xxxxxxxxxx  n   102       fcmeq            dq0 : dq5 zero_fp_const sd_sz
+0101111010100000110110xxxxxxxxxx  n   102       fcmeq             s0 : s5 zero_fp_const
+0101111011100000110110xxxxxxxxxx  n   102       fcmeq             d0 : d5 zero_fp_const
 01011110001xxxxx111001xxxxxxxxxx  n   102       fcmeq             s0 : s5 s16
 01011110011xxxxx111001xxxxxxxxxx  n   102       fcmeq             d0 : d5 d16
 0x1011100x1xxxxx111001xxxxxxxxxx  n   103       fcmge            dq0 : dq5 dq16 sd_sz
-0x1011101x100000110010xxxxxxxxxx  n   103       fcmge            dq0 : dq5 sd_sz
-0111111010100000110010xxxxxxxxxx  n   103       fcmge             s0 : s5
-0111111011100000110010xxxxxxxxxx  n   103       fcmge             d0 : d5
+0x1011101x100000110010xxxxxxxxxx  n   103       fcmge            dq0 : dq5 zero_fp_const sd_sz
+0111111010100000110010xxxxxxxxxx  n   103       fcmge             s0 : s5 zero_fp_const
+0111111011100000110010xxxxxxxxxx  n   103       fcmge             d0 : d5 zero_fp_const
 01111110001xxxxx111001xxxxxxxxxx  n   103       fcmge             s0 : s5 s16
 01111110011xxxxx111001xxxxxxxxxx  n   103       fcmge             d0 : d5 d16
 0x1011101x1xxxxx111001xxxxxxxxxx  n   104       fcmgt            dq0 : dq5 dq16 sd_sz
-0x0011101x100000110010xxxxxxxxxx  n   104       fcmgt            dq0 : dq5 sd_sz
-0101111010100000110010xxxxxxxxxx  n   104       fcmgt             s0 : s5
-0101111011100000110010xxxxxxxxxx  n   104       fcmgt             d0 : d5
+0x0011101x100000110010xxxxxxxxxx  n   104       fcmgt            dq0 : dq5 zero_fp_const sd_sz
+0101111010100000110010xxxxxxxxxx  n   104       fcmgt             s0 : s5 zero_fp_const
+0101111011100000110010xxxxxxxxxx  n   104       fcmgt             d0 : d5 zero_fp_const
 011111101x1xxxxx111001xxxxxxxxxx  n   104       fcmgt  bhsd_size_reg0 : bhsd_size_reg5 bhsd_size_reg16
-0111111010100000110110xxxxxxxxxx  n   105       fcmle             s0 : s5
-0111111011100000110110xxxxxxxxxx  n   105       fcmle             d0 : d5
-0x1011101x100000110110xxxxxxxxxx  n   105       fcmle            dq0 : dq5 sd_sz
-0101111010100000111010xxxxxxxxxx  n   106       fcmlt             s0 : s5
-0101111011100000111010xxxxxxxxxx  n   106       fcmlt             d0 : d5
-0x0011101x100000111010xxxxxxxxxx  n   106       fcmlt            dq0 : dq5 sd_sz
-00011110xx1xxxxx001000xxxxx00000  w   107        fcmp     float_reg5 : float_reg16
-00011110xx100000001000xxxxx01000  w   107        fcmp     float_reg5 : bhsd_sz
+0111111010100000110110xxxxxxxxxx  n   105       fcmle             s0 : s5 zero_fp_const
+0111111011100000110110xxxxxxxxxx  n   105       fcmle             d0 : d5 zero_fp_const
+0x1011101x100000110110xxxxxxxxxx  n   105       fcmle            dq0 : dq5 zero_fp_const sd_sz
+0101111010100000111010xxxxxxxxxx  n   106       fcmlt             s0 : s5 zero_fp_const
+0101111011100000111010xxxxxxxxxx  n   106       fcmlt             d0 : d5 zero_fp_const
+0x0011101x100000111010xxxxxxxxxx  n   106       fcmlt            dq0 : dq5 zero_fp_const sd_sz
+00011110xx1xxxxx001000xxxxx00000  w   107        fcmp                : float_reg5 float_reg16
+0001111000100000001000xxxxx01000  w   107        fcmp                : s5 zero_fp_const
+0001111001100000001000xxxxx01000  w   107        fcmp                : d5 zero_fp_const
+00011110xx100000001000xxxxx01000  w   107        fcmp                : float_reg5 zero_fp_const
 00011110001xxxxx001000xxxxx10000  w   108       fcmpe                : s5 s16
-0001111000100000001000xxxxx11000  w   108       fcmpe                : s5
+0001111000100000001000xxxxx11000  w   108       fcmpe                : s5 zero_fp_const
 00011110011xxxxx001000xxxxx10000  w   108       fcmpe                : d5 d16
-0001111001100000001000xxxxx11000  w   108       fcmpe                : d5
+0001111001100000001000xxxxx11000  w   108       fcmpe                : d5 zero_fp_const
 00011110xx1xxxxxxxxx11xxxxxxxxxx  r   109       fcsel     float_reg0 : float_reg5 float_reg16 cond
 0001111000100010110000xxxxxxxxxx  n   110        fcvt             d0 : s5
 0001111001100010010000xxxxxxxxxx  n   110        fcvt             s0 : d5

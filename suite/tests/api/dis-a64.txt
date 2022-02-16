@@ -1399,36 +1399,36 @@ d69f03e0 : eret                           : eret
 
 # FCMP <Hn>, <Hm>
 # FCMP <Hn>, #0.0
-1ee12000 : fcmp   h0, h1                  : fcmp   %h1 -> %h0
-1ee02008 : fcmp   h0, #0.0                : fcmp   $0x03 -> %h0
-1eeb2140 : fcmp   h10, h11                : fcmp   %h11 -> %h10
-1ee02188 : fcmp   h12, #0.0               : fcmp   $0x03 -> %h12
-1ef52280 : fcmp   h20, h21                : fcmp   %h21 -> %h20
-1ee022c8 : fcmp   h22, #0.0               : fcmp   $0x03 -> %h22
-1efd23c0 : fcmp   h30, h29                : fcmp   %h29 -> %h30
-1ee02388 : fcmp   h28, #0.0               : fcmp   $0x03 -> %h28
+1ee12000 : fcmp   h0, h1                  : fcmp   %h0 %h1
+1ee02008 : fcmp   h0, #0.0                : fcmp   %h0 $0.000000
+1eeb2140 : fcmp   h10, h11                : fcmp   %h10 %h11
+1ee02188 : fcmp   h12, #0.0               : fcmp   %h12 $0.000000
+1ef52280 : fcmp   h20, h21                : fcmp   %h20 %h21
+1ee022c8 : fcmp   h22, #0.0               : fcmp   %h22 $0.000000
+1efd23c0 : fcmp   h30, h29                : fcmp   %h30 %h29
+1ee02388 : fcmp   h28, #0.0               : fcmp   %h28 $0.000000
 
 # FCMP <Sn>, <Sm>
 # FCMP <Sn>, #0.0
-1e212000 : fcmp   s0, s1                  : fcmp   %s1 -> %s0
-1e202008 : fcmp   s0, #0.0                : fcmp   $0x00 -> %s0
-1e2b2140 : fcmp   s10, s11                : fcmp   %s11 -> %s10
-1e202188 : fcmp   s12, #0.0               : fcmp   $0x00 -> %s12
-1e352280 : fcmp   s20, s21                : fcmp   %s21 -> %s20
-1e2022c8 : fcmp   s22, #0.0               : fcmp   $0x00 -> %s22
-1e3d23c0 : fcmp   s30, s29                : fcmp   %s29 -> %s30
-1e202388 : fcmp   s28, #0.0               : fcmp   $0x00 -> %s28
+1e212000 : fcmp   s0, s1                  : fcmp   %s0 %s1
+1e202008 : fcmp   s0, #0.0                : fcmp   %s0 $0.000000
+1e2b2140 : fcmp   s10, s11                : fcmp   %s10 %s11
+1e202188 : fcmp   s12, #0.0               : fcmp   %s12 $0.000000
+1e352280 : fcmp   s20, s21                : fcmp   %s20 %s21
+1e2022c8 : fcmp   s22, #0.0               : fcmp   %s22 $0.000000
+1e3d23c0 : fcmp   s30, s29                : fcmp   %s30 %s29
+1e202388 : fcmp   s28, #0.0               : fcmp   %s28 $0.000000
 
 # FCMP <Dn>, <Dm>
 # FCMP <Dn>, #0.0
-1e612000 : fcmp   d0, d1                  : fcmp   %d1 -> %d0
-1e602008 : fcmp   d0, #0.0                : fcmp   $0x01 -> %d0
-1e6b2140 : fcmp   d10, d11                : fcmp   %d11 -> %d10
-1e602188 : fcmp   d12, #0.0               : fcmp   $0x01 -> %d12
-1e752280 : fcmp   d20, d21                : fcmp   %d21 -> %d20
-1e6022c8 : fcmp   d22, #0.0               : fcmp   $0x01 -> %d22
-1e7d23c0 : fcmp   d30, d29                : fcmp   %d29 -> %d30
-1e602388 : fcmp   d28, #0.0               : fcmp   $0x01 -> %d28
+1e612000 : fcmp   d0, d1                  : fcmp   %d0 %d1
+1e602008 : fcmp   d0, #0.0                : fcmp   %d0 $0.000000
+1e6b2140 : fcmp   d10, d11                : fcmp   %d10 %d11
+1e602188 : fcmp   d12, #0.0               : fcmp   %d12 $0.000000
+1e752280 : fcmp   d20, d21                : fcmp   %d20 %d21
+1e6022c8 : fcmp   d22, #0.0               : fcmp   %d22 $0.000000
+1e7d23c0 : fcmp   d30, d29                : fcmp   %d30 %d29
+1e602388 : fcmp   d28, #0.0               : fcmp   %d28 $0.000000
 
 # FCMPE <Hn>, <Hm>
 1ee12010 : fcmpe h0, h1                   : fcmpe  %h0 %h1
@@ -1449,22 +1449,22 @@ d69f03e0 : eret                           : eret
 1e7d23d0 : fcmpe d30, d29                 : fcmpe  %d30 %d29
 
 # FCMPE <Hn>, #0.0
-1ee02018 : fcmpe h0, #0.0                 : fcmpe  %h0
-1ee02158 : fcmpe h10, #0.0                : fcmpe  %h10
-1ee02298 : fcmpe h20, #0.0                : fcmpe  %h20
-1ee023d8 : fcmpe h30, #0.0                : fcmpe  %h30
+1ee02018 : fcmpe h0, #0.0                 : fcmpe  %h0 $0.000000
+1ee02158 : fcmpe h10, #0.0                : fcmpe  %h10 $0.000000
+1ee02298 : fcmpe h20, #0.0                : fcmpe  %h20 $0.000000
+1ee023d8 : fcmpe h30, #0.0                : fcmpe  %h30 $0.000000
 
 # FCMPE <Sn>, #0.0
-1e202018 : fcmpe s0, #0.0                 : fcmpe  %s0
-1e202158 : fcmpe s10, #0.0                : fcmpe  %s10
-1e202298 : fcmpe s20, #0.0                : fcmpe  %s20
-1e2023d8 : fcmpe s30, #0.0                : fcmpe  %s30
+1e202018 : fcmpe s0, #0.0                 : fcmpe  %s0 $0.000000
+1e202158 : fcmpe s10, #0.0                : fcmpe  %s10 $0.000000
+1e202298 : fcmpe s20, #0.0                : fcmpe  %s20 $0.000000
+1e2023d8 : fcmpe s30, #0.0                : fcmpe  %s30 $0.000000
 
 # FCMPE <Dn>, #0.0
-1e602018 : fcmpe d0, #0.0                 : fcmpe  %d0
-1e602158 : fcmpe d10, #0.0                : fcmpe  %d10
-1e602298 : fcmpe d20, #0.0                : fcmpe  %d20
-1e6023d8 : fcmpe d30, #0.0                : fcmpe  %d30
+1e602018 : fcmpe d0, #0.0                 : fcmpe  %d0 $0.000000
+1e602158 : fcmpe d10, #0.0                : fcmpe  %d10 $0.000000
+1e602298 : fcmpe d20, #0.0                : fcmpe  %d20 $0.000000
+1e6023d8 : fcmpe d30, #0.0                : fcmpe  %d30 $0.000000
 
 # FCVTXN <Vb><d>, <Va><n>
 7e616820 : fcvtxn s0, d1                  : fcvtxn %d1 -> %s0
@@ -2380,413 +2380,17 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 4e20e5db : fcmeq v27.4s, v14.4s, v0.4s              : fcmeq  %q14 %q0 $0x02 -> %q27
 4e60e5db : fcmeq v27.2d, v14.2d, v0.2d              : fcmeq  %q14 %q0 $0x03 -> %q27
 
-# FCMEQ <Vd>.<T>, <Vn>.<T>, #0.0
-0ef8d801 : fcmeq v1.4h, v0.4h, #0.0                 : fcmeq  %d0 $0x01 -> %d1
-0ef8d843 : fcmeq v3.4h, v2.4h, #0.0                 : fcmeq  %d2 $0x01 -> %d3
-0ef8d885 : fcmeq v5.4h, v4.4h, #0.0                 : fcmeq  %d4 $0x01 -> %d5
-0ef8d8c7 : fcmeq v7.4h, v6.4h, #0.0                 : fcmeq  %d6 $0x01 -> %d7
-0ef8d909 : fcmeq v9.4h, v8.4h, #0.0                 : fcmeq  %d8 $0x01 -> %d9
-0ef8d94b : fcmeq v11.4h, v10.4h, #0.0               : fcmeq  %d10 $0x01 -> %d11
-0ef8d98d : fcmeq v13.4h, v12.4h, #0.0               : fcmeq  %d12 $0x01 -> %d13
-0ef8d9cf : fcmeq v15.4h, v14.4h, #0.0               : fcmeq  %d14 $0x01 -> %d15
-0ef8da11 : fcmeq v17.4h, v16.4h, #0.0               : fcmeq  %d16 $0x01 -> %d17
-0ef8da53 : fcmeq v19.4h, v18.4h, #0.0               : fcmeq  %d18 $0x01 -> %d19
-0ef8da95 : fcmeq v21.4h, v20.4h, #0.0               : fcmeq  %d20 $0x01 -> %d21
-0ef8dad7 : fcmeq v23.4h, v22.4h, #0.0               : fcmeq  %d22 $0x01 -> %d23
-0ef8db19 : fcmeq v25.4h, v24.4h, #0.0               : fcmeq  %d24 $0x01 -> %d25
-0ef8db5b : fcmeq v27.4h, v26.4h, #0.0               : fcmeq  %d26 $0x01 -> %d27
-0ef8db9d : fcmeq v29.4h, v28.4h, #0.0               : fcmeq  %d28 $0x01 -> %d29
-0ef8dbdf : fcmeq v31.4h, v30.4h, #0.0               : fcmeq  %d30 $0x01 -> %d31
-4ef8d801 : fcmeq v1.8h, v0.8h, #0.0                 : fcmeq  %q0 $0x01 -> %q1
-4ef8d843 : fcmeq v3.8h, v2.8h, #0.0                 : fcmeq  %q2 $0x01 -> %q3
-4ef8d885 : fcmeq v5.8h, v4.8h, #0.0                 : fcmeq  %q4 $0x01 -> %q5
-4ef8d8c7 : fcmeq v7.8h, v6.8h, #0.0                 : fcmeq  %q6 $0x01 -> %q7
-4ef8d909 : fcmeq v9.8h, v8.8h, #0.0                 : fcmeq  %q8 $0x01 -> %q9
-4ef8d94b : fcmeq v11.8h, v10.8h, #0.0               : fcmeq  %q10 $0x01 -> %q11
-4ef8d98d : fcmeq v13.8h, v12.8h, #0.0               : fcmeq  %q12 $0x01 -> %q13
-4ef8d9cf : fcmeq v15.8h, v14.8h, #0.0               : fcmeq  %q14 $0x01 -> %q15
-4ef8da11 : fcmeq v17.8h, v16.8h, #0.0               : fcmeq  %q16 $0x01 -> %q17
-4ef8da53 : fcmeq v19.8h, v18.8h, #0.0               : fcmeq  %q18 $0x01 -> %q19
-4ef8da95 : fcmeq v21.8h, v20.8h, #0.0               : fcmeq  %q20 $0x01 -> %q21
-4ef8dad7 : fcmeq v23.8h, v22.8h, #0.0               : fcmeq  %q22 $0x01 -> %q23
-4ef8db19 : fcmeq v25.8h, v24.8h, #0.0               : fcmeq  %q24 $0x01 -> %q25
-4ef8db5b : fcmeq v27.8h, v26.8h, #0.0               : fcmeq  %q26 $0x01 -> %q27
-4ef8db9d : fcmeq v29.8h, v28.8h, #0.0               : fcmeq  %q28 $0x01 -> %q29
-4ef8dbdf : fcmeq v31.8h, v30.8h, #0.0               : fcmeq  %q30 $0x01 -> %q31
-0ea0d801 : fcmeq v1.2s, v0.2s, #0.0                 : fcmeq  %d0 $0x02 -> %d1
-0ea0d843 : fcmeq v3.2s, v2.2s, #0.0                 : fcmeq  %d2 $0x02 -> %d3
-0ea0d885 : fcmeq v5.2s, v4.2s, #0.0                 : fcmeq  %d4 $0x02 -> %d5
-0ea0d8c7 : fcmeq v7.2s, v6.2s, #0.0                 : fcmeq  %d6 $0x02 -> %d7
-0ea0d909 : fcmeq v9.2s, v8.2s, #0.0                 : fcmeq  %d8 $0x02 -> %d9
-0ea0d94b : fcmeq v11.2s, v10.2s, #0.0               : fcmeq  %d10 $0x02 -> %d11
-0ea0d98d : fcmeq v13.2s, v12.2s, #0.0               : fcmeq  %d12 $0x02 -> %d13
-0ea0d9cf : fcmeq v15.2s, v14.2s, #0.0               : fcmeq  %d14 $0x02 -> %d15
-0ea0da11 : fcmeq v17.2s, v16.2s, #0.0               : fcmeq  %d16 $0x02 -> %d17
-0ea0da53 : fcmeq v19.2s, v18.2s, #0.0               : fcmeq  %d18 $0x02 -> %d19
-0ea0da95 : fcmeq v21.2s, v20.2s, #0.0               : fcmeq  %d20 $0x02 -> %d21
-0ea0dad7 : fcmeq v23.2s, v22.2s, #0.0               : fcmeq  %d22 $0x02 -> %d23
-0ea0db19 : fcmeq v25.2s, v24.2s, #0.0               : fcmeq  %d24 $0x02 -> %d25
-0ea0db5b : fcmeq v27.2s, v26.2s, #0.0               : fcmeq  %d26 $0x02 -> %d27
-0ea0db9d : fcmeq v29.2s, v28.2s, #0.0               : fcmeq  %d28 $0x02 -> %d29
-0ea0dbdf : fcmeq v31.2s, v30.2s, #0.0               : fcmeq  %d30 $0x02 -> %d31
-4ea0d801 : fcmeq v1.4s, v0.4s, #0.0                 : fcmeq  %q0 $0x02 -> %q1
-4ea0d843 : fcmeq v3.4s, v2.4s, #0.0                 : fcmeq  %q2 $0x02 -> %q3
-4ea0d885 : fcmeq v5.4s, v4.4s, #0.0                 : fcmeq  %q4 $0x02 -> %q5
-4ea0d8c7 : fcmeq v7.4s, v6.4s, #0.0                 : fcmeq  %q6 $0x02 -> %q7
-4ea0d909 : fcmeq v9.4s, v8.4s, #0.0                 : fcmeq  %q8 $0x02 -> %q9
-4ea0d94b : fcmeq v11.4s, v10.4s, #0.0               : fcmeq  %q10 $0x02 -> %q11
-4ea0d98d : fcmeq v13.4s, v12.4s, #0.0               : fcmeq  %q12 $0x02 -> %q13
-4ea0d9cf : fcmeq v15.4s, v14.4s, #0.0               : fcmeq  %q14 $0x02 -> %q15
-4ea0da11 : fcmeq v17.4s, v16.4s, #0.0               : fcmeq  %q16 $0x02 -> %q17
-4ea0da53 : fcmeq v19.4s, v18.4s, #0.0               : fcmeq  %q18 $0x02 -> %q19
-4ea0da95 : fcmeq v21.4s, v20.4s, #0.0               : fcmeq  %q20 $0x02 -> %q21
-4ea0dad7 : fcmeq v23.4s, v22.4s, #0.0               : fcmeq  %q22 $0x02 -> %q23
-4ea0db19 : fcmeq v25.4s, v24.4s, #0.0               : fcmeq  %q24 $0x02 -> %q25
-4ea0db5b : fcmeq v27.4s, v26.4s, #0.0               : fcmeq  %q26 $0x02 -> %q27
-4ea0db9d : fcmeq v29.4s, v28.4s, #0.0               : fcmeq  %q28 $0x02 -> %q29
-4ea0dbdf : fcmeq v31.4s, v30.4s, #0.0               : fcmeq  %q30 $0x02 -> %q31
-4ee0d801 : fcmeq v1.2d, v0.2d, #0.0                 : fcmeq  %q0 $0x03 -> %q1
-4ee0d843 : fcmeq v3.2d, v2.2d, #0.0                 : fcmeq  %q2 $0x03 -> %q3
-4ee0d885 : fcmeq v5.2d, v4.2d, #0.0                 : fcmeq  %q4 $0x03 -> %q5
-4ee0d8c7 : fcmeq v7.2d, v6.2d, #0.0                 : fcmeq  %q6 $0x03 -> %q7
-4ee0d909 : fcmeq v9.2d, v8.2d, #0.0                 : fcmeq  %q8 $0x03 -> %q9
-4ee0d94b : fcmeq v11.2d, v10.2d, #0.0               : fcmeq  %q10 $0x03 -> %q11
-4ee0d98d : fcmeq v13.2d, v12.2d, #0.0               : fcmeq  %q12 $0x03 -> %q13
-4ee0d9cf : fcmeq v15.2d, v14.2d, #0.0               : fcmeq  %q14 $0x03 -> %q15
-4ee0da11 : fcmeq v17.2d, v16.2d, #0.0               : fcmeq  %q16 $0x03 -> %q17
-4ee0da53 : fcmeq v19.2d, v18.2d, #0.0               : fcmeq  %q18 $0x03 -> %q19
-4ee0da95 : fcmeq v21.2d, v20.2d, #0.0               : fcmeq  %q20 $0x03 -> %q21
-4ee0dad7 : fcmeq v23.2d, v22.2d, #0.0               : fcmeq  %q22 $0x03 -> %q23
-4ee0db19 : fcmeq v25.2d, v24.2d, #0.0               : fcmeq  %q24 $0x03 -> %q25
-4ee0db5b : fcmeq v27.2d, v26.2d, #0.0               : fcmeq  %q26 $0x03 -> %q27
-4ee0db9d : fcmeq v29.2d, v28.2d, #0.0               : fcmeq  %q28 $0x03 -> %q29
-4ee0dbdf : fcmeq v31.2d, v30.2d, #0.0               : fcmeq  %q30 $0x03 -> %q31
-
-# FCMEQ <V><d>, <V><n>, #0.0
-5ef8d801 : fcmeq h1, h0, #0.0                       : fcmeq  %h0 -> %h1
-5ef8d843 : fcmeq h3, h2, #0.0                       : fcmeq  %h2 -> %h3
-5ef8d885 : fcmeq h5, h4, #0.0                       : fcmeq  %h4 -> %h5
-5ef8d8c7 : fcmeq h7, h6, #0.0                       : fcmeq  %h6 -> %h7
-5ef8d909 : fcmeq h9, h8, #0.0                       : fcmeq  %h8 -> %h9
-5ef8d94b : fcmeq h11, h10, #0.0                     : fcmeq  %h10 -> %h11
-5ef8d98d : fcmeq h13, h12, #0.0                     : fcmeq  %h12 -> %h13
-5ef8d9cf : fcmeq h15, h14, #0.0                     : fcmeq  %h14 -> %h15
-5ef8da11 : fcmeq h17, h16, #0.0                     : fcmeq  %h16 -> %h17
-5ef8da53 : fcmeq h19, h18, #0.0                     : fcmeq  %h18 -> %h19
-5ef8da95 : fcmeq h21, h20, #0.0                     : fcmeq  %h20 -> %h21
-5ef8dad7 : fcmeq h23, h22, #0.0                     : fcmeq  %h22 -> %h23
-5ef8db19 : fcmeq h25, h24, #0.0                     : fcmeq  %h24 -> %h25
-5ef8db5b : fcmeq h27, h26, #0.0                     : fcmeq  %h26 -> %h27
-5ef8db9d : fcmeq h29, h28, #0.0                     : fcmeq  %h28 -> %h29
-5ef8dbdf : fcmeq h31, h30, #0.0                     : fcmeq  %h30 -> %h31
-5ee0d801 : fcmeq d1, d0, #0.0                       : fcmeq  %d0 -> %d1
-5ee0d843 : fcmeq d3, d2, #0.0                       : fcmeq  %d2 -> %d3
-5ee0d885 : fcmeq d5, d4, #0.0                       : fcmeq  %d4 -> %d5
-5ee0d8c7 : fcmeq d7, d6, #0.0                       : fcmeq  %d6 -> %d7
-5ee0d909 : fcmeq d9, d8, #0.0                       : fcmeq  %d8 -> %d9
-5ee0d94b : fcmeq d11, d10, #0.0                     : fcmeq  %d10 -> %d11
-5ee0d98d : fcmeq d13, d12, #0.0                     : fcmeq  %d12 -> %d13
-5ee0d9cf : fcmeq d15, d14, #0.0                     : fcmeq  %d14 -> %d15
-5ee0da11 : fcmeq d17, d16, #0.0                     : fcmeq  %d16 -> %d17
-5ee0da53 : fcmeq d19, d18, #0.0                     : fcmeq  %d18 -> %d19
-5ee0da95 : fcmeq d21, d20, #0.0                     : fcmeq  %d20 -> %d21
-5ee0dad7 : fcmeq d23, d22, #0.0                     : fcmeq  %d22 -> %d23
-5ee0db19 : fcmeq d25, d24, #0.0                     : fcmeq  %d24 -> %d25
-5ee0db5b : fcmeq d27, d26, #0.0                     : fcmeq  %d26 -> %d27
-5ee0db9d : fcmeq d29, d28, #0.0                     : fcmeq  %d28 -> %d29
-5ee0dbdf : fcmeq d31, d30, #0.0                     : fcmeq  %d30 -> %d31
-5ea0d801 : fcmeq s1, s0, #0.0                       : fcmeq  %s0 -> %s1
-5ea0d843 : fcmeq s3, s2, #0.0                       : fcmeq  %s2 -> %s3
-5ea0d885 : fcmeq s5, s4, #0.0                       : fcmeq  %s4 -> %s5
-5ea0d8c7 : fcmeq s7, s6, #0.0                       : fcmeq  %s6 -> %s7
-5ea0d909 : fcmeq s9, s8, #0.0                       : fcmeq  %s8 -> %s9
-5ea0d94b : fcmeq s11, s10, #0.0                     : fcmeq  %s10 -> %s11
-5ea0d98d : fcmeq s13, s12, #0.0                     : fcmeq  %s12 -> %s13
-5ea0d9cf : fcmeq s15, s14, #0.0                     : fcmeq  %s14 -> %s15
-5ea0da11 : fcmeq s17, s16, #0.0                     : fcmeq  %s16 -> %s17
-5ea0da53 : fcmeq s19, s18, #0.0                     : fcmeq  %s18 -> %s19
-5ea0da95 : fcmeq s21, s20, #0.0                     : fcmeq  %s20 -> %s21
-5ea0dad7 : fcmeq s23, s22, #0.0                     : fcmeq  %s22 -> %s23
-5ea0db19 : fcmeq s25, s24, #0.0                     : fcmeq  %s24 -> %s25
-5ea0db5b : fcmeq s27, s26, #0.0                     : fcmeq  %s26 -> %s27
-5ea0db9d : fcmeq s29, s28, #0.0                     : fcmeq  %s28 -> %s29
-5ea0dbdf : fcmeq s31, s30, #0.0                     : fcmeq  %s30 -> %s31
-
 2e4f274e : fcmge v14.4h, v26.4h, v15.4h             : fcmge  %d26 %d15 $0x01 -> %d14
 6e4f274e : fcmge v14.8h, v26.8h, v15.8h             : fcmge  %q26 %q15 $0x01 -> %q14
 2e3ee636 : fcmge v22.2s, v17.2s, v30.2s             : fcmge  %d17 %d30 $0x02 -> %d22
 6e3ee636 : fcmge v22.4s, v17.4s, v30.4s             : fcmge  %q17 %q30 $0x02 -> %q22
 6e7ee636 : fcmge v22.2d, v17.2d, v30.2d             : fcmge  %q17 %q30 $0x03 -> %q22
 
-# FCMGE <Vd>.<T>, <Vn>.<T>, #0.0
-2ef8c801 : fcmge v1.4h, v0.4h, #0.0                 : fcmge  %d0 $0x01 -> %d1
-2ef8c843 : fcmge v3.4h, v2.4h, #0.0                 : fcmge  %d2 $0x01 -> %d3
-2ef8c885 : fcmge v5.4h, v4.4h, #0.0                 : fcmge  %d4 $0x01 -> %d5
-2ef8c8c7 : fcmge v7.4h, v6.4h, #0.0                 : fcmge  %d6 $0x01 -> %d7
-2ef8c909 : fcmge v9.4h, v8.4h, #0.0                 : fcmge  %d8 $0x01 -> %d9
-2ef8c94b : fcmge v11.4h, v10.4h, #0.0               : fcmge  %d10 $0x01 -> %d11
-2ef8c98d : fcmge v13.4h, v12.4h, #0.0               : fcmge  %d12 $0x01 -> %d13
-2ef8c9cf : fcmge v15.4h, v14.4h, #0.0               : fcmge  %d14 $0x01 -> %d15
-2ef8ca11 : fcmge v17.4h, v16.4h, #0.0               : fcmge  %d16 $0x01 -> %d17
-2ef8ca53 : fcmge v19.4h, v18.4h, #0.0               : fcmge  %d18 $0x01 -> %d19
-2ef8ca95 : fcmge v21.4h, v20.4h, #0.0               : fcmge  %d20 $0x01 -> %d21
-2ef8cad7 : fcmge v23.4h, v22.4h, #0.0               : fcmge  %d22 $0x01 -> %d23
-2ef8cb19 : fcmge v25.4h, v24.4h, #0.0               : fcmge  %d24 $0x01 -> %d25
-2ef8cb5b : fcmge v27.4h, v26.4h, #0.0               : fcmge  %d26 $0x01 -> %d27
-2ef8cb9d : fcmge v29.4h, v28.4h, #0.0               : fcmge  %d28 $0x01 -> %d29
-2ef8cbdf : fcmge v31.4h, v30.4h, #0.0               : fcmge  %d30 $0x01 -> %d31
-6ef8c801 : fcmge v1.8h, v0.8h, #0.0                 : fcmge  %q0 $0x01 -> %q1
-6ef8c843 : fcmge v3.8h, v2.8h, #0.0                 : fcmge  %q2 $0x01 -> %q3
-6ef8c885 : fcmge v5.8h, v4.8h, #0.0                 : fcmge  %q4 $0x01 -> %q5
-6ef8c8c7 : fcmge v7.8h, v6.8h, #0.0                 : fcmge  %q6 $0x01 -> %q7
-6ef8c909 : fcmge v9.8h, v8.8h, #0.0                 : fcmge  %q8 $0x01 -> %q9
-6ef8c94b : fcmge v11.8h, v10.8h, #0.0               : fcmge  %q10 $0x01 -> %q11
-6ef8c98d : fcmge v13.8h, v12.8h, #0.0               : fcmge  %q12 $0x01 -> %q13
-6ef8c9cf : fcmge v15.8h, v14.8h, #0.0               : fcmge  %q14 $0x01 -> %q15
-6ef8ca11 : fcmge v17.8h, v16.8h, #0.0               : fcmge  %q16 $0x01 -> %q17
-6ef8ca53 : fcmge v19.8h, v18.8h, #0.0               : fcmge  %q18 $0x01 -> %q19
-6ef8ca95 : fcmge v21.8h, v20.8h, #0.0               : fcmge  %q20 $0x01 -> %q21
-6ef8cad7 : fcmge v23.8h, v22.8h, #0.0               : fcmge  %q22 $0x01 -> %q23
-6ef8cb19 : fcmge v25.8h, v24.8h, #0.0               : fcmge  %q24 $0x01 -> %q25
-6ef8cb5b : fcmge v27.8h, v26.8h, #0.0               : fcmge  %q26 $0x01 -> %q27
-6ef8cb9d : fcmge v29.8h, v28.8h, #0.0               : fcmge  %q28 $0x01 -> %q29
-6ef8cbdf : fcmge v31.8h, v30.8h, #0.0               : fcmge  %q30 $0x01 -> %q31
-2ea0c801 : fcmge v1.2s, v0.2s, #0.0                 : fcmge  %d0 $0x02 -> %d1
-2ea0c843 : fcmge v3.2s, v2.2s, #0.0                 : fcmge  %d2 $0x02 -> %d3
-2ea0c885 : fcmge v5.2s, v4.2s, #0.0                 : fcmge  %d4 $0x02 -> %d5
-2ea0c8c7 : fcmge v7.2s, v6.2s, #0.0                 : fcmge  %d6 $0x02 -> %d7
-2ea0c909 : fcmge v9.2s, v8.2s, #0.0                 : fcmge  %d8 $0x02 -> %d9
-2ea0c94b : fcmge v11.2s, v10.2s, #0.0               : fcmge  %d10 $0x02 -> %d11
-2ea0c98d : fcmge v13.2s, v12.2s, #0.0               : fcmge  %d12 $0x02 -> %d13
-2ea0c9cf : fcmge v15.2s, v14.2s, #0.0               : fcmge  %d14 $0x02 -> %d15
-2ea0ca11 : fcmge v17.2s, v16.2s, #0.0               : fcmge  %d16 $0x02 -> %d17
-2ea0ca53 : fcmge v19.2s, v18.2s, #0.0               : fcmge  %d18 $0x02 -> %d19
-2ea0ca95 : fcmge v21.2s, v20.2s, #0.0               : fcmge  %d20 $0x02 -> %d21
-2ea0cad7 : fcmge v23.2s, v22.2s, #0.0               : fcmge  %d22 $0x02 -> %d23
-2ea0cb19 : fcmge v25.2s, v24.2s, #0.0               : fcmge  %d24 $0x02 -> %d25
-2ea0cb5b : fcmge v27.2s, v26.2s, #0.0               : fcmge  %d26 $0x02 -> %d27
-2ea0cb9d : fcmge v29.2s, v28.2s, #0.0               : fcmge  %d28 $0x02 -> %d29
-2ea0cbdf : fcmge v31.2s, v30.2s, #0.0               : fcmge  %d30 $0x02 -> %d31
-6ea0c801 : fcmge v1.4s, v0.4s, #0.0                 : fcmge  %q0 $0x02 -> %q1
-6ea0c843 : fcmge v3.4s, v2.4s, #0.0                 : fcmge  %q2 $0x02 -> %q3
-6ea0c885 : fcmge v5.4s, v4.4s, #0.0                 : fcmge  %q4 $0x02 -> %q5
-6ea0c8c7 : fcmge v7.4s, v6.4s, #0.0                 : fcmge  %q6 $0x02 -> %q7
-6ea0c909 : fcmge v9.4s, v8.4s, #0.0                 : fcmge  %q8 $0x02 -> %q9
-6ea0c94b : fcmge v11.4s, v10.4s, #0.0               : fcmge  %q10 $0x02 -> %q11
-6ea0c98d : fcmge v13.4s, v12.4s, #0.0               : fcmge  %q12 $0x02 -> %q13
-6ea0c9cf : fcmge v15.4s, v14.4s, #0.0               : fcmge  %q14 $0x02 -> %q15
-6ea0ca11 : fcmge v17.4s, v16.4s, #0.0               : fcmge  %q16 $0x02 -> %q17
-6ea0ca53 : fcmge v19.4s, v18.4s, #0.0               : fcmge  %q18 $0x02 -> %q19
-6ea0ca95 : fcmge v21.4s, v20.4s, #0.0               : fcmge  %q20 $0x02 -> %q21
-6ea0cad7 : fcmge v23.4s, v22.4s, #0.0               : fcmge  %q22 $0x02 -> %q23
-6ea0cb19 : fcmge v25.4s, v24.4s, #0.0               : fcmge  %q24 $0x02 -> %q25
-6ea0cb5b : fcmge v27.4s, v26.4s, #0.0               : fcmge  %q26 $0x02 -> %q27
-6ea0cb9d : fcmge v29.4s, v28.4s, #0.0               : fcmge  %q28 $0x02 -> %q29
-6ea0cbdf : fcmge v31.4s, v30.4s, #0.0               : fcmge  %q30 $0x02 -> %q31
-6ee0c801 : fcmge v1.2d, v0.2d, #0.0                 : fcmge  %q0 $0x03 -> %q1
-6ee0c843 : fcmge v3.2d, v2.2d, #0.0                 : fcmge  %q2 $0x03 -> %q3
-6ee0c885 : fcmge v5.2d, v4.2d, #0.0                 : fcmge  %q4 $0x03 -> %q5
-6ee0c8c7 : fcmge v7.2d, v6.2d, #0.0                 : fcmge  %q6 $0x03 -> %q7
-6ee0c909 : fcmge v9.2d, v8.2d, #0.0                 : fcmge  %q8 $0x03 -> %q9
-6ee0c94b : fcmge v11.2d, v10.2d, #0.0               : fcmge  %q10 $0x03 -> %q11
-6ee0c98d : fcmge v13.2d, v12.2d, #0.0               : fcmge  %q12 $0x03 -> %q13
-6ee0c9cf : fcmge v15.2d, v14.2d, #0.0               : fcmge  %q14 $0x03 -> %q15
-6ee0ca11 : fcmge v17.2d, v16.2d, #0.0               : fcmge  %q16 $0x03 -> %q17
-6ee0ca53 : fcmge v19.2d, v18.2d, #0.0               : fcmge  %q18 $0x03 -> %q19
-6ee0ca95 : fcmge v21.2d, v20.2d, #0.0               : fcmge  %q20 $0x03 -> %q21
-6ee0cad7 : fcmge v23.2d, v22.2d, #0.0               : fcmge  %q22 $0x03 -> %q23
-6ee0cb19 : fcmge v25.2d, v24.2d, #0.0               : fcmge  %q24 $0x03 -> %q25
-6ee0cb5b : fcmge v27.2d, v26.2d, #0.0               : fcmge  %q26 $0x03 -> %q27
-6ee0cb9d : fcmge v29.2d, v28.2d, #0.0               : fcmge  %q28 $0x03 -> %q29
-6ee0cbdf : fcmge v31.2d, v30.2d, #0.0               : fcmge  %q30 $0x03 -> %q31
-
-# FCMGE <V><d>, <V><n>, #0.0
-7ef8c801 : fcmge h1, h0, #0.0                       : fcmge  %h0 -> %h1
-7ef8c843 : fcmge h3, h2, #0.0                       : fcmge  %h2 -> %h3
-7ef8c885 : fcmge h5, h4, #0.0                       : fcmge  %h4 -> %h5
-7ef8c8c7 : fcmge h7, h6, #0.0                       : fcmge  %h6 -> %h7
-7ef8c909 : fcmge h9, h8, #0.0                       : fcmge  %h8 -> %h9
-7ef8c94b : fcmge h11, h10, #0.0                     : fcmge  %h10 -> %h11
-7ef8c98d : fcmge h13, h12, #0.0                     : fcmge  %h12 -> %h13
-7ef8c9cf : fcmge h15, h14, #0.0                     : fcmge  %h14 -> %h15
-7ef8ca11 : fcmge h17, h16, #0.0                     : fcmge  %h16 -> %h17
-7ef8ca53 : fcmge h19, h18, #0.0                     : fcmge  %h18 -> %h19
-7ef8ca95 : fcmge h21, h20, #0.0                     : fcmge  %h20 -> %h21
-7ef8cad7 : fcmge h23, h22, #0.0                     : fcmge  %h22 -> %h23
-7ef8cb19 : fcmge h25, h24, #0.0                     : fcmge  %h24 -> %h25
-7ef8cb5b : fcmge h27, h26, #0.0                     : fcmge  %h26 -> %h27
-7ef8cb9d : fcmge h29, h28, #0.0                     : fcmge  %h28 -> %h29
-7ef8cbdf : fcmge h31, h30, #0.0                     : fcmge  %h30 -> %h31
-7ee0c801 : fcmge d1, d0, #0.0                       : fcmge  %d0 -> %d1
-7ee0c843 : fcmge d3, d2, #0.0                       : fcmge  %d2 -> %d3
-7ee0c885 : fcmge d5, d4, #0.0                       : fcmge  %d4 -> %d5
-7ee0c8c7 : fcmge d7, d6, #0.0                       : fcmge  %d6 -> %d7
-7ee0c909 : fcmge d9, d8, #0.0                       : fcmge  %d8 -> %d9
-7ee0c94b : fcmge d11, d10, #0.0                     : fcmge  %d10 -> %d11
-7ee0c98d : fcmge d13, d12, #0.0                     : fcmge  %d12 -> %d13
-7ee0c9cf : fcmge d15, d14, #0.0                     : fcmge  %d14 -> %d15
-7ee0ca11 : fcmge d17, d16, #0.0                     : fcmge  %d16 -> %d17
-7ee0ca53 : fcmge d19, d18, #0.0                     : fcmge  %d18 -> %d19
-7ee0ca95 : fcmge d21, d20, #0.0                     : fcmge  %d20 -> %d21
-7ee0cad7 : fcmge d23, d22, #0.0                     : fcmge  %d22 -> %d23
-7ee0cb19 : fcmge d25, d24, #0.0                     : fcmge  %d24 -> %d25
-7ee0cb5b : fcmge d27, d26, #0.0                     : fcmge  %d26 -> %d27
-7ee0cb9d : fcmge d29, d28, #0.0                     : fcmge  %d28 -> %d29
-7ee0cbdf : fcmge d31, d30, #0.0                     : fcmge  %d30 -> %d31
-7ea0c801 : fcmge s1, s0, #0.0                       : fcmge  %s0 -> %s1
-7ea0c843 : fcmge s3, s2, #0.0                       : fcmge  %s2 -> %s3
-7ea0c885 : fcmge s5, s4, #0.0                       : fcmge  %s4 -> %s5
-7ea0c8c7 : fcmge s7, s6, #0.0                       : fcmge  %s6 -> %s7
-7ea0c909 : fcmge s9, s8, #0.0                       : fcmge  %s8 -> %s9
-7ea0c94b : fcmge s11, s10, #0.0                     : fcmge  %s10 -> %s11
-7ea0c98d : fcmge s13, s12, #0.0                     : fcmge  %s12 -> %s13
-7ea0c9cf : fcmge s15, s14, #0.0                     : fcmge  %s14 -> %s15
-7ea0ca11 : fcmge s17, s16, #0.0                     : fcmge  %s16 -> %s17
-7ea0ca53 : fcmge s19, s18, #0.0                     : fcmge  %s18 -> %s19
-7ea0ca95 : fcmge s21, s20, #0.0                     : fcmge  %s20 -> %s21
-7ea0cad7 : fcmge s23, s22, #0.0                     : fcmge  %s22 -> %s23
-7ea0cb19 : fcmge s25, s24, #0.0                     : fcmge  %s24 -> %s25
-7ea0cb5b : fcmge s27, s26, #0.0                     : fcmge  %s26 -> %s27
-7ea0cb9d : fcmge s29, s28, #0.0                     : fcmge  %s28 -> %s29
-7ea0cbdf : fcmge s31, s30, #0.0                     : fcmge  %s30 -> %s31
-
 2eda2776 : fcmgt v22.4h, v27.4h, v26.4h             : fcmgt  %d27 %d26 $0x01 -> %d22
 6eda2776 : fcmgt v22.8h, v27.8h, v26.8h             : fcmgt  %q27 %q26 $0x01 -> %q22
 2eaee466 : fcmgt v6.2s, v3.2s, v14.2s               : fcmgt  %d3 %d14 $0x02 -> %d6
 6eaee466 : fcmgt v6.4s, v3.4s, v14.4s               : fcmgt  %q3 %q14 $0x02 -> %q6
 6eeee466 : fcmgt v6.2d, v3.2d, v14.2d               : fcmgt  %q3 %q14 $0x03 -> %q6
-
-# FCMGT <Vd>.<T>, <Vn>.<T>, #0.0
-0ef8c801 : fcmgt v1.4h, v0.4h, #0.0                 : fcmgt  %d0 $0x01 -> %d1
-0ef8c843 : fcmgt v3.4h, v2.4h, #0.0                 : fcmgt  %d2 $0x01 -> %d3
-0ef8c885 : fcmgt v5.4h, v4.4h, #0.0                 : fcmgt  %d4 $0x01 -> %d5
-0ef8c8c7 : fcmgt v7.4h, v6.4h, #0.0                 : fcmgt  %d6 $0x01 -> %d7
-0ef8c909 : fcmgt v9.4h, v8.4h, #0.0                 : fcmgt  %d8 $0x01 -> %d9
-0ef8c94b : fcmgt v11.4h, v10.4h, #0.0               : fcmgt  %d10 $0x01 -> %d11
-0ef8c98d : fcmgt v13.4h, v12.4h, #0.0               : fcmgt  %d12 $0x01 -> %d13
-0ef8c9cf : fcmgt v15.4h, v14.4h, #0.0               : fcmgt  %d14 $0x01 -> %d15
-0ef8ca11 : fcmgt v17.4h, v16.4h, #0.0               : fcmgt  %d16 $0x01 -> %d17
-0ef8ca53 : fcmgt v19.4h, v18.4h, #0.0               : fcmgt  %d18 $0x01 -> %d19
-0ef8ca95 : fcmgt v21.4h, v20.4h, #0.0               : fcmgt  %d20 $0x01 -> %d21
-0ef8cad7 : fcmgt v23.4h, v22.4h, #0.0               : fcmgt  %d22 $0x01 -> %d23
-0ef8cb19 : fcmgt v25.4h, v24.4h, #0.0               : fcmgt  %d24 $0x01 -> %d25
-0ef8cb5b : fcmgt v27.4h, v26.4h, #0.0               : fcmgt  %d26 $0x01 -> %d27
-0ef8cb9d : fcmgt v29.4h, v28.4h, #0.0               : fcmgt  %d28 $0x01 -> %d29
-0ef8cbdf : fcmgt v31.4h, v30.4h, #0.0               : fcmgt  %d30 $0x01 -> %d31
-4ef8c801 : fcmgt v1.8h, v0.8h, #0.0                 : fcmgt  %q0 $0x01 -> %q1
-4ef8c843 : fcmgt v3.8h, v2.8h, #0.0                 : fcmgt  %q2 $0x01 -> %q3
-4ef8c885 : fcmgt v5.8h, v4.8h, #0.0                 : fcmgt  %q4 $0x01 -> %q5
-4ef8c8c7 : fcmgt v7.8h, v6.8h, #0.0                 : fcmgt  %q6 $0x01 -> %q7
-4ef8c909 : fcmgt v9.8h, v8.8h, #0.0                 : fcmgt  %q8 $0x01 -> %q9
-4ef8c94b : fcmgt v11.8h, v10.8h, #0.0               : fcmgt  %q10 $0x01 -> %q11
-4ef8c98d : fcmgt v13.8h, v12.8h, #0.0               : fcmgt  %q12 $0x01 -> %q13
-4ef8c9cf : fcmgt v15.8h, v14.8h, #0.0               : fcmgt  %q14 $0x01 -> %q15
-4ef8ca11 : fcmgt v17.8h, v16.8h, #0.0               : fcmgt  %q16 $0x01 -> %q17
-4ef8ca53 : fcmgt v19.8h, v18.8h, #0.0               : fcmgt  %q18 $0x01 -> %q19
-4ef8ca95 : fcmgt v21.8h, v20.8h, #0.0               : fcmgt  %q20 $0x01 -> %q21
-4ef8cad7 : fcmgt v23.8h, v22.8h, #0.0               : fcmgt  %q22 $0x01 -> %q23
-4ef8cb19 : fcmgt v25.8h, v24.8h, #0.0               : fcmgt  %q24 $0x01 -> %q25
-4ef8cb5b : fcmgt v27.8h, v26.8h, #0.0               : fcmgt  %q26 $0x01 -> %q27
-4ef8cb9d : fcmgt v29.8h, v28.8h, #0.0               : fcmgt  %q28 $0x01 -> %q29
-4ef8cbdf : fcmgt v31.8h, v30.8h, #0.0               : fcmgt  %q30 $0x01 -> %q31
-0ea0c801 : fcmgt v1.2s, v0.2s, #0.0                 : fcmgt  %d0 $0x02 -> %d1
-0ea0c843 : fcmgt v3.2s, v2.2s, #0.0                 : fcmgt  %d2 $0x02 -> %d3
-0ea0c885 : fcmgt v5.2s, v4.2s, #0.0                 : fcmgt  %d4 $0x02 -> %d5
-0ea0c8c7 : fcmgt v7.2s, v6.2s, #0.0                 : fcmgt  %d6 $0x02 -> %d7
-0ea0c909 : fcmgt v9.2s, v8.2s, #0.0                 : fcmgt  %d8 $0x02 -> %d9
-0ea0c94b : fcmgt v11.2s, v10.2s, #0.0               : fcmgt  %d10 $0x02 -> %d11
-0ea0c98d : fcmgt v13.2s, v12.2s, #0.0               : fcmgt  %d12 $0x02 -> %d13
-0ea0c9cf : fcmgt v15.2s, v14.2s, #0.0               : fcmgt  %d14 $0x02 -> %d15
-0ea0ca11 : fcmgt v17.2s, v16.2s, #0.0               : fcmgt  %d16 $0x02 -> %d17
-0ea0ca53 : fcmgt v19.2s, v18.2s, #0.0               : fcmgt  %d18 $0x02 -> %d19
-0ea0ca95 : fcmgt v21.2s, v20.2s, #0.0               : fcmgt  %d20 $0x02 -> %d21
-0ea0cad7 : fcmgt v23.2s, v22.2s, #0.0               : fcmgt  %d22 $0x02 -> %d23
-0ea0cb19 : fcmgt v25.2s, v24.2s, #0.0               : fcmgt  %d24 $0x02 -> %d25
-0ea0cb5b : fcmgt v27.2s, v26.2s, #0.0               : fcmgt  %d26 $0x02 -> %d27
-0ea0cb9d : fcmgt v29.2s, v28.2s, #0.0               : fcmgt  %d28 $0x02 -> %d29
-0ea0cbdf : fcmgt v31.2s, v30.2s, #0.0               : fcmgt  %d30 $0x02 -> %d31
-4ea0c801 : fcmgt v1.4s, v0.4s, #0.0                 : fcmgt  %q0 $0x02 -> %q1
-4ea0c843 : fcmgt v3.4s, v2.4s, #0.0                 : fcmgt  %q2 $0x02 -> %q3
-4ea0c885 : fcmgt v5.4s, v4.4s, #0.0                 : fcmgt  %q4 $0x02 -> %q5
-4ea0c8c7 : fcmgt v7.4s, v6.4s, #0.0                 : fcmgt  %q6 $0x02 -> %q7
-4ea0c909 : fcmgt v9.4s, v8.4s, #0.0                 : fcmgt  %q8 $0x02 -> %q9
-4ea0c94b : fcmgt v11.4s, v10.4s, #0.0               : fcmgt  %q10 $0x02 -> %q11
-4ea0c98d : fcmgt v13.4s, v12.4s, #0.0               : fcmgt  %q12 $0x02 -> %q13
-4ea0c9cf : fcmgt v15.4s, v14.4s, #0.0               : fcmgt  %q14 $0x02 -> %q15
-4ea0ca11 : fcmgt v17.4s, v16.4s, #0.0               : fcmgt  %q16 $0x02 -> %q17
-4ea0ca53 : fcmgt v19.4s, v18.4s, #0.0               : fcmgt  %q18 $0x02 -> %q19
-4ea0ca95 : fcmgt v21.4s, v20.4s, #0.0               : fcmgt  %q20 $0x02 -> %q21
-4ea0cad7 : fcmgt v23.4s, v22.4s, #0.0               : fcmgt  %q22 $0x02 -> %q23
-4ea0cb19 : fcmgt v25.4s, v24.4s, #0.0               : fcmgt  %q24 $0x02 -> %q25
-4ea0cb5b : fcmgt v27.4s, v26.4s, #0.0               : fcmgt  %q26 $0x02 -> %q27
-4ea0cb9d : fcmgt v29.4s, v28.4s, #0.0               : fcmgt  %q28 $0x02 -> %q29
-4ea0cbdf : fcmgt v31.4s, v30.4s, #0.0               : fcmgt  %q30 $0x02 -> %q31
-4ee0c801 : fcmgt v1.2d, v0.2d, #0.0                 : fcmgt  %q0 $0x03 -> %q1
-4ee0c843 : fcmgt v3.2d, v2.2d, #0.0                 : fcmgt  %q2 $0x03 -> %q3
-4ee0c885 : fcmgt v5.2d, v4.2d, #0.0                 : fcmgt  %q4 $0x03 -> %q5
-4ee0c8c7 : fcmgt v7.2d, v6.2d, #0.0                 : fcmgt  %q6 $0x03 -> %q7
-4ee0c909 : fcmgt v9.2d, v8.2d, #0.0                 : fcmgt  %q8 $0x03 -> %q9
-4ee0c94b : fcmgt v11.2d, v10.2d, #0.0               : fcmgt  %q10 $0x03 -> %q11
-4ee0c98d : fcmgt v13.2d, v12.2d, #0.0               : fcmgt  %q12 $0x03 -> %q13
-4ee0c9cf : fcmgt v15.2d, v14.2d, #0.0               : fcmgt  %q14 $0x03 -> %q15
-4ee0ca11 : fcmgt v17.2d, v16.2d, #0.0               : fcmgt  %q16 $0x03 -> %q17
-4ee0ca53 : fcmgt v19.2d, v18.2d, #0.0               : fcmgt  %q18 $0x03 -> %q19
-4ee0ca95 : fcmgt v21.2d, v20.2d, #0.0               : fcmgt  %q20 $0x03 -> %q21
-4ee0cad7 : fcmgt v23.2d, v22.2d, #0.0               : fcmgt  %q22 $0x03 -> %q23
-4ee0cb19 : fcmgt v25.2d, v24.2d, #0.0               : fcmgt  %q24 $0x03 -> %q25
-4ee0cb5b : fcmgt v27.2d, v26.2d, #0.0               : fcmgt  %q26 $0x03 -> %q27
-4ee0cb9d : fcmgt v29.2d, v28.2d, #0.0               : fcmgt  %q28 $0x03 -> %q29
-4ee0cbdf : fcmgt v31.2d, v30.2d, #0.0               : fcmgt  %q30 $0x03 -> %q31
-
-# FCMGT <V><d>, <V><n>, #0.0
-5ef8c801 : fcmgt h1, h0, #0.0                       : fcmgt  %h0 -> %h1
-5ef8c843 : fcmgt h3, h2, #0.0                       : fcmgt  %h2 -> %h3
-5ef8c885 : fcmgt h5, h4, #0.0                       : fcmgt  %h4 -> %h5
-5ef8c8c7 : fcmgt h7, h6, #0.0                       : fcmgt  %h6 -> %h7
-5ef8c909 : fcmgt h9, h8, #0.0                       : fcmgt  %h8 -> %h9
-5ef8c94b : fcmgt h11, h10, #0.0                     : fcmgt  %h10 -> %h11
-5ef8c98d : fcmgt h13, h12, #0.0                     : fcmgt  %h12 -> %h13
-5ef8c9cf : fcmgt h15, h14, #0.0                     : fcmgt  %h14 -> %h15
-5ef8ca11 : fcmgt h17, h16, #0.0                     : fcmgt  %h16 -> %h17
-5ef8ca53 : fcmgt h19, h18, #0.0                     : fcmgt  %h18 -> %h19
-5ef8ca95 : fcmgt h21, h20, #0.0                     : fcmgt  %h20 -> %h21
-5ef8cad7 : fcmgt h23, h22, #0.0                     : fcmgt  %h22 -> %h23
-5ef8cb19 : fcmgt h25, h24, #0.0                     : fcmgt  %h24 -> %h25
-5ef8cb5b : fcmgt h27, h26, #0.0                     : fcmgt  %h26 -> %h27
-5ef8cb9d : fcmgt h29, h28, #0.0                     : fcmgt  %h28 -> %h29
-5ef8cbdf : fcmgt h31, h30, #0.0                     : fcmgt  %h30 -> %h31
-5ee0c801 : fcmgt d1, d0, #0.0                       : fcmgt  %d0 -> %d1
-5ee0c843 : fcmgt d3, d2, #0.0                       : fcmgt  %d2 -> %d3
-5ee0c885 : fcmgt d5, d4, #0.0                       : fcmgt  %d4 -> %d5
-5ee0c8c7 : fcmgt d7, d6, #0.0                       : fcmgt  %d6 -> %d7
-5ee0c909 : fcmgt d9, d8, #0.0                       : fcmgt  %d8 -> %d9
-5ee0c94b : fcmgt d11, d10, #0.0                     : fcmgt  %d10 -> %d11
-5ee0c98d : fcmgt d13, d12, #0.0                     : fcmgt  %d12 -> %d13
-5ee0c9cf : fcmgt d15, d14, #0.0                     : fcmgt  %d14 -> %d15
-5ee0ca11 : fcmgt d17, d16, #0.0                     : fcmgt  %d16 -> %d17
-5ee0ca53 : fcmgt d19, d18, #0.0                     : fcmgt  %d18 -> %d19
-5ee0ca95 : fcmgt d21, d20, #0.0                     : fcmgt  %d20 -> %d21
-5ee0cad7 : fcmgt d23, d22, #0.0                     : fcmgt  %d22 -> %d23
-5ee0cb19 : fcmgt d25, d24, #0.0                     : fcmgt  %d24 -> %d25
-5ee0cb5b : fcmgt d27, d26, #0.0                     : fcmgt  %d26 -> %d27
-5ee0cb9d : fcmgt d29, d28, #0.0                     : fcmgt  %d28 -> %d29
-5ee0cbdf : fcmgt d31, d30, #0.0                     : fcmgt  %d30 -> %d31
-5ea0c801 : fcmgt s1, s0, #0.0                       : fcmgt  %s0 -> %s1
-5ea0c843 : fcmgt s3, s2, #0.0                       : fcmgt  %s2 -> %s3
-5ea0c885 : fcmgt s5, s4, #0.0                       : fcmgt  %s4 -> %s5
-5ea0c8c7 : fcmgt s7, s6, #0.0                       : fcmgt  %s6 -> %s7
-5ea0c909 : fcmgt s9, s8, #0.0                       : fcmgt  %s8 -> %s9
-5ea0c94b : fcmgt s11, s10, #0.0                     : fcmgt  %s10 -> %s11
-5ea0c98d : fcmgt s13, s12, #0.0                     : fcmgt  %s12 -> %s13
-5ea0c9cf : fcmgt s15, s14, #0.0                     : fcmgt  %s14 -> %s15
-5ea0ca11 : fcmgt s17, s16, #0.0                     : fcmgt  %s16 -> %s17
-5ea0ca53 : fcmgt s19, s18, #0.0                     : fcmgt  %s18 -> %s19
-5ea0ca95 : fcmgt s21, s20, #0.0                     : fcmgt  %s20 -> %s21
-5ea0cad7 : fcmgt s23, s22, #0.0                     : fcmgt  %s22 -> %s23
-5ea0cb19 : fcmgt s25, s24, #0.0                     : fcmgt  %s24 -> %s25
-5ea0cb5b : fcmgt s27, s26, #0.0                     : fcmgt  %s26 -> %s27
-5ea0cb9d : fcmgt s29, s28, #0.0                     : fcmgt  %s28 -> %s29
-5ea0cbdf : fcmgt s31, s30, #0.0                     : fcmgt  %s30 -> %s31
 
 1e22c04a : fcvt d10, s2                             : fcvt   %s2 -> %d10
 1e23c29f : fcvt h31, s20                            : fcvt   %s20 -> %h31
@@ -29218,3 +28822,495 @@ b57ffffe : cbnz x30, #0xffffc                        : cbnz   $0x00000000100ffff
 344ffff8 : cbz w24, #0x9fffc                         : cbz    $0x000000001009fffc %w24
 345ffffa : cbz w26, #0xbfffc                         : cbz    $0x00000000100bfffc %w26
 347ffffe : cbz w30, #0xffffc                         : cbz    $0x00000000100ffffc %w30
+
+# FCMEQ   <Dd>.<T>, <Dn>.<T>, #0 (FCMEQ-Q.Q-asimdmisc_FZ)
+0ea0d820 : fcmeq v0.2s, v1.2s, #0                    : fcmeq  %d1 $0.000000 $0x02 -> %d0
+0ea0d862 : fcmeq v2.2s, v3.2s, #0                    : fcmeq  %d3 $0.000000 $0x02 -> %d2
+0ea0d8a4 : fcmeq v4.2s, v5.2s, #0                    : fcmeq  %d5 $0.000000 $0x02 -> %d4
+0ea0d8e6 : fcmeq v6.2s, v7.2s, #0                    : fcmeq  %d7 $0.000000 $0x02 -> %d6
+0ea0d928 : fcmeq v8.2s, v9.2s, #0                    : fcmeq  %d9 $0.000000 $0x02 -> %d8
+0ea0d96a : fcmeq v10.2s, v11.2s, #0                  : fcmeq  %d11 $0.000000 $0x02 -> %d10
+0ea0d9ac : fcmeq v12.2s, v13.2s, #0                  : fcmeq  %d13 $0.000000 $0x02 -> %d12
+0ea0d9ee : fcmeq v14.2s, v15.2s, #0                  : fcmeq  %d15 $0.000000 $0x02 -> %d14
+0ea0da30 : fcmeq v16.2s, v17.2s, #0                  : fcmeq  %d17 $0.000000 $0x02 -> %d16
+0ea0da51 : fcmeq v17.2s, v18.2s, #0                  : fcmeq  %d18 $0.000000 $0x02 -> %d17
+0ea0da93 : fcmeq v19.2s, v20.2s, #0                  : fcmeq  %d20 $0.000000 $0x02 -> %d19
+0ea0dad5 : fcmeq v21.2s, v22.2s, #0                  : fcmeq  %d22 $0.000000 $0x02 -> %d21
+0ea0db17 : fcmeq v23.2s, v24.2s, #0                  : fcmeq  %d24 $0.000000 $0x02 -> %d23
+0ea0db59 : fcmeq v25.2s, v26.2s, #0                  : fcmeq  %d26 $0.000000 $0x02 -> %d25
+0ea0db9b : fcmeq v27.2s, v28.2s, #0                  : fcmeq  %d28 $0.000000 $0x02 -> %d27
+0ea0d81f : fcmeq v31.2s, v0.2s, #0                   : fcmeq  %d0 $0.000000 $0x02 -> %d31
+4ea0d820 : fcmeq v0.4s, v1.4s, #0                    : fcmeq  %q1 $0.000000 $0x02 -> %q0
+4ea0d862 : fcmeq v2.4s, v3.4s, #0                    : fcmeq  %q3 $0.000000 $0x02 -> %q2
+4ea0d8a4 : fcmeq v4.4s, v5.4s, #0                    : fcmeq  %q5 $0.000000 $0x02 -> %q4
+4ea0d8e6 : fcmeq v6.4s, v7.4s, #0                    : fcmeq  %q7 $0.000000 $0x02 -> %q6
+4ea0d928 : fcmeq v8.4s, v9.4s, #0                    : fcmeq  %q9 $0.000000 $0x02 -> %q8
+4ea0d96a : fcmeq v10.4s, v11.4s, #0                  : fcmeq  %q11 $0.000000 $0x02 -> %q10
+4ea0d9ac : fcmeq v12.4s, v13.4s, #0                  : fcmeq  %q13 $0.000000 $0x02 -> %q12
+4ea0d9ee : fcmeq v14.4s, v15.4s, #0                  : fcmeq  %q15 $0.000000 $0x02 -> %q14
+4ea0da30 : fcmeq v16.4s, v17.4s, #0                  : fcmeq  %q17 $0.000000 $0x02 -> %q16
+4ea0da51 : fcmeq v17.4s, v18.4s, #0                  : fcmeq  %q18 $0.000000 $0x02 -> %q17
+4ea0da93 : fcmeq v19.4s, v20.4s, #0                  : fcmeq  %q20 $0.000000 $0x02 -> %q19
+4ea0dad5 : fcmeq v21.4s, v22.4s, #0                  : fcmeq  %q22 $0.000000 $0x02 -> %q21
+4ea0db17 : fcmeq v23.4s, v24.4s, #0                  : fcmeq  %q24 $0.000000 $0x02 -> %q23
+4ea0db59 : fcmeq v25.4s, v26.4s, #0                  : fcmeq  %q26 $0.000000 $0x02 -> %q25
+4ea0db9b : fcmeq v27.4s, v28.4s, #0                  : fcmeq  %q28 $0.000000 $0x02 -> %q27
+4ea0d81f : fcmeq v31.4s, v0.4s, #0                   : fcmeq  %q0 $0.000000 $0x02 -> %q31
+4ee0d820 : fcmeq v0.2d, v1.2d, #0                    : fcmeq  %q1 $0.000000 $0x03 -> %q0
+4ee0d862 : fcmeq v2.2d, v3.2d, #0                    : fcmeq  %q3 $0.000000 $0x03 -> %q2
+4ee0d8a4 : fcmeq v4.2d, v5.2d, #0                    : fcmeq  %q5 $0.000000 $0x03 -> %q4
+4ee0d8e6 : fcmeq v6.2d, v7.2d, #0                    : fcmeq  %q7 $0.000000 $0x03 -> %q6
+4ee0d928 : fcmeq v8.2d, v9.2d, #0                    : fcmeq  %q9 $0.000000 $0x03 -> %q8
+4ee0d96a : fcmeq v10.2d, v11.2d, #0                  : fcmeq  %q11 $0.000000 $0x03 -> %q10
+4ee0d9ac : fcmeq v12.2d, v13.2d, #0                  : fcmeq  %q13 $0.000000 $0x03 -> %q12
+4ee0d9ee : fcmeq v14.2d, v15.2d, #0                  : fcmeq  %q15 $0.000000 $0x03 -> %q14
+4ee0da30 : fcmeq v16.2d, v17.2d, #0                  : fcmeq  %q17 $0.000000 $0x03 -> %q16
+4ee0da51 : fcmeq v17.2d, v18.2d, #0                  : fcmeq  %q18 $0.000000 $0x03 -> %q17
+4ee0da93 : fcmeq v19.2d, v20.2d, #0                  : fcmeq  %q20 $0.000000 $0x03 -> %q19
+4ee0dad5 : fcmeq v21.2d, v22.2d, #0                  : fcmeq  %q22 $0.000000 $0x03 -> %q21
+4ee0db17 : fcmeq v23.2d, v24.2d, #0                  : fcmeq  %q24 $0.000000 $0x03 -> %q23
+4ee0db59 : fcmeq v25.2d, v26.2d, #0                  : fcmeq  %q26 $0.000000 $0x03 -> %q25
+4ee0db9b : fcmeq v27.2d, v28.2d, #0                  : fcmeq  %q28 $0.000000 $0x03 -> %q27
+4ee0d81f : fcmeq v31.2d, v0.2d, #0                   : fcmeq  %q0 $0.000000 $0x03 -> %q31
+
+# FCMPE   <Dn>, #0.0 (FCMPE-V-DZ_floatcmp)
+1e602018 : fcmpe d0, #0.0                            : fcmpe  %d0 $0.000000
+1e602058 : fcmpe d2, #0.0                            : fcmpe  %d2 $0.000000
+1e602098 : fcmpe d4, #0.0                            : fcmpe  %d4 $0.000000
+1e6020d8 : fcmpe d6, #0.0                            : fcmpe  %d6 $0.000000
+1e602118 : fcmpe d8, #0.0                            : fcmpe  %d8 $0.000000
+1e602158 : fcmpe d10, #0.0                           : fcmpe  %d10 $0.000000
+1e602198 : fcmpe d12, #0.0                           : fcmpe  %d12 $0.000000
+1e6021d8 : fcmpe d14, #0.0                           : fcmpe  %d14 $0.000000
+1e602218 : fcmpe d16, #0.0                           : fcmpe  %d16 $0.000000
+1e602238 : fcmpe d17, #0.0                           : fcmpe  %d17 $0.000000
+1e602278 : fcmpe d19, #0.0                           : fcmpe  %d19 $0.000000
+1e6022b8 : fcmpe d21, #0.0                           : fcmpe  %d21 $0.000000
+1e6022f8 : fcmpe d23, #0.0                           : fcmpe  %d23 $0.000000
+1e602338 : fcmpe d25, #0.0                           : fcmpe  %d25 $0.000000
+1e602378 : fcmpe d27, #0.0                           : fcmpe  %d27 $0.000000
+1e6023f8 : fcmpe d31, #0.0                           : fcmpe  %d31 $0.000000
+
+# FCMP    <Dn>, #0.0 (FCMP-V-DZ_floatcmp)
+1e602008 : fcmp d0, #0.0                             : fcmp   %d0 $0.000000
+1e602048 : fcmp d2, #0.0                             : fcmp   %d2 $0.000000
+1e602088 : fcmp d4, #0.0                             : fcmp   %d4 $0.000000
+1e6020c8 : fcmp d6, #0.0                             : fcmp   %d6 $0.000000
+1e602108 : fcmp d8, #0.0                             : fcmp   %d8 $0.000000
+1e602148 : fcmp d10, #0.0                            : fcmp   %d10 $0.000000
+1e602188 : fcmp d12, #0.0                            : fcmp   %d12 $0.000000
+1e6021c8 : fcmp d14, #0.0                            : fcmp   %d14 $0.000000
+1e602208 : fcmp d16, #0.0                            : fcmp   %d16 $0.000000
+1e602228 : fcmp d17, #0.0                            : fcmp   %d17 $0.000000
+1e602268 : fcmp d19, #0.0                            : fcmp   %d19 $0.000000
+1e6022a8 : fcmp d21, #0.0                            : fcmp   %d21 $0.000000
+1e6022e8 : fcmp d23, #0.0                            : fcmp   %d23 $0.000000
+1e602328 : fcmp d25, #0.0                            : fcmp   %d25 $0.000000
+1e602368 : fcmp d27, #0.0                            : fcmp   %d27 $0.000000
+1e6023e8 : fcmp d31, #0.0                            : fcmp   %d31 $0.000000
+
+# FCMLE   <V><d>, <V><n>, #0 (FCMLE-V.V-asisdmisc_FZ)
+7ea0d820 : fcmle s0, s1, #0                          : fcmle  %s1 $0.000000 -> %s0
+7ea0d862 : fcmle s2, s3, #0                          : fcmle  %s3 $0.000000 -> %s2
+7ea0d8a4 : fcmle s4, s5, #0                          : fcmle  %s5 $0.000000 -> %s4
+7ea0d8e6 : fcmle s6, s7, #0                          : fcmle  %s7 $0.000000 -> %s6
+7ea0d928 : fcmle s8, s9, #0                          : fcmle  %s9 $0.000000 -> %s8
+7ea0d96a : fcmle s10, s11, #0                        : fcmle  %s11 $0.000000 -> %s10
+7ea0d9ac : fcmle s12, s13, #0                        : fcmle  %s13 $0.000000 -> %s12
+7ea0d9ee : fcmle s14, s15, #0                        : fcmle  %s15 $0.000000 -> %s14
+7ea0da30 : fcmle s16, s17, #0                        : fcmle  %s17 $0.000000 -> %s16
+7ea0da51 : fcmle s17, s18, #0                        : fcmle  %s18 $0.000000 -> %s17
+7ea0da93 : fcmle s19, s20, #0                        : fcmle  %s20 $0.000000 -> %s19
+7ea0dad5 : fcmle s21, s22, #0                        : fcmle  %s22 $0.000000 -> %s21
+7ea0db17 : fcmle s23, s24, #0                        : fcmle  %s24 $0.000000 -> %s23
+7ea0db59 : fcmle s25, s26, #0                        : fcmle  %s26 $0.000000 -> %s25
+7ea0db9b : fcmle s27, s28, #0                        : fcmle  %s28 $0.000000 -> %s27
+7ea0d81f : fcmle s31, s0, #0                         : fcmle  %s0 $0.000000 -> %s31
+7ee0d820 : fcmle d0, d1, #0                          : fcmle  %d1 $0.000000 -> %d0
+7ee0d862 : fcmle d2, d3, #0                          : fcmle  %d3 $0.000000 -> %d2
+7ee0d8a4 : fcmle d4, d5, #0                          : fcmle  %d5 $0.000000 -> %d4
+7ee0d8e6 : fcmle d6, d7, #0                          : fcmle  %d7 $0.000000 -> %d6
+7ee0d928 : fcmle d8, d9, #0                          : fcmle  %d9 $0.000000 -> %d8
+7ee0d96a : fcmle d10, d11, #0                        : fcmle  %d11 $0.000000 -> %d10
+7ee0d9ac : fcmle d12, d13, #0                        : fcmle  %d13 $0.000000 -> %d12
+7ee0d9ee : fcmle d14, d15, #0                        : fcmle  %d15 $0.000000 -> %d14
+7ee0da30 : fcmle d16, d17, #0                        : fcmle  %d17 $0.000000 -> %d16
+7ee0da51 : fcmle d17, d18, #0                        : fcmle  %d18 $0.000000 -> %d17
+7ee0da93 : fcmle d19, d20, #0                        : fcmle  %d20 $0.000000 -> %d19
+7ee0dad5 : fcmle d21, d22, #0                        : fcmle  %d22 $0.000000 -> %d21
+7ee0db17 : fcmle d23, d24, #0                        : fcmle  %d24 $0.000000 -> %d23
+7ee0db59 : fcmle d25, d26, #0                        : fcmle  %d26 $0.000000 -> %d25
+7ee0db9b : fcmle d27, d28, #0                        : fcmle  %d28 $0.000000 -> %d27
+7ee0d81f : fcmle d31, d0, #0                         : fcmle  %d0 $0.000000 -> %d31
+
+# FCMGE   <V><d>, <V><n>, #0 (FCMGE-V.V-asisdmisc_FZ)
+7ea0c820 : fcmge s0, s1, #0                          : fcmge  %s1 $0.000000 -> %s0
+7ea0c862 : fcmge s2, s3, #0                          : fcmge  %s3 $0.000000 -> %s2
+7ea0c8a4 : fcmge s4, s5, #0                          : fcmge  %s5 $0.000000 -> %s4
+7ea0c8e6 : fcmge s6, s7, #0                          : fcmge  %s7 $0.000000 -> %s6
+7ea0c928 : fcmge s8, s9, #0                          : fcmge  %s9 $0.000000 -> %s8
+7ea0c96a : fcmge s10, s11, #0                        : fcmge  %s11 $0.000000 -> %s10
+7ea0c9ac : fcmge s12, s13, #0                        : fcmge  %s13 $0.000000 -> %s12
+7ea0c9ee : fcmge s14, s15, #0                        : fcmge  %s15 $0.000000 -> %s14
+7ea0ca30 : fcmge s16, s17, #0                        : fcmge  %s17 $0.000000 -> %s16
+7ea0ca51 : fcmge s17, s18, #0                        : fcmge  %s18 $0.000000 -> %s17
+7ea0ca93 : fcmge s19, s20, #0                        : fcmge  %s20 $0.000000 -> %s19
+7ea0cad5 : fcmge s21, s22, #0                        : fcmge  %s22 $0.000000 -> %s21
+7ea0cb17 : fcmge s23, s24, #0                        : fcmge  %s24 $0.000000 -> %s23
+7ea0cb59 : fcmge s25, s26, #0                        : fcmge  %s26 $0.000000 -> %s25
+7ea0cb9b : fcmge s27, s28, #0                        : fcmge  %s28 $0.000000 -> %s27
+7ea0c81f : fcmge s31, s0, #0                         : fcmge  %s0 $0.000000 -> %s31
+7ee0c820 : fcmge d0, d1, #0                          : fcmge  %d1 $0.000000 -> %d0
+7ee0c862 : fcmge d2, d3, #0                          : fcmge  %d3 $0.000000 -> %d2
+7ee0c8a4 : fcmge d4, d5, #0                          : fcmge  %d5 $0.000000 -> %d4
+7ee0c8e6 : fcmge d6, d7, #0                          : fcmge  %d7 $0.000000 -> %d6
+7ee0c928 : fcmge d8, d9, #0                          : fcmge  %d9 $0.000000 -> %d8
+7ee0c96a : fcmge d10, d11, #0                        : fcmge  %d11 $0.000000 -> %d10
+7ee0c9ac : fcmge d12, d13, #0                        : fcmge  %d13 $0.000000 -> %d12
+7ee0c9ee : fcmge d14, d15, #0                        : fcmge  %d15 $0.000000 -> %d14
+7ee0ca30 : fcmge d16, d17, #0                        : fcmge  %d17 $0.000000 -> %d16
+7ee0ca51 : fcmge d17, d18, #0                        : fcmge  %d18 $0.000000 -> %d17
+7ee0ca93 : fcmge d19, d20, #0                        : fcmge  %d20 $0.000000 -> %d19
+7ee0cad5 : fcmge d21, d22, #0                        : fcmge  %d22 $0.000000 -> %d21
+7ee0cb17 : fcmge d23, d24, #0                        : fcmge  %d24 $0.000000 -> %d23
+7ee0cb59 : fcmge d25, d26, #0                        : fcmge  %d26 $0.000000 -> %d25
+7ee0cb9b : fcmge d27, d28, #0                        : fcmge  %d28 $0.000000 -> %d27
+7ee0c81f : fcmge d31, d0, #0                         : fcmge  %d0 $0.000000 -> %d31
+
+# FCMGT   <V><d>, <V><n>, #0 (FCMGT-V.V-asisdmisc_FZ)
+5ea0c820 : fcmgt s0, s1, #0                          : fcmgt  %s1 $0.000000 -> %s0
+5ea0c862 : fcmgt s2, s3, #0                          : fcmgt  %s3 $0.000000 -> %s2
+5ea0c8a4 : fcmgt s4, s5, #0                          : fcmgt  %s5 $0.000000 -> %s4
+5ea0c8e6 : fcmgt s6, s7, #0                          : fcmgt  %s7 $0.000000 -> %s6
+5ea0c928 : fcmgt s8, s9, #0                          : fcmgt  %s9 $0.000000 -> %s8
+5ea0c96a : fcmgt s10, s11, #0                        : fcmgt  %s11 $0.000000 -> %s10
+5ea0c9ac : fcmgt s12, s13, #0                        : fcmgt  %s13 $0.000000 -> %s12
+5ea0c9ee : fcmgt s14, s15, #0                        : fcmgt  %s15 $0.000000 -> %s14
+5ea0ca30 : fcmgt s16, s17, #0                        : fcmgt  %s17 $0.000000 -> %s16
+5ea0ca51 : fcmgt s17, s18, #0                        : fcmgt  %s18 $0.000000 -> %s17
+5ea0ca93 : fcmgt s19, s20, #0                        : fcmgt  %s20 $0.000000 -> %s19
+5ea0cad5 : fcmgt s21, s22, #0                        : fcmgt  %s22 $0.000000 -> %s21
+5ea0cb17 : fcmgt s23, s24, #0                        : fcmgt  %s24 $0.000000 -> %s23
+5ea0cb59 : fcmgt s25, s26, #0                        : fcmgt  %s26 $0.000000 -> %s25
+5ea0cb9b : fcmgt s27, s28, #0                        : fcmgt  %s28 $0.000000 -> %s27
+5ea0c81f : fcmgt s31, s0, #0                         : fcmgt  %s0 $0.000000 -> %s31
+5ee0c820 : fcmgt d0, d1, #0                          : fcmgt  %d1 $0.000000 -> %d0
+5ee0c862 : fcmgt d2, d3, #0                          : fcmgt  %d3 $0.000000 -> %d2
+5ee0c8a4 : fcmgt d4, d5, #0                          : fcmgt  %d5 $0.000000 -> %d4
+5ee0c8e6 : fcmgt d6, d7, #0                          : fcmgt  %d7 $0.000000 -> %d6
+5ee0c928 : fcmgt d8, d9, #0                          : fcmgt  %d9 $0.000000 -> %d8
+5ee0c96a : fcmgt d10, d11, #0                        : fcmgt  %d11 $0.000000 -> %d10
+5ee0c9ac : fcmgt d12, d13, #0                        : fcmgt  %d13 $0.000000 -> %d12
+5ee0c9ee : fcmgt d14, d15, #0                        : fcmgt  %d15 $0.000000 -> %d14
+5ee0ca30 : fcmgt d16, d17, #0                        : fcmgt  %d17 $0.000000 -> %d16
+5ee0ca51 : fcmgt d17, d18, #0                        : fcmgt  %d18 $0.000000 -> %d17
+5ee0ca93 : fcmgt d19, d20, #0                        : fcmgt  %d20 $0.000000 -> %d19
+5ee0cad5 : fcmgt d21, d22, #0                        : fcmgt  %d22 $0.000000 -> %d21
+5ee0cb17 : fcmgt d23, d24, #0                        : fcmgt  %d24 $0.000000 -> %d23
+5ee0cb59 : fcmgt d25, d26, #0                        : fcmgt  %d26 $0.000000 -> %d25
+5ee0cb9b : fcmgt d27, d28, #0                        : fcmgt  %d28 $0.000000 -> %d27
+5ee0c81f : fcmgt d31, d0, #0                         : fcmgt  %d0 $0.000000 -> %d31
+
+# FCMGT   <Dd>.<T>, <Dn>.<T>, #0 (FCMGT-Q.Q-asimdmisc_FZ)
+0ea0c820 : fcmgt v0.2s, v1.2s, #0                    : fcmgt  %d1 $0.000000 $0x02 -> %d0
+0ea0c862 : fcmgt v2.2s, v3.2s, #0                    : fcmgt  %d3 $0.000000 $0x02 -> %d2
+0ea0c8a4 : fcmgt v4.2s, v5.2s, #0                    : fcmgt  %d5 $0.000000 $0x02 -> %d4
+0ea0c8e6 : fcmgt v6.2s, v7.2s, #0                    : fcmgt  %d7 $0.000000 $0x02 -> %d6
+0ea0c928 : fcmgt v8.2s, v9.2s, #0                    : fcmgt  %d9 $0.000000 $0x02 -> %d8
+0ea0c96a : fcmgt v10.2s, v11.2s, #0                  : fcmgt  %d11 $0.000000 $0x02 -> %d10
+0ea0c9ac : fcmgt v12.2s, v13.2s, #0                  : fcmgt  %d13 $0.000000 $0x02 -> %d12
+0ea0c9ee : fcmgt v14.2s, v15.2s, #0                  : fcmgt  %d15 $0.000000 $0x02 -> %d14
+0ea0ca30 : fcmgt v16.2s, v17.2s, #0                  : fcmgt  %d17 $0.000000 $0x02 -> %d16
+0ea0ca51 : fcmgt v17.2s, v18.2s, #0                  : fcmgt  %d18 $0.000000 $0x02 -> %d17
+0ea0ca93 : fcmgt v19.2s, v20.2s, #0                  : fcmgt  %d20 $0.000000 $0x02 -> %d19
+0ea0cad5 : fcmgt v21.2s, v22.2s, #0                  : fcmgt  %d22 $0.000000 $0x02 -> %d21
+0ea0cb17 : fcmgt v23.2s, v24.2s, #0                  : fcmgt  %d24 $0.000000 $0x02 -> %d23
+0ea0cb59 : fcmgt v25.2s, v26.2s, #0                  : fcmgt  %d26 $0.000000 $0x02 -> %d25
+0ea0cb9b : fcmgt v27.2s, v28.2s, #0                  : fcmgt  %d28 $0.000000 $0x02 -> %d27
+0ea0c81f : fcmgt v31.2s, v0.2s, #0                   : fcmgt  %d0 $0.000000 $0x02 -> %d31
+4ea0c820 : fcmgt v0.4s, v1.4s, #0                    : fcmgt  %q1 $0.000000 $0x02 -> %q0
+4ea0c862 : fcmgt v2.4s, v3.4s, #0                    : fcmgt  %q3 $0.000000 $0x02 -> %q2
+4ea0c8a4 : fcmgt v4.4s, v5.4s, #0                    : fcmgt  %q5 $0.000000 $0x02 -> %q4
+4ea0c8e6 : fcmgt v6.4s, v7.4s, #0                    : fcmgt  %q7 $0.000000 $0x02 -> %q6
+4ea0c928 : fcmgt v8.4s, v9.4s, #0                    : fcmgt  %q9 $0.000000 $0x02 -> %q8
+4ea0c96a : fcmgt v10.4s, v11.4s, #0                  : fcmgt  %q11 $0.000000 $0x02 -> %q10
+4ea0c9ac : fcmgt v12.4s, v13.4s, #0                  : fcmgt  %q13 $0.000000 $0x02 -> %q12
+4ea0c9ee : fcmgt v14.4s, v15.4s, #0                  : fcmgt  %q15 $0.000000 $0x02 -> %q14
+4ea0ca30 : fcmgt v16.4s, v17.4s, #0                  : fcmgt  %q17 $0.000000 $0x02 -> %q16
+4ea0ca51 : fcmgt v17.4s, v18.4s, #0                  : fcmgt  %q18 $0.000000 $0x02 -> %q17
+4ea0ca93 : fcmgt v19.4s, v20.4s, #0                  : fcmgt  %q20 $0.000000 $0x02 -> %q19
+4ea0cad5 : fcmgt v21.4s, v22.4s, #0                  : fcmgt  %q22 $0.000000 $0x02 -> %q21
+4ea0cb17 : fcmgt v23.4s, v24.4s, #0                  : fcmgt  %q24 $0.000000 $0x02 -> %q23
+4ea0cb59 : fcmgt v25.4s, v26.4s, #0                  : fcmgt  %q26 $0.000000 $0x02 -> %q25
+4ea0cb9b : fcmgt v27.4s, v28.4s, #0                  : fcmgt  %q28 $0.000000 $0x02 -> %q27
+4ea0c81f : fcmgt v31.4s, v0.4s, #0                   : fcmgt  %q0 $0.000000 $0x02 -> %q31
+4ee0c820 : fcmgt v0.2d, v1.2d, #0                    : fcmgt  %q1 $0.000000 $0x03 -> %q0
+4ee0c862 : fcmgt v2.2d, v3.2d, #0                    : fcmgt  %q3 $0.000000 $0x03 -> %q2
+4ee0c8a4 : fcmgt v4.2d, v5.2d, #0                    : fcmgt  %q5 $0.000000 $0x03 -> %q4
+4ee0c8e6 : fcmgt v6.2d, v7.2d, #0                    : fcmgt  %q7 $0.000000 $0x03 -> %q6
+4ee0c928 : fcmgt v8.2d, v9.2d, #0                    : fcmgt  %q9 $0.000000 $0x03 -> %q8
+4ee0c96a : fcmgt v10.2d, v11.2d, #0                  : fcmgt  %q11 $0.000000 $0x03 -> %q10
+4ee0c9ac : fcmgt v12.2d, v13.2d, #0                  : fcmgt  %q13 $0.000000 $0x03 -> %q12
+4ee0c9ee : fcmgt v14.2d, v15.2d, #0                  : fcmgt  %q15 $0.000000 $0x03 -> %q14
+4ee0ca30 : fcmgt v16.2d, v17.2d, #0                  : fcmgt  %q17 $0.000000 $0x03 -> %q16
+4ee0ca51 : fcmgt v17.2d, v18.2d, #0                  : fcmgt  %q18 $0.000000 $0x03 -> %q17
+4ee0ca93 : fcmgt v19.2d, v20.2d, #0                  : fcmgt  %q20 $0.000000 $0x03 -> %q19
+4ee0cad5 : fcmgt v21.2d, v22.2d, #0                  : fcmgt  %q22 $0.000000 $0x03 -> %q21
+4ee0cb17 : fcmgt v23.2d, v24.2d, #0                  : fcmgt  %q24 $0.000000 $0x03 -> %q23
+4ee0cb59 : fcmgt v25.2d, v26.2d, #0                  : fcmgt  %q26 $0.000000 $0x03 -> %q25
+4ee0cb9b : fcmgt v27.2d, v28.2d, #0                  : fcmgt  %q28 $0.000000 $0x03 -> %q27
+4ee0c81f : fcmgt v31.2d, v0.2d, #0                   : fcmgt  %q0 $0.000000 $0x03 -> %q31
+
+# FCMPE   <Sn>, #0.0 (FCMPE-V-SZ_floatcmp)
+1e202018 : fcmpe s0, #0.0                            : fcmpe  %s0 $0.000000
+1e202058 : fcmpe s2, #0.0                            : fcmpe  %s2 $0.000000
+1e202098 : fcmpe s4, #0.0                            : fcmpe  %s4 $0.000000
+1e2020d8 : fcmpe s6, #0.0                            : fcmpe  %s6 $0.000000
+1e202118 : fcmpe s8, #0.0                            : fcmpe  %s8 $0.000000
+1e202158 : fcmpe s10, #0.0                           : fcmpe  %s10 $0.000000
+1e202198 : fcmpe s12, #0.0                           : fcmpe  %s12 $0.000000
+1e2021d8 : fcmpe s14, #0.0                           : fcmpe  %s14 $0.000000
+1e202218 : fcmpe s16, #0.0                           : fcmpe  %s16 $0.000000
+1e202238 : fcmpe s17, #0.0                           : fcmpe  %s17 $0.000000
+1e202278 : fcmpe s19, #0.0                           : fcmpe  %s19 $0.000000
+1e2022b8 : fcmpe s21, #0.0                           : fcmpe  %s21 $0.000000
+1e2022f8 : fcmpe s23, #0.0                           : fcmpe  %s23 $0.000000
+1e202338 : fcmpe s25, #0.0                           : fcmpe  %s25 $0.000000
+1e202378 : fcmpe s27, #0.0                           : fcmpe  %s27 $0.000000
+1e2023f8 : fcmpe s31, #0.0                           : fcmpe  %s31 $0.000000
+
+# FCMEQ   <V><d>, <V><n>, #0 (FCMEQ-V.V-asisdmisc_FZ)
+5ea0d820 : fcmeq s0, s1, #0                          : fcmeq  %s1 $0.000000 -> %s0
+5ea0d862 : fcmeq s2, s3, #0                          : fcmeq  %s3 $0.000000 -> %s2
+5ea0d8a4 : fcmeq s4, s5, #0                          : fcmeq  %s5 $0.000000 -> %s4
+5ea0d8e6 : fcmeq s6, s7, #0                          : fcmeq  %s7 $0.000000 -> %s6
+5ea0d928 : fcmeq s8, s9, #0                          : fcmeq  %s9 $0.000000 -> %s8
+5ea0d96a : fcmeq s10, s11, #0                        : fcmeq  %s11 $0.000000 -> %s10
+5ea0d9ac : fcmeq s12, s13, #0                        : fcmeq  %s13 $0.000000 -> %s12
+5ea0d9ee : fcmeq s14, s15, #0                        : fcmeq  %s15 $0.000000 -> %s14
+5ea0da30 : fcmeq s16, s17, #0                        : fcmeq  %s17 $0.000000 -> %s16
+5ea0da51 : fcmeq s17, s18, #0                        : fcmeq  %s18 $0.000000 -> %s17
+5ea0da93 : fcmeq s19, s20, #0                        : fcmeq  %s20 $0.000000 -> %s19
+5ea0dad5 : fcmeq s21, s22, #0                        : fcmeq  %s22 $0.000000 -> %s21
+5ea0db17 : fcmeq s23, s24, #0                        : fcmeq  %s24 $0.000000 -> %s23
+5ea0db59 : fcmeq s25, s26, #0                        : fcmeq  %s26 $0.000000 -> %s25
+5ea0db9b : fcmeq s27, s28, #0                        : fcmeq  %s28 $0.000000 -> %s27
+5ea0d81f : fcmeq s31, s0, #0                         : fcmeq  %s0 $0.000000 -> %s31
+5ee0d820 : fcmeq d0, d1, #0                          : fcmeq  %d1 $0.000000 -> %d0
+5ee0d862 : fcmeq d2, d3, #0                          : fcmeq  %d3 $0.000000 -> %d2
+5ee0d8a4 : fcmeq d4, d5, #0                          : fcmeq  %d5 $0.000000 -> %d4
+5ee0d8e6 : fcmeq d6, d7, #0                          : fcmeq  %d7 $0.000000 -> %d6
+5ee0d928 : fcmeq d8, d9, #0                          : fcmeq  %d9 $0.000000 -> %d8
+5ee0d96a : fcmeq d10, d11, #0                        : fcmeq  %d11 $0.000000 -> %d10
+5ee0d9ac : fcmeq d12, d13, #0                        : fcmeq  %d13 $0.000000 -> %d12
+5ee0d9ee : fcmeq d14, d15, #0                        : fcmeq  %d15 $0.000000 -> %d14
+5ee0da30 : fcmeq d16, d17, #0                        : fcmeq  %d17 $0.000000 -> %d16
+5ee0da51 : fcmeq d17, d18, #0                        : fcmeq  %d18 $0.000000 -> %d17
+5ee0da93 : fcmeq d19, d20, #0                        : fcmeq  %d20 $0.000000 -> %d19
+5ee0dad5 : fcmeq d21, d22, #0                        : fcmeq  %d22 $0.000000 -> %d21
+5ee0db17 : fcmeq d23, d24, #0                        : fcmeq  %d24 $0.000000 -> %d23
+5ee0db59 : fcmeq d25, d26, #0                        : fcmeq  %d26 $0.000000 -> %d25
+5ee0db9b : fcmeq d27, d28, #0                        : fcmeq  %d28 $0.000000 -> %d27
+5ee0d81f : fcmeq d31, d0, #0                         : fcmeq  %d0 $0.000000 -> %d31
+
+# FCMLT   <V><d>, <V><n>, #0 (FCMLT-V.V-asisdmisc_FZ)
+5ea0e820 : fcmlt s0, s1, #0                          : fcmlt  %s1 $0.000000 -> %s0
+5ea0e862 : fcmlt s2, s3, #0                          : fcmlt  %s3 $0.000000 -> %s2
+5ea0e8a4 : fcmlt s4, s5, #0                          : fcmlt  %s5 $0.000000 -> %s4
+5ea0e8e6 : fcmlt s6, s7, #0                          : fcmlt  %s7 $0.000000 -> %s6
+5ea0e928 : fcmlt s8, s9, #0                          : fcmlt  %s9 $0.000000 -> %s8
+5ea0e96a : fcmlt s10, s11, #0                        : fcmlt  %s11 $0.000000 -> %s10
+5ea0e9ac : fcmlt s12, s13, #0                        : fcmlt  %s13 $0.000000 -> %s12
+5ea0e9ee : fcmlt s14, s15, #0                        : fcmlt  %s15 $0.000000 -> %s14
+5ea0ea30 : fcmlt s16, s17, #0                        : fcmlt  %s17 $0.000000 -> %s16
+5ea0ea51 : fcmlt s17, s18, #0                        : fcmlt  %s18 $0.000000 -> %s17
+5ea0ea93 : fcmlt s19, s20, #0                        : fcmlt  %s20 $0.000000 -> %s19
+5ea0ead5 : fcmlt s21, s22, #0                        : fcmlt  %s22 $0.000000 -> %s21
+5ea0eb17 : fcmlt s23, s24, #0                        : fcmlt  %s24 $0.000000 -> %s23
+5ea0eb59 : fcmlt s25, s26, #0                        : fcmlt  %s26 $0.000000 -> %s25
+5ea0eb9b : fcmlt s27, s28, #0                        : fcmlt  %s28 $0.000000 -> %s27
+5ea0e81f : fcmlt s31, s0, #0                         : fcmlt  %s0 $0.000000 -> %s31
+5ee0e820 : fcmlt d0, d1, #0                          : fcmlt  %d1 $0.000000 -> %d0
+5ee0e862 : fcmlt d2, d3, #0                          : fcmlt  %d3 $0.000000 -> %d2
+5ee0e8a4 : fcmlt d4, d5, #0                          : fcmlt  %d5 $0.000000 -> %d4
+5ee0e8e6 : fcmlt d6, d7, #0                          : fcmlt  %d7 $0.000000 -> %d6
+5ee0e928 : fcmlt d8, d9, #0                          : fcmlt  %d9 $0.000000 -> %d8
+5ee0e96a : fcmlt d10, d11, #0                        : fcmlt  %d11 $0.000000 -> %d10
+5ee0e9ac : fcmlt d12, d13, #0                        : fcmlt  %d13 $0.000000 -> %d12
+5ee0e9ee : fcmlt d14, d15, #0                        : fcmlt  %d15 $0.000000 -> %d14
+5ee0ea30 : fcmlt d16, d17, #0                        : fcmlt  %d17 $0.000000 -> %d16
+5ee0ea51 : fcmlt d17, d18, #0                        : fcmlt  %d18 $0.000000 -> %d17
+5ee0ea93 : fcmlt d19, d20, #0                        : fcmlt  %d20 $0.000000 -> %d19
+5ee0ead5 : fcmlt d21, d22, #0                        : fcmlt  %d22 $0.000000 -> %d21
+5ee0eb17 : fcmlt d23, d24, #0                        : fcmlt  %d24 $0.000000 -> %d23
+5ee0eb59 : fcmlt d25, d26, #0                        : fcmlt  %d26 $0.000000 -> %d25
+5ee0eb9b : fcmlt d27, d28, #0                        : fcmlt  %d28 $0.000000 -> %d27
+5ee0e81f : fcmlt d31, d0, #0                         : fcmlt  %d0 $0.000000 -> %d31
+
+# FCMP    <Sn>, #0.0 (FCMP-V-SZ_floatcmp)
+1e202008 : fcmp s0, #0.0                             : fcmp   %s0 $0.000000
+1e202048 : fcmp s2, #0.0                             : fcmp   %s2 $0.000000
+1e202088 : fcmp s4, #0.0                             : fcmp   %s4 $0.000000
+1e2020c8 : fcmp s6, #0.0                             : fcmp   %s6 $0.000000
+1e202108 : fcmp s8, #0.0                             : fcmp   %s8 $0.000000
+1e202148 : fcmp s10, #0.0                            : fcmp   %s10 $0.000000
+1e202188 : fcmp s12, #0.0                            : fcmp   %s12 $0.000000
+1e2021c8 : fcmp s14, #0.0                            : fcmp   %s14 $0.000000
+1e202208 : fcmp s16, #0.0                            : fcmp   %s16 $0.000000
+1e202228 : fcmp s17, #0.0                            : fcmp   %s17 $0.000000
+1e202268 : fcmp s19, #0.0                            : fcmp   %s19 $0.000000
+1e2022a8 : fcmp s21, #0.0                            : fcmp   %s21 $0.000000
+1e2022e8 : fcmp s23, #0.0                            : fcmp   %s23 $0.000000
+1e202328 : fcmp s25, #0.0                            : fcmp   %s25 $0.000000
+1e202368 : fcmp s27, #0.0                            : fcmp   %s27 $0.000000
+1e2023e8 : fcmp s31, #0.0                            : fcmp   %s31 $0.000000
+
+# FCMLT   <Dd>.<T>, <Dn>.<T>, #0 (FCMLT-Q.Q-asimdmisc_FZ)
+0ea0e820 : fcmlt v0.2s, v1.2s, #0                    : fcmlt  %d1 $0.000000 $0x02 -> %d0
+0ea0e862 : fcmlt v2.2s, v3.2s, #0                    : fcmlt  %d3 $0.000000 $0x02 -> %d2
+0ea0e8a4 : fcmlt v4.2s, v5.2s, #0                    : fcmlt  %d5 $0.000000 $0x02 -> %d4
+0ea0e8e6 : fcmlt v6.2s, v7.2s, #0                    : fcmlt  %d7 $0.000000 $0x02 -> %d6
+0ea0e928 : fcmlt v8.2s, v9.2s, #0                    : fcmlt  %d9 $0.000000 $0x02 -> %d8
+0ea0e96a : fcmlt v10.2s, v11.2s, #0                  : fcmlt  %d11 $0.000000 $0x02 -> %d10
+0ea0e9ac : fcmlt v12.2s, v13.2s, #0                  : fcmlt  %d13 $0.000000 $0x02 -> %d12
+0ea0e9ee : fcmlt v14.2s, v15.2s, #0                  : fcmlt  %d15 $0.000000 $0x02 -> %d14
+0ea0ea30 : fcmlt v16.2s, v17.2s, #0                  : fcmlt  %d17 $0.000000 $0x02 -> %d16
+0ea0ea51 : fcmlt v17.2s, v18.2s, #0                  : fcmlt  %d18 $0.000000 $0x02 -> %d17
+0ea0ea93 : fcmlt v19.2s, v20.2s, #0                  : fcmlt  %d20 $0.000000 $0x02 -> %d19
+0ea0ead5 : fcmlt v21.2s, v22.2s, #0                  : fcmlt  %d22 $0.000000 $0x02 -> %d21
+0ea0eb17 : fcmlt v23.2s, v24.2s, #0                  : fcmlt  %d24 $0.000000 $0x02 -> %d23
+0ea0eb59 : fcmlt v25.2s, v26.2s, #0                  : fcmlt  %d26 $0.000000 $0x02 -> %d25
+0ea0eb9b : fcmlt v27.2s, v28.2s, #0                  : fcmlt  %d28 $0.000000 $0x02 -> %d27
+0ea0e81f : fcmlt v31.2s, v0.2s, #0                   : fcmlt  %d0 $0.000000 $0x02 -> %d31
+4ea0e820 : fcmlt v0.4s, v1.4s, #0                    : fcmlt  %q1 $0.000000 $0x02 -> %q0
+4ea0e862 : fcmlt v2.4s, v3.4s, #0                    : fcmlt  %q3 $0.000000 $0x02 -> %q2
+4ea0e8a4 : fcmlt v4.4s, v5.4s, #0                    : fcmlt  %q5 $0.000000 $0x02 -> %q4
+4ea0e8e6 : fcmlt v6.4s, v7.4s, #0                    : fcmlt  %q7 $0.000000 $0x02 -> %q6
+4ea0e928 : fcmlt v8.4s, v9.4s, #0                    : fcmlt  %q9 $0.000000 $0x02 -> %q8
+4ea0e96a : fcmlt v10.4s, v11.4s, #0                  : fcmlt  %q11 $0.000000 $0x02 -> %q10
+4ea0e9ac : fcmlt v12.4s, v13.4s, #0                  : fcmlt  %q13 $0.000000 $0x02 -> %q12
+4ea0e9ee : fcmlt v14.4s, v15.4s, #0                  : fcmlt  %q15 $0.000000 $0x02 -> %q14
+4ea0ea30 : fcmlt v16.4s, v17.4s, #0                  : fcmlt  %q17 $0.000000 $0x02 -> %q16
+4ea0ea51 : fcmlt v17.4s, v18.4s, #0                  : fcmlt  %q18 $0.000000 $0x02 -> %q17
+4ea0ea93 : fcmlt v19.4s, v20.4s, #0                  : fcmlt  %q20 $0.000000 $0x02 -> %q19
+4ea0ead5 : fcmlt v21.4s, v22.4s, #0                  : fcmlt  %q22 $0.000000 $0x02 -> %q21
+4ea0eb17 : fcmlt v23.4s, v24.4s, #0                  : fcmlt  %q24 $0.000000 $0x02 -> %q23
+4ea0eb59 : fcmlt v25.4s, v26.4s, #0                  : fcmlt  %q26 $0.000000 $0x02 -> %q25
+4ea0eb9b : fcmlt v27.4s, v28.4s, #0                  : fcmlt  %q28 $0.000000 $0x02 -> %q27
+4ea0e81f : fcmlt v31.4s, v0.4s, #0                   : fcmlt  %q0 $0.000000 $0x02 -> %q31
+4ee0e820 : fcmlt v0.2d, v1.2d, #0                    : fcmlt  %q1 $0.000000 $0x03 -> %q0
+4ee0e862 : fcmlt v2.2d, v3.2d, #0                    : fcmlt  %q3 $0.000000 $0x03 -> %q2
+4ee0e8a4 : fcmlt v4.2d, v5.2d, #0                    : fcmlt  %q5 $0.000000 $0x03 -> %q4
+4ee0e8e6 : fcmlt v6.2d, v7.2d, #0                    : fcmlt  %q7 $0.000000 $0x03 -> %q6
+4ee0e928 : fcmlt v8.2d, v9.2d, #0                    : fcmlt  %q9 $0.000000 $0x03 -> %q8
+4ee0e96a : fcmlt v10.2d, v11.2d, #0                  : fcmlt  %q11 $0.000000 $0x03 -> %q10
+4ee0e9ac : fcmlt v12.2d, v13.2d, #0                  : fcmlt  %q13 $0.000000 $0x03 -> %q12
+4ee0e9ee : fcmlt v14.2d, v15.2d, #0                  : fcmlt  %q15 $0.000000 $0x03 -> %q14
+4ee0ea30 : fcmlt v16.2d, v17.2d, #0                  : fcmlt  %q17 $0.000000 $0x03 -> %q16
+4ee0ea51 : fcmlt v17.2d, v18.2d, #0                  : fcmlt  %q18 $0.000000 $0x03 -> %q17
+4ee0ea93 : fcmlt v19.2d, v20.2d, #0                  : fcmlt  %q20 $0.000000 $0x03 -> %q19
+4ee0ead5 : fcmlt v21.2d, v22.2d, #0                  : fcmlt  %q22 $0.000000 $0x03 -> %q21
+4ee0eb17 : fcmlt v23.2d, v24.2d, #0                  : fcmlt  %q24 $0.000000 $0x03 -> %q23
+4ee0eb59 : fcmlt v25.2d, v26.2d, #0                  : fcmlt  %q26 $0.000000 $0x03 -> %q25
+4ee0eb9b : fcmlt v27.2d, v28.2d, #0                  : fcmlt  %q28 $0.000000 $0x03 -> %q27
+4ee0e81f : fcmlt v31.2d, v0.2d, #0                   : fcmlt  %q0 $0.000000 $0x03 -> %q31
+
+# FCMLE   <Dd>.<T>, <Dn>.<T>, #0 (FCMLE-Q.Q-asimdmisc_FZ)
+2ea0d820 : fcmle v0.2s, v1.2s, #0                    : fcmle  %d1 $0.000000 $0x02 -> %d0
+2ea0d862 : fcmle v2.2s, v3.2s, #0                    : fcmle  %d3 $0.000000 $0x02 -> %d2
+2ea0d8a4 : fcmle v4.2s, v5.2s, #0                    : fcmle  %d5 $0.000000 $0x02 -> %d4
+2ea0d8e6 : fcmle v6.2s, v7.2s, #0                    : fcmle  %d7 $0.000000 $0x02 -> %d6
+2ea0d928 : fcmle v8.2s, v9.2s, #0                    : fcmle  %d9 $0.000000 $0x02 -> %d8
+2ea0d96a : fcmle v10.2s, v11.2s, #0                  : fcmle  %d11 $0.000000 $0x02 -> %d10
+2ea0d9ac : fcmle v12.2s, v13.2s, #0                  : fcmle  %d13 $0.000000 $0x02 -> %d12
+2ea0d9ee : fcmle v14.2s, v15.2s, #0                  : fcmle  %d15 $0.000000 $0x02 -> %d14
+2ea0da30 : fcmle v16.2s, v17.2s, #0                  : fcmle  %d17 $0.000000 $0x02 -> %d16
+2ea0da51 : fcmle v17.2s, v18.2s, #0                  : fcmle  %d18 $0.000000 $0x02 -> %d17
+2ea0da93 : fcmle v19.2s, v20.2s, #0                  : fcmle  %d20 $0.000000 $0x02 -> %d19
+2ea0dad5 : fcmle v21.2s, v22.2s, #0                  : fcmle  %d22 $0.000000 $0x02 -> %d21
+2ea0db17 : fcmle v23.2s, v24.2s, #0                  : fcmle  %d24 $0.000000 $0x02 -> %d23
+2ea0db59 : fcmle v25.2s, v26.2s, #0                  : fcmle  %d26 $0.000000 $0x02 -> %d25
+2ea0db9b : fcmle v27.2s, v28.2s, #0                  : fcmle  %d28 $0.000000 $0x02 -> %d27
+2ea0d81f : fcmle v31.2s, v0.2s, #0                   : fcmle  %d0 $0.000000 $0x02 -> %d31
+6ea0d820 : fcmle v0.4s, v1.4s, #0                    : fcmle  %q1 $0.000000 $0x02 -> %q0
+6ea0d862 : fcmle v2.4s, v3.4s, #0                    : fcmle  %q3 $0.000000 $0x02 -> %q2
+6ea0d8a4 : fcmle v4.4s, v5.4s, #0                    : fcmle  %q5 $0.000000 $0x02 -> %q4
+6ea0d8e6 : fcmle v6.4s, v7.4s, #0                    : fcmle  %q7 $0.000000 $0x02 -> %q6
+6ea0d928 : fcmle v8.4s, v9.4s, #0                    : fcmle  %q9 $0.000000 $0x02 -> %q8
+6ea0d96a : fcmle v10.4s, v11.4s, #0                  : fcmle  %q11 $0.000000 $0x02 -> %q10
+6ea0d9ac : fcmle v12.4s, v13.4s, #0                  : fcmle  %q13 $0.000000 $0x02 -> %q12
+6ea0d9ee : fcmle v14.4s, v15.4s, #0                  : fcmle  %q15 $0.000000 $0x02 -> %q14
+6ea0da30 : fcmle v16.4s, v17.4s, #0                  : fcmle  %q17 $0.000000 $0x02 -> %q16
+6ea0da51 : fcmle v17.4s, v18.4s, #0                  : fcmle  %q18 $0.000000 $0x02 -> %q17
+6ea0da93 : fcmle v19.4s, v20.4s, #0                  : fcmle  %q20 $0.000000 $0x02 -> %q19
+6ea0dad5 : fcmle v21.4s, v22.4s, #0                  : fcmle  %q22 $0.000000 $0x02 -> %q21
+6ea0db17 : fcmle v23.4s, v24.4s, #0                  : fcmle  %q24 $0.000000 $0x02 -> %q23
+6ea0db59 : fcmle v25.4s, v26.4s, #0                  : fcmle  %q26 $0.000000 $0x02 -> %q25
+6ea0db9b : fcmle v27.4s, v28.4s, #0                  : fcmle  %q28 $0.000000 $0x02 -> %q27
+6ea0d81f : fcmle v31.4s, v0.4s, #0                   : fcmle  %q0 $0.000000 $0x02 -> %q31
+6ee0d820 : fcmle v0.2d, v1.2d, #0                    : fcmle  %q1 $0.000000 $0x03 -> %q0
+6ee0d862 : fcmle v2.2d, v3.2d, #0                    : fcmle  %q3 $0.000000 $0x03 -> %q2
+6ee0d8a4 : fcmle v4.2d, v5.2d, #0                    : fcmle  %q5 $0.000000 $0x03 -> %q4
+6ee0d8e6 : fcmle v6.2d, v7.2d, #0                    : fcmle  %q7 $0.000000 $0x03 -> %q6
+6ee0d928 : fcmle v8.2d, v9.2d, #0                    : fcmle  %q9 $0.000000 $0x03 -> %q8
+6ee0d96a : fcmle v10.2d, v11.2d, #0                  : fcmle  %q11 $0.000000 $0x03 -> %q10
+6ee0d9ac : fcmle v12.2d, v13.2d, #0                  : fcmle  %q13 $0.000000 $0x03 -> %q12
+6ee0d9ee : fcmle v14.2d, v15.2d, #0                  : fcmle  %q15 $0.000000 $0x03 -> %q14
+6ee0da30 : fcmle v16.2d, v17.2d, #0                  : fcmle  %q17 $0.000000 $0x03 -> %q16
+6ee0da51 : fcmle v17.2d, v18.2d, #0                  : fcmle  %q18 $0.000000 $0x03 -> %q17
+6ee0da93 : fcmle v19.2d, v20.2d, #0                  : fcmle  %q20 $0.000000 $0x03 -> %q19
+6ee0dad5 : fcmle v21.2d, v22.2d, #0                  : fcmle  %q22 $0.000000 $0x03 -> %q21
+6ee0db17 : fcmle v23.2d, v24.2d, #0                  : fcmle  %q24 $0.000000 $0x03 -> %q23
+6ee0db59 : fcmle v25.2d, v26.2d, #0                  : fcmle  %q26 $0.000000 $0x03 -> %q25
+6ee0db9b : fcmle v27.2d, v28.2d, #0                  : fcmle  %q28 $0.000000 $0x03 -> %q27
+6ee0d81f : fcmle v31.2d, v0.2d, #0                   : fcmle  %q0 $0.000000 $0x03 -> %q31
+
+# FCMGE   <Dd>.<T>, <Dn>.<T>, #0 (FCMGE-Q.Q-asimdmisc_FZ)
+2ea0c820 : fcmge v0.2s, v1.2s, #0                    : fcmge  %d1 $0.000000 $0x02 -> %d0
+2ea0c862 : fcmge v2.2s, v3.2s, #0                    : fcmge  %d3 $0.000000 $0x02 -> %d2
+2ea0c8a4 : fcmge v4.2s, v5.2s, #0                    : fcmge  %d5 $0.000000 $0x02 -> %d4
+2ea0c8e6 : fcmge v6.2s, v7.2s, #0                    : fcmge  %d7 $0.000000 $0x02 -> %d6
+2ea0c928 : fcmge v8.2s, v9.2s, #0                    : fcmge  %d9 $0.000000 $0x02 -> %d8
+2ea0c96a : fcmge v10.2s, v11.2s, #0                  : fcmge  %d11 $0.000000 $0x02 -> %d10
+2ea0c9ac : fcmge v12.2s, v13.2s, #0                  : fcmge  %d13 $0.000000 $0x02 -> %d12
+2ea0c9ee : fcmge v14.2s, v15.2s, #0                  : fcmge  %d15 $0.000000 $0x02 -> %d14
+2ea0ca30 : fcmge v16.2s, v17.2s, #0                  : fcmge  %d17 $0.000000 $0x02 -> %d16
+2ea0ca51 : fcmge v17.2s, v18.2s, #0                  : fcmge  %d18 $0.000000 $0x02 -> %d17
+2ea0ca93 : fcmge v19.2s, v20.2s, #0                  : fcmge  %d20 $0.000000 $0x02 -> %d19
+2ea0cad5 : fcmge v21.2s, v22.2s, #0                  : fcmge  %d22 $0.000000 $0x02 -> %d21
+2ea0cb17 : fcmge v23.2s, v24.2s, #0                  : fcmge  %d24 $0.000000 $0x02 -> %d23
+2ea0cb59 : fcmge v25.2s, v26.2s, #0                  : fcmge  %d26 $0.000000 $0x02 -> %d25
+2ea0cb9b : fcmge v27.2s, v28.2s, #0                  : fcmge  %d28 $0.000000 $0x02 -> %d27
+2ea0c81f : fcmge v31.2s, v0.2s, #0                   : fcmge  %d0 $0.000000 $0x02 -> %d31
+6ea0c820 : fcmge v0.4s, v1.4s, #0                    : fcmge  %q1 $0.000000 $0x02 -> %q0
+6ea0c862 : fcmge v2.4s, v3.4s, #0                    : fcmge  %q3 $0.000000 $0x02 -> %q2
+6ea0c8a4 : fcmge v4.4s, v5.4s, #0                    : fcmge  %q5 $0.000000 $0x02 -> %q4
+6ea0c8e6 : fcmge v6.4s, v7.4s, #0                    : fcmge  %q7 $0.000000 $0x02 -> %q6
+6ea0c928 : fcmge v8.4s, v9.4s, #0                    : fcmge  %q9 $0.000000 $0x02 -> %q8
+6ea0c96a : fcmge v10.4s, v11.4s, #0                  : fcmge  %q11 $0.000000 $0x02 -> %q10
+6ea0c9ac : fcmge v12.4s, v13.4s, #0                  : fcmge  %q13 $0.000000 $0x02 -> %q12
+6ea0c9ee : fcmge v14.4s, v15.4s, #0                  : fcmge  %q15 $0.000000 $0x02 -> %q14
+6ea0ca30 : fcmge v16.4s, v17.4s, #0                  : fcmge  %q17 $0.000000 $0x02 -> %q16
+6ea0ca51 : fcmge v17.4s, v18.4s, #0                  : fcmge  %q18 $0.000000 $0x02 -> %q17
+6ea0ca93 : fcmge v19.4s, v20.4s, #0                  : fcmge  %q20 $0.000000 $0x02 -> %q19
+6ea0cad5 : fcmge v21.4s, v22.4s, #0                  : fcmge  %q22 $0.000000 $0x02 -> %q21
+6ea0cb17 : fcmge v23.4s, v24.4s, #0                  : fcmge  %q24 $0.000000 $0x02 -> %q23
+6ea0cb59 : fcmge v25.4s, v26.4s, #0                  : fcmge  %q26 $0.000000 $0x02 -> %q25
+6ea0cb9b : fcmge v27.4s, v28.4s, #0                  : fcmge  %q28 $0.000000 $0x02 -> %q27
+6ea0c81f : fcmge v31.4s, v0.4s, #0                   : fcmge  %q0 $0.000000 $0x02 -> %q31
+6ee0c820 : fcmge v0.2d, v1.2d, #0                    : fcmge  %q1 $0.000000 $0x03 -> %q0
+6ee0c862 : fcmge v2.2d, v3.2d, #0                    : fcmge  %q3 $0.000000 $0x03 -> %q2
+6ee0c8a4 : fcmge v4.2d, v5.2d, #0                    : fcmge  %q5 $0.000000 $0x03 -> %q4
+6ee0c8e6 : fcmge v6.2d, v7.2d, #0                    : fcmge  %q7 $0.000000 $0x03 -> %q6
+6ee0c928 : fcmge v8.2d, v9.2d, #0                    : fcmge  %q9 $0.000000 $0x03 -> %q8
+6ee0c96a : fcmge v10.2d, v11.2d, #0                  : fcmge  %q11 $0.000000 $0x03 -> %q10
+6ee0c9ac : fcmge v12.2d, v13.2d, #0                  : fcmge  %q13 $0.000000 $0x03 -> %q12
+6ee0c9ee : fcmge v14.2d, v15.2d, #0                  : fcmge  %q15 $0.000000 $0x03 -> %q14
+6ee0ca30 : fcmge v16.2d, v17.2d, #0                  : fcmge  %q17 $0.000000 $0x03 -> %q16
+6ee0ca51 : fcmge v17.2d, v18.2d, #0                  : fcmge  %q18 $0.000000 $0x03 -> %q17
+6ee0ca93 : fcmge v19.2d, v20.2d, #0                  : fcmge  %q20 $0.000000 $0x03 -> %q19
+6ee0cad5 : fcmge v21.2d, v22.2d, #0                  : fcmge  %q22 $0.000000 $0x03 -> %q21
+6ee0cb17 : fcmge v23.2d, v24.2d, #0                  : fcmge  %q24 $0.000000 $0x03 -> %q23
+6ee0cb59 : fcmge v25.2d, v26.2d, #0                  : fcmge  %q26 $0.000000 $0x03 -> %q25
+6ee0cb9b : fcmge v27.2d, v28.2d, #0                  : fcmge  %q28 $0.000000 $0x03 -> %q27
+6ee0c81f : fcmge v31.2d, v0.2d, #0                   : fcmge  %q0 $0.000000 $0x03 -> %q31

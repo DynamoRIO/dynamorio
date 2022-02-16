@@ -71,6 +71,7 @@
 --------------------------------  s_const_sz # as above, but for single width
 --------------------------------  d_const_sz # as above, but for double width
 --------------------------------  vindex_D1  # An implicit index, at index 1
+--------------------------------  zero_fp_const # A constant zero operand
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
