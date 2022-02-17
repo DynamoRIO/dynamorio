@@ -862,10 +862,12 @@ d_r_write_unlock(read_write_lock_t *rw);
 bool
 self_owns_write_lock(read_write_lock_t *rw);
 
-#if defined(X64) && (defined(WINDOWS) || defined(MACOS))
-#    define atomic_read_thread_id atomic_aligned_read_int64
+#if defined(MACOS) || (defined(X64) && defined(WINDOWS))
+#    define ATOMIC_READ_THREAD_ID(id) \
+        ((thread_id_t)atomic_aligned_read_int64((volatile int64 *)(id)))
 #else
-#    define atomic_read_thread_id atomic_aligned_read_int
+#    define ATOMIC_READ_THREAD_ID(id) \
+        ((thread_id_t)atomic_aligned_read_int((volatile int *)(id)))
 #endif
 
 /* test whether locks are held at all */
@@ -879,7 +881,7 @@ self_owns_write_lock(read_write_lock_t *rw);
  * knowing for sure.
  */
 #ifdef DEADLOCK_AVOIDANCE
-#    define OWN_MUTEX(m) (atomic_read_thread_id(&(m)->owner) == d_r_get_thread_id())
+#    define OWN_MUTEX(m) (ATOMIC_READ_THREAD_ID(&(m)->owner) == d_r_get_thread_id())
 #    define ASSERT_OWN_MUTEX(pred, m) ASSERT(!(pred) || OWN_MUTEX(m))
 #    define ASSERT_DO_NOT_OWN_MUTEX(pred, m) ASSERT(!(pred) || !OWN_MUTEX(m))
 #    define OWN_NO_LOCKS(dc) thread_owns_no_locks(dc)

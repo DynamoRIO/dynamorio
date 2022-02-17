@@ -1003,7 +1003,7 @@ acquire_recursive_app_lock(recursive_lock_t *lock, priv_mcontext_t *mc)
        busy try_lock
     */
 
-    if (atomic_read_thread_id(&lock->owner) == d_r_get_thread_id()) {
+    if (ATOMIC_READ_THREAD_ID(&lock->owner) == d_r_get_thread_id()) {
         lock->count++;
     } else {
         d_r_mutex_lock_app(&lock->lock, mc);
@@ -1021,7 +1021,7 @@ acquire_recursive_lock(recursive_lock_t *lock)
 bool
 try_recursive_lock(recursive_lock_t *lock)
 {
-    if (atomic_read_thread_id(&lock->owner) == d_r_get_thread_id()) {
+    if (ATOMIC_READ_THREAD_ID(&lock->owner) == d_r_get_thread_id()) {
         lock->count++;
     } else {
         if (!d_r_mutex_trylock(&lock->lock))
@@ -1047,7 +1047,7 @@ release_recursive_lock(recursive_lock_t *lock)
 bool
 self_owns_recursive_lock(recursive_lock_t *lock)
 {
-    return (atomic_read_thread_id(&lock->owner) == d_r_get_thread_id());
+    return (ATOMIC_READ_THREAD_ID(&lock->owner) == d_r_get_thread_id());
 }
 
 /* Read write locks */
@@ -1345,7 +1345,7 @@ d_r_write_unlock(read_write_lock_t *rw)
 bool
 self_owns_write_lock(read_write_lock_t *rw)
 {
-    return (atomic_read_thread_id(&rw->writer) == d_r_get_thread_id());
+    return (ATOMIC_READ_THREAD_ID(&rw->writer) == d_r_get_thread_id());
 }
 
 /****************************************************************************/
