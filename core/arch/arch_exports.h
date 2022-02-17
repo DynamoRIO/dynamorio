@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1185,7 +1185,7 @@ atomic_aligned_read_int64(volatile int64 *var)
         ASSERT(sizeof(type) == sizeof(maxvar));                                     \
         ASSERT(sizeof(type) == sizeof(curvar));                                     \
         do {                                                                        \
-            atomic_max__maxval = (maxvar);                                          \
+            atomic_max__maxval = atomic_aligned_read_int((int *)&(maxvar));         \
         } while (atomic_max__maxval < atomic_max__curval &&                         \
                  !atomic_compare_exchange_int((int *)&(maxvar), atomic_max__maxval, \
                                               atomic_max__curval));                 \
@@ -1200,7 +1200,7 @@ atomic_aligned_read_int64(volatile int64 *var)
             ASSERT(sizeof(type) == sizeof(maxvar));                                    \
             ASSERT(sizeof(type) == sizeof(curvar));                                    \
             do {                                                                       \
-                atomic_max__maxval = (maxvar);                                         \
+                atomic_max__maxval = atomic_aligned_read_int64((int64 *)&(maxvar));    \
             } while (atomic_max__maxval < atomic_max__curval &&                        \
                      !atomic_compare_exchange_int64(                                   \
                          (int64 *)&(maxvar), atomic_max__maxval, atomic_max__curval)); \
