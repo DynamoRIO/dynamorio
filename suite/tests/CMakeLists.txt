@@ -2594,6 +2594,15 @@ use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
 
+tobuild_appdll(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c)
+get_target_path_for_execution(bbdupwrap_libpath
+  client.drbbdup-drwrap-test.appdll "${location_suffix}")
+tobuild_ci(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c "" ""
+  "${bbdupwrap_libpath}")
+use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drbbdup)
+use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drwrap)
+
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
   use_DynamoRIO_extension(client.predicate-test.dll drmgr)

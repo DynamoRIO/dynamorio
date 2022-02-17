@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -66,6 +66,9 @@ DR_EXPORT
  * normally) but each call must be paired with a corresponding call to
  * drwrap_exit().
  *
+ * Some drwrap behavior (such as #DRWRAP_INVERT_CONTROL) must be set by calling
+ * drwrap_set_global_flags() *before* calling this routine.
+ *
  * \return whether successful.
  */
 bool
@@ -77,6 +80,42 @@ DR_EXPORT
  */
 void
 drwrap_exit(void);
+
+/***************************************************************************
+ * CONTROL INVERSION
+ */
+
+DR_EXPORT
+/**
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
+ * must call this function from a drmgr analysis event handler
+ * (typically registered with
+ * drmgr_register_bb_instrumentation_event() or if using drbbdup with
+ * the analyze_case_ex field in #drbbdup_options_t).  It is up to the user
+ * to control the ordering, since the priority #DRMGR_PRIORITY_INSERT_DRWRAP
+ * will not apply.
+ */
+dr_emit_flags_t
+drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                       bool translating, OUT void **user_data);
+
+DR_EXPORT
+/**
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
+ * must call this function from a drmgr insertion event handler
+ * (typically registered with
+ * drmgr_register_bb_instrumentation_event() or if using drbbdup with
+ * the instrument_instr_ex field in #drbbdup_options_t).  It is up to the user
+ * to control the ordering, since the priority #DRMGR_PRIORITY_INSERT_DRWRAP
+ * will not apply.
+ * The separate "where" handles cases such as with drbbdup's final app
+ * instruction (which cannot be duplicated into each case) or with
+ * emulation where the instruction "inst" to monitor is distinct from
+ * the location "where" to insert instrumentation.
+ */
+dr_emit_flags_t
+drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                     instr_t *where, bool for_trace, bool translating, void *user_data);
 
 /***************************************************************************
  * FUNCTION REPLACING
@@ -135,6 +174,8 @@ DR_EXPORT
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_APP2APP_DRWRAP and its name is
  * DRMGR_PRIORITY_NAME_DRWRAP.
+ *
+ * \note Not supported if #DRWRAP_INVERT_CONTROL is set.
  *
  * \return whether successful.
  */
@@ -242,6 +283,8 @@ DR_EXPORT
  * DRMGR_PRIORITY_NAME_DRWRAP.
  *
  * \note Far calls are not supported.
+ *
+ * \note Not supported if #DRWRAP_INVERT_CONTROL is set.
  *
  * \return whether successful.
  */
@@ -751,6 +794,21 @@ typedef enum {
      * Once set, this flag cannot be unset.
      */
     DRWRAP_FAST_CLEANCALLS = 0x08,
+    /**
+     * This flag must only be set before calling drwrap_init().  If set, drwrap will not
+     * register for the drmgr analysis or insertion events.  The user must instead
+     * explicitly invoke drwrap_invoke_analysis() and drwrap_invoke_insert() from its
+     * own handler for those events.  This "inverted control" mode is provided for
+     * better compatibility with drbbdup where the user wishes to only perform wrapping
+     * in a subset of the drbbdup cases.
+     *
+     * Only wrapping is supported this way: drwrap_replace() and drwrap_replace_native()
+     * are not supported when this flag is set.
+     *
+     * As this is a global change in how drwrap operates, be careful that its use
+     * does not conflict with drwrap uses in any libraries or joint clients.
+     */
+    DRWRAP_INVERT_CONTROL = 0x10,
 } drwrap_global_flags_t;
 
 DR_EXPORT
