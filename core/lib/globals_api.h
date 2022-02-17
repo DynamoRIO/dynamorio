@@ -141,6 +141,7 @@ typedef char bool;
 #    define INLINE_FORCED __forceinline
 #    define WEAK /* no equivalent, but .obj overrides .lib */
 #    define NOINLINE __declspec(noinline)
+#    define DISABLE_NULL_SANITIZER
 #else
 /* We assume gcc is being used.  If the client is using -fvisibility
  * (in gcc >= 3.4) to not export symbols by default, setting
@@ -156,6 +157,7 @@ typedef char bool;
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
 #    define NOINLINE __attribute__((noinline))
+#    ifdef USE_FNOSANITIZE_NULL
 /* The null sanitizer adds is-null checks for pointer dereferences. As part
  * of this, it stores and retrieves pointers from the stack frame. Each
  * pointer dereference uses a different stack location. So, if there are too
@@ -165,7 +167,10 @@ typedef char bool;
  * sanitizer is enabled. The following macro lets us disable this check for
  * methods annotated with it.
  */
-#    define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
+#        define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
+#    else
+#        define DISABLE_NULL_SANITIZER
+#    endif
 #endif
 
 /* We want a consistent size so we stay away from MAX_PATH.
