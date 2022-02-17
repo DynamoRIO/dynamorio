@@ -86,6 +86,7 @@ event_analyse_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         return drwrap_invoke_analysis(drcontext, tag, bb, for_trace, translating,
                                       case_analysis_data);
     }
+    return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
