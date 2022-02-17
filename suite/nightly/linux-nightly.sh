@@ -60,14 +60,14 @@ rsyncout="rsync -e ssh -avz --delete"
 rsynclinkref="rsync -e ssh -Lptgovz"
 rsyncin="rsync -e ssh -auvz"
 shellrc="~/.bashrc"
-remotescript="./linux-slave.sh"
+remotescript="./linux-worker.sh"
 remotehelper="./utreport.pl"
 
 mailto="eng-nightly-results@determina.com"
 
 dstamp=`date | awk '{print $6 "-" $2$3}'`
 prefix="regression-"$dstamp
-masterlog=$prefix"/"$prefix".masterlog"
+managerlog=$prefix"/"$prefix".managerlog"
 email=$prefix"/"$prefix".email"
 
 if [ -e $prefix ]; then echo "Error: $prefix already exists"; exit -1; fi
@@ -78,28 +78,28 @@ if [ -e suite ]; then rm -rf suite; fi
 if [ -e src ]; then rm -rf src; fi
 if [ -e tools ]; then rm -rf tools; fi
 
-cvs -d menlo:/mnt/data/cvseast co suite tools > $masterlog 2>&1
-cvs -d menlo:/mnt/data/cvseast co src >> $masterlog 2>&1
-cd benchmarks; cvs update >> ../$masterlog 2>&1; cd ..
+cvs -d menlo:/mnt/data/cvseast co suite tools > $managerlog 2>&1
+cvs -d menlo:/mnt/data/cvseast co src >> $managerlog 2>&1
+cd benchmarks; cvs update >> ../$managerlog 2>&1; cd ..
 
 # now mirror on remote host as this user, making sure to delete as well as update
-$rsynclinkref $remotescript $remotehost:$remotepath/ >> $masterlog 2>&1
-$rsynclinkref $remotehelper $remotehost:$remotepath/ >> $masterlog 2>&1
-$rsyncout suite/ $remotehost:$remotepath/suite >> $masterlog 2>&1
-$rsyncout src/ $remotehost:$remotepath/src >> $masterlog 2>&1
-$rsyncout tools/ $remotehost:$remotepath/tools >> $masterlog 2>&1
-$rsyncout benchmarks/ $remotehost:$remotepath/benchmarks >> $masterlog 2>&1
+$rsynclinkref $remotescript $remotehost:$remotepath/ >> $managerlog 2>&1
+$rsynclinkref $remotehelper $remotehost:$remotepath/ >> $managerlog 2>&1
+$rsyncout suite/ $remotehost:$remotepath/suite >> $managerlog 2>&1
+$rsyncout src/ $remotehost:$remotepath/src >> $managerlog 2>&1
+$rsyncout tools/ $remotehost:$remotepath/tools >> $managerlog 2>&1
+$rsyncout benchmarks/ $remotehost:$remotepath/benchmarks >> $managerlog 2>&1
 
-echo "running regression now..." >> $masterlog
+echo "running regression now..." >> $managerlog
 
 # We must source .bashrc to get the compiler path, etc. set up
 # (cygwin bash non-interactive does not source it even if started by sshd).
-(ssh $remotehost "source $shellrc; cd $remotepath; $remotescript $prefix $mailto") >> $masterlog 2>&1
+(ssh $remotehost "source $shellrc; cd $remotepath; $remotescript $prefix $mailto") >> $managerlog 2>&1
 
-echo "finished running regression" >> $masterlog
+echo "finished running regression" >> $managerlog
 
 # get results
-$rsyncin $remotehost:$remotepath/$prefix/ $prefix >> $masterlog 2>&1
+$rsyncin $remotehost:$remotepath/$prefix/ $prefix >> $managerlog 2>&1
 if [ ! -e $email ]; then echo "Error: $email not found"; exit -1; fi
 
 # mail summary out
@@ -111,7 +111,7 @@ if [ ! -e $email ]; then echo "Error: $email not found"; exit -1; fi
 #/usr/sbin/sendmail -f$mailto $mailto < $email
 /usr/sbin/sendmail -f $mailto $mailto < $email
 
-echo "checking up on windows now" >> $masterlog
+echo "checking up on windows now" >> $managerlog
 
 # check on the win32 suite
 ./linux-win32checkup.sh
@@ -119,5 +119,5 @@ echo "checking up on windows now" >> $masterlog
 # mirror on west coast -- do this last in case it hangs
 # send results to log, get errors on all symlinks
 # FIXME: tar all non-symlinks and just send those over?
-cp -r $prefix /mnt/fileserver/nightly/linux/ >> $masterlog 2>&1
+cp -r $prefix /mnt/fileserver/nightly/linux/ >> $managerlog 2>&1
 

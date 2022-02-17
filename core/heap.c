@@ -5152,7 +5152,7 @@ special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
 
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
-        /* Add to the global master list, which requires a lock */
+        /* Add to the global main list, which requires a lock */
         d_r_mutex_lock(&special_units_list_lock);
         su->next = special_units_list;
         special_units_list = su;
@@ -5328,7 +5328,7 @@ special_heap_exit(void *special)
         total_heap_used / 1024);
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
-        /* Removed this special_units_t from the master list */
+        /* Removed this special_units_t from the main list */
         d_r_mutex_lock(&special_units_list_lock);
         if (special_units_list == su)
             special_units_list = su->next;

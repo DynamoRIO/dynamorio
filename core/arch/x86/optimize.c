@@ -143,7 +143,7 @@ void
 d_r_logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string);
 
 /****************************************************************************/
-/* master routine */
+/* main routine */
 
 void
 optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
