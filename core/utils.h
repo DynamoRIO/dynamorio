@@ -1427,7 +1427,8 @@ extern mutex_t do_threshold_mutex;
          */                                                                            \
         ASSERT(                                                                        \
             (try_pointer) == &global_try_except || (try_pointer) == NULL ||            \
-            (try_pointer) == &get_thread_private_dcontext()->try_except ||             \
+            (get_thread_private_dcontext() != NULL &&                                  \
+             (try_pointer) == &get_thread_private_dcontext()->try_except) ||           \
             (try_pointer) == /* A currently-native thread: */                          \
                 &thread_lookup(IF_UNIX_ELSE(get_sys_thread_id(), d_r_get_thread_id())) \
                      ->dcontext->try_except);                                          \

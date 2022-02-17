@@ -156,6 +156,16 @@ typedef char bool;
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
 #    define NOINLINE __attribute__((noinline))
+/* The null sanitizer adds is-null checks for pointer dereferences. As part
+ * of this, it stores and retrieves pointers from the stack frame. Each
+ * pointer dereference uses a different stack location. So, if there are too
+ * many pointer dereferences in a function (like dump_global_stats and
+ * dump_thread_stats) it will increase the size of the stack frame a lot
+ * (127KB and 147KB respectively for the mentioned examples) when the null
+ * sanitizer is enabled. The following macro lets us disable this check for
+ * methods annotated with it.
+ */
+#    define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
 #endif
 
 /* We want a consistent size so we stay away from MAX_PATH.

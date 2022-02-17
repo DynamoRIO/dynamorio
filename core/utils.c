@@ -3042,6 +3042,7 @@ stats_thread_exit(dcontext_t *dcontext)
     }
 }
 
+DISABLE_NULL_SANITIZER
 void
 dump_thread_stats(dcontext_t *dcontext, bool raw)
 {
@@ -3100,6 +3101,7 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
 #    endif
 }
 
+DISABLE_NULL_SANITIZER
 void
 dump_global_stats(bool raw)
 {
