@@ -141,7 +141,6 @@ typedef char bool;
 #    define INLINE_FORCED __forceinline
 #    define WEAK /* no equivalent, but .obj overrides .lib */
 #    define NOINLINE __declspec(noinline)
-#    define DISABLE_NULL_SANITIZER
 #else
 /* We assume gcc is being used.  If the client is using -fvisibility
  * (in gcc >= 3.4) to not export symbols by default, setting
@@ -157,27 +156,6 @@ typedef char bool;
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
 #    define NOINLINE __attribute__((noinline))
-/* As per https://gcc.gnu.org/onlinedocs/cpp/_005f_005fhas_005fattribute.html,
- * we need to first check whether __has_attribute is defined, to ensure
- * portability. We saw issues in the Android-ARM cross compile without this.
- */
-#    if defined __has_attribute
-#        if __has_attribute(__no_sanitize__) && defined(USE_FNOSANITIZE_NULL)
-/* The null sanitizer adds is-null checks for pointer dereferences. As part
- * of this, it stores and retrieves pointers from the stack frame. Each
- * pointer dereference uses a different stack location. So, if there are too
- * many pointer dereferences in a function (like dump_global_stats and
- * dump_thread_stats) it will increase the size of the stack frame a lot
- * (127KB and 147KB respectively for the mentioned examples) when the null
- * sanitizer is enabled. The following macro lets us disable this check for
- * methods annotated with it.
- */
-#            define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
-#        endif
-#    endif
-#    ifndef DISABLE_NULL_SANITIZER
-#        define DISABLE_NULL_SANITIZER
-#    endif
 #endif
 
 /* We want a consistent size so we stay away from MAX_PATH.
