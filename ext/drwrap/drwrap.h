@@ -108,6 +108,10 @@ DR_EXPORT
  * the instrument_instr_ex field in #drbbdup_options_t).  It is up to the user
  * to control the ordering, since the priority #DRMGR_PRIORITY_INSERT_DRWRAP
  * will not apply.
+ * The separate "where" handles cases such as with drbbdup's final app
+ * instruction (which cannot be duplicated into each case) or with
+ * emulation where the instruction "inst" to monitor is distinct from
+ * the location "where" to insert instrumentation.
  */
 dr_emit_flags_t
 drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,

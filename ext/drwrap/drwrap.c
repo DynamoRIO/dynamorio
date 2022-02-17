@@ -2373,7 +2373,12 @@ drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_t
     return DR_EMIT_DEFAULT;
 }
 
-/* This version takes a separate "instr" and "where" for use with drbbdup. */
+/* This version takes a separate "instr" and "where" for use with drbbdup.
+ * The separate "where" handles cases such as with drbbdup's final app
+ * instruction (which cannot be duplicated into each case) or with
+ * emulation where the instruction "inst" to monitor is distinct from
+ * the location "where" to insert instrumentation.
+ */
 static dr_emit_flags_t
 drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                              instr_t *where, bool for_trace, bool translating,
