@@ -110,7 +110,7 @@
 #endif
 
 #ifdef WINDOWS
-#    define define DISABLE_NULL_SANITIZER
+#    define DISABLE_NULL_SANITIZER
 #else
 /* As per https://gcc.gnu.org/onlinedocs/cpp/_005f_005fhas_005fattribute.html,
  * we need to first check whether __has_attribute is defined, to ensure
