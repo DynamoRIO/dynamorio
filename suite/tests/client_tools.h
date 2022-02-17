@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -58,6 +58,8 @@
                       dr_abort(), 0)                                                 \
                    : 0))
 #define ASSERT(x) ASSERT_MSG(x, "")
+/* Same as ASSERT_MSG, but kept separate due to existing uses across many files. */
+#define CHECK(x, msg) ASSERT_MSG(x, msg)
 
 /* Redefine DR_ASSERT* to alias ASSERT*.  This makes it easier to import sample
  * clients into the test suite. */
