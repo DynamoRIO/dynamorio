@@ -157,7 +157,12 @@ typedef char bool;
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
 #    define NOINLINE __attribute__((noinline))
-#    if __has_attribute(__no_sanitize__) && defined(USE_FNOSANITIZE_NULL)
+/* As per https://gcc.gnu.org/onlinedocs/cpp/_005f_005fhas_005fattribute.html,
+ * we need to first check whether __has_attribute is defined, to ensure
+ * portability. We saw issues in the Android-ARM cross compile without this.
+ */
+#    if defined __has_attribute
+#        if __has_attribute(__no_sanitize__) && defined(USE_FNOSANITIZE_NULL)
 /* The null sanitizer adds is-null checks for pointer dereferences. As part
  * of this, it stores and retrieves pointers from the stack frame. Each
  * pointer dereference uses a different stack location. So, if there are too
@@ -167,8 +172,10 @@ typedef char bool;
  * sanitizer is enabled. The following macro lets us disable this check for
  * methods annotated with it.
  */
-#        define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
-#    else
+#            define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
+#        endif
+#    endif
+#    ifndef DISABLE_NULL_SANITIZER
 #        define DISABLE_NULL_SANITIZER
 #    endif
 #endif
