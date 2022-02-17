@@ -1032,10 +1032,6 @@ if (UNIX)
   # Check for -fno-sanitize=null
   CHECK_C_COMPILER_FLAG("-fno-sanitize=null" HAVE_FNOSANITIZE_NULL)
 
-  if (HAVE_FNOSANITIZE_NULL)
-    set(USE_FNOSANITIZE_NULL ON)
-  endif (HAVE_FNOSANITIZE_NULL)
-
   if (APPLE OR LINKER_IS_GNU_GOLD)
     # XXX: for macos, currently assuming using xcode toolchain.
     set(ld_script_option "")

@@ -134,7 +134,7 @@
  * portability. We saw issues in the Android-ARM cross compile without this.
  */
 #    if defined __has_attribute
-#        if __has_attribute(__no_sanitize__) && defined(USE_FNOSANITIZE_NULL)
+#        if __has_attribute(__no_sanitize__) && defined(HAVE_FNOSANITIZE_NULL)
 /* The null sanitizer adds is-null checks for pointer dereferences. As part
  * of this, it stores and retrieves pointers from the stack frame. Each
  * pointer dereference uses a different stack location. So, if there are too
