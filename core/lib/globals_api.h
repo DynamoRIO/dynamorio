@@ -167,7 +167,7 @@ typedef char bool;
  * sanitizer is enabled. The following macro lets us disable this check for
  * methods annotated with it.
  */
-#        define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
+#        define DISABLE_NULL_SANITIZER __attribute__((no_sanitize(("null"))))
 #    else
 #        define DISABLE_NULL_SANITIZER
 #    endif
