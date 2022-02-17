@@ -109,6 +109,23 @@
 #    define DYNAMORIO_EXPORT
 #endif
 
+/* We always export nowadays. */
+#define DR_API DYNAMORIO_EXPORT
+#if (defined(DEBUG) && defined(BUILD_TESTS)) || defined(UNSUPPORTED_API)
+#    define DR_UNS_EXCEPT_TESTS_API DR_API
+#else
+#    define DR_UNS_EXCEPT_TESTS_API /* nothing */
+#endif
+#ifdef UNSUPPORTED_API
+/* TODO i#4045: Remove unsupported API support.  After i#3092's header refactoring,
+ * we can't just change a define and export these anymore anyway: they would have
+ * to be moved to the _api.h public headers.
+ */
+#    define DR_UNS_API DR_API
+#else
+#    define DR_UNS_API /* nothing */
+#endif
+
 #ifdef WINDOWS
 #    define DISABLE_NULL_SANITIZER
 #else
@@ -133,23 +150,6 @@
 #    ifndef DISABLE_NULL_SANITIZER
 #        define DISABLE_NULL_SANITIZER
 #    endif
-#endif
-
-/* We always export nowadays. */
-#define DR_API DYNAMORIO_EXPORT
-#if (defined(DEBUG) && defined(BUILD_TESTS)) || defined(UNSUPPORTED_API)
-#    define DR_UNS_EXCEPT_TESTS_API DR_API
-#else
-#    define DR_UNS_EXCEPT_TESTS_API /* nothing */
-#endif
-#ifdef UNSUPPORTED_API
-/* TODO i#4045: Remove unsupported API support.  After i#3092's header refactoring,
- * we can't just change a define and export these anymore anyway: they would have
- * to be moved to the _api.h public headers.
- */
-#    define DR_UNS_API DR_API
-#else
-#    define DR_UNS_API /* nothing */
 #endif
 
 #define INLINE_ONCE inline
