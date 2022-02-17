@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,17 +33,10 @@
 /* Tests the drcontainers extension */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drvector.h"
 #include "hashtable.h"
 #include "stdint.h"
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 static void
 test_vector(void)

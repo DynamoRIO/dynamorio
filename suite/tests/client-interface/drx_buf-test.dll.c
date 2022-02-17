@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,17 +35,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drx.h"
 #include "drx_buf-test-shared.h"
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 #define CIRCULAR_FAST_SZ DRX_BUF_FAST_CIRCULAR_BUFSZ
 #define CIRCULAR_SLOW_SZ 256

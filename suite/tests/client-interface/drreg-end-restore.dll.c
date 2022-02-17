@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,18 +33,11 @@
 /* Tests drreg when the user performs end of basic block restoration. */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
 #include <string.h> /* memcpy */
-
-#define CHECK(x, msg)                        \
-    do {                                     \
-        if (!(x)) {                          \
-            dr_fprintf(STDERR, "%s\n", msg); \
-            dr_abort();                      \
-        }                                    \
-    } while (0);
 
 #ifdef X86
 #    define TEST_REG DR_REG_XDI
