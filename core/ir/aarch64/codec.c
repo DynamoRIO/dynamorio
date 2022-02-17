@@ -3116,7 +3116,7 @@ decode_opnd_x16immvr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         *opnd = opnd_create_reg(DR_REG_X0 + num);
     else {
         int bytes = memvr_regcount(enc) << extract_uint(enc, 10, 2);
-        *opnd = opnd_create_immed_int(bytes, OPSZ_1);
+        *opnd = opnd_create_immed_int(bytes, OPSZ_PTR);
     }
     return true;
 }
@@ -3150,7 +3150,7 @@ decode_opnd_x16immvs(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         *opnd = opnd_create_reg(DR_REG_X0 + num);
     else {
         int bytes = memvs_size(enc);
-        *opnd = opnd_create_immed_int(bytes, OPSZ_1);
+        *opnd = opnd_create_immed_int(bytes, OPSZ_PTR);
     }
     return true;
 }
@@ -4189,7 +4189,7 @@ decode_opnd_x16imm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         *opnd = opnd_create_reg(DR_REG_X0 + num);
     else {
         int bytes = (8 << extract_uint(enc, 30, 1)) * multistruct_regcount(enc);
-        *opnd = opnd_create_immed_int(bytes, OPSZ_1);
+        *opnd = opnd_create_immed_int(bytes, OPSZ_PTR);
     }
     return true;
 }
