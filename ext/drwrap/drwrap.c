@@ -885,6 +885,12 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data);
 
+/* This version takes a separate "instr" and "where" for use with drbbdup. */
+static dr_emit_flags_t
+drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                             instr_t *where, bool for_trace, bool translating,
+                             void *user_data);
+
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 
@@ -946,9 +952,11 @@ drwrap_init(void)
     drmgr_init();
     if (!drmgr_register_bb_app2app_event(drwrap_event_bb_app2app, &pri_replace))
         return false;
-    if (!drmgr_register_bb_instrumentation_event(drwrap_event_bb_analysis,
-                                                 drwrap_event_bb_insert, &pri_insert))
-        return false;
+    if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        if (!drmgr_register_bb_instrumentation_event(drwrap_event_bb_analysis,
+                                                     drwrap_event_bb_insert, &pri_insert))
+            return false;
+    }
     if (!drmgr_register_restore_state_ex_event(drwrap_event_restore_state_ex))
         return false;
 
@@ -963,7 +971,9 @@ drwrap_init(void)
                       false /*!str_dup*/, false /*!synch*/, post_call_entry_free, NULL,
                       NULL);
     post_call_rwlock = dr_rwlock_create();
-    wrap_lock = dr_recurlock_create();
+    /* This lock may have been set up by drwrap_set_global_flags() (in this thread). */
+    if (wrap_lock == NULL)
+        wrap_lock = dr_recurlock_create();
     drmgr_register_module_unload_event(drwrap_event_module_unload);
 
     tls_idx = drmgr_register_tls_field();
@@ -1005,12 +1015,27 @@ drwrap_exit(void)
     if (count != 0)
         return;
 
+    if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        if (!drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis))
+            ASSERT(false, "failed to unregister in drwrap_exit");
+    }
     if (!drmgr_unregister_bb_app2app_event(drwrap_event_bb_app2app) ||
-        !drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis) ||
         !drmgr_unregister_restore_state_ex_event(drwrap_event_restore_state_ex) ||
         !drmgr_unregister_module_unload_event(drwrap_event_module_unload) ||
+        !drmgr_unregister_thread_init_event(drwrap_thread_init) ||
+        !drmgr_unregister_thread_exit_event(drwrap_thread_exit) ||
         !drmgr_unregister_tls_field(tls_idx))
         ASSERT(false, "failed to unregister in drwrap_exit");
+
+#ifdef WINDOWS
+    if (sysnum_NtContinue != -1) {
+        if (!dr_unregister_filter_syscall_event(drwrap_event_filter_syscall) ||
+            !drmgr_unregister_pre_syscall_event(drwrap_event_pre_syscall))
+            ASSERT(false, "failed to unregister in drwrap_exit");
+    }
+    if (!drmgr_unregister_exception_event(drwrap_event_exception))
+        ASSERT(false, "failed to unregister in drwrap_exit");
+#endif
 
     if (dr_is_detaching()) {
         memset(&drwrap_stats, 0, sizeof(drwrap_stats_t));
@@ -1030,6 +1055,7 @@ drwrap_exit(void)
     hashtable_delete(&post_call_table);
     dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
+    wrap_lock = NULL; /* For early drwrap_set_global_flags() after re-attach. */
     drmgr_exit();
 
     while (post_call_notify_list != NULL) {
@@ -1085,7 +1111,21 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
 {
     drwrap_global_flags_t old_flags;
     bool res;
+    /* This can be called prior to drwrap_init().
+     * We only support this being done in the single DR-initialization thread.
+     */
+    if (wrap_lock == NULL) {
+        ASSERT(dr_atomic_load32(&drwrap_init_count) == 0,
+               "Unsupported race between drwrap_init() and drwrap_set_global_flags()");
+        wrap_lock = dr_recurlock_create();
+    }
     dr_recurlock_lock(wrap_lock);
+    if (dr_atomic_load32(&drwrap_init_count) > 0 &&
+        /* After drwrap_init() was called, control inversion cannot be changed. */
+        (flags & DRWRAP_INVERT_CONTROL) != (global_flags & DRWRAP_INVERT_CONTROL)) {
+        dr_recurlock_unlock(wrap_lock);
+        return false;
+    }
     /* if anyone asks for safe, be safe.
      * since today the only 2 flags ask for safe, we can accomplish that
      * by simply or-ing in each request.
@@ -1097,6 +1137,28 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
     res = (global_flags != old_flags);
     dr_recurlock_unlock(wrap_lock);
     return res;
+}
+
+DR_EXPORT
+dr_emit_flags_t
+drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                       bool translating, OUT void **user_data)
+{
+    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_analysis");
+    return drwrap_event_bb_analysis(drcontext, tag, bb, for_trace, translating,
+                                    user_data);
+}
+
+DR_EXPORT
+dr_emit_flags_t
+drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                     instr_t *where, bool for_trace, bool translating, void *user_data)
+{
+    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+    return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
+                                        translating, user_data);
 }
 
 /***************************************************************************
@@ -1236,6 +1298,12 @@ DR_EXPORT
 bool
 drwrap_replace(app_pc original, app_pc replacement, bool override)
 {
+    if (TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        /* Not supported in this mode since drbbdup does not support a separate
+         * app2app per case.
+         */
+        return false;
+    }
     return drwrap_replace_common(&replace_table, original, replacement, override, false);
 }
 
@@ -1244,6 +1312,12 @@ bool
 drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
                       uint stack_adjust, void *user_data, bool override)
 {
+    if (TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        /* Not supported in this mode since drbbdup does not support a separate
+         * app2app per case.
+         */
+        return false;
+    }
     bool res = false;
     replace_native_t *rn;
     if (stack_adjust > max_stack_adjust ||
@@ -2299,9 +2373,16 @@ drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_t
     return DR_EMIT_DEFAULT;
 }
 
+/* This version takes a separate "instr" and "where" for use with drbbdup.
+ * The separate "where" handles cases such as with drbbdup's final app
+ * instruction (which cannot be duplicated into each case) or with
+ * emulation where the instruction "inst" to monitor is distinct from
+ * the location "where" to insert instrumentation.
+ */
 static dr_emit_flags_t
-drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                       bool for_trace, bool translating, void *user_data)
+drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                             instr_t *where, bool for_trace, bool translating,
+                             void *user_data)
 {
     dr_emit_flags_t res = DR_EMIT_DEFAULT;
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr
@@ -2335,7 +2416,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
             ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
             : 0;
         flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
-        dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_in_callee, flags,
+        dr_insert_clean_call_ex(drcontext, bb, where, (void *)drwrap_in_callee, flags,
                                 IF_X86_ELSE(2, 3), OPND_CREATE_INTPTR((ptr_int_t)arg1),
                                 /* pass in xsp to avoid dr_get_mcontext */
                                 opnd_create_reg(DR_REG_XSP)
@@ -2344,20 +2425,20 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     dr_recurlock_unlock(wrap_lock);
 
     if (post_call_lookup_for_instru(instr_get_app_pc(inst) /*normalized*/)) {
-        drwrap_insert_post_call(drcontext, bb, inst, pc);
+        drwrap_insert_post_call(drcontext, bb, where, pc);
     }
 
     if (dr_fragment_app_pc(tag) == (app_pc)replace_retaddr_sentinel) {
-        drwrap_insert_post_call(drcontext, bb, inst, pc);
+        drwrap_insert_post_call(drcontext, bb, where, pc);
         /* The post-call C code put the real retaddr into the DR slot that will be
          * used by dr_redirect_native_target().
          */
         app_pc tgt = dr_redirect_native_target(drcontext);
         reg_id_t scratch = RETURN_POINT_SCRATCH_REG;
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)tgt,
-                                         opnd_create_reg(scratch), bb, inst, NULL, NULL);
+                                         opnd_create_reg(scratch), bb, where, NULL, NULL);
         instrlist_meta_preinsert(
-            bb, inst, XINST_CREATE_jump_reg(drcontext, opnd_create_reg(scratch)));
+            bb, where, XINST_CREATE_jump_reg(drcontext, opnd_create_reg(scratch)));
         /* This unusual transition confuses DR trying to stitch blocks together into
          * a trace.
          */
@@ -2382,6 +2463,16 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     }
 
     return res;
+}
+
+static dr_emit_flags_t
+drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                       bool for_trace, bool translating, void *user_data)
+{
+    ASSERT(!TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "should not get here if DRWRAP_INVERT_CONTROL is set");
+    return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, inst, for_trace,
+                                        translating, user_data);
 }
 
 static void
