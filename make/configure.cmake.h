@@ -105,7 +105,7 @@
 
 /* features */
 #cmakedefine HAVE_FVISIBILITY
-#cmakedefine HAVE_FNOSANITIZE_NULL
+#cmakedefine USE_FNOSANITIZE_NULL
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
 #cmakedefine HAVE_RSEQ
@@ -264,10 +264,6 @@
 
 # ifdef HAVE_FVISIBILITY
 #  define USE_VISIBILITY_ATTRIBUTES
-# endif
-
-# ifdef HAVE_FNOSANITIZE_NULL
-#  define USE_FNOSANITIZE_NULL
 # endif
 #endif
 
