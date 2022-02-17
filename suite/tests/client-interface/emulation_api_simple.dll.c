@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.   All rights reserved.
  * Copyright (c) 2018 ARM Limited. All rights reserved.
  * **********************************************************
  *
@@ -48,15 +48,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_log(dr_get_current_drcontext(), DR_LOG_ALL, 1,                        \
-                   "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg);             \
-            /* NOCHECK dr_abort(); */                                                \
-        }                                                                            \
-    } while (0);
 #define PRE instrlist_preinsert
 
 /* These are atomically incremented for precise counts. */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,17 +33,10 @@
 /* Tests the drwrap extension */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drwrap.h"
 #include "drmgr.h"
 #include <string.h> /* memset */
-
-#define CHECK(x, msg)                        \
-    do {                                     \
-        if (!(x)) {                          \
-            dr_fprintf(STDERR, "%s\n", msg); \
-            dr_abort();                      \
-        }                                    \
-    } while (0);
 
 #define DRWRAP_NATIVE_PARAM 0xdeadbeef
 

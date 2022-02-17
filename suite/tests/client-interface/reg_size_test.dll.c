@@ -1,13 +1,6 @@
 #include "dr_api.h"
+#include "client_tools.h"
 #include "string.h"
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])

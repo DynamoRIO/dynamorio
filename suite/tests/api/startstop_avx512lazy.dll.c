@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,14 +33,6 @@
 #include "dr_api.h"
 #include "client_tools.h"
 #include <string.h>
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 DR_EXPORT void
 dr_init(client_id_t id)
