@@ -885,6 +885,7 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data);
 
+/* This version takes a separate "instr" and "where" for use with drbbdup. */
 static dr_emit_flags_t
 drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                              instr_t *where, bool for_trace, bool translating,
@@ -1054,7 +1055,7 @@ drwrap_exit(void)
     hashtable_delete(&post_call_table);
     dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
-    wrap_lock = NULL; /* For re-attach early drwrap_set_global_flags(). */
+    wrap_lock = NULL; /* For early drwrap_set_global_flags() after re-attach. */
     drmgr_exit();
 
     while (post_call_notify_list != NULL) {
@@ -1297,6 +1298,12 @@ DR_EXPORT
 bool
 drwrap_replace(app_pc original, app_pc replacement, bool override)
 {
+    if (TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        /* Not supported in this mode since drbbdup does not support a separate
+         * app2app per case.
+         */
+        return false;
+    }
     return drwrap_replace_common(&replace_table, original, replacement, override, false);
 }
 
@@ -1305,6 +1312,12 @@ bool
 drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
                       uint stack_adjust, void *user_data, bool override)
 {
+    if (TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        /* Not supported in this mode since drbbdup does not support a separate
+         * app2app per case.
+         */
+        return false;
+    }
     bool res = false;
     replace_native_t *rn;
     if (stack_adjust > max_stack_adjust ||
@@ -2360,6 +2373,7 @@ drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_t
     return DR_EMIT_DEFAULT;
 }
 
+/* This version takes a separate "instr" and "where" for use with drbbdup. */
 static dr_emit_flags_t
 drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                              instr_t *where, bool for_trace, bool translating,
@@ -2450,6 +2464,8 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data)
 {
+    ASSERT(!TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "should not get here if DRWRAP_INVERT_CONTROL is set");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, inst, for_trace,
                                         translating, user_data);
 }

@@ -38,15 +38,8 @@
 #include "drmgr.h"
 #include "drbbdup.h"
 #include "drwrap.h"
+#include "client_tools.h"
 #include <string.h>
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 /* We assume the app is single-threaded for this test. */
 static uintptr_t case_encoding = 0;
@@ -68,9 +61,10 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     return 0;                         /* return default case */
 }
 
-static void
-event_analyse_case(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encoding,
-                   void *user_data, void *orig_analysis_data, void **case_analysis_data)
+static dr_emit_flags_t
+event_analyse_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                   bool translating, uintptr_t encoding, void *user_data,
+                   void *orig_analysis_data, void **case_analysis_data)
 {
     if (encoding == 0) {
         int consec_nop_count = 0;
@@ -86,28 +80,25 @@ event_analyse_case(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encodi
                 consec_nop_count = 0;
             }
         }
+        return DR_EMIT_DEFAULT;
     }
     if (encoding == 1) {
-        /* drwrap guarantees it doesn't need "for_trace", "translating", or
-         * a non-DR_EMIT_DEFAULT return value for drwrap_wrap().
-         */
-        drwrap_invoke_analysis(drcontext, tag, bb, /*for_trace=*/false,
-                               /*translating=*/false, case_analysis_data);
+        return drwrap_invoke_analysis(drcontext, tag, bb, for_trace, translating,
+                                      case_analysis_data);
     }
 }
 
-static void
+static dr_emit_flags_t
 event_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                       instr_t *where, uintptr_t encoding, void *user_data,
-                       void *orig_analysis_data, void *case_analysis_data)
+                       instr_t *where, bool for_trace, bool translating,
+                       uintptr_t encoding, void *user_data, void *orig_analysis_data,
+                       void *case_analysis_data)
 {
     if (encoding == 1) {
-        /* drwrap guarantees it doesn't need "for_trace", "translating", or
-         * a non-DR_EMIT_DEFAULT return value for drwrap_wrap().
-         */
-        drwrap_invoke_insert(drcontext, tag, bb, instr, where, /*for_trace=*/false,
-                             /*translating=*/false, case_analysis_data);
+        return drwrap_invoke_insert(drcontext, tag, bb, instr, where, for_trace,
+                                    translating, case_analysis_data);
     }
+    return DR_EMIT_DEFAULT;
 }
 
 static void
@@ -156,8 +147,8 @@ dr_init(client_id_t id)
     drbbdup_options_t opts = { 0 };
     opts.struct_size = sizeof(drbbdup_options_t);
     opts.set_up_bb_dups = set_up_bb_dups;
-    opts.analyze_case = event_analyse_case;
-    opts.instrument_instr = event_instrument_instr;
+    opts.analyze_case_ex = event_analyse_case;
+    opts.instrument_instr_ex = event_instrument_instr;
     opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&case_encoding, OPSZ_PTR);
     opts.atomic_load_encoding = false;
     opts.max_case_encoding = 1;
