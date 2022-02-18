@@ -215,7 +215,30 @@ external_error(const char *file, int line, const char *msg);
 #define CLIENT_ASSERT_BITFIELD_TRUNCATE(width, val, msg) \
     CLIENT_ASSERT((val) < (1 << ((width) + 1)), msg);
 
-/* thread synchronization */
+/* alignment helpers, alignment must be power of 2 */
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGN_FORWARD(x, alignment) \
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
+#define ALIGN_FORWARD_UINT(x, alignment) \
+    ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
+#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
+#define ALIGN_MOD(addr, size, alignment) \
+    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
+#define CROSSES_ALIGNMENT(addr, size, alignment) \
+    (ALIGN_MOD(addr, size, alignment) < (size)-1)
+/* number of bytes you need to shift addr forward so that it's !CROSSES_ALIGNMENT */
+#define ALIGN_SHIFT_SIZE(addr, size, alignment)          \
+    (CROSSES_ALIGNMENT(addr, size, alignment)            \
+         ? ((size)-1 - ALIGN_MOD(addr, size, alignment)) \
+         : 0)
+
+/****************************************************************************
+ * Synchronization
+ */
+
+#include "atomic_exports.h"
+
 #define LOCK_FREE_STATE -1                   /* allows a quick >=0 test for contention */
 #define LOCK_SET_STATE (LOCK_FREE_STATE + 1) /* set when requested by a single thread */
 /* any value greater than LOCK_SET_STATE means multiple threads requested the lock */
@@ -316,10 +339,10 @@ typedef struct _spin_mutex_t {
 /* perhaps for DEBUG all locks should record owner? */
 typedef struct _recursive_lock_t {
     mutex_t lock;
-    /* ASSUMPTION: reading owner field is atomic!
+    /* Requirement: reading owner field is atomic!
      * Thus must allocate this statically (compiler should 4-byte-align
      * this field, which is good enough) or align it manually!
-     * FIXME: provide creation routine that does that for non-static locks
+     * XXX: Provide creation routine that does that for non-static locks?
      */
     thread_id_t owner;
     uint count;
@@ -799,7 +822,7 @@ spinmutex_delete(spin_mutex_t *spin_lock);
 static inline bool
 mutex_testlock(mutex_t *lock)
 {
-    return lock->lock_requests > LOCK_FREE_STATE;
+    return atomic_aligned_read_int(&lock->lock_requests) > LOCK_FREE_STATE;
 }
 
 static inline bool
@@ -839,9 +862,18 @@ d_r_write_unlock(read_write_lock_t *rw);
 bool
 self_owns_write_lock(read_write_lock_t *rw);
 
+#if defined(MACOS) || (defined(X64) && defined(WINDOWS))
+#    define ATOMIC_READ_THREAD_ID(id) \
+        ((thread_id_t)atomic_aligned_read_int64((volatile int64 *)(id)))
+#else
+#    define ATOMIC_READ_THREAD_ID(id) \
+        ((thread_id_t)atomic_aligned_read_int((volatile int *)(id)))
+#endif
+
 /* test whether locks are held at all */
-#define WRITE_LOCK_HELD(rw) (mutex_testlock(&(rw)->lock) && ((rw)->num_readers == 0))
-#define READ_LOCK_HELD(rw) ((rw)->num_readers > 0)
+#define WRITE_LOCK_HELD(rw) \
+    (mutex_testlock(&(rw)->lock) && atomic_aligned_read_int(&(rw)->num_readers) == 0)
+#define READ_LOCK_HELD(rw) (atomic_aligned_read_int(&(rw)->num_readers) > 0)
 
 /* test whether current thread owns locks
  * for non-DEADLOCK_AVOIDANCE, cannot tell who owns it, so we bundle
@@ -849,7 +881,7 @@ self_owns_write_lock(read_write_lock_t *rw);
  * knowing for sure.
  */
 #ifdef DEADLOCK_AVOIDANCE
-#    define OWN_MUTEX(m) ((m)->owner == d_r_get_thread_id())
+#    define OWN_MUTEX(m) (ATOMIC_READ_THREAD_ID(&(m)->owner) == d_r_get_thread_id())
 #    define ASSERT_OWN_MUTEX(pred, m) ASSERT(!(pred) || OWN_MUTEX(m))
 #    define ASSERT_DO_NOT_OWN_MUTEX(pred, m) ASSERT(!(pred) || !OWN_MUTEX(m))
 #    define OWN_NO_LOCKS(dc) thread_owns_no_locks(dc)
@@ -933,6 +965,8 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
         if (NEED_SHARED_LOCK((flags)))                      \
             operation##_recursive_lock(&(lock));            \
     } while (0)
+
+/****************************************************************************/
 
 /* Our parameters (option string, logdir, etc.) are configured
  * through files and secondarily environment variables.
@@ -1065,24 +1099,6 @@ hashtable_num_bits(uint size);
          : (byte *)POINTER_MAX)
 
 #define MAX_LOW_2GB ((byte *)(ptr_uint_t)INT_MAX)
-
-/* alignment helpers, alignment must be power of 2 */
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_FORWARD_UINT(x, alignment) \
-    ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
-#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
-#define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
-#define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size)-1)
-/* number of bytes you need to shift addr forward so that it's !CROSSES_ALIGNMENT */
-#define ALIGN_SHIFT_SIZE(addr, size, alignment)          \
-    (CROSSES_ALIGNMENT(addr, size, alignment)            \
-         ? ((size)-1 - ALIGN_MOD(addr, size, alignment)) \
-         : 0)
 
 #define IS_POWER_OF_2(x) ((x) == 0 || ((x) & ((x)-1)) == 0)
 
