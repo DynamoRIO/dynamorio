@@ -7760,7 +7760,7 @@ sig_detach_go_native(sig_detach_info_t *info)
     ASSERT_NOT_REACHED();
 }
 
-/* Sets this (worker) thread to detach by directly returning from the signal. */
+/* Sets this (secondary) thread to detach by directly returning from the signal. */
 static void
 sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
 {
