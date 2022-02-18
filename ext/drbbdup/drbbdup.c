@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-#include "dr_defines.h"
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
