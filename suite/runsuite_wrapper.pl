@@ -326,17 +326,12 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             # FIXME i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
                                    'code_api|pthreads.pthreads_exit' => 1,
-                                   'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,
                                    'code_api|linux.fib-conflict-early' => 1,
                                    'code_api|linux.mangle_asynch' => 1,
                                    'code_api|tool.drcachesim.phys' => 1, # i#4922
-                                   'code_api|tool.drcachesim.TLB-threads' => 1, # i#4928
-                                   'code_api|tool.drcachesim.threads' => 1, # i#4928
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
-                                   'code_api|tool.drcachesim.threads-with-config-file' => 1, # i#4954
-                                   'code_api|tool.drcachesim.coherence' => 1, # i#2417
                                    );
             if ($is_32) {
                 $issue_no = "#2416";
