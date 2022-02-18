@@ -1056,6 +1056,7 @@ drwrap_exit(void)
     dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
     wrap_lock = NULL; /* For early drwrap_set_global_flags() after re-attach. */
+    global_flags = 0; /* For re-attach. */
     drmgr_exit();
 
     while (post_call_notify_list != NULL) {
