@@ -332,7 +332,7 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     // Note that we need this handling here only for instrument_instr. In some
     // cases, tracer.cpp delays instrument_instr for instructions that do not
     // have any memref. When it actually does it, the trace entries for many
-    // instructions are written together, which may cause use to exceed the
+    // instructions are written together, which may cause us to exceed the
     // MAX_IMM_DISP_STUR.
     if (adjust + sizeof(trace_entry_t) > MAX_IMM_DISP_STUR) {
         insert_update_buf_ptr_(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
