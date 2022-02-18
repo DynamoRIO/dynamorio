@@ -356,6 +356,8 @@ private:
     insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
                               reg_id_t base, reg_id_t scratch, ushort type, ushort size,
                               int adjust);
+
+protected:
     void (*insert_update_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t,
                                    dr_pred_type_t, int);
 };
