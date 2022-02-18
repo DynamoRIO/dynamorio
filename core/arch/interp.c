@@ -3196,6 +3196,7 @@ bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
  * ctis, since some bmarks are better doing so (gap, vortex, wupwise)
  * and others are worse (apsi, perlbmk)?
  */
+DISABLE_NULL_SANITIZER
 static void
 build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 {

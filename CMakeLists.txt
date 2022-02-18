@@ -1029,6 +1029,9 @@ if (UNIX)
     set(HAVE_FVISIBILITY ON)
   endif (VISIBILITY)
 
+  # Check for -fno-sanitize=null
+  CHECK_C_COMPILER_FLAG("-fno-sanitize=null" HAVE_FNOSANITIZE_NULL)
+
   if (APPLE OR LINKER_IS_GNU_GOLD)
     # XXX: for macos, currently assuming using xcode toolchain.
     set(ld_script_option "")
