@@ -335,11 +335,14 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb, bool for_met
     /* XXX i#3778: To remove once we support specific fragment deletion. */
     DR_ASSERT_MSG(!manager->enable_dynamic_handling,
                   "dynamic case generation is not yet supported");
-    /* XXX: For now we do not support dynamic handling for-meta-type managers. */
-    DR_ASSERT_MSG(!manager->enable_dynamic_handling && for_meta,
-                  "dynamic case generation is not yet possible for bbs consisting solely "
-                  "of meta instructions");
 
+    if (for_meta) {
+        /* XXX: For now we do not support dynamic handling for-meta-type managers. */
+        DR_ASSERT_MSG(
+            !manager->enable_dynamic_handling,
+            "dynamic case generation is not yet possible for bbs consisting solely "
+            "of meta instructions");
+    }
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
         /* Multiple cases not wanted. Destroy cases. */
