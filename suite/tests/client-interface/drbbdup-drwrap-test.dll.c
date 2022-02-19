@@ -169,6 +169,19 @@ dr_init(client_id_t id)
     CHECK(!res, "DRWRAP_INVERT_CONTROL after drwrap_init should fail");
     drwrap_exit();
 
+    /* Test drwrap re-attach for flags. */
+    res = drwrap_init();
+    CHECK(res, "drwrap_init failed");
+    res = drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR);
+    CHECK(res, "setting flag should succeed");
+    drwrap_exit();
+    res = drwrap_init();
+    CHECK(res, "drwrap_init failed");
+    res = drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR);
+    CHECK(res, "setting flag 2nd time should succeed");
+    drwrap_exit();
+
+    /* Now set up for this test. */
     res = drwrap_set_global_flags(DRWRAP_INVERT_CONTROL);
     CHECK(res, "DRWRAP_INVERT_CONTROL failed");
     res = drwrap_init();
