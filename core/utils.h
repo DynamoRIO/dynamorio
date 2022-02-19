@@ -478,10 +478,10 @@ enum {
      * anymore but having it gives us flexibility so I'm leaving it)
      */
     LOCK_RANK(coarse_table_rwlock), /* < global_alloc_lock, < coarse_th_table_rwlock */
-    /* We make the pc table separate (we write it while holding master table lock) */
+    /* We make the pc table separate (we write it while holding main table lock) */
     LOCK_RANK(coarse_pclookup_table_rwlock), /* < global_alloc_lock,
                                               * < coarse_th_table_rwlock */
-    /* We make the th table separate (we look in it while holding master table lock) */
+    /* We make the th table separate (we look in it while holding main table lock) */
     LOCK_RANK(coarse_th_table_rwlock), /* < global_alloc_lock */
 
     LOCK_RANK(process_module_vector_lock), /* < snapshot_lock > all_threads_synch_lock */

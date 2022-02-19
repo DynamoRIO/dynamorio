@@ -70,7 +70,7 @@ configure_drmgr_target(drmgr)
 
 # Must be shared to ensure only one copy, since can be used by
 # the client and by multiple other libraries, some of which may
-# be shared: the whole point is to have one master drmgr.
+# be shared: the whole point is to have one unique drmgr.
 # But, we do want to support projects using drmgr statically for
 # an end tool, for performance.
 # To support simultaneously exporting components for use with other clients,

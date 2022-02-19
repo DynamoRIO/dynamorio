@@ -169,7 +169,7 @@
     }
 /* FIXME: case 9014 reenabling more resets or maybe
  * reset_at_vmm_threshold reset_at_commit_threshold shouldn't be
- * disabled in DISABLE_RESET but left under the master option
+ * disabled in DISABLE_RESET but left under the main option
  */
 
 #define DISABLE_TRACES(prefix)                      \

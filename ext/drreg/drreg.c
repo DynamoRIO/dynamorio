@@ -2478,7 +2478,7 @@ drreg_init(drreg_options_t *ops_in)
         return DRREG_ERROR_INVALID_PARAMETER;
 
     /* Instead of allowing only one drreg_init() and all other components to be
-     * passed in scratch regs by a master, which is not always an easy-to-use
+     * passed in scratch regs, which is not always an easy-to-use
      * model, we instead consider all callers' requests, combining the option
      * fields.  We don't shift init to drreg_thread_init() or sthg b/c we really
      * want init-time error codes returning from drreg_init().

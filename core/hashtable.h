@@ -55,7 +55,7 @@
 #define HASHTABLE_ENTRY_SHARED 0x00000002
 /* Is the table accessed for reads concurrently without a lock? */
 #define HASHTABLE_LOCKLESS_ACCESS 0x00000004
-/* Is the table the primary, master list of its contents? */
+/* Is the table the primary, main list of its contents? */
 #define HASHTABLE_NOT_PRIMARY_STORAGE 0x00000004
 /* Is the table allocated in persistent memory? */
 #define HASHTABLE_PERSISTENT 0x00000008

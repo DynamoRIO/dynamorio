@@ -264,7 +264,7 @@ static bool multiple_handlers_present; /* Accessed using atomics, not the lock. 
 
 /* in x86.asm */
 void
-master_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt);
+main_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
 static void
 set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
@@ -1312,7 +1312,7 @@ sigsegv_handler_is_ours(void)
     int rc;
     kernel_sigaction_t oldact;
     rc = sigaction_syscall(SIGSEGV, NULL, &oldact);
-    return (rc == 0 && oldact.handler == (handler_t)master_signal_handler);
+    return (rc == 0 && oldact.handler == (handler_t)main_signal_handler);
 }
 #endif /* DEBUG */
 
@@ -1551,7 +1551,7 @@ set_handler_sigact(kernel_sigaction_t *act, int sig, handler_t handler)
 static void
 set_our_handler_sigact(kernel_sigaction_t *act, int sig)
 {
-    set_handler_sigact(act, sig, (handler_t)master_signal_handler);
+    set_handler_sigact(act, sig, (handler_t)main_signal_handler);
 }
 
 static void
@@ -1578,7 +1578,7 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
         return;
 
     if (oldact.handler != (handler_t)SIG_DFL &&
-        oldact.handler != (handler_t)master_signal_handler) {
+        oldact.handler != (handler_t)main_signal_handler) {
         /* save the app's action for sig */
         if (info->shared_app_sigaction) {
             /* app_sigaction structure is shared */
@@ -1616,8 +1616,8 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
         d_r_write_unlock(&detached_sigact_lock);
     } else {
         LOG(THREAD, LOG_ASYNCH, 2,
-            "prior handler is " PFX " vs master " PFX " with flags=0x%x for signal %d\n",
-            oldact.handler, master_signal_handler, oldact.flags, sig);
+            "prior handler is " PFX " vs main " PFX " with flags=0x%x for signal %d\n",
+            oldact.handler, main_signal_handler, oldact.flags, sig);
         if (info->app_sigaction[sig] != NULL) {
             if (info->shared_app_sigaction)
                 d_r_mutex_lock(info->shared_lock);
@@ -1654,7 +1654,7 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
 }
 
-/* Set up master_signal_handler as the handler for signal "sig",
+/* Set up main_signal_handler as the handler for signal "sig",
  * for the current thread.  Since we deal with kernel data structures
  * in our interception of system calls, we use them here as well,
  * to avoid having to translate to/from libc data structures.
@@ -1756,7 +1756,7 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
                 int rc = sigaction_syscall(i, NULL, &oldact);
                 ASSERT(rc == 0);
                 if (rc == 0 && oldact.handler != (handler_t)SIG_DFL &&
-                    oldact.handler != (handler_t)master_signal_handler) {
+                    oldact.handler != (handler_t)main_signal_handler) {
                     skip = false;
                 }
             }
@@ -1972,7 +1972,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         return false;
     }
     if (act != NULL) {
-        /* Now hand kernel our master handler instead of app's. */
+        /* Now hand kernel our main handler instead of app's. */
         set_our_handler_sigact(&info->our_sigaction, sig);
         set_syscall_param(dcontext, 1, (reg_t)&info->our_sigaction);
 
@@ -3340,7 +3340,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
 }
 #endif
 
-/* Exported for call from master_signal_handler asm routine.
+/* Exported for call from main_signal_handler asm routine.
  * For the rt signal frame f_old that was copied to f_new, updates
  * the intra-frame absolute pointers to point to the new addresses
  * in f_new.
@@ -3382,7 +3382,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
         if (f_old->pretcode == f_old->retcode)
             f_new->pretcode = f_new->retcode;
         /* else, pointing at vsyscall, or we set it to dynamorio_sigreturn in
-         * master_signal_handler
+         * main_signal_handler
          */
         LOG(THREAD, LOG_ASYNCH, level, "\tleaving pretcode with old value\n");
 #        endif
@@ -3633,7 +3633,7 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
             if (f_old->pretcode == f_old->retcode)
                 f_new->pretcode = f_new->retcode;
             else {
-                /* whether we set to dynamorio_sigreturn in master_signal_handler
+                /* whether we set to dynamorio_sigreturn in main_signal_handler
                  * or it's still vsyscall page, we have to convert to non-rt
                  */
                 f_new->pretcode = (char *)dynamorio_nonrt_sigreturn;
@@ -3884,7 +3884,7 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
      */
     if (action == DR_SIGNAL_REDIRECT) {
         /* send_signal_to_client copied mcontext into our
-         * master_signal_handler frame, so we set up for fcache_return w/
+         * main_signal_handler frame, so we set up for fcache_return w/
          * our frame's state
          */
         transfer_from_sig_handler_to_fcache_return(
@@ -4566,7 +4566,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                /* XXX: should also check fine stubs */
                safe_is_in_coarse_stubs(dcontext, pc, xsp)) {
         /* Assumption: dynamo errors have been caught already inside
-         * the master_signal_handler, thus any error in a generated routine
+         * the main_signal_handler, thus any error in a generated routine
          * is an asynch signal that can be delayed
          */
         LOG(THREAD, LOG_ASYNCH, 2,
@@ -4660,7 +4660,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         if (!forged && !can_always_delay[sig] &&
             !is_sys_kill(dcontext, pc, (byte *)sc->SC_XSP, &frame->info)) {
             /* i#195/PR 453964: don't re-execute if will just re-fault.
-             * Our checks for dstack, etc. in master_signal_handler should
+             * Our checks for dstack, etc. in main_signal_handler should
              * have accounted for everything
              */
             ASSERT_NOT_REACHED();
@@ -5076,7 +5076,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         }
 
         if (next_pc == NULL) {
-            /* re-execute the write -- just have master_signal_handler return */
+            /* re-execute the write -- just have main_signal_handler return */
             return true;
         } else {
             ASSERT(!native_state);
@@ -5084,7 +5084,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             transfer_from_sig_handler_to_fcache_return(
                 dcontext, uc, NULL, SIGSEGV, next_pc,
                 (linkstub_t *)get_selfmod_linkstub(), false);
-            /* now have master_signal_handler return */
+            /* now have main_signal_handler return */
             return true;
         }
     }
@@ -5092,7 +5092,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
 }
 
 #ifndef HAVE_SIGALTSTACK
-/* The exact layout of this struct is relied on in master_signal_handler()
+/* The exact layout of this struct is relied on in main_signal_handler()
  * in x86.asm.
  */
 struct clone_and_swap_args {
@@ -5127,7 +5127,7 @@ sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
 
 /* Helper that takes over the current thread signaled via SUSPEND_SIGNAL.  Kept
  * separate mostly to keep the priv_mcontext_t allocation out of
- * master_signal_handler_C.
+ * main_signal_handler_C.
  * If it returns, it returns false, and the signal should be squashed.
  */
 static bool
@@ -5149,7 +5149,7 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
     return is_safe_read_pc(pc);
 }
 
-/* the master signal handler
+/* the main signal handler
  * WARNING: behavior varies with different versions of the kernel!
  * sigaction support was only added with 2.2
  */
@@ -5157,19 +5157,19 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 /* stub in x86.asm passes our xsp to us */
 #    ifdef MACOS
 void
-master_signal_handler_C(handler_t handler, int style, int sig, kernel_siginfo_t *siginfo,
-                        kernel_ucontext_t *ucxt, byte *xsp)
+main_signal_handler_C(handler_t handler, int style, int sig, kernel_siginfo_t *siginfo,
+                      kernel_ucontext_t *ucxt, byte *xsp)
 #    else
 void
-master_signal_handler_C(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt,
-                        byte *xsp)
+main_signal_handler_C(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt,
+                      byte *xsp)
 #    endif
 #else
 /* On ia32, adding a parameter disturbs the frame we're trying to capture, so we
  * add an intermediate frame and read the normal params off the stack directly.
  */
 void
-master_signal_handler_C(byte *xsp)
+main_signal_handler_C(byte *xsp)
 #endif
 {
 #ifdef MACOS64
@@ -5380,7 +5380,7 @@ master_signal_handler_C(byte *xsp)
            sig == SUSPEND_SIGNAL);
 
     LOG(THREAD, LOG_ASYNCH, level,
-        "\nmaster_signal_handler: thread=%d, sig=%d, xsp=" PFX ", retaddr=" PFX "\n",
+        "\nmain_signal_handler: thread=%d, sig=%d, xsp=" PFX ", retaddr=" PFX "\n",
         get_sys_thread_id(), sig, xsp, *((byte **)xsp));
     LOG(THREAD, LOG_ASYNCH, level + 1,
         "siginfo: sig = %d, pid = %d, status = %d, errno = %d, si_code = %d\n",
@@ -5683,7 +5683,7 @@ master_signal_handler_C(byte *xsp)
     } /* end switch */
 
     LOG(THREAD, LOG_ASYNCH, level,
-        "\tmaster_signal_handler %d returning now to " PFX "\n\n", sig, sc->SC_XIP);
+        "\tmain_signal_handler %d returning now to " PFX "\n\n", sig, sc->SC_XIP);
 
     /* Ensure we didn't get the app's sigstack into our frame.  On Mac, the kernel
      * doesn't use the frame's uc_stack, so we limit this to Linux.
@@ -5884,7 +5884,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     IF_AARCHXX(ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr()));
 #endif
     /* FIXME: other state?  debug regs?
-     * if no syscall allowed between master_ (when frame created) and
+     * if no syscall allowed between main_ (when frame created) and
      * receiving, then don't have to worry about debug regs, etc.
      * check for syscall when record pending, if it exists, try to
      * receive in pre_system_call or something? what if ignorable?  FIXME!
@@ -6157,7 +6157,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
     });
 
-    /* Now edit the resumption point when master_signal_handler returns to go
+    /* Now edit the resumption point when main_signal_handler returns to go
      * straight to the app handler.
      */
     sc->SC_XSP = (ptr_uint_t)xsp;
@@ -6330,7 +6330,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
      * interrupted context -- FIXME: are any of the ignores repeated?
      * SIGURG?
      *
-     * If called from execute_handler_from_cache(), our master_signal_handler()
+     * If called from execute_handler_from_cache(), our main_signal_handler()
      * is going to return directly to the translated context: which means we
      * go native to re-execute the instr, which if it does in fact generate
      * the signal again means we have a nice transparent core dump.
@@ -7760,7 +7760,7 @@ sig_detach_go_native(sig_detach_info_t *info)
     ASSERT_NOT_REACHED();
 }
 
-/* Sets this (slave) thread to detach by directly returning from the signal. */
+/* Sets this (secondary) thread to detach by directly returning from the signal. */
 static void
 sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
 {
@@ -7912,7 +7912,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt, sigframe_rt
      * going to stay here but unblock all signals so we don't lose any
      * delivered while we're waiting.  We're at a safe enough point (now
      * that we've set ostd->suspended: i#5779) to re-enter
-     * master_signal_handler().  We use a mutex in thread_{suspend,resume} to
+     * main_signal_handler().  We use a mutex in thread_{suspend,resume} to
      * prevent our own re-suspension signal from arriving before we've
      * re-blocked on the resume.
      */
@@ -7932,7 +7932,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt, sigframe_rt
     }
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: awake now\n");
 
-    /* re-block so our exit from master_signal_handler is not interrupted */
+    /* re-block so our exit from main_signal_handler is not interrupted */
     sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
     ostd->suspended_sigcxt = NULL;
 
