@@ -231,7 +231,6 @@ drbbdup_is_special_instr(instr_t *instr)
  */
 
 #ifdef DEBUG
-
 void
 drbbdup_debug_check_for_meta(drbbdup_manager_t *manager, instrlist_t *bb)
 {
@@ -475,7 +474,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         return DR_EMIT_DEFAULT;
 
     app_pc pc = instr_get_app_pc(instrlist_first_app(bb));
-    bool for_meta = pc != NULL;
+    bool for_meta = pc == NULL;
 
     dr_rwlock_write_lock(rw_lock);
 
