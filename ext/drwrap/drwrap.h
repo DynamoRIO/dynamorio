@@ -107,11 +107,13 @@ drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 
 DR_EXPORT
 /**
- * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set and the
- * user is using multiple types of instrumentation such as with
- * drbbdup, the user must call this function for each instrumentation
- * case where function wrapping should not be enabled.  This will
- * insert required cleanup for instrumentation cases changing in the
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set and the user is
+ * using multiple types of instrumentation such as with drbbdup, the user must
+ * call this function for each instrumentation case where function wrapping
+ * should not be enabled.  (If the instrumentation type changes to don't-wrap
+ * and then changes back to wrap all in the middle of a wrapped function, the
+ * full post-wrap callback (plus cleanup) would then naturally be called.)
+ * This will insert required cleanup for instrumentation cases changing in the
  * middle of a wrapped function.  It will not invoke any wrapped
  * function callbacks.  It is up to the user to control the ordering,
  * since the priority #DRMGR_PRIORITY_INSERT_DRWRAP will not apply.
@@ -120,6 +122,7 @@ DR_EXPORT
  * emulation where the instruction "inst" to monitor is distinct from
  * the location "where" to insert instrumentation.
  * The \p user_data parameter is ignored.
+ *
  */
 dr_emit_flags_t
 drwrap_invoke_insert_cleanup_only(void *drcontext, void *tag, instrlist_t *bb,
