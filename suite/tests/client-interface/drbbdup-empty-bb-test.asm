@@ -32,7 +32,6 @@
 
 .section .text
         .global main
-
 main:
         or eax,eax
         nop
