@@ -88,34 +88,46 @@ drwrap_exit(void);
 DR_EXPORT
 /**
  * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
- * must call this function from a drmgr analysis event handler
- * (typically registered with
- * drmgr_register_bb_instrumentation_event() or if using drbbdup with
- * the analyze_case_ex field in #drbbdup_options_t).  It is up to the user
- * to control the ordering, since the priority #DRMGR_PRIORITY_INSERT_DRWRAP
- * will not apply.
- */
-dr_emit_flags_t
-drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                       bool translating, OUT void **user_data);
-
-DR_EXPORT
-/**
- * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
  * must call this function from a drmgr insertion event handler
  * (typically registered with
  * drmgr_register_bb_instrumentation_event() or if using drbbdup with
- * the instrument_instr_ex field in #drbbdup_options_t).  It is up to the user
- * to control the ordering, since the priority #DRMGR_PRIORITY_INSERT_DRWRAP
- * will not apply.
+ * the instrument_instr_ex field in #drbbdup_options_t).  This
+ * function will insert instrumentation for function wrapping pre and
+ * post callbacks.  It is up to the user to control the ordering,
+ * since the priority #DRMGR_PRIORITY_INSERT_DRWRAP will not apply.
  * The separate "where" handles cases such as with drbbdup's final app
  * instruction (which cannot be duplicated into each case) or with
  * emulation where the instruction "inst" to monitor is distinct from
  * the location "where" to insert instrumentation.
+ * The \p user_data parameter is ignored.
  */
 dr_emit_flags_t
 drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                      instr_t *where, bool for_trace, bool translating, void *user_data);
+
+DR_EXPORT
+/**
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set and the user is
+ * using multiple types of instrumentation such as with drbbdup, the user must
+ * call this function for each instrumentation case where function wrapping
+ * should not be enabled.  (If the instrumentation type changes to don't-wrap
+ * and then changes back to wrap all in the middle of a wrapped function, the
+ * full post-wrap callback (plus cleanup) would then naturally be called.)
+ * This will insert required cleanup for instrumentation cases changing in the
+ * middle of a wrapped function.  It will not invoke any wrapped
+ * function callbacks.  It is up to the user to control the ordering,
+ * since the priority #DRMGR_PRIORITY_INSERT_DRWRAP will not apply.
+ * The separate "where" handles cases such as with drbbdup's final app
+ * instruction (which cannot be duplicated into each case) or with
+ * emulation where the instruction "inst" to monitor is distinct from
+ * the location "where" to insert instrumentation.
+ * The \p user_data parameter is ignored.
+ *
+ */
+dr_emit_flags_t
+drwrap_invoke_insert_cleanup_only(void *drcontext, void *tag, instrlist_t *bb,
+                                  instr_t *inst, instr_t *where, bool for_trace,
+                                  bool translating, void *user_data);
 
 /***************************************************************************
  * FUNCTION REPLACING
@@ -796,11 +808,14 @@ typedef enum {
     DRWRAP_FAST_CLEANCALLS = 0x08,
     /**
      * This flag must only be set before calling drwrap_init().  If set, drwrap will not
-     * register for the drmgr analysis or insertion events.  The user must instead
-     * explicitly invoke drwrap_invoke_analysis() and drwrap_invoke_insert() from its
-     * own handler for those events.  This "inverted control" mode is provided for
+     * register for the drmgr insertion event.  The user must instead explicitly invoke
+     * drwrap_invoke_insert() and drwrap_invoke_insert_cleanup_only() from its own
+     * handler for the insertion event.  This "inverted control" mode is provided for
      * better compatibility with drbbdup where the user wishes to only perform wrapping
-     * in a subset of the drbbdup cases.
+     * in a subset of the drbbdup cases.  For cases where wrapping should occur,
+     * drwrap_invoke_insert() should be called; for cases where no wrapping should
+     * occcur, drwrap_invoke_insert_cleanup_only() should be called (required for
+     * cleanup of drwrap state).
      *
      * Only wrapping is supported this way: drwrap_replace() and drwrap_replace_native()
      * are not supported when this flag is set.
@@ -814,6 +829,8 @@ typedef enum {
 DR_EXPORT
 /**
  * Sets flags that affect the global behavior of the drwrap module.
+ * This adds the passed-in \p flags to the current set of flags;
+ * it does not remove flags.
  * This can be called at any time and it will affect future behavior.
  * \return whether the flags were changed.
  */

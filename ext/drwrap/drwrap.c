@@ -238,6 +238,8 @@ typedef struct _per_thread_t {
     bool hit_exception;
 #endif
     app_pc retaddr[MAX_WRAP_NESTING];
+    /* For drbbdup don't-wrap cases. */
+    bool cleanup_only;
 } per_thread_t;
 
 /***************************************************************************
@@ -878,18 +880,15 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                         bool translating);
 
 static dr_emit_flags_t
-drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                         bool translating, OUT void **user_data);
-
-static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data);
 
-/* This version takes a separate "instr" and "where" for use with drbbdup. */
+/* This version takes a separate "instr" and "where", and cleanup_only, for drbbdup use.
+ */
 static dr_emit_flags_t
 drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                              instr_t *where, bool for_trace, bool translating,
-                             void *user_data);
+                             void *user_data, bool cleanup_only);
 
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info);
@@ -953,8 +952,8 @@ drwrap_init(void)
     if (!drmgr_register_bb_app2app_event(drwrap_event_bb_app2app, &pri_replace))
         return false;
     if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
-        if (!drmgr_register_bb_instrumentation_event(drwrap_event_bb_analysis,
-                                                     drwrap_event_bb_insert, &pri_insert))
+        if (!drmgr_register_bb_instrumentation_event(NULL, drwrap_event_bb_insert,
+                                                     &pri_insert))
             return false;
     }
     if (!drmgr_register_restore_state_ex_event(drwrap_event_restore_state_ex))
@@ -1016,7 +1015,7 @@ drwrap_exit(void)
         return;
 
     if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
-        if (!drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis))
+        if (!drmgr_unregister_bb_insertion_event(drwrap_event_bb_insert))
             ASSERT(false, "failed to unregister in drwrap_exit");
     }
     if (!drmgr_unregister_bb_app2app_event(drwrap_event_bb_app2app) ||
@@ -1123,7 +1122,8 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
     dr_recurlock_lock(wrap_lock);
     if (dr_atomic_load32(&drwrap_init_count) > 0 &&
         /* After drwrap_init() was called, control inversion cannot be changed. */
-        (flags & DRWRAP_INVERT_CONTROL) != (global_flags & DRWRAP_INVERT_CONTROL)) {
+        TEST(DRWRAP_INVERT_CONTROL, flags) &&
+        !TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
         dr_recurlock_unlock(wrap_lock);
         return false;
     }
@@ -1142,24 +1142,25 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
 
 DR_EXPORT
 dr_emit_flags_t
-drwrap_invoke_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                       bool translating, OUT void **user_data)
-{
-    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
-           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_analysis");
-    return drwrap_event_bb_analysis(drcontext, tag, bb, for_trace, translating,
-                                    user_data);
-}
-
-DR_EXPORT
-dr_emit_flags_t
 drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                      instr_t *where, bool for_trace, bool translating, void *user_data)
 {
     ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
-           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_insert");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
-                                        translating, user_data);
+                                        translating, user_data, /*cleanup_only=*/false);
+}
+
+DR_EXPORT
+dr_emit_flags_t
+drwrap_invoke_insert_cleanup_only(void *drcontext, void *tag, instrlist_t *bb,
+                                  instr_t *inst, instr_t *where, bool for_trace,
+                                  bool translating, void *user_data)
+{
+    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_insert_cleanup_only");
+    return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
+                                        translating, user_data, /*cleanup_only=*/true);
 }
 
 /***************************************************************************
@@ -2190,7 +2191,10 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
             }
             user_data = pt->user_data[level][idx];
         }
-        if (!TEST(DRWRAP_NO_FRILLS, global_flags) && idx == pt->user_data_count[level]) {
+        if (pt->cleanup_only) {
+            /* Skip post handlers. */
+        } else if (!TEST(DRWRAP_NO_FRILLS, global_flags) &&
+                   idx == pt->user_data_count[level]) {
             /* we didn't find it, it must be new, so had no pre => skip post
              * (even if only has post, to be consistent w/ timing)
              */
@@ -2347,8 +2351,21 @@ drwrap_after_callee(app_pc retaddr, reg_t xsp)
 }
 
 static void
+drwrap_after_callee_cleanup_only(app_pc retaddr, reg_t xsp)
+{
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    /* To reduce overhead for non-drbbdup cases we avoid an extra arg to a common
+     * routine and keep the cost purely on this path.
+     */
+    pt->cleanup_only = true;
+    drwrap_after_callee(retaddr, xsp);
+    pt->cleanup_only = false;
+}
+
+static void
 drwrap_insert_post_call(void *drcontext, instrlist_t *bb, instr_t *where,
-                        app_pc pc_as_jmp_target)
+                        app_pc pc_as_jmp_target, bool cleanup_only)
 {
     /* XXX: for DRWRAP_FAST_CLEANCALLS we must preserve state b/c
      * our post-call points can be reached through non-return paths.
@@ -2359,19 +2376,14 @@ drwrap_insert_post_call(void *drcontext, instrlist_t *bb, instr_t *where,
     dr_cleancall_save_t flags =
         DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
     NOTIFY(2, "drwrap inserting post-call cb at " PFX "\n", pc_as_jmp_target);
-    dr_insert_clean_call_ex(drcontext, bb, where, (void *)drwrap_after_callee, flags, 2,
-                            /* i#1689: retaddrs do have LSB=1 */
-                            OPND_CREATE_INTPTR((ptr_int_t)pc_as_jmp_target),
-                            /* pass in xsp to avoid dr_get_mcontext */
-                            opnd_create_reg(DR_REG_XSP));
-}
-
-static dr_emit_flags_t
-drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                         bool translating, OUT void **user_data)
-{
-    /* nothing to do */
-    return DR_EMIT_DEFAULT;
+    dr_insert_clean_call_ex(
+        drcontext, bb, where,
+        (void *)(cleanup_only ? drwrap_after_callee_cleanup_only : drwrap_after_callee),
+        flags, 2,
+        /* i#1689: retaddrs do have LSB=1 */
+        OPND_CREATE_INTPTR((ptr_int_t)pc_as_jmp_target),
+        /* pass in xsp to avoid dr_get_mcontext */
+        opnd_create_reg(DR_REG_XSP));
 }
 
 /* This version takes a separate "instr" and "where" for use with drbbdup.
@@ -2383,7 +2395,7 @@ drwrap_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 static dr_emit_flags_t
 drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                              instr_t *where, bool for_trace, bool translating,
-                             void *user_data)
+                             void *user_data, bool cleanup_only)
 {
     dr_emit_flags_t res = DR_EMIT_DEFAULT;
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr
@@ -2396,41 +2408,43 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
     app_pc pc =
         dr_app_pc_as_jump_target(instr_get_isa_mode(inst), instr_get_app_pc(inst));
 
-    /* Strategy: for the pre-hook, do not insert at the call site but rather wait for
-     * the callee.  For the post-hook, record the post-call site when we see the
-     * call instruction, and additionally record the actual retaddr when in the
-     * callee. By doing both we minimize flushes from the return point having already
-     * been reached before the callee hook can mark it.
-     */
-    dr_recurlock_lock(wrap_lock);
-    wrap = hashtable_lookup(&wrap_table, (void *)pc);
-    if (wrap != NULL) {
-        void *arg1 = TEST(DRWRAP_NO_FRILLS, global_flags) ? (void *)wrap : (void *)pc;
-        /* i#690: do not bother saving registers that should be scratch at
-         * function entry, if requested by user.
-         * I considered building a custom context switch but that would require
-         * having DR expose PEB/TEB swapping code and duplicating
-         * stack alignment code; plus, skipping preservation was already
-         * mostly in place for clean call auto opt.
+    if (!cleanup_only) {
+        /* Strategy: for the pre-hook, do not insert at the call site but rather wait for
+         * the callee.  For the post-hook, record the post-call site when we see the
+         * call instruction, and additionally record the actual retaddr when in the
+         * callee. By doing both we minimize flushes from the return point having already
+         * been reached before the callee hook can mark it.
          */
-        dr_cleancall_save_t flags = TEST(DRWRAP_FAST_CLEANCALLS, global_flags)
-            ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
-            : 0;
-        flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
-        dr_insert_clean_call_ex(drcontext, bb, where, (void *)drwrap_in_callee, flags,
-                                IF_X86_ELSE(2, 3), OPND_CREATE_INTPTR((ptr_int_t)arg1),
-                                /* pass in xsp to avoid dr_get_mcontext */
-                                opnd_create_reg(DR_REG_XSP)
-                                    _IF_NOT_X86(opnd_create_reg(DR_REG_LR)));
+        dr_recurlock_lock(wrap_lock);
+        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+        if (wrap != NULL) {
+            void *arg1 = TEST(DRWRAP_NO_FRILLS, global_flags) ? (void *)wrap : (void *)pc;
+            /* i#690: do not bother saving registers that should be scratch at
+             * function entry, if requested by user.
+             * I considered building a custom context switch but that would require
+             * having DR expose PEB/TEB swapping code and duplicating
+             * stack alignment code; plus, skipping preservation was already
+             * mostly in place for clean call auto opt.
+             */
+            dr_cleancall_save_t flags = TEST(DRWRAP_FAST_CLEANCALLS, global_flags)
+                ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
+                : 0;
+            flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
+            dr_insert_clean_call_ex(
+                drcontext, bb, where, (void *)drwrap_in_callee, flags, IF_X86_ELSE(2, 3),
+                OPND_CREATE_INTPTR((ptr_int_t)arg1),
+                /* pass in xsp to avoid dr_get_mcontext */
+                opnd_create_reg(DR_REG_XSP) _IF_NOT_X86(opnd_create_reg(DR_REG_LR)));
+        }
+        dr_recurlock_unlock(wrap_lock);
     }
-    dr_recurlock_unlock(wrap_lock);
 
     if (post_call_lookup_for_instru(instr_get_app_pc(inst) /*normalized*/)) {
-        drwrap_insert_post_call(drcontext, bb, where, pc);
+        drwrap_insert_post_call(drcontext, bb, where, pc, cleanup_only);
     }
 
     if (dr_fragment_app_pc(tag) == (app_pc)replace_retaddr_sentinel) {
-        drwrap_insert_post_call(drcontext, bb, where, pc);
+        drwrap_insert_post_call(drcontext, bb, where, pc, cleanup_only);
         /* The post-call C code put the real retaddr into the DR slot that will be
          * used by dr_redirect_native_target().
          */
@@ -2473,7 +2487,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     ASSERT(!TEST(DRWRAP_INVERT_CONTROL, global_flags),
            "should not get here if DRWRAP_INVERT_CONTROL is set");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, inst, for_trace,
-                                        translating, user_data);
+                                        translating, user_data, /*cleanup_only=*/false);
 }
 
 static void

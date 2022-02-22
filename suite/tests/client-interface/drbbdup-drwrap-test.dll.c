@@ -61,30 +61,29 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     return 0;                         /* return default case */
 }
 
+static void
+switch_modes(void)
+{
+    case_encoding = (case_encoding == 0) ? 1 : 0;
+    dr_fprintf(STDERR, "switching to instrumentation mode %d\n", case_encoding);
+}
+
 static dr_emit_flags_t
 event_analyse_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, uintptr_t encoding, void *user_data,
                    void *orig_analysis_data, void **case_analysis_data)
 {
-    if (encoding == 0) {
-        int consec_nop_count = 0;
-        for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
-             inst = instr_get_next_app(inst)) {
-            if (instr_get_opcode(inst) == OP_nop)
-                ++consec_nop_count;
-            else {
-                if (consec_nop_count == 4) {
-                    /* Time to switch modes. */
-                    case_encoding = 1;
-                }
-                consec_nop_count = 0;
+    int consec_nop_count = 0;
+    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
+         inst = instr_get_next_app(inst)) {
+        if (instr_get_opcode(inst) == OP_nop)
+            ++consec_nop_count;
+        else {
+            if (consec_nop_count >= 4) {
+                dr_insert_clean_call(drcontext, bb, inst, switch_modes, false, 0);
             }
+            consec_nop_count = 0;
         }
-        return DR_EMIT_DEFAULT;
-    }
-    if (encoding == 1) {
-        return drwrap_invoke_analysis(drcontext, tag, bb, for_trace, translating,
-                                      case_analysis_data);
     }
     return DR_EMIT_DEFAULT;
 }
@@ -95,26 +94,29 @@ event_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
                        uintptr_t encoding, void *user_data, void *orig_analysis_data,
                        void *case_analysis_data)
 {
-    if (encoding == 1) {
+    if (encoding == 0) {
         return drwrap_invoke_insert(drcontext, tag, bb, instr, where, for_trace,
                                     translating, case_analysis_data);
     }
-    return DR_EMIT_DEFAULT;
+    return drwrap_invoke_insert_cleanup_only(drcontext, tag, bb, instr, where, for_trace,
+                                             translating, case_analysis_data);
 }
 
 static void
 wrap_pre(void *wrapcxt, OUT void **user_data)
 {
-    bool ok;
+    dr_fprintf(STDERR, "in wrap_pre\n");
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
-    ok = drwrap_set_arg(wrapcxt, 0, (void *)42);
-    CHECK(ok, "set_arg error");
+    if (drwrap_get_arg(wrapcxt, 0) == (void *)2) {
+        bool ok = drwrap_set_arg(wrapcxt, 0, (void *)42);
+        CHECK(ok, "set_arg error");
+    }
 }
 
 static void
 wrap_post(void *wrapcxt, void *user_data)
 {
-    /* Nothing yet. */
+    dr_fprintf(STDERR, "in wrap_post\n");
 }
 
 static void
@@ -125,7 +127,12 @@ event_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         return;
     app_pc target = (app_pc)dr_get_proc_address(mod->handle, "wrapme");
     CHECK(target != NULL, "cannot find lib export");
-    bool res = drwrap_wrap(target, wrap_pre, wrap_post);
+    int flags = 0;
+#if 0 /* TODO i#5356: Enable once drbbdup handles the no-app-pc sentinel block. */
+    /* We test the hard-to-handle retaddr-replacing scheme. */
+    flags |= DRWRAP_REPLACE_RETADDR;
+#endif
+    bool res = drwrap_wrap_ex(target, wrap_pre, wrap_post, NULL, flags);
     CHECK(res, "wrap failed");
 }
 

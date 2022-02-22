@@ -130,6 +130,8 @@ changes:
 
 Further non-compatibility-affecting changes include:
  - Added new fields analyze_case_ex and instrument_instr_ex to #drbbdup_options_t.
+ - Added drbbdup support to drwrap via #DRWRAP_INVERT_CONTROL, drwrap_invoke_insert(),
+   and drwrap_invoke_insert_cleanup_only().
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
