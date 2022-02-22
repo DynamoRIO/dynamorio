@@ -75,7 +75,7 @@
         }                                  \
     } while (0)
 
-static online_instru_t instru(NULL, false, NULL);
+static online_instru_t instru(NULL, NULL, false, NULL);
 
 int
 trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
