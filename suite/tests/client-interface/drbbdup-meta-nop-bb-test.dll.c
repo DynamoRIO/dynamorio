@@ -61,7 +61,6 @@ static uintptr_t encode_val = 3;
 static bool
 is_meta_nop(instr_t *meta_nop_instr)
 {
-
     if (meta_nop_instr == NULL)
         return false;
 
@@ -71,7 +70,6 @@ is_meta_nop(instr_t *meta_nop_instr)
 static bool
 is_meta_bb(instrlist_t *bb)
 {
-
     /* A meta bb should only contain meta instructions (i.e., no app instructions). */
     if (instrlist_first_app(bb) != NULL)
         return false;
@@ -87,16 +85,15 @@ static dr_emit_flags_t
 remove_app_instr(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating)
 {
-
     instr_t *first_instr = instrlist_first_app(bb);
-    CHECK(instr_get_next(first_instr) == NULL, "Must just be 1 instr");
+    CHECK(instr_get_next(first_instr) == NULL, "must just be 1 instr");
 
     /* Remove app instruction and instead add a meta nop. */
     if (instr_is_nop(first_instr)) {
         instrlist_meta_preinsert(bb, first_instr, XINST_CREATE_nop(drcontext));
         instrlist_remove(bb, first_instr);
         instr_destroy(drcontext, first_instr);
-        CHECK(is_meta_bb(bb), "Now must be a meta block");
+        CHECK(is_meta_bb(bb), "now must be a meta block");
         is_cur_all_meta = true;
     } else {
         is_cur_all_meta = false; /* note, current block is not a meta block. */
@@ -129,7 +126,6 @@ static void
 orig_analyse_bb(void *drcontext, void *tag, instrlist_t *bb, void *user_data,
                 void **orig_analysis_data)
 {
-
     if (is_cur_all_meta)
         CHECK(is_meta_bb(bb), "should be all meta");
 
@@ -140,7 +136,6 @@ orig_analyse_bb(void *drcontext, void *tag, instrlist_t *bb, void *user_data,
 static void
 destroy_orig_analysis(void *drcontext, void *user_data, void *orig_analysis_data)
 {
-
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
     orig_analysis_destroy_called = true;
 }
@@ -221,7 +216,6 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  instr_t *where, bool for_trace, bool translating, uintptr_t encoding,
                  void *user_data, void *orig_analysis_data, void *analysis_data)
 {
-
     bool is_first, is_first_nonlabel, is_last;
     drbbdup_status_t res;
 

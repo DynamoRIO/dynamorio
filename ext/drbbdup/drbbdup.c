@@ -1541,7 +1541,8 @@ drbbdup_handle_new_case()
     /* Scratch register holds the tag. */
     void *tag = (void *)reg_get_value(DRBBDUP_SCRATCH_REG, &mcontext);
 
-    app_pc pc = dr_fragment_app_pc(tag);
+    instrlist_t *ilist = decode_as_bb(drcontext, dr_fragment_app_pc(tag));
+    app_pc pc = instr_get_app_pc(drbbdup_first_app(ilist));
     ASSERT(pc != NULL, "pc cannot be NULL");
 
     bool do_flush = false;
