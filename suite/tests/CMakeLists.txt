@@ -2609,6 +2609,21 @@ if (X86 AND UNIX)
     client.drbbdup-meta-nop-bb-test.dll client-interface/drbbdup-meta-nop-bb-test.asm "" "-max_bb_instrs 0" "")
 endif (X86 AND UNIX)
 
+if (X86 AND UNIX)
+  add_exe(client.drbbdup-empty-bb-test client-interface/drbbdup-empty-bb-test.asm)
+  set_target_properties(client.drbbdup-empty-bb-test PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(client.drbbdup-empty-bb-test "-nostartfiles -nodefaultlibs -static")
+
+  add_library(client.drbbdup-empty-bb-test.dll SHARED  client-interface/drbbdup-empty-bb-test.dll.c)
+  setup_test_client_dll_basics(client.drbbdup-empty-bb-test.dll)
+  use_DynamoRIO_extension(client.drbbdup-empty-bb-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-empty-bb-test.dll drreg)
+  use_DynamoRIO_extension(client.drbbdup-empty-bb-test.dll drbbdup)
+
+  torunonly_ci(client.drbbdup-empty-bb-test client.drbbdup-empty-bb-test
+    client.drbbdup-empty-bb-test.dll client-interface/drbbdup-empty-bb-test.asm "" "-max_bb_instrs 0" "")
+endif (X86 AND UNIX)
+
 tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
