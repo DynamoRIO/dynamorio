@@ -883,7 +883,8 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data);
 
-/* This version takes a separate "instr" and "where", + cleanup_only, for drbbdup use. */
+/* This version takes a separate "instr" and "where", and cleanup_only, for drbbdup use.
+ */
 static dr_emit_flags_t
 drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                              instr_t *where, bool for_trace, bool translating,
@@ -1144,7 +1145,7 @@ drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                      instr_t *where, bool for_trace, bool translating, void *user_data)
 {
     ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
-           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_insert");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
                                         translating, user_data, /*cleanup_only=*/false);
 }
@@ -1156,7 +1157,7 @@ drwrap_invoke_insert_cleanup_only(void *drcontext, void *tag, instrlist_t *bb,
                                   bool translating, void *user_data)
 {
     ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
-           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_app2app");
+           "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_insert_cleanup_only");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
                                         translating, user_data, /*cleanup_only=*/true);
 }

@@ -804,7 +804,7 @@ typedef enum {
     /**
      * This flag must only be set before calling drwrap_init().  If set, drwrap will not
      * register for the drmgr insertion event.  The user must instead explicitly invoke
-     * drwrap_invoke_insert() or and drwrap_invoke_insert_cleanup_only() from its own
+     * drwrap_invoke_insert() and drwrap_invoke_insert_cleanup_only() from its own
      * handler for the insertion event.  This "inverted control" mode is provided for
      * better compatibility with drbbdup where the user wishes to only perform wrapping
      * in a subset of the drbbdup cases.  For cases where wrapping should occur,
@@ -824,6 +824,8 @@ typedef enum {
 DR_EXPORT
 /**
  * Sets flags that affect the global behavior of the drwrap module.
+ * This adds the passed-in \p flags to the current set of flags;
+ * it does not remove flags.
  * This can be called at any time and it will affect future behavior.
  * \return whether the flags were changed.
  */
