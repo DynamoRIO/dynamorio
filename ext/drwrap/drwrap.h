@@ -99,6 +99,7 @@ DR_EXPORT
  * instruction (which cannot be duplicated into each case) or with
  * emulation where the instruction "inst" to monitor is distinct from
  * the location "where" to insert instrumentation.
+ * The \p user_data parameter is ignored.
  */
 dr_emit_flags_t
 drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
@@ -118,6 +119,7 @@ DR_EXPORT
  * instruction (which cannot be duplicated into each case) or with
  * emulation where the instruction "inst" to monitor is distinct from
  * the location "where" to insert instrumentation.
+ * The \p user_data parameter is ignored.
  */
 dr_emit_flags_t
 drwrap_invoke_insert_cleanup_only(void *drcontext, void *tag, instrlist_t *bb,
