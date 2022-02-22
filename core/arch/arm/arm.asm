@@ -40,7 +40,7 @@ START_FILE
 
 DECL_EXTERN(dynamorio_app_take_over_helper)
 #if defined(UNIX)
-DECL_EXTERN(master_signal_handler_C)
+DECL_EXTERN(main_signal_handler_C)
 DECL_EXTERN(dr_setjmp_sigmask)
 #endif
 DECL_EXTERN(relocate_dynamorio)
@@ -545,17 +545,17 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #ifndef HAVE_SIGALTSTACK
 # error NYI
 #endif
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
         mov      ARG4, sp /* pass as extra arg */
         /* i#2107: we repeat the mov to work around odd behavior on Android
          * where sometimes the kernel sends control to the 2nd instruction here.
          */
         mov      ARG4, sp /* pass as extra arg */
-        b        GLOBAL_REF(master_signal_handler_C)
-        /* master_signal_handler_C will do the ret */
+        b        GLOBAL_REF(main_signal_handler_C)
+        /* main_signal_handler_C will do the ret */
         bl       GLOBAL_REF(unexpected_return)
-        END_FUNC(master_signal_handler)
+        END_FUNC(main_signal_handler)
 
 #endif /* LINUX */
 

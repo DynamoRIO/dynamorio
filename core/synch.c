@@ -2248,7 +2248,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
         dynamo_thread_exit_pre_client(my_dcontext, my_tr->id);
     }
 
-    LOG(GLOBAL, LOG_ALL, 1, "Detach: Letting slave threads go native\n");
+    LOG(GLOBAL, LOG_ALL, 1, "Detach: Letting secondary threads go native\n");
 #ifdef WINDOWS
     global_heap_free(cleanup_tpc, num_threads * sizeof(bool) HEAPACCT(ACCT_OTHER));
     /* XXX: there's a possible race if a thread waiting at APC is still there

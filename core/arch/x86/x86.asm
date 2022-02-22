@@ -165,7 +165,7 @@ DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)
 DECL_EXTERN(nt_continue_setup)
 #if defined(UNIX)
-DECL_EXTERN(master_signal_handler_C)
+DECL_EXTERN(main_signal_handler_C)
 #endif
 #ifdef MACOS
 DECL_EXTERN(new_bsdthread_setup)
@@ -1423,18 +1423,18 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
 /* We used to get the SP by taking the address of our args, but that doesn't
  * work on x64 nor with other compilers.  Today we use asm to pass in the
  * initial SP.  For x64, we add a 4th register param and tail call to
- * master_signal_handler_C.  Adding a param and doing a tail call on ia32 is
+ * main_signal_handler_C.  Adding a param and doing a tail call on ia32 is
  * hard, so we make a real call and pass only xsp.  The C routine uses it to
  * read the original params.
  * See also PR 305020.
  */
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
 #ifdef X64
 # ifdef LINUX
         mov      ARG4, REG_XSP /* pass as extra arg */
-        jmp      GLOBAL_REF(master_signal_handler_C)
-        /* master_signal_handler_C will do the ret */
+        jmp      GLOBAL_REF(main_signal_handler_C)
+        /* main_signal_handler_C will do the ret */
 # else /* MACOS */
         mov      rax, REG_XSP /* save for extra arg */
         push     ARG2 /* infostyle */
@@ -1442,7 +1442,7 @@ GLOBAL_LABEL(master_signal_handler:)
         push     ARG6 /* token */
         /* rsp is now aligned again */
         mov      ARG6, rax /* pass as extra arg */
-        CALLC0(GLOBAL_REF(master_signal_handler_C))
+        CALLC0(GLOBAL_REF(main_signal_handler_C))
         /* Set up args to SYS_sigreturn */
         pop      ARG3 /* token */
         pop      ARG1 /* ucxt */
@@ -1455,7 +1455,7 @@ GLOBAL_LABEL(master_signal_handler:)
          * intermediate frame.
          */
         mov      REG_XAX, REG_XSP
-        CALLC1_FRESH(GLOBAL_REF(master_signal_handler_C), REG_XAX)
+        CALLC1_FRESH(GLOBAL_REF(main_signal_handler_C), REG_XAX)
 # ifdef MACOS
         mov      eax, ARG5 /* ucxt */
         /* Set up args to SYS_sigreturn, skipping the retaddr slot */
@@ -1466,7 +1466,7 @@ GLOBAL_LABEL(master_signal_handler:)
         ret
 # endif
 #endif
-        END_FUNC(master_signal_handler)
+        END_FUNC(main_signal_handler)
 
 #else /* !HAVE_SIGALTSTACK */
 
@@ -1480,8 +1480,8 @@ GLOBAL_LABEL(master_signal_handler:)
  * of a C routine: have to fix up locals + frame ptr, or jmp to start of
  * func and clobber callee-saved regs (which messes up vmkernel sigreturn).
  */
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
         mov      REG_XAX, ARG1
         mov      REG_XCX, ARG2
         mov      REG_XDX, ARG3
@@ -1542,7 +1542,7 @@ no_swap:
         pop      ARG2
         pop      ARG1
         mov      rcx, rsp /* pass as 4th arg */
-        jmp      GLOBAL_REF(master_signal_handler_C)
+        jmp      GLOBAL_REF(main_signal_handler_C)
         /* can't return, no retaddr */
 # else
         add      REG_XSP, 3*ARG_SZ
@@ -1550,10 +1550,10 @@ no_swap:
          * intermediate frame.
          */
         mov      REG_XAX, REG_XSP
-        CALLC1(GLOBAL_REF(master_signal_handler_C), REG_XAX)
+        CALLC1(GLOBAL_REF(main_signal_handler_C), REG_XAX)
         ret
 # endif
-        END_FUNC(master_signal_handler)
+        END_FUNC(main_signal_handler)
 #endif /* !HAVE_SIGALTSTACK */
 
 #ifdef LINUX

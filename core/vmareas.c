@@ -199,7 +199,7 @@ typedef struct vm_area_t {
      * hardcoding of individual uses will go away.
      */
     union {
-        /* Used in per-thread and shared vectors, not in master area lists.
+        /* Used in per-thread and shared vectors, not in main area lists.
          * We identify vectors using this via VECTOR_FRAGMENT_LIST, needed
          * b/c {add,remove}_vm_area have special behavior for frags.
          */
