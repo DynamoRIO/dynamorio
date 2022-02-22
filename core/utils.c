@@ -866,7 +866,7 @@ d_r_mutex_lock_app(mutex_t *lock, priv_mcontext_t *mc)
                when the lock->lock_requests > 0 (which means that at least one thread is
                already blocked).  And of course, we also break if it is LOCK_FREE_STATE.
             */
-            if (lock->lock_requests != LOCK_SET_STATE) {
+            if (atomic_aligned_read_int(&lock->lock_requests) != LOCK_SET_STATE) {
 #ifdef DEADLOCK_AVOIDANCE
                 lock->count_times_spin_only++;
 #endif
@@ -988,6 +988,7 @@ d_r_mutex_mark_as_app(mutex_t *lock)
 static inline void
 own_recursive_lock(recursive_lock_t *lock)
 {
+    ASSERT(OWN_MUTEX(&lock->lock));
     ASSERT(lock->owner == INVALID_THREAD_ID);
     ASSERT(lock->count == 0);
     lock->owner = d_r_get_thread_id();
@@ -1002,8 +1003,7 @@ acquire_recursive_app_lock(recursive_lock_t *lock, priv_mcontext_t *mc)
        busy try_lock
     */
 
-    /* ASSUMPTION: reading owner field is atomic */
-    if (lock->owner == d_r_get_thread_id()) {
+    if (ATOMIC_READ_THREAD_ID(&lock->owner) == d_r_get_thread_id()) {
         lock->count++;
     } else {
         d_r_mutex_lock_app(&lock->lock, mc);
@@ -1021,8 +1021,7 @@ acquire_recursive_lock(recursive_lock_t *lock)
 bool
 try_recursive_lock(recursive_lock_t *lock)
 {
-    /* ASSUMPTION: reading owner field is atomic */
-    if (lock->owner == d_r_get_thread_id()) {
+    if (ATOMIC_READ_THREAD_ID(&lock->owner) == d_r_get_thread_id()) {
         lock->count++;
     } else {
         if (!d_r_mutex_trylock(&lock->lock))
@@ -1035,6 +1034,7 @@ try_recursive_lock(recursive_lock_t *lock)
 void
 release_recursive_lock(recursive_lock_t *lock)
 {
+    ASSERT(OWN_MUTEX(&lock->lock));
     ASSERT(lock->owner == d_r_get_thread_id());
     ASSERT(lock->count > 0);
     lock->count--;
@@ -1047,8 +1047,7 @@ release_recursive_lock(recursive_lock_t *lock)
 bool
 self_owns_recursive_lock(recursive_lock_t *lock)
 {
-    /* ASSUMPTION: reading owner field is atomic */
-    return (lock->owner == d_r_get_thread_id());
+    return (ATOMIC_READ_THREAD_ID(&lock->owner) == d_r_get_thread_id());
 }
 
 /* Read write locks */
@@ -1121,6 +1120,7 @@ d_r_read_lock(read_write_lock_t *rw)
                  * FIXME: we could also reorganize this check so that it is done only once
                  * instead of in the loop body but it doesn't seem wortwhile
                  */
+                /* We have the lock so we do not need a load-acquire. */
                 if (rw->writer == d_r_get_thread_id()) {
                     /* we would share the code below but we do not want
                      * the deadlock avoidance to consider this an acquire
@@ -1155,6 +1155,7 @@ d_r_read_lock(read_write_lock_t *rw)
              * Update: linux d_r_get_thread_id() now calls get_tls_thread_id()
              * and avoids the syscall (xref PR 473640).
              */
+            /* We have the lock so we do not need a load-acquire. */
             if (rw->writer == d_r_get_thread_id()) {
                 /* we would share the code below but we do not want
                  * the deadlock avoidance to consider this an acquire
@@ -1224,6 +1225,7 @@ d_r_write_lock(read_write_lock_t *rw)
      */
     if (INTERNAL_OPTION(spin_yield_rwlock)) {
         d_r_mutex_lock(&rw->lock);
+        /* We have the lock so we do not need a load-acquire. */
         while (rw->num_readers > 0) {
             /* contended write */
             DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
@@ -1251,6 +1253,7 @@ d_r_write_trylock(read_write_lock_t *rw)
 {
     if (d_r_mutex_trylock(&rw->lock)) {
         ASSERT_NOT_TESTED();
+        /* We have the lock so we do not need a load-acquire. */
         if (rw->num_readers == 0) {
             rw->writer = d_r_get_thread_id();
             return true;
@@ -1260,7 +1263,7 @@ d_r_write_trylock(read_write_lock_t *rw)
                that one may already be waiting on the broadcast event */
             d_r_mutex_unlock(&rw->lock);
             /* check whether any reader is currently waiting */
-            if (rw->num_pending_readers > 0) {
+            if (atomic_aligned_read_int(&rw->num_pending_readers) > 0) {
                 /* after we've released the write lock, pending
                  * readers will no longer wait
                  */
@@ -1291,6 +1294,7 @@ d_r_read_unlock(read_write_lock_t *rw)
         /* if the writer is waiting it definitely needs to hold the mutex */
         if (mutex_testlock(&rw->lock)) {
             /* test that it was not this thread owning both write and read lock */
+            /* We have the lock so we do not need a load-acquire. */
             if (rw->writer != d_r_get_thread_id()) {
                 /* we're assuming the writer has been forced to wait,
                    but since we can't tell whether it did indeed wait this
@@ -1332,7 +1336,7 @@ d_r_write_unlock(read_write_lock_t *rw)
     */
     d_r_mutex_unlock(&rw->lock);
     /* check whether any reader is currently waiting */
-    if (rw->num_pending_readers > 0) {
+    if (atomic_aligned_read_int(&rw->num_pending_readers) > 0) {
         /* after we've released the write lock, pending readers will no longer wait */
         rwlock_notify_readers(rw);
     }
@@ -1341,8 +1345,7 @@ d_r_write_unlock(read_write_lock_t *rw)
 bool
 self_owns_write_lock(read_write_lock_t *rw)
 {
-    /* ASSUMPTION: reading owner field is atomic */
-    return (rw->writer == d_r_get_thread_id());
+    return (ATOMIC_READ_THREAD_ID(&rw->writer) == d_r_get_thread_id());
 }
 
 /****************************************************************************/

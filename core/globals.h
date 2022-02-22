@@ -298,6 +298,7 @@ typedef struct _thread_record_t {
 #endif
 
 #include "heap.h"
+#include "options_struct.h"
 #include "utils.h"
 #include "options.h"
 #include "os_exports.h"

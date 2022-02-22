@@ -416,7 +416,7 @@ typedef struct _fragment_entry_t {
 /* Flags stored in {fragment,ibl}_table_t->flags bitfield
  */
 /* Indicates that fragment entries are shared between multiple tables in an
- * inclusive hierarchical fashion, so only removal from the master table (which
+ * inclusive hierarchical fashion, so only removal from the main table (which
  * is not so marked) will result in fragment deletion. Used primarily for
  * IBL targeted tables
  */

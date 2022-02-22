@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -1427,13 +1427,21 @@ static const redirect_import_t redirect_imports[] = {
     { "free", (app_pc)redirect_free },
     { "realloc", (app_pc)redirect_realloc },
     { "strdup", (app_pc)redirect_strdup },
-/* TODO i#4243: we should also redirect functions including:
- * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
- * + tcmalloc: tc_malloc, tc_free, etc.
- * + __libc_malloc, __libc_free, etc.
- * + OSX: malloc_zone_malloc, etc.?  Or just malloc_create_zone?
- * + C++ operators in case they don't just call libc malloc?
- */
+    /* TODO i#4243: we should also redirect functions including:
+     * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
+     * + tcmalloc: tc_malloc, tc_free, etc.
+     * + __libc_malloc, __libc_free, etc.
+     * + OSX: malloc_zone_malloc, etc.?  Or just malloc_create_zone?
+     * + C++ operators in case they don't just call libc malloc?
+     */
+    /* We redirect these for fd isolation. */
+    { "open", (app_pc)os_open_protected },
+    { "close", (app_pc)os_close_protected },
+    /* These libc routines can call pthread functions and cause hangs (i#4928) so
+     * we use our syscall wrappers instead.
+     */
+    { "read", (app_pc)os_read },
+    { "write", (app_pc)os_write },
 #if defined(LINUX) && !defined(ANDROID)
     { "__tls_get_addr", (app_pc)redirect___tls_get_addr },
     { "___tls_get_addr", (app_pc)redirect____tls_get_addr },

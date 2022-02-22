@@ -34,15 +34,15 @@
 ##
 ## Nightly regression suite script for linux
 ##
-## This is the slave script that assumes someone has set up the latest
+## This is the worker script that assumes someone has set up the latest
 ## suite, src, and tools modules.  This script then runs the regression
 ## tests and creates a file for emailing but does not email it.
-## That allows the master to have the option of running this script remotely
+## That allows the manager to have the option of running this script remotely
 ## and doing the cvs update and emailing itself instead of the remote host,
 ## or simply running on the local machine.
 ##
 ## ASSUMPTION: you've already checked out spec2kdata, and that the symlinks
-## from the master will work here (make them local!)
+## from the manager will work here (make them local!)
 
 summaryscript="./utreport.pl"
 
