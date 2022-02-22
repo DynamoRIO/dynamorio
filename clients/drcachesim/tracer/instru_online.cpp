@@ -41,10 +41,16 @@
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 
+#define MAX_IMM_DISP_STUR 255
+
 online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *,
                                                          reg_id_t),
+                                 void (*insert_update_buf_ptr)(void *, instrlist_t *,
+                                                               instr_t *, reg_id_t,
+                                                               dr_pred_type_t, int),
                                  bool memref_needs_info, drvector_t *reg_vector)
     : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(trace_entry_t))
+    , insert_update_buf_ptr_(insert_update_buf_ptr)
 {
 }
 
@@ -318,7 +324,21 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   int adjust, instr_t *app)
 {
     bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
-
+#ifdef AARCH64
+    // Update the trace buffer pointer if we are about to exceed the maximum
+    // immediate displacement allowed by OP_stur. As sizeof(trace_entry_t) = 12,
+    // every other entry in the trace buffer will have an addr field whose
+    // address is not 8-byte aligned. Therefore, we will have to use OP_stur.
+    // Note that we need this handling here only for instrument_instr. In some
+    // cases, tracer.cpp delays instrument_instr for instructions that do not
+    // have any memref. When it actually does it, the trace entries for many
+    // instructions are written together, which may cause us to exceed the
+    // MAX_IMM_DISP_STUR.
+    if (adjust + sizeof(trace_entry_t) > MAX_IMM_DISP_STUR) {
+        insert_update_buf_ptr_(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
+        adjust = 0;
+    }
+#endif
     DR_ASSERT(instr_is_app(app));
     app_pc pc = instr_get_app_pc(app);
     reg_id_t reg_tmp;

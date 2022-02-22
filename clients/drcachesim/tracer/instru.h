@@ -298,6 +298,8 @@ private:
 class online_instru_t : public instru_t {
 public:
     online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
+                    void (*insert_update_buf_ptr)(void *, instrlist_t *, instr_t *,
+                                                  reg_id_t, dr_pred_type_t, int),
                     bool memref_needs_info, drvector_t *reg_vector);
     virtual ~online_instru_t();
 
@@ -354,6 +356,10 @@ private:
     insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
                               reg_id_t base, reg_id_t scratch, ushort type, ushort size,
                               int adjust);
+
+protected:
+    void (*insert_update_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t,
+                                   dr_pred_type_t, int);
 };
 
 class offline_instru_t : public instru_t {
