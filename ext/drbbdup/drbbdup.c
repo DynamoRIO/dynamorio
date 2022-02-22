@@ -376,7 +376,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      * This is done so that we do not copy such instructions and abide by DR rules.
      */
     instr_t *last = instrlist_last_app(original);
-    if (last != NULL && drbbdup_is_special_instr(last)) {
+    if (drbbdup_is_special_instr(last)) {
         instrlist_remove(original, last);
         instr_destroy(drcontext, last);
     }
@@ -441,11 +441,10 @@ static dr_emit_flags_t
 drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         bool translating)
 {
-    drbbdup_manager_t *manager = NULL;
-
     dr_rwlock_write_lock(rw_lock);
 
-    manager = (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
+    drbbdup_manager_t *manager =
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
 
     if (!for_trace && !translating && manager != NULL && !manager->is_gen) {
         /* Remove existing invalid book-keeping data. */
@@ -506,7 +505,6 @@ drbbdup_is_at_label(instr_t *check_instr, drbbdup_label_t label)
     /* Notes are inspected to check whether the label is relevant to drbbdup. */
     drbbdup_label_t actual_label =
         (drbbdup_label_t)(uintptr_t)instr_get_note(check_instr);
-
     return actual_label == label;
 }
 
@@ -1257,6 +1255,8 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
 
     instr_t *last = instrlist_last_app(bb);
+    /* We invoke drbbdup_is_at_end() to ensure we do not consider drbbdup inserted jumps.
+     */
     bool is_last_special = drbbdup_is_special_instr(last) && !drbbdup_is_at_end(last);
 
     /* Insert runtime case encoding at start. */
@@ -1431,7 +1431,6 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         pt->case_index = DRBBDUP_DEFAULT_INDEX;
 
     dr_rwlock_read_lock(rw_lock);
-
     drbbdup_manager_t *manager =
         (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
@@ -1542,8 +1541,7 @@ drbbdup_handle_new_case()
     /* Scratch register holds the tag. */
     void *tag = (void *)reg_get_value(DRBBDUP_SCRATCH_REG, &mcontext);
 
-    instrlist_t *ilist = decode_as_bb(drcontext, dr_fragment_app_pc(tag));
-    app_pc pc = instr_get_app_pc(drbbdup_first_app(ilist));
+    app_pc pc = dr_fragment_app_pc(tag);
     ASSERT(pc != NULL, "pc cannot be NULL");
 
     bool do_flush = false;

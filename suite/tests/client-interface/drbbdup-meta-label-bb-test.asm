@@ -31,7 +31,6 @@
  */
 
 .global _start
-
 _start:
     or eax,eax
     nop
