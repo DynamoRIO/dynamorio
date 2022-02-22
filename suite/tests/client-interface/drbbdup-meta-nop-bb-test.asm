@@ -30,14 +30,18 @@
  * DAMAGE.
  */
 
-.global _start
+.text
+.globl _start
+.type _start, @function
+
+        .align   8
 _start:
-    or eax,eax
-    nop
-    nop
-    nop
-    mov eax, 1
-    nop
-    xor edx, edx
-    nop
-    int 0x80
+        or eax,eax
+        nop
+        nop
+        nop
+        mov eax, 1
+        nop
+        xor edx, edx
+        nop
+        int 0x80
