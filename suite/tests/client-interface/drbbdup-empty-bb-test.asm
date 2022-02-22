@@ -30,12 +30,10 @@
  * DAMAGE.
  */
 
-.text
-.globl _start
-.type _start, @function
+.section .text
+        .global main
 
-        .align   8
-_start:
+main:
         or eax,eax
         nop
         nop
