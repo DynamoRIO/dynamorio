@@ -272,8 +272,8 @@ handle_app_brk(dcontext_t *dcontext, byte *lowest_brk /*if known*/, byte *old_br
 static char dynamorio_library_path[MAXIMUM_PATH]; /* just dir */
 static char dynamorio_library_filepath[MAXIMUM_PATH];
 /* Issue 20: path to other architecture */
-static char dynamorio_alt_arch_path[MAXIMUM_PATH];
-static char dynamorio_alt_arch_filepath[MAXIMUM_PATH]; /* just dir */
+static char dynamorio_alt_arch_path[MAXIMUM_PATH]; /* just dir */
+static char dynamorio_alt_arch_filepath[MAXIMUM_PATH];
 /* Makefile passes us LIBDIR_X{86,64} defines */
 #define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
 #define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
@@ -5533,8 +5533,10 @@ static const char *const env_to_propagate[] = {
     DYNAMORIO_VAR_EXECVE_LOGDIR,
     /* i#909: needed for early injection */
     DYNAMORIO_VAR_EXE_PATH,
-    /* these will only be propagated if they exist */
+    /* These will only be propagated if they exist: */
     DYNAMORIO_VAR_CONFIGDIR,
+    DYNAMORIO_VAR_AUTOINJECT,
+    DYNAMORIO_VAR_ALTINJECT,
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate) / sizeof(env_to_propagate[0]))
 
@@ -5879,11 +5881,13 @@ handle_execve(dcontext_t *dcontext)
      * in fs/exec.c:
      *  int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs)
      */
-    /* We need to make sure we get injected into the new image:
+    /* We need to make sure we get injected into the new image.
+     *
+     * For legacy late injection:
      * we simply make sure LD_PRELOAD contains us, and that our directory
      * is on LD_LIBRARY_PATH (seems not to work to put absolute paths in
      * LD_PRELOAD).
-     * FIXME: this doesn't work for setuid programs
+     * (This doesn't work for setuid programs though.)
      *
      * For -follow_children we also pass the current DYNAMORIO_RUNUNDER and
      * DYNAMORIO_OPTIONS and logdir to the new image to support a simple
@@ -9320,24 +9324,48 @@ get_dynamo_library_bounds(void)
         dynamo_dll_start, dynamo_dll_end);
 
     /* Issue 20: we need the path to the alt arch */
-    strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
-            BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
-    /* Assumption: libdir name is not repeated elsewhere in path */
-    libdir = strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
-    if (libdir != NULL) {
-        const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
-        /* do NOT place the NULL */
-        strncpy(libdir, newdir, strlen(newdir));
+    const char *config_alt_path = get_config_val(DYNAMORIO_VAR_ALTINJECT);
+    if (config_alt_path != NULL && config_alt_path[0] != '\0') {
+        strncpy(dynamorio_alt_arch_filepath, config_alt_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath));
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
+        /* We don't really need just the dir (used for the old LD_PRELOAD) but
+         * we compute it for the legacy code.
+         */
+        const char *sep = strrchr(dynamorio_alt_arch_filepath, '/');
+        if (sep != NULL) {
+            strncpy(dynamorio_alt_arch_path, dynamorio_alt_arch_filepath,
+                    sep - dynamorio_alt_arch_filepath);
+            NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
+        }
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch filepath: %s\n",
+            dynamorio_alt_arch_filepath);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
+            dynamorio_alt_arch_path);
     } else {
-        SYSLOG_INTERNAL_WARNING("unable to determine lib path for cross-arch execve");
+        /* Construct a path under assumptions of build-time path names. */
+        strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
+        /* Assumption: libdir name is not repeated elsewhere in path */
+        libdir =
+            strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
+        if (libdir != NULL) {
+            const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
+            /* do NOT place the NULL */
+            strncpy(libdir, newdir, strlen(newdir));
+        } else {
+            SYSLOG_INTERNAL_WARNING("unable to determine lib path for cross-arch execve");
+        }
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
+            dynamorio_alt_arch_path);
+        snprintf(dynamorio_alt_arch_filepath,
+                 BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath), "%s%s",
+                 dynamorio_alt_arch_path, dynamorio_libname);
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch filepath: %s\n",
+            dynamorio_alt_arch_filepath);
     }
-    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
-    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
-        dynamorio_alt_arch_path);
-    snprintf(dynamorio_alt_arch_filepath,
-             BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath), "%s%s",
-             dynamorio_alt_arch_path, dynamorio_libname);
-    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
 
     if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2, get_application_name(),
