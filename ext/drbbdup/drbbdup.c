@@ -160,6 +160,9 @@ drbbdup_handle_new_case();
 static app_pc
 init_fp_cache(void (*clean_call_func)());
 
+static instr_t *
+drbbdup_first_app(instrlist_t *bb);
+
 static uintptr_t *
 drbbdup_get_tls_raw_slot_addr(drbbdup_thread_slots_t slot_idx)
 {
@@ -213,8 +216,9 @@ drbbdup_restore_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 static bool
 drbbdup_is_special_instr(instr_t *instr)
 {
-    return instr_is_syscall(instr) || instr_is_cti(instr) || instr_is_ubr(instr) ||
-        instr_is_interrupt(instr);
+    return instr != NULL &&
+        (instr_is_syscall(instr) || instr_is_cti(instr) || instr_is_ubr(instr) ||
+         instr_is_interrupt(instr));
 }
 
 /****************************************************************************
@@ -321,6 +325,20 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     return manager;
 }
 
+static void
+drbbdup_destroy_manager(void *manager_opaque)
+{
+    drbbdup_manager_t *manager = (drbbdup_manager_t *)manager_opaque;
+    ASSERT(manager != NULL, "manager should not be NULL");
+
+    if (manager->enable_dup && manager->cases != NULL) {
+        ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
+        dr_global_free(manager->cases,
+                       sizeof(drbbdup_case_t) * opts.non_default_case_limit);
+    }
+    dr_global_free(manager, sizeof(drbbdup_manager_t));
+}
+
 /* Transforms the bb to contain additional copies (within the same fragment). */
 static void
 drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manager)
@@ -423,20 +441,14 @@ static dr_emit_flags_t
 drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         bool translating)
 {
-    if (translating)
-        return DR_EMIT_DEFAULT;
-
-    app_pc pc = instr_get_app_pc(instrlist_first_app(bb));
-    ASSERT(pc != NULL, "pc cannot be NULL");
-
     dr_rwlock_write_lock(rw_lock);
 
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
 
-    if (!for_trace && manager != NULL && !manager->is_gen) {
+    if (!for_trace && !translating && manager != NULL && !manager->is_gen) {
         /* Remove existing invalid book-keeping data. */
-        hashtable_remove(&manager_table, pc);
+        hashtable_remove(&manager_table, tag);
         manager = NULL;
     }
 
@@ -446,7 +458,8 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     if (manager == NULL) {
         manager = drbbdup_create_manager(drcontext, tag, bb);
         ASSERT(manager != NULL, "created manager cannot be NULL");
-        hashtable_add(&manager_table, pc, manager);
+        hashtable_add(&manager_table, tag, manager);
+
         if (opts.is_stat_enabled) {
             dr_mutex_lock(stat_mutex);
             if (!manager->enable_dup)
@@ -582,8 +595,11 @@ drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
     instrlist_cut(bb, *post);
     *prev = start;
     start = instr_get_next(start); /* Skip START label. */
-    instrlist_cut(bb, start);
-    instrlist_append(case_bb, start);
+
+    if (start != NULL) {
+        instrlist_cut(bb, start);
+        instrlist_append(case_bb, start);
+    }
 
     return case_bb;
 }
@@ -694,12 +710,9 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    app_pc pc = instr_get_app_pc(drbbdup_first_app(bb));
-    ASSERT(pc != NULL, "pc cannot be NULL");
-
     dr_rwlock_read_lock(rw_lock);
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
 
     /* Perform orig analysis - only done once regardless of how many copies. */
@@ -1076,10 +1089,10 @@ drbbdup_inc_bail_count()
 
 /* Insert trigger for dynamic case handling. */
 static void
-drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *tag,
-                                instrlist_t *bb, instr_t *where,
-                                drbbdup_manager_t *manager)
+drbbdup_insert_dynamic_handling(void *drcontext, void *tag, instrlist_t *bb,
+                                instr_t *where, drbbdup_manager_t *manager)
 {
+
     instr_t *instr;
     opnd_t drbbdup_opnd = opnd_create_reg(manager->scratch_reg);
 
@@ -1117,7 +1130,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             instrlist_meta_preinsert(bb, where, instr);
 
             /* Register hit. */
-            uint hash = drbbdup_get_hitcount_hash((intptr_t)translation_pc);
+            uint hash = drbbdup_get_hitcount_hash((intptr_t)tag);
             opnd_t hit_count_opnd =
                 OPND_CREATE_MEM16(manager->scratch_reg, hash * sizeof(ushort));
 #ifdef X86
@@ -1173,15 +1186,14 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
 /* Inserts code right before the last bb copy which is used to handle the default
  * case. */
 static void
-drbbdup_insert_dispatch_end(void *drcontext, app_pc translation_pc, void *tag,
-                            instrlist_t *bb, instr_t *where, drbbdup_manager_t *manager)
+drbbdup_insert_dispatch_end(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
+                            drbbdup_manager_t *manager)
 {
     /* Check whether dynamic case handling is enabled by the user to handle an unkown
      * case encoding.
      */
     if (manager->enable_dynamic_handling) {
-        drbbdup_insert_dynamic_handling(drcontext, translation_pc, tag, bb, where,
-                                        manager);
+        drbbdup_insert_dynamic_handling(drcontext, tag, bb, where, manager);
     }
 
     /* Last bb version is always the default case. */
@@ -1233,9 +1245,9 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
  * storage, and update this index upon encountering the start/end of bb copies.
  */
 static dr_emit_flags_t
-drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
-                        instr_t *instr, bool for_trace, bool translating,
-                        drbbdup_per_thread *pt, drbbdup_manager_t *manager)
+drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                        bool for_trace, bool translating, drbbdup_per_thread *pt,
+                        drbbdup_manager_t *manager)
 {
     drbbdup_case_t *drbbdup_case = NULL;
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
@@ -1243,7 +1255,9 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
 
     instr_t *last = instrlist_last_app(bb);
-    bool is_last_special = drbbdup_is_special_instr(last);
+    /* We invoke drbbdup_is_at_end() to ensure we do not consider drbbdup inserted jumps.
+     */
+    bool is_last_special = drbbdup_is_special_instr(last) && !drbbdup_is_at_end(last);
 
     /* Insert runtime case encoding at start. */
     if (drmgr_is_first_instr(drcontext, instr)) {
@@ -1257,32 +1271,49 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
         ASSERT(end_instr != NULL, "end instruction cannot be NULL");
 
         /* Cache first, first nonlabel and last instructions. */
-        if (next_instr == end_instr && is_last_special) {
-            pt->first_instr = last;
-            pt->first_nonlabel_instr = last;
+        if (next_instr == end_instr) {
+            if (is_last_special) {
+                pt->first_instr = last;
+                pt->first_nonlabel_instr = last;
+            } else {
+                pt->first_instr = NULL;
+                pt->first_nonlabel_instr = NULL;
+            }
         } else {
-            pt->first_instr = next_instr; /* Update cache to first instr. */
+            /* Update cache to first instr. */
+            pt->first_instr = next_instr;
             instr_t *first_non_label = next_instr;
             while (instr_is_label(first_non_label) && first_non_label != end_instr) {
                 first_non_label = instr_get_next(first_non_label);
             }
-            if (first_non_label == end_instr && is_last_special) {
-                pt->first_nonlabel_instr = last;
+            if (first_non_label == end_instr) {
+                if (is_last_special) {
+                    pt->first_nonlabel_instr = last;
+                } else {
+                    pt->first_nonlabel_instr = NULL;
+                }
             } else {
                 pt->first_nonlabel_instr = first_non_label;
             }
         }
 
-        if (is_last_special)
+        /* Update cache to last instr. */
+        if (is_last_special) {
             pt->last_instr = last;
-        else
-            pt->last_instr = instr_get_prev(end_instr); /* Update cache to last instr. */
+        } else {
+            instr_t *prev = instr_get_prev(end_instr);
+            if (drbbdup_is_at_start(prev)) {
+                pt->last_instr = NULL;
+            } else {
+                pt->last_instr = prev;
+            }
+        }
 
         /* Check whether we reached the last bb version (namely the default case). */
         instr_t *next_bb_label = drbbdup_next_start(end_instr);
         if (next_bb_label == NULL) {
             pt->case_index = DRBBDUP_DEFAULT_INDEX; /* Refer to default. */
-            drbbdup_insert_dispatch_end(drcontext, pc, tag, bb, next_instr, manager);
+            drbbdup_insert_dispatch_end(drcontext, tag, bb, next_instr, manager);
         } else {
             /* We have reached the start of a new bb version (not the last one). */
             bool found = false;
@@ -1392,9 +1423,6 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    app_pc pc = instr_get_app_pc(drbbdup_first_app(bb));
-    ASSERT(pc != NULL, "pc cannot be NULL");
-
     ASSERT(opts.instrument_instr != NULL || opts.instrument_instr_ex != NULL,
            "instrumentation call-back must not be NULL");
 
@@ -1404,12 +1432,12 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
 
     dr_rwlock_read_lock(rw_lock);
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
 
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
     if (manager->enable_dup) {
-        flags |= drbbdup_instrument_dups(drcontext, pc, tag, bb, instr, for_trace,
+        flags |= drbbdup_instrument_dups(drcontext, tag, bb, instr, for_trace,
                                          translating, pt, manager);
     } else {
         flags |= drbbdup_instrument_without_dups(drcontext, tag, bb, instr, for_trace,
@@ -1524,7 +1552,7 @@ drbbdup_handle_new_case()
 
     dr_rwlock_write_lock(rw_lock);
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, pc);
+        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
     ASSERT(manager->enable_dup, "duplication should be enabled");
     ASSERT(new_encoding != manager->default_case.encoding,
@@ -1574,7 +1602,7 @@ drbbdup_handle_new_case()
 
     /* Refresh hit counter. */
     if (opts.hit_threshold > 0) {
-        uint hash = drbbdup_get_hitcount_hash((intptr_t)pc);
+        uint hash = drbbdup_get_hitcount_hash((intptr_t)tag);
         DR_ASSERT(pt->hit_counts[hash] == 0);
         pt->hit_counts[hash] = opts.hit_threshold; /* Reset threshold. */
     }
@@ -1583,8 +1611,8 @@ drbbdup_handle_new_case()
     if (do_flush) {
         LOG(drcontext, DR_LOG_ALL, 2,
             "%s Found new case! Going to flush bb with"
-            "pc %p to generate a copy to handle the new case.\n",
-            __FUNCTION__, pc);
+            "tag %p to generate a copy to handle the new case.\n",
+            __FUNCTION__, tag);
 
         /* No locks held upon fragment deletion. */
         /* XXX i#3778: To include once we support specific fragment deletion. */
@@ -1722,20 +1750,6 @@ drbbdup_get_stats(OUT drbbdup_stats_t *stats_in)
 /****************************************************************************
  * THREAD INIT AND EXIT
  */
-
-static void
-drbbdup_destroy_manager(void *manager_opaque)
-{
-    drbbdup_manager_t *manager = (drbbdup_manager_t *)manager_opaque;
-    ASSERT(manager != NULL, "manager should not be NULL");
-
-    if (manager->enable_dup && manager->cases != NULL) {
-        ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
-        dr_global_free(manager->cases,
-                       sizeof(drbbdup_case_t) * opts.non_default_case_limit);
-    }
-    dr_global_free(manager, sizeof(drbbdup_manager_t));
-}
 
 static void
 drbbdup_thread_init(void *drcontext)

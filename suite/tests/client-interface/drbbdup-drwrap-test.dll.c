@@ -128,10 +128,8 @@ event_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     app_pc target = (app_pc)dr_get_proc_address(mod->handle, "wrapme");
     CHECK(target != NULL, "cannot find lib export");
     int flags = 0;
-#if 0 /* TODO i#5356: Enable once drbbdup handles the no-app-pc sentinel block. */
     /* We test the hard-to-handle retaddr-replacing scheme. */
     flags |= DRWRAP_REPLACE_RETADDR;
-#endif
     bool res = drwrap_wrap_ex(target, wrap_pre, wrap_post, NULL, flags);
     CHECK(res, "wrap failed");
 }
