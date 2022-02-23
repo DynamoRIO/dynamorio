@@ -2148,8 +2148,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement) online_instru_t(
-            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec);
+        instru = new (placement)
+            online_instru_t(insert_load_buf_ptr, insert_update_buf_ptr,
+                            op_L0_filter.get_value(), &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX

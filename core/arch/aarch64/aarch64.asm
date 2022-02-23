@@ -546,11 +546,11 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #  ifndef HAVE_SIGALTSTACK
 #   error NYI
 #  endif
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
         mov      ARG4, sp /* pass as extra arg */
-        b        GLOBAL_REF(master_signal_handler_C) /* chain call */
-        END_FUNC(master_signal_handler)
+        b        GLOBAL_REF(main_signal_handler_C) /* chain call */
+        END_FUNC(main_signal_handler)
 
 # endif /* NOT_DYNAMORIO_CORE_PROPER */
 

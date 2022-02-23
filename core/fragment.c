@@ -5668,7 +5668,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
 
     /* now we act on pending actions that can only be done while nolinking
      * FIXME: optimization if add more triggers here: use a single
-     * master trigger as a first test to avoid testing all
+     * main trigger as a first test to avoid testing all
      * conditionals every time
      */
 
@@ -5836,7 +5836,7 @@ increment_global_flushtime()
     LOG(GLOBAL, LOG_VMAREAS, 2, "new flush timestamp: %u\n", flushtime_global);
 }
 
-/* The master flusher routines are split into 3:
+/* The main flusher routines are split into 3:
  *   stage1) flush_fragments_synch_unlink_priv
  *   stage2) flush_fragments_unlink_shared
  *   stage3) flush_fragments_end_synch
