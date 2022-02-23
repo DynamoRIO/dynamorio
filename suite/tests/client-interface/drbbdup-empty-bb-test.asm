@@ -30,6 +30,9 @@
  * DAMAGE.
  */
 
+// X86 test program.
+// Must include nop instructions as they are assumed by the test.
+
 .section .text
         .global main
 main:
@@ -41,4 +44,6 @@ main:
         nop
         xor edx, edx
         nop
-        int 0x80
+        xor rdi, rdi
+        mov rax, 0x3c
+        syscall

@@ -32,6 +32,15 @@
 
 /* Tests the drbbdup extension. */
 
+/* This test checks drbbdup's processing of empty basic blocks. */
+
+/* Assumes that the target program contains nop instructions and that basic blocks
+ * constructed by DynamoRIO are size of 1 instruction. The latter is achieved using the
+ * max_bb_instrs runtime option.
+ *
+ * Nops are required as they are the type of instructions removed by this test.
+ */
+
 #include "dr_api.h"
 #include "client_tools.h"
 #include "drmgr.h"
@@ -42,21 +51,16 @@
 
 #define ORIG_ANALYSIS_VAL (void *)555
 #define ANALYSIS_VAL_1 (void *)888
-#define ANALYSIS_VAL_2 (void *)999
 
 static bool orig_analysis_called = false;
-static bool orig_analysis_destroy_called = false;
 static bool default_analysis_called = false;
 static bool case1_analysis_called = false;
-static bool case1_analysis_destroy_called = false;
-static bool case2_analysis_called = false;
-static bool case2_analysis_destroy_called = false;
 static bool instrum_called = false;
 static bool encountered_empty = false;
 static bool is_cur_empty = false;
 
 /* Assume single threaded. */
-static uintptr_t encode_val = 3;
+static uintptr_t encode_val = 2;
 
 static bool
 is_empty_bb(instrlist_t *bb)
@@ -69,6 +73,7 @@ remove_app_instr(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating)
 {
     instr_t *first_instr = instrlist_first_app(bb);
+    /* Relies on the -max_bb_instrs 0 option. */
     CHECK(instr_get_next(first_instr) == NULL, "must just be 1 instr");
 
     /* Remove app instruction to create an empty block. */
@@ -95,8 +100,6 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 
     res = drbbdup_register_case_encoding(drbbdup_ctx, 1);
     CHECK(res == DRBBDUP_SUCCESS, "failed to register case 1");
-    res = drbbdup_register_case_encoding(drbbdup_ctx, 2);
-    CHECK(res == DRBBDUP_SUCCESS, "failed to register case 2");
 
     *enable_dups = true;              /* always enable dups */
     *enable_dynamic_handling = false; /* disable dynamic handling */
@@ -115,20 +118,11 @@ orig_analyse_bb(void *drcontext, void *tag, instrlist_t *bb, void *user_data,
     orig_analysis_called = true;
 }
 
-static void
-destroy_orig_analysis(void *drcontext, void *user_data, void *orig_analysis_data)
-{
-    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
-    orig_analysis_destroy_called = true;
-}
-
 static dr_emit_flags_t
 analyse_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating,
            uintptr_t encoding, void *user_data, void *orig_analysis_data,
            void **analysis_data)
 {
-    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
-
     if (is_cur_empty)
         CHECK(is_empty_bb(bb), "should be empty");
 
@@ -141,34 +135,10 @@ analyse_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool tra
         *analysis_data = ANALYSIS_VAL_1;
         case1_analysis_called = true;
         break;
-    case 2:
-        *analysis_data = ANALYSIS_VAL_2;
-        case2_analysis_called = true;
-        break;
     default: CHECK(false, "invalid encoding");
     }
 
     return DR_EMIT_DEFAULT;
-}
-
-static void
-destroy_analysis(void *drcontext, uintptr_t encoding, void *user_data,
-                 void *orig_analysis_data, void *analysis_data)
-{
-    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
-
-    switch (encoding) {
-    case 0: CHECK(false, "should not be called because analysis data is NULL"); break;
-    case 1:
-        CHECK(analysis_data == ANALYSIS_VAL_1, "invalid encoding for case 1");
-        case1_analysis_destroy_called = true;
-        break;
-    case 2:
-        CHECK(analysis_data == ANALYSIS_VAL_2, "invalid encoding for case 2");
-        case2_analysis_destroy_called = true;
-        break;
-    default: CHECK(false, "invalid encoding");
-    }
 }
 
 static void
@@ -182,8 +152,6 @@ static void
 insert_encode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
               void *user_data, void *orig_analysis_data)
 {
-    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
-
     if (!is_cur_empty)
         dr_insert_clean_call(drcontext, bb, where, update_encoding, false, 0);
 }
@@ -203,21 +171,6 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     drbbdup_status_t res;
 
     CHECK(!is_cur_empty, "should not be called for empty basic block");
-
-    CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
-
-    switch (encoding) {
-    case 0:
-        CHECK(analysis_data == NULL, "case analysis does not match for default case");
-        break;
-    case 1:
-        CHECK(analysis_data == ANALYSIS_VAL_1, "case analysis does not match for case 1");
-        break;
-    case 2:
-        CHECK(analysis_data == ANALYSIS_VAL_2, "case analysis does not match for case 2");
-        break;
-    default: CHECK(false, "invalid encoding");
-    }
 
     res = drbbdup_is_first_instr(drcontext, instr, &is_first);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is start");
@@ -250,11 +203,6 @@ event_exit(void)
     CHECK(orig_analysis_called, "orig analysis was not done");
     CHECK(default_analysis_called, "default analysis was not done");
     CHECK(case1_analysis_called, "case 1 analysis was not done");
-    CHECK(case2_analysis_called, "case 2 analysis was not done");
-
-    CHECK(orig_analysis_destroy_called, "orig analysis was not destroyed");
-    CHECK(case1_analysis_destroy_called, "case 1 analysis was not destroyed");
-    CHECK(case2_analysis_destroy_called, "case 2 analysis was not destroyed");
 
     CHECK(instrum_called, "instrumentation was not inserted");
     CHECK(encountered_empty, "encountered empty bb");
@@ -275,9 +223,9 @@ dr_init(client_id_t id)
     opts.set_up_bb_dups = set_up_bb_dups;
     opts.insert_encode = insert_encode;
     opts.analyze_orig = orig_analyse_bb;
-    opts.destroy_orig_analysis = destroy_orig_analysis;
+    opts.destroy_orig_analysis = NULL;
     opts.analyze_case_ex = analyse_bb;
-    opts.destroy_case_analysis = destroy_analysis;
+    opts.destroy_case_analysis = NULL;
     opts.instrument_instr_ex = instrument_instr;
     opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&encode_val, OPSZ_PTR);
     /* Though single-threaded, we sanity-check the atomic load feature. */
