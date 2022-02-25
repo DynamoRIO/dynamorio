@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -164,11 +164,9 @@ DECLARE_CXTSWPROT_VAR(mutex_t shared_cache_flush_lock,
  */
 DECLARE_FREQPROT_VAR(uint flushtime_global, 0);
 
-#ifdef CLIENT_INTERFACE
 DECLARE_CXTSWPROT_VAR(mutex_t client_flush_request_lock,
                       INIT_LOCK_FREE(client_flush_request_lock));
 DECLARE_CXTSWPROT_VAR(client_flush_req_t *client_flush_requests, NULL);
-#endif
 
 #if defined(RCT_IND_BRANCH) && defined(UNIX)
 /* On Win32 we use per-module tables; on Linux we use a single global table,
@@ -255,13 +253,10 @@ coarse_persisted_fill_ibl(dcontext_t *dcontext, coarse_info_t *info,
                           ibl_branch_type_t branch_type);
 #endif
 
-#ifdef CLIENT_INTERFACE
 static void
 process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                               client_flush_req_t *req, bool flush);
-#endif
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 /* trace logging and synch for shared trace file: */
 DECLARE_CXTSWPROT_VAR(static mutex_t tracedump_mutex, INIT_LOCK_FREE(tracedump_mutex));
 DECLARE_FREQPROT_VAR(static stats_int_t tcount, 0); /* protected by tracedump_mutex */
@@ -272,7 +267,6 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
              stats_int_t deleted_at);
 static void
 init_trace_file(per_thread_t *pt);
-#endif
 
 #define SHOULD_OUTPUT_FRAGMENT(flags)                                     \
     (TEST(FRAG_IS_TRACE, (flags)) && !TEST(FRAG_TRACE_OUTPUT, (flags)) && \
@@ -796,7 +790,8 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
      */
     if (dcontext != GLOBAL_DCONTEXT && hashlookup_null_target == NULL) {
         ASSERT(!dynamo_initialized);
-        hashlookup_null_target = get_target_delete_entry_pc(dcontext, table);
+        hashlookup_null_target =
+            PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, table));
 #if !defined(X64) && defined(LINUX)
         /* see comments in x86.asm: we patch to avoid text relocations */
         byte *pc = (byte *)hashlookup_null_handler;
@@ -808,7 +803,6 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
         insert_relative_target(pc + 1, hashlookup_null_target, NOT_HOT_PATCHABLE);
 #    elif defined(ARM)
         /* We use a pc-rel load w/ the data right after the load */
-        /* FIXME i#1551: is our gencode going to switch to Thumb?!? */
         *(byte **)(pc + ARM_INSTR_SIZE) = hashlookup_null_target;
 #    endif
         make_unwritable(page_start, page_end - page_start);
@@ -909,7 +903,8 @@ safely_nullify_tables(dcontext_t *dcontext, ibl_table_t *new_table,
                       fragment_entry_t *table, uint capacity)
 {
     uint i;
-    cache_pc target_delete = get_target_delete_entry_pc(dcontext, new_table);
+    cache_pc target_delete =
+        PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, new_table));
 
     ASSERT(target_delete != NULL);
     ASSERT_TABLE_SYNCHRONIZED(new_table, WRITE);
@@ -1114,7 +1109,6 @@ hashtable_ibl_study_custom(dcontext_t *dcontext, ibl_table_t *table,
 }
 #endif /* DEBUG */
 
-#if defined(DEBUG) || defined(CLIENT_INTERFACE)
 /* filter specifies flags for fragments which are OK to be freed */
 /* NOTE - if this routine is ever used for non DEBUG purposes be aware that
  * because of case 7697 we don't unlink when we free the hashtable elements.
@@ -1147,8 +1141,11 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
         if (!dynamo_exited && !dynamo_resetting)
             ASSERT_TABLE_SYNCHRONIZED(table, WRITE);
     });
-#    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
-    if (!dr_fragment_deleted_hook_exists())
+#ifndef DEBUG
+    /* We need to walk the table if either we need to notify clients, or we
+     * need to free stubs that are not in the regular heap or cache units.
+     */
+    if (!dr_fragment_deleted_hook_exists() && !DYNAMO_OPTION(separate_private_stubs))
         return;
     /* i#4226: Avoid the slow deletion code and just invoke the event. */
     for (i = 0; i < (int)table->capacity; i++) {
@@ -1161,8 +1158,9 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
          */
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
     }
-    return;
-#    endif
+    if (!DYNAMO_OPTION(separate_private_stubs))
+        return;
+#endif
     /* Go in reverse order (for efficiency) since using
      * hashtable_fragment_remove_helper to keep all reachable, which is required
      * for dynamo_resetting where we unlink fragments here and need to be able to
@@ -1218,7 +1216,6 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
     table->entries = 0;
     table->unlinked_entries = 0;
 }
-#endif /* DEBUG || CLIENT_INTERFACE */
 
 /*
  *******************************************************************************/
@@ -1445,14 +1442,12 @@ fragment_init()
 
     fragment_reset_init();
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (TRACEDUMP_ENABLED() && DYNAMO_OPTION(shared_traces)) {
         ASSERT(USE_SHARED_PT());
         shared_pt->tracefile = open_log_file("traces-shared", NULL, 0);
         ASSERT(shared_pt->tracefile != INVALID_FILE);
         init_trace_file(shared_pt);
     }
-#endif
 }
 
 /* Free all thread-shared state not critical to forward progress;
@@ -1547,19 +1542,16 @@ fragment_reset_free(void)
             vm_area_coarse_units_reset_free();
         }
 
-#if defined(DEBUG) || defined(CLIENT_INTERFACE)
-        /* We need for CLIENT_INTERFACE to get fragment deleted events. */
-#    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
+#ifndef DEBUG
         if (dr_fragment_deleted_hook_exists()) {
-#    endif
+#endif
             if (DYNAMO_OPTION(shared_bbs))
                 hashtable_fragment_reset(GLOBAL_DCONTEXT, shared_bb);
             if (DYNAMO_OPTION(shared_traces))
                 hashtable_fragment_reset(GLOBAL_DCONTEXT, shared_trace);
             DODEBUG({ hashtable_fragment_reset(GLOBAL_DCONTEXT, shared_future); });
-#    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
+#ifndef DEBUG
         }
-#    endif
 #endif
 
         if (DYNAMO_OPTION(shared_bbs))
@@ -1591,7 +1583,6 @@ fragment_exit()
     if (RUNNING_WITHOUT_CODE_CACHE())
         goto cleanup;
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (TRACEDUMP_ENABLED() && DYNAMO_OPTION(shared_traces)) {
         /* write out all traces prior to deleting any, so links print nicely */
         uint i;
@@ -1612,7 +1603,6 @@ fragment_exit()
         release_recursive_lock(&change_linking_lock);
         exit_trace_file(shared_pt);
     }
-#endif
 
 #ifdef FRAGMENT_SIZES_STUDY
     DOLOG(1, (LOG_FRAGMENT | LOG_STATS), { print_size_results(); });
@@ -1707,18 +1697,10 @@ fragment_exit()
 #endif
 cleanup:
     /* FIXME: we shouldn't need these locks anyway for hotp_only & thin_client */
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     DELETE_LOCK(tracedump_mutex);
-#endif
-#ifdef CLIENT_INTERFACE
     process_client_flush_requests(NULL, GLOBAL_DCONTEXT, client_flush_requests,
                                   false /* no flush */);
     DELETE_LOCK(client_flush_request_lock);
-#endif
-    /* avoid compile error "error: label at end of compound statement"
-     * from vps-release-external build
-     */
-    return;
 }
 
 void
@@ -2033,16 +2015,12 @@ fragment_thread_init(dcontext_t *dcontext)
 
     fragment_thread_reset_init(dcontext);
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (TRACEDUMP_ENABLED() && PRIVATE_TRACES_ENABLED()) {
         pt->tracefile = open_log_file("traces", NULL, 0);
         ASSERT(pt->tracefile != INVALID_FILE);
         init_trace_file(pt);
     }
-#endif
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     ASSIGN_INIT_LOCK_FREE(pt->fragment_delete_mutex, fragment_delete_mutex);
-#endif
 
     pt->could_be_linking = false;
     pt->wait_for_unlink = false;
@@ -2168,11 +2146,9 @@ fragment_thread_reset_free(dcontext_t *dcontext)
     /* Case 10807: Clients need to be informed of fragment deletions
      * so we'll reset the relevant hash tables for CI release builds.
      */
-#    ifdef CLIENT_INTERFACE
     if (PRIVATE_TRACES_ENABLED())
         hashtable_fragment_reset(dcontext, &pt->trace);
     hashtable_fragment_reset(dcontext, &pt->bb);
-#    endif
 
 #endif /* !DEBUG */
 }
@@ -2187,7 +2163,6 @@ fragment_thread_exit(dcontext_t *dcontext)
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (TRACEDUMP_ENABLED() && PRIVATE_TRACES_ENABLED()) {
         /* write out all traces prior to deleting any, so links print nicely */
         uint i;
@@ -2201,7 +2176,6 @@ fragment_thread_exit(dcontext_t *dcontext)
         }
         exit_trace_file(pt);
     }
-#endif
 
     fragment_thread_reset_free(dcontext);
 
@@ -2211,9 +2185,7 @@ fragment_thread_exit(dcontext_t *dcontext)
     destroy_event(pt->finished_all_unlink);
     DELETE_LOCK(pt->linking_lock);
 
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     DELETE_LOCK(pt->fragment_delete_mutex);
-#endif
 
     global_heap_free(pt, sizeof(per_thread_t) HEAPACCT(ACCT_OTHER));
     dcontext->fragment_field = NULL;
@@ -2231,7 +2203,6 @@ void
 fragment_fork_init(dcontext_t *dcontext)
 {
     /* FIXME: what about global file? */
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
     if (TRACEDUMP_ENABLED() && PRIVATE_TRACES_ENABLED()) {
         /* new log dir has already been created, so just open a new log file */
@@ -2239,7 +2210,6 @@ fragment_fork_init(dcontext_t *dcontext)
         ASSERT(pt->tracefile != INVALID_FILE);
         init_trace_file(pt);
     }
-#    endif
 }
 #endif
 
@@ -2399,17 +2369,13 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         if (!fragment_lookup_deleted(dcontext, tag) && !TEST(FRAG_COARSE_GRAIN, flags))
             STATS_INC(num_unique_fragments);
     });
-    /* FIXME: make fragment count a release-build stat so we can do this in
-     * release builds
-     */
-    DOSTATS({
-        if (d_r_stats != NULL &&
-            (uint)GLOBAL_STAT(num_fragments) ==
-                INTERNAL_OPTION(reset_at_fragment_count)) {
-            ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
-            schedule_reset(RESET_ALL);
-        }
-    });
+    if (d_r_stats != NULL &&
+        /* num_fragments is debug-only so we use the two release-build stats. */
+        (uint)GLOBAL_STAT(num_bbs) + GLOBAL_STAT(num_traces) ==
+            INTERNAL_OPTION(reset_at_fragment_count)) {
+        ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
+        schedule_reset(RESET_ALL);
+    }
     DODEBUG({
         if ((uint)GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(log_at_fragment_count)) {
             /* we started at loglevel 1 and now we raise to the requested level */
@@ -2425,12 +2391,10 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
     /* size is a ushort
      * our offsets are ushorts as well: they assume body_size is small enough, not size
      */
-#ifdef CLIENT_INTERFACE
     if (body_size + exits_size + fragment_prefix_size(flags) > MAX_FRAGMENT_SIZE) {
         FATAL_USAGE_ERROR(INSTRUMENTATION_TOO_LARGE, 2, get_application_name(),
                           get_application_pid());
     }
-#endif
     ASSERT(body_size + exits_size + fragment_prefix_size(flags) <= MAX_FRAGMENT_SIZE);
     /* currently MAX_FRAGMENT_SIZE is USHRT_MAX, but future proofing */
     ASSERT_TRUNCATE(f->size, ushort,
@@ -2626,7 +2590,6 @@ fragment_body_end_pc(dcontext_t *dcontext, fragment_t *f)
     return fragment_stubs_end_pc(f);
 }
 
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
 /* synchronization routines needed for sideline threads so they don't get
  * fragments they are referencing deleted */
 
@@ -2646,7 +2609,6 @@ fragment_release_fragment_delete_mutex(dcontext_t *dcontext)
     d_r_mutex_unlock(
         &(((per_thread_t *)dcontext->fragment_field)->fragment_delete_mutex));
 }
-#endif
 
 /* cleaner to have own flags since there are no negative versions
  * of FRAG_SHARED and FRAG_IS_TRACE for distinguishing from "don't care"
@@ -2905,7 +2867,7 @@ fragment_pclookup(dcontext_t *dcontext, cache_pc pc, fragment_t *wrapper)
      * the linkstub_t* from there.
      * Or we can decode until we hit a jmp and if it's to a linked fragment_t,
      * search its incoming list.
-     * Stub decoding is complicated by CLIENT_INTERFACE custom stubs.
+     * Stub decoding is complicated by custom stubs.
      */
     return fcache_fragment_pclookup(dcontext, pc, wrapper);
 }
@@ -2946,9 +2908,9 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
     DOCHECK(1, {
         fragment_t *existing = fragment_lookup(dcontext, f->tag);
         ASSERT(existing == NULL ||
-               IF_CUSTOM_TRACES(/* we create and persist shadowed trace heads */
-                                (TEST(FRAG_IS_TRACE_HEAD, f->flags) ||
-                                 TEST(FRAG_IS_TRACE_HEAD, existing->flags)) ||)
+               /* For custom traces, we create and persist shadowed trace heads. */
+               TEST(FRAG_IS_TRACE_HEAD, f->flags) ||
+               TEST(FRAG_IS_TRACE_HEAD, existing->flags) ||
                /* private trace or temp can shadow shared bb */
                (TESTANY(FRAG_IS_TRACE | FRAG_TEMP_PRIVATE, f->flags) &&
                 TEST(FRAG_SHARED, f->flags) != TEST(FRAG_SHARED, existing->flags)) ||
@@ -3005,10 +2967,8 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
 void
 fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
 {
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     bool acquired_shared_vm_lock = false;
     bool acquired_fragdel_lock = false;
-#endif
     LOG(THREAD, LOG_FRAGMENT, 3,
         "fragment_delete: *" PFX " F%d(" PFX ")." PFX " %s 0x%x\n", f, f->id, f->tag,
         f->start_pc, TEST(FRAG_IS_TRACE, f->flags) ? "trace" : "bb", actions);
@@ -3028,7 +2988,6 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     ASSERT(!TEST(FRAG_SHARED, f->flags) || TEST(FRAG_WAS_DELETED, f->flags) ||
            dynamo_exited || dynamo_resetting || is_self_allsynch_flushing());
 
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     /* need to protect ability to reference frag fields and fcache space */
     /* all other options are mostly notification */
     if (monitor_delete_would_abort_trace(dcontext, f) && DYNAMO_OPTION(shared_traces)) {
@@ -3046,9 +3005,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         acquired_fragdel_lock = true;
         fragment_get_fragment_delete_mutex(dcontext);
     }
-#endif
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (!TEST(FRAGDEL_NO_OUTPUT, actions)) {
         if (TEST(FRAGDEL_NEED_CHLINK_LOCK, actions) && TEST(FRAG_SHARED, f->flags))
             acquire_recursive_lock(&change_linking_lock);
@@ -3060,7 +3017,6 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         if (TEST(FRAGDEL_NEED_CHLINK_LOCK, actions) && TEST(FRAG_SHARED, f->flags))
             release_recursive_lock(&change_linking_lock);
     }
-#endif
 
     if (!TEST(FRAGDEL_NO_MONITOR, actions))
         monitor_remove_fragment(dcontext, f);
@@ -3100,7 +3056,6 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     if (dynamo_options.sideline)
         sideline_fragment_delete(f);
 #endif
-#ifdef CLIENT_INTERFACE
     /* For exit-time deletion we invoke instrument_fragment_deleted() directly from
      * hashtable_fragment_reset().  If we add any further conditions on when it should
      * be invoked we should keep the two calls in synch.
@@ -3108,7 +3063,6 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     if (dr_fragment_deleted_hook_exists() &&
         (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions)))
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
-#endif
 #ifdef UNIX
     if (INTERNAL_OPTION(profile_pcs))
         pcprofile_fragment_deleted(dcontext, f);
@@ -3116,14 +3070,12 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     if (!TEST(FRAGDEL_NO_HEAP, actions)) {
         fragment_free(dcontext, f);
     }
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     if (acquired_fragdel_lock)
         fragment_release_fragment_delete_mutex(dcontext);
     if (acquired_shared_vm_lock) {
         release_vm_areas_lock(dcontext, FRAG_SHARED);
         release_recursive_lock(&change_linking_lock);
     }
-#endif
 }
 
 /* Record translation info.  Typically used for pending-delete fragments
@@ -3292,12 +3244,10 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
     }
     LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 5, "unlinking F%d(" PFX ") for deletion\n",
         f->id, f->start_pc);
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* we output now to avoid problems reading component blocks
      * of traces after source modules are unloaded
      */
     fragment_output(dcontext, f);
-#endif
     if (TEST(FRAG_LINKED_OUTGOING, f->flags))
         unlink_fragment_outgoing(dcontext, f);
     if (TEST(FRAG_LINKED_INCOMING, f->flags))
@@ -3572,7 +3522,8 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
          */
 
         /* FIXME: [perf] we could memoize this value in the table itself */
-        cache_pc pending_delete_pc = get_target_delete_entry_pc(dcontext, ftable);
+        cache_pc pending_delete_pc =
+            PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
 
         ASSERT(IBL_ENTRIES_ARE_EQUAL(*pg, fe));
         ASSERT(pending_delete_pc != NULL);
@@ -3850,10 +3801,9 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f)
     /* ok to not find a trace head used to start a trace -- fine to have deleted
      * the trace head
      */
-    ASSERT(cur_trace_tag(dcontext) ==
-           f->tag
-               /* PR 299808: we have invisible temp trace bbs */
-               IF_CLIENT_INTERFACE(|| TEST(FRAG_TEMP_PRIVATE, f->flags)));
+    ASSERT(cur_trace_tag(dcontext) == f->tag
+           /* PR 299808: we have invisible temp trace bbs */
+           || TEST(FRAG_TEMP_PRIVATE, f->flags));
 }
 
 /* Remove f from ftable, replacing it in the hashtable with new_f,
@@ -4005,7 +3955,8 @@ static void
 dump_lookup_table(dcontext_t *dcontext, ibl_table_t *ftable)
 {
     uint i;
-    cache_pc target_delete = get_target_delete_entry_pc(dcontext, ftable);
+    cache_pc target_delete =
+        PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
 
     ASSERT(target_delete != NULL);
     ASSERT(ftable->table != NULL);
@@ -4049,6 +4000,18 @@ is_fragment_index_wraparound(dcontext_t *dcontext, ibl_table_t *ftable, fragment
     return (found_at_hindex < hindex); /* wraparound */
 }
 #endif /* DEBUG */
+
+void
+fragment_update_ibl_tables(dcontext_t *dcontext)
+{
+    per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
+    DEBUG_DECLARE(bool tables_updated =)
+    update_all_private_ibt_table_ptrs(dcontext, pt);
+    DODEBUG({
+        if (tables_updated)
+            STATS_INC(num_shared_tables_updated_delete);
+    });
+}
 
 static void
 fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
@@ -5637,7 +5600,6 @@ check_safe_for_flush_synch(dcontext_t *dcontext)
 }
 #endif /* DEBUG */
 
-#ifdef CLIENT_INTERFACE
 static void
 process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                               client_flush_req_t *req, bool flush)
@@ -5654,13 +5616,15 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                 /* FIXME - for implementation simplicity we do a synch-all flush so
                  * that we can inform the client right away, it might be nice to use
                  * the more performant regular flush when possible. */
-                flush_fragments_from_region(dcontext, iter->start, iter->size,
-                                            true /*force synchall*/);
+                flush_fragments_from_region(
+                    dcontext, iter->start, iter->size, true /*force synchall*/,
+                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 (*iter->flush_callback)(iter->flush_id);
             } else {
                 /* do a regular flush */
-                flush_fragments_from_region(dcontext, iter->start, iter->size,
-                                            false /*don't force synchall*/);
+                flush_fragments_from_region(
+                    dcontext, iter->start, iter->size, false /*don't force synchall*/,
+                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
             }
         }
         HEAP_TYPE_FREE(alloc_dcontext, iter, client_flush_req_t, ACCT_CLIENT,
@@ -5668,7 +5632,6 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
         iter = next;
     }
 }
-#endif
 
 /* Returns false iff was_I_flushed ends up being deleted
  * if cache_transition is true, assumes entering the cache now.
@@ -5677,10 +5640,8 @@ bool
 enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_transition)
 {
 
-#ifdef CLIENT_INTERFACE
     /* Handle any pending low on memory events */
     vmm_heap_handle_pending_low_on_memory_event_trigger();
-#endif
 
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
     bool not_flushed = true;
@@ -5707,7 +5668,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
 
     /* now we act on pending actions that can only be done while nolinking
      * FIXME: optimization if add more triggers here: use a single
-     * master trigger as a first test to avoid testing all
+     * main trigger as a first test to avoid testing all
      * conditionals every time
      */
 
@@ -5759,7 +5720,6 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
     }
 #endif
 
-#ifdef CLIENT_INTERFACE
     /* Handle flush requests queued via dr_flush_fragments()/dr_delay_flush_region() */
     /* thread private list */
     process_client_flush_requests(dcontext, dcontext, dcontext->client_data->flush_list,
@@ -5781,7 +5741,6 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
         if (req != NULL)
             not_flushed = false;
     }
-#endif
 
     return not_flushed;
 }
@@ -5877,7 +5836,7 @@ increment_global_flushtime()
     LOG(GLOBAL, LOG_VMAREAS, 2, "new flush timestamp: %u\n", flushtime_global);
 }
 
-/* The master flusher routines are split into 3:
+/* The main flusher routines are split into 3:
  *   stage1) flush_fragments_synch_unlink_priv
  *   stage2) flush_fragments_unlink_shared
  *   stage3) flush_fragments_end_synch
@@ -6877,10 +6836,13 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 
 /* Flushes fragments from the region without any changes to the exec list.
  * Does not free futures and caller can't be holding the initexit lock.
+ * Invokes the given callback after flushing and before resuming threads.
  * FIXME - add argument parameters (free futures etc.) as needed. */
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall)
+                            bool force_synchall,
+                            void (*flush_completion_callback)(void *user_data),
+                            void *user_data)
 {
     /* we pass false to flush_fragments_in_region_start() below for owning the initexit
      * lock */
@@ -6891,6 +6853,10 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
     flush_fragments_in_region_start(dcontext, base, size, false /*don't own initexit*/,
                                     false /*don't free futures*/, false /*exec valid*/,
                                     force_synchall _IF_DGCDIAG(NULL));
+    if (flush_completion_callback != NULL) {
+        (*flush_completion_callback)(user_data);
+    }
+
     flush_fragments_in_region_finish(dcontext, false);
 }
 
@@ -6950,7 +6916,6 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush, bool fre
 }
 
 /****************************************************************************/
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 
 void
 fragment_output(dcontext_t *dcontext, fragment_t *f)
@@ -6995,15 +6960,15 @@ exit_trace_file(per_thread_t *pt)
  *   But links will target cache pcs...
  */
 
-#    define TRACEBUF_SIZE 2048
+#define TRACEBUF_SIZE 2048
 
-#    define TRACEBUF_MAKE_ROOM(p, buf, sz)               \
-        do {                                             \
-            if (p + sz >= &buf[TRACEBUF_SIZE]) {         \
-                os_write(pt->tracefile, buf, (p - buf)); \
-                p = buf;                                 \
-            }                                            \
-        } while (0)
+#define TRACEBUF_MAKE_ROOM(p, buf, sz)               \
+    do {                                             \
+        if (p + sz >= &buf[TRACEBUF_SIZE]) {         \
+            os_write(pt->tracefile, buf, (p - buf)); \
+            p = buf;                                 \
+        }                                            \
+    } while (0)
 
 static void
 output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
@@ -7129,9 +7094,9 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
              stats_int_t deleted_at)
 {
     trace_only_t *t = TRACE_FIELDS(f);
-#    ifdef WINDOWS
+#ifdef WINDOWS
     char buf[MAXIMUM_PATH];
-#    endif
+#endif
     stats_int_t trace_num;
     bool locked_vmareas = false, ok;
     dr_isa_mode_t old_mode;
@@ -7186,9 +7151,9 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     if (INTERNAL_OPTION(tracedump_origins) && !INTERNAL_OPTION(tracedump_text)) {
         uint i;
         print_file(pt->tracefile, "Trace %d\n", tcount);
-#    ifdef DEBUG
+#ifdef DEBUG
         print_file(pt->tracefile, "Fragment %d\n", f->id);
-#    endif
+#endif
         for (i = 0; i < t->num_bbs; i++) {
             print_file(pt->tracefile, "\tbb %d = " PFX "\n", i, t->bbs[i].tag);
         }
@@ -7202,9 +7167,9 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
                "=============================================="
                "=============================\n\n");
     print_file(pt->tracefile, "TRACE # %d\n", tcount);
-#    ifdef DEBUG
+#ifdef DEBUG
     print_file(pt->tracefile, "Fragment # %d\n", f->id);
-#    endif
+#endif
     print_file(pt->tracefile, "Tag = " PFX "\n", f->tag);
     print_file(pt->tracefile, "Thread = %d\n", d_r_get_thread_id());
     if (deleted_at > -1) {
@@ -7212,7 +7177,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
                    deleted_at);
     }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
     /* FIXME: for fragments flushed by unloaded modules, naturally we
      * won't be able to get the module name b/c by now it is unloaded,
      * the only fix is to keep a listing of mapped modules and only
@@ -7223,9 +7188,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         print_file(pt->tracefile, "Module of basic block 0 = %s\n", buf);
     else
         print_file(pt->tracefile, "Module of basic block 0 = <unknown>\n");
-#    endif
+#endif
 
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(tracedump_origins)) {
         uint i;
         print_file(pt->tracefile, "\nORIGINAL CODE:\n");
@@ -7240,9 +7204,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         }
         print_file(pt->tracefile, "END ORIGINAL CODE\n\n");
     }
-#    endif
 
-#    ifdef PROFILE_RDTSC
+#ifdef PROFILE_RDTSC
     if (dynamo_options.profile_times) {
         /* Cycle counts are too high due to extra instructions needed
          * to save regs and store time, so we subtract a constant for
@@ -7281,16 +7244,14 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     } else {
         print_file(pt->tracefile, "Size = %d\n", f->size);
     }
-#    else
+#else
     print_file(pt->tracefile, "Size = %d\n", f->size);
-#    endif /* PROFILE_RDTSC */
+#endif /* PROFILE_RDTSC */
 
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     print_file(pt->tracefile, "Body:\n");
     disassemble_fragment_body(dcontext, f, pt->tracefile);
 
     print_file(pt->tracefile, "END TRACE %d\n\n", tcount);
-#    endif
 
 output_trace_done:
     dr_set_isa_mode(dcontext, old_mode, NULL);
@@ -7303,8 +7264,6 @@ output_trace_done:
         ASSERT_DO_NOT_OWN_MUTEX(true, &tracedump_mutex);
     }
 }
-
-#endif /* defined(INTERNAL) || defined(CLIENT_INTERFACE) */
 
 /****************************************************************************/
 
@@ -7693,7 +7652,6 @@ study_and_free_coarse_htable(coarse_info_t *info, coarse_table_t *htable,
           { hashtable_coarse_load_statistics(GLOBAL_DCONTEXT, htable); });
     DODEBUG({ hashtable_coarse_study(GLOBAL_DCONTEXT, htable, 0 /*table consistent*/); });
     DOLOG(3, LOG_FRAGMENT, { hashtable_coarse_dump_table(GLOBAL_DCONTEXT, htable); });
-#ifdef CLIENT_INTERFACE
     /* Only raise deletion events if client saw creation events: so no persisted
      * units
      */
@@ -7720,7 +7678,6 @@ study_and_free_coarse_htable(coarse_info_t *info, coarse_table_t *htable,
         }
         TABLE_RWLOCK(htable, read, unlock);
     }
-#endif
     /* entries are inlined so nothing external to free */
     if (info->persisted && !never_persisted) {
         /* ensure won't try to free (part of mmap) */

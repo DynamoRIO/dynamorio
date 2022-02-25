@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,16 +36,9 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drbbdup.h"
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 #define USER_DATA_VAL (void *)222
 static uintptr_t case_encoding = 1;
@@ -118,8 +111,10 @@ dr_init(client_id_t id)
     opts.struct_size = sizeof(drbbdup_options_t);
     opts.set_up_bb_dups = set_up_bb_dups;
     opts.instrument_instr = instrument_instr;
-    opts.runtime_case_opnd = opnd_create_abs_addr(&case_encoding, OPSZ_PTR);
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&case_encoding, OPSZ_PTR);
     opts.atomic_load_encoding = false;
+    /* Test optimizations with case comparisons. */
+    opts.max_case_encoding = 1;
     opts.user_data = USER_DATA_VAL;
     opts.non_default_case_limit = 1;
 

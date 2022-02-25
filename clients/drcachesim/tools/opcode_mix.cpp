@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,14 +47,17 @@
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 
 analysis_tool_t *
-opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose)
+opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose,
+                       const std::string &alt_module_dir)
 {
-    return new opcode_mix_t(module_file_path, verbose);
+    return new opcode_mix_t(module_file_path, verbose, alt_module_dir);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose)
+opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose,
+                           const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
+    , knob_alt_module_dir_(alt_module_dir)
 {
 }
 
@@ -68,8 +71,9 @@ opcode_mix_t::initialize()
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    module_mapper_ = module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr,
-                                             nullptr, nullptr, knob_verbose_);
+    module_mapper_ =
+        module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
+                                nullptr, knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
     error = module_mapper_->get_last_error();
     if (!error.empty())
@@ -125,11 +129,22 @@ opcode_mix_t::parallel_shard_exit(void *shard_data)
 bool
 opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+            !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
+            shard->error = std::string("Architecture mismatch: trace recorded on ") +
+                trace_arch_string(static_cast<offline_file_type_t>(
+                    memref.marker.marker_value)) +
+                " but tool built for " + trace_arch_string(build_target_arch_type());
+            return false;
+        }
+    }
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
         return true;
     }
-    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     ++shard->instr_count;
 
     app_pc mapped_pc;
@@ -161,9 +176,10 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     } else {
         instr_t instr;
         instr_init(dcontext_.dcontext, &instr);
-        app_pc next_pc = decode(dcontext_.dcontext, mapped_pc, &instr);
+        app_pc next_pc =
+            decode_from_copy(dcontext_.dcontext, mapped_pc, trace_pc, &instr);
         if (next_pc == NULL || !instr_valid(&instr)) {
-            error_string_ =
+            shard->error =
                 "Failed to decode instruction " + to_hex_string(memref.instr.addr);
             return false;
         }

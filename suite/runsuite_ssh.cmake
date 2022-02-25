@@ -65,7 +65,7 @@
 
 # we need CMAKE_CURRENT_LIST_FILE, not sure when added,
 # but everyone should be using at least 2.6
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 if (NOT DEFINED USER)
   if (NOT DEFINED ENV{USER})

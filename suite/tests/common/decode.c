@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,7 +56,7 @@ test_nops(void);
 void
 test_sse3(char *buf);
 void
-test_avx512_vex(char *buf);
+test_avx512_vex(void);
 void
 test_3dnow(char *buf);
 void
@@ -71,6 +71,8 @@ void
 test_SSE2(void);
 void
 test_mangle_seg(void);
+void
+test_jecxz(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
@@ -86,12 +88,6 @@ static int a[ITERS];
 
 #    ifdef UNIX
 #        define ALT_STACK_SIZE (SIGSTKSZ * 3)
-
-int
-my_setjmp(sigjmp_buf env)
-{
-    return SIGSETJMP(env);
-}
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -149,6 +145,91 @@ actual_call_target(void)
     print("Made it to actual_call_target\n");
 }
 
+#    ifndef X64
+/****************************************************************************
+ * Macros and routine to construct the encoded instruction buffer for the
+ * modrm test.
+ */
+#        define NOP_ENC 0x90
+#        define PROLOG_SIZE 2   /* save esp */
+#        define TEST_SEQ_SIZE 6 /* actual test seq. */
+#        define EPILOG_SIZE 3   /* restore esp, return */
+#        define PROLOG_START 0
+#        define TEST_SEQ_START (PROLOG_START + PROLOG_SIZE)
+#        define EPILOG_START (TEST_SEQ_START + TEST_SEQ_SIZE)
+#        define EACH_SEQ_SIZE (EPILOG_START + EPILOG_SIZE)
+#        define TOTAL_BUF_SIZE (EACH_SEQ_SIZE * 256 + 1)
+
+static void
+construct_modrm_test_buf(char *buf)
+{
+    /* Add an encoded instr for each of the 256 variants of the modr/m
+     * byte. Each of these instructions is part of a sequence of instrs:
+     * prolog -> modrm instr -> epilog -> ret
+     * nop may be added so that each of these parts have consistent size
+     * for all 256 variants, which simplifies sizing the instruction
+     * buffer up front.
+     */
+    for (int j = 0; j < 256; j++) {
+        int mod = ((j >> 6) & 0x3); /* top 2 bits */
+        int reg = ((j >> 3) & 0x7); /* middle 3 bits */
+        int rm = (j & 0x7);         /* bottom 3 bits */
+
+        /* Set prolog and epilog. */
+        if (IF_X64_ELSE(false, reg == 4 /* esp */)) {
+            /* We spill esp to a reg and restore it after the test sequence.
+             * Without this, esp will get clobbered and ret may segfault.
+             * Not yet ported to X86-64 as this test is disabled there.
+             */
+            buf[j * EACH_SEQ_SIZE + PROLOG_START + 0] = 0x89; /* mov */
+            buf[j * EACH_SEQ_SIZE + EPILOG_START + 0] = 0x89; /* mov */
+            if (mod == 3 && rm == 0) {
+                /* As eax is a source reg, we use ebx as the save slot instead. */
+                buf[j * EACH_SEQ_SIZE + PROLOG_START + 1] = 0xe3; /* esp -> ebx */
+                buf[j * EACH_SEQ_SIZE + EPILOG_START + 1] = 0xdc; /* ebx -> esp */
+            } else {
+                /* Use eax to save esp in prolog and restore in epilog. */
+                buf[j * EACH_SEQ_SIZE + PROLOG_START + 1] = 0xe0; /* esp -> eax */
+                buf[j * EACH_SEQ_SIZE + EPILOG_START + 1] = 0xc4; /* eax -> esp */
+            }
+        } else {
+            /* Prolog and epilog are not needed for non-xsp dest, as we can
+             * handle other regs being clobbered.
+             */
+            buf[j * EACH_SEQ_SIZE + PROLOG_START + 0] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + PROLOG_START + 1] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + EPILOG_START + 0] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + EPILOG_START + 1] = NOP_ENC;
+        }
+        buf[j * EACH_SEQ_SIZE + EPILOG_START + 2] = 0xc3; /* ret */
+
+        /* Set test sequence. */
+#        if defined(UNIX) || defined(X64)
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 0] = 0x65; /* gs: */
+#        else
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 0] = 0x64; /* fs: */
+#        endif
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 1] = 0x67; /* addr16 */
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 2] = 0x8b; /* load */
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 3] = j;    /* every single modrm byte */
+        if (mod == 1) {
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 4] = 0x03; /* disp */
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 5] = NOP_ENC;
+        } else if (mod == 2 || (mod == 0 && rm == 6)) {
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 4] = 0x03; /* disp */
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 5] = 0x00; /* disp */
+        } else {
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 4] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 5] = NOP_ENC;
+        }
+    }
+    buf[256 * EACH_SEQ_SIZE] = 0xcc;
+}
+#    else /* X64 */
+/* Allocate size sufficient for a zmm reg. */
+#        define TOTAL_BUF_SIZE (512)
+#    endif /* !X64/X64 */
+
 int
 main(int argc, char *argv[])
 {
@@ -158,69 +239,23 @@ main(int argc, char *argv[])
     int j;
 #    endif
     char *buf;
-#    ifdef UNIX
-    stack_t sigstack;
-#    endif
 
 #    ifdef UNIX
-    /* our modrm16 tests clobber esp so we need an alternate stack */
-    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
-    sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
-    i = sigaltstack(&sigstack, NULL);
-    assert(i == 0);
     intercept_signal(SIGILL, (handler_3_t)signal_handler, true);
     intercept_signal(SIGSEGV, (handler_3_t)signal_handler, true);
 #    else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 #    endif
-
-    buf = allocate_mem(7 * 256 + 1, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
+    buf = allocate_mem(TOTAL_BUF_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     assert(buf != NULL);
     print("Start\n");
 
 #    ifndef X64
     print("Jumping to a sequence of every addr16 modrm byte\n");
-    for (j = 0; j < 256; j++) {
-        int mod = ((j >> 6) & 0x3); /* top 2 bits */
-        int reg = ((j >> 3) & 0x7); /* middle 3 bits */
-        int rm = (j & 0x7);         /* bottom 3 bits */
-#        if defined(UNIX) || defined(X64)
-        buf[j * 7 + 0] = 0x65; /* gs: */
-#        else
-        buf[j * 7 + 0] = 0x64; /* fs: */
-#        endif
-        buf[j * 7 + 1] = 0x67; /* addr16 */
-        buf[j * 7 + 2] = 0x8b; /* load */
-#        ifdef WINDOWS
-        /* Windows can't handle stack pointer being off */
-        if (reg == 4) { /* xsp */
-            buf[j * 7 + 3] = j | 0x8;
-        } else
-            buf[j * 7 + 3] = j; /* nearly every single modrm byte */
-#        else
-        buf[j * 7 + 3] = j;    /* every single modrm byte */
-#        endif
-        if (mod == 1) {
-            buf[j * 7 + 4] = 0x03; /* disp */
-            buf[j * 7 + 5] = 0xc3;
-        } else if (mod == 2 || (mod == 0 && rm == 6)) {
-            buf[j * 7 + 4] = 0x03; /* disp */
-            buf[j * 7 + 5] = 0x00; /* disp */
-        } else {
-            buf[j * 7 + 4] = 0xc3; /* ret */
-            buf[j * 7 + 5] = 0xc3;
-        }
-        buf[j * 7 + 6] = 0xc3;
-    }
-    buf[256 * 7] = 0xcc;
+    construct_modrm_test_buf(buf);
     print_access_vio = false;
     for (j = 0; j < 256; j++) {
-        i = SIGSETJMP(mark);
-        if (i == 0)
-            test_modrm16(&buf[j * 7]);
-        else
-            continue;
+        test_modrm16(&buf[j * EACH_SEQ_SIZE]);
     }
     print("Done with modrm test: tested %d\n", j);
     count = 0;
@@ -265,7 +300,11 @@ main(int argc, char *argv[])
     print("Testing far call/jmp\n");
     test_far_cti();
 
-#    ifdef WINDOWS /* FIXME i#105: crashing on Linux so disabling for now */
+    /* i#4618: SEH64 has trouble recovering from the unaligned stacks
+     * and other issues in this test.  We have coverage on 64-bit Linux so
+     * we're ok permanently disabling it for Win64.
+     */
+#    if !(defined(WINDOWS) && defined(X64))
     /* PR 242815: data16 mbr */
     print("Testing data16 mbr\n");
     test_data16_mbr();
@@ -277,23 +316,27 @@ main(int argc, char *argv[])
     test_rip_rel_ind();
 
     /* i#1118: subtle prefix opcode issues */
+    print("Testing bsr\n");
     test_bsr();
+
     i = SIGSETJMP(mark);
     if (i == 0) {
+        print("Testing SSE2\n");
         test_SSE2();
     }
 
     /* i#1493: segment register mangling */
+    print("Testing mangle_seg\n");
     test_mangle_seg();
 
-#    ifdef UNIX
-    free(sigstack.ss_sp);
-#    endif
+    /* i#4680: Test jecxz mangling. */
+    print("Testing jecxz\n");
+    test_jecxz();
 
     /* AVX-512 VEX tests */
 #    ifdef __AVX512F__
     print("Testing AVX-512 VEX\n");
-    test_avx512_vex(buf);
+    test_avx512_vex();
 #    endif
 
     print("All done\n");
@@ -375,9 +418,11 @@ GLOBAL_LABEL(FUNCNAME:)
 
 #undef FUNCNAME
 #define FUNCNAME test_avx512_vex
-        DECLARE_FUNC(FUNCNAME)
+        DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov    REG_XAX, ARG1
+        PUSH_CALLEE_SAVED_REGS()
+        END_PROLOG
+
         RAW(c5) RAW(f8) RAW(90) RAW(c8)                 /* kmovw  %k0,%k1 */
         RAW(c5) RAW(f9) RAW(90) RAW(da)                 /* kmovb  %k2,%k3 */
         RAW(c4) RAW(e1) RAW(f8) RAW(90) RAW(ec)         /* kmovq  %k4,%k5 */
@@ -445,6 +490,9 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(c4) RAW(e3) RAW(79) RAW(30) RAW(da) RAW(65) /* kshiftrb $0x65,%k2,%k3 */
         RAW(c4) RAW(e3) RAW(f9) RAW(31) RAW(ec) RAW(05) /* kshiftrq $0x5,%k4,%k5 */
         RAW(c4) RAW(e3) RAW(79) RAW(31) RAW(fe) RAW(2f) /* kshiftrd $0x2f,%k6,%k7 */
+
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -490,9 +538,16 @@ DECL_EXTERN(mark)
 #ifdef WINDOWS
 # ifdef X64
 DECL_EXTERN(setjmp)
+/* The 4-slot stack padding means we can't pass xsp to CALLC2 which
+ * will capture the post-padding value, which is beyond-TOS later,
+ * causing problems on longjmp.
+ * Even now it is a little fragile: probably better to subtract the 4
+ * slots at the top of the frame and do a raw call here.
+ */
 #  define CALL_SETJMP \
-        lea   REG_XAX, mark @N@\
-        CALLC2(setjmp, REG_XAX, REG_XSP)
+        lea   REG_XCX, mark @N@\
+        mov   REG_XDX, REG_XSP @N@\
+        CALLC2(setjmp, REG_XCX, REG_XDX)
 # else
 DECL_EXTERN(_setjmp3)
 #  define CALL_SETJMP \
@@ -500,15 +555,25 @@ DECL_EXTERN(_setjmp3)
         CALLC2(_setjmp3, REG_XAX, 0)
 # endif
 #else
-DECL_EXTERN(my_setjmp)
+/* We can't safely have a local wrapper, since its retaddr is then exposed
+ * for the longjmp restore path.  We thus need to directly invoke sigsetjmp.
+ */
+# ifdef MACOS
+#  define SIGSETJMP_NAME sigsetjmp
+# else
+#  define SIGSETJMP_NAME __sigsetjmp
+# endif
+DECL_EXTERN(SIGSETJMP_NAME)
 # ifdef X64
 #  define CALL_SETJMP \
         lea   REG_XAX, SYMREF(mark) @N@ \
-        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
+        mov   REG_XCX, HEX(1)       @N@ \
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # else
 #  define CALL_SETJMP \
-        lea   REG_XAX, mark @N@\
-        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
+        lea   REG_XAX, mark   @N@\
+        mov   REG_XCX, HEX(1) @N@ \
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # endif
 #endif
 
@@ -548,7 +613,18 @@ DECL_EXTERN(my_setjmp)
 #define FUNCNAME test_far_cti
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ADD_STACK_ALIGNMENT
         END_PROLOG
+        /* ljmp to base-disp with flat segment */
+        lea   REG_XAX, PTRSZ SYMREF(test_far_cti_end_flat)
+        mov   [REG_XSP], REG_XAX
+        mov   REG_XCX, REG_XSP
+        /* I'm having trouble getting gas to generate this from:
+         *   jmp   PTRSZ SEGMEM(es,REG_XCX)
+         * So I'm bailing and going with raw bytes.
+         */
+        RAW(26) RAW(ff) RAW(21) /* jmp QWORD PTR es:[rcx] */
+    ADDRTAKEN_LABEL(test_far_cti_end_flat:)
         CALL_SETJMP
         cmp   REG_XAX, 0
         jne   test_far_cti_1
@@ -587,6 +663,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov   eax, HEX(deadbeef)
         RAW(ff) RAW(18) /* lcall (%eax) */
     test_far_cti_6:
+        RESTORE_STACK_ALIGNMENT
         ret
         END_FUNC(FUNCNAME)
 
@@ -784,6 +861,20 @@ GLOBAL_LABEL(FUNCNAME:)
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         ret
         END_FUNC(FUNCNAME)
+
+#undef FUNCNAME
+#define FUNCNAME test_jecxz
+        /* i#4680: test jecxz mangling code */
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        END_PROLOG
+        jecxz    jecxz_zero
+        nop
+jecxz_zero:
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        ret
+        END_FUNC(FUNCNAME)
+
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */

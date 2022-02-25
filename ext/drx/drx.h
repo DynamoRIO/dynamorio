@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,7 +47,7 @@ extern "C" {
 /**
  * \addtogroup drx DynamoRIO eXtension utilities
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /* i#1531: drx uses drmgr internally, so a client using drx cannot use
  * DR's TLS field routines directly.
@@ -132,8 +132,9 @@ drx_aflags_are_dead(instr_t *where);
 
 /** Flags for \p drx_insert_counter_update */
 enum {
-    DRX_COUNTER_64BIT = 0x01, /**< 64-bit counter is used for update. */
-    DRX_COUNTER_LOCK = 0x10,  /**< Counter update is atomic. */
+    DRX_COUNTER_64BIT = 0x01,   /**< 64-bit counter is used for update. */
+    DRX_COUNTER_REL_ACQ = 0x02, /**< Release-acquire semantics for counter update. */
+    DRX_COUNTER_LOCK = 0x10,    /**< Counter update is atomic. */
 };
 
 DR_EXPORT
@@ -159,7 +160,10 @@ DR_EXPORT
  * \note The counter update is racy (i.e., not synchronized among threads)
  * unless #DRX_COUNTER_LOCK is specified in \p flags. When #DRX_COUNTER_LOCK
  * is set, the instrumentation may fail if a 64-bit counter is updated in
- * a 32-bit application or the counter crosses cache lines.
+ * a 32-bit application or the counter crosses cache lines. Currently, #DRX_COUNTER_LOCK
+ * is not yet supported on AArchXX. For AArchXX, if #DRX_COUNTER_REL_ACQ is specified in
+ * \p flags, release-acquire semantics are enforced for the counter update. The
+ * #DRX_COUNTER_REL_ACQ flag can be used in conjunction with #DRX_COUNTER_64BIT.
  *
  * \note To update multiple counters at the same place, multiple
  * drx_insert_counter_update() invocations should be made in a row with the
@@ -505,7 +509,10 @@ DR_EXPORT
  * equivalent scalar load and stores, mask register bit tests, and mask register bit
  * updates.
  *
- * \warning This function is not fully supported yet. Do not use.
+ * Clients applying this expansion are encouraged to use emulation-aware
+ * instrumentation via drmgr_orig_app_instr_for_fetch() and
+ * drmgr_orig_app_instr_for_operands() in order to observe the original
+ * opcode with the expanded memory operands.
  *
  * \warning The added multi-instruction sequence contains several control-transfer
  * instructions and is not straight-line code, which can complicate subsequent analysis
@@ -530,7 +537,7 @@ DR_EXPORT
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

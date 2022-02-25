@@ -70,7 +70,7 @@ extern "C" {
 /**
  * \addtogroup drsyms Symbol Access Library
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each DRSyms operation */
 typedef enum {
@@ -722,7 +722,7 @@ DR_EXPORT
 drsym_error_t
 drsym_enumerate_lines(const char *modpath, drsym_enumerate_lines_cb callback, void *data);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

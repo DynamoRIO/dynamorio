@@ -1,0 +1,665 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_annotations Annotations
+
+# Annotation Types
+
+-# <b>Statement</b>: the annotation directly precedes the call site
+  - the target app may specify a block of statements to execute only on a native run
+-# <b>Expression</b>: the annotation appears at the beginning of the annotation function
+  - the remainder of the annotation function only executes on a native run
+  - the call site is not annotated
+
+Every annotation function is defined as an expression, i.e., its body begins with the annotation tag.
+If a particular call site is annotated,
+that invocation becomes a statement, and the annotation function call is skipped in a native run.
+When calling an annotation as an expression, the annotation function is invoked (i.e., not skipped) to avoid
+control flow confusion in nested expressions (especially where annotation expressions are nested).
+The annotation tag is placed inside the annotation function for the expression context because
+(1) it is easy to find there, (2) it requires only one instrumentation per run, and (3) the function is being
+invoked anyway.
+
+# Annotation Samples from Debug Builds
+
+## Unix x64 Expression
+
+<b>C function definition</b>
+```
+  DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0)
+```
+
+<b>C macro</b> for definition of `dynamorio_annotate_running_on_dynamorio()`:
+```
+#define LABEL_REFERENCE_LENGTH "0x11"
+#define LABEL_REFERENCE_REGISTER "%rax"
+#define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx","%rsi","%rdi","%r8","%r9"
+#define _CALL_TYPE
+#define DR_ANNOTATION_ATTRIBUTES \
+    __attribute__((noinline, visibility("hidden") _CALL_TYPE))
+#define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
+    const char *annotation##_label = "dynamorio-annotation:"#annotation; \
+    DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
+    { \
+        __label__ native_run, native_end_marker; \
+        extern const char *annotation##_label; \
+        __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                               mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                               bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                               jmp %l0;" \
+                               ::: ANNOTATION_FUNCTION_CLOBBER_LIST \
+                               : native_run); \
+        goto native_end_marker; \
+        native_run: body; \
+        native_end_marker: ; \
+    }
+```
+
+<b>ASM</b> for `dynamorio_annotate_running_on_dynamorio()`:
+```
+  40213e:   55                      push   %rbp                       # function preamble
+  40213f:   48 89 e5                mov    %rsp,%rbp
+  402142:   eb 11                   jmp    402155                     # jump to native version
+  402144:   48 8b 04 25 b8 0e 20    mov    0x200eb8,%rax              # GOT offset from (%rip + 4)
+  40214b:   00
+  40214c:   48 0f bd 04 25 b0 ff    bsr    0xffffffffffffffb0,%rax    # annotation name offset in GOT
+  402153:   ff ff                                                     # `bsr` indicates function tag
+  402155:   eb 02                   jmp    402159
+  402157:   eb 07                   jmp    402160
+  402159:   b8 00 00 00 00          mov    $0x0,%eax                  # native version
+  40215e:   eb 00                   jmp    402160
+  402160:   5d                      pop    %rbp
+  402161:   c3                      retq
+```
+
+## Unix x64 Statement
+
+<b>C code</b>
+```
+  TEST_ANNOTATION_SET_MODE(init->id, MODE_1,
+  {
+      printf("Mode 1 on %d\n", init->id); // native version
+  });
+```
+
+<b>C macro</b> for `TEST_ANNOTATION_SET_MODE()`:
+```
+#define LABEL_REFERENCE_LENGTH "0x11"
+#define LABEL_REFERENCE_REGISTER "%rax"
+#define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx","%rsi","%rdi","%r8","%r9"
+#define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
+({ \
+    __label__ native_run, native_end_marker; \
+    extern const char *annotation##_label; \
+    __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                            mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                            bsf "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                            jmp %l0;" \
+                            ::: LABEL_REFERENCE_REGISTER \
+                            : native_run); \
+    annotation(__VA_ARGS__); \
+    goto native_end_marker; \
+    native_run: native_version; \
+    native_end_marker: ; \
+})
+#define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
+```
+
+<b>ASM</b> for annotated call to `TEST_ANNOTATION_SET_MODE()`:
+```
+  401b60:   eb 11                   jmp    401b73 <main+0x7e6>      # jump over the annotation name reference
+  401b62:   48 8b 04 25 9a 14 20    mov    0x20149a,%rax            # GOT offset from %eip
+  401b69:   00
+  401b6a:   48 0f bc 04 25 e0 ff    bsf    0xffffffffffffffe0,%rax  # offset of name reference within GOT (bsf indicates call site tag)
+  401b71:   ff ff
+  401b73:   eb 14                   jmp    401b89 <main+0x7fc>      # jump to the native version
+  401b75:   8b 05 e5 15 20 00       mov    0x2015e5(%rip),%eax      # annotation args
+  401b7b:   be 01 00 00 00          mov    $0x1,%esi
+  401b80:   89 c7                   mov    %eax,%edi
+  401b82:   e8 20 06 00 00          callq  4021a7                   # annotation call
+  401b87:   eb 17                   jmp    401ba0
+  401b89:   8b 05 d1 15 20 00       mov    0x2015d1(%rip),%eax      # native version
+  401b8f:   89 c6                   mov    %eax,%esi
+  401b91:   bf b2 25 40 00          mov    $0x4025b2,%edi
+  401b96:   b8 00 00 00 00          mov    $0x0,%eax
+  401b9b:   e8 f0 f5 ff ff          callq  401190 <printf@plt>
+  401ba0:   c7 45 e8 00 00 00 00    movl   $0x0,-0x18(%rbp)         # app code...
+```
+
+## Unix x86 Expression
+
+<b>C function definition</b>
+```
+  DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0)
+```
+
+<b>C macro</b> for definition of `dynamorio_annotate_running_on_dynamorio()`:
+```
+#define LABEL_REFERENCE_LENGTH "0xc"
+#define LABEL_REFERENCE_REGISTER "%eax"
+#define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx"
+#define _CALL_TYPE , fastcall
+#define DR_ANNOTATION_ATTRIBUTES \
+    __attribute__((noinline, visibility("hidden") _CALL_TYPE))
+#define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
+    const char *annotation##_label = "dynamorio-annotation:"#annotation; \
+    DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
+    { \
+        __label__ native_run, native_end_marker; \
+        extern const char *annotation##_label; \
+        __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                               mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                               bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                               jmp %l0;" \
+                               ::: ANNOTATION_FUNCTION_CLOBBER_LIST \
+                               : native_run); \
+        goto native_end_marker; \
+        native_run: body; \
+        native_end_marker: ; \
+    }
+```
+
+<b>ASM</b> for `dynamorio_annotate_running_on_dynamorio()`:
+```
+ 8049b68:   55                      push   %ebp              # function preamble
+ 8049b69:   89 e5                   mov    %esp,%ebp
+ 8049b6b:   eb 0c                   jmp    8049b79           # jump to native version
+ 8049b6d:   a1 93 24 00 00          mov    0x2493,%eax       # GOT offset from (%rip + 4)
+ 8049b72:   0f bd 05 d8 ff ff ff    bsr    0xffffffd8,%eax   # annotation name offset in GOT
+ 8049b79:   eb 02                   jmp    8049b7d           # intermediate jump to native version
+ 8049b7b:   eb 07                   jmp    8049b84           # jump over native version
+ 8049b7d:   b8 00 00 00 00          mov    $0x0,%eax         # native version
+ 8049b82:   eb 00                   jmp    8049b84
+ 8049b84:   5d                      pop    %ebp
+ 8049b85:   c3                      ret
+```
+
+## Unix x86 Statement
+
+<b>C code</b>
+```
+  TEST_ANNOTATION_SET_MODE(init->id, MODE_1,
+  {
+      printf("Mode 1 on %d\n", init->id); // native version
+  });
+```
+
+<b>C macro</b> for `TEST_ANNOTATION_SET_MODE()`:
+```
+#define LABEL_REFERENCE_LENGTH "0xc"
+#define LABEL_REFERENCE_REGISTER "%eax"
+#define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx"
+#define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
+({ \
+    __label__ native_run, native_end_marker; \
+    extern const char *annotation##_label; \
+    __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                            mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                            bsf "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                            jmp %l0;" \
+                            ::: LABEL_REFERENCE_REGISTER \
+                            : native_run); \
+    annotation(__VA_ARGS__); \
+    goto native_end_marker; \
+    native_run: native_version; \
+    native_end_marker: ; \
+})
+#define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
+```
+
+<b>ASM</b> for annotated call to `TEST_ANNOTATION_SET_MODE()`:
+```
+ 8049610:   eb 0c                   jmp    804961e <main+0x6f1>  # jump over the annotation name reference
+ 8049612:   a1 ee 29 00 00          mov    0x29ee,%eax           # GOT offset from %eip
+ 8049617:   0f bc 05 f0 ff ff ff    bsf    0xfffffff0,%eax       # offset of name reference within GOT (bsf indicates call site tag)
+ 804961e:   eb 13                   jmp    8049633 <main+0x706>  # jump to the native version
+ 8049620:   a1 b8 c0 04 08          mov    0x804c0b8,%eax        # annotation args
+ 8049625:   ba 01 00 00 00          mov    $0x1,%edx
+ 804962a:   89 c1                   mov    %eax,%ecx
+ 804962c:   e8 92 05 00 00          call   8049bc3               # annotation call
+ 8049631:   eb 15                   jmp    8049648 <main+0x71b>  # jump over the native version
+ 8049633:   a1 b8 c0 04 08          mov    0x804c0b8,%eax        # native version
+ 8049638:   89 44 24 04             mov    %eax,0x4(%esp)
+ 804963c:   c7 04 24 9a 9f 04 08    movl   $0x8049f9a,(%esp)
+ 8049643:   e8 88 f6 ff ff          call   8048cd0 <printf@plt>
+ 8049648:   c7 45 e8 00 00 00 00    movl   $0x0,-0x18(%ebp)      # app code...
+```
+
+## Windows x64 Expression
+
+<b>C function definition</b>
+```
+  DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0)
+```
+
+<b>C macro</b> for definition of `dynamorio_annotate_running_on_dynamorio()`:
+```
+#define DR_DEFINE_ANNOTATION_LABELS(annotation) \
+    const char *annotation##_expression_label = "dynamorio-annotation:expression:"#annotation; \
+    const char *annotation##_statement_label = "dynamorio-annotation:statement:"#annotation;
+#define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
+    DR_DEFINE_ANNOTATION_LABELS(annotation) \
+    return_type __fastcall annotation parameters \
+    { \
+        DR_ANNOTATION_FUNCTION(annotation, body) \
+    }
+```
+
+<b>C macro</b> for function tag of `dynamorio_annotate_running_on_dynamorio()`:
+```
+#define DR_ANNOTATION_FUNCTION(annotation, body) \
+    if (GET_RETURN_PTR() == (void *) 0) { \
+        extern const char *annotation##_expression_label; \
+        __int2c(); \
+        _m_prefetchw(annotation##_expression_label); \
+        __debugbreak(); \
+    } else { \
+        body; \
+    }
+```
+
+<b>ASM</b> for annotation in `dynamorio_annotate_running_on_dynamorio()`:
+```
+  0000000140001FF0: 48 8D 04 24        lea         rax,[# _AddressOfReturnAddress()
+  0000000140001FF4: 48 85 C0           test        rax,rax
+  0000000140001FF7: 75 0F              jne         0000000140002008   # jump to the native version
+  0000000140001FF9: CD 2C              int         2Ch                # detection hint
+  0000000140001FFB: 48 8B 05 FE BF 02  mov         rax,qword ptr [dynamorio_annotate_running_on_dynamorio_expression_label](rsp])
+                    00
+  0000000140002002: 0F 0D 08           prefetchw   [# (guarantee that the label variable gets used)
+  0000000140002005: CC                 int         3                  # (discourage compiler reorderings)
+  0000000140002006: EB 02              jmp         000000014000200A   # jump over the native version
+  0000000140002008: 32 C0              xor         al,al              # native version (return 0)
+  000000014000200A: F3 C3              rep ret
+```
+
+## Windows x64 Statement
+
+<em>C code</em>
+```
+  TEST_ANNOTATION_SET_MODE(init->id, MODE_1,
+  {
+      printf("Mode 1 on %d\n", init->id); // native version
+  });
+```
+
+<em>C macro</em> for `TEST_ANNOTATION_SET_MODE()`:
+```
+#define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
+do { \
+    if ((unsigned __int64) GET_RETURN_PTR() > (0xfffffffffffffff1 - (2 * __LINE__))) { \
+        extern const char *annotation##_statement_label; \
+        __int2c(); \
+        _m_prefetchw(annotation##_statement_label); \
+        __debugbreak(); \
+        annotation(__VA_ARGS__); \
+    } else { \
+        native_version; \
+    } \
+} while ((unsigned __int64) GET_RETURN_PTR() > (0xfffffffffffffff0 - (2 * __LINE__)))
+#define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
+```
+
+<em>ASM</em> for annotated call to `TEST_ANNOTATION_SET_MODE()`:
+```
+  00000001400019B6: 48 8D 84 24 C8 00  lea         rax,[rsp+0C8h](rax])           # _AddressOfReturnAddress() (annotation head)
+                    00 00
+  00000001400019BE: 48 3D EF FD FF FF  cmp         rax,0FFFFFFFFFFFFFDEFh
+  00000001400019C4: 76 1F              jbe         00000001400019E5         # jump to the native version (always taken)
+  00000001400019C6: CD 2C              int         2Ch                      # detection hint
+  00000001400019C8: 48 8B 05 41 C8 02  mov         rax,qword ptr [00
+  00000001400019CF: 0F 0D 08           prefetchw   [rax](test_annotation_set_mode_statement_label])                       # (guarantee that the label variable gets used)
+  00000001400019D2: CC                 int         3                           # (discourage compiler reorderings)
+  00000001400019D3: BA 01 00 00 00     mov         edx,1                       # annotations args
+  00000001400019D8: 8B 0D 82 E7 02 00  mov         ecx,dword ptr [# (arbitrary code may appear among the args)
+  00000001400019DE: E8 8D 06 00 00     call        test_annotation_set_mode    # annotation call
+  00000001400019E3: EB 12              jmp         00000001400019F7            # jump over the native version
+  00000001400019E5: 8B 15 75 E7 02 00  mov         edx,dword ptr [140030160h](140030160h])  # native version--calls printf()
+  00000001400019EB: 48 8D 0D 56 26 02  lea         rcx,[00
+  00000001400019F2: E8 5D 0C 00 00     call        printf
+  00000001400019F7: 48 8D 84 24 C8 00  lea         rax,[rsp+0C8h](??_C@_0O@NICOHPLL@Mode?51?5on?5?$CFd?6?$AA@])           # _AddressOfReturnAddress() (annotation tail)
+                    00 00
+  00000001400019FF: 48 3D EE FD FF FF  cmp         rax,0FFFFFFFFFFFFFDEEh
+  0000000140001A05: 77 AF              ja          00000001400019B6         # loopback to annotation head (never taken)
+  0000000140001A07: C7 44 24 50 00 00  mov         dword ptr [# app code...
+                    00 00
+```
+
+## Windows x86 Expression
+
+<em>C function definition</em>
+```
+  DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0)
+```
+
+<em>C macro</em> for definition of `dynamorio_annotate_running_on_dynamorio()`:
+```
+#define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
+    DR_DEFINE_ANNOTATION_LABELS(annotation) \
+    return_type __fastcall annotation parameters \
+    { \
+        DR_ANNOTATION_FUNCTION(annotation, body) \
+    }
+```
+
+<em>C macro</em> for function tag of `dynamorio_annotate_running_on_dynamorio()`:
+```
+#define DR_ANNOTATION_FUNCTION_INSTANCE(unique_id, annotation, body) \
+    __asm { \
+        __asm _emit 0xeb \
+        __asm _emit 0x06 \
+        __asm mov eax, annotation##_label \
+        __asm nop \
+        __asm jmp PASTE(native_run, unique_id) \
+    } \
+    goto PASTE(native_end_marker, unique_id); \
+    PASTE(native_run, unique_id): body; \
+    PASTE(native_end_marker, unique_id): ;
+#define DR_ANNOTATION_FUNCTION(annotation, body) \
+    DR_ANNOTATION_FUNCTION_INSTANCE(__COUNTER__, annotation, body)
+```
+
+<em>ASM</em> for `dynamorio_annotate_running_on_dynamorio()`:
+```
+  00401990: 55                 push        ebp
+  00401991: 8B EC              mov         ebp,esp
+  00401993: EB 06              jmp         0040199B   # jump over annotation
+  00401995: A1 00 B0 42 00     mov         eax,dword ptr [_dynamorio_annotate_running_on_dynamorio_label](rsp+50h],0)
+  0040199A: 90                 nop
+  0040199B: EB 02              jmp         0040199F   # jump to native version
+  0040199D: EB 02              jmp         004019A1   # jump over native version
+  0040199F: 32 C0              xor         al,al      # native version
+  004019A1: 5D                 pop         ebp
+  004019A2: C3                 ret
+```
+
+## Windows x86 Statement
+
+<b>C code</b>
+```
+  TEST_ANNOTATION_SET_MODE(init->id, MODE_1,
+  {
+      printf("Mode 1 on %d\n", init->id); // native version
+  });
+```
+
+<b>C macro</b> for `TEST_ANNOTATION_SET_MODE()`:
+```
+#define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
+    { \
+        extern const char *annotation##_name; \
+        __asm { \
+            __asm _emit 0xeb \
+            __asm _emit 0x06 \
+            __asm mov eax, annotation##_name \
+            __asm _emit 0x01 \
+            __asm jmp PASTE(native_execution_, __LINE__) \
+            __asm jmp PASTE(native_end_marker_, __LINE__) \
+        } \
+        annotation(__VA_ARGS__); \
+        PASTE(native_execution_, __LINE__) : native_version; \
+        PASTE(native_end_marker_, __LINE__): ; \
+    }
+#define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
+```
+
+<b>ASM</b> for annotated call to `TEST_ANNOTATION_SET_MODE()`:
+```
+  00401782: EB 06              jmp         0040178A
+  00401784: A1 BC B0 42 00     mov         eax,dword ptr [00401789: 58                 pop         eax        # indicates call site tag (avoids EB 05, which is common in windows core libs)
+  0040178A: EB 12              jmp         0040179E                              # jump to the native version
+  0040178C: BA 01 00 00 00     mov         edx,1                                 # annotation args
+  00401791: 8B 0D 70 C7 42 00  mov         ecx,dword ptr ds:[42C770h](_test_annotation_set_mode_label])
+  00401797: E8 96 F8 FF FF     call        @ILT+45(@test_annotation_set_mode@8)  # annotation call
+  0040179C: EB 14              jmp         004017B2                              # jump over the native version
+  0040179E: 8B 0D 70 C7 42 00  mov         ecx,dword ptr ds:[# native version
+  004017A4: 51                 push        ecx
+  004017A5: 68 80 3F 42 00     push        offset ??_C@_0O@NICOHPLL@Mode?51?5on?5?$CFd?6?$AA@
+  004017AA: E8 BB 09 00 00     call        _printf
+  004017AF: 83 C4 08           add         esp,8
+  004017B2: C7 45 FC 00 00 00  mov         dword ptr [ebp-4](42C770h]),0                   # app code...
+            00
+```
+
+# Samples of Special Cases
+
+## Nested annotations: Windows x64 (/Ox /GL)
+
+<b>C code</b> for nested annotations
+```
+static __inline int
+annotated_function()
+{
+    NOTE2(7, 8);
+    return 9;
+}
+
+int main(void)
+{
+    NOTE1(1, 2, annotated_function());
+}
+```
+
+<b>ASM</b> for nested annotations:
+```
+  000000014000F936: 48 8D 5C 24 28     lea         rbx,[# _AddressOfReturnAddress()
+  000000014000F93B: 0F 1F 44 00 00     nop         dword ptr [rax+rax](rsp+28h])
+  000000014000F940: 48 81 FB 6D FF FF  cmp         rbx,0FFFFFFFFFFFFFF6Dh     # NOTE1 head
+                    FF
+  000000014000F947: 76 44              jbe         000000014000F98D           # target is NOTE1 tail
+  000000014000F949: CD 2C              int         2Ch                        # annotation hint
+  000000014000F94B: 0F 0D 0D 9E A9 00  prefetchw   [# operand is ((char *) NOTE1 label)
+                    00
+  000000014000F952: CC                 int         3                          # (discourage compiler reorderings)
+  000000014000F953: 48 81 FB 79 FF FF  cmp         rbx,0FFFFFFFFFFFFFF79h     # NOTE2 head
+                    FF
+  000000014000F95A: 76 17              jbe         000000014000F973           # target is NOTE2 tail
+  000000014000F95C: CD 2C              int         2Ch                        # annotation hint
+  000000014000F95E: 0F 0D 0D DB A9 00  prefetchw   [14001A340h](14001A2F0h])
+                    00
+  000000014000F965: CC                 int         3                          # (discourage compiler reorderings)
+  000000014000F966: BA 08 00 00 00     mov         edx,8                      # NOTE2 args
+  000000014000F96B: 8D 4A FF           lea         ecx,[000000014000F96E: E8 9D 00 00 00     call        note2
+  000000014000F973: 48 81 FB 78 FF FF  cmp         rbx,0FFFFFFFFFFFFFF78h     # NOTE2 tail
+                    FF
+  000000014000F97A: 77 D7              ja          000000014000F953
+  000000014000F97C: BA 02 00 00 00     mov         edx,2                      # NOTE1 args
+  000000014000F981: 44 8D 42 07        lea         r8d,[rdx+7](rdx-1])
+  000000014000F985: 8D 4A FF           lea         ecx,[000000014000F988: E8 B3 00 00 00     call        note1
+  000000014000F98D: 48 81 FB 6C FF FF  cmp         rbx,0FFFFFFFFFFFFFF6Ch     # NOTE1 tail
+                    FF
+  000000014000F994: 77 AA              ja          000000014000F940
+  000000014000F996: 33 C0              xor         eax,eax                    # app code...
+```
+
+## Nested annotations with shared label: Windows x64 (/Ox /GL)
+
+<em>C code</em> for nested annotations with shared label
+```
+INLINE double Triangle::get_b()
+{
+    TEST_ANNOTATION_TWO_ARGS(__LINE__, (unsigned int) get_c(), {
+        printf("Native two-args in Triangle::get_b()\n");
+    });
+
+    return lengths[1](rdx-1]);
+}
+
+INLINE double Triangle::get_c()
+{
+    TEST_ANNOTATION_TWO_ARGS(__LINE__, (unsigned int) get_a(), {
+        printf("Native two-args in Triangle::get_c()\n");
+    });
+    TEST_ANNOTATION_THREE_ARGS(__LINE__, 0x77, 0x7890);
+
+    return lengths[}
+```
+
+<em>ASM</em> for nested annotations with shared label
+```
+  00000001400011AD: 48 8D 7C 24 28     lea         rdi,[rsp+28h](2];)             # _AddressOfReturnAddress()
+  00000001400011B2: 48 81 FF D9 FE FF  cmp         rdi,0FFFFFFFFFFFFFED9h
+                    FF
+  00000001400011B9: 76 79              jbe         0000000140001234          # outer annotation head
+  00000001400011BB: CD 2C              int         2Ch                       # outer annotation hint
+  00000001400011BD: 48 8B 05 84 FE 02  mov         rax,qword ptr [# shared!!
+                    00
+  00000001400011C4: 0F 0D 08           prefetchw   [rax](test_annotation_two_args_statement_label])                     # outer annotation label use
+  00000001400011C7: CC                 int         3                         # (discourage compiler reorderings)
+  00000001400011C8: 0F 1F 84 00 00 00  nop         dword ptr [# (compiler padded)
+                    00 00
+  00000001400011D0: 48 81 FF C7 FE FF  cmp         rdi,0FFFFFFFFFFFFFEC7h    # inner annotation head
+                    FF
+  00000001400011D7: 76 18              jbe         00000001400011F1
+  00000001400011D9: CD 2C              int         2Ch                       # inner annotation hint
+  00000001400011DB: 0F 0D 08           prefetchw   [rax](rax+rax])                     # inner annotation uses shared label
+  00000001400011DE: CC                 int         3                         # (discourage compiler reorderings)
+  00000001400011DF: F2 48 0F 2C 53 08  cvttsd2si   rdx,mmword ptr [# inner annotation args
+  00000001400011E5: B9 95 00 00 00     mov         ecx,95h
+  00000001400011EA: E8 A1 02 00 00     call        test_annotation_two_args  # inner annotation call
+  00000001400011EF: EB 0C              jmp         00000001400011FD          # inner annotation jump over native version
+  00000001400011F1: 48 8D 0D 50 B2 02  lea         rcx,[??_C@_0CG@OGPOCELO@Native?5two?9args?5in?5Triangle?3?3get@](rbx+8])
+                    00                                                       # inner annotation native version
+  00000001400011F8: E8 07 08 00 00     call        printf
+  00000001400011FD: 48 81 FF C6 FE FF  cmp         rdi,0FFFFFFFFFFFFFEC6h
+                    FF
+  0000000140001204: 76 09              jbe         000000014000120F          # jump over inner annotation tail
+  0000000140001206: 48 8B 05 3B FE 02  mov         rax,qword ptr [00                                                       # inner annotation tail
+  000000014000120D: EB C1              jmp         00000001400011D0
+  000000014000120F: BA 77 00 00 00     mov         edx,77h                   # inner three-arg expression args
+  0000000140001214: 41 B8 90 78 00 00  mov         r8d,7890h
+  000000014000121A: 8D 4A 1F           lea         ecx,[rdx+1Fh](test_annotation_two_args_statement_label])
+  000000014000121D: E8 9E 02 00 00     call        test_annotation_three_args  # inner three-arg expression call
+  0000000140001222: B9 8C 00 00 00     mov         ecx,8Ch                   # outer annotation args
+  0000000140001227: F2 48 0F 2C 53 18  cvttsd2si   rdx,mmword ptr [000000014000122D: E8 5E 02 00 00     call        test_annotation_two_args  # outer annotation call
+  0000000140001232: EB 0C              jmp         0000000140001240          # jump over native version
+  0000000140001234: 48 8D 0D E5 B1 02  lea         rcx,[??_C@_0CG@NLJOANAO@Native?5two?9args?5in?5Triangle?3?3get@](rbx+18h])
+                    00
+  000000014000123B: E8 C4 07 00 00     call        printf
+  0000000140001240: 48 81 FF D8 FE FF  cmp         rdi,0FFFFFFFFFFFFFED8h    # outer annotation tail
+                    FF
+  0000000140001247: 0F 87 65 FF FF FF  ja          00000001400011B2
+```
+
+# Detection Algorithms
+
+## Unix
+
+  - For each ubr with exact byte sequence "`EB XX`" (where "`XX`" is "`11`" on x64 and "`0c`" on x86)
+    - `TRY_EXCEPT`:
+      - Attempt to read the operands of the next 2 instructions as `(GOT + offset)`
+        - The first instruction (referring to `GOT`) must be a `mov`
+          - The only src operand must be base/disp
+        - The second instruction (referring to `offset`) must be a `bsr` or `bsf`
+          - The only src operand must be base/disp
+      - If the `(GOT + offset)` can be dereferenced as `**(const char ***)`, and the string matches `"dynamorio-annotation:(.*)"`
+        - The name of the annotation is the first regex group of the `(GOT + offset)` match
+        - If the `offset` instruction was `bsr`, the code sequence is an expression (appearing at the top of an annotation function body)
+        - If the `offset` instruction was `bsf`, the code sequence is a statement (appearing at an annotation site)
+        - The current instruction will be a jump to the native version, and the following instruction will be the <b>instrumentation pc</b>
+    - On `EXCEPT`: clean up resources and ignore any annotations found
+
+## Windows x86
+
+  - For each ubr with exact byte sequence "`EB 06`"
+    - `TRY_EXCEPT`:
+    - Attempt to read the operand of the next instruction as a memory reference
+      - The instruction must be a `mov`
+        - The only src operand must be base/disp
+    - If the operand can be dereferenced as `*(const char **)`, and the resulting string matches `"dynamorio-annotation:(.*)"`
+      - The name of the annotation is the first regex group of the match
+      - Skip the next 1-byte instruction
+        - If it is "`nop`" (`0x90`), the code sequence appears at the top of an annotation function body
+        - If it is "`pop eax`" (`0x58`), the code sequence appears at an annotation site
+      - The current instruction will be a jump to the native version, and the following instruction will be the <b>instrumentation pc</b>
+    - On `EXCEPT`: clean up resources and ignore any annotations found
+
+## Windows x64
+
+  - For each cbr
+    - If `(bb->checked_end == bb->cur_pc)`, execute a safe read of 1 byte; otherwise just read the byte
+      - Return if the safe read is attempted and fails
+    - Compare the byte to "`CD`" (interrupt)
+      - *Note: the interrupt should never execute, but this needs to be verified for C# and VB apps*
+      - `TRY_EXCEPT`:
+      - Attempt to read the operand of the next instruction as a memory reference
+        - The instruction may be a `mov` or a `prefetchw`
+          - The only src operand must be rel addr
+      - If the operand can be dereferenced as `*(const char **)`, and the resulting string matches `"dynamorio-annotation:(.**)"`
+        - Match the first regex group (i.e., above) against a second regex `"(.**):(.*)"`
+          - If the first group of the second regex matches "expression", the code sequence appears at the top of an annotation function body
+          - If the first group of the second regex matches "statement", the code sequence appears at an annotation site
+        - Skip arbitrary instructions past the next "`int 3`" (there should usually just be one intervening instruction)
+          - Memo the current pc as the <b>instrumentation pc</b>
+          - If the next 2 instructions are "`<cbr>; int 2c`", repeat "skip arbitrary instructions..."
+      - On `EXCEPT`: clean up resources and ignore any annotations found
+
+# Instrumentation Algorithms
+
+## Expression
+
+<em>Occurs at the top of an annotation function body</em>
+
+  - For each annotation handler registered for this annotation (by name)
+    - insert a clean call to the handler at the <b>instrumentation pc</b> (as identified by the Detection Algorithms above)
+    - terminate the basic block
+
+## Statement
+
+<em>Occurs at an annotation site</em>
+
+  - Skip translation of the annotation header
+  - Resume translation at the <b>instrumentation pc</b> (as identified by the Detection Algorithms above)
+    - Do not terminate the basic block at this point
+
+Arbitrary code can appear within the annotation statement body, for example when the compiler inlines
+a call that appears in the annotation argument list, like this:
+
+```
+DYNAMORIO_SOME_ANNOTATION(foo(), bar());
+```
+
+Such inlined code can be very complex, including other calls and unrolled loops.
+To simplify the instrumentation, the annotation statement body is translated into the code cache
+without annotation-specific introspection. Instead of attempting to insert a clean call in place
+of the annotation function call (which occurs inside the annotation statement body), that call is
+translated like any other. The clean calls for registered annotation handlers are only inserted
+at the top of the annotation function body (see above).
+
+ ****************************************************************************
+ */

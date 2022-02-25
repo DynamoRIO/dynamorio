@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,31 +45,23 @@
 #include "emit.h"
 #include "fcache.h"
 #include "monitor.h"
-#ifdef CUSTOM_TRACES
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 #include "instr.h"
 #include "perscache.h"
 #include "disassemble.h"
 
-#ifdef CLIENT_INTERFACE
 /* in interp.c.  not declared in arch_exports.h to avoid having to go
  * make monitor_data_t opaque in globals.h.
  */
 extern bool
 mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md);
-#endif
 
 /* SPEC2000 applu has a trace head entry fragment of size 40K! */
 /* streamit's fft had a 944KB bb (ridiculous unrolling) */
 /* no reason to have giant traces, second half will become 2ndary trace */
 /* The instrumentation easily makes trace large,
  * so we should make the buffer size bigger, if a client is used.*/
-#ifdef CLIENT_INTERFACE
-#    define MAX_TRACE_BUFFER_SIZE MAX_FRAGMENT_SIZE
-#else
-#    define MAX_TRACE_BUFFER_SIZE (16 * 1024) /* in bytes */
-#endif
+#define MAX_TRACE_BUFFER_SIZE MAX_FRAGMENT_SIZE
 /* most traces are under 1024 bytes.
  * for x64, the rip-rel instrs prevent a memcpy on a resize
  */
@@ -136,7 +128,7 @@ delete_private_copy(dcontext_t *dcontext)
             fragment_delete(dcontext, md->last_copy,
                             FRAGDEL_NO_MONITOR
                                 /* private fragments are invisible */
-                                IF_CLIENT_INTERFACE(| FRAGDEL_NO_HTABLE));
+                                | FRAGDEL_NO_HTABLE);
         }
         md->last_copy = NULL;
         STATS_INC(num_trace_private_deletions);
@@ -186,8 +178,7 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
         /* for clients we make temp-private even when
          * thread-private versions already exist, so
          * we have to make them invisible */
-        IF_CLIENT_INTERFACE_ELSE(false, true) _IF_CLIENT(true /*for_trace*/)
-            _IF_CLIENT(md->pass_to_client ? &md->unmangled_bb_ilist : NULL));
+        false, true /*for_trace*/, md->pass_to_client ? &md->unmangled_bb_ilist : NULL);
     md->last_copy = md->last_fragment;
 
     STATS_INC(num_trace_private_copies);
@@ -201,7 +192,6 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
     ASSERT(!TEST(FRAG_CANNOT_BE_TRACE, md->last_fragment->flags));
 }
 
-#ifdef CLIENT_INTERFACE
 static void
 extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
 {
@@ -256,7 +246,6 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
     if (md->last_copy != NULL && TEST(FRAG_HAS_TRANSLATION_INFO, md->last_copy->flags))
         md->trace_flags |= FRAG_HAS_TRANSLATION_INFO;
 }
-#endif
 
 bool
 mangle_trace_at_end(void)
@@ -265,11 +254,7 @@ mangle_trace_at_end(void)
      * unless there's a client bb or trace hook, for a for-cache trace
      * or a recreate-state trace.
      */
-#ifdef CLIENT_INTERFACE
     return (dr_bb_hook_exists() || dr_trace_hook_exists());
-#else
-    return false;
-#endif
 }
 
 /* Initialization */
@@ -440,14 +425,12 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
     uint i;
     /* reset the trace buffer */
     instrlist_init(&(md->trace));
-#ifdef CLIENT_INTERFACE
     if (instrlist_first(&md->unmangled_ilist) != NULL)
         instrlist_clear(dcontext, &md->unmangled_ilist);
     instrlist_init(&md->unmangled_ilist);
     if (md->unmangled_bb_ilist != NULL)
         instrlist_clear_and_destroy(dcontext, md->unmangled_bb_ilist);
     md->unmangled_bb_ilist = NULL;
-#endif
     md->trace_buf_top = 0;
     ASSERT(md->trace_vmlist == NULL);
     for (i = 0; i < md->num_blks; i++) {
@@ -700,7 +683,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
             fragment_coarse_lookup_in_unit(dcontext, info, f->tag, &coarse_stub,
                                            &coarse_body);
             /* FIXME: don't allow marking for frozen units w/ no src info:
-             * shouldn't happen, except perhaps CLIENT_INTERFACE
+             * shouldn't happen, except perhaps with clients.
              */
             ASSERT(src_f != NULL || !info->frozen);
             if (src_f != NULL && TEST(FRAG_COARSE_GRAIN, src_f->flags) && src_l != NULL &&
@@ -811,7 +794,7 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
      * Watch out -- since we stop building traces at trace heads,
      * too many can hurt performance, especially if bbs do not follow
      * direct ctis.  We can use shadowed bbs to go through trace
-     * head and trace boundaries (CUSTOM_TRACES).
+     * head and trace boundaries for custom traces.
      */
     /* trace heads can be created across private/shared cache bounds */
     if (TEST(FRAG_IS_TRACE, from_flags) ||
@@ -1163,10 +1146,8 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     bool replace_trace_head = false;
     fragment_t wrapper;
     uint i;
-#if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* was the trace passed through optimizations or the client interface? */
     bool externally_mangled = false;
-#endif
     /* we cannot simply upgrade a basic block fragment
      * to a trace b/c traces have prefixes that basic blocks don't!
      */
@@ -1189,7 +1170,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         }
     });
 
-#ifdef CLIENT_INTERFACE
     if (md->pass_to_client) {
         /* PR 299808: we pass the unmangled ilist we've been maintaining to the
          * client, and we have to then re-mangle and re-connect.
@@ -1213,7 +1193,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         md->trace = md->unmangled_ilist;
         instrlist_init(&md->unmangled_ilist);
     }
-#endif
 
     if (INTERNAL_OPTION(cbr_single_stub) &&
         final_exit_shares_prev_stub(dcontext, trace, md->trace_flags)) {
@@ -1226,6 +1205,9 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         target = opnd_get_pc(instr_get_target(last));
         md->emitted_size -= local_exit_stub_size(dcontext, target, md->trace_flags);
     }
+
+    /* XXX i#5062 In the future this call should be placed inside mangle_trace() */
+    IF_AARCH64(md->emitted_size += fixup_indirect_trace_exit(dcontext, trace));
 
     if (DYNAMO_OPTION(speculate_last_exit)
 #ifdef HASHTABLE_STATISTICS
@@ -1405,7 +1387,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
          */
         if (trace_head_f == dcontext->last_fragment)
             last_exit_deleted(dcontext);
-#ifdef CUSTOM_TRACES
         /* If the trace is private, don't delete the head: the trace will simply
          * shadow it.  If the trace is shared, we have to delete it.  We'll re-create
          * the head as a shared bb if we ever do build a custom trace through it.
@@ -1415,14 +1396,11 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
             /* we can't have our trace_head_f clobbered below */
             CLIENT_ASSERT(!DYNAMO_OPTION(shared_bbs),
                           "invalid private trace head and "
-                          "private traces but -shared_bbs for CUSTOM_TRACES");
+                          "private traces but -shared_bbs for custom traces");
         } else {
-#endif
             fragment_delete(dcontext, trace_head_f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_MONITOR);
-#ifdef CUSTOM_TRACES
         }
-#endif
         if (!replace_trace_head) {
             trace_head_f = NULL;
             STATS_INC(num_fragments_deleted_trace_heads);
@@ -1464,9 +1442,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
     /* emit trace fragment into fcache with tag value */
     if (replace_trace_head) {
-#ifndef CUSTOM_TRACES
-        ASSERT(TEST(FRAG_SHARED, md->trace_flags));
-#endif
         trace_f = emit_fragment_as_replacement(dcontext, tag, trace, md->trace_flags,
                                                md->trace_vmlist, trace_head_f);
     } else {
@@ -1541,8 +1516,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
          */
         !TEST(FRAG_COARSE_GRAIN, trace_head_f->flags) &&
         /* if both shared only remove if option on, and no custom tracing */
-        IF_CUSTOM_TRACES(!dr_end_trace_hook_exists() &&)
-            INTERNAL_OPTION(remove_shared_trace_heads)) {
+        !dr_end_trace_hook_exists() && INTERNAL_OPTION(remove_shared_trace_heads)) {
         fragment_remove_shared_no_flush(dcontext, trace_head_f);
         trace_head_f = NULL;
     }
@@ -1607,9 +1581,7 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
     bool have_locks = false;
     DEBUG_DECLARE(uint pre_emitted_size = md->emitted_size;)
 
-#ifdef CLIENT_INTERFACE
     extend_unmangled_ilist(dcontext, f);
-#endif
 
     /* if prev_l is fake, NULL it out */
     if (is_ibl_sourceless_linkstub((const linkstub_t *)prev_l)) {
@@ -1725,17 +1697,13 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
             f->id, f->tag);
     }
 
-#ifdef CUSTOM_TRACES
     /* may end up going through trace head, etc. that isn't linked */
     if ((f->flags & FRAG_LINKED_OUTGOING) != 0) {
-#endif
         /* unlink so monitor invoked on fragment exit */
         unlink_fragment_outgoing(dcontext, f);
         LOG(THREAD, LOG_MONITOR | LOG_LINKS, 4, "monitor unlinked F%d (" PFX ")\n", f->id,
             f->tag);
-#ifdef CUSTOM_TRACES
     }
-#endif
 
     SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
 
@@ -1868,9 +1836,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     bool start_trace = false;
     bool end_trace = false;
-#ifdef CUSTOM_TRACES
     dr_custom_trace_action_t client = CUSTOM_TRACE_DR_DECIDES;
-#endif
     trace_head_counter_t *ctr;
     uint add_size = 0, prev_mangle_size = 0; /* NOTE these aren't set if end_trace */
 
@@ -1904,7 +1870,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* check for trace ending conditions that can be overridden by client */
         end_trace = (end_trace || TEST(FRAG_IS_TRACE, f->flags) ||
                      TEST(FRAG_IS_TRACE_HEAD, f->flags));
-#ifdef CUSTOM_TRACES
         if (dr_end_trace_hook_exists()) {
             client = instrument_end_trace(dcontext, md->trace_tag, f->tag);
             /* Return values:
@@ -1936,7 +1901,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             LOG(THREAD, LOG_MONITOR, 4, "Client instrument_end_trace returned %d\n",
                 client);
         }
-#endif
         /* check for conditions signaling end of trace regardless of client */
         end_trace = end_trace || TEST(FRAG_CANNOT_BE_TRACE, f->flags);
 
@@ -1947,7 +1911,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 #endif
 
         if (!end_trace) {
-#ifdef CUSTOM_TRACES
             /* we need a regular bb here, not a trace */
             if (TEST(FRAG_IS_TRACE, f->flags)) {
                 /* We create an official, shared bb (we DO want to call the client bb
@@ -1975,13 +1938,13 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                      */
                     head = build_basic_block_fragment(
                         dcontext, f->tag, FRAG_IS_TRACE_HEAD, false /*do not link*/,
-                        true /*visible*/ _IF_CLIENT(true /*for trace*/) _IF_CLIENT(NULL));
+                        true /*visible*/, true /*for trace*/, NULL);
                     SELF_PROTECT_LOCAL(dcontext, READONLY);
                     STATS_INC(custom_traces_bbs_built);
                     ASSERT(head != NULL);
                     /* If it's not shadowing we should have linked before htable add.
                      * We shouldn't end up w/ a bb of different sharing than the
-                     * trace: CUSTOM_TRACES rules out private traces and shared bbs,
+                     * trace: custom traces rule out private traces and shared bbs,
                      * and if circumstances changed since the original trace head bb
                      * was made then the trace should have been flushed.
                      */
@@ -2002,9 +1965,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                 /* use the bb from here on out */
                 f = head;
             }
-#endif
-            if (TEST(FRAG_COARSE_GRAIN, f->flags) ||
-                TEST(FRAG_SHARED, f->flags) IF_CLIENT_INTERFACE(|| md->pass_to_client)) {
+            if (TEST(FRAG_COARSE_GRAIN, f->flags) || TEST(FRAG_SHARED, f->flags) ||
+                md->pass_to_client) {
                 /* We need linkstub_t info for trace_exit_stub_size_diff() so we go
                  * ahead and make a private copy here.
                  * For shared fragments, we make a private copy of f to avoid
@@ -2029,6 +1991,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                      * to last_copy, must re-clear!
                      */
                     md->last_fragment = NULL;
+                    KSTOP(trace_building);
                     return f;
                 }
                 f = md->last_fragment;
@@ -2050,7 +2013,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
              /* mangling may never use trace buffer memory but just in case */
              !make_room_in_trace_buffer(dcontext, add_size + prev_mangle_size, f));
 
-#ifdef CUSTOM_TRACES
         if (end_trace && client == CUSTOM_TRACE_CONTINUE) {
             /* had to overide client, log */
             LOG(THREAD, LOG_MONITOR, 2,
@@ -2059,7 +2021,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                 "continue trace (cannot trace through next fragment), ending trace "
                 "now\n");
         }
-#endif
 
         if (end_trace) {
             LOG(THREAD, LOG_MONITOR, 3,
@@ -2196,7 +2157,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         }
     }
 
-#ifdef CLIENT_INTERFACE
     if (start_trace) {
         /* We need to set pass_to_client before cloning */
         /* PR 299808: cache whether we need to re-build bbs for clients up front,
@@ -2208,10 +2168,9 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* should already be initialized */
         ASSERT(instrlist_first(&md->unmangled_ilist) == NULL);
     }
-#endif
     if (start_trace &&
-        (TEST(FRAG_COARSE_GRAIN, f->flags) ||
-         TEST(FRAG_SHARED, f->flags) IF_CLIENT_INTERFACE(|| md->pass_to_client))) {
+        (TEST(FRAG_COARSE_GRAIN, f->flags) || TEST(FRAG_SHARED, f->flags) ||
+         md->pass_to_client)) {
         ASSERT(TEST(FRAG_IS_TRACE_HEAD, f->flags));
         /* We need linkstub_t info for trace_exit_stub_size_diff() so we go
          * ahead and make a private copy here.
@@ -2267,10 +2226,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             f->tag);
         LOG(THREAD, LOG_MONITOR, 3, "Entering trace selection mode\n");
         /* allocate trace buffer space */
-#ifdef CUSTOM_TRACES
         /* we should have a bb here, since if a trace can't also be a trace head */
         ASSERT(!TEST(FRAG_IS_TRACE, f->flags));
-#endif
         if (!get_and_check_add_size(dcontext, f, &add_size, &prev_mangle_size) ||
             /* mangling may never use trace buffer memory but just in case */
             !make_room_in_trace_buffer(

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,10 +41,16 @@
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 
+#define MAX_IMM_DISP_STUR 255
+
 online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *,
                                                          reg_id_t),
+                                 void (*insert_update_buf_ptr)(void *, instrlist_t *,
+                                                               instr_t *, reg_id_t,
+                                                               dr_pred_type_t, int),
                                  bool memref_needs_info, drvector_t *reg_vector)
     : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(trace_entry_t))
+    , insert_update_buf_ptr_(insert_update_buf_ptr)
 {
 }
 
@@ -138,12 +144,24 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
+                                      offline_file_type_t file_type)
 {
     byte *new_buf = buf_ptr;
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
+
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION);
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_FILETYPE, file_type);
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
+                             proc_get_cache_line_size());
     return (int)(new_buf - buf_ptr);
+}
+
+int
+online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+{
+    return append_thread_header(buf_ptr, tid, OFFLINE_FILE_TYPE_DEFAULT);
 }
 
 int
@@ -153,7 +171,9 @@ online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
     new_buf += append_tid(new_buf, tid);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_TIMESTAMP,
                              // Truncated to 32 bits for 32-bit: we live with it.
-                             (uintptr_t)instru_t::get_timestamp());
+                             static_cast<uintptr_t>(frozen_timestamp_ != 0
+                                                        ? frozen_timestamp_
+                                                        : instru_t::get_timestamp()));
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
 }
@@ -277,9 +297,8 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
         // The 0 size indicates it's a non-icache entry.
         insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                                   TRACE_TYPE_INSTR, 0, adjust);
-        insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                       // XXX: For repstr do we want tag insted of skipping rep prefix?
-                       instr_get_app_pc(app), adjust);
+        insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, instr_get_app_pc(app),
+                       adjust);
         adjust += sizeof(trace_entry_t);
     }
     insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
@@ -289,9 +308,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
     } else if (instru_t::instr_is_flush(app)) {
-        // XXX: OP_clflush invalidates all levels of the processor cache
-        // hierarchy (data and instruction)
-        type = TRACE_TYPE_DATA_FLUSH;
+        type = instru_t::instr_to_flush_type(app);
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
                               adjust);
@@ -307,19 +324,29 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   int adjust, instr_t *app)
 {
     bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
-    app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+#ifdef AARCH64
+    // Update the trace buffer pointer if we are about to exceed the maximum
+    // immediate displacement allowed by OP_stur. As sizeof(trace_entry_t) = 12,
+    // every other entry in the trace buffer will have an addr field whose
+    // address is not 8-byte aligned. Therefore, we will have to use OP_stur.
+    // Note that we need this handling here only for instrument_instr. In some
+    // cases, tracer.cpp delays instrument_instr for instructions that do not
+    // have any memref. When it actually does it, the trace entries for many
+    // instructions are written together, which may cause us to exceed the
+    // MAX_IMM_DISP_STUR.
+    if (adjust + sizeof(trace_entry_t) > MAX_IMM_DISP_STUR) {
+        insert_update_buf_ptr_(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
+        adjust = 0;
+    }
+#endif
+    DR_ASSERT(instr_is_app(app));
+    app_pc pc = instr_get_app_pc(app);
     reg_id_t reg_tmp;
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    // To handle zero-iter repstr loops this routine is called at the top of the bb
-    // where "app" is jecxz so we have to hardcode the rep str type and get length
-    // from the tag.
-    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH
-                                  : instr_to_instr_type(app, repstr_expanded);
-    ushort size = repstr_expanded
-        ? (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL))
-        : (ushort)instr_length(drcontext, app);
+    ushort type = instr_to_instr_type(app, repstr_expanded);
+    ushort size = (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
                               adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, pc, adjust);
@@ -344,7 +371,8 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
     entry.size = 0;
     for (i = 0; i < num_delay_instrs; i++) {
         // Fill instr size into bundle entry
-        entry.length[entry.size++] = (char)instr_length(drcontext, delay_instrs[i]);
+        entry.length[entry.size++] =
+            (unsigned char)instr_length(drcontext, delay_instrs[i]);
         // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
         if (entry.size == sizeof(entry.length) || i == num_delay_instrs - 1) {
             insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,

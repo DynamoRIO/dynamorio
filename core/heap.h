@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,9 +68,7 @@ typedef enum {
     ACCT_MEM_MGT,
     ACCT_STATS,
     ACCT_SPECIAL,
-#    ifdef CLIENT_INTERFACE
     ACCT_CLIENT,
-#    endif
     ACCT_LIBDUP, /* private copies of system libs => may leak */
     ACCT_CLEANCALL,
     /* NOTE: Also update the whichheap_name in heap.c when adding here */
@@ -91,6 +89,7 @@ typedef enum {
     MAP_FILE_FIXED = 0x0004,      /* Linux-only */
     MAP_FILE_REACHABLE = 0x0008,  /* Map at location reachable from vmcode */
     MAP_FILE_VMM_COMMIT = 0x0010, /* Map address is pre-reserved inside VMM. */
+    MAP_FILE_APP = 0x0020,        /* Mapping is for the app, not DR/client. */
 } map_flags_t;
 
 typedef byte *heap_pc;
@@ -119,6 +118,12 @@ typedef enum {
     VMM_SPECIAL_MMAP = 0x0010,
     /* These modify the core types. */
     VMM_REACHABLE = 0x0020,
+    /* This is used to decide whether to add guard pages for -per_thread_guard_pages.
+     * It is not required that all thread-private allocs use this, nor that this
+     * never end up labeling a thread-shared alloc.  It is also not required that
+     * this flag be present at incremental commits: only at reserve and unreserve calls.
+     */
+    VMM_PER_THREAD = 0x0040,
 } which_vmm_t;
 
 void
@@ -149,10 +154,8 @@ vmcode_get_writable_addr(byte *exec_addr);
 byte *
 vmcode_get_executable_addr(byte *write_addr);
 
-#ifdef CLIENT_INTERFACE
 void
 vmm_heap_handle_pending_low_on_memory_event_trigger();
-#endif
 
 bool
 heap_check_option_compatibility(void);
@@ -351,7 +354,7 @@ global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t which));
 #define NONPERSISTENT_HEAP_TYPE_FREE(dc, p, type, which) \
     NONPERSISTENT_HEAP_ARRAY_FREE(dc, p, type, 1, which)
 
-#define MIN_VMM_BLOCK_SIZE IF_WINDOWS_ELSE(16U * 1024, 4U * 1024)
+#define MIN_VMM_BLOCK_SIZE (4U * 1024)
 
 /* special heap of same-sized blocks that avoids global locks */
 void *

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -102,16 +102,16 @@ endif ()
 
 if (${vsgen_ver} VERSION_GREATER 9)
   # For i#801 workaround
-  cmake_minimum_required(VERSION 2.8.8)
+  cmake_minimum_required(VERSION 3.7)
 else ()
   if (APPLE)
     # We want ASM NASM support
-    cmake_minimum_required(VERSION 2.8.3)
+    cmake_minimum_required(VERSION 3.7)
   else (APPLE)
     # Require 2.6.4 to avoid cmake bug #8639, unless this var is
     # properly set (which it is for DR b/c it has a workaround):
     if (NOT "${CMAKE_ASM_SOURCE_FILE_EXTENSIONS}" MATCHES "asm")
-      cmake_minimum_required(VERSION 2.6.4)
+      cmake_minimum_required(VERSION 3.7)
     endif ()
   endif (APPLE)
 endif ()
@@ -140,26 +140,25 @@ if (MSVC)
   set(CPP_KEEP_WHITESPACE "")
   set(CMAKE_CPP_FLAGS "/nologo")
 else ()
-  # "gcc -E" on a non-.c-extension file gives message:
-  #   "linker input file unused because linking not done"
-  # and doesn't produce any output, so we must use cpp for our .asm files.
-  # we assume it's in the same dir.
-  get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
-  # Allow user to set C pre-processor from environment variable
-  if (DEFINED ENV{CPP})
-    set(CMAKE_CPP $ENV{CPP})
-  else ()
-    find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
-    if (NOT CMAKE_CPP)
-      message(FATAL_ERROR "cpp is required to build")
-    endif (NOT CMAKE_CPP)
-  endif ()
-  mark_as_advanced(CMAKE_CPP)
-
   set(CPP_KEEP_COMMENTS -C)
   set(CPP_NO_LINENUM -P)
   set(CPP_KEEP_WHITESPACE -traditional-cpp)
-  set(CMAKE_CPP_FLAGS "")
+
+  # Allow user to set C pre-processor from environment variable
+  if (DEFINED ENV{CPP})
+    set(CMAKE_CPP $ENV{CPP})
+    set(CMAKE_CPP_FLAGS "")
+  else ()
+    # Cmake-discovered compiler on macOS does not include system
+    # directories by default.
+    if (APPLE)
+      find_program(CMAKE_CPP cc)
+    else ()
+      set(CMAKE_CPP ${CMAKE_C_COMPILER})
+    endif ()
+    set(CMAKE_CPP_FLAGS "-xc")
+  endif ()
+  mark_as_advanced(CMAKE_CPP)
 endif (MSVC)
 
 ##################################################
@@ -208,7 +207,7 @@ if (APPLE)
     set(ASM_FLAGS "${ASM_FLAGS} -g")
   endif (DEBUG)
 elseif (UNIX)
-  if (X86)
+  if (DR_HOST_X86)
     set(ASM_FLAGS "-mmnemonic=intel -msyntax=intel -mnaked-reg")
     if (X64)
       set(ASM_FLAGS "${ASM_FLAGS} --64")
@@ -216,7 +215,7 @@ elseif (UNIX)
       # putting --32 last so we fail on -mmnemonic=intel on older as, not --32
       set(ASM_FLAGS "${ASM_FLAGS} --32")
     endif (X64)
-  elseif (ARM)
+  elseif (DR_HOST_ARM)
     # No 64-bit support yet.
     # Some tests and libgcc/arm use deprecated instructions, disable warnings.
     set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon -mno-warn-deprecated")
@@ -298,16 +297,25 @@ endif (UNIX AND NOT APPLE)
 ##################################################
 # Assembler build rule for Makefile generators
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.4" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.4")
-  # i#1792: cmake 3.4 splits off <INCLUDES>
-  set(rule_flags "<FLAGS> <INCLUDES>")
-else ()
-  set(rule_flags "<FLAGS>")
+# i#1792: cmake 3.4 splits off <INCLUDES>.
+# We do not want <FLAGS> since it passes things like --MD which fail cpp.
+# This means we can't have -DFOO in COMPILE_FLAGS on targets: we have to
+# properly use COMPILE_DEFINITIONS for anything affecting asm code.
+set(rule_flags "<INCLUDES>")
+# Unfortunately we do have some flags we need to pass to cpp.
+# We special-case them here:
+if (proc_supports_avx512)
+  set(rule_flags "${rule_flags} ${CFLAGS_AVX512}")
+elseif (proc_supports_avx2)
+  set(rule_flags "${rule_flags} ${CFLAGS_AVX2}")
+elseif (proc_supports_avx)
+  set(rule_flags "${rule_flags} ${CFLAGS_AVX}")
 endif ()
 
-# Include a define that can be used to identify asm code
+# Include a define that can be used to identify asm code.
 set(rule_defs "<DEFINES> -DCPP2ASM")
+# Don't use "--defsym" since we pass this to cpp.
+set(CMAKE_ASM_DEFINE_FLAG "-D")
 
 if (APPLE)
   # Despite the docs, -o does not work: cpp prints to stdout.
@@ -317,26 +325,9 @@ if (APPLE)
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
 elseif (UNIX)
-  # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
-  # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
-  # since our defines are mostly in configure.h where we can't as easily tweak them
-  # (update: I do have top-level defines gathered up in ${defines}).
-  # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
-  # up the --defsym args.
   set(CMAKE_ASM_COMPILE_OBJECT
     "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> -o <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
-    # not using ${rule_flags} b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
-    # is passed in: we don't need the include dirs b/c of the cpp step.
-    # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from ${rule_flags} to <DEFINES>
-    # in CMake/Source/cmMakefileTargetGenerator.cxx:1.115 (will be in 2.6.4).
-    #
-    # we also aren't passing any <DEFINES> since for one thing
-    # there's no way to transform to --defsym: luckily we don't need them
-    # since using cpp now (see above).
-    # FIXME: I tried setting CMAKE_ASM_DEFINE_FLAG to "--defsym " (not clear
-    # how to get =1 in there :should verify it's needed) but <DEFINES>
-    # comes up empty for me.
     "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
 else ()
@@ -457,7 +448,7 @@ function (add_split_asm_target source output_out tgt_out
         ARGS -E copy "${source}" "${asm_file}")
   else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     set_source_files_properties(${asm_file} PROPERTIES
-      GENERATED ON COMPILE_FLAGS "-DASM_CODE_ONLY")
+      GENERATED ON COMPILE_DEFINITIONS "ASM_CODE_ONLY")
     add_custom_command(
       OUTPUT ${asm_file}
       DEPENDS ${source}

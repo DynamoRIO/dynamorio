@@ -1,0 +1,37 @@
+Adios world!
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+          19 total \(fetched\) instructions
+          19 total unique \(fetched\) instructions
+/* One for each movs after the first one. */
+           4 total non-fetched instructions
+           0 total prefetches
+           5 total data loads
+           5 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+     .* total other markers
+Thread .* counts:
+          19 \(fetched\) instructions
+          19 unique \(fetched\) instructions
+           4 non-fetched instructions
+           0 prefetches
+           5 data loads
+           5 data stores
+           0 icache flushes
+           0 dcache flushes
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
+     .* other markers

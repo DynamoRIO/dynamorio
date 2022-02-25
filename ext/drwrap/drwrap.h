@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -39,7 +39,7 @@ extern "C" {
 /**
  * \addtogroup drwrap Function Wrapping and Replacing
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /* Users of drwrap need to use the drmgr versions of these events to ensure
  * that drwrap's actions occur at the right time.
@@ -66,6 +66,9 @@ DR_EXPORT
  * normally) but each call must be paired with a corresponding call to
  * drwrap_exit().
  *
+ * Some drwrap behavior (such as #DRWRAP_INVERT_CONTROL) must be set by calling
+ * drwrap_set_global_flags() *before* calling this routine.
+ *
  * \return whether successful.
  */
 bool
@@ -77,6 +80,54 @@ DR_EXPORT
  */
 void
 drwrap_exit(void);
+
+/***************************************************************************
+ * CONTROL INVERSION
+ */
+
+DR_EXPORT
+/**
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set, the user
+ * must call this function from a drmgr insertion event handler
+ * (typically registered with
+ * drmgr_register_bb_instrumentation_event() or if using drbbdup with
+ * the instrument_instr_ex field in #drbbdup_options_t).  This
+ * function will insert instrumentation for function wrapping pre and
+ * post callbacks.  It is up to the user to control the ordering,
+ * since the priority #DRMGR_PRIORITY_INSERT_DRWRAP will not apply.
+ * The separate "where" handles cases such as with drbbdup's final app
+ * instruction (which cannot be duplicated into each case) or with
+ * emulation where the instruction "inst" to monitor is distinct from
+ * the location "where" to insert instrumentation.
+ * The \p user_data parameter is ignored.
+ */
+dr_emit_flags_t
+drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                     instr_t *where, bool for_trace, bool translating, void *user_data);
+
+DR_EXPORT
+/**
+ * When #drwrap_global_flags_t #DRWRAP_INVERT_CONTROL is set and the user is
+ * using multiple types of instrumentation such as with drbbdup, the user must
+ * call this function for each instrumentation case where function wrapping
+ * should not be enabled.  (If the instrumentation type changes to don't-wrap
+ * and then changes back to wrap all in the middle of a wrapped function, the
+ * full post-wrap callback (plus cleanup) would then naturally be called.)
+ * This will insert required cleanup for instrumentation cases changing in the
+ * middle of a wrapped function.  It will not invoke any wrapped
+ * function callbacks.  It is up to the user to control the ordering,
+ * since the priority #DRMGR_PRIORITY_INSERT_DRWRAP will not apply.
+ * The separate "where" handles cases such as with drbbdup's final app
+ * instruction (which cannot be duplicated into each case) or with
+ * emulation where the instruction "inst" to monitor is distinct from
+ * the location "where" to insert instrumentation.
+ * The \p user_data parameter is ignored.
+ *
+ */
+dr_emit_flags_t
+drwrap_invoke_insert_cleanup_only(void *drcontext, void *tag, instrlist_t *bb,
+                                  instr_t *inst, instr_t *where, bool for_trace,
+                                  bool translating, void *user_data);
 
 /***************************************************************************
  * FUNCTION REPLACING
@@ -135,6 +186,8 @@ DR_EXPORT
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_APP2APP_DRWRAP and its name is
  * DRMGR_PRIORITY_NAME_DRWRAP.
+ *
+ * \note Not supported if #DRWRAP_INVERT_CONTROL is set.
  *
  * \return whether successful.
  */
@@ -243,6 +296,8 @@ DR_EXPORT
  *
  * \note Far calls are not supported.
  *
+ * \note Not supported if #DRWRAP_INVERT_CONTROL is set.
+ *
  * \return whether successful.
  */
 bool
@@ -278,8 +333,9 @@ DR_EXPORT
  * by calling \p pre_func_cb prior to every invocation of \p original
  * and calling \p post_func_cb after every invocation of \p original.
  * One of the callbacks can be NULL, but not both. Uses the default
- * calling convention for the platform (see DRWRAP_CALLCONV_DEFAULT
- * in #drwrap_callconv_t).
+ * calling convention for the platform (see #DRWRAP_CALLCONV_DEFAULT
+ * in #drwrap_callconv_t) and passes both #DR_CLEANCALL_READS_APP_CONTEXT
+ * and #DR_CLEANCALL_WRITES_APP_CONTEXT to the insertion of the calls.
  *
  * Wrap requests should normally be made up front during process
  * initialization or module load (see
@@ -311,6 +367,10 @@ DR_EXPORT
  * themselves contain exception handlers, pass the
  * DRWRAP_UNWIND_ON_EXCEPTION flag to drwrap_wrap_ex() to ensure that
  * all post-call callbacks will be called on an exception.
+ *
+ * This routine may call dr_unlink_flush_region(), which means that it
+ * cannot be called while any locks are held that could block a thread
+ * processing a registered event callback or cache callout.
  *
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_INSERT_DRWRAP and its name is
@@ -412,7 +472,7 @@ typedef enum {
 #endif
     /** The platform-specific calling convention for a vararg function. */
     DRWRAP_CALLCONV_VARARG = DRWRAP_CALLCONV_DEFAULT,
-    /* Mask for isolating the calling convention from other flags. */
+    /** Mask for isolating the calling convention from other flags. */
     DRWRAP_CALLCONV_MASK = 0xff000000
 } drwrap_callconv_t;
 
@@ -430,7 +490,11 @@ DR_EXPORT
  * and drwrap_get_arg() for \p func will either access the wrong argument
  * value, or will access a register or stack slot that does not contain
  * any argument value. If no calling convention is specified, defaults
- * to DRWRAP_CALLCONV_DEFAULT.
+ * to #DRWRAP_CALLCONV_DEFAULT.
+ *
+ * This routine may call dr_unlink_flush_region(), which means that it
+ * cannot be called while any locks are held that could block a thread
+ * processing a registered event callback or cache callout.
  */
 bool
 drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
@@ -472,6 +536,7 @@ DR_EXPORT
  * Returns the machine context of the wrapped function represented by
  * \p wrapcxt corresponding to the application state at the time
  * of the pre-function or post-function wrap callback.
+ * The pc field is set appropriately.
  * In order for any changes to the returned context to take
  * effect, drwrap_set_mcontext() must be called.
  *
@@ -741,11 +806,31 @@ typedef enum {
      * Once set, this flag cannot be unset.
      */
     DRWRAP_FAST_CLEANCALLS = 0x08,
+    /**
+     * This flag must only be set before calling drwrap_init().  If set, drwrap will not
+     * register for the drmgr insertion event.  The user must instead explicitly invoke
+     * drwrap_invoke_insert() and drwrap_invoke_insert_cleanup_only() from its own
+     * handler for the insertion event.  This "inverted control" mode is provided for
+     * better compatibility with drbbdup where the user wishes to only perform wrapping
+     * in a subset of the drbbdup cases.  For cases where wrapping should occur,
+     * drwrap_invoke_insert() should be called; for cases where no wrapping should
+     * occcur, drwrap_invoke_insert_cleanup_only() should be called (required for
+     * cleanup of drwrap state).
+     *
+     * Only wrapping is supported this way: drwrap_replace() and drwrap_replace_native()
+     * are not supported when this flag is set.
+     *
+     * As this is a global change in how drwrap operates, be careful that its use
+     * does not conflict with drwrap uses in any libraries or joint clients.
+     */
+    DRWRAP_INVERT_CONTROL = 0x10,
 } drwrap_global_flags_t;
 
 DR_EXPORT
 /**
  * Sets flags that affect the global behavior of the drwrap module.
+ * This adds the passed-in \p flags to the current set of flags;
+ * it does not remove flags.
  * This can be called at any time and it will affect future behavior.
  * \return whether the flags were changed.
  */
@@ -797,7 +882,7 @@ DR_EXPORT
 bool
 drwrap_get_stats(INOUT drwrap_stats_t *stats);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

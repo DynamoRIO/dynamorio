@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,7 @@
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
  * There is no official support for that on Linux or Mac and for now we do
  * not support it either, especially not mixing libraries.
+ * Update: We want this for i#1684 for multi-arch support in drdecode.
  */
 #ifdef X64
 #    define ELF_HEADER_TYPE Elf64_Ehdr
@@ -192,6 +193,14 @@
 #    endif                 /* ANDROID */
 #endif                     /* X86/ARM */
 
+/* Define ARM ELF machine types to support compiling on old Linux distros. */
+#ifndef EM_ARM
+#    define EM_ARM 40
+#endif
+#ifndef EM_AARCH64
+#    define EM_AARCH64 183
+#endif
+
 bool
 get_elf_platform(file_t f, dr_platform_t *platform);
 
@@ -259,6 +268,7 @@ typedef byte *(*map_fn_t)(file_t f, size_t *size INOUT, uint64 offs, app_pc addr
 typedef bool (*unmap_fn_t)(byte *map, size_t size);
 typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot /*MEMPROT_*/);
 typedef void (*check_bounds_fn_t)(elf_loader_t *elf, byte *start, byte *end);
+typedef void *(*memset_fn_t)(void *dst, int val, size_t size);
 
 /* Initialized an ELF loader for use with the given file. */
 bool
@@ -299,7 +309,8 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                      unmap_fn_t unmap_func, prot_fn_t prot_func,
-                     check_bounds_fn_t check_bounds_func, modload_flags_t flags);
+                     check_bounds_fn_t check_bounds_func, memset_fn_t memset_func,
+                     modload_flags_t flags);
 
 /* Iterate program headers of a mapped ELF image and find the string that
  * PT_INTERP points to.  Typically this comes early in the file and is always

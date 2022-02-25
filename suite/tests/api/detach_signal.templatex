@@ -1,0 +1,5 @@
+signal count pre-detach: .*
+detaching
+signal count post-detach: .*
+native signals delivered: .*
+All done

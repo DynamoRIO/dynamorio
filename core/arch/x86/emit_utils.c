@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
 #include "../fcache.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "instrument.h" /* for dr_insert_call() */
 
@@ -132,21 +132,22 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* x86 doesn't use this approach to linking */
     ASSERT_NOT_REACHED();
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
     /* x86 doesn't use this approach to linking */
     return false;
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     /* x86 doesn't use this approach to linking: nothing to do */
 }
@@ -175,7 +176,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
     /* FIXME : would be better to use a instr_is_cti_long or some such
      * also should check for addr16 flag (we shouldn't have any prefixes) */
     ASSERT((instr_is_cti(inst) && !instr_is_cti_short(inst) &&
-            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN),
+            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN | PREFIX_PRED_MASK),
                      instr_get_prefixes(inst))) ||
            instr_is_cti_short_rewrite(inst, NULL));
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(
@@ -1141,7 +1142,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
         ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc)pc) - f->start_pc);
         f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
     } else {
-#ifdef CLIENT_INTERFACE
         if (dynamo_options.bb_prefixes) {
             pc = insert_restore_register(dcontext, f, pc, REG_XCX);
 
@@ -1149,7 +1149,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
             ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc)pc) - f->start_pc);
             f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
         } /* else, no prefix */
-#endif
     }
     /* make sure emitted size matches size we requested */
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));

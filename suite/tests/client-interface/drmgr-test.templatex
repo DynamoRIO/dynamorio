@@ -42,4 +42,5 @@ saw event_thread_exit_user_data
 saw event_thread_exit_null_user_data
 saw event_mod_load
 saw event_mod_unload
+saw event_meta_instru
 all done

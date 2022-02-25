@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -551,13 +551,11 @@ syscalls_init()
         }
         if (*((ushort *)(vsys + 2)) == 0x340f) {
             sysenter_ret_address = (app_pc)int_target + 3; /* save addr of ret */
-#    ifdef CLIENT_INTERFACE
             /* i#537: we do not support XPSP{0,1} wrt showing the skipped ret,
              * which requires looking at the vsyscall code.
              */
             KiFastSystemCallRet_address =
                 (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
-#    endif
             set_syscall_method(SYSCALL_METHOD_SYSENTER);
             dr_which_syscall_t = DR_SYSCALL_SYSENTER;
         } else {
@@ -573,10 +571,8 @@ syscalls_init()
         sysenter_ret_address =
             (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
         ASSERT(sysenter_ret_address != NULL);
-#    ifdef CLIENT_INTERFACE
         KiFastSystemCallRet_address =
             (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
-#    endif
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
     } else {
@@ -593,7 +589,12 @@ syscalls_init()
     /* Prime use_ki_syscall_routines() */
     use_ki_syscall_routines();
 
-    if (syscalls == windows_unknown_syscalls) {
+    if (syscalls == windows_unknown_syscalls ||
+        /* There are variations within the versions we have (e.g., i#4587), so our
+         * static arrays are not foolproof.  It is simpler to just get the ground truth
+         * for any moderately recent version.
+         */
+        get_os_version() >= WINDOWS_VERSION_10_1511) {
         /* i#1598: try to work on new, unsupported Windows versions */
         int i;
         app_pc wrapper;
@@ -602,26 +603,31 @@ syscalls_init()
             if (syscalls[i] == SYSCALL_NOT_PRESENT) /* presumably matches known ver */
                 continue;
             wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
-            if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
+            if (wrapper != NULL && !ALLOW_HOOKER(wrapper)) {
                 syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));
+            }
             /* We ignore TestAlert complications: we don't call it anyway */
         }
+    } else {
+        /* Quick sanity check that the syscall numbers we care about are what's
+         * in our static array.  We still do our later full-decode sanity checks.
+         * This will always be true if we went through the wrapper loop above.
+         */
+        DOCHECK(1, {
+            int i;
+            ASSERT(ntdllh != NULL);
+            for (i = 0; i < SYS_MAX; i++) {
+                if (syscalls[i] == SYSCALL_NOT_PRESENT)
+                    continue;
+                /* note that this check allows a hooker so we'll need a
+                 * better way of determining syscall numbers
+                 */
+                app_pc wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
+                CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]),
+                                i);
+            }
+        });
     }
-    /* quick sanity check that the syscall numbers we care about are what's
-     * in our static array.  we still do our later full-decode sanity checks.
-     */
-    DOCHECK(1, {
-        int i;
-        ASSERT(ntdllh != NULL);
-        for (i = 0; i < SYS_MAX; i++) {
-            if (syscalls[i] == SYSCALL_NOT_PRESENT)
-                continue;
-            /* note that this check allows a hooker so we'll need a
-             * better way of determining syscall numbers
-             */
-            CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]), i);
-        }
-    });
     return true;
 }
 
@@ -989,6 +995,66 @@ get_own_peb()
     }
     return own_peb;
 }
+
+/* Returns a 32-bit PEB for a 32-bit child and !X64 parent.
+ * Else returns a 64-bit PEB.
+ */
+uint64
+get_peb_maybe64(HANDLE h)
+{
+#ifdef X64
+    return (uint64)get_peb(h);
+#else
+    /* The WOW64 query below should work regardless of whether the kernel is 32-bit
+     * or the child is 32-bit or 64-bit.  But, it returns the 64-bit PEB, while we
+     * would prefer the 32-bit, so we first try get_peb().
+     */
+    PEB *peb32 = get_peb(h);
+    if (peb32 != NULL)
+        return (uint64)peb32;
+    PROCESS_BASIC_INFORMATION64 info;
+    NTSTATUS res = nt_wow64_query_info_process64(h, &info);
+    if (!NT_SUCCESS(res))
+        return 0;
+    else
+        return info.PebBaseAddress;
+#endif
+}
+
+#ifdef X64
+/* Returns the 32-bit PEB for a WOW64 process, given process and thread handles. */
+uint64
+get_peb32(HANDLE process, HANDLE thread)
+{
+    THREAD_BASIC_INFORMATION info;
+    NTSTATUS res = query_thread_info(thread, &info);
+    if (!NT_SUCCESS(res))
+        return 0;
+        /* Bizarrely, info.TebBaseAddress points 2 pages too low!  We do sanity
+         * checks to confirm we have a TEB by looking at its self pointer.
+         */
+#    define TEB32_QUERY_OFFS 0x2000
+    byte *teb32 = (byte *)info.TebBaseAddress;
+    uint ptr32;
+    size_t sz_read;
+    if (!nt_read_virtual_memory(process, teb32 + X86_SELF_TIB_OFFSET, &ptr32,
+                                sizeof(ptr32), &sz_read) ||
+        sz_read != sizeof(ptr32) || ptr32 != (uint64)teb32) {
+        teb32 += TEB32_QUERY_OFFS;
+        if (!nt_read_virtual_memory(process, teb32 + X86_SELF_TIB_OFFSET, &ptr32,
+                                    sizeof(ptr32), &sz_read) ||
+            sz_read != sizeof(ptr32) || ptr32 != (uint64)teb32) {
+            /* XXX: Also try peb64+0x1000?  That was true for older Windows version. */
+            return 0;
+        }
+    }
+    if (!nt_read_virtual_memory(process, teb32 + X86_PEB_TIB_OFFSET, &ptr32,
+                                sizeof(ptr32), &sz_read) ||
+        sz_read != sizeof(ptr32))
+        return 0;
+    return ptr32;
+}
+#endif
 
 /****************************************************************************/
 #ifndef NOT_DYNAMORIO_CORE
@@ -2015,6 +2081,21 @@ is_wow64_process(HANDLE h)
     return self_is_wow64;
 }
 
+bool
+is_32bit_process(HANDLE h)
+{
+#ifdef X64
+    /* Kernel is definitely 64-bit. */
+    return is_wow64_process(h);
+#else
+    /* If kernel is 64-bit, ask about wow64; else, kernel is 32-bit, so true. */
+    if (is_wow64_process(NT_CURRENT_PROCESS))
+        return is_wow64_process(h);
+    else
+        return true;
+#endif
+}
+
 NTSTATUS
 nt_get_drive_map(HANDLE process, PROCESS_DEVICEMAP_INFORMATION *map OUT)
 {
@@ -2303,6 +2384,21 @@ nt_set_context(HANDLE hthread, CONTEXT *cxt)
 }
 
 bool
+nt_is_thread_terminating(HANDLE hthread)
+{
+    ULONG previous_suspend_count;
+    NTSTATUS res;
+    GET_RAW_SYSCALL(SuspendThread, IN HANDLE ThreadHandle,
+                    OUT PULONG PreviousSuspendCount OPTIONAL);
+    res = NT_SYSCALL(SuspendThread, hthread, &previous_suspend_count);
+    if (NT_SUCCESS(res)) {
+        nt_thread_resume(hthread, (int *)&previous_suspend_count);
+    }
+
+    return res == STATUS_THREAD_IS_TERMINATING;
+}
+
+bool
 nt_thread_suspend(HANDLE hthread, int *previous_suspend_count)
 {
     NTSTATUS res;
@@ -2375,6 +2471,16 @@ nt_terminate_process_for_app(HANDLE hprocess, NTSTATUS exit_code)
                     IN NTSTATUS ExitStatus);
     /* we allow any argument or result values */
     return NT_SYSCALL(TerminateProcess, hprocess, exit_code);
+}
+
+NTSTATUS
+nt_set_information_process_for_app(HANDLE hprocess, PROCESSINFOCLASS class, void *info,
+                                   ULONG info_len)
+{
+    GET_RAW_SYSCALL(SetInformationProcess, IN HANDLE hprocess, IN PROCESSINFOCLASS class,
+                    INOUT void *info, IN ULONG info_len);
+    /* We allow any argument or result value. */
+    return NT_SYSCALL(SetInformationProcess, hprocess, class, info, info_len);
 }
 
 bool
@@ -5204,12 +5310,29 @@ initialize_known_SID(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority, ULONG SubAut
     pSid->SubAuthority[0] = SubAuthority0;
 }
 
+/* Use nt_get_context64_size() from 32-bit for the 64-bit max size. */
+size_t
+nt_get_context_size(DWORD flags)
+{
+    /* Moved out of nt_initialize_context():
+     *   8d450c          lea     eax,[ebp+0Ch]
+     *   50              push    eax
+     *   57              push    edi
+     *   ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
+     */
+    int len;
+    int res = ntdll_RtlGetExtendedContextLength(flags, &len);
+    ASSERT(res >= 0);
+    /* Add 16 so we can align it forward to 16. */
+    return len + 16;
+}
+
 /* Initialize the buffer as CONTEXT with extension and return the pointer
  * pointing to the start of CONTEXT.
- * Assume buffer size is MAX_CONTEXT_SIZE;
+ * Normally buf_len would come from nt_get_context_size(flags).
  */
 CONTEXT *
-nt_initialize_context(char *buf, DWORD flags)
+nt_initialize_context(char *buf, size_t buf_len, DWORD flags)
 {
     /* Ideally, kernel32!InitializeContext is used to setup context.
      * However, DR should NEVER use kernel32. DR never uses anything in
@@ -5218,15 +5341,8 @@ nt_initialize_context(char *buf, DWORD flags)
     CONTEXT *cxt;
     if (TESTALL(CONTEXT_XSTATE, flags)) {
         context_ex_t *cxt_ex;
-        int len, res;
+        int res;
         ASSERT(proc_avx_enabled());
-        /* 8d450c          lea     eax,[ebp+0Ch]
-         * 50              push    eax
-         * 57              push    edi
-         * ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
-         */
-        res = ntdll_RtlGetExtendedContextLength(flags, &len);
-        ASSERT(res >= 0 && len <= MAX_CONTEXT_SIZE);
         /* 8d45fc          lea     eax,[ebp-4]
          * 50              push    eax
          * 57              push    edi
@@ -5242,7 +5358,7 @@ nt_initialize_context(char *buf, DWORD flags)
         cxt = (CONTEXT *)ntdll_RtlLocateLegacyContext(cxt_ex, 0);
         ASSERT(context_check_extended_sizes(cxt_ex, flags));
         ASSERT(cxt != NULL && (char *)cxt >= buf &&
-               (char *)cxt + cxt_ex->all.length < buf + MAX_CONTEXT_SIZE);
+               (char *)cxt + cxt_ex->all.length < buf + buf_len);
     } else {
         /* make it 16-byte aligned */
         cxt = (CONTEXT *)(ALIGN_FORWARD(buf, 0x10));

@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -33,7 +33,7 @@
 #include "globals.h"
 #include "hashtable.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode_fast.h"
 #include "utils.h"
 #include "annotations.h"
@@ -352,12 +352,13 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
 #    endif
 
     instr_init(dcontext, &scratch);
-    TRY_EXCEPT(my_dcontext, { identify_annotation(dcontext, &layout, &scratch); },
-               { /* EXCEPT */
-                 LOG(THREAD, LOG_ANNOTATIONS, 2,
-                     "Failed to instrument annotation at " PFX "\n", *start_pc);
-                 /* layout.type is already ANNOTATION_TYPE_NONE */
-               });
+    TRY_EXCEPT(
+        my_dcontext, { identify_annotation(dcontext, &layout, &scratch); },
+        { /* EXCEPT */
+          LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to instrument annotation at " PFX "\n",
+              *start_pc);
+          /* layout.type is already ANNOTATION_TYPE_NONE */
+        });
     if (layout.type != ANNOTATION_TYPE_NONE) {
         LOG(GLOBAL, LOG_ANNOTATIONS, 2,
             "Decoded %s annotation %s. Next pc now " PFX ".\n",
@@ -388,6 +389,9 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
                      * The placeholder is "ok to mangle" because it (partially)
                      * implements the app's annotation. The placeholder will be
                      * removed post-client during mangling.
+                     * We only support writing the return value and no other registers
+                     * (otherwise we'd need drrg to further special-case
+                     * DR_NOTE_ANNOTATION).
                      */
                     instr_t *return_placeholder =
                         INSTR_XL8(INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
@@ -476,6 +480,8 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
     /* Append `mov $0x0,%edx` so that clients and tools recognize that %xdx will be
      * written here. The placeholder is "ok to mangle" because it (partially) implements
      * the app's annotation. The placeholder will be removed post-client during mangling.
+     * We only support writing the return value and no other registers (otherwise
+     * we'd need drreg to further special-case DR_NOTE_ANNOTATION).
      */
     return_placeholder = INSTR_XL8(
         INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XDX), OPND_CREATE_INT32(0)),
@@ -757,12 +763,9 @@ handle_vg_annotation(app_pc request_args)
     }
 
     /* Put the result in %xdx where the target app expects to find it. */
-#        ifdef CLIENT_INTERFACE
     if (dcontext->client_data->mcontext_in_dcontext) {
         get_mcontext(dcontext)->xdx = result;
-    } else
-#        endif
-    {
+    } else {
         priv_mcontext_t *state = get_priv_mcontext_from_dstack(dcontext);
         state->xdx = result;
     }
@@ -839,7 +842,7 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request)
  *              (note there is a special case for Windows x64, which is not inline asm)
  *     (step 7) if it matches, point `**name` to the character beyond the separator ':'
  *
- * See https://github.com/DynamoRIO/dynamorio/wiki/Annotations for complete examples.
+ * See https://dynamorio.org/page_annotations.html for complete examples.
  */
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
@@ -947,7 +950,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         /* If the target app contains an annotation whose argument is a function call
          * that gets inlined, and that function contains the same annotation, the
          * compiler will fuse the headers. See
-         * https://github.com/DynamoRIO/dynamorio/wiki/Annotations for a sample of
+         * https://dynamorio.org/page_annotations.html for a sample of
          * fused headers. This loop identifies and skips any fused headers.
          */
         while (true) {

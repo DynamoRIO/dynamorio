@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2020 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -155,7 +155,6 @@ call_dispatch_alt_stack_no_free:
         ret
         END_FUNC(call_switch_stack)
 
-#ifdef CLIENT_INTERFACE
 /*
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
@@ -197,7 +196,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         ldp      x29, x30, [sp], #16
         ret
         END_FUNC(dr_call_on_clean_stack)
-#endif /* CLIENT_INTERFACE */
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
@@ -423,8 +421,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         ret
         END_FUNC(safe_read_asm)
 
-#ifdef CLIENT_INTERFACE
-
 /* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
  *
  * int dr_try_start(try_except_context_t *cxt) ;
@@ -495,8 +491,6 @@ GLOBAL_LABEL(atomic_swap:)
         ret
         END_FUNC(atomic_swap)
 
-#endif /* CLIENT_INTERFACE */
-
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)
 GLOBAL_LABEL(client_int_syscall:)
@@ -515,10 +509,21 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-
+/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                             void *ctid, void (*func)(void))
+ */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        stp      ARG6, x0, [ARG2, #-16]! /* func is now on TOS of newsp */
+        /* All args are already in syscall registers. */
+        mov      w8, #SYS_clone
+        svc      #0
+        cbnz     x0, dynamorio_clone_parent
+        ldp      x0, x1, [sp], #16
+        blr      x0
+        bl       GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+        ret
         END_FUNC(dynamorio_clone)
 
         DECLARE_FUNC(dynamorio_sigreturn)
@@ -541,11 +546,11 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #  ifndef HAVE_SIGALTSTACK
 #   error NYI
 #  endif
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
         mov      ARG4, sp /* pass as extra arg */
-        b        GLOBAL_REF(master_signal_handler_C) /* chain call */
-        END_FUNC(master_signal_handler)
+        b        GLOBAL_REF(main_signal_handler_C) /* chain call */
+        END_FUNC(main_signal_handler)
 
 # endif /* NOT_DYNAMORIO_CORE_PROPER */
 

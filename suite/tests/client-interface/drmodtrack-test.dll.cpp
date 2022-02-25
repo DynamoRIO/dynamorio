@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,19 +44,15 @@
 #    pragma warning(disable : 4127) /* conditional expression is constant */
 #endif
 
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
-
 static client_id_t client_id;
 
 static void *
-load_cb(module_data_t *module)
+load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
+    if (seg_idx > 0)
+        return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
@@ -189,21 +185,27 @@ event_exit(void)
         };
         res = drmodtrack_offline_lookup(modhandle, i, &info);
         CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
-        CHECK(((app_pc)info.custom) == info.start || info.containing_index != i,
-              "custom field doesn't match");
+        CHECK(((app_pc)info.custom) == info.start, "custom field doesn't match");
         CHECK(info.index == i, "index field doesn't match");
 #ifndef WINDOWS
-        if (info.struct_size > offsetof(drmodtrack_info_t, offset)) {
-            module_data_t *data = dr_lookup_module(info.start);
-            for (uint j = 0; j < data->num_segments; j++) {
-                module_segment_data_t *seg = data->segments + j;
-                if (seg->start == info.start) {
-                    CHECK(seg->offset == info.offset,
-                          "Module data offset and drmodtrack offset don't match");
-                }
+        module_data_t *data = dr_lookup_module(info.start);
+        for (uint j = 0; j < data->num_segments; j++) {
+            module_segment_data_t *seg = data->segments + j;
+            if (seg->start == info.start) {
+                CHECK(seg->offset == info.offset,
+                      "Module data offset and drmodtrack offset don't match");
+                drmodtrack_info_t parent = {
+                    sizeof(parent),
+                };
+                res =
+                    drmodtrack_offline_lookup(modhandle, info.containing_index, &parent);
+                CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
+                CHECK(info.preferred_base ==
+                          parent.preferred_base + (info.start - parent.start),
+                      "Segment preferred base not properly offset");
             }
-            dr_free_module_data(data);
         }
+        dr_free_module_data(data);
 #endif
     }
 

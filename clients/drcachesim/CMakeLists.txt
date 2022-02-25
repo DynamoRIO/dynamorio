@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2022 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -144,11 +144,8 @@ set(drcachesim_srcs
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
-  )
-if (DEBUG)
-  # We include the invariants analyzer for testing.
-  set(drcachesim_srcs ${drcachesim_srcs} tests/trace_invariants.cpp)
-endif ()
+  # We include the invariants analyzer for sanity checks.
+  tools/invariant_checker.cpp)
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
@@ -211,15 +208,24 @@ install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
-# We also use this to link in our trace_invariants sanity checker.
+# We also use this to link in our invariant_checker sanity checker.
 add_executable(histogram_launcher
   tools/histogram_launcher.cpp
-  tests/trace_invariants.cpp
+  tools/invariant_checker.cpp
   )
 target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogram
   drfrontendlib)
 use_DynamoRIO_extension(histogram_launcher droption)
 add_dependencies(histogram_launcher api_headers)
+
+add_executable(prefetch_analyzer_launcher
+  tests/prefetch_analyzer_launcher.cpp
+  tests/prefetch_analyzer.cpp
+  )
+target_link_libraries(prefetch_analyzer_launcher drmemtrace_analyzer drfrontendlib)
+use_DynamoRIO_extension(prefetch_analyzer_launcher droption)
+add_dependencies(prefetch_analyzer_launcher api_headers)
+
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
@@ -229,10 +235,8 @@ set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_build_dir
 
 # We have one more example of a standalone launcher that uses raw2trace to catch
 # link errors (xref i#1409).  We just build it to test the linking; no test.
-# XXX i#2007: a binutils error causes static dynamorio to fail to link on AArch64.
-# We'll enable this once Travis and others have a fixed binutils.
 # XXX i#1997: static DR is not fully supported on Mac yet.
-if (NOT AARCH64 AND NOT APPLE)
+if (NOT APPLE)
   add_executable(opcode_mix_launcher
     tools/opcode_mix_launcher.cpp
     )
@@ -248,6 +252,7 @@ endif ()
 if (ZLIB_FOUND)
   target_link_libraries(drcachesim ${ZLIB_LIBRARIES})
   target_link_libraries(histogram_launcher ${ZLIB_LIBRARIES})
+  target_link_libraries(prefetch_analyzer_launcher ${ZLIB_LIBRARIES})
   target_link_libraries(drmemtrace_raw2trace ${ZLIB_LIBRARIES})
   if (NOT AARCH64 AND NOT APPLE)
     target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
@@ -275,6 +280,7 @@ macro(add_drmemtrace name type)
   use_DynamoRIO_extension(${name} drwrap${ext_sfx})
   use_DynamoRIO_extension(${name} drreg${ext_sfx})
   use_DynamoRIO_extension(${name} drutil${ext_sfx})
+  use_DynamoRIO_extension(${name} drstatecmp${ext_sfx})
   use_DynamoRIO_extension(${name} drx${ext_sfx})
   use_DynamoRIO_extension(${name} droption)
   use_DynamoRIO_extension(${name} drcovlib${ext_sfx})
@@ -284,7 +290,7 @@ endmacro()
 
 add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
-append_property_string(TARGET drmemtrace_static COMPILE_FLAGS "-DDRMEMTRACE_STATIC")
+append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
 install_client_nonDR_header(drmemtrace tracer/drmemtrace.h)
@@ -316,8 +322,8 @@ macro(restore_nonclient_flags target)
   endif ()
   # However, we need the target os and arch defines (XXX: better way?) for
   # the config, inject, and frontend headers:
-  DynamoRIO_extra_cflags(extra_cflags "" ON)
-  append_property_string(TARGET ${target} COMPILE_FLAGS "${extra_cflags}")
+  DynamoRIO_extra_defines(extra_defs ON)
+  append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${extra_defs}")
   if (implicit_fallthrough_avail)
     append_property_string(TARGET ${target} COMPILE_FLAGS "-Wimplicit-fallthrough")
   endif ()
@@ -326,6 +332,7 @@ endmacro()
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
+restore_nonclient_flags(prefetch_analyzer_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
@@ -346,7 +353,7 @@ macro(add_win32_flags target)
     if (DEBUG)
       get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
       string(REPLACE "/MT " "" cur "${cur}") # Avoid override warning.
-      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd")
+      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd /Zi")
       append_property_string(TARGET ${target} LINK_FLAGS "/nodefaultlib:libcmt")
     else ()
       append_property_string(TARGET ${target} COMPILE_FLAGS "/EHsc /MT")
@@ -359,6 +366,11 @@ macro(add_win32_flags target)
     if (NOT cur MATCHES "-std=")
       append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
     endif ()
+    if (DEBUG AND NOT cur MATCHES "-g")
+      # We can't use restore_nonclient_flags() for clients, so we manually re-add debug
+      # here.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-g")
+    endif ()
     if (APPLE)
       # Match the core/ flags.
       append_property_string(TARGET ${target} COMPILE_FLAGS "-mmacosx-version-min=10.9")
@@ -369,6 +381,7 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
+add_win32_flags(prefetch_analyzer_launcher)
 add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
@@ -414,6 +427,17 @@ install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
+  # We include the alternate-bitwidth path, though it won't be there for
+  # a single build dir and such a child will have a fatal error.
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   if (DEBUG)
     set(debugopt "TOOL_OP=-dr_debug")
   else ()
@@ -426,8 +450,10 @@ TOOL_OP=-dr\n\
 TOOL_OP_DR_PATH\n\
 TOOL_OP_DR_BUNDLE=-dr_ops\n\
 TOOL_OP=-tracer\n\
-CLIENT_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
-${debugopt}")
+CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+TOOL_OP=-tracer_alt\n\
+CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+${debugopt}\n")
 endfunction ()
 
 if (X64)
@@ -461,9 +487,8 @@ if (WIN32)
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drconfiglib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drconfiglib.dll VERBATIM)
-  add_custom_command(TARGET drcachesim POST_BUILD
-    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-    ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/dynamorio.dll VERBATIM)
+  # Avoid dueling racy copies (i#4668).
+  add_dependencies(drcachesim client_dr_copy)
 endif ()
 
 ##################################################
@@ -485,10 +510,28 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests)
 
-  # FIXME i#2007: fails to link on A64
+  add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
+  configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
+  add_win32_flags(tool.drcacheoff.raw2trace_unit_tests)
+  target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace)
+  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drdecode)
+  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
+  add_test(NAME tool.drcacheoff.raw2trace_unit_tests
+    COMMAND tool.drcacheoff.raw2trace_unit_tests)
+
+  if (DR_HOST_AARCH64)
+    add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_aarch64_sys drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_aarch64_sys drmemtrace_raw2trace
+      drmemtrace_analyzer)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_aarch64_sys)
+    add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
+  endif ()
+
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   # FIXME i#2949: gcc 7.3 fails to link certain configs
-  if (NOT AARCH64 AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
+  if (NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
     # Tests for the cache miss analyzer.
     add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
     if (ZLIB_FOUND)
@@ -501,6 +544,24 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
+
+    add_executable(tool.drcachesim.invariant_checker_test
+      tools/invariant_checker.cpp tests/invariant_checker_test.cpp)
+    target_link_libraries(tool.drcachesim.invariant_checker_test
+        drmemtrace_static drmemtrace_analyzer)
+    add_win32_flags(tool.drcachesim.invariant_checker_test)
+    add_test(NAME tool.drcachesim.invariant_checker_test
+             COMMAND tool.drcachesim.invariant_checker_test)
+
+    add_executable(tool.drcacheoff.view_test tests/view_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
+    add_win32_flags(tool.drcacheoff.view_test)
+    target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
+    add_test(NAME tool.drcacheoff.view_test
+      COMMAND tool.drcacheoff.view_test)
 
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
@@ -531,6 +592,16 @@ if (BUILD_TESTS)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_malloc)
+    if (UNIX)
+      append_property_string(SOURCE tests/burst_malloc.cpp
+        # Allow our different-arg-count aliases.
+        COMPILE_FLAGS "-Wno-attribute-alias")
+    endif ()
+
+    add_executable(tool.drcacheoff.burst_reattach tests/burst_reattach.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_reattach)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_reattach)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)
@@ -591,7 +662,9 @@ if (BUILD_TESTS)
     add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
       "_asm" "" "${asm_deps}")
     add_executable(tool.drcacheoff.burst_traceopts ${source_abs}
-      ${asm_source})
+      ${asm_source}
+      # This test includes related unit tests for classes used for trace opts.
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/reg_id_set_unit_tests.cpp")
     configure_DynamoRIO_static(tool.drcacheoff.burst_traceopts)
     if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       add_dependencies(tool.drcacheoff.burst_traceopts ${gen_asm_tgt})

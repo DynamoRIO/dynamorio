@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,9 +43,7 @@
 #    include "reader/compressed_file_reader.h"
 #endif
 #include "reader/ipc_reader.h"
-#ifdef DEBUG
-#    include "tests/trace_invariants.h"
-#endif
+#include "tools/invariant_checker.h"
 
 analyzer_multi_t::analyzer_multi_t()
 {
@@ -105,9 +103,11 @@ analyzer_multi_t::analyzer_multi_t()
             if (!dir_err.empty()) {
                 success_ = false;
                 error_string_ = "Directory setup failed: " + dir_err;
+                return;
             }
             raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
-                                  nullptr, op_verbose.get_value(), op_jobs.get_value());
+                                  nullptr, op_verbose.get_value(), op_jobs.get_value(),
+                                  op_alt_module_dir.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success_ = false;
@@ -170,10 +170,10 @@ analyzer_multi_t::create_analysis_tools()
         return false;
     }
     num_tools_ = 1;
-#ifdef DEBUG
     if (op_test_mode.get_value()) {
         tools_[1] =
-            new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
+            new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
+                                    op_test_mode_name.get_value());
         if (tools_[1] == NULL)
             return false;
         if (!!*tools_[1])
@@ -186,7 +186,6 @@ analyzer_multi_t::create_analysis_tools()
         }
         num_tools_ = 2;
     }
-#endif
     return true;
 }
 

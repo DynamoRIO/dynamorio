@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -75,7 +75,7 @@
         }                                  \
     } while (0)
 
-static online_instru_t instru(NULL, false, NULL);
+static online_instru_t instru(NULL, NULL, false, NULL);
 
 int
 trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
@@ -117,21 +117,25 @@ trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 
 const char *(*module_mapper_t::user_parse_)(const char *src, OUT void **data) = nullptr;
 void (*module_mapper_t::user_free_)(void *data) = nullptr;
+int (*module_mapper_t::user_print_)(void *data, char *dst, size_t max_len) = nullptr;
 bool module_mapper_t::has_custom_data_global_ = true;
 
 module_mapper_t::module_mapper_t(
     const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
-    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity)
+    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
+    const std::string &alt_module_dir)
     : modmap_(module_map)
     , cached_user_free_(free_cb)
     , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
     // we make sure to reset it afterwards.
     DR_ASSERT(user_parse_ == nullptr);
     DR_ASSERT(user_free_ == nullptr);
+    DR_ASSERT(user_print_ == nullptr);
 
     user_parse_ = parse_cb;
     user_process_ = process_cb;
@@ -163,8 +167,8 @@ module_mapper_t::~module_mapper_t()
     user_free_ = nullptr;
     for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
-        if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
-            bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
+        if (!mvi->is_external && mvi->map_seg_base != NULL && mvi->total_map_size != 0) {
+            bool ok = dr_unmap_executable_file(mvi->map_seg_base, mvi->total_map_size);
             if (!ok)
                 WARN("Failed to unmap module %s", mvi->path);
         }
@@ -248,6 +252,15 @@ module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
     return buf;
 }
 
+int
+module_mapper_t::print_custom_module_data(void *data, char *dst, size_t max_len)
+{
+    custom_module_data_t *custom_data = (custom_module_data_t *)data;
+    return offline_instru_t::print_module_data_fields(
+        dst, max_len, custom_data->contents, custom_data->contents_size, user_print_,
+        custom_data->user_data);
+}
+
 void
 module_mapper_t::free_custom_module_data(void *data)
 {
@@ -261,9 +274,9 @@ std::string
 raw2trace_t::do_module_parsing()
 {
     if (!module_mapper_) {
-        module_mapper_ =
-            module_mapper_t::create(modmap_, user_parse_, user_process_,
-                                    user_process_data_, user_free_, verbosity_);
+        module_mapper_ = module_mapper_t::create(modmap_, user_parse_, user_process_,
+                                                 user_process_data_, user_free_,
+                                                 verbosity_, alt_module_dir_);
     }
     return module_mapper_->get_last_error();
 }
@@ -309,6 +322,14 @@ raw2trace_t::read_and_map_modules()
     return module_mapper_->get_last_error();
 }
 
+// Maps each module into the address space.
+// There are several types of mapping entries in the module list:
+// 1) Raw bits directly stored.  It is simply pointed at.
+// 2) Extra segments for a module.  A single mapping is used for all
+//    segments, so extras are ignored.
+// 3) A main segment.  The module's file is located by first looking in
+//    the alt_module_dir_; if not found, the path present during tracing
+//    is searched.
 void
 module_mapper_t::read_and_map_modules()
 {
@@ -322,44 +343,80 @@ module_mapper_t::read_and_map_modules()
                    (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
             modvec_.push_back(
-                module_t(info.path, info.start, (byte *)custom_data->contents,
-                         custom_data->contents_size, true /*external data*/));
+                module_t(info.path, info.start, (byte *)custom_data->contents, 0,
+                         custom_data->contents_size, custom_data->contents_size,
+                         true /*external data*/));
         } else if (strcmp(info.path, "<unknown>") == 0 ||
                    // This should only happen with legacy trace data that's missing
                    // the vdso contents.
                    (!has_custom_data_ && strcmp(info.path, "[vdso]") == 0)) {
             // We won't be able to decode.
-            modvec_.push_back(module_t(info.path, info.start, NULL, 0));
+            modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
         } else if (info.containing_index != info.index) {
-            // For split segments, drmodtrack_lookup() gave the lowest base addr,
-            // so our PC offsets are from that.  We assume that the single mmap of
-            // the first segment thus includes the other segments and that we don't
-            // need another mmap.
-            VPRINT(1, "Separate segment assumed covered: module %d seg " PFX " = %s\n",
-                   (int)modvec_.size(), info.start, info.path);
-            modvec_.push_back(module_t(info.path,
-                                       // We want the low base not segment base.
-                                       modvec_[info.containing_index].orig_base,
-                                       // 0 size indicates this is a secondary segment.
-                                       modvec_[info.containing_index].map_base, 0));
+            // For split segments, we assume our mapped layout matches the original.
+            byte *seg_map_base = modvec_[info.containing_index].map_seg_base +
+                (info.start - modvec_[info.containing_index].orig_seg_base);
+            VPRINT(1, "Secondary segment: module %d seg %p-%p = %s\n",
+                   (int)modvec_.size(), seg_map_base, seg_map_base + info.size,
+                   info.path);
+            // We did not map writable segments.  We can't easily detect an internal
+            // unmapped writable segment, but for those off the end of our mapping we
+            // can avoid pretending there's anything there.
+            bool off_end =
+                (size_t)(info.start - modvec_[info.containing_index].orig_seg_base) >=
+                modvec_[info.containing_index].total_map_size;
+            DR_ASSERT(off_end ||
+                      info.start - modvec_[info.containing_index].orig_seg_base +
+                              info.size <=
+                          modvec_[info.containing_index].total_map_size);
+            modvec_.push_back(module_t(
+                info.path, info.start, off_end ? NULL : seg_map_base,
+                off_end ? 0 : info.start - modvec_[info.containing_index].orig_seg_base,
+                off_end ? 0 : info.size,
+                // 0 total size indicates this is a secondary segment.
+                0));
         } else {
-            size_t map_size;
-            byte *base_pc =
-                dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            size_t map_size = 0;
+            byte *base_pc = NULL;
+            if (!alt_module_dir_.empty()) {
+                // First try the specified module dir.  It takes precedence to allow
+                // overriding the recorded path even when an identical-seeming path
+                // exists on the processing machine (e.g., system libraries).
+                // XXX: We should add a checksum on UNIX to match Windows and have
+                // a sanity check on the library version.
+                std::string basename(info.path);
+                size_t sep_index = basename.find_last_of(DIRSEP ALT_DIRSEP);
+                if (sep_index != std::string::npos)
+                    basename = std::string(basename, sep_index + 1, std::string::npos);
+                std::string new_path = alt_module_dir_ + DIRSEP + basename;
+                VPRINT(2, "Trying to map %s\n", new_path.c_str());
+                base_pc = dr_map_executable_file(new_path.c_str(),
+                                                 DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
+            if (base_pc == NULL) {
+                // Try the recorded path.
+                VPRINT(2, "Trying to map %s\n", info.path);
+                base_pc =
+                    dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
                 // but we expect to not care enough about code in DR).
                 if (strstr(info.path, "dynamorio") != NULL)
-                    modvec_.push_back(module_t(info.path, info.start, NULL, 0));
+                    modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
                 else {
                     last_error_ = "Failed to map module " + std::string(info.path);
                     return;
                 }
             } else {
-                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec_.size(),
-                       base_pc, info.path);
-                modvec_.push_back(module_t(info.path, info.start, base_pc, map_size));
+                VPRINT(1, "Mapped module %d @%p-%p (-%p segment) = %s\n",
+                       (int)modvec_.size(), base_pc, base_pc + map_size,
+                       base_pc + info.size, info.path);
+                // Be sure to only use the initial segment size to avoid covering
+                // another mapping in a segment gap (i#4731).
+                modvec_.push_back(
+                    module_t(info.path, info.start, base_pc, 0, info.size, map_size));
             }
         }
     }
@@ -382,12 +439,13 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_
     return module_mapper_->get_last_error();
 }
 
+// The output range is really a segment and not the whole module.
 app_pc
 module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
                                           OUT size_t *module_size)
 {
-    if (modhandle_ == nullptr || modlist_.empty()) {
-        last_error_ = "Failed to call get_module_list() first";
+    if (modvec_.empty()) {
+        last_error_ = "Failed to call get_loaded_modules() first";
         return nullptr;
     }
 
@@ -402,12 +460,13 @@ module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *modu
     }
     for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
-        if (trace_address >= mvi->orig_base &&
-            trace_address < mvi->orig_base + mvi->map_size) {
-            app_pc mapped_address = trace_address - mvi->orig_base + mvi->map_base;
-            last_orig_base_ = mvi->orig_base;
-            last_map_size_ = mvi->map_size;
-            last_map_base_ = mvi->map_base;
+        if (trace_address >= mvi->orig_seg_base &&
+            trace_address < mvi->orig_seg_base + mvi->seg_size) {
+            app_pc mapped_address =
+                trace_address - mvi->orig_seg_base + mvi->map_seg_base;
+            last_orig_base_ = mvi->orig_seg_base;
+            last_map_size_ = mvi->seg_size;
+            last_map_base_ = mvi->map_seg_base;
             if (module_start != nullptr)
                 *module_start = last_map_base_;
             if (module_size != nullptr)
@@ -425,6 +484,22 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
     return find_mapped_trace_bounds(trace_address, nullptr, nullptr);
 }
 
+drcovlib_status_t
+module_mapper_t::write_module_data(char *buf, size_t buf_size,
+                                   int (*print_cb)(void *data, char *dst, size_t max_len),
+                                   OUT size_t *wrote)
+{
+    user_print_ = print_cb;
+    drcovlib_status_t res =
+        drmodtrack_add_custom_data(nullptr, print_custom_module_data,
+                                   parse_custom_module_data, free_custom_module_data);
+    if (res == DRCOVLIB_SUCCESS) {
+        res = drmodtrack_offline_write(modhandle_, buf, buf_size, wrote);
+    }
+    user_print_ = nullptr;
+    return res;
+}
+
 /***************************************************************************
  * Top-level
  */
@@ -432,10 +507,13 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
 std::string
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
+    int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
+        ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
+        : TRACE_ENTRY_VERSION;
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
-    entry.addr = TRACE_ENTRY_VERSION;
+    entry.addr = version;
     if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
         return "Failed to write header to output file";
 
@@ -449,14 +527,21 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
     tdata->tid = tid;
+    tdata->cache_line_size = header.cache_line_size;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
-    // Write out the tid, pid, and timestamp.
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
+    // Write the version, arch, and other type flags.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
+    // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
+    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
+                                                 header.cache_line_size);
+
     if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
     // We have to write this now before we append any bb entries.
@@ -509,12 +594,14 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             }
             continue;
         }
-        // Append any delayed branch, but not until we output all (non-xfer) markers to
-        // ensure we group them all with the timestamp for this thread segment.
-        if (!(entry.extended.type == OFFLINE_TYPE_EXTENDED &&
-              entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_EVENT &&
-              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_XFER)) {
+        // Append delayed branches at the end or before xfer markers; else, delay
+        // until we see a non-cti inside a block, to handle double branches (i#5141)
+        // and to group all (non-xfer) markers with a new timestamp.
+        if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+            (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
+             (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+              (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER)))) {
             tdata->error = append_delayed_branch(tdata);
             if (!tdata->error.empty())
                 return tdata->error;
@@ -786,6 +873,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
     desc->packed_ = 0;
 
     bool is_prefetch = instr_is_prefetch(instr);
+    bool is_flush = instru_t::instr_is_flush(instr);
     bool reads_memory = instr_reads_memory(instr);
     bool writes_memory = instr_writes_memory(instr);
 
@@ -800,8 +888,19 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
     if (instr_is_cti(instr))
         desc->packed_ |= kIsCtiMask;
 
+#ifdef AARCH64
+    bool is_dc_zva = instru_t::is_aarch64_dc_zva_instr(instr);
+    if (is_dc_zva)
+        desc->packed_ |= kIsAarch64DcZvaMask;
+#endif
+
+#ifdef X86
+    if (instr_is_scatter(instr) || instr_is_gather(instr))
+        desc->packed_ |= kIsScatterOrGatherMask;
+#endif
     desc->type_ = instru_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
+    desc->flush_type_ = is_flush ? instru_t::instr_to_flush_type(instr) : 0;
     desc->length_ = static_cast<byte>(instr_length(dcontext, instr));
 
     if (reads_memory || writes_memory) {
@@ -830,6 +929,7 @@ raw2trace_t::get_next_entry(void *tls)
     // be i/o bound (or ISA decode bound) and aren't worried about some extra copies
     // from the vector.
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    tdata->last_entry_is_split = false;
     if (!tdata->pre_read.empty()) {
         tdata->last_entry = tdata->pre_read[0];
         tdata->pre_read.erase(tdata->pre_read.begin(), tdata->pre_read.begin() + 1);
@@ -845,10 +945,31 @@ raw2trace_t::get_next_entry(void *tls)
     return &tdata->last_entry;
 }
 
+const offline_entry_t *
+raw2trace_t::get_next_entry_keep_prior(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        // Cannot record two live split entries.
+        return nullptr;
+    }
+    VPRINT(4, "Remembering split entry for unreading both at once\n");
+    tdata->last_split_first_entry = tdata->last_entry;
+    const offline_entry_t *next = get_next_entry(tls);
+    // Set this *after* calling get_next_entry as it clears the field.
+    tdata->last_entry_is_split = true;
+    return next;
+}
+
 void
 raw2trace_t::unread_last_entry(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        VPRINT(4, "Unreading both parts of split entry at once\n");
+        tdata->pre_read.push_back(tdata->last_split_first_entry);
+        tdata->last_entry_is_split = false;
+    }
     tdata->pre_read.push_back(tdata->last_entry);
 }
 
@@ -865,9 +986,12 @@ raw2trace_t::append_delayed_branch(void *tls)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->delayed_branch.empty())
         return "";
-    VPRINT(4, "Appending delayed branch for thread %d\n", tdata->index);
-    if (!tdata->out_file->write(&tdata->delayed_branch[0], tdata->delayed_branch.size()))
-        return "Failed to write to output file";
+    for (const auto &contents : tdata->delayed_branch) {
+        VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n",
+               reinterpret_cast<const trace_entry_t *>(&contents[0])->addr, tdata->index);
+        if (!tdata->out_file->write(&contents[0], contents.size()))
+            return "Failed to write to output file";
+    }
     tdata->delayed_branch.clear();
     return "";
 }
@@ -893,10 +1017,9 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
                                     const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    CHECK(tdata->delayed_branch.empty(), "Failed to flush delayed branch");
-    tdata->delayed_branch.insert(tdata->delayed_branch.begin(),
-                                 reinterpret_cast<const char *>(start),
-                                 reinterpret_cast<const char *>(end));
+    std::vector<char> contents(reinterpret_cast<const char *>(start),
+                               reinterpret_cast<const char *>(end));
+    tdata->delayed_branch.push_back(contents);
     return "";
 }
 
@@ -968,6 +1091,13 @@ raw2trace_t::get_version(void *tls)
     return tdata->version;
 }
 
+size_t
+raw2trace_t::get_cache_line_size(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->cache_line_size;
+}
+
 offline_file_type_t
 raw2trace_t::get_file_type(void *tls)
 {
@@ -978,13 +1108,15 @@ raw2trace_t::get_file_type(void *tls)
 raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
                          const std::vector<std::ostream *> &out_files, void *dcontext,
-                         unsigned int verbosity, int worker_count)
+                         unsigned int verbosity, int worker_count,
+                         const std::string &alt_module_dir)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
     , user_process_data_(nullptr)
     , modmap_(module_map)
     , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     if (dcontext == NULL) {
 #ifdef ARM
@@ -1063,12 +1195,21 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
     int ver = static_cast<int>(entry->extended.valueA);
     if (version != nullptr)
         *version = ver;
+    offline_file_type_t type = static_cast<offline_file_type_t>(entry->extended.valueB);
     if (file_type != nullptr)
-        *file_type = static_cast<offline_file_type_t>(entry->extended.valueB);
+        *file_type = type;
     if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {
         std::stringstream ss;
         ss << "Version mismatch: found " << ver << " but we require between "
            << OFFLINE_FILE_VERSION_OLDEST_SUPPORTED << " and " << OFFLINE_FILE_VERSION;
+        *error = ss.str();
+        return false;
+    }
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
+        !TESTANY(build_target_arch_type(), type)) {
+        std::stringstream ss;
+        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
+           << " but tools built for " << trace_arch_string(build_target_arch_type());
         *error = ss.str();
         return false;
     }
@@ -1106,8 +1247,15 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
         error.empty()) {
         if (size < 4)
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+        // XXX: Make it easier to add more markers. Iterate over the entries until
+        // the timestamp entry or some non-meta entry is encountered.
         if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
-            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID)
+            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID ||
+            (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
+             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
+             offline_entries[timestamp_pos].extended.valueB !=
+                 TRACE_MARKER_TYPE_CACHE_LINE_SIZE))
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
         ++timestamp_pos;
     }

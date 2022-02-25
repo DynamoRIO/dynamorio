@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,7 +41,7 @@
 
 /*
  * NOTE - I haven't tried running this with the dynamorio.dll in this directory so it
- * might not work. I've been using a tot VMAP=1 build of core.
+ * might not work. I've been using a tot build of core.
  *
  * ls *.dll > LIST
  * for i in $( cat LIST ) ; do ../vista_hash.exe $i; done > ../OUTPUT

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,29 +42,17 @@ executes.  Modifications are not limited to trampoline insertion and can
 include arbitrary changes.  We divide the API description into the
 following sections:
 
-\ifnot vmsafe
- - \ref sec_IR
- - \ref sec_events_bt
- - \ref sec_decode
- - \ref sec_isa
- - \ref sec_IR_utils
- - \ref sec_reg_stolen
- - \ref sec_translation
- - \ref sec_predication
- - \ref sec_ldrex
- - \ref sec_rseq
- - \ref sec_pcache
- - \ref bt_examples
- - \ref sec_startstop
-\else
- - \ref sec_IR
- - \ref sec_events_bt
- - \ref sec_decode
- - \ref sec_isa
- - \ref sec_IR_utils
- - \ref sec_translation
- - \ref bt_examples
-\endif
+- \ref sec_IR
+- \ref sec_events_bt
+- \ref sec_decode
+- \ref sec_isa
+- \ref sec_IR_utils
+- \ref sec_reg_stolen
+- \ref sec_translation
+- \ref sec_predication
+- \ref sec_ldrex
+- \ref sec_rseq
+- \ref sec_pcache
 
 ***************************************************************************
 \htmlonly
@@ -76,18 +64,18 @@ following sections:
 \section sec_IR Instruction Representation
 
 The primary data structures involved in instruction manipulation are
-the \c instr_t, which represents a single IA-32 instruction, and the \c
-instrlist_t, which is a linked list of instructions.  The header files
+the #instr_t, which represents a single instruction, and the \c
+#instrlist_t, which is a linked list of instructions.  The header files
 dr_ir_instrlist.h and dr_ir_instr.h list a number of functions that
 operate on these data structures, including:
 
 - Routines to create new instructions.
 - Routines to iterate over an instruction's operands.
-- Routines to iterate over an \c instrlist_t.
-- Routines to insert and remove an \c instr_t from an \c instrlist_t.
+- Routines to iterate over an #instrlist_t.
+- Routines to insert and remove an #instr_t from an #instrlist_t.
 
 As we will see in the the \ref sec_events_bt section that follows, a
-client usually interacts with \c instrlist_t's in the form of \e basic \e
+client usually interacts with #instrlist_t's in the form of \e basic \e
 blocks or \e traces.  A basic block is a sequence of instructions that
 terminates with a control transfer operation.  Traces are
 frequently-executed sequences of basic blocks that DynamoRIO forms
@@ -117,7 +105,7 @@ arguments twice, so clients should avoid passing arguments with side effects.
 
 When a new instruction is created using instr_create() or the
 INSTR_CREATE_* or XINST_CREATE_* macros, if the instruction is added to the
-\c instrlist_t that is passed to the basic block or trace events, the heap
+#instrlist_t that is passed to the basic block or trace events, the heap
 memory used by the instruction is automatically freed when that instruction
 list is freed by DynamoRIO.  If instead an instruction is created on the
 heap but used for other purposes and not added to a DynamoRIO-provided
@@ -136,7 +124,7 @@ instructions and safely using instructions in signal handlers.
 ********************
 \subsection sec_IR_adaptive Adaptive Level of Detail
 
-It is costly to decode IA-32 instructions.  Fortunately, DynamoRIO is
+It is costly to decode instructions.  Fortunately, DynamoRIO is
 often only interested in high-level information for a subset of
 instructions, such as just the control-flow instructions.  Each
 instruction can be at one of five levels of detail.  To simplify clients,
@@ -145,7 +133,7 @@ Internally, DynamoRIO uses all five levels:
 
 \par Level 0: Raw Bundle
 
-At Level 0, the \c instr_t data structure holds raw bytes for group of
+At Level 0, the #instr_t data structure holds raw bytes for group of
 instructions decoded only enough to determine the final instruction
 boundary:
 
@@ -157,7 +145,7 @@ boundary:
 
 \par Level 1: Raw Individual
 
-At Level 1, each \c instr_t holds only one instruction, but has no more
+At Level 1, each #instr_t holds only one instruction, but has no more
 information than raw bytes:
 
 <table border=0 cellpadding=2 cellspacing=1>
@@ -178,8 +166,8 @@ information than raw bytes:
 
 \par Level 2: Opcode and Eflags
 
-At Level 2, \c instr_t has been decoded just enough to determine opcode and
-flags effects (flags are important when analyzing IA-32 code).  Raw bytes
+At Level 2, #instr_t has been decoded just enough to determine opcode and
+flags effects (flags are important when analyzing code).  Raw bytes
 are still used for encoding.  The flags effects below are only shown for
 reading (R) or writing (W) the six arithmetic flags (Carry, Parity, Adjust,
 Zero, Sign, and Overflow).
@@ -216,8 +204,8 @@ Zero, Sign, and Overflow).
 
 \par Level 3: Operands
 
-A Level 3 \c instr_t contains dynamically allocated arrays of source and
-destination operands (dynamic because IA-32 is so variable) that are now
+A Level 3 #instr_t contains dynamically allocated arrays of source and
+destination operands (dynamic because some ISA's are quite variable) that are now
 filled in.  Raw bytes are still valid and are used for encoding.  This
 level combines high-level information with quick encoding.
 
@@ -260,9 +248,9 @@ level combines high-level information with quick encoding.
 
 \par Level 4: Modified Operands
 
-At the highest level, \c instr_t has been modified at the operand level, or
+At the highest level, #instr_t has been modified at the operand level, or
 has been created from operands, such that the raw bytes are no longer
-valid.  The \c instr_t must be fully encoded from its operands.
+valid.  The #instr_t must be fully encoded from its operands.
 
 <table border=0 cellpadding=2 cellspacing=1>
 <tr><td>&nbsp;</td>
@@ -304,8 +292,8 @@ valid.  The \c instr_t must be fully encoded from its operands.
 \par Basic Block Example
 
 As an example of using different levels of detail, a basic block in
-DynamoRIO is represented using a Level 0 \c instr_t for all non-control-flow
-instructions, and a Level 3 \c instr_t for the block-ending control-flow
+DynamoRIO is represented using a Level 0 #instr_t for all non-control-flow
+instructions, and a Level 3 #instr_t for the block-ending control-flow
 instruction:
 
 <table border=0 cellpadding=2 cellspacing=1>
@@ -320,7 +308,7 @@ instruction:
 </table>
 
 However, when a client registers for the basic block event, DynamoRIO
-passes an \c instrlist_t of all Level 3 \c instr_t's, for simplicity.
+passes an #instrlist_t of all Level 3 #instr_t's, for simplicity.
 \endif
 
 
@@ -430,7 +418,7 @@ to a file for fast re-use on subsequent runs can include the
 DR_EMIT_PERSISTABLE flag in its return value.  See \ref sec_pcache for more
 information.
 
-To iterate over instructions in an \c instrlist_t, use the \ref
+To iterate over instructions in an #instrlist_t, use the \ref
 instrlist_first(), \ref instrlist_last() (if necessary), and \ref
 instr_get_next() routines. For example:
 
@@ -663,13 +651,13 @@ functionality.
 \subsection sec_Decoding Decoding
 
 DynamoRIO provides several routines for decoding and disassembling
-IA-32 instructions.  The most common method for decoding is the
-decode() routine, which populates an \c instr_t data structure with all
+instructions.  The most common method for decoding is the
+decode() routine, which populates an #instr_t data structure with all
 information about the instruction (e.g., opcode and operand
 information).
 
 When decoding instructions, clients must explicitly manage the \c
-instr_t data structure.  For example, the following code shows how to
+#instr_t data structure.  For example, the following code shows how to
 use the instr_init(), instr_reset(), and instr_free() routines to
 decode a sequence of arbritrary instructions:
 
@@ -721,7 +709,7 @@ determine the order.
 \subsection sec_Encoding Encoding
 
 DynamoRIO's encoding routines take an instruction or list of
-instructions and encode them into the corresponding IA-32 bit pattern:
+instructions and encode them into the corresponding bit pattern:
 
 \code instr_encode(), instrlist_encode() \endcode
 
@@ -981,19 +969,21 @@ dr_insert_cbr_instrumentation()
 \subsection sec_adaptive Dynamic Instrumentation
 
 DynamoRIO allows a client to dynamically adjust its instrumentation
-by providing routines to flush all cached fragments corresponding to
-an application code region:
+by providing a routine to flush all cached fragments corresponding to
+an application code region and register (or unregister) instrumentation
+event callbacks:
 
 \code
-dr_flush_region()
-dr_unlink_flush_region()
-dr_delay_flush_region()
+dr_flush_region_ex()
 \endcode
+
+The client should provide a callback to this routine, that unregisters
+old instrumentation event callbacks, and registers new ones.
 
 In order to directly modify the instrumentation on a particular fragment
 (as opposed to replacing instrumentation on all copies of fragments
 corresponding to particular application code), DynamoRIO also supports
-directly replacing an existing fragment with a new \c instrlist_t:
+directly replacing an existing fragment with a new #instrlist_t:
 
 \code
 dr_replace_fragment()
@@ -1046,7 +1036,7 @@ For example usage, see the callee-inlining client sample \ref sec_ex5.
 ********************
 \subsection sec_custom_stubs Custom Exit Stubs
 
-An exit cti can be given an instrlist_t to be prepended to the standard
+An exit cti can be given an #instrlist_t to be prepended to the standard
 exit stub.  There are set and get methods for this custom exit stub code:
 
 \code
@@ -1155,7 +1145,15 @@ Furthermore, if the client's modifications change any part of the machine
 state besides the program counter, the client should use
 dr_register_restore_state_event() or dr_register_restore_state_ex_event()
 (see \ref sec_events_translation) to restore the registers to their
-original application values.
+original application values. DR attempts to reconstruct the #instrlist_t
+for the faulting fragment; this list contains all instrs added by the
+basic block event(s) with \p translating set to true, and also DR's own
+mangling of some instrs. If this reconstructed #instrlist_t is available,
+it will be passed on to the registered callback as part of
+#dr_fault_fragment_info_t in #dr_restore_state_info_t. It may not be
+available when some or all clients returned #DR_EMIT_STORE_TRANSLATIONS,
+or for DR internal reasons when the app code may not be consistent: for
+pending deletion or self-modifying fragments.
 
 For meta instructions that do not reference application memory (i.e., they
 should not fault), leave the translation field as NULL.  A NULL value
@@ -1259,34 +1257,45 @@ dr_insert_it_instrs() on their own.
   <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
   <tr><td></td></tr></table></td></tr></table></td></tr></table>
 \endhtmlonly
-\section sec_ldrex Exclusive Monitor Instrumentation Constraints
+\section sec_ldrex Exclusive Monitor Instrumentation
 
-On ARM and AArch64, a ldrex..strex (or ldxr..stxr) pair of instructions has some
-constraints that make inserting
-instrumentation in between the pair challenging.  ARM/AArch64 hardware requires
-that an application minimize memory operations in between the ldrex and
-strex and minimize the total number of instructions in between.  Violating
-this can result in failure to acquire the desired exclusive monitor, which
-is always done in a loop and can result in a non-terminating loop when the
-application is run with instrumentation.
+On ARM and AArch64, a load-exclusive store-exclusive pair of
+instructions has some constraints that make inserting instrumentation
+in between the pair challenging.  ARM/AArch64 hardware requires that
+an application minimize memory operations in between the
+load-exclusive and store-exclusive and minimize the total number of
+instructions in between.  Violating this can result in failure to
+acquire the desired exclusive monitor, which is always done in a loop
+and can result in a non-terminating loop when the application is run
+with instrumentation.
 
-Inserting a few memory references in between a ldrex..strex pair works
-on most but not all hardware. Inserting something heavyweight like a clean
-call is likely to result in a non-terminating loop.
+Inserting a few memory references in between the pair works
+on some but not all hardware. Inserting something heavyweight like a clean
+call is very likely to result in a non-terminating loop.
 
-We recommend using inlined instrumentation with at most a few memory
-references in such regions, rather than clean calls.  In general, this is
-the best performing strategy anyway for heavyweight tools that want to
+By default, DynamoRIO converts each such sequence to a compare-and-swap
+sequence which can handle any amount of added instrumentation.
+However, compare-and-swap is not semantically identical: it does not
+detect "ABA" changes and could cause errors in lock-free data
+structures or other application constructs.  This compare-and-swap
+conversion can be disabled with the runtime option \ref op_ldstex2cas
+"no_ldstex2cas".
+
+If compare-and-swap conversion must be disabled, we recommend using
+inlined instrumentation with at most a few memory references in such
+regions, rather than clean calls.  In general, this is the best
+performing strategy anyway for heavyweight tools that want to
 instrument every instruction.  Take a look at the memtrace_simple and
 instrace_simple samples, which check for instr_is_exclusive_store() to
-avoid a clean call in between.
-
-The runtime option "-unsafe_build_ldstex" may be useful on AArch64
-hardware that does not allow any loads or stores between an exclusive
-load and the corresponding exclusive store. With this option DynamoRIO
-tries to turn a sequence of instructions containing an exclusive
-load/store pair into a macro-instruction, which prevents any loads and
-stores from being inserted, but also prevents any of the instructions
+avoid a clean call in between.  However, even this is not enough on
+some hardware, where instrumentation would have to be shifted to before
+and/or after the monitor region.  The runtime option
+"-unsafe_build_ldstex" may be useful on AArch64 hardware that does not
+allow any loads or stores between an exclusive load and the
+corresponding exclusive store. With this option DynamoRIO tries to
+turn a sequence of instructions containing an exclusive load/store
+pair into a macro-instruction, which prevents any loads and stores
+from being inserted, but also prevents any of the instructions
 involved from being instrumented.
 
 ***************************************************************************
@@ -1311,7 +1320,7 @@ commit.
 
 This run-twice approach is subject to the following limitations:
 
-- Only x86 is supported for now (no arm or aarch64 support yet).
+- Only x86 and aarch64 are supported for now, and 32-bit x86 is not as well-tested.
 - The application must store an rseq_cs struct for each rseq region in a
   section of its binary named "__rseq_cs", optionally with an "__rseq_cs_ptr_array"
   section of pointers into the __rseq_cs section, per established conventions.
@@ -1326,6 +1335,8 @@ This run-twice approach is subject to the following limitations:
   effects: it must only write to memory and not to any registers.
   For example, a push instruction which both writes to memory and the
   stack pointer register is not supported.
+  An exception is a pre-indexed or post-indexed writeback store, which is
+  supported.
 - Each rseq region's code must end with a fall-through (non-control-flow)
   instruction.
 - Indirect branches that do not exit the rseq region are not allowed.
@@ -1337,8 +1348,10 @@ This run-twice approach is subject to the following limitations:
   region whose values are then read afterward, must be general-purpose registers.
 - The instrumented execution of the rseq region may not perfectly reflect
   the native behavior of the application.  The instrumentation will never see
-  the abort handler called, and memory addresses may be wrong if they are based on
-  the underlying cpuid and a migration occurred mid-region.  These are minor and
+  an abort anywhere but just prior to the committing store.
+  Additionally, memory addresses may be wrong if they are based on
+  the live (as opposed to cached at the rseq region entrance) underlying cpuid
+  and a migration occurred mid-region.  These are minor and
   acceptable for most tools (especially given that there is no better alternative).
 
 Some of these limitations are explicitly checked, and DR will exit with an error
@@ -1348,7 +1361,6 @@ op_disable_rseq "disable_rseq" runtime option may be used to return ENOSYS,
 which can provide a workaround for applications which have fallback code
 for kernels where rseq is not supported.
 
-\ifnot vmsafe
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1418,36 +1430,6 @@ instrumentation, it must do that on its own in the event callbacks.  The
 TLS check ensures that TLS scratch slots are identical.  DynamoRIO also
 ensures that any runtime options that affect persistent code (such as
 whether traces are enabled) are identical.
-
-***************************************************************************
-\htmlonly
-<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
-  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
-  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
-  <tr><td></td></tr></table></td></tr></table></td></tr></table>
-\endhtmlonly
-\section sec_startstop Running a Subset of an Application
-
-An alternative to running an entire application under DynamoRIO control is to
-use the Application Interface to specify a portion of the application to
-run.  This interface consists of the following routines:
-
-\code
-dr_app_setup()
-dr_app_start()
-dr_app_stop()
-dr_app_cleanup()
-dr_app_take_over()
-\endcode
-
-When building an executable that uses DynamoRIO's Application Interface,
-follow the steps for \ref sec_build to include the header files and link
-with the DynamoRIO library, but omit the linker flags requesting no
-standard libraries or startup files.  DynamoRIO's CMake support does this
-automatically, as the linker flags for shared libraries are separate from
-those for executables.
-
-\endif
 
 ***************************************************************************
 ****************************************************************************

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -72,11 +72,87 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     // i#2051: to satisfy both cache and core simulators we mark subsequent iters
     // of string loops as TRACE_TYPE_INSTR_NO_FETCH, converted from this
     // TRACE_TYPE_INSTR_MAYBE_FETCH by reader_t (since online traces would need
-    // extra insru to distinguish the 1st and subsequent iters).
+    // extra instru to distinguish the 1st and subsequent iters).
     if (instr_is_rep_string_op(instr) || (repstr_expanded && instr_is_string_op(instr)))
         return TRACE_TYPE_INSTR_MAYBE_FETCH;
     return TRACE_TYPE_INSTR;
 }
+
+#ifdef AARCH64
+// XXX: this decoding logic may be moved to DR's IR for reuse.
+unsigned short
+instru_t::get_aarch64_prefetch_target_policy(ptr_int_t prfop)
+{
+    // Least significant three bits of prfop represent prefetch target and
+    // policy [... b2 b1 b0]
+    //
+    // b2 b1 : prefetch target
+    // 0b00 - L1 cache, 0b01 - L2 cache, 0b10 - L3 cache
+    //
+    // b0 : prefetch policy
+    // 0b0 - temporal prefetch, 0b1 - streaming (non-temporal) prefetch
+    return prfop & 0b111;
+}
+
+unsigned short
+instru_t::get_aarch64_prefetch_op_type(ptr_int_t prfop)
+{
+    // Bits at position 3 and 4 in prfop represent prefetch operation type
+    // [... b4 b3 ...]
+    // 0b00 - prefetch for load
+    // 0b01 - prefetch for instruction
+    // 0b10 - prefetch for store
+    return (prfop >> 3) & 0b11;
+}
+
+unsigned short
+instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
+{
+    unsigned short target_policy = get_aarch64_prefetch_target_policy(prfop);
+    unsigned short op_type = get_aarch64_prefetch_op_type(prfop);
+    switch (op_type) {
+    case 0b00: // prefetch for load
+        switch (target_policy) {
+        case 0b000: return TRACE_TYPE_PREFETCH_READ_L1;
+        case 0b001: return TRACE_TYPE_PREFETCH_READ_L1_NT;
+        case 0b010: return TRACE_TYPE_PREFETCH_READ_L2;
+        case 0b011: return TRACE_TYPE_PREFETCH_READ_L2_NT;
+        case 0b100: return TRACE_TYPE_PREFETCH_READ_L3;
+        case 0b101: return TRACE_TYPE_PREFETCH_READ_L3_NT;
+        }
+        break;
+    case 0b01: // prefetch for instruction
+        switch (target_policy) {
+        case 0b000: return TRACE_TYPE_PREFETCH_INSTR_L1;
+        case 0b001: return TRACE_TYPE_PREFETCH_INSTR_L1_NT;
+        case 0b010: return TRACE_TYPE_PREFETCH_INSTR_L2;
+        case 0b011: return TRACE_TYPE_PREFETCH_INSTR_L2_NT;
+        case 0b100: return TRACE_TYPE_PREFETCH_INSTR_L3;
+        case 0b101: return TRACE_TYPE_PREFETCH_INSTR_L3_NT;
+        }
+        break;
+    case 0b10: // prefetch for store
+        switch (target_policy) {
+        case 0b000: return TRACE_TYPE_PREFETCH_WRITE_L1;
+        case 0b001: return TRACE_TYPE_PREFETCH_WRITE_L1_NT;
+        case 0b010: return TRACE_TYPE_PREFETCH_WRITE_L2;
+        case 0b011: return TRACE_TYPE_PREFETCH_WRITE_L2_NT;
+        case 0b100: return TRACE_TYPE_PREFETCH_WRITE_L3;
+        case 0b101: return TRACE_TYPE_PREFETCH_WRITE_L3_NT;
+        }
+        break;
+    }
+
+#    ifdef DEBUG
+    // Some AArch64 prefetch operation encodings are not accessible using prfop.
+    // For debug builds, we throw an error if we encounter any such prefetch operation.
+    // For release builds, we map them to the default TRACE_TYPE_PREFETCH.
+    DR_ASSERT_MSG(false, "Unsupported AArch64 prefetch operation.");
+#    endif
+
+    return TRACE_TYPE_PREFETCH;
+}
+#endif
 
 unsigned short
 instru_t::instr_to_prefetch_type(instr_t *instr)
@@ -95,9 +171,46 @@ instru_t::instr_to_prefetch_type(instr_t *instr)
     case OP_pldw: return TRACE_TYPE_PREFETCH_WRITE;
     case OP_pli: return TRACE_TYPE_PREFETCH_INSTR;
 #endif
+#ifdef AARCH64
+    case OP_prfm:
+        return get_aarch64_prefetch_type(opnd_get_immed_int(instr_get_src(instr, 0)));
+    case OP_prfum:
+        return get_aarch64_prefetch_type(opnd_get_immed_int(instr_get_src(instr, 0)));
+#endif
     default: return TRACE_TYPE_PREFETCH;
     }
 }
+
+#ifdef AARCH64
+bool
+instru_t::is_aarch64_icache_flush_op(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    // TODO i#4406: Handle privileged icache operations.
+    case OP_ic_ivau: return true;
+    }
+    return false;
+}
+
+bool
+instru_t::is_aarch64_dcache_flush_op(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    // TODO i#4406: Handle all privileged dcache operations.
+    case OP_dc_ivac:
+    case OP_dc_cvau:
+    case OP_dc_civac:
+    case OP_dc_cvac: return true;
+    }
+    return false;
+}
+
+bool
+instru_t::is_aarch64_dc_zva_instr(instr_t *instr)
+{
+    return instr_get_opcode(instr) == OP_dc_zva;
+}
+#endif
 
 bool
 instru_t::instr_is_flush(instr_t *instr)
@@ -107,7 +220,31 @@ instru_t::instr_is_flush(instr_t *instr)
     if (instr_get_opcode(instr) == OP_clflush)
         return true;
 #endif
+#ifdef AARCH64
+    if (is_aarch64_dcache_flush_op(instr) || is_aarch64_icache_flush_op(instr))
+        return true;
+#endif
     return false;
+}
+
+unsigned short
+instru_t::instr_to_flush_type(instr_t *instr)
+{
+    DR_ASSERT(instr_is_flush(instr));
+#ifdef X86
+    // XXX: OP_clflush invalidates all levels of the processor cache
+    // hierarchy (data and instruction)
+    if (instr_get_opcode(instr) == OP_clflush)
+        return TRACE_TYPE_DATA_FLUSH;
+#endif
+#ifdef AARCH64
+    if (is_aarch64_icache_flush_op(instr))
+        return TRACE_TYPE_INSTR_FLUSH;
+    if (is_aarch64_dcache_flush_op(instr))
+        return TRACE_TYPE_DATA_FLUSH;
+#endif
+    DR_ASSERT(false);
+    return TRACE_TYPE_DATA_FLUSH; // unreachable.
 }
 
 void
@@ -182,4 +319,29 @@ instru_t::get_timestamp()
     // If we want something faster we can try to use the VDSO gettimeofday (via
     // libc) or KUSER_SHARED_DATA on Windows (i#2842).
     return dr_get_microseconds();
+}
+
+int
+instru_t::count_app_instrs(instrlist_t *ilist)
+{
+    int count = 0;
+    bool in_emulation_region = false;
+    for (instr_t *inst = instrlist_first(ilist); inst != NULL;
+         inst = instr_get_next(inst)) {
+        if (!in_emulation_region && drmgr_is_emulation_start(inst)) {
+            in_emulation_region = true;
+            // Each emulation region corresponds to a single app instr.
+            ++count;
+        }
+        if (!in_emulation_region && instr_is_app(inst)) {
+            // Hooked native functions end up with an artifical jump whose translation
+            // is its target.  We do not want to count these.
+            if (!(instr_is_ubr(inst) && opnd_is_pc(instr_get_target(inst)) &&
+                  opnd_get_pc(instr_get_target(inst)) == instr_get_app_pc(inst)))
+                ++count;
+        }
+        if (in_emulation_region && drmgr_is_emulation_end(inst))
+            in_emulation_region = false;
+    }
+    return count;
 }

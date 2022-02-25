@@ -68,7 +68,7 @@ event_exit(void)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%u/%u instructions executed\n",
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%u/%u instructions executed.",
                       global_opcode_count, global_total_count);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
@@ -94,8 +94,19 @@ event_opcode_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
         static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
         IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
             global_opcode_count,
-        1, DRX_COUNTER_LOCK);
+        1,
+        /* TODO i#4215: DRX_COUNTER_LOCK is not yet supported on ARM. */
+        IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
 
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data)
+{
+    intptr_t bb_size = (intptr_t)drx_instrlist_app_size(bb);
+    *user_data = (void *)bb_size;
     return DR_EMIT_DEFAULT;
 }
 
@@ -112,6 +123,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
 
+    intptr_t bb_size = (intptr_t)user_data;
+
     drx_insert_counter_update(
         drcontext, bb, inst,
         /* We're using drmgr, so these slots
@@ -120,7 +133,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
         IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
             global_total_count,
-        1, DRX_COUNTER_LOCK);
+        (int)bb_size,
+        /* TODO i#4215: DRX_COUNTER_LOCK is not yet supported on ARM. */
+        IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
 
     return DR_EMIT_DEFAULT;
 }
@@ -151,7 +166,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_exit_event(event_exit);
     if (!drmgr_register_opcode_instrumentation_event(event_opcode_instruction,
                                                      valid_opcode, NULL, NULL) ||
-        !drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        !drmgr_register_bb_instrumentation_event(event_bb_analysis, event_app_instruction,
+                                                 NULL))
         DR_ASSERT(false);
 
     /* Make it easy to tell, by looking at log file, which client executed. */

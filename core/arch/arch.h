@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,6 +49,7 @@
 #include "decode.h"       /* for X64_CACHE_MODE_DC */
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 #include "../fragment.h"  /* IS_IBL_TARGET */
+#include "ir_utils.h"
 
 #if defined(X86) && defined(X64)
 static inline bool
@@ -176,18 +177,15 @@ mixed_mode_enabled(void)
 #define PRIVATE_CODE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, private_code))
 
 #ifdef WINDOWS
-#    ifdef CLIENT_INTERFACE
-#        define APP_ERRNO_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_errno))
-#        define APP_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_fls_data))
-#        define PRIV_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_fls_data))
-#        define APP_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nt_rpc))
-#        define PRIV_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nt_rpc))
-#        define APP_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nls_cache))
-#        define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nls_cache))
-#        define APP_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_static_tls))
-#        define PRIV_STATIC_TLS_OFFSET \
-            ((PROT_OFFS) + offsetof(dcontext_t, priv_static_tls))
-#    endif
+#    define APP_ERRNO_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_errno))
+#    define APP_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_fls_data))
+#    define PRIV_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_fls_data))
+#    define APP_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nt_rpc))
+#    define PRIV_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nt_rpc))
+#    define APP_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nls_cache))
+#    define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nls_cache))
+#    define APP_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_static_tls))
+#    define PRIV_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_static_tls))
 #    define APP_STACK_LIMIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_limit))
 #    define APP_STACK_BASE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_base))
 #    define NONSWAPPED_SCRATCH_OFFSET \
@@ -205,9 +203,7 @@ mixed_mode_enabled(void)
 #    define IGNORE_ENTEREXIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, ignore_enterexit))
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    define CLIENT_DATA_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, client_data))
-#endif
+#define CLIENT_DATA_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, client_data))
 
 #define COARSE_IB_SRC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, coarse_exit.src_tag))
 #define COARSE_DIR_EXIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, coarse_exit.dir_exit))
@@ -407,8 +403,10 @@ typedef struct _clean_call_info_t {
     bool skip_clear_flags;
     int num_simd_skip;
     bool simd_skip[MCXT_NUM_SIMD_SLOTS];
+#ifdef X86
     int num_opmask_skip;
     bool opmask_skip[MCXT_NUM_OPMASK_SLOTS];
+#endif
     uint num_regs_skip;
     bool reg_skip[DR_NUM_GPR_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
@@ -509,24 +507,8 @@ mangle_init(void);
 void
 mangle_exit(void);
 void
-insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
-                       instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last);
-void
 patch_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
                       instr_t *last);
-void
-insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
-                        instr_t *instr, OUT instr_t **first, OUT instr_t **last);
-void
-insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
-                      opnd_t dst, instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                      OUT instr_t **last);
-void
-insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                       instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last);
-
 /* in mangle.c arch-specific implementation */
 #ifdef ARM
 int
@@ -543,16 +525,8 @@ uint
 insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              bool clean_call, uint num_args, opnd_t *args);
 void
-insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                      ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      OUT instr_t **first, OUT instr_t **last);
-void
 patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
                      instr_t *last);
-void
-insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                       ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       OUT instr_t **first, OUT instr_t **last);
 instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 void
@@ -590,6 +564,9 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
+instr_t *
+mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                            instr_t *next_instr);
 #endif
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
@@ -740,8 +717,11 @@ mangle_writes_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t 
 
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
-    /* ok for this guy to overlap w/ others since he is pre-cache */
-    FCACHE_ENTER_TARGET_SLOT = TLS_REG0_SLOT,
+    /* ok for this guy to overlap w/ others since he is pre-cache.
+     * Also, note that we cannot use either TLS_REG0_SLOT or
+     * TLS_REG1_SLOT for this because those are used in fragment prefix.
+     */
+    FCACHE_ENTER_TARGET_SLOT = TLS_REG2_SLOT,
     /* FIXME: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
@@ -774,16 +754,7 @@ enum {
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT = TLS_HTABLE_STATS_SLOT,
 #endif
-#ifdef AARCH64
-    /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
-    ENTRY_PC_SPILL_SLOT = TLS_REG1_SLOT,
-#endif
 };
-
-#ifdef AARCH64
-/* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
-#    define ENTRY_PC_REG DR_REG_X0
-#endif
 
 /* A simple linker to give us indirection for patching after relocating structures */
 typedef struct patch_entry_t {
@@ -951,7 +922,7 @@ typedef struct _generated_code_t {
 #endif
     byte *do_syscall;
     uint do_syscall_offs; /* offs of pc after actual syscall instr */
-#ifdef ARM
+#ifdef AARCHXX
     byte *fcache_enter_gonative;
 #endif
 #ifdef WINDOWS
@@ -1092,9 +1063,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
 #if defined(X86) && defined(X64)
     ASSERT(mode != GENCODE_FROM_DCONTEXT ||
-           dcontext !=
-               GLOBAL_DCONTEXT IF_INTERNAL(IF_CLIENT_INTERFACE(|| dynamo_exited)));
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+           dcontext != GLOBAL_DCONTEXT IF_INTERNAL(|| dynamo_exited));
     /* PR 302344: this is here only for tracedump_origins */
     if (dynamo_exited && mode == GENCODE_FROM_DCONTEXT && dcontext == GLOBAL_DCONTEXT) {
         if (get_x86_mode(dcontext))
@@ -1102,7 +1071,6 @@ get_shared_gencode(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
         else
             return shared_code;
     }
-#    endif
     if (mode == GENCODE_X86)
         return shared_code_x86;
     else if (mode == GENCODE_X86_TO_X64)
@@ -1172,11 +1140,12 @@ bool
 exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                         cache_pc target_pc);
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch);
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch);
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc);
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc);
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch);
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch);
 
 byte *
 emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
@@ -1232,7 +1201,15 @@ emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 byte *fcache_return_pc, bool thread_shared, int interrupt,
                 uint *syscall_offs /*OUT*/);
 
-#ifdef ARM
+#ifdef AARCH64
+/* Generate move (immediate) of a 64-bit value using at most 4 instructions.
+ * pc must be a writable (vmcode) pc.
+ */
+uint *
+insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val);
+#endif
+
+#ifdef AARCHXX
 byte *
 emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 #endif
@@ -1281,10 +1258,8 @@ byte *
 emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc);
 #endif
 
-#ifdef CLIENT_INTERFACE
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
-#endif
 
 #ifdef UNIX
 byte *
@@ -1294,7 +1269,6 @@ byte *
 emit_native_ret_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #endif
 
-/* clean calls are used by core DR: native_exec, so not in CLIENT_INTERFACE */
 byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
@@ -1467,20 +1441,22 @@ typedef struct _slot_t {
 
 /* data structure of clean call callee information. */
 typedef struct _callee_info_t {
-    bool bailout;        /* if we bail out on function analysis */
-    uint num_args;       /* number of args that will passed in */
-    int num_instrs;      /* total number of instructions of a function */
-    app_pc start;        /* entry point of a function  */
-    app_pc bwd_tgt;      /* earliest backward branch target */
-    app_pc fwd_tgt;      /* last forward branch target */
-    int num_simd_used;   /* number of SIMD registers (xmms) used by callee */
-    int num_opmask_used; /* number of mask registers used by callee */
+    bool bailout;      /* if we bail out on function analysis */
+    uint num_args;     /* number of args that will passed in */
+    int num_instrs;    /* total number of instructions of a function */
+    app_pc start;      /* entry point of a function  */
+    app_pc bwd_tgt;    /* earliest backward branch target */
+    app_pc fwd_tgt;    /* last forward branch target */
+    int num_simd_used; /* number of SIMD registers (xmms) used by callee */
     /* SIMD ([xyz]mm) registers usage. Part of the array might be left
      * uninitialized if proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
      */
     bool simd_used[MCXT_NUM_SIMD_SLOTS];
+#ifdef X86
+    int num_opmask_used; /* number of mask registers used by callee */
     /* AVX-512 mask register usage. */
     bool opmask_used[MCXT_NUM_OPMASK_SLOTS];
+#endif
     bool reg_used[DR_NUM_GPR_REGS];         /* general purpose registers usage */
     int num_callee_save_regs;               /* number of regs callee saved */
     bool callee_save_regs[DR_NUM_GPR_REGS]; /* callee-save registers */
@@ -1499,12 +1475,10 @@ extern callee_info_t default_callee_info;
 extern clean_call_info_t default_clean_call_info;
 
 /* in clean_call_opt_shared.c */
-#ifdef CLIENT_INTERFACE
 void
 clean_call_opt_init(void);
 void
 clean_call_opt_exit(void);
-#endif /* CLIENT_INTERFACE */
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
                    void *callee, bool save_fpstate, bool always_out_of_line,
@@ -1529,6 +1503,11 @@ get_app_instr_xl8(instr_t *instr);
 /* in x86_to_x64.c */
 void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
+#endif
+
+#ifdef AARCHXX
+bool
+instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst);
 #endif
 
 /****************************************************************************

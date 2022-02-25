@@ -1,0 +1,110 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_jitopt JIT Optimization
+
+The [experimental-optimize-jit](https://github.com/DynamoRIO/dynamorio/tree/experimental-optimize-jit)  branch was developed during a Google Summer of Code project in 2014 to
+address [i#1114](https://github.com/DynamoRIO/dynamorio/issues/1114). For a
+detailed description of the implementation, see our paper in
+[CGO 2015](http://dl.acm.org/citation.cfm?id=2738610).
+
+# Branch Content
+
+The special handling of DGC appears in the 3 files with the largest change
+sets:
+
+- [core/jitopt.c](https://github.com/DynamoRIO/dynamorio/blob/experimental-optimize-jit/core/jitopt.c) (experimental counterpart of [core/jit_opt.c](https://github.com/DynamoRIO/dynamorio/blob/master/core/jit_opt.c) on master)
+  - manages double-mapped pages (needs to be tested on a recent kernel)
+  - maintains bookkeeping of DGC fragments in a bucket/hashtable
+  - selectively flushes fragments as requested by JIT writers
+- [core/arch/x86/mangle.c](https://github.com/DynamoRIO/dynamorio/blob/experimental-optimize-jit/core/arch/x86/mangle.c)
+  - instruments JIT writer instrs to selectively flush fragments as necessary
+- [core/vmareas.c](https://github.com/DynamoRIO/dynamorio/blob/experimental-optimize-jit/core/vmareas.c):
+  - integrates JIT code regions into the vmarea accounting structures
+  - synchronizes double-mappings with any changes to corresponding vmarea
+
+In core/jitopt.c, the bucket/hashtable was an experimental approach that we
+found too difficult to maintain, particularly because the remove operation is
+too complicated. The goal of this structure was to allow instrumentation in
+the code cache to easily lookup overlapping fragments at any specific address.
+That aspect of it is very convenient, but it does not perform any better than
+a standard red/black tree, which is much easier to implement and maintain. So
+the instrumentation for JIT writers should be refactored to read the red/black
+tree instead of the bucket/hashtable.
+
+One consideration for refactoring the instrumentation is that the read is racy
+(from the code cache), so the race conditions need to (continue to) fail nicely
+with a spurious "not found" instead of crashing with a segfault. This was
+accomplished in the prototype using a garbage collector that only flushed the
+removed hashtable entries after the last incoming pointer had been redirected
+
+The red/black tree has already been committed to master in
+[core/jit_opt.c](https://github.com/DynamoRIO/dynamorio/blob/master/core/jit_opt.c).
+Part of the bucket/hashtable was implemented in the files `asmtable.[ch]`, which
+have not been included in this experimental branch--those references can be
+ignored, since all of that functionality is already replaced by the red/black
+tree on master.
+
+The optimization may not perform well when the OS is configured to use huge pages
+(or any size larger than 4k). If that becomes a problem, hopefully it will be
+possible to maintain the 4k units in the JIT optimization's accounting structures,
+even though physical pages are larger. This may become tricky where vmareas
+interface with the OS, and also in the double-mappings.
+
+# Commit Workflow
+
+The workflow for this branch is to progressively implement features as
+individual commits on the
+[project-optimize-jit](https://github.com/DynamoRIO/dynamorio/tree/project-optimize-jit)
+branch. Code in the experimental file core/jitopt.c will be selectively migrated
+into its master-branch counterpart core/jit_opt.c, and the experimental file
+core/jitopt.c will eventually be deleted.
+[i#3502](https://github.com/DynamoRIO/dynamorio/issues/3502) tracks this work
+in the tracker.
+
+# Code Quality
+
+Please keep in mind that the student who wrote all of the code in this branch
+had less than 2 years of experience with the C language, and DynamoRIO is the
+only C project he had ever worked on (all of his experience was in Java--not
+even C++). While the code is functionally correct, it may exhibit some unusual
+structure, and certain annotative elements like const may be used incorrectly.
+There are also a few fragments of commented code, along with extensive "release
+logging", most of which should probably not be committed to master in any form.
+If the logging is useful, it should be converted to use the standard DR logging
+mechanism, with a more formal provision for logging in release mode if necessary
+(since the Octane benchmarks take multiple days to run in a debug build of DR).
+
+ ****************************************************************************
+ */

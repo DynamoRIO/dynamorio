@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -94,6 +94,12 @@ droption_t<std::string> op_module_file(
     "If the file is named modules.log and is in the same directory as the trace file, "
     "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
 
+droption_t<std::string> op_alt_module_dir(
+    DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
+    "Specifies a directory containing libraries referenced in -module_file for "
+    "analysis tools, or in the raw modules file for post-prcoessing of offline "
+    "raw trace files.  This directory takes precedence over the recorded path.");
+
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",
     "Path to function map file for func_view tool",
@@ -155,13 +161,14 @@ droption_t<std::string> op_LL_miss_file(
 
 droption_t<bool> op_L0_filter(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
-    "Filter out zero-level hits during tracing",
+    "Filter out first-level cache hits during tracing",
     "Filters out instruction and data hits in a 'zero-level' cache during tracing "
-    "itself, "
-    "shrinking the final trace to only contain instruction and data accesses that miss "
-    "in "
-    "this initial cache.  This cache is direct-mapped with sizes equal to -L0I_size and "
-    "-L0D_size.  It uses virtual addresses regardless of -use_physical.");
+    "itself, shrinking the final trace to only contain instruction and data accesses "
+    "that miss in this initial cache.  This cache is direct-mapped with sizes equal to "
+    "-L0I_size and -L0D_size.  It uses virtual addresses regardless of -use_physical. "
+    "The dynamic (pre-filtered) per-thread instruction count is tracked and supplied "
+    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries "
+    "and at thread exit.");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
@@ -176,6 +183,12 @@ droption_t<bytesize_t> op_L0D_size(
     "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
+
+droption_t<bool> op_instr_only_trace(
+    DROPTION_SCOPE_CLIENT, "instr_only_trace", false,
+    "Include only instruction fetch entries in trace",
+    "If -instr_only_trace, only instruction fetch entries are included in the "
+    "trace and data entries are omitted.");
 
 droption_t<bool> op_coherence(
     DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
@@ -214,19 +227,35 @@ droption_t<bytesize_t> op_max_trace_size(
     "of one internal buffer.  Once reached, instrumentation continues for that thread, "
     "but no further data is recorded.");
 
+droption_t<bytesize_t> op_max_global_trace_refs(
+    DROPTION_SCOPE_CLIENT, "max_global_trace_refs", 0,
+    "Cap on the total references of any type traced",
+    "If non-zero, this sets a maximum size on the amount of trace entry references "
+    "(of any type: instructions, loads, stores, markers, etc.) recorded. "
+    "Once reached, instrumented execution continues, but no further data is recorded. "
+    "This is similar to -exit_after_tracing but without terminating the process."
+    "The reference count is approximate.");
+
 droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
     "Do not start tracing until N instructions",
     "If non-zero, this causes tracing to be suppressed until this many dynamic "
     "instruction "
-    "executions are observed.  At that point, regular tracing is put into place.  Use "
-    "-max_trace_size to set a limit on the subsequent trace length.");
+    "executions are observed.  At that point, regular tracing is put into place. "
+    "The threshold should be considered approximate, especially for larger values. "
+    "Switching to regular tracing takes some amount of time during which other "
+    "threads than the one that triggered the switch can continue to execute, "
+    "resulting in a larger count of executed instructions before tracing actually "
+    "starts than this given threshold. "
+    "Use -max_trace_size or -max_global_trace_refs to set a limit on the subsequent "
+    "trace length.");
 
 droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
     "Exit the process after tracing N references",
     "If non-zero, after tracing the specified number of references, the process is "
-    "exited with an exit code of 0.  The reference count is approximate.");
+    "exited with an exit code of 0.  The reference count is approximate. "
+    "Use -max_global_trace_refs instead to avoid terminating the process.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
@@ -285,13 +314,15 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string> op_simulator_type(
-    DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-    "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM ", " VIEW ", " FUNC_VIEW ", or " BASIC_COUNTS ").",
-    "Specifies the type of the simulator. "
-    "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
+droption_t<std::string>
+    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
+                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
+                      ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
+                      "Specifies the type of the simulator. "
+                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
+                      ", or " INVARIANT_CHECKER ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -302,10 +333,11 @@ droption_t<bool>
                        "Show every traced call in the func_trace tool",
                        "In the func_trace tool, this controls whether every traced call "
                        "is shown or instead only aggregate statistics are shown.");
-#ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
-#endif
+droption_t<std::string> op_test_mode_name(
+    DROPTION_SCOPE_ALL, "test_mode_name", "", "Run custom sanity tests",
+    "Run extra analyses for specific sanity checks by name on the trace.");
 droption_t<bool> op_disable_optimizations(
     DROPTION_SCOPE_ALL, "disable_optimizations", false,
     "Disable offline trace optimizations for testing",
@@ -329,11 +361,24 @@ droption_t<std::string> op_tracer(DROPTION_SCOPE_FRONTEND, "tracer", "",
                                   "Path to the tracer",
                                   "The full path to the tracer library.");
 
+droption_t<std::string> op_tracer_alt(DROPTION_SCOPE_FRONTEND, "tracer_alt", "",
+                                      "Path to the alternate-bitwidth tracer",
+                                      "The full path to the tracer library for the other "
+                                      "bitwidth, for use on child processes with a "
+                                      "different bitwidth from their parent.  If empty, "
+                                      "such child processes will die with fatal errors.");
+
 droption_t<std::string> op_tracer_ops(
     DROPTION_SCOPE_FRONTEND, "tracer_ops",
     DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE | DROPTION_FLAG_INTERNAL, "",
     "(For internal use: sweeps up tracer options)",
     "This is an internal option that sweeps up other options to pass to the tracer.");
+
+droption_t<int>
+    op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
+                   "Only analyze this thread (0 means all)",
+                   "For simulator types that support it, limits analyis to the single "
+                   "thread with the given identifier.  0 enables all threads.");
 
 droption_t<bytesize_t>
     op_skip_refs(DROPTION_SCOPE_FRONTEND, "skip_refs", 0,
@@ -365,11 +410,15 @@ droption_t<bytesize_t>
                 "and the references following the simulated ones are dropped.");
 
 droption_t<std::string>
-    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att",
+    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr",
                    "Syntax to use for disassembly.",
                    "Specifies the syntax to use when viewing disassembled offline traces."
-                   "The option can be set to one of att (default), intel, dr and arm."
-                   "An invalid specification falls back to the default.");
+                   // TODO i#4382: Add aarch64 syntax support.
+                   " The option can be set to one of \"att\" (AT&T style), \"intel\""
+                   " (Intel style), \"dr\" (DynamoRIO's native style with all implicit"
+                   " operands listed), and \"arm\" (32-bit ARM style). An invalid"
+                   " specification falls back to the default, which is \"att\" for x86,"
+                   " \"arm\" for ARM (32-bit), and \"dr\" for AArch64.");
 
 droption_t<std::string>
     op_config_file(DROPTION_SCOPE_FRONTEND, "config_file", "",
@@ -411,7 +460,7 @@ droption_t<bool> op_reuse_verify_skip(
 #define OP_RECORD_FUNC_ITEM_SEP "&"
 // XXX i#3048: replace function return address with function callstack
 droption_t<std::string> op_record_function(
-    DROPTION_SCOPE_ALL, "record_function", DROPTION_FLAG_ACCUMULATE,
+    DROPTION_SCOPE_CLIENT, "record_function", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP, "",
     "Record invocations trace for the specified function(s).",
     "Record invocations trace for the specified function(s) in the option"
@@ -422,8 +471,8 @@ droption_t<std::string> op_record_function(
     " information for each function invocation's return address, function argument"
     " value(s), and (unless \"|noret\" is specified) function return value."
     " (If multiple requested functions map to the same address and differ in whether"
-    " \"noret\" was specified or in the number of args, the attributes from the"
-    " first one requested will be used.)"
+    " \"noret\" was specified, the attribute from the first one requested will be used."
+    " If they differ in the number of args, the minimum value will be used.)"
     " We only record pointer-sized arguments and"
     " return values. The trace identifies which function is involved"
     " via a numeric ID entry prior to each set of value entries."
@@ -442,14 +491,14 @@ droption_t<std::string> op_record_function(
     " existing heap functions (see -record_heap_value) if -record_heap"
     " option is enabled.");
 droption_t<bool> op_record_heap(
-    DROPTION_SCOPE_ALL, "record_heap", false,
+    DROPTION_SCOPE_CLIENT, "record_heap", false,
     "Enable recording a trace for the defined heap functions.",
     "It is a convenience option to enable recording a trace for the defined heap"
     " functions in -record_heap_value. Specifying this option is equivalent to"
     " -record_function [heap_functions], where [heap_functions] is"
     " the value in -record_heap_value.");
 droption_t<std::string> op_record_heap_value(
-    DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
+    DROPTION_SCOPE_CLIENT, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP,
     "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1|noret" OP_RECORD_FUNC_ITEM_SEP
     "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP
@@ -488,13 +537,13 @@ droption_t<std::string> op_record_heap_value(
     " format required by -record_function. These functions will not"
     " be traced unless -record_heap is specified.");
 droption_t<bool> op_record_dynsym_only(
-    DROPTION_SCOPE_ALL, "record_dynsym_only", false,
+    DROPTION_SCOPE_CLIENT, "record_dynsym_only", false,
     "Only look in .dynsym for -record_function and -record_heap.",
     "Symbol lookup can be expensive for large applications and libraries.  This option "
     " causes the symbol lookup for -record_function and -record_heap to look in the "
     " dynamic symbol table *only*.");
 droption_t<bool> op_record_replace_retaddr(
-    DROPTION_SCOPE_ALL, "record_replace_retaddr", false,
+    DROPTION_SCOPE_CLIENT, "record_replace_retaddr", false,
     "Wrap by replacing retaddr for -record_function and -record_heap.",
     "Function wrapping can be expensive for large concurrent applications.  This option "
     "causes the post-function control point to be located using return address "
@@ -521,3 +570,7 @@ droption_t<double> op_confidence_threshold(
     "results. Confidence in a discovered pattern for a load instruction is calculated "
     "as the fraction of the load's misses with the discovered pattern over all the "
     "load's misses.");
+droption_t<bool> op_enable_drstatecmp(
+    DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
+    "When true, this option enables the drstatecmp library that performs state "
+    "comparisons to detect instrumentation-induced bugs due to state clobbering.");

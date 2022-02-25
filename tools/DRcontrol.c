@@ -581,7 +581,7 @@ main(int argc, char **argv)
             checked_operation("set autoinject", set_autoinjection());
         } else if (0 == strcmp(preinject, "CLEAR")) {
             checked_operation("clear autoinject",
-                              set_autoinjection_ex(FALSE, APPINIT_USE_WHITELIST, NULL,
+                              set_autoinjection_ex(FALSE, APPINIT_USE_ALLOWLIST, NULL,
                                                    L"", NULL, NULL, NULL, 0));
         } else if (0 == strcmp(preinject, "LIST")) {
             WCHAR list[MAX_PARAM_LEN];

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -60,7 +60,15 @@ cache_simulator_create(const cache_simulator_knobs_t &knobs)
 analysis_tool_t *
 cache_simulator_create(const std::string &config_file)
 {
-    return new cache_simulator_t(config_file);
+    std::ifstream fin;
+    fin.open(config_file);
+    if (!fin.is_open()) {
+        ERRMSG("Failed to open the config file '%s'\n", config_file.c_str());
+        return nullptr;
+    }
+    analysis_tool_t *sim = new cache_simulator_t(&fin);
+    fin.close();
+    return sim;
 }
 
 cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
@@ -77,6 +85,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     // This configuration allows for one shared LLC only.
     cache_t *llc = create_cache(knobs_.replace_policy);
     if (llc == NULL) {
+        error_string_ = "create_cache failed for the LLC";
         success_ = false;
         return;
     }
@@ -88,6 +97,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     if (knobs_.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs_.data_prefetcher != PREFETCH_POLICY_NONE) {
         // Unknown value.
+        error_string_ = " unknown data_prefetcher: '" + knobs_.data_prefetcher + "'";
         success_ = false;
         return;
     }
@@ -95,7 +105,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     bool warmup_enabled_ = ((knobs_.warmup_refs > 0) || (knobs_.warmup_fraction > 0.0));
 
     if (!llc->init(knobs_.LL_assoc, (int)knobs_.line_size, (int)knobs_.LL_size, NULL,
-                   new cache_stats_t(knobs_.LL_miss_file, warmup_enabled_))) {
+                   new cache_stats_t((int)knobs_.line_size, knobs_.LL_miss_file,
+                                     warmup_enabled_))) {
         error_string_ =
             "Usage error: failed to initialize LL cache.  Ensure sizes and "
             "associativity are powers of 2, that the total size is a multiple "
@@ -115,12 +126,14 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         l1_icaches_[i] = create_cache(knobs_.replace_policy);
         if (l1_icaches_[i] == NULL) {
+            error_string_ = "create_cache failed for an l1_icache";
             success_ = false;
             return;
         }
         snooped_caches_[2 * i] = l1_icaches_[i];
         l1_dcaches_[i] = create_cache(knobs_.replace_policy);
         if (l1_dcaches_[i] == NULL) {
+            error_string_ = "create_cache failed for an l1_dcache";
             success_ = false;
             return;
         }
@@ -128,12 +141,14 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
 
         if (!l1_icaches_[i]->init(
                 knobs_.L1I_assoc, (int)knobs_.line_size, (int)knobs_.L1I_size, llc,
-                new cache_stats_t("", warmup_enabled_, knobs_.model_coherence),
+                new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
+                                  knobs_.model_coherence),
                 nullptr /*prefetcher*/, false /*inclusive*/, knobs_.model_coherence,
                 2 * i, snoop_filter_) ||
             !l1_dcaches_[i]->init(
                 knobs_.L1D_assoc, (int)knobs_.line_size, (int)knobs_.L1D_size, llc,
-                new cache_stats_t("", warmup_enabled_, knobs_.model_coherence),
+                new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
+                                  knobs_.model_coherence),
                 knobs_.data_prefetcher == PREFETCH_POLICY_NEXTLINE
                     ? new prefetcher_t((int)knobs_.line_size)
                     : nullptr,
@@ -160,7 +175,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     }
 }
 
-cache_simulator_t::cache_simulator_t(const std::string &config_file)
+cache_simulator_t::cache_simulator_t(std::istream *config_file)
     : simulator_t()
     , l1_icaches_(NULL)
     , l1_dcaches_(NULL)
@@ -171,8 +186,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
     std::map<std::string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs_, cache_params)) {
-        error_string_ =
-            "Usage error: Failed to read/parse configuration file " + config_file;
+        error_string_ = "Usage error: Failed to read/parse configuration file";
         success_ = false;
         return;
     }
@@ -301,15 +315,15 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
         bool is_coherent_ = knobs_.model_coherence &&
             (non_coherent_caches_.find(cache_name) == non_coherent_caches_.end());
 
-        if (!cache->init(
-                (int)cache_config.assoc, (int)knobs_.line_size, (int)cache_config.size,
-                parent_,
-                new cache_stats_t(cache_config.miss_file, warmup_enabled_, is_coherent_),
-                cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
-                    ? new prefetcher_t((int)knobs_.line_size)
-                    : nullptr,
-                cache_config.inclusive, is_coherent_, is_snooped ? snoop_id : -1,
-                is_snooped ? snoop_filter_ : nullptr, children)) {
+        if (!cache->init((int)cache_config.assoc, (int)knobs_.line_size,
+                         (int)cache_config.size, parent_,
+                         new cache_stats_t((int)knobs_.line_size, cache_config.miss_file,
+                                           warmup_enabled_, is_coherent_),
+                         cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
+                             ? new prefetcher_t((int)knobs_.line_size)
+                             : nullptr,
+                         cache_config.inclusive, is_coherent_, is_snooped ? snoop_id : -1,
+                         is_snooped ? snoop_filter_ : nullptr, children)) {
             error_string_ = "Usage error: failed to initialize the cache " + cache_name;
             success_ = false;
             return;
@@ -351,6 +365,15 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
         ERRMSG("Usage error: failed to initialize snoop filter.\n");
         success_ = false;
         return;
+    }
+    // For larger hierarchies, especially with coherence, using hashtables
+    // for faster lookups provides performance wins as high as 15%.
+    // However, hashtables can slow down smaller hierarchies, so we only
+    // enable if we anticipate a win.
+    if (other_caches_.size() > 0 && (knobs_.model_coherence || knobs_.num_cores >= 32)) {
+        for (auto &cache : all_caches_) {
+            cache.second->set_hashtable_use(true);
+        }
     }
 }
 
@@ -572,6 +595,47 @@ cache_simulator_t::print_results()
     }
 
     return true;
+}
+
+// All valid metrics are returned as a positive number.
+// Negative return value is an error and is of type stats_error_t.
+int_least64_t
+cache_simulator_t::get_cache_metric(metric_name_t metric, unsigned level, unsigned core,
+                                    cache_split_t split) const
+{
+    caching_device_t *curr_cache;
+
+    if (core >= knobs_.num_cores) {
+        return STATS_ERROR_WRONG_CORE_NUMBER;
+    }
+
+    if (split == cache_split_t::DATA) {
+        curr_cache = l1_dcaches_[core];
+    } else {
+        curr_cache = l1_icaches_[core];
+    }
+
+    for (size_t i = 1; i < level; i++) {
+        caching_device_t *parent = curr_cache->get_parent();
+
+        if (parent == NULL) {
+            return STATS_ERROR_WRONG_CACHE_LEVEL;
+        }
+        curr_cache = parent;
+    }
+    caching_device_stats_t *stats = curr_cache->get_stats();
+
+    if (stats == NULL) {
+        return STATS_ERROR_NO_CACHE_STATS;
+    }
+
+    return stats->get_metric(metric);
+}
+
+const cache_simulator_knobs_t &
+cache_simulator_t::get_knobs() const
+{
+    return knobs_;
 }
 
 cache_t *

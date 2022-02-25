@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,13 +71,28 @@ reader_t::operator++()
         case TRACE_TYPE_READ:
         case TRACE_TYPE_WRITE:
         case TRACE_TYPE_PREFETCH:
-        case TRACE_TYPE_PREFETCHT0:
-        case TRACE_TYPE_PREFETCHT1:
-        case TRACE_TYPE_PREFETCHT2:
+        case TRACE_TYPE_PREFETCH_READ_L1:
+        case TRACE_TYPE_PREFETCH_READ_L2:
+        case TRACE_TYPE_PREFETCH_READ_L3:
         case TRACE_TYPE_PREFETCHNTA:
         case TRACE_TYPE_PREFETCH_READ:
         case TRACE_TYPE_PREFETCH_WRITE:
         case TRACE_TYPE_PREFETCH_INSTR:
+        case TRACE_TYPE_PREFETCH_READ_L1_NT:
+        case TRACE_TYPE_PREFETCH_READ_L2_NT:
+        case TRACE_TYPE_PREFETCH_READ_L3_NT:
+        case TRACE_TYPE_PREFETCH_INSTR_L1:
+        case TRACE_TYPE_PREFETCH_INSTR_L1_NT:
+        case TRACE_TYPE_PREFETCH_INSTR_L2:
+        case TRACE_TYPE_PREFETCH_INSTR_L2_NT:
+        case TRACE_TYPE_PREFETCH_INSTR_L3:
+        case TRACE_TYPE_PREFETCH_INSTR_L3_NT:
+        case TRACE_TYPE_PREFETCH_WRITE_L1:
+        case TRACE_TYPE_PREFETCH_WRITE_L1_NT:
+        case TRACE_TYPE_PREFETCH_WRITE_L2:
+        case TRACE_TYPE_PREFETCH_WRITE_L2_NT:
+        case TRACE_TYPE_PREFETCH_WRITE_L3:
+        case TRACE_TYPE_PREFETCH_WRITE_L3_NT:
             have_memref = true;
             assert(cur_tid_ != 0 && cur_pid_ != 0);
             cur_ref_.data.pid = cur_pid_;
@@ -189,7 +204,17 @@ reader_t::operator++()
         case TRACE_TYPE_MARKER:
             have_memref = true;
             cur_ref_.marker.type = (trace_type_t)input_entry_->type;
-            assert(cur_tid_ != 0 && cur_pid_ != 0);
+            if (!online_ &&
+                (input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
+                 input_entry_->size == TRACE_MARKER_TYPE_FILETYPE)) {
+                // Do not carry over a prior thread on a thread switch to a
+                // first-time-seen new thread, whose tid entry is *after* these
+                // markers for offline traces.
+                cur_pid_ = 0;
+                cur_tid_ = 0;
+            } else {
+                assert(cur_tid_ != 0 && cur_pid_ != 0);
+            }
             cur_ref_.marker.pid = cur_pid_;
             cur_ref_.marker.tid = cur_tid_;
             cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;

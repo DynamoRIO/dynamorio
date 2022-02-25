@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,7 +54,8 @@ test_disasm_style(void)
     byte *pc, *end;
     instrlist_t *ilist = instrlist_create(GD);
     instrlist_append(ilist,
-                     INSTR_CREATE_mov_st(GD, OPND_CREATE_MEM32(REG_XCX, 37),
+                     /* With a negative displacement we stress signed type handling. */
+                     INSTR_CREATE_mov_st(GD, OPND_CREATE_MEM32(REG_XCX, -3),
                                          opnd_create_reg(REG_EAX)));
     instrlist_append(
         ilist, INSTR_CREATE_mov_imm(GD, opnd_create_reg(REG_EDI), OPND_CREATE_INT32(17)));

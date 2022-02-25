@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 set(DynamoRIO_INTERNAL ON) # do not import dynamorio lib target
 set(DynamoRIO_DIR ${PROJECT_BINARY_DIR}/cmake)
@@ -77,6 +77,19 @@ endmacro()
 disable_compiler_warnings()
 # Clients don't include configure.h so they don't get DR defines
 add_dr_defines()
+
+if (WIN32)
+  # Avoid a race on competing copies of dynamorio.dll to the bin dir from
+  # drcachsim and drcov via a higher-level target here (i#4668).
+  add_custom_target(client_dr_copy ALL
+    DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll)
+  add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
+    DEPENDS dynamorio
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
+    VERBATIM)
+endif ()
 
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})

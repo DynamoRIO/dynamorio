@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,20 @@
 #include "tools.h"
 #include "thread.h"
 
+#ifdef WINDOWS
+#    define TLS_ATTR __declspec(thread)
+#    pragma warning(disable : 4100) /* Unreferenced formal parameter. */
+#else
+#    define TLS_ATTR __thread
+#endif
+
+/* Create a static TLS variable to create LdrpHandleTlsData triggers calling
+ * NtSetInformationProcess.ProcessTlsInformation and exercising DR's handling
+ * of the kernel modifying all thread's TLS (i#4136).
+ */
+#define STATIC_TLS_INIT_VAL 0xdeadbeef
+static TLS_ATTR unsigned int static_tls_test = STATIC_TLS_INIT_VAL;
+
 static
 #ifdef WINDOWS
     unsigned int __stdcall
@@ -42,6 +56,8 @@ static
     do_work(void *vargp)
 {
     print("sum is %d\n", 7 + 7);
+    if (static_tls_test != STATIC_TLS_INIT_VAL)
+        print("incorrect static TLS value %d\n", static_tls_test);
     return IF_WINDOWS_ELSE(0, NULL);
 }
 

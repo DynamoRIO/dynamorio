@@ -45,7 +45,7 @@ elseif ("${CMAKE_VERSION}" VERSION_LESS "3.2")
   message(STATUS "WARNING: CMake version is < 3.2: DrGUI will NOT be built")
 else () # Qt5 and CMake 3.2+
   # Build Qt Visualizer
-  cmake_minimum_required(VERSION 3.2)
+  cmake_minimum_required(VERSION 3.7)
 
   message(STATUS "Found Qt 5: DrGUI will be built")
 

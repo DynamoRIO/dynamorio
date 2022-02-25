@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -135,7 +135,15 @@ main(int argc, const char *argv[])
         // At that point, the stats should have been reset at reattach.
         if (i == 0)
             assert(stats.basic_block_count == 0);
+#    ifdef ARM
+        /* Our asm is arm, not thumb. */
+        dr_isa_mode_t old_mode;
+        dr_set_isa_mode(dr_get_current_drcontext(), DR_ISA_ARM_A32, &old_mode);
+#    endif
         success = dr_prepopulate_cache(tags, sizeof(tags) / sizeof(tags[0]));
+#    ifdef ARM
+        dr_set_isa_mode(dr_get_current_drcontext(), old_mode, NULL);
+#    endif
         assert(success);
         success =
             dr_prepopulate_indirect_targets(DR_INDIRECT_RETURN, return_tags,
@@ -195,8 +203,23 @@ DECLARE_GLOBAL(asm_return)
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         INC(ARG1)
+#   ifdef AARCH64
+        stp      x29, x30, [sp, #-16]!
+#   elif defined(ARM)
+        push     {lr}
+#   endif
+#   ifdef ARM
+        /* We don't use CALLC0 b/c it uses blx which swaps to Thumb. */
+        bl       asm_label1
+#   else
         CALLC0(asm_label1)
+#   endif
 ADDRTAKEN_LABEL(asm_return:)
+#   ifdef AARCH64
+        ldp      x29, x30, [sp], #16
+#   elif defined(ARM)
+        pop      {lr}
+#   endif
         JUMP     asm_label2
 
 ADDRTAKEN_LABEL(asm_label1:)
@@ -214,5 +237,5 @@ ADDRTAKEN_LABEL(asm_label3:)
 
 
 END_FILE
-/* clang-format on */
+/* Not turning clang format back on b/c of a clang-format-diff wart. */
 #endif

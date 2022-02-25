@@ -32,10 +32,10 @@
 # Test suite post-processing
 # See instructions in runsuite_common_pre.cmake
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 if (COMMAND cmake_policy)
   # avoid warnings on include()
-  cmake_policy(VERSION 2.8)
+  cmake_policy(VERSION 3.7)
 endif()
 
 # Caller should set build_package boolean and should

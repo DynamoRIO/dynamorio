@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
   set(DEBUG ON)
@@ -172,6 +172,24 @@ function (add_sample_client name source_file_list extension_list)
     "${sample_list};${name}")                                     # NON-PUBLIC
   set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
   set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
+
+  # Some samples actually have more tests than just simple sanity # NON-PUBLIC
+  # tests. These tests require that results are shown. In order   # NON-PUBLIC
+  # to avoid short-circuiting the SHOW_RESULTS option, we build   # NON-PUBLIC
+  # an additional sample (which shows results) for testing        # NON-PUBLIC
+  # purposes.                                                     # NON-PUBLIC
+  # FIXME i#4372 i#4392: Ultimately, when we remove all sanity    # NON-PUBLIC
+  # checks and have proper tests for the samples, we will         # NON-PUBLIC
+  # remove the SHOW_RESULTS option.                               # NON-PUBLIC
+  if (BUILD_TESTS)                                                # NON-PUBLIC
+    add_library(${name}_test SHARED ${source_file_list})          # NON-PUBLIC
+    configure_DynamoRIO_client(${name}_test)                      # NON-PUBLIC
+    foreach (ext ${extension_list})                               # NON-PUBLIC
+      use_DynamoRIO_extension(${name}_test ${ext})                # NON-PUBLIC
+    endforeach (ext)                                              # NON-PUBLIC
+    target_compile_definitions(${name}_test PRIVATE -DSHOW_RESULTS)    # NON-PUBLIC
+    set(tgts ${tgts} ${name}_test PARENT_SCOPE)                        # NON-PUBLIC
+  endif ()                                                             # NON-PUBLIC
 endfunction (add_sample_client)
 
 function (add_sample_standalone name source_file_list)
@@ -204,9 +222,17 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
+# FIXME i#4372: Add functioning tests for samples that go beyond  # NON-PUBLIC
+# sanity checks.                                                  # NON-PUBLIC
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
+if (LINUX)
+  CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
+  if (HAVE_LIBUNWIND_H)
+    add_sample_client(callstack "callstack.cpp" "drmgr;drwrap;drcallstack;drsyms;droption")
+  endif ()
+endif ()
 add_sample_client(div         "div.c"           "drmgr")
 add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
@@ -221,12 +247,12 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     "drcontainers;drmgr;drreg;drutil;drx")
   add_sample_client(memtrace_x86_text   "memtrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drutil;drx")
-  _DR_append_property_string(TARGET memtrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
+  _DR_append_property_list(TARGET memtrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(instrace_x86_binary "instrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drx")
   add_sample_client(instrace_x86_text   "instrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drx")
-  _DR_append_property_string(TARGET instrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
+  _DR_append_property_list(TARGET instrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(prefetch    "prefetch.c"      "drmgr")
   if (NOT WIN32)
     add_sample_client(ssljack     "ssljack.c"       "drmgr;drwrap")
@@ -242,6 +268,9 @@ endif (X86)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
+if (NOT WIN32)
+  add_sample_client(statecmp    "statecmp.c"      "drmgr;drstatecmp")
+endif (NOT WIN32)
 add_sample_client(inline      "inline.c"        "drmgr;drcontainers")
 add_sample_client(inscount    "inscount.cpp"    "drmgr;droption")
 add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx")
@@ -328,4 +357,5 @@ DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
   )
 
-DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/${INSTALL_SAMPLES}/README\" \"This directory contains sample clients that show how to use the DR API.  If this is an official release package that includes DRMF, for samples that use the DRMF API, see ../drmemory/drmf/samples/.\n\")")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/README "This directory contains sample clients that show how to use the DR API.  If this is an official release package that includes DRMF, for samples that use the DRMF API, see ../drmemory/drmf/samples/.\n")
+DR_install(FILES ${CMAKE_CURRENT_BINARY_DIR}/README DESTINATION ${INSTALL_SAMPLES})

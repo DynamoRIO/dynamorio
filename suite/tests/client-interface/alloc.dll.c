@@ -628,6 +628,13 @@ inline_alloc_test(void)
 #ifdef X64
     reachability_test();
 #endif
+#if defined(LINUX) && defined(X86_64)
+    /* i#4335: Test allocation of more than 2.8GB in unreachable heap */
+    for (int i = 0; i != 50; ++i) {
+        if (malloc(100000000) == NULL)
+            dr_fprintf(STDERR, "Failed to allocate\n");
+    }
+#endif
 }
 
 #define MINSERT instrlist_meta_preinsert

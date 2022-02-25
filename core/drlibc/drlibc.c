@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -59,18 +59,6 @@ safe_read_if_fast(const void *base, size_t size, void *out_buf)
     return d_r_safe_read(base, size, out_buf);
 }
 
-WEAK void
-d_r_internal_error(const char *file, int line, const char *expr)
-{
-    /* Do nothing for non-core. */
-}
-
-WEAK bool
-ignore_assert(const char *assert_file_line, const char *expr)
-{
-    return true;
-}
-
 WEAK int
 d_r_strcmp(const char *left, const char *right)
 {
@@ -117,7 +105,9 @@ kernel_is_64bit(void)
 void
 clear_icache(void *beg, void *end)
 {
-    static size_t cache_info = 0;
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_REACHED();
+#    else
     size_t dcache_line_size;
     size_t icache_line_size;
     ptr_uint_t beg_uint = (ptr_uint_t)beg;
@@ -127,15 +117,12 @@ clear_icache(void *beg, void *end)
     if (beg_uint >= end_uint)
         return;
 
-    /* "Cache Type Register" contains:
-     * CTR_EL0 [31]    : 1
-     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
-     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
-     */
-    if (cache_info == 0)
-        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
-    dcache_line_size = 4 << (cache_info >> 16 & 0xf);
-    icache_line_size = 4 << (cache_info & 0xf);
+    if (!get_cache_line_size(&dcache_line_size, &icache_line_size)) {
+        /* We don't expect get_cache_line_size to return false, as this code is
+         * invoked only when (not DR_HOST_NOT_TARGET).
+         */
+        ASSERT_NOT_REACHED();
+    }
 
     /* Flush data cache to point of unification, one line at a time. */
     addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
@@ -159,6 +146,47 @@ clear_icache(void *beg, void *end)
 
     /* Instruction Synchronization Barrier */
     __asm__ __volatile__("isb" : : : "memory");
+#    endif
+}
+
+/* Obtains dcache and icache line size and sets the values at the given pointers.
+ * Returns false if no value was written.
+ * This is required to be called at init time when linked into DR. This is to
+ * avoid races and write issues with the static variable used.
+ *
+ * XXX i#1684: Design better support for builds where host!=target, e.g.
+ * a64-on-x86 for which this function does not set any cache line size; also
+ * x86-on-a64 for which we currently attempt to use cpuid (which is not available
+ * on a64) to set cache line size in core/arch/x86/proc.c.
+ * For these builds, it may be better to set some properties like cache_line_size
+ * to the host's value, but not for all e.g. num_simd_registers.
+ */
+bool
+get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
+{
+#    ifndef DR_HOST_NOT_TARGET
+    static size_t cache_info = 0;
+
+    /* "Cache Type Register" contains:
+     * CTR_EL0 [31]    : 1
+     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
+     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
+     * https://developer.arm.com/documentation/ddi0595/2021-09/AArch64-Registers/
+     * CTR-EL0--Cache-Type-Register
+     *
+     * Also, the whitepaper below documents AArch64 words being 32 bits wide.
+     * https://developer.arm.com/-/media/Files/pdf/
+     * graphics-and-multimedia/Porting%20to%20ARM%2064-bit.pdf
+     */
+    if (cache_info == 0)
+        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
+    if (dcache_line_size != NULL)
+        *dcache_line_size = 4 << (cache_info >> 16 & 0xf);
+    if (icache_line_size != NULL)
+        *icache_line_size = 4 << (cache_info & 0xf);
+    return true;
+#    endif
+    return false;
 }
 #endif
 
@@ -269,4 +297,15 @@ find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
     result->argv[argc] = NULL;
     return true;
 }
+#endif
+
+#ifdef WINDOWS
+/***************************************************************************
+ * Windows mode switching support.
+ */
+
+/* We set a default equal to the observed 0x2b value on every Windows version.
+ * The core calls d_r_set_ss_selector() to update to the underlying value.
+ */
+int d_r_ss_value = 0x2b;
 #endif

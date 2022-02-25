@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -41,23 +41,23 @@
 #
 # To run on one A32 opcode:
 #
-#   tools/arm_table_chain.pl -v -o <opc> core/arch/arm/table_{private,encode,a32}*.[ch]
+#   tools/arm_table_chain.pl -v -o <opc> core/ir/arm/table_{private,encode,a32}*.[ch]
 #
 # To run on all A32 opcodes:
 #
-#   tools/arm_table_chain.pl core/arch/arm/table_{private,encode,a32}*.[ch]
+#   tools/arm_table_chain.pl core/ir/arm/table_{private,encode,a32}*.[ch]
 #
 # To run on one T32 opcode:
 #
-#   tools/arm_table_chain.pl -v -o <opc> core/arch/arm/table_{private,encode,t32}*.[ch]
+#   tools/arm_table_chain.pl -v -o <opc> core/ir/arm/table_{private,encode,t32}*.[ch]
 #
 # To run on all T32 opcodes for outside of IT blocks:
 #
-#   tools/arm_table_chain.pl core/arch/arm/table_{private,encode,t32}*.[ch]
+#   tools/arm_table_chain.pl core/ir/arm/table_{private,encode,t32}*.[ch]
 #
 # To run on all T32 opcodes for inside of IT blocks:
 #
-#   tools/arm_table_chain.pl -it core/arch/arm/table_{private,encode,t32}*.[ch]
+#   tools/arm_table_chain.pl -it core/ir/arm/table_{private,encode,t32}*.[ch]
 #
 # Assuming the .n format are always first and thus always the entries,
 # we can run arm_table_chain.pl twice for inside and outside of IT blocks

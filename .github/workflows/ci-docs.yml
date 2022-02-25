@@ -1,0 +1,153 @@
+# **********************************************************
+# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Github Actions workflow for building doxygen docs for the web site.
+
+name: ci-docs
+on:
+  # Built weekly: 10pm EST Fridays.  A re-build even with no content
+  # changes updates timestamps on every page, increasing the repo size.
+  # We thus use manual builds for rare docs changes we want to deploy to
+  # the website and have automated builds match our weekly package builds.
+  schedule:
+    - cron: '0 3 * * FRI'
+  # Manual trigger using the Actions page.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number for docs (blank for cronbuild)'
+        required: false
+        default: ''
+      build:
+        description: 'Build number for docs'
+        required: true
+        default: '0'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ###########################################################################
+  # Docs deployment, building on Linux.
+  docs:
+    # We use a more recent Ubuntu for better markdown support.
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Fetch Sources
+      run: |
+        git fetch --no-tags --depth=1 origin master
+        # Include Dr. Memory in packages.
+        # We do shallow clones and assume DrM will update its DR at least once
+        # every 250 DR commits.
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory && git submodule update --init --depth 250 && cd ..
+
+    # Install needed packages.
+    - name: Create Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          libunwind-dev
+
+    - name: Get Version
+      id: version
+      # XXX: For now we duplicate this version number here with CMakeLists.txt.
+      # We should find a way to share (xref i#1565).
+      # We support setting the version and build for manual builds.
+      # We only use a non-zero build # when making multiple manual builds in one day.
+      run: |
+        if test -z "${{ github.event.inputs.version }}"; then
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+        else
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
+        fi
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
+
+    - name: Build Docs
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+      env:
+        CI_TARGET: package
+        VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        DEPLOY_DOCS: yes
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Check Out Web
+      uses: actions/checkout@v2
+      with:
+        repository: DynamoRIO/dynamorio.github.io
+        token: ${{ secrets.DOCS_TOKEN }}
+        path: dynamorio.github.io
+
+    - name: Deploy Embedded Docs
+      run: |
+        rsync -av --delete html_embed/ dynamorio.github.io/docs/
+        cd dynamorio.github.io
+        git config --local user.name "cronbuild"
+        git config --local user.email "dynamorio-devs@googlegroups.com"
+        git add -A
+        git commit -m "Snapshot for cronbuild-${{ steps.version.outputs.version_number }}"
+        git push
+      env:
+        # We need a personal access token for write access to another repo.
+        GITHUB_TOKEN: ${{ secrets.DOCS_TOKEN }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/docs
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs

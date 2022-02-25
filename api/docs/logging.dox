@@ -1,0 +1,239 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_logging Logging
+
+This page describes some of the useful information available in DR's logfiles.  See also
+[the general page on debugging](@ref page_debugging).
+
+# Enabling Logging
+
+Logging can be enabled with the [`-loglevel` runtime option](@ref op_loglevel) in a debug build.  A number specifies the logging level.  For example:
+
+```
+% bin64/drrun -debug -loglevel 2 -- ls
+```
+
+# Log Directories and Files
+
+Logs are written to the `logs/` subdirectory of the DR install or build directory.  A new subdirectory is created for each process, with a name composed of the executable name, the process id, and an instance number to ensure that it is unique.  This directory name is reported at the start of the run:
+
+```
+% bin64/drrun -debug -loglevel 2 -c samples/bin64/libopcodes.so -- ls
+<log dir=/work/dr/git/exports/bin64/../logs/ls.4611.00000000>
+<Starting application /usr/bin/ls (4611)>
+...
+```
+
+Within the log directory for a process, there is a single process-wide file and a separate file for each thread.  Log messages are typically sent to the executing thread's file, but events that affect the whole process are sent to the process log file instead.  The process file's name is similar to the directory name.  The thread file names start with `log` followed by the sequential number of the thread and then the thread id.  For example:
+
+```
+% ls /work/dr/git/exports/bin64/../logs/ls.4611.00000000
+log.0.4611.html  ls.0.4611.html
+```
+
+The files are named with the `.html` for historical reasons, to make it easy to open via double-clicking on a Windows machine.  They are not really in HTML format but are plain text.
+
+# Fragments
+
+A _fragment_ is a unit of code executed in the code cache, with a single entry and multiple exits.  A fragment is either a dynamic basic block or a trace.
+
+# Loglevel 2
+
+At `-loglevel 2`, a thread log file prints the start address of each fragment created as well as the entries and exits from the cache.  Fragments that are linked or indirect branch lookup hits stay within the cache and such transitions do not show up in the log.
+
+For example:
+
+```
+dispatch: target = 0x00007f9c9ba10b80
+Entry into F1581(0x00007f9c9ba10b80).0x0000000049b69ba8 (shared)
+Exit from sourceless ibl: bb jmp*
+ (target 0x00007f9c9b016900 in cache but not lookup table)
+
+dispatch: target = 0x00007f9c9b016900
+Entry into F3826(0x00007f9c9b016900).0x0000000049bbc1d0 (shared)
+Exit from F3836(0x00007f9c9b0edb69).0x0000000049bbc346 (shared)
+ (cannot link F3836->F3837) (target F3837 is trace head)
+
+dispatch: target = 0x00007f9c9b0edb60
+Entry into F3837(0x00007f9c9b0edb60).0x0000000049bbc35c (trace head)(shared)
+Exit from sourceless ibl: bb ret
+ (target 0x00007f9c9b3a0033 not in cache)
+```
+
+# Loglevel 3
+
+At `loglevel 3`, details of the instructions that are processed to create each fragment are given.  First, the instructions decoded from application code by the "interpreter" are listed:
+
+```
+dispatch: target = 0x00007fbd5cfb2b10
+
+interp: start_pc = 0x00007fbd5cfb2b10
+  0x00007fbd5cfb2b10  4c 89 d9             mov    %r11 -> %rcx
+  0x00007fbd5cfb2b13  48 29 c1             sub    %rax %rcx -> %rcx
+  0x00007fbd5cfb2b16  48 83 f9 0b          cmp    %rcx $0x000000000000000b
+  0x00007fbd5cfb2b1a  77 14                jnbe   $0x00007fbd5cfb2b30
+end_pc = 0x00007fbd5cfb2b1c
+```
+
+Next, the intructions are listed in DR's IR format as they are passed to the client.  The first column in an instruction list printout shows the offset in bytes from the start of the list if the instructions were to be encoded as-is.  The second column identifies the type of instruction: typically either `L3` for an unmodified application instruction or `m4` for a client-added tool instruction:
+
+```
+instrument_basic_block ******************
+
+before instrumentation:
+TAG  0x00007fbd5cfb2b10
+ +0    L3                      4c 89 d9             mov    %r11 -> %rcx
+ +3    L3                      48 29 c1             sub    %rax %rcx -> %rcx
+ +6    L3                      48 83 f9 0b          cmp    %rcx $0x000000000000000b
+ +10   L3                      77 14                jnbe   $0x00007fbd5cfb2b30
+END 0x00007fbd5cfb2b10
+
+
+after instrumentation:
+TAG  0x00007fbd5cfb2b10
+ +0    m4 @0x0000000048850840  f0 81 05 61 90 7b 29 lock add    $0x00000001 <rel> 0x000000007200396c[4byte] -> <rel> 0x000000007200396c[4byte]
+                               01 00 00 00
+ +11   m4 @0x0000000048850c28  f0 81 05 a9 8f 7b 29 lock add    $0x00000001 <rel> 0x00000000720038b4[4byte] -> <rel> 0x00000000720038b4[4byte]
+                               01 00 00 00
+ +22   m4 @0x000000004884d8c0  f0 81 05 b9 8f 7b 29 lock add    $0x00000001 <rel> 0x00000000720038c4[4byte] -> <rel> 0x00000000720038c4[4byte]
+                               01 00 00 00
+ +33   m4 @0x000000004884e868  f0 81 05 05 90 7b 29 lock add    $0x00000001 <rel> 0x0000000072003910[4byte] -> <rel> 0x0000000072003910[4byte]
+                               01 00 00 00
+ +44   L3                      4c 89 d9             mov    %r11 -> %rcx
+ +47   L3                      48 29 c1             sub    %rax %rcx -> %rcx
+ +50   L3                      48 83 f9 0b          cmp    %rcx $0x000000000000000b
+ +54   L3                      77 14                jnbe   $0x00007fbd5cfb2b30
+END 0x00007fbd5cfb2b10
+```
+
+# Loglevel 4
+
+At `-loglevel 4`, the mangling performed by DR is visible as the precise code layout encoded in the code cache is shown:
+
+```
+interp: start_pc = 0x00007fbff7a2ccb2
+  0x00007fbff7a2ccb2  f3 c3                ret    %rsp (%rsp)[8byte] -> %rsp
+mbr exit target = 0x00000000516af500
+end_pc = 0x00007fbff7a2ccb4
+
+
+instrument_basic_block ******************
+
+before instrumentation:
+TAG  0x00007fbff7a2ccb2
+ +0    L3                      f3 c3                ret    %rsp (%rsp)[8byte] -> %rsp
+END 0x00007fbff7a2ccb2
+
+
+after instrumentation:
+TAG  0x00007fbff7a2ccb2
+ +0    m4 @0x000000005171dd38  65 48 a3 18 00 00 00 mov    %rax -> %gs:0x18[8byte]
+                               00 00 00 00
+ +11   m4 @0x000000005171e1e8  9f                   lahf    -> %ah
+ +12   m4 @0x000000005171db40  0f 90 c0             seto    -> %al
+ +15   m4 @0x0000000051765b50  f0 81 05 99 90 8e 20 lock add    $0x00000001 <rel> 0x00000000720039a4[4byte] -> <rel> 0x00000000720039a4[4byte]
+                               01 00 00 00
+ +26   m4 @0x000000005171eb08                       <label>
+ +26   m4 @0x0000000051765bd0  04 7f                add    $0x7f %al -> %al
+ +28   m4 @0x000000005171e8e8  9e                   sahf   %ah
+ +29   m4 @0x000000005171dc40  65 48 a1 18 00 00 00 mov    %gs:0x18[8byte] -> %rax
+                               00 00 00 00
+ +40   m4 @0x0000000051765800                       <label>
+ +40   L3                      f3 c3                ret    %rsp (%rsp)[8byte] -> %rsp
+END 0x00007fbff7a2ccb2
+
+bb ilist before mangling:
+TAG  0x00007fbff7a2ccb2
+ +0    m4 @0x000000005171dd38  65 48 a3 18 00 00 00 mov    %rax -> %gs:0x18[8byte]
+                               00 00 00 00
+ +11   m4 @0x000000005171e1e8  9f                   lahf    -> %ah
+ +12   m4 @0x000000005171db40  0f 90 c0             seto    -> %al
+ +15   m4 @0x0000000051765b50  f0 81 05 99 8f 8e 20 lock add    $0x00000001 <rel> 0x00000000720039a4[4byte] -> <rel> 0x00000000720039a4[4byte]
+                               01 00 00 00
+ +26   m4 @0x000000005171eb08                       <label>
+ +26   m4 @0x0000000051765bd0  04 7f                add    $0x7f %al -> %al
+ +28   m4 @0x000000005171e8e8  9e                   sahf   %ah
+ +29   m4 @0x000000005171dc40  65 48 a1 18 00 00 00 mov    %gs:0x18[8byte] -> %rax
+                               00 00 00 00
+ +40   m4 @0x0000000051765800                       <label>
+ +40   L3                      f3 c3                ret    %rsp (%rsp)[8byte] -> %rsp
+ +42   L4 @0x00000000517205f8  e9 fb 4a f9 ff       jmp    $0x00000000516af500 <shared_bb_ibl_ret>
+END 0x00007fbff7a2ccb2
+
+bb ilist after mangling:
+TAG  0x00007fbff7a2ccb2
+ +0    m4 @0x000000005171dd38  65 48 a3 18 00 00 00 mov    %rax -> %gs:0x18[8byte]
+                               00 00 00 00
+ +11   m4 @0x000000005171e1e8  9f                   lahf    -> %ah
+ +12   m4 @0x000000005171db40  0f 90 c0             seto    -> %al
+ +15   m4 @0x0000000051765b50  f0 81 05 99 8f 8e 20 lock add    $0x00000001 <rel> 0x00000000720039a4[4byte] -> <rel> 0x00000000720039a4[4byte]
+                               01 00 00 00
+ +26   m4 @0x000000005171eb08                       <label>
+ +26   m4 @0x0000000051765bd0  04 7f                add    $0x7f %al -> %al
+ +28   m4 @0x000000005171e8e8  9e                   sahf   %ah
+ +29   m4 @0x000000005171dc40  65 48 a1 18 00 00 00 mov    %gs:0x18[8byte] -> %rax
+                               00 00 00 00
+ +40   m4 @0x0000000051765800                       <label>
+ +40   m4 @0x000000005171e070  65 48 89 0c 25 10 00 mov    %rcx -> %gs:0x10[8byte]
+                               00 00
+ +49   m4 @0x0000000051765ad0  59                   pop    %rsp (%rsp)[8byte] -> %rcx %rsp
+ +50   L4 @0x00000000517205f8  e9 fb 4a f9 ff       jmp    $0x00000000516af500 <shared_bb_ibl_ret>
+END 0x00007fbff7a2ccb2
+
+Fragment 76, tag 0x00007fbff7a2ccb2, flags 0x1000030, shared, size 55:
+
+  0x00000000516b7100  65 48 a3 18 00 00 00 mov    %rax -> %gs:0x18[8byte]
+                      00 00 00 00
+  0x00000000516b710b  9f                   lahf    -> %ah
+  0x00000000516b710c  0f 90 c0             seto    -> %al
+  0x00000000516b710f  f0 81 05 8a c8 94 20 lock add    $0x00000001 <rel> 0x00000000720039a4[4byte] -> <rel> 0x00000000720039a4[4byte]
+                      01 00 00 00
+  0x00000000516b711a  04 7f                add    $0x7f %al -> %al
+  0x00000000516b711c  9e                   sahf   %ah
+  0x00000000516b711d  65 48 a1 18 00 00 00 mov    %gs:0x18[8byte] -> %rax
+                      00 00 00 00
+  0x00000000516b7128  65 48 89 0c 25 10 00 mov    %rcx -> %gs:0x10[8byte]
+                      00 00
+  0x00000000516b7131  59                   pop    %rsp (%rsp)[8byte] -> %rcx %rsp
+  0x00000000516b7132  e9 c9 83 ff ff       jmp    $0x00000000516af500 <shared_bb_ibl_ret>
+  -------- exit stub 0: -------- <target: 0x00000000516af500> type: ret
+  <no stub created since linked>
+```
+
+The final listing is a disassembly of that fragment in the code cache.
+
+
+ ****************************************************************************
+ */

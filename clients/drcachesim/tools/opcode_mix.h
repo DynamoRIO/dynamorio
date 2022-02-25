@@ -43,7 +43,8 @@
 
 class opcode_mix_t : public analysis_tool_t {
 public:
-    opcode_mix_t(const std::string &module_file_path, unsigned int verbose);
+    opcode_mix_t(const std::string &module_file_path, unsigned int verbose,
+                 const std::string &alt_module_dir = "");
     virtual ~opcode_mix_t();
     std::string
     initialize() override;
@@ -120,6 +121,7 @@ protected:
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
     unsigned int knob_verbose_;
+    std::string knob_alt_module_dir_;
     static const std::string TOOL_NAME;
     // For serial operation.
     worker_data_t serial_worker_;

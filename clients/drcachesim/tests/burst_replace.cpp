@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -139,8 +139,12 @@ local_create_dir(const char *dir)
 }
 
 static void *
-load_cb(module_data_t *module)
+load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
+    if (seg_idx > 0)
+        return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
@@ -163,7 +167,7 @@ parse_cb(const char *src, OUT void **data)
 static std::string
 process_cb(drmodtrack_info_t *info, void *data, void *user_data)
 {
-    assert((app_pc)data == info->start || info->containing_index != info->index);
+    assert((app_pc)data == info->start);
     assert(user_data == MAGIC_VALUE);
     return "";
 }
@@ -198,6 +202,15 @@ post_process()
         assert(error.empty());
         error = raw2trace.do_module_parsing();
         assert(error.empty());
+        // Test writing module data and reading it back in.
+        char buf[128 * 204];
+        size_t wrote;
+        drcovlib_status_t res = module_mapper->write_module_data(
+            buf, BUFFER_SIZE_BYTES(buf), print_cb, &wrote);
+        assert(res == DRCOVLIB_SUCCESS);
+        std::unique_ptr<module_mapper_t> remapper =
+            module_mapper_t::create(buf, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(remapper->get_last_error().empty());
     }
     /* Now write a final trace to a location that the drcachesim -indir step
      * run by the outer test harness will find (TRACE_FILENAME).

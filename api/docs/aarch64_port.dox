@@ -1,0 +1,252 @@
+/* ******************************************************************************
+ * Copyright (c) 2017 ARM Limited.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_aarch64_port AArch64 Port
+
+This page contains a record of some design decisions for the port to AArch64.
+The AArch64 master issue, [#1569](https://github.com/DynamoRIO/dynamorio/issues/1569),
+has a list of commits and some more up-to-date information on the status of this port.
+
+# Introduction to AArch64
+
+AArch64 is the ARM architecture's 64-bit execution state, which was
+introduced in version 8 of the architecture, ARMv8, announced in 2011.
+There have been subsequent updates to the architecture: ARMv8.2 was
+announced in 2016.
+
+ARM defines three architecture "profiles" (A, R and M), representing
+architecture configurations and subsets appropriate to different market
+segments. For DynamoRIO we are only
+concerned with the "application profile", ARMv8-A, which includes
+virtual memory.
+
+ARMv8 also defines the 32-bit execution state, AArch32, which uses the
+A32 ("ARM") and T32 ("Thumb") instruction sets familiar from previous
+versions of the ARM architecture. It is only
+possible to switch between AArch32 and AArch64 on an exception. A
+system that runs AArch64 software may or may not also be able to run
+AArch32 software. Although there are many similarities between AArch32
+and AArch64 there are also some fundamental differences, so for many
+purposes it is helpful to think of AArch32 and AArch64 as separate
+architectures and this is the approach taken by DynamoRIO with the
+preprocessor macros AARCH64, ARM, X86, and subdirectories in the
+source code with the same names in lower case. However, there is also
+a preprocessor macro AARCHXX, and a corresponding subdirectory, to
+facilitate sharing of code between AArch32 and AArch64 where this is
+convenient.
+
+Note that in DynamoRIO's source code, as in many other places, "ARM"
+is used to mean AArch32.
+
+Linux uses the name "arm64" for its AArch64 architecture (which
+includes an ABI and other things not specified by the ARM
+Architecture). GCC and other tool chains use "aarch64" (lower case).
+So there is a Debian package called "gcc-aarch64-linux-gnu", which is
+the "GNU C compiler for the arm64 architecture".
+
+The AArch64 user-mode execution state consists of:
+
+- X0-X30: 31 64-bit general-purpose registers. X30 is used as the
+  procedure link register.
+
+- A 64-bit program counter (PC) and stack pointer (SP). Unlike in
+  AArch32, these are distinct from the numbered registers.
+
+- V0-V31: 32 128-bit registers for floating-point and SIMD.
+
+- NZCV: Condition Flags (the top bits of a 32-bit register).
+
+- FPCR: Floating-Point Control Register (32 bits, some unused).
+
+- FPSR: Floating-Point Status Register (32 bits, some unused).
+
+- Under Linux, the 64-bit system register TPIDR_EL0 that is readable
+  and writable in user mode and used for thread-local storage (TLS).
+
+The ARM architecture is bi-endian: the operating system can switch
+between little-endian and big-endian handling of data, with
+little-endian as the default. The Linux arm64 kernel can be configured
+as big-endian but all major Linux arm64 distributions are
+little-endian.
+
+# IR decisions
+
+AArch64 has 31, not 32, general-purpose registers. Depending on the
+context, the value 31 in an encoding may refer either to the stack
+pointer or, more often, to the "zero register", which is read as zero
+and unaffected by a write (it is a pseudo-register). DynamoRIO's
+internal representation (IR) distinguishes between XSP and XZR. In the
+enum, DR_REG_XSP follows DR_REG_X30 and is included in the range
+DR_REG_START_GPR to DR_REG_STOP_GPR even though XSP is not usually
+interchangeable with other X registers. DR_REG_XZR is not included in
+the "GPR" range.
+
+The IR distinguishes between the "X" registers and the "W" registers,
+which are aliases for the lower 32 bits of an X register. Writing to a
+W register sets the top half of the corresponding X register to zero.
+Similarly, there are aliases for the lowest part of an FP/SIMD
+register: DR_REG_B0 (8 bits), DR_REG_H0 (16 bits), DR_REG_S0 (32
+bits), DR_REG_D0 (64 bits), and DR_REG_Q0 (all 128 bits). (This is a
+noteworthy difference from AArch32: in AArch32, S3 is the highest word
+of D1 and of Q0; in AArch64, S3 is the lowest word of D3 and of Q3.)
+
+There are the expected differences between DynamoRIO's IR and the
+standard assembly language. In particular, DynamoRIO lists source and
+destination registers separately. A register operand that is both read
+and written must appear in both lists, as must a register whose
+contents is only partly overwritten by an instruction. An example is
+MOVK, which overwrites part of a general-purpose register with a
+constant value.
+
+Descriptions of the ARM architecture distinguish between
+"instructions" and "aliases". For example CMP X1, X2 is an alias for
+SUBS XZR, X1, X2: a flag-setting subtract that discards the result by
+specifying the zero register as the destination. A typical assembler
+accepts both of these forms, generating the same instruction,
+typically disassembled as CMP. However, DynamoRIO's AArch64 IR ignores
+aliases, so there is no OP_cmp. However, for convenience there are (or
+should be) macros in aarch64/instr_create_api.h corresponding to the
+standard aliases.
+
+There is no DR_REG_PC for AArch64. Literal loads and instructions that
+generate PC-relative address are represented as in X86_64, using
+REL_ADDR_kind, not as in ARM/AArch32.
+
+TBD: NZCV, FPCR, FPSR, SIMD instructions.
+
+# Encoder/decoder
+
+AArch64 has a single instruction set, called "A64", in which all
+instructions have 32 bits. The encoding is relatively simple and
+consistent, which makes it possible in some cases to deduce properties
+of an instruction without fully decoding it. For example, a
+general-purpose register operand is encoded in one of four positions
+in the instruction word so it it may be possible to know that an
+instruction does not read or write a given register even without
+knowing anything else about the instruction. Similarly, it is possible
+to recognise a potential load/store instruction by examining just a
+few bits.
+
+Encodings are described in "codec.txt", which is processed by
+"codec.py" to generate several C source files. In order to avoid
+adding Python as a build requirement these generated files are
+included in the source. A developer who modifies "codec.txt" should
+run "codec.py" manually.
+
+Adding a new instruction to "codec.txt" will often require adding a
+new operand type, for which encoder and decoder functions must be
+added in "codec.c".
+
+Currently the instruction bit patterns listed in "codec.txt" are not
+allowed to overlap. A possible extension would be to allow a more
+specific pattern (one with fewer 'x' bits) to override a less specific
+pattern. This would allow NOP, YIELD, WFE, WFI, SEV and SEVL to be
+defined as special cases of HINT, but there are other ways of handling
+HINT so this single case is not a strong argument for extending the
+notation. Also, there may be other ways of extending the notation that
+are inconsistent with the approach just described.
+
+At the end of 2016, DynamoRIO's encoder/decoder handles all the
+load/store instructions, including load/store of FP/SIMD registers,
+and all the instructions that do not operate on FP/SIMD registers, up
+to ARMv8.2.
+
+Because the decoder is incomplete, unrecognised instructions are
+decoded as instances of a generic instruction, OP_xx, which is
+regarded as reading and writing the general-purpose registers
+referenced in the four places in the instruction word where the number
+of a general-purpose register might appear. This ensures that
+undecoded FP/SIMD instructions are correctly (though perhaps
+inefficiently) handled when they might read or write the "stolen"
+register.
+
+# Stolen register
+
+DynamoRIO uses a "stolen" register on AArch64 for the same reason as
+on AArch32: it is not possible to use TPIDR_EL0/TPIDRURO directly as
+an address for accessing memory. The stolen register may be specified
+on the command line at run time; by default it is X28.
+
+If the fragment cache were not shared between threads it would be
+possible to avoid stealing a general-purpose register: borrow
+TPIDR_EL0 instead and spill registers, when necessary, by first
+spilling a general-purpose register into TPIDR_EL0 and then generating
+a memory address with ADRP. This way one could avoid the expense of
+mangling instructions that use a stolen general-purpose register, but
+instrumentation would be more expensive in some cases, so the value
+for DynamoRIO of this approach is unclear.
+
+# Reachability
+
+An AArch64 unconditional immediate/direct branch (B or BL) has a range
+of +/- 128 MiB. If the fragment cache were restricted to a 128 MiB
+block of memory then it would be possible to branch from any fragment
+to any other fragment. DynamoRIO does not currently restrict the
+memory range used for the fragment cache so in general it is necessary
+to use a register/indirect branch when exiting from a fragment. There
+are opportunities for improvement in this area.
+
+# Self-modifying code
+
+The X86 architecture requires hardware to detect when the instruction
+cache has been invalided by a write to memory, so DynamoRIO must
+detect when code that has already been rewritten into the fragment
+cache is subsequently modified, which is not trivial to implement
+efficiently.
+
+The ARM architecture requires software to perform explicit
+synchronisation between writing instructions to memory and executing
+those instructions. In AArch32 this cannot be done in user mode, so
+32-bit ARM Linux uses a system call (SYS_cacheflush), which DynamoRIO
+can easily intercept.
+
+In AArch64 there are user-mode instructions for synchronising the
+instruction cache, so DynamoRIO must mangle these instructions so as
+to detect when a program may have legally modified itself.
+
+The prescribed recipe for synchronising the instruction cache is
+implemented by clear_icache() in "dr_helper.c". DynamoRIO detects when
+an app has performed these operations by mangling the IC and ISB
+instructions. A program will typically invoke IC on a contiguous set
+of cache lines, then invoke ISB, so DynamoRIO mangles IC into a call
+to a procedure that updates the set of cache lines, provided they are
+contiguous, without returning to the C runtime, which would involve
+saving nearly all the registers (about 800 bytes). A return to the C
+runtime with X0 set to linkstub_selfmod only occurs when an ISB
+instruction is executed after one or more IC instructions have been
+executed.
+
+
+ ****************************************************************************
+ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 /**
-\page API_samples Sample Use Cases
+\page API_samples Sample Tools
 
 We provide several examples in the <tt>samples</tt> directory of the
 release package to illustrate how the DynamoRIO API is used to build a
@@ -56,6 +56,8 @@ for reporting the dynamic execution count of all basic blocks.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/bbsize.c">bbsize.c</a>
 collects statistics on the sizes of all basic blocks in the target application.
+
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/callstack.cpp">callstack.cpp</a> walks the application callstack at a given function entry point.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/cbr.c">cbr.c</a> collects conditional branch
 execution information and shows how to dynamically
@@ -100,13 +102,17 @@ a performant manner.  It is compiled into two different libraries:
 instrace_x86_text, which produces a readable, text-mode trace, but is much
 slower than instrace_x86_binary, which produces a binary-format trace file.
 
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrcall.c">instrcall.c</a>
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrcalls.c">instrcalls.c</a>
 demonstrates how to instrument direct calls, indirect calls and returns.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memtrace_simple.c">memtrace_simple.c</a>
 is provided as an example client that illustrates how to gather a memory
 trace in a simple, cross-platform way.  It is much slower than
 memtrace_x86_binary, however.
+
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memval_simple.c">memval_simple.c</a>
+is provided as an example client that illustrates how to gather a memory
+trace of stored addresses and the values being stored.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memtrace_x86.c">memtrace_x86.c</a>
 is provided as an example client that illustrates how to create a private
@@ -125,7 +131,7 @@ are executed.
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer.c">modxfer.c</a>
 reports the control flow transfers between modules.
 
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer.c">modxfer_app2lib.c</a>
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer_app2lib.c">modxfer_app2lib.c</a>
 reports the control flow transfers between the application executable and
 other dynamic libraries and modules.
 It illustrates how to perform performant clean calls on different modules.
@@ -140,7 +146,10 @@ processor types.
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/signal.c">signal.c</a> demonstrates how to
 use the signal event.
 
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/stl_test.c">stl_test.c</a> is provided
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/statecmp.c">statecmp.c</a> demonstrates how to
+use the drstatecmp instrumentation testing library.
+
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/stl_test.cpp">stl_test.cpp</a> is provided
 as an example client that uses C++ STL containers.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/syscall.c">syscall.c</a> displays how to
@@ -156,46 +165,6 @@ the drwrap extension (see \ref page_drwrap).
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/ssljack.c">ssljack.c</a> demonstrates how to
 hook OpenSSL and GnuTLS functions, using the drwrap extension.
 
-\if vmsafe
-\section probe_samples Probe API Examples
-
-Not available yet.
-\endif
-
-\if vmsafe
-\anchor sec_mf_samples
-\section mf_samples Memory Firewall Examples
-
-An example Memory Firewall client implementation is provided at <a
-href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/MF_moduledb.c">samples/MF_moduledb.c</a> (see that file
-for additional documentation). The MF_moduledb sample client reads in
-a list of module names and options from a config file and exempts security
-violations associated with those modules based on the type of
-violation and the options in the file. In this manner violations from
-dlls known to have certain types of false positives can be avoided.
-It also supports dynamically changing its exemptions with a nudge
-handler that triggers re-reading the config file.
-
-The MF_moduledb sample client is provided with a configuration file <a
-href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/MF_moduledb-sample.config">MF_moduledb-sample.config</a>
-and a violation generating executable <a
-href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/VIPA_test.exe">VIPA_test.exe.c</a> for easy
-testing. To use :
-
-Use drdeploy.exe to configure VIPA_test.exe to run under security_api mode with
-the appropriate options.
-drdeploy.exe -reg VIPA_test.exe -root \<root path\> -mode security_api -client \<path
-to MF_moduledb.dll\> -ops "-client_ops \<path to MF_moduledb-sample.config\>"
-
-Then run VIPA_test.exe. Clicking on the heap attack button should produce messages
-that a potential security violation is being allowed.  Clicking on the stack attack
-button should produce a message that a potential security violation is being blocked
-by killing the process.
-
-Use 'drdeploy.exe -nudge VIPA_text.exe' to nudge the process to re-read the
-configuration file.
-
-\endif
 
 \section bt_examples Discussion of Selected Samples
 
@@ -359,7 +328,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 \par Building the Example
 
-For general instructions on building a client, see \ref sec_build.
+For general instructions on building a client, see \ref page_build_client.
 
 To build the \p instrcalls.c client using CMake, if \p DYNAMORIO_HOME is
 set to the base of the DynamoRIO release package:
@@ -559,11 +528,13 @@ href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/inline.c">i
 
 
 ********************
-\subsection sec_ex6 Use of Floating Point Operation in a Client
+\subsection sec_ex6 Use of x87 Floating Point Operation in a Client
 
-Because saving the floating point state is very expensive, on x86 DynamoRIO
+Because saving the x87 floating point state is very expensive, on x86 DynamoRIO
 seeks to do so on an as needed basis.  If a client wishes to use floating point
-operations it must save and restore the application's floating point state
+operations and is unsure whether its compiler will use x87 or not, or if it
+wishes to use MMX registers, it must
+save and restore the application's floating point state
 around the usage.  For an inserted clean call out of the code cache, this
 can be conveniently done using dr_insert_clean_call() and passing true for
 the save_fpstate parameter.  It can also be done explicitly using these
@@ -574,7 +545,7 @@ void proc_save_fpstate(byte *buf);
 void proc_restore_fpstate(byte *buf);
 \endcode
 
-These routines must be used if floating point operations are performed in
+These routines must be used if x87 floating point operations are performed in
 non-inserted-call locations, such as event callbacks.  Note that there are
 restrictions on how these methods may be called: see the documentation in
 the header files for additional information.  Note also that the floating
@@ -585,6 +556,9 @@ they are being used in the initialization or termination routines.
 
 On ARM and AArch64 the SIMD/FP registers are always saved, so
 proc_save_fpstate and proc_restore_fpstate are no-ops.
+On x86, modern compilers typically do not use x87 operations, but to be
+safe clients are still advised to either avoid floating-point operations
+or use the preservation routines listed here.
 
 This example client counts the number of basic blocks processed and keeps
 statistics on their average size using floating point operations. Full code
@@ -592,7 +566,6 @@ for this example is in the file <a
 href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/bbsize.c">bbsize.c</a>.
 
 
-\ifnot vmsafe
 ********************
 \subsection sec_drstats Use of Custom Client Statistics with the Windows GUI
 
@@ -608,15 +581,10 @@ properly.  They can be modified to use a "Global" prefix instead of "Local"
 for cross-session sharing, though this requires running with administrative
 privileges.
 
-\endif
-
-\ifnot vmsafe
 ********************
 \subsection sec_ex8 Use of Standalone API
 
 The binary tracedump reader also functions as an example of
 \ref page_standalone : <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/tracedump.c">tracedump.c</a>.
-
-\endif
 
  */

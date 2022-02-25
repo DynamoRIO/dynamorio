@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,7 +49,7 @@
  * We thus directly include opnd.h here for reg_id_t to resolve the circular
  * dependence (cleaner than having to use ushort instead of reg_id_t).
  */
-#include "../arch/opnd.h"
+#include "../ir/opnd.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #    define getpid getpid_forbidden_use_get_process_id
@@ -69,7 +69,7 @@
 /* We steal a segment register, and so use fs for x86 (where pthreads
  * uses gs) and gs for x64 (where pthreads uses fs) (presumably to
  * avoid conflicts w/ wine).
- * Keep this consistent w/ the TLS_SEG_OPCODE define in arch/instr.h
+ * Keep this consistent w/ the TLS_SEG_OPCODE define in ir/instr.h
  * and TLS_SEG in arch/asm_defines.asm
  *
  * PR 205276 covers transparently stealing our segment selector.
@@ -153,7 +153,7 @@ extern uint android_tls_base_offs;
  *   {
  *     dtv_t *dtv;
  *     void *private;
- *   } tcbhead_t;
+ *   } tcb_head_t;
  * When using the private loader, we control all the TLS allocation and
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
@@ -165,6 +165,10 @@ extern uint android_tls_base_offs;
  */
 #    define USR_TLS_REG_OPCODE 3
 #    define USR_TLS_COPROC_15 15
+#endif
+
+#ifdef LINUX
+#    include "include/clone3.h"
 #endif
 
 void *
@@ -203,8 +207,6 @@ ushort
 os_get_app_tls_reg_offset(reg_id_t seg);
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
-void
-os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags);
 
 #ifdef DEBUG
 void
@@ -285,11 +287,11 @@ disable_env(const char *name);
         asm(".section __DATA," name);      \
         asm(".align 12"); /* 2^12 */
 #else
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define DECLARE_DATA_SECTION(name, wx)                \
             asm(".section " name ", \"a" wx "\", @progbits"); \
             asm(".align 0x1000");
-#    elif defined(AARCHXX)
+#    elif defined(DR_HOST_AARCHXX)
 #        define DECLARE_DATA_SECTION(name, wx)     \
             asm(".section " name ", \"a" wx "\""); \
             asm(".align 12"); /* 2^12 */
@@ -308,12 +310,12 @@ disable_env(const char *name);
         asm(".align 12");                   \
         asm(".text");
 #else
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define END_DATA_SECTION_DECLARATIONS() \
             asm(".section .data");              \
             asm(".align 0x1000");               \
             asm(".text");
-#    elif defined(AARCHXX)
+#    elif defined(DR_HOST_AARCHXX)
 #        define END_DATA_SECTION_DECLARATIONS() \
             asm(".section .data");              \
             asm(".align 12");                   \
@@ -348,8 +350,6 @@ extern app_pc vsyscall_sysenter_return_pc;
 extern app_pc vsyscall_sysenter_displaced_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
 
-bool
-is_thread_create_syscall(dcontext_t *dcontext);
 bool
 was_thread_create_syscall(dcontext_t *dcontext);
 bool
@@ -457,10 +457,14 @@ mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc
 
 void *
 #ifdef MACOS
-create_clone_record(dcontext_t *dcontext, reg_t *app_xsp, app_pc thread_func,
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, app_pc thread_func,
                     void *func_arg);
+#elif defined(LINUX)
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp,
+                    clone3_syscall_args_t *dr_clone_args,
+                    clone3_syscall_args_t *app_clone_args);
 #else
-create_clone_record(dcontext_t *dcontext, reg_t *app_xsp);
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp);
 #endif
 
 #ifdef MACOS
@@ -547,6 +551,9 @@ extern vm_area_vector_t *d_r_rseq_areas;
 bool
 rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
                      bool **reg_written OUT, int *reg_written_size OUT);
+
+bool
+rseq_set_final_instr_pc(app_pc start, app_pc final_instr_pc);
 
 int
 rseq_get_tls_ptr_offset(void);

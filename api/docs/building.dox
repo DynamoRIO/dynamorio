@@ -1,0 +1,910 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_building Building from Source
+
+# Quick Start
+
+If you don't need to modify DR and just need a recent build, you can download [weekly package builds](@ref page_weekly_builds).
+
+## Linux
+
+To build DynamoRIO on Linux, use the following commands as a guide.  This builds 64-bit DynamoRIO in release mode:
+
+  ```
+  # Install dependencies for Ubuntu 15+.  Adjust this command as appropriate for
+  # other distributions (in particular, use "cmake3" for Ubuntu Trusty).
+  $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev
+  # Get sources.
+  $ git clone https://github.com/DynamoRIO/dynamorio.git
+  # Make a separate build directory.  Building in the source directory is not
+  # supported.
+  $ cd dynamorio && mkdir build && cd build
+  # Generate makefiles with CMake.  Pass in the path to your source directory.
+  $ cmake ..
+  # Build.
+  $ make -j
+  # Run echo under DR to see if it works.  If you configured for a debug or 32-bit
+  # build, your path will be different.  For example, a 32-bit debug build would
+  # put drrun in ./bin32/ and need -debug flag to run debug build.
+  $ ./bin64/drrun echo hello world
+  hello world
+  ```
+
+## Windows
+
+To build DynamoRIO on Windows, first install the following software.
+
+  - Visual Studio 2017.  Other versions are not officially supported as our automated tests use VS 2017.
+  - [CMake](http://cmake.org/cmake/resources/software.html). 3.7+ is required. When prompted, we recommend adding it to your PATH.
+  - Git.  Any flavor should do, including [Git on Windows](https://git-scm.com/download/win) or Cygwin git.
+  - Perl.  We recommend either [Strawberry Perl](http://strawberryperl.com/) or Cygwin perl.
+  - (optional) [Cygwin](http://cygwin.com).  Only needed for building documentation.  Select the doxygen package if you do install it.  (You can also select Cygwin's perl and git as alternatives to the links above.)
+
+Once these dependencies are installed, you need to generate your project and solution files for Visual Studio using CMake.  The easiest way to do this is to launch a cmd prompt with the right environment from the Visual Studio folder in the Start menu.
+
+To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2017 > x86 Native Tools Command Prompt for VS 2017` and run the following commands:
+
+  ```
+  # Get sources.
+  $ git clone https://github.com/DynamoRIO/dynamorio.git
+  # Make a separate build directory.  Building in the source directory is not
+  # supported.
+  $ cd dynamorio && mkdir build && cd build
+  # Configure using cmake.  Pass in the path to your source directory.
+  $ cmake -G"Visual Studio 15" ..
+  # Build from the command line.  Alternatively, open ALL_BUILD.vcproj in Visual
+  # Studio and build from there.  You must pass --config to work around a cmake
+  # bug.  (http://www.cmake.org/Bug/view.php?id=11830)
+  $ cmake --build . --config RelWithDebInfo
+  # Run notepad under DR to see whether it worked.
+  $ bin32\drrun.exe notepad.exe
+  ```
+
+If you need a 64-bit build, choose `x64 Native Tools Command Prompt` and pass `-G"Visual Studio 15 Win64"` to cmake.
+
+An alternative to the command prompt is to execute the appropriate vcvars.bat command for your compiler in your shell of choice.
+
+For developers who plan to modify the DynamoRIO sources and build on a
+regular basis, we recommend using [Ninja](@ref sec_ninja).
+
+## Debug Build
+
+If you plan to make changes to the source code, or for debugging
+problems in clients, you may wish to configure DynamoRIO in debug
+mode.  Turn on the DEBUG flag when configuring, like this on Linux:
+
+```
+$ cmake -DDEBUG=ON ..
+$ make -j
+```
+
+or on Windows:
+```
+$ cmake -G"Visual Studio 15" .. -DDEBUG=ON
+$ cmake --build . --config Debug
+```
+
+Passing -DCMAKE_BUILD_TYPE=Debug to cmake does **not**
+produce a debug build currently.
+
+For 64-bit build on Windows:
+```
+$ cmake -G"Visual Studio 15 Win64" .. -DDEBUG=ON
+$ cmake --build . --config Debug
+```
+
+For 32-bit build on 64-bit Linux
+```
+$ CFLAGS=-m32 CXXFLAGS=-m32 cmake -DDEBUG=ON ..
+$ make -j
+```
+
+## Installing from a Local Build
+
+To mirror the layout and functionality of an official released package, build the `install` target.  The `CMAKE_INSTALL_PREFIX` cmake variable controls the destination of the installation.
+
+Once you've installed locally, you can now point at the installation just like you'd point at a release package for the purposes of building separate clients.
+
+----------------
+
+\section sec_build_linux Details for Building on Linux
+
+In order to build you'll need the following packages:
+
+  - gcc
+  - binutils
+  - cmake (at least version 3.7)
+  - perl
+
+In order to build the documentation, you will additionally need:
+
+  - doxygen
+
+We have tested the following versions of gcc: 4.4.3, 4.3.0, 4.1.2, and 3.4.3.
+
+If your machine does not have support for running 32-bit applications and
+its version of binutils is older than 2.18.50 then you'll need to set the
+`CMAKE_ASM_COMPILER` CMake cache variable to point at a GNU assembler of at
+least version 2.18.50.
+
+## Setup for Simultaneous 64-bit and 32-bit Building
+
+In order to build both 32-bit and 64-bit on the same platform you'll need
+compiler support for targeting both architectures.  Then install these packages:
+
+```
+sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev libunwind-dev:i386
+```
+
+For older distributions, the `ia32-libs` package is needed.
+
+For 64-bit Fedora, you'll need this package to build the samples:
+
+```
+yum -y install glibc-devel.i?86
+```
+
+## Building 32-bit DynamoRIO on 64-bit Linux
+
+To build a 32-bit version of DynamoRIO on a 64-bit platform, add -m32 to CFLAGS
+and CXXFLAGS in your environment when you first generate your Makefiles with
+CMake.  Adding -m32 to the environment and re-running CMake in an existing build
+directory will not re-configure the makefiles to produce a 32-bit build, so you
+will need to create a separate build directory.
+
+```
+CXXFLAGS=-m32 CFLAGS=-m32 cmake ..
+```
+
+## Useful Configuration Options
+
+By default we build with -Werror on Linux, so if your build fails due to
+compiler warnings that we have not encountered, you should enable the
+DISABLE_WARNINGS option to allow the build to proceed.
+
+If you wish to run the test suite, you should enable BUILD_TESTS.
+
+----------------
+
+## Cross-Compiling for ARM on Linux
+
+Install the cross compiler for the `gnueabihf` target:
+
+```
+$ sudo apt-get install gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+```
+
+Check out the sources as normal, and point at our toolchain CMake file:
+
+```
+$ git clone https://github.com/DynamoRIO/dynamorio.git
+$ mkdir build_arm
+$ cd build_arm
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm32.cmake ../dynamorio
+$ make -j
+```
+
+To build a client, again use the toolchain file, as well as pointing at a DynamoRIO installation using `-DDynamoRIO_DIR=<path>` as described in the package documentation.
+
+----------------
+
+## Cross-Compiling for ARM Android
+
+Install the Android NDK (Note: currently only version r10e can be used to build DynamoRIO, later versions do not work, see #1927, #2556)and configure it for the androideabi standalone toolchain. Something like this:
+
+```
+wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+unzip android-ndk-r10e-linux-x86_64.zip
+android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm --platform=android-21 --install-dir=/mytooldir/android-ndk-21 --toolchain=arm-linux-androideabi-4.9
+```
+
+Switch from the gold linker to bfd:
+
+```
+ln -sf arm-linux-androideabi-ld.bfd /mytooldir/android-ndk-21/bin/arm-linux-androideabi-ld
+ln -sf ld.bfd /mytooldir/android-ndk-21/arm-linux-androideabi/bin/ld
+```
+
+Now check out the sources as normal, and point at our toolchain CMake file.  If you have an attached Android device and the `adb` utility on your PATH, set the `DR_COPY_TO_DEVICE` variable to get the binaries needed for running tests automatically copied over via `adb push`.
+
+
+```
+$ git clone https://github.com/DynamoRIO/dynamorio.git
+$ mkdir build_android
+$ cd build_android
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 -DDR_COPY_TO_DEVICE=ON ../dynamorio
+$ make -j
+```
+
+If your Android system does not have a writable `/data/local/tmp` directory, you will need to either set `DYNAMORIO_CONFIGDIR` to a writable location or always run from a writable current directory.
+
+After building, check that libdynamorio.so does not contain an INTERP segment:
+
+```
+readelf -l lib32/debug/libdynamorio.so | grep INTERP
+```
+
+If it does, then you have probably used the gold linker instead of the bfd linker; see above.
+
+If you have an Android device set up for access through the `adb shell` utility, the Android build is capable of automatically copying binaries to the device and running tests.  First, ensure that `adb` is on your PATH, and that `adb status` indicates an attached device.  Next, set the cmake variable `DR_COPY_TO_DEVICE`.  This sets up post-build steps for each target needed by the tests to copy binaries over to the device.  Now `ctest` should work when run from the host machine.
+
+----------------
+
+\subsection sec_aarch_on_x86 Building AArchXX Tooling to Execute on x86
+
+DR has support for executing on x86/amd64 while decoding and encoding for AArch64 or ARM.  This is mostly used for standalone decoding and for analyzing on an x86 machine drcachesim memory address traces gathered on an AArch64 machine.
+
+To build, set the `TARGET_ARCH` CMake variable:
+
+```
+$ uname -m
+x86_64
+$ cmake -GNinja -DTARGET_ARCH=aarch64 ../src
+$ ninja drdisas
+$ clients/bin64/drdisas 12345678
+ 12345678   and    %w19 $0xfffff003 $0x0d15 -> %w24
+```
+
+Support for aarch64-on-x86 on Windows is not yet finished; nor is support for other target-host combinations.
+
+----------------
+
+# Details for Building on Windows
+
+## Compiler
+
+First, you need the compiler, linker, and associated tools.
+Install Visual Studio 2017 which is the version used by our automated tests.
+
+You need to use a shell with command line support for using your
+compiler.  For example, this could be the `cmd` shell or a Cygwin shell.
+You need to set the environment variables `INCLUDE`, `LIB`, `LIBPATH`, and
+`PATH` to point at the proper directories for your compiler.  You can use
+the `vcvarsall.bat` script that comes with the compiler (in the `VC`
+directory) to set these variables for the `cmd` shell.  For 64-bit, be sure
+to use `vcvarsall.bat amd64`, or directly run `vcvarsamd64.bat`.  Do NOT
+use `vcvarsall.bat x86_amd64` or `vcvarsx86_amd64.bat`.
+
+To build a 32-bit version of DynamoRIO on a 64-bit platform, set up your
+environment to use the x64 tools.  As mentioned above, you can launch the
+command prompt from the Visual Studio Start menu folder, or run the
+"vcvarsall.bat amd64" script.
+
+## CMake
+
+You need CMake (version 3.7+) for Windows (*not* for Cygwin, as we need to pass paths
+with drive letters to our compiler).  You can download a binary installation here:
+
+  http://www.cmake.org/cmake/resources/software.html
+
+Install CMake and put its bin directory on the path for your shell.
+
+## Other Tools
+
+In order to build you must have a version of perl.  It can be either a
+Cygwin perl or a native Windows perl.
+
+In order to build the documentation, you will additionally need:
+
+  - doxygen
+
+These can be either Cygwin packages or native Windows.
+TH`.
+
+## Using Cygwin
+
+If you wish to run your build commands in a Cygwin bash shell, you will need to
+set up your environment the way that Visual Studio sets up the environment.
+Below is an example that supports multiple versions of Visual Studio installed
+simultaneously.  It assumes that `/cygdrive/c` has been mounted as `/c`.
+Note the use of *mixed paths* (i.e., using a drive letter but forward
+slashes) for all variables except for `PATH`:
+
+  \verbatim
+  # save PATH so we can swap between VS versions below
+  export PRE_VS_PATH=$PATH
+
+  # pass 0 to not use 8.x, and 0 in 2nd arg to not use 7.1
+  function set_SDKROOT2 {
+      # VS2008 puts rc and mc in 64-bit ProgFiles/MS SDKs
+      export SDK2_SFX_INC=""
+      export SDK2_SFX_LIB_X86=""
+      export SDK2_SFX_LIB_X64="/x64"
+      if [ "$1" != "0" ] && test -e /c/Program\ Files\ \(x86\)/Windows\ Kits/8.1; then
+          export SDKROOT2=`cygpath -d /c/Program\ Files\ \(x86\)/Windows\ Kits/8.1`
+          export SDK2_SFX_INC="/um"
+          export SDK2_SFX_LIB_X86="/winv6.3/um/x86"
+          export SDK2_SFX_LIB_X64="/winv6.3/um/x64"
+      elif [ "$1" != "0" ] && test -e /c/Program\ Files\ \(x86\)/Windows\ Kits/8.0; then
+          export SDKROOT2=`cygpath -d /c/Program\ Files\ \(x86\)/Windows\ Kits/8.0`
+          export SDK2_SFX_INC="/um"
+          export SDK2_SFX_LIB_X86="/win8/um/x86"
+          export SDK2_SFX_LIB_X64="/win8/um/x64"
+      elif [ "$2" != "0" ] && test -e /c/Program\ Files/Microsoft\ SDKs/Windows/v7.1; then
+          export SDKROOT2=`cygpath -d /c/Program\ Files/Microsoft\ SDKs/Windows/v7.1`
+      elif test -e /c/Program\ Files/Microsoft\ SDKs/Windows/v7.0; then
+          export SDKROOT2=`cygpath -d /c/Program\ Files/Microsoft\ SDKs/Windows/v7.0`
+      elif test -e /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A; then
+          export SDKROOT2=`cygpath -d /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A`
+      else
+          export SDKROOT2=""
+      fi
+  }
+
+  function compilerVS2013_32 {
+      set_SDKROOT2 1 1
+      export CMAKEGEN="Visual Studio 12"
+      export CMAKEGEN64="Visual Studio 12 Win64"
+      export SDKROOT=`cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio\ 12.0`
+      ninja_x86
+      export INCLUDE="${SDKROOT}/VC/INCLUDE"\;"${SDKROOT}/VC/ATLMFC/INCLUDE"\;"${SDKROOT}/Include"\;"${SDKROOT2}/Include${SDK2_SFX_INC}"\;"${SDKROOT2}/Include/shared"\;"${SDKROOT2}/Include/winrt"
+      export LIB="${SDKROOT2}/Lib${SDK2_SFX_LIB_X86}"\;"${SDKROOT}/VC/LIB"\;"${SDKROOT}/Lib"\;"${SDKROOT}/VC/PlatformSDK/Lib"\;"${SDKROOT}/VC/atlmfc/lib"
+      # cmake bails if don't have LIBPATH set, though we don't need it
+      export LIBPATH="${SDKROOT}/VC/atlmfc/lib"
+      # put prior to /usr/bin for link.exe to beat out cygwin link.exe
+      # VS2013 puts rc and mc in 32-bit ProgFiles/Windows Kits
+      export PATH=`cygpath -u ${SDKROOT}/VC/Bin`:`cygpath -u ${SDKROOT2}/bin/x86`:`cygpath -u $SDKROOT/Common7/IDE`:${PRE_VS_PATH}
+  }
+
+  function compilerVS2013_64 {
+      set_SDKROOT2 1 1
+      export CMAKEGEN="Visual Studio 12"
+      export CMAKEGEN64="Visual Studio 12 Win64"
+      export SDKROOT=`cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio\ 12.0`
+      ninja_x64
+      export INCLUDE="${SDKROOT}/VC/INCLUDE"\;"${SDKROOT}/VC/ATLMFC/INCLUDE"\;"${SDKROOT}/Include"\;"${SDKROOT2}/Include${SDK2_SFX_INC}"\;"${SDKROOT2}/Include/shared"\;"${SDKROOT2}/Include/winrt"
+      export LIB="${SDKROOT2}/Lib${SDK2_SFX_LIB_X64}"\;"${SDKROOT}/VC/LIB/amd64"\;"${SDKROOT}/Lib"\;"${SDKROOT}/VC/PlatformSDK/Lib/AMD64"\;"${SDKROOT}/VC/atlmfc/lib/amd64"
+      export LIBPATH="${SDKROOT}/VC/atlmfc/lib/amd64"
+      # We need the base VC/Bin/ for 32-bit mspdb*.dll for cross-compiler used by cmake
+      export PATH=`cygpath -u ${SDKROOT}/VC/Bin/amd64`:`cygpath -u ${SDKROOT2}/bin/x64`:`cygpath -u ${SDKROOT}/VC/Bin`:${PRE_VS_PATH}
+  }
+
+  function compilerVS2017_32 {
+      export CMAKEGEN="Visual Studio 15"
+      export VSVER=$(ls -1t /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional/VC/Tools/MSVC | head -1)
+      export VSBASE=$(cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional)
+      export VSROOT=$(cygpath -d ${VSBASE}/VC/Tools/MSVC/$VSVER)
+      # We assume SDK 10
+      export KITROOT=$(cygpath -d /c/Program\ Files\ \(x86\)/Windows\ Kits/10)
+      export KITVER=$(ls -1t /c/Program\ Files\ \(x86\)/Windows\ Kits/10/Include | head -1)
+      ninja_x86
+      export INCLUDE="${VSROOT}/include"\;"${VSROOT}/atlmfc/include"\;"${KITROOT}/Include/${KITVER}/um"\;"${KITROOT}/Include/${KITVER}/ucrt"\;"${KITROOT}/Include/${KITVER}/shared"\;"${KITROOT}/Include/${KITVER}/winrt"\;
+      export LIB="${VSROOT}/lib/x86"\;"${VSROOT}/atlmfc/lib/x86"\;"${KITROOT}/lib/${KITVER}/ucrt/x86"\;"${KITROOT}/lib/${KITVER}/um/x86"
+      # cmake bails if don't have LIBPATH set, though we don't need it
+      export LIBPATH="${VSROOT}/lib/x86"
+      # put prior to /usr/bin for link.exe to beat out cygwin link.exe
+      # VS2015 puts rc and mc in 32-bit ProgFiles/Windows Kits
+      export PATH=`cygpath -u ${VSROOT}/bin/HostX86/x86`:`cygpath -u ${KITROOT}/bin/x86`:`cygpath -u ${KITROOT}/bin/${KITVER}/x86`:`cygpath -u ${VSBASE}/Common7/IDE`:${PRE_VS_PATH}
+  }
+
+  function compilerVS2017_64 {
+      export CMAKEGEN="Visual Studio 15 Win64"
+      export VSVER=$(ls -1t /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional/VC/Tools/MSVC | head -1)
+      export VSBASE=$(cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional)
+      export VSROOT=$(cygpath -d ${VSBASE}/VC/Tools/MSVC/$VSVER)
+      # We assume SDK 10
+      export KITROOT=$(cygpath -d /c/Program\ Files\ \(x86\)/Windows\ Kits/10)
+      export KITVER=$(ls -1t /c/Program\ Files\ \(x86\)/Windows\ Kits/10/Include | head -1)
+      ninja_x64
+      export INCLUDE="${VSROOT}/include"\;"${VSROOT}/atlmfc/include"\;"${KITROOT}/Include/${KITVER}/um"\;"${KITROOT}/Include/${KITVER}/ucrt"\;"${KITROOT}/Include/${KITVER}/shared"\;"${KITROOT}/Include/${KITVER}/winrt"\;
+      export LIB="${VSROOT}/lib/x64"\;"${VSROOT}/atlmfc/lib/x64"\;"${KITROOT}/lib/${KITVER}/ucrt/x64"\;"${KITROOT}/lib/${KITVER}/um/x64"
+      # cmake bails if don't have LIBPATH set, though we don't need it
+      export LIBPATH="${VSROOT}/lib/x64"
+      # put prior to /usr/bin for link.exe to beat out cygwin link.exe
+      # VS2015 puts rc and mc in 32-bit ProgFiles/Windows Kits
+      export PATH=`cygpath -u ${VSROOT}/bin/HostX64/x64`:`cygpath -u ${KITROOT}/bin/x64`:`cygpath -u ${KITROOT}/bin/${KITVER}/x64`:`cygpath -u ${VSBASE}/Common7/IDE`:${PRE_VS_PATH}
+  }
+
+  if test -e /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017; then
+      compilerVS2017_32
+  elif test -e /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio\ 12.0; then
+      compilerVS2013_32
+  fi
+  \endverbatim
+
+However, if you get errors about mspdb80.dll or windows.h, this
+probably means that the environment isn't set up correctly.  Open a cmd prompt
+with the correct Visual C++ environment variables and compare the INCLUDE, LIB,
+LIBPATH, and PATH environment variables in the two shells.
+
+Note that you need Visual Studio's bin directories on your `PATH` *before*
+Cygwin's as there are conflicts: both have `mc.exe` and `link.exe`.
+
+----------------
+
+\section sec_cmake Details of Building with CMake
+
+## Components
+
+DynamoRIO contains several distinct components:
+
+  - core/ = the core tool engine shared library
+  - api/ = the documentation and sample clients
+  - tools/ = various tools, including for deployment (drdeploy.in and drdeploy.c) and statistics viewing (DRstats)
+  - libutil/ = library used by drdeploy.c and DRstats
+  - suite/ = tests
+
+All components are combined into a single CMake project.
+
+## Configuring Your Build
+
+First, configure your compiler.  On Windows this means setting up the
+environment variables (including `PATH`).  On Linux, if your compiler
+supports both 64-bit and 32-bit targets, you can select the non-default
+type by setting the `CFLAGS` and `CXXFLAGS` environment variables to the
+flags used to change your compiler's target.  For example, for gcc:
+
+```
+export CXXFLAGS=-m32
+export CFLAGS=-m32
+```
+
+Next, in your shell (which you have set up for building with your
+compiler), create a build directory.
+You cannot build DynamoRIO from source code directory directly!
+Invoke the CMake GUI from the build
+directory, pointing at the source directory.  For example, if your current
+directory is the base of the DynamoRIO tree, on either Windows or Linux,
+run:
+
+```
+mkdir build
+cd build
+cmake-gui ..
+```
+
+Press Configure.  On Windows, select **Visual Studio 15 2017**.  On Linux, select **Unix Makefiles**.
+
+If you are on Linux, `ccmake`, a curses-based GUI, can be used instead of `cmake-gui`;
+it generates **Unix Makefiles** by default.  In `ccmake`, press `c` to configure.
+
+On Windows, if you are building an old version of DynamoRIO (prior to r577), you will need
+to use **NMake Makefiles** instead of a Visual Studio generator.  If you are in Cygwin, you can use **Unix Makefiles**, but the resulting build will be slower than using a Visual
+Studio generator.
+
+Now you can select the parameters to configure your build.  The main
+parameters are as follows (some may not be present if the configure process
+determined they do not apply: e.g., if you do not have `doxygen` installed
+you cannot selected `BUILD_DOCS`):
+
+ - BUILD_CORE = whether to build the core
+ - BUILD_DOCS = whether to build the documentation
+ - BUILD_DRSTATS = whether to build the DRstats viewer (Windows-only).  Note that DRstats is currently 32-bit only ([issue 62](https://github.com/DynamoRIO/dynamorio/issues#issue/62)), so when building a 64-bit Windows core you will need a separate build directory and configuration for 32-bit in order to build DRstats.
+ - BUILD_TOOLS = whether to build the tools (primarily Windows)
+ - BUILD_SAMPLES = whether to build the client samples
+ - BUILD_TESTS = whether to build the tests
+ - INSTALL_PREFIX = where to install the results after building
+ - NTDLL_LIBPATH = where ntdll.lib is located (Windows-only)
+ - DEBUG = whether to enable asserts and logging
+ - INTERNAL = for DynamoRIO developer use
+ - DISABLE_WARNINGS = useful if your version of gcc produces warnings we have not seen (we compile with warnings-are-errors)
+
+Press Configure and then OK (or `c` and then `g`) to complete the
+configuration step and generate the Makefiles.  It is normal to see
+messages like this for various types (uint, ushort, bool, byte, sbyte,
+uint32, uint64, int32, int64):
+
+```
+-- Check size of bool
+-- Check size of bool - failed
+```
+
+This is really a check for the existence of a typedef and it is normal for
+some such checks to print a "failure" message.
+
+On Windows, if you have both `cl` and `gcc` on your path, you can ensure
+that CMake selects `cl` by setting the `CC` and `CXX` environment
+variables.  For example:
+
+```
+CC=cl CXX=cl cmake ..
+```
+
+To improve compilation speed on Windows, if you are using a makefile-based generator
+(i.e., not Visual Studio), you can turn off the progress and status messages with this CMake define:
+
+```
+-DCMAKE_RULE_MESSAGES:BOOL=OFF
+```
+
+On Windows, if you use Cygwin and hit [CMake bug#13131](http://www.cmake.org/Bug/print_bug_page.php?bug_id=13131), you may need to kill all running MSBuild instances and unset the `TMP` and `TEMP` environment variables.
+
+## Building
+
+After the configuration step is complete, for release build, type
+```
+cmake --build . --config RelWithDebInfo
+```
+or if you turned on DEBUG, type
+```
+cmake --build .
+```
+or if you are using **NMake Makefiles**, type
+```
+nmake
+```
+or on Linux, type
+```
+make
+```
+
+## An Example of Building DynamoRIO in Windows-XP 64bit in cmd
+
+ - step 1: set INCLUDE, LIB, LIBPATH, and PATH by running the Visual Studio Command Prompt, under the Visual Studio Tools in the Visual   Studio start menu entry.  Alternatively, from a plain cmd window:
+```
+E:\>"c:\Program Files (x86)\Microsoft Visual Studio 8\VC\vcvarsall.bat"
+```
+ or for 64-bit build
+```
+E:\>"c:\Program Files (x86)\Microsoft Visual Studio 8\VC\vcvarsall.bat" amd64
+```
+ - step 2: get dynamorio source to `e:\dynamorio` via svn
+ - step 3: in `e:\dynamorio`, create a directory for building
+```
+mkdir build
+cd build
+```
+ - step 4: configure using cmake
+\verbatim
+E:\dynamorio\build\>"c:\Program Files (x86)\CMake 3.7\bin\cmake-gui.exe" ..\
+\endverbatim
+   - step 4.1: click "Configure" button
+   - step 4.2: select "Visual Studio 15"
+   - step 4.3: generate configuration file
+ - step 5: build and install
+\verbatim
+E:\dynamorio\build\>cmake --build . --config Release
+\endverbatim
+
+## Configuring in Batch Mode
+
+Instead of interactive configuration you can pass all your parameter
+changes to CMake on the command line.  For example:
+
+On Windows:
+```
+mkdir build
+cd build
+cmake -G"Visual Studio 15" -DBUILD_DOCS:BOOL=OFF ..
+cmake --build . --config Release
+```
+
+On Linux:
+```
+mkdir build
+cd build
+cmake -DBUILD_DOCS:BOOL=OFF ..
+make
+```
+
+Developers may wish to pass `-DCMAKE_VERBOSE_MAKEFILE=1` to CMake in order
+to see the compilation command lines.  They can alternatively be seen for
+any individual build with `make VERBOSE=1`.
+
+
+## Re-Configuring
+
+You can re-run the configure step, using the same parameters that you
+originally used, in two ways:
+
+```
+  make rebuild_cache
+```
+
+Or:
+
+```
+  cmake .
+```
+
+With the latter command you can also change the configuration, but be sure
+to do a `make clean` prior to building as CMake does not perform
+dependence checking on this type of modification.  As an example:
+
+```
+  cmake -DDEBUG=ON -DINTERNAL=ON .
+  make clean
+```
+
+## Building a Distributable Package
+
+If you've been working with DynamoRIO's packaged binaries, you may find it
+easiest to install all of the dependencies listed above for your platform and
+then run the packaging script:
+
+```
+cd dynamorio
+mkdir package
+cd package
+ctest -V -S ../make/package.cmake,build=1
+```
+
+## Details of CMake Visual Studio Generators
+
+As of version 577, DynamoRIO supports building from Visual Studio.  The /MP
+flag is set by default for not only parallel project builds but parallel file
+builds.  The fastest DynamoRIO build is a Visual Studio build from
+the command line.
+
+First, DynamoRIO requires CMake version 3.7 or higher (to support
+Visual Studio 2017).
+
+Then you can generate the Visual Studio project files with something like this:
+
+```
+cmake -G"Visual Studio 15" -DDEBUG=ON -DCMAKE_RULE_MESSAGES:BOOL=OFF ../src
+```
+
+You can build from the command line (actually for any generator) with this:
+
+```
+cmake --build .
+```
+
+Due to a cmake bug (http://www.cmake.org/Bug/view.php?id=11830), for a
+release build you need to explicitly say you want release:
+
+```
+cmake --build . --config Release
+```
+
+To request a particular target:
+
+```
+cmake --build . --target dynamorio
+```
+
+or
+
+```
+cmake --build . --target install
+```
+
+\subsection sec_ninja Using Ninja For Better Error Messages, Faster Builds, and Proper Incremental Builds
+
+Ninja is a new build system designed to work with automated build system
+generators like CMake:
+
+https://github.com/martine/ninja
+
+Ninja has much more readable build output, resulting in better error
+messages.  It builds faster, and it automatically re-runs CMake when
+necessary, resulting in proper incremental builds.  It's all-around a
+superior build experience from the command line.
+
+There is a Windows build of Ninja checked in to make/ninja.exe.  Simply put
+this on your PATH.  Ninja has no dependencies and the executable can be
+placed anywhere.
+
+In addition to having ninja.exe on your PATH, you need to set the
+environment variable ASM to "ml" for a 32-bit build and to "ml64" for a
+64-bit build (otherwise Ninja tries to assemble using cl).  If you have
+other compilers installed (such as Cygwin or MinGW), you should also set the CC and CXX environment variables.  Here are sample bash functions:
+
+```
+function ninja_x86 {
+    export CC=cl
+    export CXX=cl
+    export ASM=ml
+}
+
+function ninja_x64 {
+    export CC=cl
+    export CXX=cl
+    export ASM=ml64
+}
+```
+
+To configure, from a shell that has the Visual Studio environment set up,
+ninja.exe on the PATH, and the ASM environment variable set, run:
+
+```
+cmake -G"Ninja" ../src
+```
+
+From a Cygwin bash shell you could alternatively set the environment
+variables in the same command:
+
+```
+CC=cl CXX=cl ASM=ml cmake -G"Ninja" ../src
+```
+
+To build:
+
+```
+ninja
+```
+
+Ninja builds in parallel by default.
+
+To build a specific target:
+
+```
+ninja dynamorio
+```
+
+One downside of the current CMake Ninja generator is that one must change
+the environment in order to switch to a 64-bit build directory (both the
+Visual Studio toolchain environment and the ASM environment variable
+mentioned above), whereas with the Visual Studio generator one can switch
+build directories without any environment changes (once the build
+directories are configured using the right environment).
+
+The test suite supports using Ninja by passing the use_ninja parameter:
+
+```
+ctest -V -S c:/mycheckout/suite/runsuite.cmake,use_ninja
+```
+
+### Using Ninja With Pre-7.0 SDK
+
+If you end up using the (no longer officially supported) Visual Studio 2008, it's best to pair it with a pre-7.0 SDK, but Ninja runs into a problem there running `rc.exe`:
+
+```
+fatal error RC1106: invalid option: -ologo
+```
+
+A workaround is to copy `rc.exe` and `rcdll.dll` from a post-7.0 SDK into the pre-7.0 SDK `Bin` directory, with admin privileges:
+
+```
+mv /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A/Bin/RC.Exe /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A/Bin/RC-ORIG.Exe
+mv /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A/Bin/RcDll.Dll /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A/Bin/RcDll-ORIG.Dll
+cp /c/Program\ Files/Microsoft\ SDKs/Windows/v7.1/Bin/RC.Exe /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A/Bin/
+cp /c/Program\ Files/Microsoft\ SDKs/Windows/v7.1/Bin/RcDll.Dll /c/Program\ Files/Microsoft\ SDKs/Windows/v6.0A/Bin/
+```
+
+## Using MSBuild For Slightly Better Error Messages And Faster Builds
+
+We recommend Ninja (see above) over MSBuild, but we're leaving the
+information on MSBuild here as it is recommended over devenv.
+
+By default, CMake will use devenv when building for Visual Studio generators.
+
+```
+cmake --build . --target Release -- /m
+```
+
+The /m (full name "/maxcpucount") option is only supported with .NET 3.5 or later.  In practice this means Visual Studio 2010 or later.  With no numeric argument (as shown in the command line above), it requests a concurrent number of jobs equal to the number of processors on the system.
+
+MSBuild summarizes all build warnings and errors at the end of the run, unlike
+devenv.  It is also a little faster than devenv (when parallel building is
+enabled).  There are some general outstanding issues with MSBuild, but it seems
+to work well for DynamoRIO with Visual Studio 2010 and 2012.  To request MSBuild set the
+CMAKE_MAKE_PROGRAM variable at configuration time.  In a Visual Studio Command
+Prompt, MSBuild is on the PATH, so the absolute path is not needed:
+
+```
+cmake -G"Visual Studio 15" -DCMAKE_MAKE_PROGRAM:FILEPATH=MSBuild ../src
+```
+
+Don't forget to pass the "/m" flag (after "--") as shown above when building.
+
+To request verbose build information, use the "/v:diag" flag:
+
+```
+cmake --build . --target Release -- /m /v:diag
+```
+
+Here is a sample bash function to make building easier within Cygwin:
+
+```
+function build {
+    config=$(grep ^CMAKE_CONFIGURATION_TYPES:S CMakeCache.txt | sed 's/^.*=//')
+    /usr/bin/time cmake --build . --config $config -- /m
+}
+```
+
+## Using Unix Makefiles On Windows For Parallel Builds
+
+On Windows you can target **Unix Makefiles** in order to use GNU make and
+build in parallel (NMake does not support parallel builds; see also issue
+71).  However, note that Visual Studio generators support parallel builds
+and are faster than using Cygwin make.
+
+If you have gcc installed you will have to explicitly tell the CMake
+generator to prefer cl:
+
+```
+cmake -G"Unix Makefiles" -DCMAKE_GENERATOR_CC=cl -DCMAKE_GENERATOR_CXX=cl ..
+```
+
+If you see this error from cygwin make:
+```
+*** target pattern contains no `%'.
+```
+
+Or during cmake configuration:
+```
+Detecting C compiler ABI info - failed
+```
+
+That may not fail the configuration and you may see a later fatal failure:
+```
+if had incorrect arguments: ${sizeof_void} EQUAL 8 (Unknown arguments specified).
+```
+
+Then you need to switch to a version of make that supports colons in paths.
+One such version is 3.80, a copy of which (compiled for cygwin) is
+available in the make/ directory.  I recommend copying it into your
+/usr/local/bin directory and either putting /usr/local/bin ahead of
+/usr/bin on your `PATH` or passing it to CMake explicitly:
+
+```
+cmake -DCMAKE_MAKE_PROGRAM=$SYSTEMDRIVE/cygwin/usr/local/bin/make.exe
+```
+
+If you have a very recent cygwin installation you may need to put
+cygintl-2.dll from the make/ directory into /usr/local/bin as well.
+
+Now you can build in parallel, which reduces build time:
+
+```
+make -j6 install
+```
+
+Build time on Windows can be further improved by disabling progress and
+status messages (see [issue 71](https://github.com/DynamoRIO/dynamorio/issues#issue/71)). To do so, use `-DCMAKE_RULE_MESSAGES=OFF`.
+
+See [issue 71](https://github.com/DynamoRIO/dynamorio/issues#issue/71) for some representative performance numbers, and for
+instructions on building with Mingw and the MSYS shell, which is a little
+faster than building under Cygwin.
+
+Note that with more recent Visual Studio versions and machines with more
+than two cores we have seen some strange build errors that may be pdb
+creation races.  We recommend using the Visual Studio generator instead if
+you are hitting these problems.
+
+\section sec_drgui Building the Qt DrGUI extension
+
+Simply install Qt 5.x and ensure that the architecture and compiler match what you will be using to build DynamoRIO.  E.g., on Fedora:
+```
+yum -y install qt5-qtbase.i686 qt5-qtbase-devel.i686
+```
+
+On Ubuntu, Qt 5 may not be in the standard repositories. You can install the 64-bit version with:
+```
+apt-add-repository ppa:ubuntu-sdk-team/ppa
+apt-get install -y qtbase5-dev qtbase5-dbg
+```
+
+If Qt is installed in a non-standard location, set the Qt5Widgets_DIR cmake variable to point to the directory containing Qt5WidgetsConfig.cmake.  E.g.:
+```
+cmake -DQt5Widgets_DIR=/opt/Qt5.0.2/5.0.2/gcc/lib/cmake/Qt5Widgets/
+```
+
+
+
+ ****************************************************************************
+ */

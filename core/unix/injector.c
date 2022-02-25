@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,7 +47,7 @@
 #endif
 #include "instrument.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "disassemble.h"
 #include "os_private.h"
@@ -78,6 +78,7 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <time.h>
 #ifdef MACOS
 #    include <spawn.h>
 #    include <crt_externs.h> /* _NSGetEnviron() */
@@ -144,6 +145,8 @@ typedef struct _dr_inject_info_t {
     bool exited;
     int exitcode;
     bool no_emulate_brk; /* is -no_emulate_brk in the option string? */
+
+    bool wait_syscall; /* valid iff -attach, handlle blocking syscalls */
 
 #ifdef MACOS
     bool spawn_32bit;
@@ -567,6 +570,22 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 }
 
 DR_EXPORT
+int
+dr_inject_prepare_to_attach(process_id_t pid, const char *appname, bool wait_syscall,
+                            void **data OUT)
+{
+    dr_inject_info_t *info = create_inject_info(appname, NULL);
+    int errcode = 0;
+    *data = info;
+    info->pid = pid;
+    info->pipe_fd = 0; /* No pipe. */
+    info->exec_self = false;
+    info->method = INJECT_PTRACE;
+    info->wait_syscall = wait_syscall;
+    return errcode;
+}
+
+DR_EXPORT
 bool
 dr_inject_prepare_to_ptrace(void *data)
 {
@@ -742,7 +761,6 @@ bool
 dr_inject_wait_for_child(void *data, uint64 timeout_millis)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
-    pid_t res;
 
     timeout_expired = false;
     if (timeout_millis > 0) {
@@ -763,12 +781,34 @@ dr_inject_wait_for_child(void *data, uint64 timeout_millis)
         setitimer(ITIMER_REAL, &timer, NULL);
     }
 
-    do {
-        res = waitpid(info->pid, &info->exitcode, 0);
-    } while (res != info->pid && res != -1 &&
-             /* The signal handler sets this and makes waitpid return EINTR. */
-             !timeout_expired);
-    info->exited = (res == info->pid);
+    if (info->method != INJECT_PTRACE) {
+        pid_t res;
+        do {
+            res = waitpid(info->pid, &info->exitcode, 0);
+        } while (res != info->pid && res != -1 &&
+                 /* The signal handler sets this and makes waitpid return EINTR. */
+                 !timeout_expired);
+        info->exited = (res == info->pid);
+    } else {
+        bool exit = false;
+        struct timespec t;
+        t.tv_sec = 1;
+        t.tv_nsec = 0L;
+        do {
+            /* At this point dr_inject_process_run has called PTRACE_DETACH
+             * For non-child target, we should poll for its exit.
+             * There is no standard way of getting non-child target process' exit code.
+             */
+            if (kill(info->pid, 0) == -1) {
+                if (errno == ESRCH)
+                    exit = true;
+            }
+            /* sleep might not be implemented using nanosleep */
+            nanosleep(&t, 0);
+        } while (!exit && !timeout_expired);
+        info->exitcode = 0;
+        info->exited = (exit != false);
+    }
     return info->exited;
 }
 
@@ -777,7 +817,7 @@ int
 dr_inject_process_exit(void *data, bool terminate)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
-    int status;
+    int status = 0;
     if (info->exited) {
         /* If it already exited when we waited on it above, then we *cannot*
          * wait on it again or try to kill it, or we might target some new
@@ -798,15 +838,25 @@ dr_inject_process_exit(void *data, bool terminate)
         }
         /* Do a blocking wait to get the real status code.  This shouldn't take
          * long since we just sent an unblockable SIGKILL.
+         * Return immediately if we are under INJECT_PTRACE because we can't wait
+         * for detached non-child process.
          */
-        waitpid(info->pid, &status, 0);
+        if (info->method != INJECT_PTRACE)
+            waitpid(info->pid, &status, 0);
+        else
+            status = WEXITSTATUS(info->exitcode);
     } else {
         /* Use WNOHANG to match our Windows semantics, which does not block if
          * the child hasn't exited.  The status returned is probably not useful,
          * but the caller shouldn't look at it if they haven't waited for the
          * app to terminate.
+         * Return immediately if we are under INJECT_PTRACE because we can't wait
+         * for detached non-child process.
          */
-        waitpid(info->pid, &status, WNOHANG);
+        if (info->method != INJECT_PTRACE)
+            waitpid(info->pid, &status, WNOHANG);
+        else
+            status = WEXITSTATUS(info->exitcode);
     }
     if (info->pipe_fd != 0)
         close(info->pipe_fd);
@@ -821,12 +871,13 @@ dr_inject_process_exit(void *data, bool terminate)
 
 enum { MAX_SHELL_CODE = 4096 };
 
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define USER_REGS_TYPE user_regs_struct
 #        define REG_PC_FIELD IF_X64_ELSE(rip, eip)
 #        define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
+#        define REG_DI_FIELD IF_X64_ELSE(rdi, edi)
 #        define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
-#    elif defined(ARM)
+#    elif defined(DR_HOST_ARM)
 /* On AArch32, glibc uses user_regs instead of user_regs_struct.
  * struct user_regs {
  *   unsigned long int uregs[18];
@@ -840,7 +891,7 @@ enum { MAX_SHELL_CODE = 4096 };
 #        define REG_SP_FIELD uregs[13]    /* r13 in user_regs */
 /* On ARM, all reg args are also reg retvals. */
 #        define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
-#    elif defined(AARCH64)
+#    elif defined(DR_HOST_AARCH64)
 #        define USER_REGS_TYPE user_pt_regs
 #        define REG_PC_FIELD pc
 #        define REG_SP_FIELD sp
@@ -850,6 +901,14 @@ enum { MAX_SHELL_CODE = 4096 };
 enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 
 #    define APP instrlist_append
+#    define PRE instrlist_prepend
+
+#    ifdef X86
+/* X86s are little endian */
+enum { SYSCALL_AS_SHORT = 0x050f, SYSENTER_AS_SHORT = 0x340f, INT80_AS_SHORT = 0x80cd };
+#    endif
+
+enum { ERESTARTSYS = 512, ERESTARTNOINTR = 513, ERESTARTNOHAND = 514 };
 
 static bool op_exec_gdb = false;
 
@@ -876,7 +935,7 @@ static const enum_name_pair_t pt_req_map[] = { { PTRACE_TRACEME, "PTRACE_TRACEME
                                                { PTRACE_CONT, "PTRACE_CONT" },
                                                { PTRACE_KILL, "PTRACE_KILL" },
                                                { PTRACE_SINGLESTEP, "PTRACE_SINGLESTEP" },
-#    ifndef AARCH64
+#    ifndef DR_HOST_AARCH64
                                                { PTRACE_GETREGS, "PTRACE_GETREGS" },
                                                { PTRACE_SETREGS, "PTRACE_SETREGS" },
                                                { PTRACE_GETFPREGS, "PTRACE_GETFPREGS" },
@@ -1033,7 +1092,7 @@ gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds, opnd_t *ar
 #        ifdef X64
     APP(ilist, INSTR_CREATE_syscall(dc));
 #        else
-    APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((char)0x80)));
+    APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((sbyte)0x80)));
 #        endif
 #    else
     /* FIXME i#1551: NYI on ARM */
@@ -1111,6 +1170,20 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     long r;
     ptr_int_t failure = -EUNATCH; /* Unlikely to be used by most syscalls. */
 
+    /* For cases where we are not actally getting blocked by a syscall
+     * and wait_syscall is not specified
+     * need to pad nop everytime we restart process with PTRACE_CONT variations
+     * number_of_null_bytes = sizeof(syscall_instr) / sizeof(nop_instr)
+     */
+    uint nop_times = 0;
+#    ifdef X86
+    nop_times = SYSCALL_LENGTH;
+#    endif
+    int i;
+    for (i = 0; i < nop_times; i++) {
+        PRE(ilist, XINST_CREATE_nop(dc));
+    }
+
     /* Get register state before executing the shellcode. */
     r = our_ptrace_getregs(info->pid, &regs);
     if (r < 0)
@@ -1125,12 +1198,10 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     APP(ilist, XINST_CREATE_debug_instr(dc));
     if (verbose) {
         fprintf(stderr, "injecting code:\n");
-#    if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
         /* XXX: This disas call aborts on our raw bytes instructions.  Can we
          * teach DR's disassembler to avoid those instrs?
          */
         instrlist_disassemble(dc, pc, ilist, STDERR);
-#    endif
     }
 
     /* Encode ilist into shellcode. */
@@ -1146,8 +1217,20 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
         !ptrace_write_memory(info->pid, pc, shellcode, code_size))
         return failure;
 
-    /* Run it! */
-    our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc);
+    /* Run it!
+     * While under Ptrace during blocking syscall, upon continuing
+     * execution, tracee PC will be set back to syscall instruction
+     * PC = PC - sizeof(syscall). We have to add offsets to compensate.
+     */
+    if (!info->wait_syscall) {
+        uint offset = 0;
+#    ifdef X86
+        offset = SYSCALL_LENGTH;
+#    endif
+        our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc + offset);
+    } else {
+        our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc);
+    }
     if (!continue_until_break(info->pid))
         return failure;
 
@@ -1290,6 +1373,53 @@ injectee_prot(byte *addr, size_t size, uint prot /*MEMPROT_*/)
     return true;
 }
 
+static void *
+injectee_memset(void *dst, int val, size_t size)
+{
+    ptr_int_t *dst_addr = dst;
+    ptr_int_t src_val;
+    long r;
+    if (!ALIGNED(dst_addr, sizeof(ptr_int_t))) {
+        dst_addr = (ptr_int_t *)ALIGN_BACKWARD(dst_addr, sizeof(ptr_int_t));
+        r = our_ptrace(PTRACE_PEEKDATA, injector_info->pid, dst_addr, &src_val);
+        if (r < 0)
+            return NULL;
+        /* Set the top bytes to val. */
+        uint offs = (byte *)dst - (byte *)dst_addr;
+        byte *dst_byte = (byte *)&src_val;
+        dst_byte += offs;
+        for (int i = 0; i < sizeof(ptr_int_t) - offs; i++, dst_byte++)
+            *dst_byte = val;
+        r = our_ptrace(PTRACE_POKEDATA, injector_info->pid, dst_addr, (void *)src_val);
+        if (r < 0)
+            return NULL;
+        dst_addr++;
+    }
+    src_val = 0;
+    for (uint i = 0; i < sizeof(ptr_int_t); i++)
+        src_val |= val << 8 * i;
+    for (; dst_addr + 1 < (ptr_int_t *)((byte *)dst + size); dst_addr++) {
+        r = our_ptrace(PTRACE_POKEDATA, injector_info->pid, dst_addr, (void *)src_val);
+        if (r < 0)
+            return NULL;
+    }
+    if (dst_addr + 1 > (ptr_int_t *)((byte *)dst + size)) {
+        r = our_ptrace(PTRACE_PEEKDATA, injector_info->pid, dst_addr, &src_val);
+        if (r < 0)
+            return NULL;
+        /* Set the bottom bytes to val. */
+        int offs = (byte *)(dst_addr + 1) - ((byte *)dst + size);
+        byte *dst_byte = (byte *)&src_val;
+        for (int i = 0; i < sizeof(ptr_int_t) - offs; i++, dst_byte++)
+            *dst_byte = val;
+        r = our_ptrace(PTRACE_POKEDATA, injector_info->pid, dst_addr, (void *)src_val);
+        if (r < 0)
+            return NULL;
+        dst_addr++;
+    }
+    return dst;
+}
+
 /* Convert a user_regs_struct used by the ptrace API into DR's priv_mcontext_t
  * struct.
  */
@@ -1394,6 +1524,64 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     ASSERT(false && "failed to exec gdb?");
 }
 
+/* singlestep traced process
+ */
+static bool
+ptrace_singlestep(process_id_t pid)
+{
+    if (our_ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL) < 0)
+        return false;
+
+    if (!wait_until_signal(pid, SIGTRAP))
+        return false;
+
+    return true;
+}
+
+/* Check if prev bytes form a syscall.
+ * For X86, we can't be sure if previous bytes are actually a syscall due to
+ * variations in instruction size. Do additional checks if that is the case.
+ */
+#    ifdef X86
+/* Ptrace attach is only for X86 for now.
+ * ifdef above to statisfies compiler complains.
+ * These ifdef should be removed after we support new architecture.
+ */
+static bool
+is_prev_bytes_syscall(process_id_t pid, app_pc src_pc)
+{
+#        ifdef X86
+    /* for X86 is concerned, SYSCALL_LENGTH == INT_LENGTH == SYSENTER_LENGTH */
+    app_pc syscall_pc = src_pc - SYSCALL_LENGTH;
+    /* ptrace_read_memory reads by multiple of sizeof(ptr_int_t) */
+    byte instr_bytes[sizeof(ptr_int_t)];
+    ptrace_read_memory(pid, instr_bytes, syscall_pc, sizeof(ptr_int_t));
+#            ifdef X64
+    if (*(unsigned short *)instr_bytes == SYSCALL_AS_SHORT)
+        return true;
+#            else
+    if (*(unsigned short *)instr_bytes == SYSENTER_AS_SHORT ||
+        *(unsigned short *)instr_bytes == INT80_AS_SHORT)
+        return true;
+#            endif
+#        endif /* X86 */
+    return false;
+}
+#    endif /* X86 */
+
+/* i#38: Quick explaination for PC offsetting and NOP sleds:
+ * If ptrace happens in middle of blocking syscalls, tracer will get PC address at
+ * the next instruction after syscall, but will set it back to previous syscall
+ * instruction by subtracting PC (PC -= (byte)sizeof(syscall)).
+ * We can then issue PTRACE_SINGLESTEP to wait for syscall completion and
+ * get out of syscall context to get normal ptrace PC behaviours (wait_syscall flag).
+ * Else we start injection immidiately. This cause PC to subtract sizeof(syscall) bytes
+ * every time we continue for the rest of ptrace session until PTRACE_DETACH.
+ * To compensate we set PC += (byte)sizeof(syscall) before PTRACE_CONTs
+ * and add nop sleds before our shellcodes and DR entry point.
+ * Errno masking also required to minimize app breakage.
+ * Detailed infomations in issue page.
+ */
 bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path)
 {
@@ -1428,6 +1616,14 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
             return false;
         if (!continue_until_break(info->pid))
             return false;
+    } else {
+        if (info->wait_syscall) {
+            /* We are attached to target process, singlestep to make sure not returning
+             * from blocked syscall.
+             */
+            if (!ptrace_singlestep(info->pid))
+                return false;
+        }
     }
 
     /* Open libdynamorio.so as readonly in the child. */
@@ -1451,9 +1647,9 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injector_info = info;
     injector_dr_fd = loader.fd;
     injectee_dr_fd = dr_fd;
-    injected_base = elf_loader_map_phdrs(&loader, true /*fixed*/, injectee_map_file,
-                                         injectee_unmap, injectee_prot, NULL,
-                                         MODLOAD_SEPARATE_PROCESS /*!reachable*/);
+    injected_base = elf_loader_map_phdrs(
+        &loader, true /*fixed*/, injectee_map_file, injectee_unmap, injectee_prot, NULL,
+        injectee_memset, MODLOAD_SEPARATE_PROCESS /*!reachable*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");
@@ -1464,9 +1660,38 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * XXX: Actually look up an export.
      */
     injected_dr_start = (app_pc)loader.ehdr->e_entry + loader.load_delta;
+
+    /* While under Ptrace during blocking syscall, upon continuing
+     * execution, tracee PC will be set back to syscall instruction
+     * PC = PC - sizeof(syscall). We have to add offsets to compensate.
+     */
+    if (!info->wait_syscall) {
+        uint offset = 0;
+#    ifdef X86
+        offset = SYSCALL_LENGTH;
+#    endif
+        injected_dr_start += offset;
+    }
     elf_loader_destroy(&loader);
 
     our_ptrace_getregs(info->pid, &regs);
+
+    /* Hijacking errno value
+     * After attaching with ptrace during blocking syscall,
+     * Errno value is leaked from kernel handling
+     * Mask that value into EINTR
+     */
+    if (!info->wait_syscall) {
+#    ifdef X86
+        if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD)) {
+            /* prev bytes might can match by accident, so check return value */
+            if (regs.REG_RETVAL_FIELD == -ERESTARTSYS ||
+                regs.REG_RETVAL_FIELD == -ERESTARTNOINTR ||
+                regs.REG_RETVAL_FIELD == -ERESTARTNOHAND)
+                regs.REG_RETVAL_FIELD = -EINTR;
+        }
+#    endif
+    }
 
     /* Create an injection context and "push" it onto the stack of the injectee.
      * If you need to pass more info to the injected child process, this is a
@@ -1490,6 +1715,11 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     ptrace_write_memory(info->pid, (void *)regs.REG_SP_FIELD, &args, sizeof(args));
 #    else
 #        error "depends on arch stack growth direction"
+#    endif
+
+#    ifdef X86
+    /* _start for x86 assumes xdi starts out 0.  Otherwise relocation is skipped. */
+    regs.REG_DI_FIELD = 0;
 #    endif
 
     regs.REG_PC_FIELD = (ptr_int_t)injected_dr_start;

@@ -121,6 +121,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
     } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
         counters->tid = memref.exit.tid;
+    } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
+        counters->icache_flushes++;
+    } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {
+        counters->dcache_flushes++;
     }
     return true;
 }
@@ -166,6 +170,8 @@ basic_counts_t::print_results()
     std::cerr << std::setw(12) << total.prefetches << " total prefetches\n";
     std::cerr << std::setw(12) << total.loads << " total data loads\n";
     std::cerr << std::setw(12) << total.stores << " total data stores\n";
+    std::cerr << std::setw(12) << total.icache_flushes << " total icache flushes\n";
+    std::cerr << std::setw(12) << total.dcache_flushes << " total dcache flushes\n";
     std::cerr << std::setw(12) << shard_map_.size() << " total threads\n";
     std::cerr << std::setw(12) << total.sched_markers << " total scheduling markers\n";
     std::cerr << std::setw(12) << total.xfer_markers << " total transfer markers\n";
@@ -193,6 +199,10 @@ basic_counts_t::print_results()
         std::cerr << std::setw(12) << keyvals.second->prefetches << " prefetches\n";
         std::cerr << std::setw(12) << keyvals.second->loads << " data loads\n";
         std::cerr << std::setw(12) << keyvals.second->stores << " data stores\n";
+        std::cerr << std::setw(12) << keyvals.second->icache_flushes
+                  << " icache flushes\n";
+        std::cerr << std::setw(12) << keyvals.second->dcache_flushes
+                  << " dcache flushes\n";
         std::cerr << std::setw(12) << keyvals.second->sched_markers
                   << " scheduling markers\n";
         std::cerr << std::setw(12) << keyvals.second->xfer_markers

@@ -52,7 +52,7 @@ extern "C" {
 /**
  * \addtogroup drcontainers Container Data Structures
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** The type of hash key */
 typedef enum {
@@ -360,7 +360,7 @@ hashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
                     size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
                     bool (*process_payload)(void *key, void *payload, ptr_int_t shift));
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

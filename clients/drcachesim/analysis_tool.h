@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -90,8 +90,8 @@ public:
      * error message.
      */
     analysis_tool_t()
-        : success_(true){};
-    virtual ~analysis_tool_t(){}; /**< Destructor. */
+        : success_(true) {};
+    virtual ~analysis_tool_t() {}; /**< Destructor. */
     /**
      * Tools are encouraged to perform any initialization that might fail here rather
      * than in the constructor.  On an error, this returns an error string.  On success,

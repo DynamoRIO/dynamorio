@@ -79,6 +79,8 @@ protected:
             func_arg_markers += rhs.func_arg_markers;
             func_retval_markers += rhs.func_retval_markers;
             other_markers += rhs.other_markers;
+            icache_flushes += rhs.icache_flushes;
+            dcache_flushes += rhs.dcache_flushes;
             for (const uint64_t addr : rhs.unique_pc_addrs) {
                 unique_pc_addrs.insert(addr);
             }
@@ -97,6 +99,8 @@ protected:
         int_least64_t func_arg_markers = 0;
         int_least64_t func_retval_markers = 0;
         int_least64_t other_markers = 0;
+        int_least64_t icache_flushes = 0;
+        int_least64_t dcache_flushes = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
         std::string error;
     };

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,6 +49,11 @@
  */
 static int buckets[DR_WHERE_LAST];
 
+/* Currently only written to but we may add checks on this once i#4669 failures
+ * are fixed.
+ */
+static int xl8_failures;
+
 /* test PR 368737: add client timer support */
 static void
 event_timer(void *drcontext, dr_mcontext_t *mcontext)
@@ -69,6 +74,12 @@ event_sample(void *drcontext, dr_mcontext_t *mcontext)
 #if VERBOSE
     dr_fprintf(STDERR, "sample: %p %d %p\n", mcontext->pc, whereami, tag);
 #endif
+    if (whereami == DR_WHERE_FCACHE) {
+        /* Ask for translation to test i#4669. */
+        app_pc xl8 = dr_app_pc_from_cache_pc(mcontext->pc);
+        if (xl8 == NULL)
+            ++xl8_failures;
+    }
 }
 
 static void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -109,7 +109,6 @@ signal_event(void *dcontext, dr_siginfo_t *info)
     } else if (info->sig == SIGTERM) {
         return DR_SIGNAL_SUPPRESS;
     } else if (info->sig == SIGUSR2) {
-        ASSERT(redirect_tag != NULL);
         info->mcontext->pc = redirect_tag;
         return DR_SIGNAL_REDIRECT;
     } else if (info->sig == SIGSEGV) {
@@ -122,7 +121,7 @@ signal_event(void *dcontext, dr_siginfo_t *info)
             /* test mcontext changes on delivery.
              * fix up to avoid crash on re-execution.
              */
-            info->mcontext->xax = info->mcontext->xcx;
+            info->mcontext->IF_X86_ELSE(xax, r0) = info->mcontext->IF_X86_ELSE(xcx, r1);
             return DR_SIGNAL_DELIVER;
         }
     } else if (info->sig == SIGCHLD) {
@@ -202,20 +201,6 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     instr_t *instr, *next_instr, *next_next_instr;
     if (child_alive == NULL)
         test_syscall_auto_restart();
-    /* Look for 3 nops to locate redirection target */
-    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next(instr);
-        if (next_instr != NULL)
-            next_next_instr = instr_get_next(next_instr);
-        else
-            next_next_instr = NULL;
-        if (instr_is_nop(instr) && next_instr != NULL && instr_is_nop(next_instr) &&
-            next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
-
-            redirect_tag = tag;
-            break;
-        }
-    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -226,4 +211,10 @@ dr_init(client_id_t id)
     dr_register_bb_event(bb_event);
     dr_register_signal_event(signal_event);
     dr_register_kernel_xfer_event(kernel_xfer_event);
+    module_data_t *exe = dr_get_main_module();
+    DR_ASSERT(exe != NULL);
+    redirect_tag = (app_pc)dr_get_proc_address(exe->handle, "hook_and_long_jump");
+    /* The following check may fail if -rdynamic is not used. */
+    ASSERT(redirect_tag != NULL);
+    dr_free_module_data(exe);
 }

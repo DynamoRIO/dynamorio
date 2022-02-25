@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -340,6 +340,8 @@ kstats_dump_stack(dcontext_t *dcontext)
 {
     uint i;
     LOG(THREAD, 1, LOG_STATS, "Thread KSTAT stack:\n");
+    if (dcontext->thread_kstats == NULL)
+        return;
     for (i = dcontext->thread_kstats->stack_kstats.depth - 1; i > 0; i--) {
         LOG(THREAD, 1, LOG_STATS, "[%d] " PIFX " %s\n", i,
             &dcontext->thread_kstats->stack_kstats.node[i],
@@ -365,14 +367,13 @@ kstat_thread_exit(dcontext_t *dcontext)
     kstat_merge(&process_kstats, &old_thread_kstats->vars_kstats);
     d_r_mutex_unlock(&process_kstats_lock);
 
-#    ifdef DEBUG
-    /* for non-debug we do fast exit path and don't free local heap */
-    /* no clean up needed */
-    dcontext->thread_kstats = NULL; /* disable thread kstats before freeing memory */
-    HEAP_TYPE_FREE(dcontext, old_thread_kstats, thread_kstats_t, ACCT_STATS, UNPROTECTED);
-#    else
+#    ifndef DEBUG
     close_log_file(dcontext->thread_kstats->outfile_kstats);
-#    endif /* DEBUG */
+#    endif
+    /* Disable kstats before freeing memory to avoid use-after-free on free path. */
+    dcontext->thread_kstats = NULL;
+    /* We need to free kstats even in non-debug b/c unprot local heap is global. */
+    HEAP_TYPE_FREE(dcontext, old_thread_kstats, thread_kstats_t, ACCT_STATS, UNPROTECTED);
 }
 
 #endif /* KSTATS */

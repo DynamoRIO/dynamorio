@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 #    define DR_FAST_IR 1
 #endif
 
-/* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
+/* Uses the DR API, using DR as a standalone library, rather than
  * being a client library working with DR on a target program.
  *
  * To run, you need to put dynamorio.dll into either the current directory
@@ -450,7 +450,7 @@ test_all_opcodes_4(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part A: Split in half to avoid a VS2013 compiler bug i#3992.
+/* Part A: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
 static void
@@ -461,7 +461,7 @@ test_all_opcodes_4_avx512_evex_mask_A(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part B: Split in half to avoid a VS2013 compiler bug i#3992.
+/* Part B: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
 static void
@@ -472,7 +472,18 @@ test_all_opcodes_4_avx512_evex_mask_B(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part A: Split in half to avoid a VS2013 compiler bug i#3992. */
+/* Part C: Split up to avoid VS running out of memory (i#3992,i#4610).
+ * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
+ */
+static void
+test_all_opcodes_4_avx512_evex_mask_C(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_C.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+/* Part A: Split up to avoid VS running out of memory (i#3992,i#4610). */
 static void
 test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
 {
@@ -483,11 +494,22 @@ test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part B: Split in half to avoid a VS2013 compiler bug i#3992. */
+/* Part B: Split up to avoid VS running out of memory (i#3992,i#4610). */
 static void
 test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_B.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
+#    undef INCLUDE_NAME
+}
+
+/* Part C: Split up to avoid VS running out of memory (i#3992,i#4610). */
+static void
+test_all_opcodes_4_avx512_evex_mask_scaled_disp8_C(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_C.h"
     memarg_disp = EVEX_SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
     memarg_disp = DEFAULT_DISP;
@@ -864,6 +886,59 @@ test_cti_prefixes(void *dc)
     disassemble_with_info(dc, buf, STDOUT, true, true);
 #endif
     ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[6]);
+
+#if defined(DEBUG) && defined(BUILD_TESTS)
+    /* Issue 4652, a c5 vex encoding where the second byte is c4
+     *   c5 c4 54 2d 68 1d 0c 0a vandps 0xa0c1d68(%rip),%ymm7,%ymm5
+     */
+    buf[0] = 0xc5;
+    buf[1] = 0xc4;
+    buf[2] = 0x54;
+    buf[3] = 0x2d;
+    buf[4] = 0x68;
+    buf[5] = 0x1d;
+    buf[6] = 0x0c;
+    buf[7] = 0x0a;
+
+#    if VERBOSE
+    disassemble_with_info(dc, buf, STDOUT, true, true);
+#    endif
+    instr_t instr;
+
+    instr_init(dc, &instr);
+
+    ASSERT(decode_cti(dc, buf, &instr) == (byte *)&buf[8]);
+
+    instr_free(dc, &instr);
+#endif
+}
+
+static void
+test_cti_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
+{
+    instr_t *instr = instr_create(dc);
+    byte *end = decode(dc, data, instr);
+    ASSERT(end == data + len);
+    ASSERT(instr_get_opcode(instr) == opcode);
+    ASSERT(instr_is_predicated(instr));
+    ASSERT(instr_get_predicate(instr) == pred);
+    instr_destroy(dc, instr);
+}
+
+static void
+test_cti_predicates(void *dc)
+{
+    byte data[][16] = {
+        // 7e 10                jle    10
+        { 0x7e, 0x10 },
+        // 0f 84 99 00 00 00    je     403e08
+        { 0x0f, 0x84, 0x99, 0x00, 0x00, 0x00 },
+        // 0f 44 c2             cmovbe %edx,%eax
+        { 0x0f, 0x46, 0xc2 },
+    };
+    test_cti_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
+    test_cti_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
+    test_cti_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
 }
 
 static void
@@ -951,6 +1026,21 @@ test_modrm16(void *dc)
     test_modrm16_helper(dc, DR_REG_DI, DR_REG_NULL, 0x80, 5);
     test_modrm16_helper(dc, DR_REG_BP, DR_REG_NULL, 0x80, 5);
     test_modrm16_helper(dc, DR_REG_BX, DR_REG_NULL, 0x80, 5);
+}
+
+/* Just check that decoding fails silently on invalid data. */
+static void
+test_modrm_invalid(void *dc)
+{
+/* Decoding succeeds on 32-bits. */
+#ifdef X64
+    /* Fuzzer-generated random data (i#5320). */
+    byte data[16] = { 0x62, 0x03, 0xa5, 0x62, 0x03, 0xa5 };
+    instr_t *instr = instr_create(dc);
+    byte *end = decode(dc, data, instr);
+    ASSERT(end == NULL);
+    instr_destroy(dc, instr);
+#endif
 }
 
 /* PR 215143: auto-magically add size prefixes */
@@ -1230,6 +1320,31 @@ test_x64_inc(void *dc)
 
     instr = INSTR_CREATE_inc(dc, opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 2);
+}
+
+static void
+test_x64_vmovq(void *dc)
+{
+    /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]
+     * 62 61 fe 08 7e 0c 0a vmovq  (%rdx,%rcx)[8byte] -> %xmm25
+     */
+    byte *pc;
+    const byte b1[] = { 0x62, 0x61, 0xfd, 0x08, 0xd6, 0x0c, 0x0a, 0x00 };
+    const byte b2[] = { 0x62, 0x61, 0xfe, 0x08, 0x7e, 0x0c, 0x0a, 0x00 };
+    char dbuf[512];
+    int len;
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b1[7]);
+    ASSERT(strcmp(dbuf, "vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]\n") == 0);
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b2[7]);
+    ASSERT(strcmp(dbuf, "vmovq  (%rdx,%rcx)[8byte] -> %xmm25\n") == 0);
 }
 #endif
 
@@ -1993,62 +2108,60 @@ test_predication(void *dc)
     instr_destroy(dc, instr);
 }
 
+/* Destroys instr when done.  Differs from test_instr_decode() by not having raw
+ * bytes available.
+ */
+static void
+test_encode_matches_decode(void *dc, instr_t *instr)
+{
+    byte *pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
+    instr_t *ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(instr, ins2));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, ins2);
+}
+
 static void
 test_xinst_create(void *dc)
 {
-    byte *pc;
     reg_id_t reg = DR_REG_XDX;
-    instr_t *ins1, *ins2;
     /* load 1 byte zextend */
-    ins1 = XINST_CREATE_load_1byte_zext4(
-        dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_1byte_zext4(
+            dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1)));
     /* load 1 byte */
-    ins1 = XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
-                                   MEMARG(OPSZ_1));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
+                                MEMARG(OPSZ_1)));
     /* load 2 bytes */
-    ins1 = XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
-                                    MEMARG(OPSZ_2));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
+                                 MEMARG(OPSZ_2)));
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
-                                    opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
+                                 opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1))));
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
-                                     opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
+                                  opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2))));
+    /* indirect call through a register */
+    test_encode_matches_decode(dc, XINST_CREATE_call_reg(dc, REGARG(XBX)));
+
+    /* Variations of adding. */
+    test_encode_matches_decode(dc, XINST_CREATE_add(dc, REGARG(XBX), IMMARG(OPSZ_4)));
+    test_encode_matches_decode(dc, XINST_CREATE_add(dc, REGARG(XSI), REGARG(XDI)));
+    test_encode_matches_decode(
+        dc, XINST_CREATE_add_2src(dc, REGARG(XBX), REGARG(XAX), IMMARG(OPSZ_4)));
+    test_encode_matches_decode(
+        dc, XINST_CREATE_add_2src(dc, REGARG(XSI), REGARG(XDI), REGARG(XBP)));
 }
 
 static void
@@ -2290,6 +2403,111 @@ test_noalloc(void *dcontext)
      */
 }
 
+static void
+test_opnd(void *dc)
+{
+    opnd_t op = opnd_create_reg(DR_REG_EAX);
+    ASSERT(opnd_get_reg(op) == DR_REG_EAX);
+    bool found = opnd_replace_reg(&op, DR_REG_AX, DR_REG_CX);
+    ASSERT(!found);
+    found = opnd_replace_reg_resize(&op, DR_REG_AX, DR_REG_CX);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(op) == DR_REG_ECX);
+
+    op = opnd_create_reg(DR_REG_AL);
+    ASSERT(opnd_get_reg(op) == DR_REG_AL);
+    found = opnd_replace_reg(&op, DR_REG_XAX, DR_REG_XCX);
+    ASSERT(!found);
+    found = opnd_replace_reg_resize(&op, DR_REG_XAX, DR_REG_XCX);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(op) == DR_REG_CL);
+
+    op = opnd_create_far_base_disp_ex(DR_SEG_DS, DR_REG_XAX, DR_REG_XCX, 2, 42, OPSZ_PTR,
+                                      true, true, true);
+    ASSERT(opnd_get_base(op) == DR_REG_XAX);
+    ASSERT(opnd_get_index(op) == DR_REG_XCX);
+    ASSERT(opnd_get_scale(op) == 2);
+    ASSERT(opnd_get_disp(op) == 42);
+    ASSERT(opnd_is_disp_encode_zero(op));
+    ASSERT(opnd_is_disp_force_full(op));
+    ASSERT(opnd_is_disp_short_addr(op));
+
+    /* Ensure extra fields are preserved by opnd_replace_reg*(). */
+    found = opnd_replace_reg(&op, DR_REG_AX, DR_REG_DX);
+    ASSERT(!found);
+    found = opnd_replace_reg_resize(&op, DR_REG_AX, DR_REG_DX);
+    ASSERT(found);
+    ASSERT(opnd_get_base(op) == DR_REG_XDX);
+    ASSERT(opnd_get_index(op) == DR_REG_XCX);
+    ASSERT(opnd_get_scale(op) == 2);
+    ASSERT(opnd_get_disp(op) == 42);
+    ASSERT(opnd_is_disp_encode_zero(op));
+    ASSERT(opnd_is_disp_force_full(op));
+    ASSERT(opnd_is_disp_short_addr(op));
+
+    instr_t *instr = XINST_CREATE_load(
+        /* Test the trickiest conversion: high 8-bit. */
+        dc, opnd_create_reg(DR_REG_AH),
+        opnd_create_far_base_disp_ex(DR_SEG_DS, DR_REG_XCX, DR_REG_XAX, 2, 42, OPSZ_PTR,
+                                     true, true, true));
+    found = instr_replace_reg_resize(instr, DR_REG_AX, DR_REG_DX);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_DH);
+    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == DR_REG_XCX);
+    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == DR_REG_XDX);
+    ASSERT(opnd_get_scale(instr_get_src(instr, 0)) == 2);
+    ASSERT(opnd_get_disp(instr_get_src(instr, 0)) == 42);
+    ASSERT(opnd_is_disp_encode_zero(instr_get_src(instr, 0)));
+    ASSERT(opnd_is_disp_force_full(instr_get_src(instr, 0)));
+    ASSERT(opnd_is_disp_short_addr(instr_get_src(instr, 0)));
+    instr_destroy(dc, instr);
+
+    /* XXX: test other routines like opnd_defines_use() */
+}
+
+static void
+test_simd_zeroes_upper(void *dc)
+{
+    instr_t *instr;
+
+    instr =
+        INSTR_CREATE_pxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(!instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM0),
+                           opnd_create_reg(DR_REG_XMM0));
+    ASSERT(instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_YMM0), opnd_create_reg(DR_REG_YMM0),
+                           opnd_create_reg(DR_REG_YMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_ZMM0), opnd_create_reg(DR_REG_ZMM0),
+                           opnd_create_reg(DR_REG_ZMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(!instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroupper(dc);
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroall(dc);
+    ASSERT(instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2321,9 +2539,13 @@ main(int argc, char *argv[])
 
     test_cti_prefixes(dcontext);
 
+    test_cti_predicates(dcontext);
+
 #ifndef X64
     test_modrm16(dcontext);
 #endif
+
+    test_modrm_invalid(dcontext);
 
     test_size_changes(dcontext);
 
@@ -2337,6 +2559,8 @@ main(int argc, char *argv[])
     test_x64_abs_addr(dcontext);
 
     test_x64_inc(dcontext);
+
+    test_x64_vmovq(dcontext);
 #endif
 
     test_regs(dcontext);
@@ -2363,6 +2587,10 @@ main(int argc, char *argv[])
 
     test_noalloc(dcontext);
 
+    test_opnd(dcontext);
+
+    test_simd_zeroes_upper(dcontext);
+
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
     test_all_opcodes_3_avx512_vex(dcontext);
@@ -2372,6 +2600,7 @@ main(int argc, char *argv[])
     test_all_opcodes_5_avx512_evex_mask(dcontext);
     test_all_opcodes_4_avx512_evex_mask_A(dcontext);
     test_all_opcodes_4_avx512_evex_mask_B(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_C(dcontext);
     test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
@@ -2384,6 +2613,7 @@ main(int argc, char *argv[])
     test_all_opcodes_5_avx512_evex_mask_scaled_disp8(dcontext);
     test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(dcontext);
     test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_scaled_disp8_C(dcontext);
     test_all_opcodes_4_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_3_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_2_avx512_evex_scaled_disp8(dcontext);

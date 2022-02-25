@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -97,7 +97,7 @@ Starting application %1!s! (%2!s!)
 MD5: %3!s!
 .
 
-;// Avoid the MD5 output for CLIENT_INTERFACE
+;// Avoid the MD5 output for clients.
 MessageId =
 Severity = Informational
 Facility = DRCore
@@ -132,6 +132,14 @@ Facility = DRCore
 SymbolicName = MSG_INFO_ATTACHED
 Language=English
 Attached to %1!s! threads in application %2!s! (%3!s!)
+.
+
+MessageId =
+Severity = Informational
+Facility = DRCore
+SymbolicName = MSG_INFO_RESET_IN_PROGRESS
+Language=English
+Resetting caches and non-persistent memory @ %1!s! fragments in application %2!s! (%3!s!).
 .
 
 ;//;;;;;;;;;;;;;;;;;;; Security
@@ -248,7 +256,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_OUT_OF_MEMORY
 Language=English
-Application %1!s! (%2!s!).  Out of memory.  Program aborted. Status %3!s! 0x%4!s!
+Application %1!s! (%2!s!).  Out of memory.  Program aborted.  Source %3!s!, type %3!s!, code %4!s!.
 .
 
 MessageId =
@@ -496,7 +504,6 @@ Application %1!s! (%2!s!). Unsupported processor: LAHF/SAHF instructions require
 .
 ;#endif
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -504,7 +511,6 @@ SymbolicName = MSG_CLIENT_LIBRARY_UNLOADABLE
 Language=English
 Application %1!s! (%2!s!). Unable to load client library: %3!s!%4!s!.
 .
-;#endif
 
 MessageId =
 Severity = Error
@@ -514,7 +520,6 @@ Language=English
 Application %1!s! (%2!s!). Library has wrong bitwidth: %3!s!.
 .
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -522,9 +527,7 @@ SymbolicName = MSG_CLIENT_VERSION_INCOMPATIBLE
 Language=English
 Application %1!s! (%2!s!). Client library targets an incompatible API version and should be re-compiled.
 .
-;#endif
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -532,7 +535,6 @@ SymbolicName = MSG_INSTRUMENTATION_TOO_LARGE
 Language=English
 Application %1!s! (%2!s!). Basic block or trace instrumentation exceeded maximum size.  Try lowering -max_bb_instrs and/or -max_trace_bbs.
 .
-;#endif
 
 MessageId =
 Severity = Error
@@ -542,7 +544,6 @@ Language=English
 Application %1!s! (%2!s!). System calls using sysenter are not supported on this operating system.
 .
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -550,7 +551,6 @@ SymbolicName = MSG_WAITING_FOR_DEBUGGER
 Language=English
 Application %1!s! (%2!s!). Waiting for debugger to attach.
 .
-;#endif
 
 ;#ifdef VMX86_SERVER
 MessageId =
@@ -563,7 +563,6 @@ Application %1!s! (%2!s!). Error loading or using vmklib library: %3!s!.
 ;#endif
 
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -571,9 +570,8 @@ SymbolicName = MSG_TOO_MANY_TLS_MODS
 Language=English
 Max number of modules with tls variables exceeded.
 .
-;#endif
 
-;#if defined(UNIX) && defined(CLIENT_INTERFACE)
+;#ifdef UNIX
 MessageId =
 Severity = Warning
 Facility = DRCore
@@ -624,7 +622,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_FAILED_TO_HANDLE_SIGNAL
 Language=English
-Application %1!s! (%2!s!). Cannot correctly handle received signal %3!s! in thread %4!s!.
+Application %1!s! (%2!s!). Cannot correctly handle received signal %3!s! in thread %4!s!: %5!s!.
 .
 ;#endif
 
@@ -634,6 +632,14 @@ Facility = DRCore
 SymbolicName = MSG_FAILED_TO_TAKE_OVER_THREADS
 Language=English
 Application %1!s! (%2!s!). Failed to take over all threads after multiple attempts.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_THREAD_TAKEOVER_TIMED_OUT
+Language=English
+Application %1!s! (%2!s!). Timed out attempting to take over one or more threads. %3!s!
 .
 
 ;#ifdef UNIX
@@ -692,6 +698,30 @@ Facility = DRCore
 SymbolicName = MSG_PRIVATE_LIBRARY_TLS_LIMIT_CROSSED
 Language=English
 Application %1!s! (%2!s!). Private library static TLS limit crossed: %3!s!
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_INJECTION_LIBRARY_MISSING
+Language=English
+Application %1!s! (%2!s!). The library %3!s! for child process injection is missing.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FOLLOW_CHILD_FAILED
+Language=English
+Application %1!s! (%2!s!). Failed to follow into child process: %3!s!.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_STANDALONE_ALREADY
+Language=English
+Application %1!s! (%2!s!). Standalone mode is in progress: cannot switch to full mode.
 .
 
 ;// ADD NEW MESSAGES HERE

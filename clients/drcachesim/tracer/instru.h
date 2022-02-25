@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,8 @@
 #define _INSTRU_H_ 1
 
 #include <stdint.h>
-#include <unordered_set>
+#include <string.h>
+#include "dr_api.h"
 #include "drvector.h"
 #include "trace_entry.h"
 #include "dr_allocator.h"
@@ -47,9 +48,121 @@
 // Versioning for our drmodtrack custom module fields.
 #define CUSTOM_MODULE_VERSION 1
 
-typedef std::unordered_set<reg_id_t, std::hash<reg_id_t>, std::equal_to<reg_id_t>,
-                           dr_allocator_t<reg_id_t>>
-    reg_id_set_t;
+// A std::unordered_set, even using dr_allocator_t, raises transparency risks when
+// statically linked on Windows (from lock functions and other non-allocator
+// resources).  We thus create our own resource-isolated class to track GPR register
+// inclusion, which can easily be implemented with an array.
+// The burst_traceopts test contains unit tests for this class.
+class reg_id_set_t {
+public:
+    reg_id_set_t()
+    {
+        clear();
+    }
+
+    void
+    clear()
+    {
+        memset(present_, 0, sizeof(present_));
+    }
+
+    class reg_id_set_iterator_t
+        : public std::iterator<std::input_iterator_tag, reg_id_t> {
+    public:
+        reg_id_set_iterator_t(reg_id_set_t *set)
+            : set_(set)
+            , index_(-1)
+        {
+        }
+        reg_id_set_iterator_t(reg_id_set_t *set, int index)
+            : set_(set)
+            , index_(index)
+        {
+        }
+
+        reg_id_t operator*()
+        {
+            return static_cast<reg_id_t>(DR_REG_START_GPR + index_);
+        }
+
+        bool
+        operator==(const reg_id_set_iterator_t &rhs) const
+        {
+            return index_ == rhs.index_;
+        }
+        bool
+        operator!=(const reg_id_set_iterator_t &rhs) const
+        {
+            return index_ != rhs.index_;
+        }
+
+        reg_id_set_iterator_t &
+        operator++()
+        {
+            while (++index_ < DR_NUM_GPR_REGS && !set_->present_[index_]) {
+                /* Nothing. */
+            }
+            if (index_ >= DR_NUM_GPR_REGS)
+                index_ = -1;
+            return *this;
+        }
+
+    private:
+        friend class reg_id_set_t;
+        reg_id_set_t *set_;
+        int index_;
+    };
+
+    reg_id_set_iterator_t
+    begin()
+    {
+        reg_id_set_iterator_t iter(this);
+        return ++iter;
+    }
+
+    reg_id_set_iterator_t
+    end()
+    {
+        return reg_id_set_iterator_t(this);
+    }
+
+    reg_id_set_iterator_t
+    erase(const reg_id_set_iterator_t pos)
+    {
+        if (pos.index_ == -1)
+            return end();
+        reg_id_set_iterator_t iter(this, pos.index_);
+        present_[pos.index_] = false;
+        return ++iter;
+    }
+
+    std::pair<reg_id_set_iterator_t, bool>
+    insert(reg_id_t id)
+    {
+        if (id < DR_REG_START_GPR || id > DR_REG_STOP_GPR)
+            return std::make_pair(end(), false);
+        index_ = id - DR_REG_START_GPR;
+        bool exists = present_[index_];
+        if (!exists)
+            present_[index_] = true;
+        return std::make_pair(reg_id_set_iterator_t(this, index_), !exists);
+    }
+
+    reg_id_set_iterator_t
+    find(reg_id_t id)
+    {
+        if (id < DR_REG_START_GPR || id > DR_REG_STOP_GPR)
+            return end();
+        index_ = id - DR_REG_START_GPR;
+        if (!present_[index_])
+            return end();
+        return reg_id_set_iterator_t(this, index_);
+    }
+
+private:
+    bool present_[DR_NUM_GPR_REGS];
+    int index_;
+};
 
 class instru_t {
 public:
@@ -105,6 +218,11 @@ public:
     // This is a per-buffer-writeout header.
     virtual int
     append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual void
+    set_frozen_timestamp(uint64 timestamp)
+    {
+        frozen_timestamp_ = timestamp;
+    }
 
     // These insert inlined code to add an entry into the trace buffer.
     virtual int
@@ -124,16 +242,34 @@ public:
                 bool repstr_expanded) = 0;
 
     // Utilities.
+#ifdef AARCH64
+    static unsigned short
+    get_aarch64_prefetch_target_policy(ptr_int_t prfop);
+    static unsigned short
+    get_aarch64_prefetch_op_type(ptr_int_t prfop);
+    static unsigned short
+    get_aarch64_prefetch_type(ptr_int_t prfop);
+    static bool
+    is_aarch64_icache_flush_op(instr_t *instr);
+    static bool
+    is_aarch64_dcache_flush_op(instr_t *instr);
+    static bool
+    is_aarch64_dc_zva_instr(instr_t *instr);
+#endif
     static unsigned short
     instr_to_prefetch_type(instr_t *instr);
     static unsigned short
     instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
     static bool
     instr_is_flush(instr_t *instr);
+    static unsigned short
+    instr_to_flush_type(instr_t *instr);
     static int
     get_cpu_id();
     static uint64
     get_timestamp();
+    static int
+    count_app_instrs(instrlist_t *ilist);
     virtual void
     insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
@@ -146,6 +282,9 @@ protected:
     bool memref_needs_full_info_;
     drvector_t *reg_vector_;
     bool disable_optimizations_;
+    // Stores a timestamp to use for all future unit headers.  This is meant for
+    // avoiding time gaps for max-limit scenarios (i#5021).
+    uint64 frozen_timestamp_ = 0;
 
 private:
     instru_t()
@@ -159,6 +298,8 @@ private:
 class online_instru_t : public instru_t {
 public:
     online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
+                    void (*insert_update_buf_ptr)(void *, instrlist_t *, instr_t *,
+                                                  reg_id_t, dr_pred_type_t, int),
                     bool memref_needs_info, drvector_t *reg_vector);
     virtual ~online_instru_t();
 
@@ -183,6 +324,8 @@ public:
     append_iflush(byte *buf_ptr, addr_t start, size_t size) override;
     int
     append_thread_header(byte *buf_ptr, thread_id_t tid) override;
+    virtual int
+    append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
     int
     append_unit_header(byte *buf_ptr, thread_id_t tid) override;
 
@@ -213,6 +356,10 @@ private:
     insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
                               reg_id_t base, reg_id_t scratch, ushort type, ushort size,
                               int adjust);
+
+protected:
+    void (*insert_update_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t,
+                                   dr_pred_type_t, int);
 };
 
 class offline_instru_t : public instru_t {
@@ -234,7 +381,7 @@ public:
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
     uint64_t
-    get_modoffs(void *drcontext, app_pc pc);
+    get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx);
 
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
@@ -270,7 +417,7 @@ public:
                 bool repstr_expanded) override;
 
     static bool
-    custom_module_data(void *(*load_cb)(module_data_t *module),
+    custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                        int (*print_cb)(void *data, char *dst, size_t max_len),
                        void (*free_cb)(void *data));
 
@@ -286,6 +433,11 @@ public:
     bool
     label_marks_elidable(instr_t *instr, OUT int *opnd_index, OUT int *memopnd_index,
                          OUT bool *is_write, OUT bool *needs_base);
+    static int
+    print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
+                             size_t custom_size,
+                             int (*user_print_cb)(void *data, char *dst, size_t max_len),
+                             void *user_cb_data);
 
 private:
     struct custom_module_data_t {
@@ -326,11 +478,11 @@ private:
 
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
-    static void *(*user_load_)(module_data_t *module);
+    static void *(*user_load_)(module_data_t *module, int seg_idx);
     static int (*user_print_)(void *data, char *dst, size_t max_len);
     static void (*user_free_)(void *data);
     static void *
-    load_custom_module_data(module_data_t *module);
+    load_custom_module_data(module_data_t *module, int seg_idx);
     static int
     print_custom_module_data(void *data, char *dst, size_t max_len);
     static void

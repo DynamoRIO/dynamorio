@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -41,24 +41,41 @@
 
 #include "configure.h"
 
-#if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
-# define X64
-#endif
+#ifdef DR_HOST_NOT_TARGET
+#   undef X86
+#   undef AARCH64
+#   undef AARCHXX
+#   undef X64
+#   ifdef DR_HOST_X86
+#       define X86
+#   elif defined(DR_HOST_AARCH64)
+#       define AARCH64
+#   elif defined(DR_HOST_ARM)
+#       define ARM
+#   endif
+#   if defined(DR_HOST_X64)
+#       define X64
+#   endif
+#else
+#   if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
+#     define X64
+#   endif
 
-#if (defined(X86_64) || defined(X86_32)) && !defined(X86)
-# define X86
-#endif
+#   if (defined(X86_64) || defined(X86_32)) && !defined(X86)
+#     define X86
+#   endif
 
-#if defined(ARM_64) && !defined(AARCH64)
-# define AARCH64
-#endif
+#   if defined(ARM_64) && !defined(AARCH64)
+#     define AARCH64
+#   endif
 
-#if defined(ARM_32) && !defined(ARM)
-# define ARM
-#endif
+#   if defined(ARM_32) && !defined(ARM)
+#     define ARM
+#   endif
 
-#if (defined(ARM_32) || defined(ARM_64)) && !defined(AARCHXX)
-# define AARCHXX
+#   if (defined(ARM_32) || defined(ARM_64)) && !defined(AARCHXX)
+#     define AARCHXX
+#   endif
 #endif
 
 #if (defined(ARM) && defined(X64)) || (defined(AARCH64) && !defined(X64))
@@ -79,6 +96,7 @@
 
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
+# define START_DATA .data
 # define START_FILE .text
 # define END_FILE /* nothing */
 # define DECLARE_FUNC(symbol) \
@@ -133,10 +151,11 @@
 #  define POUND #
 #  define HEX(n) POUND 0x##n
 # endif
-# define SEGMEM(seg,mem) [seg:mem]
+# define SEGMEM(seg,mem) seg:[mem]
 # define DECL_EXTERN(symbol) /* nothing */
 /* include newline so we can put multiple on one line */
 # define RAW(n) .byte HEX(n) @N@
+# define BYTES_ARR(symbol, n) symbol: .skip n, 0
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
@@ -154,6 +173,7 @@
 # define VAR_VIA_GOT(base, sym) [sym @GOTOFF + base]
 /****************************************************/
 #elif defined(ASSEMBLE_WITH_MASM)
+#define START_DATA .DATA
 # ifdef X64
 #  define START_FILE \
 /* We add blank lines to match the 32-bit line count */ \
@@ -197,6 +217,7 @@ ASSUME fs:_DATA @N@\
 # define DECL_EXTERN(symbol) EXTERN symbol:PROC
 /* include newline so we can put multiple on one line */
 # define RAW(n) DB HEX(n) @N@
+# define BYTES_ARR(symbol, n) symbol byte n dup (0)
 # define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # ifdef X64
@@ -220,16 +241,18 @@ ASSUME fs:_DATA @N@\
 # endif
 /****************************************************/
 #elif defined(ASSEMBLE_WITH_NASM)
+# define START_DATA SECTION .data
 # define START_FILE SECTION .text
 # define END_FILE /* nothing */
 /* for MacOS, at least, we have to add _ ourselves */
-# define DECLARE_FUNC(symbol) global _##symbol
-# define DECLARE_EXPORTED_FUNC(symbol) global _##symbol
+# define CONCAT(a, b) a ## b
+# define DECLARE_FUNC(symbol) global CONCAT(_, symbol)
+# define DECLARE_EXPORTED_FUNC(symbol) global CONCAT(_, symbol)
 # define END_FUNC(symbol) /* nothing */
-# define DECLARE_GLOBAL(symbol) global _##symbol
-# define GLOBAL_LABEL(label) _##label
-# define ADDRTAKEN_LABEL(label) _##label
-# define GLOBAL_REF(label) _##label
+# define DECLARE_GLOBAL(symbol) global CONCAT(_, symbol)
+# define GLOBAL_LABEL(label) CONCAT(_, label)
+# define ADDRTAKEN_LABEL(label) CONCAT(_, label)
+# define GLOBAL_REF(label) CONCAT(_, label)
 # define WEAK(name) /* no support */
 # define BYTE byte
 # define WORD word
@@ -248,6 +271,7 @@ ASSUME fs:_DATA @N@\
 # define SEGMEM(seg,mem) [seg:mem]
 # define DECL_EXTERN(symbol) EXTERN GLOBAL_REF(symbol)
 # define RAW(n) DB HEX(n) @N@
+# define BYTES_ARR(symbol, n) symbol times n DB 0
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
@@ -774,7 +798,9 @@ ASSUME fs:_DATA @N@\
 # define REG_SCRATCH0 REG_XAX
 # define REG_SCRATCH1 REG_XCX
 # define REG_SCRATCH2 REG_XDX
+# define REG_SP REG_XSP
 # define JUMP     jmp
+# define JUMP_NOT_EQUAL     jne
 # define RETURN   ret
 # define INC(reg) inc reg
 # define DEC(reg) dec reg
@@ -782,7 +808,9 @@ ASSUME fs:_DATA @N@\
 # define REG_SCRATCH0 REG_R0
 # define REG_SCRATCH1 REG_R1
 # define REG_SCRATCH2 REG_R2
+# define REG_SP sp
 # define JUMP     b
+# define JUMP_NOT_EQUAL     b.ne
 # ifdef X64
 #  define RETURN  ret
 # else
@@ -797,8 +825,6 @@ ASSUME fs:_DATA @N@\
 # define DEC(reg) sub reg, reg, POUND 1
 #endif /* X86/ARM */
 
-#ifdef CLIENT_INTERFACE
 # define TRY_CXT_SETJMP_OFFS 0 /* offsetof(try_except_context_t, context) */
-#endif /* CLIENT_INTERFACE */
 
 #endif /* _ASM_DEFINES_ASM_ */

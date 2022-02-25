@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,19 +33,12 @@
 /* TODO i#2985: Test the future drx_expand_scatter_gather() extension using drmgr. */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drx.h"
 #include "drx-scattergather-shared.h"
 #include <limits.h>
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 static uint64 global_sg_count;
 

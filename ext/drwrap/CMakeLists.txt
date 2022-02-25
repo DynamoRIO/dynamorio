@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -19,7 +19,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -52,9 +52,9 @@ get_DynamoRIO_defines(DR_DEFINES OFF)
 string(REPLACE " " ";" DR_DEFINES "${DR_DEFINES}")
 set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
 set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
-if (ARM)
+if (DR_HOST_ARM)
   set(asm_file "drwrap_asm_arm.asm")
-elseif (AARCH64)
+elseif (DR_HOST_AARCH64)
   set(asm_file "drwrap_asm_aarch64.asm")
 else ()
   set(asm_file "drwrap_asm_x86.asm")
@@ -90,7 +90,8 @@ macro(configure_drwrap_target target)
   if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
     # for non-VS generators
-    append_property_string(TARGET ${target} COMPILE_FLAGS "${asm_defs}")
+    string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
+    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif ()
 
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")

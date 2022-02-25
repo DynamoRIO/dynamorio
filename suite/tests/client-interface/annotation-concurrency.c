@@ -63,6 +63,15 @@
 #    include <unistd.h>
 #endif
 
+#ifdef ANNOTATIONS_DISABLED
+/* TODO i#1672: Add annotation support to AArchXX.
+ * For now, we provide a fallback so we can build this app for use with
+ * drcachesim tests.
+ */
+#    undef DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO
+#    define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() (true)
+#endif
+
 #define MAX_ITERATIONS 10
 #define MAX_THREADS 8
 #define TOLERANCE 1.0E-5
@@ -126,7 +135,7 @@ find_function(MODULE_TYPE jacobi_module, const char *name)
 static void *
 find_function(MODULE_TYPE jacobi_module, const char *name)
 {
-    char *error;
+    const char *error;
     void *function = dlsym(jacobi_module, name);
     error = dlerror();
     if (error != NULL) {

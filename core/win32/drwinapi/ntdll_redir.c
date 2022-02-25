@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -243,7 +243,7 @@ HANDLE WINAPI
 redirect_RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz, size_t commit_sz,
                        void *lock, void *params)
 {
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true)) {
+    if (INTERNAL_OPTION(privlib_privheap)) {
         /* We don't want to waste space by letting a Heap be created
          * and not used so we nop this.  We need to return something
          * here, and distinguish a nop-ed from real in Destroy, so we
@@ -261,18 +261,14 @@ redirect_heap_call(HANDLE heap)
     ASSERT(!dynamo_initialized || dynamo_exited || standalone_library ||
            get_thread_private_dcontext() == NULL /*thread exiting*/ ||
            !os_using_app_state(get_thread_private_dcontext()));
-#ifdef CLIENT_INTERFACE
     if (!INTERNAL_OPTION(privlib_privheap))
         return false;
-#endif
     /* either default heap, or one whose creation we intercepted */
     return (
-#ifdef CLIENT_INTERFACE
         /* check both current and private: should be same, but
          * handle case where didn't swap
          */
         heap == get_private_peb()->ProcessHeap ||
-#endif
         heap == get_peb(NT_CURRENT_PROCESS)->ProcessHeap ||
         is_dynamo_address((byte *)heap));
 }
@@ -403,7 +399,7 @@ BOOL WINAPI
 redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
     if (redirect_heap_call(heap) && is_dynamo_address(ptr) /*see above*/) {
-        ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
+        ASSERT(INTERNAL_OPTION(privlib_privheap));
         if (ptr != NULL) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s " PFX "\n", __FUNCTION__, ptr);
             wrapped_dr_free(ptr);
@@ -421,7 +417,7 @@ SIZE_T WINAPI
 redirect_RtlSizeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
     if (redirect_heap_call(heap) && is_dynamo_address(ptr) /*see above*/) {
-        ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
+        ASSERT(INTERNAL_OPTION(privlib_privheap));
         if (ptr != NULL)
             return wrapped_dr_size(ptr);
         else
@@ -561,9 +557,8 @@ redirect_RtlInitializeCriticalSectionEx(RTL_CRITICAL_SECTION *crit, ULONG spinco
      * (xref Dr. Memory i#333).
      */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: " PFX "\n", __FUNCTION__, crit);
-    IF_CLIENT_INTERFACE(
-        ASSERT(get_own_teb()->ProcessEnvironmentBlock == get_private_peb() ||
-               standalone_library));
+    ASSERT(get_own_teb()->ProcessEnvironmentBlock == get_private_peb() ||
+           standalone_library);
     if (crit == NULL)
         return STATUS_INVALID_PARAMETER;
     if (TEST(RTL_CRITICAL_SECTION_FLAG_STATIC_INIT, flags)) {
@@ -600,9 +595,8 @@ redirect_RtlDeleteCriticalSection(RTL_CRITICAL_SECTION *crit)
 {
     GET_NTDLL(RtlDeleteCriticalSection, (RTL_CRITICAL_SECTION * crit));
     LOG(GLOBAL, LOG_LOADER, 2, "%s: " PFX "\n", __FUNCTION__, crit);
-    IF_CLIENT_INTERFACE(
-        ASSERT(get_own_teb()->ProcessEnvironmentBlock == get_private_peb() ||
-               standalone_library));
+    ASSERT(get_own_teb()->ProcessEnvironmentBlock == get_private_peb() ||
+           standalone_library);
     if (crit == NULL)
         return STATUS_INVALID_PARAMETER;
     if (crit->DebugInfo != NULL) {
@@ -901,7 +895,7 @@ ntdll_redir_fls_exit(PEB *private_peb)
 void
 ntdll_redir_fls_thread_exit(PPVOID fls_data_ptr)
 {
-    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    PEB *peb = get_private_peb();
     LIST_ENTRY *fls_data;
     NTSTATUS res;
     if (fls_data_ptr == NULL)
@@ -923,7 +917,7 @@ ntdll_redir_fls_thread_exit(PPVOID fls_data_ptr)
 NTSTATUS NTAPI
 redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out)
 {
-    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    PEB *peb = get_private_peb();
     DWORD index;
     NTSTATUS res;
     /* FLS is supported in WinXP-64 or later */
@@ -960,7 +954,7 @@ redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out)
 NTSTATUS NTAPI
 redirect_RtlFlsFree(IN DWORD index)
 {
-    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    PEB *peb = get_private_peb();
     TEB *teb = get_own_teb();
     NTSTATUS res;
     /* FLS is supported in WinXP-64 or later */
@@ -995,7 +989,7 @@ redirect_RtlFlsFree(IN DWORD index)
 NTSTATUS NTAPI
 redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
 {
-    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    PEB *peb = get_private_peb();
     TEB *teb = get_own_teb();
     /* FlsData is a LIST_ENTRY with as payload an array of void* values.
      * If that changes we'll need to change TEB_FLS_DATA_OFFS.

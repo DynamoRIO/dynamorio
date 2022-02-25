@@ -18,12 +18,14 @@
 #    error Only use this file on Linux
 #endif
 
-#ifdef X86
+#ifdef DR_HOST_X86
 #    include "syscall_linux_x86.h"
-#elif defined(ARM)
+#elif defined(DR_HOST_ARM)
 #    include "syscall_linux_arm.h"
-#elif defined(AARCH64)
+#elif defined(DR_HOST_AARCH64)
 #    include "syscall_linux_uapi.h"
+#else
+#    error Unknown platform.
 #endif
 
 #endif /* _SYSCALL_H_ */

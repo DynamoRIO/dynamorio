@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -92,10 +92,10 @@ int nothing = 0;
 /* Tells whether or not to take over a process.  PR 212034.  We use env vars to
  * decide this; longer term we want to switch to config files.
  *
- * If include list exists then it acts as a white list, i.e., take over
+ * If include list exists then it acts as an allow list, i.e., take over
  * only if pname is on it, not otherwise.  If the list doesn't exist then
  * act normal, i.e., take over.  Ditto but reversed for exclude list as it is a
- * blacklist.  If both lists exist, then white list gets preference.
+ * blocklist.  If both lists exist, then the allow list gets preference.
  */
 static bool
 take_over(const char *pname)

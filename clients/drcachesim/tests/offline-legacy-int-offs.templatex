@@ -1,0 +1,72 @@
+#ifdef AARCH64
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.legacy-int-offs/raw/drmemtrace.drmemtrace.signal_invariants..*.raw.gz: Architecture mismatch: trace recorded on x86_64 but tools built for aarch64
+#elif defined(X86) && defined(X64)
+Basic counts tool results:
+Total counts:
+      109205 total \(fetched\) instructions
+        6768 total unique \(fetched\) instructions
+          93 total non-fetched instructions
+          11 total prefetches
+       23974 total data loads
+        5544 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           3 total threads
+         136 total scheduling markers
+          11 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           9 total other markers
+Thread 552306 counts:
+      101049 \(fetched\) instructions
+        6393 unique \(fetched\) instructions
+          93 non-fetched instructions
+          11 prefetches
+       21712 data loads
+        4442 data stores
+           0 icache flushes
+           0 dcache flushes
+         110 scheduling markers
+          11 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           3 other markers
+Thread 552323 counts:
+        4674 \(fetched\) instructions
+        1028 unique \(fetched\) instructions
+           0 non-fetched instructions
+           0 prefetches
+        1317 data loads
+         651 data stores
+           0 icache flushes
+           0 dcache flushes
+          14 scheduling markers
+           0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           3 other markers
+Thread 552324 counts:
+        3482 \(fetched\) instructions
+        1008 unique \(fetched\) instructions
+           0 non-fetched instructions
+           0 prefetches
+         945 data loads
+         451 data stores
+           0 icache flushes
+           0 dcache flushes
+          12 scheduling markers
+           0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           3 other markers
+#else
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.legacy-int-offs/raw/drmemtrace.drmemtrace.signal_invariants..*.raw.gz: Architecture mismatch: trace recorded on x86_64 but tools built for i386
+#endif

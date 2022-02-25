@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -827,9 +827,10 @@ eventlog_fast_exit(void)
         res = eventlog_deregister(shared_eventlog_connection);
     shared_eventlog_connection->eventlog_pipe = 0;
     d_r_mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
-    DOLOG(1, LOG_TOP, if (!res) {
-        LOG(GLOBAL, LOG_TOP, 1, "WARNING: DeregisterEventSource failed.\n");
-    });
+    DOLOG(
+        1, LOG_TOP, if (!res) {
+            LOG(GLOBAL, LOG_TOP, 1, "WARNING: DeregisterEventSource failed.\n");
+        });
 }
 
 void
@@ -898,7 +899,9 @@ os_eventlog(syslog_event_type_t priority, uint message_id, uint substitutions_nu
     }
     d_r_mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
 
-    DOLOG(1, LOG_TOP, if (!res) {
-        LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not report event 0x%x. \n", message_id);
-    });
+    DOLOG(
+        1, LOG_TOP, if (!res) {
+            LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not report event 0x%x. \n",
+                message_id);
+        });
 }

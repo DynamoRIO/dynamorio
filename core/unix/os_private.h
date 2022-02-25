@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,24 +48,11 @@
 #include "dr_config.h" /* for dr_platform_t */
 #include "tls.h"
 #include "memquery.h"
-
-/* Cross arch syscall nums for use with struct stat64. */
-#ifdef MACOS64
-#    define SYSNUM_STAT SYS_stat64
-#    define SYSNUM_FSTAT SYS_fstat64
-#elif defined(X64)
-#    ifdef SYS_stat
-#        define SYSNUM_STAT SYS_stat
-#    endif
-#    define SYSNUM_FSTAT SYS_fstat
-#else
-#    define SYSNUM_STAT SYS_stat64
-#    define SYSNUM_FSTAT SYS_fstat64
-#endif
+#include "../drlibc/drlibc_unix.h"
 
 /* for inline asm */
-#ifdef X86
-#    ifdef X64
+#ifdef DR_HOST_X86
+#    ifdef DR_HOST_X64
 #        define ASM_XAX "rax"
 #        define ASM_XCX "rcx"
 #        define ASM_XDX "rdx"
@@ -79,15 +66,18 @@
 #        define ASM_XBP "ebp"
 #        define ASM_XSP "esp"
 #    endif /* 64/32-bit */
-#elif defined(AARCH64)
+#elif defined(DR_HOST_AARCH64)
 #    define ASM_R0 "x0"
 #    define ASM_R1 "x1"
-#    define ASM_XSP "sp"
+#    define ASM_R2 "x2"
+#    define ASM_R3 "x3"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "br"
-#elif defined(ARM)
+#elif defined(DR_HOST_ARM)
 #    define ASM_R0 "r0"
 #    define ASM_R1 "r1"
+#    define ASM_R2 "r2"
+#    define ASM_R3 "r3"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "bx"
 #endif /* X86/ARM */
@@ -122,15 +112,9 @@
 
 #define SYSCALL_PARAM_CLONE_STACK 1
 
-/* On Mac, we use the _nocancel variant to defer app-initiated thread termination */
-#ifdef MACOS
-#    define SYSNUM_NO_CANCEL(num) num##_nocancel
-#else
-#    define SYSNUM_NO_CANCEL(num) num
-#endif
-
-/* Maximum number of arguments to Linux syscalls. */
-enum { MAX_SYSCALL_ARGS = 6 };
+#define SYSCALL_PARAM_CLONE3_CLONE_ARGS 0
+#define SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE 1
+#define CLONE3_FLAGS_4_BYTE_MASK 0x00000000ffffffffUL
 
 struct _os_local_state_t;
 
@@ -254,9 +238,6 @@ uint
 memprot_to_osprot(uint prot);
 
 bool
-safe_read_if_fast(const void *base, size_t size, void *out_buf);
-
-bool
 mmap_syscall_succeeded(byte *retval);
 
 bool
@@ -328,7 +309,7 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm);
 void
 signal_reinstate_alarm_handlers(dcontext_t *dcontext);
 void
-handle_clone(dcontext_t *dcontext, uint flags);
+handle_clone(dcontext_t *dcontext, uint64 flags);
 /* If returns false to skip the syscall, the result is in "result". */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
@@ -369,8 +350,8 @@ handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stac
 
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
-                   kernel_sigset_t *oset, size_t sigsetsize);
-void
+                   kernel_sigset_t *oset, size_t sigsetsize, uint *error_code);
+int
 handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                         kernel_sigset_t *oset, size_t sigsetsize);
 void
@@ -440,6 +421,13 @@ handle_post_alarm(dcontext_t *dcontext, bool success, unsigned int sec);
 void
 set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_pc,
                         uint clone_sysnum, uint clone_flags);
+
+#ifdef ARM
+dr_isa_mode_t
+get_sigcontext_isa_mode(sig_full_cxt_t *sc_full);
+void
+set_sigcontext_isa_mode(sig_full_cxt_t *sc_full, dr_isa_mode_t isa_mode);
+#endif
 
 /* in pcprofile.c */
 void

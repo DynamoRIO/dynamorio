@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,12 +68,14 @@ extern app_pc dynamo_dll_end;
 
 extern dcontext_t *early_inject_load_helper_dcontext;
 
-/* passed to early injection init by parent */
+/* Passed to early injection init by parent.  Sized to work for any bitwidth. */
 typedef struct {
-    byte *dr_base;
-    byte *ntdll_base;
-    byte *tofree_base;
-    byte *hook_location;
+    uint64 app_xax;
+    uint64 dr_base;
+    uint64 ntdll_base;
+    uint64 tofree_base;
+    uint64 hook_location;
+    uint hook_prot;
     bool late_injection;
     char dynamorio_lib_path[MAX_PATH];
 } earliest_args_t;
@@ -89,7 +91,8 @@ bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);
 
 bool
-maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt);
+maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
+                          HANDLE thread_handle, CONTEXT *cxt);
 
 bool
 translate_context(thread_record_t *trec, CONTEXT *cxt, bool restore_memory);
@@ -127,13 +130,11 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add,
 void
 check_for_ldrpLoadImportModule(byte *base, uint *ebp);
 
-#ifdef CLIENT_SIDELINE
 void
 client_thread_target(void *param);
 
 bool
 is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack);
-#endif
 
 bool
 os_delete_file_w(const wchar_t *file_name, file_t directory_handle);
@@ -159,14 +160,10 @@ extern int *syscalls;
 /* this points to a windows-version-specific WOW table index array */
 extern int *wow64_index;
 
-#ifdef CLIENT_INTERFACE
 /* i#1230: we support the client adding to the end of these, so they are not const
  * (but they're still in .data, so they're read-only once past init)
  */
-#    define SYS_CONST /* in .data */
-#else
-#    define SYS_CONST const
-#endif
+#define SYS_CONST /* in .data */
 extern int windows_unknown_syscalls[];
 extern SYS_CONST int windows_10_1803_x64_syscalls[];
 extern SYS_CONST int windows_10_1803_wow64_syscalls[];
@@ -338,15 +335,14 @@ os_rename_file_in_directory(IN HANDLE rootdir, const wchar_t *orig_name,
 
 /* in callback.c ***************************************************/
 
-/* thread-shared only needs 4 pages on 32-bit but -thread_private needs 5
- * in case we hook the image entry on an early cbret.
- * i#2138: on Win10-x64 extra space is needed for dr_syscall_intercept_natively.
- */
-#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(9 * 4096, 7 * 4096)
+/* i#2138: on Win10-x64 extra space is needed for dr_syscall_intercept_natively. */
+#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(10 * 4096, 8 * 4096)
 
 /* see notes in intercept_new_thread() about these values */
 #define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
-#define THREAD_START_ARG IF_X64_ELSE(CXT_XDX, CXT_XBX)
+#define THREAD_START_ARG64 CXT_XDX
+#define THREAD_START_ARG32 CXT_XBX
+#define THREAD_START_ARG IF_X64_ELSE(THREAD_START_ARG64, THREAD_START_ARG32)
 
 void
 callback_init(void);
@@ -471,12 +467,6 @@ extern uint context_xstate;
 
 #define XSTATE_HEADER_SIZE 0x40 /* 512 bits */
 #define YMMH_AREA(ymmh_area, i) (((dr_xmm_t *)ymmh_area)[i])
-#define MAX_CONTEXT_64_SIZE 0xd2f /* as observed on win10-x64 */
-#ifdef X64
-#    define MAX_CONTEXT_SIZE MAX_CONTEXT_64_SIZE
-#else
-#    define MAX_CONTEXT_SIZE 0xb23 /* as observed on win10-x64 */
-#endif
 #define CONTEXT_DYNAMICALLY_LAID_OUT(flags) (TESTALL(CONTEXT_XSTATE, flags))
 
 enum {
@@ -646,6 +636,9 @@ typedef struct DECLSPEC_ALIGN(16) _CONTEXT_64 {
 
 /* in module_shared.c */
 #ifndef X64
+size_t
+nt_get_context64_size(void);
+
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64);
 
@@ -668,10 +661,10 @@ inject_init(void); /* must be called prior to inject_into_thread(void) */
 bool
 inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_path);
 
-/* inject_location values come form the INJECT_LOCATION_* enum is os_shared.h */
+/* inject_location values come from the INJECT_LOCATION_* enum in os_shared.h. */
 bool
-inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map, uint inject_location,
-                        void *inject_address);
+inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool map,
+                        uint inject_location, void *inject_address);
 
 /* in <arch.s> (x86.asm for us) ************************************/
 
@@ -934,8 +927,14 @@ bool
 convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
                        IN size_t buf_len /*# elements*/);
 
+size_t
+nt_get_context_size(DWORD flags);
+
+size_t
+nt_get_max_context_size(void);
+
 CONTEXT *
-nt_initialize_context(char *buf, DWORD flags);
+nt_initialize_context(char *buf, size_t buf_len, DWORD flags);
 
 byte *
 context_ymmh_saved_area(CONTEXT *cxt);
