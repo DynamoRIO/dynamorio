@@ -6877,8 +6877,7 @@ dr_unlink_flush_fragment(app_pc tag)
     /* This routine won't work with coarse_units. */
     CLIENT_ASSERT(!DYNAMO_OPTION(coarse_units),
                   /* As of now, coarse_units are always disabled with -thread_private. */
-                  "dr_unlink_flush_fragment is not supported with -opt_memory unless "
-                  "-thread_private or -enable_full_api is also specified");
+                  "dr_unlink_flush_fragment is not supported with -opt_memory");
 
     /* See dr_unlink_flush_region() for comments explaining these asserts. */
     CLIENT_ASSERT(!is_couldbelinking(dcontext),
