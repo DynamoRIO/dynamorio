@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3802,6 +3802,52 @@ append_units_to_free_list(fcache_unit_t *u)
     d_r_mutex_unlock(&unit_flush_lock);
 }
 
+static void
+chain_single_fragment(dcontext_t *dcontext, fragment_t *f, fragment_t **tail)
+{
+    bool add_to_list = false;
+
+    ASSERT(f != NULL);
+    ASSERT(tail != NULL);
+    ASSERT(!TEST(FRAG_CANNOT_DELETE, f->flags));
+    if (TEST(FRAG_WAS_DELETED, f->flags)) {
+        /* must be a consistency-flushed or lazily deleted fragment.
+         * while typically it will be deleted before the other fragments
+         * in this unit (since flushtime now is < ours, and lazy are deleted
+         * before pending-delete), there is a case where it will not be:
+         * if the lazy list hits its threshold and a new pending-delete entry
+         * is created before we free our unit-flush pending entry, the
+         * lazy pending entry will be freed AFTER flushed unit's entries.
+         * we must remove from the lazy list, and go ahead and put into the
+         * pending delete list, to keep all our dependences together.
+         * fragment_unlink_for_deletion() will not re-do the unlink for
+         * the lazy fragment.
+         * FIXME: this is inefficient b/c no prev ptr in lazy list
+         */
+        add_to_list = remove_from_lazy_deletion_list(dcontext, f);
+        /* if not found, we assume the fragment has already been moved to
+         * a pending delete entry, which must have a lower timestamp
+         * than ours, so we're all set since vm_area_check_shared_pending()
+         * now walks all to-be-freed entries in increasing flushtime order.
+         */
+        LOG(THREAD, LOG_CACHE, 5,
+            "\tlazily-deleted fragment F%d." PFX " removed from lazy list\n", f->id,
+            f->start_pc);
+    } else {
+        LOG(THREAD, LOG_CACHE, 5, "\tadding F%d." PFX " to to-flush list\n", f->id,
+            f->start_pc);
+        vm_area_remove_fragment(dcontext, f);
+        add_to_list = true;
+    }
+    if (add_to_list) {
+        if (*tail != NULL) {
+            (*tail)->next_vmarea = f;
+        }
+        *tail = f;
+        (*tail)->next_vmarea = NULL;
+    }
+}
+
 /* It is up to the caller to ensure it's safe to string the fragments in
  * unit into a list, by only calling us between stage1 and stage2 of
  * flushing (there's no other synch that is safe).
@@ -3820,7 +3866,6 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
      */
     pc = unit->start_pc;
     while (pc < unit->cur_pc) {
-        bool add_to_list = false;
         f = *((fragment_t **)pc);
         LOG(THREAD, LOG_CACHE, 5, "\treading " PFX " -> " PFX "\n", pc, f);
         if (USE_FREE_LIST_FOR_CACHE(unit->cache)) {
@@ -3849,43 +3894,10 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
         ASSERT(f != NULL);
         ASSERT(FIFO_UNIT(f) == unit);
         ASSERT(FRAG_HDR_START(f) == pc);
-        ASSERT(!TEST(FRAG_CANNOT_DELETE, f->flags));
-        if (TEST(FRAG_WAS_DELETED, f->flags)) {
-            /* must be a consistency-flushed or lazily deleted fragment.
-             * while typically it will be deleted before the other fragments
-             * in this unit (since flushtime now is < ours, and lazy are deleted
-             * before pending-delete), there is a case where it will not be:
-             * if the lazy list hits its threshold and a new pending-delete entry
-             * is created before we free our unit-flush pending entry, the
-             * lazy pending entry will be freed AFTER flushed unit's entries.
-             * we must remove from the lazy list, and go ahead and put into the
-             * pending delete list, to keep all our dependences together.
-             * fragment_unlink_for_deletion() will not re-do the unlink for
-             * the lazy fragment.
-             * FIXME: this is inefficient b/c no prev ptr in lazy list
-             */
-            add_to_list = remove_from_lazy_deletion_list(dcontext, f);
-            /* if not found, we assume the fragment has already been moved to
-             * a pending delete entry, which must have a lower timestamp
-             * than ours, so we're all set since vm_area_check_shared_pending()
-             * now walks all to-be-freed entries in increasing flushtime order.
-             */
-            LOG(THREAD, LOG_CACHE, 5,
-                "\tlazily-deleted fragment F%d." PFX " removed from lazy list\n", f->id,
-                f->start_pc);
-        } else {
-            LOG(THREAD, LOG_CACHE, 5, "\tadding F%d." PFX " to to-flush list\n", f->id,
-                f->start_pc);
-            vm_area_remove_fragment(dcontext, f);
-            add_to_list = true;
-        }
-        if (add_to_list) {
-            if (prev_f == NULL)
-                list = f;
-            else
-                prev_f->next_vmarea = f;
-            prev_f = f;
-        }
+        chain_single_fragment(dcontext, f, &prev_f);
+        if (list == NULL)
+            list = prev_f;
+
         /* advance to contiguously-next fragment_t in cache */
         pc += FRAG_SIZE(f);
     }
@@ -3903,12 +3915,50 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
     } else {
         ASSERT(list != NULL);
         ASSERT(prev_f != NULL);
-        prev_f->next_vmarea = NULL;
     }
 
     if (tail != NULL)
         *tail = prev_f;
     return list;
+}
+
+bool
+fcache_flush_fragment(dcontext_t *dcontext, app_pc tag)
+{
+    bool did_flush = false;
+    fragment_t *list_head = NULL;
+    DEBUG_DECLARE(bool flushed;)
+
+    /* We pass false to flush_fragments_in_region_start() below for owning the initexit
+     * lock. Therefore assert that we do not own the lock.
+     */
+    ASSERT_DO_NOT_OWN_MUTEX(true, &thread_initexit_lock);
+
+    /* Stage 1 of flushing: do synch. */
+    DEBUG_DECLARE(flushed =)
+    flush_fragments_synch_unlink_priv(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
+                                      false /*don't have thread_initexit_lock*/,
+                                      false /*not invalidating exec areas*/,
+                                      false /*don't force synchall*/
+                                      _IF_DGCDIAG(NULL));
+    ASSERT(flushed);
+
+    fragment_t *f = fragment_lookup(dcontext, tag);
+    if (f != NULL && TEST(FRAG_SHARED, f->flags)) {
+        chain_single_fragment(dcontext, f, &list_head);
+        did_flush = true;
+    }
+
+    /* Stage 2 of flushing: do the rest of the unlink and move the fragments to pending
+     * del list.
+     */
+    flush_fragments_unlink_shared(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
+                                  list_head _IF_DGCDIAG(NULL));
+
+    /* Stage 3 of flushing: end synch. */
+    flush_fragments_end_synch(dcontext, false /*don't keep initexit_lock*/);
+
+    return did_flush;
 }
 
 /* Flushes all fragments in the units in the units_to_flush list and

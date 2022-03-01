@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2436,6 +2436,31 @@ DR_API
  */
 bool
 dr_unlink_flush_region(app_pc start, size_t size);
+
+DR_API
+/**
+ * Schedules a shared fragment to be deleted. User must redirect control upon return
+ * using \p dr_redirect_execution() similar to what one would do when using
+ * \p dr_flush_region().
+ *
+ * In particular, the function syncs threads to a safe point
+ * before the fragment is deleted. Once deleted, no threads
+ * can enter the fragment. It is for this reason why we require the user
+ * to call \p dr_redirect_execution().
+ *
+ * As a parameter, \p tag denotes the ID of the fragment requested for deletion.
+ *
+ * Only the deletion of shared fragments is supported.
+ *
+ * No locks can be held by the caller.
+ *
+ * \return false if the function fails to schedule the deletion.
+ *
+ * \note Unlike \p dr_delete_fragment(), this function does not require the
+ * -thread_private runtime option to be set.
+ */
+bool
+dr_unlink_flush_fragment(app_pc tag);
 
 /* FIXME - can we better bound when the flush will happen?  Maybe unlink shared syscalls
  * or similar or check the queue in more locations?  Should always hit the flush before

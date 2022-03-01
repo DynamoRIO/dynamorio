@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -126,6 +126,8 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f);
 
 bool
 fcache_is_flush_pending(dcontext_t *dcontext);
+bool
+fcache_flush_fragment(dcontext_t *dcontext, app_pc tag);
 bool
 fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed);
 void
