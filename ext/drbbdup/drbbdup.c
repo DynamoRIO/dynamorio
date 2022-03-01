@@ -508,7 +508,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     if (is_thread_private) {
         drbbdup_per_thread *pt =
             (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
-        emit_flags = drbbdup_do_duplication(&(pt->manager_table), drcontext, tag, bb,
+        emit_flags = drbbdup_do_duplication(&pt->manager_table, drcontext, tag, bb,
                                             for_trace, translating);
 
     } else {
@@ -783,7 +783,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
     if (is_thread_private) {
-        emit_flags = drbbdup_do_analysis(drcontext, pt, &(pt->manager_table), tag, bb,
+        emit_flags = drbbdup_do_analysis(drcontext, pt, &pt->manager_table, tag, bb,
                                          for_trace, translating);
     } else {
         dr_rwlock_read_lock(rw_lock);
@@ -1507,8 +1507,8 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     }
 
     if (is_thread_private) {
-        emit_flags = drbbdup_do_linking(drcontext, pt, &(pt->manager_table), tag, bb,
-                                        instr, for_trace, translating);
+        emit_flags = drbbdup_do_linking(drcontext, pt, &pt->manager_table, tag, bb, instr,
+                                        for_trace, translating);
     } else {
         dr_rwlock_read_lock(rw_lock);
         emit_flags = drbbdup_do_linking(drcontext, pt, &global_manager_table, tag, bb,
@@ -1677,7 +1677,7 @@ drbbdup_handle_new_case()
     bool do_flush = false;
 
     if (is_thread_private) {
-        do_flush = drbbdup_manage_new_case(drcontext, &(pt->manager_table), new_encoding,
+        do_flush = drbbdup_manage_new_case(drcontext, &pt->manager_table, new_encoding,
                                            tag, ilist, &mcontext, pc);
     } else {
         dr_rwlock_write_lock(rw_lock);
@@ -1849,7 +1849,7 @@ drbbdup_thread_init(void *drcontext)
         /* Initialise hash table that keeps track of defined cases per
          * basic block (for thread-private DR caches only).
          */
-        hashtable_init_ex(&(pt->manager_table), HASH_BIT_TABLE, HASH_INTPTR, false, false,
+        hashtable_init_ex(&pt->manager_table, HASH_BIT_TABLE, HASH_INTPTR, false, false,
                           drbbdup_destroy_manager, NULL, NULL);
     }
 
@@ -1877,7 +1877,7 @@ drbbdup_thread_exit(void *drcontext)
     ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
 
     if (is_thread_private)
-        hashtable_delete(&(pt->manager_table));
+        hashtable_delete(&pt->manager_table);
 
     dr_thread_free(drcontext, pt->case_analysis_data,
                    sizeof(void *) * opts.non_default_case_limit);
