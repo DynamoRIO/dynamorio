@@ -2579,6 +2579,13 @@ use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
 
+# XXX i#1884: The thread-private option is not yet available for ARM.
+if (X86)
+  # Same drbbdup test but with thread-private code caches.
+  torunonly_ci(client.drbbdup-thread-private-test ${ci_shared_app}
+    client.drbbdup-test.dll client-interface/drbbdup-test.c "" "-thread_private" "")
+endif (X86)
+
 macro(drbbdup_bb_test test)
   add_exe(client.${test}-exe client-interface/${test}.asm)
   set_target_properties(client.${test}-exe PROPERTIES LINKER_LANGUAGE C)

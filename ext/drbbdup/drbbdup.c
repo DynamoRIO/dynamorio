@@ -124,6 +124,8 @@ typedef enum {
 } drbbdup_label_t;
 
 typedef struct {
+    hashtable_t manager_table; /* Maps bbs with book-keeping data (for thread-private
+                                  caches only). */
     int case_index; /* Used to keep track of the current case during insertion. */
     void *orig_analysis_data;        /* Analysis data accessible for all cases. */
     void *default_analysis_data;     /* Analysis data specific to default case. */
@@ -134,8 +136,9 @@ typedef struct {
     instr_t *last_instr;           /* The last instr of the bb copy being considered. */
 } drbbdup_per_thread;
 
-static int drbbdup_init_count = 0; /* Instance count of drbbdup. */
-static hashtable_t manager_table;  /* Maps bbs with book-keeping data. */
+static bool is_thread_private = false; /* Denotes whether DR caches are thread-private. */
+static int drbbdup_init_count = 0;     /* Instance count of drbbdup. */
+static hashtable_t global_manager_table; /* Maps bbs with book-keeping data. */
 static drbbdup_options_t opts;
 static void *rw_lock = NULL;
 
@@ -145,6 +148,7 @@ static drbbdup_stats_t stats;
 
 /* An outlined code cache (storing a clean call) for dynamically generating a case. */
 static app_pc new_case_cache_pc = NULL;
+static void *case_cache_mutex = NULL;
 
 static int tls_idx = -1; /* For thread local storage info. */
 static reg_id_t tls_raw_reg;
@@ -437,18 +441,23 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
         instrlist_meta_postinsert(bb, last, exit_label);
 }
 
-static dr_emit_flags_t
-drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                        bool translating)
+static bool
+is_dup_expected(drbbdup_manager_t *manager, bool for_trace, bool translating)
 {
-    dr_rwlock_write_lock(rw_lock);
+    return for_trace || translating || (manager != NULL && manager->is_gen);
+}
+
+static dr_emit_flags_t
+drbbdup_do_duplication(hashtable_t *manager_table, void *drcontext, void *tag,
+                       instrlist_t *bb, bool for_trace, bool translating)
+{
 
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
+        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
 
-    if (!for_trace && !translating && manager != NULL && !manager->is_gen) {
+    if (!is_dup_expected(manager, for_trace, translating)) {
         /* Remove existing invalid book-keeping data. */
-        hashtable_remove(&manager_table, tag);
+        hashtable_remove(manager_table, tag);
         manager = NULL;
     }
 
@@ -458,7 +467,7 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
     if (manager == NULL) {
         manager = drbbdup_create_manager(drcontext, tag, bb);
         ASSERT(manager != NULL, "created manager cannot be NULL");
-        hashtable_add(&manager_table, tag, manager);
+        hashtable_add(manager_table, tag, manager);
 
         if (opts.is_stat_enabled) {
             dr_mutex_lock(stat_mutex);
@@ -468,8 +477,13 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                 stats.no_dynamic_handling_count++;
             dr_mutex_unlock(stat_mutex);
         }
-        if (manager->enable_dynamic_handling && new_case_cache_pc == NULL) {
-            new_case_cache_pc = init_fp_cache(drbbdup_handle_new_case);
+        if (manager->enable_dynamic_handling) {
+            dr_mutex_lock(case_cache_mutex);
+
+            if (new_case_cache_pc == NULL)
+                new_case_cache_pc = init_fp_cache(drbbdup_handle_new_case);
+
+            dr_mutex_unlock(case_cache_mutex);
         }
     }
 
@@ -478,13 +492,33 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         drbbdup_set_up_copies(drcontext, bb, manager);
     }
 
-    dr_rwlock_write_unlock(rw_lock);
-
     /* If there's no dynamic handling, we do not need to store translations,
      * which saves memory (and is currently better supported in DR and drreg).
      */
     return manager->enable_dynamic_handling ? DR_EMIT_STORE_TRANSLATIONS
                                             : DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                        bool translating)
+{
+    dr_emit_flags_t emit_flags;
+
+    if (is_thread_private) {
+        drbbdup_per_thread *pt =
+            (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
+        emit_flags = drbbdup_do_duplication(&pt->manager_table, drcontext, tag, bb,
+                                            for_trace, translating);
+
+    } else {
+        dr_rwlock_write_lock(rw_lock);
+        emit_flags = drbbdup_do_duplication(&global_manager_table, drcontext, tag, bb,
+                                            for_trace, translating);
+        dr_rwlock_write_unlock(rw_lock);
+    }
+
+    return emit_flags;
 }
 
 /****************************************************************************
@@ -629,9 +663,8 @@ static void *
 drbbdup_do_orig_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
                          instrlist_t *bb, instr_t *start)
 {
-    if (opts.analyze_orig == NULL) {
+    if (opts.analyze_orig == NULL)
         return NULL;
-    }
 
     void *orig_analysis_data = NULL;
     if (manager->enable_dup) {
@@ -656,9 +689,8 @@ drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
                          void *orig_analysis_data, OUT instr_t **next,
                          INOUT dr_emit_flags_t *emit_flags)
 {
-    if (opts.analyze_case == NULL && opts.analyze_case_ex == NULL) {
+    if (opts.analyze_case == NULL && opts.analyze_case_ex == NULL)
         return NULL;
-    }
 
     void *case_analysis_data = NULL;
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
@@ -700,26 +732,21 @@ drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
 }
 
 static dr_emit_flags_t
-drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                      bool translating, void *user_data)
+drbbdup_do_analysis(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manager_table,
+                    void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     drbbdup_case_t *case_info = NULL;
     instr_t *first = instrlist_first(bb);
 
-    /* Store analysis data in thread storage. */
-    drbbdup_per_thread *pt =
-        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
-
-    dr_rwlock_read_lock(rw_lock);
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
+        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
 
     /* Perform orig analysis - only done once regardless of how many copies. */
     pt->orig_analysis_data = drbbdup_do_orig_analysis(manager, drcontext, tag, bb, first);
 
     /* Perform analysis for each (non-default) case. */
-    dr_emit_flags_t flags = DR_EMIT_DEFAULT;
+    dr_emit_flags_t emit_flags = DR_EMIT_DEFAULT;
     if (manager->enable_dup) {
         ASSERT(manager->cases != NULL, "case information must exit");
         int i;
@@ -728,7 +755,7 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
             if (case_info->is_defined) {
                 pt->case_analysis_data[i] = drbbdup_do_case_analysis(
                     manager, drcontext, tag, bb, first, for_trace, translating, case_info,
-                    pt->orig_analysis_data, &first, &flags);
+                    pt->orig_analysis_data, &first, &emit_flags);
             }
         }
     }
@@ -740,11 +767,32 @@ drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     ASSERT(case_info->is_defined, "default case must be defined");
     pt->default_analysis_data = drbbdup_do_case_analysis(
         manager, drcontext, tag, bb, first, for_trace, translating, case_info,
-        pt->orig_analysis_data, NULL, &flags);
+        pt->orig_analysis_data, NULL, &emit_flags);
 
-    dr_rwlock_read_unlock(rw_lock);
+    return emit_flags;
+}
 
-    return flags;
+static dr_emit_flags_t
+drbbdup_analyse_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                      bool translating, void *user_data)
+{
+    dr_emit_flags_t emit_flags;
+
+    /* Store analysis data in thread storage. */
+    drbbdup_per_thread *pt =
+        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
+
+    if (is_thread_private) {
+        emit_flags = drbbdup_do_analysis(drcontext, pt, &pt->manager_table, tag, bb,
+                                         for_trace, translating);
+    } else {
+        dr_rwlock_read_lock(rw_lock);
+        emit_flags = drbbdup_do_analysis(drcontext, pt, &global_manager_table, tag, bb,
+                                         for_trace, translating);
+        dr_rwlock_read_unlock(rw_lock);
+    }
+
+    return emit_flags;
 }
 
 /****************************************************************************
@@ -1417,22 +1465,13 @@ drbbdup_destroy_all_analyses(void *drcontext, drbbdup_manager_t *manager,
 }
 
 static dr_emit_flags_t
-drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                   bool for_trace, bool translating, void *user_data)
+drbbdup_do_linking(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manager_table,
+                   void *tag, instrlist_t *bb, instr_t *instr, bool for_trace,
+                   bool translating)
 {
-    drbbdup_per_thread *pt =
-        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    ASSERT(opts.instrument_instr != NULL || opts.instrument_instr_ex != NULL,
-           "instrumentation call-back must not be NULL");
-
-    /* Start off with the default case index. */
-    if (drmgr_is_first_instr(drcontext, instr))
-        pt->case_index = DRBBDUP_DEFAULT_INDEX;
-
-    dr_rwlock_read_lock(rw_lock);
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
+        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
 
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
@@ -1447,9 +1486,37 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     if (drmgr_is_last_instr(drcontext, instr))
         drbbdup_destroy_all_analyses(drcontext, manager, pt);
 
-    dr_rwlock_read_unlock(rw_lock);
-
     return flags;
+}
+
+static dr_emit_flags_t
+drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                   bool for_trace, bool translating, void *user_data)
+{
+    dr_emit_flags_t emit_flags;
+
+    drbbdup_per_thread *pt =
+        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
+
+    ASSERT(opts.instrument_instr != NULL || opts.instrument_instr_ex != NULL,
+           "instrumentation call-back must not be NULL");
+
+    /* Start off with the default case index. */
+    if (drmgr_is_first_instr(drcontext, instr)) {
+        pt->case_index = DRBBDUP_DEFAULT_INDEX;
+    }
+
+    if (is_thread_private) {
+        emit_flags = drbbdup_do_linking(drcontext, pt, &pt->manager_table, tag, bb, instr,
+                                        for_trace, translating);
+    } else {
+        dr_rwlock_read_lock(rw_lock);
+        emit_flags = drbbdup_do_linking(drcontext, pt, &global_manager_table, tag, bb,
+                                        instr, for_trace, translating);
+        dr_rwlock_read_unlock(rw_lock);
+    }
+
+    return emit_flags;
 }
 
 static bool
@@ -1524,35 +1591,17 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
                                  bb_pc); /* redirect execution to the start of the bb. */
 }
 
-static void
-drbbdup_handle_new_case()
+/* Returns whether to flush. */
+static bool
+drbbdup_manage_new_case(void *drcontext, hashtable_t *manager_table,
+                        uintptr_t new_encoding, void *tag, instrlist_t *ilist,
+                        dr_mcontext_t *mcontext, app_pc pc)
 {
-    void *drcontext = dr_get_current_drcontext();
-
-    drbbdup_per_thread *pt =
-        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
-
-    /* Must use DR_MC_ALL due to dr_redirect_execution. */
-    dr_mcontext_t mcontext;
-    mcontext.size = sizeof(mcontext);
-    mcontext.flags = DR_MC_ALL;
-    dr_get_mcontext(drcontext, &mcontext);
-
-    /* Scratch register holds the tag. */
-    void *tag = (void *)reg_get_value(DRBBDUP_SCRATCH_REG, &mcontext);
-
-    instrlist_t *ilist = decode_as_bb(drcontext, dr_fragment_app_pc(tag));
-    app_pc pc = instr_get_app_pc(drbbdup_first_app(ilist));
-    ASSERT(pc != NULL, "pc cannot be NULL");
 
     bool do_flush = false;
 
-    /* Get the missing case. */
-    uintptr_t new_encoding = drbbdup_get_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT);
-
-    dr_rwlock_write_lock(rw_lock);
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(&manager_table, tag);
+        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
     ASSERT(manager->enable_dup, "duplication should be enabled");
     ASSERT(new_encoding != manager->default_case.encoding,
@@ -1562,7 +1611,8 @@ drbbdup_handle_new_case()
     /* Could have been turned off potentially by another thread. */
     if (manager->enable_dynamic_handling) {
         /* Case already registered potentially by another thread. */
-        if (!drbbdup_encoding_already_included(manager, new_encoding, true)) {
+        if (!drbbdup_encoding_already_included(manager, new_encoding,
+                                               true /* check default case */)) {
             /* By default, do case gen. */
             bool do_gen = true;
             if (opts.allow_gen != NULL) {
@@ -1591,12 +1641,50 @@ drbbdup_handle_new_case()
             }
         }
     }
+
     /* Regardless of whether or not flushing is going to happen, redirection will
      * always be performed.
      */
-    drbbdup_prepare_redirect(&mcontext, manager, pc);
+    drbbdup_prepare_redirect(mcontext, manager, pc);
 
-    dr_rwlock_write_unlock(rw_lock);
+    return do_flush;
+}
+
+static void
+drbbdup_handle_new_case()
+{
+    void *drcontext = dr_get_current_drcontext();
+
+    drbbdup_per_thread *pt =
+        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
+
+    /* Must use DR_MC_ALL due to dr_redirect_execution. */
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
+    dr_get_mcontext(drcontext, &mcontext);
+
+    /* Scratch register holds the tag. */
+    void *tag = (void *)reg_get_value(DRBBDUP_SCRATCH_REG, &mcontext);
+
+    instrlist_t *ilist = decode_as_bb(drcontext, dr_fragment_app_pc(tag));
+    app_pc pc = instr_get_app_pc(drbbdup_first_app(ilist));
+    ASSERT(pc != NULL, "pc cannot be NULL");
+
+    /* Get the missing case. */
+    uintptr_t new_encoding = drbbdup_get_tls_raw_slot_val(DRBBDUP_ENCODING_SLOT);
+
+    bool do_flush = false;
+
+    if (is_thread_private) {
+        do_flush = drbbdup_manage_new_case(drcontext, &pt->manager_table, new_encoding,
+                                           tag, ilist, &mcontext, pc);
+    } else {
+        dr_rwlock_write_lock(rw_lock);
+        do_flush = drbbdup_manage_new_case(drcontext, &global_manager_table, new_encoding,
+                                           tag, ilist, &mcontext, pc);
+        dr_rwlock_write_unlock(rw_lock);
+    }
 
     instrlist_clear_and_destroy(drcontext, ilist);
 
@@ -1757,6 +1845,14 @@ drbbdup_thread_init(void *drcontext)
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)dr_thread_alloc(drcontext, sizeof(drbbdup_per_thread));
 
+    if (is_thread_private) {
+        /* Initialise hash table that keeps track of defined cases per
+         * basic block (for thread-private DR caches only).
+         */
+        hashtable_init_ex(&pt->manager_table, HASH_BIT_TABLE, HASH_INTPTR, false, false,
+                          drbbdup_destroy_manager, NULL, NULL);
+    }
+
     pt->case_index = 0;
     pt->orig_analysis_data = NULL;
     ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
@@ -1779,6 +1875,9 @@ drbbdup_thread_exit(void *drcontext)
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
     ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
+
+    if (is_thread_private)
+        hashtable_delete(&pt->manager_table);
 
     dr_thread_free(drcontext, pt->case_analysis_data,
                    sizeof(void *) * opts.non_default_case_limit);
@@ -1874,17 +1973,22 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (tls_idx == -1)
         return DRBBDUP_ERROR;
 
+    case_cache_mutex = dr_mutex_create();
     ASSERT(new_case_cache_pc == NULL, "should be equal to NULL (as lazily initialised).");
 
-    /* Initialise hash table that keeps track of defined cases per
-     * basic block.
-     */
-    hashtable_init_ex(&manager_table, HASH_BIT_TABLE, HASH_INTPTR, false, false,
-                      drbbdup_destroy_manager, NULL, NULL);
+    is_thread_private = dr_using_all_private_caches();
 
-    rw_lock = dr_rwlock_create();
-    if (rw_lock == NULL)
-        return DRBBDUP_ERROR;
+    if (!is_thread_private) {
+        /* Initialise hash table that keeps track of defined cases per
+         * basic block.
+         */
+        hashtable_init_ex(&global_manager_table, HASH_BIT_TABLE, HASH_INTPTR, false,
+                          false, drbbdup_destroy_manager, NULL, NULL);
+
+        rw_lock = dr_rwlock_create();
+        if (rw_lock == NULL)
+            return DRBBDUP_ERROR;
+    }
 
     if (opts.is_stat_enabled) {
         memset(&stats, 0, sizeof(drbbdup_stats_t));
@@ -1906,6 +2010,7 @@ drbbdup_exit(void)
         /* Destroy only if initialised (which is done in a lazy fashion). */
         if (new_case_cache_pc != NULL)
             destroy_fp_cache(new_case_cache_pc);
+        dr_mutex_destroy(case_cache_mutex);
 
         if (!drmgr_unregister_bb_app2app_event(drbbdup_duplicate_phase) ||
             !drmgr_unregister_bb_instrumentation_ex_event(NULL, drbbdup_analyse_phase,
@@ -1916,8 +2021,10 @@ drbbdup_exit(void)
             !drmgr_unregister_tls_field(tls_idx) || drreg_exit() != DRREG_SUCCESS)
             return DRBBDUP_ERROR;
 
-        hashtable_delete(&manager_table);
-        dr_rwlock_destroy(rw_lock);
+        if (!is_thread_private) {
+            hashtable_delete(&global_manager_table);
+            dr_rwlock_destroy(rw_lock);
+        }
 
         if (opts.is_stat_enabled)
             dr_mutex_destroy(stat_mutex);
