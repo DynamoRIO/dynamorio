@@ -214,6 +214,18 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         CHECK(is_first_nonlabel, "should be first non label");
     }
 
+    /* Ensure the drmgr emulation API works for a final special instr where "instr" !=
+     * "where".  The emulation shows up on the label prior to the "where" for the last
+     * instr so we can't compare emul to instr; instead we make sure the emul returned
+     * is never a jump to a label.
+     */
+    instr_t *emul = drmgr_orig_app_instr_for_fetch(drcontext);
+    CHECK(emul == NULL || !instr_is_ubr(emul) || !opnd_is_instr(instr_get_target(emul)),
+          "app instr should never be jump to label");
+    emul = drmgr_orig_app_instr_for_operands(drcontext);
+    CHECK(emul == NULL || !instr_is_ubr(emul) || !opnd_is_instr(instr_get_target(emul)),
+          "app instr should never be jump to label");
+
     if (is_first && encoding != 0) {
         instrum_called = true;
         dr_insert_clean_call(drcontext, bb, where, print_case, false, 1,
