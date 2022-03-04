@@ -767,7 +767,7 @@ instrumentation_init()
     opts.analyze_case_ex = event_bb_analyze_case;
     opts.destroy_case_analysis = event_bb_analyze_case_cleanup;
     opts.instrument_instr_ex = event_app_instruction_case;
-    opts.runtime_case_opnd = opnd_create_rel_addr(&tracing_disabled, OPSZ_PTR);
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_disabled, OPSZ_PTR);
     opts.atomic_load_encoding = true;
     opts.non_default_case_limit = 1;
     drbbdup_status_t res = drbbdup_init(&opts);
