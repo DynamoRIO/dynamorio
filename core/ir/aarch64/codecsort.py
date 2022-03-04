@@ -58,17 +58,21 @@ def read_instrs(codec_file):
 
     with open(codec_file, "r") as lines:
         for line in (l.strip() for l in lines if l.strip()):
-            if not seen_delimeter:
-                if line == DELIMITER:
-                    seen_delimeter = True
-                continue
-            if line.strip().startswith("#"):
-                continue
-            line = line.split(None, 4)
-            if not line[2].isnumeric():
-                # missing an enum entry, put a none in
-                line = [line[0], line[1], None, line[2], " ".join(line[3:])]
-            instrs.append(CodecLine(*line))
+            try:
+                if not seen_delimeter:
+                    if line == DELIMITER:
+                        seen_delimeter = True
+                    continue
+                if line.strip().startswith("#"):
+                    continue
+                line = line.split(None, 4)
+                if not line[2].isnumeric():
+                    # missing an enum entry, put a none in
+                    line = [line[0], line[1], None, line[2], " ".join(line[3:])]
+                instrs.append(CodecLine(*line))
+            except:
+                print("Error parsing line: {}".format(line), file=sys.stderr)
+                raise
 
     return instrs
 
