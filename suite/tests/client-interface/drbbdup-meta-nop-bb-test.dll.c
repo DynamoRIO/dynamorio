@@ -193,24 +193,18 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     if (is_cur_all_meta)
         CHECK(is_meta_nop(instr), "should be the meta nop instruction");
 
-    bool has_emul_labels = drmgr_is_emulation_start(instr) || instr_is_syscall(instr) ||
-        drmgr_is_emulation_end(instr);
-
     res = drbbdup_is_first_instr(drcontext, instr, &is_first);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is start");
-    if (!has_emul_labels)
-        CHECK(is_first, "must be first");
+    CHECK(is_first, "must be first");
 
     res = drbbdup_is_first_nonlabel_instr(drcontext, instr, &is_first_nonlabel);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is first non-label");
-    if (!has_emul_labels)
-        CHECK(is_first_nonlabel, "must be first non-label");
+    CHECK(is_first_nonlabel, "must be first non-label");
 
     /* Relies on the -max_bb_instrs 0 option. */
     res = drbbdup_is_last_instr(drcontext, instr, &is_last);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is last");
-    if (!has_emul_labels)
-        CHECK(is_last, "must be last");
+    CHECK(is_last, "must be last");
 
     if (is_first && encoding != 0) {
         instrum_called = true;
