@@ -3629,7 +3629,6 @@ immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
     if (!opnd_is_immed_int(opnd))
         return false;
 
-
     opnd_size_t shift_size = opnd_get_size(opnd);
 
     uint highest_bit;
