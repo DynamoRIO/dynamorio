@@ -375,7 +375,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
 
     bool has_rest_of_block_emulation = false;
     bool has_prior_control_flow = false;
-    emulated_instr_t emul_info;
+    emulated_instr_t emul_info = { sizeof(emul_info), 0 };
     for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
         if (instr_is_cti(inst))
             has_prior_control_flow = true;

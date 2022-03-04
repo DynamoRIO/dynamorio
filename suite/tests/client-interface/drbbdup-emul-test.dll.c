@@ -56,10 +56,15 @@ app2app_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     /* Test handling of DR_EMULATE_REST_OF_BLOCK by inserting it in the middle
      * of a multi-instr block and ensuring drbbdup doesn't let it leak through into
      * the start of subsequent cloned blocks.
+     * We want to leave some blocks unchanged though to test drbbdup's own
+     * emulation labels.
      *
      * XXX i#5390: We should also test the last instr being emulated: not sure drbbdup
      * will do the right thing there if it's a "special" instr.
      */
+    static int bb_count;
+    if (++bb_count % 2 == 0)
+        return DR_EMIT_DEFAULT;
     instr_t *mid = instrlist_last_app(bb);
     if (mid == NULL || mid == instrlist_first_app(bb))
         return DR_EMIT_DEFAULT;
