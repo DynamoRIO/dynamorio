@@ -3544,6 +3544,41 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return false;
 }
 
+/* hs_fsz: Operand size for half and single precision encoding of floating point
+ * vector instructions. We need to convert the generic size operand to the right
+ * encoding bits. It only supports VECTOR_ELEM_WIDTH_HALF and VECTOR_ELEM_WIDTH_SINGLE.
+ */
+static inline bool
+decode_opnd_hs_fsz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    if (((enc >> 22) & 1) == 0) {
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
+        return true;
+    }
+    if (((enc >> 22) & 1) == 1) {
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
+        return true;
+    }
+    return false;
+}
+
+static inline bool
+encode_opnd_hs_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_HALF) {
+        *enc_out = 0;
+        return true;
+    }
+    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_SINGLE) {
+        *enc_out = 1 << 22;
+        return true;
+    }
+    return false;
+}
+
 /* dq5_sz: D/Q register at bit position 5; bit 22 selects Q reg */
 
 static inline bool
@@ -3583,7 +3618,6 @@ immhb_shf_decode(uint enc, int opcode, byte *pc, OUT opnd_t *opnd, uint min_shif
     else
         return false;
 
-    opnd_add_flags(*opnd, DR_OPND_IS_SHIFT);
     return true;
 }
 
@@ -3591,7 +3625,12 @@ static inline bool
 immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
                  uint min_shift)
 {
+
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
     opnd_size_t shift_size = opnd_get_size(opnd);
+
     uint highest_bit;
     switch (shift_size) {
     case OPSZ_3b: highest_bit = 0; break;
@@ -3602,9 +3641,6 @@ immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
     }
     ptr_int_t shift_amount;
     uint esize = 8 << highest_bit;
-
-    if (!opnd_is_immed_int(opnd))
-        return false;
 
     shift_amount = opnd_get_immed_int(opnd);
 

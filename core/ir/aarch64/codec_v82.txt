@@ -70,17 +70,16 @@ x001111011100001000000xxxxxxxxxx  n   120   fcvtnu  wx0 : h5
 0x001110010xxxxx001101xxxxxxxxxx  n   129     fmax  dq0 : dq5 dq16 h_sz
 0x001110010xxxxx000001xxxxxxxxxx  n   130   fmaxnm  dq0 : dq5 dq16 h_sz
 0x101110010xxxxx000001xxxxxxxxxx  n   131  fmaxnmp  dq0 : dq5 dq16 h_sz
-0000111000110000110010xxxxxxxxxx  n   132  fmaxnmv   h0 : d5
-0100111000110000110010xxxxxxxxxx  n   132  fmaxnmv   h0 : q5
+0x00111000110000110010xxxxxxxxxx  n   132  fmaxnmv   h0 : dq5 h_sz
 0x101110010xxxxx001101xxxxxxxxxx  n   133    fmaxp  dq0 : dq5 dq16 h_sz
-0x00111000110000111110xxxxxxxxxx  n   134    fmaxv   h0 : dq5
+0x00111000110000111110xxxxxxxxxx  n   134    fmaxv   h0 : dq5 h_sz
 0x001110110xxxxx001101xxxxxxxxxx  n   135     fmin  dq0 : dq5 dq16 h_sz
 0x001110110xxxxx000001xxxxxxxxxx  n   136   fminnm  dq0 : dq5 dq16 h_sz
 0x101110110xxxxx000001xxxxxxxxxx  n   137  fminnmp  dq0 : dq5 dq16 h_sz
 0000111010110000110010xxxxxxxxxx  n   138  fminnmv   h0 : d5
 0100111010110000110010xxxxxxxxxx  n   138  fminnmv   h0 : q5
 0x101110110xxxxx001101xxxxxxxxxx  n   139    fminp  dq0 : dq5 dq16 h_sz
-0x00111010110000111110xxxxxxxxxx  n   140    fminv   h0 : dq5
+0x00111010110000111110xxxxxxxxxx  n   140    fminv   h0 : dq5 h_sz
 0x001110010xxxxx000011xxxxxxxxxx  n   141     fmla  dq0 : dq0 dq5 dq16 h_sz
 0x001110110xxxxx000011xxxxxxxxxx  n   144     fmls  dq0 : dq0 dq5 dq16 h_sz
 0x00111100xxxxxx0101x0xxxxxxxxxx  n   144     fmls  dq0 : dq5 dq16_h_sz vindex_H h_sz

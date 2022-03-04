@@ -172,7 +172,8 @@
 ---------?x---------x-----------  vindex_SD  # Index for vector with single or double
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
                                              # elements, depending on bit 22 (sz)
----------x----------------------  sd_sz      # element width of FP vector reg for single
+---------x----------------------  sd_sz      # element width of FP vector reg for single or double
+---------x----------------------  hs_fsz      # element width of FP vector reg for half or single
 ---------x------------xxxxx-----  dq5_sz     # as dqx, but depending on the sz bit rather than the Q bit
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
