@@ -344,6 +344,16 @@ drbbdup_destroy_manager(void *manager_opaque)
 }
 
 static bool
+drbbdup_ilist_has_cti(instrlist_t *bb)
+{
+    for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
+        if (instr_is_cti(inst))
+            return true;
+    }
+    return false;
+}
+
+static bool
 drbbdup_ilist_has_unending_emulation(instrlist_t *bb)
 {
     emulated_instr_t emul_info = { sizeof(emul_info), 0 };
@@ -387,6 +397,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      */
 
     bool has_rest_of_block_emulation = drbbdup_ilist_has_unending_emulation(bb);
+    bool has_prior_control_flow = drbbdup_ilist_has_cti(bb);
 
     /* We create a duplication here to keep track of original bb. */
     instrlist_t *original = instrlist_clone(drcontext, bb);
@@ -404,7 +415,8 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      * are live at the start of bb copies, unless there is other control
      * flow from prior expansions such as drutil_expand_rep_string().
      */
-    drreg_set_bb_properties(drcontext, DRREG_IGNORE_CONTROL_FLOW);
+    if (!has_prior_control_flow)
+        drreg_set_bb_properties(drcontext, DRREG_IGNORE_CONTROL_FLOW);
     /* Restoration at the end of the block is not done automatically
      * by drreg but is managed by drbbdup. Different cases could
      * have different registers spilled and therefore restoration is

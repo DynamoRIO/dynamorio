@@ -37,6 +37,7 @@
 #include "drmgr.h"
 #include "drbbdup.h"
 #include "drutil.h"
+#include "drreg.h"
 
 /* Assume single threaded. */
 static uintptr_t encode_val = 3;
@@ -125,6 +126,30 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         }
     }
 
+#ifdef X86
+    /* Cause drutil's expanded "rep movs" to crash if drbbdup sets
+     * DRREG_IGNORE_CONTROL_FLOW (i#5398).  We do not spill rcx until after the
+     * rcx==0 path jumps over the OP_movs, such that drreg's restore before the
+     * OP_loop writes the wrong value.
+     */
+    if (instr_get_opcode(instr) == OP_movs) {
+        reg_id_t reg_clobber;
+        drvector_t rvec;
+        drreg_init_and_fill_vector(&rvec, false);
+        drreg_set_vector_entry(&rvec, DR_REG_XCX, true);
+        if (drreg_reserve_register(drcontext, bb, where, &rvec, &reg_clobber) !=
+            DRREG_SUCCESS)
+            CHECK(false, "failed to reserve scratch register\n");
+        drvector_delete(&rvec);
+        instrlist_meta_preinsert(bb, where,
+                                 XINST_CREATE_load_int(drcontext,
+                                                       opnd_create_reg(reg_clobber),
+                                                       OPND_CREATE_INT32(-1)));
+        if (drreg_unreserve_register(drcontext, bb, where, reg_clobber) != DRREG_SUCCESS)
+            CHECK(false, "failed to unreserve scratch register\n");
+    }
+#endif
+
     /* Ensure the drmgr emulation API works for a final special instr where "instr" !=
      * "where".  The emulation shows up on the label prior to the "where" for the last
      * instr so we can't compare emul to instr; instead we make sure the emul returned
@@ -147,6 +172,9 @@ event_exit(void)
     CHECK(app2app_res, "failed to unregister app2app event");
 
     drmgr_exit();
+    drutil_exit();
+    if (drreg_exit() != DRREG_SUCCESS)
+        CHECK(false, "drreg_exit failed");
 
     dr_fprintf(STDERR, "Success\n");
 }
@@ -154,7 +182,9 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drmgr_init();
+    drreg_options_t ops = { sizeof(ops), 1, false };
+    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
+        CHECK(false, "library init failed");
 
     drbbdup_options_t opts = { 0 };
     opts.struct_size = sizeof(drbbdup_options_t);
