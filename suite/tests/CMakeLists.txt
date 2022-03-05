@@ -2576,7 +2576,6 @@ target_include_directories(client.drx_buf-test PRIVATE
 
 tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
 
 # XXX i#1884: The thread-private option is not yet available for ARM.
@@ -2594,7 +2593,6 @@ macro(drbbdup_bb_test test)
   add_library(client.${test}.dll SHARED  client-interface/${test}.dll.c)
   setup_test_client_dll_basics(client.${test}.dll)
   use_DynamoRIO_extension(client.${test}.dll drmgr)
-  use_DynamoRIO_extension(client.${test}.dll drreg)
   use_DynamoRIO_extension(client.${test}.dll drbbdup)
 
   torunonly_ci(client.${test} client.${test}-exe
@@ -2609,17 +2607,14 @@ endif (X86 AND X64 AND LINUX)
 
 tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
 tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)
 
 tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
 
 tobuild_appdll(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c)
@@ -2630,6 +2625,11 @@ tobuild_ci(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c "" 
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drbbdup)
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drwrap)
+
+tobuild_ci(client.drbbdup-emul-test client-interface/drbbdup-emul-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drutil)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drbbdup)
 
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")

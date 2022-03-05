@@ -343,6 +343,19 @@ drbbdup_destroy_manager(void *manager_opaque)
     dr_global_free(manager, sizeof(drbbdup_manager_t));
 }
 
+static bool
+drbbdup_ilist_has_unending_emulation(instrlist_t *bb)
+{
+    emulated_instr_t emul_info = { sizeof(emul_info), 0 };
+    for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
+        if (drmgr_is_emulation_start(inst) &&
+            drmgr_get_emulated_instr_data(inst, &emul_info) &&
+            TEST(DR_EMULATE_REST_OF_BLOCK, emul_info.flags))
+            return true;
+    }
+    return false;
+}
+
 /* Transforms the bb to contain additional copies (within the same fragment). */
 static void
 drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manager)
@@ -373,6 +386,8 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      * Note, we add jmp instructions here and DR will set them to meta automatically.
      */
 
+    bool has_rest_of_block_emulation = drbbdup_ilist_has_unending_emulation(bb);
+
     /* We create a duplication here to keep track of original bb. */
     instrlist_t *original = instrlist_clone(drcontext, bb);
 
@@ -386,7 +401,8 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     }
 
     /* Tell drreg to ignore control flow as it is ensured that all registers
-     * are live at the start of bb copies.
+     * are live at the start of bb copies, unless there is other control
+     * flow from prior expansions such as drutil_expand_rep_string().
      */
     drreg_set_bb_properties(drcontext, DRREG_IGNORE_CONTROL_FLOW);
     /* Restoration at the end of the block is not done automatically
@@ -416,7 +432,35 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     for (i = start; i >= 0; i--) {
         /* Prepend a jmp targeting the EXIT label. */
         instr_t *jmp_exit = XINST_CREATE_jump(drcontext, exit_label_opnd);
-        instrlist_preinsert(bb, instrlist_first(bb), jmp_exit);
+        instr_t *first = instrlist_first(bb);
+        last = instrlist_last(bb);
+        if (has_rest_of_block_emulation) {
+            /* For DR_EMULATE_REST_OF_BLOCK defer to the original by not inserting
+             * our own for a special instr.  Also, make sure the region ends at
+             * the end of this copy and doesn't extend into subsequent copies.
+             * We assume that drmgr ends at an end label even if the REST_OF_BLOCK
+             * flag is set.
+             */
+            instrlist_preinsert(bb, first, jmp_exit);
+            drmgr_insert_emulation_end(drcontext, bb, first);
+        } else if (drbbdup_is_special_instr(last)) {
+            /* Mark this jmp as emulating the final special instr to ensure that
+             * drmgr_orig_app_instr_for_fetch() and drmgr_orig_app_instr_for_operands()
+             * work properly (without this those two will look at this jmp since drmgr
+             * does not have a "where" vs "instr" split).
+             * XXX i#5390: Integrating drbbdup into drmgr is another way to solve this.
+             */
+            emulated_instr_t emulated_instr;
+            emulated_instr.size = sizeof(emulated_instr);
+            emulated_instr.pc = instr_get_app_pc(last);
+            emulated_instr.instr = instr_clone(drcontext, last); /* Freed by label. */
+            emulated_instr.flags = 0;
+            drmgr_insert_emulation_start(drcontext, bb, first, &emulated_instr);
+            instrlist_preinsert(bb, first, jmp_exit);
+            drmgr_insert_emulation_end(drcontext, bb, first);
+        } else {
+            instrlist_preinsert(bb, first, jmp_exit);
+        }
 
         /* Prepend a copy. */
         drbbdup_add_copy(drcontext, bb, original);
@@ -549,7 +593,10 @@ drbbdup_is_at_start(instr_t *check_instr)
     return drbbdup_is_at_label(check_instr, DRBBDUP_LABEL_START);
 }
 
-/* Returns true if at the end of a bb version is reached. */
+/* Returns true if at the end of a bb version is reached: if check_instr is
+ * the inserted jump or is the exit label.  There may be an emulation end label
+ * after check_instr.
+ */
 static bool
 drbbdup_is_at_end(instr_t *check_instr)
 {
@@ -558,9 +605,25 @@ drbbdup_is_at_end(instr_t *check_instr)
 
     if (instr_is_cti(check_instr)) {
         instr_t *next_instr = instr_get_next(check_instr);
-        return drbbdup_is_at_label(next_instr, DRBBDUP_LABEL_START);
+        return drbbdup_is_at_label(next_instr, DRBBDUP_LABEL_START) ||
+            /* There may be an emulation endpoint label in between. */
+            (next_instr != NULL && instr_get_next(next_instr) != NULL &&
+             drmgr_is_emulation_end(next_instr) &&
+             drbbdup_is_at_label(instr_get_next(next_instr), DRBBDUP_LABEL_START));
     }
 
+    return false;
+}
+
+static bool
+drbbdup_is_exit_jmp_emulation_marker(instr_t *check_instr)
+{
+    if (check_instr == NULL)
+        return false;
+    if (drmgr_is_emulation_start(check_instr))
+        return drbbdup_is_at_end(instr_get_next(check_instr));
+    if (drmgr_is_emulation_end(check_instr))
+        return drbbdup_is_at_end(instr_get_prev(check_instr));
     return false;
 }
 
@@ -587,12 +650,34 @@ drbbdup_first_app(instrlist_t *bb)
     return instr;
 }
 
-/* Iterates forward to the end of the next bb copy. Returns NULL upon failure. */
+/* Iterates forward to the end of the next bb copy.  This may followed by an
+ * emulation end label.  Returns NULL upon failure.
+ */
 static instr_t *
 drbbdup_next_end(instr_t *instr)
 {
     while (instr != NULL && !drbbdup_is_at_end(instr))
         instr = instr_get_next(instr);
+
+    return instr;
+}
+
+/* Iterates forward to the end of the next bb copy.  If the end instruction has
+ * emulation labels, steps back to point at the first of those: i.e., this is the
+ * start of the end sequence.  Returns NULL upon failure.
+ */
+static instr_t *
+drbbdup_next_end_initial(instr_t *instr)
+{
+    while (instr != NULL && !drbbdup_is_at_end(instr))
+        instr = instr_get_next(instr);
+    if (instr != NULL) {
+        instr_t *prev = instr_get_prev(instr);
+        if (drbbdup_is_exit_jmp_emulation_marker(prev)) {
+            instr = prev;
+            ASSERT(drmgr_is_emulation_start(instr), "should be start marker");
+        }
+    }
 
     return instr;
 }
@@ -1317,9 +1402,11 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         instr_t *next_instr = instr_get_next(instr); /* Skip START label. */
         instr_t *end_instr = drbbdup_next_end(next_instr);
         ASSERT(end_instr != NULL, "end instruction cannot be NULL");
+        instr_t *end_initial = drbbdup_next_end_initial(next_instr);
+        ASSERT(end_initial != NULL, "end instruction cannot be NULL");
 
         /* Cache first, first nonlabel and last instructions. */
-        if (next_instr == end_instr) {
+        if (next_instr == end_initial) {
             if (is_last_special) {
                 pt->first_instr = last;
                 pt->first_nonlabel_instr = last;
@@ -1349,7 +1436,7 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         if (is_last_special) {
             pt->last_instr = last;
         } else {
-            instr_t *prev = instr_get_prev(end_instr);
+            instr_t *prev = instr_get_prev(end_initial);
             if (drbbdup_is_at_start(prev)) {
                 pt->last_instr = NULL;
             } else {
@@ -1386,6 +1473,8 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         /* XXX i#4134: statistics -- insert code that tracks the number of times the
          * current case (pt->case_index) is executed.
          */
+    } else if (drbbdup_is_exit_jmp_emulation_marker(instr)) {
+        /* Ignore instruction: hide drbbdup's own markers. */
     } else if (drbbdup_is_at_end(instr)) {
         /* Handle last special instruction (if present). */
         if (is_last_special) {
