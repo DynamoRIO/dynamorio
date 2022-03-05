@@ -2630,6 +2630,7 @@ tobuild_ci(client.drbbdup-emul-test client-interface/drbbdup-emul-test.c "" "" "
 use_DynamoRIO_extension(client.drbbdup-emul-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-emul-test.dll drutil)
 use_DynamoRIO_extension(client.drbbdup-emul-test.dll drbbdup)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drreg)
 
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
