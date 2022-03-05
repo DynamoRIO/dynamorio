@@ -41,9 +41,9 @@ main(int argc, char **argv)
     char buf2[1024];
 #    ifdef WINDOWS
 #        ifdef X64
-    __movsq(buf2, buf1, 0);
+    __movsq((unsigned long *)buf2, (unsigned long *)buf1, 0);
 #        else
-    __movsd(buf2, buf1, 0);
+    __movsd((unsigned long *)buf2, (unsigned long *)buf1, 0);
 #        endif
 #    else
 #        ifdef X64
