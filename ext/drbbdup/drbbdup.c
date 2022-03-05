@@ -343,6 +343,7 @@ drbbdup_destroy_manager(void *manager_opaque)
     dr_global_free(manager, sizeof(drbbdup_manager_t));
 }
 
+/* This must be called prior to inserting drbbdup's own cti. */
 static bool
 drbbdup_ilist_has_cti(instrlist_t *bb)
 {
@@ -413,7 +414,8 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
 
     /* Tell drreg to ignore control flow as it is ensured that all registers
      * are live at the start of bb copies, unless there is other control
-     * flow from prior expansions such as drutil_expand_rep_string().
+     * flow from prior expansions such as drutil_expand_rep_string(), in which
+     * case we have to disable drreg optimizations for this block for safety.
      */
     if (!has_prior_control_flow)
         drreg_set_bb_properties(drcontext, DRREG_IGNORE_CONTROL_FLOW);

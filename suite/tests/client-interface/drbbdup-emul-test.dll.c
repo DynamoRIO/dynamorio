@@ -42,6 +42,11 @@
 /* Assume single threaded. */
 static uintptr_t encode_val = 3;
 
+#ifdef X86
+static bool saw_movs;
+static bool saw_zero_iter_rep_string;
+#endif
+
 static dr_emit_flags_t
 app2app_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
               bool translating)
@@ -102,6 +107,16 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     return 0; /* return default case */
 }
 
+#ifdef X86
+/* Assumes it is only called inside a rep string expansion. */
+static void
+look_for_zero_iters(reg_t xcx)
+{
+    if (xcx == 0)
+        saw_zero_iter_rep_string = true;
+}
+#endif
+
 static dr_emit_flags_t
 instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  instr_t *where, bool for_trace, bool translating, uintptr_t encoding,
@@ -133,6 +148,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
      * OP_loop writes the wrong value.
      */
     if (instr_get_opcode(instr) == OP_movs) {
+        saw_movs = true;
         reg_id_t reg_clobber;
         drvector_t rvec;
         drreg_init_and_fill_vector(&rvec, false);
@@ -147,6 +163,11 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                                                        OPND_CREATE_INT32(-1)));
         if (drreg_unreserve_register(drcontext, bb, where, reg_clobber) != DRREG_SUCCESS)
             CHECK(false, "failed to unreserve scratch register\n");
+    }
+    if (instr_get_opcode(instr) == OP_jecxz) {
+        /* Ensure our test case includes a zero-iter rep string. */
+        dr_insert_clean_call(drcontext, bb, where, look_for_zero_iters, false, 1,
+                             opnd_create_reg(DR_REG_XCX));
     }
 #endif
 
@@ -165,6 +186,11 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
 static void
 event_exit(void)
 {
+#ifdef X86
+    CHECK(saw_movs, "test case missing OP_movs");
+    CHECK(saw_zero_iter_rep_string, "test case missing zero-iter rep string");
+#endif
+
     drbbdup_status_t res = drbbdup_exit();
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
 
