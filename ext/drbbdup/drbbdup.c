@@ -343,6 +343,29 @@ drbbdup_destroy_manager(void *manager_opaque)
     dr_global_free(manager, sizeof(drbbdup_manager_t));
 }
 
+static bool
+drbbdup_ilist_has_cti(instrlist_t *bb)
+{
+    for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
+        if (instr_is_cti(inst))
+            return true;
+    }
+    return false;
+}
+
+static bool
+drbbdup_ilist_has_unending_emulation(instrlist_t *bb)
+{
+    emulated_instr_t emul_info = { sizeof(emul_info), 0 };
+    for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
+        if (drmgr_is_emulation_start(inst) &&
+            drmgr_get_emulated_instr_data(inst, &emul_info) &&
+            TEST(DR_EMULATE_REST_OF_BLOCK, emul_info.flags))
+            return true;
+    }
+    return false;
+}
+
 /* Transforms the bb to contain additional copies (within the same fragment). */
 static void
 drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manager)
@@ -373,18 +396,8 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      * Note, we add jmp instructions here and DR will set them to meta automatically.
      */
 
-    bool has_rest_of_block_emulation = false;
-    bool has_prior_control_flow = false;
-    emulated_instr_t emul_info = { sizeof(emul_info), 0 };
-    for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
-        if (instr_is_cti(inst))
-            has_prior_control_flow = true;
-        if (drmgr_is_emulation_start(inst) &&
-            drmgr_get_emulated_instr_data(inst, &emul_info) &&
-            TEST(DR_EMULATE_REST_OF_BLOCK, emul_info.flags)) {
-            has_rest_of_block_emulation = true;
-        }
-    }
+    bool has_rest_of_block_emulation = drbbdup_ilist_has_unending_emulation(bb);
+    bool has_prior_control_flow = drbbdup_ilist_has_cti(bb);
 
     /* We create a duplication here to keep track of original bb. */
     instrlist_t *original = instrlist_clone(drcontext, bb);
@@ -615,7 +628,7 @@ drbbdup_is_at_end(instr_t *check_instr)
 }
 
 static bool
-drbbdup_is_our_emulation_marker(instr_t *check_instr)
+drbbdup_is_exit_jmp_emulation_marker(instr_t *check_instr)
 {
     if (check_instr == NULL)
         return false;
@@ -670,8 +683,13 @@ drbbdup_next_end_initial(instr_t *instr)
 {
     while (instr != NULL && !drbbdup_is_at_end(instr))
         instr = instr_get_next(instr);
-    if (drbbdup_is_our_emulation_marker(instr_get_prev(instr)))
-        instr = instr_get_prev(instr);
+    if (instr != NULL) {
+        instr_t *prev = instr_get_prev(instr);
+        if (drbbdup_is_exit_jmp_emulation_marker(prev)) {
+            instr = prev;
+            ASSERT(drmgr_is_emulation_start(instr), "should be start marker");
+        }
+    }
 
     return instr;
 }
@@ -1431,8 +1449,6 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             pt->last_instr = last;
         } else {
             instr_t *prev = instr_get_prev(end_initial);
-            if (drbbdup_is_our_emulation_marker(prev))
-                prev = instr_get_prev(instr);
             if (drbbdup_is_at_start(prev)) {
                 pt->last_instr = NULL;
             } else {
@@ -1469,7 +1485,7 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         /* XXX i#4134: statistics -- insert code that tracks the number of times the
          * current case (pt->case_index) is executed.
          */
-    } else if (drbbdup_is_our_emulation_marker(instr)) {
+    } else if (drbbdup_is_exit_jmp_emulation_marker(instr)) {
         /* Ignore instruction: hide drbbdup's own markers. */
     } else if (drbbdup_is_at_end(instr)) {
         /* Handle last special instruction (if present). */
