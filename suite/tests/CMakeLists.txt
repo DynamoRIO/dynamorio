@@ -3416,7 +3416,7 @@ if (BUILD_CLIENTS)
 
     # Stress-test drcachesim with drstatecmp checks.
     if (AARCH64)
-      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 15M -enable_drstatecmp" "" "")
     endif ()
     if (NOT WIN32)
       torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
