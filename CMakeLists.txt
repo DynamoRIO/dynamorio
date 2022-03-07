@@ -787,7 +787,8 @@ if (UNIX)
   if (suggest_override_avail)
     set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
   endif ()
-  # now that the user must set non-default -mNN we don't nec. need these:
+  # Try to support users setting -m32 in CMAKE_C_FLAGS rather than the
+  # CFLAGS env var.
   if (X86)
     if (X64)
       set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
