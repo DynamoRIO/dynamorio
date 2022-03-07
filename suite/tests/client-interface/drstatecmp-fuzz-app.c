@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -194,7 +194,6 @@ main(void)
      */
     srand(time(NULL));
     /* Produce fuzzing application code. */
-    fprintf(stderr, "Generate code\n");
     generate_code();
 
     /* Handle execution of illegal instructions that were decodable.

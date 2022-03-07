@@ -821,7 +821,10 @@ typedef enum {
      * are not supported when this flag is set.
      *
      * As this is a global change in how drwrap operates, be careful that its use
-     * does not conflict with drwrap uses in any libraries or joint clients.
+     * does not conflict with drwrap uses in any libraries or joint clients:
+     * multiple calls to drwrap_invoke_insert() or drwrap_invoke_insert_cleanup_only()
+     * are not supported, and one use of inversion will not combine well with another
+     * use that requires drwrap_replace().
      */
     DRWRAP_INVERT_CONTROL = 0x10,
 } drwrap_global_flags_t;

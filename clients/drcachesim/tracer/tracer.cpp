@@ -41,6 +41,7 @@
 
 #include <limits.h>
 #include <string.h>
+#include <atomic>
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
@@ -51,6 +52,7 @@
 #include "drx.h"
 #include "drstatecmp.h"
 #include "droption.h"
+#include "drbbdup.h"
 #include "instru.h"
 #include "raw2trace.h"
 #include "physaddr.h"
@@ -130,6 +132,11 @@ typedef struct {
     /* For level 0 filters */
     byte *l0_dcache;
     byte *l0_icache;
+    /* For passing data from app2app to other stages, b/c drbbdup doesn't provide
+     * the same user_data path that drmgr does.
+     */
+    bool repstr;
+    bool scatter_gather;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -165,15 +172,9 @@ static volatile bool exited_process;
 static bool have_phys;
 static physaddr_t physaddr;
 
-// The purpose of priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 is to make sure
-// function pre/post callbacks of drwrap API happens before memtrace's
-// meta instruction, so that function trace entries will not be appended to the
-// middle of a BB's PC and Memory Access trace entries. Assumption made here is
-// that, every function pre/post callback always happens at the first
-// instruction of a BB.
-static drmgr_priority_t memtrace_pri = { sizeof(drmgr_priority_t),
-                                         DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL,
-                                         DRMGR_PRIORITY_INSERT_DRWRAP + 1 };
+static drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
+                                          DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL,
+                                          DRMGR_PRIORITY_APP2APP_DRBBDUP - 1 };
 
 /* Allocated TLS slot offsets */
 enum {
@@ -608,10 +609,205 @@ clean_call(void)
 }
 
 /***************************************************************************
- * Tracing instrumentation.
+ * Alternating tracing-no-tracing feature.
  */
 
-static int tracing_enabled;
+/* We have two modes: count instructions only, and full trace.
+ *
+ * XXX i#3995: To implement -max_trace_size with drbbdup cases (with thread-private
+ * encodings), or support nudges enabling tracing, we will likely add a 3rd mode that
+ * has zero instrumentation.  We also would use the 3rd mode for just -trace_for_instrs
+ * with no -retrace_every_instrs.  For now we have just 2 as the case dispatch is more
+ * efficient that way.
+ */
+enum {
+    BBDUP_MODE_TRACE = 0,
+    BBDUP_MODE_COUNT = 1,
+};
+
+#if defined(X86_64) || defined(AARCH64)
+#    define DELAYED_CHECK_INLINED 1
+#else
+/* XXX we don't have the inlining implemented yet for 32-bit architectures. */
+#endif
+
+/* This holds one of the BBDUP_MODE_ enum values, but drbbdup requires that it
+ * be pointer-sized.
+ */
+static std::atomic<ptr_int_t> tracing_disabled;
+
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void **user_data);
+
+static dr_emit_flags_t
+event_bb_analysis_cleanup(void *drcontext, void *user_data);
+
+static dr_emit_flags_t
+event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                           bool translating, void **user_data);
+
+static dr_emit_flags_t
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      instr_t *where, bool for_trace, bool translating,
+                      void *orig_analysis_data, void *user_data);
+static dr_emit_flags_t
+event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
+                               instr_t *instr, instr_t *where, bool for_trace,
+                               bool translating, void *orig_analysis_data,
+                               void *user_data);
+static dr_emit_flags_t
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating);
+
+static bool
+event_filter_syscall(void *drcontext, int sysnum);
+
+static bool
+event_pre_syscall(void *drcontext, int sysnum);
+
+static void
+event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
+
+static uintptr_t
+event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
+               bool *enable_dups, bool *enable_dynamic_handling, void *user_data)
+{
+    DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
+    if (op_trace_after_instrs.get_value() > 0) {
+        *enable_dups = true;
+        drbbdup_status_t res =
+            drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
+        DR_ASSERT(res == DRBBDUP_SUCCESS);
+    } else {
+        /* Tracing is always on, so we have just one type of instrumentation and
+         * do not need block duplication.
+         */
+        *enable_dups = false;
+    }
+    *enable_dynamic_handling = false;
+    return BBDUP_MODE_TRACE;
+}
+
+static void
+event_bb_retrieve_mode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
+                       void *user_data, void *orig_analysis_data)
+{
+    /* Nothing to do.  We would pass nullptr for this but drbbdup makes it required. */
+}
+
+static bool
+is_first_nonlabel(void *drcontext, instr_t *instr)
+{
+    bool is_first_nonlabel = false;
+    if (drbbdup_is_first_nonlabel_instr(drcontext, instr, &is_first_nonlabel) !=
+        DRBBDUP_SUCCESS)
+        DR_ASSERT(false);
+    return is_first_nonlabel;
+}
+
+static dr_emit_flags_t
+event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                      bool translating, uintptr_t mode, void *user_data,
+                      void *orig_analysis_data, void **analysis_data)
+{
+    if (mode == BBDUP_MODE_TRACE) {
+        return event_bb_analysis(drcontext, tag, bb, for_trace, translating,
+                                 analysis_data);
+    } else if (mode == BBDUP_MODE_COUNT) {
+        return event_inscount_bb_analysis(drcontext, tag, bb, for_trace, translating,
+                                          analysis_data);
+    } else
+        DR_ASSERT(false);
+    return DR_EMIT_DEFAULT;
+}
+
+static void
+event_bb_analyze_case_cleanup(void *drcontext, uintptr_t mode, void *user_data,
+                              void *orig_analysis_data, void *analysis_data)
+{
+    if (mode == BBDUP_MODE_TRACE)
+        event_bb_analysis_cleanup(drcontext, analysis_data);
+    else if (mode == BBDUP_MODE_COUNT)
+        ; /* no cleanup needed */
+    else
+        DR_ASSERT(false);
+}
+
+static dr_emit_flags_t
+event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                           instr_t *where, bool for_trace, bool translating,
+                           uintptr_t mode, void *user_data, void *orig_analysis_data,
+                           void *analysis_data)
+{
+    if (mode == BBDUP_MODE_TRACE) {
+        return event_app_instruction(drcontext, tag, bb, instr, where, for_trace,
+                                     translating, orig_analysis_data, analysis_data);
+    } else if (mode == BBDUP_MODE_COUNT) {
+        return event_inscount_app_instruction(drcontext, tag, bb, instr, where, for_trace,
+                                              translating, orig_analysis_data,
+                                              analysis_data);
+    } else
+        DR_ASSERT(false);
+    return DR_EMIT_DEFAULT;
+}
+
+static void
+instrumentation_exit()
+{
+    dr_unregister_filter_syscall_event(event_filter_syscall);
+    if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
+        !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
+        !drmgr_unregister_bb_app2app_event(event_bb_app2app))
+        DR_ASSERT(false);
+#ifdef DELAYED_CHECK_INLINED
+    drx_exit();
+#endif
+    drbbdup_status_t res = drbbdup_exit();
+    DR_ASSERT(res == DRBBDUP_SUCCESS);
+}
+
+static void
+instrumentation_drbbdup_init()
+{
+    drbbdup_options_t opts = {
+        sizeof(opts),
+    };
+    opts.set_up_bb_dups = event_bb_setup;
+    opts.insert_encode = event_bb_retrieve_mode;
+    opts.analyze_case_ex = event_bb_analyze_case;
+    opts.destroy_case_analysis = event_bb_analyze_case_cleanup;
+    opts.instrument_instr_ex = event_app_instruction_case;
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_disabled, OPSZ_PTR);
+    opts.atomic_load_encoding = true;
+    opts.non_default_case_limit = 1;
+    drbbdup_status_t res = drbbdup_init(&opts);
+    DR_ASSERT(res == DRBBDUP_SUCCESS);
+    /* We just want barriers and atomic ops: no locks b/c they are not safe. */
+    DR_ASSERT(tracing_disabled.is_lock_free());
+}
+
+static void
+instrumentation_init()
+{
+    instrumentation_drbbdup_init();
+    if (!drmgr_register_pre_syscall_event(event_pre_syscall) ||
+        !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
+        !drmgr_register_bb_app2app_event(event_bb_app2app, &pri_pre_bbdup))
+        DR_ASSERT(false);
+    dr_register_filter_syscall_event(event_filter_syscall);
+
+    if (op_trace_after_instrs.get_value() != 0)
+        tracing_disabled.store(BBDUP_MODE_COUNT, std::memory_order_release);
+
+#ifdef DELAYED_CHECK_INLINED
+    drx_init();
+#endif
+}
+
+/***************************************************************************
+ * Tracing instrumentation.
+ */
 
 static void
 append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
@@ -619,12 +815,6 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
-    // i#4893: While it would be lower overhead to delay function tracing's drwrap
-    // calls rather than solely skipping i/o, the lock restrictions around drwrap
-    // make it difficult to delay func_trace's module load event.  This is the
-    // simplest way to delay function tracing output.
-    if (dr_atomic_load32(&tracing_enabled) == 0)
-        return; // Delayed tracing has not triggered yet.
     for (int i = 0; i < vec->size; i++) {
         BUF_PTR(data->seg_base) +=
             instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
@@ -1082,22 +1272,39 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     return adjust;
 }
 
+static bool
+is_last_instr(void *drcontext, instr_t *instr)
+{
+    bool is_last = false;
+    return drbbdup_is_last_instr(drcontext, instr, &is_last) == DRBBDUP_SUCCESS &&
+        is_last;
+}
+
 /* For each memory reference app instr, we insert inline code to fill the buffer
  * with an instruction entry and memory reference entries.
  */
 static dr_emit_flags_t
-event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
-                      bool for_trace, bool translating, void *user_data)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      instr_t *where, bool for_trace, bool translating,
+                      void *orig_analysis_data, void *user_data)
 {
     int i, adjust = 0;
     user_data_t *ud = (user_data_t *)user_data;
     reg_id_t reg_ptr;
     drvector_t rvec;
+    dr_emit_flags_t flags = DR_EMIT_DEFAULT;
+
+    // We need drwrap's instrumentation to go first so that function trace
+    // entries will not be appended to the middle of a BB's PC and Memory Access
+    // trace entries. Assumption made here is that every drwrap function pre/post
+    // callback always happens at the first instruction of a BB.
+    dr_emit_flags_t func_flags = func_trace_enabled_instrument_event(
+        drcontext, tag, bb, instr, where, for_trace, translating, NULL);
+    flags = static_cast<dr_emit_flags_t>(flags | func_flags);
 
     drmgr_disable_auto_predication(drcontext, bb);
 
-    if (op_L0_filter.get_value() && ud->repstr &&
-        drmgr_is_first_nonlabel_instr(drcontext, where)) {
+    if (op_L0_filter.get_value() && ud->repstr && is_first_nonlabel(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the
         // aflags spill for the memref, yet it hits the lazily-delayed aflags
         // restore.  We don't have a great solution (repstr violates drreg's
@@ -1120,8 +1327,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
         // Ensure we reach the code below for post-strex instru.
         ud->strex == NULL &&
         // Avoid dropping trailing bundled instrs or missing the block-final clean call.
-        !drmgr_is_last_instr(drcontext, where))
-        return DR_EMIT_DEFAULT;
+        !is_last_instr(drcontext, instr))
+        return flags;
 
     // i#1698: there are constraints for code between ldrex/strex pairs.
     // Normally DR will have done its -ldstex2cas, but in case that's disabled,
@@ -1144,12 +1351,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
             NOTIFY(0,
                    "Exclusive store clobbering base not supported: skipping address\n");
         }
-        if (drmgr_is_last_instr(drcontext, where)) {
+        if (is_last_instr(drcontext, instr)) {
             // We need our block-final call below.
             NOTIFY(0, "Block-final exclusive store: may hang");
             ud->strex = NULL;
         } else
-            return DR_EMIT_DEFAULT;
+            return flags;
     } else if (strex != NULL) {
         // Assuming there are no consecutive strex instructions, otherwise we
         // will insert instrumentation code at the second strex instruction.
@@ -1162,7 +1369,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
         (instr_operands == NULL ||
          !(instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) &&
         // Avoid dropping trailing bundled instrs or missing the block-final clean call.
-        !drmgr_is_last_instr(drcontext, where) &&
+        !is_last_instr(drcontext, instr) &&
         // Avoid bundling instrs whose types we separate.
         (instru_t::instr_to_instr_type(instr_fetch, ud->repstr) == TRACE_TYPE_INSTR ||
          // We avoid overhead of skipped bundling for online unless the user requested
@@ -1178,7 +1385,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
         ud->delay_instrs[ud->num_delay_instrs++] = instr_fetch;
-        return DR_EMIT_DEFAULT;
+        return flags;
     }
 
     /* We usually need two scratch registers, but not always, so we push the 2nd
@@ -1207,7 +1414,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
         if (thread_filtering_enabled) {
             bool short_reaches = false;
 #ifdef X86
-            if (ud->num_delay_instrs == 0 && !drmgr_is_last_instr(drcontext, where)) {
+            if (ud->num_delay_instrs == 0 && !is_last_instr(drcontext, instr)) {
                 /* jecxz should reach (really we want "smart jecxz" automation here) */
                 short_reaches = true;
             }
@@ -1277,7 +1484,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
      * We restore the registers after the clean call, which should be ok
      * assuming the clean call does not need the two register values.
      */
-    if (drmgr_is_last_instr(drcontext, where)) {
+    if (is_last_instr(drcontext, instr)) {
         if (op_L0_filter.get_value())
             insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         instrument_clean_call(drcontext, bb, where, reg_ptr);
@@ -1289,7 +1496,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
     /* restore scratch register */
     if (drreg_unreserve_register(drcontext, bb, where, reg_ptr) != DRREG_SUCCESS)
         DR_ASSERT(false);
-    return DR_EMIT_DEFAULT;
+    return flags;
 }
 
 /* We transform string loops into regular loops so we can more easily
@@ -1297,16 +1504,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
  */
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating, OUT void **user_data)
+                 bool translating)
 {
-    user_data_t *data = (user_data_t *)dr_thread_alloc(drcontext, sizeof(user_data_t));
-    memset(data, 0, sizeof(*data));
-    *user_data = (void *)data;
-    if (!drutil_expand_rep_string_ex(drcontext, bb, &data->repstr, NULL)) {
+    /* drbbdup doesn't pass the user_data from this stage so we use TLS.
+     * XXX i#5400: Integrating drbbdup into drmgr would provide user_data here.
+     */
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (!drutil_expand_rep_string_ex(drcontext, bb, &pt->repstr, NULL)) {
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
-    if (!drx_expand_scatter_gather(drcontext, bb, &data->scatter_gather)) {
+    if (!drx_expand_scatter_gather(drcontext, bb, &pt->scatter_gather)) {
         DR_ASSERT(false);
     }
     return DR_EMIT_DEFAULT;
@@ -1314,9 +1522,14 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, void *user_data)
+                  bool translating, void **user_data)
 {
-    user_data_t *ud = (user_data_t *)user_data;
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    user_data_t *ud = (user_data_t *)dr_thread_alloc(drcontext, sizeof(user_data_t));
+    memset(ud, 0, sizeof(*ud));
+    ud->repstr = pt->repstr;
+    ud->scatter_gather = pt->scatter_gather;
+    *user_data = (void *)ud;
 
     instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
 
@@ -1324,14 +1537,13 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     // As elsewhere in this code, we want the single-instr original and not
     // the expanded 6 labeled-app instrs for repstr loops (i#2011).
     // The new emulation support should have solved that for us.
-    DR_ASSERT((!ud->repstr && !ud->scatter_gather) || ud->bb_instr_count == 1);
+    DR_ASSERT((!ud->repstr && !pt->scatter_gather) || ud->bb_instr_count == 1);
 
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
-event_bb_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                       bool translating, void *user_data)
+event_bb_analysis_cleanup(void *drcontext, void *user_data)
 {
     dr_thread_free(drcontext, user_data, sizeof(user_data_t));
     return DR_EMIT_DEFAULT;
@@ -1347,6 +1559,8 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+        return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
 #ifdef ARM
@@ -1371,6 +1585,8 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
     uintptr_t marker_val = 0;
+    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+        return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     switch (info->type) {
@@ -1441,12 +1657,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
 }
 
 /***************************************************************************
- * Delayed tracing feature.
+ * Instruction counting mode where we do not record any trace data.
  */
 
 static uint64 instr_count;
-static volatile bool tracing_scheduled;
-static void *schedule_tracing_lock;
 /* For performance, we only increment the global instr_count exactly for
  * small thresholds.  If -trace_after_instrs is larger than this value, we
  * instead use thread-private counters and add to the global every
@@ -1455,87 +1669,9 @@ static void *schedule_tracing_lock;
 #define DELAY_EXACT_THRESHOLD (10 * 1024 * 1024)
 #define DELAY_COUNTDOWN_UNIT 10000
 
-#if defined(X86_64) || defined(AARCH64)
-#    define DELAYED_CHECK_INLINED 1
-#else
-/* XXX we don't have the inlining implemented yet for 32-bit architectures. */
-#endif
-
-#if defined(X86_64)
-/* FIXME i#4711: Do not restore aflags and register to prevent instability. */
-#    define DISABLED_FOR_BUG_4711 1
-#endif
-
-static dr_emit_flags_t
-event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                        bool translating, void **user_data);
-
-static dr_emit_flags_t
-event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                            bool for_trace, bool translating, void *user_data);
-
-static void
-enable_delay_instrumentation()
-{
-#ifdef DELAYED_CHECK_INLINED
-    drx_init();
-#endif
-    /* We first have a phase where we count instructions.  Only then do we switch
-     * to tracing instrumentation.
-     */
-    if (!drmgr_register_bb_instrumentation_event(
-            event_delay_bb_analysis, event_delay_app_instruction, &memtrace_pri))
-        DR_ASSERT(false);
-    schedule_tracing_lock = dr_mutex_create();
-#if defined(AARCH64) && defined(DELAYED_CHECK_INLINED)
-    if (op_trace_after_instrs.get_value() <= DELAY_EXACT_THRESHOLD) {
-        instr_count = op_trace_after_instrs.get_value() - 1;
-    }
-#endif
-}
-
-static void
-disable_delay_instrumentation()
-{
-    if (!drmgr_unregister_bb_instrumentation_event(event_delay_bb_analysis))
-        DR_ASSERT(false);
-}
-
-static void
-exit_delay_instrumentation()
-{
-    if (schedule_tracing_lock != NULL)
-        dr_mutex_destroy(schedule_tracing_lock);
-#ifdef DELAYED_CHECK_INLINED
-    drx_exit();
-#endif
-}
-
-static void
-enable_tracing_instrumentation()
-{
-    if (!drmgr_register_pre_syscall_event(event_pre_syscall) ||
-        !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
-        !drmgr_register_bb_instrumentation_ex_event(
-            event_bb_app2app, event_bb_analysis, event_app_instruction,
-            event_bb_instru2instru, &memtrace_pri))
-        DR_ASSERT(false);
-    dr_register_filter_syscall_event(event_filter_syscall);
-    dr_atomic_store32(&tracing_enabled, 1);
-}
-
-static void
-change_instrumentation_callback(void *unused_user_data)
-{
-    NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
-    disable_delay_instrumentation();
-    enable_tracing_instrumentation();
-}
-
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
-    bool do_flush = false;
 #ifdef DELAYED_CHECK_INLINED
     /* XXX: We could do the same thread-local counters for non-inlined.
      * We'd then switch to std::atomic or something for 32-bit.
@@ -1552,27 +1688,9 @@ hit_instr_count_threshold(app_pc next_pc)
             return;
     }
 #endif
-    dr_mutex_lock(schedule_tracing_lock);
-    if (!tracing_scheduled) {
-        do_flush = true;
-        tracing_scheduled = true;
-    }
-    dr_mutex_unlock(schedule_tracing_lock);
-
-    if (do_flush) {
-        if (!dr_flush_region_ex(NULL, ~0UL, change_instrumentation_callback,
-                                NULL /*user_data*/))
-            DR_ASSERT(false);
-
-        void *drcontext = dr_get_current_drcontext();
-        dr_mcontext_t mcontext;
-        mcontext.size = sizeof(mcontext);
-        mcontext.flags = DR_MC_ALL;
-        dr_get_mcontext(drcontext, &mcontext);
-        mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
-        dr_redirect_execution(&mcontext);
-        DR_ASSERT(false);
-    }
+    NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+    DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
+    tracing_disabled.store(BBDUP_MODE_TRACE, std::memory_order_release);
 }
 
 #ifndef DELAYED_CHECK_INLINED
@@ -1589,8 +1707,8 @@ check_instr_count_threshold(uint incby, app_pc next_pc)
 #endif
 
 static dr_emit_flags_t
-event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                        bool translating, void **user_data)
+event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                           bool translating, void **user_data)
 {
     instr_t *instr;
     uint num_instrs;
@@ -1603,12 +1721,22 @@ event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 }
 
 static dr_emit_flags_t
-event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                            bool for_trace, bool translating, void *user_data)
+event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
+                               instr_t *instr, instr_t *where, bool for_trace,
+                               bool translating, void *orig_analysis_data,
+                               void *user_data)
 {
     uint num_instrs;
-    if (!drmgr_is_first_nonlabel_instr(drcontext, instr))
-        return DR_EMIT_DEFAULT;
+    dr_emit_flags_t flags = DR_EMIT_DEFAULT;
+
+    // Give drwrap a chance to clean up, even when we're not actively wrapping.
+    dr_emit_flags_t func_flags = func_trace_disabled_instrument_event(
+        drcontext, tag, bb, instr, where, for_trace, translating, NULL);
+    flags = static_cast<dr_emit_flags_t>(flags | func_flags);
+
+    if (!is_first_nonlabel(drcontext, instr))
+        return flags;
+
     num_instrs = (uint)(ptr_uint_t)user_data;
     drmgr_disable_auto_predication(drcontext, bb);
 #ifdef DELAYED_CHECK_INLINED
@@ -1621,110 +1749,110 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
          * count by using thread-local counters and only merging into the global
          * every so often.
          */
-        if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        if (drreg_reserve_aflags(drcontext, bb, where) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve aflags");
         MINSERT(
-            bb, instr,
+            bb, where,
             INSTR_CREATE_sub(
                 drcontext,
                 dr_raw_tls_opnd(drcontext, tls_seg,
                                 tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNTDOWN),
                 OPND_CREATE_INT32(num_instrs)));
-        MINSERT(bb, instr,
+        MINSERT(bb, where,
                 INSTR_CREATE_jcc(drcontext, OP_jns, opnd_create_instr(skip_call)));
     } else {
         if (!drx_insert_counter_update(
-                drcontext, bb, instr, (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
+                drcontext, bb, where, (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
                 &instr_count, num_instrs, DRX_COUNTER_64BIT))
             DR_ASSERT(false);
 
-        if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        if (drreg_reserve_aflags(drcontext, bb, where) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve aflags");
         if (op_trace_after_instrs.get_value() < INT_MAX) {
             MINSERT(
-                bb, instr,
+                bb, where,
                 XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
                                  OPND_CREATE_INT32(op_trace_after_instrs.get_value())));
         } else {
-            if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch) !=
+            if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch) !=
                 DRREG_SUCCESS)
                 FATAL("Fatal error: failed to reserve scratch register");
             instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
-                                             opnd_create_reg(scratch), bb, instr, NULL,
+                                             opnd_create_reg(scratch), bb, where, NULL,
                                              NULL);
-            MINSERT(bb, instr,
+            MINSERT(bb, where,
                     XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
                                      opnd_create_reg(scratch)));
         }
-        MINSERT(bb, instr,
+        MINSERT(bb, where,
                 INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
     }
 #        elif defined(AARCH64)
     reg_id_t scratch1, scratch2 = DR_REG_NULL;
     if (op_trace_after_instrs.get_value() > DELAY_EXACT_THRESHOLD) {
         /* See the x86_64 comment on using thread-local counters to avoid contention. */
-        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) !=
+        if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch1) !=
             DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve scratch register");
-        dr_insert_read_raw_tls(drcontext, bb, instr, tls_seg,
+        dr_insert_read_raw_tls(drcontext, bb, where, tls_seg,
                                tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNTDOWN,
                                scratch1);
         /* We're counting down for an aflags-free comparison. */
-        MINSERT(bb, instr,
+        MINSERT(bb, where,
                 XINST_CREATE_sub(drcontext, opnd_create_reg(scratch1),
                                  OPND_CREATE_INT(num_instrs)));
-        dr_insert_write_raw_tls(drcontext, bb, instr, tls_seg,
+        dr_insert_write_raw_tls(drcontext, bb, where, tls_seg,
                                 tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNTDOWN,
                                 scratch1);
-        MINSERT(bb, instr,
+        MINSERT(bb, where,
                 INSTR_CREATE_tbz(drcontext, opnd_create_instr(skip_call),
                                  /* If the top bit is still zero, skip the call. */
                                  opnd_create_reg(scratch1), OPND_CREATE_INT(63)));
     } else {
         /* We're counting down for an aflags-free comparison. */
         if (!drx_insert_counter_update(
-                drcontext, bb, instr, (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
+                drcontext, bb, where, (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
                 (dr_spill_slot_t)(SPILL_SLOT_MAX + 1), &instr_count, -num_instrs,
                 DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
             DR_ASSERT(false);
 
-        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) !=
+        if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch1) !=
             DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve scratch register");
-        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) !=
+        if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch2) !=
             DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve scratch register");
 
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
-                                         opnd_create_reg(scratch1), bb, instr, NULL,
+                                         opnd_create_reg(scratch1), bb, where, NULL,
                                          NULL);
-        MINSERT(bb, instr,
+        MINSERT(bb, where,
                 XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
                                   OPND_CREATE_MEMPTR(scratch1, 0)));
-        MINSERT(bb, instr,
+        MINSERT(bb, where,
                 INSTR_CREATE_tbz(drcontext, opnd_create_instr(skip_call),
                                  /* If the top bit is still zero, skip the call. */
                                  opnd_create_reg(scratch2), OPND_CREATE_INT(63)));
     }
 #        endif
 
-    dr_insert_clean_call_ex(drcontext, bb, instr, (void *)hit_instr_count_threshold,
+    dr_insert_clean_call_ex(drcontext, bb, where, (void *)hit_instr_count_threshold,
                             static_cast<dr_cleancall_save_t>(
                                 DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH),
                             1, OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
-    MINSERT(bb, instr, skip_call);
+    MINSERT(bb, where, skip_call);
 
 #        ifdef X86_64
-    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+    if (drreg_unreserve_aflags(drcontext, bb, where) != DRREG_SUCCESS)
         DR_ASSERT(false);
     if (scratch != DR_REG_NULL) {
-        if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
+        if (drreg_unreserve_register(drcontext, bb, where, scratch) != DRREG_SUCCESS)
             DR_ASSERT(false);
     }
 #        elif defined(AARCH64)
-    if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
+    if (drreg_unreserve_register(drcontext, bb, where, scratch1) != DRREG_SUCCESS ||
         (scratch2 != DR_REG_NULL &&
-         drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS))
+         drreg_unreserve_register(drcontext, bb, where, scratch2) != DRREG_SUCCESS))
         DR_ASSERT(false);
 #        endif
 #    else
@@ -1735,12 +1863,12 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
      * inlining of check_instr_count_threshold is not implemented for i386. For now we pay
      * the cost of a clean call every time for 32-bit architectures.
      */
-    dr_insert_clean_call_ex(drcontext, bb, instr, (void *)check_instr_count_threshold,
+    dr_insert_clean_call_ex(drcontext, bb, where, (void *)check_instr_count_threshold,
                             DR_CLEANCALL_READS_APP_CONTEXT, 2,
                             OPND_CREATE_INT32(num_instrs),
                             OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
 #endif
-    return DR_EMIT_DEFAULT;
+    return flags;
 }
 
 /***************************************************************************
@@ -1959,17 +2087,8 @@ event_exit(void)
 
     drvector_delete(&scratch_reserve_vec);
 
-    if (dr_atomic_load32(&tracing_enabled) > 0) {
-        dr_unregister_filter_syscall_event(event_filter_syscall);
-        if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
-            !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
-            !drmgr_unregister_bb_instrumentation_ex_event(
-                event_bb_app2app, event_bb_analysis, event_app_instruction,
-                event_bb_instru2instru))
-            DR_ASSERT(false);
-    } else {
-        disable_delay_instrumentation();
-    }
+    instrumentation_exit();
+
     if (!drmgr_unregister_tls_field(tls_idx) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
@@ -1995,8 +2114,6 @@ event_exit(void)
 
     dr_mutex_destroy(mutex);
     drutil_exit();
-    if (op_trace_after_instrs.get_value() > 0)
-        exit_delay_instrumentation();
     drmgr_exit();
     func_trace_exit();
     drx_exit();
@@ -2204,10 +2321,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         !drmgr_register_thread_exit_event(event_thread_exit))
         DR_ASSERT(false);
 
-    if (op_trace_after_instrs.get_value() > 0)
-        enable_delay_instrumentation();
-    else
-        enable_tracing_instrumentation();
+    instrumentation_init();
 
     trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
 
