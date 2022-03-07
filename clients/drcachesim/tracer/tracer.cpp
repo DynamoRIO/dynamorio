@@ -612,7 +612,14 @@ clean_call(void)
  * Alternating tracing-no-tracing feature.
  */
 
-/* We have two modes: count instructions only, and full trace. */
+/* We have two modes: count instructions only, and full trace.
+ *
+ * XXX i#3995: To implement -max_trace_size with drbbdup cases (with thread-private
+ * encodings), or support nudges enabling tracing, we will likely add a 3rd mode that
+ * has zero instrumentation.  We also would use the 3rd mode for just -trace_for_instrs
+ * with no -retrace_every_instrs.  For now we have just 2 as the case dispatch is more
+ * efficient that way.
+ */
 enum {
     BBDUP_MODE_TRACE = 0,
     BBDUP_MODE_COUNT = 1,
@@ -672,8 +679,12 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
         drbbdup_status_t res =
             drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
         DR_ASSERT(res == DRBBDUP_SUCCESS);
-    } else
+    } else {
+        /* Tracing is always on, so we have just one type of instrumentation and
+         * do not need block duplication.
+         */
         *enable_dups = false;
+    }
     *enable_dynamic_handling = false;
     return BBDUP_MODE_TRACE;
 }
@@ -757,7 +768,7 @@ instrumentation_exit()
 }
 
 static void
-instrumentation_init()
+instrumentation_drbbdup_init()
 {
     drbbdup_options_t opts = {
         sizeof(opts),
@@ -774,7 +785,12 @@ instrumentation_init()
     DR_ASSERT(res == DRBBDUP_SUCCESS);
     /* We just want barriers and atomic ops: no locks b/c they are not safe. */
     DR_ASSERT(tracing_disabled.is_lock_free());
+}
 
+static void
+instrumentation_init()
+{
+    instrumentation_drbbdup_init();
     if (!drmgr_register_pre_syscall_event(event_pre_syscall) ||
         !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_register_bb_app2app_event(event_bb_app2app, &pri_pre_bbdup))
@@ -1490,7 +1506,9 @@ static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating)
 {
-    /* drbbdup doesn't pass the user_data from this stage so we use TLS. */
+    /* drbbdup doesn't pass the user_data from this stage so we use TLS.
+     * XXX i#5400: Integrating drbbdup into drmgr would provide user_data here.
+     */
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (!drutil_expand_rep_string_ex(drcontext, bb, &pt->repstr, NULL)) {
         DR_ASSERT(false);
@@ -1671,6 +1689,7 @@ hit_instr_count_threshold(app_pc next_pc)
     }
 #endif
     NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+    DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
     tracing_disabled.store(BBDUP_MODE_TRACE, std::memory_order_release);
 }
 
