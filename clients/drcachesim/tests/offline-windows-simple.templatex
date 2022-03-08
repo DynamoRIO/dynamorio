@@ -2,7 +2,6 @@ Hit delay threshold: enabling tracing.
 Hit tracing window #0 limit: disabling tracing.
 Hit retrace threshold: enabling tracing.
 .*
-Hello, world!.*
 Basic counts tool results:
 .*
 Total windows: [0-9]*
