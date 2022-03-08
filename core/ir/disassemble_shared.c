@@ -1096,7 +1096,10 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;
     } else if (instr_is_label(instr)) {
-        print_to_buffer(buf, bufsz, sofar, "<label>");
+        /* Since labels with different note values are used during instrumentation
+         * to mark different regions, it is useful to display the note.
+         */
+        print_to_buffer(buf, bufsz, sofar, "<label note=%p>", instr_get_note(instr));
         return;
     } else if (instr_opcode_valid(instr)) {
 #ifdef AARCH64
