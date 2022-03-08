@@ -499,6 +499,17 @@ endif ()
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
 if (BUILD_TESTS)
+  add_executable(tool.drcachesim.cache_lru_unit_tests tests/cache_lru_unit_tests.cpp)
+  if (ZLIB_FOUND)
+    target_link_libraries(tool.drcachesim.cache_lru_unit_tests drmemtrace_simulator
+      drmemtrace_static drmemtrace_analyzer ${ZLIB_LIBRARIES})
+  else ()
+    target_link_libraries(tool.drcachesim.cache_lru_unit_tests drmemtrace_simulator
+      drmemtrace_static drmemtrace_analyzer)
+  endif ()
+  add_win32_flags(tool.drcachesim.cache_lru_unit_tests)
+  add_test(NAME tool.drcachesim.cache_lru_unit_tests
+           COMMAND tool.drcachesim.cache_lru_unit_tests)
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp)
   if (ZLIB_FOUND)
     target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
