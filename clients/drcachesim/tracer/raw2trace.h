@@ -739,6 +739,7 @@ protected:
                 buf += sizeof(*entry);
             } else {
                 // We should see an instr entry first
+                impl()->log(3, "extra memref entry: %p\n", in_entry->addr.addr);
                 return "memref entry found outside of bb";
             }
         } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {

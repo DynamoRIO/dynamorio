@@ -559,8 +559,12 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
 {
     // Check whether we can elide this address.
     // Be sure to start with "app" and not "where" to handle post-instr insertion
-    // such as for exclusive stores.
-    for (instr_t *prev = instr_get_prev(app); prev != nullptr && !instr_is_app(prev);
+    // for exclusive stores -- but otherwise we want "where" for drbbdup's handling
+    // of block-final instrs.
+    instr_t *start = where;
+    if (instr_is_exclusive_store(app))
+        start = app;
+    for (instr_t *prev = instr_get_prev(start); prev != nullptr && !instr_is_app(prev);
          prev = instr_get_prev(prev)) {
         int elided_index;
         bool elided_is_store;
