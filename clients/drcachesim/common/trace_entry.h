@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -325,6 +325,14 @@ typedef enum {
      * by #TRACE_MARKER_TYPE_KERNEL_EVENT.
      */
     TRACE_MARKER_TYPE_RSEQ_ABORT,
+
+    /**
+     * Identifies in the marker value the ordinal of a window during a multi-window
+     * tracing run (see the options -trace_for_instrs and -retrace_every_instrs).
+     * When a marker with an ordinal value different from the last-seen marker
+     * appears, a time gap may exist immediately before this new marker.
+     */
+    TRACE_MARKER_TYPE_WINDOW_ID,
 
     // ...
     // These values are reserved for future built-in marker types.

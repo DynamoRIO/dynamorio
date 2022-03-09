@@ -123,6 +123,7 @@ typedef struct {
     byte *buf_base;
     uint64 num_refs;
     uint64 bytes_written;
+    uint64 cur_window_instr_count;
     /* For offline traces */
     file_t file;
     size_t init_header_size;
@@ -189,6 +190,9 @@ enum {
      * on the transition.
      */
     MEMTRACE_TLS_OFFS_ICOUNTDOWN,
+    // For has_tracing_windows(), this is the ordinal of the tracing window at
+    // the start of the current trace buffer.  It is -1 if windows are not enabled.
+    MEMTRACE_TLS_OFFS_WINDOW,
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 static reg_id_t tls_seg;
@@ -203,6 +207,53 @@ static size_t buf_hdr_slots_size;
 static bool (*should_trace_thread_cb)(thread_id_t tid, void *user_data);
 static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
+
+/* Similarly to -trace_after_instrs, we use thread-local counters to avoid
+ * synchronization costs and only add to the global every N counts.
+ */
+#define INSTR_COUNT_LOCAL_UNIT 10000
+static std::atomic<uint64> cur_window_instr_count;
+
+static bool
+count_traced_instrs(void *drcontext, int toadd);
+
+static void
+reached_traced_instrs_threshold(void *drcontext);
+
+static uint64
+local_instr_count_threshold()
+{
+    uint64 limit = op_trace_for_instrs.get_value();
+    if (limit > INSTR_COUNT_LOCAL_UNIT * 10)
+        return INSTR_COUNT_LOCAL_UNIT;
+    else {
+        /* For small windows, use a smaller add-to-global trigger. */
+        return limit / 10;
+    }
+}
+
+static bool
+has_tracing_windows()
+{
+    // We return true for a single-window -trace_for_instrs (without -retrace) setup
+    // since we rely on having window numbers for the end-of-block buffer output check
+    // used for a single-window transition away from tracing.
+    return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
+}
+
+static void
+set_local_window(per_thread_t *data, ptr_int_t value)
+{
+    *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
+}
+
+static ptr_int_t
+get_local_window(per_thread_t *data)
+{
+    return *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW);
+}
+
+static std::atomic<ptr_int_t> tracing_window;
 
 /***************************************************************************
  * Buffer writing to disk.
@@ -363,9 +414,9 @@ create_buffer(per_thread_t *data)
 }
 
 static int
-append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid)
+append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window)
 {
-    int size_added = instru->append_unit_header(buf_ptr, tid);
+    int size_added = instru->append_unit_header(buf_ptr, tid, window);
     if (op_L0_filter.get_value()) {
         // Include the instruction count.
         // It might be useful to include the count with each miss as well, but
@@ -389,7 +440,7 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid)
 }
 
 static inline byte *
-atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
+atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end, ptr_int_t window)
 {
     ssize_t towrite = pipe_end - pipe_start;
     DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() && towrite > 0);
@@ -399,13 +450,14 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
     // Re-emit buffer unit header to handle split pipe writes.
     if (pipe_end - buf_hdr_slots_size > pipe_start) {
         pipe_start = pipe_end - buf_hdr_slots_size;
-        append_unit_header(drcontext, pipe_start, dr_get_thread_id(drcontext));
+        append_unit_header(drcontext, pipe_start, dr_get_thread_id(drcontext), window);
     }
     return pipe_start;
 }
 
 static inline byte *
-write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
+write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
+                 ptr_int_t window)
 {
     if (op_offline.get_value()) {
         per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
@@ -420,7 +472,7 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
         }
         return towrite_start;
     } else
-        return atomic_pipe_write(drcontext, towrite_start, towrite_end);
+        return atomic_pipe_write(drcontext, towrite_start, towrite_end, window);
 }
 
 static bool
@@ -444,6 +496,7 @@ is_bytes_written_beyond_trace_max(per_thread_t *data)
         data->bytes_written > op_max_trace_size.get_value();
 }
 
+// Should be invoked only in the middle of an active tracing window.
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
@@ -460,11 +513,30 @@ memtrace(void *drcontext, bool skip_size_cap)
     if (data->num_refs == 0 && op_offline.get_value())
         header_size = data->init_header_size;
     // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
-    if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size)
+    if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size) {
+        if (has_tracing_windows()) {
+            // If there is no data to write, we do not emit an empty header.
+            // Thus multiple windows may pass with no output at all for an idle thread.
+            set_local_window(data, tracing_window.load(std::memory_order_acquire));
+        }
         return;
+    }
     // The initial slots are left empty for the header, which we add here.
-    header_size += append_unit_header(drcontext, data->buf_base + header_size,
-                                      dr_get_thread_id(drcontext));
+    header_size +=
+        append_unit_header(drcontext, data->buf_base + header_size,
+                           dr_get_thread_id(drcontext), get_local_window(data));
+    bool window_changed = false;
+    if (has_tracing_windows() &&
+        get_local_window(data) != tracing_window.load(std::memory_order_acquire)) {
+        // This buffer is for a prior window.  Do not add to the current window count;
+        // emit under the prior window.
+        DR_ASSERT(get_local_window(data) <
+                  tracing_window.load(std::memory_order_acquire));
+        data->cur_window_instr_count = 0;
+        window_changed = true;
+        // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
+        // one in its header.
+    }
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap &&
@@ -477,6 +549,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         if (is_num_refs_beyond_global_max()) {
             /* std::atomic *should* be safe (we can assert std::atomic_is_lock_free())
              * but to avoid any risk we use DR's atomics.
+             * Update: we are now using std::atomic for some new variables.
              */
             if (dr_atomic_load32(&notify_beyond_global_max_once) == 0) {
                 int count = dr_atomic_add32_return_sum(&notify_beyond_global_max_once, 1);
@@ -496,11 +569,25 @@ memtrace(void *drcontext, bool skip_size_cap)
         data->bytes_written += buf_ptr - pipe_start;
 
     if (do_write) {
-        if (have_phys && op_use_physical.get_value()) {
+        bool hit_window_end = false;
+        if ((have_phys && op_use_physical.get_value()) ||
+            op_trace_for_instrs.get_value() > 0) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
+                if (!window_changed && !hit_window_end &&
+                    op_trace_for_instrs.get_value() > 0) {
+                    hit_window_end =
+                        count_traced_instrs(drcontext, instru->get_instr_count(mem_ref));
+                    // We have to finish this buffer so we'll go a little beyond the
+                    // precise requested window length.
+                    // XXX: For small windows this may be significant: we could go
+                    // ~5K beyond if we hit the threshold near the start of a full buffer.
+                    // Should we discard the rest of the entries in such a case, at
+                    // a block boundary, even though we already collected them?
+                }
                 trace_type_t type = instru->get_entry_type(mem_ref);
-                if (type != TRACE_TYPE_THREAD && type != TRACE_TYPE_THREAD_EXIT &&
+                if (have_phys && op_use_physical.get_value() &&
+                    type != TRACE_TYPE_THREAD && type != TRACE_TYPE_THREAD_EXIT &&
                     type != TRACE_TYPE_PID) {
                     addr_t virt = instru->get_entry_addr(mem_ref);
                     addr_t phys = physaddr.virtual2physical(virt);
@@ -518,6 +605,11 @@ memtrace(void *drcontext, bool skip_size_cap)
                                type, instru->get_entry_size(mem_ref), virt);
                     }
                 }
+            }
+            if (hit_window_end) {
+                // Update the global window, but not the local so we can place the rest
+                // of this buffer into the same local window.
+                reached_traced_instrs_threshold(drcontext);
             }
         }
         if (!op_offline.get_value()) {
@@ -538,7 +630,8 @@ memtrace(void *drcontext, bool skip_size_cap)
                          pipe_start) > ipc_pipe.get_atomic_write_size()) {
                         DR_ASSERT(is_ok_to_split_before(
                             instru->get_entry_type(pipe_start + header_size)));
-                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end,
+                                                       get_local_window(data));
                     }
                 }
             }
@@ -551,15 +644,16 @@ memtrace(void *drcontext, bool skip_size_cap)
             if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size()) {
                 DR_ASSERT(is_ok_to_split_before(
                     instru->get_entry_type(pipe_start + header_size)));
-                pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+                pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end,
+                                               get_local_window(data));
             }
             if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size) {
                 DR_ASSERT(is_ok_to_split_before(
                     instru->get_entry_type(pipe_start + header_size)));
-                atomic_pipe_write(drcontext, pipe_start, buf_ptr);
+                atomic_pipe_write(drcontext, pipe_start, buf_ptr, get_local_window(data));
             }
         } else {
-            write_trace_data(drcontext, pipe_start, buf_ptr);
+            write_trace_data(drcontext, pipe_start, buf_ptr, get_local_window(data));
         }
         auto span = buf_ptr - (data->buf_base + header_size);
         DR_ASSERT(span % instru->sizeof_entry() == 0);
@@ -598,6 +692,8 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
         dr_mutex_unlock(mutex);
     }
+    if (has_tracing_windows())
+        set_local_window(data, tracing_window.load(std::memory_order_acquire));
 }
 
 /* clean_call sends the memory reference info to the simulator */
@@ -615,7 +711,8 @@ clean_call(void)
 /* We have two modes: count instructions only, and full trace.
  *
  * XXX i#3995: To implement -max_trace_size with drbbdup cases (with thread-private
- * encodings), or support nudges enabling tracing, we will likely add a 3rd mode that
+ * encodings), or support nudges enabling tracing, or have a single -trace_for_instrs
+ * transition to something lower-cost than counting, we will likely add a 3rd mode that
  * has zero instrumentation.  We also would use the 3rd mode for just -trace_for_instrs
  * with no -retrace_every_instrs.  For now we have just 2 as the case dispatch is more
  * efficient that way.
@@ -669,12 +766,62 @@ event_pre_syscall(void *drcontext, int sysnum);
 static void
 event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
 
+// Returns whether we've reached the end of this tracing window.
+static bool
+count_traced_instrs(void *drcontext, int toadd)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    data->cur_window_instr_count += toadd;
+    if (data->cur_window_instr_count >= local_instr_count_threshold()) {
+        uint64 newval = cur_window_instr_count.fetch_add(data->cur_window_instr_count,
+                                                         std::memory_order_release) +
+            // fetch_add returns old value.
+            data->cur_window_instr_count;
+        data->cur_window_instr_count = 0;
+        if (newval >= op_trace_for_instrs.get_value())
+            return true;
+    }
+    return false;
+}
+
+// Does not update the local window.
+static void
+reached_traced_instrs_threshold(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    dr_mutex_lock(mutex);
+    if (get_local_window(data) != tracing_window.load(std::memory_order_acquire)) {
+        // Another thread already changed the mode.
+        dr_mutex_unlock(mutex);
+        return;
+    }
+    // We've reached the end of our window.
+    // We do not attempt a proactive synchronous flush of other threads'
+    // buffers, relying on our end-of-block check for a mode change.
+    // (If -retrace_every_instrs is not set and we're not going to trace
+    // again, we still use a counting mode for simplicity of not adding
+    // yet another mode.)
+    NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
+           tracing_window.load(std::memory_order_acquire));
+    // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
+    // one in its header.
+    // If we're counting at exit time, this increment means that the thread
+    // exit entries will be the only ones in this new window: but that seems
+    // reasonable.
+    tracing_window.fetch_add(1, std::memory_order_release);
+    DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
+    tracing_disabled.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    cur_window_instr_count.store(0, std::memory_order_release);
+    dr_mutex_unlock(mutex);
+}
+
 static uintptr_t
 event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
                bool *enable_dups, bool *enable_dynamic_handling, void *user_data)
 {
     DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
-    if (op_trace_after_instrs.get_value() > 0) {
+    if (op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
+        op_retrace_every_instrs.get_value() > 0) {
         *enable_dups = true;
         drbbdup_status_t res =
             drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
@@ -785,6 +932,7 @@ instrumentation_drbbdup_init()
     DR_ASSERT(res == DRBBDUP_SUCCESS);
     /* We just want barriers and atomic ops: no locks b/c they are not safe. */
     DR_ASSERT(tracing_disabled.is_lock_free());
+    DR_ASSERT(cur_window_instr_count.is_lock_free());
 }
 
 static void
@@ -879,19 +1027,19 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
 
 /* Inserts a conditional branch that jumps to skip_label if reg_skip_if_zero's
  * value is zero.
- * Returns a temp reg that must be passed to insert_conditional_skip_target() at
+ * "*reg_tmp" must start out as DR_REG_NULL. It will hold a temp reg that must be passed
+ * to any subsequent call here as well as to insert_conditional_skip_target() at
  * the point where skip_label should be inserted.  Additionally, the
  * app_regs_at_skip set must be empty prior to calling and it must be passed
  * to insert_conditional_skip_target().
  * reg_skip_if_zero must be DR_REG_XCX on x86.
  */
-static reg_id_t
+static void
 insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_skip_if_zero, instr_t *skip_label,
-                        bool short_reaches, reg_id_set_t &app_regs_at_skip)
+                        reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp INOUT,
+                        instr_t *skip_label, bool short_reaches,
+                        reg_id_set_t &app_regs_at_skip)
 {
-    reg_id_t reg_tmp = DR_REG_NULL;
-
     // Record the registers that will need barriers at the skip target.
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
         drreg_reserve_info_t info = { sizeof(info) };
@@ -933,13 +1081,17 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where, noskip);
     } else {
         /* There is no jecxz/cbz like instr on ARM-A32 mode, so we have to
-         * save aflags to a temp reg before check.
+         * save aflags to a temp reg before the cmp.
          * XXX optimization: use drreg to avoid aflags save/restore.
          */
-        if (drreg_reserve_register(drcontext, ilist, where, &scratch_reserve_vec,
-                                   &reg_tmp) != DRREG_SUCCESS)
-            FATAL("Fatal error: failed to reserve reg.");
-        dr_save_arith_flags_to_reg(drcontext, ilist, where, reg_tmp);
+        if (*reg_tmp != DR_REG_NULL) {
+            /* A prior call has already saved the flags. */
+        } else {
+            if (drreg_reserve_register(drcontext, ilist, where, &scratch_reserve_vec,
+                                       reg_tmp) != DRREG_SUCCESS)
+                FATAL("Fatal error: failed to reserve reg.");
+            dr_save_arith_flags_to_reg(drcontext, ilist, where, *reg_tmp);
+        }
         MINSERT(ilist, where,
                 INSTR_CREATE_cmp(drcontext, opnd_create_reg(reg_skip_if_zero),
                                  OPND_CREATE_INT(0)));
@@ -953,11 +1105,10 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
             INSTR_CREATE_cbz(drcontext, opnd_create_instr(skip_label),
                              opnd_create_reg(reg_skip_if_zero)));
 #endif
-    return reg_tmp;
 }
 
 /* Should be called at the point where skip_label should be inserted.
- * reg_tmp must be the return value from insert_conditional_skip().
+ * reg_tmp must be the "*reg_tmp" output value from insert_conditional_skip().
  * Inserts a barrier for all app-valued registers at the jump point
  * (stored in app_regs_at_skip), to help avoid problems with different
  * paths having different lazy reg restoring from drreg.
@@ -995,6 +1146,8 @@ insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *whe
 
 /* We insert code to read from trace buffer and check whether the redzone
  * is reached. If redzone is reached, the clean call will be called.
+ * Additionally, for tracing windows, we also check for a mode switch and
+ * invoke the clean call if our tracing window is over.
  */
 static void
 instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -1018,26 +1171,98 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     /* XXX: clean call is too long to use cbz to skip. */
     short_reaches = false;
 #endif
+
+    if (has_tracing_windows()) {
+        // We need to do the clean call if the mode has changed back to counting.  To
+        // detect a double-change we compare the TLS-stored last window to the
+        // current tracing_window.  To avoid flags and avoid another branch (jumping
+        // over the filter and redzone checks, e.g.), our strategy is to arrange for
+        // the redzone load to trigger the call for us if the two window values are
+        // not equal by writing their difference onto the next buffer slot.  This
+        // requires a store and two scratch regs so perhaps this should be measured
+        // against a branch-based scheme, but we assume we're i/o bound and so this will
+        // not affect overhead.
+        reg_id_t reg_mine = DR_REG_NULL, reg_global = DR_REG_NULL;
+        if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mine) !=
+                DRREG_SUCCESS ||
+            drreg_reserve_register(drcontext, ilist, where, NULL, &reg_global) !=
+                DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve reg.");
+#ifdef AARCHXX
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&tracing_window,
+                                         opnd_create_reg(reg_global), ilist, where, NULL,
+                                         NULL);
+#    ifdef AARCH64
+        MINSERT(ilist, where,
+                INSTR_CREATE_ldar(drcontext, opnd_create_reg(reg_global),
+                                  OPND_CREATE_MEMPTR(reg_global, 0)));
+#    else
+        MINSERT(ilist, where,
+                XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
+                                  OPND_CREATE_MEMPTR(reg_global, 0)));
+        MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
+#    endif
+#else
+        MINSERT(ilist, where,
+                XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
+                                  OPND_CREATE_ABSMEM(&tracing_window, OPSZ_PTR)));
+#endif
+        dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
+                               tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_WINDOW,
+                               reg_mine);
+#ifdef AARCHXX
+        MINSERT(ilist, where,
+                XINST_CREATE_sub(drcontext, opnd_create_reg(reg_mine),
+                                 opnd_create_reg(reg_global)));
+#else
+        // Our version of a flags-free reg-reg subtraction: 1's complement one reg
+        // plus 1 and then add using base+index of LEA.
+        MINSERT(ilist, where, INSTR_CREATE_not(drcontext, opnd_create_reg(reg_global)));
+        MINSERT(ilist, where,
+                INSTR_CREATE_lea(drcontext, opnd_create_reg(reg_global),
+                                 OPND_CREATE_MEM_lea(reg_global, DR_REG_NULL, 0, 1)));
+        MINSERT(ilist, where,
+                INSTR_CREATE_lea(drcontext, opnd_create_reg(reg_mine),
+                                 OPND_CREATE_MEM_lea(reg_mine, reg_global, 1, 0)));
+#endif
+        // To avoid writing a 0 on top of the redzone, we read the buffer value and add
+        // that to the local ("mine") window minus the global window.  The redzone is
+        // -1, so if we do mine minus global which will always be non-positive, we'll
+        // never write 0 for a redzone slot (and thus possibly overflowing).
+        MINSERT(ilist, where,
+                XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
+                                  OPND_CREATE_MEMPTR(reg_ptr, 0)));
+        MINSERT(ilist, where,
+                XINST_CREATE_add(drcontext, opnd_create_reg(reg_mine),
+                                 opnd_create_reg(reg_global)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
+                                   opnd_create_reg(reg_mine)));
+        if (drreg_unreserve_register(drcontext, ilist, where, reg_global) !=
+                DRREG_SUCCESS ||
+            drreg_unreserve_register(drcontext, ilist, where, reg_mine) != DRREG_SUCCESS)
+            FATAL("Fatal error: failed to unreserve scratch reg.\n");
+    }
+
+    reg_id_t reg_tmp = DR_REG_NULL;
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
-    reg_id_t reg_thread = DR_REG_NULL;
     reg_id_set_t app_regs_at_skip_thread;
     if (op_L0_filter.get_value() && thread_filtering_enabled) {
-        reg_thread =
-            insert_conditional_skip(drcontext, ilist, where, reg_ptr, skip_thread,
-                                    short_reaches, app_regs_at_skip_thread);
+        insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_thread,
+                                short_reaches, app_regs_at_skip_thread);
     }
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext, opnd_create_reg(reg_ptr),
                               OPND_CREATE_MEMPTR(reg_ptr, 0)));
     reg_id_set_t app_regs_at_skip_call;
-    reg_id_t reg_tmp =
-        insert_conditional_skip(drcontext, ilist, where, reg_ptr, skip_call,
-                                short_reaches, app_regs_at_skip_call);
+    insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_call,
+                            short_reaches, app_regs_at_skip_call);
+
     dr_insert_clean_call_ex(drcontext, ilist, where, (void *)clean_call,
                             DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
     insert_conditional_skip_target(drcontext, ilist, where, skip_call, reg_tmp,
                                    app_regs_at_skip_call);
-    insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_thread,
+    insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_tmp,
                                    app_regs_at_skip_thread);
 }
 
@@ -1419,8 +1644,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                 short_reaches = true;
             }
 #endif
-            reg_skip = insert_conditional_skip(drcontext, bb, where, reg_ptr, skip_instru,
-                                               short_reaches, app_regs_at_skip);
+            insert_conditional_skip(drcontext, bb, where, reg_ptr, &reg_skip, skip_instru,
+                                    short_reaches, app_regs_at_skip);
         }
     }
 
@@ -1667,16 +1892,49 @@ static uint64 instr_count;
  * ~DELAY_COUNTDOWN_UNIT instructions.
  */
 #define DELAY_EXACT_THRESHOLD (10 * 1024 * 1024)
-#define DELAY_COUNTDOWN_UNIT 10000
+// We use the same value we use for tracing windows.
+#define DELAY_COUNTDOWN_UNIT INSTR_COUNT_LOCAL_UNIT
+// For -trace_for_instrs without -retrace_every_instrs we count forever,
+// but to avoid the complexity of different instrumentation we need a threshold.
+#define DELAY_FOREVER_THRESHOLD (1024 * 1024 * 1024)
 
+std::atomic<bool> reached_trace_after_instrs;
+
+static bool
+has_instr_count_threshold_to_enable_tracing()
+{
+    if (op_trace_after_instrs.get_value() > 0 &&
+        !reached_trace_after_instrs.load(std::memory_order_acquire))
+        return true;
+    if (op_retrace_every_instrs.get_value() > 0)
+        return true;
+    return false;
+}
+
+static uint64
+instr_count_threshold()
+{
+    if (op_trace_after_instrs.get_value() > 0 &&
+        !reached_trace_after_instrs.load(std::memory_order_acquire))
+        return op_trace_after_instrs.get_value();
+    if (op_retrace_every_instrs.get_value() > 0)
+        return op_retrace_every_instrs.get_value();
+    return DELAY_FOREVER_THRESHOLD;
+}
+
+// Enables tracing if we've reached the delay point.
+// For tracing windows going in the reverse direction and disabling tracing,
+// see reached_traced_instrs_threshold().
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
+    if (!has_instr_count_threshold_to_enable_tracing())
+        return;
 #ifdef DELAYED_CHECK_INLINED
     /* XXX: We could do the same thread-local counters for non-inlined.
      * We'd then switch to std::atomic or something for 32-bit.
      */
-    if (op_trace_after_instrs.get_value() > DELAY_EXACT_THRESHOLD) {
+    if (instr_count_threshold() > DELAY_EXACT_THRESHOLD) {
         void *drcontext = dr_get_current_drcontext();
         per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         int64 myval = *(int64 *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNTDOWN);
@@ -1684,24 +1942,50 @@ hit_instr_count_threshold(app_pc next_pc)
                                                            DELAY_COUNTDOWN_UNIT - myval);
         *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNTDOWN) =
             DELAY_COUNTDOWN_UNIT;
-        if (newval < op_trace_after_instrs.get_value())
+        if (newval < instr_count_threshold())
             return;
     }
 #endif
-    NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+    dr_mutex_lock(mutex);
+    if (tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+        // Another thread already changed the mode.
+        dr_mutex_unlock(mutex);
+        return;
+    }
+    if (op_trace_after_instrs.get_value() > 0 &&
+        !reached_trace_after_instrs.load(std::memory_order_acquire))
+        NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+    else {
+        NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
+               tracing_window.load(std::memory_order_acquire));
+    }
+    if (!reached_trace_after_instrs.load(std::memory_order_acquire)) {
+        reached_trace_after_instrs.store(true, std::memory_order_release);
+    }
+    // Reset for -retrace_every_instrs.
+#ifdef X64
+    dr_atomic_store64((volatile int64 *)&instr_count, 0);
+#else
+    // dr_atomic_store64 is not implemented for 32-bit, and it's technically not
+    // portably safe to take the address of std::atomic, so we rely on our mutex.
+    instr_count = 0;
+#endif
     DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
     tracing_disabled.store(BBDUP_MODE_TRACE, std::memory_order_release);
+    dr_mutex_unlock(mutex);
 }
 
 #ifndef DELAYED_CHECK_INLINED
 static void
 check_instr_count_threshold(uint incby, app_pc next_pc)
 {
+    if (!has_instr_count_threshold_to_enable_tracing())
+        return;
     /* XXX i#5030: This is racy.  We could make std::atomic, or, better, go and
      * implement the inlining and i#5026's thread-private counting.
      */
     instr_count += incby;
-    if (instr_count > op_trace_after_instrs.get_value())
+    if (instr_count > instr_count_threshold())
         hit_instr_count_threshold(next_pc);
 }
 #endif
@@ -1744,7 +2028,7 @@ event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
 #        ifdef X86_64
     reg_id_t scratch = DR_REG_NULL;
-    if (op_trace_after_instrs.get_value() > DELAY_EXACT_THRESHOLD) {
+    if (instr_count_threshold() > DELAY_EXACT_THRESHOLD) {
         /* Contention on a global counter causes high overheads.  We approximate the
          * count by using thread-local counters and only merging into the global
          * every so often.
@@ -1768,16 +2052,15 @@ event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
         if (drreg_reserve_aflags(drcontext, bb, where) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve aflags");
-        if (op_trace_after_instrs.get_value() < INT_MAX) {
-            MINSERT(
-                bb, where,
-                XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
-                                 OPND_CREATE_INT32(op_trace_after_instrs.get_value())));
+        if (instr_count_threshold() < INT_MAX) {
+            MINSERT(bb, where,
+                    XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
+                                     OPND_CREATE_INT32(instr_count_threshold())));
         } else {
             if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch) !=
                 DRREG_SUCCESS)
                 FATAL("Fatal error: failed to reserve scratch register");
-            instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
+            instrlist_insert_mov_immed_ptrsz(drcontext, instr_count_threshold(),
                                              opnd_create_reg(scratch), bb, where, NULL,
                                              NULL);
             MINSERT(bb, where,
@@ -1789,7 +2072,7 @@ event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     }
 #        elif defined(AARCH64)
     reg_id_t scratch1, scratch2 = DR_REG_NULL;
-    if (op_trace_after_instrs.get_value() > DELAY_EXACT_THRESHOLD) {
+    if (instr_count_threshold() > DELAY_EXACT_THRESHOLD) {
         /* See the x86_64 comment on using thread-local counters to avoid contention. */
         if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch1) !=
             DRREG_SUCCESS)
@@ -1901,6 +2184,12 @@ init_thread_in_process(void *drcontext)
         IF_X86_ELSE(
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32)));
+
+    if (has_tracing_windows())
+        set_local_window(data, tracing_window.load(std::memory_order_acquire));
+    else
+        set_local_window(data, -1);
+
     if (op_offline.get_value()) {
         /* We do not need to call drx_init before using drx_open_unique_appid_file.
          * Since we're now in a subdir we could make the name simpler but this
@@ -1940,7 +2229,7 @@ init_thread_in_process(void *drcontext)
         proc_info += reinterpret_cast<online_instru_t *>(instru)->append_thread_header(
             proc_info, dr_get_thread_id(drcontext), file_type);
         DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(proc_info - (byte *)buf));
-        write_trace_data(drcontext, (byte *)buf, proc_info);
+        write_trace_data(drcontext, (byte *)buf, proc_info, get_local_window(data));
 
         /* put buf_base to TLS plus header slots as starting buf_ptr */
         data->init_header_size = buf_hdr_slots_size;
@@ -2237,6 +2526,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
+    DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
+    DR_ASSERT(std::atomic_is_lock_free(&tracing_disabled));
+    DR_ASSERT(std::atomic_is_lock_free(&tracing_window));
+
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
     if (op_L0_filter.get_value()) {
@@ -2301,6 +2594,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     /* We need an extra for -L0_filter. */
     if (op_L0_filter.get_value())
         ++ops.num_spill_slots;
+    // We use the buf pointer reg plus 2 more in instrument_clean_call, so we want
+    // 3 total: thus 1 more than the base.
+    if (has_tracing_windows())
+        ++ops.num_spill_slots;
 
     if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS ||
         !drx_init())
@@ -2344,8 +2641,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     /* Mark any padding as redzone as well */
     redzone_size = max_buf_size - trace_buf_size;
     /* Append a throwaway header to get its size. */
-    buf_hdr_slots_size =
-        append_unit_header(NULL /*no TLS yet*/, buf, 0 /*doesn't matter*/);
+    buf_hdr_slots_size = append_unit_header(
+        NULL /*no TLS yet*/, buf, 0 /*doesn't matter*/, has_tracing_windows() ? 0 : -1);
     DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= buf_hdr_slots_size);
 
     client_id = id;

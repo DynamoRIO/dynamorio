@@ -3345,6 +3345,9 @@ if (BUILD_CLIENTS)
       "-simulator_type basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
       "${annotation_test_args_shorter}")
 
+    torunonly_drcachesim(windows-simple ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -simulator_type basic_counts" "")
+
     # Test that "Warmup hits" and "Warmup misses" are printed out
     torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
 
@@ -3602,6 +3605,21 @@ if (BUILD_CLIENTS)
       # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(windows-simple ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    if (OFF) # FIXME i#5390: Fix drbbdup hiding block-final jmps; then enable.
+      # Ensure the invariant checker handles window transitions.
+      torunonly_drcacheoff(windows-invar ${ci_shared_app}
+        "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+        "@-simulator_type@invariant_checker" "")
+    endif ()
+    if (X86 AND X64 AND UNIX)
+      torunonly_drcacheoff(windows-asm allasm_repstr
+        "-trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+        "@-simulator_type@basic_counts" "")
+    endif ()
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)

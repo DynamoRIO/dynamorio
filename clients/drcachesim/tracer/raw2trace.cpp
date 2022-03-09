@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -594,18 +594,24 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             }
             continue;
         }
-        // Append delayed branches at the end or before xfer markers; else, delay
-        // until we see a non-cti inside a block, to handle double branches (i#5141)
-        // and to group all (non-xfer) markers with a new timestamp.
+        // Append delayed branches at the end or before xfer or window-change
+        // markers; else, delay until we see a non-cti inside a block, to handle
+        // double branches (i#5141) and to group all (non-xfer) markers with a new
+        // timestamp.
         if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
             (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
              (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
               (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER)))) {
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
+               (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
+                entry.extended.valueA != tdata->last_window))))) {
             tdata->error = append_delayed_branch(tdata);
             if (!tdata->error.empty())
                 return tdata->error;
         }
+        if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
+            tdata->last_window = entry.extended.valueA;
         tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
                                              &last_bb_handled);
         if (!tdata->error.empty())

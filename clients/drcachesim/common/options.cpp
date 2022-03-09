@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -240,15 +240,30 @@ droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
     "Do not start tracing until N instructions",
     "If non-zero, this causes tracing to be suppressed until this many dynamic "
-    "instruction "
-    "executions are observed.  At that point, regular tracing is put into place. "
+    "instruction executions are observed from the start of the application. "
+    "At that point, regular tracing is put into place. "
     "The threshold should be considered approximate, especially for larger values. "
-    "Switching to regular tracing takes some amount of time during which other "
-    "threads than the one that triggered the switch can continue to execute, "
-    "resulting in a larger count of executed instructions before tracing actually "
-    "starts than this given threshold. "
-    "Use -max_trace_size or -max_global_trace_refs to set a limit on the subsequent "
-    "trace length.");
+    "Use -trace_for_instrs, -max_trace_size, or -max_global_trace_refs to set a limit "
+    "on the subsequent trace length.  Use -retrace_every_instrs to trace repeatedly.");
+
+droption_t<bytesize_t> op_trace_for_instrs(
+    DROPTION_SCOPE_CLIENT, "trace_for_instrs", 0,
+    "After tracing N instructions, stop tracing, but continue executing.",
+    "If non-zero, this stops recording a trace after the specified number of "
+    "instructions are traced.  Unlike -exit_after_tracing, which kills the "
+    "application (and counts data as well as instructions), the application "
+    "continues executing.  This can be combined with -retrace_every_instrs. "
+    "The actual trace period may vary slightly from this number due to optimizations "
+    "that reduce the overhead of instruction counting.");
+
+droption_t<bytesize_t> op_retrace_every_instrs(
+    DROPTION_SCOPE_CLIENT, "retrace_every_instrs", 0,
+    "Trace for -trace_for_instrs, execute this many, and repeat.",
+    "This option augments -trace_for_instrs.  After tracing concludes, this option "
+    "causes non-traced instructions to be counted and after the number specified by "
+    "this option, tracing start up again for the -trace_for_instrs duration.  This "
+    "process repeats itself.  This can be combined with -trace_after_instrs for an "
+    "initial period of non-tracing.");
 
 droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
