@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -75,7 +75,7 @@ public:
             exit(1);
         }
 
-        // Access the cacheclines in set 1 in the following sequence and ensure the
+        // Access the cache lines in set 1 in the following sequence and ensure the
         // counters are updated properly.
         access_update(1, 6);
         access_update(1, 1);
