@@ -948,7 +948,8 @@ raw2trace_t::get_next_entry(void *tls)
            // Some compilers think .addr.type is "int" while others think it's "unsigned
            // long".  We avoid dueling warnings by casting to int.
            static_cast<int>(tdata->last_entry.addr.type),
-           tdata->last_entry.combined_value);
+           // Cast to long to avoid Mac warning on "long long" using "long" format.
+           static_cast<uint64>(tdata->last_entry.combined_value));
     return &tdata->last_entry;
 }
 
