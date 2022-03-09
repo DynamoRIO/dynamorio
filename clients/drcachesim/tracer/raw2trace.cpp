@@ -601,8 +601,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
             (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
              (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-              ((entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) ||
+              (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
                (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
                 entry.extended.valueA != tdata->last_window))))) {
             tdata->error = append_delayed_branch(tdata);

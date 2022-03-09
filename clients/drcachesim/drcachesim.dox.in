@@ -161,7 +161,7 @@ Some of the more important markers are:
 
 - #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
 
-- #TRACE_MARKER_TYPE_WINDOW_ID - The marker value contains the ordinal of the trace burst window when a multi-window trace was collected (see \ref sec_drcachesim_partial).
+- #TRACE_MARKER_TYPE_WINDOW_ID - The marker value contains the ordinal of the trace burst window when the subsequent entries until the next #TRACE_MARKER_TYPE_WINDOW_ID or end-of-trace were collected (see \ref sec_drcachesim_partial).
 
 The full set of markers is listed under the enum #trace_marker_type_t.
 
@@ -957,7 +957,8 @@ and arrive at the desired starting point.  The trace's length can be
 limited in several ways:
 
 - The \p -trace_for_instrs option stops tracing after the specified number
-  of dynamic instrutions.
+  of dynamic instrutions in the current window (since the last \p
+  -retrace_every_instrs trigger, if set).
 - The \p -retrace_every_instrs option augments -p -trace_for_instrs by
   executing its specified instruction count without tracing and then
   re-enabling tracing for \p -trace_for_instrs again, resulting in

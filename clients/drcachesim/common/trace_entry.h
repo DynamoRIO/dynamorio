@@ -330,7 +330,7 @@ typedef enum {
      * Identifies in the marker value the ordinal of a window during a multi-window
      * tracing run (see the options -trace_for_instrs and -retrace_every_instrs).
      * When a marker with an ordinal value different from the last-seen marker
-     * appears, a time gap may exist between this new marker and subsequent entries.
+     * appears, a time gap may exist immediately before this new marker.
      */
     TRACE_MARKER_TYPE_WINDOW_ID,
 

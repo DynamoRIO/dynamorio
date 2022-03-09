@@ -123,7 +123,7 @@ typedef struct {
     byte *buf_base;
     uint64 num_refs;
     uint64 bytes_written;
-    uint64 instr_count;
+    uint64 cur_window_instr_count;
     /* For offline traces */
     file_t file;
     size_t init_header_size;
@@ -191,7 +191,7 @@ enum {
      */
     MEMTRACE_TLS_OFFS_ICOUNTDOWN,
     // For has_tracing_windows(), this is the ordinal of the tracing window at
-    // the start of the current trace buffer.  It is -1 if windows are not present.
+    // the start of the current trace buffer.  It is -1 if windows are not enabled.
     MEMTRACE_TLS_OFFS_WINDOW,
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
@@ -212,7 +212,7 @@ static bool thread_filtering_enabled;
  * synchronization costs and only add to the global every N counts.
  */
 #define INSTR_COUNT_LOCAL_UNIT 10000
-static std::atomic<uint64> traced_instr_count;
+static std::atomic<uint64> cur_window_instr_count;
 
 static bool
 count_traced_instrs(void *drcontext, int toadd);
@@ -235,6 +235,9 @@ local_instr_count_threshold()
 static bool
 has_tracing_windows()
 {
+    // We return true for a single-window -trace_for_instrs (without -retrace) setup
+    // since we rely on having window numbers for the end-of-block buffer output check
+    // used for a single-window transition away from tracing.
     return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
 }
 
@@ -493,6 +496,7 @@ is_bytes_written_beyond_trace_max(per_thread_t *data)
         data->bytes_written > op_max_trace_size.get_value();
 }
 
+// Should be invoked only in the middle of an active tracing window.
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
@@ -510,8 +514,11 @@ memtrace(void *drcontext, bool skip_size_cap)
         header_size = data->init_header_size;
     // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
     if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size) {
-        if (has_tracing_windows())
+        if (has_tracing_windows()) {
+            // If there is no data to write, we do not emit an empty header.
+            // Thus multiple windows may pass with no output at all for an idle thread.
             set_local_window(data, tracing_window.load(std::memory_order_acquire));
+        }
         return;
     }
     // The initial slots are left empty for the header, which we add here.
@@ -521,8 +528,11 @@ memtrace(void *drcontext, bool skip_size_cap)
     bool window_changed = false;
     if (has_tracing_windows() &&
         get_local_window(data) != tracing_window.load(std::memory_order_acquire)) {
-        // This buffer is for a prior window.  Do not add to the current window count.
-        data->instr_count = 0;
+        // This buffer is for a prior window.  Do not add to the current window count;
+        // emit under the prior window.
+        DR_ASSERT(get_local_window(data) <
+                  tracing_window.load(std::memory_order_acquire));
+        data->cur_window_instr_count = 0;
         window_changed = true;
         // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
         // one in its header.
@@ -596,8 +606,11 @@ memtrace(void *drcontext, bool skip_size_cap)
                     }
                 }
             }
-            if (hit_window_end)
+            if (hit_window_end) {
+                // Update the global window, but not the local so we can place the rest
+                // of this buffer into the same local window.
                 reached_traced_instrs_threshold(drcontext);
+            }
         }
         if (!op_offline.get_value()) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
@@ -698,7 +711,8 @@ clean_call(void)
 /* We have two modes: count instructions only, and full trace.
  *
  * XXX i#3995: To implement -max_trace_size with drbbdup cases (with thread-private
- * encodings), or support nudges enabling tracing, we will likely add a 3rd mode that
+ * encodings), or support nudges enabling tracing, or have a single -trace_for_instrs
+ * transition to something lower-cost than counting, we will likely add a 3rd mode that
  * has zero instrumentation.  We also would use the 3rd mode for just -trace_for_instrs
  * with no -retrace_every_instrs.  For now we have just 2 as the case dispatch is more
  * efficient that way.
@@ -757,19 +771,20 @@ static bool
 count_traced_instrs(void *drcontext, int toadd)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    data->instr_count += toadd;
-    if (data->instr_count >= local_instr_count_threshold()) {
-        uint64 newval =
-            traced_instr_count.fetch_add(data->instr_count, std::memory_order_release) +
+    data->cur_window_instr_count += toadd;
+    if (data->cur_window_instr_count >= local_instr_count_threshold()) {
+        uint64 newval = cur_window_instr_count.fetch_add(data->cur_window_instr_count,
+                                                         std::memory_order_release) +
             // fetch_add returns old value.
-            data->instr_count;
-        data->instr_count = 0;
+            data->cur_window_instr_count;
+        data->cur_window_instr_count = 0;
         if (newval >= op_trace_for_instrs.get_value())
             return true;
     }
     return false;
 }
 
+// Does not update the local window.
 static void
 reached_traced_instrs_threshold(void *drcontext)
 {
@@ -783,7 +798,7 @@ reached_traced_instrs_threshold(void *drcontext)
     // We've reached the end of our window.
     // We do not attempt a proactive synchronous flush of other threads'
     // buffers, relying on our end-of-block check for a mode change.
-    // (If -trace_every_instrs is not set and we're not going to trace
+    // (If -retrace_every_instrs is not set and we're not going to trace
     // again, we still use a counting mode for simplicity of not adding
     // yet another mode.)
     NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
@@ -796,7 +811,7 @@ reached_traced_instrs_threshold(void *drcontext)
     tracing_window.fetch_add(1, std::memory_order_release);
     DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
     tracing_disabled.store(BBDUP_MODE_COUNT, std::memory_order_release);
-    traced_instr_count.store(0, std::memory_order_release);
+    cur_window_instr_count.store(0, std::memory_order_release);
     dr_mutex_unlock(mutex);
 }
 
@@ -917,7 +932,7 @@ instrumentation_drbbdup_init()
     DR_ASSERT(res == DRBBDUP_SUCCESS);
     /* We just want barriers and atomic ops: no locks b/c they are not safe. */
     DR_ASSERT(tracing_disabled.is_lock_free());
-    DR_ASSERT(traced_instr_count.is_lock_free());
+    DR_ASSERT(cur_window_instr_count.is_lock_free());
 }
 
 static void
@@ -1877,7 +1892,8 @@ static uint64 instr_count;
  * ~DELAY_COUNTDOWN_UNIT instructions.
  */
 #define DELAY_EXACT_THRESHOLD (10 * 1024 * 1024)
-#define DELAY_COUNTDOWN_UNIT 10000
+// We use the same value we use for tracing windows.
+#define DELAY_COUNTDOWN_UNIT INSTR_COUNT_LOCAL_UNIT
 // For -trace_for_instrs without -retrace_every_instrs we count forever,
 // but to avoid the complexity of different instrumentation we need a threshold.
 #define DELAY_FOREVER_THRESHOLD (1024 * 1024 * 1024)
@@ -1885,7 +1901,7 @@ static uint64 instr_count;
 std::atomic<bool> reached_trace_after_instrs;
 
 static bool
-has_instr_count_threshold()
+has_instr_count_threshold_to_enable_tracing()
 {
     if (op_trace_after_instrs.get_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
@@ -1906,10 +1922,13 @@ instr_count_threshold()
     return DELAY_FOREVER_THRESHOLD;
 }
 
+// Enables tracing if we've reached the delay point.
+// For tracing windows going in the reverse direction and disabling tracing,
+// see reached_traced_instrs_threshold().
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
-    if (!has_instr_count_threshold())
+    if (!has_instr_count_threshold_to_enable_tracing())
         return;
 #ifdef DELAYED_CHECK_INLINED
     /* XXX: We could do the same thread-local counters for non-inlined.
@@ -1936,8 +1955,10 @@ hit_instr_count_threshold(app_pc next_pc)
     if (op_trace_after_instrs.get_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
-    else
-        NOTIFY(0, "Hit retrace threshold: enabling tracing.\n");
+    else {
+        NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
+               tracing_window.load(std::memory_order_acquire));
+    }
     if (!reached_trace_after_instrs.load(std::memory_order_acquire)) {
         reached_trace_after_instrs.store(true, std::memory_order_release);
     }
@@ -1958,7 +1979,7 @@ hit_instr_count_threshold(app_pc next_pc)
 static void
 check_instr_count_threshold(uint incby, app_pc next_pc)
 {
-    if (!has_instr_count_threshold())
+    if (!has_instr_count_threshold_to_enable_tracing())
         return;
     /* XXX i#5030: This is racy.  We could make std::atomic, or, better, go and
      * implement the inlining and i#5026's thread-private counting.
@@ -2573,6 +2594,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     /* We need an extra for -L0_filter. */
     if (op_L0_filter.get_value())
         ++ops.num_spill_slots;
+    // We use the buf pointer reg plus 2 more in instrument_clean_call, so we want
+    // 3 total: thus 1 more than the base.
+    if (has_tracing_windows())
+        ++ops.num_spill_slots;
 
     if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS ||
         !drx_init())
@@ -2617,7 +2642,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     redzone_size = max_buf_size - trace_buf_size;
     /* Append a throwaway header to get its size. */
     buf_hdr_slots_size = append_unit_header(
-        NULL /*no TLS yet*/, buf, 0 /*doesn't matter*/, has_tracing_windows() ? 1 : -1);
+        NULL /*no TLS yet*/, buf, 0 /*doesn't matter*/, has_tracing_windows() ? 0 : -1);
     DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= buf_hdr_slots_size);
 
     client_id = id;
