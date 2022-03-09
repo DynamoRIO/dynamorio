@@ -63,9 +63,9 @@ x001111011110001000000xxxxxxxxxx  n   116   fcvtmu  wx0 : h5
 0111111001111001101110xxxxxxxxxx  n   116   fcvtmu   h0 : h5
 x001111011100001000000xxxxxxxxxx  n   120   fcvtnu  wx0 : h5
 0111111001111001101010xxxxxxxxxx  n   120   fcvtnu   h0 : h5
-0x0011110xxxxxxx111111xxxxxxxxxx  n   125   fcvtzs  dq0 : dq5 bhsd_immh_sz immhb_fxp
+0x0011110xxxxxxx111111xxxxxxxxxx  n   125   fcvtzs  dq0 : dq5 immhb_fxp bhsd_immh_sz
 0x10111011111001101110xxxxxxxxxx  n   126   fcvtzu  dq0 : dq5 h_sz
-0x1011110xxxxxxx111111xxxxxxxxxx  n   126   fcvtzu  dq0 : dq5 bhsd_immh_sz immhb_fxp
+0x1011110xxxxxxx111111xxxxxxxxxx  n   126   fcvtzu  dq0 : dq5 immhb_fxp bhsd_immh_sz
 0x101110010xxxxx001111xxxxxxxxxx  n   127     fdiv  dq0 : dq5 dq16 h_sz
 0x001110010xxxxx001101xxxxxxxxxx  n   129     fmax  dq0 : dq5 dq16 h_sz
 0x001110010xxxxx000001xxxxxxxxxx  n   130   fmaxnm  dq0 : dq5 dq16 h_sz
