@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -54,6 +54,7 @@ Information for DynamoRIO developers/contributors:
 - \subpage page_ldstex
 - \subpage page_external_decoder
 - \subpage page_scatter_gather_emulation
+- \subpage page_multi_trace_window
 
  ****************************************************************************
  */
