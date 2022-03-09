@@ -241,10 +241,10 @@ droption_t<bytesize_t> op_trace_after_instrs(
     "Do not start tracing until N instructions",
     "If non-zero, this causes tracing to be suppressed until this many dynamic "
     "instruction executions are observed from the start of the application. "
-    "At that point, regular tracing is put into place.  "
+    "At that point, regular tracing is put into place. "
     "The threshold should be considered approximate, especially for larger values. "
-    "Use -trace_for_instrs or -max_trace_size to set a limit on the subsequent trace "
-    "length.  Use -retrace_every_instrs to trace repeatedly.");
+    "Use -trace_for_instrs, -max_trace_size, or -max_global_trace_refs to set a limit "
+    "on the subsequent trace length.  Use -retrace_every_instrs to trace repeatedly.");
 
 droption_t<bytesize_t> op_trace_for_instrs(
     DROPTION_SCOPE_CLIENT, "trace_for_instrs", 0,

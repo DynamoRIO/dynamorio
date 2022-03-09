@@ -274,8 +274,8 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90          eor            wx0 : wx5 wx16 
 0x1011100x1xxxxx110101xxxxxxxxxx  n   99        faddp            dq0 : dq5 dq16 sd_sz
 0111111000110000110110xxxxxxxxxx  n   99        faddp             s0 : d5 sd_sz
 0111111001110000110110xxxxxxxxxx  n   99        faddp             d0 : q5 sd_sz
-00011110xx1xxxxxxxxx01xxxxx0xxxx  w   100       fccmp     float_reg5 : float_reg16 cond nzcv
-00011110xx1xxxxxxxxx01xxxxx1xxxx  w   101      fccmpe     float_reg5 : float_reg16 cond nzcv
+00011110xx1xxxxxxxxx01xxxxx0xxxx  w   100       fccmp                : float_reg5 float_reg16 nzcv cond
+00011110xx1xxxxxxxxx01xxxxx1xxxx  w   101      fccmpe                : float_reg5 float_reg16 nzcv cond
 0x0011100x1xxxxx111001xxxxxxxxxx  n   102       fcmeq            dq0 : dq5 dq16 sd_sz
 0x0011101x100000110110xxxxxxxxxx  n   102       fcmeq            dq0 : dq5 zero_fp_const sd_sz
 0101111010100000110110xxxxxxxxxx  n   102       fcmeq             s0 : s5 zero_fp_const
@@ -891,7 +891,7 @@ x001111000000010xxxxxxxxxxxxxxxx  n   362       scvtf             s0 : wx5 scale
 x001111001000010xxxxxxxxxxxxxxxx  n   362       scvtf             d0 : wx5 scale
 0101111100xxxxxx111001xxxxxxxxxx  n   362       scvtf             s0 : s5 immhb_fxp
 0101111101xxxxxx111001xxxxxxxxxx  n   362       scvtf             d0 : d5 immhb_fxp
-0x0011110xxxxxxx111001xxxxxxxxxx  n   362       scvtf            dq0 : dq5 bhsd_immh_sz immhb_fxp
+0x0011110xxxxxxx111001xxxxxxxxxx  n   362       scvtf            dq0 : dq5 immhb_fxp bhsd_immh_sz
 x0011010110xxxxx000011xxxxxxxxxx  n   363        sdiv            wx0 : wx5 wx16
 11010101000000110010000010011111  n   365         sev                :
 11010101000000110010000010111111  n   366        sevl                :
@@ -1274,7 +1274,7 @@ x001111001100011000000xxxxxxxxxx  n   510       ucvtf             d0 : wx5
 x001111000000011xxxxxxxxxxxxxxxx  n   510       ucvtf             s0 : wx5 scale
 x001111001000011xxxxxxxxxxxxxxxx  n   510       ucvtf             d0 : wx5 scale
 011111110xxxxxxx111001xxxxxxxxxx  n   510       ucvtf  bhsd_immh_reg0 : bhsd_immh_reg5 immhb_fxp
-0x1011110xxxxxxx111001xxxxxxxxxx  n   510       ucvtf            dq0 : dq5 bhsd_immh_sz immhb_fxp
+0x1011110xxxxxxx111001xxxxxxxxxx  n   510       ucvtf            dq0 : dq5 immhb_fxp bhsd_immh_sz
 0000000000000000xxxxxxxxxxxxxxxx  n   567         udf                : imm16_0
 x0011010110xxxxx000010xxxxxxxxxx  n   511        udiv            wx0 : wx5 wx16
 0x101110xx1xxxxx000001xxxxxxxxxx  n   513       uhadd            dq0 : dq5 dq16 bhs_sz
