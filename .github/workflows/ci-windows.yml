@@ -51,8 +51,8 @@ defaults:
 
 jobs:
   ###########################################################################
-  # 32-bit VS2017 and tests:
-  vs2017-32:
+  # 32-bit VS2019 and tests:
+  vs2019-32:
     runs-on: windows-2019
 
     steps:
@@ -82,7 +82,7 @@ jobs:
         set PATH=c:\projects\install\ninja;%PATH%
         7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
         set PATH=c:\projects\install\doxygen;%PATH%
-        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
@@ -104,7 +104,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2017-32
+          Workflow: ${{github.workflow}}/vs2019-32
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -116,8 +116,8 @@ jobs:
         from: Github Action CI
 
   ###########################################################################
-  # 64-bit VS2017 and tests:
-  vs2017-64:
+  # 64-bit VS2019 and tests:
+  vs2019-64:
     runs-on: windows-2019
 
     steps:
@@ -147,7 +147,7 @@ jobs:
         set PATH=c:\projects\install\ninja;%PATH%
         7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
         set PATH=c:\projects\install\doxygen;%PATH%
-        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
@@ -169,7 +169,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2017-64
+          Workflow: ${{github.workflow}}/vs2019-64
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -181,8 +181,8 @@ jobs:
         from: Github Action CI
 
   ###########################################################################
-  # 32-bit and 64-bit VS2017 release builds:
-  vs2017-builds:
+  # 32-bit and 64-bit VS2019 release builds:
+  vs2019-builds:
     runs-on: windows-2019
 
     steps:
@@ -212,7 +212,7 @@ jobs:
         set PATH=c:\projects\install\ninja;%PATH%
         7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
         set PATH=c:\projects\install\doxygen;%PATH%
-        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
@@ -234,7 +234,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2017-builds
+          Workflow: ${{github.workflow}}/vs2019-builds
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -299,7 +299,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2017-builds
+          Workflow: ${{github.workflow}}/vs2019-builds
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
