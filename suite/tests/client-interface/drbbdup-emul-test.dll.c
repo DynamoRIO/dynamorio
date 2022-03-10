@@ -38,6 +38,12 @@
 #include "drbbdup.h"
 #include "drutil.h"
 #include "drreg.h"
+#include <string.h>
+
+typedef struct _per_block_t {
+    bool saw_first;
+    bool saw_last;
+} per_block_t;
 
 /* Assume single threaded. */
 static uintptr_t encode_val = 3;
@@ -46,17 +52,26 @@ static uintptr_t encode_val = 3;
 static bool saw_movs;
 static bool saw_zero_iter_rep_string;
 #endif
+static bool has_rest_of_block_emul;
 
 static dr_emit_flags_t
 app2app_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
               bool translating)
 {
+#if VERBOSE
+    /* Useful for debugging. */
+    instrlist_disassemble(drcontext, tag, bb, STDERR);
+#endif
+
+    has_rest_of_block_emul = false;
+
     /* Test drutil rep string expansion interacting with drbbdup. */
     bool expanded;
     if (!drutil_expand_rep_string_ex(drcontext, bb, &expanded, NULL))
         DR_ASSERT(false);
     if (expanded) {
         /* We can't overlap ours with drutil's so bow out. */
+        has_rest_of_block_emul = true;
         return DR_EMIT_DEFAULT;
     }
     /* Test handling of DR_EMULATE_REST_OF_BLOCK by inserting it in the middle
@@ -83,6 +98,10 @@ app2app_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     emulated_instr.instr = instr_clone(drcontext, mid);
     emulated_instr.flags = DR_EMULATE_REST_OF_BLOCK;
     drmgr_insert_emulation_start(drcontext, bb, mid, &emulated_instr);
+    /* XXX i#5400: We'd like to pass a user_data to the instrument event but drbbdup
+     * doesn't support that; instead we rely on being single-threaded.
+     */
+    has_rest_of_block_emul = true;
 
     return DR_EMIT_DEFAULT;
 }
@@ -117,17 +136,40 @@ look_for_zero_iters(reg_t xcx)
 }
 #endif
 
+static void
+analyze_case(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encoding,
+             void *user_data, void *orig_analysis_data, void **analysis_data)
+{
+    per_block_t *per_block =
+        (per_block_t *)dr_thread_alloc(drcontext, sizeof(per_block_t));
+    memset(per_block, 0, sizeof(*per_block));
+    *analysis_data = per_block;
+}
+
+static void
+destroy_case_analysis(void *drcontext, uintptr_t encoding, void *user_data,
+                      void *orig_analysis_data, void *analysis_data)
+{
+    per_block_t *per_block = (per_block_t *)analysis_data;
+    CHECK(per_block->saw_first, "failed to see first instr");
+    /* If we added a rest-of-block emul it will hide the last instr. */
+    CHECK(per_block->saw_last || has_rest_of_block_emul, "failed to see last instr");
+    dr_thread_free(drcontext, analysis_data, sizeof(per_block_t));
+}
+
 static dr_emit_flags_t
 instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  instr_t *where, bool for_trace, bool translating, uintptr_t encoding,
                  void *user_data, void *orig_analysis_data, void *analysis_data)
 {
-    bool is_first;
+    bool is_first, is_last;
     drbbdup_status_t res;
+    per_block_t *per_block = (per_block_t *)analysis_data;
 
     res = drbbdup_is_first_instr(drcontext, instr, &is_first);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is first");
     if (is_first) {
+        per_block->saw_first = true;
         /* Ensure DR_EMULATE_REST_OF_BLOCK didn't leak through. */
         const emulated_instr_t *emul_info;
         if (drmgr_in_emulation_region(drcontext, &emul_info)) {
@@ -176,9 +218,49 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
      * instr so we can't compare emul to instr; instead we make sure the emul returned
      * is never a jump to a label.
      */
-    instr_t *emul = drmgr_orig_app_instr_for_fetch(drcontext);
-    CHECK(emul == NULL || !instr_is_ubr(emul) || !opnd_is_instr(instr_get_target(emul)),
+    instr_t *instr_fetch = drmgr_orig_app_instr_for_fetch(drcontext);
+    CHECK(instr_fetch == NULL || !instr_is_ubr(instr_fetch) ||
+              !opnd_is_instr(instr_get_target(instr_fetch)),
           "app instr should never be jump to label");
+
+    /* Ensure the drmgr emulation API works for the final special instr in the
+     * final case (as well as other cases).
+     */
+    instr_t *instr_operands = drmgr_orig_app_instr_for_operands(drcontext);
+#if VERBOSE
+    /* Useful for debugging */
+    dr_fprintf(STDERR, "%s: emul fetch=", __FUNCTION__);
+    if (instr_fetch == NULL)
+        dr_fprintf(STDERR, "<null>", __FUNCTION__);
+    else
+        instr_disassemble(drcontext, instr_fetch, STDERR);
+    dr_fprintf(STDERR, "  op=", __FUNCTION__);
+    if (instr_operands == NULL)
+        dr_fprintf(STDERR, "<null>", __FUNCTION__);
+    else
+        instr_disassemble(drcontext, instr_operands, STDERR);
+    dr_fprintf(STDERR, "  instr=", __FUNCTION__);
+    instr_disassemble(drcontext, instr, STDERR);
+    dr_fprintf(STDERR, "  where=", __FUNCTION__);
+    instr_disassemble(drcontext, where, STDERR);
+    dr_fprintf(STDERR, "\n");
+#endif
+    CHECK(instr_fetch != NULL || instr_operands != NULL || has_rest_of_block_emul ||
+              (instr_get_prev(where) != NULL &&
+               drmgr_is_emulation_start(instr_get_prev(where))),
+          "emul error");
+
+    res = drbbdup_is_last_instr(drcontext, instr, &is_last);
+    CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is last");
+    if (is_last) {
+        per_block->saw_last = true;
+        if (!has_rest_of_block_emul) {
+            CHECK(instr_fetch != NULL || !instr_is_app(instr),
+                  "last instr hidden from emul");
+            CHECK(instr_operands != NULL || !instr_is_app(instr),
+                  "last instr hidden from emul");
+        }
+    }
 
     return DR_EMIT_DEFAULT;
 }
@@ -215,6 +297,8 @@ dr_init(client_id_t id)
     drbbdup_options_t opts = { 0 };
     opts.struct_size = sizeof(drbbdup_options_t);
     opts.set_up_bb_dups = set_up_bb_dups;
+    opts.analyze_case = analyze_case;
+    opts.destroy_case_analysis = destroy_case_analysis;
     opts.instrument_instr_ex = instrument_instr;
     opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&encode_val, OPSZ_PTR);
     opts.non_default_case_limit = 3;

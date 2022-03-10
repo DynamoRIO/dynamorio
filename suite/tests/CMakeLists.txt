@@ -3609,12 +3609,10 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(windows-simple ${ci_shared_app}
       "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-simulator_type@basic_counts" "")
-    if (OFF) # FIXME i#5390: Fix drbbdup hiding block-final jmps; then enable.
-      # Ensure the invariant checker handles window transitions.
-      torunonly_drcacheoff(windows-invar ${ci_shared_app}
-        "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
-        "@-simulator_type@invariant_checker" "")
-    endif ()
+    # Ensure the invariant checker handles window transitions.
+    torunonly_drcacheoff(windows-invar ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
       torunonly_drcacheoff(windows-asm allasm_repstr
         "-trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
