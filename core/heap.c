@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1498,18 +1498,32 @@ at_reset_at_vmm_limit(vm_heap_t *vmh)
 }
 
 static void
-reached_beyond_vmm(void)
+reached_beyond_vmm(which_vmm_t which)
 {
     DODEBUG(ever_beyond_vmm = true;);
-    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+    /* Stats can be very useful to diagnose why we hit OOM. */
+    if (INTERNAL_OPTION(rstats_to_stderr))
+        dump_global_rstats_to_stderr();
+    char message[256];
+    if (DYNAMO_OPTION(satisfy_w_xor_x) &&
+        (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())) {
         /* We do not bother to try to mirror separate from-OS allocs: the user
          * should set -vm_size 2G instead and take the rip-rel mangling hit
          * (see i#3570).
          */
-        REPORT_FATAL_ERROR_AND_EXIT(
-            OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(), get_application_pid(),
-            "-satisfy_w_xor_x requires VMM memory: try '-vm_size 2G'");
+        snprintf(
+            message, BUFFER_SIZE_ELEMENTS(message),
+            "Alloc type: 0x%x.  -satisfy_w_xor_x requires VMM memory: try '-vm_size 2G'",
+            which);
+        NULL_TERMINATE_BUFFER(message);
+        REPORT_FATAL_ERROR_AND_EXIT(OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(),
+                                    get_application_pid(), message);
         ASSERT_NOT_REACHED();
+    } else {
+        snprintf(message, BUFFER_SIZE_ELEMENTS(message), "Alloc type: 0x%x.", which);
+        NULL_TERMINATE_BUFFER(message);
+        SYSLOG(SYSLOG_WARNING, OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(),
+               get_application_pid(), message);
     }
 }
 
@@ -1566,7 +1580,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
                 /* FIXME - for our testing would be nice to have some release build
                  * notification of this ... */
             });
-            reached_beyond_vmm();
+            reached_beyond_vmm(which);
 #ifdef X64
             if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
                 /* PR 215395, make sure allocation satisfies heap reachability
@@ -1652,7 +1666,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
         });
     }
     /* if we fail to allocate from our reservation we fall back to the OS */
-    reached_beyond_vmm();
+    reached_beyond_vmm(which);
 #ifdef X64
     if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
         /* PR 215395, make sure allocation satisfies heap reachability contraints */
