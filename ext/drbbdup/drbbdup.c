@@ -651,19 +651,7 @@ drbbdup_is_at_end_initial(instr_t *check_instr)
     if (next_instr == NULL)
         return false;
 
-    if (drbbdup_is_at_label(next_instr, DRBBDUP_LABEL_EXIT))
-        return true;
-
-    if (instr_is_cti(next_instr)) {
-        next_instr = instr_get_next(next_instr);
-        return drbbdup_is_at_label(next_instr, DRBBDUP_LABEL_START) ||
-            /* There may be an emulation endpoint label in between. */
-            (next_instr != NULL && instr_get_next(next_instr) != NULL &&
-             drmgr_is_emulation_end(next_instr) &&
-             drbbdup_is_at_label(instr_get_next(next_instr), DRBBDUP_LABEL_START));
-    }
-
-    return false;
+    return drbbdup_is_at_end(next_instr);
 }
 
 static bool
