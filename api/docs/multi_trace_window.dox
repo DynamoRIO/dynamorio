@@ -42,10 +42,10 @@ Memory address traces (or "memtraces") are critical tools for analyzing applicat
 behavior and performance.  DynamoRIO's \ref page_drcachesim provides memtrace
 gathering and analyzing tools.  Today, these memtraces are gathered either during a
 full execution of a standalone application, or during a short burst of execution on a
-server.  For long-running benchmarks with phased behavior, however, we would like to
-instead gather a series of smaller memtrace samples to ease simulation while still
-representing the application in the aggregate.  This sampling may also be useful for
-servers with phased behavior.
+server (using the start/stop interfaces as described at \ref sec_drcachesim_partial).
+For long-running benchmarks with phased behavior, however, we would like to instead
+gather a series of smaller memtrace samples to ease simulation while still
+representing the application in the aggregate.
 
 # Initial Use Case: SPEC2017
 
@@ -64,18 +64,18 @@ Focusing on a use case of a series of 50 10-billion-instruction traces for a SPE
 benchmark, there are two main ways to store them.  We could create 50 independent
 sets of trace files, each with its own metadata and separate set of sharded data
 files.  A simulator could either simulate all 50 separately and aggregate just the
-resulting statistics, or a single instance of a simulator could fast-forward between
-each sample to maintain architectural state and simulate the full execution that way.
+resulting statistics, or a single instance of a simulator could skip ahead to each
+new sample and use the first portion of the sample to warm up caches and other state.
 
 The alternative is to store all the data in one set of data files, with metadata
 markers inserted to indicate the division points between the samples.  This doesn’t
 support the separate simulation model up front, though we could provide an iterator
 interface that skips ahead to a target window and stops at the end of that window (or
-the simulator could be modified to stop when it sees a sample separation marker).
+the simulator could be modified to stop when it sees a window separation marker).
 However, this will not be as efficient for parallel simulation with separate
 simulator instances for each window, since the skipping ahead will take some time.
-This arrangement does more easily support the fast-forward single-simulator-instance
-approach, and more readily fits with upstream online simulation.
+This arrangement does more easily support the single-simulator-instance approach, and
+more readily fits with online simulation.
 
 In terms of implementation, there are several factors to consider here.
 
@@ -87,9 +87,12 @@ separately and independently.
 
 However, implementing this split does not fit well in the current interfaces.  To
 work with other filesystems, we have separated out the i/o and in particular
-directory creation.
+directory creation, and some proprietary uses rework the output completely to write
+to a fixed set of destinations which are mapped back to per-thread raw files during
+post-processing.  Creating new sets of outputs at tracing time would require new
+interfaces and significant refactoring for these use cases.
 
-For upstream use with files on the local disk, we could add creation of a new
+For typical use with files on the local disk, we could add creation of a new
 directory (and duplication of the module file) for each window by the tracing thread
 that hits the end-of-window trigger.  The other threads would each create a new
 output raw file each time they transitioned to a new window (see also the Proposal A
@@ -116,31 +119,33 @@ The file size problem gets worse if we use a constant sampling interval across
 SPEC2017.  Some SPEC2017 benchmarks have many more instructions than others.  The
 bwaves_s benchmark has 382 trillion instructions, so a constant interval might result
 in it having 50x more data than other benchmarks, exceeding the file size limit.  A
-constant number of samples is preferred for this reason.
+constant number of windows is preferred for this reason.
 
-## Splitting during analysis
+## Splitting after raw2trace using an analyzer
 
 Given the complexities of splitting in earlier steps, and given that we may want to
 use a single simulator instance to process all of the sample traces, and given that
-for upstream online analysis we will likely also have a single simulator instance:
+for online trace analysis we will likely also have a single simulator instance:
 perhaps we should not try to split the samples and instead treat the 50 samples as a
 single trace with internal markers indicating the window division.
 
-Online and offline analyzers can use window ID markers to fast-forward and align each
-thread to the next window.  Maybe the existing serial iterator can have built-in
-support for aligning the windows.
+Online and offline analyzers can use window ID markers to fast-forward or pause and
+align each thread to the next window.  Maybe the existing serial iterator can have
+built-in support for aligning the windows.
 
-If single-file final traces will exist, we would need to update all our existing analyzers to handle the gaps in the traces: reset state for function and callstack trackers; keep per-window numbers for statistics gatherers.
+If single-file final traces will exist, we would need to update all our existing
+analyzers to handle the gaps in the traces: reset state for function and callstack
+trackers; keep per-window numbers for statistics gatherers.
 
 We can also create an analyzer that splits a final trace up if we do want separate
 traces.
 
-## Decision: Split during analysis
+## Decision: Split the final trace with an analyzer
 
 Separate files seems to be the most flexible and useful setup for our expected use
 cases, in particular parallel simulation.  But given that separating early in the
-pipeline is complex, we’ll split in the analysis phase, initially with a manual tool
-since we do not plan to have automatically-gathered multi-window traces.
+pipeline is complex, we’ll split after raw2trace post-processing, with a new analyzer
+tool.
 
 We’ll update some simple inspection and sanity tools (view, basic_counts, and
 invariant_checker) to handle and visualize windows, but we’ll assume that trace
@@ -176,7 +181,7 @@ schemes.
 
 Flushing is an expensive process, and can be fragile as the lower-overhead forms of
 flushing open up race conditions between threads executing the old and new code cache
-contents.  Its complexity is one reason we are deciding to instead us a dispatch
+contents.  Its complexity is one reason we are deciding to instead use a dispatch
 approach for our initial implementation.
 
 With dispatch, we insert both tracing and counting instrumentation for each block in
@@ -192,7 +197,7 @@ instrumentation itself even for instruction counting mode, and its simplicity ma
 it our choice for the initial implementation.
 
 The mechanisms for creating the dispatch and separate copies for the modes is
-provided for us by the upstream drbbdup library.  This library was, however, missing
+provided for us by the drbbdup library.  This library was, however, missing
 some key pieces we had to add.
 
 ## AArch64 support for drbbdup
@@ -212,7 +217,7 @@ to the wrapping library to allow enabling wrapping only for the tracing mode and
 for the counting mode.
 
 However, there is a complication here where a transition to counting mode while in
-the middle of a wrapped function can cause problems if cleanup from existing the
+the middle of a wrapped function can cause problems if cleanup at exiting the
 function is skipped.  We ended up adding support for cleanup-only execution of
 function wrapping actions which is invoked while counting, with full wrapping actions
 enabled while tracing.
@@ -233,7 +238,7 @@ disabling dynamic case support.
 
 ## Emulation support for drbbdup
 
-The memtrace code uses emulation sequence markers for instrumented the proper
+The memtrace code uses emulation sequence markers for instrumenting the proper
 application instructions in the face of various expansions for repeated string loops
 and scatter-gather instructions.  However, the drbbdup library presents its own
 interface layer which hides the markers and in fact results in memtrace missing some
@@ -283,7 +288,7 @@ the first block of the handler.
 
 The worst case inaccuracy here is a thread who starts writing in window N but ends up
 unscheduled until a much later window M.  But at most one basic block's worth of
-trace entries will be placed into window N even though it happened later.  Thus we
+trace entries will be placed into window N even though they happened later.  Thus we
 have "basic block accuracy", which is pretty good, as typically a basic block only
 contains a few instructions.
 
@@ -295,7 +300,7 @@ missing thread exits to threads that don't have them, to cover waiting threads w
 never reached a flush.
 
 As discussed above, the trigger thread would create a new directory for each window.
-A just-finished buffer is writtent to the directory corresponding to the window for
+A just-finished buffer is written to the directory corresponding to the window for
 its start point.
 
 A thread that is unscheduled for a long time could have a nearly-full buffer that is
@@ -303,11 +308,7 @@ not written out until many windows later, but it would be written to the old
 directory for the old window.  The next buffer would go to a new file in the new
 window, with no files in the in-between window directories.
 
-(Originally we thought this scheme would have buffer-level inaccuracy (and talked
-about using timestamps at the start and end of each buffer to detect): but that would
-only be if it wrote out to the current window dir.)
-
-## Proposal B: Label buffers with owning window
+## Proposal B (winner): Label buffers with owning window
 
 If we add the window ordinal to every buffer header, we can identify which window
 they belong to, and avoid the need to separate raw files.  A window-end flush ensures
@@ -338,8 +339,8 @@ Implementation:
 + The tracer maintains a global list of thread buffers using a global mutex on thread
   init and exit.
 
-+ Each trace buffer has a corresponding externally_written variable holding a
-  distance into the buffer that was written out by another thread.
++ Each trace buffer has a corresponding set of externally_written variables, each
+  holding a distance into the buffer that was written out by another thread.
 
 + On hitting the trace window endpoint threshold, the triggering thread grabs the
   mutex and walks the buffers.
@@ -357,7 +358,7 @@ Implementation:
   The triggerer does a store-release of the furthest-writting point into the
   externally_written variable.
 
-+ Whenever a trace writes out its buffer, it does a load-acquire on the
++ Whenever a thread writes out its buffer, it does a load-acquire on the
   externally_written variable and if non-zero it writes out a marker in the buffer
   header.  Post-processing reads the marker and uses it to split the buffer at the
   nearest block boundary after the marker value.
@@ -371,6 +372,11 @@ Implementation:
 This scheme ends up with block-level accuracy since the trigger thread's marked
 transition point must be adjusted to essentially a block boundary in post-processing.
 Thus, it does not seem any better than the other schemes, and it is more complex.
+
+## Decision: Proposal B
+
+We decided to go with Proposal B as it works best with our file separation decision
+and is simple to implement.
 
 # Online Traces
 
