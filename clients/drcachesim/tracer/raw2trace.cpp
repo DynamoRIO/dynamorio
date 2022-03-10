@@ -944,10 +944,12 @@ raw2trace_t::get_next_entry(void *tls)
                                       sizeof(tdata->last_entry)))
             return nullptr;
     }
-    VPRINT(5, "[get_next_entry]: type=%d\n",
+    VPRINT(5, "[get_next_entry]: type=%d val=" HEX64_FORMAT_STRING "\n",
            // Some compilers think .addr.type is "int" while others think it's "unsigned
            // long".  We avoid dueling warnings by casting to int.
-           static_cast<int>(tdata->last_entry.addr.type));
+           static_cast<int>(tdata->last_entry.addr.type),
+           // Cast to long to avoid Mac warning on "long long" using "long" format.
+           static_cast<uint64>(tdata->last_entry.combined_value));
     return &tdata->last_entry;
 }
 
@@ -971,6 +973,7 @@ void
 raw2trace_t::unread_last_entry(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    VPRINT(5, "Unreading last entry\n");
     if (tdata->last_entry_is_split) {
         VPRINT(4, "Unreading both parts of split entry at once\n");
         tdata->pre_read.push_back(tdata->last_split_first_entry);

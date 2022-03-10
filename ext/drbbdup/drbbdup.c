@@ -493,9 +493,16 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      * last. Again, this is to abide by DR rules.
      */
     last = instrlist_last(bb);
-    if (drbbdup_is_special_instr(last))
+    if (drbbdup_is_special_instr(last)) {
+        emulated_instr_t emulated_instr;
+        emulated_instr.size = sizeof(emulated_instr);
+        emulated_instr.pc = instr_get_app_pc(last);
+        emulated_instr.instr = instr_clone(drcontext, last); /* Freed by label. */
+        emulated_instr.flags = 0;
+        drmgr_insert_emulation_start(drcontext, bb, last, &emulated_instr);
         instrlist_meta_preinsert(bb, last, exit_label);
-    else
+        drmgr_insert_emulation_end(drcontext, bb, last);
+    } else
         instrlist_meta_postinsert(bb, last, exit_label);
 }
 
@@ -509,7 +516,6 @@ static dr_emit_flags_t
 drbbdup_do_duplication(hashtable_t *manager_table, void *drcontext, void *tag,
                        instrlist_t *bb, bool for_trace, bool translating)
 {
-
     drbbdup_manager_t *manager =
         (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
 
@@ -629,6 +635,25 @@ drbbdup_is_at_end(instr_t *check_instr)
     return false;
 }
 
+/* Returns true if at the start of the end of a bb version: if check_instr is
+ * the start emulation label for the inserted jump or the exit label.  If there
+ * are no emulation labels this is equivalent to drbbdup_is_at_end().
+ */
+static bool
+drbbdup_is_at_end_initial(instr_t *check_instr)
+{
+    /* We need to stop at the emulation start label so that drmgr will point
+     * there for drmgr_orig_app_instr_for_*().
+     */
+    if (!drmgr_is_emulation_start(check_instr))
+        return false;
+    instr_t *next_instr = instr_get_next(check_instr);
+    if (next_instr == NULL)
+        return false;
+
+    return drbbdup_is_at_end(next_instr);
+}
+
 static bool
 drbbdup_is_exit_jmp_emulation_marker(instr_t *check_instr)
 {
@@ -713,7 +738,11 @@ drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
     ASSERT(instr_get_note(start) == (void *)DRBBDUP_LABEL_START,
            "start instruction should be a START label");
 
-    *post = drbbdup_next_end(start);
+    /* Use end_initial to avoid placing emulation markers in the list at all
+     * (no need since we have the real final instr, and the markers mess up
+     * things like drmemtrace elision).
+     */
+    *post = drbbdup_next_end_initial(start);
     ASSERT(*post != NULL, "end instruction cannot be NULL");
     ASSERT(!drbbdup_is_at_start(*post), "end cannot be at start");
 
@@ -1487,10 +1516,11 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         /* XXX i#4134: statistics -- insert code that tracks the number of times the
          * current case (pt->case_index) is executed.
          */
-    } else if (drbbdup_is_exit_jmp_emulation_marker(instr)) {
-        /* Ignore instruction: hide drbbdup's own markers. */
-    } else if (drbbdup_is_at_end(instr)) {
-        /* Handle last special instruction (if present). */
+    } else if (drbbdup_is_at_end_initial(instr)) {
+        /* Handle last special instruction (if present).
+         * We use drbbdup_is_at_end_initial() to ensure drmgr will point to the
+         * emulation data we setup for the exit label.
+         */
         if (is_last_special) {
             flags = drbbdup_instrument_instr(drcontext, tag, bb, last, instr, for_trace,
                                              translating, pt, manager);
@@ -1500,6 +1530,10 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             }
         }
         drreg_restore_all(drcontext, bb, instr);
+    } else if (drbbdup_is_at_end(instr) && !is_last_special) {
+        drreg_restore_all(drcontext, bb, instr);
+    } else if (drbbdup_is_at_end(instr) || drbbdup_is_exit_jmp_emulation_marker(instr)) {
+        /* Ignore instruction: hide drbbdup's own markers and the rest of the end. */
     } else if (pt->case_index == DRBBDUP_IGNORE_INDEX) {
         /* Ignore instruction. */
         ASSERT(drbbdup_is_special_instr(instr), "ignored instr should be cti or syscall");
