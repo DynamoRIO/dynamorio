@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -131,10 +131,7 @@ main(int argc, const char *argv[])
         dr_stats_t stats = { sizeof(dr_stats_t) };
         bool got_stats = dr_get_stats(&stats);
         assert(got_stats);
-        // TODO(#2964): remove the conditional below when the issue is addressed.
-        // At that point, the stats should have been reset at reattach.
-        if (i == 0)
-            assert(stats.basic_block_count == 0);
+        assert(stats.basic_block_count == 0);
 #    ifdef ARM
         /* Our asm is arm, not thumb. */
         dr_isa_mode_t old_mode;

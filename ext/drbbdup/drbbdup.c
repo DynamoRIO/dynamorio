@@ -2166,6 +2166,9 @@ drbbdup_exit(void)
         if (opts.is_stat_enabled)
             dr_mutex_destroy(stat_mutex);
 
+        /* Reset for re-attach. */
+        new_case_cache_pc = NULL;
+
     } else {
         /* Cannot have more than one initialisation of drbbdup. */
         return DRBBDUP_ERROR;
