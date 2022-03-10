@@ -52,7 +52,7 @@ defaults:
 jobs:
   ###########################################################################
   # 32-bit VS2019 and tests:
-  vs2019-32:
+  vs2017-32:
     runs-on: windows-2019
 
     steps:
@@ -104,7 +104,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2019-32
+          Workflow: ${{github.workflow}}/vs2017-32
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -117,7 +117,7 @@ jobs:
 
   ###########################################################################
   # 64-bit VS2019 and tests:
-  vs2019-64:
+  vs2017-64:
     runs-on: windows-2019
 
     steps:
@@ -169,7 +169,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2019-64
+          Workflow: ${{github.workflow}}/vs2017-64
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -182,7 +182,7 @@ jobs:
 
   ###########################################################################
   # 32-bit and 64-bit VS2019 release builds:
-  vs2019-builds:
+  vs2017-builds:
     runs-on: windows-2019
 
     steps:
@@ -234,7 +234,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2019-builds
+          Workflow: ${{github.workflow}}/vs2017-builds
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
