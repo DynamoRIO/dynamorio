@@ -294,6 +294,7 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
      * XXX: Maybe DR should break compatibility and change the default.
      */
     drbbdup_manager_t *manager = dr_custom_alloc(
+        /* We want the global heap for which NULL for the drcontext is required. */
         NULL, 0, sizeof(drbbdup_manager_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     memset(manager, 0, sizeof(drbbdup_manager_t));
 
