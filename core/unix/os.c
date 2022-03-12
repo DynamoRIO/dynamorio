@@ -8340,7 +8340,21 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                 * read, so pass size=0 to use a safe_read.
                 */
                module_is_header(base, 0)) {
-        if (module_is_partial_map(base, size, memprot)) {
+#ifdef ANDROID
+        /* The Android loader's initial all-segment-covering mmap is anonymous */
+        dr_mem_info_t info;
+        if (query_memory_ex_from_os((byte *)ALIGN_FORWARD(base + size, PAGE_SIZE),
+                                    &info) &&
+            info.prot == MEMPROT_NONE && info.type == DR_MEMTYPE_DATA) {
+            LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": Android elf\n", base);
+            image = true;
+            DODEBUG({ map_type = "ELF SO"; });
+            os_add_new_app_module(dcontext, true /*at_map*/, base,
+                                  /* pass segment size, not whole module size */
+                                  size, memprot);
+        } else
+#endif
+            if (module_is_partial_map(base, size, memprot)) {
             /* i#1240: App might read first page of ELF header using mmap, which
              * might accidentally be treated as a module load. Heuristically
              * distinguish this by saying that if this is the first mmap for an ELF
@@ -8349,27 +8363,10 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
              */
             LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": partial\n", base);
         } else {
-#ifdef ANDROID
-            /* The Android loader's initial all-segment-covering mmap is anonymous */
-            dr_mem_info_t info;
-            if (query_memory_ex_from_os((byte *)ALIGN_FORWARD(base + size, PAGE_SIZE),
-                                        &info) &&
-                info.prot == MEMPROT_NONE && info.type == DR_MEMTYPE_DATA) {
-                LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": Android elf\n", base);
-                image = true;
-                DODEBUG({ map_type = "ELF SO"; });
-                os_add_new_app_module(dcontext, true /*at_map*/, base,
-                                      /* pass segment size, not whole module size */
-                                      size, memprot);
-            } else {
-#endif
-                LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": elf header\n", base);
-                image = true;
-                DODEBUG({ map_type = "ELF SO"; });
-                os_add_new_app_module(dcontext, true /*at_map*/, base, size, memprot);
-#ifdef ANDROID
-            }
-#endif
+            LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": elf header\n", base);
+            image = true;
+            DODEBUG({ map_type = "ELF SO"; });
+            os_add_new_app_module(dcontext, true /*at_map*/, base, size, memprot);
         }
     }
 
