@@ -1,6 +1,6 @@
-/* ******************************************************************************
- * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
- * ******************************************************************************/
+/* **********************************************************
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,31 +30,41 @@
  * DAMAGE.
  */
 
-/**
- ****************************************************************************
-\page page_dev_docs Developer Documentation
+#include "tools.h"
 
-Information for DynamoRIO developers/contributors:
-
-- \subpage page_contributing
-- \subpage page_building
-- \subpage page_test_suite
-- \subpage page_profiling
-- \subpage page_publications
-- \subpage page_design_docs
-
-\page page_design_docs Design Documents
-
-- \subpage page_annotations
-- \subpage page_arm_port
-- \subpage page_aarch64_port
-- \subpage page_aarch64_far
-- \subpage page_jitopt
-- \subpage page_rseq
-- \subpage page_ldstex
-- \subpage page_external_decoder
-- \subpage page_scatter_gather_emulation
-- \subpage page_multi_trace_window
-
- ****************************************************************************
- */
+int
+main(int argc, char **argv)
+{
+#ifdef X86
+    /* Test i#5398 with a zero-iter rep movs loop. */
+    char buf1[1024];
+    char buf2[1024];
+#    ifdef WINDOWS
+#        ifdef X64
+    __movsq((unsigned long long *)buf2, (unsigned long long *)buf1, 0);
+#        else
+    __movsd((unsigned long *)buf2, (unsigned long *)buf1, 0);
+#        endif
+#    else
+#        ifdef X64
+    __asm("lea %[buf1], %%rdi\n\t"
+          "lea %[buf2], %%rsi\n\t"
+          "mov $0, %%ecx\n\t"
+          "rep movsq\n\t"
+          :
+          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2)
+          : "ecx", "rdi", "rsi", "memory");
+#        else
+    __asm("lea %[buf1], %%edi\n\t"
+          "lea %[buf2], %%esi\n\t"
+          "mov $0, %%ecx\n\t"
+          "rep movsd\n\t"
+          :
+          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2)
+          : "ecx", "edi", "esi", "memory");
+#        endif
+#    endif
+#endif
+    print("Hello, world!\n");
+    return 0;
+}

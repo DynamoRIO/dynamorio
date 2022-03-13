@@ -2576,8 +2576,14 @@ target_include_directories(client.drx_buf-test PRIVATE
 
 tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
+
+# XXX i#1884: The thread-private option is not yet available for ARM.
+if (X86)
+  # Same drbbdup test but with thread-private code caches.
+  torunonly_ci(client.drbbdup-thread-private-test ${ci_shared_app}
+    client.drbbdup-test.dll client-interface/drbbdup-test.c "" "-thread_private" "")
+endif (X86)
 
 macro(drbbdup_bb_test test)
   add_exe(client.${test}-exe client-interface/${test}.asm)
@@ -2587,7 +2593,6 @@ macro(drbbdup_bb_test test)
   add_library(client.${test}.dll SHARED  client-interface/${test}.dll.c)
   setup_test_client_dll_basics(client.${test}.dll)
   use_DynamoRIO_extension(client.${test}.dll drmgr)
-  use_DynamoRIO_extension(client.${test}.dll drreg)
   use_DynamoRIO_extension(client.${test}.dll drbbdup)
 
   torunonly_ci(client.${test} client.${test}-exe
@@ -2602,17 +2607,14 @@ endif (X86 AND X64 AND LINUX)
 
 tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
 tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)
 
 tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
 
 tobuild_appdll(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c)
@@ -2623,6 +2625,12 @@ tobuild_ci(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c "" 
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drbbdup)
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drwrap)
+
+tobuild_ci(client.drbbdup-emul-test client-interface/drbbdup-emul-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drutil)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drbbdup)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drreg)
 
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
@@ -3337,6 +3345,9 @@ if (BUILD_CLIENTS)
       "-simulator_type basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
       "${annotation_test_args_shorter}")
 
+    torunonly_drcachesim(windows-simple ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -simulator_type basic_counts" "")
+
     # Test that "Warmup hits" and "Warmup misses" are printed out
     torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
 
@@ -3594,6 +3605,19 @@ if (BUILD_CLIENTS)
       # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(windows-simple ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    # Ensure the invariant checker handles window transitions.
+    torunonly_drcacheoff(windows-invar ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@invariant_checker" "")
+    if (X86 AND X64 AND UNIX)
+      torunonly_drcacheoff(windows-asm allasm_repstr
+        "-trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+        "@-simulator_type@basic_counts" "")
+    endif ()
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)

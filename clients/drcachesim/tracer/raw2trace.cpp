@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -594,18 +594,24 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             }
             continue;
         }
-        // Append delayed branches at the end or before xfer markers; else, delay
-        // until we see a non-cti inside a block, to handle double branches (i#5141)
-        // and to group all (non-xfer) markers with a new timestamp.
+        // Append delayed branches at the end or before xfer or window-change
+        // markers; else, delay until we see a non-cti inside a block, to handle
+        // double branches (i#5141) and to group all (non-xfer) markers with a new
+        // timestamp.
         if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
             (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
              (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
               (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER)))) {
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
+               (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
+                entry.extended.valueA != tdata->last_window))))) {
             tdata->error = append_delayed_branch(tdata);
             if (!tdata->error.empty())
                 return tdata->error;
         }
+        if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
+            tdata->last_window = entry.extended.valueA;
         tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
                                              &last_bb_handled);
         if (!tdata->error.empty())
@@ -938,10 +944,12 @@ raw2trace_t::get_next_entry(void *tls)
                                       sizeof(tdata->last_entry)))
             return nullptr;
     }
-    VPRINT(5, "[get_next_entry]: type=%d\n",
+    VPRINT(5, "[get_next_entry]: type=%d val=" HEX64_FORMAT_STRING "\n",
            // Some compilers think .addr.type is "int" while others think it's "unsigned
            // long".  We avoid dueling warnings by casting to int.
-           static_cast<int>(tdata->last_entry.addr.type));
+           static_cast<int>(tdata->last_entry.addr.type),
+           // Cast to long to avoid Mac warning on "long long" using "long" format.
+           static_cast<uint64>(tdata->last_entry.combined_value));
     return &tdata->last_entry;
 }
 
@@ -965,6 +973,7 @@ void
 raw2trace_t::unread_last_entry(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    VPRINT(5, "Unreading last entry\n");
     if (tdata->last_entry_is_split) {
         VPRINT(4, "Unreading both parts of split entry at once\n");
         tdata->pre_read.push_back(tdata->last_split_first_entry);

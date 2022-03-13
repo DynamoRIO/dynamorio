@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,10 +68,10 @@ basic_counts_t::parallel_shard_supported()
 void *
 basic_counts_t::parallel_shard_init(int shard_index, void *worker_data)
 {
-    auto counters = new counters_t;
+    auto per_shard = new per_shard_t;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
-    shard_map_[shard_index] = counters;
-    return reinterpret_cast<void *>(counters);
+    shard_map_[shard_index] = per_shard;
+    return reinterpret_cast<void *>(per_shard);
 }
 
 bool
@@ -84,14 +84,15 @@ basic_counts_t::parallel_shard_exit(void *shard_data)
 std::string
 basic_counts_t::parallel_shard_error(void *shard_data)
 {
-    counters_t *counters = reinterpret_cast<counters_t *>(shard_data);
-    return counters->error;
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    return per_shard->error;
 }
 
 bool
 basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
-    counters_t *counters = reinterpret_cast<counters_t *>(shard_data);
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
         counters->unique_pc_addrs.insert(memref.instr.addr);
@@ -111,6 +112,12 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                    memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             ++counters->xfer_markers;
         } else {
+            if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID &&
+                memref.marker.marker_value != per_shard->last_window) {
+                per_shard->last_window = memref.marker.marker_value;
+                per_shard->counters.resize(per_shard->last_window + 1 /*0-based*/);
+                counters = &per_shard->counters[per_shard->counters.size() - 1];
+            }
             switch (memref.marker.marker_type) {
             case TRACE_MARKER_TYPE_FUNC_ID: ++counters->func_id_markers; break;
             case TRACE_MARKER_TYPE_FUNC_RETADDR: ++counters->func_retaddr_markers; break;
@@ -120,7 +127,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             }
         }
     } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
-        counters->tid = memref.exit.tid;
+        per_shard->tid = memref.exit.tid;
     } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
         counters->icache_flushes++;
     } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {
@@ -132,90 +139,101 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 bool
 basic_counts_t::process_memref(const memref_t &memref)
 {
-    counters_t *counters;
+    per_shard_t *per_shard;
     const auto &lookup = shard_map_.find(memref.data.tid);
     if (lookup == shard_map_.end()) {
-        counters = new counters_t;
-        shard_map_[memref.data.tid] = counters;
+        per_shard = new per_shard_t;
+        shard_map_[memref.data.tid] = per_shard;
     } else
-        counters = lookup->second;
-    if (!parallel_shard_memref(reinterpret_cast<void *>(counters), memref)) {
-        error_string_ = counters->error;
+        per_shard = lookup->second;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
+        error_string_ = per_shard->error;
         return false;
     }
     return true;
 }
 
 bool
-basic_counts_t::cmp_counters(const std::pair<memref_tid_t, counters_t *> &l,
-                             const std::pair<memref_tid_t, counters_t *> &r)
+basic_counts_t::cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
+                            const std::pair<memref_tid_t, per_shard_t *> &r)
 {
-    return (l.second->instrs > r.second->instrs);
+    return (l.second->counters[0].instrs > r.second->counters[0].instrs);
+}
+
+void
+basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_threads,
+                               const std::string &prefix)
+{
+    std::cerr << std::setw(12) << counters.instrs << prefix
+              << " (fetched) instructions\n";
+    std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
+              << " unique (fetched) instructions\n";
+    std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
+              << " non-fetched instructions\n";
+    std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
+    std::cerr << std::setw(12) << counters.loads << prefix << " data loads\n";
+    std::cerr << std::setw(12) << counters.stores << prefix << " data stores\n";
+    std::cerr << std::setw(12) << counters.icache_flushes << prefix
+              << " icache flushes\n";
+    std::cerr << std::setw(12) << counters.dcache_flushes << prefix
+              << " dcache flushes\n";
+    if (num_threads > 0) {
+        std::cerr << std::setw(12) << num_threads << prefix << " threads\n";
+    }
+    std::cerr << std::setw(12) << counters.sched_markers << prefix
+              << " scheduling markers\n";
+    std::cerr << std::setw(12) << counters.xfer_markers << prefix
+              << " transfer markers\n";
+    std::cerr << std::setw(12) << counters.func_id_markers << prefix
+              << " function id markers\n";
+    std::cerr << std::setw(12) << counters.func_retaddr_markers << prefix
+              << " function return address markers\n";
+    std::cerr << std::setw(12) << counters.func_arg_markers << prefix
+              << " function argument markers\n";
+    std::cerr << std::setw(12) << counters.func_retval_markers << prefix
+              << " function return value markers\n";
+    std::cerr << std::setw(12) << counters.other_markers << prefix << " other markers\n";
 }
 
 bool
 basic_counts_t::print_results()
 {
     counters_t total;
+    uintptr_t num_windows = 1;
     for (const auto &shard : shard_map_) {
-        total += *shard.second;
+        num_windows = std::max(num_windows, shard.second->counters.size());
+    }
+    for (const auto &shard : shard_map_) {
+        for (const auto &ctr : shard.second->counters) {
+            total += ctr;
+        }
     }
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    std::cerr << std::setw(12) << total.instrs << " total (fetched) instructions\n";
-    std::cerr << std::setw(12) << total.unique_pc_addrs.size()
-              << " total unique (fetched) instructions\n";
-    std::cerr << std::setw(12) << total.instrs_nofetch
-              << " total non-fetched instructions\n";
-    std::cerr << std::setw(12) << total.prefetches << " total prefetches\n";
-    std::cerr << std::setw(12) << total.loads << " total data loads\n";
-    std::cerr << std::setw(12) << total.stores << " total data stores\n";
-    std::cerr << std::setw(12) << total.icache_flushes << " total icache flushes\n";
-    std::cerr << std::setw(12) << total.dcache_flushes << " total dcache flushes\n";
-    std::cerr << std::setw(12) << shard_map_.size() << " total threads\n";
-    std::cerr << std::setw(12) << total.sched_markers << " total scheduling markers\n";
-    std::cerr << std::setw(12) << total.xfer_markers << " total transfer markers\n";
-    std::cerr << std::setw(12) << total.func_id_markers << " total function id markers\n";
-    std::cerr << std::setw(12) << total.func_retaddr_markers
-              << " total function return address markers\n";
-    std::cerr << std::setw(12) << total.func_arg_markers
-              << " total function argument markers\n";
-    std::cerr << std::setw(12) << total.func_retval_markers
-              << " total function return value markers\n";
-    std::cerr << std::setw(12) << total.other_markers << " total other markers\n";
+    print_counters(total, shard_map_.size(), " total");
+
+    if (num_windows > 1) {
+        std::cerr << "Total windows: " << num_windows << "\n";
+        for (uintptr_t i = 0; i < num_windows; ++i) {
+            std::cerr << "Window #" << i << ":\n";
+            for (const auto &shard : shard_map_) {
+                if (shard.second->counters.size() > i) {
+                    print_counters(shard.second->counters[i], 0, " window");
+                }
+            }
+        }
+    }
 
     // Print the threads sorted by instrs.
-    std::vector<std::pair<memref_tid_t, counters_t *>> sorted(shard_map_.begin(),
-                                                              shard_map_.end());
-    std::sort(sorted.begin(), sorted.end(), cmp_counters);
+    std::vector<std::pair<memref_tid_t, per_shard_t *>> sorted(shard_map_.begin(),
+                                                               shard_map_.end());
+    std::sort(sorted.begin(), sorted.end(), cmp_threads);
     for (const auto &keyvals : sorted) {
         std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
-        std::cerr << std::setw(12) << keyvals.second->instrs
-                  << " (fetched) instructions\n";
-        std::cerr << std::setw(12) << keyvals.second->unique_pc_addrs.size()
-                  << " unique (fetched) instructions\n";
-        std::cerr << std::setw(12) << keyvals.second->instrs_nofetch
-                  << " non-fetched instructions\n";
-        std::cerr << std::setw(12) << keyvals.second->prefetches << " prefetches\n";
-        std::cerr << std::setw(12) << keyvals.second->loads << " data loads\n";
-        std::cerr << std::setw(12) << keyvals.second->stores << " data stores\n";
-        std::cerr << std::setw(12) << keyvals.second->icache_flushes
-                  << " icache flushes\n";
-        std::cerr << std::setw(12) << keyvals.second->dcache_flushes
-                  << " dcache flushes\n";
-        std::cerr << std::setw(12) << keyvals.second->sched_markers
-                  << " scheduling markers\n";
-        std::cerr << std::setw(12) << keyvals.second->xfer_markers
-                  << " transfer markers\n";
-        std::cerr << std::setw(12) << keyvals.second->func_id_markers
-                  << " function id markers\n";
-        std::cerr << std::setw(12) << keyvals.second->func_retaddr_markers
-                  << " function return address markers\n";
-        std::cerr << std::setw(12) << keyvals.second->func_arg_markers
-                  << " function argument markers\n";
-        std::cerr << std::setw(12) << keyvals.second->func_retval_markers
-                  << " function return value markers\n";
-        std::cerr << std::setw(12) << keyvals.second->other_markers << " other markers\n";
+        print_counters(keyvals.second->counters[0], 0, "");
     }
+
+    // TODO i#3599: also print thread-per-window stats.
+
     return true;
 }

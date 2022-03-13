@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,7 +65,7 @@ protected:
         {
         }
         counters_t &
-        operator+=(counters_t &rhs)
+        operator+=(const counters_t &rhs)
         {
             instrs += rhs.instrs;
             instrs_nofetch += rhs.instrs_nofetch;
@@ -86,7 +86,6 @@ protected:
             }
             return *this;
         }
-        memref_tid_t tid = 0;
         int_least64_t instrs = 0;
         int_least64_t instrs_nofetch = 0;
         int_least64_t prefetches = 0;
@@ -102,14 +101,28 @@ protected:
         int_least64_t icache_flushes = 0;
         int_least64_t dcache_flushes = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
-        std::string error;
     };
+    struct per_shard_t {
+        per_shard_t()
+        {
+            counters.resize(1);
+        }
+        memref_tid_t tid = 0;
+        // A vector to support windows.
+        std::vector<counters_t> counters;
+        std::string error;
+        uintptr_t last_window = 0;
+    };
+
     static bool
-    cmp_counters(const std::pair<memref_tid_t, counters_t *> &l,
-                 const std::pair<memref_tid_t, counters_t *> &r);
+    cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
+                const std::pair<memref_tid_t, per_shard_t *> &r);
+    static void
+    print_counters(const counters_t &counters, int_least64_t num_threads,
+                   const std::string &prefix);
 
     // The keys here are int for parallel, tid for serial.
-    std::unordered_map<memref_tid_t, counters_t *> shard_map_;
+    std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

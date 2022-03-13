@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -235,6 +235,18 @@ offline_instru_t::get_entry_size(byte *buf_ptr) const
     return 0;
 }
 
+int
+offline_instru_t::get_instr_count(byte *buf_ptr) const
+{
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    if (entry->addr.type != OFFLINE_TYPE_PC)
+        return 0;
+    // TODO i#3995: We should *not* count "non-fetched" instrs so we'll match
+    // hardware performance counters.
+    // Xref i#4948 and i#4915 on getting rid of "non-fetched" instrs.
+    return entry->pc.instr_count;
+}
+
 addr_t
 offline_instru_t::get_entry_addr(byte *buf_ptr) const
 {
@@ -344,7 +356,7 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
 }
 
 int
-offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
+offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window)
 {
     byte *new_buf = buf_ptr;
     offline_entry_t *entry = (offline_entry_t *)new_buf;
@@ -352,6 +364,8 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
     entry->timestamp.usec =
         frozen_timestamp_ != 0 ? frozen_timestamp_ : instru_t::get_timestamp();
     new_buf += sizeof(*entry);
+    if (window >= 0)
+        new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
 }
@@ -544,9 +558,11 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
                                     dr_pred_type_t pred)
 {
     // Check whether we can elide this address.
-    // Be sure to start with "app" and not "where" to handle post-instr insertion
-    // such as for exclusive stores.
-    for (instr_t *prev = instr_get_prev(app); prev != nullptr && !instr_is_app(prev);
+    // We expect our labels to be at "where" due to drbbdup's handling of block-final
+    // instrs, but for exclusive store post-instr insertion we make sure we walk
+    // across that app instr.
+    for (instr_t *prev = instr_get_prev(where);
+         prev != nullptr && (!instr_is_app(prev) || instr_is_exclusive_store(prev));
          prev = instr_get_prev(prev)) {
         int elided_index;
         bool elided_is_store;

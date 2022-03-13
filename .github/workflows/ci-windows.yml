@@ -108,7 +108,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2017-64
+          Workflow: ${{github.workflow}}/vs2019-builds
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}

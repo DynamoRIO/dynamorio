@@ -201,6 +201,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is first non-label");
     CHECK(is_first_nonlabel, "must be first non-label");
 
+    /* Relies on the -max_bb_instrs 0 option. */
     res = drbbdup_is_last_instr(drcontext, instr, &is_last);
     CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is last");
     CHECK(is_last, "must be last");
