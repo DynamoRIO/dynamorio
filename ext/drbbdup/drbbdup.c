@@ -288,13 +288,21 @@ drbbdup_add_copy(void *drcontext, instrlist_t *bb, instrlist_t *orig_bb)
 static drbbdup_manager_t *
 drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
 {
-    drbbdup_manager_t *manager = dr_global_alloc(sizeof(drbbdup_manager_t));
+    /* This per-block memory can add up: for 2.5M basic blocks we can take up >512M
+     * of space, which if it's in the limited-size vmcode region is a problem.
+     * We thus explicitly request unreachable heap.
+     * XXX: Maybe DR should break compatibility and change the default.
+     */
+    drbbdup_manager_t *manager = dr_custom_alloc(
+        /* We want the global heap for which NULL for the drcontext is required. */
+        NULL, 0, sizeof(drbbdup_manager_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     memset(manager, 0, sizeof(drbbdup_manager_t));
 
     manager->cases = NULL;
     ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
     manager->cases =
-        dr_global_alloc(sizeof(drbbdup_case_t) * opts.non_default_case_limit);
+        dr_custom_alloc(NULL, 0, sizeof(drbbdup_case_t) * opts.non_default_case_limit,
+                        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     memset(manager->cases, 0, sizeof(drbbdup_case_t) * opts.non_default_case_limit);
     manager->enable_dup = true;
     manager->enable_dynamic_handling = true;
@@ -320,7 +328,7 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
         /* Multiple cases not wanted. Destroy cases. */
-        dr_global_free(manager->cases,
+        dr_custom_free(NULL, 0, manager->cases,
                        sizeof(drbbdup_case_t) * opts.non_default_case_limit);
         manager->cases = NULL;
     }
@@ -337,10 +345,10 @@ drbbdup_destroy_manager(void *manager_opaque)
 
     if (manager->enable_dup && manager->cases != NULL) {
         ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
-        dr_global_free(manager->cases,
+        dr_custom_free(NULL, 0, manager->cases,
                        sizeof(drbbdup_case_t) * opts.non_default_case_limit);
     }
-    dr_global_free(manager, sizeof(drbbdup_manager_t));
+    dr_custom_free(NULL, 0, manager, sizeof(drbbdup_manager_t));
 }
 
 /* This must be called prior to inserting drbbdup's own cti. */
