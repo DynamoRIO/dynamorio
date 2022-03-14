@@ -325,6 +325,15 @@ static int min_dr_fd;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
+/* vmm_heap_unit_init creates the dual_map_file before the fd_table is created
+ * by d_r_os_init. This is due to constraints on the order of invoking various
+ * init routines in dynamorio_app_init_part_two_finalize. This means that
+ * fd_table_add would not be able to really save the FD. Therefore, we have to
+ * remember the FD so that we can add it to the fd_table when we create it.
+ * XXX: it would be worth refactoring init code and not having to remember to
+ * add this to fd_table later.
+ */
+static int dual_map_file_fd;
 #ifdef DEBUG
 static int num_fd_add_pre_heap;
 #endif
@@ -932,6 +941,11 @@ d_r_os_init(void)
     if (GLOBAL != INVALID_FILE)
         fd_table_add(GLOBAL, OS_OPEN_CLOSE_ON_FORK);
 #endif
+    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+        ASSERT(dual_map_file_fd != 0);
+        fd_table_add(dual_map_file_fd, OS_OPEN_CLOSE_ON_FORK);
+        dual_map_file_fd = 0;
+    }
 
     /* Ensure initialization */
     get_dynamorio_dll_start();
@@ -4138,11 +4152,28 @@ fd_table_add(file_t fd, uint flags)
                          (void *)(ptr_uint_t)(flags | OS_OPEN_RESERVED));
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
+        /* We come here only for the main_logfile and the dual_map_file. */
+        if (fd != GLOBAL) {
+            dual_map_file_fd = fd;
+        }
 #ifdef DEBUG
         num_fd_add_pre_heap++;
         /* we add main_logfile in d_r_os_init() */
-        ASSERT(num_fd_add_pre_heap == 1 && "only main_logfile should come here");
+        ASSERT(num_fd_add_pre_heap <= 2 &&
+               "only main_logfile and dual_map_file should come here");
 #endif
+    }
+}
+
+void
+fd_table_remove(file_t fd)
+{
+    if (fd_table != NULL) {
+        TABLE_RWLOCK(fd_table, write, lock);
+        generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)fd);
+        TABLE_RWLOCK(fd_table, write, unlock);
+    } else {
+        ASSERT(dynamo_exited);
     }
 }
 
@@ -4192,12 +4223,7 @@ os_open_protected(const char *fname, int os_open_flags)
 void
 os_close_protected(file_t f)
 {
-    ASSERT(fd_table != NULL || dynamo_exited);
-    if (fd_table != NULL) {
-        TABLE_RWLOCK(fd_table, write, lock);
-        generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)f);
-        TABLE_RWLOCK(fd_table, write, unlock);
-    }
+    fd_table_remove(f);
     os_close(f);
 }
 
@@ -4421,6 +4447,7 @@ os_create_memory_file(const char *name, size_t size)
     }
     fd = priv_fd;
     fd_mark_close_on_exec(fd); /* We could use MFD_CLOEXEC for memfd_create. */
+    fd_table_add(fd, OS_OPEN_CLOSE_ON_FORK);
     return fd;
 #else
     ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
@@ -4440,6 +4467,7 @@ os_delete_memory_file(const char *name, file_t fd)
     os_get_memory_file_shm_path(name, path, BUFFER_SIZE_ELEMENTS(path));
     NULL_TERMINATE_BUFFER(path);
     os_delete_file(path);
+    fd_table_remove(fd);
     close_syscall(fd);
 #else
     ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
