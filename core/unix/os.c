@@ -335,10 +335,10 @@ static generic_table_t *fd_table;
  * XXX: try refactoring init code so that we don't have to track dual_map_file_fd
  * and add it later.
  */
-static int dual_map_file_fd;
-#ifdef DEBUG
+#define MAX_FD_ADD_PRE_HEAP 2
+static int fd_add_pre_heap[MAX_FD_ADD_PRE_HEAP];
+static int fd_add_pre_heap_flags[MAX_FD_ADD_PRE_HEAP];
 static int num_fd_add_pre_heap;
-#endif
 
 #ifdef LINUX
 /* i#1004: brk emulation */
@@ -939,14 +939,12 @@ d_r_os_init(void)
     fd_table = generic_hash_create(
         GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_FD, 80 /* load factor: not perf-critical */,
         HASHTABLE_SHARED | HASHTABLE_PERSISTENT, NULL _IF_DEBUG("fd table"));
-#ifdef DEBUG
-    if (GLOBAL != INVALID_FILE)
-        fd_table_add(GLOBAL, OS_OPEN_CLOSE_ON_FORK);
-#endif
-    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
-        ASSERT(dual_map_file_fd != 0);
-        fd_table_add(dual_map_file_fd, 0 /*keep across fork*/);
-        dual_map_file_fd = 0;
+    /* Add to fd_table the entries that we could not add before as fd_table was
+     * not initialized.
+     */
+    while (num_fd_add_pre_heap--) {
+        fd_table_add(fd_add_pre_heap[num_fd_add_pre_heap],
+                     fd_add_pre_heap_flags[num_fd_add_pre_heap]);
     }
 
     /* Ensure initialization */
@@ -1380,7 +1378,6 @@ os_slow_exit(void)
 
     if (doing_detach) {
         vsyscall_page_start = NULL;
-        IF_DEBUG(num_fd_add_pre_heap = 0;)
     }
 
     DELETE_LOCK(set_thread_area_lock);
@@ -4155,16 +4152,15 @@ fd_table_add(file_t fd, uint flags)
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
         /* We come here only for the main_logfile and the dual_map_file. */
-        ASSERT(DYNAMO_OPTION(satisfy_w_xor_x) || fd == GLOBAL);
-        if (DYNAMO_OPTION(satisfy_w_xor_x) IF_DEBUG(&&fd != GLOBAL)) {
-            dual_map_file_fd = fd;
-        }
-#ifdef DEBUG
-        num_fd_add_pre_heap++;
-        /* We add the main_logfile and dual_map_file in d_r_os_init() */
-        ASSERT(num_fd_add_pre_heap <= (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
+        ASSERT(num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP &&
+               (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) <= MAX_FD_ADD_PRE_HEAP &&
                "only main_logfile and dual_map_file should come here");
-#endif
+        if (num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP) {
+            /* We add the main_logfile and dual_map_file in d_r_os_init() */
+            fd_add_pre_heap[num_fd_add_pre_heap] = fd;
+            fd_add_pre_heap_flags[num_fd_add_pre_heap] = flags;
+            num_fd_add_pre_heap++;
+        }
     }
 }
 
