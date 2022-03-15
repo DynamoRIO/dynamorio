@@ -208,7 +208,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_32 = (
                 # i#5195: These are failing on GA Server19.
                 'code_api|client.drsyms-test' => 1, # i#5195
-                'code_api|client.tls' => 1, # i#5195
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
                 'code_api|win32.earlythread' => 1, # i#4131
@@ -250,7 +249,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # i#5195: These are failing on GA Server19.
                 'code_api|client.drsyms-test' => 1, # i#5195
                 'code_api|client.drsyms-testgcc' => 1, # i#5195
-                'code_api|client.tls' => 1, # i#5195
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
                 'code_api|client.cleancall' => 1, # i#4618
