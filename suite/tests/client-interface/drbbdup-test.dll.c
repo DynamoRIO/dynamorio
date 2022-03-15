@@ -282,6 +282,11 @@ dr_init(client_id_t id)
     opts.user_data = USER_DATA_VAL;
     opts.non_default_case_limit = 2;
     opts.is_stat_enabled = true;
+    /* Test not triggering lazy allocation paths.
+     * Since subsequent enabling for a block results in an assert rather than a failure
+     * return code or something we can't easily test that.
+     */
+    opts.never_enable_dynamic_handling = true;
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");

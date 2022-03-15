@@ -344,6 +344,12 @@ typedef struct {
      * Either this or the instrument_instr field must be set.
      */
     drbbdup_instrument_instr_ex_t instrument_instr_ex;
+    /**
+     * If \p enable_dynamic_handling will *never* be set by \p set_up_bb_dups for
+     * *any* basic block, this field can be set to true.  This reduces memory
+     * usage by not allocating bookkeeping data needed for dynamic handling.
+     */
+    bool never_enable_dynamic_handling;
 } drbbdup_options_t;
 
 /**
