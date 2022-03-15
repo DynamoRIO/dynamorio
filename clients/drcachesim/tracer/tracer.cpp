@@ -928,6 +928,8 @@ instrumentation_drbbdup_init()
     opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_disabled, OPSZ_PTR);
     opts.atomic_load_encoding = true;
     opts.non_default_case_limit = 1;
+    // Save per-thread heap for a feature we do not need.
+    opts.never_enable_dynamic_handling = true;
     drbbdup_status_t res = drbbdup_init(&opts);
     DR_ASSERT(res == DRBBDUP_SUCCESS);
     /* We just want barriers and atomic ops: no locks b/c they are not safe. */

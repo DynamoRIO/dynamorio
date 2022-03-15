@@ -127,10 +127,10 @@ typedef struct {
     hashtable_t manager_table; /* Maps bbs with book-keeping data (for thread-private
                                   caches only). */
     int case_index; /* Used to keep track of the current case during insertion. */
-    void *orig_analysis_data;        /* Analysis data accessible for all cases. */
-    void *default_analysis_data;     /* Analysis data specific to default case. */
-    void **case_analysis_data;       /* Analysis data specific to cases. */
-    uint16_t hit_counts[TABLE_SIZE]; /* Keeps track of hit-counts of unhandled cases. */
+    void *orig_analysis_data;      /* Analysis data accessible for all cases. */
+    void *default_analysis_data;   /* Analysis data specific to default case. */
+    void **case_analysis_data;     /* Analysis data specific to cases. */
+    uint16_t *hit_counts;          /* Keeps track of hit-counts of unhandled cases. */
     instr_t *first_instr;          /* The first instr of the bb copy being considered. */
     instr_t *first_nonlabel_instr; /* The first non label instr of the bb copy. */
     instr_t *last_instr;           /* The last instr of the bb copy being considered. */
@@ -324,6 +324,10 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     /* XXX i#3778: To remove once we support specific fragment deletion. */
     DR_ASSERT_MSG(!manager->enable_dynamic_handling,
                   "dynamic case generation is not yet supported");
+    if (opts.never_enable_dynamic_handling) {
+        DR_ASSERT_MSG(!manager->enable_dynamic_handling,
+                      "dynamic case generation was disabled globally: cannot enable");
+    }
 
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
@@ -1284,6 +1288,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, void *tag, instrlist_t *bb,
 
     ASSERT(new_case_cache_pc != NULL,
            "new case cache for dynamic handling must be already initialised.");
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
 
     /* Check whether case limit has not been reached. */
     if (drbbdup_do_dynamic_handling(manager)) {
@@ -1803,6 +1809,9 @@ drbbdup_handle_new_case()
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
+
     /* Must use DR_MC_ALL due to dr_redirect_execution. */
     dr_mcontext_t mcontext;
     mcontext.size = sizeof(mcontext);
@@ -1866,6 +1875,9 @@ init_fp_cache(void (*clean_call_func)())
     void *drcontext = dr_get_current_drcontext();
     size_t size = dr_page_size();
     ilist = instrlist_create(drcontext);
+
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
 
     dr_insert_clean_call(drcontext, ilist, NULL, (void *)clean_call_func, false, 0);
 
@@ -1987,8 +1999,14 @@ drbbdup_get_stats(OUT drbbdup_stats_t *stats_in)
 static void
 drbbdup_thread_init(void *drcontext)
 {
-    drbbdup_per_thread *pt =
-        (drbbdup_per_thread *)dr_thread_alloc(drcontext, sizeof(drbbdup_per_thread));
+    /* We use unreachable heap here too, though with the hit_counts array
+     * dynamically allocated the usage is now small enough to not matter for
+     * most non_default_case_limit values.
+     */
+    drbbdup_per_thread *pt = (drbbdup_per_thread *)dr_custom_alloc(
+        drcontext, DR_ALLOC_THREAD_PRIVATE, sizeof(drbbdup_per_thread),
+        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    memset(pt, 0, sizeof(*pt));
 
     if (is_thread_private) {
         /* Initialise hash table that keeps track of defined cases per
@@ -2001,14 +2019,23 @@ drbbdup_thread_init(void *drcontext)
     pt->case_index = 0;
     pt->orig_analysis_data = NULL;
     ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
-    pt->case_analysis_data =
-        dr_thread_alloc(drcontext, sizeof(void *) * opts.non_default_case_limit);
+    pt->case_analysis_data = dr_custom_alloc(drcontext, DR_ALLOC_THREAD_PRIVATE,
+                                             sizeof(void *) * opts.non_default_case_limit,
+                                             DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     memset(pt->case_analysis_data, 0, sizeof(void *) * opts.non_default_case_limit);
 
-    /* Init hit table. */
-    for (int i = 0; i < TABLE_SIZE; i++)
-        pt->hit_counts[i] = opts.hit_threshold;
-    drbbdup_set_tls_raw_slot_val(DRBBDUP_HIT_TABLE_SLOT, (uintptr_t)pt->hit_counts);
+    if (!opts.never_enable_dynamic_handling) {
+        /* Dynamically allocated to avoid using space when not needed (128K per
+         * thread adds up on large apps), and with explicit unreachable heap.
+         */
+        pt->hit_counts = (uint16_t *)dr_custom_alloc(
+            drcontext, DR_ALLOC_THREAD_PRIVATE, TABLE_SIZE * sizeof(pt->hit_counts[0]),
+            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        /* Init hit table. */
+        for (int i = 0; i < TABLE_SIZE; i++)
+            pt->hit_counts[i] = opts.hit_threshold;
+        drbbdup_set_tls_raw_slot_val(DRBBDUP_HIT_TABLE_SLOT, (uintptr_t)pt->hit_counts);
+    }
 
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 }
@@ -2024,9 +2051,15 @@ drbbdup_thread_exit(void *drcontext)
     if (is_thread_private)
         hashtable_delete(&pt->manager_table);
 
-    dr_thread_free(drcontext, pt->case_analysis_data,
+    dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt->case_analysis_data,
                    sizeof(void *) * opts.non_default_case_limit);
-    dr_thread_free(drcontext, pt, sizeof(drbbdup_per_thread));
+    if (pt->hit_counts != NULL) {
+        DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                      "should not reach here if dynamic cases were disabled globally");
+        dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt->hit_counts,
+                       TABLE_SIZE * sizeof(pt->hit_counts[0]));
+    }
+    dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt, sizeof(drbbdup_per_thread));
 }
 
 /****************************************************************************
