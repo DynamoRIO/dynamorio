@@ -945,7 +945,7 @@ d_r_os_init(void)
 #endif
     if (DYNAMO_OPTION(satisfy_w_xor_x)) {
         ASSERT(dual_map_file_fd != 0);
-        fd_table_add(dual_map_file_fd, OS_OPEN_CLOSE_ON_FORK);
+        fd_table_add(dual_map_file_fd, 0 /*keep across fork*/);
         dual_map_file_fd = 0;
     }
 
@@ -4450,7 +4450,7 @@ os_create_memory_file(const char *name, size_t size)
     }
     fd = priv_fd;
     fd_mark_close_on_exec(fd); /* We could use MFD_CLOEXEC for memfd_create. */
-    fd_table_add(fd, OS_OPEN_CLOSE_ON_FORK);
+    fd_table_add(fd, 0 /*keep across fork*/);
     return fd;
 #else
     ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
