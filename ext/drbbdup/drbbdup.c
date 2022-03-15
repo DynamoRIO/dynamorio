@@ -1288,6 +1288,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, void *tag, instrlist_t *bb,
 
     ASSERT(new_case_cache_pc != NULL,
            "new case cache for dynamic handling must be already initialised.");
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
 
     /* Check whether case limit has not been reached. */
     if (drbbdup_do_dynamic_handling(manager)) {
@@ -1807,6 +1809,9 @@ drbbdup_handle_new_case()
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
+
     /* Must use DR_MC_ALL due to dr_redirect_execution. */
     dr_mcontext_t mcontext;
     mcontext.size = sizeof(mcontext);
@@ -1870,6 +1875,9 @@ init_fp_cache(void (*clean_call_func)())
     void *drcontext = dr_get_current_drcontext();
     size_t size = dr_page_size();
     ilist = instrlist_create(drcontext);
+
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
 
     dr_insert_clean_call(drcontext, ilist, NULL, (void *)clean_call_func, false, 0);
 
@@ -2046,6 +2054,8 @@ drbbdup_thread_exit(void *drcontext)
     dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt->case_analysis_data,
                    sizeof(void *) * opts.non_default_case_limit);
     if (pt->hit_counts != NULL) {
+        DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                      "should not reach here if dynamic cases were disabled globally");
         dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt->hit_counts,
                        TABLE_SIZE * sizeof(pt->hit_counts[0]));
     }
