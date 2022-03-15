@@ -4155,7 +4155,7 @@ fd_table_add(file_t fd, uint flags)
     } else {
         /* We come here only for the main_logfile and the dual_map_file. */
         ASSERT(num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP &&
-               (num_fd_add_pre_heap < DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
+               num_fd_add_pre_heap < (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
                "only main_logfile and dual_map_file should come here");
         if (num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP) {
             /* We add the main_logfile and dual_map_file in d_r_os_init() */
