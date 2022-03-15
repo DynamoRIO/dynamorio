@@ -4153,12 +4153,13 @@ fd_table_add(file_t fd, uint flags)
                          (void *)(ptr_uint_t)(flags | OS_OPEN_RESERVED));
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
-        /* We come here only for the main_logfile and the dual_map_file. */
+        /* We come here only for the main_logfile and the dual_map_file, which
+         * we add to the fd_table in d_r_os_init().
+         */
         ASSERT(num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP &&
                num_fd_add_pre_heap < (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
                "only main_logfile and dual_map_file should come here");
         if (num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP) {
-            /* We add the main_logfile and dual_map_file in d_r_os_init() */
             fd_add_pre_heap[num_fd_add_pre_heap] = fd;
             fd_add_pre_heap_flags[num_fd_add_pre_heap] = flags;
             num_fd_add_pre_heap++;
