@@ -328,10 +328,12 @@ static generic_table_t *fd_table;
 /* vmm_heap_unit_init creates the dual_map_file before the fd_table is created
  * by d_r_os_init. This is due to constraints on the order of invoking various
  * init routines in dynamorio_app_init_part_two_finalize. This means that
- * fd_table_add would not be able to really save the FD. Therefore, we have to
- * remember the FD so that we can add it to the fd_table when we create it.
- * XXX: it would be worth refactoring init code and not having to remember to
- * add this to fd_table later.
+ * fd_table_add would not be able to really save the dual_map_file FD.
+ * Therefore, we have to remember the FD so that we can add it to the fd_table
+ * later when we create it. This is required when we are running with
+ * -satisfy_w_xor_x.
+ * XXX: try refactoring init code so that we don't have to track dual_map_file_fd
+ * and add it later.
  */
 static int dual_map_file_fd;
 #ifdef DEBUG
@@ -4153,13 +4155,14 @@ fd_table_add(file_t fd, uint flags)
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
         /* We come here only for the main_logfile and the dual_map_file. */
-        if (fd != GLOBAL) {
+        ASSERT(DYNAMO_OPTION(satisfy_w_xor_x) || fd == GLOBAL);
+        if (DYNAMO_OPTION(satisfy_w_xor_x) IF_DEBUG(&&fd != GLOBAL)) {
             dual_map_file_fd = fd;
         }
 #ifdef DEBUG
         num_fd_add_pre_heap++;
-        /* we add main_logfile in d_r_os_init() */
-        ASSERT(num_fd_add_pre_heap <= 2 &&
+        /* We add the main_logfile and dual_map_file in d_r_os_init() */
+        ASSERT(num_fd_add_pre_heap <= (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
                "only main_logfile and dual_map_file should come here");
 #endif
     }
