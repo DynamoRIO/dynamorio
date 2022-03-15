@@ -325,12 +325,13 @@ static int min_dr_fd;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
-/* DR needs to open some files before the fd_table is allocated by d_r_os_init:
+/* DR needs to open some files before the fd_table is allocated by d_r_os_init.
+ * This is due to constraints on the order of invoking various init routines in
+ * the dynamorio_app_init_part_* routines.
  * - dynamorio_app_init_part_one_options opens the global log file when logging
  *   is enabled in the debug build.
  * - vmm_heap_unit_init opens the dual_map_file when -satisfy_w_xor_x is set.
- * This is due to constraints on the order of invoking various init routines in
- * the dynamorio_app_init_part_* routines.
+
  * For these files, fd_table_add would not be able to really add the FD.
  * Therefore, we have to remember them so that we can add it to fd_table later
  * when we create it.
@@ -4154,7 +4155,7 @@ fd_table_add(file_t fd, uint flags)
     } else {
         /* We come here only for the main_logfile and the dual_map_file. */
         ASSERT(num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP &&
-               (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) <= MAX_FD_ADD_PRE_HEAP &&
+               (num_fd_add_pre_heap < DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
                "only main_logfile and dual_map_file should come here");
         if (num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP) {
             /* We add the main_logfile and dual_map_file in d_r_os_init() */
