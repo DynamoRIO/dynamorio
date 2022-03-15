@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -66,7 +66,7 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
 
 To build DynamoRIO on Windows, first install the following software.
 
-  - Visual Studio 2017.  Other versions are not officially supported as our automated tests use VS 2017.
+  - Visual Studio 2019.  Other versions are not officially supported as our automated tests use VS 2019.
   - [CMake](http://cmake.org/cmake/resources/software.html). 3.7+ is required. When prompted, we recommend adding it to your PATH.
   - Git.  Any flavor should do, including [Git on Windows](https://git-scm.com/download/win) or Cygwin git.
   - Perl.  We recommend either [Strawberry Perl](http://strawberryperl.com/) or Cygwin perl.
@@ -74,7 +74,7 @@ To build DynamoRIO on Windows, first install the following software.
 
 Once these dependencies are installed, you need to generate your project and solution files for Visual Studio using CMake.  The easiest way to do this is to launch a cmd prompt with the right environment from the Visual Studio folder in the Start menu.
 
-To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2017 > x86 Native Tools Command Prompt for VS 2017` and run the following commands:
+To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2019 > x86 Native Tools Command Prompt for VS 2019` and run the following commands:
 
   ```
   # Get sources.
@@ -83,7 +83,7 @@ To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2017 > x86 
   # supported.
   $ cd dynamorio && mkdir build && cd build
   # Configure using cmake.  Pass in the path to your source directory.
-  $ cmake -G"Visual Studio 15" ..
+  $ cmake -G"Visual Studio 16" ..
   # Build from the command line.  Alternatively, open ALL_BUILD.vcproj in Visual
   # Studio and build from there.  You must pass --config to work around a cmake
   # bug.  (http://www.cmake.org/Bug/view.php?id=11830)
@@ -92,7 +92,7 @@ To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2017 > x86 
   $ bin32\drrun.exe notepad.exe
   ```
 
-If you need a 64-bit build, choose `x64 Native Tools Command Prompt` and pass `-G"Visual Studio 15 Win64"` to cmake.
+If you need a 64-bit build, choose `x64 Native Tools Command Prompt` and pass `-G"Visual Studio 16 Win64"` to cmake.
 
 An alternative to the command prompt is to execute the appropriate vcvars.bat command for your compiler in your shell of choice.
 
@@ -112,7 +112,7 @@ $ make -j
 
 or on Windows:
 ```
-$ cmake -G"Visual Studio 15" .. -DDEBUG=ON
+$ cmake -G"Visual Studio 16" .. -DDEBUG=ON
 $ cmake --build . --config Debug
 ```
 
@@ -121,7 +121,7 @@ produce a debug build currently.
 
 For 64-bit build on Windows:
 ```
-$ cmake -G"Visual Studio 15 Win64" .. -DDEBUG=ON
+$ cmake -G"Visual Studio 16 Win64" .. -DDEBUG=ON
 $ cmake --build . --config Debug
 ```
 
@@ -286,7 +286,7 @@ Support for aarch64-on-x86 on Windows is not yet finished; nor is support for ot
 ## Compiler
 
 First, you need the compiler, linker, and associated tools.
-Install Visual Studio 2017 which is the version used by our automated tests.
+Install Visual Studio 2019 which is the version used by our automated tests.
 
 You need to use a shell with command line support for using your
 compiler.  For example, this could be the `cmd` shell or a Cygwin shell.
@@ -391,10 +391,10 @@ slashes) for all variables except for `PATH`:
       export PATH=`cygpath -u ${SDKROOT}/VC/Bin/amd64`:`cygpath -u ${SDKROOT2}/bin/x64`:`cygpath -u ${SDKROOT}/VC/Bin`:${PRE_VS_PATH}
   }
 
-  function compilerVS2017_32 {
-      export CMAKEGEN="Visual Studio 15"
-      export VSVER=$(ls -1t /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional/VC/Tools/MSVC | head -1)
-      export VSBASE=$(cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional)
+  function compilerVS2019_32 {
+      export CMAKEGEN="Visual Studio 16"
+      export VSVER=$(ls -1t /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2019/Professional/VC/Tools/MSVC | head -1)
+      export VSBASE=$(cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2019/Professional)
       export VSROOT=$(cygpath -d ${VSBASE}/VC/Tools/MSVC/$VSVER)
       # We assume SDK 10
       export KITROOT=$(cygpath -d /c/Program\ Files\ \(x86\)/Windows\ Kits/10)
@@ -409,10 +409,10 @@ slashes) for all variables except for `PATH`:
       export PATH=`cygpath -u ${VSROOT}/bin/HostX86/x86`:`cygpath -u ${KITROOT}/bin/x86`:`cygpath -u ${KITROOT}/bin/${KITVER}/x86`:`cygpath -u ${VSBASE}/Common7/IDE`:${PRE_VS_PATH}
   }
 
-  function compilerVS2017_64 {
-      export CMAKEGEN="Visual Studio 15 Win64"
-      export VSVER=$(ls -1t /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional/VC/Tools/MSVC | head -1)
-      export VSBASE=$(cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/Professional)
+  function compilerVS2019_64 {
+      export CMAKEGEN="Visual Studio 16 Win64"
+      export VSVER=$(ls -1t /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2019/Professional/VC/Tools/MSVC | head -1)
+      export VSBASE=$(cygpath -d /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2019/Professional)
       export VSROOT=$(cygpath -d ${VSBASE}/VC/Tools/MSVC/$VSVER)
       # We assume SDK 10
       export KITROOT=$(cygpath -d /c/Program\ Files\ \(x86\)/Windows\ Kits/10)
@@ -427,8 +427,8 @@ slashes) for all variables except for `PATH`:
       export PATH=`cygpath -u ${VSROOT}/bin/HostX64/x64`:`cygpath -u ${KITROOT}/bin/x64`:`cygpath -u ${KITROOT}/bin/${KITVER}/x64`:`cygpath -u ${VSBASE}/Common7/IDE`:${PRE_VS_PATH}
   }
 
-  if test -e /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017; then
-      compilerVS2017_32
+  if test -e /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2019; then
+      compilerVS2019_32
   elif test -e /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio\ 12.0; then
       compilerVS2013_32
   fi
@@ -485,7 +485,7 @@ cd build
 cmake-gui ..
 ```
 
-Press Configure.  On Windows, select **Visual Studio 15 2017**.  On Linux, select **Unix Makefiles**.
+Press Configure.  On Windows, select **Visual Studio 16 2019**.  On Linux, select **Unix Makefiles**.
 
 If you are on Linux, `ccmake`, a curses-based GUI, can be used instead of `cmake-gui`;
 it generates **Unix Makefiles** by default.  In `ccmake`, press `c` to configure.
@@ -581,7 +581,7 @@ cd build
 E:\dynamorio\build\>"c:\Program Files (x86)\CMake 3.7\bin\cmake-gui.exe" ..\
 \endverbatim
    - step 4.1: click "Configure" button
-   - step 4.2: select "Visual Studio 15"
+   - step 4.2: select "Visual studio 16"
    - step 4.3: generate configuration file
  - step 5: build and install
 \verbatim
@@ -597,7 +597,7 @@ On Windows:
 ```
 mkdir build
 cd build
-cmake -G"Visual Studio 15" -DBUILD_DOCS:BOOL=OFF ..
+cmake -G"Visual studio 16" -DBUILD_DOCS:BOOL=OFF ..
 cmake --build . --config Release
 ```
 
@@ -658,13 +658,12 @@ flag is set by default for not only parallel project builds but parallel file
 builds.  The fastest DynamoRIO build is a Visual Studio build from
 the command line.
 
-First, DynamoRIO requires CMake version 3.7 or higher (to support
-Visual Studio 2017).
+First, DynamoRIO requires CMake version 3.7 or higher.
 
 Then you can generate the Visual Studio project files with something like this:
 
 ```
-cmake -G"Visual Studio 15" -DDEBUG=ON -DCMAKE_RULE_MESSAGES:BOOL=OFF ../src
+cmake -G"Visual studio 16" -DDEBUG=ON -DCMAKE_RULE_MESSAGES:BOOL=OFF ../src
 ```
 
 You can build from the command line (actually for any generator) with this:
@@ -806,7 +805,7 @@ CMAKE_MAKE_PROGRAM variable at configuration time.  In a Visual Studio Command
 Prompt, MSBuild is on the PATH, so the absolute path is not needed:
 
 ```
-cmake -G"Visual Studio 15" -DCMAKE_MAKE_PROGRAM:FILEPATH=MSBuild ../src
+cmake -G"Visual studio 16" -DCMAKE_MAKE_PROGRAM:FILEPATH=MSBuild ../src
 ```
 
 Don't forget to pass the "/m" flag (after "--") as shown above when building.
