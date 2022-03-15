@@ -942,7 +942,8 @@ d_r_os_init(void)
     /* Add to fd_table the entries that we could not add before as fd_table was
      * not initialized.
      */
-    while (num_fd_add_pre_heap--) {
+    while (num_fd_add_pre_heap > 0) {
+        num_fd_add_pre_heap--;
         fd_table_add(fd_add_pre_heap[num_fd_add_pre_heap],
                      fd_add_pre_heap_flags[num_fd_add_pre_heap]);
     }
