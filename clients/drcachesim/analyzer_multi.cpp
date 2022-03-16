@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -114,6 +114,7 @@ analyzer_multi_t::analyzer_multi_t()
                 error_string_ = "raw2trace failed: " + error;
             }
         }
+        tracedir = raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
         if (!init_file_reader(tracedir, op_verbose.get_value()))
             success_ = false;
     } else if (op_infile.get_value().empty()) {

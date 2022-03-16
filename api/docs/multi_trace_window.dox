@@ -96,7 +96,7 @@ For typical use with files on the local disk, we could add creation of a new
 directory (and duplication of the module file) for each window by the tracing thread
 that hits the end-of-window trigger.  The other threads would each create a new
 output raw file each time they transitioned to a new window (see also the Proposal A
-discussion below).
+discussion below).  This is implemented today with the \p -split_windows option.
 
 ## Splitting during raw2trace
 
@@ -153,6 +153,10 @@ windows will be split before being analyzed by any more complex analysis tools. 
 online traces we will probably stick with multi-window-at-once.
 
 We’ll create a tool to manually split up multi-window trace files.
+
+Update: We ended up implementing splitting at the raw file output level for the
+local-disk use case; we may additionally implement splitting in an anlyzer for other
+use cases.
 
 # Design Point: Continuous Control v. Re-Attach
 

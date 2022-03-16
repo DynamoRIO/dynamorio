@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -135,6 +135,8 @@ typedef bool (*drmemtrace_create_dir_func_t)(const char *dir);
 DR_EXPORT
 /**
  * Registers functions to replace the default file operations for offline tracing.
+ * If tracing windows are used and separate files per window are not meant to
+ * be supported by "open_file_func", it is up to the user to set \p -no_split_windows.
  *
  * \note The caller is responsible for the transparency and isolation of using
  * those functions, which will be called in the middle of arbitrary
