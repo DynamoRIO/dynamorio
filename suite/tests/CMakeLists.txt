@@ -1031,9 +1031,6 @@ function(template2expect outexpect template runops key)
   elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.3")
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
   endif ()
-  if (WIN32 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 19.0)
-    set(rundefs "${rundefs} -DPRE_VS2015")
-  endif ()
   if (${key}_is_cygwin)
     # i#1478 option used to avoid cygwin messes up output issue: though
     # whether the output is messed up seems to depend on the cygwin version,
