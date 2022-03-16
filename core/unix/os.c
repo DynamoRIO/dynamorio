@@ -325,9 +325,21 @@ static int min_dr_fd;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
-#ifdef DEBUG
+/* DR needs to open some files before the fd_table is allocated by d_r_os_init.
+ * This is due to constraints on the order of invoking various init routines in
+ * the dynamorio_app_init_part_* routines.
+ * - dynamorio_app_init_part_one_options opens the global log file when logging
+ *   is enabled in the debug build.
+ * - vmm_heap_unit_init opens the dual_map_file when -satisfy_w_xor_x is set.
+
+ * For these files, fd_table_add would not be able to really add the FD.
+ * Therefore, we have to remember them so that we can add it to fd_table later
+ * when we create it.
+ */
+#define MAX_FD_ADD_PRE_HEAP 2
+static int fd_add_pre_heap[MAX_FD_ADD_PRE_HEAP];
+static int fd_add_pre_heap_flags[MAX_FD_ADD_PRE_HEAP];
 static int num_fd_add_pre_heap;
-#endif
 
 #ifdef LINUX
 /* i#1004: brk emulation */
@@ -928,10 +940,14 @@ d_r_os_init(void)
     fd_table = generic_hash_create(
         GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_FD, 80 /* load factor: not perf-critical */,
         HASHTABLE_SHARED | HASHTABLE_PERSISTENT, NULL _IF_DEBUG("fd table"));
-#ifdef DEBUG
-    if (GLOBAL != INVALID_FILE)
-        fd_table_add(GLOBAL, OS_OPEN_CLOSE_ON_FORK);
-#endif
+    /* Add to fd_table the entries that we could not add before as fd_table was
+     * not initialized.
+     */
+    while (num_fd_add_pre_heap > 0) {
+        num_fd_add_pre_heap--;
+        fd_table_add(fd_add_pre_heap[num_fd_add_pre_heap],
+                     fd_add_pre_heap_flags[num_fd_add_pre_heap]);
+    }
 
     /* Ensure initialization */
     get_dynamorio_dll_start();
@@ -1364,7 +1380,7 @@ os_slow_exit(void)
 
     if (doing_detach) {
         vsyscall_page_start = NULL;
-        IF_DEBUG(num_fd_add_pre_heap = 0;)
+        ASSERT(num_fd_add_pre_heap == 0);
     }
 
     DELETE_LOCK(set_thread_area_lock);
@@ -4138,11 +4154,29 @@ fd_table_add(file_t fd, uint flags)
                          (void *)(ptr_uint_t)(flags | OS_OPEN_RESERVED));
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
-#ifdef DEBUG
-        num_fd_add_pre_heap++;
-        /* we add main_logfile in d_r_os_init() */
-        ASSERT(num_fd_add_pre_heap == 1 && "only main_logfile should come here");
-#endif
+        /* We come here only for the main_logfile and the dual_map_file, which
+         * we add to the fd_table in d_r_os_init().
+         */
+        ASSERT(num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP &&
+               num_fd_add_pre_heap < (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
+               "only main_logfile and dual_map_file should come here");
+        if (num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP) {
+            fd_add_pre_heap[num_fd_add_pre_heap] = fd;
+            fd_add_pre_heap_flags[num_fd_add_pre_heap] = flags;
+            num_fd_add_pre_heap++;
+        }
+    }
+}
+
+void
+fd_table_remove(file_t fd)
+{
+    if (fd_table != NULL) {
+        TABLE_RWLOCK(fd_table, write, lock);
+        generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)fd);
+        TABLE_RWLOCK(fd_table, write, unlock);
+    } else {
+        ASSERT(dynamo_exited);
     }
 }
 
@@ -4192,12 +4226,7 @@ os_open_protected(const char *fname, int os_open_flags)
 void
 os_close_protected(file_t f)
 {
-    ASSERT(fd_table != NULL || dynamo_exited);
-    if (fd_table != NULL) {
-        TABLE_RWLOCK(fd_table, write, lock);
-        generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)f);
-        TABLE_RWLOCK(fd_table, write, unlock);
-    }
+    fd_table_remove(f);
     os_close(f);
 }
 
@@ -4421,6 +4450,7 @@ os_create_memory_file(const char *name, size_t size)
     }
     fd = priv_fd;
     fd_mark_close_on_exec(fd); /* We could use MFD_CLOEXEC for memfd_create. */
+    fd_table_add(fd, 0 /*keep across fork*/);
     return fd;
 #else
     ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
@@ -4440,6 +4470,7 @@ os_delete_memory_file(const char *name, file_t fd)
     os_get_memory_file_shm_path(name, path, BUFFER_SIZE_ELEMENTS(path));
     NULL_TERMINATE_BUFFER(path);
     os_delete_file(path);
+    fd_table_remove(fd);
     close_syscall(fd);
 #else
     ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");

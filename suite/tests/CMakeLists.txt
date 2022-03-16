@@ -113,7 +113,7 @@ set(main_run_list
   "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
   "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
   # XXX i#3556: NYI on Windows and Mac (and not supported on 32-bit).
-  "SHORT::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability|fork$::-code_api -satisfy_w_xor_x"
+  "SHORT::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability|fork|file_io|loglevel$::-code_api -satisfy_w_xor_x"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "X86::-code_api -opt_memory"       # i#1575: ARM -coarse_units NYI
   "X86::-code_api -opt_speed"        # i#1551: ARM indcall2direct NYI
