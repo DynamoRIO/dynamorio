@@ -1380,6 +1380,7 @@ os_slow_exit(void)
 
     if (doing_detach) {
         vsyscall_page_start = NULL;
+        ASSERT(num_fd_add_pre_heap == 0);
     }
 
     DELETE_LOCK(set_thread_area_lock);
