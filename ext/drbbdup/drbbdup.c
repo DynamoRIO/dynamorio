@@ -581,6 +581,10 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 {
     dr_emit_flags_t emit_flags = DR_EMIT_DEFAULT;
 
+    /* XXX i#5400: By integrating drbbdup into drmgr we should be able to simplify
+     * some of these awkward conditions where we have to handle a missing manager in
+     * order to not waste memory when duplication is disabled.
+     */
     if (opts.non_default_case_limit == 0)
         return emit_flags;
 
@@ -906,6 +910,10 @@ drbbdup_do_analysis(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manage
 
     /* Perform analysis for default case. Note, we do the analysis even if the manager
      * does not have dups enabled.
+     */
+    /* XXX i#5400: By integrating drbbdup into drmgr we should be able to simplify
+     * some of these awkward conditions where we have to handle a missing manager in
+     * order to not waste memory when duplication is disabled.
      */
     drbbdup_case_t empty = { 0, true };
     if (manager == NULL)
