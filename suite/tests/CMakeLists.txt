@@ -2606,6 +2606,10 @@ tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
+tobuild_ci(client.drbbdup-no-dup-test client-interface/drbbdup-no-dup-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drbbdup)
+
 tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)

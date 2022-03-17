@@ -241,6 +241,13 @@ has_tracing_windows()
     return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
 }
 
+static bool
+bbdup_duplication_enabled()
+{
+    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
+        op_retrace_every_instrs.get_value() > 0;
+}
+
 static void
 set_local_window(per_thread_t *data, ptr_int_t value)
 {
@@ -820,8 +827,7 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
                bool *enable_dups, bool *enable_dynamic_handling, void *user_data)
 {
     DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
-    if (op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
-        op_retrace_every_instrs.get_value() > 0) {
+    if (bbdup_duplication_enabled()) {
         *enable_dups = true;
         drbbdup_status_t res =
             drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
@@ -927,7 +933,12 @@ instrumentation_drbbdup_init()
     opts.instrument_instr_ex = event_app_instruction_case;
     opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_disabled, OPSZ_PTR);
     opts.atomic_load_encoding = true;
-    opts.non_default_case_limit = 1;
+    if (bbdup_duplication_enabled())
+        opts.non_default_case_limit = 1;
+    else {
+        // Save memory by asking drbbdup to not keep per-block bookkeeping.
+        opts.non_default_case_limit = 0;
+    }
     // Save per-thread heap for a feature we do not need.
     opts.never_enable_dynamic_handling = true;
     drbbdup_status_t res = drbbdup_init(&opts);

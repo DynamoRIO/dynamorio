@@ -237,8 +237,8 @@ typedef dr_emit_flags_t (*drbbdup_instrument_instr_ex_t)(
 
 /**
  * Specifies the options when initialising drbbdup. \p set_up_bb_dups
- * and \p instrument_instr cannot be NULL, while \p non_default_case_limit must be
- * greater than zero.
+ * and \p instrument_instr cannot be NULL.  \p runtime_case_opnd must be
+ * a pointer-sized memory reference, unless \p non_default_case_limit is 0.
  */
 typedef struct {
     /** Set this to the size of this structure. */
@@ -311,7 +311,9 @@ typedef struct {
     /**
      * The maximum number of alternative cases, excluding the default case, that can be
      * associated with a basic block. Once the limit is reached and an unhandled case is
-     * encountered, control is directed to the default case.
+     * encountered, control is directed to the default case.  If this is set to 0,
+     * no duplication is performed on any block, and 0 is passed as the encoding to the
+     * \p analyze_case and \p instrument_instr (and their extended version) callbacks.
      */
     ushort non_default_case_limit;
     /**
