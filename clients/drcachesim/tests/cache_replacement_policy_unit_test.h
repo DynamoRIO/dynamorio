@@ -35,12 +35,6 @@
 
 #include "simulator/cache_lru.h"
 
-class cache_lru_test_t : public cache_lru_t {
-public:
-    void
-    unit_test_replace_which_way();
-};
-
 void
 unit_test_cache_replacement_policy();
 
