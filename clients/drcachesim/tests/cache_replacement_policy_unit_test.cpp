@@ -36,31 +36,21 @@
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache_lru.h"
 
-struct cache_config_t {
-    int associativity = 4;
-    int line_size = 32;
-    int total_size = 256;
-    caching_device_t *parent = nullptr;
-    caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
-    prefetcher_t *prefetcher = nullptr;
-    bool inclusive = true;
-    bool coherent_cache = true;
-    int id = -1;
-    snoop_filter_t *snoop_filter = nullptr;
-};
-
-static cache_config_t
-make_test_config(int associativity, int line_size, int total_size)
-{
-    cache_config_t config;
-    config.associativity = associativity;
-    config.line_size = line_size;
-    config.total_size = total_size;
-    return config;
-}
-
 class cache_lru_test_t : public cache_lru_t {
 public:
+    void
+    initialize_cache(int way, int line_size, int total_size)
+    {
+        caching_device_t *parent = nullptr;
+        prefetcher_t *prefetcher = nullptr;
+        caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
+        if (!init(way, line_size, total_size, parent, stats, prefetcher)) {
+            std::cerr << "LRU cache failed to initialize"
+                      << "\n";
+            exit(1);
+        }
+    }
+
     void
     unit_test_replace_which_way()
     {
@@ -70,15 +60,7 @@ public:
         //  ----------------------------------------------
         // |   way 0    |   way 1   |   way 2   |  way 3  |
         // -----------------------------------------------
-        cache_config_t config_1 = make_test_config(4, 32, 256);
-        if (!init(config_1.associativity, config_1.line_size, config_1.total_size,
-                  config_1.parent, config_1.stats, config_1.prefetcher,
-                  config_1.inclusive, config_1.coherent_cache, config_1.id,
-                  config_1.snoop_filter)) {
-            std::cerr << "LRU cache failed to initialize"
-                      << "\n";
-            exit(1);
-        }
+        initialize_cache(4, 32, 256);
 
         memref_t ref_1;
         ref_1.data.type = TRACE_TYPE_READ;
@@ -89,7 +71,7 @@ public:
         }
         // Access the ways in the following fashion. This sequence follows the sequence
         // shown in https://github.com/DynamoRIO/dynamorio/issues/4881.
-        // Access the ways in 3, 0, 1, 2 order.
+        // Access the ways in 3("a"), 0("b"), 1("c"), 2("b") order.
         ref_1.data.addr = 192; // Access way 3 ("a" in issue 4881).
         request(ref_1);
 
@@ -102,19 +84,12 @@ public:
         ref_1.data.addr = 128; // Access way 2 ("d" in issue 4881).
         request(ref_1);
 
+        // Way 3 ("a") should be replaced.
         assert(replace_which_way(0) == 3);
 
         // Create and initialize an 8-way set associative cache with line size of 32 and
         // total size of 256 bytes.
-        cache_config_t config_2 = make_test_config(8, 32, 256);
-        if (!init(config_2.associativity, config_2.line_size, config_2.total_size,
-                  config_2.parent, config_2.stats, config_2.prefetcher,
-                  config_2.inclusive, config_2.coherent_cache, config_2.id,
-                  config_2.snoop_filter)) {
-            std::cerr << "LRU cache failed to initialize"
-                      << "\n";
-            exit(1);
-        }
+        initialize_cache(8, 32, 256);
 
         memref_t ref_2;
         ref_2.data.type = TRACE_TYPE_READ;
