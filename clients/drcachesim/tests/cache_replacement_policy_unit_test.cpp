@@ -55,7 +55,7 @@ public:
     unit_test_replace_which_way()
     {
         // Create and initialize a 4-way set associative cache with line size of 32 and
-        // total size of 128 bytes.
+        // total size of 256 bytes.
         // 0            32          64         96
         //  ----------------------------------------------
         // |   way 0    |   way 1   |   way 2   |  way 3  |

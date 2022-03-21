@@ -33,8 +33,6 @@
 #ifndef _CACHE_REPLACEMENT_POLICY_UNIT_TESTS_
 #define _CACHE_REPLACEMENT_POLICY_UNIT_TESTS_ 1
 
-#include "simulator/cache_lru.h"
-
 void
 unit_test_cache_replacement_policy();
 
