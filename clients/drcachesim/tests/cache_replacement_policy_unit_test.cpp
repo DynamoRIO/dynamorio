@@ -39,6 +39,40 @@
 class cache_lru_test_t : public cache_lru_t {
 public:
     void
+    unit_test_replace_which_way()
+    {
+        // Create and initialize a 4-way set associative cache with line size of 32 and
+        // total size of 256 bytes.
+        initialize_cache(4, 32, 256);
+
+        // Access the cache line in the following fashion. This sequence follows the
+        // sequence shown in https://github.com/DynamoRIO/dynamorio/issues/4881.
+        const int ADDRESS_A = 0;
+        const int ADDRESS_B = 64;
+        const int ADDRESS_C = 128;
+        const int ADDRESS_D = 192;
+        const int ADDRESS_E = 72;
+
+        assert(get_block_index(ADDRESS_A) == get_block_index(ADDRESS_B));
+        assert(get_block_index(ADDRESS_B) == get_block_index(ADDRESS_C));
+        assert(get_block_index(ADDRESS_C) == get_block_index(ADDRESS_D));
+        assert(get_block_index(ADDRESS_D) == get_block_index(ADDRESS_E));
+
+        // Lower-case letter shows the least recently used way.
+        access_and_check_lru(ADDRESS_A, 1); // A X X X
+        access_and_check_lru(ADDRESS_B, 2); // A B X X
+        access_and_check_lru(ADDRESS_C, 3); // A B C X
+        access_and_check_lru(ADDRESS_D, 0); // a B C D
+        access_and_check_lru(ADDRESS_A, 1); // A b C D
+        access_and_check_lru(ADDRESS_A, 1); // A b C D
+        access_and_check_lru(ADDRESS_A, 1); // A b C D
+        access_and_check_lru(ADDRESS_E, 2); // A E c D
+
+        // XXX i#4842: Add more test sequences.
+    }
+
+private:
+    void
     initialize_cache(int associativity, int line_size, int total_size)
     {
         caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
@@ -49,79 +83,23 @@ public:
         }
     }
 
-    void
-    unit_test_replace_which_way()
+    int
+    get_block_index(int addr)
     {
-        // Create and initialize a 4-way set associative cache with line size of 32 and
-        // total size of 256 bytes.
-        initialize_cache(4, 32, 256);
+        addr_t tag = compute_tag(addr);
+        int block_idx = compute_block_idx(tag);
+        return block_idx;
+    }
 
-        memref_t ref_1;
-        ref_1.data.type = TRACE_TYPE_READ;
-        ref_1.data.size = 1;
-        // Access the cache line in the following fashion. This sequence follows the
-        // sequence shown in https://github.com/DynamoRIO/dynamorio/issues/4881.
-        // Access the first row.
-        ref_1.data.addr = 0;
-        request(ref_1); // This accesses "a" in issue 4881.
-
-        ref_1.data.addr = 64;
-        request(ref_1); // This accesses "b" in issue 4881.
-
-        ref_1.data.addr = 128;
-        request(ref_1); // This accesses "c" in issue 4881.
-
-        ref_1.data.addr = 192;
-        request(ref_1); // This accesses "d" in issue 4881.
-
-        // After the above accesses, the counters for each way will be as follows:
-        //  way 0 ("a" in issue 4881): 3
-        //  way 1 ("b" in issue 4881): 2
-        //  way 2 ("c" in issue 4881): 1
-        //  way 3 ("d" in issue 4881): 0
-        // At this point way 0 ("a") has the highest counter so it should be replaced by
-        // the LRU policy.
-        assert(replace_which_way(0) == 0);
-
-        ref_1.data.addr = 0;
-        request(ref_1); // This replaces way 0 ("a").
-        // At this point way 0 has been replaced(accessed) and way 1 has the highest
-        // counter.
-        //  way 0 ("a" in issue 4881): 0
-        //  way 1 ("b" in issue 4881): 3
-        //  way 2 ("c" in issue 4881): 2
-        //  way 3 ("d" in issue 4881): 1
-        assert(replace_which_way(0) == 1);
-
-        ref_1.data.addr = 64;
-        request(ref_1); // This replaces way 1 ("b").
-        // At this point way 1 has been replaced(accessed) and way 2 has the highest
-        // counter.
-        //  way 0 ("a" in issue 4881): 1
-        //  way 1 ("b" in issue 4881): 0
-        //  way 2 ("c" in issue 4881): 3
-        //  way 3 ("d" in issue 4881): 2
-        assert(replace_which_way(0) == 2);
-
-        ref_1.data.addr = 128;
-        request(ref_1); // This replaces way 2 ("c").
-        // At this point way 2 has been replaced(accessed) and way 3 has the highest
-        // counter.
-        //  way 0 ("a" in issue 4881): 2
-        //  way 1 ("b" in issue 4881): 1
-        //  way 2 ("c" in issue 4881): 0
-        //  way 3 ("d" in issue 4881): 3
-        assert(replace_which_way(0) == 3);
-
-        ref_1.data.addr = 192;
-        request(ref_1); // This replaces way 3 ("d").
-        // At this point way 3 has been replaced(accessed) and way 0 has the highest
-        // counter.
-        //  way 0 ("a" in issue 4881): 3
-        //  way 1 ("b" in issue 4881): 2
-        //  way 2 ("c" in issue 4881): 1
-        //  way 3 ("d" in issue 4881): 0
-        assert(replace_which_way(0) == 0);
+    void
+    access_and_check_lru(int addr, int way_to_replace)
+    {
+        memref_t ref;
+        ref.data.type = TRACE_TYPE_READ;
+        ref.data.size = 1;
+        ref.data.addr = addr;
+        request(ref);
+        assert(replace_which_way(get_block_index(addr)) == way_to_replace);
     }
 };
 
