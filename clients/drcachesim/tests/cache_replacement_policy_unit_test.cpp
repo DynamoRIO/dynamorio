@@ -39,12 +39,10 @@
 class cache_lru_test_t : public cache_lru_t {
 public:
     void
-    initialize_cache(int way, int line_size, int total_size)
+    initialize_cache(int associativity, int line_size, int total_size)
     {
-        caching_device_t *parent = nullptr;
-        prefetcher_t *prefetcher = nullptr;
         caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
-        if (!init(way, line_size, total_size, parent, stats, prefetcher)) {
+        if (!init(associativity, line_size, total_size, nullptr, stats, nullptr)) {
             std::cerr << "LRU cache failed to initialize"
                       << "\n";
             exit(1);
@@ -56,102 +54,74 @@ public:
     {
         // Create and initialize a 4-way set associative cache with line size of 32 and
         // total size of 256 bytes.
-        // 0            32          64         96
-        //  ----------------------------------------------
-        // |   way 0    |   way 1   |   way 2   |  way 3  |
-        // -----------------------------------------------
         initialize_cache(4, 32, 256);
 
         memref_t ref_1;
         ref_1.data.type = TRACE_TYPE_READ;
         ref_1.data.size = 1;
-        for (int i = 0; i < 256; i++) {
-            ref_1.data.addr = i;
-            request(ref_1);
-        }
-        // Access the ways in the following fashion. This sequence follows the sequence
-        // shown in https://github.com/DynamoRIO/dynamorio/issues/4881.
-        // Access the ways in 3("a"), 0("b"), 1("c"), 2("b") order.
-        ref_1.data.addr = 192; // Access way 3 ("a" in issue 4881).
-        request(ref_1);
+        // Access the cache line in the following fashion. This sequence follows the
+        // sequence shown in https://github.com/DynamoRIO/dynamorio/issues/4881.
+        // Access the first row.
+        ref_1.data.addr = 0;
+        request(ref_1); // This accesses "a" in issue 4881.
 
-        ref_1.data.addr = 0; // Access way 0 ("b" in issue 4881).
-        request(ref_1);
+        ref_1.data.addr = 64;
+        request(ref_1); // This accesses "b" in issue 4881.
 
-        ref_1.data.addr = 64; // Access way 1 ("c" in issue 4881).
-        request(ref_1);
+        ref_1.data.addr = 128;
+        request(ref_1); // This accesses "c" in issue 4881.
 
-        ref_1.data.addr = 128; // Access way 2 ("d" in issue 4881).
-        request(ref_1);
+        ref_1.data.addr = 192;
+        request(ref_1); // This accesses "d" in issue 4881.
 
-        // Way 3 ("a") should be replaced.
-        assert(replace_which_way(0) == 3);
+        // After the above accesses, the counters for each way will be as follows:
+        //  way 0 ("a" in issue 4881): 3
+        //  way 1 ("b" in issue 4881): 2
+        //  way 2 ("c" in issue 4881): 1
+        //  way 3 ("d" in issue 4881): 0
+        // At this point way 0 ("a") has the highest counter so it should be replaced by
+        // the LRU policy.
+        assert(replace_which_way(0) == 0);
 
-        // Create and initialize an 8-way set associative cache with line size of 32 and
-        // total size of 256 bytes.
-        initialize_cache(8, 32, 256);
-
-        memref_t ref_2;
-        ref_2.data.type = TRACE_TYPE_READ;
-        ref_2.data.size = 1;
-        for (int i = 0; i < 256; i++) {
-            ref_2.data.addr = i;
-            request(ref_2);
-        }
-
-        // Access the ways in 1, 0, 2, 3, 4, 5, 7, 6 order.
-        ref_2.data.addr = 32; // Access way 1.
-        request(ref_2);
-
-        ref_2.data.addr = 0; // Access way 0.
-        request(ref_2);
-
-        ref_2.data.addr = 64; // Access way 2.
-        request(ref_2);
-
-        ref_2.data.addr = 96; // Access way 3.
-        request(ref_2);
-
-        ref_2.data.addr = 128; // Access way 4.
-        request(ref_2);
-
-        ref_2.data.addr = 160; // Access way 5.
-        request(ref_2);
-
-        ref_2.data.addr = 224; // Access way 7.
-        request(ref_2);
-
-        ref_2.data.addr = 192; // Access way 6.
-        request(ref_2);
-
+        ref_1.data.addr = 0;
+        request(ref_1); // This replaces way 0 ("a").
+        // At this point way 0 has been replaced(accessed) and way 1 has the highest
+        // counter.
+        //  way 0 ("a" in issue 4881): 0
+        //  way 1 ("b" in issue 4881): 3
+        //  way 2 ("c" in issue 4881): 2
+        //  way 3 ("d" in issue 4881): 1
         assert(replace_which_way(0) == 1);
 
-        // Access the ways in 2, 1, 0, 3, 4, 5, 7, 6 order.
-        ref_2.data.addr = 64; // Access way 2.
-        request(ref_2);
-
-        ref_2.data.addr = 32; // Access way 1.
-        request(ref_2);
-
-        ref_2.data.addr = 0; // Access way 0.
-        request(ref_2);
-
-        ref_2.data.addr = 96; // Access way 3.
-        request(ref_2);
-
-        ref_2.data.addr = 128; // Access way 4.
-        request(ref_2);
-
-        ref_2.data.addr = 160; // Access way 5.
-        request(ref_2);
-
-        ref_2.data.addr = 192; // Access way 6.
-        request(ref_2);
-
-        ref_2.data.addr = 224; // Access way 7.
-        request(ref_2);
-
+        ref_1.data.addr = 64;
+        request(ref_1); // This replaces way 1 ("b").
+        // At this point way 1 has been replaced(accessed) and way 2 has the highest
+        // counter.
+        //  way 0 ("a" in issue 4881): 1
+        //  way 1 ("b" in issue 4881): 0
+        //  way 2 ("c" in issue 4881): 3
+        //  way 3 ("d" in issue 4881): 2
         assert(replace_which_way(0) == 2);
+
+        ref_1.data.addr = 128;
+        request(ref_1); // This replaces way 2 ("c").
+        // At this point way 2 has been replaced(accessed) and way 3 has the highest
+        // counter.
+        //  way 0 ("a" in issue 4881): 2
+        //  way 1 ("b" in issue 4881): 1
+        //  way 2 ("c" in issue 4881): 0
+        //  way 3 ("d" in issue 4881): 3
+        assert(replace_which_way(0) == 3);
+
+        ref_1.data.addr = 192;
+        request(ref_1); // This replaces way 3 ("d").
+        // At this point way 3 has been replaced(accessed) and way 0 has the highest
+        // counter.
+        //  way 0 ("a" in issue 4881): 3
+        //  way 1 ("b" in issue 4881): 2
+        //  way 2 ("c" in issue 4881): 1
+        //  way 3 ("d" in issue 4881): 0
+        assert(replace_which_way(0) == 0);
     }
 };
 
