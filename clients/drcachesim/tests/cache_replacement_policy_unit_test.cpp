@@ -41,9 +41,7 @@ public:
     void
     unit_test_replace_which_way()
     {
-        // Create and initialize a 4-way set associative cache with line size of 32 and
-        // total size of 256 bytes.
-        initialize_cache(4, 32, 256);
+        initialize_cache(/*associativity=*/4, /*line_size=*/32, /*total_size=*/256);
 
         // Access the cache line in the following fashion. This sequence follows the
         // sequence shown in https://github.com/DynamoRIO/dynamorio/issues/4881.
