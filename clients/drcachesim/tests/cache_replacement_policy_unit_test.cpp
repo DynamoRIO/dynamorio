@@ -39,38 +39,6 @@
 class cache_lru_test_t : public cache_lru_t {
 public:
     void
-    unit_test_replace_which_way()
-    {
-        initialize_cache(/*associativity=*/4, /*line_size=*/32, /*total_size=*/256);
-
-        // Access the cache line in the following fashion. This sequence follows the
-        // sequence shown in https://github.com/DynamoRIO/dynamorio/issues/4881.
-        const int ADDRESS_A = 0;
-        const int ADDRESS_B = 64;
-        const int ADDRESS_C = 128;
-        const int ADDRESS_D = 192;
-        const int ADDRESS_E = 72;
-
-        assert(get_block_index(ADDRESS_A) == get_block_index(ADDRESS_B));
-        assert(get_block_index(ADDRESS_B) == get_block_index(ADDRESS_C));
-        assert(get_block_index(ADDRESS_C) == get_block_index(ADDRESS_D));
-        assert(get_block_index(ADDRESS_D) == get_block_index(ADDRESS_E));
-
-        // Lower-case letter shows the least recently used way.
-        access_and_check_lru(ADDRESS_A, 1); // A X X X
-        access_and_check_lru(ADDRESS_B, 2); // A B X X
-        access_and_check_lru(ADDRESS_C, 3); // A B C X
-        access_and_check_lru(ADDRESS_D, 0); // a B C D
-        access_and_check_lru(ADDRESS_A, 1); // A b C D
-        access_and_check_lru(ADDRESS_A, 1); // A b C D
-        access_and_check_lru(ADDRESS_A, 1); // A b C D
-        access_and_check_lru(ADDRESS_E, 2); // A E c D
-
-        // XXX i#4842: Add more test sequences.
-    }
-
-private:
-    void
     initialize_cache(int associativity, int line_size, int total_size)
     {
         caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
@@ -82,7 +50,7 @@ private:
     }
 
     int
-    get_block_index(int addr)
+    get_block_index(const addr_t addr)
     {
         addr_t tag = compute_tag(addr);
         int block_idx = compute_block_idx(tag);
@@ -90,20 +58,56 @@ private:
     }
 
     void
-    access_and_check_lru(int addr, int way_to_replace)
+    access_and_check_lru(const addr_t addr,
+                         const int expected_replacement_way_after_access)
     {
         memref_t ref;
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 1;
         ref.data.addr = addr;
         request(ref);
-        assert(replace_which_way(get_block_index(addr)) == way_to_replace);
+        assert(replace_which_way(get_block_index(addr)) ==
+               expected_replacement_way_after_access);
     }
 };
 
 void
+unit_test_cache_lru_four_way()
+{
+    cache_lru_test_t cache_lru_test;
+    cache_lru_test.initialize_cache(/*associativity=*/4, /*line_size=*/32,
+                                    /*total_size=*/256);
+    const addr_t ADDRESS_A = 0;
+    const addr_t ADDRESS_B = 64;
+    const addr_t ADDRESS_C = 128;
+    const addr_t ADDRESS_D = 192;
+    const addr_t ADDRESS_E = 72;
+
+    assert(cache_lru_test.get_block_index(ADDRESS_A) ==
+           cache_lru_test.get_block_index(ADDRESS_B));
+    assert(cache_lru_test.get_block_index(ADDRESS_B) ==
+           cache_lru_test.get_block_index(ADDRESS_C));
+    assert(cache_lru_test.get_block_index(ADDRESS_C) ==
+           cache_lru_test.get_block_index(ADDRESS_D));
+    assert(cache_lru_test.get_block_index(ADDRESS_D) ==
+           cache_lru_test.get_block_index(ADDRESS_E));
+
+    // Access the cache line in the following fashion. This sequence follows the
+    // sequence shown in i#4881.
+    // Lower-case letter shows the least recently used way.
+    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A x X X
+    cache_lru_test.access_and_check_lru(ADDRESS_B, 2); // A B x X
+    cache_lru_test.access_and_check_lru(ADDRESS_C, 3); // A B C x
+    cache_lru_test.access_and_check_lru(ADDRESS_D, 0); // a B C D
+    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A b C D
+    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A b C D
+    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A b C D
+    cache_lru_test.access_and_check_lru(ADDRESS_E, 2); // A E c D
+}
+
+void
 unit_test_cache_replacement_policy()
 {
-    cache_lru_test_t cache_lru;
-    cache_lru.unit_test_replace_which_way();
+    unit_test_cache_lru_four_way();
+    // XXX i#4842: Add more test sequences.
 }
