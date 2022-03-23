@@ -44,8 +44,7 @@ public:
     {
         caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
         if (!init(associativity, line_size, total_size, nullptr, stats, nullptr)) {
-            std::cerr << "LRU cache failed to initialize"
-                      << "\n";
+            std::cerr << "LRU cache failed to initialize\n";
             exit(1);
         }
     }

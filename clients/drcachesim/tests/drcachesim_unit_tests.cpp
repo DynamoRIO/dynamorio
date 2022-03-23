@@ -33,6 +33,7 @@
 // Unit tests for drcachesim
 #include <iostream>
 #include <cstdlib>
+#undef NDEBUG
 #include <assert.h>
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache_simulator.h"
