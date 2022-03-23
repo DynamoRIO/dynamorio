@@ -32,6 +32,7 @@
 
 // Unit tests for cache replacement policies
 #include <iostream>
+#undef NDEBUG
 #include <assert.h>
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache_lru.h"
