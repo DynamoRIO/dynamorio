@@ -132,6 +132,8 @@ Further non-compatibility-affecting changes include:
  - Added new fields analyze_case_ex and instrument_instr_ex to #drbbdup_options_t.
  - Added drbbdup support to drwrap via #DRWRAP_INVERT_CONTROL, drwrap_invoke_insert(),
    and drwrap_invoke_insert_cleanup_only().
+ - Added -trace_for_instrs and -retrace_every_instrs options to drcachesim
+   for periodic trace bustrs of an unmodified application.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:

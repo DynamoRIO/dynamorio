@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -739,6 +739,7 @@ protected:
                 buf += sizeof(*entry);
             } else {
                 // We should see an instr entry first
+                impl()->log(3, "extra memref entry: %p\n", in_entry->addr.addr);
                 return "memref entry found outside of bb";
             }
         } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {
@@ -1665,6 +1666,7 @@ protected:
         bool prev_instr_was_rep_string;
         app_pc last_decode_block_start;
         block_summary_t *last_block_summary;
+        uint64 last_window = 0;
 
         // Statistics on the processing.
         uint64 count_elided = 0;

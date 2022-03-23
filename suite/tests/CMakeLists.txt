@@ -113,7 +113,7 @@ set(main_run_list
   "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
   "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
   # XXX i#3556: NYI on Windows and Mac (and not supported on 32-bit).
-  "SHORT::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability|fork$::-code_api -satisfy_w_xor_x"
+  "SHORT::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability|fork|file_io|loglevel$::-code_api -satisfy_w_xor_x"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "X86::-code_api -opt_memory"       # i#1575: ARM -coarse_units NYI
   "X86::-code_api -opt_speed"        # i#1551: ARM indcall2direct NYI
@@ -1030,9 +1030,6 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN7")
   elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.3")
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
-  endif ()
-  if (WIN32 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 19.0)
-    set(rundefs "${rundefs} -DPRE_VS2015")
   endif ()
   if (${key}_is_cygwin)
     # i#1478 option used to avoid cygwin messes up output issue: though
@@ -2609,6 +2606,10 @@ tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
+tobuild_ci(client.drbbdup-no-dup-test client-interface/drbbdup-no-dup-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drbbdup)
+
 tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)
@@ -3345,6 +3346,9 @@ if (BUILD_CLIENTS)
       "-simulator_type basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
       "${annotation_test_args_shorter}")
 
+    torunonly_drcachesim(windows-simple ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -simulator_type basic_counts" "")
+
     # Test that "Warmup hits" and "Warmup misses" are printed out
     torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
 
@@ -3602,6 +3606,19 @@ if (BUILD_CLIENTS)
       # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(windows-simple ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    # Ensure the invariant checker handles window transitions.
+    torunonly_drcacheoff(windows-invar ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@invariant_checker" "")
+    if (X86 AND X64 AND UNIX)
+      torunonly_drcacheoff(windows-asm allasm_repstr
+        "-trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+        "@-simulator_type@basic_counts" "")
+    endif ()
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)

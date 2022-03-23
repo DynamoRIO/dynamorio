@@ -127,10 +127,10 @@ typedef struct {
     hashtable_t manager_table; /* Maps bbs with book-keeping data (for thread-private
                                   caches only). */
     int case_index; /* Used to keep track of the current case during insertion. */
-    void *orig_analysis_data;        /* Analysis data accessible for all cases. */
-    void *default_analysis_data;     /* Analysis data specific to default case. */
-    void **case_analysis_data;       /* Analysis data specific to cases. */
-    uint16_t hit_counts[TABLE_SIZE]; /* Keeps track of hit-counts of unhandled cases. */
+    void *orig_analysis_data;      /* Analysis data accessible for all cases. */
+    void *default_analysis_data;   /* Analysis data specific to default case. */
+    void **case_analysis_data;     /* Analysis data specific to cases. */
+    uint16_t *hit_counts;          /* Keeps track of hit-counts of unhandled cases. */
     instr_t *first_instr;          /* The first instr of the bb copy being considered. */
     instr_t *first_nonlabel_instr; /* The first non label instr of the bb copy. */
     instr_t *last_instr;           /* The last instr of the bb copy being considered. */
@@ -288,13 +288,21 @@ drbbdup_add_copy(void *drcontext, instrlist_t *bb, instrlist_t *orig_bb)
 static drbbdup_manager_t *
 drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
 {
-    drbbdup_manager_t *manager = dr_global_alloc(sizeof(drbbdup_manager_t));
+    /* This per-block memory can add up: for 2.5M basic blocks we can take up >512M
+     * of space, which if it's in the limited-size vmcode region is a problem.
+     * We thus explicitly request unreachable heap.
+     * XXX: Maybe DR should break compatibility and change the default.
+     */
+    drbbdup_manager_t *manager = dr_custom_alloc(
+        /* We want the global heap for which NULL for the drcontext is required. */
+        NULL, 0, sizeof(drbbdup_manager_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     memset(manager, 0, sizeof(drbbdup_manager_t));
 
     manager->cases = NULL;
     ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
     manager->cases =
-        dr_global_alloc(sizeof(drbbdup_case_t) * opts.non_default_case_limit);
+        dr_custom_alloc(NULL, 0, sizeof(drbbdup_case_t) * opts.non_default_case_limit,
+                        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     memset(manager->cases, 0, sizeof(drbbdup_case_t) * opts.non_default_case_limit);
     manager->enable_dup = true;
     manager->enable_dynamic_handling = true;
@@ -316,11 +324,15 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     /* XXX i#3778: To remove once we support specific fragment deletion. */
     DR_ASSERT_MSG(!manager->enable_dynamic_handling,
                   "dynamic case generation is not yet supported");
+    if (opts.never_enable_dynamic_handling) {
+        DR_ASSERT_MSG(!manager->enable_dynamic_handling,
+                      "dynamic case generation was disabled globally: cannot enable");
+    }
 
     /* Check whether user wants copies for this particular bb. */
     if (!manager->enable_dup && manager->cases != NULL) {
         /* Multiple cases not wanted. Destroy cases. */
-        dr_global_free(manager->cases,
+        dr_custom_free(NULL, 0, manager->cases,
                        sizeof(drbbdup_case_t) * opts.non_default_case_limit);
         manager->cases = NULL;
     }
@@ -337,10 +349,10 @@ drbbdup_destroy_manager(void *manager_opaque)
 
     if (manager->enable_dup && manager->cases != NULL) {
         ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
-        dr_global_free(manager->cases,
+        dr_custom_free(NULL, 0, manager->cases,
                        sizeof(drbbdup_case_t) * opts.non_default_case_limit);
     }
-    dr_global_free(manager, sizeof(drbbdup_manager_t));
+    dr_custom_free(NULL, 0, manager, sizeof(drbbdup_manager_t));
 }
 
 /* This must be called prior to inserting drbbdup's own cti. */
@@ -493,9 +505,16 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
      * last. Again, this is to abide by DR rules.
      */
     last = instrlist_last(bb);
-    if (drbbdup_is_special_instr(last))
+    if (drbbdup_is_special_instr(last)) {
+        emulated_instr_t emulated_instr;
+        emulated_instr.size = sizeof(emulated_instr);
+        emulated_instr.pc = instr_get_app_pc(last);
+        emulated_instr.instr = instr_clone(drcontext, last); /* Freed by label. */
+        emulated_instr.flags = 0;
+        drmgr_insert_emulation_start(drcontext, bb, last, &emulated_instr);
         instrlist_meta_preinsert(bb, last, exit_label);
-    else
+        drmgr_insert_emulation_end(drcontext, bb, last);
+    } else
         instrlist_meta_postinsert(bb, last, exit_label);
 }
 
@@ -509,7 +528,6 @@ static dr_emit_flags_t
 drbbdup_do_duplication(hashtable_t *manager_table, void *drcontext, void *tag,
                        instrlist_t *bb, bool for_trace, bool translating)
 {
-
     drbbdup_manager_t *manager =
         (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
 
@@ -561,7 +579,14 @@ static dr_emit_flags_t
 drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         bool translating)
 {
-    dr_emit_flags_t emit_flags;
+    dr_emit_flags_t emit_flags = DR_EMIT_DEFAULT;
+
+    /* XXX i#5400: By integrating drbbdup into drmgr we should be able to simplify
+     * some of these awkward conditions where we have to handle a missing manager in
+     * order to not waste memory when duplication is disabled.
+     */
+    if (opts.non_default_case_limit == 0)
+        return emit_flags;
 
     if (is_thread_private) {
         drbbdup_per_thread *pt =
@@ -627,6 +652,25 @@ drbbdup_is_at_end(instr_t *check_instr)
     }
 
     return false;
+}
+
+/* Returns true if at the start of the end of a bb version: if check_instr is
+ * the start emulation label for the inserted jump or the exit label.  If there
+ * are no emulation labels this is equivalent to drbbdup_is_at_end().
+ */
+static bool
+drbbdup_is_at_end_initial(instr_t *check_instr)
+{
+    /* We need to stop at the emulation start label so that drmgr will point
+     * there for drmgr_orig_app_instr_for_*().
+     */
+    if (!drmgr_is_emulation_start(check_instr))
+        return false;
+    instr_t *next_instr = instr_get_next(check_instr);
+    if (next_instr == NULL)
+        return false;
+
+    return drbbdup_is_at_end(next_instr);
 }
 
 static bool
@@ -713,7 +757,11 @@ drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
     ASSERT(instr_get_note(start) == (void *)DRBBDUP_LABEL_START,
            "start instruction should be a START label");
 
-    *post = drbbdup_next_end(start);
+    /* Use end_initial to avoid placing emulation markers in the list at all
+     * (no need since we have the real final instr, and the markers mess up
+     * things like drmemtrace elision).
+     */
+    *post = drbbdup_next_end_initial(start);
     ASSERT(*post != NULL, "end instruction cannot be NULL");
     ASSERT(!drbbdup_is_at_start(*post), "end cannot be at start");
 
@@ -793,7 +841,7 @@ drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
 
     void *case_analysis_data = NULL;
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
-    if (manager->enable_dup) {
+    if (manager != NULL && manager->enable_dup) {
         instr_t *pre = NULL;  /* used for stitching */
         instr_t *post = NULL; /* used for stitching */
         instrlist_t *case_bb = drbbdup_extract_bb_copy(drcontext, bb, start, &pre, &post);
@@ -839,14 +887,15 @@ drbbdup_do_analysis(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manage
 
     drbbdup_manager_t *manager =
         (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
-    ASSERT(manager != NULL, "manager cannot be NULL");
+    ASSERT(manager != NULL || opts.non_default_case_limit == 0,
+           "manager cannot be NULL unless dups are globally disabled");
 
     /* Perform orig analysis - only done once regardless of how many copies. */
     pt->orig_analysis_data = drbbdup_do_orig_analysis(manager, drcontext, tag, bb, first);
 
     /* Perform analysis for each (non-default) case. */
     dr_emit_flags_t emit_flags = DR_EMIT_DEFAULT;
-    if (manager->enable_dup) {
+    if (manager != NULL && manager->enable_dup) {
         ASSERT(manager->cases != NULL, "case information must exit");
         int i;
         for (i = 0; i < opts.non_default_case_limit; i++) {
@@ -862,7 +911,15 @@ drbbdup_do_analysis(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manage
     /* Perform analysis for default case. Note, we do the analysis even if the manager
      * does not have dups enabled.
      */
-    case_info = &manager->default_case;
+    /* XXX i#5400: By integrating drbbdup into drmgr we should be able to simplify
+     * some of these awkward conditions where we have to handle a missing manager in
+     * order to not waste memory when duplication is disabled.
+     */
+    drbbdup_case_t empty = { 0, true };
+    if (manager == NULL)
+        case_info = &empty;
+    else
+        case_info = &manager->default_case;
     ASSERT(case_info->is_defined, "default case must be defined");
     pt->default_analysis_data = drbbdup_do_case_analysis(
         manager, drcontext, tag, bb, first, for_trace, translating, case_info,
@@ -1247,6 +1304,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, void *tag, instrlist_t *bb,
 
     ASSERT(new_case_cache_pc != NULL,
            "new case cache for dynamic handling must be already initialised.");
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
 
     /* Check whether case limit has not been reached. */
     if (drbbdup_do_dynamic_handling(manager)) {
@@ -1359,16 +1418,20 @@ drbbdup_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
            "one of the instrument call-back functions must be non-NULL");
     ASSERT(pt->case_index != DRBBDUP_IGNORE_INDEX, "case index cannot be ignored");
 
+    drbbdup_case_t empty = { 0, true };
     if (pt->case_index == DRBBDUP_DEFAULT_INDEX) {
         /* Use default case. */
-        drbbdup_case = &manager->default_case;
+        if (manager == NULL)
+            drbbdup_case = &empty;
+        else
+            drbbdup_case = &manager->default_case;
         analysis_data = pt->default_analysis_data;
     } else {
         ASSERT(pt->case_analysis_data != NULL,
                "container for analysis data cannot be NULL");
         ASSERT(pt->case_index >= 0 && pt->case_index < opts.non_default_case_limit,
                "case index cannot be out-of-bounds");
-        ASSERT(manager->enable_dup, "bb dup must be enabled");
+        ASSERT(manager != NULL && manager->enable_dup, "bb dup must be enabled");
 
         drbbdup_case = &manager->cases[pt->case_index];
         analysis_data = pt->case_analysis_data[pt->case_index];
@@ -1487,10 +1550,11 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         /* XXX i#4134: statistics -- insert code that tracks the number of times the
          * current case (pt->case_index) is executed.
          */
-    } else if (drbbdup_is_exit_jmp_emulation_marker(instr)) {
-        /* Ignore instruction: hide drbbdup's own markers. */
-    } else if (drbbdup_is_at_end(instr)) {
-        /* Handle last special instruction (if present). */
+    } else if (drbbdup_is_at_end_initial(instr)) {
+        /* Handle last special instruction (if present).
+         * We use drbbdup_is_at_end_initial() to ensure drmgr will point to the
+         * emulation data we setup for the exit label.
+         */
         if (is_last_special) {
             flags = drbbdup_instrument_instr(drcontext, tag, bb, last, instr, for_trace,
                                              translating, pt, manager);
@@ -1500,6 +1564,10 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             }
         }
         drreg_restore_all(drcontext, bb, instr);
+    } else if (drbbdup_is_at_end(instr) && !is_last_special) {
+        drreg_restore_all(drcontext, bb, instr);
+    } else if (drbbdup_is_at_end(instr) || drbbdup_is_exit_jmp_emulation_marker(instr)) {
+        /* Ignore instruction: hide drbbdup's own markers and the rest of the end. */
     } else if (pt->case_index == DRBBDUP_IGNORE_INDEX) {
         /* Ignore instruction. */
         ASSERT(drbbdup_is_special_instr(instr), "ignored instr should be cti or syscall");
@@ -1516,7 +1584,7 @@ drbbdup_instrument_without_dups(void *drcontext, void *tag, instrlist_t *bb,
                                 instr_t *instr, bool for_trace, bool translating,
                                 drbbdup_per_thread *pt, drbbdup_manager_t *manager)
 {
-    ASSERT(manager->cases == NULL, "case info should not be needed");
+    ASSERT(manager == NULL || manager->cases == NULL, "case info should not be needed");
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
 
     if (drmgr_is_first_instr(drcontext, instr)) {
@@ -1552,9 +1620,9 @@ drbbdup_destroy_all_analyses(void *drcontext, drbbdup_manager_t *manager,
             }
         }
         if (pt->default_analysis_data != NULL) {
-            opts.destroy_case_analysis(drcontext, manager->default_case.encoding,
-                                       opts.user_data, pt->orig_analysis_data,
-                                       pt->default_analysis_data);
+            opts.destroy_case_analysis(
+                drcontext, manager == NULL ? 0 : manager->default_case.encoding,
+                opts.user_data, pt->orig_analysis_data, pt->default_analysis_data);
             pt->default_analysis_data = NULL;
         }
     }
@@ -1575,10 +1643,11 @@ drbbdup_do_linking(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manager
 
     drbbdup_manager_t *manager =
         (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
-    ASSERT(manager != NULL, "manager cannot be NULL");
+    ASSERT(manager != NULL || opts.non_default_case_limit == 0,
+           "manager cannot be NULL unless dups are globally disabled");
 
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
-    if (manager->enable_dup) {
+    if (manager != NULL && manager->enable_dup) {
         flags |= drbbdup_instrument_dups(drcontext, tag, bb, instr, for_trace,
                                          translating, pt, manager);
     } else {
@@ -1761,6 +1830,9 @@ drbbdup_handle_new_case()
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
+
     /* Must use DR_MC_ALL due to dr_redirect_execution. */
     dr_mcontext_t mcontext;
     mcontext.size = sizeof(mcontext);
@@ -1824,6 +1896,9 @@ init_fp_cache(void (*clean_call_func)())
     void *drcontext = dr_get_current_drcontext();
     size_t size = dr_page_size();
     ilist = instrlist_create(drcontext);
+
+    DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                  "should not reach here if dynamic cases were disabled globally");
 
     dr_insert_clean_call(drcontext, ilist, NULL, (void *)clean_call_func, false, 0);
 
@@ -1945,8 +2020,14 @@ drbbdup_get_stats(OUT drbbdup_stats_t *stats_in)
 static void
 drbbdup_thread_init(void *drcontext)
 {
-    drbbdup_per_thread *pt =
-        (drbbdup_per_thread *)dr_thread_alloc(drcontext, sizeof(drbbdup_per_thread));
+    /* We use unreachable heap here too, though with the hit_counts array
+     * dynamically allocated the usage is now small enough to not matter for
+     * most non_default_case_limit values.
+     */
+    drbbdup_per_thread *pt = (drbbdup_per_thread *)dr_custom_alloc(
+        drcontext, DR_ALLOC_THREAD_PRIVATE, sizeof(drbbdup_per_thread),
+        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    memset(pt, 0, sizeof(*pt));
 
     if (is_thread_private) {
         /* Initialise hash table that keeps track of defined cases per
@@ -1958,15 +2039,26 @@ drbbdup_thread_init(void *drcontext)
 
     pt->case_index = 0;
     pt->orig_analysis_data = NULL;
-    ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
-    pt->case_analysis_data =
-        dr_thread_alloc(drcontext, sizeof(void *) * opts.non_default_case_limit);
-    memset(pt->case_analysis_data, 0, sizeof(void *) * opts.non_default_case_limit);
+    if (opts.non_default_case_limit > 0) {
+        pt->case_analysis_data =
+            dr_custom_alloc(drcontext, DR_ALLOC_THREAD_PRIVATE,
+                            sizeof(void *) * opts.non_default_case_limit,
+                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        memset(pt->case_analysis_data, 0, sizeof(void *) * opts.non_default_case_limit);
+    }
 
-    /* Init hit table. */
-    for (int i = 0; i < TABLE_SIZE; i++)
-        pt->hit_counts[i] = opts.hit_threshold;
-    drbbdup_set_tls_raw_slot_val(DRBBDUP_HIT_TABLE_SLOT, (uintptr_t)pt->hit_counts);
+    if (!opts.never_enable_dynamic_handling) {
+        /* Dynamically allocated to avoid using space when not needed (128K per
+         * thread adds up on large apps), and with explicit unreachable heap.
+         */
+        pt->hit_counts = (uint16_t *)dr_custom_alloc(
+            drcontext, DR_ALLOC_THREAD_PRIVATE, TABLE_SIZE * sizeof(pt->hit_counts[0]),
+            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        /* Init hit table. */
+        for (int i = 0; i < TABLE_SIZE; i++)
+            pt->hit_counts[i] = opts.hit_threshold;
+        drbbdup_set_tls_raw_slot_val(DRBBDUP_HIT_TABLE_SLOT, (uintptr_t)pt->hit_counts);
+    }
 
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 }
@@ -1977,14 +2069,21 @@ drbbdup_thread_exit(void *drcontext)
     drbbdup_per_thread *pt =
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
-    ASSERT(opts.non_default_case_limit > 0, "dup limit should be greater than zero");
 
     if (is_thread_private)
         hashtable_delete(&pt->manager_table);
 
-    dr_thread_free(drcontext, pt->case_analysis_data,
-                   sizeof(void *) * opts.non_default_case_limit);
-    dr_thread_free(drcontext, pt, sizeof(drbbdup_per_thread));
+    if (pt->case_analysis_data != NULL) {
+        dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt->case_analysis_data,
+                       sizeof(void *) * opts.non_default_case_limit);
+    }
+    if (pt->hit_counts != NULL) {
+        DR_ASSERT_MSG(!opts.never_enable_dynamic_handling,
+                      "should not reach here if dynamic cases were disabled globally");
+        dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt->hit_counts,
+                       TABLE_SIZE * sizeof(pt->hit_counts[0]));
+    }
+    dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt, sizeof(drbbdup_per_thread));
 }
 
 /****************************************************************************
@@ -1997,8 +2096,6 @@ drbbdup_check_options(drbbdup_options_t *ops_in)
     if (ops_in == NULL)
         return false;
     if (ops_in->set_up_bb_dups == NULL)
-        return false;
-    if (ops_in->non_default_case_limit == 0)
         return false;
     if (ops_in->struct_size < offsetof(drbbdup_options_t, analyze_case_ex)) {
         if (ops_in->instrument_instr == NULL)
@@ -2042,7 +2139,8 @@ drbbdup_init(drbbdup_options_t *ops_in)
 
     if (!drbbdup_check_options(ops_in))
         return DRBBDUP_ERROR_INVALID_PARAMETER;
-    if (!drbbdup_check_case_opnd(ops_in->runtime_case_opnd))
+    if (ops_in->non_default_case_limit > 0 &&
+        !drbbdup_check_case_opnd(ops_in->runtime_case_opnd))
         return DRBBDUP_ERROR_INVALID_OPND;
 
     if (ops_in->struct_size > sizeof(drbbdup_options_t) ||
@@ -2131,6 +2229,9 @@ drbbdup_exit(void)
 
         if (opts.is_stat_enabled)
             dr_mutex_destroy(stat_mutex);
+
+        /* Reset for re-attach. */
+        new_case_cache_pc = NULL;
 
     } else {
         /* Cannot have more than one initialisation of drbbdup. */

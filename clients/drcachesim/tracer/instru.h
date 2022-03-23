@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -196,6 +196,8 @@ public:
     get_entry_type(byte *buf_ptr) const = 0;
     virtual size_t
     get_entry_size(byte *buf_ptr) const = 0;
+    virtual int
+    get_instr_count(byte *buf_ptr) const = 0;
     virtual addr_t
     get_entry_addr(byte *buf_ptr) const = 0;
     virtual void
@@ -217,7 +219,7 @@ public:
     append_thread_header(byte *buf_ptr, thread_id_t tid) = 0;
     // This is a per-buffer-writeout header.
     virtual int
-    append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
+    append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) = 0;
     virtual void
     set_frozen_timestamp(uint64 timestamp)
     {
@@ -307,6 +309,8 @@ public:
     get_entry_type(byte *buf_ptr) const override;
     size_t
     get_entry_size(byte *buf_ptr) const override;
+    int
+    get_instr_count(byte *buf_ptr) const override;
     addr_t
     get_entry_addr(byte *buf_ptr) const override;
     void
@@ -327,7 +331,7 @@ public:
     virtual int
     append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
     int
-    append_unit_header(byte *buf_ptr, thread_id_t tid) override;
+    append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
 
     int
     instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -375,6 +379,8 @@ public:
     get_entry_type(byte *buf_ptr) const override;
     size_t
     get_entry_size(byte *buf_ptr) const override;
+    int
+    get_instr_count(byte *buf_ptr) const override;
     addr_t
     get_entry_addr(byte *buf_ptr) const override;
     void
@@ -398,7 +404,7 @@ public:
     virtual int
     append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
     int
-    append_unit_header(byte *buf_ptr, thread_id_t tid) override;
+    append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
 
     int
     instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
