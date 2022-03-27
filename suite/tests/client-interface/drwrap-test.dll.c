@@ -69,6 +69,9 @@ static ptr_uint_t repeat_xsp;
 #ifdef ARM
 static ptr_uint_t repeat_link;
 #endif
+static void *mutex_lock;
+static void *rw_lock;
+static void *recur_lock;
 
 static int tls_idx;
 
@@ -339,11 +342,20 @@ dr_init(client_id_t id)
     drmgr_register_module_unload_event(module_unload_event);
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx > -1, "unable to reserve TLS field");
+    mutex_lock = dr_mutex_create();
+    dr_mutex_mark_as_app(mutex_lock);
+    rw_lock = dr_rwlock_create();
+    dr_rwlock_mark_as_app(rw_lock);
+    recur_lock = dr_recurlock_create();
+    dr_recurlock_mark_as_app(recur_lock);
 }
 
 static void
 event_exit(void)
 {
+    dr_mutex_destroy(mutex_lock);
+    dr_rwlock_destroy(rw_lock);
+    dr_recurlock_destroy(recur_lock);
     drwrap_stats_t stats = {
         sizeof(stats),
     };
@@ -366,6 +378,16 @@ replacewith(int *x)
 static int
 on_clean_stack(int i, int j, int k, int l, int m, int n, int o, int p)
 {
+    /* Test lock/unlock of marked-app lock. */
+    dr_mutex_lock(mutex_lock);
+    dr_mutex_unlock(mutex_lock);
+    dr_rwlock_read_lock(rw_lock);
+    dr_rwlock_read_unlock(rw_lock);
+    dr_rwlock_write_lock(rw_lock);
+    dr_rwlock_write_unlock(rw_lock);
+    dr_recurlock_lock(recur_lock);
+    dr_recurlock_unlock(recur_lock);
+
     return i + j + k + l + m + n + o + p;
 }
 
