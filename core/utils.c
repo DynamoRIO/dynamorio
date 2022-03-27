@@ -988,7 +988,9 @@ d_r_mutex_mark_as_app(mutex_t *lock)
 static inline void
 own_recursive_lock(recursive_lock_t *lock)
 {
-    ASSERT(OWN_MUTEX(&lock->lock));
+#ifdef DEADLOCK_AVOIDANCE
+    ASSERT(!mutex_ownable(&lock->lock) || OWN_MUTEX(&lock->lock));
+#endif
     ASSERT(lock->owner == INVALID_THREAD_ID);
     ASSERT(lock->count == 0);
     lock->owner = d_r_get_thread_id();
@@ -1034,7 +1036,9 @@ try_recursive_lock(recursive_lock_t *lock)
 void
 release_recursive_lock(recursive_lock_t *lock)
 {
-    ASSERT(OWN_MUTEX(&lock->lock));
+#ifdef DEADLOCK_AVOIDANCE
+    ASSERT(!mutex_ownable(&lock->lock) || OWN_MUTEX(&lock->lock));
+#endif
     ASSERT(lock->owner == d_r_get_thread_id());
     ASSERT(lock->count > 0);
     lock->count--;
@@ -1319,7 +1323,7 @@ void
 d_r_write_unlock(read_write_lock_t *rw)
 {
 #ifdef DEADLOCK_AVOIDANCE
-    ASSERT(rw->writer == rw->lock.owner);
+    ASSERT(!mutex_ownable(&rw->lock) || rw->writer == rw->lock.owner);
 #endif
     rw->writer = INVALID_THREAD_ID;
     if (INTERNAL_OPTION(spin_yield_rwlock)) {
