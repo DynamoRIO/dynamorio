@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,10 +48,6 @@
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
 #endif
-#ifdef HAS_ZLIB
-#    include "common/gzip_istream.h"
-#    include "common/gzip_ostream.h"
-#endif
 
 #include "dr_api.h"
 #include "dr_frontend.h"
@@ -59,6 +55,13 @@
 #include "raw2trace_directory.h"
 #include "directory_iterator.h"
 #include "utils.h"
+#ifdef HAS_ZLIB
+#    include "common/gzip_istream.h"
+#    include "common/gzip_ostream.h"
+#endif
+#ifdef HAS_SNAPPY
+#    include "common/snappy_istream.h"
+#endif
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -73,6 +76,7 @@
             FATAL_ERROR(msg, ##__VA_ARGS__); \
     } while (0)
 
+#undef VPRINT
 #define VPRINT(level, ...)                     \
     do {                                       \
         if (this->verbosity_ >= (level)) {     \
@@ -113,12 +117,21 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     if (basename_dot == nullptr)
         return "";
     const char *basename_pre_suffix = nullptr;
-    bool is_gzipped = false;
+    bool is_gzipped = false, is_snappy = false;
 #ifdef HAS_ZLIB
     basename_pre_suffix =
         strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
     if (basename_pre_suffix != nullptr) {
         is_gzipped = true;
+    }
+#endif
+#ifdef HAS_SNAPPY
+    if (basename_pre_suffix == nullptr) {
+        basename_pre_suffix =
+            strstr(basename_dot - strlen(OUTFILE_SUFFIX_SZ), OUTFILE_SUFFIX_SZ);
+        if (basename_pre_suffix != nullptr) {
+            is_snappy = true;
+        }
     }
 #endif
     if (basename_pre_suffix == nullptr)
@@ -130,13 +143,19 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
         return "Failed to get full path of file " + std::string(basename);
     }
     NULL_TERMINATE_BUFFER(path);
-    std::istream *ifile;
+    std::istream *ifile = nullptr;
 #ifdef HAS_ZLIB
     if (is_gzipped)
         ifile = new gzip_istream_t(path);
 #endif
-    if (!is_gzipped)
+#ifdef HAS_SNAPPY
+    if (is_snappy)
+        ifile = new snappy_istream_t(path);
+#endif
+    if (!is_gzipped && !is_snappy)
         ifile = new std::ifstream(path, std::ifstream::binary);
+    if (ifile == nullptr)
+        return "Failed to open thread log file " + std::string(path);
     in_files_.push_back(ifile);
     if (!(*in_files_.back()))
         return "Failed to open thread log file " + std::string(path);

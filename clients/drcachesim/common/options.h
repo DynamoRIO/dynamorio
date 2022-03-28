@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -92,6 +92,7 @@ extern droption_t<bytesize_t> op_trace_after_instrs;
 extern droption_t<bytesize_t> op_trace_for_instrs;
 extern droption_t<bytesize_t> op_retrace_every_instrs;
 extern droption_t<bytesize_t> op_exit_after_tracing;
+extern droption_t<std::string> op_raw_compress;
 extern droption_t<bool> op_online_instr_types;
 extern droption_t<std::string> op_replace_policy;
 extern droption_t<std::string> op_data_prefetcher;

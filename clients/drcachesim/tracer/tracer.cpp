@@ -61,6 +61,10 @@
 #include "../common/named_pipe.h"
 #include "../common/options.h"
 #include "../common/utils.h"
+#ifdef HAS_SNAPPY
+#    include <snappy.h>
+#    include "snappy_file_writer.h"
+#endif
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
@@ -138,6 +142,9 @@ typedef struct {
      */
     bool repstr;
     bool scatter_gather;
+#ifdef HAS_SNAPPY
+    snappy_file_writer_t *snappy_writer;
+#endif
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -474,12 +481,27 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                                            max_buf_size)) {
                 FATAL("Fatal error: failed to hand off trace\n");
             }
-        } else if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
-            FATAL("Fatal error: failed to write trace\n");
+        } else {
+            ssize_t wrote;
+#ifdef HAS_SNAPPY
+            if (op_offline.get_value() && op_raw_compress.get_value() == "snappy")
+                wrote = data->snappy_writer->compress_and_write(towrite_start, size);
+            else
+#endif
+                wrote = file_ops_func.write_file(data->file, towrite_start, size);
+            if (wrote < size) {
+                FATAL("Fatal error: failed to write trace: wrote %zd < %zd\n", wrote,
+                      size);
+            }
         }
         return towrite_start;
-    } else
+    } else {
+#ifdef HAS_SNAPPY
+        // XXX i#5427: Use snappy compression for pipe data as well.  We need to
+        // create a reader on the other end first.
+#endif
         return atomic_pipe_write(drcontext, towrite_start, towrite_end, window);
+    }
 }
 
 static bool
@@ -2216,10 +2238,15 @@ init_thread_in_process(void *drcontext)
          * file name for creation.  Retry if the same name file already exists.
          * Abort if we fail too many times.
          */
+        const char *suffix = OUTFILE_SUFFIX;
+#ifdef HAS_SNAPPY
+        if (op_raw_compress.get_value() == "snappy")
+            suffix = OUTFILE_SUFFIX_SZ;
+#endif
         for (i = 0; i < NUM_OF_TRIES; i++) {
             drx_open_unique_appid_file(logsubdir, dr_get_thread_id(drcontext),
-                                       subdir_prefix, OUTFILE_SUFFIX, DRX_FILE_SKIP_OPEN,
-                                       buf, BUFFER_SIZE_ELEMENTS(buf));
+                                       subdir_prefix, suffix, DRX_FILE_SKIP_OPEN, buf,
+                                       BUFFER_SIZE_ELEMENTS(buf));
             NULL_TERMINATE_BUFFER(buf);
             data->file = file_ops_func.open_file(buf, flags);
             if (data->file != INVALID_FILE)
@@ -2229,6 +2256,18 @@ init_thread_in_process(void *drcontext)
             FATAL("Fatal error: failed to create trace file %s\n", buf);
         }
         NOTIFY(2, "Created thread trace file %s\n", buf);
+
+#ifdef HAS_SNAPPY
+        if (op_raw_compress.get_value() == "snappy") {
+            // We use placement new for better isolation.
+            void *placement = dr_custom_alloc(
+                nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
+                DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
+            data->snappy_writer = new (placement)
+                snappy_file_writer_t(data->file, file_ops_func.write_file);
+            data->snappy_writer->write_file_header();
+        }
+#endif
 
         /* Write initial headers at the top of the first buffer. */
         data->init_header_size =
@@ -2350,6 +2389,14 @@ event_thread_exit(void *drcontext)
                                     op_line_size.get_value() * sizeof(void *));
             }
         }
+
+#ifdef HAS_SNAPPY
+        if (op_offline.get_value() && op_raw_compress.get_value() == "snappy") {
+            data->snappy_writer->~snappy_file_writer_t();
+            dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
+                           sizeof(*data->snappy_writer));
+        }
+#endif
 
         dr_mutex_lock(mutex);
         num_refs += data->num_refs;
@@ -2686,6 +2733,19 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         NOTIFY(0, "-use_physical is unsafe with statically linked clients\n");
 #endif
     }
+#ifdef HAS_SNAPPY
+    if (op_offline.get_value() && op_raw_compress.get_value() == "snappy") {
+        /* Unfortunately libsnappy allocates memory but does not parameterize its
+         * allocator, meaning we cannot support it for static linking, so we override
+         * the DR_DISALLOW_UNSAFE_STATIC declaration.
+         * XXX: Send a patch to libsnappy to parameterize the allocator.
+         */
+        dr_allow_unsafe_static_behavior();
+#    ifdef DRMEMTRACE_STATIC
+        NOTIFY(0, "-raw_compress snappy is unsafe with statically linked clients\n");
+#    endif
+    }
+#endif
 
     if (op_max_global_trace_refs.get_value() > 0) {
         /* We need the same is-buffer-zero checks in the instrumentation. */

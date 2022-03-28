@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,22 +31,6 @@
  */
 
 #include "snappy_file_reader.h"
-#include "crc32c.h"
-
-namespace {
-// Mask CRC32 checksum, as defined in framing_format.txt, sec. 3.
-uint32_t
-mask_crc32(uint32_t checksum)
-{
-    return ((checksum >> 15) | (checksum << 17)) + 0xa282ead8;
-}
-
-} // namespace
-
-constexpr size_t snappy_reader_t::max_block_size_;
-constexpr size_t snappy_reader_t::max_compressed_size_;
-constexpr size_t snappy_reader_t::checksum_size_;
-constexpr char snappy_reader_t::magic_[];
 
 snappy_reader_t::snappy_reader_t(std::ifstream *stream)
     : fstream_(stream)
@@ -136,7 +120,7 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
     }
 
     size_t dummy;
-    uint32_t checksum = mask_crc32(crc32c(src_->Peek(&dummy), src_->Available()));
+    uint32_t checksum = mask_crc32(src_->Peek(&dummy), src_->Available());
     if (checksum != read_checksum) {
         ERRMSG("Checksum failure on snappy block. Want %x, got %x\n", read_checksum,
                checksum);

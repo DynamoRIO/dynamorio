@@ -3561,6 +3561,10 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
     endif ()
 
+    # Sanity check for snappy compression of raw output files.
+    torunonly_drcacheoff(raw-snappy ${ci_shared_app} "-raw_compress snappy" "" "")
+    set(tool.drcacheoff.raw-snappy_expectbase "offline-simple")
+
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
       # with a parallel tool (basic_counts)

@@ -67,7 +67,11 @@ endif()
 
 if (libsnappy)
   add_definitions(-DHAS_SNAPPY)
-  set(snappy_reader reader/snappy_file_reader.cpp reader/crc32c.cpp)
+  set(snappy_reader
+    reader/snappy_file_reader.cpp
+    common/snappy_consts.cpp
+    common/crc32c.cpp
+    )
 else ()
   set(snappy_reader "")
 endif()
@@ -118,17 +122,28 @@ add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
 target_link_libraries(directory_iterator drfrontendlib)
 
-add_exported_library(drmemtrace_raw2trace STATIC
+set(raw2trace_srcs
   tracer/raw2trace.cpp
   tracer/raw2trace_directory.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
   tracer/instru_offline.cpp
   )
+if (libsnappy)
+  set(raw2trace_srcs ${raw2trace_srcs}
+    ${snappy_reader}
+    reader/reader.cpp
+    reader/file_reader.cpp
+    )
+endif ()
+add_exported_library(drmemtrace_raw2trace STATIC ${raw2trace_srcs})
 configure_DynamoRIO_standalone(drmemtrace_raw2trace)
 target_link_libraries(drmemtrace_raw2trace directory_iterator drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_raw2trace drutil_static)
 link_with_pthread(drmemtrace_raw2trace)
+if (libsnappy)
+  target_link_libraries(drmemtrace_raw2trace snappy)
+endif ()
 
 set(drcachesim_srcs
   launcher.cpp
@@ -265,7 +280,7 @@ macro(add_drmemtrace name type)
   else ()
     set(ext_sfx "")
   endif ()
-  add_library(${name} ${type}
+  set(drmemtrace_srcs
     tracer/tracer.cpp
     tracer/instru.cpp
     tracer/instru_offline.cpp
@@ -274,6 +289,14 @@ macro(add_drmemtrace name type)
     tracer/func_trace.cpp
     ${client_and_sim_srcs}
     )
+  if (libsnappy)
+    set(drmemtrace_srcs ${drmemtrace_srcs}
+      tracer/snappy_file_writer.cpp
+      common/snappy_consts.cpp
+      common/crc32c.cpp
+      )
+  endif ()
+  add_library(${name} ${type} ${drmemtrace_srcs})
   configure_DynamoRIO_client(${name})
   use_DynamoRIO_extension(${name} drmgr${ext_sfx})
   use_DynamoRIO_extension(${name} drsyms${ext_sfx})
@@ -285,6 +308,9 @@ macro(add_drmemtrace name type)
   use_DynamoRIO_extension(${name} droption)
   use_DynamoRIO_extension(${name} drcovlib${ext_sfx})
   use_DynamoRIO_extension(${name} drbbdup${ext_sfx})
+  if (libsnappy)
+    target_link_libraries(${name} snappy)
+  endif ()
   add_dependencies(${name} api_headers)
   install_target(${name} ${INSTALL_CLIENTS_LIB})
 endmacro()
