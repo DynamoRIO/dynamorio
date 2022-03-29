@@ -3335,7 +3335,8 @@ executable_area_overlap_bounds(app_pc start, app_pc end, app_pc *overlap_start /
     d_r_read_lock(&executable_areas->lock);
 
     /* Find first overlapping region */
-    if (!binary_search(executable_areas, start, end, NULL, &start_index, true /*first*/)) {
+    if (!binary_search(executable_areas, start, end, NULL, &start_index,
+                       true /*first*/)) {
         d_r_read_unlock(&executable_areas->lock);
         return false;
     }
