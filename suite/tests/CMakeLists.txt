@@ -3570,12 +3570,20 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
     endif ()
 
-    # Sanity check for snappy compression of raw output files.
-    torunonly_drcacheoff(raw-snappy ${ci_shared_app} "-raw_compress snappy" "" "")
-    set(tool.drcacheoff.raw-snappy_expectbase "offline-simple")
-    torunonly_drcacheoff(raw-snappy-nocrc ${ci_shared_app}
-      "-raw_compress snappy_nocrc" "" "")
-    set(tool.drcacheoff.raw-snappy-nocrc_expectbase "offline-simple")
+    # Sanity tests for compression of raw output files.
+    if (libsnappy)
+      torunonly_drcacheoff(raw-snappy ${ci_shared_app} "-raw_compress snappy" "" "")
+      set(tool.drcacheoff.raw-snappy_expectbase "offline-simple")
+      torunonly_drcacheoff(raw-snappy-nocrc ${ci_shared_app}
+        "-raw_compress snappy_nocrc" "" "")
+      set(tool.drcacheoff.raw-snappy-nocrc_expectbase "offline-simple")
+    endif ()
+    if (ZLIB_FOUND)
+      torunonly_drcacheoff(raw-zlib ${ci_shared_app} "-raw_compress zlib" "" "")
+      set(tool.drcacheoff.raw-zlib_expectbase "offline-simple")
+      torunonly_drcacheoff(raw-gzip ${ci_shared_app} "-raw_compress gzip" "" "")
+      set(tool.drcacheoff.raw-gzip_expectbase "offline-simple")
+    endif ()
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
@@ -3634,6 +3642,16 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(windows-simple ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-simulator_type@basic_counts" "")
+    if (ZLIB_FOUND)
+      torunonly_drcacheoff(windows-zlib ${ci_shared_app}
+        "-raw_compress zlib -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+        "@-simulator_type@basic_counts" "")
+      set(tool.drcacheoff.windows-zlib_expectbase "offline-windows-simple")
+      torunonly_drcacheoff(windows-gzip ${ci_shared_app}
+        "-raw_compress gzip -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+        "@-simulator_type@basic_counts" "")
+      set(tool.drcacheoff.windows-gzip_expectbase "offline-windows-simple")
+    endif ()
     # Ensure the invariant checker handles window transitions.
     torunonly_drcacheoff(windows-invar ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"

@@ -284,12 +284,12 @@ droption_t<bytesize_t> op_exit_after_tracing(
 
 droption_t<std::string> op_raw_compress(
     DROPTION_SCOPE_CLIENT, "raw_compress", "none",
-    "Compression for raw offline files: \"snappy\", \"snappy_nocrc\", \"none\"",
+    "Raw compression: \"snappy\", \"snappy_nocrc\", \"gzip\", \"zlib\", \"none\"",
     "Specifies the compression type to use for raw offline files: \"snappy\", "
-    "\"snappy_nocrc\" (snappy without checksums, which is much faster), or \"none\". "
-    "Whether this reduces overhead depends on the storage type: for "
-    "an SSD this typically adds overhead and would only be used if space is at a "
-    "premium; for a spinning disk using snappy should be a performance win.");
+    "\"snappy_nocrc\" (snappy without checksums, which is much faster), \"gzip\", "
+    "\"zlib\", or \"none\".  Whether this reduces overhead depends on the storage type: "
+    "for an SSD, zlib and gzip typically add overhead and would only be used if space is "
+    "at a premium; snappy_nocrc is nearly always a performance win.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
