@@ -63,6 +63,7 @@
 #define OUTFILE_SUFFIX "raw"
 #ifdef HAS_ZLIB
 #    define OUTFILE_SUFFIX_GZ "raw.gz"
+#    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
 #endif
 #ifdef HAS_SNAPPY
 #    define OUTFILE_SUFFIX_SZ "raw.sz"
