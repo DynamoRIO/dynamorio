@@ -52,6 +52,7 @@ online and offline.
  - \subpage sec_drcachesim_format
  - \subpage sec_drcachesim_run
  - \subpage sec_drcachesim_tools
+ - \subpage google_workload_traces
  - \subpage sec_drcachesim_config_file
  - \subpage sec_drcachesim_offline
  - \subpage sec_drcachesim_partial
@@ -809,6 +810,96 @@ transfer interruptions.  It optionally checks for restricted behavior
 that technically is legal but is not expected to happen in the target
 trace, helping to identify tracing problems and suitability for use of
 a trace for core simulation.
+
+****************************************************************************
+\page google_workload_traces Google Workload Traces
+
+With the rapid growth of internet services and cloud computing,
+workloads on warehouse-scale computers (WSCs) have become an important
+segment of today’s computing market. These workloads differ from
+others in their requirements of on-demand scalability, elasticity and
+availability. They have fundamentally different characteristics from
+traditional benchmarks and require changes to modern computer
+architecture to achieve optimal efficiency.  Google is sharing
+instruction and memory address traces from workloads running in Google
+data centers so that computer architecture researchers can study and
+develop new architecture ideas to improve the performance and
+efficiency of this important class of workloads.
+
+\section sec_google_format Trace Format
+
+The Google workload traces are captured using DynamoRIO's
+[drmemtrace](@ref page_drcachesim).  The traces are records of
+instruction and memory accesses as described at \ref
+sec_drcachesim_format.  We separate instruction and memory access
+records from each software thread into a separate file
+(.memtrace.gz). In addition, for each software thread, we also provide
+a branch_trace which contains execution data (taken/not taken, branch
+target) about each branch instruction (conditional, non-conditional,
+calls, etc.).  Finally, for each workload trace, we provide a thread
+statistics file (.threadstats.csv) which contains the thread ID (tid),
+instruction count, non-fetched instruction count (e.g. implicit
+instructions generated from microcode), load count, store count, and
+prefetch count.
+
+\section sec_google_get Getting the Traces
+
+The Google Workload Traces can be downloaded from:
+
+ - [Google workload trace folder](https://console.cloud.google.com/storage/browser/external-traces)
+
+Directory convention:
+- \verbatim
+  workload/trace-X/
+  \endverbatim
+  where X is sequential starting from 1
+
+Filename convention:
+- Memory trace file:
+  \verbatim
+  <uuid>.<tid>.memtrace.gz
+  \endverbatim
+- Branch trace file:
+  \verbatim
+  <uuid>.branch_trace.<tid>.csv.gz
+  \endverbatim
+- Thread statistics summary:
+  \verbatim
+  <uuid>.threadstats.csv
+  \endverbatim
+
+\section sec_google_help Getting Help and Reporting Bugs
+
+The Google Workload Traces are essentially inputs to drive third party
+tools (such as analyzers or simulators, including those provided here:
+\ref sec_drcachesim_tools).  If you encounter a crash in a tool
+provided by a third party, please locate the issue tracker for the
+tool you are using and report the crash there.  If you believe the
+issue is with the Google Workload Traces or with DynamoRIO or tools
+provided with DynamoRIO, you can file an issue as described at \ref
+page_bug_reporting.
+
+For general questions, or if you are not sure whether the problem you
+hit is a bug in your own code or in provided code, use the
+[DynamoRIO users group mailing list/discussion forum]
+(http://groups.google.com/group/dynamorio-users) rather than
+opening an issue in the tracker. The users list will reach a wider
+audience of people who might have an answer, and it will reach other
+users who may find the information beneficial.
+
+\section sec_google_contrib Contributing
+
+We welcome contributions to the Google workload trace project. The
+goal of providing the Google workload traces is to enable computer
+architecture researchers to develop insights and new architecture
+ideas to improve the performance and efficiency of workloads that run
+on warehouse-scale computers.
+
+You can contribute to the project in many ways:
+
+- Providing suggestions for improving trace formats.
+- Sharing and collaborating on architecture research.
+- Reporting issues: see \ref sec_google_help
 
 ****************************************************************************
 \page sec_drcachesim_config_file Configuration File
