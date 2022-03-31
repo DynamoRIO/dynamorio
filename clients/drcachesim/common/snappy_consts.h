@@ -53,7 +53,8 @@ protected:
         STREAM_IDENTIFIER = 0xff,
     };
 
-    // Mask CRC32 checksum, as defined in framing_format.txt, sec. 3.
+    // Mask CRC32 checksum, as defined in
+    // https://github.com/google/snappy/blob/main/framing_format.txt, sec. 3.
     uint32_t
     mask_crc32(const char *buf, const uint32_t len)
     {
