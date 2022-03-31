@@ -87,7 +87,7 @@ private:
     std::unique_ptr<snappy::Source> src_;
     // Buffer holding decompressed chunk data.
     std::vector<char> uncompressed_buf_;
-    // Buffer hodling the compressed chunks themselves.
+    // Buffer holding the compressed chunks themselves.
     std::vector<char> compressed_buf_;
 
     bool seen_magic_;
