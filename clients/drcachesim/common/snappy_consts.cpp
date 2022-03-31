@@ -30,69 +30,10 @@
  * DAMAGE.
  */
 
-/*
- * snappy_file_reader: reads snappy-compressed files containing memory traces. Files
- * should follow the snappy framing format:
- * https://github.com/google/snappy/blob/master/framing_format.txt
- */
-
-#ifndef _SNAPPY_FILE_READER_H_
-#define _SNAPPY_FILE_READER_H_ 1
-
-#include <fstream>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include <snappy.h>
-#include <snappy-sinksource.h>
 #include "snappy_consts.h"
-#include "file_reader.h"
+#include "crc32c.h"
 
-class snappy_reader_t : snappy_consts_t {
-public:
-    snappy_reader_t(std::ifstream *stream);
-
-    // Read 'size' bytes into the 'to'.
-    int
-    read(size_t size, OUT void *to);
-
-    bool
-    eof()
-    {
-        if (!fstream_)
-            return true;
-        return fstream_->eof();
-    }
-
-private:
-    bool
-    read_new_chunk();
-
-    // Read a new data chunk in uncompressed_buf.
-    bool
-    read_data_chunk(uint32_t size, chunk_type_t type);
-
-    // Have we seen the magic chunk identifying a snappy stream.
-    bool
-    check_magic();
-
-    // Read and verify magic chunk.
-    bool
-    read_magic(uint32_t size);
-
-    // The compressed file we're reading from.
-    std::unique_ptr<std::ifstream> fstream_;
-    // Reader into the decompressed buffer.
-    std::unique_ptr<snappy::Source> src_;
-    // Buffer holding decompressed chunk data.
-    std::vector<char> uncompressed_buf_;
-    // Buffer holding the compressed chunks themselves.
-    std::vector<char> compressed_buf_;
-
-    bool seen_magic_;
-};
-
-typedef file_reader_t<snappy_reader_t> snappy_file_reader_t;
-
-#endif /* _SNAPPY_FILE_READER_H_ */
+constexpr size_t snappy_consts_t::max_block_size_;
+constexpr size_t snappy_consts_t::max_compressed_size_;
+constexpr size_t snappy_consts_t::checksum_size_;
+constexpr char snappy_consts_t::magic_[];

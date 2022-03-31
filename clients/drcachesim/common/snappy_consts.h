@@ -31,68 +31,49 @@
  */
 
 /*
- * snappy_file_reader: reads snappy-compressed files containing memory traces. Files
- * should follow the snappy framing format:
+ * snappy_consts: shared constants between the reader and writer for
+ * the snappy framing format:
  * https://github.com/google/snappy/blob/master/framing_format.txt
  */
 
-#ifndef _SNAPPY_FILE_READER_H_
-#define _SNAPPY_FILE_READER_H_ 1
+#ifndef _SNAPPY_CONSTS_H_
+#define _SNAPPY_CONSTS_H_ 1
 
-#include <fstream>
-#include <memory>
-#include <string>
-#include <vector>
+#include <cstddef>
+#include "crc32c.h"
 
-#include <snappy.h>
-#include <snappy-sinksource.h>
-#include "snappy_consts.h"
-#include "file_reader.h"
+class snappy_consts_t {
+protected:
+    enum chunk_type_t : unsigned char {
+        COMPRESSED_DATA = 0x00,
+        UNCOMPRESSED_DATA = 0x01,
+        SKIP_BEGIN = 0x80,
+        SKIP_END = 0xfd,
+        PADDING = 0xfe,
+        STREAM_IDENTIFIER = 0xff,
+    };
 
-class snappy_reader_t : snappy_consts_t {
-public:
-    snappy_reader_t(std::ifstream *stream);
-
-    // Read 'size' bytes into the 'to'.
-    int
-    read(size_t size, OUT void *to);
-
-    bool
-    eof()
+    // Mask CRC32 checksum, as defined in
+    // https://github.com/google/snappy/blob/main/framing_format.txt, sec. 3.
+    uint32_t
+    mask_crc32(const char *buf, const uint32_t len)
     {
-        if (!fstream_)
-            return true;
-        return fstream_->eof();
+        uint32_t checksum = crc32c(buf, len);
+        return ((checksum >> 15) | (checksum << 17)) + 0xa282ead8;
     }
 
-private:
-    bool
-    read_new_chunk();
-
-    // Read a new data chunk in uncompressed_buf.
-    bool
-    read_data_chunk(uint32_t size, chunk_type_t type);
-
-    // Have we seen the magic chunk identifying a snappy stream.
-    bool
-    check_magic();
-
-    // Read and verify magic chunk.
-    bool
-    read_magic(uint32_t size);
-
-    // The compressed file we're reading from.
-    std::unique_ptr<std::ifstream> fstream_;
-    // Reader into the decompressed buffer.
-    std::unique_ptr<snappy::Source> src_;
-    // Buffer holding decompressed chunk data.
-    std::vector<char> uncompressed_buf_;
-    // Buffer holding the compressed chunks themselves.
-    std::vector<char> compressed_buf_;
-
-    bool seen_magic_;
+    // Maximum uncompressed chunk size. Fixed by the framing format.
+    static constexpr size_t max_block_size_ = 65536;
+    // Maximum compressed chunk size. <= max_block_size, since the compressor only
+    // emits a compressed chunk if sizes actually shrink.
+    static constexpr size_t max_compressed_size_ = 65536;
+    // Checksum is always 4 bytes. Buffers should reserve space for it as well.
+    static constexpr size_t checksum_size_ = sizeof(uint32_t);
+    // Chunk header size is always 4 bytes.  This is followed by the checksum for
+    // data chunks.
+    static constexpr size_t header_size_ = sizeof(uint32_t);
+    // Magic string identifying the snappy chunked format.
+    static constexpr char magic_[] = "sNaPpY";
 };
 
-typedef file_reader_t<snappy_reader_t> snappy_file_reader_t;
-
-#endif /* _SNAPPY_FILE_READER_H_ */
+#endif /* _SNAPPY_CONSTS_H_ */
