@@ -9352,7 +9352,6 @@ get_alt_dynamo_library_bounds(void)
     ASSERT(dynamorio_library_path[0] != '\0');
     ASSERT(d_r_config_initialized());
 
-    char *libdir;
     const char *config_alt_path = get_config_val(DYNAMORIO_VAR_ALTINJECT);
     if (config_alt_path != NULL && config_alt_path[0] != '\0') {
         strncpy(dynamorio_alt_arch_filepath, config_alt_path,
@@ -9376,7 +9375,7 @@ get_alt_dynamo_library_bounds(void)
         strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
                 BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
         /* Assumption: libdir name is not repeated elsewhere in path */
-        libdir =
+        char *libdir =
             strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
         if (libdir != NULL) {
             const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);

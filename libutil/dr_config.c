@@ -1525,7 +1525,6 @@ dr_register_inject_paths(const char *process_name, process_id_t pid, bool global
     NULL_TERMINATE_BUFFER(wpath);
     status = write_config_param(IF_REG_ELSE(proc_policy, f),
                                 PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), wpath);
-    DO_ASSERT(status == DR_SUCCESS);
     if (status != DR_SUCCESS)
         return status;
 
@@ -1538,7 +1537,6 @@ dr_register_inject_paths(const char *process_name, process_id_t pid, bool global
         NULL_TERMINATE_BUFFER(wpath);
         status = write_config_param(IF_REG_ELSE(proc_policy, f),
                                     PARAM_STR(DYNAMORIO_VAR_ALTINJECT), wpath);
-        DO_ASSERT(status == DR_SUCCESS);
         if (status != DR_SUCCESS)
             return status;
     }
@@ -1546,7 +1544,6 @@ dr_register_inject_paths(const char *process_name, process_id_t pid, bool global
 #ifdef PARAMS_IN_REGISTRY
     /* write the registry */
     if (write_config_group(policy) != ERROR_SUCCESS) {
-        DO_ASSERT(false);
         return DR_FAILURE;
     }
 #endif
