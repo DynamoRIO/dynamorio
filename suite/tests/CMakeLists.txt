@@ -4071,6 +4071,8 @@ if (UNIX)
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       if (TEST_SUITE AND TEST_32BIT_PATH)
+        # XXX: Should we remove TEST_32BIT_PATH since we're not using it with
+        # our separate 32- and 64-bit jobs (replaced by our test-and-build)?
         tobuild_ops(linux.execve64 linux/execve.c ""
           "${TEST_32BIT_PATH}/linux.execve-sub32")
         torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
@@ -4078,26 +4080,99 @@ if (UNIX)
       else ()
         # If we didn't just build the entire 32-bit and so don't have an
         # install dir handy, we still perform a cross-arch test by building
-        # just the few binaries we need and faking a multi-arch install.
+        # just the few binaries we need and both faking a multi-arch install
+        # via symlinks and using -use_alt_dll to point to the other bitwidth.
         set(32dir ${CMAKE_CURRENT_BINARY_DIR}/32bit)
         set(test_bindir suite/tests/bin)
         file(MAKE_DIRECTORY ${32dir})
-        make_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}
-          ${32dir}/${INSTALL_LIB_BASE})
-        make_symlink(${32dir}/${INSTALL_LIB_X86}
-          ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
-        get_target_path_for_execution(drrun_path drrun "${location_suffix}")
         # We use a client that takes some options and prints something at
         # init and at exit to test cross-arch injection with clients.
         get_target_path_for_execution(client64_path client.large_options.dll
           "${location_suffix}")
         set(client32_path ${32dir}/${test_bindir}/libclient.large_options.dll.so)
+        # Hardcoding this path as the simplest solution:
+        if (DEBUG)
+          set(libdr_32bit_path "${32dir}/${INSTALL_LIB_X86}/debug/libdynamorio.so")
+        else ()
+          set(libdr_32bit_path "${32dir}/${INSTALL_LIB_X86}/release/libdynamorio.so")
+        endif ()
+
+        add_exe(linux.execve64 linux/execve.c)
+        # Use a relative path for the child's execve to stress i#1660, i#4892.
+        file(RELATIVE_PATH relative_sub32 "${CMAKE_CURRENT_BINARY_DIR}"
+          "${32dir}/${test_bindir}/linux.execve-sub32")
+        get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+        get_target_path_for_execution(drlib_path dynamorio "${location_suffix}")
+
+        # We have 2 tests (one each 32<->64 direction) for each of two configs:
+        # locating the other-bitwidth path via a config entry, or locating it
+        # via assumptions on side-by-side installation.
+        # To do both configs with just one build we run buth from a script which
+        # we generate here:
+        set(xarch_script "${CMAKE_CURRENT_BINARY_DIR}/linux.xarch.cmake")
+        file(WRITE "${xarch_script}"
+          "macro(make_symlink src dst)\n"
+          "  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink \${src} \${dst}\n"
+          "    RESULT_VARIABLE ln_result ERROR_VARIABLE ln_err)\n"
+          "  if (ln_result OR ln_err)\n"
+          "    message(FATAL_ERROR \"*** create symlink failed: \${ln_err} ***\")\n"
+          "  endif ()\n"
+          "endmacro()\n"
+          "macro(remove_symlink link)\n"
+          "  execute_process(COMMAND ${CMAKE_COMMAND} -E remove \${link}\n"
+          "    RESULT_VARIABLE rm_result ERROR_VARIABLE rm_err)\n"
+          "  if (rm_result OR rm_err)\n"
+          "    message(FATAL_ERROR \"*** remove symlink failed: \${rm_err} ***\")\n"
+          "  endif ()\n"
+          "endmacro()\n"
+          "# 32 to 64, assumed layout:\n"
+          "make_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}\n"
+          "  ${32dir}/${INSTALL_LIB_BASE})\n"
+          "make_symlink(${32dir}/${INSTALL_LIB_X86}\n"
+          "  ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path} -32\n"
+          "  -dr_home ${32dir} ${dr_test_ops}\n"
+          "  # We test the \"-c32 -c64\" syntax here.\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${32dir}/${test_bindir}/linux.execve32\n"
+          "  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64\")\n"
+          "# 64 to 32, assumed layout:\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path} ${dr_test_ops}\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64\n"
+          "  \"${relative_sub32}\")\n"
+          "remove_symlink(${32dir}/${INSTALL_LIB_BASE})\n"
+          "remove_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})\n"
+          "# 32 to 64, config entry (symlinks are gone so assumptions fail):\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path} -32\n"
+          "  -use_alt_dll ${drlib_path} \n"
+          "  -dr_home ${32dir} ${dr_test_ops}\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${32dir}/${test_bindir}/linux.execve32\n"
+          "  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64\")\n"
+          "# 64 to 32, config entry (symlinks are gone so assumptions fail):\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path}\n"
+          # Hardcoding this path as the simplest solution:
+          "  -use_alt_dll ${libdr_32bit_path}\n"
+          "  ${dr_test_ops}\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64\n"
+          "  \"${relative_sub32}\")\n"
+          )
         if (DEBUG)
           set(config_type -DDEBUG=ON)
         else ()
           set(config_type "")
         endif ()
-        add_test(linux.execve32 ${CMAKE_CTEST_COMMAND} -V
+        add_test(linux.xarch ${CMAKE_CTEST_COMMAND} -V
           --build-and-test ${PROJECT_SOURCE_DIR} ${32dir}
           --build-generator ${CMAKE_GENERATOR}
           --build-target dynamorio
@@ -4108,34 +4183,16 @@ if (UNIX)
           --build-makeprogram ${CMAKE_MAKE_PROGRAM}
           --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
           -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
-          --test-command ${drrun_path} -32
-          -dr_home ${32dir} ${dr_test_ops}
-          # We test the "-c32 -c64" syntax here.
-          -c32 ${client32_path} -paramA foo -paramB bar --
-          -c64 ${client64_path} -paramA foo -paramB bar --
-          ${32dir}/${test_bindir}/linux.execve32
-          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
+          --test-command ${CMAKE_COMMAND} -P ${xarch_script})
         file(READ linux/execve-client.expect expect)
-        set_tests_properties(linux.execve32 PROPERTIES ENVIRONMENT
+        set_tests_properties(linux.xarch PROPERTIES ENVIRONMENT
           "CFLAGS=-m32;CXXFLAGS=-m32"
           # We do not try to indirect this so we have to read .expect manually.
           # We simplify and assume no regex chars.
-          # We start with .* for all the config and build stuff.
-          PASS_REGULAR_EXPRESSION ".*${expect}[ \n]*$")
-        # We can't get the depends property right b/c execve32 has no prefix,
-        # so we do this one directly too.
-        add_exe(linux.execve64 linux/execve.c)
-        # Use a relative path for the child's execve to stress i#1660, i#4892.
-        file(RELATIVE_PATH relative_sub32 "${CMAKE_CURRENT_BINARY_DIR}"
-          "${32dir}/${test_bindir}/linux.execve-sub32")
-        add_test(linux.execve64 ${drrun_path} ${dr_test_ops}
-          # We test the "-c32 -c64" syntax for the other direction.
-          -c32 ${client32_path} -paramA foo -paramB bar --
-          -c64 ${client64_path} -paramA foo -paramB bar --
-          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64
-          "${relative_sub32}")
-        set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
-          PASS_REGULAR_EXPRESSION "^${expect}$")
+          # We start with .* for all the config and build stuff and then we
+          # expect 4 straight identical test outputs.
+          PASS_REGULAR_EXPRESSION
+          ".*${expect}[ \n]*${expect}[ \n]*${expect}[ \n]*${expect}[ \n]*$")
       endif ()
     else (X64)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
