@@ -271,6 +271,9 @@ handle_app_brk(dcontext_t *dcontext, byte *lowest_brk /*if known*/, byte *old_br
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH]; /* just dir */
 static char dynamorio_library_filepath[MAXIMUM_PATH];
+/* Shared between get_dynamo_library_bounds() and get_alt_dynamo_library_bounds(). */
+static const char *dynamorio_libname = NULL;
+static char dynamorio_libname_buf[MAXIMUM_PATH];
 /* Issue 20: path to other architecture */
 static char dynamorio_alt_arch_path[MAXIMUM_PATH]; /* just dir */
 static char dynamorio_alt_arch_filepath[MAXIMUM_PATH];
@@ -9239,8 +9242,6 @@ get_dynamo_library_bounds(void)
      */
     int res;
     app_pc check_start, check_end;
-    char *libdir;
-    const char *dynamorio_libname = NULL;
     bool do_memquery = true;
 #ifdef STATIC_LIBRARY
 #    ifdef LINUX
@@ -9291,7 +9292,6 @@ get_dynamo_library_bounds(void)
 #endif /* STATIC_LIBRARY */
 
     if (do_memquery) {
-        static char dynamorio_libname_buf[MAXIMUM_PATH];
         res = memquery_library_bounds(
             NULL, &check_start, &check_end, dynamorio_library_path,
             BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
@@ -9323,7 +9323,17 @@ get_dynamo_library_bounds(void)
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
         dynamo_dll_start, dynamo_dll_end);
 
+    if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2, get_application_name(),
+                                    get_application_pid());
+    }
+}
+
+static void
+get_alt_dynamo_library_bounds(void)
+{
     /* Issue 20: we need the path to the alt arch */
+    char *libdir;
     const char *config_alt_path = get_config_val(DYNAMORIO_VAR_ALTINJECT);
     if (config_alt_path != NULL && config_alt_path[0] != '\0') {
         strncpy(dynamorio_alt_arch_filepath, config_alt_path,
@@ -9366,11 +9376,6 @@ get_dynamo_library_bounds(void)
         LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch filepath: %s\n",
             dynamorio_alt_arch_filepath);
     }
-
-    if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
-        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2, get_application_name(),
-                                    get_application_pid());
-    }
 }
 
 /* get full path to our own library, (cached), used for forking and message file name */
@@ -9379,6 +9384,12 @@ get_dynamorio_library_path(void)
 {
     if (!dynamorio_library_filepath[0]) { /* not cached */
         get_dynamo_library_bounds();
+    }
+    /* We can be called from privload_early_inject() before conifg is initialized.
+     * If so, we skip the alt arch setup until the next call to this function.
+     */
+    if (!dynamorio_alt_arch_filepath[0] && d_r_config_initialized()) { /* not cached */
+        get_alt_dynamo_library_bounds();
     }
     return dynamorio_library_filepath;
 }

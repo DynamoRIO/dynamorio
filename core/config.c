@@ -626,6 +626,12 @@ d_r_config_init(void)
     config_initialized = true;
 }
 
+bool
+d_r_config_initialized(void)
+{
+    return config_initialized;
+}
+
 #    ifndef NOT_DYNAMORIO_CORE_PROPER
 /* To support re-reading config, we need to heap allocate a config_vals_t array,
  * which we can leave unprotected.
