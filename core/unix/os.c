@@ -9242,7 +9242,7 @@ extern int dynamorio_so_start, dynamorio_so_end;
 static void
 get_dynamo_library_bounds(void)
 {
-    if (dynamorio_library_filepath[0] != '\0') /* already cached */
+    if (dynamorio_library_filepath[0] != '\0') /* Already cached. */
         return;
     /* Note that we're not counting DYNAMORIO_PRELOAD_NAME as a DR area, to match
      * Windows, so we should unload it like we do there. The other reason not to
@@ -9346,7 +9346,7 @@ get_dynamo_library_bounds(void)
 static void
 get_alt_dynamo_library_bounds(void)
 {
-    if (dynamorio_alt_arch_filepath[0] == '\0')
+    if (dynamorio_alt_arch_filepath[0] != '\0') /* Already cached. */
         return;
     ASSERT(dynamorio_libname != NULL); /* Set by get_dynamo_library_bounds(). */
     ASSERT(d_r_config_initialized());
