@@ -1959,3 +1959,11 @@ OPCODE(vsqrtsd_xhik7xhixhi, vsqrtsd, vsqrtsd_mask, X64_ONLY, REGARG(XMM16), REGA
        REGARG(XMM17), REGARG_PARTIAL(XMM18, OPSZ_8))
 OPCODE(vsqrtsd_xhik7xhimem, vsqrtsd, vsqrtsd_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
        REGARG(XMM17), MEMARG(OPSZ_8))
+OPCODE(vpdpbusd_zhik7zhizhi, vpdpbusd, vpdpbusd_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K0), REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vpdpbusds_zhik7zhizhi, vpdpbusds, vpdpbusds_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K0), REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vpdpwssd_zhik7zhizhi, vpdpwssd, vpdpwssd_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K0), REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vpdpwssds_zhik7zhizhi, vpdpwssds, vpdpwssds_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K0), REGARG(ZMM24), REGARG(ZMM31))
