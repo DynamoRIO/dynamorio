@@ -281,6 +281,11 @@ static char dynamorio_alt_arch_filepath[MAXIMUM_PATH];
 #define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
 #define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
 
+static void
+get_dynamo_library_bounds(void);
+static void
+get_alt_dynamo_library_bounds(void);
+
 /* pc values delimiting dynamo dll image */
 static app_pc dynamo_dll_start = NULL;
 static app_pc dynamo_dll_end = NULL; /* open-ended */
@@ -893,6 +898,8 @@ d_r_os_init(void)
     /* Populate global data caches. */
     get_application_name();
     get_application_base();
+    get_dynamo_library_bounds();
+    get_alt_dynamo_library_bounds();
 
     /* determine whether gettid is provided and needed for threads,
      * or whether getpid suffices.  even 2.4 kernels have gettid
@@ -9329,10 +9336,19 @@ get_dynamo_library_bounds(void)
     }
 }
 
+/* Determines and caches the alternative-bitwidth libdynamorio path.
+ * Assumed to be called at single-threaded initialization time as it sets
+ * global buffers.
+ * get_dynamo_library_bounds() must be called first.
+ */
 static void
 get_alt_dynamo_library_bounds(void)
 {
-    /* Issue 20: we need the path to the alt arch */
+    if (dynamorio_alt_arch_filepath[0] == '\0')
+        return;
+    ASSERT(dynamorio_libname != NULL); /* Set by get_dynamo_library_bounds(). */
+    ASSERT(d_r_config_initialized());
+
     char *libdir;
     const char *config_alt_path = get_config_val(DYNAMORIO_VAR_ALTINJECT);
     if (config_alt_path != NULL && config_alt_path[0] != '\0') {
@@ -9384,12 +9400,6 @@ get_dynamorio_library_path(void)
 {
     if (!dynamorio_library_filepath[0]) { /* not cached */
         get_dynamo_library_bounds();
-    }
-    /* We can be called from privload_early_inject() before conifg is initialized.
-     * If so, we skip the alt arch setup until the next call to this function.
-     */
-    if (!dynamorio_alt_arch_filepath[0] && d_r_config_initialized()) { /* not cached */
-        get_alt_dynamo_library_bounds();
     }
     return dynamorio_library_filepath;
 }
