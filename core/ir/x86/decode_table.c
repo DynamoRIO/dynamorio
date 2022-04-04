@@ -4604,10 +4604,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20f7337, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 103 */
   {
-    {REX_B_EXT,  0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {REX_B_EXT,  0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_pause,0xf3900000, "pause", xx, xx, xx, xx, xx, no, x, END_LIST},
-    /* we chain these even though encoding won't find them */
-    {OP_nop, 0x66900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
+    {REX_B_EXT, 0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, END_LIST},
     /* windbg displays as "repne nop" */
     {OP_nop, 0xf2900000, "nop", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,     0x900000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -7118,7 +7117,8 @@ const instr_info_t evex_prefix_extensions[][2] = {
  */
 const instr_info_t rex_b_extensions[][2] = {
   { /* rex.b extension 0 */
-    {OP_nop,  0x900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][2]},
+    /* we chain these even though encoding won't find them */
+    {OP_nop,  0x900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
     /* For decoding we avoid needing new operand types by only getting
      * here if rex.b is set.  For encode, we would need either to take
      * REQUIRES_REX + OPCODE_SUFFIX or a new operand type for registers that
