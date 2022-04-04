@@ -272,8 +272,8 @@ handle_app_brk(dcontext_t *dcontext, byte *lowest_brk /*if known*/, byte *old_br
 static char dynamorio_library_path[MAXIMUM_PATH]; /* just dir */
 static char dynamorio_library_filepath[MAXIMUM_PATH];
 /* Shared between get_dynamo_library_bounds() and get_alt_dynamo_library_bounds(). */
-static const char *dynamorio_libname = NULL;
 static char dynamorio_libname_buf[MAXIMUM_PATH];
+static const char *dynamorio_libname = dynamorio_libname_buf;
 /* Issue 20: path to other architecture */
 static char dynamorio_alt_arch_path[MAXIMUM_PATH]; /* just dir */
 static char dynamorio_alt_arch_filepath[MAXIMUM_PATH];
@@ -9348,7 +9348,8 @@ get_alt_dynamo_library_bounds(void)
 {
     if (dynamorio_alt_arch_filepath[0] != '\0') /* Already cached. */
         return;
-    ASSERT(dynamorio_libname != NULL); /* Set by get_dynamo_library_bounds(). */
+    /* Set by get_dynamo_library_bounds(). */
+    ASSERT(dynamorio_library_path[0] != '\0');
     ASSERT(d_r_config_initialized());
 
     char *libdir;
