@@ -3758,14 +3758,6 @@
     instr_create_1dst_3src((dc), OP_vsqrtss, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vsqrtsd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vsqrtsd, (d), (k), (s1), (s2))
-#define INSTR_CREATE_vpdpbusd_mask(dc, d, s1, s2, s3) \
-    instr_create_1dst_3src((dc), OP_vpdpbusd, (d), (s1), (s2), (s3))
-#define INSTR_CREATE_vpdpbusds_mask(dc, d, s1, s2, s3) \
-    instr_create_1dst_3src((dc), OP_vpdpbusds, (d), (s1), (s2), (s3))
-#define INSTR_CREATE_vpdpwssd_mask(dc, d, s1, s2, s3) \
-    instr_create_1dst_3src((dc), OP_vpdpwssd, (d), (s1), (s2), (s3))
-#define INSTR_CREATE_vpdpwssds_mask(dc, d, s1, s2, s3) \
-    instr_create_1dst_3src((dc), OP_vpdpwssds, (d), (s1), (s2), (s3))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -4256,6 +4248,14 @@
     instr_create_1dst_3src((dc), OP_vpermil2pd, (d), (s1), (s2), (s3))
 #define INSTR_CREATE_vpermil2ps(dc, d, s1, s2, s3) \
     instr_create_1dst_3src((dc), OP_vpermil2ps, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpdpbusd_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpbusd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpdpbusds_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpbusds, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpdpwssd_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpwssd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpdpwssds_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpwssds, (d), (s1), (s2), (s3))
 /** @} */ /* end doxygen group */
 /** @name 1 destination, 3 sources where the final is an immediate */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
