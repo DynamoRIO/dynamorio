@@ -13,7 +13,7 @@ disassembly failed: invalid instruction: not enough bytes: 0x88
  b2db       uxtb   %r3[1byte] -> %r3
 disassembly failed: invalid instruction: not enough bytes: 0x88
 #elif defined(X86)
- 66 90                nop
+ 66 90                data16 nop
 # ifdef X64
  c4 e2 65 90 14 80    vpgatherdd (%rax,%ymm0,4)[4byte] %ymm3 -> %ymm2 %ymm3
 # else

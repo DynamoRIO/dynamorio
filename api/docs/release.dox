@@ -153,6 +153,9 @@ Further non-compatibility-affecting changes include:
  - Added droption_parser_t::clear_values() for re-setting accumulating option
    values on re-attach for statically linked clients.
  - Added the count of cache exits to #dr_stats_t.
+ - Added dr_register_inject_paths() and a corresponding -use_alt_dll drrun/drconfig
+   parameter for control over DynamoRIO library paths, in particular the other
+   bitwidth path, when configuring target processes.
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:
