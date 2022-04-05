@@ -271,12 +271,20 @@ handle_app_brk(dcontext_t *dcontext, byte *lowest_brk /*if known*/, byte *old_br
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH]; /* just dir */
 static char dynamorio_library_filepath[MAXIMUM_PATH];
+/* Shared between get_dynamo_library_bounds() and get_alt_dynamo_library_bounds(). */
+static char dynamorio_libname_buf[MAXIMUM_PATH];
+static const char *dynamorio_libname = dynamorio_libname_buf;
 /* Issue 20: path to other architecture */
-static char dynamorio_alt_arch_path[MAXIMUM_PATH];
-static char dynamorio_alt_arch_filepath[MAXIMUM_PATH]; /* just dir */
+static char dynamorio_alt_arch_path[MAXIMUM_PATH]; /* just dir */
+static char dynamorio_alt_arch_filepath[MAXIMUM_PATH];
 /* Makefile passes us LIBDIR_X{86,64} defines */
 #define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
 #define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
+
+static void
+get_dynamo_library_bounds(void);
+static void
+get_alt_dynamo_library_bounds(void);
 
 /* pc values delimiting dynamo dll image */
 static app_pc dynamo_dll_start = NULL;
@@ -890,6 +898,8 @@ d_r_os_init(void)
     /* Populate global data caches. */
     get_application_name();
     get_application_base();
+    get_dynamo_library_bounds();
+    get_alt_dynamo_library_bounds();
 
     /* determine whether gettid is provided and needed for threads,
      * or whether getpid suffices.  even 2.4 kernels have gettid
@@ -5533,8 +5543,10 @@ static const char *const env_to_propagate[] = {
     DYNAMORIO_VAR_EXECVE_LOGDIR,
     /* i#909: needed for early injection */
     DYNAMORIO_VAR_EXE_PATH,
-    /* these will only be propagated if they exist */
+    /* These will only be propagated if they exist: */
     DYNAMORIO_VAR_CONFIGDIR,
+    DYNAMORIO_VAR_AUTOINJECT,
+    DYNAMORIO_VAR_ALTINJECT,
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate) / sizeof(env_to_propagate[0]))
 
@@ -5879,11 +5891,13 @@ handle_execve(dcontext_t *dcontext)
      * in fs/exec.c:
      *  int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs)
      */
-    /* We need to make sure we get injected into the new image:
+    /* We need to make sure we get injected into the new image.
+     *
+     * For legacy late injection:
      * we simply make sure LD_PRELOAD contains us, and that our directory
      * is on LD_LIBRARY_PATH (seems not to work to put absolute paths in
      * LD_PRELOAD).
-     * FIXME: this doesn't work for setuid programs
+     * (This doesn't work for setuid programs though.)
      *
      * For -follow_children we also pass the current DYNAMORIO_RUNUNDER and
      * DYNAMORIO_OPTIONS and logdir to the new image to support a simple
@@ -9228,6 +9242,8 @@ extern int dynamorio_so_start, dynamorio_so_end;
 static void
 get_dynamo_library_bounds(void)
 {
+    if (dynamorio_library_filepath[0] != '\0') /* Already cached. */
+        return;
     /* Note that we're not counting DYNAMORIO_PRELOAD_NAME as a DR area, to match
      * Windows, so we should unload it like we do there. The other reason not to
      * count it is so is_in_dynamo_dll() can be the only exception to the
@@ -9235,8 +9251,6 @@ get_dynamo_library_bounds(void)
      */
     int res;
     app_pc check_start, check_end;
-    char *libdir;
-    const char *dynamorio_libname = NULL;
     bool do_memquery = true;
 #ifdef STATIC_LIBRARY
 #    ifdef LINUX
@@ -9287,7 +9301,6 @@ get_dynamo_library_bounds(void)
 #endif /* STATIC_LIBRARY */
 
     if (do_memquery) {
-        static char dynamorio_libname_buf[MAXIMUM_PATH];
         res = memquery_library_bounds(
             NULL, &check_start, &check_end, dynamorio_library_path,
             BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
@@ -9319,29 +9332,67 @@ get_dynamo_library_bounds(void)
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
         dynamo_dll_start, dynamo_dll_end);
 
-    /* Issue 20: we need the path to the alt arch */
-    strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
-            BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
-    /* Assumption: libdir name is not repeated elsewhere in path */
-    libdir = strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
-    if (libdir != NULL) {
-        const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
-        /* do NOT place the NULL */
-        strncpy(libdir, newdir, strlen(newdir));
-    } else {
-        SYSLOG_INTERNAL_WARNING("unable to determine lib path for cross-arch execve");
-    }
-    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
-    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
-        dynamorio_alt_arch_path);
-    snprintf(dynamorio_alt_arch_filepath,
-             BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath), "%s%s",
-             dynamorio_alt_arch_path, dynamorio_libname);
-    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
-
     if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2, get_application_name(),
                                     get_application_pid());
+    }
+}
+
+/* Determines and caches the alternative-bitwidth libdynamorio path.
+ * Assumed to be called at single-threaded initialization time as it sets
+ * global buffers.
+ * get_dynamo_library_bounds() must be called first.
+ */
+static void
+get_alt_dynamo_library_bounds(void)
+{
+    if (dynamorio_alt_arch_filepath[0] != '\0') /* Already cached. */
+        return;
+    /* Set by get_dynamo_library_bounds(). */
+    ASSERT(dynamorio_library_path[0] != '\0');
+    ASSERT(d_r_config_initialized());
+
+    const char *config_alt_path = get_config_val(DYNAMORIO_VAR_ALTINJECT);
+    if (config_alt_path != NULL && config_alt_path[0] != '\0') {
+        strncpy(dynamorio_alt_arch_filepath, config_alt_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath));
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
+        /* We don't really need just the dir (used for the old LD_PRELOAD) but
+         * we compute it for the legacy code.
+         */
+        const char *sep = strrchr(dynamorio_alt_arch_filepath, '/');
+        if (sep != NULL) {
+            strncpy(dynamorio_alt_arch_path, dynamorio_alt_arch_filepath,
+                    sep - dynamorio_alt_arch_filepath);
+            NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
+        }
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch filepath: %s\n",
+            dynamorio_alt_arch_filepath);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
+            dynamorio_alt_arch_path);
+    } else {
+        /* Construct a path under assumptions of build-time path names. */
+        strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
+        /* Assumption: libdir name is not repeated elsewhere in path */
+        char *libdir =
+            strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
+        if (libdir != NULL) {
+            const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
+            /* do NOT place the NULL */
+            strncpy(libdir, newdir, strlen(newdir));
+        } else {
+            SYSLOG_INTERNAL_WARNING("unable to determine lib path for cross-arch execve");
+        }
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
+            dynamorio_alt_arch_path);
+        snprintf(dynamorio_alt_arch_filepath,
+                 BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath), "%s%s",
+                 dynamorio_alt_arch_path, dynamorio_libname);
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch filepath: %s\n",
+            dynamorio_alt_arch_filepath);
     }
 }
 

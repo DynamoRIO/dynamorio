@@ -46,6 +46,9 @@ d_r_config_init(void);
 void
 d_r_config_exit(void);
 
+bool
+d_r_config_initialized(void);
+
 void
 config_heap_init(void);
 
