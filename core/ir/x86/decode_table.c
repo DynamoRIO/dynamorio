@@ -4604,11 +4604,10 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20f7337, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 103 */
   {
-    {REX_B_EXT,  0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {REX_B_EXT,  0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_pause,0xf3900000, "pause", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {REX_B_EXT, 0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    /* windbg displays as "repne nop" */
-    {OP_nop, 0xf2900000, "nop", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {REX_B_EXT, 0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {REX_B_EXT, 0xf2900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {INVALID,     0x900000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0xf3900000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x66900000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -7117,7 +7116,7 @@ const instr_info_t evex_prefix_extensions[][2] = {
  */
 const instr_info_t rex_b_extensions[][2] = {
   { /* rex.b extension 0 */
-    /* we chain these even though encoding won't find them */
+    /* We chain these even though encoding won't find them. */
     {OP_nop,  0x900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
     /* For decoding we avoid needing new operand types by only getting
      * here if rex.b is set.  For encode, we would need either to take
@@ -7127,6 +7126,7 @@ const instr_info_t rex_b_extensions[][2] = {
      * assume the registers listed here are 32-bit base): that's too
      * much effort for a corner case that we're not 100% certain works on
      * all x64 processors, so we just don't list in the encoding chain.
+     * See i#5446.
      */
     {OP_xchg, 0x900000, "xchg", eAX_x, eAX, eAX_x, eAX, xx, o64, x, END_LIST},
   },
