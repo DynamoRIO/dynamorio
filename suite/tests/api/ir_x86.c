@@ -1165,6 +1165,32 @@ test_size_changes(void *dc)
         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_6));
     test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_6, 6);
     ASSERT(buf[0] == 0x66); /* check for data prefix */
+
+#ifdef X64
+    /* i#5442 */
+    byte bytes_xchg_ax_r8w[] = { 0x66, 0x41, 0x90 };
+    byte bytes_repne_xchg_eax_r8d[] = { 0xf2, 0x41, 0x90 };
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8W), opnd_create_reg(DR_REG_AX));
+    test_instr_decode(dc, instr, bytes_xchg_ax_r8w, sizeof(bytes_xchg_ax_r8w), false);
+
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8D), opnd_create_reg(DR_REG_EAX));
+    test_instr_decode(dc, instr, bytes_repne_xchg_eax_r8d,
+                      sizeof(bytes_repne_xchg_eax_r8d), false);
+
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8W), opnd_create_reg(DR_REG_AX));
+    /* This really should encode to the three bytes above (see i#5446) */
+    test_instr_encode_and_decode(dc, instr, 4, true /*src*/, 1, OPSZ_2, 2);
+    assert(buf[0] == 0x66); /* check for data prefix */
+
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_R8D));
+    /* This really should encode to two bytes (see i#5446) */
+    test_instr_encode_and_decode(dc, instr, 3, true /*src*/, 1, OPSZ_4, 4);
+    assert(buf[0] != 0x66); /* check for no data prefix */
+#endif
 }
 
 /* PR 332254: test xchg vs nop */
