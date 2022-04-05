@@ -1176,7 +1176,8 @@ test_size_changes(void *dc)
 
     instr =
         INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8D), opnd_create_reg(DR_REG_EAX));
-    test_instr_decode(dc, instr, bytes_repne_xchg_eax_r8d, sizeof(bytes_repne_xchg_eax_r8d), false);
+    test_instr_decode(dc, instr, bytes_repne_xchg_eax_r8d,
+                      sizeof(bytes_repne_xchg_eax_r8d), false);
 
     instr =
         INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8W), opnd_create_reg(DR_REG_AX));
