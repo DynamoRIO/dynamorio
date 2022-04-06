@@ -111,7 +111,7 @@ protected:
         // A vector to support windows.
         std::vector<counters_t> counters;
         std::string error;
-        uintptr_t last_window = 0;
+        intptr_t last_window = -1;
     };
 
     static bool

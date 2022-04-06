@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -98,6 +98,7 @@ public:
     // Static cross-platform utility functions.
     static bool
     is_directory(const std::string &path);
+    // Recursively creates all sub-directories.
     static bool
     create_directory(const std::string &path);
 

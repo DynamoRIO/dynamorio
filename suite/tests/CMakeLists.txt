@@ -3609,23 +3609,40 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
       # tracing is delayed (i#4893).
+      # Update: drmemtrace now does not even create an output file if tracing
+      # never starts, so this now serves as a test of that.  It only tests
+      # delayed function tracing if enough such tracing accumulated to output
+      # on its own which would assert on not having a file.
       # This is also large enough to test the (non-triggering portion of) the
       # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
+    # There is now no data file at all: which we test by echoing the glob.
+    set(tool.drcacheoff.delay-func_nopost ON)
+    set(tool.drcacheoff.delay-func_postcmd
+      "${CMAKE_COMMAND}@-E@echo@${dir_prefix}.*.dir/raw/*raw*")
 
     torunonly_drcacheoff(windows-simple ${ci_shared_app}
-      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-simulator_type@basic_counts" "")
     # Ensure the invariant checker handles window transitions.
     torunonly_drcacheoff(windows-invar ${ci_shared_app}
-      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-simulator_type@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
       torunonly_drcacheoff(windows-asm allasm_repstr
-        "-trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+        "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-simulator_type@basic_counts" "")
     endif ()
+    # Test split-file windows.
+    torunonly_drcacheoff(windows-split ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+    set(tool.drcacheoff.windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)

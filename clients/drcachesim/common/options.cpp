@@ -261,9 +261,19 @@ droption_t<bytesize_t> op_retrace_every_instrs(
     "Trace for -trace_for_instrs, execute this many, and repeat.",
     "This option augments -trace_for_instrs.  After tracing concludes, this option "
     "causes non-traced instructions to be counted and after the number specified by "
-    "this option, tracing start up again for the -trace_for_instrs duration.  This "
+    "this option, tracing will start up again for the -trace_for_instrs duration.  This "
     "process repeats itself.  This can be combined with -trace_after_instrs for an "
-    "initial period of non-tracing.");
+    "initial period of non-tracing.  Each tracing window is delimited by "
+    "TRACE_MARKER_TYPE_WINDOW_ID markers.  For -offline traces, each window is placed "
+    "into its own separate set of output files, unless -no_split_windows is set.");
+
+droption_t<bool> op_split_windows(
+    DROPTION_SCOPE_CLIENT, "split_windows", true,
+    "Whether -retrace_every_instrs should write separate files",
+    "By default, offline traces in separate windows from -retrace_every_instrs are "
+    "written to a different set of files for each window.  If this option is disabled, "
+    "all windows are concatenated into a single trace, separated by "
+    "TRACE_MARKER_TYPE_WINDOW_ID markers.");
 
 droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,

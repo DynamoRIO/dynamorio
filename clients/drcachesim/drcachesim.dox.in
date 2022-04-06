@@ -1062,7 +1062,12 @@ limited in several ways:
   executing its specified instruction count without tracing and then
   re-enabling tracing for \p -trace_for_instrs again, resulting in
   tracing windows repeated at regular intervals throughout the execution.
-  A single final trace is created at the end, with #TRACE_MARKER_TYPE_WINDOW_ID
+  There are two options for how these windows are stored for offline traces.
+  If the \p -split_windows option is set (which is the default), each window
+  produces a separate set of output files inside a window.NNNN subdirectory.
+  Post-processing by default targets the first window; the others must be explicitly
+  passed to separate post-processing invocations.  If \p -no_split_windows is set,
+  a single trace is created with #TRACE_MARKER_TYPE_WINDOW_ID
   markers (see \ref sec_drcachesim_format_other) identifying the trace window
   transitions.
 - The \p -max_global_trace_refs option causes the recording of trace

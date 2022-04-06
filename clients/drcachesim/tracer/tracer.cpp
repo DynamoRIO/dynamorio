@@ -145,6 +145,7 @@ typedef struct {
 #ifdef HAS_SNAPPY
     snappy_file_writer_t *snappy_writer;
 #endif
+    bool has_thread_header;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -227,6 +228,9 @@ count_traced_instrs(void *drcontext, int toadd);
 static void
 reached_traced_instrs_threshold(void *drcontext);
 
+static offline_file_type_t
+get_file_type();
+
 static uint64
 local_instr_count_threshold()
 {
@@ -253,12 +257,6 @@ bbdup_duplication_enabled()
 {
     return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
         op_retrace_every_instrs.get_value() > 0;
-}
-
-static void
-set_local_window(per_thread_t *data, ptr_int_t value)
-{
-    *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
 }
 
 static ptr_int_t
@@ -401,6 +399,234 @@ drmemtrace_filter_threads(bool (*should_trace_thread)(thread_id_t tid, void *use
     return DRMEMTRACE_SUCCESS;
 }
 
+static int
+append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window)
+{
+    int size_added = instru->append_unit_header(buf_ptr, tid, window);
+    if (op_L0_filter.get_value()) {
+        // Include the instruction count.
+        // It might be useful to include the count with each miss as well, but
+        // in experiments that adds non-trivial space and time overheads (as
+        // a separate marker; squished into the instr_count field might be
+        // better but at complexity costs, plus we may need that field for
+        // offset-within-block info to adjust the per-block count) and
+        // would likely need to be under an off-by-default option and have
+        // a mandated use case to justify adding it.
+        // Per-buffer should be sufficient as markers to align filtered traces
+        // with unfiltered traces, and is much lower overhead.
+        uintptr_t icount = 0;
+        if (drcontext != NULL) { // Handle process-init header.
+            per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+            icount = *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
+        }
+        size_added += instru->append_marker(buf_ptr + size_added,
+                                            TRACE_MARKER_TYPE_INSTRUCTION_COUNT, icount);
+    }
+    return size_added;
+}
+
+static void
+open_new_window_dir(ptr_int_t window_num)
+{
+    if (!op_split_windows.get_value())
+        return;
+    DR_ASSERT(op_offline.get_value());
+    char windir[MAXIMUM_PATH];
+    dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
+                logsubdir, DIRSEP, window_num);
+    NULL_TERMINATE_BUFFER(windir);
+    if (!file_ops_func.create_dir(windir))
+        FATAL("Failed to create window subdir %s\n", windir);
+    NOTIFY(2, "Created new window dir %s\n", windir);
+}
+
+// Returns whether a new file was opened (it won't be for -no_split_windows).
+static bool
+open_new_thread_file(void *drcontext, ptr_int_t window_num)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    bool opened_new_file = false;
+    DR_ASSERT(op_offline.get_value());
+    const char *dir = logsubdir;
+    char windir[MAXIMUM_PATH];
+    if (has_tracing_windows()) {
+        if (op_split_windows.get_value()) {
+            dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
+                        logsubdir, DIRSEP, window_num);
+            NULL_TERMINATE_BUFFER(windir);
+            dir = windir;
+        } else if (data->file != INVALID_FILE)
+            return false;
+    }
+    /* We do not need to call drx_init before using drx_open_unique_appid_file.
+     * Since we're now in a subdir we could make the name simpler but this
+     * seems nice and complete.
+     */
+    char buf[MAXIMUM_PATH];
+    int i;
+    const int NUM_OF_TRIES = 10000;
+    uint flags =
+        IF_UNIX(DR_FILE_CLOSE_ON_FORK |) DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_REQUIRE_NEW;
+    /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
+     * file name for creation.  Retry if the same name file already exists.
+     * Abort if we fail too many times.
+     */
+    const char *suffix = OUTFILE_SUFFIX;
+#ifdef HAS_SNAPPY
+    if (snappy_enabled())
+        suffix = OUTFILE_SUFFIX_SZ;
+#endif
+    for (i = 0; i < NUM_OF_TRIES; i++) {
+        drx_open_unique_appid_file(dir, dr_get_thread_id(drcontext), subdir_prefix,
+                                   suffix, DRX_FILE_SKIP_OPEN, buf,
+                                   BUFFER_SIZE_ELEMENTS(buf));
+        NULL_TERMINATE_BUFFER(buf);
+        file_t new_file = file_ops_func.open_file(buf, flags);
+        if (new_file == INVALID_FILE)
+            continue;
+        if (new_file == data->file)
+            FATAL("Failed to create new thread file for window %s\n", buf);
+        NOTIFY(2, "Created thread trace file %s\n", buf);
+        opened_new_file = true;
+        if (data->file != INVALID_FILE)
+            file_ops_func.close_file(data->file);
+        data->file = new_file;
+#ifdef HAS_SNAPPY
+        if (snappy_enabled()) {
+            // We use placement new for better isolation.
+            void *placement = dr_custom_alloc(
+                nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
+                DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
+            data->snappy_writer = new (placement)
+                snappy_file_writer_t(data->file, file_ops_func.write_file,
+                                     op_raw_compress.get_value() != "snappy_nocrc");
+            data->snappy_writer->write_file_header();
+        }
+#endif
+        break;
+    }
+    if (i == NUM_OF_TRIES) {
+        FATAL("Fatal error: failed to create trace file %s\n", buf);
+    }
+    return opened_new_file;
+}
+
+static size_t
+prepend_offline_thread_header(void *drcontext)
+{
+    DR_ASSERT(op_offline.get_value());
+    /* Write initial headers at the top of the first buffer. */
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    size_t size = reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
+        data->buf_base, dr_get_thread_id(drcontext), get_file_type());
+    BUF_PTR(data->seg_base) = data->buf_base + size + buf_hdr_slots_size;
+    data->has_thread_header = true;
+    return size;
+}
+
+static inline byte *
+atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end, ptr_int_t window)
+{
+    ssize_t towrite = pipe_end - pipe_start;
+    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() && towrite > 0);
+    if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite) {
+        FATAL("Fatal error: failed to write to pipe\n");
+    }
+    // Re-emit buffer unit header to handle split pipe writes.
+    if (pipe_end - buf_hdr_slots_size > pipe_start) {
+        pipe_start = pipe_end - buf_hdr_slots_size;
+        append_unit_header(drcontext, pipe_start, dr_get_thread_id(drcontext), window);
+    }
+    return pipe_start;
+}
+
+static inline byte *
+write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
+                 ptr_int_t window)
+{
+    if (op_offline.get_value()) {
+        per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+        ssize_t size = towrite_end - towrite_start;
+        DR_ASSERT(data->file != INVALID_FILE);
+        if (file_ops_func.handoff_buf != NULL) {
+            if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
+                                           max_buf_size)) {
+                FATAL("Fatal error: failed to hand off trace\n");
+            }
+        } else {
+            ssize_t wrote;
+#ifdef HAS_SNAPPY
+            if (op_offline.get_value() && snappy_enabled())
+                wrote = data->snappy_writer->compress_and_write(towrite_start, size);
+            else
+#endif
+                wrote = file_ops_func.write_file(data->file, towrite_start, size);
+            if (wrote < size) {
+                FATAL("Fatal error: failed to write trace for T%d window %zd: wrote %zd "
+                      "of %zd\n",
+                      dr_get_thread_id(drcontext), get_local_window(data), wrote, size);
+            }
+        }
+        return towrite_start;
+    } else {
+#ifdef HAS_SNAPPY
+        // XXX i#5427: Use snappy compression for pipe data as well.  We need to
+        // create a reader on the other end first.
+#endif
+        return atomic_pipe_write(drcontext, towrite_start, towrite_end, window);
+    }
+}
+
+// Should only be called when the trace buffer is empty.
+static void
+set_local_window(void *drcontext, ptr_int_t value)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    NOTIFY(3, "%s: T%d %zd (old: %zd)\n", __FUNCTION__, dr_get_thread_id(drcontext),
+           value, get_local_window(data));
+    if (op_offline.get_value()) {
+        ptr_int_t old_val = get_local_window(data);
+        if (old_val < value || value == 0) {
+            // Write out empty thread files for each bypassed window.
+            while (++old_val < value && op_split_windows.get_value()) {
+                NOTIFY(2, "Writing empty file for T%d window %zd\n",
+                       dr_get_thread_id(drcontext), old_val);
+                if (!open_new_thread_file(drcontext, old_val)) {
+                    // If the replacement open does not want separate files, do not write
+                    // new headers.
+                    continue;
+                }
+                byte buf[sizeof(offline_entry_t) * 32]; // Should need <<32.
+                byte *entry = buf;
+                entry +=
+                    reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
+                        entry, dr_get_thread_id(drcontext), get_file_type());
+                entry += append_unit_header(drcontext, entry, dr_get_thread_id(drcontext),
+                                            old_val);
+                // XXX: What about TRACE_MARKER_TYPE_INSTRUCTION_COUNT for filtered
+                // like event_thread_exit writes?
+                entry += instru->append_thread_exit(entry, dr_get_thread_id(drcontext));
+                DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(entry - buf));
+                write_trace_data(drcontext, (byte *)buf, entry, old_val);
+            }
+            if (op_split_windows.get_value() || data->init_header_size == 0) {
+                size_t header_size = prepend_offline_thread_header(drcontext);
+                if (data->init_header_size == 0)
+                    data->init_header_size = prepend_offline_thread_header(drcontext);
+                else
+                    DR_ASSERT(header_size == data->init_header_size);
+            }
+            // We delay opening the next window's file to avoid an empty final file.
+            // The initial file is opened at thread init.
+            if (data->file != INVALID_FILE && op_split_windows.get_value()) {
+                file_ops_func.close_file(data->file);
+                data->file = INVALID_FILE;
+            }
+        }
+    }
+    *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
+}
+
 static void
 create_buffer(per_thread_t *data)
 {
@@ -436,83 +662,6 @@ create_buffer(per_thread_t *data)
     }
 }
 
-static int
-append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window)
-{
-    int size_added = instru->append_unit_header(buf_ptr, tid, window);
-    if (op_L0_filter.get_value()) {
-        // Include the instruction count.
-        // It might be useful to include the count with each miss as well, but
-        // in experiments that adds non-trivial space and time overheads (as
-        // a separate marker; squished into the instr_count field might be
-        // better but at complexity costs, plus we may need that field for
-        // offset-within-block info to adjust the per-block count) and
-        // would likely need to be under an off-by-default option and have
-        // a mandated use case to justify adding it.
-        // Per-buffer should be sufficient as markers to align filtered traces
-        // with unfiltered traces, and is much lower overhead.
-        uintptr_t icount = 0;
-        if (drcontext != NULL) { // Handle process-init header.
-            per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-            icount = *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
-        }
-        size_added += instru->append_marker(buf_ptr + size_added,
-                                            TRACE_MARKER_TYPE_INSTRUCTION_COUNT, icount);
-    }
-    return size_added;
-}
-
-static inline byte *
-atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end, ptr_int_t window)
-{
-    ssize_t towrite = pipe_end - pipe_start;
-    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() && towrite > 0);
-    if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite) {
-        FATAL("Fatal error: failed to write to pipe\n");
-    }
-    // Re-emit buffer unit header to handle split pipe writes.
-    if (pipe_end - buf_hdr_slots_size > pipe_start) {
-        pipe_start = pipe_end - buf_hdr_slots_size;
-        append_unit_header(drcontext, pipe_start, dr_get_thread_id(drcontext), window);
-    }
-    return pipe_start;
-}
-
-static inline byte *
-write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
-                 ptr_int_t window)
-{
-    if (op_offline.get_value()) {
-        per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-        ssize_t size = towrite_end - towrite_start;
-        if (file_ops_func.handoff_buf != NULL) {
-            if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
-                                           max_buf_size)) {
-                FATAL("Fatal error: failed to hand off trace\n");
-            }
-        } else {
-            ssize_t wrote;
-#ifdef HAS_SNAPPY
-            if (op_offline.get_value() && snappy_enabled())
-                wrote = data->snappy_writer->compress_and_write(towrite_start, size);
-            else
-#endif
-                wrote = file_ops_func.write_file(data->file, towrite_start, size);
-            if (wrote < size) {
-                FATAL("Fatal error: failed to write trace: wrote %zd < %zd\n", wrote,
-                      size);
-            }
-        }
-        return towrite_start;
-    } else {
-#ifdef HAS_SNAPPY
-        // XXX i#5427: Use snappy compression for pipe data as well.  We need to
-        // create a reader on the other end first.
-#endif
-        return atomic_pipe_write(drcontext, towrite_start, towrite_end, window);
-    }
-}
-
 static bool
 is_ok_to_split_before(trace_type_t type)
 {
@@ -545,20 +694,29 @@ memtrace(void *drcontext, bool skip_size_cap)
     size_t header_size = 0;
     uint current_num_refs = 0;
 
+    if (op_offline.get_value() && data->file == INVALID_FILE) {
+        // We've delayed opening a new window file to avoid an empty final file.
+        DR_ASSERT(has_tracing_windows() || op_trace_after_instrs.get_value() > 0);
+        open_new_thread_file(drcontext, get_local_window(data));
+    }
+
     buf_ptr = BUF_PTR(data->seg_base);
     // For online we already wrote the thread header but for offline it is in
     // the first buffer, so skip over it.
-    if (data->num_refs == 0 && op_offline.get_value())
+    if (data->has_thread_header && op_offline.get_value())
         header_size = data->init_header_size;
     // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
     if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size) {
         if (has_tracing_windows()) {
-            // If there is no data to write, we do not emit an empty header.
-            // Thus multiple windows may pass with no output at all for an idle thread.
-            set_local_window(data, tracing_window.load(std::memory_order_acquire));
+            // If there is no data to write, we do not emit an empty header here
+            // unless this thread is exiting (set_local_window will also write out
+            // entries on a window change for offline; for online multiple windows
+            // may pass with no output at all for an idle thread).
+            set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
         }
         return;
     }
+    data->has_thread_header = false;
     // The initial slots are left empty for the header, which we add here.
     header_size +=
         append_unit_header(drcontext, data->buf_base + header_size,
@@ -574,6 +732,8 @@ memtrace(void *drcontext, bool skip_size_cap)
         window_changed = true;
         // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
         // one in its header.
+        if (op_offline.get_value() && op_split_windows.get_value())
+            buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
     }
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
@@ -645,6 +805,12 @@ memtrace(void *drcontext, bool skip_size_cap)
                 }
             }
             if (hit_window_end) {
+                if (op_offline.get_value() && op_split_windows.get_value()) {
+                    size_t add =
+                        instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
+                    data->bytes_written += add;
+                    buf_ptr += add;
+                }
                 // Update the global window, but not the local so we can place the rest
                 // of this buffer into the same local window.
                 reached_traced_instrs_threshold(drcontext);
@@ -730,8 +896,9 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
         dr_mutex_unlock(mutex);
     }
-    if (has_tracing_windows())
-        set_local_window(data, tracing_window.load(std::memory_order_acquire));
+    if (has_tracing_windows()) {
+        set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
+    }
 }
 
 /* clean_call sends the memory reference info to the simulator */
@@ -847,6 +1014,8 @@ reached_traced_instrs_threshold(void *drcontext)
     // exit entries will be the only ones in this new window: but that seems
     // reasonable.
     tracing_window.fetch_add(1, std::memory_order_release);
+    // We delay creating a new ouput dir until tracing is enabled again, to avoid
+    // an empty final dir.
     DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
     tracing_disabled.store(BBDUP_MODE_COUNT, std::memory_order_release);
     cur_window_instr_count.store(0, std::memory_order_release);
@@ -2002,6 +2171,8 @@ hit_instr_count_threshold(app_pc next_pc)
     else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
+        if (op_offline.get_value())
+            open_new_window_dir(tracing_window.load(std::memory_order_acquire));
     }
     if (!reached_trace_after_instrs.load(std::memory_order_acquire)) {
         reached_trace_after_instrs.store(true, std::memory_order_release);
@@ -2202,15 +2373,9 @@ event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
  * Top level.
  */
 
-/* Initializes a thread either at process init or fork init, where we want
- * a new offline file or a new thread,process registration pair for online.
- */
-static void
-init_thread_in_process(void *drcontext)
+static offline_file_type_t
+get_file_type()
 {
-    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    char buf[MAXIMUM_PATH];
-    byte *proc_info;
     offline_file_type_t file_type =
         op_L0_filter.get_value() ? OFFLINE_FILE_TYPE_FILTERED : OFFLINE_FILE_TYPE_DEFAULT;
     if (op_disable_optimizations.get_value()) {
@@ -2228,68 +2393,37 @@ init_thread_in_process(void *drcontext)
         IF_X86_ELSE(
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32)));
+    return file_type;
+}
 
+/* Initializes a thread either at process init or fork init, where we want
+ * a new offline file or a new thread,process registration pair for online.
+ */
+static void
+init_thread_in_process(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    byte *proc_info;
+
+    set_local_window(drcontext, -1);
     if (has_tracing_windows())
-        set_local_window(data, tracing_window.load(std::memory_order_acquire));
-    else
-        set_local_window(data, -1);
+        set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
 
     if (op_offline.get_value()) {
-        /* We do not need to call drx_init before using drx_open_unique_appid_file.
-         * Since we're now in a subdir we could make the name simpler but this
-         * seems nice and complete.
-         */
-        int i;
-        const int NUM_OF_TRIES = 10000;
-        uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |) DR_FILE_ALLOW_LARGE |
-            DR_FILE_WRITE_REQUIRE_NEW;
-        /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
-         * file name for creation.  Retry if the same name file already exists.
-         * Abort if we fail too many times.
-         */
-        const char *suffix = OUTFILE_SUFFIX;
-#ifdef HAS_SNAPPY
-        if (snappy_enabled())
-            suffix = OUTFILE_SUFFIX_SZ;
-#endif
-        for (i = 0; i < NUM_OF_TRIES; i++) {
-            drx_open_unique_appid_file(logsubdir, dr_get_thread_id(drcontext),
-                                       subdir_prefix, suffix, DRX_FILE_SKIP_OPEN, buf,
-                                       BUFFER_SIZE_ELEMENTS(buf));
-            NULL_TERMINATE_BUFFER(buf);
-            data->file = file_ops_func.open_file(buf, flags);
-            if (data->file != INVALID_FILE)
-                break;
+        if (tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+            open_new_thread_file(drcontext, get_local_window(data));
         }
-        if (i == NUM_OF_TRIES) {
-            FATAL("Fatal error: failed to create trace file %s\n", buf);
+        if (!has_tracing_windows()) {
+            data->init_header_size = prepend_offline_thread_header(drcontext);
+        } else {
+            // set_local_window() called prepend_offline_thread_header().
         }
-        NOTIFY(2, "Created thread trace file %s\n", buf);
-
-#ifdef HAS_SNAPPY
-        if (snappy_enabled()) {
-            // We use placement new for better isolation.
-            void *placement = dr_custom_alloc(
-                nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
-                DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
-            data->snappy_writer = new (placement)
-                snappy_file_writer_t(data->file, file_ops_func.write_file,
-                                     op_raw_compress.get_value() != "snappy_nocrc");
-            data->snappy_writer->write_file_header();
-        }
-#endif
-
-        /* Write initial headers at the top of the first buffer. */
-        data->init_header_size =
-            reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
-                data->buf_base, dr_get_thread_id(drcontext), file_type);
-        BUF_PTR(data->seg_base) =
-            data->buf_base + data->init_header_size + buf_hdr_slots_size;
     } else {
         /* pass pid and tid to the simulator to register current thread */
+        char buf[MAXIMUM_PATH];
         proc_info = (byte *)buf;
         proc_info += reinterpret_cast<online_instru_t *>(instru)->append_thread_header(
-            proc_info, dr_get_thread_id(drcontext), file_type);
+            proc_info, dr_get_thread_id(drcontext), get_file_type());
         DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(proc_info - (byte *)buf));
         write_trace_data(drcontext, (byte *)buf, proc_info, get_local_window(data));
 
@@ -2326,6 +2460,7 @@ event_thread_init(void *drcontext)
     per_thread_t *data = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
     memset(data, 0, sizeof(*data));
+    data->file = INVALID_FILE;
     drmgr_set_tls_field(drcontext, tls_idx, data);
 
     /* Keep seg_base in a per-thread data structure so we can get the TLS
@@ -2353,6 +2488,7 @@ static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+
     if (BUF_PTR(data->seg_base) != NULL) {
         /* This thread was *not* filtered out. */
 
@@ -2375,14 +2511,23 @@ event_thread_exit(void *drcontext)
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_INSTRUCTION_COUNT, icount);
         }
-        BUF_PTR(data->seg_base) += instru->append_thread_exit(
-            BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
+        if (tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
+            !op_split_windows.get_value()) {
+            BUF_PTR(data->seg_base) += instru->append_thread_exit(
+                BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
-        memtrace(drcontext,
-                 /* If this thread already wrote some data, include its exit even
-                  * if we're over a size limit.
-                  */
-                 data->bytes_written > 0);
+            ptr_int_t window = get_local_window(data);
+            memtrace(drcontext,
+                     /* If this thread already wrote some data, include its exit even
+                      * if we're over a size limit.
+                      */
+                     data->bytes_written > 0);
+            if (get_local_window(data) != window) {
+                BUF_PTR(data->seg_base) += instru->append_thread_exit(
+                    BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
+                memtrace(drcontext, data->bytes_written > 0);
+            }
+        }
 
         if (op_offline.get_value())
             file_ops_func.close_file(data->file);
@@ -2517,6 +2662,8 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(logsubdir);
     if (!file_ops_func.create_dir(logsubdir))
         return false;
+    if (has_tracing_windows())
+        open_new_window_dir(tracing_window.load(std::memory_order_acquire));
     /* If the ops are replaced, it's up the replacer to notify the user.
      * In some cases data is sent over the network and the replaced create_dir is
      * a nop that returns true, in which case we don't want this message.
