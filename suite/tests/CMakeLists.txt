@@ -3564,6 +3564,9 @@ if (BUILD_CLIENTS)
     # Sanity check for snappy compression of raw output files.
     torunonly_drcacheoff(raw-snappy ${ci_shared_app} "-raw_compress snappy" "" "")
     set(tool.drcacheoff.raw-snappy_expectbase "offline-simple")
+    torunonly_drcacheoff(raw-snappy-nocrc ${ci_shared_app}
+      "-raw_compress snappy_nocrc" "" "")
+    set(tool.drcacheoff.raw-snappy-nocrc_expectbase "offline-simple")
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)

@@ -269,6 +269,15 @@ get_local_window(per_thread_t *data)
 
 static std::atomic<ptr_int_t> tracing_window;
 
+#ifdef HAS_SNAPPY
+static inline bool
+snappy_enabled()
+{
+    return op_raw_compress.get_value() == "snappy" ||
+        op_raw_compress.get_value() == "snappy_nocrc";
+}
+#endif
+
 /***************************************************************************
  * Buffer writing to disk.
  */
@@ -484,7 +493,7 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
         } else {
             ssize_t wrote;
 #ifdef HAS_SNAPPY
-            if (op_offline.get_value() && op_raw_compress.get_value() == "snappy")
+            if (op_offline.get_value() && snappy_enabled())
                 wrote = data->snappy_writer->compress_and_write(towrite_start, size);
             else
 #endif
@@ -2240,7 +2249,7 @@ init_thread_in_process(void *drcontext)
          */
         const char *suffix = OUTFILE_SUFFIX;
 #ifdef HAS_SNAPPY
-        if (op_raw_compress.get_value() == "snappy")
+        if (snappy_enabled())
             suffix = OUTFILE_SUFFIX_SZ;
 #endif
         for (i = 0; i < NUM_OF_TRIES; i++) {
@@ -2258,13 +2267,14 @@ init_thread_in_process(void *drcontext)
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
 #ifdef HAS_SNAPPY
-        if (op_raw_compress.get_value() == "snappy") {
+        if (snappy_enabled()) {
             // We use placement new for better isolation.
             void *placement = dr_custom_alloc(
                 nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
                 DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
             data->snappy_writer = new (placement)
-                snappy_file_writer_t(data->file, file_ops_func.write_file);
+                snappy_file_writer_t(data->file, file_ops_func.write_file,
+                                     op_raw_compress.get_value() != "snappy_nocrc");
             data->snappy_writer->write_file_header();
         }
 #endif
@@ -2391,7 +2401,7 @@ event_thread_exit(void *drcontext)
         }
 
 #ifdef HAS_SNAPPY
-        if (op_offline.get_value() && op_raw_compress.get_value() == "snappy") {
+        if (op_offline.get_value() && snappy_enabled()) {
             data->snappy_writer->~snappy_file_writer_t();
             dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
                            sizeof(*data->snappy_writer));
@@ -2734,7 +2744,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
     }
 #ifdef HAS_SNAPPY
-    if (op_offline.get_value() && op_raw_compress.get_value() == "snappy") {
+    if (op_offline.get_value() && snappy_enabled()) {
         /* Unfortunately libsnappy allocates memory but does not parameterize its
          * allocator, meaning we cannot support it for static linking, so we override
          * the DR_DISALLOW_UNSAFE_STATIC declaration.

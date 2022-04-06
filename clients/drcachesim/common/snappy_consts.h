@@ -47,6 +47,10 @@ protected:
     enum chunk_type_t : unsigned char {
         COMPRESSED_DATA = 0x00,
         UNCOMPRESSED_DATA = 0x01,
+        // We've added these no-CRC types only locally.
+        // XXX i#5427: Propose adding these to the public spec.
+        COMPRESSED_DATA_NO_CRC = 0x02,
+        UNCOMPRESSED_DATA_NO_CRC = 0x03,
         SKIP_BEGIN = 0x80,
         SKIP_END = 0xfd,
         PADDING = 0xfe,
