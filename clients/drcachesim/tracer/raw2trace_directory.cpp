@@ -287,7 +287,12 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     indir_ = window_subdir_if_present(indir_);
     if (is_window_subdir(indir_)) {
         // If we're operating on a specific window, point at the parent for the modfile.
-        modfile_dir = indir_ + std::string(DIRSEP) + "..";
+        // Windows dr_open_file() doesn't like "..".
+        modfile_dir = indir_;
+        auto pos = modfile_dir.rfind(DIRSEP);
+        if (pos == std::string::npos)
+            return "Window subdir missing slash";
+        modfile_dir.erase(pos);
     }
 
     // Support a default outdir_.
