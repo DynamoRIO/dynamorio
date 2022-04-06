@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <algorithm>
 #include "directory_iterator.h"
 #include "utils.h"
 #include "dr_frontend.h"
