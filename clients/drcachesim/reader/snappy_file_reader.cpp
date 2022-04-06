@@ -124,8 +124,8 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
     }
 
     if (has_checksum) {
-        size_t dummy;
-        uint32_t checksum = mask_crc32(src_->Peek(&dummy), src_->Available());
+        size_t ignored;
+        uint32_t checksum = mask_crc32(src_->Peek(&ignored), src_->Available());
         if (checksum != read_checksum) {
             ERRMSG("Checksum failure on snappy block. Want %x, got %x\n", read_checksum,
                    checksum);
