@@ -1026,7 +1026,8 @@ snappy that omits checksums (enabled with "snappy_crc" passed to -p
 raw_compress).  However, whether compressing the raw files is a net
 reduction in overhead depends on the storage medium; for an SSD it is
 typically slower to compress, though "snappy_crc" comes close to
-matching the uncompressed performance.
+matching the uncompressed performance.  For a spinning disk,
+compression should be a net win.
 
 Older versions of the simulator produced a single trace file containing all threads
 interleaved.  The \p -infile option supports reading these legacy files:
