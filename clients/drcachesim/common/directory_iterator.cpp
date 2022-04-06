@@ -129,8 +129,9 @@ directory_iterator_t::is_directory(const std::string &path)
 }
 
 bool
-directory_iterator_t::create_directory(const std::string &path)
+directory_iterator_t::create_directory(const std::string &path_in)
 {
+    std::string path = path_in;
 #ifdef WINDOWS
     // Canonicalize.
     std::replace(path.begin(), path.end(), ALT_DIRSEP[0], DIRSEP[0]);
