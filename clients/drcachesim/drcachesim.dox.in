@@ -1018,8 +1018,16 @@ subdirectory may be pointed at with \p -indir:
 $ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
-The canonical trace files may be manually compressed with gzip, as the
-trace reader supports reading gzipped files.
+If built with the zlib library, the canonical trace files are
+automatically compressed with gzip.  The trace reader supports reading
+gzip or snappy compressed files.  The raw files may also be compressed
+with the -p raw_compress option using either snappy or a version of
+snappy that omits checksums (enabled with "snappy_crc" passed to -p
+raw_compress).  However, whether compressing the raw files is a net
+reduction in overhead depends on the storage medium; for an SSD it is
+typically slower to compress, though "snappy_crc" comes close to
+matching the uncompressed performance.  For a spinning disk,
+compression should be a net win.
 
 Older versions of the simulator produced a single trace file containing all threads
 interleaved.  The \p -infile option supports reading these legacy files:
