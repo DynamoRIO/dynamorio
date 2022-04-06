@@ -74,13 +74,18 @@ snappy_reader_t::check_magic()
 bool
 snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
 {
-    char *buf =
-        (type == COMPRESSED_DATA) ? compressed_buf_.data() : uncompressed_buf_.data();
-    size_t max_size = (type == COMPRESSED_DATA) ? max_compressed_size_ : max_block_size_;
-    max_size += checksum_size_;
-    if (size < checksum_size_ || size > max_size) {
+    bool is_compressed = (type == COMPRESSED_DATA || type == COMPRESSED_DATA_NO_CRC);
+    bool has_checksum = (type == COMPRESSED_DATA || type == UNCOMPRESSED_DATA);
+    char *buf = is_compressed ? compressed_buf_.data() : uncompressed_buf_.data();
+    size_t max_size = is_compressed ? max_compressed_size_ : max_block_size_;
+    size_t crc_size = 0;
+    if (has_checksum) {
+        crc_size = checksum_size_;
+        max_size += crc_size;
+    }
+    if (size < crc_size || size > max_size) {
         ERRMSG("Corrupted chunk header. Size %u, want <= %zu >= %zu.\n", size, max_size,
-               checksum_size_);
+               crc_size);
         return false;
     }
 
@@ -92,14 +97,13 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
     uint32_t read_checksum = 0;
     memcpy(&read_checksum, buf, 4);
 
-    src_.reset(new snappy::ByteArraySource(&uncompressed_buf_[checksum_size_],
-                                           size - checksum_size_));
+    src_.reset(
+        new snappy::ByteArraySource(&uncompressed_buf_[crc_size], size - crc_size));
 
     // Potentially uncompress.
-    if (type == COMPRESSED_DATA) {
+    if (is_compressed) {
         size_t uncompressed_chunk_size;
-        if (!snappy::GetUncompressedLength(&compressed_buf_[checksum_size_],
-                                           size - checksum_size_,
+        if (!snappy::GetUncompressedLength(&compressed_buf_[crc_size], size - crc_size,
                                            &uncompressed_chunk_size)) {
             ERRMSG("Failed getting snappy-compressed chunk length.\n");
             return false;
@@ -110,8 +114,8 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
             return false;
         }
 
-        if (!snappy::RawUncompress(&compressed_buf_[checksum_size_],
-                                   size - checksum_size_, uncompressed_buf_.data())) {
+        if (!snappy::RawUncompress(&compressed_buf_[crc_size], size - crc_size,
+                                   uncompressed_buf_.data())) {
             ERRMSG("Failed decompressing snappy chunk\n");
             return false;
         }
@@ -119,12 +123,14 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
                                                uncompressed_chunk_size));
     }
 
-    size_t dummy;
-    uint32_t checksum = mask_crc32(src_->Peek(&dummy), src_->Available());
-    if (checksum != read_checksum) {
-        ERRMSG("Checksum failure on snappy block. Want %x, got %x\n", read_checksum,
-               checksum);
-        return false;
+    if (has_checksum) {
+        size_t ignored;
+        uint32_t checksum = mask_crc32(src_->Peek(&ignored), src_->Available());
+        if (checksum != read_checksum) {
+            ERRMSG("Checksum failure on snappy block. Want %x, got %x\n", read_checksum,
+                   checksum);
+            return false;
+        }
     }
     return true;
 }
@@ -145,6 +151,8 @@ snappy_reader_t::read_new_chunk()
     case STREAM_IDENTIFIER: return read_magic(size); break;
     case COMPRESSED_DATA:
     case UNCOMPRESSED_DATA:
+    case COMPRESSED_DATA_NO_CRC:
+    case UNCOMPRESSED_DATA_NO_CRC:
         if (!check_magic())
             return false;
         return read_data_chunk(size, type);
