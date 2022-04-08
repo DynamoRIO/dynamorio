@@ -56,7 +56,9 @@
  *            elements, <number of elements>x<element size>, e.g. 4x16.
  */
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <V><m> */
-static bool dec_SQRDMLAH_VVV_16(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVV_16(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   /* Sanity check to ensure correct key/value entry has been generated in
    * decode_map.
    */
@@ -81,7 +83,9 @@ static bool dec_SQRDMLAH_VVV_16(dcontext_t *dcontext, uint enc, instr_t *instr) 
 }
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <V><m> */
-static bool dec_SQRDMLAH_VVV_32(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVV_32(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01111110100);
 
   opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 4, 0));
@@ -99,7 +103,9 @@ static bool dec_SQRDMLAH_VVV_32(dcontext_t *dcontext, uint enc, instr_t *instr) 
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
-static bool dec_SQRDMLAH_VVV_4x16(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVV_4x16(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b00101110010);
 
   opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
@@ -119,7 +125,9 @@ static bool dec_SQRDMLAH_VVV_4x16(dcontext_t *dcontext, uint enc, instr_t *instr
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
-static bool dec_SQRDMLAH_VVV_8x16(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVV_8x16(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01101110010);
 
   opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
@@ -139,7 +147,9 @@ static bool dec_SQRDMLAH_VVV_8x16(dcontext_t *dcontext, uint enc, instr_t *instr
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
-static bool dec_SQRDMLAH_VVV_2x32(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVV_2x32(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b00101110100);
 
   opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
@@ -159,7 +169,9 @@ static bool dec_SQRDMLAH_VVV_2x32(dcontext_t *dcontext, uint enc, instr_t *instr
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
-static bool dec_SQRDMLAH_VVV_4x32(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVV_4x32(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01101110100);
 
   opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
@@ -200,7 +212,9 @@ const static decode_map decode_map__31_21__15_10[] = {
 };
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>] */
-static bool dec_SQRDMLAH_VVVI_16(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVVI_16(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
          BITS(enc, 31, 22) == 0b0111111101);
 
@@ -224,7 +238,9 @@ static bool dec_SQRDMLAH_VVVI_16(dcontext_t *dcontext, uint enc, instr_t *instr)
 }
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>] */
-static bool dec_SQRDMLAH_VVVI_32(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVVI_32(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
          BITS(enc, 31, 22) == 0b0111111110);
 
@@ -248,7 +264,9 @@ static bool dec_SQRDMLAH_VVVI_32(dcontext_t *dcontext, uint enc, instr_t *instr)
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
-static bool dec_SQRDMLAH_VVVI_4x16_1x16(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVVI_4x16_1x16(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
          BITS(enc, 31, 22) == 0b0010111101);
 
@@ -272,7 +290,9 @@ static bool dec_SQRDMLAH_VVVI_4x16_1x16(dcontext_t *dcontext, uint enc, instr_t 
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
-static bool dec_SQRDMLAH_VVVI_8x16_1x16(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVVI_8x16_1x16(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
          BITS(enc, 31, 22) == 0b0110111101);
 
@@ -296,7 +316,9 @@ static bool dec_SQRDMLAH_VVVI_8x16_1x16(dcontext_t *dcontext, uint enc, instr_t 
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
-static bool dec_SQRDMLAH_VVVI_2x32_1x32(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVVI_2x32_1x32(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
          BITS(enc, 31, 22) == 0b0010111110);
 
@@ -320,7 +342,9 @@ static bool dec_SQRDMLAH_VVVI_2x32_1x32(dcontext_t *dcontext, uint enc, instr_t 
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
-static bool dec_SQRDMLAH_VVVI_4x32_1x32(dcontext_t *dcontext, uint enc, instr_t *instr) {
+static bool
+dec_SQRDMLAH_VVVI_4x32_1x32(dcontext_t *dcontext, uint enc, instr_t *instr)
+{
   ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
          BITS(enc, 31, 22) == 0b0110111110);
 
@@ -386,9 +410,10 @@ decode_v81(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
         uint bits_15_10_len = (15 - 10) + 1;
         uint bitmap = (bits_31_21 << bits_15_10_len) | bits_15_10;
         map_size = sizeof(decode_map__31_21__15_10) / sizeof(decode_map);
-        for (int m = 0; m < map_size; m++)
+        for (int m = 0; m < map_size; m++) {
             if (decode_map__31_21__15_10[m].enc_bits == bitmap)
                 return decode_map__31_21__15_10[m].decode_fn(dc, enc, instr);
+        }
     }
     {
         /* MRSC: SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>] */
@@ -401,9 +426,10 @@ decode_v81(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
         uint bitmap = (bits_31_22 << (bit_10_len + bits_15_12_len)) |
                       (bits_15_12 << bit_10_len) | bit_10;
         map_size = sizeof(decode_map__31_22__15_12__10) / sizeof(decode_map);
-        for (int m = 0; m < map_size; m++)
+        for (int m = 0; m < map_size; m++) {
             if (decode_map__31_22__15_12__10[m].enc_bits == bitmap)
                 return decode_map__31_22__15_12__10[m].decode_fn(dc, enc, instr);
+        }
     }
     return decoder_v82(enc, dc, pc, instr);
 }
