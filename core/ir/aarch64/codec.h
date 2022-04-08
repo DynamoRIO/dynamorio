@@ -56,15 +56,15 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
 /* Bit extraction macro used extensively by automatically generated decoder and
  * encoder functions.
  */
-#define BITS(_enc, bitmax, bitmin)                          \
-   (( ((uint32)(_enc)) >> (bitmin))                         \
-    & (uint32)((1ULL << ((bitmax) - (bitmin) + 1)) - 1ULL))
+#define BITS(_enc, bitmax, bitmin)    \
+    ((((uint32)(_enc)) >> (bitmin)) & \
+     (uint32)((1ULL << ((bitmax) - (bitmin) + 1)) - 1ULL))
 
 /* Decoding is based on a key/value mapping (decode_map) where the key
  * (enc_bits) is a unique set of up to 32 bits representing an instruction
  * which is decoded by a function (decode_fn).
  */
-typedef bool (decode_func_ptr)(dcontext_t *dcontext, uint enc, instr_t *instr);
+typedef bool(decode_func_ptr)(dcontext_t *dcontext, uint enc, instr_t *instr);
 
 typedef struct dmap {
     uint32 enc_bits;
@@ -75,8 +75,8 @@ typedef struct dmap {
  * generated encoder switch/case clauses.
  */
 #define ENCODE_IF_MATCH(ENCODE_FUNCTION) \
-   enc = ENCODE_FUNCTION(instr);         \
-   if (enc != ENCFAIL)                   \
-       return enc;
+    enc = ENCODE_FUNCTION(instr);        \
+    if (enc != ENCFAIL)                  \
+        return enc;
 
 #endif /* CODEC_H */

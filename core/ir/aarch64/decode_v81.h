@@ -59,135 +59,135 @@
 static bool
 dec_SQRDMLAH_VVV_16(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  /* Sanity check to ensure correct key/value entry has been generated in
-   * decode_map.
-   */
-  ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01111110010);
+    /* Sanity check to ensure correct key/value entry has been generated in
+     * decode_map.
+     */
+    ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01111110010);
 
-  /* Decode operands based on type and size data, and bit positions extracted
-   * from MRS.
-   */
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 20, 16));
+    /* Decode operands based on type and size data, and bit positions extracted
+     * from MRS.
+     */
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 20, 16));
 
-  /* Instruction name and operand type data from MRS. */
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 2);
+    /* Instruction name and operand type data from MRS. */
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 2);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <V><m> */
 static bool
 dec_SQRDMLAH_VVV_32(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01111110100);
+    ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01111110100);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 20, 16));
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 20, 16));
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 2);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 2);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
 static bool
 dec_SQRDMLAH_VVV_4x16(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b00101110010);
+    ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b00101110010);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 20, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 20, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 3);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 3);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
 static bool
 dec_SQRDMLAH_VVV_8x16(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01101110010);
+    ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01101110010);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 20, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 20, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 3);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 3);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
 static bool
 dec_SQRDMLAH_VVV_2x32(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b00101110100);
+    ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b00101110100);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 20, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 20, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 3);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 3);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
 static bool
 dec_SQRDMLAH_VVV_4x32(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01101110100);
+    ASSERT(BITS(enc, 15, 10) == 0b100001 && BITS(enc, 31, 21) == 0b01101110100);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 20, 16));
-  opnd_t elsz = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 20, 16));
+    opnd_t elsz = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 3);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 3);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, elsz);
 
-  return true;
+    return true;
 }
 
 /* Translation from a 32 bit encoding to the decode function is based on a
@@ -203,179 +203,179 @@ dec_SQRDMLAH_VVV_4x32(dcontext_t *dcontext, uint enc, instr_t *instr)
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <V><m> */
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
 const static decode_map decode_map__31_21__15_10[] = {
-    {0b01111110010100001, dec_SQRDMLAH_VVV_16},
-    {0b01111110100100001, dec_SQRDMLAH_VVV_32},
-    {0b00101110010100001, dec_SQRDMLAH_VVV_4x16},
-    {0b01101110010100001, dec_SQRDMLAH_VVV_8x16},
-    {0b00101110100100001, dec_SQRDMLAH_VVV_2x32},
-    {0b01101110100100001, dec_SQRDMLAH_VVV_4x32}
+    { 0b01111110010100001, dec_SQRDMLAH_VVV_16 },
+    { 0b01111110100100001, dec_SQRDMLAH_VVV_32 },
+    { 0b00101110010100001, dec_SQRDMLAH_VVV_4x16 },
+    { 0b01101110010100001, dec_SQRDMLAH_VVV_8x16 },
+    { 0b00101110100100001, dec_SQRDMLAH_VVV_2x32 },
+    { 0b01101110100100001, dec_SQRDMLAH_VVV_4x32 }
 };
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>] */
 static bool
 dec_SQRDMLAH_VVVI_16(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
-         BITS(enc, 31, 22) == 0b0111111101);
+    ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
+           BITS(enc, 31, 22) == 0b0111111101);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 19, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_1);
-  uint hlm = (BITS(enc, 11, 11) << 2) | BITS(enc, 21, 20);
-  opnd_t idx = opnd_create_immed_uint(hlm, OPSZ_3b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_HALF, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 19, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_1);
+    uint hlm = (BITS(enc, 11, 11) << 2) | BITS(enc, 21, 20);
+    opnd_t idx = opnd_create_immed_uint(hlm, OPSZ_3b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, idx);
-  instr_set_src(instr, 3, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, idx);
+    instr_set_src(instr, 3, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>] */
 static bool
 dec_SQRDMLAH_VVVI_32(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
-         BITS(enc, 31, 22) == 0b0111111110);
+    ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
+           BITS(enc, 31, 22) == 0b0111111110);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(4, BITS(enc, 19, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_1);
-  uint hl = (BITS(enc, 11, 11) << 1) | BITS(enc, 21, 21);
-  opnd_t idx = opnd_create_immed_uint(hl, OPSZ_3b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_SINGLE, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(4, BITS(enc, 19, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_1);
+    uint hl = (BITS(enc, 11, 11) << 1) | BITS(enc, 21, 21);
+    opnd_t idx = opnd_create_immed_uint(hl, OPSZ_3b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, idx);
-  instr_set_src(instr, 3, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, idx);
+    instr_set_src(instr, 3, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
 static bool
 dec_SQRDMLAH_VVVI_4x16_1x16(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
-         BITS(enc, 31, 22) == 0b0010111101);
+    ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
+           BITS(enc, 31, 22) == 0b0010111101);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 19, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_1);
-  uint hlm = (BITS(enc, 11, 11) << 2) | BITS(enc, 21, 20);
-  opnd_t idx = opnd_create_immed_uint(hlm, OPSZ_3b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 19, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_1);
+    uint hlm = (BITS(enc, 11, 11) << 2) | BITS(enc, 21, 20);
+    opnd_t idx = opnd_create_immed_uint(hlm, OPSZ_3b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, idx);
-  instr_set_src(instr, 3, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, idx);
+    instr_set_src(instr, 3, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
 static bool
 dec_SQRDMLAH_VVVI_8x16_1x16(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
-         BITS(enc, 31, 22) == 0b0110111101);
+    ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
+           BITS(enc, 31, 22) == 0b0110111101);
 
-  opnd_t Vd = decode_vreg(4, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(4, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(4, BITS(enc, 19, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_1);
-  uint hlm = (BITS(enc, 11, 11) << 2) | BITS(enc, 21, 20);
-  opnd_t idx = opnd_create_immed_uint(hlm, OPSZ_3b);
+    opnd_t Vd = decode_vreg(4, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(4, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(4, BITS(enc, 19, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_HALF, OPSZ_1);
+    uint hlm = (BITS(enc, 11, 11) << 2) | BITS(enc, 21, 20);
+    opnd_t idx = opnd_create_immed_uint(hlm, OPSZ_3b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, idx);
-  instr_set_src(instr, 3, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, idx);
+    instr_set_src(instr, 3, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
 static bool
 dec_SQRDMLAH_VVVI_2x32_1x32(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
-         BITS(enc, 31, 22) == 0b0010111110);
+    ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
+           BITS(enc, 31, 22) == 0b0010111110);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 20, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_1);
-  uint hl = (BITS(enc, 11, 11) << 1) | BITS(enc, 21, 21);
-  opnd_t idx = opnd_create_immed_uint(hl, OPSZ_3b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_DOUBLE, BITS(enc, 20, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_1);
+    uint hl = (BITS(enc, 11, 11) << 1) | BITS(enc, 21, 21);
+    opnd_t idx = opnd_create_immed_uint(hl, OPSZ_3b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, idx);
-  instr_set_src(instr, 3, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, idx);
+    instr_set_src(instr, 3, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
 static bool
 dec_SQRDMLAH_VVVI_4x32_1x32(dcontext_t *dcontext, uint enc, instr_t *instr)
 {
-  ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
-         BITS(enc, 31, 22) == 0b0110111110);
+    ASSERT(BITS(enc, 10, 10) == 0b0 && BITS(enc, 15, 12) == 0b1101 &&
+           BITS(enc, 31, 22) == 0b0110111110);
 
-  opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
-  opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 9, 5));
-  opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 20, 16));
-  opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_1);
-  uint hl = (BITS(enc, 11, 11) << 1) | BITS(enc, 21, 21);
-  opnd_t idx = opnd_create_immed_uint(hl, OPSZ_3b);
+    opnd_t Vd = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 4, 0));
+    opnd_t Vn = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 9, 5));
+    opnd_t Vm = decode_vreg(VECTOR_ELEM_WIDTH_QUAD, BITS(enc, 20, 16));
+    opnd_t elsz = opnd_create_immed_uint(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_1);
+    uint hl = (BITS(enc, 11, 11) << 1) | BITS(enc, 21, 21);
+    opnd_t idx = opnd_create_immed_uint(hl, OPSZ_3b);
 
-  instr_set_opcode(instr, OP_sqrdmlah);
-  instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_opcode(instr, OP_sqrdmlah);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
 
-  instr_set_dst(instr, 0, Vd);
-  instr_set_src(instr, 0, Vn);
-  instr_set_src(instr, 1, Vm);
-  instr_set_src(instr, 2, idx);
-  instr_set_src(instr, 3, elsz);
+    instr_set_dst(instr, 0, Vd);
+    instr_set_src(instr, 0, Vn);
+    instr_set_src(instr, 1, Vm);
+    instr_set_src(instr, 2, idx);
+    instr_set_src(instr, 3, elsz);
 
-  return true;
+    return true;
 }
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>] */
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
 const static decode_map decode_map__31_22__15_12__10[] = {
-    {0b011111110111010, dec_SQRDMLAH_VVVI_16},
-    {0b011111111011010, dec_SQRDMLAH_VVVI_32},
-    {0b001011110111010, dec_SQRDMLAH_VVVI_4x16_1x16},
-    {0b011011110111010, dec_SQRDMLAH_VVVI_8x16_1x16},
-    {0b001011111011010, dec_SQRDMLAH_VVVI_2x32_1x32},
-    {0b011011111011010, dec_SQRDMLAH_VVVI_4x32_1x32}
+    { 0b011111110111010, dec_SQRDMLAH_VVVI_16 },
+    { 0b011111111011010, dec_SQRDMLAH_VVVI_32 },
+    { 0b001011110111010, dec_SQRDMLAH_VVVI_4x16_1x16 },
+    { 0b011011110111010, dec_SQRDMLAH_VVVI_8x16_1x16 },
+    { 0b001011111011010, dec_SQRDMLAH_VVVI_2x32_1x32 },
+    { 0b011011111011010, dec_SQRDMLAH_VVVI_4x32_1x32 }
 };
 
 static bool
@@ -424,7 +424,7 @@ decode_v81(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
         uint bit_10_len = 1;
         uint bits_15_12_len = (15 - 12) + 1;
         uint bitmap = (bits_31_22 << (bit_10_len + bits_15_12_len)) |
-                      (bits_15_12 << bit_10_len) | bit_10;
+            (bits_15_12 << bit_10_len) | bit_10;
         map_size = sizeof(decode_map__31_22__15_12__10) / sizeof(decode_map);
         for (int m = 0; m < map_size; m++) {
             if (decode_map__31_22__15_12__10[m].enc_bits == bitmap)

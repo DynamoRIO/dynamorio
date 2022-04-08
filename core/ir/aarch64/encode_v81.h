@@ -66,7 +66,7 @@ enc_SQRDMLAH_VVV_16(instr_t *instr)
 
     /* Sanity check based on name of instruction extracted from MRS. */
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     /* Encode operands based on number, type and size data, and bit positions
      * extracted from MRS.
@@ -93,7 +93,7 @@ enc_SQRDMLAH_VVV_32(instr_t *instr)
     uint32 enc = 0x7e808400;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 2)
         return ENCFAIL;
@@ -117,10 +117,10 @@ enc_SQRDMLAH_VVV_4x16(instr_t *instr)
     uint32 enc = 0x2e408400;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 3)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0;
     opnd_size_t double_ = OPSZ_8;
@@ -145,10 +145,10 @@ enc_SQRDMLAH_VVV_8x16(instr_t *instr)
     uint32 enc = 0x6e408400;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 3)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0;
     opnd_size_t quad = OPSZ_16;
@@ -173,10 +173,10 @@ enc_SQRDMLAH_VVV_2x32(instr_t *instr)
     uint32 enc = 0x2e808400;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 3)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0;
     opnd_size_t double_ = OPSZ_8;
@@ -201,10 +201,10 @@ enc_SQRDMLAH_VVV_4x32(instr_t *instr)
     uint32 enc = 0x6e808400;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 3)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0;
     opnd_size_t quad = OPSZ_16;
@@ -229,10 +229,10 @@ enc_SQRDMLAH_VVVI_16(instr_t *instr)
     uint32 enc = 0x7f40d000;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0, idx = 0;
     opnd_size_t half = OPSZ_2, quad = OPSZ_16;
@@ -247,8 +247,8 @@ enc_SQRDMLAH_VVVI_16(instr_t *instr)
     if (!encode_opnd_h_sz(0, 0, 0, instr_get_src(instr, 3), &elsz))
         return ENCFAIL;
 
-    return enc |= (elsz << 22) | (idx & 0x300000) | (Vm << 16) |
-                  (idx & 0x800) | (Vn << 5) | Vd;
+    return enc |=
+        (elsz << 22) | (idx & 0x300000) | (Vm << 16) | (idx & 0x800) | (Vn << 5) | Vd;
 }
 
 /* MRSC: SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>] */
@@ -258,10 +258,10 @@ enc_SQRDMLAH_VVVI_32(instr_t *instr)
     uint32 enc = 0x7f80d000;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0, idx = 0;
     opnd_size_t single = OPSZ_4, quad = OPSZ_16;
@@ -276,8 +276,8 @@ enc_SQRDMLAH_VVVI_32(instr_t *instr)
     if (!encode_opnd_sd_sz(0, 0, 0, instr_get_src(instr, 3), &elsz))
         return ENCFAIL;
 
-    return enc |= (elsz << 22) | (idx & 0x200000) | (Vm << 16) |
-                  (idx & 0x800) | (Vn << 5) | Vd;
+    return enc |=
+        (elsz << 22) | (idx & 0x200000) | (Vm << 16) | (idx & 0x800) | (Vn << 5) | Vd;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
@@ -287,10 +287,10 @@ enc_SQRDMLAH_VVVI_4x16_1x16(instr_t *instr)
     uint32 enc = 0x2f40d000;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0, idx = 0;
     opnd_size_t double_ = OPSZ_8;
@@ -305,8 +305,8 @@ enc_SQRDMLAH_VVVI_4x16_1x16(instr_t *instr)
     if (!encode_opnd_h_sz(0, 0, 0, instr_get_src(instr, 3), &elsz))
         return ENCFAIL;
 
-    return enc |= (elsz << 22) | (idx & 0x300000) | (Vm << 16) |
-                  (idx & 0x800) | (Vn << 5) | Vd;
+    return enc |=
+        (elsz << 22) | (idx & 0x300000) | (Vm << 16) | (idx & 0x800) | (Vn << 5) | Vd;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
@@ -316,10 +316,10 @@ enc_SQRDMLAH_VVVI_8x16_1x16(instr_t *instr)
     uint32 enc = 0x6f40d000;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0, idx = 0;
     opnd_size_t quad = OPSZ_16;
@@ -334,8 +334,8 @@ enc_SQRDMLAH_VVVI_8x16_1x16(instr_t *instr)
     if (!encode_opnd_h_sz(0, 0, 0, instr_get_src(instr, 3), &elsz))
         return ENCFAIL;
 
-    return enc |= (elsz << 22) | (idx & 0x300000) | (Vm << 16) |
-                  (idx & 0x800) | (Vn << 5) | Vd;
+    return enc |=
+        (elsz << 22) | (idx & 0x300000) | (Vm << 16) | (idx & 0x800) | (Vn << 5) | Vd;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
@@ -345,10 +345,10 @@ enc_SQRDMLAH_VVVI_2x32_1x32(instr_t *instr)
     uint32 enc = 0x2f80d000;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0, idx = 0;
     opnd_size_t double_ = OPSZ_8;
@@ -363,8 +363,8 @@ enc_SQRDMLAH_VVVI_2x32_1x32(instr_t *instr)
     if (!encode_opnd_sd_sz(0, 0, 0, instr_get_src(instr, 3), &elsz))
         return ENCFAIL;
 
-    return enc |= (elsz << 22) | (idx & 0x200000) | (Vm << 16) |
-                  (idx & 0x800) | (Vn << 5) | Vd;
+    return enc |=
+        (elsz << 22) | (idx & 0x200000) | (Vm << 16) | (idx & 0x800) | (Vn << 5) | Vd;
 }
 
 /* MRSC: SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>] */
@@ -374,10 +374,10 @@ enc_SQRDMLAH_VVVI_4x32_1x32(instr_t *instr)
     uint32 enc = 0x6f80d000;
 
     if (instr_get_opcode(instr) != OP_sqrdmlah)
-      return ENCFAIL;
+        return ENCFAIL;
 
     if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4)
-      return ENCFAIL;
+        return ENCFAIL;
 
     uint Vd = 0, Vn = 0, Vm = 0, elsz = 0, idx = 0;
     opnd_size_t quad = OPSZ_16;
@@ -392,8 +392,8 @@ enc_SQRDMLAH_VVVI_4x32_1x32(instr_t *instr)
     if (!encode_opnd_sd_sz(0, 0, 0, instr_get_src(instr, 3), &elsz))
         return ENCFAIL;
 
-    return enc |= (elsz << 22) | (idx & 0x200000) | (Vm << 16) |
-                  (idx & 0x800) | (Vn << 5) | Vd;
+    return enc |=
+        (elsz << 22) | (idx & 0x200000) | (Vm << 16) | (idx & 0x800) | (Vn << 5) | Vd;
 }
 
 static uint
