@@ -35,6 +35,7 @@
 #undef NDEBUG
 #include <assert.h>
 #include "cache_replacement_policy_unit_test.h"
+#include "simulator/cache_fifo.h"
 #include "simulator/cache_lru.h"
 
 class cache_lru_test_t : public cache_lru_t {
@@ -68,6 +69,40 @@ public:
         request(ref);
         assert(replace_which_way(get_block_index(addr)) ==
                expected_replacement_way_after_access);
+    }
+};
+
+class cache_fifo_test_t : public cache_fifo_t {
+public:
+    void
+    initialize_cache(int associativity, int line_size, int total_size)
+    {
+        caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
+        if (!init(associativity, line_size, total_size, nullptr, stats, nullptr)) {
+            std::cerr << "FIFO cache failed to initialize\n";
+            exit(1);
+        }
+    }
+
+    int
+    get_block_index(const addr_t addr)
+    {
+        addr_t tag = compute_tag(addr);
+        int block_idx = compute_block_idx(tag);
+        return block_idx;
+    }
+
+    void
+    access_and_check_fifo(const addr_t addr,
+                          const int expected_replacement_way_after_access)
+    {
+        memref_t ref;
+        ref.data.type = TRACE_TYPE_READ;
+        ref.data.size = 1;
+        ref.data.addr = addr;
+        request(ref);
+        assert(replace_which_way(get_block_index(addr) ==
+                                 expected_replacement_way_after_access));
     }
 };
 
@@ -106,8 +141,38 @@ unit_test_cache_lru_four_way()
 }
 
 void
+unit_test_cache_fifo_four_way()
+{
+    cache_fifo_test_t cache_fifo_test;
+    cache_fifo_test.initialize_cache(/*associativity=*/4, /*line_size=*/32,
+                                     /*total_size=*/256);
+    const addr_t ADDRESS_A = 0;
+    const addr_t ADDRESS_B = 64;
+    const addr_t ADDRESS_C = 128;
+    const addr_t ADDRESS_D = 192;
+    const addr_t ADDRESS_E = 72;
+
+    assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
+           cache_fifo_test.get_block_index(ADDRESS_B));
+    assert(cache_fifo_test.get_block_index(ADDRESS_B) ==
+           cache_fifo_test.get_block_index(ADDRESS_C));
+    assert(cache_fifo_test.get_block_index(ADDRESS_C) ==
+           cache_fifo_test.get_block_index(ADDRESS_D));
+    assert(cache_fifo_test.get_block_index(ADDRESS_D) ==
+           cache_fifo_test.get_block_index(ADDRESS_E));
+
+    // Lower-case letter shows the way that is to be replaced after the access.
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A x X X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_B, 2); // A B x X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_C, 3); // A B C x
+    cache_fifo_test.access_and_check_fifo(ADDRESS_D, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
+}
+
+void
 unit_test_cache_replacement_policy()
 {
     unit_test_cache_lru_four_way();
+    unit_test_cache_fifo_four_way();
     // XXX i#4842: Add more test sequences.
 }
