@@ -101,8 +101,8 @@ public:
         ref.data.size = 1;
         ref.data.addr = addr;
         request(ref);
-        assert(replace_which_way(get_block_index(addr)) ==
-                                 expected_replacement_way_after_access);
+        assert(get_next_way_to_replace(get_block_index(addr)) ==
+                                       expected_replacement_way_after_access);
     }
 };
 
@@ -166,6 +166,58 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check_fifo(ADDRESS_B, 2); // A B x X
     cache_fifo_test.access_and_check_fifo(ADDRESS_C, 3); // A B C x
     cache_fifo_test.access_and_check_fifo(ADDRESS_D, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 2); // A B c D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 2); // A B c D
+}
+
+void
+unit_test_cache_fifo_eight_way()
+{
+    cache_fifo_test_t cache_fifo_test;
+    cache_fifo_test.initialize_cache(/*associativity=*/8, /*line_size=*/32,
+                                     /*total_size=*/1024);
+    const addr_t ADDRESS_A = 0;
+    const addr_t ADDRESS_B = 128;
+    const addr_t ADDRESS_C = 256;
+    const addr_t ADDRESS_D = 384;
+    const addr_t ADDRESS_E = 512;
+    const addr_t ADDRESS_F = 640;
+    const addr_t ADDRESS_G = 768;
+    const addr_t ADDRESS_H = 896;
+    const addr_t ADDRESS_I = 144;
+
+    assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
+           cache_fifo_test.get_block_index(ADDRESS_B));
+    assert(cache_fifo_test.get_block_index(ADDRESS_B) ==
+           cache_fifo_test.get_block_index(ADDRESS_C));
+    assert(cache_fifo_test.get_block_index(ADDRESS_C) ==
+           cache_fifo_test.get_block_index(ADDRESS_D));
+    assert(cache_fifo_test.get_block_index(ADDRESS_D) ==
+           cache_fifo_test.get_block_index(ADDRESS_E));
+    assert(cache_fifo_test.get_block_index(ADDRESS_F) ==
+           cache_fifo_test.get_block_index(ADDRESS_G));
+    assert(cache_fifo_test.get_block_index(ADDRESS_H) ==
+           cache_fifo_test.get_block_index(ADDRESS_I));
+
+    // Lower-case letter shows the way that is to be replaced after the access
+    // (aka 'first way').
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A  x  X  X  X  X  X  X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_B, 2); // A  B  x  X  X  X  X  X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_C, 3); // A  B  C  x  X  X  X  X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_D, 4); // A  B  C  D  x  X  X  X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 5); // A  B  C  D  E  x  X  X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 6); // A  B  C  D  E  F  x  X
+    cache_fifo_test.access_and_check_fifo(ADDRESS_G, 7); // A  B  C  D  F  F  G  x
+    cache_fifo_test.access_and_check_fifo(ADDRESS_H, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A  b  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A  b  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 2); // A  B  c  D  E  F  G  H
 }
 
 void
@@ -173,5 +225,6 @@ unit_test_cache_replacement_policy()
 {
     unit_test_cache_lru_four_way();
     unit_test_cache_fifo_four_way();
+    unit_test_cache_fifo_eight_way();
     // XXX i#4842: Add more test sequences.
 }
