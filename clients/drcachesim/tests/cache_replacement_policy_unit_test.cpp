@@ -101,8 +101,8 @@ public:
         ref.data.size = 1;
         ref.data.addr = addr;
         request(ref);
-        assert(replace_which_way(get_block_index(addr) ==
-                                 expected_replacement_way_after_access));
+        assert(replace_which_way(get_block_index(addr)) ==
+                                 expected_replacement_way_after_access);
     }
 };
 
@@ -166,7 +166,6 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check_fifo(ADDRESS_B, 2); // A B x X
     cache_fifo_test.access_and_check_fifo(ADDRESS_C, 3); // A B C x
     cache_fifo_test.access_and_check_fifo(ADDRESS_D, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
 }
 
 void
