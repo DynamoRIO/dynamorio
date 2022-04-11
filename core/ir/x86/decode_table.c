@@ -1610,10 +1610,10 @@ const instr_info_t * const op_instr[] =
    /* OP_enclv        */    &rm_extensions[0][0],
 
     /* AVX512 VNNI */
-    /* OP_vpdpbusd        */  &e_vex_extensions[149][1],
-    /* OP_vpdpbusds       */  &e_vex_extensions[150][1],
-    /* OP_vpdpwssd        */  &e_vex_extensions[151][1],
-    /* OP_vpdpwssds       */  &e_vex_extensions[152][1],
+    /* OP_vpdpbusd        */  &vex_W_extensions[110][0],
+    /* OP_vpdpbusds       */  &vex_W_extensions[111][0],
+    /* OP_vpdpwssd        */  &vex_W_extensions[112][0],
+    /* OP_vpdpwssds       */  &vex_W_extensions[113][0],
 };
 
 
@@ -6434,19 +6434,19 @@ const instr_info_t e_vex_extensions[][3] = {
     {EVEX_Wb_EXT, 0x6638cd18, "(evex_Wb ext 180)", xx, xx, xx, xx, xx, mrm|reqp, x, 180},
   }, { /* e_vex ext 149 */
     {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpdpbusd, 0x385008, "vpdpbusd", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, tevexwb[267][0]},
+    {VEX_W_EXT, 0x385008, "(vex_W ext 110)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 110},
     {EVEX_Wb_EXT, 0x385008, "(evex_Wb ext 267)", xx, xx, xx, xx, xx, mrm|reqp, x, 267},
   }, { /* e_vex ext 150 */
     {INVALID, 0x385108, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpdpbusds, 0x385108, "vpdpbusds", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, tevexwb[268][0]},
+    {VEX_W_EXT, 0x385108, "(vex_W ext 111)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 111},
     {EVEX_Wb_EXT, 0x385108, "(evex_Wb ext 268)", xx, xx, xx, xx, xx, mrm|reqp, x, 268},
   }, { /* e_vex ext 151 */
     {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpdpwssd, 0x385208, "vpdpwssd", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, tevexwb[269][0]},
+    {VEX_W_EXT, 0x385208, "(vex_W ext 112)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 112},
     {EVEX_Wb_EXT, 0x385208, "(evex_Wb ext 269)", xx, xx, xx, xx, xx, mrm|reqp, x, 269},
   }, { /* e_vex ext 152 */
     {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpdpwssds, 0x385308, "vpdpwssds", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, tevexwb[270][0]},
+    {VEX_W_EXT, 0x385308, "(vex_W ext 113)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 113},
     {EVEX_Wb_EXT, 0x385308, "(evex_Wb ext 270)", xx, xx, xx, xx, xx, mrm|reqp, x, 270},
   },
 };
