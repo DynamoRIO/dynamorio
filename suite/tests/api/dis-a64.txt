@@ -306,21 +306,21 @@ b1000c41 : adds   x1, x2, #0x3            : adds   %x2 $0x0003 lsl $0x00 -> %x1
 f07fffff : adrp   xzr, 10ffff000          : adrp   <rel> 0x000000010ffff000 -> %xzr
 f0ffffff : adrp   xzr, ffff000            : adrp   <rel> 0x000000000ffff000 -> %xzr
 
-4e285820 : aesd v0.16b, v1.16b            : aesd   %q1 -> %q0
-4e285885 : aesd v5.16b, v4.16b            : aesd   %q4 -> %q5
-4e28592a : aesd v10.16b, v9.16b           : aesd   %q9 -> %q10
-4e2859cf : aesd v15.16b, v14.16b          : aesd   %q14 -> %q15
-4e285a74 : aesd v20.16b, v19.16b          : aesd   %q19 -> %q20
-4e285b19 : aesd v25.16b, v24.16b          : aesd   %q24 -> %q25
-4e285bbe : aesd v30.16b, v29.16b          : aesd   %q29 -> %q30
+4e285820 : aesd v0.16b, v1.16b            : aesd   %q0 %q1 -> %q0
+4e285885 : aesd v5.16b, v4.16b            : aesd   %q5 %q4 -> %q5
+4e28592a : aesd v10.16b, v9.16b           : aesd   %q10 %q9 -> %q10
+4e2859cf : aesd v15.16b, v14.16b          : aesd   %q15 %q14 -> %q15
+4e285a74 : aesd v20.16b, v19.16b          : aesd   %q20 %q19 -> %q20
+4e285b19 : aesd v25.16b, v24.16b          : aesd   %q25 %q24 -> %q25
+4e285bbe : aesd v30.16b, v29.16b          : aesd   %q30 %q29 -> %q30
 
-4e284820 : aese v0.16b, v1.16b            : aese   %q1 -> %q0
-4e284885 : aese v5.16b, v4.16b            : aese   %q4 -> %q5
-4e28492a : aese v10.16b, v9.16b           : aese   %q9 -> %q10
-4e2849cf : aese v15.16b, v14.16b          : aese   %q14 -> %q15
-4e284a74 : aese v20.16b, v19.16b          : aese   %q19 -> %q20
-4e284b19 : aese v25.16b, v24.16b          : aese   %q24 -> %q25
-4e284bbe : aese v30.16b, v29.16b          : aese   %q29 -> %q30
+4e284820 : aese v0.16b, v1.16b            : aese   %q0 %q1 -> %q0
+4e284885 : aese v5.16b, v4.16b            : aese   %q5 %q4 -> %q5
+4e28492a : aese v10.16b, v9.16b           : aese   %q10 %q9 -> %q10
+4e2849cf : aese v15.16b, v14.16b          : aese   %q15 %q14 -> %q15
+4e284a74 : aese v20.16b, v19.16b          : aese   %q20 %q19 -> %q20
+4e284b19 : aese v25.16b, v24.16b          : aese   %q25 %q24 -> %q25
+4e284bbe : aese v30.16b, v29.16b          : aese   %q30 %q29 -> %q30
 
 4e287820 : aesimc v0.16b, v1.16b          : aesimc %q1 -> %q0
 4e287885 : aesimc v5.16b, v4.16b          : aesimc %q4 -> %q5
