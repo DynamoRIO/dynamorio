@@ -74,6 +74,7 @@ typedef enum _action_t {
 
 static bool verbose;
 static bool quiet;
+static bool DR_dll_not_needed = false;
 static bool nocheck;
 
 #define die() exit(1)
@@ -525,6 +526,10 @@ expand_dr_root(const char *dr_root, bool debug, dr_platform_t dr_platform, bool 
     if (dr_platform == DR_PLATFORM_DEFAULT)
         dr_platform = IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT);
 
+    if (DR_dll_not_needed) {
+        /* An explicit path was passed so don't require a regular installation. */
+        nowarn = true;
+    }
     /* don't warn if running from a build dir (i#458) which we attempt to detect
      * by looking for CMakeCache.txt in the root dir
      * (warnings can also be suppressed via -quiet)
@@ -1323,6 +1328,7 @@ _tmain(int argc, TCHAR *targv[])
         } else if (strcmp(argv[i], "-no_inject") == 0 ||
                    /* support old drinjectx param name */
                    strcmp(argv[i], "-noinject") == 0 || strcmp(argv[i], "-static") == 0) {
+            DR_dll_not_needed = true;
             inject = false;
             continue;
         } else if (strcmp(argv[i], "-force") == 0) {
@@ -1520,6 +1526,7 @@ _tmain(int argc, TCHAR *targv[])
         }
 #endif
         else if (strcmp(argv[i], "-use_dll") == 0) {
+            DR_dll_not_needed = true;
             /* Support relative path: very useful! */
             get_absolute_path(argv[++i], custom_dll, BUFFER_SIZE_ELEMENTS(custom_dll));
             NULL_TERMINATE_BUFFER(custom_dll);

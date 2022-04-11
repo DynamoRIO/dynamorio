@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,7 @@
 #include "../tools/func_view_create.h"
 #include "../tools/invariant_checker_create.h"
 #include "../tracer/raw2trace.h"
+#include "../tracer/raw2trace_directory.h"
 #include <fstream>
 
 /* Get the path to an auxiliary file by examining
@@ -74,6 +75,11 @@ get_aux_file_path(std::string option_val, std::string default_filename)
             size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
             if (sep_index != std::string::npos)
                 trace_dir = std::string(op_infile.get_value(), 0, sep_index);
+        }
+        if (raw2trace_directory_t::is_window_subdir(trace_dir)) {
+            // If we're operating on a specific window, point at the parent for the
+            // modfile.
+            trace_dir += std::string(DIRSEP) + "..";
         }
         file_path = trace_dir + std::string(DIRSEP) + default_filename;
         /* Support the aux file in either raw/ or trace/. */

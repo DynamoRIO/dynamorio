@@ -113,10 +113,23 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             ++counters->xfer_markers;
         } else {
             if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID &&
-                memref.marker.marker_value != per_shard->last_window) {
-                per_shard->last_window = memref.marker.marker_value;
-                per_shard->counters.resize(per_shard->last_window + 1 /*0-based*/);
-                counters = &per_shard->counters[per_shard->counters.size() - 1];
+                static_cast<intptr_t>(memref.marker.marker_value) !=
+                    per_shard->last_window) {
+                if (per_shard->last_window == -1 && memref.marker.marker_value != 0) {
+                    // We assume that a single file with multiple windows always
+                    // starts at 0, which is how we distinguish it from a split
+                    // file starting at a high window number.  We check this below.
+                    per_shard->last_window = memref.marker.marker_value;
+                } else if (per_shard->last_window != -1 &&
+                           per_shard->counters.size() !=
+                               static_cast<size_t>(per_shard->last_window + 1)) {
+                    per_shard->error = "Multi-window file must start at 0";
+                    return false;
+                } else {
+                    per_shard->last_window = memref.marker.marker_value;
+                    per_shard->counters.resize(per_shard->last_window + 1 /*0-based*/);
+                    counters = &per_shard->counters[per_shard->counters.size() - 1];
+                }
             }
             switch (memref.marker.marker_type) {
             case TRACE_MARKER_TYPE_FUNC_ID: ++counters->func_id_markers; break;

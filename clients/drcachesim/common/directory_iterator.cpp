@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <algorithm>
 #include "directory_iterator.h"
 #include "utils.h"
 #include "dr_frontend.h"
@@ -128,8 +129,24 @@ directory_iterator_t::is_directory(const std::string &path)
 }
 
 bool
-directory_iterator_t::create_directory(const std::string &path)
+directory_iterator_t::create_directory(const std::string &path_in)
 {
-    drfront_status_t res = drfront_create_dir(path.c_str());
-    return res == DRFRONT_SUCCESS;
+    std::string path = path_in;
+#ifdef WINDOWS
+    // Canonicalize.
+    std::replace(path.begin(), path.end(), ALT_DIRSEP[0], DIRSEP[0]);
+#endif
+    // Create all components.
+    drfront_status_t res;
+    auto pos = path.find(DIRSEP, 1);
+    while (pos != std::string::npos) {
+        std::string sub = path.substr(0, pos);
+        if (!is_directory(sub)) {
+            res = drfront_create_dir(sub.c_str());
+            if (res != DRFRONT_SUCCESS)
+                return false;
+        }
+        pos = path.find(DIRSEP, pos + 1);
+    }
+    return drfront_create_dir(path.c_str()) == DRFRONT_SUCCESS;
 }
