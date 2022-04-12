@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,8 +84,11 @@
 
 #define MACHINE_TLS_IS_DR_TLS IF_X86_ELSE(INTERNAL_OPTION(mangle_app_seg), true)
 
-/* PR 212090: the signal we use to suspend threads */
-#define SUSPEND_SIGNAL SIGUSR2
+/* The signal we use to suspend threads.
+ * We choose a normally-synchronous signal for a lower chance that the app has
+ * blocked it when we attach to an already-running app.
+ */
+#define SUSPEND_SIGNAL SIGFPE
 
 #ifdef MACOS
 /* While there is no clone system call, we use the same clone flags to share
