@@ -1514,7 +1514,9 @@ injectee_memset(void *dst, int val, size_t size)
 static void
 user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
 {
-#    ifdef X86
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_IMPLEMENTED(false);
+#    elif defined(X86)
 #        ifdef X64
     mc->rip = (app_pc)regs->rip;
     mc->rax = regs->rax;
