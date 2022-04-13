@@ -629,7 +629,7 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
         VPRINT(4, "About to read thread #%d==%d at pos %d\n", tdata->index,
                (uint)tdata->tid, (int)tdata->thread_file->tellg());
         tdata->error = process_next_thread_buffer(tdata, &end_of_file);
-        if (!tdata->error.empty()) {
+        if (!tdata->error.empty() || (!end_of_file && thread_file_at_eof(tdata))) {
             if (thread_file_at_eof(tdata)) {
                 // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.

@@ -63,9 +63,11 @@ class snappy_file_writer_t : snappy_consts_t {
 public:
     snappy_file_writer_t(file_t f,
                          ssize_t (*write_file)(file_t file, const void *data,
-                                               size_t count))
+                                               size_t count),
+                         bool include_checksums = true)
         : fd_(f)
         , write_func_(write_file)
+        , include_checksums_(include_checksums)
     {
     }
 
@@ -81,6 +83,7 @@ private:
     file_t fd_;
     char compressed_buf_[header_size_ + checksum_size_ + max_compressed_size_];
     ssize_t (*write_func_)(file_t file, const void *data, size_t count);
+    bool include_checksums_;
 };
 
 #endif /* _SNAPPY_FILE_WRITER_H_ */

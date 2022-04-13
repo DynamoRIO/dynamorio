@@ -53,34 +53,40 @@ snappy_file_writer_t::compress_and_write(const void *buf, size_t count)
     if (count > sizeof(compressed_buf_))
         return -1;
     size_t compressed_count;
+    size_t crc_size = include_checksums_ ? checksum_size_ : 0;
     // We only support single-output-buffer inputs.
-    if (snappy::MaxCompressedLength(count) + header_size_ + checksum_size_ >
+    if (snappy::MaxCompressedLength(count) + header_size_ + crc_size >
         sizeof(compressed_buf_))
         return -1;
     snappy::RawCompress(static_cast<const char *>(buf), count,
-                        compressed_buf_ + header_size_ + checksum_size_,
-                        &compressed_count);
-    if (compressed_count + header_size_ + checksum_size_ > sizeof(compressed_buf_))
+                        compressed_buf_ + header_size_ + crc_size, &compressed_count);
+    if (compressed_count + header_size_ + crc_size > sizeof(compressed_buf_))
         return -1;
-    uint32_t checksum = mask_crc32(static_cast<const char *>(buf), count);
+    uint32_t checksum = 0;
+    if (include_checksums_)
+        checksum = mask_crc32(static_cast<const char *>(buf), count);
     if (compressed_count >= count) {
         // Leave it uncompressed.
-        size_t data_size = count + checksum_size_;
+        size_t data_size = count + crc_size;
         char header[8];
-        header[0] = UNCOMPRESSED_DATA;
+        header[0] = include_checksums_ ? UNCOMPRESSED_DATA : UNCOMPRESSED_DATA_NO_CRC;
         memcpy(header + 1, &data_size, 3);
-        memcpy(header + 4, &checksum, checksum_size_);
-        ssize_t wrote = write_func_(fd_, header, sizeof(header));
-        if (wrote < static_cast<ssize_t>(sizeof(header)))
+        size_t header_size = 4 + crc_size;
+        if (include_checksums_)
+            memcpy(header + 4, &checksum, crc_size);
+        ssize_t wrote = write_func_(fd_, header, header_size);
+        if (wrote < static_cast<ssize_t>(header_size))
             return wrote;
         return write_func_(fd_, buf, count);
     } else {
-        size_t data_size = compressed_count + checksum_size_;
-        compressed_buf_[0] = COMPRESSED_DATA;
+        size_t data_size = compressed_count + crc_size;
+        compressed_buf_[0] =
+            include_checksums_ ? COMPRESSED_DATA : COMPRESSED_DATA_NO_CRC;
         memcpy(compressed_buf_ + 1, &data_size, 3);
-        memcpy(compressed_buf_ + 4, &checksum, checksum_size_);
-        ssize_t wrote = write_func_(fd_, compressed_buf_,
-                                    compressed_count + header_size_ + checksum_size_);
+        if (include_checksums_)
+            memcpy(compressed_buf_ + 4, &checksum, crc_size);
+        ssize_t wrote =
+            write_func_(fd_, compressed_buf_, compressed_count + header_size_ + crc_size);
         if (wrote <= 0)
             return wrote;
         // The caller wants the count of uncompressed data written.
