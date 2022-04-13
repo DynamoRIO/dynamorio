@@ -304,13 +304,11 @@ const char *options_list_str =
     "                          as well-supported as launching a new process.\n"
     "                          When attaching to a process in the middle of a blocking\n"
     "                          system call, DynamoRIO will wait until it returns.\n"
-#        ifdef X86
     "                          Use -skip_syscall to force interruption.\n"
     "       -skip_syscall      (Experimental)\n"
     "                          Only works with -attach.\n"
     "                          Attaching to a process will force blocking system calls\n"
     "                          to fail with EINTR.\n"
-#        endif
 #    endif
 #    ifdef WINDOWS
     "       -attach <pid>      Attach to the process with the given pid.\n"
@@ -1382,12 +1380,10 @@ _tmain(int argc, TCHAR *targv[])
             continue;
         }
 #    ifdef UNIX
-#        ifdef X86
         else if (strcmp(argv[i], "-skip_syscall") == 0) {
             wait_syscall = false;
             continue;
         }
-#        endif
 #    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {

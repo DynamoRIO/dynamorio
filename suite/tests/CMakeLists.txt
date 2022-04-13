@@ -2386,10 +2386,10 @@ if (ANNOTATIONS AND NOT ARM)
 endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
-  if (X86) # TODO i#38,i#1550: Port injector.c attach gencode to AArchXX.
-    # TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
-    tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
-  endif ()
+  # TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
+  # That seems to happen with the infloop test on ARM already (we have to add
+  # -skip_syscall in runall.cmake).
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
 endif ()
 
 if (UNIX)

@@ -903,9 +903,33 @@ enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 #    define APP instrlist_append
 #    define PRE instrlist_prepend
 
-#    ifdef X86
+/* XXX: Ideally we'd use syscall_instr_length() in arch.c but that requires some
+ * movement or refactoring to get it into a common file/library.
+ */
+static inline size_t
+system_call_length(dr_isa_mode_t mode)
+{
+#    if defined(X86)
+    ASSERT(INT_LENGTH == SYSCALL_LENGTH);
+    ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
+    return SYSCALL_LENGTH;
+#    elif defined(AARCH64)
+    return SVC_LENGTH;
+#    elif defined(ARM)
+    return mode == DR_ISA_ARM_THUMB ? SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
+#    else
+#        error Unsupported arch.
+#    endif
+}
+
+#    if defined(X86)
 /* X86s are little endian */
 enum { SYSCALL_AS_SHORT = 0x050f, SYSENTER_AS_SHORT = 0x340f, INT80_AS_SHORT = 0x80cd };
+#    elif defined(AARCH64)
+enum { SVC_RAW = 0xd4000001 };
+#    elif defined(ARM)
+/* XXX: The arm one *could* have a predicate so the 1st nibble could be <0xe. */
+enum { SVC_ARM_RAW = 0xef000000, SVC_THUMB_RAW = 0xdf00 };
 #    endif
 
 enum { ERESTARTSYS = 512, ERESTARTNOINTR = 513, ERESTARTNOHAND = 514 };
@@ -928,14 +952,17 @@ typedef struct _enum_name_pair_t {
 static const enum_name_pair_t pt_req_map[] = { { PTRACE_TRACEME, "PTRACE_TRACEME" },
                                                { PTRACE_PEEKTEXT, "PTRACE_PEEKTEXT" },
                                                { PTRACE_PEEKDATA, "PTRACE_PEEKDATA" },
-                                               { PTRACE_PEEKUSER, "PTRACE_PEEKUSER" },
                                                { PTRACE_POKETEXT, "PTRACE_POKETEXT" },
                                                { PTRACE_POKEDATA, "PTRACE_POKEDATA" },
-                                               { PTRACE_POKEUSER, "PTRACE_POKEUSER" },
                                                { PTRACE_CONT, "PTRACE_CONT" },
                                                { PTRACE_KILL, "PTRACE_KILL" },
                                                { PTRACE_SINGLESTEP, "PTRACE_SINGLESTEP" },
-#    ifndef DR_HOST_AARCH64
+#    ifdef DR_HOST_AARCH64
+                                               { PTRACE_GETREGSET, "PTRACE_GETREGSET" },
+                                               { PTRACE_SETREGSET, "PTRACE_SETREGSET" },
+#    else
+                                               { PTRACE_PEEKUSER, "PTRACE_PEEKUSER" },
+                                               { PTRACE_POKEUSER, "PTRACE_POKEUSER" },
                                                { PTRACE_GETREGS, "PTRACE_GETREGS" },
                                                { PTRACE_SETREGS, "PTRACE_SETREGS" },
                                                { PTRACE_GETFPREGS, "PTRACE_GETFPREGS" },
@@ -1050,53 +1077,75 @@ ptrace_write_memory(pid_t pid, void *dst, void *src, size_t len)
 
 /* Push a pointer to a string to the stack.  We create a fake instruction with
  * raw bytes equal to the string we want to put in the injectee.  The call will
- * pass these invalid instruction bytes, and the return address on the stack
- * will point to the string.
+ * skip over these invalid instruction bytes and set the return address to point
+ * to the string.
  */
 static void
 gen_push_string(void *dc, instrlist_t *ilist, const char *msg)
 {
-#    ifdef X86
     instr_t *after_msg = INSTR_CREATE_label(dc);
-    instr_t *msg_instr = instr_build_bits(dc, OP_UNDECODED, strlen(msg) + 1);
-    APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(after_msg)));
+    size_t msg_space = strlen(msg) + 1;
+#    ifdef AARCHXX
+    msg_space = ALIGN_FORWARD(msg_space, 4);
+#    endif
+    instr_t *msg_instr = instr_build_bits(dc, OP_UNDECODED, msg_space);
+    APP(ilist, XINST_CREATE_call(dc, opnd_create_instr(after_msg)));
     instr_set_raw_bytes(msg_instr, (byte *)msg, strlen(msg) + 1);
     instr_set_raw_bits_valid(msg_instr, true);
     APP(ilist, msg_instr);
     APP(ilist, after_msg);
-#    else
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-#    endif /* X86 */
+#    if defined(AARCH64)
+    /* Maintain 16-byte alignment by pushing a 2nd reg. */
+    APP(ilist,
+        /* XXX i#2440: There should be a convenience creation macro for this. */
+        instr_create_2dst_4src(dc, OP_stp,
+                               opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                                                     -2 * (int)sizeof(void *), OPSZ_16),
+                               opnd_create_reg(DR_REG_XSP), opnd_create_reg(DR_REG_LR),
+                               opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_XSP),
+                               OPND_CREATE_INT8(-2 * (int)sizeof(void *))));
+#    elif defined(ARM)
+    /* Handle Thumb mode setting the LSB and skipping the first char ('/'). */
+    APP(ilist,
+        INSTR_CREATE_bic(dc, opnd_create_reg(DR_REG_LR), opnd_create_reg(DR_REG_LR),
+                         OPND_CREATE_INT8(1)));
+    APP(ilist, INSTR_CREATE_push(dc, opnd_create_reg(DR_REG_LR)));
+#    endif
 }
 
 static void
 gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds, opnd_t *args)
 {
-#    ifdef X86
     uint i;
     ASSERT(num_opnds <= MAX_SYSCALL_ARGS);
     APP(ilist,
-        INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
-                             OPND_CREATE_INTPTR(sysnum)));
+        XINST_CREATE_load_int(dc, opnd_create_reg(DR_SYSNUM_REG),
+                              OPND_CREATE_INT32(sysnum)));
     for (i = 0; i < num_opnds; i++) {
-        if (opnd_is_immed_int(args[i]) || opnd_is_instr(args[i])) {
-            APP(ilist,
-                INSTR_CREATE_mov_imm(dc, opnd_create_reg(syscall_regparms[i]), args[i]));
+        if (opnd_is_immed_int(args[i])) {
+            instrlist_insert_mov_immed_ptrsz(dc, opnd_get_immed_int(args[i]),
+                                             opnd_create_reg(syscall_regparms[i]), ilist,
+                                             instrlist_last(ilist), NULL, NULL);
+        } else if (opnd_is_instr(args[i])) {
+            instrlist_insert_mov_instr_addr(dc, opnd_get_instr(args[i]), NULL,
+                                            opnd_create_reg(syscall_regparms[i]), ilist,
+                                            instrlist_last(ilist), NULL, NULL);
         } else if (opnd_is_base_disp(args[i])) {
             APP(ilist,
-                INSTR_CREATE_mov_ld(dc, opnd_create_reg(syscall_regparms[i]), args[i]));
+                XINST_CREATE_load(dc, opnd_create_reg(syscall_regparms[i]), args[i]));
+        } else {
+            ASSERT_NOT_IMPLEMENTED(false);
         }
     }
     /* XXX: Reuse create_syscall_instr() in emit_utils.c. */
+#    ifdef X86
 #        ifdef X64
     APP(ilist, INSTR_CREATE_syscall(dc));
 #        else
     APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((sbyte)0x80)));
 #        endif
 #    else
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    APP(ilist, INSTR_CREATE_svc(dc, opnd_create_immed_int((sbyte)0x0, OPSZ_1)));
 #    endif /* X86 */
 }
 
@@ -1106,7 +1155,7 @@ gen_print(void *dc, instrlist_t *ilist, const char *msg)
 {
     opnd_t args[MAX_SYSCALL_ARGS];
     args[0] = OPND_CREATE_INTPTR(2);
-    args[1] = OPND_CREATE_MEMPTR(DR_REG_XSP, 0);  /* msg is on TOS. */
+    args[1] = OPND_CREATE_MEMPTR(DR_REG_XSP, 0); /* msg is on TOS. */
     args[2] = OPND_CREATE_INTPTR(strlen(msg));
     gen_push_string(dc, ilist, msg);
     gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_write), 3, args);
@@ -1118,7 +1167,14 @@ unexpected_trace_event(process_id_t pid, int sig_expected, int sig_actual)
 {
     if (verbose) {
         app_pc err_pc;
+#    ifdef AARCH64
+        /* PEEKUSER is not available. */
+        struct USER_REGS_TYPE regs;
+        our_ptrace_getregs(pid, &regs);
+        err_pc = (app_pc)regs.REG_PC_FIELD;
+#    else
         our_ptrace(PTRACE_PEEKUSER, pid, (void *)REG_PC_OFFSET, &err_pc);
+#    endif
         fprintf(stderr,
                 "Unexpected trace event.  Expected %s, got signal %d "
                 "at pc: %p\n",
@@ -1169,6 +1225,22 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     app_pc pc;
     long r;
     ptr_int_t failure = -EUNATCH; /* Unlikely to be used by most syscalls. */
+    dr_isa_mode_t app_mode;
+
+    /* Get register state before executing the shellcode. */
+    r = our_ptrace_getregs(info->pid, &regs);
+    if (r < 0)
+        return r;
+
+#    if defined(X86)
+    app_mode = IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32);
+#    elif defined(AARCH64)
+    app_mode = DR_ISA_ARM_A64;
+#    elif defined(ARM)
+    app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+#    else
+#        error Unsupported arch.
+#    endif
 
     /* For cases where we are not actally getting blocked by a syscall
      * and wait_syscall is not specified
@@ -1177,17 +1249,15 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
      */
     uint nop_times = 0;
 #    ifdef X86
-    nop_times = SYSCALL_LENGTH;
+    nop_times = system_call_length(app_mode);
+#    else
+    /* The syscall will match the nop length regardless of the mode. */
+    nop_times = 1;
 #    endif
     int i;
     for (i = 0; i < nop_times; i++) {
         PRE(ilist, XINST_CREATE_nop(dc));
     }
-
-    /* Get register state before executing the shellcode. */
-    r = our_ptrace_getregs(info->pid, &regs);
-    if (r < 0)
-        return r;
 
     /* Use the current PC's page, since it's executable.  Our shell code is
      * always less than one page, so we won't overflow.
@@ -1207,6 +1277,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     /* Encode ilist into shellcode. */
     end_pc = instrlist_encode_to_copy(dc, ilist, shellcode, pc,
                                       &shellcode[MAX_SHELL_CODE], true /*jmp*/);
+    ASSERT(end_pc != NULL);
     code_size = end_pc - &shellcode[0];
     code_size = ALIGN_FORWARD(code_size, sizeof(reg_t));
     ASSERT(code_size <= MAX_SHELL_CODE);
@@ -1222,24 +1293,40 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
      * execution, tracee PC will be set back to syscall instruction
      * PC = PC - sizeof(syscall). We have to add offsets to compensate.
      */
-    if (!info->wait_syscall) {
-        uint offset = 0;
-#    ifdef X86
-        offset = SYSCALL_LENGTH;
+    uint offset = 0;
+    if (!info->wait_syscall)
+        offset = system_call_length(app_mode);
+#    ifdef AARCH64
+    /* POKEUSER is not available. */
+    ptr_int_t saved_pc = regs.REG_PC_FIELD;
+    regs.REG_PC_FIELD = (ptr_int_t)(pc + offset);
+    r = our_ptrace_setregs(info->pid, &regs);
+    if (r < 0)
+        return r;
+    regs.REG_PC_FIELD = saved_pc;
+#    else
+    r = our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc + offset);
+    if (r < 0)
+        return r;
 #    endif
-        our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc + offset);
-    } else {
-        our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc);
-    }
     if (!continue_until_break(info->pid))
         return failure;
 
     /* Get return value. */
     ret = failure;
+#    ifdef AARCH64
+    /* PEEKUSER is not available. */
+    struct USER_REGS_TYPE modified_regs;
+    r = our_ptrace_getregs(info->pid, &modified_regs);
+    if (r < 0)
+        return r;
+    ret = modified_regs.REG_RETVAL_FIELD;
+#    else
     r = our_ptrace(PTRACE_PEEKUSER, info->pid,
                    (void *)offsetof(struct USER_REGS_TYPE, REG_RETVAL_FIELD), &ret);
     if (r < 0)
         return r;
+#    endif
 
     /* Put back original code and registers. */
     if (!ptrace_write_memory(info->pid, pc, orig_code, code_size))
@@ -1259,6 +1346,7 @@ injectee_open(dr_inject_info_t *info, const char *path, int flags, mode_t mode)
     instrlist_t *ilist = instrlist_create(dc);
     opnd_t args[MAX_SYSCALL_ARGS];
     int num_args = 0;
+
     gen_push_string(dc, ilist, path);
 #    ifndef SYS_open
     args[num_args++] = OPND_CREATE_INTPTR(AT_FDCWD);
@@ -1426,7 +1514,9 @@ injectee_memset(void *dst, int val, size_t size)
 static void
 user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
 {
-#    ifdef X86
+#    if defined(DR_HOST_NOT_TARGET)
+    ASSERT_NOT_IMPLEMENTED(false);
+#    elif defined(X86)
 #        ifdef X64
     mc->rip = (app_pc)regs->rip;
     mc->rax = regs->rax;
@@ -1475,7 +1565,39 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->r15 = regs->uregs[15];
     mc->cpsr = regs->uregs[16];
 #    elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    mc->r0 = regs->regs[0];
+    mc->r1 = regs->regs[1];
+    mc->r2 = regs->regs[2];
+    mc->r3 = regs->regs[3];
+    mc->r4 = regs->regs[4];
+    mc->r5 = regs->regs[5];
+    mc->r6 = regs->regs[6];
+    mc->r7 = regs->regs[7];
+    mc->r8 = regs->regs[8];
+    mc->r9 = regs->regs[9];
+    mc->r10 = regs->regs[10];
+    mc->r11 = regs->regs[11];
+    mc->r12 = regs->regs[12];
+    mc->r13 = regs->regs[13];
+    mc->r14 = regs->regs[14];
+    mc->r15 = regs->regs[15];
+    mc->r16 = regs->regs[16];
+    mc->r17 = regs->regs[17];
+    mc->r18 = regs->regs[18];
+    mc->r19 = regs->regs[19];
+    mc->r20 = regs->regs[20];
+    mc->r21 = regs->regs[21];
+    mc->r22 = regs->regs[22];
+    mc->r23 = regs->regs[23];
+    mc->r24 = regs->regs[24];
+    mc->r25 = regs->regs[25];
+    mc->r26 = regs->regs[26];
+    mc->r27 = regs->regs[27];
+    mc->r28 = regs->regs[28];
+    mc->r29 = regs->regs[29];
+    mc->r30 = regs->regs[30];
+    mc->sp = regs->sp;
+    mc->pc = (app_pc)regs->pc;
 #    endif /* X86/ARM */
 }
 
@@ -1542,32 +1664,33 @@ ptrace_singlestep(process_id_t pid)
  * For X86, we can't be sure if previous bytes are actually a syscall due to
  * variations in instruction size. Do additional checks if that is the case.
  */
-#    ifdef X86
-/* Ptrace attach is only for X86 for now.
- * ifdef above to statisfies compiler complains.
- * These ifdef should be removed after we support new architecture.
- */
 static bool
-is_prev_bytes_syscall(process_id_t pid, app_pc src_pc)
+is_prev_bytes_syscall(process_id_t pid, app_pc src_pc, dr_isa_mode_t app_mode)
 {
-#        ifdef X86
-    /* for X86 is concerned, SYSCALL_LENGTH == INT_LENGTH == SYSENTER_LENGTH */
-    app_pc syscall_pc = src_pc - SYSCALL_LENGTH;
+    app_pc syscall_pc = src_pc - system_call_length(app_mode);
     /* ptrace_read_memory reads by multiple of sizeof(ptr_int_t) */
     byte instr_bytes[sizeof(ptr_int_t)];
     ptrace_read_memory(pid, instr_bytes, syscall_pc, sizeof(ptr_int_t));
-#            ifdef X64
+#    if defined(X86)
+#        ifdef X64
     if (*(unsigned short *)instr_bytes == SYSCALL_AS_SHORT)
         return true;
-#            else
+#        else
     if (*(unsigned short *)instr_bytes == SYSENTER_AS_SHORT ||
         *(unsigned short *)instr_bytes == INT80_AS_SHORT)
         return true;
-#            endif
-#        endif /* X86 */
+#        endif
+#    elif defined(AARCH64)
+    if (*(unsigned int *)instr_bytes == SVC_RAW)
+        return true;
+#    elif defined(ARM)
+    if (app_mode == DR_ISA_ARM_THUMB && *(unsigned short *)instr_bytes == SVC_THUMB_RAW)
+        return true;
+    if (app_mode == DR_ISA_ARM_A32 && *(unsigned int *)instr_bytes == SVC_ARM_RAW)
+        return true;
+#    endif
     return false;
 }
-#    endif /* X86 */
 
 /* i#38: Quick explaination for PC offsetting and NOP sleds:
  * If ptrace happens in middle of blocking syscalls, tracer will get PC address at
@@ -1630,9 +1753,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     dr_fd = injectee_open(info, library_path, O_RDONLY, 0);
     if (dr_fd < 0) {
         if (verbose) {
-            fprintf(stderr,
-                    "Unable to open libdynamorio.so in injectee (%d): "
-                    "%s\n",
+            fprintf(stderr, "Unable to open %s in injectee (%d): %s\n ", library_path,
                     -dr_fd, strerror(-dr_fd));
         }
         return false;
@@ -1661,20 +1782,32 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      */
     injected_dr_start = (app_pc)loader.ehdr->e_entry + loader.load_delta;
 
+    our_ptrace_getregs(info->pid, &regs);
+    dr_isa_mode_t app_mode;
+#    if defined(X86)
+    app_mode = IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32);
+#    elif defined(AARCH64)
+    app_mode = DR_ISA_ARM_A64;
+#    elif defined(ARM)
+    app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+#    else
+#        error Unsupported arch.
+#    endif
+
     /* While under Ptrace during blocking syscall, upon continuing
      * execution, tracee PC will be set back to syscall instruction
      * PC = PC - sizeof(syscall). We have to add offsets to compensate.
      */
-    if (!info->wait_syscall) {
-        uint offset = 0;
-#    ifdef X86
-        offset = SYSCALL_LENGTH;
+#    ifdef ARM
+    dr_isa_mode_t dr_asm_mode = DR_ISA_ARM_A32;
+#    else
+    dr_isa_mode_t dr_asm_mode = app_mode;
 #    endif
+    if (!info->wait_syscall) {
+        uint offset = system_call_length(dr_asm_mode);
         injected_dr_start += offset;
     }
     elf_loader_destroy(&loader);
-
-    our_ptrace_getregs(info->pid, &regs);
 
     /* Hijacking errno value
      * After attaching with ptrace during blocking syscall,
@@ -1682,15 +1815,13 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * Mask that value into EINTR
      */
     if (!info->wait_syscall) {
-#    ifdef X86
-        if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD)) {
+        if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD, app_mode)) {
             /* prev bytes might can match by accident, so check return value */
             if (regs.REG_RETVAL_FIELD == -ERESTARTSYS ||
                 regs.REG_RETVAL_FIELD == -ERESTARTNOINTR ||
                 regs.REG_RETVAL_FIELD == -ERESTARTNOHAND)
                 regs.REG_RETVAL_FIELD = -EINTR;
         }
-#    endif
     }
 
     /* Create an injection context and "push" it onto the stack of the injectee.
@@ -1700,6 +1831,10 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     memset(&args, 0, sizeof(args));
     user_regs_to_mc(&args.mc, &regs);
     args.argc = ARGC_PTRACE_SENTINEL;
+#    ifdef ARM
+    if (app_mode == DR_ISA_ARM_THUMB)
+        args.mc.pc = PC_AS_JMP_TGT(app_mode, args.mc.pc);
+#    endif
 
     /* We need to send the home directory over.  It's hard to find the
      * environment in the injectee, and even if we could HOME might be
@@ -1723,6 +1858,11 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
 #    endif
 
     regs.REG_PC_FIELD = (ptr_int_t)injected_dr_start;
+#    ifdef ARM
+    /* DR's assembly is ARM. */
+    ASSERT(dr_asm_mode == DR_ISA_ARM_A32);
+    regs.uregs[16] &= ~EFLAGS_T;
+#    endif
     our_ptrace_setregs(info->pid, &regs);
 
     if (op_exec_gdb) {
