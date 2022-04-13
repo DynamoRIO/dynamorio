@@ -87,8 +87,14 @@
 /* The signal we use to suspend threads.
  * We choose a normally-synchronous signal for a lower chance that the app has
  * blocked it when we attach to an already-running app.
+ * SIGFPE is a good choice, but when running under QEMU, QEMU crashes
+ * when we send it, so we use SIGSTKFLT (which does not exist on Mac:
+ * there we use SIGFPE).
+ * We could conceivably make this a variable controlled by a runtime option,
+ * but it has a number of limitations, and the checks for it being user-sent
+ * would need to be flexible: it doesn't seem worth the complexity at this point.
  */
-#define SUSPEND_SIGNAL SIGFPE
+#define SUSPEND_SIGNAL IF_MACOS_ELSE(SIGFPE, SIGSTKFLT)
 
 #ifdef MACOS
 /* While there is no clone system call, we use the same clone flags to share

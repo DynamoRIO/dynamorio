@@ -61,7 +61,11 @@
 /* SIGSTKSZ*2 results in a fatal error from DR on fitting the copied frame. */
 #define ALT_STACK_SIZE (SIGSTKSZ * 4)
 
-#define DR_SUSPEND_SIGNAL SIGFPE /* DR's takeover signal. */
+#ifdef MACOS
+#    define DR_SUSPEND_SIGNAL SIGFPE /* DR's takeover signal. */
+#else
+#    define DR_SUSPEND_SIGNAL SIGSTKFLT /* DR's takeover signal. */
+#endif
 
 static volatile bool sideline_exit = false;
 static void *sideline_continue;
