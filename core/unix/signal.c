@@ -7843,7 +7843,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     /* Distinguish up front from a synchronous app signal by looking for
      * si_code where <=0 means user-sent.
      * We distinguish further below from the rare case of an app sending
-     * SIGFPE asynchronously by looking for our particular state settings
+     * SUSPEND_SIGNAL asynchronously by looking for our particular state settings
      * that correspond to the use of this signal by DR..
      */
     if (siginfo->si_code > 0 || siginfo->si_signo != SUSPEND_SIGNAL)
