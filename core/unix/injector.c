@@ -909,7 +909,7 @@ enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 static inline size_t
 system_call_length(dr_isa_mode_t mode)
 {
-#    ifdef X86
+#    if defined(X86)
     ASSERT(INT_LENGTH == SYSCALL_LENGTH);
     ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
     return SYSCALL_LENGTH;
@@ -922,7 +922,7 @@ system_call_length(dr_isa_mode_t mode)
 #    endif
 }
 
-#    ifdef X86
+#    if defined(X86)
 /* X86s are little endian */
 enum { SYSCALL_AS_SHORT = 0x050f, SYSENTER_AS_SHORT = 0x340f, INT80_AS_SHORT = 0x80cd };
 #    elif defined(AARCH64)
@@ -1094,7 +1094,7 @@ gen_push_string(void *dc, instrlist_t *ilist, const char *msg)
     instr_set_raw_bits_valid(msg_instr, true);
     APP(ilist, msg_instr);
     APP(ilist, after_msg);
-#    ifdef AARCH64
+#    if defined(AARCH64)
     /* Maintain 16-byte alignment by pushing a 2nd reg. */
     APP(ilist,
         /* XXX i#2440: There should be a convenience creation macro for this. */
@@ -1232,7 +1232,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     if (r < 0)
         return r;
 
-#    ifdef X86
+#    if defined(X86)
     app_mode = IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32);
 #    elif defined(AARCH64)
     app_mode = DR_ISA_ARM_A64;
@@ -1514,7 +1514,7 @@ injectee_memset(void *dst, int val, size_t size)
 static void
 user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
 {
-#    ifdef DR_HOST_NOT_TARGET
+#    if defined(DR_HOST_NOT_TARGET)
     ASSERT_NOT_IMPLEMENTED(false);
 #    elif defined(X86)
 #        ifdef X64
@@ -1671,7 +1671,7 @@ is_prev_bytes_syscall(process_id_t pid, app_pc src_pc, dr_isa_mode_t app_mode)
     /* ptrace_read_memory reads by multiple of sizeof(ptr_int_t) */
     byte instr_bytes[sizeof(ptr_int_t)];
     ptrace_read_memory(pid, instr_bytes, syscall_pc, sizeof(ptr_int_t));
-#    ifdef X86
+#    if defined(X86)
 #        ifdef X64
     if (*(unsigned short *)instr_bytes == SYSCALL_AS_SHORT)
         return true;
@@ -1784,7 +1784,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
 
     our_ptrace_getregs(info->pid, &regs);
     dr_isa_mode_t app_mode;
-#    ifdef X86
+#    if defined(X86)
     app_mode = IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32);
 #    elif defined(AARCH64)
     app_mode = DR_ISA_ARM_A64;
