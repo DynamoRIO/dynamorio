@@ -126,7 +126,8 @@ clients.
 
 The changes between version \DR_VERSION and 9.0.1 include the following compatibility
 changes:
- - Nothing yet (placeholder).
+ - Eliminated the -skip_syscall option to drrun and drinject, which is now always
+   on by default.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

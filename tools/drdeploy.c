@@ -302,13 +302,6 @@ const char *options_list_str =
     "       -attach <pid>      Attach to the process with the given pid.\n"
     "                          Attaching is an experimental feature and is not yet\n"
     "                          as well-supported as launching a new process.\n"
-    "                          When attaching to a process in the middle of a blocking\n"
-    "                          system call, DynamoRIO will wait until it returns.\n"
-    "                          Use -skip_syscall to force interruption.\n"
-    "       -skip_syscall      (Experimental)\n"
-    "                          Only works with -attach.\n"
-    "                          Attaching to a process will force blocking system calls\n"
-    "                          to fail with EINTR.\n"
 #    endif
 #    ifdef WINDOWS
     "       -attach <pid>      Attach to the process with the given pid.\n"
@@ -1192,7 +1185,6 @@ _tmain(int argc, TCHAR *targv[])
     time_t start_time, end_time;
 #    else
     bool use_ptrace = false;
-    bool wait_syscall = true;
     bool kill_group = false;
 #    endif
     process_id_t attach_pid = 0;
@@ -1379,12 +1371,6 @@ _tmain(int argc, TCHAR *targv[])
                              "-sleep_between_takeovers");
             continue;
         }
-#    ifdef UNIX
-        else if (strcmp(argv[i], "-skip_syscall") == 0) {
-            wait_syscall = false;
-            continue;
-        }
-#    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {
             /* Undocumented option for using ptrace on a fresh process. */
@@ -1886,8 +1872,9 @@ done_with_options:
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else if (attach_pid != 0) {
-        errcode =
-            dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
+        /* We always try to avoid hanging on a blocked syscall. */
+        errcode = dr_inject_prepare_to_attach(attach_pid, app_name,
+                                              /*wait_syscall=*/false, &inject_data);
     } else
 #    elif defined(WINDOWS)
     if (attach_pid != 0) {
@@ -1978,8 +1965,6 @@ done_with_options:
             goto error;
         } else {
             info("using ptrace to inject");
-            if (wait_syscall)
-                warn("using experimental attach feature; if it hangs, try -skip_syscall");
         }
     }
     if (kill_group) {

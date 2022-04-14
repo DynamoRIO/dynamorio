@@ -1,0 +1,6 @@
+starting
+thank you for testing attach
+thread init
+select error: Interrupted system call
+blocking syscall returned -1 errno=4
+done

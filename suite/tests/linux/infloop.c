@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,6 +39,11 @@
 #include <signal.h>
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/select.h>
 
 static void
 signal_handler(int sig)
@@ -54,7 +59,7 @@ main(int argc, const char *argv[])
 {
     int arg_offs = 1;
     long long counter = 0;
-    bool for_attach = false;
+    bool for_attach = false, block = false;
     while (arg_offs < argc && argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-v") == 0) {
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
@@ -65,6 +70,9 @@ main(int argc, const char *argv[])
             arg_offs++;
         } else if (strcmp(argv[arg_offs], "-attach") == 0) {
             for_attach = true;
+            arg_offs++;
+        } else if (strcmp(argv[arg_offs], "-block") == 0) {
+            block = true;
             arg_offs++;
         } else
             return 1;
@@ -80,13 +88,31 @@ main(int argc, const char *argv[])
              */
             protect_mem((void *)signal_handler, 1, ALLOW_READ | ALLOW_EXEC);
         }
-        /* don't spin forever to avoid hosing machines if test harness somehow
+        /* Don't spin forever to avoid hosing machines if test harness somehow
          * fails to kill.  15 billion syscalls takes ~ 1 minute.
          */
         counter++;
         if (counter > 15 * 1024 * 1024 * 1024LL) {
             print("hit max iters\n");
             break;
+        }
+        if (block) {
+            /* Make a blocking syscall, but not forever to again guard against
+             * a runaway test.
+             */
+            int res;
+            struct timeval timeout;
+            timeout.tv_sec = 60;
+            timeout.tv_usec = 0;
+            fd_set set;
+            FD_ZERO(&set);
+            FD_SET(0, &set);
+            res = select(0 + 1, &set, NULL, NULL, &timeout);
+            if (res == -1)
+                perror("select error");
+            else if (res == 0)
+                print("select timeout\n");
+            print("blocking syscall returned %d errno=%d\n", res, errno);
         }
     }
     return 0;
