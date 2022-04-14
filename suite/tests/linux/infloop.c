@@ -78,6 +78,17 @@ main(int argc, const char *argv[])
             return 1;
     }
 
+    int pipefd[2];
+    if (block) {
+        /* Create something we can block reading.  Stdin is too risky: in the
+         * test suite it has data.
+         */
+        if (pipe(pipefd) == -1) {
+            perror("pipe");
+            return 1;
+        }
+    }
+
     while (1) {
         /* XXX i#38: We're seeing mprotect fail strangely on attach right before
          * DR takes over.  For now we avoid it in that test.
@@ -100,14 +111,13 @@ main(int argc, const char *argv[])
             /* Make a blocking syscall, but not forever to again guard against
              * a runaway test.
              */
-            int res;
             struct timeval timeout;
             timeout.tv_sec = 60;
             timeout.tv_usec = 0;
             fd_set set;
             FD_ZERO(&set);
-            FD_SET(0, &set);
-            res = select(0 + 1, &set, NULL, NULL, &timeout);
+            FD_SET(pipefd[0], &set);
+            int res = select(pipefd[0] + 1, &set, NULL, NULL, &timeout);
             if (res == -1)
                 perror("select error");
             else if (res == 0)
@@ -115,5 +125,11 @@ main(int argc, const char *argv[])
             print("blocking syscall returned %d errno=%d\n", res, errno);
         }
     }
+
+    if (block) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+    }
+
     return 0;
 }
