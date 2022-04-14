@@ -118,11 +118,18 @@ main(int argc, const char *argv[])
             FD_ZERO(&set);
             FD_SET(pipefd[0], &set);
             int res = select(pipefd[0] + 1, &set, NULL, NULL, &timeout);
-            if (res == -1)
+            /* Don't print on EINTR nor on a timeout as both can happen depending
+             * on the timing of the attach.
+             */
+            if (res == -1 && errno == EINTR) {
+                /* What we expect for some kernels: our attach interrupted the
+                 * syscall, which is not an auto-restart syscall.
+                 */
+            } else if (res == -1)
                 perror("select error");
-            else if (res == 0)
-                print("select timeout\n");
-            print("blocking syscall returned %d errno=%d\n", res, errno);
+            /* XXX i#38: We may want a test of an auto-restart syscall as well
+             * once the injector handles that.
+             */
         }
     }
 
