@@ -65,8 +65,16 @@ cache_fifo_t::init(int associativity, int block_size, int total_size,
 void
 cache_fifo_t::access_update(int block_idx, int way)
 {
-    // Since the FIFO replacement policy is independent of cache hit,
-    // we do not need to do anything here.
+    // When the current access is a hit and the currently accessed 'way' has a
+    // counter of 1, meaning it was the 'first accessed way' before this access,
+    // set the next 'way' as victim. This is because the currently accessed
+    // 'way' is no longer the 'first accessed way' and its counter is then
+    // cleared and the next 'way' is set as a victim.
+    if (get_caching_device_block(block_idx, way).counter_ == 1) {
+        get_caching_device_block(block_idx, way).counter_ = 0;
+        get_caching_device_block(block_idx, (way + 1) & (associativity_ - 1)).counter_ =
+            1;
+    }
     return;
 }
 
