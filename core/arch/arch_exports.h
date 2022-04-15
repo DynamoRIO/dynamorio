@@ -311,7 +311,7 @@ get_stack_ptr(void);
 /* We define RDTSC_LL differently on 32-bit for better performance */
 #            define RDTSC_LL(llval) __asm__ __volatile__("rdtsc" : "=A"(llval))
 #            define GET_CUR_PC(var)                                         \
-                __asm__ __volatile__("call 1f; 1: pop %%rax; mov %%eax, %0" \
+                __asm__ __volatile__("call 1f; 1: pop %%eax; mov %%eax, %0" \
                                      : "=m"(var)                            \
                                      :                                      \
                                      : "eax", "memory")
