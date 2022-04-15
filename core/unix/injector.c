@@ -146,7 +146,7 @@ typedef struct _dr_inject_info_t {
     int exitcode;
     bool no_emulate_brk; /* is -no_emulate_brk in the option string? */
 
-    bool wait_syscall; /* valid iff -attach, handlle blocking syscalls */
+    bool wait_syscall; /* valid iff -attach: handle blocking syscalls */
 
 #ifdef MACOS
     bool spawn_32bit;
@@ -1816,11 +1816,21 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      */
     if (!info->wait_syscall) {
         if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD, app_mode)) {
-            /* prev bytes might can match by accident, so check return value */
+            /* Prev bytes might match by accident, so check return value too. */
+            /* XXX i#38: If we interrupt an auto-restart syscall, we want to shift
+             * the app takeover PC back and restore the syscall number: but it's not
+             * easy to find the number.  (On some AArch64 kernels, the kernel does
+             * this for us, for both auto-restart and interruptible.)
+             */
             if (regs.REG_RETVAL_FIELD == -ERESTARTSYS ||
                 regs.REG_RETVAL_FIELD == -ERESTARTNOINTR ||
-                regs.REG_RETVAL_FIELD == -ERESTARTNOHAND)
+                regs.REG_RETVAL_FIELD == -ERESTARTNOHAND) {
+                if (verbose) {
+                    fprintf(stderr, "Post-syscall: changing %ld to -EINTR\n",
+                            (long int)regs.REG_RETVAL_FIELD);
+                }
                 regs.REG_RETVAL_FIELD = -EINTR;
+            }
         }
     }
 
@@ -1881,11 +1891,21 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     do {
         /* Continue or deliver pending signal from status. */
         r = our_ptrace(PTRACE_CONT, info->pid, NULL, (void *)(ptr_int_t)signal);
-        if (r < 0)
+        if (r < 0) {
+            if (verbose)
+                perror("PTRACE_CONT failed");
             return false;
+        }
         r = waitpid(info->pid, &status, 0);
-        if (r < 0 || !WIFSTOPPED(status))
+        if (r < 0 || !WIFSTOPPED(status)) {
+            if (verbose) {
+                if (r < 0)
+                    perror("waitpid failed");
+                else
+                    fprintf(stderr, "bad status 0x%x\n", status);
+            }
             return false;
+        }
         signal = WSTOPSIG(status);
     } while (signal == SIGSEGV || signal == SIGILL);
 

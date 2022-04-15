@@ -197,22 +197,8 @@ if ("${nudge}" MATCHES "<use-persisted>")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd run_in_bg)
-
-  set(extra_ops "")
-  if (UNIX)
-    # We're not yet explicitly testing -skip_syscall b/c it's considered experimental,
-    # but we seem to need it on ARM where infloop is in a blocking syscall.
-    # Not sure why it's different vs other arches.
-    # XXX i#38: Add additional explicit tests of blocking syscalls, and then turn
-    # -skip_syscall on by default all the time.
-    execute_process(COMMAND uname -m OUTPUT_VARIABLE HOST_ARCH)
-    if ("${HOST_ARCH}" MATCHES "^arm")
-      set(extra_ops "@-skip_syscall")
-    endif ()
-  endif ()
-
   string(REGEX REPLACE "<attach>"
-    "${toolbindir}/drrun@-attach@${pid}${extra_ops}@-takeover_sleep@-takeovers@1000"
+    "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
     nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
