@@ -52,6 +52,8 @@ protected:
     access_update(int line_idx, int way) override;
     int
     replace_which_way(int line_idx) override;
+    int
+    get_next_way_to_replace(int block_idx);
 };
 
 #endif /* _CACHE_FIFO_H_ */
