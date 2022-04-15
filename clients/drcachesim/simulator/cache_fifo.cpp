@@ -86,3 +86,14 @@ cache_fifo_t::replace_which_way(int block_idx)
     }
     return -1;
 }
+
+int
+cache_fifo_t::get_next_way_to_replace(const int block_idx)
+{
+    for (int i = 0; i < associativity_; i++) {
+        if (get_caching_device_block(block_idx, i).counter_ == 1) {
+            return i;
+        }
+    }
+    return -1;
+}
