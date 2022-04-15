@@ -1819,13 +1819,18 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { { 0 } };
 
-    os_page_size_init(env, true);
+    /* We can't use PAGE_SIZE as that may require relocations to access. */
+    const int min_page_size = 4096;
 
     if (dr_map == NULL) {
+        /* We can't start with the address of relocate_dynamorio or something as that
+         * may require relocations to access!
+         */
+        GET_CUR_PC(dr_map);
         /* we do not know where dynamorio is, so check backward page by page */
-        dr_map = (app_pc)ALIGN_BACKWARD((ptr_uint_t)relocate_dynamorio, PAGE_SIZE);
+        dr_map = (app_pc)ALIGN_BACKWARD(dr_map, min_page_size);
         while (dr_map != NULL && !privload_mem_is_elf_so_header(dr_map)) {
-            dr_map -= PAGE_SIZE;
+            dr_map -= min_page_size;
         }
     }
     if (dr_map == NULL)
@@ -1834,6 +1839,8 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     /* Relocate it */
     if (privload_get_os_privmod_data(dr_map, &opd))
         privload_early_relocate_os_privmod_data(&opd, dr_map);
+
+    os_page_size_init(env, true);
 }
 
 /* i#1227: on a conflict with the app we reload ourselves.
