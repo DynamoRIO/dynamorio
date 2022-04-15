@@ -96,3 +96,22 @@ cache_lru_t::replace_which_way(int line_idx)
     }
     return max_way;
 }
+
+int
+cache_lru_t::get_next_way_to_replace(const int block_idx)
+{
+    // We implement LRU by picking the slot with the largest counter value.
+    int max_counter = 0;
+    int max_way = 0;
+    for (int way = 0; way < associativity_; ++way) {
+        if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID) {
+            max_way = way;
+            break;
+        }
+        if (get_caching_device_block(block_idx, way).counter_ > max_counter) {
+            max_counter = get_caching_device_block(block_idx, way).counter_;
+            max_way = way;
+        }
+    }
+    return max_way;
+}

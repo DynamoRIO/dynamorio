@@ -52,6 +52,8 @@ protected:
     access_update(int line_idx, int way) override;
     int
     replace_which_way(int line_idx) override;
+    int
+    get_next_way_to_replace(const int block_idx) override;
 };
 
 #endif /* _CACHE_LRU_H_ */

@@ -277,6 +277,27 @@ caching_device_t::replace_which_way(int block_idx)
     return min_way;
 }
 
+int
+caching_device_t::get_next_way_to_replace(const int block_idx)
+{
+    // Return the victim 'way' for the default LFU cache which the base class
+    // implements. Subclasses override this and return victim 'way' specific to
+    // their own implementation.
+    int min_counter = 0; /* avoid "may be used uninitialized" with GCC 4.4.7 */
+    int min_way = 0;
+    for (int way = 0; way < associativity_; ++way) {
+        if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID) {
+            min_way = way;
+            break;
+        }
+        if (way == 0 || get_caching_device_block(block_idx, way).counter_ < min_counter) {
+            min_counter = get_caching_device_block(block_idx, way).counter_;
+            min_way = way;
+        }
+    }
+    return min_way;
+}
+
 void
 caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type)
 {

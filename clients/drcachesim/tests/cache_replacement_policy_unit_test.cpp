@@ -67,7 +67,7 @@ public:
         ref.data.size = 1;
         ref.data.addr = addr;
         request(ref);
-        assert(replace_which_way(get_block_index(addr)) ==
+        assert(get_next_way_to_replace(get_block_index(addr)) ==
                expected_replacement_way_after_access);
     }
 };
