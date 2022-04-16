@@ -32,6 +32,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "dr_api.h"
 #include "dr_frontend.h"
 
@@ -42,6 +43,10 @@ main()
 {
     bool dir_exists;
     int res;
+    const char *path;
+    char path_buf[512];
+    char full_path_buf[512];
+    bool ret;
     res = drfront_create_dir("test_dir");
     if (res != DRFRONT_SUCCESS && res != DRFRONT_EXIST) {
         printf("drfront_create_dir failed \n");
@@ -53,11 +58,22 @@ main()
         return -1;
     }
 
-    res = drfront_remove_dir("test_dir");
+    path = getenv("PATH");
+    strncpy(path_buf, "test_dir:", 9);
+    strncat(path_buf, path, 512 - 10);
+    setenv("PATH", path_buf, 1);
+    drfront_create_dir("test_dir/test_ex");
+    if (drfront_searchenv("test_ex", "PATH", full_path_buf, 512, &ret) != DRFRONT_ERROR) {
+        printf("failed to ignore test_ex in PATH\n");
+        return -1;
+    }
+
+    res = drfront_remove_dir("test_dir/test_ex");
     if (res != DRFRONT_SUCCESS) {
         printf("drfront_remove_dir failed\n");
         return -1;
     }
+    drfront_remove_dir("test_dir");
 #ifdef WINDOWS
     if (drfront_set_verbose(1) != DRFRONT_SUCCESS) {
         printf("drfront_set_verbose failed\n");
