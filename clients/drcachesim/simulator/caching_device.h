@@ -144,7 +144,6 @@ protected:
     {
         return (tag & blocks_per_set_mask_) << assoc_bits_;
     }
-
     inline caching_device_block_t &
     get_caching_device_block(int block_idx, int way)
     {
