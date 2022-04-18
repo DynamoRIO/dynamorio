@@ -7884,16 +7884,16 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vmovd, 0x660f7e10, "vmovd", Ed, xx, Vd_dq, xx, xx, mrm|vex, x, tevexwb[136][0]},
     {OP_vmovq, 0x660f7e50, "vmovq", Ey, xx, Vq_dq, xx, xx, mrm|vex, x, tevexwb[136][2]},
   }, { /* vex_W_ext 110 */
-    {OP_vpdpbusd, 0x66385008, "vpdpbusd", Ve, xx, Ve, He, We, mrm|vex|ttfvm, x, tevexwb[267][0]},
+    {OP_vpdpbusd, 0x66385008, "vpdpbusd", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[267][0]},
     {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
   }, { /* vex_W_ext 111 */
-    {OP_vpdpbusds, 0x66385108, "vpdpbusds", Ve, xx, Ve, He, We, mrm|vex|ttfvm, x, tevexwb[268][0]},
+    {OP_vpdpbusds, 0x66385108, "vpdpbusds", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[268][0]},
     {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
   }, { /* vex_W_ext 112 */
-    {OP_vpdpwssd, 0x66385208, "vpdpwssd", Ve, xx, Ve, He, We, mrm|vex|ttfvm, x, tevexwb[269][0]},
+    {OP_vpdpwssd, 0x66385208, "vpdpwssd", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[269][0]},
     {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
   }, { /* vex_W_ext 113 */
-    {OP_vpdpwssds, 0x66385308, "vpdpwssds", Ve, xx, Ve, He, We, mrm|vex|ttfvm, x, tevexwb[270][0]},
+    {OP_vpdpwssds, 0x66385308, "vpdpwssds", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[270][0]},
     {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
   },
 };
