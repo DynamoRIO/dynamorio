@@ -50,14 +50,6 @@ public:
         }
     }
 
-    int
-    get_block_index(const addr_t addr)
-    {
-        addr_t tag = compute_tag(addr);
-        int block_idx = compute_block_idx(tag);
-        return block_idx;
-    }
-
     void
     access_and_check_lru(const addr_t addr,
                          const int expected_replacement_way_after_access)
@@ -82,14 +74,6 @@ public:
             std::cerr << "FIFO cache failed to initialize\n";
             exit(1);
         }
-    }
-
-    int
-    get_block_index(const addr_t addr)
-    {
-        addr_t tag = compute_tag(addr);
-        int block_idx = compute_block_idx(tag);
-        return block_idx;
     }
 
     void
@@ -151,6 +135,7 @@ unit_test_cache_fifo_four_way()
     const addr_t ADDRESS_C = 128;
     const addr_t ADDRESS_D = 192;
     const addr_t ADDRESS_E = 72;
+    const addr_t ADDRESS_F = 130;
 
     assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
            cache_fifo_test.get_block_index(ADDRESS_B));
@@ -160,17 +145,20 @@ unit_test_cache_fifo_four_way()
            cache_fifo_test.get_block_index(ADDRESS_D));
     assert(cache_fifo_test.get_block_index(ADDRESS_D) ==
            cache_fifo_test.get_block_index(ADDRESS_E));
+    assert(cache_fifo_test.get_block_index(ADDRESS_E) ==
+           cache_fifo_test.get_block_index(ADDRESS_F));
 
     // Lower-case letter shows the way that is to be replaced after the access.
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A x X X
     cache_fifo_test.access_and_check_fifo(ADDRESS_B, 2); // A B x X
     cache_fifo_test.access_and_check_fifo(ADDRESS_C, 3); // A B C x
     cache_fifo_test.access_and_check_fifo(ADDRESS_D, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A b C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 2); // A B c D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 2); // A B c D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 0); // a B C D
 }
 
 void
@@ -188,6 +176,9 @@ unit_test_cache_fifo_eight_way()
     const addr_t ADDRESS_G = 768;
     const addr_t ADDRESS_H = 896;
     const addr_t ADDRESS_I = 144;
+    const addr_t ADDRESS_J = 150;
+    const addr_t ADDRESS_K = 900;
+    const addr_t ADDRESS_L = 780;
 
     assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
            cache_fifo_test.get_block_index(ADDRESS_B));
@@ -201,6 +192,12 @@ unit_test_cache_fifo_eight_way()
            cache_fifo_test.get_block_index(ADDRESS_G));
     assert(cache_fifo_test.get_block_index(ADDRESS_H) ==
            cache_fifo_test.get_block_index(ADDRESS_I));
+    assert(cache_fifo_test.get_block_index(ADDRESS_I) ==
+           cache_fifo_test.get_block_index(ADDRESS_J));
+    assert(cache_fifo_test.get_block_index(ADDRESS_J) ==
+           cache_fifo_test.get_block_index(ADDRESS_K));
+    assert(cache_fifo_test.get_block_index(ADDRESS_K) ==
+           cache_fifo_test.get_block_index(ADDRESS_L));
 
     // Lower-case letter shows the way that is to be replaced after the access
     // (aka 'first way').
@@ -215,9 +212,12 @@ unit_test_cache_fifo_eight_way()
     cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
     cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
     cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A  b  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A  b  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 2); // A  B  c  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_J, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_K, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 0); // a  B  C  D  E  F  G  H
 }
 
 void
