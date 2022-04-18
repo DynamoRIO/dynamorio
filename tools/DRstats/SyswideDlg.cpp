@@ -41,22 +41,21 @@
 
 #ifndef DRSTATS_DEMO /* around whole file */
 
-#include "stdafx.h"
-#include "DynamoRIO.h"
-#include "SyswideDlg.h"
-#include <assert.h>
+#    include "stdafx.h"
+#    include "DynamoRIO.h"
+#    include "SyswideDlg.h"
+#    include <assert.h>
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    ifdef _DEBUG
+#        define new DEBUG_NEW
+#        undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
-#endif
+#    endif
 
 /////////////////////////////////////////////////////////////////////////////
 // CSyswideDlg dialog
 
-
-CSyswideDlg::CSyswideDlg(CWnd* pParent /*=NULL*/)
+CSyswideDlg::CSyswideDlg(CWnd *pParent /*=NULL*/)
     : CDialog(CSyswideDlg::IDD, pParent)
 {
     //{{AFX_DATA_INIT(CSyswideDlg)
@@ -64,8 +63,8 @@ CSyswideDlg::CSyswideDlg(CWnd* pParent /*=NULL*/)
     //}}AFX_DATA_INIT
 }
 
-
-void CSyswideDlg::DoDataExchange(CDataExchange* pDX)
+void
+CSyswideDlg::DoDataExchange(CDataExchange *pDX)
 {
     CDialog::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(CSyswideDlg)
@@ -73,18 +72,18 @@ void CSyswideDlg::DoDataExchange(CDataExchange* pDX)
     //}}AFX_DATA_MAP
 }
 
-
 BEGIN_MESSAGE_MAP(CSyswideDlg, CDialog)
-    //{{AFX_MSG_MAP(CSyswideDlg)
-    //}}AFX_MSG_MAP
+//{{AFX_MSG_MAP(CSyswideDlg)
+//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 ////////////////////////////////////////////////////////////////////////////
 // CSyswideDlg message handlers
 
-void CSyswideDlg::OnOK()
+void
+CSyswideDlg::OnOK()
 {
-    CButton *check = (CButton *) GetDlgItem(IDC_NOT_AGAIN);
+    CButton *check = (CButton *)GetDlgItem(IDC_NOT_AGAIN);
     assert(check != NULL);
     if (check->GetCheck() == 1) {
         CDynamoRIOApp::SetSystemwideSetting(0);

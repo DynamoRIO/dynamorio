@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,22 +43,25 @@
 #include "drwrap.h"
 
 #ifdef WINDOWS
-# define IF_WINDOWS_ELSE(x,y) x
+#    define IF_WINDOWS_ELSE(x, y) x
 #else
-# define IF_WINDOWS_ELSE(x,y) y
+#    define IF_WINDOWS_ELSE(x, y) y
 #endif
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
+#define NULL_TERMINATE(buf) (buf)[(sizeof((buf)) / sizeof((buf)[0])) - 1] = '\0'
 
-static void event_exit(void);
-static void wrap_pre(void *wrapcxt, OUT void **user_data);
-static void wrap_post(void *wrapcxt, void *user_data);
+static void
+event_exit(void);
+static void
+wrap_pre(void *wrapcxt, OUT void **user_data);
+static void
+wrap_post(void *wrapcxt, void *user_data);
 
 static size_t max_malloc;
 #ifdef SHOW_RESULTS
@@ -71,8 +74,7 @@ static void *max_lock; /* to synch writes to max_malloc */
 static void
 module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
-    app_pc towrap = (app_pc)
-        dr_get_proc_address(mod->handle, MALLOC_ROUTINE_NAME);
+    app_pc towrap = (app_pc)dr_get_proc_address(mod->handle, MALLOC_ROUTINE_NAME);
     if (towrap != NULL) {
 #ifdef SHOW_RESULTS
         bool ok =
@@ -80,14 +82,15 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
             drwrap_wrap(towrap, wrap_pre, wrap_post);
 #ifdef SHOW_RESULTS
         if (ok) {
-            dr_fprintf(STDERR, "<wrapped "MALLOC_ROUTINE_NAME" @"PFX"\n", towrap);
+            dr_fprintf(STDERR, "<wrapped " MALLOC_ROUTINE_NAME " @" PFX "\n", towrap);
         } else {
             /* We expect this w/ forwarded exports (e.g., on win7 both
              * kernel32!HeapAlloc and kernelbase!HeapAlloc forward to
              * the same routine in ntdll.dll)
              */
-            dr_fprintf(STDERR, "<FAILED to wrap "MALLOC_ROUTINE_NAME
-                       " @"PFX": already wrapped?\n",
+            dr_fprintf(STDERR,
+                       "<FAILED to wrap " MALLOC_ROUTINE_NAME " @" PFX
+                       ": already wrapped?\n",
                        towrap);
         }
 #endif
@@ -99,14 +102,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'wrap'", "http://dynamorio.org/issues");
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'wrap' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'wrap' initializing\n");
     /* also give notification to stderr */
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client wrap is running\n");
     }
 #endif
@@ -123,8 +126,8 @@ event_exit(void)
 #ifdef SHOW_RESULTS
     char msg[256];
     int len;
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                      "<Largest "MALLOC_ROUTINE_NAME
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
+                      "<Largest " MALLOC_ROUTINE_NAME
                       " request: %d>\n<OOM simulations: %d>\n",
                       max_malloc, malloc_oom);
     DR_ASSERT(len > 0);
@@ -141,7 +144,7 @@ static void
 wrap_pre(void *wrapcxt, OUT void **user_data)
 {
     /* malloc(size) or HeapAlloc(heap, flags, size) */
-    size_t sz = (size_t) drwrap_get_arg(wrapcxt, IF_WINDOWS_ELSE(2,0));
+    size_t sz = (size_t)drwrap_get_arg(wrapcxt, IF_WINDOWS_ELSE(2, 0));
     /* find the maximum malloc request */
     if (sz > max_malloc) {
         dr_mutex_lock(max_lock);
@@ -149,14 +152,14 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
             max_malloc = sz;
         dr_mutex_unlock(max_lock);
     }
-    *user_data = (void *) sz;
+    *user_data = (void *)sz;
 }
 
 static void
 wrap_post(void *wrapcxt, void *user_data)
 {
 #ifdef SHOW_RESULTS /* we want determinism in our test suite */
-    size_t sz = (size_t) user_data;
+    size_t sz = (size_t)user_data;
     /* test out-of-memory by having a random moderately-large alloc fail */
     if (sz > 1024 && dr_get_random_value(1000) < 10) {
         bool ok = drwrap_set_retval(wrapcxt, NULL);
@@ -167,4 +170,3 @@ wrap_post(void *wrapcxt, void *user_data)
     }
 #endif
 }
-

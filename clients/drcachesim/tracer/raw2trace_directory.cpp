@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,151 +34,326 @@
  * Separate from raw2trace_t, so that raw2trace doesn't depend on dr_frontend.
  */
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <vector>
 
 #ifdef UNIX
-# include <dirent.h> /* opendir, readdir */
-# include <unistd.h> /* getcwd */
+#    include <sys/stat.h>
+#    include <sys/types.h>
 #else
-# define UNICODE
-# define _UNICODE
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h>
-# include <direct.h> /* _getcwd */
-# pragma comment(lib, "User32.lib")
+#    define UNICODE
+#    define _UNICODE
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
 #endif
 
 #include "dr_api.h"
 #include "dr_frontend.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
+#include "directory_iterator.h"
 #include "utils.h"
-
-#define FATAL_ERROR(msg, ...) do { \
-    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
-    fflush(stderr); \
-    exit(1); \
-} while (0)
-
-#define CHECK(val, msg, ...) do { \
-    if (!(val)) FATAL_ERROR(msg, ##__VA_ARGS__); \
-} while (0)
-
-#define VPRINT(level, ...) do { \
-    if (this->verbosity >= (level)) { \
-        fprintf(stderr, "[drmemtrace]: "); \
-        fprintf(stderr, __VA_ARGS__); \
-    } \
-} while (0)
-
-#ifdef UNIX
-void
-raw2trace_directory_t::open_thread_files()
-{
-    struct dirent *ent;
-    DIR *dir = opendir(indir.c_str());
-    VPRINT(1, "Iterating dir %s\n", indir.c_str());
-    if (dir == NULL)
-        FATAL_ERROR("Failed to list directory %s", indir.c_str());
-    while ((ent = readdir(dir)) != NULL)
-        open_thread_log_file(ent->d_name);
-    closedir (dir);
-}
-#else
-void
-raw2trace_directory_t::open_thread_files()
-{
-    HANDLE find = INVALID_HANDLE_VALUE;
-    WIN32_FIND_DATAW data;
-    char path[MAXIMUM_PATH];
-    TCHAR wpath[MAXIMUM_PATH];
-    VPRINT(1, "Iterating dir %s\n", indir.c_str());
-    // Append \*
-    dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s\\*", indir.c_str());
-    NULL_TERMINATE_BUFFER(path);
-    if (drfront_char_to_tchar(path, wpath, BUFFER_SIZE_ELEMENTS(wpath)) !=
-        DRFRONT_SUCCESS)
-        FATAL_ERROR("Failed to convert from utf-8 to utf-16");
-    find = FindFirstFileW(wpath, &data);
-    if (find == INVALID_HANDLE_VALUE)
-        FATAL_ERROR("Failed to list directory %s\n", indir.c_str());
-    do {
-        if (!TESTANY(data.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY)) {
-            if (drfront_tchar_to_char(data.cFileName, path, BUFFER_SIZE_ELEMENTS(path)) !=
-                DRFRONT_SUCCESS)
-                FATAL_ERROR("Failed to convert from utf-16 to utf-8");
-            open_thread_log_file(path);
-        }
-    } while (FindNextFile(find, &data) != 0);
-    FindClose(find);
-}
+#ifdef HAS_ZLIB
+#    include "common/gzip_istream.h"
+#    include "common/gzip_ostream.h"
+#endif
+#ifdef HAS_SNAPPY
+#    include "common/snappy_istream.h"
 #endif
 
-void
+#define FATAL_ERROR(msg, ...)                               \
+    do {                                                    \
+        fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
+        fflush(stderr);                                     \
+        exit(1);                                            \
+    } while (0)
+
+#define CHECK(val, msg, ...)                 \
+    do {                                     \
+        if (!(val))                          \
+            FATAL_ERROR(msg, ##__VA_ARGS__); \
+    } while (0)
+
+#undef VPRINT
+#define VPRINT(level, ...)                     \
+    do {                                       \
+        if (this->verbosity_ >= (level)) {     \
+            fprintf(stderr, "[drmemtrace]: "); \
+            fprintf(stderr, __VA_ARGS__);      \
+        }                                      \
+    } while (0)
+
+std::string
+raw2trace_directory_t::open_thread_files()
+{
+    VPRINT(1, "Iterating dir %s\n", indir_.c_str());
+    directory_iterator_t end;
+    directory_iterator_t iter(indir_);
+    if (!iter) {
+        return "Failed to list directory " + indir_ + ": " + iter.error_string();
+    }
+    for (; iter != end; ++iter) {
+        std::string error = open_thread_log_file((*iter).c_str());
+        if (!error.empty())
+            return error;
+    }
+    return "";
+}
+
+std::string
 raw2trace_directory_t::open_thread_log_file(const char *basename)
 {
     char path[MAXIMUM_PATH];
-    CHECK(basename[0] != '/',
-          "dir iterator entry %s should not be an absolute path\n", basename);
-    // Skip the module list log.
-    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0)
-        return;
+    CHECK(basename[0] != '/', "dir iterator entry %s should not be an absolute path\n",
+          basename);
+    // Skip the auxiliary files.
+    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0 ||
+        strcmp(basename, DRMEMTRACE_FUNCTION_LIST_FILENAME) == 0)
+        return "";
     // Skip any non-.raw in case someone put some other file in there.
-    if (strstr(basename, OUTFILE_SUFFIX) == NULL)
-        return;
-    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s",
-                    indir.c_str(), DIRSEP, basename) <= 0) {
-        FATAL_ERROR("Failed to get full path of file %s", basename);
+    const char *basename_dot = strrchr(basename, '.');
+    if (basename_dot == nullptr)
+        return "";
+    const char *basename_pre_suffix = nullptr;
+    bool is_gzipped = false, is_snappy = false;
+#ifdef HAS_ZLIB
+    basename_pre_suffix =
+        strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
+    if (basename_pre_suffix != nullptr) {
+        is_gzipped = true;
+    }
+#endif
+#ifdef HAS_SNAPPY
+    if (basename_pre_suffix == nullptr) {
+        basename_pre_suffix =
+            strstr(basename_dot - strlen(OUTFILE_SUFFIX_SZ), OUTFILE_SUFFIX_SZ);
+        if (basename_pre_suffix != nullptr) {
+            is_snappy = true;
+        }
+    }
+#endif
+    if (basename_pre_suffix == nullptr)
+        basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX);
+    if (basename_pre_suffix == nullptr)
+        return "";
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", indir_.c_str(), DIRSEP,
+                    basename) <= 0) {
+        return "Failed to get full path of file " + std::string(basename);
     }
     NULL_TERMINATE_BUFFER(path);
-    thread_files.push_back(new std::ifstream(path, std::ifstream::binary));
-    if (!(*thread_files.back()))
-        FATAL_ERROR("Failed to open thread log file %s", path);
-    std::string error = raw2trace_t::check_thread_file(thread_files.back());
+    std::istream *ifile = nullptr;
+#ifdef HAS_ZLIB
+    if (is_gzipped)
+        ifile = new gzip_istream_t(path);
+#endif
+#ifdef HAS_SNAPPY
+    if (is_snappy)
+        ifile = new snappy_istream_t(path);
+#endif
+    if (!is_gzipped && !is_snappy)
+        ifile = new std::ifstream(path, std::ifstream::binary);
+    if (ifile == nullptr)
+        return "Failed to open thread log file " + std::string(path);
+    in_files_.push_back(ifile);
+    if (!(*in_files_.back()))
+        return "Failed to open thread log file " + std::string(path);
+    std::string error = raw2trace_t::check_thread_file(in_files_.back());
     if (!error.empty()) {
-        FATAL_ERROR("Failed sanity checks for thread log file %s: %s", path,
-                    error.c_str());
+        return "Failed sanity checks for thread log file " + std::string(path) + ": " +
+            error;
     }
-    VPRINT(1, "Opened thread log file %s\n", path);
+    VPRINT(1, "Opened input file %s\n", path);
+
+    // Now open the corresponding output file.
+    char outname[MAXIMUM_PATH];
+    if (dr_snprintf(outname, BUFFER_SIZE_ELEMENTS(outname), "%.*s",
+                    basename_pre_suffix - 1 - basename, basename) <= 0) {
+        return "Failed to compute output name for file " + std::string(basename);
+    }
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s.%s", outdir_.c_str(),
+                    DIRSEP, outname, TRACE_SUFFIX) <= 0) {
+        return "Failed to compute full path of output file for " + std::string(basename);
+    }
+    std::ostream *ofile;
+#ifdef HAS_ZLIB
+    ofile = new gzip_ostream_t(path);
+#else
+    ofile = new std::ofstream(path, std::ofstream::binary);
+#endif
+    out_files_.push_back(ofile);
+    if (!(*out_files_.back()))
+        return "Failed to open output file " + std::string(path);
+    VPRINT(1, "Opened output file %s\n", path);
+    return "";
 }
 
-raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
-                                             const std::string &outname_in,
-                                             unsigned int verbosity_in)
-    : indir(indir_in), outname(outname_in), verbosity(verbosity_in)
+std::string
+raw2trace_directory_t::read_module_file(const std::string &modfilename)
 {
-    // Support passing both base dir and raw/ subdir.
-    if (indir.find(OUTFILE_SUBDIR) == std::string::npos)
-        indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
-    std::string modfilename = indir + std::string(DIRSEP) +
-        DRMEMTRACE_MODULE_LIST_FILENAME;
-    modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
-    if (modfile == INVALID_FILE)
-        FATAL_ERROR("Failed to open module file %s", modfilename.c_str());
+    modfile_ = dr_open_file(modfilename.c_str(), DR_FILE_READ);
+    if (modfile_ == INVALID_FILE)
+        return "Failed to open module file " + modfilename;
     uint64 modfile_size;
-    if (!dr_file_size(modfile, &modfile_size))
-        FATAL_ERROR("Failed to get module file size: %s", modfilename.c_str());
+    if (!dr_file_size(modfile_, &modfile_size))
+        return "Failed to get module file size: " + modfilename;
     size_t modfile_size_ = (size_t)modfile_size;
-    modfile_bytes = new char[modfile_size_];
-    if (dr_read_file(modfile, modfile_bytes, modfile_size_) < (ssize_t)modfile_size_)
-        FATAL_ERROR("Didn't read whole module file %s", modfilename.c_str());
+    modfile_bytes_ = new char[modfile_size_];
+    if (dr_read_file(modfile_, modfile_bytes_, modfile_size_) < (ssize_t)modfile_size_)
+        return "Didn't read whole module file " + modfilename;
+    return "";
+}
 
-    out_file.open(outname.c_str(), std::ofstream::binary);
-    if (!out_file)
-        FATAL_ERROR("Failed to open output file %s", outname.c_str());
-    VPRINT(1, "Writing to %s\n", outname.c_str());
+bool
+raw2trace_directory_t::is_window_subdir(const std::string &dir)
+{
+    return dir.rfind(WINDOW_SUBDIR_PREFIX) != std::string::npos &&
+        dir.rfind(WINDOW_SUBDIR_PREFIX) >= dir.size() - strlen(WINDOW_SUBDIR_FIRST);
+}
 
-    open_thread_files();
+std::string
+raw2trace_directory_t::window_subdir_if_present(const std::string &dir)
+{
+    // Support window subdirs.  If the base is passed, target the first.
+    if (is_window_subdir(dir))
+        return dir;
+    std::string windir = dir + std::string(DIRSEP) + WINDOW_SUBDIR_FIRST;
+    if (directory_iterator_t::is_directory(windir))
+        return windir;
+    return dir;
+}
+
+std::string
+raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
+{
+    std::string rawdir = rawdir_in;
+#ifdef WINDOWS
+    std::replace(rawdir.begin(), rawdir.end(), ALT_DIRSEP[0], DIRSEP[0]);
+#endif
+    // First remove trailing slashes.
+    while (rawdir.back() == DIRSEP[0])
+        rawdir.pop_back();
+    std::string trace_sub(DIRSEP + std::string(TRACE_SUBDIR));
+    std::string raw_sub(DIRSEP + std::string(OUTFILE_SUBDIR));
+    // If it ends in "/trace", use it directly.
+    if (rawdir.size() > trace_sub.size() &&
+        rawdir.compare(rawdir.size() - trace_sub.size(), trace_sub.size(), trace_sub) ==
+            0)
+        return window_subdir_if_present(rawdir);
+    // If it ends in "/raw" or a window subdir, replace with "/trace".
+    if ((rawdir.size() > raw_sub.size() &&
+         rawdir.compare(rawdir.size() - raw_sub.size(), raw_sub.size(), raw_sub) == 0) ||
+        is_window_subdir(rawdir)) {
+        std::string tracedir = rawdir;
+        size_t pos = rawdir.rfind(raw_sub);
+        if (pos == std::string::npos)
+            CHECK(false, "Internal error: should have returned already");
+        tracedir.erase(pos, raw_sub.size());
+        tracedir.insert(pos, trace_sub);
+        return tracedir;
+    }
+    // If it contains a "/raw" or "/trace" subdir, add "/trace" to it.
+    if (directory_iterator_t::is_directory(rawdir + raw_sub) ||
+        directory_iterator_t::is_directory(rawdir + trace_sub)) {
+        return window_subdir_if_present(rawdir + trace_sub);
+    }
+    // Use it directly.
+    return rawdir;
+}
+
+std::string
+raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir)
+{
+    indir_ = indir;
+    outdir_ = outdir;
+#ifdef WINDOWS
+    // Canonicalize.
+    std::replace(indir_.begin(), indir_.end(), ALT_DIRSEP[0], DIRSEP[0]);
+#endif
+    // Remove trailing slashes.
+    while (indir_.back() == DIRSEP[0])
+        indir_.pop_back();
+    if (!directory_iterator_t::is_directory(indir_))
+        return "Directory does not exist: " + indir_;
+    // Support passing both base dir and raw/ subdir.
+    if (!is_window_subdir(indir_) &&
+        (indir_.rfind(OUTFILE_SUBDIR) == std::string::npos ||
+         indir_.rfind(OUTFILE_SUBDIR) < indir_.size() - strlen(OUTFILE_SUBDIR))) {
+        indir_ += std::string(DIRSEP) + OUTFILE_SUBDIR;
+    }
+    std::string modfile_dir = indir_;
+    // Support window subdirs.
+    indir_ = window_subdir_if_present(indir_);
+    if (is_window_subdir(indir_)) {
+        // If we're operating on a specific window, point at the parent for the modfile.
+        // Windows dr_open_file() doesn't like "..".
+        modfile_dir = indir_;
+        auto pos = modfile_dir.rfind(DIRSEP);
+        if (pos == std::string::npos)
+            return "Window subdir missing slash";
+        modfile_dir.erase(pos);
+    }
+
+    // Support a default outdir_.
+    if (outdir_.empty()) {
+        outdir_ = tracedir_from_rawdir(indir_);
+        if (!directory_iterator_t::is_directory(outdir_)) {
+            if (!directory_iterator_t::create_directory(outdir_)) {
+                return "Failed to create output dir " + outdir_;
+            }
+        }
+    }
+    std::string modfilename =
+        modfile_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
+    std::string err = read_module_file(modfilename);
+    if (!err.empty())
+        return err;
+
+    return open_thread_files();
+}
+
+std::string
+raw2trace_directory_t::initialize_module_file(const std::string &module_file_path)
+{
+    return read_module_file(module_file_path);
+}
+
+std::string
+raw2trace_directory_t::initialize_funclist_file(
+    const std::string &funclist_file_path,
+    OUT std::vector<std::vector<std::string>> *entries)
+{
+    std::ifstream stream(funclist_file_path);
+    if (!stream.good())
+        return "Failed to open " + funclist_file_path;
+    std::string line;
+    while (std::getline(stream, line)) {
+        std::vector<std::string> fields;
+        size_t comma;
+        do {
+            comma = line.find(',');
+            fields.push_back(line.substr(0, comma));
+            line.erase(0, comma + 1);
+        } while (comma != std::string::npos);
+        entries->push_back(fields);
+    }
+    return "";
 }
 
 raw2trace_directory_t::~raw2trace_directory_t()
 {
-    delete[] modfile_bytes;
-    dr_close_file(modfile);
-    for (std::vector<std::istream*>::iterator fi = thread_files.begin();
-         fi != thread_files.end(); ++fi) {
+    if (modfile_bytes_ != nullptr)
+        delete[] modfile_bytes_;
+    if (modfile_ != INVALID_FILE)
+        dr_close_file(modfile_);
+    for (std::vector<std::istream *>::iterator fi = in_files_.begin();
+         fi != in_files_.end(); ++fi) {
         delete *fi;
     }
+    for (std::vector<std::ostream *>::iterator fo = out_files_.begin();
+         fo != out_files_.end(); ++fo) {
+        delete *fo;
+    }
+    dr_standalone_exit();
 }

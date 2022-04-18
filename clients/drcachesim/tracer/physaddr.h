@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,24 +37,25 @@
 #define _PHYSADDR_H_ 1
 
 #include <fstream>
-#include <map>
+#include <unordered_map>
 #include "../common/trace_entry.h"
 
-class physaddr_t
-{
- public:
+class physaddr_t {
+public:
     physaddr_t();
-    bool init();
-    addr_t virtual2physical(addr_t virt);
+    bool
+    init();
+    addr_t
+    virtual2physical(addr_t virt);
 
- private:
+private:
     // Assumed to be single-threaded
 #ifdef LINUX
-    addr_t last_vpage;
-    addr_t last_ppage;
-    int fd;
-    std::map<addr_t,addr_t> v2p;
-    unsigned int count;
+    addr_t last_vpage_;
+    addr_t last_ppage_;
+    int fd_;
+    std::unordered_map<addr_t, addr_t> v2p_;
+    unsigned int count_;
 #endif
 };
 

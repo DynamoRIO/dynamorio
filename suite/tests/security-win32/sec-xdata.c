@@ -40,12 +40,13 @@
 #pragma data_seg(".xdata")
 /* NOTE - compilers are stupid, without the "= {0}" this will be put in the regular
  * .data section and now .xdata section will be made. wtf??? */
-char bad_xdata_buf[1024] = {0};
+char bad_xdata_buf[1024] = { 0 };
 #pragma data_seg()
 
 static char *dll_name = "security-win32.sec-xdata.dll.dll";
 
-int main()
+int
+main()
 {
     HMODULE lib;
     char *code;
@@ -59,8 +60,7 @@ int main()
     FreeLibrary(lib);
 
     print("starting bad xdata test\n");
-    code = copy_to_buf(bad_xdata_buf, sizeof(bad_xdata_buf),
-                       NULL, CODE_INC, COPY_NORMAL);
+    code = copy_to_buf(bad_xdata_buf, sizeof(bad_xdata_buf), NULL, CODE_INC, COPY_NORMAL);
     test_print(code, 0);
     print("done\n");
     return 0;

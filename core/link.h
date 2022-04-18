@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,6 @@
 #ifndef _CORE_LINK_H_ /* using different define than /usr/include/link.h */
 #define _CORE_LINK_H_ 1
 
-
 /* linkstub_t flags
  * WARNING: flags field is a ushort, so max flag is 0x8000!
  */
@@ -65,65 +64,67 @@ enum {
      * Note that we can have fake linkstubs that should be treated as
      * direct or indirect, so LINK_FAKE is a separate flag.
      */
-    LINK_DIRECT          = 0x0001,
-    LINK_INDIRECT        = 0x0002,
+    LINK_DIRECT = 0x0001,
+    LINK_INDIRECT = 0x0002,
     /* more specifics on type of branch
      * must check LINK_DIRECT vs LINK_INDIRECT for JMP and CALL.
      * absence of all of these is relied on as an indicator of shared_syscall
      * in indirect_linkstub_target(), so we can't get rid of LINK_RETURN
      * and use absence of CALL & JMP to indicate it.
      */
-    LINK_RETURN          = 0x0004,
+    LINK_RETURN = 0x0004,
     /* JMP|CALL indicates JMP_PLT, so use EXIT_IS_{JMP,CALL} rather than these raw bits */
-    LINK_CALL            = 0x0008,
-    LINK_JMP             = 0x0010,
+    LINK_CALL = 0x0008,
+    LINK_JMP = 0x0010,
 
     /* Indicates a far cti which uses a separate ibl entry */
-    LINK_FAR             = 0x0020,
+    LINK_FAR = 0x0020,
 
-#ifdef UNSUPPORTED_API
-    LINK_TARGET_PREFIX   = 0x0040,
-#endif
+    /* This exit cti has a preceding NOP to avoid its immediate from crossing a cache
+     * line.  This flag lets us identify NOPs which we added as opposed to the client.
+     */
+    LINK_PADDED = 0x0040,
+
 #ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
      */
-    LINK_TRACE_CMP       = 0x0080,
+    LINK_TRACE_CMP = 0x0080,
 #endif
-    /* Flags that tell DR to take some action upon returning to dispatch.
+    /* Flags that tell DR to take some action upon returning to d_r_dispatch.
      * This first one is multiplexed via dcontext->upcontext.upcontext.exit_reason.
      * All uses are assumed to be unlinkable.
      */
-    LINK_SPECIAL_EXIT    = 0x0100,
+    LINK_SPECIAL_EXIT = 0x0100,
 #ifdef WINDOWS
     LINK_CALLBACK_RETURN = 0x0200,
 #else
     /* PR 286922: we support both OP_sys{call,enter}- and OP_int-based system calls */
-    LINK_NI_SYSCALL_INT  = 0x0200,
+    LINK_NI_SYSCALL_INT = 0x0200,
 #endif
     /* indicates whether exit is before a non-ignorable syscall */
-    LINK_NI_SYSCALL      = 0x0400,
+    LINK_NI_SYSCALL = 0x0400,
     LINK_FINAL_INSTR_SHARED_FLAG = LINK_NI_SYSCALL,
     /* end of instr_t-shared flags  */
     /***************************************************/
 
-    LINK_FRAG_OFFS_AT_END= 0x0800,
+    LINK_FRAG_OFFS_AT_END = 0x0800,
 
-    LINK_END_OF_LIST     = 0x1000,
+    LINK_END_OF_LIST = 0x1000,
 
-    LINK_FAKE            = 0x2000,
+    LINK_FAKE = 0x2000,
 
-    LINK_LINKED          = 0x4000,
+    LINK_LINKED = 0x4000,
 
-    LINK_SEPARATE_STUB   = 0x8000,
+    LINK_SEPARATE_STUB = 0x8000,
 
     /* WARNING: flags field is a ushort, so max flag is 0x8000! */
 };
 
 #ifdef UNIX
-# define LINK_NI_SYSCALL_ALL (LINK_NI_SYSCALL | LINK_NI_SYSCALL_INT)
+#    define LINK_NI_SYSCALL_ALL (LINK_NI_SYSCALL | LINK_NI_SYSCALL_INT)
 #else
-# define LINK_NI_SYSCALL_ALL LINK_NI_SYSCALL
+#    define LINK_NI_SYSCALL_ALL LINK_NI_SYSCALL
 #endif
 
 /* linkstub_t heap layout is now quite variable.  linkstubs are laid out
@@ -158,24 +159,18 @@ enum {
  * at the same offset, so this struct can be used as a superclass.
  */
 struct _linkstub_t {
-    ushort         flags;          /* contains LINK_ flags above */
+    ushort flags; /* contains LINK_ flags above */
 
     /* We limit all fragment bodies to USHRT_MAX size
      * thus we can save space by making the branch ptr a ushort offset.
      * Do not directly access this field -- use EXIT_CTI_PC()
      */
-    ushort         cti_offset;     /* offset from fragment start_pc of this cti */
-
-#ifdef CUSTOM_EXIT_STUBS
-    ushort         fixed_stub_offset;  /* offset in bytes of fixed part of exit stub from
-                                        * stub_pc, which points to custom stub prefix */
-#endif
+    ushort cti_offset; /* offset from fragment start_pc of this cti */
 };
-
 
 /* linkage info common to all direct fragment exits */
 typedef struct _common_direct_linkstub_t {
-    linkstub_t       l;
+    linkstub_t l;
 
     /* outgoing stubs of a fragment never change, and are allocated in
      * an array, but we walk them like a linked list since we don't want
@@ -186,17 +181,16 @@ typedef struct _common_direct_linkstub_t {
      *
      * Incoming stubs do change and we use this field to chain them:
      */
-    linkstub_t       *next_incoming;
+    linkstub_t *next_incoming;
 
 #ifdef TRACE_HEAD_CACHE_INCR
     /* for linking to trace head, we store the actual fragment_t target.
      * if the target is deleted the link will be unlinked, preventing
      * a stale fragment_t* pointer from sitting around
      */
-    fragment_t       *target_fragment;
+    fragment_t *target_fragment;
 #endif
 } common_direct_linkstub_t;
-
 
 /* linkage info for each direct fragment exit */
 typedef struct _direct_linkstub_t {
@@ -206,15 +200,14 @@ typedef struct _direct_linkstub_t {
      * Do not directly access this field -- use EXIT_TARGET_TAG(), which
      * works for all linkstub types.
      */
-    app_pc         target_tag;
+    app_pc target_tag;
 
     /* Must be absolute pc b/c we relocate some stubs away from fragment body.
      * Do not directly access this field -- use EXIT_STUB_PC(), which
      * works for all linkstub types.
      */
-    cache_pc       stub_pc;
+    cache_pc stub_pc;
 } direct_linkstub_t;
-
 
 /* linkage info for cbr fallthrough exits that satisfy two conditions:
  *   1) separate stubs will not be individually freed -- we could
@@ -240,12 +233,10 @@ typedef struct _cbr_fallthrough_linkstub_t {
     common_direct_linkstub_t cdl;
 } cbr_fallthrough_linkstub_t;
 
-
 /* linkage info for each indirect fragment exit (slit for case 6468) */
 typedef struct _indirect_linkstub_t {
-    linkstub_t       l;
+    linkstub_t l;
 } indirect_linkstub_t;
-
 
 /* Data shared among all linkstubs for a particular fragment_t.
  * Kept at the end of the array of linkstubs, and not present for
@@ -259,13 +250,13 @@ typedef struct _post_linkstub_t {
      * the future (though right now the other 2 bytes are wasted as
      * this struct is aligned to 4 bytes ).
      */
-    ushort         fragment_offset;
+    ushort fragment_offset;
     /* We force the compiler to maintain our 4-byte-alignment for heap allocations.
      * FIXME: should we support un-aligned in non-special heaps?
      * or could use special heap if we really wanted to save this 2 bytes.
      * also see case 6518 for a way to use this for Traces.
      */
-    ushort         padding;
+    ushort padding;
 } post_linkstub_t;
 
 /* For chaining together a list of inter-coarse-unit incoming stubs.  To
@@ -298,78 +289,76 @@ typedef struct _coarse_incoming_t {
 #define EXIT_IS_JMP(flags) (TEST(LINK_JMP, flags) && !TEST(LINK_CALL, flags))
 #define EXIT_IS_IND_JMP_PLT(flags) (TESTALL(LINK_JMP | LINK_CALL, flags))
 
-#define LINKSTUB_FINAL(l)  (TEST(LINK_END_OF_LIST, (l)->flags))
+#define LINKSTUB_FINAL(l) (TEST(LINK_END_OF_LIST, (l)->flags))
 
 /* We assume this combination of flags is unique for coarse proxies. */
 #define LINKSTUB_COARSE_PROXY(flags) \
-    (TESTALL(LINK_FAKE|LINK_DIRECT|LINK_SEPARATE_STUB, (flags)))
+    (TESTALL(LINK_FAKE | LINK_DIRECT | LINK_SEPARATE_STUB, (flags)))
 
 /* could optimize to avoid redundant tests */
-#define LINKSTUB_SIZE(l) \
-    (LINKSTUB_NORMAL_DIRECT((l)->flags) ? sizeof(direct_linkstub_t) : \
-     (LINKSTUB_INDIRECT((l)->flags) ? sizeof(indirect_linkstub_t) : \
-      (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? sizeof(cbr_fallthrough_linkstub_t) : \
-       sizeof(linkstub_t))))
+#define LINKSTUB_SIZE(l)                                                              \
+    (LINKSTUB_NORMAL_DIRECT((l)->flags)                                               \
+         ? sizeof(direct_linkstub_t)                                                  \
+         : (LINKSTUB_INDIRECT((l)->flags) ? sizeof(indirect_linkstub_t)               \
+                                          : (LINKSTUB_CBR_FALLTHROUGH((l)->flags)     \
+                                                 ? sizeof(cbr_fallthrough_linkstub_t) \
+                                                 : sizeof(linkstub_t))))
 
 #define LINKSTUB_NEXT_EXIT(l) \
-    ((LINKSTUB_FINAL((l))) ? NULL : \
-        ((linkstub_t *) (((byte*)(l)) + LINKSTUB_SIZE(l))))
+    ((LINKSTUB_FINAL((l))) ? NULL : ((linkstub_t *)(((byte *)(l)) + LINKSTUB_SIZE(l))))
 
 /* we pay the cost of the check in release builds to have the
  * safety return value of NULL
  */
-#define LINKSTUB_NEXT_INCOMING(l) \
-    (LINKSTUB_NORMAL_DIRECT((l)->flags) ? \
-     ((linkstub_t*)(((direct_linkstub_t *)(l))->cdl.next_incoming)) : \
-     (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? \
-      ((linkstub_t*)(((cbr_fallthrough_linkstub_t *)(l))->cdl.next_incoming)) : \
-      (ASSERT(false && "indirect linkstub has no next_incoming"), ((linkstub_t*)NULL))))
+#define LINKSTUB_NEXT_INCOMING(l)                                             \
+    (LINKSTUB_NORMAL_DIRECT((l)->flags)                                       \
+         ? ((linkstub_t *)(((direct_linkstub_t *)(l))->cdl.next_incoming))    \
+         : (LINKSTUB_CBR_FALLTHROUGH((l)->flags)                              \
+                ? ((linkstub_t *)(((cbr_fallthrough_linkstub_t *)(l))         \
+                                      ->cdl.next_incoming))                   \
+                : (ASSERT(false && "indirect linkstub has no next_incoming"), \
+                   ((linkstub_t *)NULL))))
 
 /* if sharing a stub then no offs, else offs to get to subsequent stub */
 #define CBR_FALLTHROUGH_STUB_OFFS(f) \
     (INTERNAL_OPTION(cbr_single_stub) ? 0 : DIRECT_EXIT_STUB_SIZE((f)->flags))
 
 #define EXIT_CTI_PC_HELPER(f, l) \
-    (ASSERT(LINKSTUB_NORMAL_DIRECT((l)->flags)), \
-     ((f)->start_pc + (l)->cti_offset))
+    (ASSERT(LINKSTUB_NORMAL_DIRECT((l)->flags)), ((f)->start_pc + (l)->cti_offset))
 
-#define EXIT_CTI_PC(f, l) \
-    (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? \
-     (cbr_fallthrough_exit_cti(EXIT_CTI_PC_HELPER(f, FRAGMENT_EXIT_STUBS(f)))) : \
-     ((f)->start_pc + (l)->cti_offset))
+#define EXIT_CTI_PC(f, l)                                                            \
+    (LINKSTUB_CBR_FALLTHROUGH((l)->flags)                                            \
+         ? (cbr_fallthrough_exit_cti(EXIT_CTI_PC_HELPER(f, FRAGMENT_EXIT_STUBS(f)))) \
+         : ((f)->start_pc + (l)->cti_offset))
 
 #define EXIT_STUB_PC_HELPER(dc, f, l) \
-    (ASSERT(LINKSTUB_NORMAL_DIRECT((l)->flags)), \
-     (((direct_linkstub_t *)(l))->stub_pc))
+    (ASSERT(LINKSTUB_NORMAL_DIRECT((l)->flags)), (((direct_linkstub_t *)(l))->stub_pc))
 
-#define EXIT_STUB_PC(dc, f, l) \
-    (LINKSTUB_NORMAL_DIRECT((l)->flags) ? (((direct_linkstub_t *)(l))->stub_pc) : \
-     (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? \
-      (EXIT_STUB_PC_HELPER(dc, f, FRAGMENT_EXIT_STUBS(f)) \
-       + CBR_FALLTHROUGH_STUB_OFFS(f)) :                  \
-       indirect_linkstub_stub_pc(dc, f, l)))
+#define EXIT_STUB_PC(dc, f, l)                                          \
+    (LINKSTUB_NORMAL_DIRECT((l)->flags)                                 \
+         ? (((direct_linkstub_t *)(l))->stub_pc)                        \
+         : (LINKSTUB_CBR_FALLTHROUGH((l)->flags)                        \
+                ? (EXIT_STUB_PC_HELPER(dc, f, FRAGMENT_EXIT_STUBS(f)) + \
+                   CBR_FALLTHROUGH_STUB_OFFS(f))                        \
+                : indirect_linkstub_stub_pc(dc, f, l)))
 
-#define EXIT_TARGET_TAG(dc, f, l) \
-    (LINKSTUB_NORMAL_DIRECT((l)->flags) ? (((direct_linkstub_t *)(l))->target_tag) : \
-     (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? \
-      ((f)->tag + ((short)(l)->cti_offset)) : \
-       indirect_linkstub_target(dc, f, l)))
-
-#ifdef CUSTOM_EXIT_STUBS
-# define EXIT_FIXED_STUB_PC(dc, f, l) (EXIT_STUB_PC(dc, f, l) + (l)->fixed_stub_offset)
-#endif
+#define EXIT_TARGET_TAG(dc, f, l)                                                        \
+    (LINKSTUB_NORMAL_DIRECT((l)->flags)                                                  \
+         ? (((direct_linkstub_t *)(l))->target_tag)                                      \
+         : (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? ((f)->tag + ((short)(l)->cti_offset)) \
+                                                 : indirect_linkstub_target(dc, f, l)))
 
 #ifdef WINDOWS
-# define EXIT_TARGETS_SHARED_SYSCALL(flags) \
-    (DYNAMO_OPTION(shared_syscalls) &&     \
-     !TESTANY(LINK_RETURN|LINK_CALL|LINK_JMP, (flags)))
+#    define EXIT_TARGETS_SHARED_SYSCALL(flags) \
+        (DYNAMO_OPTION(shared_syscalls) &&     \
+         !TESTANY(LINK_RETURN | LINK_CALL | LINK_JMP, (flags)))
 #else
-# define EXIT_TARGETS_SHARED_SYSCALL(flags) (false)
+#    define EXIT_TARGETS_SHARED_SYSCALL(flags) (false)
 #endif
 
 /* indirect exits w/o inlining have no stub at all for -no_indirect_stubs */
 #define EXIT_HAS_STUB(l_flags, f_flags)                                       \
-    (DYNAMO_OPTION(indirect_stubs) || !LINKSTUB_INDIRECT((l_flags)) ||      \
+    (DYNAMO_OPTION(indirect_stubs) || !LINKSTUB_INDIRECT((l_flags)) ||        \
      (!EXIT_TARGETS_SHARED_SYSCALL(l_flags) &&                                \
       ((DYNAMO_OPTION(inline_trace_ibl) && TEST(FRAG_IS_TRACE, (f_flags))) || \
        (DYNAMO_OPTION(inline_bb_ibl) && !TEST(FRAG_IS_TRACE, (f_flags))))))
@@ -378,12 +367,18 @@ typedef struct _coarse_incoming_t {
 #define EXIT_HAS_LOCAL_STUB(l_flags, f_flags) \
     (EXIT_HAS_STUB(l_flags, f_flags) && !TEST(LINK_SEPARATE_STUB, (l_flags)))
 
-void link_init(void);
-void link_exit(void);
-void link_reset_init(void);
-void link_reset_free(void);
-void link_thread_init(dcontext_t *dcontext);
-void link_thread_exit(dcontext_t *dcontext);
+void
+d_r_link_init(void);
+void
+d_r_link_exit(void);
+void
+link_reset_init(void);
+void
+link_reset_free(void);
+void
+link_thread_init(dcontext_t *dcontext);
+void
+link_thread_exit(dcontext_t *dcontext);
 
 /* coarse-grain support */
 
@@ -397,8 +392,8 @@ uint
 coarse_stub_alignment(coarse_info_t *info);
 
 void
-coarse_mark_trace_head(dcontext_t *dcontext, fragment_t *f,
-                       coarse_info_t *info, cache_pc stub, cache_pc body);
+coarse_mark_trace_head(dcontext_t *dcontext, fragment_t *f, coarse_info_t *info,
+                       cache_pc stub, cache_pc body);
 
 void
 coarse_unit_unlink(dcontext_t *dcontext, coarse_info_t *info);
@@ -441,101 +436,143 @@ coarse_info_t *
 get_stub_coarse_info(cache_pc pc);
 
 /* Initializes an array of linkstubs beginning with first */
-void linkstubs_init(linkstub_t *first, int num_direct, int num_indirect, fragment_t *f);
+void
+linkstubs_init(linkstub_t *first, int num_direct, int num_indirect, fragment_t *f);
 
-bool is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *l,
-                 fragment_t *targetf, bool have_link_lock, bool mark_new_trace_head);
+bool
+is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *l, fragment_t *targetf,
+            bool have_link_lock, bool mark_new_trace_head);
 
-uint linkstub_size(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
+uint
+linkstub_size(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
 
-uint linkstub_propagatable_flags(uint flags);
+uint
+linkstub_propagatable_flags(uint flags);
 
-bool linkstub_frag_offs_at_end(uint flags, int direct_exits, int indirect_exits);
+bool
+linkstub_frag_offs_at_end(uint flags, int direct_exits, int indirect_exits);
 
-bool use_cbr_fallthrough_short(uint flags, int direct_exits, int indirect_exits);
+bool
+use_cbr_fallthrough_short(uint flags, int direct_exits, int indirect_exits);
 
-uint linkstubs_heap_size(uint flags, int direct_exits, int indirect_exits);
+uint
+linkstubs_heap_size(uint flags, int direct_exits, int indirect_exits);
 
-fragment_t *linkstub_fragment(dcontext_t *dcontext, linkstub_t *l);
+fragment_t *
+linkstub_fragment(dcontext_t *dcontext, linkstub_t *l);
 
 #ifdef X64
 /* Converts the canonical empty fragment to an empty fragment marked FRAG_32_BIT */
-fragment_t *empty_fragment_mark_x86(fragment_t *f);
+fragment_t *
+empty_fragment_mark_x86(fragment_t *f);
 #endif
 
 #ifdef DEBUG
-bool linkstub_owned_by_fragment(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
+bool
+linkstub_owned_by_fragment(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
 #endif
 
-void set_last_exit(dcontext_t *dcontext, linkstub_t *l);
-void last_exit_deleted(dcontext_t *dcontext);
-void set_coarse_ibl_exit(dcontext_t *dcontext);
-int get_last_linkstub_ordinal(dcontext_t *dcontext);
+void
+set_last_exit(dcontext_t *dcontext, linkstub_t *l);
+void
+last_exit_deleted(dcontext_t *dcontext);
+void
+set_coarse_ibl_exit(dcontext_t *dcontext);
+int
+get_last_linkstub_ordinal(dcontext_t *dcontext);
 
-linkstub_t * get_deleted_linkstub(dcontext_t *dcontext);
-const linkstub_t * get_starting_linkstub(void);
-const linkstub_t * get_reset_linkstub(void);
-const linkstub_t * get_syscall_linkstub(void);
-const linkstub_t * get_selfmod_linkstub(void);
+linkstub_t *
+get_deleted_linkstub(dcontext_t *dcontext);
+const linkstub_t *
+get_starting_linkstub(void);
+const linkstub_t *
+get_reset_linkstub(void);
+const linkstub_t *
+get_syscall_linkstub(void);
+const linkstub_t *
+get_selfmod_linkstub(void);
 #ifdef AARCH64
 /* On AArch64 we need to refer to linkstub_selfmod from aarch64.asm. */
 extern const linkstub_t linkstub_selfmod;
 #endif
-const linkstub_t * get_ibl_deleted_linkstub(void);
+const linkstub_t *
+get_ibl_deleted_linkstub(void);
 /* This is used for Windows APC, callback, etc. and Linux sigreturn, forge fault, etc. */
-const linkstub_t * get_asynch_linkstub(void);
-const linkstub_t * get_native_exec_linkstub(void);
-const linkstub_t * get_native_exec_syscall_linkstub(void);
+const linkstub_t *
+get_asynch_linkstub(void);
+const linkstub_t *
+get_native_exec_linkstub(void);
+const linkstub_t *
+get_native_exec_syscall_linkstub(void);
 #ifdef HOT_PATCHING_INTERFACE
-const linkstub_t * get_hot_patch_linkstub(void);
+const linkstub_t *
+get_hot_patch_linkstub(void);
 #endif
-#ifdef CLIENT_INTERFACE
-const linkstub_t * get_client_linkstub(void);
-#endif
-const linkstub_t *get_special_ibl_linkstub(int index, bool is_trace);
-const linkstub_t * get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags);
-bool is_ibl_sourceless_linkstub(const linkstub_t *l);
-const linkstub_t * get_coarse_exit_linkstub(void);
-const linkstub_t * get_coarse_trace_head_exit_linkstub(void);
+const linkstub_t *
+get_client_linkstub(void);
+const linkstub_t *
+get_special_ibl_linkstub(int index, bool is_trace);
+const linkstub_t *
+get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags);
+bool
+is_ibl_sourceless_linkstub(const linkstub_t *l);
+const linkstub_t *
+get_coarse_exit_linkstub(void);
+const linkstub_t *
+get_coarse_trace_head_exit_linkstub(void);
 
-# define IS_COARSE_LINKSTUB(l) ((l) == get_coarse_exit_linkstub() || \
-    (l) == get_coarse_trace_head_exit_linkstub())
+#define IS_COARSE_LINKSTUB(l) \
+    ((l) == get_coarse_exit_linkstub() || (l) == get_coarse_trace_head_exit_linkstub())
 
 #ifdef WINDOWS
-const linkstub_t * get_shared_syscalls_unlinked_linkstub(void);
-# define IS_SHARED_SYSCALLS_UNLINKED_LINKSTUB(l)       \
-    ((l) == get_shared_syscalls_unlinked_linkstub())
+const linkstub_t *
+get_shared_syscalls_unlinked_linkstub(void);
+#    define IS_SHARED_SYSCALLS_UNLINKED_LINKSTUB(l) \
+        ((l) == get_shared_syscalls_unlinked_linkstub())
 
-const linkstub_t * get_shared_syscalls_trace_linkstub(void);
-const linkstub_t * get_shared_syscalls_bb_linkstub(void);
-# define IS_SHARED_SYSCALLS_LINKSTUB(l)               \
-      ((l) == get_shared_syscalls_trace_linkstub() || \
-       (l) == get_shared_syscalls_bb_linkstub() ||    \
-       (l) == get_shared_syscalls_unlinked_linkstub())
-# define IS_SHARED_SYSCALLS_TRACE_LINKSTUB(l)         \
-      ((l) == get_shared_syscalls_trace_linkstub())
+const linkstub_t *
+get_shared_syscalls_trace_linkstub(void);
+const linkstub_t *
+get_shared_syscalls_bb_linkstub(void);
+#    define IS_SHARED_SYSCALLS_LINKSTUB(l)              \
+        ((l) == get_shared_syscalls_trace_linkstub() || \
+         (l) == get_shared_syscalls_bb_linkstub() ||    \
+         (l) == get_shared_syscalls_unlinked_linkstub())
+#    define IS_SHARED_SYSCALLS_TRACE_LINKSTUB(l) \
+        ((l) == get_shared_syscalls_trace_linkstub())
 #else
-# define IS_SHARED_SYSCALLS_UNLINKED_LINKSTUB(l) false
-# define IS_SHARED_SYSCALLS_LINKSTUB(l) false
-# define IS_SHARED_SYSCALLS_TRACE_LINKSTUB(l) false
+#    define IS_SHARED_SYSCALLS_UNLINKED_LINKSTUB(l) false
+#    define IS_SHARED_SYSCALLS_LINKSTUB(l) false
+#    define IS_SHARED_SYSCALLS_TRACE_LINKSTUB(l) false
 #endif
 
-bool should_separate_stub(dcontext_t *dcontext, app_pc target, uint fragment_flags);
-int local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags);
-void separate_stub_create(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
-void linkstub_free_exitstubs(dcontext_t *dcontext, fragment_t *f);
+bool
+should_separate_stub(dcontext_t *dcontext, app_pc target, uint fragment_flags);
+int
+local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags);
+void
+separate_stub_create(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
+void
+linkstub_free_exitstubs(dcontext_t *dcontext, fragment_t *f);
 
-void linkstubs_shift(dcontext_t *dcontext, fragment_t *f, ssize_t shift);
+void
+linkstubs_shift(dcontext_t *dcontext, fragment_t *f, ssize_t shift);
 
-void link_new_fragment(dcontext_t *dcontext, fragment_t *f);
-void link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment);
-void unlink_fragment_outgoing(dcontext_t *dcontext, fragment_t *f);
-void link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment);
-void unlink_fragment_incoming(dcontext_t *dcontext, fragment_t *f);
+void
+link_new_fragment(dcontext_t *dcontext, fragment_t *f);
+void
+link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment);
+void
+unlink_fragment_outgoing(dcontext_t *dcontext, fragment_t *f);
+void
+link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment);
+void
+unlink_fragment_incoming(dcontext_t *dcontext, fragment_t *f);
 
-void shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f,
-                                 fragment_t *new_f);
-future_fragment_t * incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f);
+void
+shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t *new_f);
+future_fragment_t *
+incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f);
 
 /* if this linkstub shares the stub with the next linkstub, returns the
  * next linkstub; else returns NULL
@@ -545,8 +582,8 @@ linkstub_shares_next_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
 
 /* Returns the total size needed for stubs if info is frozen. */
 size_t
-coarse_frozen_stub_size(dcontext_t *dcontext, coarse_info_t *info,
-                        uint *num_fragments, uint *num_stubs);
+coarse_frozen_stub_size(dcontext_t *dcontext, coarse_info_t *info, uint *num_fragments,
+                        uint *num_stubs);
 
 /* Removes any incoming data recording the outgoing link from stub */
 void

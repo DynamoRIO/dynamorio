@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2018 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,8 @@
 # If the command starts with "foreach@", instead of passing the glob-expansion
 # to the single command, the command will be repeated for each expansion entry,
 # and only one such expansion is supported (and it must be at the end).
+# If the command starts with "firstglob@", only the first item in the
+# glob-expansion is passed to the command.
 # If the expansion is empty for precmd, the precmd execution is skipped.
 
 # Intra-arg space=@@ and inter-arg space=@.
@@ -79,11 +81,16 @@ macro(process_cmdline line skip_empty err_and_out)
                 "*** ${${line}} failed (${cmd_result}): ${cmd_err}***\n")
             endif (cmd_result)
           endforeach ()
+        elseif (${line} MATCHES "^firstglob;")
+          list(GET expand 0 head)
+          set(newcmd ${newcmd} ${head})
         else ()
           set(newcmd ${newcmd} ${expand})
         endif ()
       else ()
-        set(newcmd ${newcmd} ${token})
+        if (NOT token STREQUAL "firstglob")
+          set(newcmd ${newcmd} ${token})
+        endif ()
       endif ()
     endforeach ()
     set(${line} ${newcmd})

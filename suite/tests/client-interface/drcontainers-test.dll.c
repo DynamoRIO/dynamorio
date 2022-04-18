@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,26 +30,27 @@
  * DAMAGE.
  */
 
-
 /* Tests the drcontainers extension */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drvector.h"
-
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#include "hashtable.h"
+#include "stdint.h"
 
 static void
 test_vector(void)
 {
     drvector_t vec;
-    bool ok = drvector_init(&vec, 0, false/*!synch*/, NULL);
+    bool ok = drvector_init(&vec, 0, false /*!synch*/, NULL);
     CHECK(ok, "drvector_init failed");
     CHECK(vec.entries == 0, "should start empty");
+
+    ok = drvector_delete(&vec);
+    CHECK(ok, "drvector_delete failed for empty vec");
+
+    ok = drvector_init(&vec, 0, false /*!synch*/, NULL);
+    CHECK(ok, "drvector_init failed");
 
     drvector_append(&vec, (void *)&vec);
     CHECK(vec.entries == 1, "should add 1");
@@ -74,12 +75,119 @@ test_vector(void)
 
     ok = drvector_delete(&vec);
     CHECK(ok, "drvector_delete failed");
+
+    ok = drvector_init(&vec, 0, false /*!synch*/, NULL);
+    CHECK(ok, "drvector_init failed");
+
+    drvector_set_entry(&vec, 0, (void *)&vec);
+    CHECK(vec.entries == 1, "should add 1");
+    CHECK(drvector_get_entry(&vec, 0) == (void *)&vec, "entries not equal");
+    CHECK(vec.array[0] == (void *)&vec, "entries not equal");
+
+    ok = drvector_delete(&vec);
+    CHECK(ok, "drvector_delete failed");
+}
+
+unsigned int c;
+static const uintptr_t apply_payload_user_data_test = 2323;
+uintptr_t total;
+
+static void
+count(void *payload)
+{
+    c++;
+}
+
+static void
+count_user_data(void *payload, void *user_data)
+{
+    c++;
+    CHECK(user_data == (void *)apply_payload_user_data_test, "user data not correct");
+}
+
+static void
+count_null_user_data(void *payload, void *user_data)
+{
+    c++;
+    CHECK(user_data == NULL, "user data not null");
+}
+
+static void
+sum(void *payload)
+{
+    total += (uintptr_t)payload;
+}
+
+static void
+sum_user_data(void *payload, void *user_data)
+{
+    total += (uintptr_t)payload;
+    total += (uintptr_t)user_data;
+}
+
+static void
+test_hashtable_apply_all(void)
+{
+    hashtable_t hash_table;
+    hashtable_init(&hash_table, 8, HASH_INTPTR, false);
+
+    c = 0;
+    total = 0;
+
+    hashtable_add_replace(&hash_table, (void *)1, (void *)1);
+    hashtable_add_replace(&hash_table, (void *)2, (void *)2);
+    hashtable_add_replace(&hash_table, (void *)3, (void *)3);
+
+    hashtable_apply_to_all_payloads(&hash_table, count);
+    hashtable_apply_to_all_payloads(&hash_table, sum);
+
+    CHECK(c == hash_table.entries, "hashtable_apply_to_all_payloads (count test) failed");
+    CHECK(total == 6, "hashtable_apply_to_all_payloads (sum test) failed");
+
+    hashtable_delete(&hash_table);
+}
+
+static void
+test_hashtable_apply_all_user_data(void)
+{
+    hashtable_t hash_table;
+    hashtable_init(&hash_table, 8, HASH_INTPTR, false);
+
+    /* Begin Data Tests */
+    c = 0;
+    total = 0;
+
+    hashtable_add_replace(&hash_table, (void *)1, (void *)1);
+    hashtable_add_replace(&hash_table, (void *)2, (void *)2);
+    hashtable_add_replace(&hash_table, (void *)3, (void *)3);
+
+    hashtable_apply_to_all_payloads_user_data(&hash_table, count_user_data,
+                                              (void *)apply_payload_user_data_test);
+    hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, (void *)1);
+    CHECK(c == hash_table.entries,
+          "hashtable_apply_to_all_payloads_user_data (count test) failed");
+    CHECK(total == (6 + hash_table.entries),
+          "hashtable_apply_to_all_payloads_user_data (sum test) failed");
+
+    /* Begin NULL Tests */
+    c = 0;
+    total = 0;
+
+    hashtable_apply_to_all_payloads_user_data(&hash_table, count_null_user_data, NULL);
+    hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, NULL);
+    CHECK(c == hash_table.entries,
+          "hashtable_apply_to_all_payloads_user_data (count null test) failed");
+    CHECK(total == 6, "hashtable_apply_to_all_payloads_user_data (sum null test) failed");
+
+    hashtable_delete(&hash_table);
 }
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
     test_vector();
+    test_hashtable_apply_all();
+    test_hashtable_apply_all_user_data();
 
     /* XXX: test other data structures */
 }

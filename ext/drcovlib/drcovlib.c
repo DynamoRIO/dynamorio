@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -73,7 +73,7 @@ static char logdir[MAXIMUM_PATH];
 
 typedef struct _per_thread_t {
     void *bb_table;
-    file_t  log;
+    file_t log;
     char logname[MAXIMUM_PATH];
 } per_thread_t;
 
@@ -92,17 +92,17 @@ static int drcovlib_init_count;
 static file_t
 log_file_create_helper(void *drcontext, const char *suffix, char *buf, size_t buf_els)
 {
-    file_t log =
-        drx_open_unique_appid_file(options.logdir, drcontext == NULL ?
-                                   dr_get_process_id() : dr_get_thread_id(drcontext),
-                                   "drcov", suffix,
+    file_t log = drx_open_unique_appid_file(
+        options.logdir,
+        drcontext == NULL ? dr_get_process_id() : dr_get_thread_id(drcontext),
+        options.logprefix, suffix,
 #ifndef WINDOWS
-                                   DR_FILE_CLOSE_ON_FORK |
+        DR_FILE_CLOSE_ON_FORK |
 #endif
-                                   DR_FILE_ALLOW_LARGE,
-                                   buf, buf_els);
+            DR_FILE_ALLOW_LARGE,
+        buf, buf_els);
     if (log != INVALID_FILE) {
-        dr_log(drcontext, LOG_ALL, 1, "drcov: log file is %s\n", buf);
+        dr_log(drcontext, DR_LOG_ALL, 1, "drcov: log file is %s\n", buf);
         NOTIFY(1, "<created log file %s>\n", buf);
     }
     return log;
@@ -111,9 +111,9 @@ log_file_create_helper(void *drcontext, const char *suffix, char *buf, size_t bu
 static void
 log_file_create(void *drcontext, per_thread_t *data)
 {
-    data->log = log_file_create_helper(drcontext, drcontext == NULL ?
-                                       "proc.log" : "thd.log", data->logname,
-                                       BUFFER_SIZE_ELEMENTS(data->logname));
+    data->log =
+        log_file_create_helper(drcontext, drcontext == NULL ? "proc.log" : "thd.log",
+                               data->logname, BUFFER_SIZE_ELEMENTS(data->logname));
 }
 
 /****************************************************************************
@@ -125,8 +125,8 @@ bb_table_entry_print(ptr_uint_t idx, void *entry, void *iter_data)
 {
     per_thread_t *data = iter_data;
     bb_entry_t *bb_entry = (bb_entry_t *)entry;
-    dr_fprintf(data->log, "module[%3u]: "PFX", %3u",
-               bb_entry->mod_id, bb_entry->start, bb_entry->size);
+    dr_fprintf(data->log, "module[%3u]: " PFX ", %3u", bb_entry->mod_id, bb_entry->start,
+               bb_entry->size);
     dr_fprintf(data->log, "\n");
     return true; /* continue iteration */
 }
@@ -139,8 +139,7 @@ bb_table_print(void *drcontext, per_thread_t *data)
         ASSERT(false, "invalid log file");
         return;
     }
-    dr_fprintf(data->log, "BB Table: %u bbs\n",
-               drtable_num_entries(data->bb_table));
+    dr_fprintf(data->log, "BB Table: %u bbs\n", drtable_num_entries(data->bb_table));
     if (TEST(DRCOVLIB_DUMP_AS_TEXT, options.flags)) {
         dr_fprintf(data->log, "module id, start, size:\n");
         drtable_iterate(data->bb_table, data, bb_table_entry_print);
@@ -153,16 +152,17 @@ bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start, uint size)
 {
     bb_entry_t *bb_entry = drtable_alloc(data->bb_table, 1, NULL);
     uint mod_id;
-    app_pc mod_start;
-    drcovlib_status_t res = drmodtrack_lookup(drcontext, start, &mod_id, &mod_start);
+    app_pc mod_seg_start;
+    drcovlib_status_t res =
+        drmodtrack_lookup_segment(drcontext, start, &mod_id, &mod_seg_start);
     /* we do not de-duplicate repeated bbs */
     ASSERT(size < USHRT_MAX, "size overflow");
     bb_entry->size = (ushort)size;
     if (res == DRCOVLIB_SUCCESS) {
         ASSERT(mod_id < USHRT_MAX, "module id overflow");
         bb_entry->mod_id = (ushort)mod_id;
-        ASSERT(start > mod_start, "wrong module");
-        bb_entry->start = (uint)(start - mod_start);
+        ASSERT(start >= mod_seg_start, "wrong module");
+        bb_entry->start = (uint)(start - mod_seg_start);
     } else {
         /* XXX: we just truncate the address, which may have wrong value
          * in x64 arch. It should be ok now since it is an unknown module,
@@ -170,7 +170,7 @@ bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start, uint size)
          * Should be handled for JIT code in the future.
          */
         bb_entry->mod_id = UNKNOWN_MODULE_ID;
-        bb_entry->start  = (uint)(ptr_uint_t)start;
+        bb_entry->start = (uint)(ptr_uint_t)start;
     }
 }
 
@@ -178,8 +178,8 @@ bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start, uint size)
 static void *
 bb_table_create(bool synch)
 {
-    return drtable_create(INIT_BB_TABLE_ENTRIES,
-                          sizeof(bb_entry_t), 0 /* flags */, synch, NULL);
+    return drtable_create(INIT_BB_TABLE_ENTRIES, sizeof(bb_entry_t), 0 /* flags */, synch,
+                          NULL);
 }
 
 static void
@@ -323,12 +323,12 @@ event_pre_syscall(void *drcontext, int sysnum)
  * instrumentation.
  */
 static dr_emit_flags_t
-event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                           bool for_trace, bool translating, OUT void **user_data)
+event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                           bool translating, OUT void **user_data)
 {
     per_thread_t *data;
     instr_t *instr;
-    app_pc start_pc, end_pc;
+    app_pc tag_pc, start_pc, end_pc;
 
     /* do nothing for translation */
     if (translating)
@@ -340,15 +340,20 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
      * transfer instructions, which is true for default options passed
      * to DR but not for -opt_speed.
      */
-    start_pc = dr_fragment_app_pc(tag);
-    end_pc   = start_pc; /* for finding the size */
-    for (instr  = instrlist_first_app(bb);
-         instr != NULL;
-         instr  = instr_get_next_app(instr)) {
+    /* We separate the tag from the instr pc ranges to handle displaced code
+     * such as for the vsyscall hook.
+     */
+    tag_pc = dr_fragment_app_pc(tag);
+    start_pc = instr_get_app_pc(instrlist_first_app(bb));
+    end_pc = start_pc; /* for finding the size */
+    for (instr = instrlist_first_app(bb); instr != NULL;
+         instr = instr_get_next_app(instr)) {
         app_pc pc = instr_get_app_pc(instr);
         int len = instr_length(drcontext, instr);
         /* -opt_speed (elision) is not supported */
-        ASSERT(pc != NULL && pc >= start_pc, "-opt_speed is not supported");
+        /* For rep str expansion pc may be one back from start pc but equal to the tag. */
+        ASSERT(pc != NULL && (pc >= start_pc || pc == tag_pc),
+               "-opt_speed is not supported");
         if (pc + len > end_pc)
             end_pc = pc + len;
     }
@@ -361,7 +366,7 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
      * 4. The duplication can be easily handled in a post-processing step,
      *    which is required anyway.
      */
-    bb_table_entry_add(drcontext, data, start_pc, (uint)(end_pc - start_pc));
+    bb_table_entry_add(drcontext, data, tag_pc, (uint)(end_pc - start_pc));
 
     if (go_native)
         return DR_EMIT_GO_NATIVE;
@@ -394,25 +399,25 @@ event_thread_init(void *drcontext)
 
     if (options.native_until_thread > 0) {
         int local_count = dr_atomic_add32_return_sum(&thread_count, 1);
-        NOTIFY(1, "@@@@@@@@@@@@@ new thread #%d "TIDFMT"\n",
-               local_count, dr_get_thread_id(drcontext));
+        NOTIFY(1, "@@@@@@@@@@@@@ new thread #%d " TIDFMT "\n", local_count,
+               dr_get_thread_id(drcontext));
         if (go_native && local_count == options.native_until_thread) {
             void **drcontexts = NULL;
             uint num_threads, i;
             go_native = false;
-            NOTIFY(1, "thread "TIDFMT" suspending all threads\n",
+            NOTIFY(1, "thread " TIDFMT " suspending all threads\n",
                    dr_get_thread_id(drcontext));
             if (dr_suspend_all_other_threads_ex(&drcontexts, &num_threads, NULL,
                                                 DR_SUSPEND_NATIVE)) {
                 NOTIFY(1, "suspended %d threads\n", num_threads);
                 for (i = 0; i < num_threads; i++) {
                     if (dr_is_thread_native(drcontexts[i])) {
-                        NOTIFY(2, "\txxx taking over thread #%d "TIDFMT"\n",
-                               i, dr_get_thread_id(drcontexts[i]));
+                        NOTIFY(2, "\txxx taking over thread #%d " TIDFMT "\n", i,
+                               dr_get_thread_id(drcontexts[i]));
                         dr_retakeover_suspended_native_thread(drcontexts[i]);
                     } else {
-                        NOTIFY(2, "\tthread #%d "TIDFMT" under DR\n",
-                               i, dr_get_thread_id(drcontexts[i]));
+                        NOTIFY(2, "\tthread #%d " TIDFMT " under DR\n", i,
+                               dr_get_thread_id(drcontexts[i]));
                     }
                 }
                 if (!dr_resume_all_other_threads(drcontexts, num_threads)) {
@@ -422,7 +427,6 @@ event_thread_init(void *drcontext)
                 ASSERT(false, "failed to suspend threads");
             }
         }
-
     }
     /* allocate thread private data for per-thread cache */
     if (drcov_per_thread)
@@ -497,6 +501,8 @@ drcovlib_exit(void)
         dump_drcov_data(NULL, global_data);
         global_data_destroy(global_data);
     }
+    drcov_per_thread = false;
+
     /* destroy module table */
     drmodtrack_exit();
 
@@ -512,12 +518,12 @@ static drcovlib_status_t
 event_init(void)
 {
     drcovlib_status_t res;
-    uint64 max_elide_jmp  = 0;
+    uint64 max_elide_jmp = 0;
     uint64 max_elide_call = 0;
     /* assuming no elision */
     if (!dr_get_integer_option("max_elide_jmp", &max_elide_jmp) ||
-        !dr_get_integer_option("max_elide_call", &max_elide_jmp) ||
-        max_elide_jmp != 0 || max_elide_call != 0)
+        !dr_get_integer_option("max_elide_call", &max_elide_jmp) || max_elide_jmp != 0 ||
+        max_elide_call != 0)
         return DRCOVLIB_ERROR_INVALID_SETUP;
 
     /* create module table */
@@ -540,7 +546,7 @@ drcovlib_init(drcovlib_options_t *ops)
 
     if (ops->struct_size != sizeof(options))
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
-    if ((ops->flags & (~(DRCOVLIB_DUMP_AS_TEXT|DRCOVLIB_THREAD_PRIVATE))) != 0)
+    if ((ops->flags & (~(DRCOVLIB_DUMP_AS_TEXT | DRCOVLIB_THREAD_PRIVATE))) != 0)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     if (TEST(DRCOVLIB_THREAD_PRIVATE, ops->flags)) {
         if (!dr_using_all_private_caches())
@@ -554,6 +560,8 @@ drcovlib_init(drcovlib_options_t *ops)
         dr_snprintf(logdir, BUFFER_SIZE_ELEMENTS(logdir), ".");
     NULL_TERMINATE_BUFFER(logdir);
     options.logdir = logdir;
+    if (options.logprefix == NULL)
+        options.logprefix = "drcov";
     if (options.native_until_thread > 0)
         go_native = true;
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -64,7 +64,7 @@ typedef struct _memquery_iter_t {
      * without using static data and limiting to one iterator (and having
      * to unprotect and reprotect if in .data).
      */
-#define MEMQUERY_INTERNAL_DATA_LEN 96 /* 84 bytes needed for Mac 10.9.1 */
+#define MEMQUERY_INTERNAL_DATA_LEN 116 /* 104 bytes needed for MacOS 64-bit */
     char internal[MEMQUERY_INTERNAL_DATA_LEN];
 } memquery_iter_t;
 
@@ -103,16 +103,18 @@ memquery_iterator_next(memquery_iter_t *iter);
  * Return value is the number of distinct memory regions that comprise the library.
  */
 int
-memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
-                        char *fullpath/*OPTIONAL OUT*/, size_t path_size);
+memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
+                        char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
+                        char *filename /*OPTIONAL OUT*/, size_t filename_size);
 
 /* Interface is identical to memquery_library_bounds().  This is an iterator-based
  * impl shared among Linux and Mac.
  */
 int
-memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
-                                    app_pc *end/*OUT*/,
-                                    char *fullpath/*OPTIONAL OUT*/, size_t path_size);
+memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
+                                    app_pc *end /*OUT*/, char *fulldir /*OPTIONAL OUT*/,
+                                    size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
+                                    size_t filename_size);
 
 /* XXX i#1270: ideally we could have os.c use generic memquery iterator code,
  * but the probe + dl_iterate_phdr approach is difficult to fit into that mold
@@ -124,8 +126,16 @@ int
 find_vm_areas_via_probe(void);
 #endif
 
-/* This routine does not acquire locks */
+/* This routine might acquire locks.  is_readable_without_exception_query_os_noblock()
+ * can be used to avoid blocking.
+ */
 bool
 memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type);
+
+/* The result can change if another thread grabs the lock, but this will identify
+ * whether the current thread holds the lock, avoiding a hang.
+ */
+bool
+memquery_from_os_will_block(void);
 
 #endif /* _MEMQUERY_H_ */

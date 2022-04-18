@@ -1,3 +1,7 @@
+param l = -4
+param ll = -3220721071790640321
+param ul = 4
+param ull = 1384772493926445887
 param x = 4
 param y = |quoted string accum|
 param z = |single quotes -dash --dashes|
@@ -6,4 +10,7 @@ param bar = |some string with spaces|
 param flag = |0|
 param sweep = |-front value -front2 value2|
 param takes2 = |1_of_4 3_of_4|,|2_of_4 4_of_4|
+param val_sep = |v1.1 v1.2+v2.1 v2.2|
+param val_sep2 = |v1+v3|,|v2+v4|
+param large_bytesize = 9999999999
 Hello, world!

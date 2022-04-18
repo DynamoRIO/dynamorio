@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,21 +47,33 @@ extern "C" {
 /**
  * \addtogroup drx DynamoRIO eXtension utilities
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /* i#1531: drx uses drmgr internally, so a client using drx cannot use
  * DR's TLS field routines directly.
  */
 #ifndef dr_set_tls_field
-# define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
 #endif
 
 /***************************************************************************
  * INIT
  */
+
+enum {
+    /**
+     * Priority of drx fault handling event.
+     */
+    DRMGR_PRIORITY_FAULT_DRX = -7500,
+};
+
+/**
+ * Name of drx fault handling event.
+ */
+#define DRMGR_PRIORITY_NAME_DRX_FAULT "drx_fault"
 
 DR_EXPORT
 /**
@@ -120,8 +132,9 @@ drx_aflags_are_dead(instr_t *where);
 
 /** Flags for \p drx_insert_counter_update */
 enum {
-    DRX_COUNTER_64BIT = 0x01, /**< 64-bit counter is used for update. */
-    DRX_COUNTER_LOCK  = 0x10, /**< Counter update is atomic. */
+    DRX_COUNTER_64BIT = 0x01,   /**< 64-bit counter is used for update. */
+    DRX_COUNTER_REL_ACQ = 0x02, /**< Release-acquire semantics for counter update. */
+    DRX_COUNTER_LOCK = 0x10,    /**< Counter update is atomic. */
 };
 
 DR_EXPORT
@@ -147,7 +160,10 @@ DR_EXPORT
  * \note The counter update is racy (i.e., not synchronized among threads)
  * unless #DRX_COUNTER_LOCK is specified in \p flags. When #DRX_COUNTER_LOCK
  * is set, the instrumentation may fail if a 64-bit counter is updated in
- * a 32-bit application or the counter crosses cache lines.
+ * a 32-bit application or the counter crosses cache lines. Currently, #DRX_COUNTER_LOCK
+ * is not yet supported on AArchXX. For AArchXX, if #DRX_COUNTER_REL_ACQ is specified in
+ * \p flags, release-acquire semantics are enforced for the counter update. The
+ * #DRX_COUNTER_REL_ACQ flag can be used in conjunction with #DRX_COUNTER_64BIT.
  *
  * \note To update multiple counters at the same place, multiple
  * drx_insert_counter_update() invocations should be made in a row with the
@@ -157,8 +173,9 @@ DR_EXPORT
  */
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          dr_spill_slot_t slot, IF_NOT_X86_(dr_spill_slot_t slot2)
-                          void *addr, int value, uint flags);
+                          dr_spill_slot_t slot,
+                          IF_NOT_X86_(dr_spill_slot_t slot2) void *addr, int value,
+                          uint flags);
 
 /***************************************************************************
  * SOFT KILLS
@@ -216,6 +233,34 @@ bool
 drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
 
 /***************************************************************************
+ * INSTRUCTION LIST
+ */
+
+DR_EXPORT
+/**
+ * Returns the number of instructions (including meta-instructions) inside a basic block
+ * \p ilist.
+ *
+ * The function iterates over the ilist in order to obtain the count. The result is not
+ * cached. Therefore, avoid using this function during the insert stage of the
+ * instrumentation process.
+ */
+size_t
+drx_instrlist_size(instrlist_t *ilist);
+
+DR_EXPORT
+/**
+ * Returns the number of application instructions (excluding meta-instructions) inside
+ * a basic block \p ilist.
+ *
+ * The function iterates over the ilist in order to obtain the count. The result is not
+ * cached. Therefore, avoid using this function during the insert stage of the
+ * instrumentation process.
+ */
+size_t
+drx_instrlist_app_size(instrlist_t *ilist);
+
+/***************************************************************************
  * LOGGING
  */
 
@@ -226,7 +271,7 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
  * \note This flag value must not conflict with any DR_FILE_* flag value
  * used by dr_open_file().
  */
-#define DRX_FILE_SKIP_OPEN  0x8000
+#define DRX_FILE_SKIP_OPEN 0x8000
 
 DR_EXPORT
 /**
@@ -271,9 +316,9 @@ DR_EXPORT
  * \note May be called without calling drx_init().
  */
 file_t
-drx_open_unique_appid_file(const char *dir, ptr_int_t id,
-                           const char *prefix, const char *suffix,
-                           uint extra_flags, char *result OUT, size_t result_len);
+drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
+                           const char *suffix, uint extra_flags, char *result OUT,
+                           size_t result_len);
 
 DR_EXPORT
 /**
@@ -290,9 +335,8 @@ DR_EXPORT
  * \note May be called without calling drx_init().
  */
 bool
-drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
-                          const char *prefix, const char *suffix,
-                          char *result OUT, size_t result_len);
+drx_open_unique_appid_dir(const char *dir, ptr_int_t id, const char *prefix,
+                          const char *suffix, char *result OUT, size_t result_len);
 
 /***************************************************************************
  * BUFFER FILLING LIBRARY
@@ -315,7 +359,7 @@ enum {
      * Buffer size to be specified in drx_buf_create_circular_buffer() in order
      * to make use of the fast circular buffer optimization.
      */
-    DRX_BUF_FAST_CIRCULAR_BUFSZ = (1<<16)
+    DRX_BUF_FAST_CIRCULAR_BUFSZ = (1 << 16)
 };
 
 /**
@@ -327,9 +371,9 @@ enum {
  */
 enum {
     /** Priority of drx_buf thread init event */
-    DRMGR_PRIORITY_THREAD_INIT_DRX_BUF       =  -7500,
+    DRMGR_PRIORITY_THREAD_INIT_DRX_BUF = -7500,
     /** Priority of drx_buf thread exit event */
-    DRMGR_PRIORITY_THREAD_EXIT_DRX_BUF       =  -7500,
+    DRMGR_PRIORITY_THREAD_EXIT_DRX_BUF = -7500,
 };
 
 /** Name of drx_buf thread init priority for buffer initialization. */
@@ -361,8 +405,7 @@ DR_EXPORT
  * \return NULL if unsuccessful, a valid opaque struct pointer if successful.
  */
 drx_buf_t *
-drx_buf_create_trace_buffer(size_t buffer_size,
-                            drx_buf_full_cb_t full_cb);
+drx_buf_create_trace_buffer(size_t buffer_size, drx_buf_full_cb_t full_cb);
 
 DR_EXPORT
 /** Cleans up the buffer associated with \p buf. \returns whether successful. */
@@ -406,8 +449,8 @@ DR_EXPORT
  */
 bool
 drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
-                         instr_t *where, reg_id_t buf_ptr, reg_id_t scratch,
-                         opnd_t opnd, opnd_size_t opsz, short offset);
+                         instr_t *where, reg_id_t buf_ptr, reg_id_t scratch, opnd_t opnd,
+                         opnd_size_t opsz, short offset);
 
 DR_EXPORT
 /**
@@ -460,7 +503,41 @@ void
 drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
                           instr_t *where, reg_id_t dst, reg_id_t src, ushort len);
 
-/*@}*/ /* end doxygen group */
+DR_EXPORT
+/**
+ * Expands AVX2 gather and AVX-512 gather and scatter instructions to a sequence of
+ * equivalent scalar load and stores, mask register bit tests, and mask register bit
+ * updates.
+ *
+ * Clients applying this expansion are encouraged to use emulation-aware
+ * instrumentation via drmgr_orig_app_instr_for_fetch() and
+ * drmgr_orig_app_instr_for_operands() in order to observe the original
+ * opcode with the expanded memory operands.
+ *
+ * \warning The added multi-instruction sequence contains several control-transfer
+ * instructions and is not straight-line code, which can complicate subsequent analysis
+ * routines.
+ *
+ * The client must use the \p drmgr Extension to order its instrumentation in order to
+ * use this function.  This function must be called from the application-to-application
+ * ("app2app") stage (see drmgr_register_bb_app2app_event()).
+ *
+ * This transformation is deterministic, so the caller can return
+ * DR_EMIT_DEFAULT from its event.
+ *
+ * The *dq, *qd, *qq, *dpd, *qps, and *qpd opcodes are not yet supported in 32-bit mode.
+ * In this case, the function will return false and no expansion will occur.
+ *
+ * @param[in]  drcontext   The opaque context.
+ * @param[in]  bb          Instruction list passed to the app2app event.
+ * @param[out] expanded    Whether any expansion occurred.
+ *
+ * \return whether successful.
+ */
+bool
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded);
+
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

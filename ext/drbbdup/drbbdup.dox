@@ -1,0 +1,157 @@
+/* **********************************************************
+ * Copyright (c) 2020-2022 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drbbdup Basic Block Duplicator
+
+The \p drbbdup DynamoRIO Basic Block Duplicator Extension provides a mechanism
+to efficiently support different instrumentations of the same basic blocks.
+Although flushing is one viable approach to achieve this functionality,
+it unfortunately also incurs high overheads. Instead, drbbdup duplicates the
+code of each basic block to generate multiple copies and enables a client to
+instrument these copies with different code insertions.
+
+\image html drbbdup_image.svg
+
+The duplication of a basic block is done at
+drmgr's app2app stage. Copies are prefixed by a START label,
+and followed by a jump instruction to direct control to the EXIT label.
+Note that the last code version does not need this jump.
+Each basic block copy is set to handle a particular case of instrumentation.
+A case is identified by a unique pointer-sized value that is registered by the client.
+The last basic block always handles the default case. During the insertion stage,
+the code of the dispatcher is prepended to the fragment. The dispatcher encodes
+the current runtime case as instructed by the client, and compares the encoding
+with those of the handled cases. If a match is found, the dispatcher directs
+control to the appropriate basic block. Otherwise, the basic block handling
+the default case is executed.
+
+ - \ref sec_drbbdup_init
+ - \ref sec_drbbdup_bb
+ - \ref sec_drbbdup_analysis
+ - \ref sec_drbbdup_encoder
+ - \ref sec_drbbdup_instrum
+
+\section sec_drbbdup_init Setup
+
+To use \p drbbdup with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drbbdup) \endcode
+
+That will automatically set up the include path and library dependence.
+
+The initialization routine \p drbbdup_init() must be called prior to any of
+the other routines. The managing of basic block copies is specific to a single use-case,
+where only one default case can be registered. Therefore, additional calls to
+\p drbbdup_init() are not allowed. The option fields mainly consist
+of user-defined call-back functions which dictate how drbbdup manages duplications.
+
+\section sec_drbbdup_bb Duplication
+
+When drbbdup encounters a new basic block, it invokes the #drbbdup_set_up_bb_dups_t
+call-back function. This enables the client to return the encoding value of the
+default case as well as register additional case encodings via
+\p drbbdup_register_case_encoding(). The client may also completely
+disable duplication for this particular basic block by falsifying a flag that is
+provided to the call-back function.
+
+When only two cases are used, the default and one additional, and the
+encoding value for one of them is zero, drbbdup is able to generate
+faster case dispatch code.  To produce optimal code for x86, it is best to
+have the default case use the non-zero encoding.
+
+\section sec_drbbdup_analysis Case Analysis
+
+There are two types of analysis call-back functions that are supported by drbbdup.
+The #drbbdup_analyze_orig_t call-back function is invoked per fragment, while the
+#drbbdup_analyze_case_t call-back function is triggered for each registered
+case. The former enables the client to derive analysis data of the basic
+block that is made available during the instrumentation of all cases. Usually, the
+analysis conducted is expensive and is therefore implemented in this call-back
+function to avoid its repetition when managing each case. Meanwhile,
+the #drbbdup_analyze_case_t call-back function is analysis done particularly
+for a given case.
+
+The client may implement #drbbdup_destroy_orig_analysis_t and
+#drbbdup_destroy_case_analysis_t call-back functions to destroy the respective
+analysis data.
+
+Furthermore, should the client perform some analysis prior to duplication during the
+app2app stage via a separate event, then such data should be stored and accessed via
+TLS.
+
+\section sec_drbbdup_encoder Encoder
+
+In order for drbbdup to dispatch control to the appropriate basic block copy, it
+needs to determine the current runtime case encoding value. Essentially, this process
+depends on the use-case, and therefore drbbdup optionally invokes the
+#drbbdup_insert_encode_t call-back function to obtain the encoding from the client.
+
+In terms of implementation, the call-back function must store the runtime case encoding
+to pointer-sized memory that is maintained by the client itself. By using the operand,
+which refers to the memory and is passed to drbbdup_init(), drbbdup will load the
+current runtime case encoding and dispatch control accordingly.
+
+The #drbbdup_insert_encode_t call-back may also be set to NULL which results in the
+dispatcher not attempting the construction of the runtime case at every start of
+a basic block execution. In such cases, it is expected that the client directly
+sets the runtime encoding and updates the value on demand. The drbbdup extension
+guarantees that it does not modify the set encoding on its own accord.
+
+A PC-relative case encoding operand is supported on AArchXX, with
+drbbdup adding code to obtain the linear address and so avoid
+reachability problems.
+
+\section sec_drbbdup_instrum Case Instrumentation
+
+drbbdup invokes the #drbbdup_instrument_instr_t call-back function to
+trigger the instrumentation of an instruction. Instrumentation must be
+done with respect to the currently considered case which is passed as a parameter by
+drbbdup. Moreover, while drbbdup supplies the instruction which the client
+considers for instrumentation, it also provides a "where" instruction.
+The client must insert code exactly prior to the "where" instruction
+in order to ensure correct instrumentation. Internally, this approach enables
+instructions (e.g., syscall and jmp), which cannot be duplicated due to the breaking
+of basic block structure, to have different case instrumentation nonetheless.
+
+drbbdup also provides drbbdup_is_first_instr(), drbbdup_is_first_nonlabel_instr()
+and drbbdup_is_last_instr() to determine whether the passed instruction
+is the first, first non label and last instruction of a basic block copy respectively.
+Note the client should not use drmgr varients such as drmgr_is_first_instr() as these
+API functions do not take into account drbbdup's internals and therefore will fail.
+
+*/
+
+#TODO i#4134: Explain stat gather and dynamic case handling.

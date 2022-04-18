@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,20 +41,20 @@
 
 #include "../globals.h"
 #include "proc.h"
-#include "instr.h" /* for dr_insert_{save,restore}_fpstate */
-#include "instrument.h" /* for dr_insert_{save,restore}_fpstate */
-#include "instr_create.h" /* for dr_insert_{save,restore}_fpstate */
-#include "decode.h" /* for dr_insert_{save,restore}_fpstate */
+#include "instr.h"               /* for dr_insert_{save,restore}_fpstate */
+#include "instrument.h"          /* for dr_insert_{save,restore}_fpstate */
+#include "instr_create_shared.h" /* for dr_insert_{save,restore}_fpstate */
+#include "decode.h"              /* for dr_insert_{save,restore}_fpstate */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-# undef ASSERT_TRUNCATE
-# undef ASSERT_BITFIELD_TRUNCATE
-# undef ASSERT_NOT_REACHED
-# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
 /* Intel processors:  ebx:edx:ecx spell GenuineIntel */
@@ -68,8 +68,20 @@
 #define AMD_ECX /* cAMD */ 0x444d4163
 
 static bool avx_enabled;
+static bool avx512_enabled;
+
+static int num_simd_saved;
+static int num_simd_registers;
+static int num_simd_sse_avx_registers;
+static int num_simd_sse_avx_saved;
+static int num_opmask_registers;
+static int xstate_area_kmask_offs;
+static int xstate_area_zmm_hi256_offs;
+static int xstate_area_hi16_zmm_offs;
+/* TODO i#3581: mpx state offsets. */
+
 /* global writable variable for debug registers value */
-DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], {0});
+DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
 
 static void
 get_cache_sizes_amd(uint max_ext_val)
@@ -77,14 +89,14 @@ get_cache_sizes_amd(uint max_ext_val)
     uint cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
 
     if (max_ext_val >= 0x80000005) {
-        our_cpuid((int*)cpuid_res_local, 0x80000005, 0);
-        set_cache_size((cpuid_res_local[2]/*ecx*/ >> 24), &cpu_info.L1_icache_size);
-        set_cache_size((cpuid_res_local[3]/*edx*/ >> 24), &cpu_info.L1_dcache_size);
+        our_cpuid((int *)cpuid_res_local, 0x80000005, 0);
+        proc_set_cache_size((cpuid_res_local[2] /*ecx*/ >> 24), &cpu_info.L1_icache_size);
+        proc_set_cache_size((cpuid_res_local[3] /*edx*/ >> 24), &cpu_info.L1_dcache_size);
     }
 
     if (max_ext_val >= 0x80000006) {
-        our_cpuid((int*)cpuid_res_local, 0x80000006, 0);
-        set_cache_size((cpuid_res_local[2]/*ecx*/ >> 16), &cpu_info.L2_cache_size);
+        our_cpuid((int *)cpuid_res_local, 0x80000006, 0);
+        proc_set_cache_size((cpuid_res_local[2] /*ecx*/ >> 16), &cpu_info.L2_cache_size);
     }
 }
 
@@ -98,7 +110,7 @@ get_cache_sizes_intel(uint max_val)
     if (max_val < 2)
         return;
 
-    our_cpuid((int*)cache_codes, 2, 0);
+    our_cpuid((int *)cache_codes, 2, 0);
     /* The lower 8 bits of eax specify the number of times cpuid
      * must be executed to obtain a complete picture of the cache
      * characteristics.
@@ -111,7 +123,7 @@ get_cache_sizes_intel(uint max_val)
      * indicates that the codes should be ignored... zero
      * all four bytes when that happens
      */
-    for (i=0; i<4; i++) {
+    for (i = 0; i < 4; i++) {
         if (cache_codes[i] & 0x80000000)
             cache_codes[i] = 0;
     }
@@ -119,8 +131,8 @@ get_cache_sizes_intel(uint max_val)
     /* Table 3-17, pg 3-171 of IA-32 instruction set reference lists
      * all codes.  Omitting L3 cache characteristics for now...
      */
-    for (i=0; i<16; i++) {
-        switch (((uchar*)cache_codes)[i]) {
+    for (i = 0; i < 16; i++) {
+        switch (((uchar *)cache_codes)[i]) {
         case 0x06: cpu_info.L1_icache_size = CACHE_SIZE_8_KB; break;
         case 0x08: cpu_info.L1_icache_size = CACHE_SIZE_16_KB; break;
         case 0x0a: cpu_info.L1_dcache_size = CACHE_SIZE_8_KB; break;
@@ -154,6 +166,33 @@ get_cache_sizes_intel(uint max_val)
     }
 }
 
+static void
+get_xstate_area_offsets(bool has_kmask, bool has_zmm_hi256, bool has_hi16_zmm)
+{
+    int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
+    DOLOG(1, LOG_TOP, {
+        if (has_kmask || has_zmm_hi256 || has_hi16_zmm) {
+            LOG(GLOBAL, LOG_TOP, 1, "\tExtended xstate area offsets:\n",
+                xstate_area_kmask_offs);
+        }
+    });
+    if (has_kmask) {
+        our_cpuid(cpuid_res_local, 0xd, 5);
+        xstate_area_kmask_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\tkmask: %d\n", xstate_area_kmask_offs);
+    }
+    if (has_zmm_hi256) {
+        our_cpuid(cpuid_res_local, 0xd, 6);
+        xstate_area_zmm_hi256_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\tzmm_hi256: %d\n", xstate_area_zmm_hi256_offs);
+    }
+    if (has_hi16_zmm) {
+        our_cpuid(cpuid_res_local, 0xd, 7);
+        xstate_area_hi16_zmm_offs = cpuid_res_local[1];
+        LOG(GLOBAL, LOG_TOP, 1, "\t\thi16_zmm: %d\n", xstate_area_hi16_zmm_offs);
+    }
+}
+
 /*
  * On Pentium through Pentium III, I-cache lines are 32 bytes.
  * On Pentium IV they are 64 bytes.
@@ -176,7 +215,7 @@ get_processor_specific_info(void)
     /* FIXME: Perhaps we should abort when the cpuid instruction
      * doesn't exist since the cache_line_size may be incorrect.
      * (see case 463 for discussion)
-    */
+     */
     if (!cpuid_supported()) {
         ASSERT_CURIOSITY(false && "cpuid instruction unsupported");
         SYSLOG_INTERNAL_WARNING("cpuid instruction unsupported -- cache_line_size "
@@ -203,13 +242,13 @@ get_processor_specific_info(void)
     } else {
         cpu_info.vendor = VENDOR_UNKNOWN;
         SYSLOG_INTERNAL_ERROR("Running on unknown processor type");
-        LOG(GLOBAL, LOG_TOP, 1, "cpuid returned "PFX" "PFX" "PFX" "PFX"\n",
+        LOG(GLOBAL, LOG_TOP, 1, "cpuid returned " PFX " " PFX " " PFX " " PFX "\n",
             res_eax, res_ebx, res_ecx, res_edx);
     }
 
     /* Try to get extended cpuid information */
     our_cpuid(cpuid_res_local, 0x80000000, 0);
-    max_ext_val = cpuid_res_local[0]/*eax*/;
+    max_ext_val = cpuid_res_local[0] /*eax*/;
 
     /* Extended feature flags */
     if (max_ext_val >= 0x80000001) {
@@ -237,9 +276,9 @@ get_processor_specific_info(void)
      *   extended family, extended model, type, family, model, stepping id
      *   20:27,           16:19,          12:13, 8:11,  4:7,   0:3
      */
-    cpu_info.type   = (res_eax >> 12) & 0x3;
-    cpu_info.family = (res_eax >>  8) & 0xf;
-    cpu_info.model  = (res_eax >>  4) & 0xf;
+    cpu_info.type = (res_eax >> 12) & 0x3;
+    cpu_info.family = (res_eax >> 8) & 0xf;
+    cpu_info.model = (res_eax >> 4) & 0xf;
     cpu_info.stepping = res_eax & 0xf;
 
     /* Pages 3-164 and 3-165 of the IA-32 instruction set
@@ -273,11 +312,6 @@ get_processor_specific_info(void)
     } else if (cpu_info.vendor == VENDOR_AMD && cpu_info.family == FAMILY_ATHLON) {
         /* Athlon */
         cache_line_size = 64;
-#ifdef IA32_ON_IA64
-    } else if (cpu_info.vendor == VENDOR_INTEL && cpu_info.family == FAMILY_IA64) {
-        /* Itanium */
-        cache_line_size = 32;
-#endif
     } else {
         LOG(GLOBAL, LOG_TOP, 1, "Warning: running on unsupported processor family %d\n",
             cpu_info.family);
@@ -295,9 +329,9 @@ get_processor_specific_info(void)
 
     /* Processor brand string */
     if (max_ext_val >= 0x80000004) {
-        our_cpuid((int*)&cpu_info.brand_string[0], 0x80000002, 0);
-        our_cpuid((int*)&cpu_info.brand_string[4], 0x80000003, 0);
-        our_cpuid((int*)&cpu_info.brand_string[8], 0x80000004, 0);
+        our_cpuid((int *)&cpu_info.brand_string[0], 0x80000002, 0);
+        our_cpuid((int *)&cpu_info.brand_string[4], 0x80000003, 0);
+        our_cpuid((int *)&cpu_info.brand_string[8], 0x80000004, 0);
     }
 }
 
@@ -313,8 +347,8 @@ proc_init_arch(void)
                   "Unsupported processor type - processor must support LAHF/SAHF in "
                   "64bit mode.");
     if (!proc_has_feature(FEATURE_LAHF)) {
-        FATAL_USAGE_ERROR(UNSUPPORTED_PROCESSOR_LAHF, 2,
-                          get_application_name(), get_application_pid());
+        FATAL_USAGE_ERROR(UNSUPPORTED_PROCESSOR_LAHF, 2, get_application_name(),
+                          get_application_pid());
     }
 #endif
 
@@ -322,8 +356,8 @@ proc_init_arch(void)
     /* FIXME: This is a small subset of processor features.  If we
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
-    */
-    if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) {
+     */
+    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n\tedx = 0x%08x\n\tecx = 0x%08x\n",
             cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
         LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
@@ -344,35 +378,90 @@ proc_init_arch(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE3\n");
         if (proc_has_feature(FEATURE_AVX))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX\n");
+        if (proc_has_feature(FEATURE_AVX512F))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512F\n");
+        if (proc_has_feature(FEATURE_AVX512BW))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX-512BW\n");
         if (proc_has_feature(FEATURE_OSXSAVE))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has OSXSAVE\n");
     }
 #endif
     /* PR 264138: for 32-bit CONTEXT we assume fxsave layout */
     CLIENT_ASSERT((proc_has_feature(FEATURE_FXSR) && proc_has_feature(FEATURE_SSE)) ||
-                  (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
+                      (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
-    if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
-        /* Even if the processor supports AVX, it will #UD on any AVX instruction
-         * if the OS hasn't enabled YMM and XMM state saving.
-         * To check that, we invoke xgetbv -- for which we need FEATURE_OSXSAVE.
-         * FEATURE_OSXSAVE is also listed as one of the 3 steps in Intel Vol 1
-         * Fig 13-1: 1) cpuid OSXSAVE; 2) xgetbv 0x6; 3) cpuid AVX.
-         * Xref i#1278, i#1030, i#437.
-         */
+    /* As part of lazy context switching of AVX-512 state, the number of saved registers
+     * is initialized excluding extended AVX-512 registers.
+     */
+    num_simd_saved = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    /* The number of total registers may be switched to include extended AVX-512
+     * registers if OS and processor support will be detected further below.
+     */
+    num_simd_registers = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    /* Please note that this constant is not assigned based on feature support. It
+     * represents the xstate/fpstate/sigcontext structure sizes for non-AVX-512 state.
+     */
+    num_simd_sse_avx_registers = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    num_simd_sse_avx_saved = MCXT_NUM_SIMD_SSE_AVX_SLOTS;
+    num_opmask_registers = 0;
+
+    if (proc_has_feature(FEATURE_OSXSAVE)) {
         uint bv_high = 0, bv_low = 0;
         dr_xgetbv(&bv_high, &bv_low);
-        LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
-        if (TESTALL(XCR0_AVX|XCR0_SSE, bv_low)) {
-            avx_enabled = true;
-            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX\n");
-        } else {
-            LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
+        if (proc_has_feature(FEATURE_AVX)) {
+            /* Even if the processor supports AVX, it will #UD on any AVX instruction
+             * if the OS hasn't enabled YMM and XMM state saving.
+             * To check that, we invoke xgetbv -- for which we need FEATURE_OSXSAVE.
+             * FEATURE_OSXSAVE is also listed as one of the 3 steps in Intel Vol 1
+             * Fig 13-1: 1) cpuid OSXSAVE; 2) xgetbv 0x6; 3) cpuid AVX.
+             * Xref i#1278, i#1030, i#437.
+             */
+            LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
+            if (TESTALL(XCR0_AVX | XCR0_SSE, bv_low)) {
+                avx_enabled = true;
+                LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX\n");
+            } else {
+                LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
+            }
+        }
+        if (proc_has_feature(FEATURE_AVX512F)) {
+            if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
+#if !defined(UNIX)
+                /* FIXME i#1312: AVX-512 is not fully supported and is untested on all
+                 * non-UNIX builds. A SYSLOG_INTERNAL_ERROR_ONCE is issued on Windows
+                 * if AVX-512 code is encountered. Setting DynamoRIO to a state that
+                 * partially supports AVX-512 is causing problems, xref i#3949. We
+                 * therefore completely disable AVX-512 support in these builds for now.
+                 */
+#else
+                /* XXX i#1312: It had been unclear whether the kernel uses CR0
+                 * bits to disable AVX-512 for its own lazy context switching
+                 * optimization. If it did, then our lazy context switch would
+                 * interfere with the kernel's and more support would be needed.
+                 * We have concluded that the Linux kernel does not do its own
+                 * lazy context switch optimization for AVX-512 at this time.
+                 *
+                 * Please note that the 32-bit UNIX build is missing support for
+                 * handling AVX-512 state with signals. A SYSLOG_INTERNAL_ERROR_ONCE
+                 * will be issued if AVX-512 code is encountered for 32-bit. 64-bit
+                 * builds are fully supported.
+                 */
+                avx512_enabled = true;
+                num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+                num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
+                LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX-512\n");
+#endif
+            } else {
+                LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
+            }
+            get_xstate_area_offsets(TEST(XCR0_OPMASK, bv_low),
+                                    TEST(XCR0_ZMM_HI256, bv_low),
+                                    TEST(XCR0_HI16_ZMM, bv_low));
         }
     }
     for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
-        debugRegister[i] = NULL;
+        d_r_debug_register[i] = NULL;
     }
 }
 
@@ -414,9 +503,72 @@ size_t
 proc_fpstate_save_size(void)
 {
     CLIENT_ASSERT(opnd_size_in_bytes(OPSZ_512) == 512 &&
-                  opnd_size_in_bytes(OPSZ_108) == 108,
+                      opnd_size_in_bytes(OPSZ_108) == 108,
                   "internal sizing discrepancy");
-    return (proc_has_feature(FEATURE_FXSR) ?  512 : 108);
+    return (proc_has_feature(FEATURE_FXSR) ? 512 : 108);
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
+}
+
+DR_API
+int
+proc_num_simd_registers(void)
+{
+    return num_simd_registers;
+}
+
+DR_API
+int
+proc_num_opmask_registers(void)
+{
+    return num_opmask_registers;
+}
+
+void
+proc_set_num_simd_saved(int num)
+{
+#if !defined(UNIX)
+    /* FIXME i#1312: support and test. */
+#else
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#endif
+}
+
+int
+proc_num_simd_sse_avx_registers(void)
+{
+    return num_simd_sse_avx_registers;
+}
+
+int
+proc_num_simd_sse_avx_saved(void)
+{
+    return num_simd_sse_avx_saved;
+}
+
+int
+proc_xstate_area_kmask_offs(void)
+{
+    return xstate_area_kmask_offs;
+}
+
+int
+proc_xstate_area_zmm_hi256_offs(void)
+{
+    return xstate_area_zmm_hi256_offs;
+}
+
+int
+proc_xstate_area_hi16_zmm_offs(void)
+{
+    return xstate_area_hi16_zmm_offs;
 }
 
 DR_API
@@ -442,7 +594,7 @@ proc_save_fpstate(byte *buf)
 #ifdef WINDOWS
         dr_fnsave(buf);
 #else
-        asm volatile("fnsave %0 ; fwait" : "=m" ((*buf)));
+        asm volatile("fnsave %0 ; fwait" : "=m"((*buf)));
 #endif
     }
     return proc_fpstate_save_size();
@@ -471,7 +623,7 @@ proc_restore_fpstate(byte *buf)
 #ifdef WINDOWS
         dr_frstor(buf);
 #else
-        asm volatile("frstor %0" : : "m" ((*buf)));
+        asm volatile("frstor %0" : : "m"((*buf)));
 #endif
     }
 }
@@ -480,10 +632,9 @@ proc_restore_fpstate(byte *buf)
  * we can try to support it in the future.
  */
 void
-dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       opnd_t buf)
+dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (proc_has_feature(FEATURE_FXSR)) {
         /* we want "fxsave, fnclex, finit" */
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
@@ -506,10 +657,9 @@ dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
 }
 
 void
-dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          opnd_t buf)
+dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (proc_has_feature(FEATURE_FXSR)) {
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
                       "dr_insert_save_fpstate: opnd size must be OPSZ_512");
@@ -529,4 +679,10 @@ bool
 proc_avx_enabled(void)
 {
     return avx_enabled;
+}
+
+bool
+proc_avx512_enabled(void)
+{
+    return avx512_enabled;
 }

@@ -51,16 +51,16 @@ extern "C" {
 /**
  * \addtogroup drcontainers Container Data Structures
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** The storage for a vector. */
 typedef struct _drvector_t {
-    uint entries;   /**< The index at which drvector_append() will write. */
-    uint capacity;  /**< The size of \p array. */
-    void **array;   /**< The dynamically allocated storage for the vector entries. */
-    bool synch;     /**< Whether to automatically synchronize each operation. */
-    void *lock;     /**< The lock used for synchronization. */
-    void (*free_data_func)(void*);  /**< The routine called when freeing each entry. */
+    uint entries;  /**< The index at which drvector_append() will write. */
+    uint capacity; /**< The size of \p array. */
+    void **array;  /**< The dynamically allocated storage for the vector entries. */
+    bool synch;    /**< Whether to automatically synchronize each operation. */
+    void *lock;    /**< The lock used for synchronization. */
+    void (*free_data_func)(void *); /**< The routine called when freeing each entry. */
 } drvector_t;
 
 /**
@@ -79,7 +79,7 @@ typedef struct _drvector_t {
  */
 bool
 drvector_init(drvector_t *vec, uint initial_capacity, bool synch,
-              void (*free_data_func)(void*));
+              void (*free_data_func)(void *));
 
 /**
  * Returns the entry at index \p idx.  For an unsychronized table, the caller
@@ -120,7 +120,7 @@ drvector_lock(drvector_t *vec);
 void
 drvector_unlock(drvector_t *vec);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

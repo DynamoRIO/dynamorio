@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,53 +35,50 @@
 #include <assert.h>
 
 bool
-cache_t::init(int associativity_, int line_size_, int total_size,
-              caching_device_t *parent_, caching_device_stats_t *stats_)
+cache_t::init(int associativity, int line_size, int total_size, caching_device_t *parent,
+              caching_device_stats_t *stats, prefetcher_t *prefetcher, bool inclusive,
+              bool coherent_cache, int id, snoop_filter_t *snoop_filter,
+              const std::vector<caching_device_t *> &children)
 {
     // convert total_size to num_blocks to fit for caching_device_t::init
-    int num_lines = total_size / line_size_;
+    int num_lines = total_size / line_size;
 
-    return caching_device_t::init(associativity_, line_size_, num_lines,
-                                  parent_, stats_);
+    return caching_device_t::init(associativity, line_size, num_lines, parent, stats,
+                                  prefetcher, inclusive, coherent_cache, id, snoop_filter,
+                                  children);
 }
 
 void
 cache_t::init_blocks()
 {
-    for (int i = 0; i < num_blocks; i++) {
-        blocks[i] = new cache_line_t;
+    for (int i = 0; i < num_blocks_; i++) {
+        blocks_[i] = new cache_line_t;
     }
 }
 
 void
-cache_t::request(const memref_t &memref_in)
+cache_t::request(const memref_t &memref)
 {
-    // FIXME i#1726: if the request is a data write, we should check the
-    // instr cache and invalidate the cache line there if necessary on x86.
-    caching_device_t::request(memref_in);
+    caching_device_t::request(memref);
 }
 
 void
 cache_t::flush(const memref_t &memref)
 {
     addr_t tag = compute_tag(memref.flush.addr);
-    addr_t final_tag = compute_tag(memref.flush.addr +
-                                   memref.flush.size - 1/*no overflow*/);
-    last_tag = TAG_INVALID;
+    addr_t final_tag =
+        compute_tag(memref.flush.addr + memref.flush.size - 1 /*no overflow*/);
+    last_tag_ = TAG_INVALID;
     for (; tag <= final_tag; ++tag) {
-        int block_idx = compute_block_idx(tag);
-        for (int way = 0; way < associativity; ++way) {
-            if (get_caching_device_block(block_idx, way).tag == tag) {
-                get_caching_device_block(block_idx, way).tag = TAG_INVALID;
-                // Xref cache_block_t constructor about why we set counter to 0.
-                get_caching_device_block(block_idx, way).counter = 0;
-            }
-        }
+        auto block_way = find_caching_device_block(tag);
+        if (block_way.first == nullptr)
+            continue;
+        invalidate_caching_device_block(block_way.first);
     }
-    // We flush parent's code cache here.
+    // We flush parent_'s code cache here.
     // XXX: should L1 data cache be flushed when L1 instr cache is flushed?
-    if (parent != NULL)
-        ((cache_t *)parent)->flush(memref);
-    if (stats != NULL)
-        ((cache_stats_t *)stats)->flush(memref);
+    if (parent_ != NULL)
+        ((cache_t *)parent_)->flush(memref);
+    if (stats_ != NULL)
+        ((cache_stats_t *)stats_)->flush(memref);
 }

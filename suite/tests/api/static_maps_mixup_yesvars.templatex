@@ -1,0 +1,6 @@
+mix up maps
+remap base=0x[0-9a-f]+, offs=0, sz=[1-9][0-9]*
+pre-DR init
+pre-DR start
+pre-DR detach
+all done

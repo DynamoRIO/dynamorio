@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -29,7 +30,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-
 
 /*
  *
@@ -62,26 +62,25 @@
 #define _DETERMINA_CONFIG_H_
 
 #include <windows.h>
-#include "lib/globals_shared.h"  /* for process_id_t */
+#include "globals_shared.h" /* for process_id_t */
 
 #ifdef __cplusplus
-extern "C"{
+extern "C" {
 #endif
 
 #define MAX_PARAM_LEN 1024
 #define CONFIG_PATH_SEPARATOR L':'
 #define LIST_SEPARATOR_CHAR L';'
 #define APPINIT_SEPARATOR_CHAR L','
-#define CONFIGURATION_ROOT_REGISTRY_KEY L"Software\\"L_EXPAND_LEVEL(COMPANY_NAME)
+#define CONFIGURATION_ROOT_REGISTRY_KEY L"Software\\" L_EXPAND_LEVEL(COMPANY_NAME)
 
 /* this provides a hook for forced parameter deletion, even if
  * "should_clear" is FALSE. */
 #define L_DELETE_PARAMETER_KEY L"__DELETE_PARAMETER_KEY"
 
-
 /* note this does NOT include the null terminator: the limit
  *  is 31 chars. */
-#define APPINIT_SYSTEM32_LENGTH_LIMIT  31
+#define APPINIT_SYSTEM32_LENGTH_LIMIT 31
 
 typedef struct NameValuePairNode_ {
     struct NameValuePairNode_ *next;
@@ -99,12 +98,10 @@ typedef struct ConfigGroup_ {
     WCHAR *name;
 } ConfigGroup;
 
-
 /* group config management */
 
 DWORD
-get_key_handle(HKEY *key, HKEY parent, const WCHAR *path,
-               BOOL absolute, DWORD flags);
+get_key_handle(HKEY *key, HKEY parent, const WCHAR *path, BOOL absolute, DWORD flags);
 
 DWORD
 recursive_delete_key(HKEY parent, const WCHAR *keyname, ConfigGroup *filter);
@@ -134,8 +131,7 @@ WCHAR *
 get_config_group_parameter(ConfigGroup *config, const WCHAR *name);
 
 void
-set_config_group_parameter(ConfigGroup *config,
-                           const WCHAR *name, const WCHAR *value);
+set_config_group_parameter(ConfigGroup *config, const WCHAR *name, const WCHAR *value);
 
 void
 remove_config_group_parameter(ConfigGroup *config, const WCHAR *name);
@@ -169,31 +165,27 @@ get_config_group_parameter_scrambled(ConfigGroup *config, const WCHAR *name,
                                      WCHAR *buffer, UINT maxchars);
 
 void
-set_config_group_parameter_bool(ConfigGroup *config, const WCHAR *name,
-                                BOOL value);
+set_config_group_parameter_bool(ConfigGroup *config, const WCHAR *name, BOOL value);
 
 void
-set_config_group_parameter_int(ConfigGroup *config, const WCHAR *name,
-                               int value);
+set_config_group_parameter_int(ConfigGroup *config, const WCHAR *name, int value);
 
 void
-set_config_group_parameter_ascii(ConfigGroup *config, const WCHAR *name,
-                                 char *value);
+set_config_group_parameter_ascii(ConfigGroup *config, const WCHAR *name, char *value);
 
 void
 set_config_group_parameter_scrambled(ConfigGroup *config, const WCHAR *name,
                                      const WCHAR *value);
 
-
 /* single parameter config functions */
 
 DWORD
-set_config_parameter(const WCHAR *path, BOOL absolute,
-                     const WCHAR *name, const WCHAR *value);
+set_config_parameter(const WCHAR *path, BOOL absolute, const WCHAR *name,
+                     const WCHAR *value);
 
 DWORD
-get_config_parameter(const WCHAR *path, BOOL absolute,
-                     const WCHAR *name, WCHAR *value, int maxlen);
+get_config_parameter(const WCHAR *path, BOOL absolute, const WCHAR *name, WCHAR *value,
+                     int maxlen);
 
 DWORD
 read_reg_string(HKEY subkey, const WCHAR *keyname, WCHAR *value, int valchars);
@@ -211,8 +203,8 @@ is_parent_of_qualified_config_group(ConfigGroup *config);
 
 /* tries both with and without no_strip */
 ConfigGroup *
-get_qualified_config_group(ConfigGroup *config,
-                           const WCHAR *exename, const WCHAR *cmdline);
+get_qualified_config_group(ConfigGroup *config, const WCHAR *exename,
+                           const WCHAR *cmdline);
 
 /* some list management and utility routines */
 /* all lists are ;-separated */
@@ -240,27 +232,23 @@ is_in_file_list(const WCHAR *list, const WCHAR *filename, WCHAR separator);
 
 /* frees the old list and returns a newly alloc'ed one */
 WCHAR *
-add_to_file_list(WCHAR *list, const WCHAR *filename,
-                 BOOL check_for_duplicates, BOOL add_to_front,
-                 BOOL overwrite_existing, WCHAR separator);
+add_to_file_list(WCHAR *list, const WCHAR *filename, BOOL check_for_duplicates,
+                 BOOL add_to_front, BOOL overwrite_existing, WCHAR separator);
 
 void
 remove_from_file_list(WCHAR *list, const WCHAR *filename, WCHAR separator);
 
 BOOL
-blacklist_filter(WCHAR *list, const WCHAR *blacklist,
-                 BOOL check_only, WCHAR separator);
+blocklist_filter(WCHAR *list, const WCHAR *blocklist, BOOL check_only, WCHAR separator);
 
 BOOL
-whitelist_filter(WCHAR *list, const WCHAR *whitelist,
-                 BOOL check_only, WCHAR separator);
+allowlist_filter(WCHAR *list, const WCHAR *allowlist, BOOL check_only, WCHAR separator);
 
 DWORD
-set_autoinjection_ex(BOOL inject, DWORD flags,
-                     const WCHAR *blacklist,
-                     const WCHAR *whitelist, DWORD *list_error,
-                     const WCHAR *custom_preinject_name,
-                     WCHAR *current_list, SIZE_T maxchars);
+set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
+                     const WCHAR *allowlist, DWORD *list_error,
+                     const WCHAR *custom_preinject_name, WCHAR *current_list,
+                     SIZE_T maxchars);
 
 DWORD
 set_custom_autoinjection(const WCHAR *preinject, DWORD flags);

@@ -31,26 +31,29 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
-#include "drx_buf-test-shared.h"
-#include <setjmp.h>
+#    include "tools.h"
+#    include "drx_buf-test-shared.h"
+#    include <setjmp.h>
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        fprintf(stderr, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        abort();                         \
-    }                                    \
-} while (0);
+#    define CHECK(x, msg)                                                             \
+        do {                                                                          \
+            if (!(x)) {                                                               \
+                fprintf(stderr, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+                abort();                                                              \
+            }                                                                         \
+        } while (0);
 
 /* asm routines */
-void test_asm_123();
-void test_asm_45();
+void
+test_asm_123();
+void
+test_asm_45();
 
 static SIGJMP_BUF mark;
 
-#if defined(UNIX)
-# include <pthread.h>
-# include <signal.h>
+#    if defined(UNIX)
+#        include <pthread.h>
+#        include <signal.h>
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -69,8 +72,8 @@ thread_asm_test(void *unused)
     test_asm_45();
     return NULL;
 }
-#elif defined(WINDOWS)
-# include <windows.h>
+#    elif defined(WINDOWS)
+#        include <windows.h>
 static LONG WINAPI
 handle_exception(struct _EXCEPTION_POINTERS *ep)
 {
@@ -89,7 +92,7 @@ thread_asm_test(LPVOID lpParam)
     test_asm_45();
     return 0;
 }
-#endif
+#    endif
 
 int
 main(void)
@@ -97,35 +100,35 @@ main(void)
     /* XXX: We can also trigger a segfault by trying to execute the buffer. We could
      * get the address of the buffer in the app using some annotation-based approach.
      */
-#if defined(UNIX)
+#    if defined(UNIX)
     pthread_t thread;
-#elif defined(WINDOWS)
+#    elif defined(WINDOWS)
     HANDLE thread;
     DWORD threadId;
-#endif
+#    endif
 
     print("Starting drx_buf threaded test\n");
-#if defined(UNIX)
+#    if defined(UNIX)
     CHECK(!pthread_create(&thread, NULL, thread_asm_test, NULL), "create failed");
     /* make sure that the buffers are threadsafe */
     (void)thread_asm_test(NULL);
     CHECK(!pthread_join(thread, NULL), "join failed");
-#elif defined(WINDOWS)
+#    elif defined(WINDOWS)
     CHECK((thread = CreateThread(NULL, 0, thread_asm_test, NULL, 0, &threadId)) != NULL,
           "CreateThread failed");
     /* make sure that the buffers are threadsafe */
     (void)thread_asm_test(NULL);
     WaitForSingleObject(thread, INFINITE);
     CloseHandle(thread);
-#endif
+#    endif
     print("Ending drx_buf threaded test\n");
 
     /* install signals */
-#if defined(UNIX)
+#    if defined(UNIX)
     intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
-#elif defined(WINDOWS)
+#    elif defined(WINDOWS)
     SetUnhandledExceptionFilter(&handle_exception);
-#endif
+#    endif
 
     print("Starting drx_buf signal test\n");
     /* try to cause a segfault and make sure it didn't trigger the buffer to dump */
@@ -138,12 +141,13 @@ main(void)
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
-#include "drx_buf-test-shared.h"
+#    include "asm_defines.asm"
+#    include "drx_buf-test-shared.h"
+/* clang-format off */
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 8
+# define FRAME_PADDING 0
 #else
 # define FRAME_PADDING 0
 #endif
@@ -152,11 +156,7 @@ START_FILE
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -178,10 +178,7 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog1
      epilog1:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(AARCHXX)
         b        test1
@@ -212,11 +209,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -238,10 +231,7 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog2
      epilog2:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(AARCHXX)
         b        test4
@@ -269,4 +259,5 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
 END_FILE
+/* clang-format on */
 #endif

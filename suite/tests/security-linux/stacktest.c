@@ -39,55 +39,62 @@
 #include <string.h>
 #include <unistd.h>
 
-void caller(void (*trampoline)(void))
+void
+caller(void (*trampoline)(void))
 {
     fprintf(stderr, "Attempting to call a trampoline...\n");
 
     trampoline();
 }
 
-void do_trampoline(void)
+void
+do_trampoline(void)
 {
-    void nested(void) {
+    void nested(void)
+    {
         fprintf(stderr, "Succeeded.\n");
     }
 
     caller(nested);
 }
 
-void do_exploit(void)
+void
+do_exploit(void)
 {
     fprintf(stderr, "Attempting to simulate a buffer overflow exploit...\n");
 
 #ifdef __i386__
-    __asm__ __volatile__(
-                         "movl $1f,%%eax\n\t"
+    __asm__ __volatile__("movl $1f,%%eax\n\t"
                          ".byte 0x68; popl %%ecx; jmp *%%eax; nop\n\t"
                          "pushl %%esp\n\t"
                          "ret\n\t"
                          "1:"
-                         : : : "ax", "cx");
+                         :
+                         :
+                         : "ax", "cx");
 #else
-#error Wrong architecture
+#    error Wrong architecture
 #endif
 
     fprintf(stderr, "Succeeded.\n");
 }
 
-#define USAGE \
-"Usage: %s OPTION\n" \
-"Non-executable user stack area tests\n\n" \
-"  -t\tcall a GCC trampoline\n" \
-"  -e\tsimulate a buffer overflow exploit\n" \
-"  -b\tsimulate an exploit after a trampoline call\n"
+#define USAGE                                    \
+    "Usage: %s OPTION\n"                         \
+    "Non-executable user stack area tests\n\n"   \
+    "  -t\tcall a GCC trampoline\n"              \
+    "  -e\tsimulate a buffer overflow exploit\n" \
+    "  -b\tsimulate an exploit after a trampoline call\n"
 
-void usage(char *name)
+void
+usage(char *name)
 {
     printf(USAGE, name ? name : "stacktest");
     exit(1);
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     if (argc != 2) {
         /* default behavior for unit test */
@@ -96,23 +103,17 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    if (argv[1][0] != '-' || strlen(argv[1]) != 2) usage(argv[0]);
+    if (argv[1][0] != '-' || strlen(argv[1]) != 2)
+        usage(argv[0]);
 
     switch (argv[1][1]) {
-    case 't':
-        do_trampoline();
-        break;
+    case 't': do_trampoline(); break;
 
-    case 'b':
-        do_trampoline();
+    case 'b': do_trampoline();
 
-    case 'e':
-        do_exploit();
-        break;
+    case 'e': do_exploit(); break;
 
-    default:
-        usage(argv[0]);
-        break;
+    default: usage(argv[0]); break;
     }
 
     return 0;

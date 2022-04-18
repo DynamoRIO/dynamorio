@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
 #include "advapi32_redir.h"
 
 #ifndef WINDOWS
-# error Windows-only
+#    error Windows-only
 #endif
 
 void
@@ -86,8 +86,8 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
             /* win7 has some Reg* routines in kernel32 so we check advapi */
             res = advapi32_redir_lookup(name);
         }
-        if (res != NULL && get_os_version() >= WINDOWS_VERSION_7 &&
-            importer != NULL && strcasecmp(importer->name, "kernel32.dll") == 0) {
+        if (res != NULL && get_os_version() >= WINDOWS_VERSION_7 && importer != NULL &&
+            strcasecmp(importer->name, "kernel32.dll") == 0) {
             /* We can't redirect kernel32.dll's calls to kernelbase when we ourselves
              * call the kernel32.dll routine when our redirection fails.
              *
@@ -102,8 +102,7 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
             if (strcmp(name, "GetModuleHandleA") == 0 ||
                 strcmp(name, "GetModuleHandleW") == 0 ||
                 strcmp(name, "GetProcAddress") == 0 ||
-                strcmp(name, "LoadLibraryA") == 0 ||
-                strcmp(name, "LoadLibraryW") == 0)
+                strcmp(name, "LoadLibraryA") == 0 || strcmp(name, "LoadLibraryW") == 0)
                 return NULL;
         }
         return res;
@@ -127,8 +126,8 @@ drwinapi_redirect_getprocaddr(app_pc modbase, const char *name, app_pc *res_out 
         res = drwinapi_redirect_imports(mod, name, NULL);
         /* I assume GetProcAddress returns NULL for forwarded exports? */
         if (res == NULL)
-            res = (app_pc) get_proc_address_ex((app_pc)modbase, name, &forwarder);
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, name, res);
+            res = (app_pc)get_proc_address_ex((app_pc)modbase, name, &forwarder);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => " PFX "\n", __FUNCTION__, name, res);
     }
     release_recursive_lock(&privload_lock);
     *res_out = res;
@@ -142,47 +141,47 @@ ntstatus_to_last_error(NTSTATUS status)
      * at earliest init time or something so I'm doing my own mapping.
      */
     switch (status) {
-    case STATUS_SUCCESS:               return ERROR_SUCCESS;
-    case STATUS_INVALID_HANDLE:        return ERROR_INVALID_HANDLE;
-    case STATUS_ACCESS_DENIED:         return ERROR_ACCESS_DENIED;
-    case STATUS_INVALID_PARAMETER:     return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_1:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_2:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_3:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_4:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_5:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_6:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_7:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_8:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_9:   return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_10:  return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_11:  return ERROR_INVALID_PARAMETER;
-    case STATUS_INVALID_PARAMETER_12:  return ERROR_INVALID_PARAMETER;
-    case STATUS_OBJECT_NAME_EXISTS:    return ERROR_ALREADY_EXISTS;
+    case STATUS_SUCCESS: return ERROR_SUCCESS;
+    case STATUS_INVALID_HANDLE: return ERROR_INVALID_HANDLE;
+    case STATUS_ACCESS_DENIED: return ERROR_ACCESS_DENIED;
+    case STATUS_INVALID_PARAMETER: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_1: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_2: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_3: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_4: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_5: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_6: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_7: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_8: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_9: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_10: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_11: return ERROR_INVALID_PARAMETER;
+    case STATUS_INVALID_PARAMETER_12: return ERROR_INVALID_PARAMETER;
+    case STATUS_OBJECT_NAME_EXISTS: return ERROR_ALREADY_EXISTS;
     case STATUS_OBJECT_NAME_COLLISION: return ERROR_ALREADY_EXISTS;
     case STATUS_OBJECT_NAME_NOT_FOUND: return ERROR_FILE_NOT_FOUND;
-    case STATUS_OBJECT_NAME_INVALID:   return ERROR_INVALID_NAME;
-    case STATUS_OBJECT_PATH_INVALID:   return ERROR_BAD_PATHNAME;
+    case STATUS_OBJECT_NAME_INVALID: return ERROR_INVALID_NAME;
+    case STATUS_OBJECT_PATH_INVALID: return ERROR_BAD_PATHNAME;
     case STATUS_OBJECT_PATH_NOT_FOUND: return ERROR_PATH_NOT_FOUND;
     case STATUS_MAPPED_FILE_SIZE_ZERO: return ERROR_FILE_INVALID;
     case STATUS_INVALID_PAGE_PROTECTION: return ERROR_INVALID_PARAMETER;
-    case STATUS_FILE_LOCK_CONFLICT:    return ERROR_LOCK_VIOLATION;
+    case STATUS_FILE_LOCK_CONFLICT: return ERROR_LOCK_VIOLATION;
     case STATUS_INVALID_FILE_FOR_SECTION: return ERROR_BAD_EXE_FORMAT;
-    case STATUS_SECTION_TOO_BIG:       return ERROR_NOT_ENOUGH_MEMORY;
-    case STATUS_OBJECT_TYPE_MISMATCH:  return ERROR_INVALID_HANDLE;
-    case STATUS_BUFFER_OVERFLOW:       return ERROR_MORE_DATA;
-    case STATUS_NO_SUCH_FILE:          return ERROR_FILE_NOT_FOUND;
-    case STATUS_NO_MORE_FILES:         return ERROR_NO_MORE_FILES;
-    case STATUS_INFO_LENGTH_MISMATCH:  return ERROR_BAD_LENGTH;
-    case STATUS_NOT_MAPPED_DATA:       return ERROR_INVALID_ADDRESS;
+    case STATUS_SECTION_TOO_BIG: return ERROR_NOT_ENOUGH_MEMORY;
+    case STATUS_OBJECT_TYPE_MISMATCH: return ERROR_INVALID_HANDLE;
+    case STATUS_BUFFER_OVERFLOW: return ERROR_MORE_DATA;
+    case STATUS_NO_SUCH_FILE: return ERROR_FILE_NOT_FOUND;
+    case STATUS_NO_MORE_FILES: return ERROR_NO_MORE_FILES;
+    case STATUS_INFO_LENGTH_MISMATCH: return ERROR_BAD_LENGTH;
+    case STATUS_NOT_MAPPED_DATA: return ERROR_INVALID_ADDRESS;
     case STATUS_THREAD_IS_TERMINATING: return ERROR_ACCESS_DENIED;
     case STATUS_PROCESS_IS_TERMINATING: return ERROR_ACCESS_DENIED;
-    case STATUS_END_OF_FILE:           return ERROR_HANDLE_EOF;
-    case STATUS_PENDING:               return ERROR_IO_PENDING;
-    case STATUS_NOT_A_REPARSE_POINT:   return ERROR_NOT_A_REPARSE_POINT;
-    case STATUS_PIPE_NOT_AVAILABLE:    return ERROR_PIPE_BUSY;
+    case STATUS_END_OF_FILE: return ERROR_HANDLE_EOF;
+    case STATUS_PENDING: return ERROR_IO_PENDING;
+    case STATUS_NOT_A_REPARSE_POINT: return ERROR_NOT_A_REPARSE_POINT;
+    case STATUS_PIPE_NOT_AVAILABLE: return ERROR_PIPE_BUSY;
     /* XXX: add more.  Variations by function are rare and handled in callers. */
-    default:                           return ERROR_INVALID_PARAMETER;
+    default: return ERROR_INVALID_PARAMETER;
     }
 }
 
@@ -211,21 +210,30 @@ redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
 }
 
 #ifdef STANDALONE_UNIT_TEST
-void unit_test_drwinapi_kernel32_proc(void);
-void unit_test_drwinapi_kernel32_mem(void);
-void unit_test_drwinapi_kernel32_lib(void);
-void unit_test_drwinapi_kernel32_file(void);
-void unit_test_drwinapi_kernel32_sync(void);
-void unit_test_drwinapi_kernel32_misc(void);
-void unit_test_drwinapi_rpcrt4(void);
-void unit_test_drwinapi_advapi32(void);
+void
+unit_test_drwinapi_kernel32_proc(void);
+void
+unit_test_drwinapi_kernel32_mem(void);
+void
+unit_test_drwinapi_kernel32_lib(void);
+void
+unit_test_drwinapi_kernel32_file(void);
+void
+unit_test_drwinapi_kernel32_sync(void);
+void
+unit_test_drwinapi_kernel32_misc(void);
+void
+unit_test_drwinapi_rpcrt4(void);
+void
+unit_test_drwinapi_advapi32(void);
 
 void
 unit_test_drwinapi(void)
 {
     print_file(STDERR, "testing drwinapi\n");
 
-    loader_init(); /* not called by standalone_init */
+    loader_init_prologue();                /* not called by standalone_init */
+    loader_init_epilogue(GLOBAL_DCONTEXT); /* not called by standalone_init */
 
     unit_test_drwinapi_kernel32_proc();
     unit_test_drwinapi_kernel32_mem();
@@ -235,5 +243,6 @@ unit_test_drwinapi(void)
     unit_test_drwinapi_kernel32_misc();
     unit_test_drwinapi_rpcrt4();
     unit_test_drwinapi_advapi32();
+    swap_peb_pointer(GLOBAL_DCONTEXT, false);
 }
 #endif

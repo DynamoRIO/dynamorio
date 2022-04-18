@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,8 @@
  * checking in to the repository.
  * I ran it like this:
  *
- * LD_LIBRARY_PATH=lib32/release suite/tests/bin/api.dis-create /tmp/randombits /tmp/OUT-dis -arm > opcs
+ * LD_LIBRARY_PATH=lib32/release suite/tests/bin/api.dis-create /tmp/randombits
+ * /tmp/OUT-dis -arm > opcs
  */
 
 #include "configure.h"
@@ -46,14 +47,14 @@
 #include <string.h>
 
 #ifndef ARM
-# error NYI
+#    error NYI
 #endif
 
 /* Strategy: include NUM_INITIAL random bytes to get some invalid ones,
  * and then from the rest of the file cap each opcode at NUM_EACH.
  */
-static uint count[OP_LAST+1];
-#define NUM_COUNT sizeof(count)/sizeof(count[0])
+static uint count[OP_LAST + 1];
+#define NUM_COUNT sizeof(count) / sizeof(count[0])
 
 static uint num_tot;
 #define NUM_INITIAL 2048
@@ -145,7 +146,7 @@ main(int argc, char *argv[])
         dr_close_file(f);
         return 1;
     }
-    map_size = (size_t) file_size;
+    map_size = (size_t)file_size;
     map_base = dr_map_file(f, &map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
     if (map_base == NULL || map_size < file_size) {
         dr_fprintf(STDERR, "Error mapping %s\n", argv[1]);
@@ -159,10 +160,11 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    read_data(drcontext, outf, map_base, (size_t) file_size);
+    read_data(drcontext, outf, map_base, (size_t)file_size);
 
     dr_unmap_file(map_base, map_size);
     dr_close_file(f);
     dr_close_file(outf);
+    dr_standalone_exit();
     return 0;
 }

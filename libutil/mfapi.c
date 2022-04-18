@@ -41,9 +41,7 @@
 #include "processes.h"
 #include "elm.h"
 
-
 #ifndef UNIT_TEST
-
 
 DWORD
 disable_protection()
@@ -64,15 +62,13 @@ is_protection_enabled()
 }
 
 DWORD
-enable_protection_ex(BOOL inject, DWORD flags,
-                     const WCHAR *blacklist,
-                     const WCHAR *whitelist, DWORD *list_error,
-                     const WCHAR *custom_preinject_name,
-                     WCHAR *current_list, SIZE_T maxchars)
+enable_protection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
+                     const WCHAR *allowlist, DWORD *list_error,
+                     const WCHAR *custom_preinject_name, WCHAR *current_list,
+                     SIZE_T maxchars)
 {
-    return set_autoinjection_ex(inject, flags, blacklist, whitelist,
-                                list_error, custom_preinject_name,
-                                current_list, maxchars);
+    return set_autoinjection_ex(inject, flags, blocklist, allowlist, list_error,
+                                custom_preinject_name, current_list, maxchars);
 }
 
 DWORD
@@ -83,18 +79,12 @@ inject_status(process_id_t pid, DWORD *status, DWORD *build)
     dll_stat = under_dynamorio_ex(pid, build);
 
     switch (dll_stat) {
-    case DLL_NONE:
-        *status = INJECT_STATUS_NATIVE;
-        break;
-    case DLL_UNKNOWN:
-        *status = INJECT_STATUS_UNKNOWN;
-        break;
+    case DLL_NONE: *status = INJECT_STATUS_NATIVE; break;
+    case DLL_UNKNOWN: *status = INJECT_STATUS_UNKNOWN; break;
     case DLL_RELEASE:
     case DLL_DEBUG:
     case DLL_PROFILE:
-    case DLL_CUSTOM:
-        *status = INJECT_STATUS_PROTECTED;
-        break;
+    case DLL_CUSTOM: *status = INJECT_STATUS_PROTECTED; break;
     case DLL_PATHHAS:
     default:
         *status = INJECT_STATUS_UNKNOWN;
@@ -119,8 +109,7 @@ consistency_detach(DWORD timeout)
         res = detach_all_not_in_config_group(policy, timeout);
 
         free_config_group(policy);
-    }
-    else {
+    } else {
         res = detach_all(timeout);
     }
 
@@ -138,9 +127,7 @@ is_process_pending_restart(process_id_t pid)
     if (res != ERROR_SUCCESS)
         return FALSE;
 
-    res = check_status_and_pending_restart(policy, pid,
-                                           &pending_restart,
-                                           NULL, NULL);
+    res = check_status_and_pending_restart(policy, pid, &pending_restart, NULL, NULL);
     if (res != ERROR_SUCCESS)
         return FALSE;
 
@@ -175,7 +162,6 @@ get_eventlog_monitor_thread_handle()
     return get_elm_thread_handle();
 }
 
-
 const WCHAR *
 get_installation_path()
 {
@@ -188,10 +174,7 @@ get_product_name()
     return L_PRODUCT_NAME;
 }
 
-
-
 #else // ifdef UNIT_TEST
-
 
 int
 main()
@@ -208,7 +191,6 @@ main()
     printf("All Test Passed\n");
 
     return 0;
-
 }
 
 #endif

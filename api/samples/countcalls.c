@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,12 +46,12 @@
 #include "drreg.h"
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
+#define NULL_TERMINATE(buf) (buf)[(sizeof((buf)) / sizeof((buf)[0])) - 1] = '\0'
 
 /* keep separate counters for each thread, in this thread-local data
  * structure:
@@ -65,19 +65,22 @@ typedef struct {
 static int tls_idx;
 
 /* keep a global count as well */
-static per_thread_t global_count = {0};
+static per_thread_t global_count = { 0 };
 
-static void event_exit(void);
-static void event_thread_init(void *drcontext);
-static void event_thread_exit(void *drcontext);
-static dr_emit_flags_t event_instruction(void *drcontext, void *tag, instrlist_t *bb,
-                                         instr_t *instr, bool for_trace,
-                                         bool translating, void *user_data);
+static void
+event_exit(void);
+static void
+event_thread_init(void *drcontext);
+static void
+event_thread_exit(void *drcontext);
+static dr_emit_flags_t
+event_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                  bool for_trace, bool translating, void *user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
     dr_set_client_name("DynamoRIO Sample Client 'countcalls'",
                        "http://dynamorio.org/issues");
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
@@ -90,14 +93,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     tls_idx = drmgr_register_tls_field();
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'countcalls' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'countcalls' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client countcalls is running\n");
     }
 #endif
@@ -109,13 +112,13 @@ display_results(per_thread_t *data, const char *thread_note)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "%sInstrumentation results:\n"
                       "  saw %d direct calls\n"
                       "  saw %d indirect calls\n"
                       "  saw %d returns\n",
-                      thread_note, data->num_direct_calls,
-                      data->num_indirect_calls, data->num_returns);
+                      thread_note, data->num_direct_calls, data->num_indirect_calls,
+                      data->num_returns);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
@@ -138,26 +141,25 @@ static void
 event_thread_init(void *drcontext)
 {
     /* create an instance of our data structure for this thread */
-    per_thread_t *data = (per_thread_t *)
-        dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    per_thread_t *data = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
     /* store it in the slot provided in the drcontext */
     drmgr_set_tls_field(drcontext, tls_idx, data);
     data->num_direct_calls = 0;
     data->num_indirect_calls = 0;
     data->num_returns = 0;
-    dr_log(drcontext, LOG_ALL, 1, "countcalls: set up for thread "TIDFMT"\n",
+    dr_log(drcontext, DR_LOG_ALL, 1, "countcalls: set up for thread " TIDFMT "\n",
            dr_get_thread_id(drcontext));
 }
 
 static void
 event_thread_exit(void *drcontext)
 {
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     char msg[512];
     int len;
 
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                      "Thread %d exited - ", dr_get_thread_id(drcontext));
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "Thread %d exited - ",
+                      dr_get_thread_id(drcontext));
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
 
@@ -187,23 +189,27 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
      * in the exit events, but this sample is intended to illustrate inserted
      * instrumentation.
      */
-    instrlist_meta_preinsert(bb, where, LOCK(INSTR_CREATE_inc
-        (drcontext, OPND_CREATE_ABSMEM(((byte *)&global_count) + offset, OPSZ_4))));
+    instrlist_meta_preinsert(
+        bb, where,
+        LOCK(INSTR_CREATE_inc(
+            drcontext, OPND_CREATE_ABSMEM(((byte *)&global_count) + offset, OPSZ_4))));
 
     /* Increment the thread private counter. */
     if (dr_using_all_private_caches()) {
-        per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+        per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         /* private caches - we can use an absolute address */
-        instrlist_meta_preinsert(bb, where, INSTR_CREATE_inc(drcontext,
-            OPND_CREATE_ABSMEM(((byte *)&data) + offset, OPSZ_4)));
+        instrlist_meta_preinsert(
+            bb, where,
+            INSTR_CREATE_inc(drcontext,
+                             OPND_CREATE_ABSMEM(((byte *)&data) + offset, OPSZ_4)));
     } else {
         /* shared caches - we must indirect via thread local storage */
         reg_id_t scratch;
         if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch) != DRREG_SUCCESS)
             DR_ASSERT(false);
         drmgr_insert_read_tls_field(drcontext, tls_idx, bb, where, scratch);
-        instrlist_meta_preinsert(bb, where, INSTR_CREATE_inc
-                                 (drcontext, OPND_CREATE_MEM32(scratch, offset)));
+        instrlist_meta_preinsert(
+            bb, where, INSTR_CREATE_inc(drcontext, OPND_CREATE_MEM32(scratch, offset)));
         if (drreg_unreserve_register(drcontext, bb, where, scratch) != DRREG_SUCCESS)
             DR_ASSERT(false);
     }
@@ -213,8 +219,8 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
 }
 
 static dr_emit_flags_t
-event_instruction(void *drcontext, void *tag, instrlist_t *bb,
-                  instr_t *instr, bool for_trace, bool translating, void *user_data)
+event_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                  bool for_trace, bool translating, void *user_data)
 {
     /* ignore tool-inserted instrumentation */
     if (!instr_is_app(instr))
@@ -228,8 +234,7 @@ event_instruction(void *drcontext, void *tag, instrlist_t *bb,
         insert_counter_update(drcontext, bb, instr,
                               offsetof(per_thread_t, num_indirect_calls));
     } else if (instr_is_return(instr)) {
-        insert_counter_update(drcontext, bb, instr,
-                              offsetof(per_thread_t, num_returns));
+        insert_counter_update(drcontext, bb, instr, offsetof(per_thread_t, num_returns));
     }
 
     return DR_EMIT_DEFAULT;

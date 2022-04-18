@@ -42,17 +42,16 @@
 #include <QFile>
 
 #ifndef DRGUI_TOOL_INTERFACE_H
-#define DRGUI_TOOL_INTERFACE_H
+#    define DRGUI_TOOL_INTERFACE_H
 
-#include "drgui_options_interface.h"
+#    include "drgui_options_interface.h"
 
 /**
  * Interface for drgui to interact with its loaded tools.
  * drgui discovers tools through the QPluginLoader system, which attempts
  * to load each of the tools it has been pointed at by the 'Load Tools' action.
  */
-class drgui_tool_interface_t : public QWidget
-{
+class drgui_tool_interface_t : public QWidget {
     Q_OBJECT
 public:
     /**
@@ -61,7 +60,8 @@ public:
      * They are also used to keep track of which plugins are already loaded,
      * and must be unique.
      */
-    virtual QStringList tool_names() const = 0;
+    virtual QStringList
+    tool_names() const = 0;
 
     /**
      * Returns a new instance of a tool to be displayed by drgui's
@@ -69,21 +69,24 @@ public:
      * tab by clicking on the tool's action in the 'Tools' menu.
      * Arguments can be optionally supplied to the tool.
      */
-    virtual QWidget *create_instance(const QStringList &args = QStringList()) = 0;
+    virtual QWidget *
+    create_instance(const QStringList &args = QStringList()) = 0;
 
     /**
      * Returns an instance of the tools options page to be displayed
      * by drgui's preferences dialog. This is called by drgui's preferences
      * dialog the first time it disovers the tool on each run of drgui.
      */
-    virtual drgui_options_interface_t *create_options_page(void) = 0;
+    virtual drgui_options_interface_t *
+    create_options_page(void) = 0;
 
     /**
      * Used by drgui to tell a tool to open a file at a line number
      * XXX i#1251: Currently only used as a bridge from tools to the
      * code editor plugin.
      */
-    virtual void open_file(const QString &path, int line_num) = 0;
+    virtual void
+    open_file(const QString &path, int line_num) = 0;
 
 signals:
     /**
@@ -92,10 +95,11 @@ signals:
      * Signals do not have implementations, therefore it does not make sense
      * to declare a signal as virtual.
      */
-    void new_instance_requested(QWidget *tool, QString tool_name);
+    void
+    new_instance_requested(QWidget *tool, QString tool_name);
 };
 
-#define DrGUI_ToolInterface_iid "DynamoRIO.DrGUI.ToolInterface"
+#    define DrGUI_ToolInterface_iid "DynamoRIO.DrGUI.ToolInterface"
 
 Q_DECLARE_INTERFACE(drgui_tool_interface_t, DrGUI_ToolInterface_iid)
 

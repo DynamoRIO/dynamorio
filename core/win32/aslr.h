@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,18 +46,18 @@
 
 /* ASLR control flags for -aslr */
 enum {
-    ASLR_DISABLED          = 0x00,
+    ASLR_DISABLED = 0x00,
 
     /* application memory areas to randomize */
-    ASLR_DLL               = 0x01, /* randomize DLLs mapped as image */
-    ASLR_STACK             = 0x02, /* case 6287 - padding initial stack from parent */
+    ASLR_DLL = 0x01,   /* randomize DLLs mapped as image */
+    ASLR_STACK = 0x02, /* case 6287 - padding initial stack from parent */
     /* Note option active in parent applies to its children */
 
-    ASLR_HEAP              = 0x04, /* random initial virtual memory padding */
-    ASLR_MAPPED            = 0x08, /* FIXME: NYI case 2491, case 6737 */
-    ASLR_EXECUTABLE        = 0x10, /* FIXME: NYI case 2491 + case 1948  */
+    ASLR_HEAP = 0x04,       /* random initial virtual memory padding */
+    ASLR_MAPPED = 0x08,     /* FIXME: NYI case 2491, case 6737 */
+    ASLR_EXECUTABLE = 0x10, /* FIXME: NYI case 2491 + case 1948  */
 
-    ASLR_PROCESS_PARAM     = 0x20, /* FIXME: NYI case 6840 */
+    ASLR_PROCESS_PARAM = 0x20, /* FIXME: NYI case 6840 */
     /* Note option active in parent applies to its children */
     /* controls earliest possible padding from parent, yet interop
      * problem with device drivers assuming ProcessParameters is at a
@@ -65,8 +65,8 @@ enum {
      * gets allocated later
      */
 
-    ASLR_HEAP_FILL         = 0x40, /* random padding between virtual allocations */
-    ASLR_TEB               = 0x80, /* FIXME: NYI case 2491 */
+    ASLR_HEAP_FILL = 0x40, /* random padding between virtual allocations */
+    ASLR_TEB = 0x80,       /* FIXME: NYI case 2491 */
 
     /* FIXME: for TEB can reserve the pages after the PEB allocation
      * unit, yet the first threads are still in the PEB allocation
@@ -87,17 +87,17 @@ enum {
      * FIXME: Reclaiming ranges is not currently controlled,
      *  committed memory issues due to that tracked in case 6729
      */
-    ASLR_RANGE_BOTTOM_UP   = 0x00100, /* default behaviour, reserved */
-    ASLR_RANGE_TOP_DOWN    = 0x00200, /* NYI: FIXME: need size for
-                                       * going top down requires an
-                                       * extra system call */
-    ASLR_RANGE_RANDOM      = 0x00400, /* NYI: FIXME: may cause too
-                                       * much fragmentation, best done
-                                       * with full vmmap, then we can
-                                       * choose a random location
-                                       * anywhere in our range */
+    ASLR_RANGE_BOTTOM_UP = 0x00100, /* default behaviour, reserved */
+    ASLR_RANGE_TOP_DOWN = 0x00200,  /* NYI: FIXME: need size for
+                                     * going top down requires an
+                                     * extra system call */
+    ASLR_RANGE_RANDOM = 0x00400,    /* NYI: FIXME: may cause too
+                                     * much fragmentation, best done
+                                     * with full vmmap, then we can
+                                     * choose a random location
+                                     * anywhere in our range */
 
-    ASLR_SHARE_DR_DLL      = 0x10000000, /* FIXME: NYI case 8129 */
+    ASLR_SHARE_DR_DLL = 0x10000000, /* FIXME: NYI case 8129 */
     /* Note option active in parent applies to its children */
     /* In addition to the current -aslr_dr feature, should eventually
      * share views similar to ASLR_SHARED_CONTENTS */
@@ -114,9 +114,9 @@ enum {
      * and share addresses for compatibility, or both addresses and contents
      * for memory reduction
      */
-    ASLR_PROCESS_PRIVATE           = 0x1, /* default behaviour, flag RESERVED */
+    ASLR_PROCESS_PRIVATE = 0x1, /* default behaviour, flag RESERVED */
 
-    ASLR_SHARED_PER_USER           = 0x2,
+    ASLR_SHARED_PER_USER = 0x2,
     /* NYI: allows per-user sharing so that all instances of a
      * module by 'user' use the same mapping, but other users use
      * private copies.
@@ -126,25 +126,25 @@ enum {
      *   2) disclosure - other users base addresses will be different
      */
 
-    ASLR_SHARED_INHERIT            = 0x4,
-     /* NYI: allow trusted users to create mappings that other users
-      * share (kernel deals with ref counting, and expected to be
-      * sticky! so low priv process doesn't need to do anything about
-      * removing ).
-      *    0) sharing better than ASLR_SHARED_PER_USER
-      *    1) integrity same
-      *
-      *    2) disclosure worse, since now plain users know
-      *       the randomized mappings for SYSTEM processes
-      *       and allows local attacks
-      *
-      *    3) there is also a more theoretical information disclosure
-      *    in case a published executable has 'secrets' that low
-      *    privilege users aren't supposed to be able to read or
-      *    execute from
-      */
+    ASLR_SHARED_INHERIT = 0x4,
+    /* NYI: allow trusted users to create mappings that other users
+     * share (kernel deals with ref counting, and expected to be
+     * sticky! so low priv process doesn't need to do anything about
+     * removing ).
+     *    0) sharing better than ASLR_SHARED_PER_USER
+     *    1) integrity same
+     *
+     *    2) disclosure worse, since now plain users know
+     *       the randomized mappings for SYSTEM processes
+     *       and allows local attacks
+     *
+     *    3) there is also a more theoretical information disclosure
+     *    in case a published executable has 'secrets' that low
+     *    privilege users aren't supposed to be able to read or
+     *    execute from
+     */
 
-    ASLR_SHARED_IN_SESSION         = 0x8,
+    ASLR_SHARED_IN_SESSION = 0x8,
     /* NYI: \Local\ limits sharing for terminal service users to only
      * current session, can be combined with INHERIT to prevent
      * disclosure of mappings of services from remotely logged users.
@@ -158,20 +158,20 @@ enum {
      * not necessarily all of file 'producer', section 'publisher' and
      * mapping 'subscriber' roles. */
 
-    ASLR_SHARED_CONTENTS           = 0x10,
+    ASLR_SHARED_CONTENTS = 0x10,
     /* NYI: If not set sharing will be of address only to resolve
      * incompatible applications requiring a DLL to be mapped at the
      * same address, if set sharing also means saving memory by not
      * using private copies.
      */
 
-    ASLR_SHARED_PUBLISHER          = 0x20,
+    ASLR_SHARED_PUBLISHER = 0x20,
     /* Process is allowed and has permissions to publish sections for
      * other users to map contents.  Note may be different from
      * file producer marked as ASLR_SHARED_FILE_PRODUCER.
      */
 
-    ASLR_SHARED_SUBSCRIBER         = 0x40,
+    ASLR_SHARED_SUBSCRIBER = 0x40,
     /* Process is to take the risk to use published sections, with
      * risk of privilege escalation if sections or backing files are
      * improperly secured, and according to the sharing inheritance
@@ -191,7 +191,7 @@ enum {
      * tracked in case 8812
      */
 
-    ASLR_SHARED_FILE_PRODUCER      = 0x100,
+    ASLR_SHARED_FILE_PRODUCER = 0x100,
     /* Publisher may only be opening files created by a different
      * process if not set, or may produce the relocated files from
      * within DR.
@@ -201,13 +201,13 @@ enum {
      * combined with ASLR_SHARED_WORKLIST modifier.
      */
 
-    ASLR_SHARED_WORKLIST           = 0x200,
+    ASLR_SHARED_WORKLIST = 0x200,
     /* Process a worklist of modules to optionally produce and/or
      * publish.  FIXME: Note that separate queues for publishing and
      * producing may be needed.
      */
 
-    ASLR_SHARED_INITIALIZE         = 0x1000,
+    ASLR_SHARED_INITIALIZE = 0x1000,
     /* Creates object directories if not yet created - needs to be
      * done by first highly privileged process, although multiple ones
      * attempting to do so is OK.  FIXME: TOFILE Security
@@ -226,14 +226,14 @@ enum {
      * force it to use a per-user directory in this case.
      */
 
-    ASLR_PERSISTENT                = 0x100000, /* NYI: namespace placeholder */
+    ASLR_PERSISTENT = 0x100000, /* NYI: namespace placeholder */
     /* allow persistent copies to remain reusable possibly until
      * reboot, or even longer.  Currently this is the default behavior
      * for produced files.
      */
 
     /* non transparent option, not recommended */
-    ASLR_ALLOW_ORIGINAL_CLOBBER  = 0x1000000,
+    ASLR_ALLOW_ORIGINAL_CLOBBER = 0x1000000,
     /* FIXME: as a feature case 9033 - would allow overwriting
      * original files without anyone noticiing.  This would allow one
      * to apply M$ patches without a reboot, and they would take
@@ -245,7 +245,7 @@ enum {
      */
 
     /* non transparent option, not recommended */
-    ASLR_RANDOMIZE_EXECUTABLE    = 0x2000000,
+    ASLR_RANDOMIZE_EXECUTABLE = 0x2000000,
     /*
      *   executables with relocations can now be randomized
      *   from the parent process (especially on Vista).
@@ -262,18 +262,18 @@ enum {
 
     /* default in client mode currently should be 0x192 */
     ASLR_CACHE_DEFAULT = ASLR_SHARED_PER_USER | /*  0x2 */
-                         ASLR_SHARED_CONTENTS | /* 0x10 */
-               ASLR_SHARED_ANONYMOUS_CONSUMER | /* 0x80 */
-                     ASLR_SHARED_FILE_PRODUCER /* 0x100 */
+        ASLR_SHARED_CONTENTS |                  /* 0x10 */
+        ASLR_SHARED_ANONYMOUS_CONSUMER |        /* 0x80 */
+        ASLR_SHARED_FILE_PRODUCER               /* 0x100 */
 } aslr_cache_t;
 
 /* ASLR cache coverage options for -aslr_cache_list */
 enum {
     /* almost all controlled by other general ASLR exemptions  */
     ASLR_CACHE_LIST_DEFAULT,
-    ASLR_CACHE_LIST_INCLUDE,    /* -aslr_cache_list_include */
-    ASLR_CACHE_LIST_EXCLUDE     /* -aslr_cache_list_exclude */
-    /* (note aslr_cache_list_t values match meaning of whitelist blacklist
+    ASLR_CACHE_LIST_INCLUDE, /* -aslr_cache_list_include */
+    ASLR_CACHE_LIST_EXCLUDE  /* -aslr_cache_list_exclude */
+    /* (note aslr_cache_list_t values match meaning of allowlist blocklist
      * as in process_control)
      */
 } aslr_cache_list_t;
@@ -288,13 +288,13 @@ enum {
      * security and/or performance objectives.
      */
 
-    ASLR_PERSISTENT_LAX           = 0x0,
+    ASLR_PERSISTENT_LAX = 0x0,
     /* rely only on file size and matching magic
      * insufficient for small patches,
      * least consistency and no security
      */
 
-    ASLR_PERSISTENT_PARANOID      = 0x1,
+    ASLR_PERSISTENT_PARANOID = 0x1,
     /* provides strongest consistency and security: full byte
      * comparison of original DLL and a provided relocated DLL
      * most expensive to evaluate
@@ -342,7 +342,7 @@ enum {
      * have safe private copies.
      */
 
-    ASLR_PERSISTENT_SHORT_DIGESTS     = 0x20,
+    ASLR_PERSISTENT_SHORT_DIGESTS = 0x20,
     /* a qualifer on ASLR_PERSISTENT_SOURCE_DIGEST and
      * ASLR_PERSISTENT_TARGET_DIGEST to use short as defined by
      * aslr_short_digest.  Allows us to set a limit on verification time
@@ -375,15 +375,14 @@ enum {
      */
 } aslr_consistency_check_t;
 
-
 /* ASLR control flags for -aslr_action */
 enum {
-    ASLR_NO_ACTION      = 0x0,  /* do not track */
+    ASLR_NO_ACTION = 0x0, /* do not track */
 
     /* Track likely attempts to use preferred addresses */
-    ASLR_TRACK_AREAS    = 0x1,  /* keep track of would_be regions */
-    ASLR_AVOID_AREAS    = 0x2,  /* NYI disallow other DLL mappings */
-    ASLR_RESERVE_AREAS  = 0x4,  /* NYI virtually reserve to avoid any allocation */
+    ASLR_TRACK_AREAS = 0x1,   /* keep track of would_be regions */
+    ASLR_AVOID_AREAS = 0x2,   /* NYI disallow other DLL mappings */
+    ASLR_RESERVE_AREAS = 0x4, /* NYI virtually reserve to avoid any allocation */
 
     /* Reporting exceptions */
     /* intercept execute faults when run native, or RCT violations
@@ -395,17 +394,17 @@ enum {
     ASLR_DETECT_EXECUTE = 0x10,
     /* FIXME: cannot reliably distinguish read from Execute when not
      * enforcing DR security policies on a machine without NX */
-    ASLR_DETECT_READ    = 0x20, /* NYI */
-    ASLR_DETECT_WRITE   = 0x40, /* NYI */
+    ASLR_DETECT_READ = 0x20,  /* NYI */
+    ASLR_DETECT_WRITE = 0x40, /* NYI */
 
     /* report likely violations */
-    ASLR_REPORT         = 0x100,
+    ASLR_REPORT = 0x100,
     /* if not set, stays silent, yet detection worthwhile in
      * combination with alternative handling where we'd kill an
      * injected thread */
 
     /* Alternative attack handling */
-    ASLR_HANDLING =     0x1000,/* NYI the default of throw_exception or kill_thread */
+    ASLR_HANDLING = 0x1000, /* NYI the default of throw_exception or kill_thread */
     /* if not set an exception is simply passed to the application */
 
     /* ThreatIDs can be normalized */
@@ -416,14 +415,14 @@ enum {
 
 /* testing and stress testing range flags for -aslr_internal */
 enum {
-    ASLR_INTERNAL_DEFAULT       = 0x0000, /* normal handling */
+    ASLR_INTERNAL_DEFAULT = 0x0000, /* normal handling */
 
     /* stress test option to verify proper dealing with address conflicts */
     /* doesn't increment base, so most requests will overlap */
-    ASLR_INTERNAL_SAME_STRESS   = 0x1000,
+    ASLR_INTERNAL_SAME_STRESS = 0x1000,
 
     /* testing option - actually not choosing base, FIXME: remove soon */
-    ASLR_INTERNAL_RANGE_NONE    = 0x2000,
+    ASLR_INTERNAL_RANGE_NONE = 0x2000,
 
     ASLR_INTERNAL_SHARED_NONUNIQUE = 0x800000,
     /* stress test naming conflicts */
@@ -440,7 +439,7 @@ enum {
 } aslr_internal_option_t;
 
 typedef struct {
-    bool           sys_aslr_clobbered;
+    bool sys_aslr_clobbered;
     /* mark syscalls modified by ASLR, and need additional handling */
 
     /* ASLR_SHARED_CONTENTS needs to preserve some context across
@@ -449,9 +448,9 @@ typedef struct {
      * on these being consecutive: FIXME: add to section2file table?
      */
     HANDLE randomized_section_handle; /* for shared randomization */
-    app_pc original_section_base; /* for detecting attacks */
-    uint   original_section_timestamp; /* for hotpatching */
-    uint   original_section_checksum; /* for hotpatching */
+    app_pc original_section_base;     /* for detecting attacks */
+    uint original_section_timestamp;  /* for hotpatching */
+    uint original_section_checksum;   /* for hotpatching */
     HANDLE original_image_section_handle;
     /* used for !ASLR_ALLOW_ORIGINAL_CLOBBER to pass information from
      * NtCreateSection to NtMapViewOfSection or NtCreateProcess* */
@@ -476,41 +475,47 @@ typedef struct {
 /* names should look like kernel32.dll-12349783 */
 #define MAX_PUBLISHED_SECTION_NAME 64
 
-void aslr_init(void);
-void aslr_exit(void);
-void aslr_thread_init(dcontext_t *dcontext);
-void aslr_thread_exit(dcontext_t *dcontext);
+void
+aslr_init(void);
+void
+aslr_exit(void);
+void
+aslr_thread_init(dcontext_t *dcontext);
+void
+aslr_thread_exit(dcontext_t *dcontext);
 
-void aslr_free_last_section_file_name(dcontext_t *dcontext);
+void
+aslr_free_last_section_file_name(dcontext_t *dcontext);
 
-void aslr_pre_process_mapview(dcontext_t *dcontext);
-void aslr_post_process_mapview(dcontext_t *dcontext);
+void
+aslr_pre_process_mapview(dcontext_t *dcontext);
+void
+aslr_post_process_mapview(dcontext_t *dcontext);
 
-void aslr_pre_process_unmapview(dcontext_t *dcontext, app_pc base, size_t size);
-reg_t aslr_post_process_unmapview(dcontext_t *dcontext);
+void
+aslr_pre_process_unmapview(dcontext_t *dcontext, app_pc base, size_t size);
+reg_t
+aslr_post_process_unmapview(dcontext_t *dcontext);
 
-void aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
-                                               app_pc base, size_t size);
-void aslr_pre_process_free_virtual_memory(dcontext_t *dcontext,
-                                          app_pc base, size_t size);
+void
+aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext, app_pc base, size_t size);
+void
+aslr_pre_process_free_virtual_memory(dcontext_t *dcontext, app_pc base, size_t size);
 
 /* FIXME: wrap in aslr_post_process_create_or_open_section */
 bool
-aslr_post_process_create_section(IN HANDLE old_app_section_handle,
-                                 IN HANDLE file_handle,
+aslr_post_process_create_section(IN HANDLE old_app_section_handle, IN HANDLE file_handle,
                                  OUT HANDLE *new_relocated_handle);
 
 bool
-aslr_post_process_create_or_open_section(dcontext_t *dcontext,
-                                         bool is_create,
+aslr_post_process_create_or_open_section(dcontext_t *dcontext, bool is_create,
                                          IN HANDLE file_handle /* OPTIONAL */,
                                          OUT HANDLE *sysarg_section_handle);
 bool
 aslr_is_handle_KnownDlls(HANDLE directory_handle);
 
 bool
-aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
-                             OUT HANDLE *recreated_file);
+aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr, OUT HANDLE *recreated_file);
 
 void
 aslr_maybe_pad_stack(dcontext_t *dcontext, HANDLE process_handle);
@@ -544,7 +549,7 @@ aslr_timestamp_transformation(uint old_timestamp)
 
 /* GBOP control flags for the -gbop option */
 enum {
-    GBOP_DISABLED          = 0x0,
+    GBOP_DISABLED = 0x0,
     /* source is identified as [TOS] for the first level,
      * and if non-zero gbop_frames a stack backtrace is attempted.
      *
@@ -555,20 +560,19 @@ enum {
 
     /* source memory properties, note these are ORed together,
      * at least one of the following set needs to be enabled */
-    GBOP_IS_EXECUTABLE     = 0x1, /* using our own tracking definitions */
-    GBOP_IS_X              = 0x2, /* allowing all ..X pages, cf -executable_if_x */
-    GBOP_IS_IMAGE          = 0x4, /* allowing all MEM_IMAGE pages,
-                                   * c.f. -executable_if_image */
+    GBOP_IS_EXECUTABLE = 0x1, /* using our own tracking definitions */
+    GBOP_IS_X = 0x2,          /* allowing all ..X pages, cf -executable_if_x */
+    GBOP_IS_IMAGE = 0x4,      /* allowing all MEM_IMAGE pages,
+                               * c.f. -executable_if_image */
     /* FIXME: another realistic policy would be to allow RWX as
      * long as it is in an image, but not otherwise
      */
     /* FIXME: add GBOP_IS_NOT_W to allow as long as not writable */
 
-    GBOP_IS_NOT_STACK      = 0x8,
+    GBOP_IS_NOT_STACK = 0x8,
     /* If set, allows returns to anything but the current stack.  Case 8085. */
 
     /* see also GBOP_IS_FUTURE_EXEC = 0x04000 */
-
 
     /* source instruction type.  Checks if instruction according to
      * [TOS] is of valid type to have targeted the hook location.
@@ -576,10 +580,10 @@ enum {
      * memory protection is satisfied.  See also stronger validation
      * in GBOP_EMULATE_SOURCE.
      */
-    GBOP_CHECK_INSTR_TYPE  = 0x10, /* no source instruction type restriction if not set */
-    GBOP_IS_CALL           = 0x20, /* verify source is at all a CALL instruction */
-    GBOP_IS_JMP            = 0x40, /* FIXME: not needed - app JMP won't be seen on TOS */
-    GBOP_IS_HOTPATCH_JMP   = 0x80, /* our JMP in case we hotpatched purported source */
+    GBOP_CHECK_INSTR_TYPE = 0x10, /* no source instruction type restriction if not set */
+    GBOP_IS_CALL = 0x20,          /* verify source is at all a CALL instruction */
+    GBOP_IS_JMP = 0x40,           /* FIXME: not needed - app JMP won't be seen on TOS */
+    GBOP_IS_HOTPATCH_JMP = 0x80,  /* our JMP in case we hotpatched purported source */
     /* FIXME: we can't find the source if it was a JMP or JMP*, unless
      * the caller explicitly wants to fool us with one.
      *
@@ -593,7 +597,7 @@ enum {
      * check further whether it could have targeted our hook or it is
      * used as chaff to bypass the previous simple validations.
      */
-    GBOP_EMULATE_SOURCE   = 0x100, /* NYI */
+    GBOP_EMULATE_SOURCE = 0x100, /* NYI */
     /* We do know that this was the previous instruction and there is
      * no reason it should have lost its state in normal operations.
      * All registers can be restored to original expected state when
@@ -609,7 +613,7 @@ enum {
      */
 
     /* target instruction check for simple ret2libc */
-    GBOP_IS_RET_TO_ENTRY  = 0x00200, /* NYI */
+    GBOP_IS_RET_TO_ENTRY = 0x00200, /* NYI */
 
     /* FIXME: See Szor's idea of checking whether PC=[ESP-4] as a
      * check for RET_LIBC attack.  Is at all that safe to do - would
@@ -629,7 +633,7 @@ enum {
      * modes may need to differentiated.
      */
 
-    GBOP_IS_DGC           = 0x02000,
+    GBOP_IS_DGC = 0x02000,
     /* If set, allows returns to heap (not stack) if a known vm has been loaded.
      * native_exec today runs all vms/dgc natively; gbop for dgc involves
      * doing all the same bookkeepping to identify vms and uses -hotp_only
@@ -640,12 +644,12 @@ enum {
      * whereas in gbop it is used to avoid false positives for dgc.
      */
 
-    GBOP_IS_FUTURE_EXEC   = 0x04000,
+    GBOP_IS_FUTURE_EXEC = 0x04000,
     /* using our tracking definition for allowing a region as a
      * futureexec
      */
 
-    GBOP_DIAGNOSE_SOURCE  = 0x10000, /* NYI */
+    GBOP_DIAGNOSE_SOURCE = 0x10000, /* NYI */
     /* all enabled checks are evaluated to allow diagnosing all
      * failures, and evaluate any disabled OR checks to provide
      * recommendations to workaround a false positive based on a
@@ -657,9 +661,9 @@ enum {
      * to the 'extra' hooks from gbop_include_list */
 
     /* default in client mode currently should be 0x6037 */
-    GBOP_CLIENT_DEFAULT = GBOP_IS_DGC | GBOP_IS_FUTURE_EXEC |         /* 0x06000 */
-                          GBOP_CHECK_INSTR_TYPE | GBOP_IS_CALL |         /* 0x30 */
-                          GBOP_IS_EXECUTABLE | GBOP_IS_X | GBOP_IS_IMAGE /*  0x7 */
+    GBOP_CLIENT_DEFAULT = GBOP_IS_DGC | GBOP_IS_FUTURE_EXEC | /* 0x06000 */
+        GBOP_CHECK_INSTR_TYPE | GBOP_IS_CALL |                /* 0x30 */
+        GBOP_IS_EXECUTABLE | GBOP_IS_X | GBOP_IS_IMAGE        /*  0x7 */
 };
 
 extern bool gbop_vm_loaded;
@@ -681,8 +685,7 @@ bool
 gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
                         app_pc *violating_source_addr /* OUT */);
 void
-gbop_validate_and_act(app_state_at_intercept_t *state,
-                      byte fpo_adjustment,
+gbop_validate_and_act(app_state_at_intercept_t *state, byte fpo_adjustment,
                       app_pc hooked_target);
 #endif /* GBOP */
 

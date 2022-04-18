@@ -37,8 +37,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define __prefer_thumb__
 #define @TODEFINE@
 #ifdef L_divsi3
-# define L_dvmd_tls /* for __aeabi_idiv0 */
+# define L_dvmd_tls       /* for __aeabi_idiv0    */
 # define L_aeabi_uldivmod /* for __aeabi_uldivmod */
+# define L_aeabi_ldivmod  /* for __aeabi_ldivmod  */
 #endif
 #ifndef __thumb__
 # define __thumb__

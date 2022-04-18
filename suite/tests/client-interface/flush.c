@@ -31,13 +31,15 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include <stdio.h>
+#    include <stdio.h>
 
-void marker(void); /* in asm code */
+void
+marker(void); /* in asm code */
 
 int test = 1;
 
-int main()
+int
+main()
 {
     int i = 0;
     int count = 0;
@@ -56,8 +58,7 @@ int main()
              * or xchg eax, eax is more typical for 2 bytes). */
             marker();
             count++;
-        }
-        else {
+        } else {
             count--;
         }
 
@@ -68,7 +69,8 @@ int main()
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
         DECLARE_FUNC(marker)
 GLOBAL_LABEL(marker:)
@@ -77,4 +79,5 @@ GLOBAL_LABEL(marker:)
         ret
         END_FUNC(marker)
 END_FILE
+/* clang-format on */
 #endif

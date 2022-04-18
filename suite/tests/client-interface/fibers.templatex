@@ -1,0 +1,72 @@
+in main fiber
+uninit values:
+  flsA = 0x00000000
+  flsB = 0x00000000
+fls_delete val=0x12345678
+for main, set FLS to:
+  flsA = 0x12345678
+  flsB = 0xdeadbeef
+ran out of FLS slots
+creating worker fiber 0
+switching to worker fiber first time
+in worker fiber
+for worker, set FLS to:
+  flsA = 0xdeadbeef
+  flsB = 0x12345678
+back to main
+  flsA = 0x12345678
+  flsB = 0xdeadbeef
+switching to worker fiber second time
+in worker fiber again
+  flsA = 0xdeadbeef
+  flsB = 0x12345678
+back to main
+  flsA = 0x12345678
+  flsB = 0xdeadbeef
+deleting worker fiber 0
+fls_delete val=(0xdeadbeef|0x12345678)
+fls_delete val=(0x12345678|0xdeadbeef)
+creating worker fiber 1
+switching to worker fiber first time
+in worker fiber
+for worker, set FLS to:
+  flsA = 0xdeadbeef
+  flsB = 0x12345678
+back to main
+  flsA = 0x12345678
+  flsB = 0xdeadbeef
+switching to worker fiber second time
+in worker fiber again
+  flsA = 0xdeadbeef
+  flsB = 0x12345678
+back to main
+  flsA = 0x12345678
+  flsB = 0xdeadbeef
+deleting worker fiber 1
+fls_delete val=(0xdeadbeef|0x12345678)
+fls_delete val=(0x12345678|0xdeadbeef)
+all done
+fls_delete val=(0x12345678|0xdeadbeef)
+fls_delete val=(0xdeadbeef|0x12345678)
+exit event 2
+exit event 1
+module load event 1 is called 1 time
+module load event 2 is called 1 time
+thread init event 1 is called 1 time
+thread init event 2 is called 1 time
+bb event 1 is called 1 time
+bb event 2 is called 1 time
+end trace event 1 is called 1 time
+end trace event 2 is called 1 time
+trace event 1 is called 1 time
+trace event 2 is called 1 time
+delete event 1 is called 1 time
+delete event 2 is called 1 time
+(filter syscall event 1 is called 1 time
+filter syscall event 2 is called 1 time
+)?pre syscall event 1 is called 1 time
+pre syscall event 2 is called 1 time
+post syscall event 1 is called 1 time
+post syscall event 2 is called 1 time
+thread exit event 1 is called 1 time
+thread exit event 2 is called 1 time

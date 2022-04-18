@@ -54,15 +54,15 @@ static void *parent_ready;
 static volatile bool parent_exit = false;
 
 #if VERBOSE
-# define VPRINT(...) print(__VA_ARGS__)
+#    define VPRINT(...) print(__VA_ARGS__)
 #else
-# define VPRINT(...) /* nothing */
+#    define VPRINT(...) /* nothing */
 #endif
 
 THREAD_FUNC_RETURN_TYPE
 child_func(void *arg)
 {
-   return THREAD_FUNC_RETURN_ZERO;
+    return THREAD_FUNC_RETURN_ZERO;
 }
 
 THREAD_FUNC_RETURN_TYPE
@@ -82,21 +82,20 @@ parent_func(void *arg)
     return THREAD_FUNC_RETURN_ZERO;
 }
 
-int main(void)
+int
+main(void)
 {
-    dr_app_setup();
-    dr_app_start();
     parent_ready = create_cond_var();
     int i;
     thread_t threads[NUM_PARENT_THREADS];
     for (i = 0; i < NUM_PARENT_THREADS; ++i)
         threads[i] = create_thread(parent_func, NULL);
-    wait_cond_var(parent_ready);
 
-    /* FIXME i#2601: dr_app_start() here hits hang on ksynch_wait for a now-exited
-     * thread.  When we fix i#2601 we can use this test for that race as well.
+    /* We setup and start at once to avoid process memory changing much between
+     * the two.
      */
-
+    dr_app_setup_and_start();
+    wait_cond_var(parent_ready);
     thread_sleep(50);
 
     dr_app_stop_and_cleanup();

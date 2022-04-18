@@ -1,0 +1,4 @@
+blx    %r5 -> %lr
+test_xinst complete
+ldr    <rel> 0x.*\[4byte\] -> %r0
+all done

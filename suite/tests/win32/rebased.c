@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 #define VERBOSE 0
 
 HMODULE
-myload(char* lib)
+myload(char *lib)
 {
     HMODULE hm = LoadLibrary(lib);
     if (hm == NULL)
@@ -49,26 +49,23 @@ myload(char* lib)
     } else {
         print("loaded %s\n", lib);
 #if VERBOSE
-        print("library is at "PFX"\n", hm);
+        print("library is at " PFX "\n", hm);
 #endif
     }
     return hm;
 }
 
-int main()
+int
+main()
 {
     HMODULE lib1;
     HMODULE lib2;
 
     lib1 = myload("win32.rebased.dll.dll");
-    /* name conflicts w/ other r* tests so might be ~2 depending on build order */
-    lib2 = myload("win32r~1.dll");
-    if (lib2 == NULL)
-        lib2 = myload("win32r~2.dll");
-    if (lib2 == NULL)
-        lib2 = myload("win32r~3.dll");
-    if (lib2 == NULL)
-        lib2 = myload("win32r~4.dll");
+    /* We used to just load the 8.3 name, but the Win8+ loader no longer loads a
+     * separate copy that way.  Now we make an explicit separate copy.
+     */
+    lib2 = myload("win32.rebased2.dll.dll");
     if (lib1 == lib2) {
         print("there is a problem - should have collided, maybe missing\n");
     }

@@ -43,8 +43,8 @@
 #include "MainFrm.h"
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    define new DEBUG_NEW
+#    undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
 
@@ -53,15 +53,14 @@ static char THIS_FILE[] = __FILE__;
 
 IMPLEMENT_DYNCREATE(CMainFrame, CFrameWnd)
 
-    BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
-    //{{AFX_MSG_MAP(CMainFrame)
-    ON_WM_CREATE()
-    //}}AFX_MSG_MAP
-    END_MESSAGE_MAP()
+BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
+//{{AFX_MSG_MAP(CMainFrame)
+ON_WM_CREATE()
+//}}AFX_MSG_MAP
+END_MESSAGE_MAP()
 
-    static UINT indicators[] =
-{
-    ID_SEPARATOR,           // status line indicator
+static UINT indicators[] = {
+    ID_SEPARATOR, // status line indicator
     ID_INDICATOR_CAPS,
     ID_INDICATOR_NUM,
     ID_INDICATOR_SCRL,
@@ -73,14 +72,14 @@ IMPLEMENT_DYNCREATE(CMainFrame, CFrameWnd)
 CMainFrame::CMainFrame()
 {
     // TODO: add member initialization code here
-
 }
 
 CMainFrame::~CMainFrame()
 {
 }
 
-int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
+int
+CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
     if (CFrameWnd::OnCreate(lpCreateStruct) == -1)
         return -1;
@@ -97,12 +96,10 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 #endif
 
     if (!m_wndStatusBar.Create(this) ||
-        !m_wndStatusBar.SetIndicators(indicators,
-                                      sizeof(indicators)/sizeof(UINT)))
-        {
-            TRACE0("Failed to create status bar\n");
-            return -1;      // fail to create
-        }
+        !m_wndStatusBar.SetIndicators(indicators, sizeof(indicators) / sizeof(UINT))) {
+        TRACE0("Failed to create status bar\n");
+        return -1; // fail to create
+    }
 
 #if 0
     // TODO: Delete these three lines if you don't want the toolbar to
@@ -115,9 +112,10 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
     return 0;
 }
 
-BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
+BOOL
+CMainFrame::PreCreateWindow(CREATESTRUCT &cs)
 {
-    if( !CFrameWnd::PreCreateWindow(cs) )
+    if (!CFrameWnd::PreCreateWindow(cs))
         return FALSE;
     // TODO: Modify the Window class or styles here by modifying
     //  the CREATESTRUCT cs
@@ -129,12 +127,14 @@ BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 // CMainFrame diagnostics
 
 #ifdef _DEBUG
-void CMainFrame::AssertValid() const
+void
+CMainFrame::AssertValid() const
 {
     CFrameWnd::AssertValid();
 }
 
-void CMainFrame::Dump(CDumpContext& dc) const
+void
+CMainFrame::Dump(CDumpContext &dc) const
 {
     CFrameWnd::Dump(dc);
 }
@@ -144,8 +144,8 @@ void CMainFrame::Dump(CDumpContext& dc) const
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame message handlers
 
-
-void CMainFrame::SetStatusBarText(int /*pane*/, CString txt)
+void
+CMainFrame::SetStatusBarText(int /*pane*/, CString txt)
 {
     m_wndStatusBar.SetPaneText(0, txt);
 }

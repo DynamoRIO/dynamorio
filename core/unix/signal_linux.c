@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@
 #include "signal_private.h" /* pulls in globals.h for us, in right order */
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 #include "arch.h"
@@ -70,39 +70,38 @@
  *   /usr/src/linux/arch/x86_64/ia32/ia32_signal.c
  */
 
-
 int default_action[] = {
-    /* nothing    0 */   DEFAULT_IGNORE,
-    /* SIGHUP     1 */   DEFAULT_TERMINATE,
-    /* SIGINT     2 */   DEFAULT_TERMINATE,
-    /* SIGQUIT    3 */   DEFAULT_TERMINATE_CORE,
-    /* SIGILL     4 */   DEFAULT_TERMINATE_CORE,
-    /* SIGTRAP    5 */   DEFAULT_TERMINATE_CORE,
-    /* SIGABRT/SIGIOT 6 */   DEFAULT_TERMINATE_CORE,
-    /* SIGBUS     7 */   DEFAULT_TERMINATE, /* should be CORE */
-    /* SIGFPE     8 */   DEFAULT_TERMINATE_CORE,
-    /* SIGKILL    9 */   DEFAULT_TERMINATE,
-    /* SIGUSR1   10 */   DEFAULT_TERMINATE,
-    /* SIGSEGV   11 */   DEFAULT_TERMINATE_CORE,
-    /* SIGUSR2   12 */   DEFAULT_TERMINATE,
-    /* SIGPIPE   13 */   DEFAULT_TERMINATE,
-    /* SIGALRM   14 */   DEFAULT_TERMINATE,
-    /* SIGTERM   15 */   DEFAULT_TERMINATE,
-    /* SIGSTKFLT 16 */   DEFAULT_TERMINATE,
-    /* SIGCHLD   17 */   DEFAULT_IGNORE,
-    /* SIGCONT   18 */   DEFAULT_CONTINUE,
-    /* SIGSTOP   19 */   DEFAULT_STOP,
-    /* SIGTSTP   20 */   DEFAULT_STOP,
-    /* SIGTTIN   21 */   DEFAULT_STOP,
-    /* SIGTTOU   22 */   DEFAULT_STOP,
-    /* SIGURG    23 */   DEFAULT_IGNORE,
-    /* SIGXCPU   24 */   DEFAULT_TERMINATE,
-    /* SIGXFSZ   25 */   DEFAULT_TERMINATE,
-    /* SIGVTALRM 26 */   DEFAULT_TERMINATE,
-    /* SIGPROF   27 */   DEFAULT_TERMINATE,
-    /* SIGWINCH  28 */   DEFAULT_IGNORE,
+    /* nothing    0 */ DEFAULT_IGNORE,
+    /* SIGHUP     1 */ DEFAULT_TERMINATE,
+    /* SIGINT     2 */ DEFAULT_TERMINATE,
+    /* SIGQUIT    3 */ DEFAULT_TERMINATE_CORE,
+    /* SIGILL     4 */ DEFAULT_TERMINATE_CORE,
+    /* SIGTRAP    5 */ DEFAULT_TERMINATE_CORE,
+    /* SIGABRT/SIGIOT 6 */ DEFAULT_TERMINATE_CORE,
+    /* SIGBUS     7 */ DEFAULT_TERMINATE, /* should be CORE */
+    /* SIGFPE     8 */ DEFAULT_TERMINATE_CORE,
+    /* SIGKILL    9 */ DEFAULT_TERMINATE,
+    /* SIGUSR1   10 */ DEFAULT_TERMINATE,
+    /* SIGSEGV   11 */ DEFAULT_TERMINATE_CORE,
+    /* SIGUSR2   12 */ DEFAULT_TERMINATE,
+    /* SIGPIPE   13 */ DEFAULT_TERMINATE,
+    /* SIGALRM   14 */ DEFAULT_TERMINATE,
+    /* SIGTERM   15 */ DEFAULT_TERMINATE,
+    /* SIGSTKFLT 16 */ DEFAULT_TERMINATE,
+    /* SIGCHLD   17 */ DEFAULT_IGNORE,
+    /* SIGCONT   18 */ DEFAULT_CONTINUE,
+    /* SIGSTOP   19 */ DEFAULT_STOP,
+    /* SIGTSTP   20 */ DEFAULT_STOP,
+    /* SIGTTIN   21 */ DEFAULT_STOP,
+    /* SIGTTOU   22 */ DEFAULT_STOP,
+    /* SIGURG    23 */ DEFAULT_IGNORE,
+    /* SIGXCPU   24 */ DEFAULT_TERMINATE,
+    /* SIGXFSZ   25 */ DEFAULT_TERMINATE,
+    /* SIGVTALRM 26 */ DEFAULT_TERMINATE,
+    /* SIGPROF   27 */ DEFAULT_TERMINATE,
+    /* SIGWINCH  28 */ DEFAULT_IGNORE,
     /* SIGIO/SIGPOLL/SIGLOST 29 */ DEFAULT_TERMINATE,
-    /* SIGPWR    30 */   DEFAULT_TERMINATE,
+    /* SIGPWR    30 */ DEFAULT_TERMINATE,
     /* SIGSYS/SIGUNUSED 31 */ DEFAULT_TERMINATE,
 
     /* ASSUMPTION: all real-time have default of terminate...XXX: ok? */
@@ -142,118 +141,117 @@ int default_action[] = {
 };
 
 bool can_always_delay[] = {
-    /* nothing    0 */             true,
-    /* SIGHUP     1 */             true,
-    /* SIGINT     2 */             true,
-    /* SIGQUIT    3 */             true,
-    /* SIGILL     4 */            false,
-    /* SIGTRAP    5 */            false,
-    /* SIGABRT/SIGIOT 6 */        false,
-    /* SIGBUS     7 */            false,
-    /* SIGFPE     8 */            false,
-    /* SIGKILL    9 */             true,
-    /* SIGUSR1   10 */             true,
-    /* SIGSEGV   11 */            false,
-    /* SIGUSR2   12 */             true,
-    /* SIGPIPE   13 */            false,
-    /* SIGALRM   14 */             true,
-    /* SIGTERM   15 */             true,
-    /* SIGSTKFLT 16 */            false,
-    /* SIGCHLD   17 */             true,
-    /* SIGCONT   18 */             true,
-    /* SIGSTOP   19 */             true,
-    /* SIGTSTP   20 */             true,
-    /* SIGTTIN   21 */             true,
-    /* SIGTTOU   22 */             true,
-    /* SIGURG    23 */             true,
-    /* SIGXCPU   24 */            false,
-    /* SIGXFSZ   25 */             true,
-    /* SIGVTALRM 26 */             true,
-    /* SIGPROF   27 */             true,
-    /* SIGWINCH  28 */             true,
+    /* nothing    0 */ true,
+    /* SIGHUP     1 */ true,
+    /* SIGINT     2 */ true,
+    /* SIGQUIT    3 */ true,
+    /* SIGILL     4 */ false,
+    /* SIGTRAP    5 */ false,
+    /* SIGABRT/SIGIOT 6 */ false,
+    /* SIGBUS     7 */ false,
+    /* SIGFPE     8 */ false,
+    /* SIGKILL    9 */ true,
+    /* SIGUSR1   10 */ true,
+    /* SIGSEGV   11 */ false,
+    /* SIGUSR2   12 */ true,
+    /* SIGPIPE   13 */ false,
+    /* SIGALRM   14 */ true,
+    /* SIGTERM   15 */ true,
+    /* SIGSTKFLT 16 */ false,
+    /* SIGCHLD   17 */ true,
+    /* SIGCONT   18 */ true,
+    /* SIGSTOP   19 */ true,
+    /* SIGTSTP   20 */ true,
+    /* SIGTTIN   21 */ true,
+    /* SIGTTOU   22 */ true,
+    /* SIGURG    23 */ true,
+    /* SIGXCPU   24 */ false,
+    /* SIGXFSZ   25 */ true,
+    /* SIGVTALRM 26 */ true,
+    /* SIGPROF   27 */ true,
+    /* SIGWINCH  28 */ true,
     /* SIGIO/SIGPOLL/SIGLOST 29 */ true,
-    /* SIGPWR    30 */             true,
-    /* SIGSYS/SIGUNUSED 31 */     false,
+    /* SIGPWR    30 */ true,
+    /* SIGSYS/SIGUNUSED 31 */ false,
 
     /* ASSUMPTION: all real-time can be delayed */
-    /* 32 */                       true,
-    /* 33 */                       true,
-    /* 34 */                       true,
-    /* 35 */                       true,
-    /* 36 */                       true,
-    /* 37 */                       true,
-    /* 38 */                       true,
-    /* 39 */                       true,
-    /* 40 */                       true,
-    /* 41 */                       true,
-    /* 42 */                       true,
-    /* 43 */                       true,
-    /* 44 */                       true,
-    /* 45 */                       true,
-    /* 46 */                       true,
-    /* 47 */                       true,
-    /* 48 */                       true,
-    /* 49 */                       true,
-    /* 50 */                       true,
-    /* 51 */                       true,
-    /* 52 */                       true,
-    /* 53 */                       true,
-    /* 54 */                       true,
-    /* 55 */                       true,
-    /* 56 */                       true,
-    /* 57 */                       true,
-    /* 58 */                       true,
-    /* 59 */                       true,
-    /* 60 */                       true,
-    /* 61 */                       true,
-    /* 62 */                       true,
-    /* 63 */                       true,
-    /* 64 */                       true,
+    /* 32 */ true,
+    /* 33 */ true,
+    /* 34 */ true,
+    /* 35 */ true,
+    /* 36 */ true,
+    /* 37 */ true,
+    /* 38 */ true,
+    /* 39 */ true,
+    /* 40 */ true,
+    /* 41 */ true,
+    /* 42 */ true,
+    /* 43 */ true,
+    /* 44 */ true,
+    /* 45 */ true,
+    /* 46 */ true,
+    /* 47 */ true,
+    /* 48 */ true,
+    /* 49 */ true,
+    /* 50 */ true,
+    /* 51 */ true,
+    /* 52 */ true,
+    /* 53 */ true,
+    /* 54 */ true,
+    /* 55 */ true,
+    /* 56 */ true,
+    /* 57 */ true,
+    /* 58 */ true,
+    /* 59 */ true,
+    /* 60 */ true,
+    /* 61 */ true,
+    /* 62 */ true,
+    /* 63 */ true,
+    /* 64 */ true,
 };
 
 bool
 sysnum_is_not_restartable(int sysnum)
 {
     /* Check the list of non-restartable syscalls.
+     * Since we only check the number, we're inaccurate!
+     * We err on the side of thinking more things are non-restartable
+     * than actually are, as this is only really used for inserting
+     * nops to ensure post-syscall points are safe spots, and too many
+     * nops is better than too few.
      * We're missing:
      * + SYS_read from an inotify file descriptor.
      * We're overly aggressive on:
-     * + Socket interfaces: supposed to restart if no timeout has been set
-     *   but we never restart for simplicity for now.
+     * + Socket interfaces: supposed to restart if no timeout has been set.
      */
     return (
 #ifdef SYS_pause
-            sysnum == SYS_pause ||
+        sysnum == SYS_pause ||
 #endif
-            sysnum == SYS_rt_sigsuspend ||
-            sysnum == SYS_rt_sigtimedwait ||
-            IF_X86_64(sysnum == SYS_epoll_wait_old ||)
+        sysnum == SYS_rt_sigsuspend || sysnum == SYS_rt_sigtimedwait ||
+        IF_X86_64(sysnum == SYS_epoll_wait_old ||)
 #ifdef SYS_epoll_wait
-            sysnum == SYS_epoll_wait ||
+                sysnum == SYS_epoll_wait ||
 #endif
-            sysnum == SYS_epoll_pwait ||
+        sysnum == SYS_epoll_pwait ||
 #ifdef SYS_poll
-            sysnum == SYS_poll ||
+        sysnum == SYS_poll ||
 #endif
-            sysnum == SYS_ppoll ||
-            IF_X86(sysnum == SYS_select ||)
-            sysnum == SYS_pselect6 ||
+        sysnum == SYS_ppoll || IF_X86(sysnum == SYS_select ||) sysnum == SYS_pselect6 ||
 #ifdef X64
-            sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||
-            sysnum == SYS_semtimedop ||
-            /* XXX: these should be restarted if there's no timeout */
-            sysnum == SYS_accept || sysnum == SYS_accept4 ||
-            sysnum == SYS_recvfrom || sysnum == SYS_recvmsg || sysnum == SYS_recvmmsg ||
-            sysnum == SYS_connect || sysnum == SYS_sendto ||
-            sysnum == SYS_sendmmsg || sysnum == SYS_sendfile ||
+        sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||
+        sysnum == SYS_semtimedop ||
+        /* XXX: these should be restarted if there's no timeout */
+        sysnum == SYS_accept || sysnum == SYS_accept4 || sysnum == SYS_recvfrom ||
+        sysnum == SYS_recvmsg || sysnum == SYS_recvmmsg || sysnum == SYS_connect ||
+        sysnum == SYS_sendto || sysnum == SYS_sendmmsg || sysnum == SYS_sendfile ||
 #elif !defined(ARM)
-            /* XXX: some should be restarted if there's no timeout */
-            sysnum == SYS_ipc ||
+        /* XXX: some should be restarted if there's no timeout */
+        sysnum == SYS_ipc ||
 #endif
-            sysnum == SYS_clock_nanosleep || sysnum == SYS_nanosleep ||
-            sysnum == SYS_io_getevents);
+        sysnum == SYS_clock_nanosleep || sysnum == SYS_nanosleep ||
+        sysnum == SYS_io_getevents);
 }
-
 
 /***************************************************************************
  * SIGNALFD
@@ -290,7 +288,7 @@ struct _sigfd_pipe_t {
 static void
 sigfd_pipe_free(dcontext_t *dcontext, void *ptr)
 {
-    sigfd_pipe_t *pipe = (sigfd_pipe_t *) ptr;
+    sigfd_pipe_t *pipe = (sigfd_pipe_t *)ptr;
     ASSERT(pipe->refcount > 0);
     pipe->refcount--;
     if (pipe->refcount == 0) {
@@ -299,8 +297,7 @@ sigfd_pipe_free(dcontext_t *dcontext, void *ptr)
              * We write a NULL which is atomic.
              * The thread on exit grabs the table lock for synch and clears dcontext.
              */
-            thread_sig_info_t *info = (thread_sig_info_t *)
-                pipe->dcontext->signal_field;
+            thread_sig_info_t *info = (thread_sig_info_t *)pipe->dcontext->signal_field;
             int sig;
             for (sig = 1; sig <= MAX_SIGNUM; sig++) {
                 if (info->signalfd[sig] == pipe)
@@ -321,7 +318,7 @@ signalfd_init(void)
         generic_hash_create(GLOBAL_DCONTEXT, SIGNALFD_HTABLE_INIT_SIZE,
                             80 /* load factor: not perf-critical */,
                             HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
-                            HASHTABLE_PERSISTENT | HASHTABLE_RELAX_CLUSTER_CHECKS,
+                                HASHTABLE_PERSISTENT | HASHTABLE_RELAX_CLUSTER_CHECKS,
                             sigfd_pipe_free _IF_DEBUG("signalfd table"));
     /* XXX: we need our lock rank to be higher than fd_table's so we
      * can call os_close_protected() when freeing.  We should
@@ -352,11 +349,50 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
     TABLE_RWLOCK(sigfd_table, write, unlock);
 }
 
-ptr_int_t
-handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask,
-                    size_t sizemask, int flags)
+bool
+handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigmask,
+                                     size_t sizemask, bool *pending)
 {
-    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+
+    /* XXX i#2311, #3240: We may currently deliver incorrect signals, because the
+     * native sigprocmask the system call may get interrupted by may not be the same
+     * as the native app expects. In addition to this, the p* variants of above syscalls
+     * are not properly emulated w.r.t. their atomicity setting the sigprocmask and
+     * executing the syscall.
+     */
+    *pending = false;
+    if (sizemask != sizeof(kernel_sigset_t))
+        return false;
+    ASSERT(sigmask != NULL);
+    ASSERT(!info->pre_syscall_app_sigprocmask_valid);
+    info->pre_syscall_app_sigprocmask_valid = true;
+    info->pre_syscall_app_sigprocmask = info->app_sigblocked;
+    signal_set_mask(dcontext, sigmask);
+    /* Make sure we deliver pending signals that are now unblocked. */
+    check_signals_pending(dcontext, info);
+    *pending = dcontext->signals_pending;
+    return true;
+}
+
+void
+handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    ASSERT(info->pre_syscall_app_sigprocmask_valid);
+    /* We restore the mask here *before* we make it back to dispatch for
+     * receive_pending_signal().  We rely on sigpending_t.unblocked_at_receipt
+     * to deliver the signal ignoring the now-restored mask.
+     */
+    info->pre_syscall_app_sigprocmask_valid = false;
+    signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
+}
+
+ptr_int_t
+handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask, size_t sizemask,
+                    int flags)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int sig;
     kernel_sigset_t local_set;
     kernel_sigset_t *set;
@@ -372,7 +408,7 @@ handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask,
     }
     if (fd != -1) {
         TABLE_RWLOCK(sigfd_table, read, lock);
-        pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
+        pipe = (sigfd_pipe_t *)generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
         TABLE_RWLOCK(sigfd_table, read, unlock);
         if (pipe == NULL)
             return -EINVAL;
@@ -411,16 +447,16 @@ handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask,
         os_close(fds[1]);
         if (TEST(SFD_CLOEXEC, flags))
             fd_mark_close_on_exec(pipe->write_fd);
-        fd_table_add(pipe->write_fd, 0/*keep across fork*/);
+        fd_table_add(pipe->write_fd, 0 /*keep across fork*/);
 
         /* We need an un-closable copy of the read fd in case we need to dup it */
         pipe->read_fd = fd_priv_dup(fds[0]);
         if (TEST(SFD_CLOEXEC, flags))
             fd_mark_close_on_exec(pipe->read_fd);
-        fd_table_add(pipe->read_fd, 0/*keep across fork*/);
+        fd_table_add(pipe->read_fd, 0 /*keep across fork*/);
 
         TABLE_RWLOCK(sigfd_table, write, lock);
-        generic_hash_add(GLOBAL_DCONTEXT, sigfd_table, fds[0], (void *) pipe);
+        generic_hash_add(GLOBAL_DCONTEXT, sigfd_table, fds[0], (void *)pipe);
         TABLE_RWLOCK(sigfd_table, write, unlock);
 
         LOG(THREAD, LOG_ASYNCH, 2, "created signalfd pipe app r=%d DR r=%d w=%d\n",
@@ -435,12 +471,12 @@ handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask,
                 info->signalfd[sig] = pipe;
             else
                 ASSERT(info->signalfd[sig] == pipe);
-            LOG(THREAD, LOG_ASYNCH, 2,
-                "adding signalfd pipe %d for signal %d\n", pipe->write_fd, sig);
+            LOG(THREAD, LOG_ASYNCH, 2, "adding signalfd pipe %d for signal %d\n",
+                pipe->write_fd, sig);
         } else if (info->signalfd[sig] != NULL) {
             info->signalfd[sig] = NULL;
-            LOG(THREAD, LOG_ASYNCH, 2,
-                "removing signalfd pipe=%d for signal %d\n", pipe->write_fd, sig);
+            LOG(THREAD, LOG_ASYNCH, 2, "removing signalfd pipe=%d for signal %d\n",
+                pipe->write_fd, sig);
         }
     }
     return retval;
@@ -453,7 +489,9 @@ notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     sigfd_pipe_t *pipe = info->signalfd[sig];
     if (pipe != NULL) {
         int res;
-        struct signalfd_siginfo towrite = {0,};
+        struct signalfd_siginfo towrite = {
+            0,
+        };
 
         /* XXX: we should limit to a single non-RT signal until it's read (by
          * polling pipe->read_fd to see whether it has data), except we delay
@@ -467,28 +505,23 @@ notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
         towrite.ssi_uid = frame->info.si_uid;
         towrite.ssi_fd = frame->info.si_fd;
         towrite.ssi_band = frame->info.si_band;
-        /* XXX: check older glibc headers */
-#ifdef ANDROID
-        towrite.ssi_tid = frame->info._sifields._timer._tid;
-#else
-        towrite.ssi_tid = frame->info._sifields._timer.si_tid;
-#endif
+        towrite.ssi_tid = frame->info.si_timerid;
         towrite.ssi_overrun = frame->info.si_overrun;
         towrite.ssi_status = frame->info.si_status;
         towrite.ssi_utime = frame->info.si_utime;
         towrite.ssi_stime = frame->info.si_stime;
-#ifdef __ARCH_SI_TRAPNO
+#ifdef __ARCH_SI_TRAPNO /* XXX: should update include/siginfo.h */
         towrite.ssi_trapno = frame->info.si_trapno;
 #endif
-        towrite.ssi_addr = (ptr_int_t) frame->info.si_addr;
+        towrite.ssi_addr = (ptr_int_t)frame->info.si_addr;
 
         /* XXX: if the pipe is full, don't write to it as it could block.  We
          * can poll to determine.  This is quite unlikely (kernel buffer is 64K
          * since 2.6.11) so for now we do not do so.
          */
         res = write_syscall(pipe->write_fd, &towrite, sizeof(towrite));
-        LOG(THREAD, LOG_ASYNCH, 2,
-            "writing to signalfd fd=%d for signal %d => %d\n", pipe->write_fd, sig, res);
+        LOG(THREAD, LOG_ASYNCH, 2, "writing to signalfd fd=%d for signal %d => %d\n",
+            pipe->write_fd, sig, res);
         return true; /* signal consumed */
     }
     return false;
@@ -499,15 +532,15 @@ signal_handle_dup(dcontext_t *dcontext, file_t src, file_t dst)
 {
     sigfd_pipe_t *pipe;
     TABLE_RWLOCK(sigfd_table, read, lock);
-    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, src);
+    pipe = (sigfd_pipe_t *)generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, src);
     TABLE_RWLOCK(sigfd_table, read, unlock);
     if (pipe == NULL)
         return;
     TABLE_RWLOCK(sigfd_table, write, lock);
-    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, src);
+    pipe = (sigfd_pipe_t *)generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, src);
     if (pipe != NULL) {
         pipe->refcount++;
-        generic_hash_add(GLOBAL_DCONTEXT, sigfd_table, dst, (void *) pipe);
+        generic_hash_add(GLOBAL_DCONTEXT, sigfd_table, dst, (void *)pipe);
     }
     TABLE_RWLOCK(sigfd_table, write, unlock);
 }
@@ -517,12 +550,12 @@ signal_handle_close(dcontext_t *dcontext, file_t fd)
 {
     sigfd_pipe_t *pipe;
     TABLE_RWLOCK(sigfd_table, read, lock);
-    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
+    pipe = (sigfd_pipe_t *)generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
     TABLE_RWLOCK(sigfd_table, read, unlock);
     if (pipe == NULL)
         return;
     TABLE_RWLOCK(sigfd_table, write, lock);
-    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
+    pipe = (sigfd_pipe_t *)generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
     if (pipe != NULL) {
         /* this will call sigfd_pipe_free() */
         generic_hash_remove(GLOBAL_DCONTEXT, sigfd_table, fd);

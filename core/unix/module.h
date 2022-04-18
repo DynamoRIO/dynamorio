@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,8 +35,8 @@
 #define MODULE_H
 
 /* used only in our own routines here which use PF_* converted to MEMPROT_* */
-#define OS_IMAGE_READ    (MEMPROT_READ)
-#define OS_IMAGE_WRITE   (MEMPROT_WRITE)
+#define OS_IMAGE_READ (MEMPROT_READ)
+#define OS_IMAGE_WRITE (MEMPROT_WRITE)
 #define OS_IMAGE_EXECUTE (MEMPROT_EXEC)
 
 /* i#160/PR 562667: support non-contiguous library mappings.  While we're at
@@ -48,6 +48,7 @@ typedef struct _module_segment_t {
     app_pc end;
     uint prot;
     bool shared; /* not unique to this module */
+    uint64 offset;
 } module_segment_t;
 
 typedef struct _os_module_data_t {
@@ -59,6 +60,10 @@ typedef struct _os_module_data_t {
      * address references within the file.
      */
     app_pc base_address;
+    /* XXX: All segments are expected to have the same alignment, even though that it is
+     * not a requirement for ELF. To allow a different alignment for each segment we will
+     * need to move this field in the module_segment_t struct.
+     */
     size_t alignment; /* the alignment between segments */
 
     /* Fields for pcaches (PR 295534) */
@@ -70,25 +75,25 @@ typedef struct _os_module_data_t {
      * using elf types here to avoid having to export those.
      */
     bool have_dynamic_info; /* are the fields below filled in yet? */
-    bool hash_is_gnu;     /* gnu hash function? */
-    app_pc hashtab;       /* absolute addr of .hash or .gnu.hash */
-    size_t num_buckets;   /* number of bucket entries */
-    app_pc buckets;       /* absolute addr of hash bucket table */
-    size_t num_chain;     /* number of chain entries */
-    app_pc chain;         /* absolute addr of hash chain table */
-    app_pc dynsym;        /* absolute addr of .dynsym */
-    app_pc dynstr;        /* absolute addr of .dynstr */
-    size_t dynstr_size;   /* size of .dynstr */
-    size_t symentry_size; /* size of a .dynsym entry */
-    bool has_runpath;     /* is DT_RUNPATH present? */
+    bool hash_is_gnu;       /* gnu hash function? */
+    app_pc hashtab;         /* absolute addr of .hash or .gnu.hash */
+    size_t num_buckets;     /* number of bucket entries */
+    app_pc buckets;         /* absolute addr of hash bucket table */
+    size_t num_chain;       /* number of chain entries */
+    app_pc chain;           /* absolute addr of hash chain table */
+    app_pc dynsym;          /* absolute addr of .dynsym */
+    app_pc dynstr;          /* absolute addr of .dynstr */
+    size_t dynstr_size;     /* size of .dynstr */
+    size_t symentry_size;   /* size of a .dynsym entry */
+    bool has_runpath;       /* is DT_RUNPATH present? */
     /* for .gnu.hash */
     app_pc gnu_bitmask;
     ptr_uint_t gnu_shift;
     ptr_uint_t gnu_bitidx;
-    size_t gnu_symbias;   /* .dynsym index of first export */
-#else /* MACOS */
-    byte *exports;        /* absolute addr of exports trie */
-    size_t exports_sz;    /* size of exports trie */
+    size_t gnu_symbias; /* .dynsym index of first export */
+#else                   /* MACOS */
+    byte *exports;     /* absolute addr of exports trie */
+    size_t exports_sz; /* size of exports trie */
     byte *symtab;
     uint num_syms;
     byte *strtab;
@@ -122,8 +127,7 @@ bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
                             app_pc *out_base,
                             app_pc *out_first_end, /* first segment's end */
-                            app_pc *out_max_end,
-                            char **out_soname,
+                            app_pc *out_max_end, char **out_soname,
                             os_module_data_t *out_data);
 
 uint
@@ -145,36 +149,18 @@ bool
 module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform);
 
 void
-module_add_segment_data(OUT os_module_data_t *out_data,
-                        uint num_segments /*hint only*/,
-                        app_pc segment_start,
-                        size_t segment_size,
-                        uint segment_prot,
-                        size_t alignment,
-                        bool shared);
-
-/* Redirected functions for loaded module,
- * they are also used by __wrap_* functions in instrument.c
- */
-
-void *
-redirect_calloc(size_t nmemb, size_t size);
-
-void *
-redirect_malloc(size_t size);
-
-void
-redirect_free(void *ptr);
-
-void *
-redirect_realloc(void *ptr, size_t size);
+module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint only*/,
+                        app_pc segment_start, size_t segment_size, uint segment_prot,
+                        size_t alignment, bool shared, uint64 offset);
 
 #if defined(MACOS) || defined(ANDROID)
 typedef FILE stdfile_t;
-# define STDFILE_FILENO _file
+#    define STDFILE_FILENO _file
 #elif defined(LINUX)
 typedef struct _IO_FILE stdfile_t;
-# define STDFILE_FILENO _fileno
+#    ifdef __GLIBC__
+#        define STDFILE_FILENO _fileno
+#    endif
 #endif
 extern stdfile_t **privmod_stdout;
 extern stdfile_t **privmod_stderr;
@@ -187,12 +173,6 @@ get_private_library_address(app_pc modbase, const char *name);
 bool
 get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end);
 
-typedef byte *(*map_fn_t)(file_t f, size_t *size INOUT, uint64 offs,
-                          app_pc addr, uint prot/*MEMPROT_*/, map_flags_t map_flags);
-typedef bool (*unmap_fn_t)(byte *map, size_t size);
-typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot/*MEMPROT_*/);
-
-
 #ifdef MACOS
 /* module_macho.c */
 byte *
@@ -204,6 +184,5 @@ module_dyld_shared_region(app_pc *start OUT, app_pc *end OUT);
 void
 module_walk_dyld_list(app_pc dyld_base);
 #endif
-
 
 #endif /* MODULE_H */

@@ -32,11 +32,12 @@
 
 #include <stdio.h>
 
-int main()
+int
+main()
 {
     int i;
     fprintf(stderr, "counting to 10:\n");
-    for (i=1; i<=10; i++)
+    for (i = 1; i <= 10; i++)
         fprintf(stderr, "  %d\n", i);
 
     return 0;

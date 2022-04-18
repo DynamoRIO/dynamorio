@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,11 +36,11 @@
 #include "tools.h"
 
 #ifdef UNIX
-# include <sys/wait.h>
-# include <stdlib.h>
-# include <unistd.h>
-# include <string.h>
-# include <signal.h>
+#    include <sys/wait.h>
+#    include <stdlib.h>
+#    include <unistd.h>
+#    include <string.h>
+#    include <signal.h>
 #endif
 
 #ifdef WINDOWS
@@ -50,8 +50,8 @@ fatal_error(const char *function)
     char message[256];
 
     _snprintf(message, BUFFER_SIZE_ELEMENTS(message),
-              "Function %s() failed!\nError code 0x%x.\nExiting now.\n",
-              function, GetLastError());
+              "Function %s() failed!\nError code 0x%x.\nExiting now.\n", function,
+              GetLastError());
     print(message);
     exit(1);
 }
@@ -61,7 +61,7 @@ int
 main(int argc, char **argv)
 {
 #ifdef WINDOWS
-# define CMDLINE_SIZE (MAX_PATH/*argv[0]*/ + 20/*" %p"*/)
+#    define CMDLINE_SIZE (MAX_PATH /*argv[0]*/ + 20 /*" %p"*/)
     HANDLE event;
     char cmdline[CMDLINE_SIZE];
 
@@ -70,20 +70,22 @@ main(int argc, char **argv)
         STARTUPINFO si = { sizeof(STARTUPINFO) };
         PROCESS_INFORMATION pi;
         HANDLE job, job2, job3;
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit = {0,};
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit = {
+            0,
+        };
         DWORD exitcode = (DWORD)-1;
 
         /* For synchronization we create an inherited event */
-        SECURITY_ATTRIBUTES sa = {sizeof(sa), NULL, TRUE/*inherit*/};
-        event = CreateEvent(&sa, FALSE/*manual reset*/, FALSE/*start unset*/, NULL);
+        SECURITY_ATTRIBUTES sa = { sizeof(sa), NULL, TRUE /*inherit*/ };
+        event = CreateEvent(&sa, FALSE /*manual reset*/, FALSE /*start unset*/, NULL);
         if (event == NULL)
             print("Failed to create event");
 
         _snprintf(cmdline, BUFFER_SIZE_ELEMENTS(cmdline), "%s %p", argv[0], event);
 
         print("creating child #1\n");
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           0, NULL, NULL, &si, &pi))
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/, 0,
+                           NULL, NULL, &si, &pi))
             fatal_error("CreateProcess");
         if (WaitForSingleObject(event, INFINITE) == WAIT_FAILED)
             fatal_error("WaitForSingleObject");
@@ -101,10 +103,12 @@ main(int argc, char **argv)
         /* In an msys shell, CREATE_BREAKAWAY_FROM_JOB is required because the shell uses
          * job objects and by default does not have permission to break away (i#1454).
          */
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB,
-                           NULL, NULL, &si, &pi))
-            print("CreateProcess failure\n");
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/,
+                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si,
+                           &pi)) {
+            print("CreateProcess |%s| |%s| failure: 0x%x\n", argv[0], cmdline,
+                  GetLastError());
+        }
         job = CreateJobObject(NULL, "drx-test job");
         if (!AssignProcessToJobObject(job, pi.hProcess))
             fatal_error("AssignProcessToJobObject");
@@ -127,16 +131,16 @@ main(int argc, char **argv)
             fatal_error("ResetEvent");
 
         print("creating child #3\n");
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB,
-                           NULL, NULL, &si, &pi))
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/,
+                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si,
+                           &pi))
             print("CreateProcess failure\n");
         job = CreateJobObject(NULL, "drx-test job");
         if (!AssignProcessToJobObject(job, pi.hProcess))
             fatal_error("AssignProcessToJobObject");
         limit.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
-                                     &limit, sizeof(limit)))
+        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limit,
+                                     sizeof(limit)))
             fatal_error("SetInformationJobObject");
         if (!ResumeThread(pi.hThread))
             fatal_error("ResumeThread");
@@ -155,16 +159,16 @@ main(int argc, char **argv)
 
         /* Test DuplicateHandle (DrMem i#1401) */
         print("creating child #4\n");
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB,
-                           NULL, NULL, &si, &pi))
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/,
+                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si,
+                           &pi))
             fatal_error("CreateProcess");
         job = CreateJobObject(NULL, "drx-test job");
         if (!AssignProcessToJobObject(job, pi.hProcess))
             fatal_error("AssignProcessToJobObject");
         limit.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
-                                     &limit, sizeof(limit)))
+        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limit,
+                                     sizeof(limit)))
             fatal_error("SetInformationJobObject");
         if (!DuplicateHandle(GetCurrentProcess(), job, GetCurrentProcess(), &job2, 0,
                              FALSE, DUPLICATE_SAME_ACCESS))
@@ -188,8 +192,7 @@ main(int argc, char **argv)
         if (!GetExitCodeProcess(pi.hProcess, &exitcode))
             fatal_error("GetExitCodeProcess");
         print("child #4 exit code = %d\n", exitcode);
-    }
-    else { /* child process */
+    } else { /* child process */
         int iter = 0;
         if (sscanf(argv[1], "%p", &event) != 1) {
             print("Failed to obtain event handle from %s\n", argv[1]);

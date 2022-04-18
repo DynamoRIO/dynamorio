@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,7 +43,7 @@
  */
 
 #ifdef WINDOWS
-# define _CRT_SECURE_NO_DEPRECATE 1
+#    define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
 #include "dr_api.h"
@@ -55,24 +55,26 @@
 #include "libdwarf.h"
 
 #include <windows.h>
-#include <stdio.h> /* sscanf */
+#include <stdio.h>  /* sscanf */
 #include <stdlib.h> /* qsort */
 
 /* For debugging */
 static uint verbose = 0;
 
 #undef NOTIFY
-#define NOTIFY(n, ...) do { \
-    if (verbose >= (n)) {             \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-    } \
-} while (0)
+#define NOTIFY(n, ...)                       \
+    do {                                     \
+        if (verbose >= (n)) {                \
+            dr_fprintf(STDERR, __VA_ARGS__); \
+        }                                    \
+    } while (0)
 
-#define NOTIFY_DWARF(de) do { \
-    if (verbose) { \
-        dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
-    } \
-} while (0)
+#define NOTIFY_DWARF(de)                                                       \
+    do {                                                                       \
+        if (verbose) {                                                         \
+            dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
+        }                                                                      \
+    } while (0)
 
 /* MS tools use this value insted of the others */
 #define IMAGE_SYM_TYPE_FUNCTION 0x20
@@ -131,7 +133,7 @@ drsym_pecoff_get_section_name(pecoff_data_t *mod, IMAGE_SECTION_HEADER *sec,
     if (sec->Name[0] == '/') {
         /* "/N" where N is index into string table for >8-char name */
         uint index;
-        if (sscanf((char *)sec->Name+1, "%u", &index) == 1) {
+        if (sscanf((char *)sec->Name + 1, "%u", &index) == 1) {
             const char *name = mod->string_table + index;
             if (max_size != NULL)
                 *max_size = strlen(name);
@@ -140,13 +142,13 @@ drsym_pecoff_get_section_name(pecoff_data_t *mod, IMAGE_SECTION_HEADER *sec,
     }
     if (max_size != NULL)
         *max_size = sizeof(sec->Name);
-    return (const char *) sec->Name;
+    return (const char *)sec->Name;
 }
 
 void *
 drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
 {
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) map_base;
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)map_base;
     IMAGE_NT_HEADERS *nt;
     IMAGE_SECTION_HEADER *sec;
     uint i;
@@ -155,7 +157,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
 
     if (dos->e_magic != IMAGE_DOS_SIGNATURE)
         return NULL;
-    nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
+    nt = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos) + dos->e_lfanew);
     if (nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
         return NULL;
 
@@ -164,11 +166,10 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
     mod->map_base = map_base;
     mod->map_size = map_size;
 
-    mod->symbol_table = (IMAGE_SYMBOL *)
-        (map_base + nt->FileHeader.PointerToSymbolTable);
+    mod->symbol_table = (IMAGE_SYMBOL *)(map_base + nt->FileHeader.PointerToSymbolTable);
     mod->symbol_count = nt->FileHeader.NumberOfSymbols;
-    NOTIFY(1, "%s: mapped @"PFX" w/ %d symbols\n",
-           __FUNCTION__, map_base, mod->symbol_count);
+    NOTIFY(1, "%s: mapped @" PFX " w/ %d symbols\n", __FUNCTION__, map_base,
+           mod->symbol_count);
     /* String table immediately follows symbol table */
     mod->string_table = ((const char *)mod->symbol_table) +
         (nt->FileHeader.NumberOfSymbols * sizeof(IMAGE_SYMBOL));
@@ -177,20 +178,19 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
         mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_PECOFF_SYMTAB;
 
     mod->is_64 = (nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
-    mod->preferred_base = (byte *)(ptr_uint_t)
-        (mod->is_64 ? ((IMAGE_OPTIONAL_HEADER64 *)(&nt->OptionalHeader))->ImageBase :
-         nt->OptionalHeader.ImageBase);
+    mod->preferred_base = (byte *)(ptr_uint_t)(
+        mod->is_64 ? ((IMAGE_OPTIONAL_HEADER64 *)(&nt->OptionalHeader))->ImageBase
+                   : nt->OptionalHeader.ImageBase);
 
     /* We sort the symbols only once we know the time spent is worth it in init_post */
 
     mod->section_count = nt->FileHeader.NumberOfSections;
-    mod->section_base = (size_t *)
-        dr_global_alloc(mod->section_count*sizeof(*mod->section_base));
+    mod->section_base =
+        (size_t *)dr_global_alloc(mod->section_count * sizeof(*mod->section_base));
     sec = IMAGE_FIRST_SECTION(nt);
     for (i = 0; i < nt->FileHeader.NumberOfSections; i++, sec++) {
         size_t name_maxsz;
-        const char *secname =
-            drsym_pecoff_get_section_name(mod, sec, &name_maxsz);
+        const char *secname = drsym_pecoff_get_section_name(mod, sec, &name_maxsz);
         NOTIFY(2, "%s: %.*s\n", __FUNCTION__, name_maxsz, secname);
         if (strncmp(secname, ".debug_line", name_maxsz) == 0) {
             mod->debug_kind |= DRSYM_LINE_NUMS | DRSYM_DWARF_LINE;
@@ -219,20 +219,20 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
         NOTIFY(1, "%s: no pecoff symbols and likely no pdb, so using exports\n",
                __FUNCTION__);
     }
-    return (void *) mod;
+    return (void *)mod;
 }
 
 bool
 drsym_obj_remap_as_image(void *mod_in)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     return mod->exports_only;
 }
 
 bool
 drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     /* Now that we know we're using this for sure, do any heavyweight init */
 
     /* We bail and go to dbghelp if there are no symbols in the pecoff
@@ -256,7 +256,7 @@ drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 bool
 drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     Dwarf_Error de; /* expensive to init (DrM#1770) */
     if (mod == NULL)
         return false;
@@ -271,16 +271,16 @@ drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
 void
 drsym_obj_mod_exit(void *mod_in)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     if (mod->section_base != NULL) {
         dr_global_free(mod->section_base,
                        mod->section_count * sizeof(*mod->section_base));
     }
     if (mod->sorted_syms != NULL)
-        dr_global_free(mod->sorted_syms, mod->symbol_count*sizeof(*mod->sorted_syms));
+        dr_global_free(mod->sorted_syms, mod->symbol_count * sizeof(*mod->sorted_syms));
     if (mod->sorted_exports != NULL) {
         dr_global_free(mod->sorted_exports,
-                       mod->sorted_count*sizeof(*mod->sorted_exports));
+                       mod->sorted_count * sizeof(*mod->sorted_exports));
     }
     dr_global_free(mod, sizeof(*mod));
 }
@@ -292,14 +292,14 @@ drsym_obj_mod_exit(void *mod_in)
 drsym_debug_kind_t
 drsym_obj_info_avail(void *mod_in)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     return mod->debug_kind;
 }
 
 byte *
 drsym_obj_load_base(void *mod_in)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     return mod->preferred_base;
 }
 
@@ -309,15 +309,15 @@ drsym_obj_load_base(void *mod_in)
 const char *
 drsym_obj_debuglink_section(void *mod_in, const char *modpath)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
-    return (const char *) mod->debuglink;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
+    return (const char *)mod->debuglink;
 }
 
 /* caller holds lock */
 static const char *
 drsym_pecoff_symbol_name(pecoff_data_t *mod, IMAGE_SYMBOL *sym)
 {
-    static char buf[sizeof(sym->N.ShortName)+1];
+    static char buf[sizeof(sym->N.ShortName) + 1];
     const char *name;
     size_t name_sz;
     if (sym->N.Name.Short == 0) {
@@ -326,7 +326,7 @@ drsym_pecoff_symbol_name(pecoff_data_t *mod, IMAGE_SYMBOL *sym)
         name_sz = strlen(name);
     } else {
         const char *c;
-        name = (const char *) sym->N.ShortName;
+        name = (const char *)sym->N.ShortName;
         /* not null-terminated if 8 chars.  caller holds lock so we can
          * use a static buffer to add a NULL, which caller requires.
          */
@@ -391,8 +391,8 @@ drsym_pecoff_sort_symbols(pecoff_data_t *mod)
     /* symbol count includes aux entries so it's an over-count but it's not worth
      * doing a separate pass to count, or re-allocating
      */
-    mod->sorted_syms = (IMAGE_SYMBOL **)
-        dr_global_alloc(mod->symbol_count*sizeof(*mod->sorted_syms));
+    mod->sorted_syms =
+        (IMAGE_SYMBOL **)dr_global_alloc(mod->symbol_count * sizeof(*mod->sorted_syms));
     mod->sorted_count = 0;
     for (i = 0; i < mod->symbol_count; i++, sym++) {
         if (aux_skip > 0) {
@@ -417,9 +417,8 @@ drsym_pecoff_sort_symbols(pecoff_data_t *mod)
         for (i = 0; i < mod->sorted_count; i++) {
             sym = mod->sorted_syms[i];
             NOTIFY(3, "  #%d: %-20s Value=0x%x, Sec=%d, Type=%d, Storage=%d, #aux=%d\n",
-                   i, drsym_pecoff_symbol_name(mod, sym), sym->Value,
-                   sym->SectionNumber, sym->Type, sym->StorageClass,
-                   sym->NumberOfAuxSymbols);
+                   i, drsym_pecoff_symbol_name(mod, sym), sym->Value, sym->SectionNumber,
+                   sym->Type, sym->StorageClass, sym->NumberOfAuxSymbols);
         }
     }
 }
@@ -427,7 +426,7 @@ drsym_pecoff_sort_symbols(pecoff_data_t *mod)
 uint
 drsym_obj_num_symbols(void *mod_in)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     if (mod == NULL)
         return 0;
     return mod->sorted_count;
@@ -438,7 +437,7 @@ const char *
 drsym_obj_symbol_name(void *mod_in, uint idx)
 {
     IMAGE_SYMBOL *sym;
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     if (mod == NULL || idx >= mod->sorted_count)
         return NULL;
     if (mod->exports_only)
@@ -463,9 +462,9 @@ drsym_pecoff_symbol_offs(pecoff_data_t *mod, IMAGE_SYMBOL *sym, size_t *offs OUT
         /* XXX: still return success?  Someone might want to look it up.
          * It's not like an import in .dynsym (i#1256).
          */
-   } else {
-        NOTIFY(1, "%s: unknown section # %d val 0x%x\n",
-               __FUNCTION__, sym->SectionNumber, sym->Value);
+    } else {
+        NOTIFY(1, "%s: unknown section # %d val 0x%x\n", __FUNCTION__, sym->SectionNumber,
+               sym->Value);
         *offs = 0;
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     }
@@ -474,9 +473,9 @@ drsym_pecoff_symbol_offs(pecoff_data_t *mod, IMAGE_SYMBOL *sym, size_t *offs OUT
 
 drsym_error_t
 drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                       size_t *offs_end OUT)
+                      size_t *offs_end OUT)
 {
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     drsym_error_t res;
     if (offs_start == NULL || mod == NULL || idx >= mod->sorted_count)
         return DRSYM_ERROR_INVALID_PARAMETER;
@@ -484,7 +483,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
         *offs_start = mod->sorted_exports[idx].addr - mod->map_base;
         if (offs_end != NULL) {
             if (idx + 1 < mod->sorted_count) {
-                *offs_end = mod->sorted_exports[idx+1].addr - mod->map_base;
+                *offs_end = mod->sorted_exports[idx + 1].addr - mod->map_base;
             } else
                 *offs_end = *offs_start + 1;
         }
@@ -508,7 +507,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
         }
 #endif
         if (idx + 1 < mod->sorted_count) {
-            res = drsym_pecoff_symbol_offs(mod, mod->sorted_syms[idx+1], offs_end);
+            res = drsym_pecoff_symbol_offs(mod, mod->sorted_syms[idx + 1], offs_end);
         } else
             *offs_end = *offs_start + 1;
     }
@@ -522,7 +521,7 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
      * and exports (mod->sorted_exports) searching, so don't go and
      * access mod->sorted_syms[] w/o checking for mod->exports_only!
      */
-    pecoff_data_t *mod = (pecoff_data_t *) mod_in;
+    pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     uint min = 0;
     uint max = mod->sorted_count - 1;
     int min_lower = -1;
@@ -582,8 +581,8 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
 static int
 compare_exports(const void *a_in, const void *b_in)
 {
-    const export_info_t *a = (const export_info_t *) a_in;
-    const export_info_t *b = (const export_info_t *) b_in;
+    const export_info_t *a = (const export_info_t *)a_in;
+    const export_info_t *b = (const export_info_t *)b_in;
     if (a->addr > b->addr)
         return 1;
     if (a->addr < b->addr)
@@ -603,8 +602,7 @@ drsym_pecoff_sort_exports(pecoff_data_t *mod)
      * XXX: for online use, use the actual already-loaded image to save space.
      */
     /* 1st pass to get the count */
-    exp_iter =
-        dr_symbol_export_iterator_start((module_handle_t)mod->map_base);
+    exp_iter = dr_symbol_export_iterator_start((module_handle_t)mod->map_base);
     while (dr_symbol_export_iterator_hasnext(exp_iter)) {
         dr_symbol_export_t *sym = dr_symbol_export_iterator_next(exp_iter);
         if (sym->is_code)
@@ -616,8 +614,8 @@ drsym_pecoff_sort_exports(pecoff_data_t *mod)
         return false;
     }
     mod->sorted_count = i;
-    mod->sorted_exports = (export_info_t *)
-        dr_global_alloc(mod->sorted_count*sizeof(*mod->sorted_exports));
+    mod->sorted_exports = (export_info_t *)dr_global_alloc(mod->sorted_count *
+                                                           sizeof(*mod->sorted_exports));
     /* 2nd pass */
     i = 0;
     dr_symbol_export_iterator_start((module_handle_t)mod->map_base);
@@ -638,7 +636,7 @@ drsym_pecoff_sort_exports(pecoff_data_t *mod)
     if (verbose >= 3) {
         NOTIFY(3, "%s:\n", __FUNCTION__);
         for (i = 0; i < mod->sorted_count; i++) {
-            NOTIFY(3, "  #%d: %-20s addr="PFX"\n", i, mod->sorted_exports[i].name,
+            NOTIFY(3, "  #%d: %-20s addr=" PFX "\n", i, mod->sorted_exports[i].name,
                    mod->sorted_exports[i].addr);
         }
     }
@@ -665,4 +663,11 @@ drsym_obj_debug_path(void)
     /* XXX: figure out where cygwin is really installed */
     /* XXX: also search mingw debug path */
     return "c:\\cygwin\\lib\\debug";
+}
+
+const char *
+drsym_obj_build_id(void *mod_in)
+{
+    /* NYI.  Are build id-based dirs used on cygwin? */
+    return NULL;
 }

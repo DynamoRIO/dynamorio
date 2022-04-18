@@ -1,0 +1,836 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_arm_port ARM Port
+
+This page contains the record of some design discussions regarding key aspects of the port to ARM.
+
+# Decoder/Encoder Approach
+
+General strategy:
+
+We use a data-driven table-based approach, as we need to both encode and decode and a central source of data lets us move in both directions.  Our x86 decoder is table-based, though that’s more natural as the x86 ISA and manual are kind of table-organized.  For ARM we have to be more creative, but it ends up working out well.
+
+Other decoders for ARM often don’t use a table and just have a series of “if (bits 27..24 == 0xNNN) …”, but they don’t have to encode.
+
+Assemblers typically parse a string and create a data structure and then encode from the data structure.
+
+Emulators/translators need more precise semantic info (essentially the manual’s pseudocode) on each instruction: we leave that up to the tool.  We give the tool enough information to identify all of the source and destination operands and the types of each, but how the operands are combined is not provided.  The tool has to know that from the opcode.
+
+At this point, we are not planning to translate to a common, simple IR, as we’d like to duplicate our x86 performance with fewer layers and direct “translation” from the source to the destination.
+
+
+
+# DynamoRIO IR for ARM: IR decisions
+
+- How handle register lists? => just var-len sequence of separate register operands, externally anyway.
+  Reg lists are either 8-bit, 13-bit, or 16-bit, with one bit per reg, for GPR.  SIMD also has consecutive or every-other register lists of varying size after a first explicitly named register.
+
+  a. Model as a variable number of separate register operands
+    - Then it's awkward to edit the instr?  That’s rare though: usually delete and re-build.
+    - For decoding table: can encode as reglist there for compactness
+    - Nicer level of abstraction, but you still have to know the limits: but we already have that general problem
+    - How distinguish register in list from SP reg in pop?  That’s a general issue w/ any set of multiple operands treated asymmetrically: xref shifted registers.
+    - Want to disasm as reg list: but we can pull opnd type out of decode tables, which disasm code already does for other purposes today
+    - Maybe provide instr_get_reg_list() if we convince ourselves there’s a use case
+    - OPND_CREATE_REG_LIST()?
+    - Should encoder take any order or require ordinal order?
+  b. Model as a single register_list operand type
+    - But then how does iteration work?  Already have to sub-iterate base-disp b/c it has sub-pieces.  Maybe most people use instr_{reads,writes}_reg?
+    - May break existing clients enumerating opnd types
+
+- How handle shifted source registers? => not going to supply semantic info.
+  A bunch of instrs take in either an immed or a reg holding a shift amount, plus a 2-bit shift type code, and they shift an operand propr to the real work.  Xref shifting of index reg in base-disp, discussed separately.
+  Xref F2.4:
+    a. LSL = logical shift left
+    b. LSR = logical shift right
+    c. ASR = arithmetic shift right
+    d. ROR = rotate right
+    e. RRX = rotate right 1 bit, carry comes in to msb (type = 11, immed=0)
+  For register shift: bottom byte of Rs contains the shift amount.
+
+  A bunch of opcodes have optionally-shifted source registers.  We should
+  probably just have the shift amounts (immed or reg) as their own separate
+  sources.  Should we somehow encode the semantics into the opcode or
+  operand?  If OP_adc on x86 just adds srcs, but on arm it will shift a src,
+  is that a burden for tool?  Most tools prob just want to know dependencies
+  so maybe not.  A new operand type for "shifted register" seems silly too.
+
+  Should we have OP_adc_regshift vs OP_adc_immshift, or just OP_adc and have
+  encoding variants with encoding chains like x86?  The latter of course.
+
+  Presumably the type of the shift should just be a separate immed src opnd
+  also?  Or should we have OP_adc_{,lsl,lsr,asr,ror,rrx}?  Even if have those, how does user know which src is being shifted?
+  > grep '^cond ' armv8-32-instrs.txt | grep -E 'imm5.*type|Rs' | wc
+       41     666    2399
+
+  Splitting each of those into 6 will double the opcode space.
+
+  How about a meta field in instr?  Sthg like the PREFIX_ flags or sthg.
+  We would need 6 bitfields in instr_t.prefixes, and there is room.
+
+  We ended up deciding not to do anything.  Here is the conversation:
+  ~~~{.unparsed}
+  <derek> for index reg, we're using the bits in opnd_t to store the shift
+  <derek> type and value
+  <derek> and we'll add opnd_get_index_shift(), etc. accessors or sthg
+  <derek> but we also wanted to add an indicator of shifted src regs
+  <derek> e.g., "and r0, r1, r2, LSL #4"
+  <derek> or "and r0, r1, r2, LSL r3"
+  <derek> we talked about having that indicator being encoded in instr_t.prefixes
+  <derek> we figured just 3 bits to encode the type of shift (enum not bitfield)
+  <derek> but:
+  <derek> A) the encoding needs the value too: so to separate them for these prefixes we'd have to go look for the immed when setting or getting
+  <derek> B) should we hide the immed that holds the type if we have these prefix flags?
+  <derek> it kind of seems like, either we include the immed (5 bits) as well, or scrap the whole idea of helping tools understand shifts
+  <derek> if we scrap it, tool will see "and r1 r2 2-bit-immed 5-bit-immed -> r0"
+  <derek> or "and r1 r2 2-bit-immed r3 -> r0"
+  <derek> WDYT?
+  <qin> reading & thinking
+  <derek> (we'd still keep shift info for base-disp, just not for general src reg)
+  <derek> to include 5 immed bits, we could fit it in instr_t.prefixes, but then it's yet another separate field, the immeds would be hidden, tools would have to query special instr_get_shift()
+  <qin> what's this 2-bit immed?
+  <derek> encodes the shift type
+  <derek> see F2-2419
+  <qin> so in fact, tool should see: "and r1 r2 LSL 5-bit-immed -> r0" or ""and r1 r2 LSL r3 -> r0"
+  <qin> I think it is fine to leave it to tool to figure it out
+  <qin> it should not be in the basic DR decoder/encoder
+  <derek> if we don't add core IR info, disassembler may have to guess to know to print "LSL"
+  <derek> actually I do have a separate decoding type for 2-bit shift immed
+  <derek> so disasm could check that
+  <derek> in template, w/o anything being added to IR
+  <derek> it would have to read both immed values
+  <derek> ok, so we scrap the idea of higher-level semantic info on register shifts
+  <derek> does it seem weird that we do have semantic info on index reg shift inside memref?
+  <qin> right, DR is not Dr.M, it is not trying to decode what each instruction does
+  <qin> or each opnd does
+  <qin> we may add helper functions later, but not in the core IR
+  <derek> so we're ok w/ an asymmetry where memrefs have all their semantic behavior separated and query-able, but the same operations on source regs are just left in low-level pile-of-immeds form
+  <derek> and to go back to disasm printing LSL, that would just be printing, tool iterating would just see an integer value and not "LSL"
+  <qin> yes, but if a tool care what's that means, it would have a table or something to understand it
+  <derek> ok, works for me.  if we did add it later we prob couldn't remove immeds: it would be a layer on top, which should be fine
+  <derek> consider "ldr r0, [r1, r2 lsl #3]" vs "and r0, r1, r2, lsl #3"
+  <derek> in both cases, r2 is shifted left by 3
+  <derek> in the former, tool sees a memref where it can query what kind and amount of shifting, while in the latter tool sees a bunch of immediates
+  <derek> integers
+  <derek> I'm just pointing out the asymmetry
+  <derek> coming from our single-operand-for-any-memref invariant
+  <qin> I kind of view lsl #3 is part of the instruction semantics
+  <qin> for the later case
+  <qin> for the first case, it is an opnd semantic
+  <derek> we did discuss having OP_and_lsl, OP_and_lsr, etc.
+  <derek> but decided against it, but what you're saying still applies
+  <derek> sure
+  ~~~
+
+- New addressing modes => add sub-piece of base-disp “index shift”, add instr_t reg dst for wback of base reg
+  offset:             ld  r4, [r5, offs]
+  pre-indexed:   ld  r4, [r5, offs]!
+  post-indexed: ld  r4, [r5], offs
+
+  offs = immed, index reg, or shifted index reg
+
+  opnd_t.value.base_disp will hold base reg, offs immed, index reg
+
+  Questions:
+
+  a. How model pre-index and post-index?  Just list base reg as dst?  How distinguish pre from post -- pre has offs inside mem opnd, post doesn’t.
+     OP_mov_st with mem dst and reg dst.
+     For pre-index: list offs as explicit src in addition to disp? => Yes
+
+  b. How store shifted index reg?  opnd_t.value.base_disp.scale is 4 bits.
+     We can take opnd_t.seg’s 8 bits.  And we have 9 more bits in opnd_t.value.base_disp, and could take the 3 bool bits.  So we have 21 bits, and we need?  If shift is always via immed5 and shift type is 2 bits then we only need 7 bits.
+
+  Even if this is still a opnd_base_disp, we need to add new accessors:
+  opnd_get_index_shift(OUT amount, OUT type)
+
+  Also add generation routines that look like the arm asm for arm specific code?  But can’t do it at opnd level?  INSTR_CREATE_ variants?  There are 35 opcodes that can do pre or post indexing.
+  \verbatim
+  ld  r4, [r5, offs],  => instr_create_ld(reg(r4), mem(r5, offs))
+  ld  r4, [r5, offs]!   => instr_create_ld(reg(r4), mem_pre(r5, offs))
+  ld  r4, [r5], offs    => instr_create_ld(reg(r4), mem_post(r5, offs))
+  \endverbatim
+
+  Can do at opnd level if expand into multiple args for passing to function (you can’t use these like “opnd_t myop = …”):
+   \verbatim
+        OPND_CREATE_PREIDX_LIST(base, offs)
+   => “mem(base, offset), imm(offs), reg(base)”
+        OPND_CREATE_POSTIDX_LIST(base, offs)
+   => “mem(base), imm(offs), reg(base)”
+   \endverbatim
+        But we still need INSTR_CREATE_ variants that take these extra args!
+
+- Negated registers
+  Related to addressing modes: how model negative registers for writeback or post-indexed?  For the memref itself I currently have positive and negative versions and will have to find a bit in opnd_t to store it, plus accessor:  opnd_get_index_sign() (and assume people will use opnd_compute_address() and not adding index register value directly themselves -- TODO: document all the IR changes tools need to be aware of), and for immed we’ll store it with the sign applied?
+  \verbatim
+  TYPE_M,        /* mem w/ just base */
+  TYPE_M_PR,     /* mem offs + reg index */
+  TYPE_M_NR,     /* mem offs - reg index */
+  TYPE_M_PS,     /* mem offs + reg-shifted (or extended for A64) index */
+  TYPE_M_NS,     /* mem offs - reg-shifted (or extended for A64) index */
+  TYPE_M_P12,    /* mem offs + 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
+  TYPE_M_N12,    /* mem offs - 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
+  TYPE_M_S9,     /* mem offs + signed 9-bit immed @ 20:12 */
+  TYPE_M_P8,     /* mem offs + 8-bit immed @ 7:0 */
+  TYPE_M_N8,     /* mem offs - 8-bit immed @ 7:0 */
+  TYPE_M_P4_4,   /* mem offs + 8-bit immed split @ 11:8|3:0 */
+  TYPE_M_N4_4,   /* mem offs - 8-bit immed split @ 11:8|3:0 */
+  TYPE_M_S7,     /* mem offs + signed 7-bit immed @ 6:0 */
+  TYPE_M_P5,     /* mem offs + 5-bit immed @ 5:0 */
+  \endverbatim
+
+  post-indexed negative:
+  \verbatim
+  str  Rt, [Rn], Rm
+  {OP_str    , 0x06000000, "str"   , Mw, Rn, Rt, Rn, RmN/*FIXME: how store this in opnd_t?*/, xop_shift|pred|dstX2, x, END_LIST},/*PUW=000*/
+  \endverbatim
+
+  Choices:
+
+ -# Add to opcode: though we’re avoiding doing that for the different addressing modes
+   OP_str_post?  8 different variations: PUW bits = {pre,post} X {add,sub} X {wb,don’t}, except post+wb is illegal so 6.
+   Add formal secondary opcode field?  Add PREFIX_ flag?
+   Encode semantics into memref (TYPE_M_NORMAL_…, TYPE_M_WB_…)?
+   The 6 types (P=0 W=1 is illegal):
+   \verbatim
+   str  Rt, [Rn + Rm] => all in the memref: new signed index bit in opnd_t, but also need to add PREFIX_NEGATIVE_INDEX for opnd_get_index()?  what about up above we decided to add opnd_get_index_sign()?
+   str  Rt, [Rn - Rm] => all in the memref: new signed index bit in opnd_t
+   str  Rt, [Rn], Rm
+   str  Rt, [Rn], -Rm => add PREFIX_NEGATIVE_WRITEBACK_ADDEND?
+   str  Rt, [Rn + Rm]!
+   str  Rt, [Rn - Rm]! => add PREFIX_NEGATIVE_INDEX?  (document: already negated for you in opnd_compute_address(), but if you ask for reg value of opnd_get_index()
+
+   {OP_str    , 0x05000000, "str"   , MN12w, Rt, xx, xx, xx, pred, x, END_LIST},/*PUW=100*/
+   {OP_str    , 0x05200000, "str"   , MN12w, Rn, Rt, Rn, i12, pred|dstX2, x, END_LIST},/*PUW=101*/
+   \endverbatim
+
+ -# Add “negated” flag to REG_KIND opnd_t.  reg_get_value(opnd_get_reg(), mc).  Counter-argument to #3 below: at the point that we’re dealing with just enum values to represent registers, we’ve already lost the higher-level semantics of the instruction, so it’s ok to also lose the negative.  Those dealing with exactly what the instruction does will still have the instr_t and opnd_t and thus the flag. => winner!
+   - Add general reg_get_flags() and reg_set_flags()
+   - Add flag to base-disp also for index reg being negated
+   -  Pre-negate disp on decoding, but accept both on create?  Or better to look like asm w/ disp always unsigned and use index reg negation flag?
+
+ -# Add DR_REG_NEG_R1.  Useful versus OPND_CREATE_BASE_NEG_INDEX?
+   We often just hand out enum values, not data structs, so hard to keep a flag w/ the reg: so part of enum makes sense.  This would be the same solution for the memref and the writeback, and all info is local to opnd_t.  (Assuming we have enough DR_REG_ namespace left...maybe we could split from OPSZ_ namespace, for ARM at least if not x86).
+   - Downside is that tool examining regs can’t say “does this reg == DR_REG_R1?”.  If tool uses our helper routines (instr_reads_reg(), etc.) should be ok -- but raw examination could get fragile.
+
+ -# Translate to core simple RISC IR to simplify tool writing => separate store and sub instrs.  Have to deal with exception rollback treating sequence as atomic.
+
+ -# Translate to a read-only mega-instr (a list of RISC instr), but can only instrument before mega instr.
+
+- Flag writing?  OP_adc vs OP_adcs?
+  I guess we need explicit OP_adcs?  Or should we add a flags register as a
+  real dst or src?  If we do, would we go and change x86?  Best to not break anything.
+  But OP_adc in x86 does write flags.  Tool writer should really be calling instr_get_eflags() for app code.  For gen code though -- but no good soln?
+  OP_arm_adc, OP_arm_adcs => OP_adc => OP_x86_adc
+  Or only change INSTR_CREATE_ macros
+  OP_adc_ns
+
+- General issue: how share opcodes when INSTR_CREATE_ macros will have to take different numbers of args?  How do tools write cross-platform instrumentation without a higher-level translated IR?  Should we consider a shared IR?
+  \verbatim
+  #define INSTR_CREATE_adc(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_adc, (d), (s), (d))
+  \endverbatim
+
+  If doing cross-platform, can’t use the src-shifts or anything, and have to stick with destructive srcs (src==dst): have to write in LCD.  So if tool sticks to load, store, and arithmetic instrs, maybe we can get it to work.
+
+  Or should we assume tools will have ifdef with 2 versions of gencode and we don’t try to share to avoid all confusion of different semantics?
+
+  Later we decided to create XINST_CREATE_ macros for select common operations, essentially a LCD RISC-ish subset of common tool operations and for internal DR use as well.
+
+- How model writes to the PC
+
+  Example:
+  OP_adc:
+    In A32 instructions, if S is not specified and `<Rd>` is the PC, the
+    instruction is a branch to the address calculated by the operation. This
+    is an interworking branch, see Pseudocode details of operations on the
+    AArch32 general-purpose registers and the PC on page E1-2296.
+
+  So how do we model that?  I guess we keep it as OP_adc but we have
+  instr_is_cti() and instr_is_mbr() say "yes" for any instr with Rd==PC.
+  Does this mean decode_cti() won’t be fast?  But ARM decoding in general may not need fast vs slow.
+
+- Do we need to model the condition codes separately or as one?
+
+  Xref:
+  \verbatim
+  #define EFLAGS_READ_CF   0x00000001 /**< Reads CF (Carry Flag). */
+  #define EFLAGS_READ_PF   0x00000002 /**< Reads PF (Parity Flag). */
+  #define EFLAGS_READ_AF   0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
+  \endverbatim
+
+  ARM has 4 flags: NZCV (negative, zero, carry, overflow).  Hmm, it also has GE flags.  And some instrs do read or write just some flags, so it seems that we should go ahead and split them all.
+
+
+  A64 does have conditional branches: B.cond.
+  A32 does not have pure ones: should do an uncond branch (B) w/ a predicate
+  I guess.
+
+  T16 does have CBNZ and CBZ, compare and branch on (non)-zero: but they
+  actually don't read or write the flags.
+
+  Do we have OP_beq (“B.eq”), OP_bne, OP_bcs, etc., or just OP_bcond w/ the condition as a 1-byte (really 4 bits) immed src opnd?  We're already not adding the predicate prefix to the opcodes.
+
+- Should we add OP_pop?  In encoding, it’s just an OP_ldr with Rn=SP and disp=word size.  Seems best to leave “pop” to disassembler and add INSTR_CREATE_pop() but have decoder and encoder not care.
+
+
+
+# Code refactoring: names
+
+For splitting one file into 3 with subdirs: the precedent is for core/loader_shared.c vs core/{unix,win32}/loader.c.  Or a shared header int he base dir: core/module_shared.h.
+
+If no subdir: signal.c and signal_{linux,macos}.c
+
+
+Split into 3 pieces .c file:
+\verbatim
+ A) core/arch/instr.c, core/arch/{x86,arm}/instr.c => voted down, duplicated names
+ B) core/arch/instr.c, core/arch/{x86,arm}/instr_{x86,arm}.c => redundant names
+ C) core/arch/instr_shared.c, core/arch/{x86,arm}/instr.c => winner!
+ D) core/arch/instr_shared.c, core/arch/{x86,arm}/instr_{x86,arm}.c => redundant
+ E) core/arch/instr_shared.c, core/arch/{x86,arm}/instr_private.c
+ F) core/arch/instr_shared.c, core/arch/{x86,arm}/instr_impl.c
+ G) core/arch/instr_common.c, core/arch/{x86,arm}/instr.c
+ F) core/arch/instr_base.c, core/arch/{x86,arm}/instr.c
+ H) core/arch/instr_crossarch.c, core/arch/{x86,arm}/instr.c
+ I) core/arch/instr_x86_and_arm_and_future_ISA_we_port_to.c, core/arch/{x86,arm}/instr.c
+\endverbatim
+So we should pick C to match precedent.
+
+Header split into 3 pieces:
+\verbatim
+HA) core/arch/decode_shared.h, core/arch/{x86,arm}/decode_{x86,arm}.h
+        xref core/module_shared.h
+HB) core/arch/decode.h, core/arch/{x86,arm}/decode_private.h => winner
+        xref core/os_shared.h and core/unix/os_private.h
+\endverbatim
+
+Two alternative versions:
+
+A) core/arch/{x86,arm}/asmcode.asm x86.asm
+
+core/arch/x86/instr_x86.c, core/arch/x86/decode_x86.c, core/arch/x86/encode_x86.c,
+core/arch/arm/instr_arm.c, core/arch/arm/decode_arm.c, core/arch/arm/encode_arm.c,
+core/arch/x86/instr_arch.c, core/arch/x86/decode_arch.c, core/arch/x86/encode_arch.c,
+
+
+core/arch/instr_shared.c, core/arch/opnd_shared.c, core/arch/decode_shared.h, core
+
+core/{unix,win32}/os.c,
+
+There is a wart here: "_shared" is being used for 2 different things: 1) shared bet libs and 2) shared bet platforms.  Xref #1409 where this observation was made.
+
+# Code refactoring: opcodes
+
+We already split into dr_ir_opcodes.h, so let’s split out of instr.h.
+core/arch/opcodes.h has both x86 and arm
+
+DR_REG_ enum: separate (b/c we encode into small numbers of bits)
+
+
+## Sharing OPSZ_ constants
+
+\verbatim
+OPSZ_1
+OPSZ_4
+OPSZ_6_irex10_short4, /**< x86-specific: Intel 'p': On Intel processors this is 10/6/4 bytes for
+
+OPSZ_11, /**< ARM-specific
+
+5-bit immediate: OPSZ_1
+OPSZ_5b = OPSZ_1?
+OPSZ_3b
+
+REG_NOPC, REG_NOPC_NOSP
+\endverbatim
+
+If encoding error msg is clear should be ok to abstract on decode
+
+For decoding have to add OPSZ_5b:
+TYPE_ = bit position, OPSZ_ = size
+
+Maybe just go ahead and expose it
+
+But try to make encoder handle OPSZ_1 if value is small enough for OPSZ_5b template
+
+
+## ARM vs x86 Arch macro
+
+ARM
+
+Arch64 = ARM && X64
+ARM 32-bit = ARM && !X64
+
+A64, A32, T32, T16
+ARM32
+ARMv7
+
+Can this be general 64-bit, not processor-specific:
+X64,
+
+Intel/AMD-specific:
+X86_32, X86_64,
+
+
+ARM System Calls
+\verbatim
+(gdb) x/10i $pc
+=> 0x9000 <__libc_do_syscall>:  push    {r7, lr}
+   0x9002 <__libc_do_syscall+2>:        mov     r7, r12
+   0x9004 <__libc_do_syscall+4>:        svc     0
+   0x9006 <__libc_do_syscall+6>:        pop     {r7, pc}
+
+(gdb) x/10i 0x8df0
+   0x8df0 <__libc_setup_tls+152>:       add.w   r3, r9, #8
+   0x8df4 <__libc_setup_tls+156>:       mov     r0, r10
+   0x8df6 <__libc_setup_tls+158>:       str.w   r3, [r10]
+   0x8dfa <__libc_setup_tls+162>:       mov.w   r12, #5
+   0x8dfe <__libc_setup_tls+166>:       movt    r12, #15
+=> 0x8e02 <__libc_setup_tls+170>:       bl      0x9000 <__libc_do_syscall>
+\endverbatim
+
+
+# TLS Access
+
+\verbatim
+ 0x8bb0 <__libc_start_main+344>:      mrc     15, 0, r5, cr13, cr0, {3}
+\endverbatim
+
+mrc: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0489g/Cihfifej.html
+
+Coprocessor 15 (CP15) provides system control functionality, by providing access to System registers. This includes architecture and feature identification, as well as control, status information and configuration support.
+
+
+
+# ASM Approach
+
+Think about other assemblers to decide what syntax to use: is it a similar situation to x86, where we use the non-default Intel syntax with gas so that our asm can also compiler with Microsoft’s assembler?
+
+
+
+# Register enum
+
+Concern: if DR_REG_ variants > 140, start to run out of OPSZ_ space (both fit in same 1-byte field)?  We could un-share OPSZ_ since ARM has fewer (I think: haven’t done Thumb or A64 yet).
+
+32x  64-bit GPR
+32x  32-bit GPR
+32x  16-bit GPR bottom
+32x  16-bit GPR top (CHECK: A64 can touch top (Qin)?)
+32x  8-bit GPR bottom
+32x  128-bit SIMD
+32x  64-bit SIMD bottom
+32x  32-bit SIMD bottom
+32x  16-bit SIMD bottom
+32x   8-bit SIMD bottom
+
+=> 320x!
+
+SIMD registers
+http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0801a/BABHHJDG.html
+http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dht0002a/ch01s03s02.html
+
+Currently we have:
+\verbatim
+typedef byte reg_id_t; /* contains a DR_REG_ enum value */
+\endverbatim
+
+Two solutions:
+1. Always have separate size and eliminate enum values for sub-reg bottom (still need top)
+  - CHECK: I added sub-reg for x86 SIMD, did I add size field to reg opnds?
+    => i#1382, r2578; i#1388, r2582: I added opnd_t.size for REG_kind, if 0 then
+    enum tells you size.
+  - Are there too many places in API that just use reg_id_t?
+2. Increase reg_id_t to a short => WINNER!
+  - Exception for opnd_t base_disp base_reg and index_reg -- if ptr-sized GPR is at low end of enum, these can stay just one byte?
+  - Leave OPSZ_ in same namespace for x86 decoding
+
+However, note that for multimedia partial regs we are already using the size approach on x86.
+
+Do we want to unify them and use the same approach for both?  Which approach?
+Single name and size seems simpler and cleaner in one sense than enumerating
+every combination, but OTOH we would want the names used in asm to be available
+to INSTR_CREATE_ macros.
+
+We could try to do both for arm by having opnd_create_reg_partial() switch to a
+sub-reg name.
+
+
+
+# TLS via Stolen Register: Interactions with tools
+
+## Proposal 1:
+- We mangle meta instructions’ use of stolen reg, except use of it as TLS base.  How distinguish?  Any use of TLS has to go through our API where we mark it somehow.  Or we use a virtual reg for TLS and we mangle that.
+- Will mangling inserted tool instrumentation cause problems with tools?  Think about Dr. Memory’s fault handling which has very specific assumptions on its own inserted code.
+
+## Proposal 2: do not allow meta instructions to use stolen reg except as TLS base.
+- But what about app uses of stolen reg?  Any instru use they call our API and we mark it?  => flip side of original proposal where TLS use marks it as do-not-mangle
+- Previously general tool code operating on registers has to always check “is this an allowed reg?”
+
+## Proposal 3: fully expose stolen reg and have API routine to access the stolen value.  Burden is on tool to not mess up stolen reg.
+- Previously general tool code operating on registers has to always check “is this the stolen reg?”
+  - Proposal 2 and 5 also have restricted registers, though they may allow reading the app value, just not using as a scratch reg
+- Simple on DR side, but makes tool writing harder
+- Could rename DR_REG_R10 to DR_REG_{VIRTUAL,STOLEN}
+  - Downside: tool analyzing original app code has to map to r10
+  - Upside: easily catch direct uses w/o going through API to get stolen value.  But maybe we can still catch some such uses w/o renaming if we can distinguish from a TLS access.
+- Is this really different from Proposal 2?
+- TLS can be \c \#define or enum but equals DR_REG_R10.  Could call it DR_S/REG_TLS (==DR_REG_R10 for arm, on x86 ==DR_SEG_FS or GS) for source compatibility with x86 tool code.  Also need API routine since needs to either be base or far seg: or have opnd_create_far_base_disp auto-move seg to base when passed-in base==NULL, for fewer changes to tool.
+
+## Proposal 4: mangle app stolen reg before showing to tool
+- Breaks tools wanting to see original code
+- Simple on DR side, but makes tool writing harder
+
+## Proposal 5: isolate all use of stolen reg to single-instr bb and swap stolen reg for that bb
+- At end of bb, before go to fcache return or ibl, swap back
+- Reserve the secondary stolen reg from tool to avoid conflict
+  - Except when app instr uses that reg?  Even then, allowed to read reg, or change if want to change app, but can’t write to reg as scratch reg
+  - Also, we would need more than one secondary stolen => have to reserve several regs from app
+- API routines that insert instr use virtual TLS base, and mangler replaces
+- Can we avoid single-instr bb?  If mangler can find boundary of meta instrs and swap prior (have to distinguish pre vs post instr meta though: could just look for r10-r15 usage)
+- Instrlist property tells you which of the stolen regs is the TLS?
+  - But what about tool-generated instrlist for shared gencode accessed from bb?  Add API routine?
+- For traces: switch to post-mangling traces and burden is on tool?  For advanced tools only?
+- Problem: how does tool get r10 value in non-r10-using app code sequence?
+
+## Metrics:
+- DR simplicity
+- Tool simplicity
+- Performance
+
+## Proposal 6: swap stolen reg around each app/tool insr that uses it; TLS reg is virtual
+
+\verbatim
+push    {r3}
+ldr  r8, [rTLS + shadow_r7_offs]
+str  r3, [r10 + r3_slot]  ;; save app r3
+mov  r3, r10  ;; swap rTLS
+ldr  r10, [r3 + r10_slot]  ;; restore app r10
+A: push {r0-r15}
+save app r10 to rTLS(r3)
+restore rTLS to r10
+restore app r3
+str  r5, [r10 + r3_slot]  ;; save app r3
+mov  r5, r10  ;; swap rTLS
+ldr  r10, [r5 + r10_slot]  ;; restore app r10
+add  r8, r3 << 2
+---------
+save app r10 to rTLS(r3)
+restore rTLS to r10
+restore app r3
+str  r5, [r10 + r3_slot]  ;; save app r3
+mov  r5, r10  ;; swap rTLS
+ldr  r10, [r5 + r10_slot]  ;; restore app r10
+add  r8, r10 << 2
+ldr  r8, [rTLS + r10_shadow_mem_offs]
+B: ldr  r8, [r10]
+bl  foo
+\endverbatim
+
+
+Mangling of meta instr test: if tool decoding from raw bits matches what it encoded.
+So rTLS == r10?  But then our encoder/mangler can’t tell the difference.
+If we have rTLS==virtual we have to provide way for tool to ask what it really maps to when encoded, so tool can identify its own instru.  But maybe this is better than proposal 3 b/c this is only for advanced tools using faults: all other tools can ignore stolen reg.
+
+DR impl: either tool mangling pass or encoder itself maps rTLS->r10.  Mangler has to do something anyway on app instrs using stolen reg: doesn’t seem much more complex for DR.
+
+Still have to mangle meta use of stolen reg for case where bb uses all GPR: so in this corner case this turns into Proposal 1.
+
+What about separate instrlist encoding to code cache, which access TLS?
+Disallow r10
+
+
+## Discussion:
+
+This seems to be a choice between complexity for advanced tools dealing with DR mangling their instru, vs complexity for the simple task of reading an app reg value.  But maybe most simple tools only care about memory refs and control flow, and if we provide API routines to gather the details there, simple tools will work regardless.  Thus maybe we pick here based on what’s best for complex tools.
+
+## Suggestion:
+
+Pick Proposal 3 and implement for all samples, drcov, and Dr. Memory.  It’s not much extra work inside DR.  Then revisit before any public release and we can change our minds once we have experience with actual tool usage.
+
+ARM TLS register
+http://infocenter.arm.com/help/topic/com.arm.doc.ddi0500f/CIHCFIGE.html
+http://infocenter.arm.com/help/topic/com.arm.doc.ddi0500f/CIHFACBC.html
+http://infocenter.arm.com/help/topic/com.arm.doc.ddi0500f/BABEJGAD.html
+There are two thread registers, TPIDRURW and TPIDRURO and gcc only used one.
+In ARMv7, it uses TPIDRURO.
+
+
+## OS/TLS/Steal reg
+
+- add field in spill state
+
+  \verbatim
+  typedef struct _spill_state_t {
+      /* Four registers are used in the indirect branch lookup routines */
+  #ifdef X86
+      reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
+  #elif defined (ARM)
+      reg_t r0, r1, r2, r3;
+      reg_t reg_steal;              /* slot for steal register */
+  #endif
+      /* FIXME: move this below the tables to fit more on cache line */
+
+  XXXX check table cache line alignment
+      dcontext_t *dcontext;
+  } spill_state_t;
+  \endverbatim
+
+- fs, gs renaming?
+  SEG_TLS, SEG_LIB_TLS
+  x86: app_fs, app_gs, app_fs_base, app_gs_base
+  arm: tpidrurw, tpidruro, tipdr_el0, tpidrro_el0
+  read_thread_register/write_thread_register
+  xplatform: app_tls_reg_lib, app_tls_reg_ex, app_tls_base_lib, app_tls_base_alt
+  access: thread_reg_is_readonly.
+
+
+app: add r10, r10, r9
+
+\verbatim
+<spill r3>
+ldr r10, [r10, R10_offset]
+add r8, r10, r9
+mrc tls => r10.
+\endverbatim
+
+We steal one slot in the app tls and swap
+
+
+## Mangle App TLS
+
+Originally we do not swap APP’s TLS but use a slot from the APP’s TLS for storing DR’s TLS base on entering DR context, and restore back on entering code cache.
+
+
+
+# Direct Link Reachability
+
+I guess we have to make them indirect b/c 64MB is just too short.
+
+Something like:
+
+\verbatim
+  ldr pc [pc+8]
+\endverbatim
+
+Then a link/unlink is a data write: needs no icache flush.  However, xref the
+-no_indirect_stubs discussion where making OP_ldr an exit cti will take a bit
+of work, and we'll have to pay for an indirect branch even when a direct one
+would reach.
+
+Can we use the stub when far away?  Then we can leave OP_b always as the exit
+cti, and have it point directly at the target when it reaches.  Ideally we'd
+store the target when far in the stub itself to save space, but we need atomic
+link/unlink, so we'll have to clobber the 1st instr of the stub.  That requires
+not clobbering the other instrs in the stub.  So we'd need another ptr-sized
+slot at the end of each stub, and we always have an extra instr: but we gain
+direct instead of indirect branches when they reach, which should be likely for
+most code since it's co-located in the cache.  So we have:
+
+\verbatim
+Unlinked:
+    b stub
+  stub:
+    str r0, [r10, #r0-slot]
+    movw r0, #bottom-half-&linkstub
+    movt r0, #top-half-&linkstub
+    ldr pc, [r10, #fcache-return-offs]
+    <ptr-sized slot>
+
+Linked, target < 64MB away:
+    b target
+  stub:
+    str r0, [r10, #r0-slot]
+    movw r0, #bottom-half-&linkstub
+    movt r0, #top-half-&linkstub
+    ldr pc, [r10, #fcache-return-offs]
+    <ptr-sized slot>
+
+Linked, target > 64MB away:
+    b stub
+  stub:
+    ldr pc, [pc + 8]
+    movw r0, #bottom-half-&linkstub
+    movt r0, #top-half-&linkstub
+    ldr pc, [r10, #fcache-return-offs]
+    <target>
+\endverbatim
+
+What about AArch64?  Do we have to spill a register (probably we'd use the
+stub's spill of r0), and have prefixes on every fragment with a "direct link"
+entry point?  OP_b there can reach +-128MB.  Maybe we do not put in direct
+prefixes by default and you have to flush to add them?  For simplicity, we flush
+once and add to all, rather than partitioning the cache, giving up perf for
+simplicity on large apps?  OTOH after flushing we may not need them (a reset of
+startup code).
+
+Can we use landing pads?  We'd need a dedicated landing pad slot for every
+branch crossing 64MB (128MB for A64).  It could work for pcaches or sthg, or if
+we never run out of -vm_reserve and can plan where all cache units go, but for
+organically grown live caches that spill over -vm_reserve and end up in random
+spots it seems difficult.
+
+
+
+# IT Block Handling
+
+Presence of OP_it => can't just decode single instr anymore, due to predication and also behavior (16-bit is OP_add if in it block; equiv of OP_adds if outside, for same encoding).
+Can be from 1 to 4 instrs after OP_it instr.
+
+Ways to think about:
+
+
+1. Don't group: have to decode from top, use ISA mode to know whether inside, store it mask somewhere and use it to set predicates for internal instrs.
+
+  => add to same mode namespace, so DR_ISA_ARM_IT?  But who stores the mask (see below)?
+  OP_it sequence must be its own bb, and add FRAG_ flag?
+  For isolated decoding in a loop: swap mode inside decode()?
+
+  Big issue: tool writer can't insert instru before instrs inside it block!
+  So just adding predicates to instrs inside does not make tool writer's life easy there.
+
+
+2. Hierarchical instrlist to group OP_it plus its following instrs?
+
+
+3. Group using raw bit blob, just like short_cti_rewrite: similar here b/c if see OP_it when decoding from cache have to go special-case turn the rest into single blob.  But this is hard for tool to see and analyze the internal instrs: big difference vs short_cti is that short_cti has nothing else inside it, just a target.
+
+
+4. Convert OP_it into series of conditional branches that jump over things
+
+
+5. WINNER: Convert instr inside OP_it into predicated instr, remove the OP_it instr, and have encoder re-add OP_it (ok to add separate OP_it for each, or maybe we also have instrlist encoder put out >1-instr blocks).
+
+  But for tools that want to see opcode mix, etc., can't auto-convert.  This is a bigger deal than rep string: now half the tools have to request some non-default transformation or else they trip over un-encodable OP_it block splits.
+  We can’t satisfy all tools even leveraging drmgr b/c we’d have to remove OP_it in app2app automatically and opcode-mix tools assume that won’t happen.  So we require tools to call sthg like drx_transform_it_block()?   We also isolate OP_it blocks to their own basic blocks, so the tool writer doesn't have to figure out #
+  instrs in an OP_it block and to make it simpler for both tool and internal-DR (
+  decode_fragment() via FRAG_ flag kind of stuff).
+
+  Update: we did come up with a way to satisfy all tools, leveraging drmgr.  We have drmgr calling dr_remove_it_instrs() and then dr_insert_it_instrs() automatically as a special, final pass (even after instru2instru).  This means that the original OP_it is there in the analysis phase, yet all instructions can be instrumented.  Those not using drmgr will have to call dr_remove_it_instrs() and then dr_insert_it_instrs() on their own.
+
+  More details on decoding, which we need for #5 too:
+
+Do we augment dr_isa_mode_t enum w/ a data structure so we can store the mask plus # instrs?  So add to dcontext_t and have a global one.  Fields can be private to arch/ => add black box module-style data struct (or maybe put inside arch one: today that’s “private_code”) for decoder, and move mode inside the new private data struct.
+
+
+
+# Handle the app switching between ARM and Thumb
+
+initial mode for -early: simply look at LSB of entry point of executable.
+don't want to do this every time in dispatch so we should do it in
+dynamo_start() I guess.
+
+for LD_PRELOAD: our own interpreted code will be what we compiled it as.  then
+we'll go through a return instr, and our IBL will always have to handle mode
+switches.
+
+IBL will always handle mode switches, using sthg like the far_ibl strategy to
+keep it away from being intra-fragment.  we'll turn direct branch mode switches
+into IBL, much like far direct cti in x86.
+
+
+
+# IT Blocks Part 2: Splitting
+
+Previously we assumed we never needed to split an IT block, because branches must be the final instr in an IT block.
+
+There are 6 problems to consider:
+
+1. App branch targets middle of IT block: illegal according to ARM manual so maybe we can not support it?  Xref our decision to not support the same bytes as both ARM and Thumb instructions in the same program.
+
+2. Client truncates a bb in the middle of an IT block.
+   Proposal: illegal!  We do not support.
+
+3. Some other length limit makes DR want to truncate: all limits have to be checked for within 4 whenever see OP_it.
+
+4. Relocation in middle of block due to synchall: consider an unsafe point if we can identify whether in an IT block: does kernel gives us IT flags in CPSR just like it does for T flag (all of those are privileged so can’t read directly)?
+   Q: Confirm kernel gives us IT flags.
+
+5. App fault in middle of IT block and app signal handler then resumes there, which DR will treat as a new app entry point.
+   Q: Is this legal according to ARM manual?
+   If kernel gives us IT flags, and we preserve IT flags across sigcxt<->mcxt, we could identify whether going to middle of IT block or not on sigreturn.
+   Impl and challenges: seems similar to #6.
+
+6. OP_svc: if special-case to only split on OP_svc, becomes kind of like #5: bb builder knows in middle of IT block.  We show client a predicated instr and add OP_it in mangling.
+
+   Impl: still terminate after non-ignorable OP_svc, use multiplexed flag so when arrive in dispatch know in IT block.  Then set flag in dcontext to survive across do_syscall.  Then the next build bb call takes flag and knows to add OP_it in mangling.
+   Update: because a delayed signal could come in, we can’t rely on a dcontext field.  We should emulate the processor and store the IT bits in mc->eflags on exit, make sure we store them on emulated delayed signal delivery.  We’ll also have them from a fault (#5).  (If we can’t get that to work we’d need a per-app-pc property in a global hashtable, in vmareas, or in the interception list or sthg.)
+
+   Have to set decode state properly.
+
+   Challenges:
+   a. Recreation: either use stored xl8 instead of recreation, or need FRAG_ flag.
+   b. Traces: either cannot be in trace, or need FRAG_ flag and update decode_fragment().  Since prior bb ends in non-ignorable syscall, should already be a trace ender, so can this be a trace head?
+   c. Delayed signal delivered
+   d. Client sees modified IT in first bb, and extra app IT instr in second
+
+Q: implementing #5 and #6 is 90% of work to support #1-#4?  Though adding #1-#4 will be strict superset of #5 and #6 so for now we will not support general splitting.
+
+
+## Further discussion 4/23/15
+
+fault in 1st half of split IT block: sigcontext will only show # instrs in
+first half of IT block, but that's ok if we split at same point again.
+
+state xl8: can use stored xl8, or FRAG_ flag (1 bit ok b/c can decode from
+cache)
+
+split IT: data specific to that bb (the IT block condition + mask) is
+easiest in mangling, and then skip the cpsr write in fcache_return: except
+mangling pays cost when linked: wait though, the link case is only when
+cond syscall is not executed, so predicate the mangling code?  what if
+fall-through target is not there though?  our code is not set up for
+custom exit stubs.  so just pay cost of mangling to store something every
+time.  currently cond br exit cti is final instr of IT block: if shrink IT
+then can put mangling after IT block, else put it before.  mangling stores
+into dcontext and dispatch puts into mcontext, to aviod needing special
+fcache_return.  has to store pc so dispatch can tell immed exit from later
+exit.
+
+syscall exec itself: have to save IT field.
+
+transparency: client sees modified IT in first bb, and extra app IT instr
+in second.  client prob going to remove IT blocks, do instru, and
+reinstate, but that's a separate layer.
+
+
+
+# Conditional Syscall
+
+For conditional syscall (i.e., the sysycall in an IT block), we created two exit stubs, one stub is conditional with the same condition as the syscall, and flagged as NI_SYSCALL, and the other stub is an ubr as the fall through without NI_SYSCALL flags, which indicate continuing on the next instruction.
+
+
+
+
+ ****************************************************************************
+ */

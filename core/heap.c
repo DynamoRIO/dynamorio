@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,29 +40,29 @@
  */
 
 #include "globals.h"
-#include <string.h>             /* for memcpy */
 #include <limits.h>
 
-#include "fragment.h"  /* for struct sizes */
-#include "link.h"      /* for struct sizes */
-#include "instr.h"     /* for struct sizes */
-#include "fcache.h"    /* fcache_low_on_memory */
+#include "fragment.h" /* for struct sizes */
+#include "link.h"     /* for struct sizes */
+#include "instr.h"    /* for struct sizes */
+#include "fcache.h"   /* fcache_low_on_memory */
+#ifdef UNIX
+#    include "memquery.h"
+#endif
 #ifdef DEBUG
-# include "hotpatch.h" /* To handle leak for case 9593. */
+#    include "hotpatch.h" /* To handle leak for case 9593. */
 #endif
-#ifdef CLIENT_INTERFACE
-# include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef HEAP_ACCOUNTING
-# ifndef DEBUG
-# error HEAP_ACCOUNTING requires DEBUG
-# endif
+#    ifndef DEBUG
+#        error HEAP_ACCOUNTING requires DEBUG
+#    endif
 #endif
 
 #ifdef DEBUG_MEMORY
 /* on by default but higher than general asserts */
-# define CHKLVL_MEMFILL CHKLVL_DEFAULT
+#    define CHKLVL_MEMFILL CHKLVL_DEFAULT
 #endif
 
 extern bool vm_areas_exited;
@@ -111,82 +111,64 @@ static const uint BLOCK_SIZES[] = {
     24, /* fcache empties and vm_area_t are now 20, vm area extras still 24 */
     /* 40 dbg / 36 rel: */
     ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT),
-#if defined(X64) || defined(CUSTOM_EXIT_STUBS)
-    sizeof(instr_t), /* 64 (96 x64) */
-    sizeof(fragment_t) + sizeof(direct_linkstub_t)
-        + sizeof(cbr_fallthrough_linkstub_t), /* 68 dbg / 64 rel, 112 x64 */
-    /* all other bb/trace buckets are 8 larger but in same order */
+#if defined(X64)
+    sizeof(instr_t), /* 104 x64 */
+#    ifdef DEBUG
+    sizeof(fragment_t) + sizeof(direct_linkstub_t) +
+        sizeof(cbr_fallthrough_linkstub_t), /* 112 dbg x64 / 104 rel x64 */
+#    else
+/* release == instr_t */
+#    endif
 #else
-    sizeof(fragment_t) + sizeof(direct_linkstub_t)
-        + sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
-    sizeof(instr_t), /* 64 */
+    sizeof(fragment_t) + sizeof(direct_linkstub_t) +
+        sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
+#    ifndef DEBUG
+    sizeof(instr_t),                        /* 68 */
+#    endif
 #endif
     /* we keep this bucket even though only 10% or so of normal bbs
      * hit this.
-     * FIXME: release == instr_t here so a small waste when walking buckets
      */
-    ALIGN_FORWARD(sizeof(fragment_t) + 2*sizeof(direct_linkstub_t),
+    ALIGN_FORWARD(sizeof(fragment_t) + 2 * sizeof(direct_linkstub_t),
                   HEAP_ALIGNMENT), /* 68 dbg / 64 rel (128 x64) */
-    ALIGN_FORWARD(sizeof(trace_t) + 2*sizeof(direct_linkstub_t) + sizeof(uint),
+    ALIGN_FORWARD(sizeof(trace_t) + 2 * sizeof(direct_linkstub_t) + sizeof(uint),
                   HEAP_ALIGNMENT), /* 80 dbg / 76 rel (148 x64 => 152) */
     /* FIXME: measure whether should put in indirect mixes as well */
-    ALIGN_FORWARD(sizeof(trace_t) + 3*sizeof(direct_linkstub_t) + sizeof(uint),
+    ALIGN_FORWARD(sizeof(trace_t) + 3 * sizeof(direct_linkstub_t) + sizeof(uint),
                   HEAP_ALIGNMENT), /* 96 dbg / 92 rel (180 x64 => 184) */
-    ALIGN_FORWARD(sizeof(trace_t) + 5*sizeof(direct_linkstub_t) + sizeof(uint),
+    ALIGN_FORWARD(sizeof(trace_t) + 5 * sizeof(direct_linkstub_t) + sizeof(uint),
                   HEAP_ALIGNMENT), /* 128 dbg / 124 rel (244 x64 => 248) */
-    256,
-    512,
-    UINT_MAX /* variable-length */
+    256, 512, UINT_MAX             /* variable-length */
 };
-#define BLOCK_TYPES (sizeof(BLOCK_SIZES)/sizeof(uint))
+#define BLOCK_TYPES (sizeof(BLOCK_SIZES) / sizeof(uint))
 
 #ifdef DEBUG
 /* FIXME: would be nice to have these stats per HEAPACCT category */
 /* These are ints only b/c we used to do non-atomic adds and wanted to
  * gracefully handle underflow to negative values
  */
-DECLARE_NEVERPROT_VAR(static int block_total_count[BLOCK_TYPES], {0});
-DECLARE_NEVERPROT_VAR(static int block_count[BLOCK_TYPES], {0});
-DECLARE_NEVERPROT_VAR(static int block_peak_count[BLOCK_TYPES], {0});
-DECLARE_NEVERPROT_VAR(static int block_wasted[BLOCK_TYPES], {0});
-DECLARE_NEVERPROT_VAR(static int block_peak_wasted[BLOCK_TYPES], {0});
-DECLARE_NEVERPROT_VAR(static int block_align_pad[BLOCK_TYPES], {0});
-DECLARE_NEVERPROT_VAR(static int block_peak_align_pad[BLOCK_TYPES], {0});
+DECLARE_NEVERPROT_VAR(static int block_total_count[BLOCK_TYPES], { 0 });
+DECLARE_NEVERPROT_VAR(static int block_count[BLOCK_TYPES], { 0 });
+DECLARE_NEVERPROT_VAR(static int block_peak_count[BLOCK_TYPES], { 0 });
+DECLARE_NEVERPROT_VAR(static int block_wasted[BLOCK_TYPES], { 0 });
+DECLARE_NEVERPROT_VAR(static int block_peak_wasted[BLOCK_TYPES], { 0 });
+DECLARE_NEVERPROT_VAR(static int block_align_pad[BLOCK_TYPES], { 0 });
+DECLARE_NEVERPROT_VAR(static int block_peak_align_pad[BLOCK_TYPES], { 0 });
 DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #endif
 
 /* variable-length: we steal one int for the size */
-#define HEADER_SIZE  (sizeof(size_t))
+#define HEADER_SIZE (sizeof(size_t))
 /* VARIABLE_SIZE is assignable */
 #define VARIABLE_SIZE(p) (*(size_t *)((p)-HEADER_SIZE))
 #define MEMSET_HEADER(p, value) VARIABLE_SIZE(p) = HEAP_TO_PTR_UINT(value)
-#define GET_VARIABLE_ALLOCATION_SIZE(p)  (VARIABLE_SIZE(p) + HEADER_SIZE)
+#define GET_VARIABLE_ALLOCATION_SIZE(p) (VARIABLE_SIZE(p) + HEADER_SIZE)
 
-/* heap is allocated in units
- * we start out with a small unit, then each additional unit we
- * need doubles in size, up to a maximum, we default to 32kb initial size
- * (24kb useful with guard pages), max size defaults to 64kb (56kb useful with
- * guard pages), we keep the max small to save memory, it doesn't seem to be
- * perf hit! Though with guard pages we are wasting quite a bit of reserved
- * (though not committed) space */
-/* the only big things global heap is used for are pc sampling
- * hash table and sideline sampling hash table -- if none of those
- * are in use, 16KB should be plenty, we default to 32kb since guard
- * pages are on by default (gives 24kb useful) max size is same as for
- * normal heap units.
- */
-/* the old defaults were 32kb (usable) for initial thread private and 16kb
- * (usable) for initial global, changed to simplify the logic for allocating
- * in multiples of the os allocation granularity.  The new defaults prob.
- * make more sense with the shared cache then the old did anyways.
- */
-/* restrictions -
- * any guard pages are included in the size, size must be > UNITOVERHEAD
- * for best performance sizes should be of the form
- * 2^n * page_size (where n is a positve integer) and max should be a multiple
- * of the os allocation granularity so that with enough doublings we are
- * reserving memory in multiples of the allocation granularity and not wasting
- * any virtual address space (beyond our guard pages)
+/* The heap is allocated in units.
+ * We start out with a small unit. Then each additional unit we
+ * need doubles in size, up to a maximum.
+ * We keep the initial units small for thread-private heaps, since with
+ * thousands of threads the space can add up.
  */
 #define HEAP_UNIT_MIN_SIZE DYNAMO_OPTION(initial_heap_unit_size)
 #define HEAP_UNIT_MAX_SIZE INTERNAL_OPTION(max_heap_unit_size)
@@ -195,7 +177,7 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define GUARD_PAGE_ADJUSTMENT (dynamo_options.guard_pages ? 2 * PAGE_SIZE : 0)
 
 /* gets usable space in the unit */
-#define UNITROOM(u) ((size_t) (u->end_pc - u->start_pc))
+#define UNITROOM(u) ((size_t)(u->end_pc - u->start_pc))
 #define UNIT_RESERVED_ROOM(u) (u->reserved_end_pc - u->start_pc)
 /* we keep the heap_unit_t header at top of the unit, this macro calculates
  * the committed size of the unit by adding header size to available size
@@ -203,16 +185,16 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define UNIT_COMMIT_SIZE(u) (UNITROOM(u) + sizeof(heap_unit_t))
 #define UNIT_RESERVED_SIZE(u) (UNIT_RESERVED_ROOM(u) + sizeof(heap_unit_t))
 #define UNIT_ALLOC_START(u) (u->start_pc - sizeof(heap_unit_t))
-#define UNIT_GET_START_PC(u) (byte*)(((ptr_uint_t)u) + sizeof(heap_unit_t))
+#define UNIT_GET_START_PC(u) (byte *)(((ptr_uint_t)u) + sizeof(heap_unit_t))
 #define UNIT_COMMIT_END(u) (u->end_pc)
 #define UNIT_RESERVED_END(u) (u->reserved_end_pc)
 
-/* gets the allocated size of the unit (reserved size + guard pages) */
-#define UNITALLOC(u) (UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
-/* gets unit overhead, includes the reserved (guard pages) and committed
- * (sizeof(heap_unit_t)) portions
+/* Gets the allocated size of the unit (reserved size; doesn't include guard pages
+ * as those are not considered part of the usable space).
  */
-#define UNITOVERHEAD (sizeof(heap_unit_t) + GUARD_PAGE_ADJUSTMENT)
+#define UNITALLOC(u) (UNIT_RESERVED_SIZE(u))
+/* Gets unit overhead: includes reserved and committed (sizeof(heap_unit_t)) portions. */
+#define UNITOVERHEAD sizeof(heap_unit_t)
 
 /* any alloc request larger than this needs a special unit */
 #define MAXROOM (HEAP_UNIT_MAX_SIZE - UNITOVERHEAD)
@@ -224,13 +206,14 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
  * this struct is kept at top of unit itself, not in separate allocation
  */
 typedef struct _heap_unit_t {
-    heap_pc start_pc;         /* start address of heap storage */
-    heap_pc end_pc;           /* open-ended end address of heap storage */
-    heap_pc cur_pc;           /* open-ended current end of allocated storage */
-    heap_pc reserved_end_pc;  /* open-ended end of reserved (not nec committed) memory */
-    bool in_vmarea_list;      /* perf opt for delayed batch vmarea updating */
+    heap_pc start_pc;        /* start address of heap storage */
+    heap_pc end_pc;          /* open-ended end address of heap storage */
+    heap_pc cur_pc;          /* open-ended current end of allocated storage */
+    heap_pc reserved_end_pc; /* open-ended end of reserved (not nec committed) memory */
+    bool in_vmarea_list;     /* perf opt for delayed batch vmarea updating */
+    which_vmm_t which;
 #ifdef DEBUG
-    int      id;              /* # of this unit */
+    int id; /* # of this unit */
 #endif
     struct _heap_unit_t *next_local;  /* used to link thread's units */
     struct _heap_unit_t *next_global; /* used to link all units */
@@ -258,38 +241,45 @@ typedef struct _thread_units_t {
     heap_unit_t *cur_unit; /* current unit in heap list */
     heap_pc free_list[BLOCK_TYPES];
 #ifdef DEBUG
-    int num_units;   /* total # of heap units */
+    int num_units; /* total # of heap units */
 #endif
-    dcontext_t *dcontext;  /* back pointer to owner */
-    bool writable;       /* remember state of heap protection */
+    dcontext_t *dcontext; /* back pointer to owner */
+    which_vmm_t which;
+    bool writable; /* remember state of heap protection */
 #ifdef HEAP_ACCOUNTING
     heap_acct_t acct;
 #endif
 } thread_units_t;
 
-/* We separate out heap memory used for fragments, linking, and vmarea multi-entries
- * both to enable resetting memory and for safety for unlink flushing in the presence
- * of clean calls out of the cache that might allocate IR memory (which does not
- * use nonpersistent heap).  Any client actions that involve fragments or linking
- * should require couldbelinking status, which makes them safe wrt unlink flushing.
- * Xref DrMi#1791.
- */
-#define SEPARATE_NONPERSISTENT_HEAP() \
-    (DYNAMO_OPTION(enable_reset) IF_CLIENT_INTERFACE(|| true))
+#define REACHABLE_HEAP() (IF_X64_ELSE(DYNAMO_OPTION(reachable_heap), true))
 
 /* per-thread structure: */
 typedef struct _thread_heap_t {
     thread_units_t *local_heap;
+    /* We separate out heap memory used for fragments, linking, and vmarea multi-entries
+     * both to enable resetting memory and for safety for unlink flushing in the presence
+     * of clean calls out of the cache that might allocate IR memory (which does not
+     * use nonpersistent heap).  Any client actions that involve fragments or linking
+     * should require couldbelinking status, which makes them safe wrt unlink flushing.
+     * Xref DrMi#1791.
+     */
     thread_units_t *nonpersistent_heap;
+    thread_units_t *reachable_heap; /* Only used if !REACHABLE_HEAP() */
+#ifdef UNIX
+    /* Used for -satisfy_w_xor_x. */
+    heap_pc fork_copy_start;
+    size_t fork_copy_size;
+    vm_area_vector_t *fork_copy_areas;
+#endif
 } thread_heap_t;
 
 /* global, unique thread-shared structure:
  * FIXME: give this name to thread_units_t, and name this AllHeapUnits
  */
 typedef struct _heap_t {
-    heap_unit_t *units;     /* list of all allocated units */
-    heap_unit_t *dead;      /* list of deleted units ready for re-allocation */
-    /* FIXME: num_dead duplicates stats->heap_num_free, but we want num_dead
+    heap_unit_t *units; /* list of all allocated units */
+    heap_unit_t *dead;  /* list of deleted units ready for re-allocation */
+    /* FIXME: num_dead duplicates d_r_stats->heap_num_free, but we want num_dead
      * for release build too, so it's separate...can we do better?
      */
     uint num_dead;
@@ -316,7 +306,7 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
  * creation and global heap alloc
  * must be recursive so that heap_vmareas_synch_units can hold it and heap_unit_lock
  * up front to avoid deadlocks, and still allow vmareas to global_alloc --
- * BUT we do NOT want global_alloc() to be able to recurse!
+ * BUT we do NOT want global_heap_alloc() to be able to recurse!
  * FIXME: either find a better solution to the heap_vmareas_synch_units deadlock
  * that is as efficient, or find a way to assert that the only recursion is
  * from heap_vmareas_synch_units to global_alloc
@@ -324,16 +314,25 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t global_alloc_lock,
                       INIT_RECURSIVE_LOCK(global_alloc_lock));
 
+/* Used to sync low on memory event */
+DECLARE_CXTSWPROT_VAR(static recursive_lock_t low_on_memory_pending_lock,
+                      INIT_RECURSIVE_LOCK(low_on_memory_pending_lock));
+
+/* Denotes whether or not low on memory event requires triggering. */
+DECLARE_FREQPROT_VAR(bool low_on_memory_pending, false);
+
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING) && defined(HOT_PATCHING_INTERFACE)
-static int get_special_heap_header_size(void);
+static int
+get_special_heap_header_size(void);
 #endif
 
-vm_area_vector_t *landing_pad_areas;    /* PR 250294 */
+vm_area_vector_t *landing_pad_areas; /* PR 250294 */
 #ifdef WINDOWS
 /* i#939: we steal space from ntdll's +rx segment */
 static app_pc lpad_temp_writable_start;
 static size_t lpad_temp_writable_size;
-static void release_landing_pad_mem(void);
+static void
+release_landing_pad_mem(void);
 #endif
 
 /* Indicates whether should back out of a global alloc/free and grab the
@@ -353,7 +352,7 @@ safe_to_allocate_or_free_heap_units()
 DECLARE_FREQPROT_VAR(static bool dynamo_areas_pending_remove, false);
 
 #ifdef HEAP_ACCOUNTING
-const char * whichheap_name[] = {
+const char *whichheap_name[] = {
     /* max length for aligned output is length of "BB Fragments" */
     "BB Fragments",
     "Coarse Links",
@@ -367,9 +366,9 @@ const char * whichheap_name[] = {
     "RCT Tables",
     "VM Areas",
     "Symbols",
-# ifdef SIDELINE
+#    ifdef SIDELINE
     "Sideline",
-# endif
+#    endif
     "TH Counter",
     "Tombstone",
     "Hot Patching",
@@ -377,9 +376,7 @@ const char * whichheap_name[] = {
     "Memory Mgt",
     "Stats",
     "SpecialHeap",
-# ifdef CLIENT_INTERFACE
     "Client",
-# endif
     "Lib Dup",
     "Clean Call",
     /* NOTE: Add your heap name here */
@@ -395,35 +392,37 @@ const char * whichheap_name[] = {
  * that are available at any time, yet racy and so may be off a little.
  */
 /* all set to 0 is only initialization we need */
-DECLARE_NEVERPROT_VAR(static thread_units_t global_racy_units, {0});
+DECLARE_NEVERPROT_VAR(static thread_units_t global_racy_units, { 0 });
 
 /* macro to get the type abstracted */
-# define ACCOUNT_FOR_ALLOC_HELPER(type, tu, which, alloc_sz, ask_sz) do { \
-    (tu)->acct.type[which] += alloc_sz;                                \
-    (tu)->acct.num_alloc[which]++;                                     \
-    (tu)->acct.cur_usage[which] += alloc_sz;                           \
-    if ((tu)->acct.cur_usage[which] > (tu)->acct.max_usage[which])     \
-        (tu)->acct.max_usage[which] = (tu)->acct.cur_usage[which];     \
-    if (ask_sz > (tu)->acct.max_single[which])                         \
-        (tu)->acct.max_single[which] = ask_sz;                         \
-} while (0)
+#    define ACCOUNT_FOR_ALLOC_HELPER(type, tu, which, alloc_sz, ask_sz)    \
+        do {                                                               \
+            (tu)->acct.type[which] += alloc_sz;                            \
+            (tu)->acct.num_alloc[which]++;                                 \
+            (tu)->acct.cur_usage[which] += alloc_sz;                       \
+            if ((tu)->acct.cur_usage[which] > (tu)->acct.max_usage[which]) \
+                (tu)->acct.max_usage[which] = (tu)->acct.cur_usage[which]; \
+            if (ask_sz > (tu)->acct.max_single[which])                     \
+                (tu)->acct.max_single[which] = ask_sz;                     \
+        } while (0)
 
-# define ACCOUNT_FOR_ALLOC(type, tu, which, alloc_sz, ask_sz) do { \
-    STATS_ADD_PEAK(heap_claimed, alloc_sz);                        \
-    ACCOUNT_FOR_ALLOC_HELPER(type, tu, which, alloc_sz, ask_sz);   \
-    ACCOUNT_FOR_ALLOC_HELPER(type, &global_racy_units, which,      \
-                             alloc_sz, ask_sz);                    \
-} while (0)
+#    define ACCOUNT_FOR_ALLOC(type, tu, which, alloc_sz, ask_sz)                         \
+        do {                                                                             \
+            STATS_ADD_PEAK(heap_claimed, alloc_sz);                                      \
+            ACCOUNT_FOR_ALLOC_HELPER(type, tu, which, alloc_sz, ask_sz);                 \
+            ACCOUNT_FOR_ALLOC_HELPER(type, &global_racy_units, which, alloc_sz, ask_sz); \
+        } while (0)
 
-# define ACCOUNT_FOR_FREE(tu, which, size) do {    \
-    STATS_SUB(heap_claimed, (size));         \
-    (tu)->acct.cur_usage[which] -= size;           \
-    global_racy_units.acct.cur_usage[which] -= size;    \
-} while (0)
+#    define ACCOUNT_FOR_FREE(tu, which, size)                \
+        do {                                                 \
+            STATS_SUB(heap_claimed, (size));                 \
+            (tu)->acct.cur_usage[which] -= size;             \
+            global_racy_units.acct.cur_usage[which] -= size; \
+        } while (0)
 
 #else
-# define ACCOUNT_FOR_ALLOC(type, tu, which, alloc_sz, ask_sz)
-# define ACCOUNT_FOR_FREE(tu, which, size)
+#    define ACCOUNT_FOR_ALLOC(type, tu, which, alloc_sz, ask_sz)
+#    define ACCOUNT_FOR_FREE(tu, which, size)
 #endif
 
 typedef byte *vm_addr_t;
@@ -433,10 +432,31 @@ typedef byte *vm_addr_t;
 static byte *heap_allowable_region_start = (byte *)PTR_UINT_0;
 static byte *heap_allowable_region_end = (byte *)POINTER_MAX;
 
-/* used only to protect read/write access to the must_reach_* static variables in
- * request_region_be_heap_reachable() */
+/* In standalone mode we do not guarantee 32-bit reachability for anything.
+ * This lets apps grow beyond 4G of heap.
+ */
+#    define HEAP_REACHABILITY_ENABLED() (!standalone_library)
+
+/* Used only to protect read/write access to the must_reach_* static variables
+ * used in request_region_be_heap_reachable().
+ */
 DECLARE_CXTSWPROT_VAR(static mutex_t request_region_be_heap_reachable_lock,
                       INIT_LOCK_FREE(request_region_be_heap_reachable_lock));
+
+/* Initialize so will be overridden on first call; protected by the
+ * request_region_be_heap_reachable_lock.
+ */
+static byte *must_reach_region_start = (byte *)POINTER_MAX;
+static byte *must_reach_region_end = (byte *)PTR_UINT_0; /* closed */
+
+static void
+reset_heap_reachable_bounds(void)
+{
+    heap_allowable_region_start = (byte *)PTR_UINT_0;
+    heap_allowable_region_end = (byte *)POINTER_MAX;
+    must_reach_region_start = (byte *)POINTER_MAX;
+    must_reach_region_end = (byte *)PTR_UINT_0; /* closed */
+}
 
 /* Request that the supplied region be 32bit offset reachable from the DR heap.  Should
  * be called before vmm_heap_init() so we can place the DR heap to meet these constraints.
@@ -449,30 +469,28 @@ DECLARE_CXTSWPROT_VAR(static mutex_t request_region_be_heap_reachable_lock,
 void
 request_region_be_heap_reachable(byte *start, size_t size)
 {
-    /* initialize so will be overridden on first call; protected by the
-     * request_region_be_heap_reachable_lock */
-    static byte *must_reach_region_start = (byte *)POINTER_MAX;
-    static byte *must_reach_region_end = (byte *)PTR_UINT_0;  /* closed */
+    if (!HEAP_REACHABILITY_ENABLED())
+        return;
 
     LOG(GLOBAL, LOG_HEAP, 2,
-        "Adding must-be-reachable-from-heap region "PFX"-"PFX"\n"
-        "Existing must-be-reachable region "PFX"-"PFX"\n"
-        "Existing allowed range "PFX"-"PFX"\n",
-        start, start+size, must_reach_region_start, must_reach_region_end,
+        "Adding must-be-reachable-from-heap region " PFX "-" PFX "\n"
+        "Existing must-be-reachable region " PFX "-" PFX "\n"
+        "Existing allowed range " PFX "-" PFX "\n",
+        start, start + size, must_reach_region_start, must_reach_region_end,
         heap_allowable_region_start, heap_allowable_region_end);
     ASSERT(!POINTER_OVERFLOW_ON_ADD(start, size));
     ASSERT(size > 0);
 
-    mutex_lock(&request_region_be_heap_reachable_lock);
+    d_r_mutex_lock(&request_region_be_heap_reachable_lock);
     if (start < must_reach_region_start) {
         byte *allowable_end_tmp;
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         must_reach_region_start = start;
-        allowable_end_tmp = REACHABLE_32BIT_END(must_reach_region_start,
-                                                must_reach_region_end);
+        allowable_end_tmp =
+            REACHABLE_32BIT_END(must_reach_region_start, must_reach_region_end);
         /* PR 215395 - add in absolute address reachability */
         if (DYNAMO_OPTION(heap_in_lower_4GB) &&
-            allowable_end_tmp > ( byte *)POINTER_MAX_32BIT) {
+            allowable_end_tmp > (byte *)POINTER_MAX_32BIT) {
             allowable_end_tmp = (byte *)POINTER_MAX_32BIT;
         }
         /* Write assumed to be atomic so we don't have to hold a lock to use
@@ -482,24 +500,24 @@ request_region_be_heap_reachable(byte *start, size_t size)
     }
     if (start + size - 1 > must_reach_region_end) {
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-        must_reach_region_end = start + size - 1;  /* closed */
+        must_reach_region_end = start + size - 1; /* closed */
         /* Write assumed to be atomic so we don't have to hold a lock to use
          * heap_allowable_region_start. */
-        heap_allowable_region_start = REACHABLE_32BIT_START(must_reach_region_start,
-                                                            must_reach_region_end);
+        heap_allowable_region_start =
+            REACHABLE_32BIT_START(must_reach_region_start, must_reach_region_end);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     }
     ASSERT(must_reach_region_start <= must_reach_region_end); /* correctness check */
     /* verify can be addressed absolutely (if required), correctness check */
     ASSERT(!DYNAMO_OPTION(heap_in_lower_4GB) ||
            heap_allowable_region_end <= (byte *)POINTER_MAX_32BIT);
-    mutex_unlock(&request_region_be_heap_reachable_lock);
+    d_r_mutex_unlock(&request_region_be_heap_reachable_lock);
 
     LOG(GLOBAL, LOG_HEAP, 1,
-        "Added must-be-reachable-from-heap region "PFX"-"PFX"\n"
-        "New must-be-reachable region "PFX"-"PFX"\n"
-        "New allowed range "PFX"-"PFX"\n",
-        start, start+size, must_reach_region_start, must_reach_region_end,
+        "Added must-be-reachable-from-heap region " PFX "-" PFX "\n"
+        "New must-be-reachable region " PFX "-" PFX "\n"
+        "New allowed range " PFX "-" PFX "\n",
+        start, start + size, must_reach_region_start, must_reach_region_end,
         heap_allowable_region_start, heap_allowable_region_end);
 
     /* Reachability checks (xref PR 215395, note since we currently can't directly
@@ -514,8 +532,8 @@ request_region_be_heap_reachable(byte *start, size_t size)
         must_reach_region_end > heap_allowable_region_end) {
         /* FIXME - in a released product we may want to detach or something else less
          * drastic than triggering a FATAL_USAGE_ERROR. */
-        FATAL_USAGE_ERROR(HEAP_CONTRAINTS_UNSATISFIABLE, 2,
-                          get_application_name(), get_application_pid());
+        FATAL_USAGE_ERROR(HEAP_CONTRAINTS_UNSATISFIABLE, 2, get_application_name(),
+                          get_application_pid());
     }
 }
 
@@ -526,29 +544,33 @@ vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT)
      * align when asked about it.
      */
     if (region_start != NULL)
-        *region_start = (byte *) ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE);
+        *region_start = (byte *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE);
     if (region_end != NULL)
-        *region_end = (byte *) ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE);
+        *region_end = (byte *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE);
 }
 #endif
 
 /* forward declarations of static functions */
-static void threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size);
+static void
+threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size, bool reachable);
 /* dcontext only used for debugging */
-static void threadunits_exit(thread_units_t *tu, dcontext_t *dcontext);
-static void *common_heap_alloc(thread_units_t *tu, size_t size
-                               HEAPACCT(which_heap_t which));
-static bool common_heap_free(thread_units_t *tu, void *p, size_t size
-                             HEAPACCT(which_heap_t which));
-static void release_real_memory(void *p, size_t size, bool remove_vm, which_vmm_t which);
-static void release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm,
-                                        bool guarded, which_vmm_t which);
+static void
+threadunits_exit(thread_units_t *tu, dcontext_t *dcontext);
+static void *
+common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which));
+static bool
+common_heap_free(thread_units_t *tu, void *p, size_t size HEAPACCT(which_heap_t which));
+static void
+release_real_memory(void *p, size_t size, bool remove_vm, which_vmm_t which);
+static void
+release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm, bool guarded,
+                            which_vmm_t which);
 
 typedef enum {
     /* I - Init, Interop - first allocation failed
      *    check for incompatible kernel drivers
      */
-    OOM_INIT    = 0x1,
+    OOM_INIT = 0x1,
     /* R - Reserve - out of virtual reservation *
      *    increase -vm_size to reserve more memory
      */
@@ -561,7 +583,7 @@ typedef enum {
      *    FIXME: if in a job latter we want to detect and just die
      *    (though after freeing as much memory as we can)
      */
-    OOM_COMMIT  = 0x4,
+    OOM_COMMIT = 0x4,
     /* E - Extending Commit - same reasons as Commit
      *    as a possible workaround increasing -heap_commit_increment
      *    may make expose us to commit-ing less frequently,
@@ -570,47 +592,44 @@ typedef enum {
      *
      *    FIXME: not much more informative than OOM_COMMIT
      */
-    OOM_EXTEND  = 0x8,
+    OOM_EXTEND = 0x8,
 } oom_source_t;
 
-static void report_low_on_memory(oom_source_t source,
-                                 heap_error_code_t os_error_code);
+static void
+report_low_on_memory(which_vmm_t which, oom_source_t source,
+                     heap_error_code_t os_error_code);
 
-enum {
-    /* maximum 512MB for 32-bit, 1GB for 64-bit */
-    MAX_VMM_HEAP_UNIT_SIZE = IF_X64_ELSE(1024*1024*1024, 512*1024*1024),
-    /* We should normally have only one large unit, so this is in fact
-     * the maximum we should count on in one process
-     */
-};
+#define MAX_VMCODE_SIZE (2ULL * 1024 * 1024 * 1024)
+#define MAX_VMHEAP_SIZE (IF_X64_ELSE(128ULL, (4ULL - 1)) * 1024 * 1024 * 1024)
+
+/* We should normally have only one large unit, so this is in fact
+ * the maximum we should count on in one process
+ */
+
 /* minimum will be used only if an invalid option is set */
 #define MIN_VMM_HEAP_UNIT_SIZE DYNAMO_OPTION(vmm_block_size)
 
 typedef struct {
-    vm_addr_t start_addr;         /* base virtual address */
-    vm_addr_t end_addr;           /* noninclusive virtual memory range [start,end) */
-    vm_addr_t alloc_start;        /* base allocation virtual address */
-    size_t    alloc_size;         /* allocation size */
+    vm_addr_t start_addr;  /* base virtual address */
+    vm_addr_t end_addr;    /* noninclusive virtual memory range [start,end) */
+    vm_addr_t alloc_start; /* base allocation virtual address */
+    size_t alloc_size;     /* allocation size */
     /* for 64-bit do we want to shift to size_t to allow a larger region?
      * if so must update the bitmap_t routines
      */
-    uint    num_blocks;         /* total number of blocks in virtual allocation */
+    uint num_blocks; /* total number of blocks in virtual allocation */
 
-    mutex_t   lock;             /* write access to the rest of the fields is protected */
+    mutex_t lock; /* write access to the rest of the fields is protected */
     /* We make an assumption about the bitmap_t implementation being
        static therefore we don't grab locks on read accesses.  Anyways,
        currently the bitmap_t is used with no write intent only for ASSERTs. */
-    uint    num_free_blocks;    /* currently free blocks */
-    /* Bitmap uses 2KB static data for granularity 64KB and static maximum 1GB on Windows,
-     * and 32KB on Linux where granularity is 4KB.  These amounts are halved for
-     * 32-bit, so 1KB Windows and 16KB Linux.
+    uint num_free_blocks; /* currently free blocks */
+    const char *name;
+    /* We dynamically allocate the bitmap to allow for different sizes for
+     * vmcode and vmheap and to allow for large vmheap sizes.
+     * We place it at start_addr, or the writable equivalent for vmcode.
      */
-    /* Since we expect only two of these, for now it is ok for users
-       to have static max rather than dynamically allocating with
-       exact size - however this field is left last in the structure
-       in case we do want to save some memory
-    */
-    bitmap_element_t blocks[BITMAP_INDEX(MAX_VMM_HEAP_UNIT_SIZE / MIN_VMM_BLOCK_SIZE)];
+    bitmap_element_t *blocks;
 } vm_heap_t;
 
 /* We keep our heap management structs on the heap for selfprot (case 8074).
@@ -618,16 +637,35 @@ typedef struct {
  * the data here.
  */
 typedef struct _heap_management_t {
-    /* high-level management */
-    /* we reserve only a single vm_heap_t for guaranteed allocation,
-     * we fall back to OS when run out of reservation space */
+    /* We split our 32-bit-displacement-reachable memory, which is mostly our
+     * code cache and thus is called "vmcode", from our heap which can go anywhere,
+     * "vmheap".
+     * For each, we reserve a single vm_heap_t for guaranteed allocation.
+     * We fall back to the OS when run out of reservation space.
+     * If REACHABLE_HEAP() we do not use vmheap and put everything in
+     * vmcode.
+     */
     vm_heap_t vmheap;
+    /* We only need a single 32-bit-displacement-reachable region since it cannot
+     * be larger than 2G anyway.
+     * XXX i#1132: for 64-bit, we make it 2G by default so we never have to
+     * fall back to the OS!  We'll have to make room to load client libs inside
+     * the VMM-managed space is all.
+     * For 32-bit it will have to remain smaller and handle falling back to the OS.
+     */
+    vm_heap_t vmcode;
+    /* A writable mirror of read-only vmcode for -satisfy_w_xor_x. */
+    file_t dual_map_file;
+    vm_addr_t vmcode_writable_base;
+    vm_addr_t vmcode_writable_alloc;
     heap_t heap;
     /* thread-shared heaps: */
     thread_units_t global_units;
+    /* Separate non-persistent heap.  See thread_heap_t.nonpersisent_heap comment. */
     thread_units_t global_nonpersistent_units;
     bool global_heap_writable;
     thread_units_t global_unprotected_units;
+    thread_units_t global_reachable_units; /* Used if !REACHABLE_HEAP() */
 } heap_management_t;
 
 /* For bootstrapping until we can allocate our real heapmgt (case 8074).
@@ -640,28 +678,34 @@ static bool vmm_heap_exited = false; /* FIXME: used only to thwart stack_free fr
                                         should change the interface for the last stack
                                      */
 
-static inline
-uint
+#define MEMORY_FILE_NAME "dynamorio_dual_map"
+
+static vm_addr_t
+vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, byte *base, which_vmm_t which);
+
+static bool
+vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_code,
+                which_vmm_t which);
+
+static inline uint
 vmm_addr_to_block(vm_heap_t *vmh, vm_addr_t p)
 {
-    ASSERT(CHECK_TRUNCATE_TYPE_uint((p - vmh->start_addr) /
-                                    DYNAMO_OPTION(vmm_block_size)));
-    return (uint) ((p - vmh->start_addr) / DYNAMO_OPTION(vmm_block_size));
+    ASSERT(
+        CHECK_TRUNCATE_TYPE_uint((p - vmh->start_addr) / DYNAMO_OPTION(vmm_block_size)));
+    return (uint)((p - vmh->start_addr) / DYNAMO_OPTION(vmm_block_size));
 }
 
-static inline
-vm_addr_t
+static inline vm_addr_t
 vmm_block_to_addr(vm_heap_t *vmh, uint block)
 {
-    ASSERT(block >=0 && block < vmh->num_blocks);
+    ASSERT(block >= 0 && block < vmh->num_blocks);
     return (vm_addr_t)(vmh->start_addr + block * DYNAMO_OPTION(vmm_block_size));
 }
 
 static bool
-vmm_in_same_block(vm_addr_t p1, vm_addr_t p2)
+vmm_in_same_block(vm_heap_t *vmh, vm_addr_t p1, vm_addr_t p2)
 {
-    return vmm_addr_to_block(&heapmgt->vmheap, p1) ==
-        vmm_addr_to_block(&heapmgt->vmheap, p2);
+    return vmm_addr_to_block(vmh, p1) == vmm_addr_to_block(vmh, p2);
 }
 
 #if defined(DEBUG) && defined(INTERNAL)
@@ -674,22 +718,25 @@ vmm_dump_map(vm_heap_t *vmh)
     uint last_i = 0;
     bool is_used = bitmap_test(b, 0) == 0;
 
-    LOG(GLOBAL, LOG_HEAP, 3, "vmm_dump_map("PFX")\n", vmh);
-    /* raw dump first - if you really want binary dump use windbg's dyd */
-    DOLOG(4, LOG_HEAP, {
+    LOG(GLOBAL, LOG_HEAP, 3, "vmm_dump_map(" PFX ")\n", vmh);
+    /* We used to do raw dumps but with the shift to 4K blocks, this is just way
+     * too big.  We disable but leave the capability to enable one-off use.
+     */
+    DOLOG(20, LOG_HEAP, {
         dump_buffer_as_bytes(GLOBAL, b,
-                             BITMAP_INDEX(bitmap_size)*sizeof(bitmap_element_t),
-                             DUMP_RAW|DUMP_ADDRESS);
+                             BITMAP_INDEX(bitmap_size) * sizeof(bitmap_element_t),
+                             DUMP_RAW | DUMP_ADDRESS);
     });
 
-    LOG(GLOBAL, LOG_HEAP, 1, "\nvmm_dump_map("PFX") virtual regions\n", vmh);
-# define VMM_DUMP_MAP_LOG(i, last_i)                                                     \
-    LOG(GLOBAL, LOG_HEAP, 1, PFX"-"PFX" size=%d %s\n", vmm_block_to_addr(vmh, last_i),  \
-        vmm_block_to_addr(vmh, i-1) + DYNAMO_OPTION(vmm_block_size) - 1,                \
-        (i-last_i)*DYNAMO_OPTION(vmm_block_size),                                       \
-        is_used ? "reserved" : "free");
+    LOG(GLOBAL, LOG_HEAP, 1, "\nvmm_dump_map(" PFX ") virtual regions\n", vmh);
+#    define VMM_DUMP_MAP_LOG(i, last_i)                                        \
+        LOG(GLOBAL, LOG_HEAP, 1, PFX "-" PFX " size=%d %s\n",                  \
+            vmm_block_to_addr(vmh, last_i),                                    \
+            vmm_block_to_addr(vmh, i - 1) + DYNAMO_OPTION(vmm_block_size) - 1, \
+            (i - last_i) * DYNAMO_OPTION(vmm_block_size),                      \
+            is_used ? "reserved" : "free");
 
-    for (i=0; i < bitmap_size; i++) {
+    for (i = 0; i < bitmap_size; i++) {
         /* start counting at free/used boundaries */
         if (is_used != (bitmap_test(b, i) == 0)) {
             VMM_DUMP_MAP_LOG(i, last_i);
@@ -701,18 +748,25 @@ vmm_dump_map(vm_heap_t *vmh)
 }
 #endif /* DEBUG */
 
+static inline void
+print_vmh_data(vm_heap_t *vmh, file_t outf)
+{
+    d_r_mutex_lock(&vmh->lock);
+    print_file(outf, "VM heap: addr range " PFX "--" PFX ", # free blocks %d\n",
+               vmh->start_addr, vmh->end_addr, vmh->num_free_blocks);
+    d_r_mutex_unlock(&vmh->lock);
+}
+
 void
 print_vmm_heap_data(file_t outf)
 {
-    mutex_lock(&heapmgt->vmheap.lock);
-    print_file(outf, "VM heap: addr range "PFX"--"PFX", # free blocks %d\n",
-               heapmgt->vmheap.start_addr, heapmgt->vmheap.end_addr,
-               heapmgt->vmheap.num_free_blocks);
-    mutex_unlock(&heapmgt->vmheap.lock);
+    if (heapmgt->vmheap.start_addr != NULL)
+        print_vmh_data(&heapmgt->vmheap, outf);
+    if (heapmgt->vmcode.start_addr != NULL)
+        print_vmh_data(&heapmgt->vmcode, outf);
 }
 
-static inline
-void
+static inline void
 vmm_heap_initialize_unusable(vm_heap_t *vmh)
 {
     vmh->start_addr = vmh->end_addr = NULL;
@@ -720,25 +774,20 @@ vmm_heap_initialize_unusable(vm_heap_t *vmh)
 }
 
 static void
-vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
+report_w_xor_x_fatal_error_and_exit(void)
+{
+    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SATISFY_W_XOR_X, 2, get_application_name(),
+                                get_application_pid());
+    ASSERT_NOT_REACHED();
+}
+
+static void
+vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
 {
     ptr_uint_t preferred = 0;
-    heap_error_code_t error_code = 0;
-    ASSIGN_INIT_LOCK_FREE(vmh->lock, vmh_lock);
-
-    size = ALIGN_FORWARD(size, DYNAMO_OPTION(vmm_block_size));
-    ASSERT(size <= MAX_VMM_HEAP_UNIT_SIZE);
-    vmh->alloc_size = size;
-    vmh->start_addr = NULL;
-
-    if (size == 0) {
-        vmm_heap_initialize_unusable(&heapmgt->vmheap);
-        return;
-    }
-
 #ifdef X64
     /* -heap_in_lower_4GB takes top priority and has already set heap_allowable_region_*.
-     * Next comes -vm_base_near_app.
+     * Next comes -vm_base_near_app.  It will fail for -vm_size=2G, which we document.
      */
     if (DYNAMO_OPTION(vm_base_near_app)) {
         /* Required for STATIC_LIBRARY: must be near app b/c clients are there.
@@ -752,21 +801,35 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
          * code if the app base is near -vm_base.
          */
         if (!REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base)) ||
-            !REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base) +
-                             DYNAMO_OPTION(vm_max_offset))) {
+            !REL32_REACHABLE(app_base,
+                             (app_pc)DYNAMO_OPTION(vm_base) +
+                                 DYNAMO_OPTION(vm_max_offset)) ||
+            ((app_pc)DYNAMO_OPTION(vm_base) < app_end &&
+             (app_pc)DYNAMO_OPTION(vm_base) + DYNAMO_OPTION(vm_max_offset) > app_base)) {
             byte *reach_base = MAX(REACHABLE_32BIT_START(app_base, app_end),
                                    heap_allowable_region_start);
-            byte *reach_end = MIN(REACHABLE_32BIT_END(app_base, app_end),
-                                  heap_allowable_region_end);
+            byte *reach_end =
+                MIN(REACHABLE_32BIT_END(app_base, app_end), heap_allowable_region_end);
             if (reach_base < reach_end) {
-                vmh->alloc_start = os_heap_reserve_in_region
-                    ((void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
-                     (void *)ALIGN_BACKWARD(reach_end, PAGE_SIZE),
-                     size + DYNAMO_OPTION(vmm_block_size), &error_code, true/*+x*/);
+                size_t add_for_align = DYNAMO_OPTION(vmm_block_size);
+                if (DYNAMO_OPTION(vmm_block_size) == PAGE_SIZE) {
+                    /* No need for extra space for alignment. */
+                    add_for_align = 0;
+                }
+                vmh->alloc_start = os_heap_reserve_in_region(
+                    (void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
+                    (void *)ALIGN_BACKWARD(reach_end, PAGE_SIZE), size + add_for_align,
+                    error_code, true /*+x*/);
                 if (vmh->alloc_start != NULL) {
-                    vmh->start_addr = (heap_pc)
-                        ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+                    vmh->start_addr = (heap_pc)ALIGN_FORWARD(
+                        vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+                    if (add_for_align == 0) {
+                        ASSERT(ALIGNED(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size)));
+                        ASSERT(vmh->start_addr == vmh->alloc_start);
+                    }
                     request_region_be_heap_reachable(app_base, app_end - app_base);
+                    LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init: placed %s near app\n",
+                        vmh->name);
                 }
             }
         }
@@ -782,24 +845,28 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
          * hand changing any of the lower 16 bits will make our bugs
          * non-deterministic. */
         /* Make sure we don't waste the lower bits from our random number */
-        preferred = (DYNAMO_OPTION(vm_base)
-                     + get_random_offset(DYNAMO_OPTION(vm_max_offset) /
-                                         DYNAMO_OPTION(vmm_block_size)) *
-                     DYNAMO_OPTION(vmm_block_size));
-        preferred = ALIGN_FORWARD(preferred, DYNAMO_OPTION(vmm_block_size));
+        preferred = (DYNAMO_OPTION(vm_base) +
+                     get_random_offset(DYNAMO_OPTION(vm_max_offset) /
+                                       DYNAMO_OPTION(vmm_block_size)) *
+                         DYNAMO_OPTION(vmm_block_size));
+        preferred = ALIGN_FORWARD(preferred, OS_ALLOC_GRANULARITY);
         /* overflow check: w/ vm_base shouldn't happen so debug-only check */
         ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
         /* let's assume a single chunk is sufficient to reserve */
 #ifdef X64
         if ((byte *)preferred < heap_allowable_region_start ||
             (byte *)preferred + size > heap_allowable_region_end) {
-            error_code = HEAP_ERROR_NOT_AT_PREFERRED;
+            *error_code = HEAP_ERROR_NOT_AT_PREFERRED;
+            LOG(GLOBAL, LOG_HEAP, 1,
+                "vmm_heap_unit_init preferred=" PFX " too far from " PFX "-" PFX "\n",
+                preferred, heap_allowable_region_start, heap_allowable_region_end);
         } else {
 #endif
-            vmh->start_addr = os_heap_reserve((void*)preferred, size, &error_code,
-                                              true/*+x*/);
+            vmh->alloc_start =
+                os_heap_reserve((void *)preferred, size, error_code, true /*+x*/);
+            vmh->start_addr = vmh->alloc_start;
             LOG(GLOBAL, LOG_HEAP, 1,
-                "vmm_heap_unit_init preferred="PFX" got start_addr="PFX"\n",
+                "vmm_heap_unit_init preferred=" PFX " got start_addr=" PFX "\n",
                 preferred, vmh->start_addr);
 #ifdef X64
         }
@@ -813,24 +880,23 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         vmh->alloc_size = size + DYNAMO_OPTION(vmm_block_size);
 #ifdef X64
         /* PR 215395, make sure allocation satisfies heap reachability contraints */
-        vmh->alloc_start = os_heap_reserve_in_region
-            ((void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
-             (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
-             size + DYNAMO_OPTION(vmm_block_size), &error_code,
-             true/*+x*/);
+        vmh->alloc_start = os_heap_reserve_in_region(
+            (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+            (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
+            size + DYNAMO_OPTION(vmm_block_size), error_code, true /*+x*/);
 #else
-        vmh->alloc_start = (heap_pc)
-            os_heap_reserve(NULL, size + DYNAMO_OPTION(vmm_block_size),
-                            &error_code, true/*+x*/);
+        vmh->alloc_start = (heap_pc)os_heap_reserve(
+            NULL, size + DYNAMO_OPTION(vmm_block_size), error_code, true /*+x*/);
 #endif
-        vmh->start_addr = (heap_pc) ALIGN_FORWARD(vmh->alloc_start,
-                                                  DYNAMO_OPTION(vmm_block_size));
-        LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
-            PFX" letting OS place sz=%dM addr="PFX"\n",
-            preferred, size/(1024*1024), vmh->start_addr);
+        vmh->start_addr =
+            (heap_pc)ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+        LOG(GLOBAL, LOG_HEAP, 1,
+            "vmm_heap_unit_init unable to allocate at preferred=" PFX
+            " letting OS place sz=%dM addr=" PFX "\n",
+            preferred, size / (1024 * 1024), vmh->start_addr);
         if (vmh->alloc_start == NULL && DYNAMO_OPTION(vm_allow_smaller)) {
             /* Just a little smaller might fit */
-            size_t sub = (size_t) ALIGN_FORWARD(size/16, 1024*1024);
+            size_t sub = (size_t)ALIGN_FORWARD(size / 16, 1024 * 1024);
             SYSLOG_INTERNAL_WARNING_ONCE("Full size vmm heap allocation failed");
             if (size > sub)
                 size -= sub;
@@ -840,6 +906,23 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
             break;
     }
 #ifdef X64
+    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+        /* Rather than replacing the 3 os_heap_reserve* calls above with os_map_file
+         * whose MAP_FILE_REACHABLE relies on VMM (us!) being initialized, which is
+         * tricky, we simply do the standard reserve above and then map our file
+         * on top.  TODO i#3566: We need a different strategy on Windows.
+         */
+        /* Ensure os_map_file ignores vmcode: */
+        ASSERT(!is_vmm_reserved_address(vmh->start_addr, size, NULL, NULL));
+        size_t map_size = vmh->alloc_size;
+        byte *map_base =
+            os_map_file(heapmgt->dual_map_file, &map_size, 0, vmh->alloc_start,
+                        MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+        if (map_base != vmh->alloc_start || map_size != vmh->alloc_size) {
+            report_w_xor_x_fatal_error_and_exit();
+            ASSERT_NOT_REACHED();
+        }
+    }
     /* ensure future out-of-block heap allocations are reachable from this allocation */
     if (vmh->start_addr != NULL) {
         ASSERT(vmh->start_addr >= heap_allowable_region_start &&
@@ -848,38 +931,124 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         request_region_be_heap_reachable(vmh->start_addr, size);
     }
 #endif
-    if (vmh->start_addr == 0) {
+    ASSERT(ALIGNED(vmh->start_addr, DYNAMO_OPTION(vmm_block_size)));
+}
+
+/* Does not return. */
+static void
+vmm_heap_unit_init_failed(vm_heap_t *vmh, heap_error_code_t error_code, const char *name)
+{
+    LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init %s: failed to allocate memory!\n", name);
+    vmm_heap_initialize_unusable(vmh);
+    /* We couldn't even reserve initial virtual memory - we're out of luck. */
+    report_low_on_memory(VMM_HEAP, OOM_INIT, error_code);
+    ASSERT_NOT_REACHED();
+}
+
+static void
+vmm_heap_unit_init(vm_heap_t *vmh, size_t size, bool is_vmcode, const char *name)
+{
+    heap_error_code_t error_code = 0;
+    ASSIGN_INIT_LOCK_FREE(vmh->lock, vmh_lock);
+    /* We need to get the lock into the process list before we copy out of
+     * temp_heapmgt, else it will point to freed memory when we go back to temp_heapmgt
+     * for lock cleanup code.
+     */
+    d_r_mutex_lock(&vmh->lock);
+    d_r_mutex_unlock(&vmh->lock);
+    size = ALIGN_FORWARD(size, DYNAMO_OPTION(vmm_block_size));
+    vmh->alloc_size = size;
+    vmh->start_addr = NULL;
+    vmh->name = name;
+
+    if (size == 0) {
         vmm_heap_initialize_unusable(vmh);
-        /* we couldn't even reserve initial virtual memory - we're out of luck */
-        /* XXX case 7373: make sure we tag as a potential
-         * interoperability issue, in staging mode we should probably
-         * get out from the process since we haven't really started yet
+        return;
+    }
+
+    if (is_vmcode) {
+        /* This is our must-be-reachable alloc whose placement matters and is
+         * controlled by runtime options.
          */
-        report_low_on_memory(OOM_INIT, error_code);
+        if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+            heapmgt->dual_map_file = os_create_memory_file(MEMORY_FILE_NAME, size);
+            if (heapmgt->dual_map_file == INVALID_FILE) {
+                report_w_xor_x_fatal_error_and_exit();
+                ASSERT_NOT_REACHED();
+            }
+        }
+        vmm_place_vmcode(vmh, size, &error_code);
+        if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+            size_t map_size = vmh->alloc_size;
+            heapmgt->vmcode_writable_alloc =
+                os_map_file(heapmgt->dual_map_file, &map_size, 0, NULL, MEMPROT_NONE, 0);
+            ASSERT(map_size == vmh->alloc_size);
+            if (heapmgt->vmcode_writable_alloc == 0) {
+                LOG(GLOBAL, LOG_HEAP, 1,
+                    "vmm_heap_unit_init %s: failed to allocate writable vmcode!\n");
+                vmm_heap_initialize_unusable(vmh);
+                report_low_on_memory(VMM_CACHE | VMM_REACHABLE, OOM_INIT, error_code);
+                ASSERT_NOT_REACHED();
+            }
+            heapmgt->vmcode_writable_base = (heap_pc)ALIGN_FORWARD(
+                heapmgt->vmcode_writable_alloc, DYNAMO_OPTION(vmm_block_size));
+            LOG(GLOBAL, LOG_HEAP, 1,
+                "vmm_heap_unit_init vmcode+w reservation: [" PFX "," PFX ")\n",
+                heapmgt->vmcode_writable_base, heapmgt->vmcode_writable_base + size);
+        }
+    } else {
+        /* These days every OS provides ASLR, so we do not bother to do our own
+         * for this second reservation and rely on the OS.
+         */
+        vmh->alloc_size = size + DYNAMO_OPTION(vmm_block_size);
+        vmh->alloc_start = (heap_pc)os_heap_reserve(
+            NULL, size + DYNAMO_OPTION(vmm_block_size), &error_code, false /*-x*/);
+        vmh->start_addr =
+            (heap_pc)ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+    }
+
+    if (vmh->start_addr == 0) {
+        vmm_heap_unit_init_failed(vmh, error_code, name);
         ASSERT_NOT_REACHED();
     }
     vmh->end_addr = vmh->start_addr + size;
     ASSERT_TRUNCATE(vmh->num_blocks, uint, size / DYNAMO_OPTION(vmm_block_size));
-    vmh->num_blocks = (uint) (size / DYNAMO_OPTION(vmm_block_size));
+    vmh->num_blocks = (uint)(size / DYNAMO_OPTION(vmm_block_size));
+    size_t blocks_sz_bytes = BITMAP_INDEX(vmh->num_blocks) * sizeof(bitmap_element_t);
+    blocks_sz_bytes = ALIGN_FORWARD(blocks_sz_bytes, DYNAMO_OPTION(vmm_block_size));
+    /* We place the bitmap at the start of the (writable) vmm region. */
+    vmh->blocks = (bitmap_element_t *)vmh->start_addr;
+    if (is_vmcode)
+        vmh->blocks = (bitmap_element_t *)vmcode_get_writable_addr((byte *)vmh->blocks);
     vmh->num_free_blocks = vmh->num_blocks;
-    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_unit_init ["PFX","PFX") total=%d free=%d\n",
+    LOG(GLOBAL, LOG_HEAP, 1,
+        "vmm_heap_unit_init %s reservation: [" PFX "," PFX ") total=%d free=%d\n", name,
         vmh->start_addr, vmh->end_addr, vmh->num_blocks, vmh->num_free_blocks);
 
-    /* make sure static bitmap_t size is properly aligned on block boundaries */
-    ASSERT(ALIGNED(MAX_VMM_HEAP_UNIT_SIZE, DYNAMO_OPTION(vmm_block_size)));
+    /* Make sure the vmm area is properly aligned on block boundaries.
+     * The size was aligned above.
+     */
+    ASSERT(ALIGNED(vmh->blocks, DYNAMO_OPTION(vmm_block_size)));
+
+    which_vmm_t which = VMM_HEAP | (is_vmcode ? VMM_REACHABLE : 0);
+    /* We have to commit first which our code does support. */
+    vmm_heap_commit((vm_addr_t)vmh->blocks, blocks_sz_bytes, MEMPROT_READ | MEMPROT_WRITE,
+                    &error_code, which);
+    if (error_code != 0) {
+        vmm_heap_unit_init_failed(vmh, error_code, name);
+        ASSERT_NOT_REACHED();
+    }
     bitmap_initialize_free(vmh->blocks, vmh->num_blocks);
-    DOLOG(1, LOG_HEAP, {
-        vmm_dump_map(vmh);
-    });
+    vmm_heap_reserve_blocks(vmh, blocks_sz_bytes, vmh->start_addr, which);
+    DOLOG(1, LOG_HEAP, { vmm_dump_map(vmh); });
     ASSERT(bitmap_check_consistency(vmh->blocks, vmh->num_blocks, vmh->num_free_blocks));
 }
 
-static
-void
+static void
 vmm_heap_unit_exit(vm_heap_t *vmh)
 {
-    LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_exit ["PFX","PFX") total=%d free=%d\n",
-        vmh->start_addr, vmh->end_addr, vmh->num_blocks, vmh->num_free_blocks);
+    LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_exit %s [" PFX "," PFX ") total=%d free=%d\n",
+        vmh->name, vmh->start_addr, vmh->end_addr, vmh->num_blocks, vmh->num_free_blocks);
     /* we assume single thread in DR at this point */
     DELETE_LOCK(vmh->lock);
 
@@ -887,18 +1056,37 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
         return;
 
     DOLOG(1, LOG_HEAP, { vmm_dump_map(vmh); });
-    ASSERT(bitmap_check_consistency(vmh->blocks,
-                                    vmh->num_blocks, vmh->num_free_blocks));
+    ASSERT(bitmap_check_consistency(vmh->blocks, vmh->num_blocks, vmh->num_free_blocks));
     ASSERT(vmh->num_blocks * DYNAMO_OPTION(vmm_block_size) ==
            (ptr_uint_t)(vmh->end_addr - vmh->start_addr));
 
     /* In case there are no tombstones we can just free the unit and
      * that is what we'll do, otherwise it will stay up forever.
      */
-    if (vmh->num_free_blocks == vmh->num_blocks) {
+    bool free_heap = vmh->num_free_blocks == vmh->num_blocks;
+#ifdef UNIX
+    /* On unix there's no fear of leftover tombstones, and as long as we're
+     * doing a detach we can be sure our stack is not actually in the heap.
+     */
+    if (doing_detach) {
+        DODEBUG({
+            byte *sp;
+            GET_STACK_PTR(sp);
+            ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
+        });
+        free_heap = true;
+    }
+#endif
+    if (free_heap) {
         heap_error_code_t error_code;
         os_heap_free(vmh->alloc_start, vmh->alloc_size, &error_code);
         ASSERT(error_code == HEAP_ERROR_SUCCESS);
+        if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode) {
+            os_heap_free(heapmgt->vmcode_writable_alloc, vmh->alloc_size, &error_code);
+            ASSERT(error_code == HEAP_ERROR_SUCCESS);
+            os_delete_memory_file(MEMORY_FILE_NAME, heapmgt->dual_map_file);
+            heapmgt->dual_map_file = INVALID_FILE;
+        }
     } else {
         /* FIXME: doing nothing for now - we only care about this in
          * detach scenarios where we should try to clean up from the
@@ -912,65 +1100,182 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
  * out internally via our vm_heap_t; asserts that the address was also
  * logically reserved within the vm_heap_t.
  */
-static
-bool
+static bool
 vmm_is_reserved_unit(vm_heap_t *vmh, vm_addr_t p, size_t size)
 {
     size = ALIGN_FORWARD(size, DYNAMO_OPTION(vmm_block_size));
-    if (p < vmh->start_addr || vmh->end_addr < p/*overflow*/ ||
+    if (p < vmh->start_addr || vmh->end_addr < p /*overflow*/ ||
         vmh->end_addr < (p + size))
         return false;
-    ASSERT(CHECK_TRUNCATE_TYPE_uint(size/DYNAMO_OPTION(vmm_block_size)));
+    ASSERT(CHECK_TRUNCATE_TYPE_uint(size / DYNAMO_OPTION(vmm_block_size)));
     ASSERT(bitmap_are_reserved_blocks(vmh->blocks, vmh->num_blocks,
                                       vmm_addr_to_block(vmh, p),
-                                      (uint)size/DYNAMO_OPTION(vmm_block_size)));
+                                      (uint)(size / DYNAMO_OPTION(vmm_block_size))));
     return true;
 }
 
-/* Returns whether entirely within the region we reserved from the OS for doling
- * out internally via our vm_heap_t
- */
-bool
-is_vmm_reserved_address(byte *pc, size_t size)
+static inline bool
+is_vmh_reserved_address(vm_heap_t *vmh, byte *pc, size_t size, OUT byte **region_start,
+                        OUT byte **region_end)
 {
-    ASSERT(heapmgt != NULL);
     /* Case 10293: we don't call vmm_is_reserved_unit to avoid its
      * assert, which we want to maintain for callers only dealing with
      * DR-allocated addresses, while this routine is called w/ random
      * addresses
      */
-    return (heapmgt != NULL && heapmgt->vmheap.start_addr != NULL &&
-            pc >= heapmgt->vmheap.start_addr &&
-            !POINTER_OVERFLOW_ON_ADD(pc, size) &&
-            (pc + size) <= heapmgt->vmheap.end_addr);
+    if (pc >= vmh->start_addr && !POINTER_OVERFLOW_ON_ADD(pc, size) &&
+        (pc + size) <= vmh->end_addr) {
+        if (region_start != NULL)
+            *region_start = vmh->start_addr;
+        if (region_end != NULL)
+            *region_end = vmh->end_addr;
+        return true;
+    }
+    return false;
 }
 
-void
-get_vmm_heap_bounds(byte **heap_start/*OUT*/, byte **heap_end/*OUT*/)
+/* Returns whether entirely within a region we reserve from the OS for doling
+ * out internally via our vm_heap_t.  Optionally returns the bounds of the region.
+ * Does not consider memory we allocate once we run out of our original reservations.
+ */
+bool
+is_vmm_reserved_address(byte *pc, size_t size, OUT byte **region_start,
+                        OUT byte **region_end)
 {
     ASSERT(heapmgt != NULL);
-    ASSERT(heap_start != NULL && heap_end != NULL);
-    *heap_start = heapmgt->vmheap.start_addr;
-    *heap_end = heapmgt->vmheap.end_addr;
+    if (heapmgt->vmheap.start_addr != NULL &&
+        is_vmh_reserved_address(&heapmgt->vmheap, pc, size, region_start, region_end))
+        return true;
+    if (heapmgt->vmcode.start_addr != NULL &&
+        is_vmh_reserved_address(&heapmgt->vmcode, pc, size, region_start, region_end))
+        return true;
+    if (heapmgt->vmcode_writable_base != NULL &&
+        is_vmh_reserved_address(&heapmgt->vmcode, vmcode_get_executable_addr(pc), size,
+                                region_start, region_end)) {
+        if (region_start != NULL)
+            *region_start = vmcode_get_writable_addr(*region_start);
+        if (region_end != NULL)
+            *region_end = vmcode_get_writable_addr(*region_end);
+        return true;
+    }
+    return false;
 }
 
-/* i#774: eventually we'll split vmheap from vmcode.  For now, vmcode queries
- * refer to the single vmheap reservation.
- */
 byte *
 vmcode_get_start(void)
 {
-    byte *start, *end;
-    get_vmm_heap_bounds(&start, &end);
-    return start;
+    if (heapmgt->vmcode.start_addr != NULL)
+        return heapmgt->vmcode.start_addr;
+    if (heapmgt->vmheap.start_addr != NULL)
+        return heapmgt->vmheap.start_addr;
+    return NULL;
 }
 
 byte *
 vmcode_get_end(void)
 {
-    byte *start, *end;
-    get_vmm_heap_bounds(&start, &end);
-    return end;
+    if (heapmgt->vmcode.start_addr != NULL)
+        return heapmgt->vmcode.end_addr;
+    if (heapmgt->vmheap.start_addr != NULL)
+        return heapmgt->vmheap.end_addr;
+    return NULL;
+}
+
+static vm_heap_t *
+vmheap_for_which(which_vmm_t which)
+{
+    if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())
+        return &heapmgt->vmcode;
+    else
+        return &heapmgt->vmheap;
+}
+
+byte *
+vmcode_get_writable_addr(byte *exec_addr)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x))
+        return exec_addr;
+    /* If we want this to be an assert instead to catch superfluous calls, we'll need
+     * to change things like set_selfmod_sandbox_offsets()'s call to
+     * encode_with_patch_list() into a stack buffer.
+     */
+    if (exec_addr < heapmgt->vmcode.start_addr || exec_addr >= heapmgt->vmcode.end_addr)
+        return exec_addr;
+    return (exec_addr - heapmgt->vmcode.start_addr) + heapmgt->vmcode_writable_base;
+}
+
+byte *
+vmcode_get_executable_addr(byte *write_addr)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x))
+        return write_addr;
+    if (write_addr < heapmgt->vmcode_writable_base ||
+        write_addr >= heapmgt->vmcode_writable_base +
+                (heapmgt->vmcode.end_addr - heapmgt->vmcode.start_addr))
+        return write_addr;
+    return (write_addr - heapmgt->vmcode_writable_base) + heapmgt->vmcode.start_addr;
+}
+
+#ifdef DEBUG_MEMORY
+static inline byte *
+vmm_get_writable_addr(byte *exec_addr, which_vmm_t which)
+{
+    vm_heap_t *vmh = vmheap_for_which(which);
+    if (vmh == &heapmgt->vmcode)
+        return vmcode_get_writable_addr(exec_addr);
+    return exec_addr;
+}
+#endif
+
+/* The caller must first ensure this is a vmcode address.  Returns p_writable. */
+static inline vm_addr_t
+vmm_normalize_addr(vm_heap_t *vmh, INOUT vm_addr_t *p_exec)
+{
+    vm_addr_t p = *p_exec;
+    if (p < vmh->start_addr || p >= vmh->end_addr) {
+        /* This is a writable addr. */
+        p = (p - heapmgt->vmcode_writable_base) + vmh->start_addr;
+        *p_exec = p;
+    }
+    return (p - vmh->start_addr) + heapmgt->vmcode_writable_base;
+}
+
+#ifdef WINDOWS
+static byte *
+vmheap_get_start(void)
+{
+    if (heapmgt->vmheap.start_addr != NULL)
+        return heapmgt->vmheap.start_addr;
+    if (heapmgt->vmcode.start_addr != NULL)
+        return heapmgt->vmcode.start_addr;
+    return NULL;
+}
+#endif
+
+static inline bool
+has_guard_pages(which_vmm_t which)
+{
+    if (!DYNAMO_OPTION(guard_pages))
+        return false;
+    if (TEST(VMM_PER_THREAD, which) && !DYNAMO_OPTION(per_thread_guard_pages))
+        return false;
+    return true;
+}
+
+void
+iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_data),
+                    void *user_data)
+{
+    if (heapmgt->vmcode.start_addr != NULL)
+        (*cb)(heapmgt->vmcode.start_addr, heapmgt->vmcode.end_addr, user_data);
+    if (heapmgt->vmheap.start_addr != NULL)
+        (*cb)(heapmgt->vmheap.start_addr, heapmgt->vmheap.end_addr, user_data);
+    if (heapmgt->vmcode_writable_base != NULL) {
+        (*cb)(heapmgt->vmcode_writable_base,
+              heapmgt->vmcode_writable_base +
+                  (heapmgt->vmcode.end_addr - heapmgt->vmcode.start_addr),
+              user_data);
+    }
 }
 
 byte *
@@ -985,8 +1290,8 @@ vmcode_unreachable_pc(void)
     return (byte *)0x8000000100000000ULL;
 #else
     /* This is not really used for aarch* so we just go with vmcode reachability. */
-    ptr_uint_t start, end;
-    get_vmm_heap_bounds((byte **)&start, (byte **)&end);
+    ptr_uint_t start = (ptr_uint_t)vmcode_get_start();
+    ptr_uint_t end = (ptr_uint_t)vmcode_get_end();
     if (start > INT_MAX)
         return NULL;
     else {
@@ -1003,10 +1308,25 @@ rel32_reachable_from_vmcode(byte *tgt)
     /* To handle beyond-vmm-reservation allocs, we must compare to the allowable
      * heap range and not just the vmcode range (i#1479).
      */
-    ptr_int_t new_offs = (tgt > heap_allowable_region_start) ?
-        (tgt - heap_allowable_region_start) : (heap_allowable_region_end - tgt);
-    ASSERT(vmcode_get_start() >= heap_allowable_region_start);
-    ASSERT(vmcode_get_end() <= heap_allowable_region_end+1/*closed*/);
+    ptr_int_t new_offs = (tgt > heap_allowable_region_start)
+        ? (tgt - heap_allowable_region_start)
+        : (heap_allowable_region_end - tgt);
+    ASSERT(vmcode_get_start() >= heap_allowable_region_start ||
+           !DYNAMO_OPTION(vm_reserve));
+    ASSERT(vmcode_get_end() <= heap_allowable_region_end + 1 /*closed*/ ||
+           !DYNAMO_OPTION(vm_reserve));
+    return REL32_REACHABLE_OFFS(new_offs);
+#else
+    return true;
+#endif
+}
+
+bool
+rel32_reachable_from_current_vmcode(byte *tgt)
+{
+#ifdef X64
+    ptr_int_t new_offs = (tgt > must_reach_region_start) ? (tgt - must_reach_region_start)
+                                                         : (must_reach_region_end - tgt);
     return REL32_REACHABLE_OFFS(new_offs);
 #else
     return true;
@@ -1016,29 +1336,54 @@ rel32_reachable_from_vmcode(byte *tgt)
 static inline void
 vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
 {
+    /* We do not split the stats for cache (always reachable) nor stack (never reachable).
+     * We confirm our assumptions here.
+     */
+    ASSERT(!TESTALL(VMM_REACHABLE | VMM_STACK, which) &&
+           (TEST(VMM_REACHABLE, which) || !TEST(VMM_CACHE, which)));
     /* XXX: find some way to make a stats array */
     if (add) {
-        if (which == VMM_HEAP)
-            RSTATS_ADD_PEAK(vmm_blocks_heap, num_blocks);
-        else if (which == VMM_CACHE)
-            RSTATS_ADD_PEAK(vmm_blocks_cache, num_blocks);
-        else if (which == VMM_STACK)
-            RSTATS_ADD_PEAK(vmm_blocks_stack, num_blocks);
-        else if (which == VMM_SPECIAL_HEAP)
-            RSTATS_ADD_PEAK(vmm_blocks_special_heap, num_blocks);
-        else if (which == VMM_SPECIAL_MMAP)
-            RSTATS_ADD_PEAK(vmm_blocks_special_mmap, num_blocks);
+        if (TEST(VMM_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_heap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_heap, num_blocks);
+        } else if (TEST(VMM_CACHE, which))
+            RSTATS_ADD_PEAK(vmm_blocks_reach_cache, num_blocks);
+        else if (TEST(VMM_STACK, which))
+            RSTATS_ADD_PEAK(vmm_blocks_unreach_stack, num_blocks);
+        else if (TEST(VMM_SPECIAL_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_special_heap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_special_heap, num_blocks);
+        } else if (TEST(VMM_SPECIAL_MMAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_special_mmap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_special_mmap, num_blocks);
+        }
     } else {
-        if (which == VMM_HEAP)
-            RSTATS_SUB(vmm_blocks_heap, num_blocks);
-        else if (which == VMM_CACHE)
-            RSTATS_SUB(vmm_blocks_cache, num_blocks);
-        else if (which == VMM_STACK)
-            RSTATS_SUB(vmm_blocks_stack, num_blocks);
-        else if (which == VMM_SPECIAL_HEAP)
-            RSTATS_SUB(vmm_blocks_special_heap, num_blocks);
-        else if (which == VMM_SPECIAL_MMAP)
-            RSTATS_SUB(vmm_blocks_special_mmap, num_blocks);
+        if (TEST(VMM_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_heap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_heap, num_blocks);
+        } else if (TEST(VMM_CACHE, which))
+            RSTATS_SUB(vmm_blocks_reach_cache, num_blocks);
+        else if (TEST(VMM_STACK, which))
+            RSTATS_SUB(vmm_blocks_unreach_stack, num_blocks);
+        else if (TEST(VMM_SPECIAL_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_special_heap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_special_heap, num_blocks);
+        } else if (TEST(VMM_SPECIAL_MMAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_special_mmap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_special_mmap, num_blocks);
+        }
     }
 }
 
@@ -1051,38 +1396,45 @@ vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
  * the request.
  */
 static vm_addr_t
-vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, which_vmm_t which)
+vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, byte *base, which_vmm_t which)
 {
     vm_addr_t p;
     uint request;
     uint first_block;
     size_t size;
+    uint must_start;
 
     size = ALIGN_FORWARD(size_in, DYNAMO_OPTION(vmm_block_size));
-    ASSERT_TRUNCATE(request, uint, size/DYNAMO_OPTION(vmm_block_size));
-    request = (uint) size/DYNAMO_OPTION(vmm_block_size);
+    ASSERT_TRUNCATE(request, uint, size / DYNAMO_OPTION(vmm_block_size));
+    request = (uint)(size / DYNAMO_OPTION(vmm_block_size));
+
+    if (base != NULL)
+        must_start = vmm_addr_to_block(vmh, base);
+    else
+        must_start = UINT_MAX;
 
     LOG(GLOBAL, LOG_HEAP, 2,
-        "vmm_heap_reserve_blocks: size=%d => %d in blocks=%d free_blocks~=%d\n",
-        size_in, size, request, vmh->num_free_blocks);
+        "vmm_heap_reserve_blocks %s: size=%d => %d in blocks=%d free_blocks=%d\n",
+        vmh->name, size_in, size, request, vmh->num_free_blocks);
 
-    mutex_lock(&vmh->lock);
+    d_r_mutex_lock(&vmh->lock);
     if (vmh->num_free_blocks < request) {
-        mutex_unlock(&vmh->lock);
+        d_r_mutex_unlock(&vmh->lock);
         return NULL;
     }
-    first_block = bitmap_allocate_blocks(vmh->blocks, vmh->num_blocks, request);
+    first_block =
+        bitmap_allocate_blocks(vmh->blocks, vmh->num_blocks, request, must_start);
     if (first_block != BITMAP_NOT_FOUND) {
         vmh->num_free_blocks -= request;
     }
-    mutex_unlock(&vmh->lock);
+    d_r_mutex_unlock(&vmh->lock);
 
     if (first_block != BITMAP_NOT_FOUND) {
         p = vmm_block_to_addr(vmh, first_block);
         RSTATS_ADD_PEAK(vmm_vsize_used, size);
         STATS_ADD_PEAK(vmm_vsize_blocks_used, request);
         STATS_ADD_PEAK(vmm_vsize_wasted, size - size_in);
-        vmm_update_block_stats(which, request, true/*add*/);
+        vmm_update_block_stats(which, request, true /*add*/);
         DOSTATS({
             if (request > 1) {
                 STATS_INC(vmm_multi_block_allocs);
@@ -1092,8 +1444,9 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, which_vmm_t which)
     } else {
         p = NULL;
     }
-    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve_blocks: size=%d blocks=%d p="PFX"\n",
-        size, request, p);
+    LOG(GLOBAL, LOG_HEAP, 2,
+        "vmm_heap_reserve_blocks %s: size=%d blocks=%d p=" PFX " index=%u\n", vmh->name,
+        size, request, p, first_block);
     DOLOG(5, LOG_HEAP, { vmm_dump_map(vmh); });
     return p;
 }
@@ -1109,41 +1462,93 @@ vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size_in, which_vmm_t wh
     size_t size;
 
     size = ALIGN_FORWARD(size_in, DYNAMO_OPTION(vmm_block_size));
-    ASSERT_TRUNCATE(request, uint, size/DYNAMO_OPTION(vmm_block_size));
-    request = (uint) size/DYNAMO_OPTION(vmm_block_size);
+    ASSERT_TRUNCATE(request, uint, size / DYNAMO_OPTION(vmm_block_size));
+    request = (uint)(size / DYNAMO_OPTION(vmm_block_size));
 
-    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free_blocks: size=%d blocks=%d p="PFX"\n",
-        size, request, p);
+    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free_blocks %s: size=%d blocks=%d p=" PFX "\n",
+        vmh->name, size, request, p);
 
-    mutex_lock(&vmh->lock);
+    d_r_mutex_lock(&vmh->lock);
     bitmap_free_blocks(vmh->blocks, vmh->num_blocks, first_block, request);
     vmh->num_free_blocks += request;
-    mutex_unlock(&vmh->lock);
+    d_r_mutex_unlock(&vmh->lock);
 
     ASSERT(vmh->num_free_blocks <= vmh->num_blocks);
     RSTATS_SUB(vmm_vsize_used, size);
     STATS_SUB(vmm_vsize_blocks_used, request);
-    vmm_update_block_stats(which, request, false/*sub*/);
+    vmm_update_block_stats(which, request, false /*sub*/);
     STATS_SUB(vmm_vsize_wasted, size - size_in);
 }
 
 /* This is the proper interface for the rest of heap.c to the os_heap_* functions */
-
 
 /* place all the local-scope static vars (from DO_THRESHOLD) into .fspdata to avoid
  * protection changes */
 START_DATA_SECTION(FREQ_PROTECTED_SECTION, "w");
 
 static bool
-at_reset_at_vmm_limit()
+at_reset_at_vmm_limit(vm_heap_t *vmh)
 {
-    return
-        (DYNAMO_OPTION(reset_at_vmm_percent_free_limit) != 0 &&
-         100 * heapmgt->vmheap.num_free_blocks <
-         DYNAMO_OPTION(reset_at_vmm_percent_free_limit) * heapmgt->vmheap.num_blocks) ||
+    return (DYNAMO_OPTION(reset_at_vmm_percent_free_limit) != 0 &&
+            100 * vmh->num_free_blocks <
+                DYNAMO_OPTION(reset_at_vmm_percent_free_limit) * vmh->num_blocks) ||
         (DYNAMO_OPTION(reset_at_vmm_free_limit) != 0 &&
-         heapmgt->vmheap.num_free_blocks * DYNAMO_OPTION(vmm_block_size) <
-         DYNAMO_OPTION(reset_at_vmm_free_limit));
+         vmh->num_free_blocks * DYNAMO_OPTION(vmm_block_size) <
+             DYNAMO_OPTION(reset_at_vmm_free_limit));
+}
+
+static void
+reached_beyond_vmm(which_vmm_t which)
+{
+    DODEBUG(ever_beyond_vmm = true;);
+    /* Stats can be very useful to diagnose why we hit OOM. */
+    if (INTERNAL_OPTION(rstats_to_stderr))
+        dump_global_rstats_to_stderr();
+    char message[256];
+    if (DYNAMO_OPTION(satisfy_w_xor_x) &&
+        (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())) {
+        /* We do not bother to try to mirror separate from-OS allocs: the user
+         * should set -vm_size 2G instead and take the rip-rel mangling hit
+         * (see i#3570).
+         */
+        snprintf(
+            message, BUFFER_SIZE_ELEMENTS(message),
+            "Alloc type: 0x%x.  -satisfy_w_xor_x requires VMM memory: try '-vm_size 2G'",
+            which);
+        NULL_TERMINATE_BUFFER(message);
+        REPORT_FATAL_ERROR_AND_EXIT(OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(),
+                                    get_application_pid(), message);
+        ASSERT_NOT_REACHED();
+    } else {
+        snprintf(message, BUFFER_SIZE_ELEMENTS(message), "Alloc type: 0x%x.", which);
+        NULL_TERMINATE_BUFFER(message);
+        SYSLOG(SYSLOG_WARNING, OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(),
+               get_application_pid(), message);
+    }
+}
+
+void
+vmm_heap_handle_pending_low_on_memory_event_trigger()
+{
+    bool trigger = false;
+
+    acquire_recursive_lock(&low_on_memory_pending_lock);
+    if (low_on_memory_pending) {
+        bool value = false;
+        ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
+        trigger = true;
+    }
+    release_recursive_lock(&low_on_memory_pending_lock);
+
+    if (trigger)
+        instrument_low_on_memory();
+}
+
+static void
+schedule_low_on_memory_event_trigger()
+{
+    bool value = true;
+    ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
 }
 
 /* Reserve virtual address space without committing swap space for it */
@@ -1152,6 +1557,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
                  which_vmm_t which)
 {
     vm_addr_t p;
+    vm_heap_t *vmh = vmheap_for_which(which);
     /* should only be used on sizable aligned pieces */
     ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
     ASSERT(!OWN_MUTEX(&reset_pending_lock));
@@ -1159,10 +1565,13 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
     if (DYNAMO_OPTION(vm_reserve)) {
         /* FIXME: should we make this an external option? */
         if (INTERNAL_OPTION(vm_use_last) ||
-            (DYNAMO_OPTION(switch_to_os_at_vmm_reset_limit) && at_reset_at_vmm_limit())) {
+            (DYNAMO_OPTION(switch_to_os_at_vmm_reset_limit) &&
+             at_reset_at_vmm_limit(vmh))) {
             DO_ONCE({
-                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit))
+                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)) {
                     schedule_reset(RESET_ALL);
+                }
+                schedule_low_on_memory_event_trigger();
                 DOCHECK(1, {
                     if (!INTERNAL_OPTION(vm_use_last)) {
                         ASSERT_CURIOSITY(false && "running low on vm reserve");
@@ -1171,59 +1580,78 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
                 /* FIXME - for our testing would be nice to have some release build
                  * notification of this ... */
             });
-            DODEBUG(ever_beyond_vmm = true;);
+            reached_beyond_vmm(which);
 #ifdef X64
-            /* PR 215395, make sure allocation satisfies heap reachability contraints */
-            p = os_heap_reserve_in_region
-                ((void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
-                 (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
-                 size, error_code, executable);
-            /* ensure future heap allocations are reachable from this allocation */
-            if (p != NULL)
-                request_region_be_heap_reachable(p, size);
+            if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
+                /* PR 215395, make sure allocation satisfies heap reachability
+                 * contraints */
+                p = os_heap_reserve_in_region(
+                    (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+                    (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
+                    error_code, executable);
+                /* ensure future heap allocations are reachable from this allocation */
+                if (p != NULL)
+                    request_region_be_heap_reachable(p, size);
+            } else
+                p = os_heap_reserve(NULL, size, error_code, executable);
 #else
             p = os_heap_reserve(NULL, size, error_code, executable);
 #endif
             if (p != NULL)
                 return p;
-            LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_reserve: failed "PFX"\n",
+            LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_reserve %s: failed " PFX "\n", vmh->name,
                 *error_code);
         }
 
-        if (at_reset_at_vmm_limit()) {
+        if (at_reset_at_vmm_limit(vmh)) {
             /* We're running low on our reservation, trigger a reset */
+            schedule_low_on_memory_event_trigger();
             if (schedule_reset(RESET_ALL)) {
                 STATS_INC(reset_low_vmm_count);
-                DO_THRESHOLD_SAFE(DYNAMO_OPTION(report_reset_vmm_threshold),
-                                  FREQ_PROTECTED_SECTION,
-                {/* < max - nothing */},
-                {/* >= max */
-                    /* FIXME - do we want to report more then once to give some idea of
-                     * how much thrashing there is? */
-                    DO_ONCE({
-                        SYSLOG_CUSTOM_NOTIFY(SYSLOG_WARNING, MSG_LOW_ON_VMM_MEMORY, 2,
-                                             "Potentially thrashing on low virtual "
-                                             "memory resetting.", get_application_name(),
-                                             get_application_pid());
-                        /* want QA to notice */
-                        ASSERT_CURIOSITY(false && "vmm heap limit reset thrashing");
+                DO_THRESHOLD_SAFE(
+                    DYNAMO_OPTION(report_reset_vmm_threshold), FREQ_PROTECTED_SECTION,
+                    { /* < max - nothing */ },
+                    { /* >= max */
+                      /* FIXME - do we want to report more then once to give some idea of
+                       * how much thrashing there is? */
+                      DO_ONCE({
+                          SYSLOG_CUSTOM_NOTIFY(SYSLOG_WARNING, MSG_LOW_ON_VMM_MEMORY, 2,
+                                               "Potentially thrashing on low virtual "
+                                               "memory resetting.",
+                                               get_application_name(),
+                                               get_application_pid());
+                          /* want QA to notice */
+                          ASSERT_CURIOSITY(false && "vmm heap limit reset thrashing");
+                      });
                     });
-                });
             }
         }
 
-        p = vmm_heap_reserve_blocks(&heapmgt->vmheap, size, which);
-        LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve: size=%d p="PFX"\n",
+        p = vmm_heap_reserve_blocks(vmh, size, NULL, which);
+        LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve %s: size=%d p=" PFX "\n", vmh->name,
             size, p);
 
-        if (p)
+        if (p != NULL) {
+            if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode &&
+                !executable) {
+                /* Pass back the writable address, not the executable.
+                 * Then things like reachable heap do not need to convert to
+                 * writable all over the place.
+                 */
+                p = (p - vmh->start_addr) + heapmgt->vmcode_writable_base;
+            }
             return p;
+        }
         DO_ONCE({
             DODEBUG({ out_of_vmheap_once = true; });
             if (!INTERNAL_OPTION(skip_out_of_vm_reserve_curiosity)) {
                 /* this maybe unsafe for early services w.r.t. case 666 */
-                SYSLOG_INTERNAL_WARNING("Out of vmheap reservation - reserving %dKB."
-                                        "Falling back onto OS allocation", size/1024);
+                SYSLOG_INTERNAL_WARNING("Out of %s reservation - reserving %dKB. "
+                                        "Falling back onto OS allocation",
+                                        (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())
+                                            ? "vmcode"
+                                            : "vmheap",
+                                        size / 1024);
                 ASSERT_CURIOSITY(false && "Out of vmheap reservation");
             }
             /* This actually-out trigger is only trying to help issues like a
@@ -1238,16 +1666,19 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
         });
     }
     /* if we fail to allocate from our reservation we fall back to the OS */
-    DODEBUG(ever_beyond_vmm = true;);
+    reached_beyond_vmm(which);
 #ifdef X64
-    /* PR 215395, make sure allocation satisfies heap reachability contraints */
-    p = os_heap_reserve_in_region
-        ((void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
-         (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
-         size, error_code, executable);
-    /* ensure future heap allocations are reachable from this allocation */
-    if (p != NULL)
-        request_region_be_heap_reachable(p, size);
+    if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
+        /* PR 215395, make sure allocation satisfies heap reachability contraints */
+        p = os_heap_reserve_in_region(
+            (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+            (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
+            error_code, executable);
+        /* ensure future heap allocations are reachable from this allocation */
+        if (p != NULL)
+            request_region_be_heap_reachable(p, size);
+    } else
+        p = os_heap_reserve(NULL, size, error_code, executable);
 #else
     p = os_heap_reserve(NULL, size, error_code, executable);
 #endif
@@ -1260,9 +1691,38 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
  * here we'd convert a vm_addr_t into a heap_pc.)
  */
 static inline bool
-vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_code)
+vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_code,
+                which_vmm_t which)
 {
-    bool res =  os_heap_commit(p, size, prot, error_code);
+    bool res = true;
+    vm_heap_t *vmh = vmheap_for_which(which);
+    LOG(GLOBAL, LOG_HEAP, 3, "vmm_heap_commit %s: size=%d p=" PFX " prot=%x\n", vmh->name,
+        size, p, prot);
+    if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode) {
+        vm_addr_t p_writable = vmm_normalize_addr(vmh, &p);
+        /* We blindly shadow even if prot is -w to simplify de-alloc.  -w is rare. */
+        uint shadow_prot = prot & ~(MEMPROT_EXEC);
+        res = os_heap_commit(p_writable, size, shadow_prot, error_code);
+        prot &= ~(MEMPROT_WRITE);
+        if (res) {
+            /* We use mmap instead of mprotect since W^X policies often only allow
+             * execution from regions allocated executable, not changed to executable.
+             * There is a downside: IMA policies can cause a significant (~5s) delay
+             * while a hash is computed of our vmcode region on the first +x mmap.
+             * Today os_create_memory_file() does a temporary +x mmap for us, avoiding
+             * any cost here.
+             */
+            size_t map_size = size;
+            size_t map_offs = p - vmh->start_addr;
+            vm_addr_t map_addr =
+                os_map_file(heapmgt->dual_map_file, &map_size, map_offs, p, prot,
+                            MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+            ASSERT(map_size == size);
+            res = (map_addr != NULL);
+            ASSERT(map_addr == NULL || map_addr == p);
+        }
+    } else
+        res = os_heap_commit(p, size, prot, error_code);
     size_t commit_used, commit_limit;
     ASSERT(!OWN_MUTEX(&reset_pending_lock));
     if ((DYNAMO_OPTION(reset_at_commit_percent_free_limit) != 0 ||
@@ -1276,7 +1736,7 @@ vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_co
              commit_left < DYNAMO_OPTION(reset_at_commit_free_limit) / PAGE_SIZE) ||
             (DYNAMO_OPTION(reset_at_commit_percent_free_limit) != 0 &&
              100 * commit_left <
-             DYNAMO_OPTION(reset_at_commit_percent_free_limit) * commit_limit)) {
+                 DYNAMO_OPTION(reset_at_commit_percent_free_limit) * commit_limit)) {
             /* Machine is getting low on memory, trigger a reset */
             /* FIXME - if we aren't the ones hogging committed memory (rougue app) then
              * do we want a version of reset that doesn't de-commit our already grabbed
@@ -1299,27 +1759,27 @@ vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_co
             /* xref case 345 on fixmes (and link to wiki discussion) */
             if (schedule_reset(RESET_ALL)) {
                 STATS_INC(reset_low_commit_count);
-                DO_THRESHOLD_SAFE(DYNAMO_OPTION(report_reset_commit_threshold),
-                                  FREQ_PROTECTED_SECTION,
-                {/* < max - nothing */},
-                {/* >= max */
-                    /* FIXME - do we want to report more then once to give some idea of
-                     * how much thrashing there is? */
-                    DO_ONCE({
-                        SYSLOG_CUSTOM_NOTIFY(SYSLOG_WARNING,
-                                             MSG_LOW_ON_COMMITTABLE_MEMORY, 2,
-                                             "Potentially thrashing on low committable "
-                                             "memory resetting.", get_application_name(),
-                                             get_application_pid());
-                        /* want QA to notice */
-                        ASSERT_CURIOSITY(false && "commit limit reset thrashing");
+                DO_THRESHOLD_SAFE(
+                    DYNAMO_OPTION(report_reset_commit_threshold), FREQ_PROTECTED_SECTION,
+                    { /* < max - nothing */ },
+                    { /* >= max */
+                      /* FIXME - do we want to report more then once to give some idea of
+                       * how much thrashing there is? */
+                      DO_ONCE({
+                          SYSLOG_CUSTOM_NOTIFY(
+                              SYSLOG_WARNING, MSG_LOW_ON_COMMITTABLE_MEMORY, 2,
+                              "Potentially thrashing on low committable "
+                              "memory resetting.",
+                              get_application_name(), get_application_pid());
+                          /* want QA to notice */
+                          ASSERT_CURIOSITY(false && "commit limit reset thrashing");
+                      });
                     });
-                });
             }
         }
     }
-    if (!res &&
-        DYNAMO_OPTION(oom_timeout) != 0) {
+    if (!res && DYNAMO_OPTION(oom_timeout) != 0 &&
+        !(DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode)) {
         DEBUG_DECLARE(heap_error_code_t old_error_code = *error_code;)
         ASSERT(old_error_code != HEAP_ERROR_SUCCESS);
 
@@ -1341,11 +1801,13 @@ vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_co
         res = os_heap_commit(p, size, prot, error_code);
         DODEBUG({
             if (res) {
-                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retried, got away!  old="PFX
-                                        " new="PFX"\n", old_error_code, *error_code);
+                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retried, got away!  old=" PFX
+                                        " new=" PFX "\n",
+                                        old_error_code, *error_code);
             } else {
-                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retrying, no luck.  old="PFX
-                                        " new="PFX"\n", old_error_code, *error_code);
+                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retrying, no luck.  old=" PFX
+                                        " new=" PFX "\n",
+                                        old_error_code, *error_code);
             }
         });
     }
@@ -1366,17 +1828,24 @@ END_DATA_SECTION()
 static void
 vmm_heap_free(vm_addr_t p, size_t size, heap_error_code_t *error_code, which_vmm_t which)
 {
-    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free: size=%d p="PFX" is_reserved=%d\n",
-        size, p, vmm_is_reserved_unit(&heapmgt->vmheap, p, size));
+    vm_heap_t *vmh = vmheap_for_which(which);
+    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free %s: size=%d p=" PFX " is_reserved=%d\n",
+        vmh->name, size, p, vmm_is_reserved_unit(vmh, p, size));
+    vm_addr_t p_writable = p;
+    if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode)
+        p_writable = vmm_normalize_addr(vmh, &p);
 
-    /* the memory doesn't have to be within our VM reserve if it
-       was allocated as an extra OS call when if we ran out */
+    /* The memory doesn't have to be within our VM reserve if it
+     * was allocated as an extra OS call when if we ran out.
+     */
     if (DYNAMO_OPTION(vm_reserve)) {
-        if (vmm_is_reserved_unit(&heapmgt->vmheap, p, size)) {
+        if (vmm_is_reserved_unit(vmh, p, size)) {
+            if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode)
+                os_heap_decommit(p_writable, size, error_code);
             os_heap_decommit(p, size, error_code);
-            vmm_heap_free_blocks(&heapmgt->vmheap, p, size, which);
-            LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free: freed size=%d p="PFX"\n",
-                size, p);
+            vmm_heap_free_blocks(vmh, p, size, which);
+            LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free %s: freed size=%d p=" PFX "\n",
+                vmh->name, size, p);
             return;
         } else {
             /* FIXME: check if this is stack_free getting in the way, then ignore it */
@@ -1390,14 +1859,24 @@ vmm_heap_free(vm_addr_t p, size_t size, heap_error_code_t *error_code, which_vmm
             }
         }
     }
+    if (DYNAMO_OPTION(satisfy_w_xor_x) && vmh == &heapmgt->vmcode)
+        os_heap_free(p_writable, size, error_code);
     os_heap_free(p, size, error_code);
 }
 
 static void
-vmm_heap_decommit(vm_addr_t p, size_t size, heap_error_code_t *error_code)
+vmm_heap_decommit(vm_addr_t p, size_t size, heap_error_code_t *error_code,
+                  which_vmm_t which)
 {
-    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_decommit: size=%d p="PFX" is_reserved=%d\n",
-        size, p, vmm_is_reserved_unit(&heapmgt->vmheap, p, size));
+    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_decommit: size=%d p=" PFX " is_reserved=%d\n",
+        size, p, is_vmm_reserved_address(p, size, NULL, NULL));
+    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+        vm_heap_t *vmh = vmheap_for_which(which);
+        if (vmh == &heapmgt->vmcode) {
+            vm_addr_t p_writable = vmm_normalize_addr(vmh, &p);
+            os_heap_decommit(p_writable, size, error_code);
+        }
+    }
     os_heap_decommit(p, size, error_code);
     /* nothing to be done to vmm blocks */
 }
@@ -1411,10 +1890,10 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_
 {
     vm_addr_t p = vmm_heap_reserve(size, error_code, TEST(MEMPROT_EXEC, prot), which);
     if (!p)
-        return NULL;               /* out of reserved memory */
+        return NULL; /* out of reserved memory */
 
-    if (!vmm_heap_commit(p, size, prot, error_code))
-        return NULL;               /* out of committed memory */
+    if (!vmm_heap_commit(p, size, prot, error_code, which))
+        return NULL; /* out of committed memory */
     return p;
 }
 
@@ -1422,7 +1901,7 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_
 void
 vmm_heap_init()
 {
-    IF_WINDOWS(ASSERT(DYNAMO_OPTION(vmm_block_size) == OS_ALLOC_GRANULARITY));
+    IF_WINDOWS(ASSERT(ALIGNED(OS_ALLOC_GRANULARITY, DYNAMO_OPTION(vmm_block_size))));
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
     /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
@@ -1434,8 +1913,88 @@ vmm_heap_init()
         request_region_be_heap_reachable(0, 0x80000000);
 #endif
     if (DYNAMO_OPTION(vm_reserve)) {
-        vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vm_size));
+        vmm_heap_unit_init(&heapmgt->vmcode, DYNAMO_OPTION(vm_size), true, "vmcode");
+        if (!REACHABLE_HEAP()) {
+            vmm_heap_unit_init(
+                &heapmgt->vmheap,
+                /* Use vmheap_size_wow64 if target is WoW64 windows process. */
+                IF_WINDOWS_ELSE(IF_X64_ELSE(is_wow64_process(NT_CURRENT_PROCESS)
+                                                ? DYNAMO_OPTION(vmheap_size_wow64)
+                                                : DYNAMO_OPTION(vmheap_size),
+                                            DYNAMO_OPTION(vmheap_size)),
+                                DYNAMO_OPTION(vmheap_size)),
+                false, "vmheap");
+        }
     }
+}
+
+static void
+vmh_exit(vm_heap_t *vmh, bool contains_stacks)
+{
+    /* We have three regions that are not explicitly deallocated: current stack, init
+     * stack, global_do_syscall.
+     */
+    DOCHECK(1, {
+        uint perstack =
+            (uint)(ALIGN_FORWARD_UINT(
+                       DYNAMO_OPTION(stack_size) +
+                           (has_guard_pages(VMM_STACK | VMM_PER_THREAD)
+                                ? (2 * PAGE_SIZE)
+                                : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
+                       DYNAMO_OPTION(vmm_block_size)) /
+                   DYNAMO_OPTION(vmm_block_size));
+        uint unfreed_blocks;
+        if (!contains_stacks || standalone_library)
+            unfreed_blocks = 0;
+        else {
+            unfreed_blocks = perstack * 1 /* d_r_initstack */ +
+                /* current stack */
+                perstack * ((doing_detach IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
+        }
+        /* Our bitmap does not get freed. */
+        size_t blocks_sz_bytes =
+            ALIGN_FORWARD_UINT(BITMAP_INDEX(vmh->num_blocks) * sizeof(bitmap_element_t),
+                               DYNAMO_OPTION(vmm_block_size));
+        unfreed_blocks += (uint)(blocks_sz_bytes / DYNAMO_OPTION(vmm_block_size));
+        /* XXX: On detach, arch_thread_exit should explicitly mark as
+         * left behind all TPCs needed so then we can assert even for
+         * detach.
+         */
+        ASSERT(IF_WINDOWS(doing_detach ||) /* not deterministic when detaching */
+                   vmh->num_free_blocks == vmh->num_blocks - unfreed_blocks ||
+               /* >=, not ==, b/c if we hit the vmm limit the cur dstack
+                * could be outside of vmm (i#1164).
+                */
+               ((ever_beyond_vmm
+                     /* This also happens for dstacks up high for DrMi#1723. */
+                     IF_WINDOWS(|| get_os_version() >= WINDOWS_VERSION_8_1)) &&
+                vmh->num_free_blocks >= vmh->num_blocks - unfreed_blocks));
+    });
+    /* On process exit we are currently executing off a
+     * stack in this region so we cannot free the whole allocation.
+
+     * XXX: Any tombstone allocations will have to use a
+     * different interface than the generic heap_mmap() which is
+     * sometimes used to leave things behind.  FIXME: Currently
+     * we'll leave behind the whole vm unit if any tombstones are
+     * left - which in fact is always the case, no matter whether
+     * thread private code needs to be left or not.
+
+     * global_do_syscall 32 byte allocation should be part of our
+     * dll and won't have to be left.
+
+     * The current stack is the main problem because it is later
+     * cleaned up in cleanup_and_terminate by calling stack_free which
+     * in turn gets all the way to vmm_heap_free.  Therefore we add an
+     * explicit test for vmm_heap_exited, so that we can otherwise free
+     * bookkeeping information and delete the lock now.
+
+     * Potential solution to most of these problems is to have
+     * cleanup_and_terminate call vmm_heap_exit when cleaning up
+     * the process, or to just leave the vm mapping behind and
+     * simply pass a different argument to stack_free.
+     */
+    vmm_heap_unit_exit(vmh);
 }
 
 void
@@ -1443,68 +2002,184 @@ vmm_heap_exit()
 {
     /* virtual memory manager exit */
     if (DYNAMO_OPTION(vm_reserve)) {
-        /* FIXME: we have three regions that are not explicitly
-         * deallocated current stack, init stack, global_do_syscall
-         */
-        DOCHECK(1, {
-            uint perstack =
-                ALIGN_FORWARD_UINT(DYNAMO_OPTION(stack_size) +
-                                   (DYNAMO_OPTION(guard_pages) ? (2*PAGE_SIZE) :
-                                    (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
-                                   DYNAMO_OPTION(vmm_block_size)) /
-                DYNAMO_OPTION(vmm_block_size);
-            uint unfreed_blocks = perstack * 1 /* initstack */ +
-                /* current stack */
-                perstack * ((doing_detach IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
-            /* FIXME: on detach arch_thread_exit should explicitly mark as
-               left behind all TPCs needed so then we can assert even for
-               detach
-            */
-            ASSERT(IF_WINDOWS(doing_detach || )  /* not deterministic when detaching */
-                   /* FIXME i#2075: if a thread is being initialized during the
-                    * process exit, the thread will not free its dstack.
-                    */
-                   IF_DEBUG(dynamo_thread_init_during_process_exit || )
-                   heapmgt->vmheap.num_free_blocks == heapmgt->vmheap.num_blocks
-                   - unfreed_blocks ||
-                   /* >=, not ==, b/c if we hit the vmm limit the cur dstack
-                    * could be outside of vmm (i#1164).
-                    */
-                   ((ever_beyond_vmm
-                     /* This also happens for dstacks up high for DrMi#1723. */
-                     IF_WINDOWS(|| get_os_version() >= WINDOWS_VERSION_8_1)) &&
-                    heapmgt->vmheap.num_free_blocks >=
-                    heapmgt->vmheap.num_blocks - unfreed_blocks));
-        });
-        /* FIXME: On process exit we are currently executing off a
-         *  stack in this region so we cannot free the whole allocation.
-
-         * FIXME: Any tombstone allocations will have to use a
-         * different interface than the generic heap_mmap() which is
-         * sometimes used to leave things behind.  FIXME: Currently
-         * we'll leave behind the whole vm unit if any tombstones are
-         * left - which in fact is always the case, no matter whether
-         * thread private code needs to be left or not.
-
-         * global_do_syscall 32 byte allocation should be part of our
-         * dll and won't have to be left.
-
-         * The current stack is the main problem because it is later
-         * cleaned up in cleanup_and_terminate by calling stack_free which
-         * in turn gets all the way to vmm_heap_free.  Therefore we add an
-         * explicit test for vmm_heap_exited, so that we can otherwise free
-         * bookkeeping information and delete the lock now.
-
-         * Potential solution to most of these problems is to have
-         * cleanup_and_terminate call vmm_heap_exit when cleaning up
-         * the process, or to just leave the vm mapping behind and
-         * simply pass a different argument to stack_free.
-         */
-        vmm_heap_unit_exit(&heapmgt->vmheap);
-
+        if (heapmgt->vmcode.start_addr != NULL)
+            vmh_exit(&heapmgt->vmcode, heapmgt->vmheap.start_addr == NULL);
+        if (heapmgt->vmheap.start_addr != NULL)
+            vmh_exit(&heapmgt->vmheap, true);
         vmm_heap_exited = true;
     }
 }
+
+#ifdef UNIX
+void
+vmm_heap_fork_pre(dcontext_t *dcontext)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x))
+        return;
+    /* The child wants a private copy of our dual mapping setup, rather than
+     * sharing the parent's.  Unfortunately that requires copying the entire
+     * vmcode contents into new mappings.  To avoid a race while the child makes
+     * this copy from our live mappings, we create a temp copy now.  The
+     * disadvantage is that we need a bunch of free memory (and address space:
+     * but this is 64-bit-only).  The alternative is to have the parent wait for
+     * the child but that seems too disruptive to scheduling.
+     */
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    heap_error_code_t error_code;
+    /* We store in a dcontext field to avoid races with other threads doing forks. */
+    th->fork_copy_size = heapmgt->vmcode.alloc_size;
+    th->fork_copy_start =
+        os_heap_reserve(NULL, th->fork_copy_size, &error_code, true /*+x*/);
+    if (th->fork_copy_start == NULL) {
+        report_w_xor_x_fatal_error_and_exit();
+        ASSERT_NOT_REACHED();
+    }
+
+    /* Copy each mapping.  We also need to record the +*x protections (because some
+     * are +rw (ELF data segments), some are +rx, and some are +r (reachable
+     * (non-exec) heap)).  We can't use the actual page prot of the copy to store
+     * what the vmcode prot should be, because some W^X implementations remove +x
+     * from a +wx region, and we require +w to make our copy.  Thus we store the
+     * mapping prots in a vmvector.
+     */
+    VMVECTOR_ALLOC_VECTOR(th->fork_copy_areas, dcontext,
+                          VECTOR_NEVER_MERGE | VECTOR_NO_LOCK, innermost_lock);
+    memquery_iter_t iter;
+    if (!memquery_iterator_start(&iter, heapmgt->vmcode.alloc_start,
+                                 true /*using heap*/)) {
+        report_w_xor_x_fatal_error_and_exit();
+        ASSERT_NOT_REACHED();
+    }
+    while (memquery_iterator_next(&iter) && iter.vm_start < heapmgt->vmcode.end_addr) {
+        if (iter.vm_start < heapmgt->vmcode.alloc_start || iter.prot == MEMPROT_NONE)
+            continue;
+        byte *new_start =
+            iter.vm_start - heapmgt->vmcode.alloc_start + th->fork_copy_start;
+        vmvector_add(th->fork_copy_areas, new_start,
+                     new_start + (iter.vm_end - iter.vm_start),
+                     (void *)(ptr_uint_t)iter.prot);
+        if (!os_heap_commit(new_start, iter.vm_end - iter.vm_start,
+                            MEMPROT_READ | MEMPROT_WRITE, &error_code)) {
+            report_w_xor_x_fatal_error_and_exit();
+            ASSERT_NOT_REACHED();
+        }
+        memcpy(new_start, iter.vm_start, iter.vm_end - iter.vm_start);
+        LOG(GLOBAL, LOG_HEAP, 2, "%s: copied %p-%p %x to %p-%p\n", __FUNCTION__,
+            iter.vm_start, iter.vm_end, iter.prot, new_start,
+            new_start + (iter.vm_end - iter.vm_start));
+    }
+    memquery_iterator_stop(&iter);
+}
+
+void
+vmm_heap_fork_post(dcontext_t *dcontext, bool parent)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x) || !parent)
+        return;
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    heap_error_code_t error_code;
+    os_heap_free(th->fork_copy_start, th->fork_copy_size, &error_code);
+    if (error_code != HEAP_ERROR_SUCCESS) {
+        report_w_xor_x_fatal_error_and_exit();
+        ASSERT_NOT_REACHED();
+    }
+    th->fork_copy_start = NULL;
+    th->fork_copy_size = 0;
+    vmvector_reset_vector(dcontext, th->fork_copy_areas);
+    vmvector_delete_vector(dcontext, th->fork_copy_areas);
+    th->fork_copy_areas = NULL;
+}
+
+void
+vmm_heap_fork_init(dcontext_t *dcontext)
+{
+    if (!DYNAMO_OPTION(satisfy_w_xor_x))
+        return;
+    /* We want a private copy of our dual mapping setup, rather than sharing the
+     * parent's.  Unfortunately that requires copying the entire vmcode contents
+     * into new mappings.  The parent has made a temp copy for us to avoid races
+     * if we tried to copy its live memory.
+     */
+
+    /* First, make a new file. */
+    int old_fd = heapmgt->dual_map_file;
+    heapmgt->dual_map_file =
+        os_create_memory_file(MEMORY_FILE_NAME, heapmgt->vmcode.alloc_size);
+    if (heapmgt->dual_map_file == INVALID_FILE)
+        goto vmm_heap_fork_init_failed;
+    LOG(GLOBAL, LOG_HEAP, 2, "%s: new dual_map_file is %d\n", __FUNCTION__,
+        heapmgt->dual_map_file);
+
+    /* Second, make a new +w region and copy the old protections and contents. */
+    size_t map_size = heapmgt->vmcode.alloc_size;
+    byte *map_base =
+        os_map_file(heapmgt->dual_map_file, &map_size, 0, heapmgt->vmcode_writable_alloc,
+                    MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+    if (map_base != heapmgt->vmcode_writable_alloc ||
+        map_size != heapmgt->vmcode.alloc_size)
+        goto vmm_heap_fork_init_failed;
+    heap_error_code_t error_code;
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    vmvector_iterator_t vmvi;
+    vmvector_iterator_start(th->fork_copy_areas, &vmvi);
+    while (vmvector_iterator_hasnext(&vmvi)) {
+        byte *start, *end;
+        uint prot = (uint)(ptr_uint_t)vmvector_iterator_next(&vmvi, &start, &end);
+        byte *new_start = start - th->fork_copy_start + heapmgt->vmcode_writable_alloc;
+        uint new_prot = (prot & ~(MEMPROT_EXEC)) | MEMPROT_WRITE;
+        if (!os_heap_commit(new_start, end - start, new_prot, &error_code))
+            goto vmm_heap_fork_init_failed;
+        memcpy(new_start, start, end - start);
+        LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x; copied from %p-%p %x\n",
+            __FUNCTION__, new_start, new_start + (end - start), new_prot, start, end,
+            prot);
+    }
+    vmvector_iterator_stop(&vmvi);
+
+    /* Third, make a new +x region and set up the right protections and mappings. */
+    map_size = heapmgt->vmcode.alloc_size;
+    map_base =
+        os_map_file(heapmgt->dual_map_file, &map_size, 0, heapmgt->vmcode.alloc_start,
+                    MEMPROT_NONE, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+    if (map_base != heapmgt->vmcode.alloc_start || map_size != heapmgt->vmcode.alloc_size)
+        goto vmm_heap_fork_init_failed;
+    vmvector_iterator_start(th->fork_copy_areas, &vmvi);
+    while (vmvector_iterator_hasnext(&vmvi)) {
+        byte *start, *end;
+        uint prot = (uint)(ptr_uint_t)vmvector_iterator_next(&vmvi, &start, &end);
+        byte *new_start = start - th->fork_copy_start + heapmgt->vmcode.alloc_start;
+        map_size = end - start;
+        map_base =
+            os_map_file(heapmgt->dual_map_file, &map_size, start - th->fork_copy_start,
+                        new_start, prot, MAP_FILE_VMM_COMMIT | MAP_FILE_FIXED);
+        if (map_base != new_start || map_size != end - start)
+            goto vmm_heap_fork_init_failed;
+        LOG(GLOBAL, LOG_HEAP, 2, "%s: re-mapped %p-%p %x\n", __FUNCTION__, new_start,
+            new_start + map_size, prot);
+    }
+    vmvector_iterator_stop(&vmvi);
+
+    os_heap_free(th->fork_copy_start, th->fork_copy_size, &error_code);
+    if (error_code != HEAP_ERROR_SUCCESS)
+        goto vmm_heap_fork_init_failed;
+    th->fork_copy_start = NULL;
+    th->fork_copy_size = 0;
+    vmvector_reset_vector(dcontext, th->fork_copy_areas);
+    vmvector_delete_vector(dcontext, th->fork_copy_areas);
+    th->fork_copy_areas = NULL;
+
+    /* XXX: We don't want to unlink any tmpfs file so we don't use
+     * os_delete_memory_file(). This may not work on Windows if that function needs to do
+     * more.
+     */
+    os_close(old_fd);
+    return;
+
+vmm_heap_fork_init_failed:
+    report_w_xor_x_fatal_error_and_exit();
+    ASSERT_NOT_REACHED();
+}
+#endif
 
 /* checks for compatibility among heap options, returns true if
  * modified the value of any options to make them compatible
@@ -1515,8 +2190,11 @@ heap_check_option_compatibility()
     bool ret = false;
 
     ret = check_param_bounds(&dynamo_options.vm_size, MIN_VMM_HEAP_UNIT_SIZE,
-                             MAX_VMM_HEAP_UNIT_SIZE, "vm_size")
-        || ret;
+                             MAX_VMCODE_SIZE, "vm_size") ||
+        ret;
+    ret = check_param_bounds(&dynamo_options.vmheap_size, MIN_VMM_HEAP_UNIT_SIZE,
+                             MAX_VMHEAP_SIZE, "vmheap_size") ||
+        ret;
 #ifdef INTERNAL
     /* if max_heap_unit_size is too small you may get a funny message
      * "initial_heap_unit_size must be >= 8229 and <= 4096" but in
@@ -1532,16 +2210,16 @@ heap_check_option_compatibility()
                               * at least a page.
                               */
                              ALIGN_FORWARD(UNITOVERHEAD + 1, (uint)PAGE_SIZE),
-                             HEAP_UNIT_MAX_SIZE, "initial_heap_unit_size")
-        || ret;
+                             HEAP_UNIT_MAX_SIZE, "initial_heap_unit_size") ||
+        ret;
     ret = check_param_bounds(&dynamo_options.initial_global_heap_unit_size,
                              ALIGN_FORWARD(UNITOVERHEAD + 1, (uint)PAGE_SIZE),
-                             HEAP_UNIT_MAX_SIZE, "initial_global_heap_unit_size")
-        || ret;
+                             HEAP_UNIT_MAX_SIZE, "initial_global_heap_unit_size") ||
+        ret;
     ret = check_param_bounds(&dynamo_options.max_heap_unit_size,
-                             MAX(HEAP_UNIT_MIN_SIZE, GLOBAL_UNIT_MIN_SIZE),
-                             INT_MAX, "max_heap_unit_size")
-        || ret;
+                             MAX(HEAP_UNIT_MIN_SIZE, GLOBAL_UNIT_MIN_SIZE), INT_MAX,
+                             "max_heap_unit_size") ||
+        ret;
 #endif
     return ret;
 }
@@ -1550,31 +2228,29 @@ heap_check_option_compatibility()
 void
 heap_reset_init()
 {
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_nonpersistent_units,
-                         GLOBAL_UNIT_MIN_SIZE);
-    }
+    threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_nonpersistent_units,
+                     GLOBAL_UNIT_MIN_SIZE, false);
 }
 
 /* initialization */
 void
-heap_init()
+d_r_heap_init()
 {
     int i;
     uint prev_sz = 0;
 
-    LOG(GLOBAL, LOG_TOP|LOG_HEAP, 2, "Heap bucket sizes are:\n");
+    LOG(GLOBAL, LOG_TOP | LOG_HEAP, 2, "Heap bucket sizes are:\n");
     /* make sure we'll preserve alignment */
     ASSERT(ALIGNED(HEADER_SIZE, HEAP_ALIGNMENT));
     /* make sure free list pointers will fit */
-    ASSERT(BLOCK_SIZES[0] >= sizeof(heap_pc*));
+    ASSERT(BLOCK_SIZES[0] >= sizeof(heap_pc *));
     /* since sizes depend on size of structs, make sure they're in order */
     for (i = 0; i < BLOCK_TYPES; i++) {
         ASSERT(BLOCK_SIZES[i] > prev_sz);
         /* we assume all of our heap allocs are aligned */
-        ASSERT(i == BLOCK_TYPES-1 || ALIGNED(BLOCK_SIZES[i], HEAP_ALIGNMENT));
+        ASSERT(i == BLOCK_TYPES - 1 || ALIGNED(BLOCK_SIZES[i], HEAP_ALIGNMENT));
         prev_sz = BLOCK_SIZES[i];
-        LOG(GLOBAL, LOG_TOP|LOG_HEAP, 2, "\t%d bytes\n", BLOCK_SIZES[i]);
+        LOG(GLOBAL, LOG_TOP | LOG_HEAP, 2, "\t%d bytes\n", BLOCK_SIZES[i]);
     }
 
     /* we assume writes to some static vars are atomic,
@@ -1593,16 +2269,20 @@ heap_init()
      */
     ASSERT(heapmgt == &temp_heapmgt);
     heapmgt->global_heap_writable = true; /* this is relied on in global_heap_alloc */
-    threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_units, GLOBAL_UNIT_MIN_SIZE);
+    threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_units, GLOBAL_UNIT_MIN_SIZE,
+                     false);
 
-    heapmgt = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, heap_management_t, ACCT_MEM_MGT,
-                              PROTECTED);
-    memset(heapmgt, 0, sizeof(*heapmgt));
+    heapmgt =
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, heap_management_t, ACCT_MEM_MGT, PROTECTED);
     ASSERT(sizeof(temp_heapmgt) == sizeof(*heapmgt));
     memcpy(heapmgt, &temp_heapmgt, sizeof(temp_heapmgt));
 
     threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_unprotected_units,
-                     GLOBAL_UNIT_MIN_SIZE);
+                     GLOBAL_UNIT_MIN_SIZE, false);
+    if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
+        threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_reachable_units,
+                         GLOBAL_UNIT_MIN_SIZE, true);
+    }
     heap_reset_init();
 
 #ifdef WINDOWS
@@ -1614,8 +2294,7 @@ heap_init()
      * be merged automatically.
      */
     VMVECTOR_ALLOC_VECTOR(landing_pad_areas, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED | VECTOR_NEVER_MERGE,
-                          landing_pad_areas_lock);
+                          VECTOR_SHARED | VECTOR_NEVER_MERGE, landing_pad_areas_lock);
 #endif
 }
 
@@ -1628,7 +2307,7 @@ really_free_unit(heap_unit_t *u)
               (stats_int_t)(UNIT_COMMIT_SIZE(u) - UNIT_RESERVED_SIZE(u)));
     /* remember that u itself is inside unit, not separately allocated */
     release_guarded_real_memory((vm_addr_t)u, UNIT_RESERVED_SIZE(u),
-                                false/*do not update DR areas now*/, true, VMM_HEAP);
+                                false /*do not update DR areas now*/, true, u->which);
 }
 
 /* Free all thread-shared state not critical to forward progress;
@@ -1661,8 +2340,8 @@ heap_reset_free()
     u = heapmgt->heap.dead;
     while (u != NULL) {
         next_u = u->next_global;
-        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit "PFX"-"PFX" [-"PFX"]\n",
-            u, UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
+        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit " PFX "-" PFX " [-" PFX "]\n", u,
+            UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
         RSTATS_DEC(heap_num_free);
         really_free_unit(u);
         u = next_u;
@@ -1676,7 +2355,7 @@ heap_reset_free()
 
 /* atexit cleanup */
 void
-heap_exit()
+d_r_heap_exit()
 {
     heap_unit_t *u, *next_u;
     heap_management_t *temp;
@@ -1687,19 +2366,28 @@ heap_exit()
     acquire_recursive_lock(&heap_unit_lock);
 
 #ifdef WINDOWS
-    release_landing_pad_mem();  /* PR 250294 */
+    release_landing_pad_mem(); /* PR 250294 */
 #endif
 
     LOG(GLOBAL, LOG_HEAP, 1, "Global unprotected heap unit stats:\n");
     threadunits_exit(&heapmgt->global_unprotected_units, GLOBAL_DCONTEXT);
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        LOG(GLOBAL, LOG_HEAP, 1, "Global nonpersistent heap unit stats:\n");
-        threadunits_exit(&heapmgt->global_nonpersistent_units, GLOBAL_DCONTEXT);
+    LOG(GLOBAL, LOG_HEAP, 1, "Global nonpersistent heap unit stats:\n");
+    threadunits_exit(&heapmgt->global_nonpersistent_units, GLOBAL_DCONTEXT);
+    if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
+        LOG(GLOBAL, LOG_HEAP, 1, "Global reachable heap unit stats:\n");
+        threadunits_exit(&heapmgt->global_reachable_units, GLOBAL_DCONTEXT);
     }
 
     /* Now we need to go back to the static struct to clean up */
     ASSERT(heapmgt != &temp_heapmgt);
+    /* We need to maintain the lock process list which was using the temp_heapmgt
+     * lock structure.
+     */
+    mutex_t temp_vmcode = temp_heapmgt.vmcode.lock;
+    mutex_t temp_vmheap = temp_heapmgt.vmheap.lock;
     memcpy(&temp_heapmgt, heapmgt, sizeof(temp_heapmgt));
+    temp_heapmgt.vmcode.lock = temp_vmcode;
+    temp_heapmgt.vmheap.lock = temp_vmheap;
     temp = heapmgt;
     heapmgt = &temp_heapmgt;
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, temp, heap_management_t, ACCT_MEM_MGT, PROTECTED);
@@ -1712,8 +2400,8 @@ heap_exit()
     u = heapmgt->heap.units;
     while (u != NULL) {
         next_u = u->next_global;
-        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing live unit "PFX"-"PFX" [-"PFX"]\n",
-            u, UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
+        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing live unit " PFX "-" PFX " [-" PFX "]\n", u,
+            UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
         RSTATS_DEC(heap_num_live);
         really_free_unit(u);
         u = next_u;
@@ -1722,24 +2410,29 @@ heap_exit()
     u = heapmgt->heap.dead;
     while (u != NULL) {
         next_u = u->next_global;
-        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit "PFX"-"PFX" [-"PFX"]\n",
-            u, UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
+        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit " PFX "-" PFX " [-" PFX "]\n", u,
+            UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
         RSTATS_DEC(heap_num_free);
         really_free_unit(u);
         u = next_u;
     }
     heapmgt->heap.dead = NULL;
+    heapmgt->global_heap_writable = false; /* This is relied on in global_heap_alloc. */
     release_recursive_lock(&heap_unit_lock);
     dynamo_vm_areas_unlock();
 
     DELETE_RECURSIVE_LOCK(heap_unit_lock);
     DELETE_RECURSIVE_LOCK(global_alloc_lock);
+    DELETE_RECURSIVE_LOCK(low_on_memory_pending_lock);
+
 #ifdef X64
     DELETE_LOCK(request_region_be_heap_reachable_lock);
 #endif
 
-    if (doing_detach)
+    if (doing_detach) {
         heapmgt = &temp_heapmgt;
+        IF_X64(reset_heap_reachable_bounds());
+    }
 }
 
 void
@@ -1759,7 +2452,7 @@ heap_low_on_memory()
     /* free some memory! */
     heap_unit_t *u, *next_u;
     size_t freed = 0;
-    LOG(GLOBAL, LOG_CACHE|LOG_STATS, 1,
+    LOG(GLOBAL, LOG_CACHE | LOG_STATS, 1,
         "heap_low_on_memory: about to free dead list units\n");
     /* WARNING: this routine is called at arbitrary allocation failure points,
      * so we have to be careful what locks we grab
@@ -1778,8 +2471,8 @@ heap_low_on_memory()
         next_u = u->next_global;
         freed += UNIT_COMMIT_SIZE(u);
         /* FIXME: if out of committed pages only, could keep our reservations */
-        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit "PFX"-"PFX" [-"PFX"]\n",
-            u, UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
+        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit " PFX "-" PFX " [-" PFX "]\n", u,
+            UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
         RSTATS_DEC(heap_num_free);
         really_free_unit(u);
         u = next_u;
@@ -1788,8 +2481,8 @@ heap_low_on_memory()
     heapmgt->heap.dead = NULL;
     release_recursive_lock(&heap_unit_lock);
     dynamo_vm_areas_unlock();
-    LOG(GLOBAL, LOG_CACHE|LOG_STATS, 1,
-        "heap_low_on_memory: freed %d KB\n", freed/1024);
+    LOG(GLOBAL, LOG_CACHE | LOG_STATS, 1, "heap_low_on_memory: freed %d KB\n",
+        freed / 1024);
     /* FIXME: we don't keep a list of guard pages, which we may decide to throw
      * out or compact at this time.
      */
@@ -1799,7 +2492,7 @@ heap_low_on_memory()
      */
 }
 
-static const char*
+static const char *
 get_oom_source_name(oom_source_t source)
 {
     /* currently only single character codenames,
@@ -1808,12 +2501,11 @@ get_oom_source_name(oom_source_t source)
     const char *code_name = "?";
 
     switch (source) {
-    case OOM_INIT     : code_name = "I"; break;
-    case OOM_RESERVE  : code_name = "R"; break;
-    case OOM_COMMIT   : code_name = "C"; break;
-    case OOM_EXTEND   : code_name = "E"; break;
-    default:
-        ASSERT_NOT_REACHED();
+    case OOM_INIT: code_name = "I"; break;
+    case OOM_RESERVE: code_name = "R"; break;
+    case OOM_COMMIT: code_name = "C"; break;
+    case OOM_EXTEND: code_name = "E"; break;
+    default: ASSERT_NOT_REACHED();
     }
     return code_name;
 }
@@ -1821,7 +2513,7 @@ get_oom_source_name(oom_source_t source)
 static bool
 silent_oom_for_process(oom_source_t source)
 {
-    if (TESTANY(OOM_COMMIT|OOM_EXTEND, source) &&
+    if (TESTANY(OOM_COMMIT | OOM_EXTEND, source) &&
         !IS_STRING_OPTION_EMPTY(silent_commit_oom_list)) {
         bool onlist;
         const char *process_name = get_short_name(get_application_name());
@@ -1844,32 +2536,30 @@ silent_oom_for_process(oom_source_t source)
  * independent layer.
  */
 static void
-report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
+report_low_on_memory(which_vmm_t which, oom_source_t source,
+                     heap_error_code_t os_error_code)
 {
-    if (TESTANY(DYNAMO_OPTION(silent_oom_mask), source)
-        || silent_oom_for_process(source)) {
-        SYSLOG_INTERNAL_WARNING("Mostly silent OOM: %s "PFX".\n",
+    if (TESTANY(DYNAMO_OPTION(silent_oom_mask), source) ||
+        silent_oom_for_process(source)) {
+        SYSLOG_INTERNAL_WARNING("Mostly silent OOM: %s " PFX ".\n",
                                 get_oom_source_name(source), os_error_code);
         /* still produce an ldmp for internal use */
         if (TEST(DUMPCORE_OUT_OF_MEM_SILENT, DYNAMO_OPTION(dumpcore_mask)))
             os_dump_core("Out of memory, silently aborting program.");
     } else {
         const char *oom_source_code = get_oom_source_name(source);
-        char status_hex[19]; /* FIXME: for 64bit hex need 16+NULL */
-        /* note 0x prefix added by the syslog */
-        snprintf(status_hex,
-                 BUFFER_SIZE_ELEMENTS(status_hex), PFX, /* FIXME: 32bit */
-                 os_error_code);
+        char type_hex[19];
+        snprintf(type_hex, BUFFER_SIZE_ELEMENTS(type_hex), PFX, which);
+        NULL_TERMINATE_BUFFER(type_hex);
+        char status_hex[19];
+        snprintf(status_hex, BUFFER_SIZE_ELEMENTS(status_hex), PFX, os_error_code);
         NULL_TERMINATE_BUFFER(status_hex);
         /* SYSLOG first */
-        SYSLOG_CUSTOM_NOTIFY(SYSLOG_CRITICAL, MSG_OUT_OF_MEMORY, 4,
-                             "Out of memory.  Program aborted.",
-                             get_application_name(), get_application_pid(),
-                             oom_source_code, status_hex
-                             );
-
-        /* FIXME: case 7306 can't specify arguments in SYSLOG_CUSTOM_NOTIFY */
-        SYSLOG_INTERNAL_WARNING("OOM Status: %s %s", oom_source_code, status_hex);
+        SYSLOG(SYSLOG_CRITICAL, OUT_OF_MEMORY, 4, get_application_name(),
+               get_application_pid(), oom_source_code, type_hex, status_hex);
+        /* Stats can be very useful to diagnose why we hit OOM. */
+        if (INTERNAL_OPTION(rstats_to_stderr))
+            dump_global_rstats_to_stderr();
 
         /* XXX: case 7296 - ldmp even if we have decided not to produce an event above */
         if (TEST(DUMPCORE_OUT_OF_MEM, DYNAMO_OPTION(dumpcore_mask)))
@@ -1884,8 +2574,8 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
 
 /* update statistics for committed memory, and add to vm_areas */
 static inline void
-account_for_memory(void *p, size_t size, uint prot, bool add_vm, bool image
-                   _IF_DEBUG(const char *comment))
+account_for_memory(void *p, size_t size, uint prot, bool add_vm,
+                   bool image _IF_DEBUG(const char *comment))
 {
     RSTATS_ADD_PEAK(memory_capacity, size);
 
@@ -1893,7 +2583,7 @@ account_for_memory(void *p, size_t size, uint prot, bool add_vm, bool image
      * for clients that use DR-allocated memory, we have get_memory_info()
      * query from the OS to see inside
      */
-    if (vmm_is_reserved_unit(&heapmgt->vmheap, p, size)) {
+    if (is_vmm_reserved_address(p, size, NULL, NULL)) {
         return;
     }
 
@@ -1921,7 +2611,7 @@ update_dynamo_areas_on_release(app_pc start, app_pc end, bool remove_vm)
          * for clients that use DR-allocated memory, we have get_memory_info()
          * query from the OS to see inside
          */
-        if (vmm_is_reserved_unit(&heapmgt->vmheap, start, end - start)) {
+        if (is_vmm_reserved_address(start, end - start, NULL, NULL)) {
             return;
         }
         if (remove_vm) {
@@ -1948,13 +2638,69 @@ lockwise_safe_to_allocate_memory()
     return !self_owns_recursive_lock(&global_alloc_lock);
 }
 
+/* Reserves space inside the VMM region which can be used by the caller for mapping
+ * mapping a file.  First attempts to reserve at "preferred" but if that fails it
+ * attempts at any available location.
+ */
+byte *
+heap_reserve_for_external_mapping(byte *preferred, size_t size, which_vmm_t which)
+{
+#ifdef WINDOWS
+    /* TODO i#3570: Add Windows support, which is complex as we cannot map a file
+     * on top of an existing reservation; nor can we un-reserve a piece of a
+     * reservation.  See the issue for solution ideas.
+     */
+    ASSERT_NOT_IMPLEMENTED(false && "i#3570");
+    return NULL;
+#endif
+    vm_addr_t p = NULL;
+    vm_heap_t *vmh = vmheap_for_which(which);
+    ASSERT(size > 0);
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
+    if (!DYNAMO_OPTION(vm_reserve))
+        return NULL;
+    if (preferred >= vmh->start_addr && preferred + size <= vmh->end_addr)
+        p = vmm_heap_reserve_blocks(vmh, size, preferred, which);
+    if (p == NULL)
+        p = vmm_heap_reserve_blocks(vmh, size, NULL, which);
+    LOG(GLOBAL, LOG_HEAP, 2, "%s %s: size=%d p=" PFX "\n", __FUNCTION__, vmh->name, size,
+        p);
+    return p;
+}
+
+/* Before calling this function, the caller must restore [p,p+size) to
+ * its state from before heap_reserve_for_external_mapping() was
+ * called: reserved but not committed.
+ */
+bool
+heap_unreserve_for_external_mapping(byte *p, size_t size, which_vmm_t which)
+{
+#ifdef WINDOWS
+    /* TODO i#3570: Add Windows support, which is complex as we cannot map a file
+     * on top of an existing reservation; nor can we un-reserve a piece of a
+     * reservation.  See the issue for solution ideas.
+     */
+    ASSERT_NOT_IMPLEMENTED(false && "i#3570");
+    return false;
+#endif
+    vm_heap_t *vmh = vmheap_for_which(which);
+    ASSERT(size > 0);
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
+    if (!DYNAMO_OPTION(vm_reserve) || !is_vmm_reserved_address(p, size, NULL, NULL))
+        return false;
+    vmm_heap_free_blocks(vmh, p, size, which);
+    LOG(GLOBAL, LOG_HEAP, 2, "%s %s: size=%d p=" PFX "\n", __FUNCTION__, vmh->name, size,
+        p);
+    return true;
+}
+
 /* we indirect all os memory requests through here so we have a central place
  * to handle the out-of-memory condition.
  * add_vm MUST be false iff this is heap memory, which is updated separately.
  */
 static void *
-get_real_memory(size_t size, uint prot, bool add_vm, which_vmm_t which
-                _IF_DEBUG(const char *comment))
+get_real_memory(size_t size, uint prot, bool add_vm,
+                which_vmm_t which _IF_DEBUG(const char *comment))
 {
     void *p;
     heap_error_code_t error_code;
@@ -1967,7 +2713,8 @@ get_real_memory(size_t size, uint prot, bool add_vm, which_vmm_t which
     p = vmm_heap_alloc(size, prot, &error_code, which);
     if (p == NULL) {
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory -- cannot reserve or "
-                                     "commit %dKB.  Trying to recover.", size/1024);
+                                     "commit %dKB.  Trying to recover.",
+                                     size / 1024);
         /* we should be ok here, shouldn't come in here holding global_alloc_lock
          * or heap_unit_lock w/o first having grabbed DR areas lock
          */
@@ -1983,7 +2730,7 @@ get_real_memory(size_t size, uint prot, bool add_vm, which_vmm_t which
          */
         p = vmm_heap_alloc(size, prot, &error_code, which);
         if (p == NULL) {
-            report_low_on_memory(OOM_RESERVE, error_code);
+            report_low_on_memory(which, OOM_RESERVE, error_code);
         }
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory -- but still alive after "
                                      "emergency free.");
@@ -2009,7 +2756,7 @@ release_memory_and_update_areas(app_pc p, size_t size, bool decommit, bool remov
      */
     update_dynamo_areas_on_release(p, p + size, remove_vm);
     if (decommit)
-        vmm_heap_decommit(p, size, &error_code);
+        vmm_heap_decommit(p, size, &error_code, which);
     else
         vmm_heap_free(p, size, &error_code, which);
     ASSERT(error_code == HEAP_ERROR_SUCCESS);
@@ -2023,7 +2770,7 @@ release_real_memory(void *p, size_t size, bool remove_vm, which_vmm_t which)
     /* must round up to page sizes for vmm_heap_free */
     size = ALIGN_FORWARD(size, PAGE_SIZE);
 
-    release_memory_and_update_areas((app_pc)p, size, false/*free*/, remove_vm, which);
+    release_memory_and_update_areas((app_pc)p, size, false /*free*/, remove_vm, which);
 
     /* avoid problem w/ being called by cleanup_and_terminate after dynamo_process_exit */
     if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true))
@@ -2031,20 +2778,21 @@ release_real_memory(void *p, size_t size, bool remove_vm, which_vmm_t which)
 }
 
 static void
-extend_commitment(vm_addr_t p, size_t size, uint prot,
-                  bool initial_commit, which_vmm_t which)
+extend_commitment(vm_addr_t p, size_t size, uint prot, bool initial_commit,
+                  which_vmm_t which)
 {
     heap_error_code_t error_code;
     ASSERT(ALIGNED(p, PAGE_SIZE));
     size = ALIGN_FORWARD(size, PAGE_SIZE);
-    if (!vmm_heap_commit(p, size, prot, &error_code)) {
+    if (!vmm_heap_commit(p, size, prot, &error_code, which)) {
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory - cannot extend commit "
-                                     "%dKB. Trying to recover.", size/1024);
+                                     "%dKB. Trying to recover.",
+                                     size / 1024);
         heap_low_on_memory();
         fcache_low_on_memory();
         /* see low-memory ideas in get_real_memory */
-        if (!vmm_heap_commit(p, size, prot, &error_code)) {
-            report_low_on_memory(initial_commit ? OOM_COMMIT : OOM_EXTEND,
+        if (!vmm_heap_commit(p, size, prot, &error_code, which)) {
+            report_low_on_memory(which, initial_commit ? OOM_COMMIT : OOM_EXTEND,
                                  error_code);
         }
 
@@ -2060,16 +2808,16 @@ extend_commitment(vm_addr_t p, size_t size, uint prot,
  * Non-NULL min_addr is only supported for stack allocations (DrMi#1723).
  */
 static vm_addr_t
-get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
-                        bool add_vm, bool guarded, byte *min_addr, which_vmm_t which
-                        _IF_DEBUG(const char *comment))
+get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool add_vm,
+                        bool guarded, byte *min_addr,
+                        which_vmm_t which _IF_DEBUG(const char *comment))
 {
     vm_addr_t p = NULL;
     uint guard_size = (uint)PAGE_SIZE;
     heap_error_code_t error_code;
     bool try_vmm = true;
     ASSERT(reserve_size >= commit_size);
-    if (!guarded || !dynamo_options.guard_pages) {
+    if (!guarded || !has_guard_pages(which)) {
         if (reserve_size == commit_size)
             return get_real_memory(reserve_size, prot, add_vm, which _IF_DEBUG(comment));
         guard_size = 0;
@@ -2078,7 +2826,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
     reserve_size = ALIGN_FORWARD(reserve_size, PAGE_SIZE);
     commit_size = ALIGN_FORWARD(commit_size, PAGE_SIZE);
 
-    reserve_size += 2* guard_size;  /* add top and bottom guards */
+    reserve_size += 2 * guard_size; /* add top and bottom guards */
 
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
@@ -2091,9 +2839,8 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
      * This results in more fragmentation and larger dynamo_areas so we avoid
      * if we can.  We could consider a 2nd vm_reserve region just for stacks.
      */
-    if (SWAP_TEB_STACKBASE() &&
-        (!DYNAMO_OPTION(vm_reserve) && min_addr > NULL) ||
-        (DYNAMO_OPTION(vm_reserve) && min_addr > heapmgt->vmheap.start_addr)) {
+    if (SWAP_TEB_STACKBASE() && (!DYNAMO_OPTION(vm_reserve) && min_addr > NULL) ||
+        (DYNAMO_OPTION(vm_reserve) && min_addr > vmheap_get_start())) {
         try_vmm = false;
     }
 #endif
@@ -2101,14 +2848,13 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
     if (try_vmm)
         p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
     if (!try_vmm || p < (vm_addr_t)min_addr) {
         if (p != NULL)
             vmm_heap_free(p, reserve_size, &error_code, which);
-        p = os_heap_reserve_in_region
-            ((void *)ALIGN_FORWARD(min_addr, PAGE_SIZE),
-             (void *)PAGE_START(POINTER_MAX),
-             reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
+        p = os_heap_reserve_in_region((void *)ALIGN_FORWARD(min_addr, PAGE_SIZE),
+                                      (void *)PAGE_START(POINTER_MAX), reserve_size,
+                                      &error_code, TEST(MEMPROT_EXEC, prot));
         /* No reason to update heap-reachable b/c stack doesn't need to reach
          * (min_addr != NULL assumed to be stack).
          */
@@ -2130,13 +2876,14 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
     if (p == NULL) {
         /* Very unlikely to happen: we have to reach at least 2GB reserved memory. */
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory - cannot reserve %dKB. "
-                                     "Trying to recover.", reserve_size/1024);
+                                     "Trying to recover.",
+                                     reserve_size / 1024);
         heap_low_on_memory();
         fcache_low_on_memory();
 
         p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
         if (p == NULL) {
-            report_low_on_memory(OOM_RESERVE, error_code);
+            report_low_on_memory(which, OOM_RESERVE, error_code);
         }
 
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory on reserve - but still "
@@ -2166,16 +2913,16 @@ static void
 release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm, bool guarded,
                             which_vmm_t which)
 {
-    if (!guarded || !dynamo_options.guard_pages) {
+    if (!guarded || !has_guard_pages(which)) {
         release_real_memory(p, size, remove_vm, which);
         return;
     }
 
     size = ALIGN_FORWARD(size, PAGE_SIZE);
-    size += PAGE_SIZE * 2;  /* add top and bottom guards */
+    size += PAGE_SIZE * 2; /* add top and bottom guards */
     p -= PAGE_SIZE;
 
-    release_memory_and_update_areas((app_pc)p, size, false/*free*/, remove_vm, which);
+    release_memory_and_update_areas((app_pc)p, size, false /*free*/, remove_vm, which);
 
     /* avoid problem w/ being called by cleanup_and_terminate after dynamo_process_exit */
     if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true)) {
@@ -2192,38 +2939,29 @@ void *
 heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded,
              which_vmm_t which)
 {
-    /* XXX i#774: when we split vmheap and vmcode, if MEMPROT_EXEC is requested
-     * here (or this is a call from a client, for reachability
-     * compatibility), put it in vmcode; else in vmheap.
-     */
     void *p = get_guarded_real_memory(reserve_size, commit_size, prot, true, guarded,
                                       NULL, which _IF_DEBUG("heap_mmap"));
 #ifdef DEBUG_MEMORY
     if (TEST(MEMPROT_WRITE, prot))
-        memset(p, HEAP_ALLOCATED_BYTE, commit_size);
+        memset(vmm_get_writable_addr(p, which), HEAP_ALLOCATED_BYTE, commit_size);
 #endif
     /* We rely on this for freeing _post_stack in absence of dcontext */
-    ASSERT(!DYNAMO_OPTION(vm_reserve) ||
-           !DYNAMO_OPTION(stack_shares_gencode) ||
-           (ptr_uint_t)p - (guarded ? (GUARD_PAGE_ADJUSTMENT/2) : 0) ==
-           ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size)) ||
-           at_reset_at_vmm_limit());
-    LOG(GLOBAL, LOG_HEAP, 2, "heap_mmap: %d bytes [/ %d] @ "PFX"\n",
-        commit_size, reserve_size, p);
+    ASSERT(!DYNAMO_OPTION(vm_reserve) || !DYNAMO_OPTION(stack_shares_gencode) ||
+           (ptr_uint_t)p - (guarded ? (GUARD_PAGE_ADJUSTMENT / 2) : 0) ==
+               ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size)) ||
+           at_reset_at_vmm_limit(vmheap_for_which(which)));
+    LOG(GLOBAL, LOG_HEAP, 2, "heap_mmap: %d bytes [/ %d] @ " PFX "\n", commit_size,
+        reserve_size, p);
     STATS_ADD_PEAK(mmap_capacity, commit_size);
     STATS_ADD_PEAK(mmap_reserved_only, (reserve_size - commit_size));
     return p;
 }
 
-/* use heap_mmap to allocate large chunks of executable memory
- * it's mainly used to allocate our fcache units
- */
+/* Use heap_mmap to allocate large chunks of memory. */
 void *
-heap_mmap_reserve(size_t reserve_size, size_t commit_size, which_vmm_t which)
+heap_mmap_reserve(size_t reserve_size, size_t commit_size, uint prot, which_vmm_t which)
 {
-    /* heap_mmap always marks as executable */
-    return heap_mmap_ex(reserve_size, commit_size,
-                        MEMPROT_EXEC|MEMPROT_READ|MEMPROT_WRITE, true, which);
+    return heap_mmap_ex(reserve_size, commit_size, prot, true, which);
 }
 
 /* It is up to the caller to ensure commit_size is a page size multiple,
@@ -2232,12 +2970,12 @@ heap_mmap_reserve(size_t reserve_size, size_t commit_size, which_vmm_t which)
 void
 heap_mmap_extend_commitment(void *p, size_t commit_size, which_vmm_t which)
 {
-    extend_commitment(p, commit_size, MEMPROT_EXEC|MEMPROT_READ|MEMPROT_WRITE,
+    extend_commitment(p, commit_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
                       false /*not initial commit*/, which);
     STATS_SUB(mmap_reserved_only, commit_size);
     STATS_ADD_PEAK(mmap_capacity, commit_size);
 #ifdef DEBUG_MEMORY
-    memset(p, HEAP_ALLOCATED_BYTE, commit_size);
+    memset(vmm_get_writable_addr(p, which), HEAP_ALLOCATED_BYTE, commit_size);
 #endif
 }
 
@@ -2247,94 +2985,97 @@ heap_mmap_retract_commitment(void *retract_start, size_t decommit_size, which_vm
 {
     heap_error_code_t error_code;
     ASSERT(ALIGNED(decommit_size, PAGE_SIZE));
-    vmm_heap_decommit(retract_start, decommit_size, &error_code);
+    vmm_heap_decommit(retract_start, decommit_size, &error_code, which);
     STATS_ADD(mmap_reserved_only, decommit_size);
     STATS_ADD_PEAK(mmap_capacity, -(stats_int_t)decommit_size);
 }
 
 /* Allocates executable memory in the same allocation region as this thread's
  * stack, to save address space (case 9474).
+ * Doing so is only supported for -reachable_heap (but for x64 we don't have
+ * private gencode in any case).
  */
 void *
-heap_mmap_reserve_post_stack(dcontext_t *dcontext,
-                             size_t reserve_size, size_t commit_size, which_vmm_t which)
+heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
+                             size_t commit_size, uint prot, which_vmm_t which)
 {
     void *p;
     byte *stack_reserve_end = NULL;
     heap_error_code_t error_code;
     size_t available = 0;
-    uint prot;
+    uint cur_prot = 0; /* avoid compiler warning */
     bool known_stack = false;
+    vm_heap_t *vmh = vmheap_for_which(which);
     ASSERT(reserve_size > 0 && commit_size < reserve_size);
     /* 1.5 * guard page adjustment since we'll share the middle one */
-    if (DYNAMO_OPTION(stack_size) + reserve_size +
-        GUARD_PAGE_ADJUSTMENT +
-        GUARD_PAGE_ADJUSTMENT / 2 > DYNAMO_OPTION(vmm_block_size)) {
+    if (DYNAMO_OPTION(stack_size) + reserve_size + GUARD_PAGE_ADJUSTMENT +
+            GUARD_PAGE_ADJUSTMENT / 2 >
+        DYNAMO_OPTION(vmm_block_size)) {
         /* there's not enough room to share the allocation block, stack is too big */
-        LOG(GLOBAL, LOG_HEAP, 1, "Not enough room to allocate 0x%08x bytes post stack "
-            "of size 0x%08x\n", reserve_size, DYNAMO_OPTION(stack_size));
-        return heap_mmap_reserve(reserve_size, commit_size, which);
+        LOG(GLOBAL, LOG_HEAP, 1,
+            "Not enough room to allocate 0x%08x bytes post stack "
+            "of size 0x%08x\n",
+            reserve_size, DYNAMO_OPTION(stack_size));
+        return heap_mmap_reserve(reserve_size, commit_size, prot, which);
     }
     if (DYNAMO_OPTION(stack_shares_gencode) &&
         /* FIXME: we could support this w/o vm_reserve, or when beyond
          * the reservation, but we don't bother */
-        DYNAMO_OPTION(vm_reserve) &&
-        dcontext != GLOBAL_DCONTEXT && dcontext != NULL) {
-        stack_reserve_end = dcontext->dstack + GUARD_PAGE_ADJUSTMENT/2;
+        DYNAMO_OPTION(vm_reserve) && dcontext != GLOBAL_DCONTEXT && dcontext != NULL) {
+        stack_reserve_end = dcontext->dstack + GUARD_PAGE_ADJUSTMENT / 2;
 #if defined(UNIX) && !defined(HAVE_MEMINFO)
-        prot = 0; /* avoid compiler warning: should only need inside if */
         if (!dynamo_initialized) {
             /* memory info is not yet set up.  since so early we only support
              * post-stack if inside vmm (won't be true only for pathological
              * tiny vmm sizes)
              */
-            if (vmm_is_reserved_unit(&heapmgt->vmheap, stack_reserve_end, reserve_size)) {
+            if (vmm_is_reserved_unit(vmh, stack_reserve_end, reserve_size)) {
                 known_stack = true;
                 available = reserve_size;
             } else
                 known_stack = false;
         } else
 #elif defined(UNIX)
-            /* the all_memory_areas list doesn't keep details inside vmheap */
-            known_stack = get_memory_info_from_os(stack_reserve_end, NULL,
-                                                  &available, &prot);
+        /* the all_memory_areas list doesn't keep details inside vmheap */
+        known_stack =
+            get_memory_info_from_os(stack_reserve_end, NULL, &available, &cur_prot);
 #else
-            known_stack = get_memory_info(stack_reserve_end, NULL, &available, &prot);
+        known_stack = get_memory_info(stack_reserve_end, NULL, &available, &cur_prot);
 #endif
-        /* If ever out of vmheap, then may have free space beyond stack,
-         * which we could support but don't (see FIXME above) */
-        ASSERT(out_of_vmheap_once ||
-               (known_stack && available >= reserve_size && prot == 0));
+            /* If ever out of vmheap, then may have free space beyond stack,
+             * which we could support but don't (see FIXME above) */
+            ASSERT(out_of_vmheap_once ||
+                   (known_stack && available >= reserve_size && cur_prot == 0));
     }
     if (!known_stack ||
         /* if -no_vm_reserve will short-circuit so no vmh deref danger */
-        !vmm_in_same_block(dcontext->dstack,
+        !vmm_in_same_block(vmh, dcontext->dstack,
                            /* we do want a guard page at the end */
                            stack_reserve_end + reserve_size) ||
         available < reserve_size) {
-        ASSERT(!DYNAMO_OPTION(stack_shares_gencode) ||
-               !DYNAMO_OPTION(vm_reserve) || out_of_vmheap_once);
+        ASSERT(!DYNAMO_OPTION(stack_shares_gencode) || !DYNAMO_OPTION(vm_reserve) ||
+               out_of_vmheap_once);
         DOLOG(1, LOG_HEAP, {
             if (known_stack && available < reserve_size) {
                 LOG(GLOBAL, LOG_HEAP, 1,
-                    "heap_mmap_reserve_post_stack: avail %d < needed %d\n",
-                    available, reserve_size);
+                    "heap_mmap_reserve_post_stack: avail %d < needed %d\n", available,
+                    reserve_size);
             }
         });
         STATS_INC(mmap_no_share_stack_region);
-        return heap_mmap_reserve(reserve_size, commit_size, which);
+        return heap_mmap_reserve(reserve_size, commit_size, prot, which);
     }
     ASSERT(DYNAMO_OPTION(vm_reserve));
+    ASSERT(REACHABLE_HEAP());
     ASSERT(stack_reserve_end != NULL);
-    prot = MEMPROT_EXEC|MEMPROT_READ|MEMPROT_WRITE;
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
     /* We share the stack's end guard page as our start guard page */
-    if (vmm_is_reserved_unit(&heapmgt->vmheap, stack_reserve_end, reserve_size)) {
+    if (vmm_is_reserved_unit(vmh, stack_reserve_end, reserve_size)) {
         /* Memory is already reserved with OS */
         p = stack_reserve_end;
     } else {
-        p = os_heap_reserve(stack_reserve_end, reserve_size, &error_code, true/*+x*/);
+        p = os_heap_reserve(stack_reserve_end, reserve_size, &error_code, true /*+x*/);
 #ifdef X64
         /* ensure future heap allocations are reachable from this allocation
          * (this will also verify that this region meets reachability requirements) */
@@ -2344,35 +3085,35 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
         if (p == NULL) {
             ASSERT_NOT_REACHED();
             LOG(GLOBAL, LOG_HEAP, 1,
-                "heap_mmap_reserve_post_stack: reserve failed "PFX"\n", error_code);
+                "heap_mmap_reserve_post_stack: reserve failed " PFX "\n", error_code);
             dynamo_vm_areas_unlock();
             STATS_INC(mmap_no_share_stack_region);
-            return heap_mmap_reserve(reserve_size, commit_size, which);
+            return heap_mmap_reserve(reserve_size, commit_size, prot, which);
         }
         ASSERT(error_code == HEAP_ERROR_SUCCESS);
     }
-    if (!vmm_heap_commit(p, commit_size, prot, &error_code)) {
+    if (!vmm_heap_commit(p, commit_size, prot, &error_code, which)) {
         ASSERT_NOT_REACHED();
-        LOG(GLOBAL, LOG_HEAP, 1, "heap_mmap_reserve_post_stack: commit failed "PFX"\n",
+        LOG(GLOBAL, LOG_HEAP, 1, "heap_mmap_reserve_post_stack: commit failed " PFX "\n",
             error_code);
-        if (!vmm_is_reserved_unit(&heapmgt->vmheap, stack_reserve_end, reserve_size)) {
+        if (!vmm_is_reserved_unit(vmh, stack_reserve_end, reserve_size)) {
             os_heap_free(p, reserve_size, &error_code);
             ASSERT(error_code == HEAP_ERROR_SUCCESS);
         }
         dynamo_vm_areas_unlock();
         STATS_INC(mmap_no_share_stack_region);
-        return heap_mmap_reserve(reserve_size, commit_size, which);
+        return heap_mmap_reserve(reserve_size, commit_size, prot, which);
     }
-    account_for_memory(p, reserve_size, prot, true/*add now*/, false
-                       _IF_DEBUG("heap_mmap_reserve_post_stack"));
+    account_for_memory(p, reserve_size, prot, true /*add now*/,
+                       false _IF_DEBUG("heap_mmap_reserve_post_stack"));
     dynamo_vm_areas_unlock();
     /* We rely on this for freeing in absence of dcontext */
-    ASSERT((ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT/2 !=
+    ASSERT((ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT / 2 !=
            ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size)));
 #ifdef DEBUG_MEMORY
-    memset(p, HEAP_ALLOCATED_BYTE, commit_size);
+    memset(vmm_get_writable_addr(p, which), HEAP_ALLOCATED_BYTE, commit_size);
 #endif
-    LOG(GLOBAL, LOG_HEAP, 2, "heap_mmap w/ stack: %d bytes [/ %d] @ "PFX"\n",
+    LOG(GLOBAL, LOG_HEAP, 2, "heap_mmap w/ stack: %d bytes [/ %d] @ " PFX "\n",
         commit_size, reserve_size, p);
     STATS_ADD_PEAK(mmap_capacity, commit_size);
     STATS_ADD_PEAK(mmap_reserved_only, (reserve_size - commit_size));
@@ -2393,38 +3134,35 @@ heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size,
     DOCHECK(1, {
         if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT &&
             DYNAMO_OPTION(vm_reserve) && DYNAMO_OPTION(stack_shares_gencode)) {
-            bool at_stack_end = (p == dcontext->dstack + GUARD_PAGE_ADJUSTMENT/2);
-            bool at_block_start = ((ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT/2 ==
+            bool at_stack_end = (p == dcontext->dstack + GUARD_PAGE_ADJUSTMENT / 2);
+            bool at_block_start = ((ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT / 2 ==
                                    ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size)));
             ASSERT((at_stack_end && !at_block_start) ||
                    (!at_stack_end && at_block_start));
         }
     });
-    if (!DYNAMO_OPTION(vm_reserve) ||
-        !DYNAMO_OPTION(stack_shares_gencode) ||
-        (ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT/2 ==
-        ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size))) {
+    if (!DYNAMO_OPTION(vm_reserve) || !DYNAMO_OPTION(stack_shares_gencode) ||
+        (ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT / 2 ==
+            ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size))) {
         heap_munmap(p, reserve_size, which);
     } else {
         /* Detach makes it a pain to pass in the commit size so
          * we use the reserve size, which works fine.
          */
-        release_memory_and_update_areas((app_pc)p, reserve_size, true/*decommit*/,
-                                        true/*update now*/, which);
-        LOG(GLOBAL, LOG_HEAP, 2, "heap_munmap_post_stack: %d bytes @ "PFX"\n",
+        release_memory_and_update_areas((app_pc)p, reserve_size, true /*decommit*/,
+                                        true /*update now*/, which);
+        LOG(GLOBAL, LOG_HEAP, 2, "heap_munmap_post_stack: %d bytes @ " PFX "\n",
             reserve_size, p);
         STATS_SUB(mmap_capacity, reserve_size);
         STATS_SUB(mmap_reserved_only, reserve_size);
     }
 }
 
-/* use heap_mmap to allocate large chunks of executable memory
- * it's mainly used to allocate our fcache units
- */
+/* Use heap_mmap to allocate large chunks of memory. */
 void *
-heap_mmap(size_t size, which_vmm_t which)
+heap_mmap(size_t size, uint prot, which_vmm_t which)
 {
-    return heap_mmap_reserve(size, size, which);
+    return heap_mmap_ex(size, size, prot, true, which);
 }
 
 /* free memory-mapped storage */
@@ -2435,7 +3173,7 @@ heap_munmap_ex(void *p, size_t size, bool guarded, which_vmm_t which)
     /* can't set to HEAP_UNALLOCATED_BYTE since really not in our address
      * space anymore */
 #endif
-    release_guarded_real_memory((vm_addr_t)p, size, true/*update DR areas immediately*/,
+    release_guarded_real_memory((vm_addr_t)p, size, true /*update DR areas immediately*/,
                                 guarded, which);
 
     DOSTATS({
@@ -2443,7 +3181,7 @@ heap_munmap_ex(void *p, size_t size, bool guarded, which_vmm_t which)
          * dynamo_process_exit
          */
         if (!dynamo_exited_log_and_stats) {
-            LOG(GLOBAL, LOG_HEAP, 2, "heap_munmap: %d bytes @ "PFX"\n", size, p);
+            LOG(GLOBAL, LOG_HEAP, 2, "heap_munmap: %d bytes @ " PFX "\n", size, p);
             STATS_SUB(mmap_capacity, size);
             STATS_SUB(mmap_reserved_only, size);
         }
@@ -2454,7 +3192,7 @@ heap_munmap_ex(void *p, size_t size, bool guarded, which_vmm_t which)
 void
 heap_munmap(void *p, size_t size, which_vmm_t which)
 {
-    heap_munmap_ex(p, size, true/*guarded*/, which);
+    heap_munmap_ex(p, size, true /*guarded*/, which);
 }
 
 /* use stack_alloc to build a stack -- it returns TOS
@@ -2470,11 +3208,12 @@ stack_alloc(size_t size, byte *min_addr)
      * hurting us in the common case
      */
     size_t alloc_size = size;
-    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) && DYNAMO_OPTION(stack_guard_pages))
         alloc_size += PAGE_SIZE;
-    p = get_guarded_real_memory(alloc_size, alloc_size, MEMPROT_READ|MEMPROT_WRITE, true,
-                                true, min_addr, VMM_STACK _IF_DEBUG("stack_alloc"));
-    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+    p = get_guarded_real_memory(alloc_size, alloc_size, MEMPROT_READ | MEMPROT_WRITE,
+                                true, true, min_addr,
+                                VMM_STACK | VMM_PER_THREAD _IF_DEBUG("stack_alloc"));
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) && DYNAMO_OPTION(stack_guard_pages))
         p = (byte *)p + PAGE_SIZE;
 #ifdef DEBUG_MEMORY
     memset(p, HEAP_ALLOCATED_BYTE, size);
@@ -2497,18 +3236,19 @@ stack_alloc(size_t size, byte *min_addr)
          * auto-expand the stack into adjacent allocations below the stack.
          */
         heap_error_code_t error_code;
-        if (vmm_heap_commit(guard, PAGE_SIZE, MEMPROT_READ|MEMPROT_WRITE, &error_code))
+        if (vmm_heap_commit(guard, PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE, &error_code,
+                            VMM_STACK | VMM_PER_THREAD))
             mark_page_as_guard(guard);
 #else
         /* For UNIX we just mark it as inaccessible. */
-        if (!DYNAMO_OPTION(guard_pages))
-            make_unwritable(guard, PAGE_SIZE);
+        if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD))
+            set_protection(guard, PAGE_SIZE, MEMPROT_READ);
 #endif
     }
 
     RSTATS_ADD_PEAK(stack_capacity, size);
     /* stack grows from high to low */
-    return (void *) ((ptr_uint_t)p + size);
+    return (void *)((ptr_uint_t)p + size);
 }
 
 /* free stack storage */
@@ -2519,42 +3259,44 @@ stack_free(void *p, size_t size)
     if (size == 0)
         size = DYNAMORIO_STACK_SIZE;
     alloc_size = size;
-    p = (void *) ((vm_addr_t)p - size);
-    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages)) {
+    p = (void *)((vm_addr_t)p - size);
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) &&
+        DYNAMO_OPTION(stack_guard_pages)) {
         alloc_size += PAGE_SIZE;
         p = (byte *)p - PAGE_SIZE;
     }
     release_guarded_real_memory((vm_addr_t)p, alloc_size,
-                                true/*update DR areas immediately*/, true, VMM_STACK);
+                                true /*update DR areas immediately*/, true,
+                                VMM_STACK | VMM_PER_THREAD);
     if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true))
         RSTATS_SUB(stack_capacity, size);
 }
 
-/* only checks initstack and current dcontext
+/* only checks d_r_initstack and current dcontext
  * does not check any dstacks on the callback stack (win32) */
 bool
 is_stack_overflow(dcontext_t *dcontext, byte *sp)
 {
     /* ASSUMPTION: size of stack is DYNAMORIO_STACK_SIZE = dynamo_options.stack_size
      * Currently sideline violates that for a thread stack, and we have separated
-     * -signal_stack_size, but all dstacks and initstack should be this size.
+     * -signal_stack_size, but all dstacks and d_r_initstack should be this size.
      */
     byte *bottom = dcontext->dstack - DYNAMORIO_STACK_SIZE;
-    if (!DYNAMO_OPTION(stack_guard_pages) && !DYNAMO_OPTION(guard_pages))
+    if (!DYNAMO_OPTION(stack_guard_pages) && !DYNAMO_OPTION(per_thread_guard_pages))
         return false;
     /* see if in bottom guard page of dstack */
     if (sp >= bottom - PAGE_SIZE && sp < bottom)
         return true;
-    /* now check the initstack */
-    bottom = initstack - DYNAMORIO_STACK_SIZE;
+    /* now check the d_r_initstack */
+    bottom = d_r_initstack - DYNAMORIO_STACK_SIZE;
     if (sp >= bottom - PAGE_SIZE && sp < bottom)
         return true;
     return false;
 }
 
 byte *
-map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         map_flags_t map_flags)
+d_r_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+             map_flags_t map_flags)
 {
     byte *view;
     /* memory alloc/dealloc and updating DR list must be atomic */
@@ -2562,7 +3304,8 @@ map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     view = os_map_file(f, size, offs, addr, prot, map_flags);
     if (view != NULL) {
         STATS_ADD_PEAK(file_map_capacity, *size);
-        account_for_memory((void *)view, *size, prot, true/*add now*/, true/*image*/
+        account_for_memory((void *)view, *size, prot, true /*add now*/,
+                           true /*image*/
                            _IF_DEBUG("map_file"));
     }
     dynamo_vm_areas_unlock();
@@ -2570,7 +3313,7 @@ map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 }
 
 bool
-unmap_file(byte *map, size_t size)
+d_r_unmap_file(byte *map, size_t size)
 {
     bool success;
     ASSERT(map != NULL && ALIGNED(map, PAGE_SIZE));
@@ -2582,13 +3325,12 @@ unmap_file(byte *map, size_t size)
         /* Only update the all_memory_areas on success.
          * It should still be atomic to the outside observers.
          */
-        update_dynamo_areas_on_release(map, map+size, true/*remove now*/);
+        update_dynamo_areas_on_release(map, map + size, true /*remove now*/);
         STATS_SUB(file_map_capacity, size);
     }
     dynamo_vm_areas_unlock();
     return success;
 }
-
 
 /* We cannot incrementally keep dynamo vm area list up to date due to
  * circular dependencies bet vmareas and global heap (trust me, I've tried
@@ -2610,8 +3352,6 @@ void
 heap_vmareas_synch_units()
 {
     heap_unit_t *u, *next;
-    /* make sure to add guard page on each side, as well */
-    uint offs = (dynamo_options.guard_pages) ? (uint)PAGE_SIZE : 0;
     /* we again have circular dependence w/ vmareas if it happens to need a
      * new unit in the course of adding these areas, so we use a recursive lock!
      * furthermore, we need to own the global lock now, to avoid deadlock with
@@ -2637,17 +3377,19 @@ heap_vmareas_synch_units()
             u->in_vmarea_list = false;
     }
     for (u = heapmgt->heap.units; u != NULL; u = next) {
+        /* Make sure to add any guard page on each side, as well. */
+        uint offs = has_guard_pages(u->which) ? (uint)PAGE_SIZE : 0;
         app_pc start = (app_pc)u - offs;
         /* support un-aligned heap reservation end: PR 415269 (though as
          * part of that PR we shouldn't have un-aligned anymore)
          */
-        app_pc end_align = (app_pc) ALIGN_FORWARD(UNIT_RESERVED_END(u), PAGE_SIZE);
+        app_pc end_align = (app_pc)ALIGN_FORWARD(UNIT_RESERVED_END(u), PAGE_SIZE);
         app_pc end = end_align + offs;
         /* u can be moved to dead list, so cache the next link; case 4196. */
         next = u->next_global;
         /* case 3045: areas inside the vmheap reservation are not added to the list */
-        if (!u->in_vmarea_list && !vmm_is_reserved_unit(&heapmgt->vmheap,
-                                                        start, end - start)) {
+        if (!u->in_vmarea_list &&
+            !is_vmm_reserved_address(start, end - start, NULL, NULL)) {
             /* case 4196 if next is used by dynamo_vmareas then next
              * may become dead if vector is resized, then u should be
              * alive and u->next_global should be reset AFTER add  */
@@ -2672,15 +3414,13 @@ heap_vmareas_synch_units()
              * as MEMPROT_READ | MEMPROT_WRITE.  If other places are added, then this
              * needs to change.
              */
-            update_all_memory_areas((app_pc)u, end_align,
-                                    MEMPROT_READ | MEMPROT_WRITE,
+            update_all_memory_areas((app_pc)u, end_align, MEMPROT_READ | MEMPROT_WRITE,
                                     DR_MEMTYPE_DATA); /* unit */
             if (offs != 0) {
                 /* guard pages */
                 update_all_memory_areas((app_pc)u - offs, (app_pc)u, MEMPROT_NONE,
                                         DR_MEMTYPE_DATA);
-                update_all_memory_areas(end_align, end, MEMPROT_NONE,
-                                        DR_MEMTYPE_DATA);
+                update_all_memory_areas(end_align, end, MEMPROT_NONE, DR_MEMTYPE_DATA);
             }
             if (next_may_die) {
                 STATS_INC(num_vmareas_resize_synch);
@@ -2692,28 +3432,26 @@ heap_vmareas_synch_units()
         }
     }
     for (u = heapmgt->heap.dead; u != NULL; u = next) {
+        uint offs = has_guard_pages(u->which) ? (uint)PAGE_SIZE : 0;
         app_pc start = (app_pc)u - offs;
         /* support un-aligned heap reservation end: PR 415269 (though as
          * part of that PR we shouldn't have un-aligned anymore)
          */
-        app_pc end_align = (app_pc) ALIGN_FORWARD(UNIT_RESERVED_END(u), PAGE_SIZE);
+        app_pc end_align = (app_pc)ALIGN_FORWARD(UNIT_RESERVED_END(u), PAGE_SIZE);
         app_pc end = end_align + offs;
         /* u can be moved to live list, so cache the next link; case 4196. */
         next = u->next_global;
         /* case 3045: areas inside the vmheap reservation are not added to the list */
-        if (!u->in_vmarea_list && !vmm_is_reserved_unit(&heapmgt->vmheap,
-                                                        start, end - start)) {
+        if (!u->in_vmarea_list &&
+            !is_vmm_reserved_address(start, end - start, NULL, NULL)) {
             u->in_vmarea_list = true;
             add_dynamo_heap_vm_area(start, end, true, false _IF_DEBUG("dead heap unit"));
-            update_all_memory_areas((app_pc)u, end_align,
-                                    MEMPROT_READ | MEMPROT_WRITE,
+            update_all_memory_areas((app_pc)u, end_align, MEMPROT_READ | MEMPROT_WRITE,
                                     DR_MEMTYPE_DATA); /* unit */
             if (offs != 0) {
                 /* guard pages */
-                update_all_memory_areas(start, (app_pc)u, MEMPROT_NONE,
-                                        DR_MEMTYPE_DATA);
-                update_all_memory_areas(end_align, end, MEMPROT_NONE,
-                                        DR_MEMTYPE_DATA);
+                update_all_memory_areas(start, (app_pc)u, MEMPROT_NONE, DR_MEMTYPE_DATA);
+                update_all_memory_areas(end_align, end, MEMPROT_NONE, DR_MEMTYPE_DATA);
             }
             /* case 4196 if next was put back on live list for
              * dynamo_areas.buf vector, then next will no longer be a
@@ -2735,6 +3473,16 @@ heap_vmareas_synch_units()
 static void *
 common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        return malloc(size);
+    }
+#endif
     void *p;
     acquire_recursive_lock(&global_alloc_lock);
     p = common_heap_alloc(tu, size HEAPACCT(which));
@@ -2755,9 +3503,20 @@ common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t w
 
 /* shared between global and global_unprotected */
 static void
-common_global_heap_free(thread_units_t *tu, void *p, size_t size
-                        HEAPACCT(which_heap_t which))
+common_global_heap_free(thread_units_t *tu, void *p,
+                        size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        free(p);
+        return;
+    }
+#endif
     bool ok;
     if (p == NULL) {
         ASSERT(false && "attempt to free NULL");
@@ -2785,7 +3544,6 @@ void *
 global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-#ifdef CLIENT_INTERFACE
     /* We pay the cost of this branch to support using DR's decode routines from the
      * regular DR library and not just drdecode, to support libraries that would use
      * drdecode but that also have to work with full DR (i#2499).
@@ -2793,12 +3551,12 @@ global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
     if (heapmgt == &temp_heapmgt &&
         /* We prevent recrusion by checking for a field that heap_init writes. */
         !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
-#endif
     p = common_global_heap_alloc(&heapmgt->global_units, size HEAPACCT(which));
     ASSERT(p != NULL);
-    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal alloc: "PFX" (%d bytes)\n", p, size);
+    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal alloc: " PFX " (%d bytes)\n", p, size);
     return p;
 }
 
@@ -2806,9 +3564,8 @@ void
 global_heap_free(void *p, size_t size HEAPACCT(which_heap_t which))
 {
     common_global_heap_free(&heapmgt->global_units, p, size HEAPACCT(which));
-    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal free: "PFX" (%d bytes)\n", p, size);
+    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal free: " PFX " (%d bytes)\n", p, size);
 }
-
 
 /* reallocate area
    allocates new_num elements of element_size
@@ -2816,8 +3573,8 @@ global_heap_free(void *p, size_t size HEAPACCT(which_heap_t which))
    copies an old_num elements of given size in the new area */
 /* FIXME: do a heap_realloc and a special_heap_realloc too */
 void *
-global_heap_realloc(void *ptr, size_t old_num, size_t new_num, size_t element_size
-                    HEAPACCT(which_heap_t which))
+global_heap_realloc(void *ptr, size_t old_num, size_t new_num,
+                    size_t element_size HEAPACCT(which_heap_t which))
 {
     void *new_area = global_heap_alloc(new_num * element_size HEAPACCT(which));
     if (ptr) {
@@ -2855,10 +3612,10 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
      */
 
     if (!must_be_new) {
-        for (dead = heapmgt->heap.dead;
-             dead != NULL && UNIT_RESERVED_SIZE(dead) < size;
+        for (dead = heapmgt->heap.dead; dead != NULL &&
+             (UNIT_RESERVED_SIZE(dead) < size || dead->which != tu->which);
              prev_dead = dead, dead = dead->next_global)
-            ;
+            ; /* nothing */
     }
     if (dead != NULL) {
         if (prev_dead == NULL)
@@ -2870,31 +3627,38 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
         RSTATS_DEC(heap_num_free);
         release_recursive_lock(&heap_unit_lock);
         LOG(GLOBAL, LOG_HEAP, 2,
-            "Re-using dead heap unit: "PFX"-"PFX" %d KB (need %d KB)\n",
-            u, ((byte*)u)+size, UNIT_RESERVED_SIZE(u)/1024, size/1024);
+            "Re-using dead heap unit: " PFX "-" PFX " %d KB (need %d KB)\n", u,
+            ((byte *)u) + size, UNIT_RESERVED_SIZE(u) / 1024, size / 1024);
     } else {
         size_t commit_size = DYNAMO_OPTION(heap_commit_increment);
         release_recursive_lock(&heap_unit_lock); /* do not hold while asking for memory */
         /* create new unit */
-        ASSERT(commit_size <= size);
-        u = (heap_unit_t *)
-            get_guarded_real_memory(size, commit_size, MEMPROT_READ|MEMPROT_WRITE,
-                                    false, true, NULL, VMM_HEAP _IF_DEBUG(""));
+        /* Just cap the commit size to this unit's size, to support raising the
+         * commit size w/o setting a lot of different unit size parameters.
+         */
+        if (commit_size > size)
+            commit_size = size;
+        u = (heap_unit_t *)get_guarded_real_memory(size, commit_size,
+                                                   MEMPROT_READ | MEMPROT_WRITE, false,
+                                                   true, NULL, tu->which _IF_DEBUG(""));
         new_unit = true;
         /* FIXME: handle low memory conditions by freeing units, + fcache units? */
         ASSERT(u);
-        LOG(GLOBAL, LOG_HEAP, 2, "New heap unit: "PFX"-"PFX"\n", u, ((byte*)u)+size);
+        LOG(GLOBAL, LOG_HEAP, 2, "New heap unit: " PFX "-" PFX "\n", u,
+            ((byte *)u) + size);
         /* u is kept at top of unit itself, so displace start pc */
-        u->start_pc = (heap_pc) (((ptr_uint_t)u) + sizeof(heap_unit_t));
+        u->start_pc = (heap_pc)(((ptr_uint_t)u) + sizeof(heap_unit_t));
         u->end_pc = ((heap_pc)u) + commit_size;
         u->reserved_end_pc = ((heap_pc)u) + size;
         u->in_vmarea_list = false;
+        u->which = tu->which;
         RSTATS_ADD_PEAK(heap_capacity, commit_size);
         /* FIXME: heap sizes are not always page-aligned so stats will be off */
         STATS_ADD_PEAK(heap_reserved_only, (u->reserved_end_pc - u->end_pc));
     }
     RSTATS_ADD_PEAK(heap_num_live, 1);
 
+    ASSERT(u->which == tu->which);
     u->cur_pc = u->start_pc;
     u->next_local = NULL;
     DODEBUG({
@@ -2936,20 +3700,20 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
      * special heap unit header in the first special heap unit itself. */
     /* The hotp_only leak relaxation below is for case 9588 & 9593.  */
     DOCHECK(CHKLVL_MEMFILL, {
-        CLIENT_ASSERT(IF_HOTP(hotp_only_contains_leaked_trampoline
-                              (unit->start_pc, unit->end_pc - unit->start_pc) ||)
-                      /* i#157: private loader => system lib allocs come here =>
-                       * they don't always clean up.  we have to relax here, but our
-                       * threadunits_exit checks should find all leaks anyway.
-                       */
-                      heapmgt->global_units.acct.cur_usage[ACCT_LIBDUP] > 0 ||
-                      is_region_memset_to_char(unit->start_pc,
-                                               unit->end_pc - unit->start_pc,
-                                               HEAP_UNALLOCATED_BYTE)
-                      /* don't assert when client does premature exit as it's
-                       * hard for Extension libs, etc. to clean up in such situations
-                       */
-                      IF_CLIENT_INTERFACE(|| client_requested_exit),
+        CLIENT_ASSERT(IF_HOTP(hotp_only_contains_leaked_trampoline(
+                                  unit->start_pc, unit->end_pc - unit->start_pc) ||)
+                              /* i#157: private loader => system lib allocs come here =>
+                               * they don't always clean up.  we have to relax here, but
+                               * our threadunits_exit checks should find all leaks anyway.
+                               */
+                              heapmgt->global_units.acct.cur_usage[ACCT_LIBDUP] > 0 ||
+                          is_region_memset_to_char(unit->start_pc,
+                                                   unit->end_pc - unit->start_pc,
+                                                   HEAP_UNALLOCATED_BYTE)
+                          /* don't assert when client does premature exit as it's
+                           * hard for Extension libs, etc. to clean up in such situations
+                           */
+                          || client_requested_exit,
                       "memory leak detected");
     });
 #endif
@@ -2985,7 +3749,7 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
      */
     if (UNITALLOC(unit) <= HEAP_UNIT_MAX_SIZE &&
         (heapmgt->heap.num_dead < 5 ||
-         heapmgt->heap.num_dead * 4U <= (uint) get_num_threads())) {
+         heapmgt->heap.num_dead * 4U <= (uint)d_r_get_num_threads())) {
         /* Keep dead list sorted small-to-large to avoid grabbing large
          * when can take small and then needing to allocate when only
          * have small left.  Helps out with lots of small threads.
@@ -3007,8 +3771,9 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
     } else {
         /* don't need to hold this while freeing since still hold DR areas lock */
         release_recursive_lock(&heap_unit_lock);
-        LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing excess dead unit "PFX"-"PFX" [-"PFX"]\n",
-            unit, UNIT_COMMIT_END(unit), UNIT_RESERVED_END(unit));
+        LOG(GLOBAL, LOG_HEAP, 1,
+            "\tfreeing excess dead unit " PFX "-" PFX " [-" PFX "]\n", unit,
+            UNIT_COMMIT_END(unit), UNIT_RESERVED_END(unit));
         really_free_unit(unit);
     }
     /* FIXME: shrink lock-held path if we see contention */
@@ -3031,61 +3796,66 @@ find_heap_unit(thread_units_t *tu, heap_pc p, size_t size)
     heap_unit_t *unit;
     ASSERT(!POINTER_OVERFLOW_ON_ADD(p, size)); /* should not overflow */
     for (unit = tu->top_unit;
-         unit != NULL && (p < unit->start_pc || p+size > unit->end_pc);
-         unit = unit->next_local);
+         unit != NULL && (p < unit->start_pc || p + size > unit->end_pc);
+         unit = unit->next_local)
+        ;
     return unit;
 }
 #endif
 
 static void
-threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size)
+threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size, bool reachable)
 {
     int i;
-    DODEBUG({
-        tu->num_units = 0;
-    });
-    tu->top_unit = heap_create_unit(tu, size - GUARD_PAGE_ADJUSTMENT,
-                                    false/*can reuse*/);
+    DODEBUG({ tu->num_units = 0; });
+    tu->which = VMM_HEAP | (reachable ? VMM_REACHABLE : 0);
+    if (dcontext != GLOBAL_DCONTEXT) {
+        /* Tradeoff (i#4424): no guard pages on per-thread units, to
+         * save space for many-threaded apps.  These units are rarely used.
+         * Note that this also precludes sharing dead units between thread-private
+         * and shared heaps due to the different "which" value.
+         */
+        tu->which |= VMM_PER_THREAD;
+    }
+    tu->top_unit = heap_create_unit(tu, size, false /*can reuse*/);
     tu->cur_unit = tu->top_unit;
     tu->dcontext = dcontext;
     tu->writable = true;
 #ifdef HEAP_ACCOUNTING
     memset(&tu->acct, 0, sizeof(tu->acct));
 #endif
-    for (i=0; i<BLOCK_TYPES; i++)
+    for (i = 0; i < BLOCK_TYPES; i++)
         tu->free_list[i] = NULL;
 }
 
 #ifdef HEAP_ACCOUNTING
-# define MAX_5_DIGIT 99999
+#    define MAX_5_DIGIT 99999
 static void
 print_tu_heap_statistics(thread_units_t *tu, file_t logfile, const char *prefix)
 {
     int i;
     size_t total = 0, cur = 0;
-    LOG(logfile, LOG_HEAP|LOG_STATS, 1, "%s heap breakdown:\n", prefix);
+    LOG(logfile, LOG_HEAP | LOG_STATS, 1, "%s heap breakdown:\n", prefix);
     for (i = 0; i < ACCT_LAST; i++) {
         /* print out cur since this is done periodically, not just at end */
-        LOG(logfile, LOG_HEAP|LOG_STATS, 1,
-            "%12s: cur=%5"SZFC"K, max=%5"SZFC"K, #=%7d, 1=",
-            whichheap_name[i], tu->acct.cur_usage[i]/1024,
-            tu->acct.max_usage[i]/1024, tu->acct.num_alloc[i]);
+        LOG(logfile, LOG_HEAP | LOG_STATS, 1,
+            "%12s: cur=%5" SZFC "K, max=%5" SZFC "K, #=%7d, 1=", whichheap_name[i],
+            tu->acct.cur_usage[i] / 1024, tu->acct.max_usage[i] / 1024,
+            tu->acct.num_alloc[i]);
         if (tu->acct.max_single[i] <= MAX_5_DIGIT)
-            LOG(logfile, LOG_HEAP|LOG_STATS, 1, "%5"SZFC, tu->acct.max_single[i]);
+            LOG(logfile, LOG_HEAP | LOG_STATS, 1, "%5" SZFC, tu->acct.max_single[i]);
         else {
-            LOG(logfile, LOG_HEAP|LOG_STATS, 1, "%4"SZFC"K",
-                tu->acct.max_single[i]/1024);
+            LOG(logfile, LOG_HEAP | LOG_STATS, 1, "%4" SZFC "K",
+                tu->acct.max_single[i] / 1024);
         }
-        LOG(logfile, LOG_HEAP|LOG_STATS, 1,
-            ", new=%5"SZFC"K, re=%5"SZFC"K\n",
-            tu->acct.alloc_new[i]/1024, tu->acct.alloc_reuse[i]/1024);
+        LOG(logfile, LOG_HEAP | LOG_STATS, 1, ", new=%5" SZFC "K, re=%5" SZFC "K\n",
+            tu->acct.alloc_new[i] / 1024, tu->acct.alloc_reuse[i] / 1024);
         total += tu->acct.max_usage[i];
         cur += tu->acct.cur_usage[i];
     }
-    LOG(logfile, LOG_HEAP|LOG_STATS, 1,
-        "Total cur usage: %6"SZFC" KB\n", cur/1024);
-    LOG(logfile, LOG_HEAP|LOG_STATS, 1,
-        "Total max (not nec. all used simult.): %6"SZFC" KB\n", total/1024);
+    LOG(logfile, LOG_HEAP | LOG_STATS, 1, "Total cur usage: %6" SZFC " KB\n", cur / 1024);
+    LOG(logfile, LOG_HEAP | LOG_STATS, 1,
+        "Total max (not nec. all used simult.): %6" SZFC " KB\n", total / 1024);
 }
 
 void
@@ -3096,28 +3866,34 @@ print_heap_statistics()
     DOSTATS({
         uint i;
         LOG(GLOBAL, LOG_STATS, 1, "Heap bucket usage counts and wasted memory:\n");
-        for (i=0; i<BLOCK_TYPES; i++) {
-            LOG(GLOBAL, LOG_STATS|LOG_HEAP, 1,
-                "%2d %3d count=%9u peak_count=%9u peak_wasted=%9u peak_align=%9u\n",
-                i, BLOCK_SIZES[i], block_total_count[i], block_peak_count[i],
+        for (i = 0; i < BLOCK_TYPES; i++) {
+            LOG(GLOBAL, LOG_STATS | LOG_HEAP, 1,
+                "%2d %3d count=%9u peak_count=%9u peak_wasted=%9u peak_align=%9u\n", i,
+                BLOCK_SIZES[i], block_total_count[i], block_peak_count[i],
                 block_peak_wasted[i], block_peak_align_pad[i]);
         }
     });
     if (dcontext != NULL) {
-        thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
+        thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
         if (th != NULL) { /* may not be initialized yet */
             print_tu_heap_statistics(th->local_heap, THREAD, "Thread");
-            if (SEPARATE_NONPERSISTENT_HEAP()) {
-                ASSERT(th->nonpersistent_heap != NULL);
-                print_tu_heap_statistics(th->nonpersistent_heap, THREAD,
-                                         "Thread non-persistent");
+            ASSERT(th->nonpersistent_heap != NULL);
+            print_tu_heap_statistics(th->nonpersistent_heap, THREAD,
+                                     "Thread non-persistent");
+            if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
+                ASSERT(th->reachable_heap != NULL);
+                print_tu_heap_statistics(th->reachable_heap, THREAD, "Thread reachable");
             }
         }
     }
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        print_tu_heap_statistics(&heapmgt->global_nonpersistent_units, GLOBAL,
-                                 "Non-persistent global units");
+    print_tu_heap_statistics(&heapmgt->global_nonpersistent_units, GLOBAL,
+                             "Non-persistent global units");
+    if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
+        print_tu_heap_statistics(&heapmgt->global_reachable_units, GLOBAL,
+                                 "Reachable global units");
     }
+    print_tu_heap_statistics(&heapmgt->global_unprotected_units, GLOBAL,
+                             "Uprotected global units");
     print_tu_heap_statistics(&global_racy_units, GLOBAL, "Racy Up-to-date Process");
     print_tu_heap_statistics(&heapmgt->global_units, GLOBAL,
                              "Updated-at-end Process (max is total of maxes)");
@@ -3153,9 +3929,9 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
     heap_unit_t *u, *next_u;
 #ifdef DEBUG
     size_t total_heap_used = 0;
-# ifdef HEAP_ACCOUNTING
+#    ifdef HEAP_ACCOUNTING
     int j;
-# endif
+#    endif
 #endif
 #ifdef DEBUG_MEMORY
     /* verify and clear (for later asserts) the free list */
@@ -3165,9 +3941,9 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
         for (p = tu->free_list[i]; p != NULL; p = next_p) {
             next_p = *(heap_pc *)p;
             /* clear the pointer to the next free for later asserts */
-            *(heap_pc *)p = (heap_pc) HEAP_UNALLOCATED_PTR_UINT;
+            *(heap_pc *)p = (heap_pc)HEAP_UNALLOCATED_PTR_UINT;
             DOCHECK(CHKLVL_MEMFILL, {
-                if (i < BLOCK_TYPES-1) {
+                if (i < BLOCK_TYPES - 1) {
                     CLIENT_ASSERT(is_region_memset_to_char(p, BLOCK_SIZES[i],
                                                            HEAP_UNALLOCATED_BYTE),
                                   "memory corruption detected");
@@ -3186,121 +3962,124 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
 #endif
     u = tu->top_unit;
     while (u != NULL) {
-        DOLOG(1, LOG_HEAP|LOG_STATS, {
+        DOLOG(1, LOG_HEAP | LOG_STATS, {
             size_t num_used = u->cur_pc - u->start_pc;
             total_heap_used += num_used;
-            LOG(THREAD,
-                LOG_HEAP|LOG_STATS, 1,
-                "Heap unit %d @"PFX"-"PFX" [-"PFX"] ("SZFMT" [/"SZFMT"] KB): used "
-                SZFMT" bytes\n",
-                u->id, u, UNIT_COMMIT_END(u),
-                UNIT_RESERVED_END(u), (UNIT_COMMIT_SIZE(u))/1024,
-                (UNIT_RESERVED_SIZE(u))/1024, num_used);
+            LOG(THREAD, LOG_HEAP | LOG_STATS, 1,
+                "Heap unit %d @" PFX "-" PFX " [-" PFX "] (" SZFMT " [/" SZFMT
+                "] KB): used " SZFMT " bytes\n",
+                u->id, u, UNIT_COMMIT_END(u), UNIT_RESERVED_END(u),
+                (UNIT_COMMIT_SIZE(u)) / 1024, (UNIT_RESERVED_SIZE(u)) / 1024, num_used);
         });
         next_u = u->next_local;
         heap_free_unit(u, dcontext);
         u = next_u;
     }
-    LOG(THREAD, LOG_HEAP|LOG_STATS, 1,
-        "\tTotal heap used: "SZFMT" KB\n", total_heap_used/1024);
+    LOG(THREAD, LOG_HEAP | LOG_STATS, 1, "\tTotal heap used: " SZFMT " KB\n",
+        total_heap_used / 1024);
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING)
     /* FIXME: separate scopes: smaller functions for DEBUG_MEMORY x HEAP_ACCOUNTING */
     for (j = 0; j < ACCT_LAST; j++) {
         size_t usage = tu->acct.cur_usage[j];
         if (usage > 0) {
-            LOG(THREAD, LOG_HEAP|LOG_STATS, 1,
-                "WARNING: %s "SZFMT" bytes not freed!\n",
-                whichheap_name[j], tu->acct.cur_usage[j]);
+            LOG(THREAD, LOG_HEAP | LOG_STATS, 1,
+                "WARNING: %s " SZFMT " bytes not freed!\n", whichheap_name[j],
+                tu->acct.cur_usage[j]);
 
-# ifdef HOT_PATCHING_INTERFACE      /* known leaks for case 9593 */
+#    ifdef HOT_PATCHING_INTERFACE /* known leaks for case 9593 */
             if (DYNAMO_OPTION(hotp_only) &&
                 ((j == ACCT_SPECIAL && usage == (size_t)hotp_only_tramp_bytes_leaked) ||
                  /* +4 is for the allocation's header; internal to heap mgt. */
                  (j == ACCT_MEM_MGT &&
                   usage == (size_t)(get_special_heap_header_size() + 4) &&
                   hotp_only_tramp_bytes_leaked > 0)))
-                    continue;
-# endif
+                continue;
+#    endif
             if (j != ACCT_TOMBSTONE /* known leak */ &&
                 /* i#157: private loader => system lib allocs come here =>
                  * they don't always clean up
                  */
-                j != ACCT_LIBDUP &&
-                INTERNAL_OPTION(heap_accounting_assert)) {
-                SYSLOG_INTERNAL_ERROR("memory leak: %s "SZFMT" bytes not freed",
+                j != ACCT_LIBDUP && INTERNAL_OPTION(heap_accounting_assert)) {
+                SYSLOG_INTERNAL_ERROR("memory leak: %s " SZFMT " bytes not freed",
                                       whichheap_name[j], tu->acct.cur_usage[j]);
                 /* Don't assert when client does premature exit as it's
                  * hard for Extension libs, etc. to clean up in such situations:
                  */
-                CLIENT_ASSERT(IF_CLIENT_INTERFACE(client_requested_exit ||) false,
-                              "memory leak detected");
+                CLIENT_ASSERT(client_requested_exit || false, "memory leak detected");
             }
         }
     }
     if (tu != &heapmgt->global_units)
         add_heapacct_to_global_stats(&tu->acct);
 
-    DOLOG(1, LOG_HEAP|LOG_STATS, {
+    DOLOG(1, LOG_HEAP | LOG_STATS, {
         print_tu_heap_statistics(tu, THREAD,
                                  dcontext == GLOBAL_DCONTEXT ? "Process" : "Thread");
     });
-#endif  /* defined(DEBUG) && defined(HEAP_ACCOUNTING) */
+#endif /* defined(DEBUG) && defined(HEAP_ACCOUNTING) */
 }
 
 void
 heap_thread_reset_init(dcontext_t *dcontext)
 {
-    thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        ASSERT(th->nonpersistent_heap != NULL);
-        threadunits_init(dcontext, th->nonpersistent_heap,
-                         DYNAMO_OPTION(initial_heap_nonpers_size));
-    }
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    ASSERT(th->nonpersistent_heap != NULL);
+    threadunits_init(dcontext, th->nonpersistent_heap,
+                     DYNAMO_OPTION(initial_heap_nonpers_size), false);
 }
 
 void
 heap_thread_init(dcontext_t *dcontext)
 {
-    thread_heap_t *th = (thread_heap_t *)
-        global_heap_alloc(sizeof(thread_heap_t) HEAPACCT(ACCT_MEM_MGT));
-    dcontext->heap_field = (void *) th;
-    th->local_heap = (thread_units_t *) global_heap_alloc(sizeof(thread_units_t)
-                                                       HEAPACCT(ACCT_MEM_MGT));
-    threadunits_init(dcontext, th->local_heap, HEAP_UNIT_MIN_SIZE);
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        th->nonpersistent_heap = (thread_units_t *)
-            global_heap_alloc(sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
+    thread_heap_t *th =
+        (thread_heap_t *)global_heap_alloc(sizeof(thread_heap_t) HEAPACCT(ACCT_MEM_MGT));
+    dcontext->heap_field = (void *)th;
+    th->local_heap = (thread_units_t *)global_heap_alloc(sizeof(thread_units_t)
+                                                             HEAPACCT(ACCT_MEM_MGT));
+    threadunits_init(dcontext, th->local_heap, HEAP_UNIT_MIN_SIZE, false);
+    th->nonpersistent_heap = (thread_units_t *)global_heap_alloc(
+        sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
+    if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
+        th->reachable_heap = (thread_units_t *)global_heap_alloc(
+            sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
+        threadunits_init(dcontext, th->reachable_heap, HEAP_UNIT_MIN_SIZE, true);
     } else
-        th->nonpersistent_heap = NULL;
+        th->reachable_heap = NULL;
     heap_thread_reset_init(dcontext);
+#ifdef UNIX
+    th->fork_copy_start = NULL;
+    th->fork_copy_size = 0;
+#endif
 }
 
 void
 heap_thread_reset_free(dcontext_t *dcontext)
 {
-    thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        ASSERT(th->nonpersistent_heap != NULL);
-        /* FIXME: free directly rather than sending to dead list for
-         * heap_reset_free() to free!
-         * FIXME: for reset, don't free last unit so don't have to
-         * recreate in reset_init()
-         */
-        threadunits_exit(th->nonpersistent_heap, dcontext);
-    }
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
+    ASSERT(th->nonpersistent_heap != NULL);
+    /* FIXME: free directly rather than sending to dead list for
+     * heap_reset_free() to free!
+     * FIXME: for reset, don't free last unit so don't have to
+     * recreate in reset_init()
+     */
+    threadunits_exit(th->nonpersistent_heap, dcontext);
 }
 
 void
 heap_thread_exit(dcontext_t *dcontext)
 {
-    thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
     threadunits_exit(th->local_heap, dcontext);
     heap_thread_reset_free(dcontext);
     global_heap_free(th->local_heap, sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        ASSERT(th->nonpersistent_heap != NULL);
-        global_heap_free(th->nonpersistent_heap, sizeof(thread_units_t)
-                         HEAPACCT(ACCT_MEM_MGT));
+    ASSERT(th->nonpersistent_heap != NULL);
+    global_heap_free(th->nonpersistent_heap,
+                     sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
+    if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
+        ASSERT(th->reachable_heap != NULL);
+        threadunits_exit(th->reachable_heap, dcontext);
+        global_heap_free(th->reachable_heap,
+                         sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
     }
     global_heap_free(th, sizeof(thread_heap_t) HEAPACCT(ACCT_MEM_MGT));
 }
@@ -3312,11 +4091,10 @@ print_free_list(thread_units_t *tu, int i)
     void *p;
     int len = 0;
     dcontext_t *dcontext = tu->dcontext;
-    LOG(THREAD, LOG_HEAP, 1,
-        "Free list for size %d (== %d bytes):\n", i, BLOCK_SIZES[i]);
-    p = (void *) tu->free_list[i];
+    LOG(THREAD, LOG_HEAP, 1, "Free list for size %d (== %d bytes):\n", i, BLOCK_SIZES[i]);
+    p = (void *)tu->free_list[i];
     while (p != NULL) {
-        LOG(THREAD, LOG_HEAP, 1, "\tp = "PFX"\n", p);
+        LOG(THREAD, LOG_HEAP, 1, "\tp = " PFX "\n", p);
         len++;
         p = *((char **)p);
     }
@@ -3331,21 +4109,21 @@ print_free_list(thread_units_t *tu, int i)
  */
 static size_t
 common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_end_pc,
-                              size_t size_need, uint prot)
+                              size_t size_need, uint prot, which_vmm_t which)
 {
-    if (end_pc < reserved_end_pc &&
-        !POINTER_OVERFLOW_ON_ADD(cur_pc, size_need)) {
+    if (end_pc < reserved_end_pc && !POINTER_OVERFLOW_ON_ADD(cur_pc, size_need)) {
         /* extend commitment if have more reserved */
         size_t commit_size = DYNAMO_OPTION(heap_commit_increment);
         /* simpler to just not support taking very last page in address space */
         if (POINTER_OVERFLOW_ON_ADD(end_pc, commit_size))
             return 0;
         if (cur_pc + size_need > end_pc + commit_size) {
-            commit_size = ALIGN_FORWARD(cur_pc + size_need - (ptr_uint_t)end_pc,
-                                        PAGE_SIZE);
+            commit_size =
+                ALIGN_FORWARD(cur_pc + size_need - (ptr_uint_t)end_pc, PAGE_SIZE);
         }
         if (end_pc + commit_size > reserved_end_pc ||
-            POINTER_OVERFLOW_ON_ADD(end_pc, commit_size)/*overflow seen in PR 518644 */) {
+            POINTER_OVERFLOW_ON_ADD(end_pc,
+                                    commit_size) /*overflow seen in PR 518644 */) {
             /* commit anyway before caller moves on to new unit so that
              * we keep an invariant that all units but the current one
              * are fully committed, so our algorithm for looking at the end
@@ -3355,9 +4133,9 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
         }
         ASSERT(!POINTER_OVERFLOW_ON_ADD(end_pc, commit_size) &&
                end_pc + commit_size <= reserved_end_pc);
-        extend_commitment(end_pc, commit_size, prot, false /* extension */, VMM_HEAP);
+        extend_commitment(end_pc, commit_size, prot, false /* extension */, which);
 #ifdef DEBUG_MEMORY
-        memset(end_pc, HEAP_UNALLOCATED_BYTE, commit_size);
+        memset(vmcode_get_writable_addr(end_pc), HEAP_UNALLOCATED_BYTE, commit_size);
 #endif
         /* caller should do end_pc += commit_size */
         RSTATS_ADD_PEAK(heap_capacity, commit_size);
@@ -3372,15 +4150,14 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
 static void
 heap_unit_extend_commitment(heap_unit_t *u, size_t size_need, uint prot)
 {
-    u->end_pc +=
-        common_heap_extend_commitment(u->cur_pc, u->end_pc, u->reserved_end_pc,
-                                      size_need, prot);
+    u->end_pc += common_heap_extend_commitment(u->cur_pc, u->end_pc, u->reserved_end_pc,
+                                               size_need, prot, u->which);
 }
 
 /* allocate storage on the DR heap
  * returns NULL iff caller needs to grab dynamo_vm_areas_lock() and retry
  */
-static void*
+static void *
 common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 {
     heap_unit_t *u = tu->cur_unit;
@@ -3416,7 +4193,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
     aligned_size = ALIGN_FORWARD(size, HEAP_ALIGNMENT);
     while (aligned_size > BLOCK_SIZES[bucket])
         bucket++;
-    if (bucket == BLOCK_TYPES-1)
+    if (bucket == BLOCK_TYPES - 1)
         alloc_size = aligned_size + HEADER_SIZE;
     else
         alloc_size = BLOCK_SIZES[bucket];
@@ -3444,9 +4221,9 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
          * excess size until this is freed and put back on dead list.
          * (Currently we don't put oversized units on dead list though.)
          */
-        new_unit = heap_create_unit(tu, unit_size, false/*can be reused*/);
+        new_unit = heap_create_unit(tu, unit_size, false /*can be reused*/);
         /* we want to commit the whole alloc right away */
-        heap_unit_extend_commitment(new_unit, size, MEMPROT_READ|MEMPROT_WRITE);
+        heap_unit_extend_commitment(new_unit, size, MEMPROT_READ | MEMPROT_WRITE);
         prev = tu->top_unit;
         alloc_size = size; /* should we include page-alignment? */
         /* insert prior to cur unit (new unit will be full, so keep cur unit
@@ -3463,10 +4240,9 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
             prev->next_local = new_unit;
         new_unit->next_local = u;
 #ifdef DEBUG_MEMORY
-        LOG(THREAD, LOG_HEAP, 3,
-            "\tCreating new oversized heap unit %d (%d [/%d] KB)\n",
-            new_unit->id, UNIT_COMMIT_SIZE(new_unit)/1024,
-            UNIT_RESERVED_SIZE(new_unit)/1024);
+        LOG(THREAD, LOG_HEAP, 3, "\tCreating new oversized heap unit %d (%d [/%d] KB)\n",
+            new_unit->id, UNIT_COMMIT_SIZE(new_unit) / 1024,
+            UNIT_RESERVED_SIZE(new_unit) / 1024);
 #endif
         p = new_unit->start_pc;
         new_unit->cur_pc += size;
@@ -3474,7 +4250,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
         goto done_allocating;
     }
     if (tu->free_list[bucket] != NULL) {
-        if (bucket == BLOCK_TYPES-1) {
+        if (bucket == BLOCK_TYPES - 1) {
             /* variable-length blocks, try to find one big enough */
             size_t sz;
             heap_pc next = tu->free_list[bucket];
@@ -3484,7 +4260,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                 p = next;
                 /* aligned_size is written right _before_ next pointer */
                 sz = VARIABLE_SIZE(next);
-                next = *((heap_pc*)p);
+                next = *((heap_pc *)p);
             } while (aligned_size > sz && next != NULL);
             if (aligned_size <= sz) {
                 ASSERT(ALIGNED(next, HEAP_ALIGNMENT));
@@ -3495,11 +4271,12 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                     *((heap_pc *)prev) = next;
 #ifdef DEBUG_MEMORY
                 LOG(THREAD, LOG_HEAP, 2,
-                    "Variable-size block: allocating "PFX" (%d bytes [%d aligned] in "
-                    "%d block)\n", p, size, aligned_size, sz);
+                    "Variable-size block: allocating " PFX " (%d bytes [%d aligned] in "
+                    "%d block)\n",
+                    p, size, aligned_size, sz);
                 /* ensure memory we got from the free list is in a heap unit */
-                DOCHECK(CHKLVL_DEFAULT, {  /* expensive check */
-                   ASSERT(find_heap_unit(tu, p, sz) != NULL);
+                DOCHECK(CHKLVL_DEFAULT, { /* expensive check */
+                                          ASSERT(find_heap_unit(tu, p, sz) != NULL);
                 });
 #endif
                 ASSERT(ALIGNED(sz, HEAP_ALIGNMENT));
@@ -3516,8 +4293,8 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
             ASSERT(ALIGNED(tu->free_list[bucket], HEAP_ALIGNMENT));
 #ifdef DEBUG_MEMORY
             /* ensure memory we got from the free list is in a heap unit */
-            DOCHECK(CHKLVL_DEFAULT, {  /* expensive check */
-                ASSERT(find_heap_unit(tu, p, alloc_size) != NULL);
+            DOCHECK(CHKLVL_DEFAULT, { /* expensive check */
+                                      ASSERT(find_heap_unit(tu, p, alloc_size) != NULL);
             });
 #endif
             ACCOUNT_FOR_ALLOC(alloc_reuse, tu, which, alloc_size, aligned_size);
@@ -3532,7 +4309,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
         ASSERT(ALIGNED(u->cur_pc, HEAP_ALIGNMENT));
         ASSERT(ALIGNED(alloc_size, HEAP_ALIGNMENT));
         if (u->cur_pc + alloc_size > u->end_pc ||
-            POINTER_OVERFLOW_ON_ADD(u->cur_pc, alloc_size)/*xref PR 495961*/) {
+            POINTER_OVERFLOW_ON_ADD(u->cur_pc, alloc_size) /*xref PR 495961*/) {
             /* We either have to extend the current unit or, failing that,
              * allocate a new unit. */
             if (!safe_to_allocate_or_free_heap_units()) {
@@ -3544,10 +4321,10 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                 return NULL;
             }
             /* try to extend if possible */
-            heap_unit_extend_commitment(u, alloc_size, MEMPROT_READ|MEMPROT_WRITE);
+            heap_unit_extend_commitment(u, alloc_size, MEMPROT_READ | MEMPROT_WRITE);
             /* check again after extending commit */
             if (u->cur_pc + alloc_size > u->end_pc ||
-                POINTER_OVERFLOW_ON_ADD(u->cur_pc, alloc_size)/*xref PR 495961*/) {
+                POINTER_OVERFLOW_ON_ADD(u->cur_pc, alloc_size) /*xref PR 495961*/) {
                 /* no room, look for room at end of previous units
                  * FIXME: instead should put end of unit space on free list!
                  */
@@ -3576,18 +4353,14 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                             unit_size *= 2;
                         if (unit_size > HEAP_UNIT_MAX_SIZE)
                             unit_size = HEAP_UNIT_MAX_SIZE;
-                        /* size for heap_create_unit doesn't include any guard
-                         * pages */
                         ASSERT(unit_size > UNITOVERHEAD);
-                        ASSERT(unit_size > (size_t) GUARD_PAGE_ADJUSTMENT);
-                        unit_size -= GUARD_PAGE_ADJUSTMENT;
-                        new_unit = heap_create_unit(tu, unit_size, false/*can reuse*/);
+                        new_unit = heap_create_unit(tu, unit_size, false /*can reuse*/);
                         prev->next_local = new_unit;
 #ifdef DEBUG_MEMORY
                         LOG(THREAD, LOG_HEAP, 2,
-                            "\tCreating new heap unit %d (%d [/%d] KB)\n",
-                            new_unit->id, UNIT_COMMIT_SIZE(new_unit)/1024,
-                            UNIT_RESERVED_SIZE(new_unit)/1024);
+                            "\tCreating new heap unit %d (%d [/%d] KB)\n", new_unit->id,
+                            UNIT_COMMIT_SIZE(new_unit) / 1024,
+                            UNIT_RESERVED_SIZE(new_unit) / 1024);
 #endif
                         /* use new unit for all future non-free-list allocations
                          * we'll try to use the free room at the end of the old unit(s)
@@ -3597,9 +4370,9 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                         u = new_unit;
                         /* may need to extend now if alloc_size is large */
                         heap_unit_extend_commitment(u, alloc_size,
-                                                    MEMPROT_READ|MEMPROT_WRITE);
+                                                    MEMPROT_READ | MEMPROT_WRITE);
                         /* otherwise would have been bigger than MAXROOM */
-                        ASSERT(alloc_size <= (ptr_uint_t) (u->end_pc - u->cur_pc));
+                        ASSERT(alloc_size <= (ptr_uint_t)(u->end_pc - u->cur_pc));
                         break;
                     }
                     prev = prev->next_local;
@@ -3608,7 +4381,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
         }
 
         p = u->cur_pc;
-        if (bucket == BLOCK_TYPES-1) {
+        if (bucket == BLOCK_TYPES - 1) {
             /* we keep HEADER_SIZE bytes to store the size */
             p += HEADER_SIZE;
             VARIABLE_SIZE(p) = aligned_size;
@@ -3624,21 +4397,21 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
         /* FIXME: should atomically store inc-ed val in temp to avoid races w/ max */
         ATOMIC_MAX(int, block_peak_count[bucket], block_count[bucket]);
         ASSERT(CHECK_TRUNCATE_TYPE_uint(alloc_size - aligned_size));
-        ATOMIC_ADD(int, block_wasted[bucket], (int) (alloc_size - aligned_size));
+        ATOMIC_ADD(int, block_wasted[bucket], (int)(alloc_size - aligned_size));
         /* FIXME: should atomically store val in temp to avoid races w/ max */
         ATOMIC_MAX(int, block_peak_wasted[bucket], block_wasted[bucket]);
         if (aligned_size > size) {
             ASSERT(CHECK_TRUNCATE_TYPE_uint(aligned_size - size));
-            ATOMIC_ADD(int, block_align_pad[bucket], (int) (aligned_size - size));
+            ATOMIC_ADD(int, block_align_pad[bucket], (int)(aligned_size - size));
             /* FIXME: should atomically store val in temp to avoid races w/ max */
             ATOMIC_MAX(int, block_peak_align_pad[bucket], block_align_pad[bucket]);
             STATS_ADD_PEAK(heap_align, aligned_size - size);
             LOG(GLOBAL, LOG_STATS, 5,
                 "alignment mismatch: %s ask %d, aligned is %d -> %d pad\n",
-                IF_HEAPACCT_ELSE(whichheap_name[which], ""),
-                size, aligned_size, aligned_size-size);
+                IF_HEAPACCT_ELSE(whichheap_name[which], ""), size, aligned_size,
+                aligned_size - size);
         }
-        if (bucket == BLOCK_TYPES-1) {
+        if (bucket == BLOCK_TYPES - 1) {
             STATS_ADD(heap_headers, HEADER_SIZE);
             STATS_INC(heap_allocs_variable);
         } else {
@@ -3647,56 +4420,59 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                 STATS_ADD_PEAK(heap_bucket_pad, alloc_size - aligned_size);
                 LOG(GLOBAL, LOG_STATS, 5,
                     "bucket mismatch: %s ask (aligned) %d, got %d, -> %d\n",
-                    IF_HEAPACCT_ELSE(whichheap_name[which], ""),
-                    aligned_size, alloc_size, alloc_size-aligned_size);
+                    IF_HEAPACCT_ELSE(whichheap_name[which], ""), aligned_size, alloc_size,
+                    alloc_size - aligned_size);
             }
         }
     });
- done_allocating:
+done_allocating:
 #ifdef DEBUG_MEMORY
-    if (bucket == BLOCK_TYPES-1 && check_alloc_size <= MAXROOM) {
+    if (bucket == BLOCK_TYPES - 1 && check_alloc_size <= MAXROOM) {
         /* verify is unallocated memory, skip possible free list next pointer */
         DOCHECK(chklvl, {
-            CLIENT_ASSERT(is_region_memset_to_char
-                          (p+sizeof(heap_pc *),
-                           (alloc_size-HEADER_SIZE)-sizeof(heap_pc *),
-                           HEAP_UNALLOCATED_BYTE), "memory corruption detected");
+            CLIENT_ASSERT(
+                is_region_memset_to_char(p + sizeof(heap_pc *),
+                                         (alloc_size - HEADER_SIZE) - sizeof(heap_pc *),
+                                         HEAP_UNALLOCATED_BYTE),
+                "memory corruption detected");
         });
         LOG(THREAD, LOG_HEAP, 6,
-            "\nalloc var "PFX"-"PFX" %d bytes, ret "PFX"-"PFX" %d bytes\n",
-            p-HEADER_SIZE, p-HEADER_SIZE+alloc_size, alloc_size, p, p+size, size);
+            "\nalloc var " PFX "-" PFX " %d bytes, ret " PFX "-" PFX " %d bytes\n",
+            p - HEADER_SIZE, p - HEADER_SIZE + alloc_size, alloc_size, p, p + size, size);
         /* there can only be extra padding if we took off of the free list */
-        DOCHECK(chklvl, memset(p+size, HEAP_PAD_BYTE, (alloc_size-HEADER_SIZE)-size););
+        DOCHECK(chklvl,
+                memset(p + size, HEAP_PAD_BYTE, (alloc_size - HEADER_SIZE) - size););
     } else {
         /* verify is unallocated memory, skip possible free list next pointer */
         DOCHECK(chklvl, {
-            CLIENT_ASSERT(is_region_memset_to_char
-                          (p+sizeof(heap_pc *), alloc_size-sizeof(heap_pc *),
-                           HEAP_UNALLOCATED_BYTE), "memory corruption detected");
+            CLIENT_ASSERT(is_region_memset_to_char(p + sizeof(heap_pc *),
+                                                   alloc_size - sizeof(heap_pc *),
+                                                   HEAP_UNALLOCATED_BYTE),
+                          "memory corruption detected");
         });
         LOG(THREAD, LOG_HEAP, 6,
-            "\nalloc fix or oversize "PFX"-"PFX" %d bytes, ret "PFX"-"PFX" %d bytes\n",
-            p, p+alloc_size, alloc_size, p, p+size, size);
-        DOCHECK(chklvl, memset(p+size, HEAP_PAD_BYTE, alloc_size-size););
+            "\nalloc fix or oversize " PFX "-" PFX " %d bytes, ret " PFX "-" PFX
+            " %d bytes\n",
+            p, p + alloc_size, alloc_size, p, p + size, size);
+        DOCHECK(chklvl, memset(p + size, HEAP_PAD_BYTE, alloc_size - size););
     }
     DOCHECK(chklvl, memset(p, HEAP_ALLOCATED_BYTE, size););
-# ifdef HEAP_ACCOUNTING
+#    ifdef HEAP_ACCOUNTING
     LOG(THREAD, LOG_HEAP, 6, "\t%s\n", whichheap_name[which]);
-# endif
+#    endif
 #endif
-    return (void*)p;
+    return (void *)p;
 }
 
-
 /* allocate storage on the thread's private heap */
-void*
+void *
 heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
     thread_units_t *tu;
     void *ret_val;
     if (dcontext == GLOBAL_DCONTEXT)
         return global_heap_alloc(size HEAPACCT(which));
-    tu = ((thread_heap_t *) dcontext->heap_field)->local_heap;
+    tu = ((thread_heap_t *)dcontext->heap_field)->local_heap;
     ret_val = common_heap_alloc(tu, size HEAPACCT(which));
     ASSERT(ret_val != NULL);
     return ret_val;
@@ -3706,11 +4482,11 @@ heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
  * returns false if caller needs to grab dynamo_vm_areas_lock() and retry
  */
 static bool
-common_heap_free(thread_units_t *tu, void *p_void, size_t size
-                 HEAPACCT(which_heap_t which))
+common_heap_free(thread_units_t *tu, void *p_void,
+                 size_t size HEAPACCT(which_heap_t which))
 {
     int bucket = 0;
-    heap_pc p = (heap_pc) p_void;
+    heap_pc p = (heap_pc)p_void;
 #if defined(DEBUG) && (defined(DEBUG_MEMORY) || defined(HEAP_ACCOUNTING))
     dcontext_t *dcontext = tu->dcontext;
     /* DrMem i#999: private libs can be heap-intensive and our checks here
@@ -3748,8 +4524,8 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size
     DOCHECK(chklvl, {
         ASSERT_CURIOSITY(
             (*(uint *)p != HEAP_UNALLOCATED_UINT ||
-             (size >= 2*sizeof(uint) && *(((uint *)p)+1) != HEAP_UNALLOCATED_UINT)) &&
-            *(uint *)(p+size-sizeof(int)) != HEAP_UNALLOCATED_UINT &&
+             (size >= 2 * sizeof(uint) && *(((uint *)p) + 1) != HEAP_UNALLOCATED_UINT)) &&
+            *(uint *)(p + size - sizeof(int)) != HEAP_UNALLOCATED_UINT &&
             "attempting to free memory containing HEAP_UNALLOCATED pattern, "
             "possible double free!");
     });
@@ -3757,7 +4533,7 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size
 
     while (aligned_size > BLOCK_SIZES[bucket])
         bucket++;
-    if (bucket == BLOCK_TYPES-1)
+    if (bucket == BLOCK_TYPES - 1)
         alloc_size = aligned_size + HEADER_SIZE;
     else
         alloc_size = BLOCK_SIZES[bucket];
@@ -3768,8 +4544,8 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size
 
 #ifdef DEBUG_MEMORY
         /* ensure we are freeing memory in a proper unit */
-        DOCHECK(CHKLVL_DEFAULT, {  /* expensive check */
-            ASSERT(find_heap_unit(tu, p, size) != NULL);
+        DOCHECK(CHKLVL_DEFAULT, { /* expensive check */
+                                  ASSERT(find_heap_unit(tu, p, size) != NULL);
         });
 #endif
 
@@ -3793,10 +4569,10 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size
             tu->top_unit = u->next_local;
         else
             prev->next_local = u->next_local;
-        /* just retire the unit # */
+            /* just retire the unit # */
 #ifdef DEBUG_MEMORY
-        LOG(THREAD, LOG_HEAP, 3, "\tFreeing oversized heap unit %d (%d KB)\n",
-            u->id, size/1024);
+        LOG(THREAD, LOG_HEAP, 3, "\tFreeing oversized heap unit %d (%d KB)\n", u->id,
+            size / 1024);
         /* go ahead and set unallocated, even though we are just going to free
          * the unit, is needed for an assert in heap_free_unit anyways */
         DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, size););
@@ -3805,44 +4581,46 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size
         heap_free_unit(u, tu->dcontext);
         ACCOUNT_FOR_FREE(tu, which, size);
         return true;
-    } else if (bucket == BLOCK_TYPES-1) {
+    } else if (bucket == BLOCK_TYPES - 1) {
         ASSERT(GET_VARIABLE_ALLOCATION_SIZE(p) >= alloc_size);
         alloc_size = GET_VARIABLE_ALLOCATION_SIZE(p);
         ASSERT(alloc_size - HEADER_SIZE >= aligned_size);
     }
 
 #if defined(DEBUG) || defined(DEBUG_MEMORY) || defined(HEAP_ACCOUNTING)
-    if (bucket == BLOCK_TYPES-1) {
-# ifdef DEBUG_MEMORY
+    if (bucket == BLOCK_TYPES - 1) {
+#    ifdef DEBUG_MEMORY
         LOG(THREAD, LOG_HEAP, 6,
-            "\nfree var "PFX"-"PFX" %d bytes, asked "PFX"-"PFX" %d bytes\n",
-            p-HEADER_SIZE, p-HEADER_SIZE+alloc_size, alloc_size, p, p+size, size);
+            "\nfree var " PFX "-" PFX " %d bytes, asked " PFX "-" PFX " %d bytes\n",
+            p - HEADER_SIZE, p - HEADER_SIZE + alloc_size, alloc_size, p, p + size, size);
         ASSERT_MESSAGE(chklvl, "heap overflow",
-                       is_region_memset_to_char(p+size, (alloc_size-HEADER_SIZE)-size,
-                                                HEAP_PAD_BYTE));
+                       is_region_memset_to_char(
+                           p + size, (alloc_size - HEADER_SIZE) - size, HEAP_PAD_BYTE));
         /* ensure we are freeing memory in a proper unit */
-        DOCHECK(CHKLVL_DEFAULT, {  /* expensive check */
-            ASSERT(find_heap_unit(tu, p, alloc_size - HEADER_SIZE) != NULL);
-        });
+        DOCHECK(CHKLVL_DEFAULT,
+                { /* expensive check */
+                  ASSERT(find_heap_unit(tu, p, alloc_size - HEADER_SIZE) != NULL);
+                });
         /* set used and padding memory back to unallocated */
-        DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE,
-                                       alloc_size-HEADER_SIZE););
-# endif
+        DOCHECK(CHKLVL_MEMFILL,
+                memset(p, HEAP_UNALLOCATED_BYTE, alloc_size - HEADER_SIZE););
+#    endif
         STATS_SUB(heap_headers, HEADER_SIZE);
     } else {
-# ifdef DEBUG_MEMORY
+#    ifdef DEBUG_MEMORY
         LOG(THREAD, LOG_HEAP, 6,
-            "\nfree fix "PFX"-"PFX" %d bytes, asked "PFX"-"PFX" %d bytes\n",
-            p, p+alloc_size, alloc_size, p, p+size, size);
-        ASSERT_MESSAGE(chklvl, "heap overflow",
-                       is_region_memset_to_char(p+size, alloc_size-size, HEAP_PAD_BYTE));
+            "\nfree fix " PFX "-" PFX " %d bytes, asked " PFX "-" PFX " %d bytes\n", p,
+            p + alloc_size, alloc_size, p, p + size, size);
+        ASSERT_MESSAGE(
+            chklvl, "heap overflow",
+            is_region_memset_to_char(p + size, alloc_size - size, HEAP_PAD_BYTE));
         /* ensure we are freeing memory in a proper unit */
-        DOCHECK(CHKLVL_DEFAULT, {  /* expensive check */
-            ASSERT(find_heap_unit(tu, p, alloc_size) != NULL);
+        DOCHECK(CHKLVL_DEFAULT, { /* expensive check */
+                                  ASSERT(find_heap_unit(tu, p, alloc_size) != NULL);
         });
         /* set used and padding memory back to unallocated */
         DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, alloc_size););
-# endif
+#    endif
         STATS_SUB(heap_bucket_pad, (alloc_size - aligned_size));
     }
     STATS_SUB(heap_align, (aligned_size - size));
@@ -3851,14 +4629,14 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size
         ATOMIC_ADD(int, block_wasted[bucket], -(int)(alloc_size - aligned_size));
         ATOMIC_ADD(int, block_align_pad[bucket], -(int)(aligned_size - size));
     });
-# ifdef HEAP_ACCOUNTING
+#    ifdef HEAP_ACCOUNTING
     LOG(THREAD, LOG_HEAP, 6, "\t%s\n", whichheap_name[which]);
     ACCOUNT_FOR_FREE(tu, which, alloc_size);
-# endif
+#    endif
 #endif
 
     /* write next pointer */
-    *((heap_pc*)p) = tu->free_list[bucket];
+    *((heap_pc *)p) = tu->free_list[bucket];
     ASSERT(ALIGNED(tu->free_list[bucket], HEAP_ALIGNMENT));
     tu->free_list[bucket] = p;
     ASSERT(ALIGNED(tu->free_list[bucket], HEAP_ALIGNMENT));
@@ -3875,16 +4653,18 @@ heap_free(dcontext_t *dcontext, void *p, size_t size HEAPACCT(which_heap_t which
         global_heap_free(p, size HEAPACCT(which));
         return;
     }
-    tu = ((thread_heap_t *) dcontext->heap_field)->local_heap;
-    DEBUG_DECLARE(ok = ) common_heap_free(tu, p, size HEAPACCT(which));
+    tu = ((thread_heap_t *)dcontext->heap_field)->local_heap;
+    DEBUG_DECLARE(ok =) common_heap_free(tu, p, size HEAPACCT(which));
     ASSERT(ok);
 }
 
-bool local_heap_protected(dcontext_t *dcontext)
+bool
+local_heap_protected(dcontext_t *dcontext)
 {
-    thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
     return (!th->local_heap->writable ||
-            (th->nonpersistent_heap != NULL && !th->nonpersistent_heap->writable));
+            (th->nonpersistent_heap != NULL && !th->nonpersistent_heap->writable) ||
+            (th->reachable_heap != NULL && !th->reachable_heap->writable));
 }
 
 static inline void
@@ -3913,10 +4693,11 @@ protect_threadunits(thread_units_t *tu, bool writable)
 void
 protect_local_heap(dcontext_t *dcontext, bool writable)
 {
-    thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
+    thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
     protect_threadunits(th->local_heap, writable);
-    if (SEPARATE_NONPERSISTENT_HEAP())
-        protect_threadunits(th->nonpersistent_heap, writable);
+    protect_threadunits(th->nonpersistent_heap, writable);
+    if (!REACHABLE_HEAP()) /* If off, all heap is reachable. */
+        protect_threadunits(th->reachable_heap, writable);
 }
 
 /* assumption: vmm_heap_alloc only gets called for HeapUnits themselves, which
@@ -3949,10 +4730,7 @@ protect_global_heap(bool writable)
     }
 
     protect_local_units_helper(heapmgt->global_units.top_unit, writable);
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        protect_local_units_helper(heapmgt->global_nonpersistent_units.top_unit,
-                                   writable);
-    }
+    protect_local_units_helper(heapmgt->global_nonpersistent_units.top_unit, writable);
 
     if (writable) {
         ASSERT(!heapmgt->global_heap_writable);
@@ -3971,32 +4749,76 @@ global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which))
     void *p = common_global_heap_alloc(&heapmgt->global_unprotected_units,
                                        size HEAPACCT(which));
     ASSERT(p != NULL);
-    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal unprotected alloc: "PFX" (%d bytes)\n", p, size);
+    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal unprotected alloc: " PFX " (%d bytes)\n", p, size);
     return p;
 }
 
 void
 global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t which))
 {
-    common_global_heap_free(&heapmgt->global_unprotected_units,
-                            p, size HEAPACCT(which));
-    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal unprotected free: "PFX" (%d bytes)\n", p, size);
+    common_global_heap_free(&heapmgt->global_unprotected_units, p, size HEAPACCT(which));
+    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal unprotected free: " PFX " (%d bytes)\n", p, size);
 }
 
 void *
 nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
+    if (dcontext == GLOBAL_DCONTEXT) {
+        p = common_global_heap_alloc(&heapmgt->global_nonpersistent_units,
+                                     size HEAPACCT(which));
+        LOG(GLOBAL, LOG_HEAP, 6, "\nglobal nonpersistent alloc: " PFX " (%d bytes)\n", p,
+            size);
+    } else {
+        thread_units_t *nph = ((thread_heap_t *)dcontext->heap_field)->nonpersistent_heap;
+        p = common_heap_alloc(nph, size HEAPACCT(which));
+    }
+    ASSERT(p != NULL);
+    return p;
+}
+
+void
+nonpersistent_heap_free(dcontext_t *dcontext, void *p,
+                        size_t size HEAPACCT(which_heap_t which))
+{
+    if (dcontext == GLOBAL_DCONTEXT) {
+        common_global_heap_free(&heapmgt->global_nonpersistent_units, p,
+                                size HEAPACCT(which));
+        LOG(GLOBAL, LOG_HEAP, 6, "\nglobal nonpersistent free: " PFX " (%d bytes)\n", p,
+            size);
+    } else {
+        thread_units_t *nph = ((thread_heap_t *)dcontext->heap_field)->nonpersistent_heap;
+        DEBUG_DECLARE(bool ok =) common_heap_free(nph, p, size HEAPACCT(which));
+        ASSERT(ok);
+    }
+}
+
+void *
+heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
+{
+    void *p;
+    /* We pay the cost of this branch to support using DR's decode routines from the
+     * regular DR library and not just drdecode, to support libraries that would use
+     * drdecode but that also have to work with full DR (i#2499).
+     */
+    if (heapmgt == &temp_heapmgt &&
+        /* We prevent recursion by checking for a field that d_r_heap_init() sets and
+         * d_r_heap_exit() clears.
+         */
+        !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
+        standalone_init();
+    }
+    if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         if (dcontext == GLOBAL_DCONTEXT) {
-            p = common_global_heap_alloc(&heapmgt->global_nonpersistent_units,
+            p = common_global_heap_alloc(&heapmgt->global_reachable_units,
                                          size HEAPACCT(which));
-            LOG(GLOBAL, LOG_HEAP, 6,
-                "\nglobal nonpersistent alloc: "PFX" (%d bytes)\n", p, size);
+            LOG(GLOBAL, LOG_HEAP, 6, "\nglobal reachable alloc: " PFX " (%d bytes)\n", p,
+                size);
         } else {
-            thread_units_t *nph =
-                ((thread_heap_t *) dcontext->heap_field)->nonpersistent_heap;
-            p = common_heap_alloc(nph, size HEAPACCT(which));
+            thread_units_t *units =
+                ((thread_heap_t *)dcontext->heap_field)->reachable_heap;
+            p = common_heap_alloc(units, size HEAPACCT(which));
         }
     } else {
         p = heap_alloc(dcontext, size HEAPACCT(which));
@@ -4006,19 +4828,19 @@ nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t
 }
 
 void
-nonpersistent_heap_free(dcontext_t *dcontext, void *p, size_t size
-                        HEAPACCT(which_heap_t which))
+heap_reachable_free(dcontext_t *dcontext, void *p,
+                    size_t size HEAPACCT(which_heap_t which))
 {
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
+    if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         if (dcontext == GLOBAL_DCONTEXT) {
-            common_global_heap_free(&heapmgt->global_nonpersistent_units,
-                                    p, size HEAPACCT(which));
-            LOG(GLOBAL, LOG_HEAP, 6,
-                "\nglobal nonpersistent free: "PFX" (%d bytes)\n", p, size);
+            common_global_heap_free(&heapmgt->global_reachable_units, p,
+                                    size HEAPACCT(which));
+            LOG(GLOBAL, LOG_HEAP, 6, "\nglobal reachable free: " PFX " (%d bytes)\n", p,
+                size);
         } else {
-            thread_units_t *nph =
-                ((thread_heap_t *) dcontext->heap_field)->nonpersistent_heap;
-            DEBUG_DECLARE(bool ok =) common_heap_free(nph, p, size HEAPACCT(which));
+            thread_units_t *units =
+                ((thread_heap_t *)dcontext->heap_field)->reachable_heap;
+            DEBUG_DECLARE(bool ok =) common_heap_free(units, p, size HEAPACCT(which));
             ASSERT(ok);
         }
     } else {
@@ -4041,16 +4863,16 @@ nonpersistent_heap_free(dcontext_t *dcontext, void *p, size_t size
  * 3) We don't need all the fields of heap_unit_t.
  */
 typedef struct _special_heap_unit_t {
-    heap_pc alloc_pc;         /* start of allocation region */
-    heap_pc start_pc;         /* first address we'll give out for storage */
-    heap_pc end_pc;           /* open-ended address of heap storage */
-    heap_pc cur_pc;           /* current end (open) of allocated storage */
-    heap_pc reserved_end_pc;  /* (open) end of reserved (not nec committed) memory */
+    heap_pc alloc_pc;        /* start of allocation region */
+    heap_pc start_pc;        /* first address we'll give out for storage */
+    heap_pc end_pc;          /* open-ended address of heap storage */
+    heap_pc cur_pc;          /* current end (open) of allocated storage */
+    heap_pc reserved_end_pc; /* (open) end of reserved (not nec committed) memory */
 #ifdef WINDOWS_PC_SAMPLE
     profile_t *profile;
 #endif
 #ifdef DEBUG
-    int      id;              /* # of this unit */
+    int id; /* # of this unit */
 #endif
     struct _special_heap_unit_t *next;
 } special_heap_unit_t;
@@ -4058,6 +4880,7 @@ typedef struct _special_heap_unit_t {
 #define SPECIAL_UNIT_COMMIT_SIZE(u) ((u)->end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_RESERVED_SIZE(u) ((u)->reserved_end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_HEADER_INLINE(u) ((u)->alloc_pc != (u)->start_pc)
+#define SPECIAL_UNIT_ALLOC_SIZE(u) (SPECIAL_UNIT_RESERVED_SIZE(u))
 
 /* the cfree list stores a next ptr and a count */
 typedef struct _cfree_header {
@@ -4068,21 +4891,22 @@ typedef struct _cfree_header {
 typedef struct _special_units_t {
     special_heap_unit_t *top_unit; /* start of linked list of heap units */
     special_heap_unit_t *cur_unit; /* current unit in heap list */
-    uint block_size;    /* all blocks are this size */
+    uint block_size;               /* all blocks are this size */
     uint block_alignment;
     heap_pc free_list;
     cfree_header_t *cfree_list;
 #ifdef DEBUG
-    int num_units;      /* total # of heap units */
+    int num_units; /* total # of heap units */
 #endif
-    bool writable:1;      /* remember state of heap protection */
-    bool executable:1;
+    bool writable : 1; /* remember state of heap protection */
+    bool executable : 1;
     /* if use_lock is false, grabbing _any_ lock may be hazardous!
      * (this isn't just an optimization, it's for correctness)
      */
-    bool use_lock:1;
-    bool in_iterator:1;
-    bool persistent:1;
+    bool use_lock : 1;
+    bool in_iterator : 1;
+    bool persistent : 1;
+    bool per_thread : 1;
     mutex_t lock;
 
     /* Yet another feature added: pclookup, but across multiple heaps,
@@ -4121,10 +4945,10 @@ get_special_heap_header_size(void)
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
-static inline bool special_heap_profile_enabled()
+static inline bool
+special_heap_profile_enabled()
 {
-    return (dynamo_options.profile_pcs &&
-            dynamo_options.prof_pcs_stubs >= 2 &&
+    return (dynamo_options.profile_pcs && dynamo_options.prof_pcs_stubs >= 2 &&
             dynamo_options.prof_pcs_stubs <= 32);
 }
 #endif
@@ -4132,17 +4956,44 @@ static inline bool special_heap_profile_enabled()
 static inline uint
 get_prot(special_units_t *su)
 {
-    return (su->executable ?
-            MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC :
-            MEMPROT_READ|MEMPROT_WRITE);
+    return (su->executable ? MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC
+                           : MEMPROT_READ | MEMPROT_WRITE);
+}
+
+static inline which_vmm_t
+get_which(special_units_t *su)
+{
+    which_vmm_t which = VMM_SPECIAL_HEAP;
+    /* We assume that +x special heap must be reachable. */
+    if (su->executable)
+        which |= VMM_REACHABLE;
+    if (su->per_thread)
+        which |= VMM_PER_THREAD;
+    return which;
+}
+
+static inline byte *
+special_heap_get_writable_addr(special_units_t *su, byte *addr)
+{
+    if (su->executable)
+        return vmcode_get_writable_addr(addr);
+    return addr;
+}
+
+static inline byte *
+special_heap_get_executable_addr(special_units_t *su, byte *addr)
+{
+    if (su->executable)
+        return vmcode_get_executable_addr(addr);
+    return addr;
 }
 
 static void
-special_unit_extend_commitment(special_heap_unit_t *u, size_t size_need, uint prot)
+special_unit_extend_commitment(special_units_t *su, special_heap_unit_t *u,
+                               size_t size_need, uint prot)
 {
-    u->end_pc +=
-        common_heap_extend_commitment(u->cur_pc, u->end_pc, u->reserved_end_pc,
-                                      size_need, prot);
+    u->end_pc += common_heap_extend_commitment(u->cur_pc, u->end_pc, u->reserved_end_pc,
+                                               size_need, prot, get_which(su));
 }
 
 /* If pc is NULL, allocates memory and stores the header inside it;
@@ -4169,8 +5020,11 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         /* caller should arrange alignment */
         ASSERT(su->block_alignment == 0 || ALIGNED(u->start_pc, su->block_alignment));
     } else {
+        ASSERT(ALIGNED(size, PAGE_SIZE));
         commit_size = DYNAMO_OPTION(heap_commit_increment);
-        ASSERT(commit_size <= size);
+        /* Allow the general commit size to be larger than a special unit. */
+        if (commit_size > size)
+            commit_size = size;
         /* create new unit */
         /* Since vmm lock, dynamo_vm_areas lock, all_memory_areas lock (on
          * linux), etc. will be acquired, and presumably !su->use_lock means
@@ -4181,23 +5035,28 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
          * => PR 596808.
          */
         DODEBUG({
-            if (su->top_unit != NULL/*init*/ && !su->use_lock) {
+            if (su->top_unit != NULL /*init*/ && !su->use_lock) {
                 SYSLOG_INTERNAL_WARNING_ONCE("potentially unsafe: allocating a new "
                                              "fragile special heap unit!");
             }
         });
-        u = (special_heap_unit_t *)
-            get_guarded_real_memory(size, commit_size, prot, true, true, NULL,
-                                    VMM_SPECIAL_HEAP _IF_DEBUG("special_heap"));
+        u = (special_heap_unit_t *)get_guarded_real_memory(
+            size, commit_size, prot, true, true, NULL,
+            get_which(su) _IF_DEBUG("special_heap"));
         ASSERT(u != NULL);
-        u->alloc_pc = (heap_pc) u;
+        /* Unlike gencode and code cache memory, we store the writable, since there
+         * is a much narrower interface for executable addresses: just returning
+         * pointers on alloc, while we have many write points.
+         */
+        u = (special_heap_unit_t *)special_heap_get_writable_addr(su, (byte *)u);
+        u->alloc_pc = (heap_pc)u;
         /* u is kept at top of unit itself, so displace start pc */
-        u->start_pc = (heap_pc) (((ptr_uint_t)u) + sizeof(special_heap_unit_t));
+        u->start_pc = (heap_pc)(((ptr_uint_t)u) + sizeof(special_heap_unit_t));
         if (su->block_alignment != 0) {
             STATS_ADD(heap_special_align,
                       ALIGN_FORWARD(u->start_pc, su->block_alignment) -
-                      (ptr_uint_t)u->start_pc);
-            u->start_pc = (heap_pc) ALIGN_FORWARD(u->start_pc, su->block_alignment);
+                          (ptr_uint_t)u->start_pc);
+            u->start_pc = (heap_pc)ALIGN_FORWARD(u->start_pc, su->block_alignment);
         }
     }
     u->end_pc = u->alloc_pc + commit_size;
@@ -4237,8 +5096,9 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
 #ifdef DEBUG_MEMORY
     /* Don't clobber already-allocated memory */
     DOCHECK(CHKLVL_MEMFILL, {
-        if (pc == NULL)
+        if (pc == NULL) {
             memset(u->start_pc, HEAP_UNALLOCATED_BYTE, u->end_pc - u->start_pc);
+        }
     });
 #endif
     return u;
@@ -4246,34 +5106,31 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
 
 /* caller must store the special_units_t *, which is opaque */
 static void *
-special_heap_init_internal(uint block_size, uint block_alignment,
-                           bool use_lock, bool executable,
-                           bool persistent, vm_area_vector_t *vector, void *vector_data,
-                           byte *heap_region, size_t heap_size, bool unit_full)
+special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
+                           bool executable, bool persistent, vm_area_vector_t *vector,
+                           void *vector_data, byte *heap_region, size_t heap_size,
+                           bool unit_full)
 {
     special_units_t *su;
     size_t unit_size = heap_size;
+    if (block_alignment != 0)
+        block_size = ALIGN_FORWARD(block_size, block_alignment);
     if (unit_size == 0) {
-        unit_size = (block_size * 16 > HEAP_UNIT_MIN_SIZE) ?
-            (block_size * 16) : HEAP_UNIT_MIN_SIZE;
-        /* Whether using 16K or 64K vmm blocks, HEAP_UNIT_MIN_SIZE of 32K wastes
-         * space, and our main uses (stubs, whether global or coarse, and signal
-         * pending queue) don't need a lot of space, so shrinking.
-         * This tuning is a little fragile (just like for regular heap units and
-         * fcache units) so be careful when changing default parameters.
+        /* Our main uses (stubs, whether global or coarse, and signal
+         * pending queue) don't need a lot of space, so we have a smaller min size
+         * than regular heap units which use HEAP_UNIT_MIN_SIZE.
          */
-        if (unit_size == HEAP_UNIT_MIN_SIZE) {
-            ASSERT(unit_size > (size_t) GUARD_PAGE_ADJUSTMENT);
-            unit_size -= GUARD_PAGE_ADJUSTMENT;
-        }
+        unit_size = (block_size * 16 > PAGE_SIZE) ? (block_size * 16) : PAGE_SIZE;
     }
     if (heap_region == NULL) {
-        unit_size = (size_t) ALIGN_FORWARD(unit_size, PAGE_SIZE);
+        unit_size = (size_t)ALIGN_FORWARD(unit_size, PAGE_SIZE);
     }
-    su = (special_units_t *)
-        (persistent ? global_heap_alloc(sizeof(special_units_t) HEAPACCT(ACCT_MEM_MGT)) :
-         nonpersistent_heap_alloc(GLOBAL_DCONTEXT, sizeof(special_units_t)
-                                  HEAPACCT(ACCT_MEM_MGT)));
+    su = (special_units_t *)(persistent
+                                 ? global_heap_alloc(sizeof(special_units_t)
+                                                         HEAPACCT(ACCT_MEM_MGT))
+                                 : nonpersistent_heap_alloc(GLOBAL_DCONTEXT,
+                                                            sizeof(special_units_t)
+                                                                HEAPACCT(ACCT_MEM_MGT)));
     memset(su, 0, sizeof(*su));
     ASSERT(block_size >= sizeof(heap_pc *) && "need room for free list ptrs");
     ASSERT(block_size >= sizeof(heap_pc *) + sizeof(uint) &&
@@ -4282,12 +5139,12 @@ special_heap_init_internal(uint block_size, uint block_alignment,
     su->block_alignment = block_alignment;
     su->executable = executable;
     su->persistent = persistent;
+    /* We assume that a lockless heap is a per-thread heap. */
+    su->per_thread = !use_lock;
     su->writable = true;
     su->free_list = NULL;
     su->cfree_list = NULL;
-    DODEBUG({
-        su->num_units = 0;
-    });
+    DODEBUG({ su->num_units = 0; });
     ASSERT((vector == NULL) == (vector_data == NULL));
     su->heap_areas = vector;
     su->lookup_retval = vector_data;
@@ -4309,11 +5166,11 @@ special_heap_init_internal(uint block_size, uint block_alignment,
 
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
-        /* Add to the global master list, which requires a lock */
-        mutex_lock(&special_units_list_lock);
+        /* Add to the global main list, which requires a lock */
+        d_r_mutex_lock(&special_units_list_lock);
         su->next = special_units_list;
         special_units_list = su;
-        mutex_unlock(&special_units_list_lock);
+        d_r_mutex_unlock(&special_units_list_lock);
     }
 #endif
 
@@ -4336,8 +5193,8 @@ special_heap_init(uint block_size, bool use_lock, bool executable, bool persiste
 }
 
 void *
-special_heap_init_aligned(uint block_size, uint alignment, bool use_lock,
-                          bool executable, bool persistent, size_t initial_unit_size)
+special_heap_init_aligned(uint block_size, uint alignment, bool use_lock, bool executable,
+                          bool persistent, size_t initial_unit_size)
 {
     return special_heap_init_internal(block_size, alignment, use_lock, executable,
                                       persistent, NULL, NULL, NULL, initial_unit_size,
@@ -4364,7 +5221,7 @@ special_heap_pclookup_init(uint block_size, bool use_lock, bool executable,
 void
 special_heap_set_vector_data(void *special, void *vector_data)
 {
-    special_units_t *su = (special_units_t *) special;
+    special_units_t *su = (special_units_t *)special;
     special_heap_unit_t *u;
     ASSERT(su->heap_areas != NULL);
     /* FIXME: more efficient to walk the vector, but no interface
@@ -4372,8 +5229,8 @@ special_heap_set_vector_data(void *special, void *vector_data)
      * the vmarea struct rather than than the clean copy we have now
      */
     for (u = su->top_unit; u != NULL; u = u->next) {
-        vmvector_modify_data(su->heap_areas, u->alloc_pc,
-                             u->reserved_end_pc, vector_data);
+        vmvector_modify_data(su->heap_areas, u->alloc_pc, u->reserved_end_pc,
+                             vector_data);
     }
 }
 
@@ -4384,11 +5241,9 @@ special_heap_set_vector_data(void *special, void *vector_data)
 bool
 special_heap_set_unit_end(void *special, byte *end_pc)
 {
-    special_units_t *su = (special_units_t *) special;
-    if (su->top_unit->next != NULL ||
-        SPECIAL_UNIT_HEADER_INLINE(su->top_unit) ||
-        end_pc < su->top_unit->start_pc ||
-        end_pc > su->top_unit->end_pc)
+    special_units_t *su = (special_units_t *)special;
+    if (su->top_unit->next != NULL || SPECIAL_UNIT_HEADER_INLINE(su->top_unit) ||
+        end_pc < su->top_unit->start_pc || end_pc > su->top_unit->end_pc)
         return false;
     su->top_unit->cur_pc = end_pc;
     return true;
@@ -4403,11 +5258,10 @@ special_heap_profile_stop(special_heap_unit_t *u)
     stop_profile(u->profile);
     sum = sum_profile(u->profile);
     if (sum > 0) {
-        mutex_lock(&profile_dump_lock);
-        print_file(profile_file,
-                   "\nDumping special heap unit profile\n%d hits\n", sum);
+        d_r_mutex_lock(&profile_dump_lock);
+        print_file(profile_file, "\nDumping special heap unit profile\n%d hits\n", sum);
         dump_profile(profile_file, u->profile);
-        mutex_unlock(&profile_dump_lock);
+        d_r_mutex_unlock(&profile_dump_lock);
     }
 }
 #endif
@@ -4420,26 +5274,26 @@ special_heap_profile_exit()
     special_heap_unit_t *u;
     special_units_t *su;
     ASSERT(special_heap_profile_enabled()); /* will never be compiled in I guess :) */
-    mutex_lock(&special_units_list_lock);
+    d_r_mutex_lock(&special_units_list_lock);
     for (su = special_units_list; su != NULL; su = su->next) {
         if (su->use_lock)
-            mutex_lock(&su->lock);
+            d_r_mutex_lock(&su->lock);
         for (u = su->top_unit; u != NULL; u = u->next) {
             if (u->profile != NULL)
                 special_heap_profile_stop(u);
             /* fast exit path: do not bother to free */
         }
         if (su->use_lock)
-            mutex_unlock(&su->lock);
+            d_r_mutex_unlock(&su->lock);
     }
-    mutex_unlock(&special_units_list_lock);
+    d_r_mutex_unlock(&special_units_list_lock);
 }
 #endif
 
 void
 special_heap_exit(void *special)
 {
-    special_units_t *su = (special_units_t *) special;
+    special_units_t *su = (special_units_t *)special;
     special_heap_unit_t *u, *next_u;
 #ifdef DEBUG
     size_t total_heap_used = 0;
@@ -4447,13 +5301,14 @@ special_heap_exit(void *special)
     u = su->top_unit;
     while (u != NULL) {
         /* Assumption: it's ok to use print_lock even if !su->use_lock */
-        DOLOG(1, LOG_HEAP|LOG_STATS, {
+        DOLOG(1, LOG_HEAP | LOG_STATS, {
             size_t num_used = u->cur_pc - u->start_pc;
             total_heap_used += num_used;
-            LOG(THREAD_GET, LOG_HEAP|LOG_STATS, 1,
-                "Heap unit "SZFMT" (size "SZFMT" [/"SZFMT"] KB): used "SZFMT" KB\n",
-                u->id, (SPECIAL_UNIT_COMMIT_SIZE(u))/1024,
-                SPECIAL_UNIT_RESERVED_SIZE(u)/1024, num_used/1024);
+            LOG(THREAD_GET, LOG_HEAP | LOG_STATS, 1,
+                "Heap unit " SZFMT " (size " SZFMT " [/" SZFMT "] KB): used " SZFMT
+                " KB\n",
+                u->id, (SPECIAL_UNIT_COMMIT_SIZE(u)) / 1024,
+                SPECIAL_UNIT_RESERVED_SIZE(u) / 1024, num_used / 1024);
         });
         next_u = u->next;
 #ifdef WINDOWS_PC_SAMPLE
@@ -4470,36 +5325,36 @@ special_heap_exit(void *special)
             vmvector_remove(su->heap_areas, u->alloc_pc, u->reserved_end_pc);
         }
         if (!SPECIAL_UNIT_HEADER_INLINE(u)) {
-            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, u, special_heap_unit_t,
-                           ACCT_MEM_MGT, PROTECTED);
+            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, u, special_heap_unit_t, ACCT_MEM_MGT,
+                           PROTECTED);
             /* up to creator to free the heap region */
         } else {
             release_guarded_real_memory((vm_addr_t)u, SPECIAL_UNIT_RESERVED_SIZE(u),
-                                        true/*update DR areas immediately*/, true,
-                                        VMM_SPECIAL_HEAP);
+                                        true /*update DR areas immediately*/, true,
+                                        get_which(su));
         }
         u = next_u;
     }
 #ifdef HEAP_ACCOUNTING
     add_heapacct_to_global_stats(&su->acct);
 #endif
-    LOG(THREAD_GET, LOG_HEAP|LOG_STATS, 1, "\tTotal heap used: "SZFMT" KB\n",
-        total_heap_used/1024);
+    LOG(THREAD_GET, LOG_HEAP | LOG_STATS, 1, "\tTotal heap used: " SZFMT " KB\n",
+        total_heap_used / 1024);
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
-        /* Removed this special_units_t from the master list */
-        mutex_lock(&special_units_list_lock);
+        /* Removed this special_units_t from the main list */
+        d_r_mutex_lock(&special_units_list_lock);
         if (special_units_list == su)
             special_units_list = su->next;
         else {
             special_units_t *prev = special_units_list;
             ASSERT(prev != NULL);
             for (; prev->next != NULL && prev->next != su; prev = prev->next)
-                ;/*nothing*/
+                ; /*nothing*/
             ASSERT(prev->next == su);
             prev->next = su->next;
         }
-        mutex_unlock(&special_units_list_lock);
+        d_r_mutex_unlock(&special_units_list_lock);
     }
 #endif
     if (su->use_lock)
@@ -4508,8 +5363,8 @@ special_heap_exit(void *special)
     if (su->persistent) {
         global_heap_free(su, sizeof(special_units_t) HEAPACCT(ACCT_MEM_MGT));
     } else {
-        nonpersistent_heap_free(GLOBAL_DCONTEXT, su, sizeof(special_units_t)
-                                HEAPACCT(ACCT_MEM_MGT));
+        nonpersistent_heap_free(GLOBAL_DCONTEXT, su,
+                                sizeof(special_units_t) HEAPACCT(ACCT_MEM_MGT));
     }
 }
 
@@ -4519,16 +5374,16 @@ special_heap_calloc(void *special, uint num)
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
-    special_units_t *su = (special_units_t *) special;
+    special_units_t *su = (special_units_t *)special;
     special_heap_unit_t *u;
     void *p = NULL;
     bool took_free = false;
     ASSERT(num > 0);
     if (su->use_lock)
-        mutex_lock(&su->lock);
+        d_r_mutex_lock(&su->lock);
     u = su->cur_unit;
     if (su->free_list != NULL && num == 1) {
-        p = (void *) su->free_list;
+        p = (void *)su->free_list;
         su->free_list = *((heap_pc *)p);
         took_free = true;
     } else if (su->cfree_list != NULL && num > 1) {
@@ -4549,73 +5404,76 @@ special_heap_calloc(void *special, uint num)
                     su->cfree_list = cfree->next_cfree;
                 else
                     prev->next_cfree = cfree->next_cfree;
-                p = (void *) cfree;
-            } else if (cfree->count == num+1) {
+                p = (void *)cfree;
+            } else if (cfree->count == num + 1) {
                 /* add single-size piece to normal free list */
-                heap_pc tail = ((heap_pc) cfree) + num * su->block_size;
+                heap_pc tail = ((heap_pc)cfree) + num * su->block_size;
                 *((heap_pc *)tail) = su->free_list;
                 su->free_list = tail;
-                p = (void *) cfree;
+                p = (void *)cfree;
             } else {
                 /* if take tail don't have to change free list ptrs at all */
                 cfree->count -= num;
-                p = (void *) (((heap_pc) cfree) + (cfree->count - num) * su->block_size);
+                p = (void *)(((heap_pc)cfree) + (cfree->count - num) * su->block_size);
             }
         }
     }
     if (!took_free) {
         /* no free blocks, grab a new one */
-        if (u->cur_pc + su->block_size*num > u->end_pc ||
-            POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num)) {
+        if (u->cur_pc + su->block_size * num > u->end_pc ||
+            POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size * num)) {
             /* simply extend commitment, if possible */
             size_t pre_commit_size = SPECIAL_UNIT_COMMIT_SIZE(u);
-            special_unit_extend_commitment(u, su->block_size*num, get_prot(su));
+            special_unit_extend_commitment(su, u, su->block_size * num, get_prot(su));
             RSTATS_ADD_PEAK(heap_special_capacity,
                             SPECIAL_UNIT_COMMIT_SIZE(u) - pre_commit_size);
             /* check again after extending commit */
-            if (u->cur_pc + su->block_size*num > u->end_pc ||
-                POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num)) {
+            if (u->cur_pc + su->block_size * num > u->end_pc ||
+                POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size * num)) {
                 /* no room, need new unit */
                 special_heap_unit_t *new_unit;
                 special_heap_unit_t *prev = su->top_unit;
-                size_t size = UNITALLOC(u);
+                size_t size = SPECIAL_UNIT_ALLOC_SIZE(u);
+                ASSERT(ALIGNED(size, PAGE_SIZE));
                 while (prev->next != NULL)
                     prev = prev->next;
                 /* create new unit double size of old unit (until hit max size) */
-                if (size*2 <= HEAP_UNIT_MAX_SIZE)
+                if (size * 2 <= HEAP_UNIT_MAX_SIZE)
                     size *= 2;
                 /* we don't support arbitrarily long sequences */
                 ASSERT(su->block_size * num < size);
-                new_unit = special_heap_create_unit(su, NULL, size, false/*empty*/);
+                new_unit = special_heap_create_unit(su, NULL, size, false /*empty*/);
                 prev->next = new_unit;
                 if (su->use_lock) {
                     /* if synch bad so is printing */
-                    LOG(THREAD, LOG_HEAP, 3, "\tCreating new heap unit %d\n",
-                        new_unit->id);
+                    LOG(THREAD, LOG_HEAP, 3,
+                        "%s: Creating new heap unit %d " PFX "-" PFX "-" PFX "\n",
+                        __FUNCTION__, new_unit->id, new_unit->alloc_pc, new_unit->end_pc,
+                        new_unit->reserved_end_pc);
                 }
                 su->cur_unit = new_unit;
                 u = new_unit;
-                ASSERT(u->cur_pc + su->block_size*num <= u->end_pc &&
-                       !POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num));
+                ASSERT(u->cur_pc + su->block_size * num <= u->end_pc &&
+                       !POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size * num));
             }
         }
 
-        p = (void *) u->cur_pc;
-        u->cur_pc += su->block_size*num;
-        ACCOUNT_FOR_ALLOC(alloc_new, su, ACCT_SPECIAL,
-                          su->block_size*num, su->block_size*num);
+        p = (void *)u->cur_pc;
+        u->cur_pc += su->block_size * num;
+        ACCOUNT_FOR_ALLOC(alloc_new, su, ACCT_SPECIAL, su->block_size * num,
+                          su->block_size * num);
     } else {
-        ACCOUNT_FOR_ALLOC(alloc_reuse, su, ACCT_SPECIAL,
-                          su->block_size*num, su->block_size*num);
+        ACCOUNT_FOR_ALLOC(alloc_reuse, su, ACCT_SPECIAL, su->block_size * num,
+                          su->block_size * num);
     }
     if (su->use_lock)
-        mutex_unlock(&su->lock);
+        d_r_mutex_unlock(&su->lock);
 
 #ifdef DEBUG_MEMORY
-    DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_ALLOCATED_BYTE, su->block_size*num););
+    DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_ALLOCATED_BYTE, su->block_size * num););
 #endif
     ASSERT(p != NULL);
-    return (void*)p;
+    return (void *)special_heap_get_executable_addr(su, p);
 }
 
 void *
@@ -4627,32 +5485,33 @@ special_heap_alloc(void *special)
 void
 special_heap_cfree(void *special, void *p, uint num)
 {
-    special_units_t *su = (special_units_t *) special;
+    special_units_t *su = (special_units_t *)special;
     ASSERT(num > 0);
     ASSERT(p != NULL);
     /* Allow freeing while iterating w/o deadlock (iterator holds lock) */
     ASSERT(!su->in_iterator || OWN_MUTEX(&su->lock));
     if (su->use_lock && !su->in_iterator)
-        mutex_lock(&su->lock);
+        d_r_mutex_lock(&su->lock);
+    p = (void *)special_heap_get_writable_addr(su, p);
 #ifdef DEBUG_MEMORY
     /* FIXME: ensure that p is in allocated state */
-    DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, su->block_size*num););
+    DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, su->block_size * num););
 #endif
     if (num == 1) {
         /* write next pointer */
         *((heap_pc *)p) = su->free_list;
         su->free_list = (heap_pc)p;
     } else {
-        cfree_header_t *cfree = (cfree_header_t *) p;
+        cfree_header_t *cfree = (cfree_header_t *)p;
         cfree->next_cfree = su->cfree_list;
         cfree->count = num;
-        su->cfree_list = cfree;
+        su->cfree_list = (cfree_header_t *)p;
     }
 #ifdef HEAP_ACCOUNTING
-    ACCOUNT_FOR_FREE(su, ACCT_SPECIAL, su->block_size*num);
+    ACCOUNT_FOR_FREE(su, ACCT_SPECIAL, su->block_size * num);
 #endif
     if (su->use_lock && !su->in_iterator)
-        mutex_unlock(&su->lock);
+        d_r_mutex_unlock(&su->lock);
 }
 
 void
@@ -4664,12 +5523,12 @@ special_heap_free(void *special, void *p)
 bool
 special_heap_can_calloc(void *special, uint num)
 {
-    special_units_t *su = (special_units_t *) special;
+    special_units_t *su = (special_units_t *)special;
     bool can_calloc = false;
 
     ASSERT(num > 0);
     if (su->use_lock)
-        mutex_lock(&su->lock);
+        d_r_mutex_lock(&su->lock);
     if (su->free_list != NULL && num == 1) {
         can_calloc = true;
     } else if (su->cfree_list != NULL && num > 1) {
@@ -4684,11 +5543,11 @@ special_heap_can_calloc(void *special, uint num)
     }
     if (!can_calloc) {
         special_heap_unit_t *u = su->cur_unit; /* what if more units are available? */
-        can_calloc = (u->cur_pc + su->block_size*num <= u->reserved_end_pc &&
-                      !POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num));
+        can_calloc = (u->cur_pc + su->block_size * num <= u->reserved_end_pc &&
+                      !POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size * num));
     }
     if (su->use_lock)
-        mutex_unlock(&su->lock);
+        d_r_mutex_unlock(&su->lock);
 
     return can_calloc;
 }
@@ -4708,12 +5567,12 @@ special_heap_can_calloc(void *special, uint num)
 void
 special_heap_iterator_start(void *heap, special_heap_iterator_t *shi)
 {
-    special_units_t *su = (special_units_t *) heap;
+    special_units_t *su = (special_units_t *)heap;
     ASSERT(heap != NULL);
     ASSERT(shi != NULL);
-    mutex_lock(&su->lock);
+    d_r_mutex_lock(&su->lock);
     shi->heap = heap;
-    shi->next_unit = (void *) su->top_unit;
+    shi->next_unit = (void *)su->top_unit;
     su->in_iterator = true;
 }
 
@@ -4722,7 +5581,7 @@ special_heap_iterator_hasnext(special_heap_iterator_t *shi)
 {
     ASSERT(shi != NULL);
     DOCHECK(1, {
-        special_units_t *su = (special_units_t *) shi->heap;
+        special_units_t *su = (special_units_t *)shi->heap;
         ASSERT(su != NULL);
         ASSERT_OWN_MUTEX(true, &su->lock);
     });
@@ -4741,18 +5600,18 @@ special_heap_iterator_next(special_heap_iterator_t *shi /* IN/OUT */,
     special_units_t *su;
     special_heap_unit_t *u;
     ASSERT(shi != NULL);
-    su = (special_units_t *) shi->heap;
+    su = (special_units_t *)shi->heap;
     ASSERT(su != NULL);
     ASSERT_OWN_MUTEX(true, &su->lock);
-    u = (special_heap_unit_t *) shi->next_unit;
+    u = (special_heap_unit_t *)shi->next_unit;
     ASSERT(u != NULL);
     if (u != NULL) { /* caller error, but paranoid */
         if (heap_start != NULL)
-            *heap_start = u->start_pc;
+            *heap_start = special_heap_get_executable_addr(su, u->start_pc);
         ASSERT(u->cur_pc <= u->end_pc);
         if (heap_end != NULL)
-            *heap_end = u->cur_pc;
-        shi->next_unit = (void *) u->next;
+            *heap_end = special_heap_get_executable_addr(su, u->cur_pc);
+        shi->next_unit = (void *)u->next;
     }
 }
 
@@ -4761,11 +5620,11 @@ special_heap_iterator_stop(special_heap_iterator_t *shi)
 {
     special_units_t *su;
     ASSERT(shi != NULL);
-    su = (special_units_t *) shi->heap;
+    su = (special_units_t *)shi->heap;
     ASSERT(su != NULL);
     ASSERT_OWN_MUTEX(true, &su->lock);
     su->in_iterator = false;
-    mutex_unlock(&su->lock);
+    d_r_mutex_unlock(&su->lock);
     DODEBUG({
         shi->heap = NULL;
         shi->next_unit = NULL;
@@ -4794,7 +5653,7 @@ special_heap_delete_lock(void *special)
 #endif
 
 /*----------------------------------------------------------------------------*/
-#ifdef WINDOWS  /* currently not used on linux */
+#ifdef WINDOWS /* currently not used on linux */
 /* Landing pads (introduced as part of work for PR 250294). */
 
 /* landing_pad_areas is a vmvector made up of regions of memory called
@@ -4828,11 +5687,11 @@ special_heap_delete_lock(void *special)
  */
 
 typedef struct {
-    byte *start;        /* start of reserved region */
-    byte *end;          /* end of reserved region */
-    byte *commit_end;   /* end of committed memory in the reserved region */
-    byte *cur_ptr;      /* pointer to next allocatable landing pad memory */
-    bool allocated;     /* allocated, or stolen from an app dll? */
+    byte *start;      /* start of reserved region */
+    byte *end;        /* end of reserved region */
+    byte *commit_end; /* end of committed memory in the reserved region */
+    byte *cur_ptr;    /* pointer to next allocatable landing pad memory */
+    bool allocated;   /* allocated, or stolen from an app dll? */
 } landing_pad_area_t;
 
 /* Allocates a landing pad so that a hook inserted at addr_to_hook can reach
@@ -4857,14 +5716,14 @@ alloc_landing_pad(app_pc addr_to_hook)
      * or memory region containing addr_to_hook can use the same area for a
      * landing pad.  Makes it more efficient. */
     hook_region_start = get_allocation_base(addr_to_hook);
-    if (hook_region_start == NULL) {  /* to support raw virtual address hooks */
+    if (hook_region_start == NULL) { /* to support raw virtual address hooks */
         ASSERT_CURIOSITY("trying to hook raw or unallocated memory?");
         hook_region_start = addr_to_hook;
         hook_region_end = addr_to_hook;
     } else {
-        hook_region_end = hook_region_start +
-                          get_allocation_size(hook_region_start, NULL);
-        ASSERT(hook_region_end > hook_region_start);    /* check overflow */
+        hook_region_end =
+            hook_region_start + get_allocation_size(hook_region_start, NULL);
+        ASSERT(hook_region_end > hook_region_start); /* check overflow */
         /* If region size is > 2 GB, then it isn't an image; PE32{,+} restrict
          * images to 2 GB.  Also, if region is > 2 GB the reachability macros
          * called below will return a region smaller (and with start and end
@@ -4879,27 +5738,25 @@ alloc_landing_pad(app_pc addr_to_hook)
         if (hook_region_end - hook_region_start > 100 * 1024 * 1024) {
             /* Try a smaller region of 100 MB around the address to hook. */
             ASSERT_CURIOSITY(false && "seeing patch region > 100 MB - DGC?");
-            hook_region_start = MIN(addr_to_hook, MAX(hook_region_start,
-                                                      addr_to_hook - 50 * 1024 * 1024));
-            hook_region_end = MAX(addr_to_hook, MIN(hook_region_end,
-                                                    addr_to_hook + 50 * 1024 * 1024));
+            hook_region_start = MIN(
+                addr_to_hook, MAX(hook_region_start, addr_to_hook - 50 * 1024 * 1024));
+            hook_region_end =
+                MAX(addr_to_hook, MIN(hook_region_end, addr_to_hook + 50 * 1024 * 1024));
         }
     }
 
     /* Define the region that can be reached from anywhere within the
      * hook region with a 32-bit rel jmp.
      */
-    alloc_region_start = REACHABLE_32BIT_START(hook_region_start,
-                                               hook_region_end);
+    alloc_region_start = REACHABLE_32BIT_START(hook_region_start, hook_region_end);
     alloc_region_end = REACHABLE_32BIT_END(hook_region_start, hook_region_end);
     ASSERT(alloc_region_start < alloc_region_end);
 
     /* Check if there is an existing landing pad area within the reachable
      * region for the hook location.  If so use it, else allocate one.
      */
-    write_lock(&landing_pad_areas->lock);
-    if (vmvector_overlap(landing_pad_areas, alloc_region_start,
-                         alloc_region_end)) {
+    d_r_write_lock(&landing_pad_areas->lock);
+    if (vmvector_overlap(landing_pad_areas, alloc_region_start, alloc_region_end)) {
         /* Now we have to get that landing pad area that is FULLY contained
          * within alloc_region_start and alloc_region_end.  If a landing pad
          * area is only partially within the alloc region, then a landing pad
@@ -4910,23 +5767,21 @@ alloc_landing_pad(app_pc addr_to_hook)
         vmvector_iterator_t lpad_area_iter;
         vmvector_iterator_start(landing_pad_areas, &lpad_area_iter);
         while (vmvector_iterator_hasnext(&lpad_area_iter)) {
-            lpad_area = vmvector_iterator_next(&lpad_area_iter,
-                                               &lpad_area_start,
-                                               &lpad_area_end);
+            lpad_area =
+                vmvector_iterator_next(&lpad_area_iter, &lpad_area_start, &lpad_area_end);
             if (lpad_area_start < alloc_region_end &&
                 lpad_area_end > alloc_region_start &&
                 (lpad_area->cur_ptr + LANDING_PAD_SIZE) < lpad_area_end) {
-                 /* See if enough memory in this landing pad area has been
-                  * committed, if not commit more memory.
-                  */
-                 if ((lpad_area->cur_ptr + LANDING_PAD_SIZE) >=
-                     lpad_area->commit_end) {
-                     ASSERT(lpad_area->allocated);
-                     extend_commitment(lpad_area->commit_end, PAGE_SIZE,
-                                       MEMPROT_READ|MEMPROT_EXEC,
-                                       false /* not initial commit */, VMM_SPECIAL_MMAP);
-                     lpad_area->commit_end += PAGE_SIZE;
-                 }
+                /* See if enough memory in this landing pad area has been
+                 * committed, if not commit more memory.
+                 */
+                if ((lpad_area->cur_ptr + LANDING_PAD_SIZE) >= lpad_area->commit_end) {
+                    ASSERT(lpad_area->allocated);
+                    extend_commitment(lpad_area->commit_end, PAGE_SIZE,
+                                      MEMPROT_READ | MEMPROT_EXEC,
+                                      false /* not initial commit */, VMM_SPECIAL_MMAP);
+                    lpad_area->commit_end += PAGE_SIZE;
+                }
 
                 /* Update the current pointer for the landing pad area, i.e.,
                  * allocate the landing pad.
@@ -4948,21 +5803,19 @@ alloc_landing_pad(app_pc addr_to_hook)
         bool allocated = true;
         heap_error_code_t heap_error;
         lpad_area_end = NULL;
-        lpad_area_start = os_heap_reserve_in_region
-            ((void *)ALIGN_FORWARD(alloc_region_start, PAGE_SIZE),
-             (void *)ALIGN_BACKWARD(alloc_region_end, PAGE_SIZE),
-             LANDING_PAD_AREA_SIZE, &heap_error, true/*+x*/);
-        if (lpad_area_start == NULL ||
-            heap_error == HEAP_ERROR_CANT_RESERVE_IN_REGION) {
+        lpad_area_start = os_heap_reserve_in_region(
+            (void *)ALIGN_FORWARD(alloc_region_start, PAGE_SIZE),
+            (void *)ALIGN_BACKWARD(alloc_region_end, PAGE_SIZE), LANDING_PAD_AREA_SIZE,
+            &heap_error, true /*+x*/);
+        if (lpad_area_start == NULL || heap_error == HEAP_ERROR_CANT_RESERVE_IN_REGION) {
             /* Should retry with using just the aligned target address - we may
              * have made the region so large that there's nothing nearby to
              * reserve.
              */
             lpad_area_start = os_heap_reserve(
-                                  (void *)ALIGN_FORWARD(addr_to_hook,
-                                                        LANDING_PAD_AREA_SIZE),
-                                  LANDING_PAD_AREA_SIZE, &heap_error, true/*+x*/);
-# ifdef WINDOWS
+                (void *)ALIGN_FORWARD(addr_to_hook, LANDING_PAD_AREA_SIZE),
+                LANDING_PAD_AREA_SIZE, &heap_error, true /*+x*/);
+#    ifdef WINDOWS
             if (lpad_area_start == NULL &&
                 /* We can only do this once w/ current interface.
                  * XXX: support multiple "allocs" inside libs.
@@ -4984,7 +5837,7 @@ alloc_landing_pad(app_pc addr_to_hook)
                 } else
                     lpad_area_start = NULL; /* not big enough */
             }
-# endif
+#    endif
             if (lpad_area_start == NULL) {
                 /* Even at startup when there will be enough memory,
                  * theoretically 2 GB of dlls might get packed together before
@@ -4992,7 +5845,8 @@ alloc_landing_pad(app_pc addr_to_hook)
                  * then say 'oom' and exit.
                  */
                 SYSLOG_INTERNAL_WARNING("unable to reserve memory for landing pads");
-                report_low_on_memory(OOM_RESERVE, heap_error);
+                report_low_on_memory(VMM_SPECIAL_MMAP | VMM_REACHABLE, OOM_RESERVE,
+                                     heap_error);
             }
         }
 
@@ -5002,23 +5856,22 @@ alloc_landing_pad(app_pc addr_to_hook)
          * avoid wastage.
          */
         if (allocated) {
-            extend_commitment(lpad_area_start, PAGE_SIZE, MEMPROT_READ|MEMPROT_EXEC,
+            extend_commitment(lpad_area_start, PAGE_SIZE, MEMPROT_READ | MEMPROT_EXEC,
                               true /* initial commit */, VMM_SPECIAL_MMAP);
         }
 
-        lpad_area = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, landing_pad_area_t,
-                                    ACCT_VMAREAS, PROTECTED);
+        lpad_area =
+            HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, landing_pad_area_t, ACCT_VMAREAS, PROTECTED);
         lpad_area->start = lpad_area_start;
-        lpad_area->end = (lpad_area_end == NULL ?
-                          lpad_area_start + LANDING_PAD_AREA_SIZE : lpad_area_end);
+        lpad_area->end = (lpad_area_end == NULL ? lpad_area_start + LANDING_PAD_AREA_SIZE
+                                                : lpad_area_end);
         lpad_area->commit_end = lpad_area_start + PAGE_SIZE;
         lpad_area->cur_ptr = lpad_area_start;
         lpad_area->allocated = allocated;
         lpad = lpad_area->cur_ptr;
         lpad_area->cur_ptr += LANDING_PAD_SIZE;
 
-        vmvector_add(landing_pad_areas, lpad_area->start,
-                     lpad_area->end, lpad_area);
+        vmvector_add(landing_pad_areas, lpad_area->start, lpad_area->end, lpad_area);
         STATS_INC(num_landing_pad_areas);
     }
 
@@ -5031,12 +5884,12 @@ alloc_landing_pad(app_pc addr_to_hook)
      * pads aren't added to executable_areas here, at the point of allocation.
      */
 
-    LOG(GLOBAL, LOG_ALL, 3, "%s: used "PIFX" bytes in "PFX"-"PFX"\n", __FUNCTION__,
+    LOG(GLOBAL, LOG_ALL, 3, "%s: used " PIFX " bytes in " PFX "-" PFX "\n", __FUNCTION__,
         lpad_area->cur_ptr - lpad_area->start, lpad_area->start, lpad_area->end);
 
     /* Boundary check to make sure the allocation is within the landing pad area. */
     ASSERT(lpad_area->cur_ptr <= lpad_area->end);
-    write_unlock(&landing_pad_areas->lock);
+    d_r_write_unlock(&landing_pad_areas->lock);
     return lpad;
 }
 
@@ -5050,15 +5903,14 @@ trim_landing_pad(byte *lpad_start, size_t space_used)
 {
     landing_pad_area_t *lpad_area = NULL;
     bool res = false;
-    write_lock(&landing_pad_areas->lock);
-    if (vmvector_lookup_data(landing_pad_areas, lpad_start, NULL,
-                             NULL, &lpad_area)) {
+    d_r_write_lock(&landing_pad_areas->lock);
+    if (vmvector_lookup_data(landing_pad_areas, lpad_start, NULL, NULL, &lpad_area)) {
         if (lpad_start == lpad_area->cur_ptr - LANDING_PAD_SIZE) {
             lpad_area->cur_ptr -= (LANDING_PAD_SIZE - space_used);
             res = true;
         }
     }
-    write_unlock(&landing_pad_areas->lock);
+    d_r_write_unlock(&landing_pad_areas->lock);
     return res;
 }
 
@@ -5072,39 +5924,39 @@ landing_pads_to_executable_areas(bool add)
 {
     vmvector_iterator_t lpad_area_iter;
     app_pc lpad_area_start, lpad_area_end;
-    DEBUG_DECLARE(landing_pad_area_t *lpad_area;)
+    DEBUG_DECLARE(landing_pad_area_t * lpad_area;)
     uint lpad_area_size;
 
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
 
-# ifdef WINDOWS
+#    ifdef WINDOWS
     if (add && lpad_temp_writable_start != NULL) {
         make_unhookable(lpad_temp_writable_start, lpad_temp_writable_size, true);
         lpad_temp_writable_start = NULL;
     }
-# endif
+#    endif
 
     /* With code cache, there should be only one landing pad area, just for
      * dr hooks in ntdll.  For 64-bit, the image entry hook will result in a
      * new landing pad.
      */
-    IF_X64_ELSE(,ASSERT(landing_pad_areas->length == 1);)
+    IF_X64_ELSE(, ASSERT(landing_pad_areas->length == 1);)
 
     /* Just to be safe, walk through all areas in release build. */
     vmvector_iterator_start(landing_pad_areas, &lpad_area_iter);
     while (vmvector_iterator_hasnext(&lpad_area_iter)) {
 
-        DEBUG_DECLARE(lpad_area = )
-            vmvector_iterator_next(&lpad_area_iter, &lpad_area_start,
-                                   &lpad_area_end);
+        DEBUG_DECLARE(lpad_area =)
+        vmvector_iterator_next(&lpad_area_iter, &lpad_area_start, &lpad_area_end);
         lpad_area_size = (uint)(lpad_area_end - lpad_area_start);
         ASSERT(lpad_area_size <= LANDING_PAD_AREA_SIZE);
         /* Current ptr should be within area. */
         ASSERT(lpad_area->cur_ptr < lpad_area_end);
         if (add) {
-            add_executable_region(lpad_area_start, lpad_area_size
-                _IF_DEBUG("add landing pad areas after inserting dr hooks"));
+            add_executable_region(lpad_area_start,
+                                  lpad_area_size _IF_DEBUG(
+                                      "add landing pad areas after inserting dr hooks"));
         } else {
             remove_executable_region(lpad_area_start, lpad_area_size,
                                      false /* no lock */);
@@ -5129,11 +5981,11 @@ release_landing_pad_mem(void)
     vmvector_iterator_start(landing_pad_areas, &lpad_area_iter);
     while (vmvector_iterator_hasnext(&lpad_area_iter)) {
         bool allocated;
-        lpad_area = vmvector_iterator_next(&lpad_area_iter, &lpad_area_start,
-                                           &lpad_area_end);
+        lpad_area =
+            vmvector_iterator_next(&lpad_area_iter, &lpad_area_start, &lpad_area_end);
         allocated = lpad_area->allocated;
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, lpad_area, landing_pad_area_t,
-                       ACCT_VMAREAS, PROTECTED);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, lpad_area, landing_pad_area_t, ACCT_VMAREAS,
+                       PROTECTED);
         if (!doing_detach && /* On normal exit release the landing pads. */
             allocated)
             os_heap_free(lpad_area_start, LANDING_PAD_AREA_SIZE, &heap_error);
@@ -5141,5 +5993,5 @@ release_landing_pad_mem(void)
     vmvector_iterator_stop(&lpad_area_iter);
     vmvector_delete_vector(GLOBAL_DCONTEXT, landing_pad_areas);
 }
-#endif  /* WINDOWS */
+#endif /* WINDOWS */
 /*----------------------------------------------------------------------------*/

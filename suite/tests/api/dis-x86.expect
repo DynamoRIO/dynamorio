@@ -166,7 +166,7 @@
 +0x017d   da 11                ficom  dword ptr [ecx]
 +0x017f   a4                   movsb
 +0x0180   ea b0 78 35 32 68 52 jmp    0x5268:0x323578b0
-+0x0187   62 f1...??           <INVALID>
++0x0187   62 f1 08 88 ef d1...??  <INVALID>
 +0x0188   f1                   int1
 +0x0189   08 88 ef d1 8f e6    or     byte ptr [eax+0xe68fd1ef], cl
 +0x018f   91                   xchg   ecx, eax
@@ -266,7 +266,8 @@
 +0x0263   fd                   std
 +0x0264   31 3e                xor    dword ptr [esi], edi
 +0x0266   e6 9b                out    0x9b, al
-+0x0268   62 c0...??           <INVALID>
++0x0268   62 c0 44 35 33 47 0c...??  <INVALID>
+ 73
 +0x0269   c0 44 35 33 47       rol    byte ptr [ebp+esi+0x33], 0x47
 +0x026e   0c 73                or     al, 0x73
 +0x0270   7e 87                jle    0x100001f9
@@ -597,7 +598,7 @@
 +0x05a2   2c 77                sub    al, 0x77
 +0x05a4   0c ae                or     al, 0xae
 +0x05a6   94                   xchg   esp, eax
-+0x05a7   62 cb...??           <INVALID>
++0x05a7   62 cb f2 47 4d...??  <INVALID>
 +0x05a8   cb                   retf
 +0x05a9   f2 47                inc    edi
 +0x05ab   4d                   dec    ebp
@@ -1113,7 +1114,7 @@
 +0x0a87   69 03 a2 9e d4 59    imul   eax, dword ptr [ebx], 0x59d49ea2
 +0x0a8d   91                   xchg   ecx, eax
 +0x0a8e   49                   dec    ecx
-+0x0a8f   62 c7...??           <INVALID>
++0x0a8f   62 c7 10 e0...??     <INVALID>
 +0x0a90   c7 10 e0 ea 72 4f...??  <INVALID>
 +0x0a91   10 e0                adc    al, ah
 +0x0a93   ea 72 4f 23 e4 e8 e3 jmp    0xe3e8:0xe4234f72
@@ -3013,7 +3014,7 @@
 +0x1d13   cd 35                int    0x35
 +0x1d15   9e                   sahf
 +0x1d16   e7 81                out    0x81, eax
-+0x1d18   62 f0...??           <INVALID>
++0x1d18   62 f0 fb 91 cb...??  <INVALID>
 +0x1d19   f0 fb...??           <INVALID>
 +0x1d1a   fb                   sti
 +0x1d1b   91                   xchg   ecx, eax

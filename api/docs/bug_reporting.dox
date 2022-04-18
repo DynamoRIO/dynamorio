@@ -1,0 +1,170 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_bug_reporting Reporting Problems
+
+For general questions, or if you are not sure whether the problem you
+hit is a bug in your own code or a bug in DynamoRIO, use the [users
+list](https://groups.google.com/forum/#!forum/DynamoRIO-Users) rather
+than opening an issue in the tracker.  The users list will reach a
+wider audience of people who might have an answer, and it will reach
+other users who may find the information beneficial. The issue tracker
+is for specific detailed bugs.
+
+DynamoRIO is a tool platform, with end-user tools built on top of it.  If
+you encounter a crash in a tool provided by a third party, please locate
+the issue tracker for the tool you are using and report the crash there.
+
+To report a bug in DynamoRIO itself or in a tool that ships with the
+DynamoRIO release, use [our Issue
+Tracker](https://github.com/DynamoRIO/dynamorio/issues/new?assignees=&labels=&template=bug_report.md&title=) and follow the
+instructions below.
+
+# How to File an Issue
+
+The Issue Tracker is not only how we record bugs but also how we drive our
+work and track our progress on features.  The Issue Tracker is only as
+useful as the data that we enter into it, which means we need to have some
+conventions and rules on entering new Issues.
+
+## Use the Template
+
+We have [a
+template](https://github.com/DynamoRIO/dynamorio/issues/new?assignees=&labels=&template=bug_report.md&title=)
+which asks key questions for filing a more complete bug report.
+However, there is a bug in Github where it fails to send a user to the
+template page, and instead shows a blank page, if the user does not
+log in to Github until the last second.  Please use the links here to
+land on [the template page](https://github.com/DynamoRIO/dynamorio/issues/new?assignees=&labels=&template=bug_report.md&title=) and provide needed information.
+
+## Issue title
+
+Please use one of these keywords as the first word in the title of an
+Issue involving a bug:
+
+ - CRASH
+
+   An internal crash in DynamoRIO. This is a bad thing. Record the
+   exception address.  If you were able to acquire the DynamoRIO file and
+   line number (via tools/address_query.pl), include that as well.
+
+   If the bug may prove hard to reproduce for a developer, whether because
+   it is non-deterministic or it involves an unusual application or
+   libraries or platform, provide a "livedump".  The `-dumpcore_mask`
+   runtime option controls when livedumps are created.  Run with
+   `-dumpcore_mask 0x8bff` to ask for livedumps on common failures such
+   as DynamoRIO crashes and client crashes.  Compress the resulting
+   `<logdir>/<appname>.<pid>.00000000.ldmp` file (it should shrink quite
+   a bit) and attach to the Issue report.
+
+ - APP CRASH
+
+   An application crash. The application's behavior under DynamoRIO is
+   different from its native behavior, but DynamoRIO itself did not
+   crash. This may or may not be our fault, but all such cases should be
+   reported and analyzed. This category includes the application crashing
+   due to an unhandled exception as well as any strange behavior that does
+   not occur natively. In your bug report, post any messages that the
+   application gives you.
+
+ - HANG
+
+   A deadlock or in some cases just a lot of lock contention that results
+   in the process making little forward progress. For a hang we want two
+   call stack dumps so we can tell if it is a deadlock or if in fact some
+   progress is being made.
+
+ - ASSERT
+
+   An internal debug check in DynamoRIO. This will only happen in a debug
+   build. It is similar to a crash but occurs sooner and so is usually
+   easier to debug.  Include in the title the line number and at least part
+   of the text of the assert.
+
+
+After the keyword, include in parentheses the build or version number, the
+application name, and any non-default runtime options.  After the
+parentheses include additional information.  Here are some example titles:
+
+  CRASH (1.3.1 calc.exe) vm_area_add_fragment:vmareas.c(4466)
+
+  ASSERT (1.3.0 suite/tests/common/segfault) study_hashtable:fragment.c:1745 ASSERT_NOT_REACHED
+
+## Cross-references
+
+The text \c \#N will be auto-linked to Issue N.
+
+## Including code in issues
+
+The text in an issue is interpreted as Markdown.  To include any kind of
+raw output or code that contains Markdown symbols, place it between lines
+that consist solely of three backtics:
+\verbatim
+```
+put code here
+```
+\endverbatim
+
+## Attaching images or files to issues
+
+Place the attachment on Google Drive or some other location and include a
+link to it in the issue text.
+
+## Describing a bug
+
+The most basic information is the most critical:
+
+ - What did you run?  Which application, on which platform?  When did the bug occur?  On startup, or after a particular command given to the app?
+
+ - What version of DynamoRIO are you using?  If a custom version, please provide the symbols.
+
+ - If any data files are needed to reproduce it, attach them, but first try to minimize the setup in which the bug happens (i.e., don't send a 1MB file if a 1KB one shows the same bug).
+
+ - Is the error deterministic?  If it happened in release build, what's the behavior in debug build?
+
+## Acquiring a crash dump on Windows
+
+If your runtime options are not set up for an .ldmp, try to attach WinDbg
+and acquire a crash dump.
+
+Run WinDbg and press `F6` to attach to the process (or start as "windbg -p pid").
+Then create a dump file:
+
+```
+.dump /ma full-dumpfile.dmp
+```
+
+
+ ****************************************************************************
+ */

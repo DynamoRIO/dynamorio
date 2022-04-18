@@ -1,0 +1,65 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_triager Triager Rotation
+
+We have a rotating Triager who is responsible for monitoring our continuous testing infrastructure and for triaging incoming requests from users.  Specific duties include:
+
+- Ensure that our Continuous Integration testing through Github Actions and Jenkins are operating smoothly.
+  - If flaky tests are failing too often, assign someone to fix them ASAP, or mark them to be ignored in `runsuite_wrapper.pl`.
+- Watch merges to master for failures on the longer test suite.
+  - File an issue on previously-unknown failures, or update existing issues for repeats.  Consider marking tests as flaky in `runsuite_wrapper.pl` if they are keeping the master merge red.
+- Answer (or request that someone else who is more of an expert in that area answer) incoming dynamorio-users emails.
+  - Sometimes emails to the list are marked as spam, so it is a good idea to directly watch the web interface: https://groups.google.com/g/DynamoRIO-Users
+- Triage reviewing pull requests filed by users
+  - Make sure you receive notifications on such requests: see the issues item below on how to set that up.  Alternatively, proactively monitor the pull request list through the web site.
+- Triage issues filed by users in our issue tracker.
+  - New issues or issue updates do not send email to the -devs list: you will need to set up such notification by "watching" the dynamorio repository and then, in your Github account, under `Personal settings | Notifications | Email notification preferences`, you will want to check `Comments on Issues and Pull Requests` and `Pull Request reviews`.  Alternatively, proactively monitor the issue list through the web site.
+  - We have bug and feature issue templates that are supposed to be required, but a Github bug (we told them about it and supposedly they are working on it...) allows authenticate-on-submit cases to bypass them and never see the template.  Consider asking them to provide the template information: https://github.com/DynamoRIO/dynamorio/issues/new?assignees=&labels=&template=bug_report.md&title=
+  - If the issue is just asking a general question, remind the asker to "Please use the users list
+https://groups.google.com/forum/#!forum/DynamoRIO-Users for general questions, as it will reach a wider audience of people who might have an answer, and it will reach other users who may find the information beneficial.  The issue tracker is for specific detailed bugs.".  You could close the issue, saying you will answer once it is re-asked on the list.
+  - Add appropriate labels: either a `Bug-XXXX` or `Type-Feature`, plus the platform in `OpSys-XXXX`, plus the component, as well as other key labels like `Performance`.
+  - Ask for information on how to reproduce (and add `Status-NeedInfo` in that case).
+  - If high priority, mark as such with labels.  If we should not put out a new release without fixing, mark as `Hotlist-Release`.
+  - Ideally the filer will be interested in fixing it.  Encourage the filer along this path by giving debugging suggestions and helpful hints for how to diagnose, fix, and submit a PR.  We have a very small developer team which cannot scale to fixing everything.  Encouraging more users to contribute is the direction we want to move in.
+  - If the filer is unlikely to be able to fix it and it is high priority, assign to a developer.  If lower, consider adding a `help wanted` label.
+- If it's a slow week and you feel ambitious:
+  - Fix a flaky test (search the tracker for the `Hotlist-ContinuousIntegration` label or look at the list in `runsuite_wrapper.pl`).
+  - Try to close an open tracker issue.
+
+
+
+
+ ****************************************************************************
+ */

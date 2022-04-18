@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -47,18 +47,23 @@
  */
 #ifdef X64
 # ifdef WINDOWS
-#  define NUM_SIMD_SLOTS 6 /* xmm0-5 */
+#  define MCXT_NUM_SIMD_SLOTS 6 /* [xy]mm0-5 */
 # else
-#  define NUM_SIMD_SLOTS 16 /* xmm0-15 */
+#  define MCXT_NUM_SIMD_SLOTS 32 /* [xyz]mm0-31 */
 # endif
-# define PRE_XMM_PADDING 16
+# define PRE_XMM_PADDING 48
 #else
-# define NUM_SIMD_SLOTS 8 /* xmm0-7 */
+# define MCXT_NUM_SIMD_SLOTS 8 /* [xyz]mm0-7 */
 # define PRE_XMM_PADDING 24
 #endif
-#define XMM_SAVED_REG_SIZE 32 /* for ymm */
+#define MCXT_NUM_OPMASK_SLOTS 8
+#define OPMASK_AVX512BW_REG_SIZE 8
+#define OPMASK_AVX512F_REG_SIZE 2
+#define ZMM_REG_SIZE 64
+#define MCXT_SIMD_SLOT_SIZE ZMM_REG_SIZE
 /* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
-#define XMM_SAVED_SIZE ((NUM_SIMD_SLOTS)*(XMM_SAVED_REG_SIZE))
+#define MCXT_TOTAL_SIMD_SLOTS_SIZE ((MCXT_NUM_SIMD_SLOTS)*(MCXT_SIMD_SLOT_SIZE))
+#define MCXT_TOTAL_OPMASK_SLOTS_SIZE ((MCXT_NUM_OPMASK_SLOTS)*(OPMASK_AVX512BW_REG_SIZE))
 
 #ifdef X64
 /* push GPR registers in priv_mcontext_t order.  does NOT make xsp have a
@@ -103,7 +108,8 @@
         pop      r13 @N@\
         pop      r14 @N@\
         pop      r15 @N@
-# define PRIV_MCXT_SIZE (18*ARG_SZ + PRE_XMM_PADDING + XMM_SAVED_SIZE)
+# define PRIV_MCXT_SIZE (18*ARG_SZ + PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE + \
+                         MCXT_TOTAL_OPMASK_SLOTS_SIZE)
 # define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
 # define MCONTEXT_PC_OFFS  (17*ARG_SZ)
 #else
@@ -111,15 +117,20 @@
         pusha
 # define POPGPR  \
         popa
-# define PRIV_MCXT_SIZE (10*ARG_SZ + PRE_XMM_PADDING + XMM_SAVED_SIZE)
+# define PRIV_MCXT_SIZE (10*ARG_SZ + PRE_XMM_PADDING + MCXT_TOTAL_SIMD_SLOTS_SIZE + \
+                         MCXT_TOTAL_OPMASK_SLOTS_SIZE)
 # define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
 # define MCONTEXT_PC_OFFS  (9*ARG_SZ)
 #endif
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+#define PUSHGPR_XAX_OFFS  (7*ARG_SZ)
 #define PUSHGPR_XSP_OFFS  (3*ARG_SZ)
 #define MCONTEXT_XSP_OFFS (PUSHGPR_XSP_OFFS)
-#define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- XMM_SAVED_SIZE - PRE_XMM_PADDING)
+#define MCONTEXT_XCX_OFFS (MCONTEXT_XSP_OFFS + 3*ARG_SZ)
+#define MCONTEXT_XAX_OFFS (MCONTEXT_XSP_OFFS + 4*ARG_SZ)
+#define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- MCXT_TOTAL_SIMD_SLOTS_SIZE - \
+                                     MCXT_TOTAL_OPMASK_SLOTS_SIZE - PRE_XMM_PADDING)
 
 #if defined(WINDOWS) && !defined(X64)
 /* FIXME: check these selector values on all platforms: these are for XPSP2.

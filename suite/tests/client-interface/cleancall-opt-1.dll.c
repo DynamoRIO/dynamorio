@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
@@ -35,30 +36,25 @@
 
 #include "dr_api.h"
 
-#ifdef WINDOWS
-#define BINARY_NAME "client.cleancall-opt-1.exe"
-#else
-#define BINARY_NAME "client.cleancall-opt-1"
-#endif
-
 /* List of instrumentation functions. */
-#define FUNCTIONS() \
-        FUNCTION(empty) \
-        FUNCTION(out_of_line) \
-        FUNCTION(inscount) \
-        FUNCTION(compiler_inscount) \
-        FUNCTION(bbcount) \
-        LAST_FUNCTION()
+#define FUNCTIONS()             \
+    FUNCTION(empty)             \
+    FUNCTION(out_of_line)       \
+    FUNCTION(inscount)          \
+    FUNCTION(compiler_inscount) \
+    FUNCTION(bbcount)           \
+    FUNCTION(aflags_clobber)    \
+    LAST_FUNCTION()
 
-static void compiler_inscount(ptr_uint_t count);
+static void
+compiler_inscount(ptr_uint_t count);
 
-static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t
+event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool translating);
 #include "cleancall-opt-shared.h"
 
 static dr_emit_flags_t
-event_basic_block(void *dc, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *entry = instrlist_first(bb);
     app_pc entry_pc = instr_get_app_pc(entry);
@@ -77,7 +73,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
 
     /* We're inserting a call to a function in this bb. */
     func_called[i] = 1;
-    dr_insert_clean_call(dc, bb, entry, (void*)before_callee, false, 2,
+    dr_insert_clean_call(dc, bb, entry, (void *)before_callee, false, 2,
                          OPND_CREATE_INTPTR(func_ptrs[i]),
                          OPND_CREATE_INTPTR(func_names[i]));
 
@@ -90,9 +86,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
     PRE(bb, entry, before_label);
 
     switch (i) {
-    default:
-        dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
-        break;
+    default: dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0); break;
     case FN_inscount:
     case FN_compiler_inscount:
         dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 1,
@@ -104,23 +98,18 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
     IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_end_pc, after_label));
 
     switch (i) {
-    default:
-        out_of_line_expected = false;
-        break;
-    case FN_out_of_line:
-        out_of_line_expected = true;
-        break;
+    default: out_of_line_expected = false; break;
+    case FN_out_of_line: out_of_line_expected = true; break;
     }
 
-    dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, IF_X86_ELSE(6, 4),
+    dr_insert_clean_call_ex(
+        dc, bb, entry, (void *)after_callee, DR_CLEANCALL_READS_APP_CONTEXT,
+        IF_X86_ELSE(6, 4),
 #ifdef X86
-                         opnd_create_instr(before_label),
-                         opnd_create_instr(after_label),
+        opnd_create_instr(before_label), opnd_create_instr(after_label),
 #endif
-                         OPND_CREATE_INT32(inline_expected),
-                         OPND_CREATE_INT32(out_of_line_expected),
-                         OPND_CREATE_INT32(i),
-                         OPND_CREATE_INTPTR(func_names[i]));
+        OPND_CREATE_INT32(inline_expected), OPND_CREATE_INT32(out_of_line_expected),
+        OPND_CREATE_INT32(i), OPND_CREATE_INTPTR(func_names[i]));
 
     return DR_EMIT_DEFAULT;
 }
@@ -132,7 +121,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
 static instrlist_t *
 codegen_out_of_line(void *dc)
 {
-    uint i;
+    int i;
     instrlist_t *ilist = instrlist_create(dc);
 
     codegen_prologue(dc, ilist);
@@ -140,19 +129,33 @@ codegen_out_of_line(void *dc)
         reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
         if (reg == DR_REG_XSP || reg == IF_X86_ELSE(DR_REG_XBP, DR_REG_LR))
             continue;
-        APP(ilist, XINST_CREATE_load_int(dc, opnd_create_reg(reg),
-                                         OPND_CREATE_INTPTR(0xf1f1)));
+        APP(ilist,
+            XINST_CREATE_load_int(dc, opnd_create_reg(reg), OPND_CREATE_INTPTR(0xf1f1)));
     }
     /* FIXME i#1569: FMOV support is NYI on AArch64 */
 #ifdef X86
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;
-        APP(ilist, INSTR_CREATE_movd(dc, opnd_create_reg(reg),
-                                     opnd_create_reg(DR_REG_START_GPR)));
+#    ifdef __AVX512F__
+        /* For the AVX-512 version, we're still using vmovq to a XMM register, but it
+         * zeroes out [MAX_VL:64] (32 for 32-bit), so the test is still working as
+         * we want.
+         */
+        APP(ilist,
+            INSTR_ENCODING_HINT(
+                IF_X64_ELSE(INSTR_CREATE_vmovq, INSTR_CREATE_vmovd)(
+                    dc, opnd_create_reg(reg), opnd_create_reg(DR_REG_START_GPR)),
+                DR_ENCODING_HINT_X86_EVEX));
+#    else
+        APP(ilist,
+            IF_X64_ELSE(INSTR_CREATE_vmovq, INSTR_CREATE_vmovd)(
+                dc, opnd_create_reg(reg), opnd_create_reg(DR_REG_START_GPR)));
+#    endif
     }
 
     /* Modify flags */
-    APP(ilist, INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_INT32(0xffff)));
+    APP(ilist,
+        INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_INT32(0xffff)));
 #endif
     codegen_epilogue(dc, ilist);
     return ilist;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,48 +43,70 @@ const std::string reuse_distance_t::TOOL_NAME = "Reuse distance tool";
 unsigned int reuse_distance_t::knob_verbose;
 
 analysis_tool_t *
-reuse_distance_tool_create(unsigned int line_size = 64,
-                           bool report_histogram = false,
-                           unsigned int distance_threshold = 100,
-                           unsigned int report_top = 10,
-                           unsigned int skip_list_distance = 500,
-                           bool verify_skip = false,
-                           unsigned int verbose = 0)
+reuse_distance_tool_create(const reuse_distance_knobs_t &knobs)
 {
-    return new reuse_distance_t(line_size, report_histogram, distance_threshold,
-                                report_top, skip_list_distance, verify_skip,
-                                verbose);
+    return new reuse_distance_t(knobs);
 }
 
-reuse_distance_t::reuse_distance_t(unsigned int line_size,
-                                   bool report_histogram,
-                                   unsigned int distance_threshold,
-                                   unsigned int report_top,
-                                   unsigned int skip_list_distance,
-                                   bool verify_skip,
-                                   unsigned int verbose) :
-    knob_line_size(line_size), knob_report_histogram(report_histogram),
-    knob_report_top(report_top), total_refs(0)
+reuse_distance_t::reuse_distance_t(const reuse_distance_knobs_t &knobs)
+    : knobs_(knobs)
+    , line_size_bits_(compute_log2((int)knobs_.line_size))
 {
-    knob_verbose = verbose;
-    line_size_bits = compute_log2((int)knob_line_size);
-    ref_list = new line_ref_list_t(distance_threshold,
-                                   skip_list_distance,
-                                   verify_skip);
     if (DEBUG_VERBOSE(2)) {
-        std::cerr << "cache line size " << knob_line_size << ", "
-                  << "reuse distance threshold " << ref_list->threshold << std::endl;
+        std::cerr << "cache line size " << knobs_.line_size << ", "
+                  << "reuse distance threshold " << knobs_.distance_threshold
+                  << std::endl;
     }
 }
 
 reuse_distance_t::~reuse_distance_t()
 {
-    delete ref_list;
+    for (auto &shard : shard_map_) {
+        delete shard.second;
+    }
+}
+
+reuse_distance_t::shard_data_t::shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist,
+                                             bool verify)
+{
+    ref_list = std::unique_ptr<line_ref_list_t>(
+        new line_ref_list_t(reuse_threshold, skip_dist, verify));
 }
 
 bool
-reuse_distance_t::process_memref(const memref_t &memref)
+reuse_distance_t::parallel_shard_supported()
 {
+    return true;
+}
+
+void *
+reuse_distance_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    auto shard = new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
+                                  knobs_.verify_skip);
+    std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard_map_[shard_index] = shard;
+    return reinterpret_cast<void *>(shard);
+}
+
+bool
+reuse_distance_t::parallel_shard_exit(void *shard_data)
+{
+    // Nothing (we read the shard data in print_results).
+    return true;
+}
+
+std::string
+reuse_distance_t::parallel_shard_error(void *shard_data)
+{
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    return shard->error;
+}
+
+bool
+reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (DEBUG_VERBOSE(3)) {
         std::cerr << " ::" << memref.data.pid << "." << memref.data.tid
                   << ":: " << trace_type_names[memref.data.type];
@@ -96,27 +118,31 @@ reuse_distance_t::process_memref(const memref_t &memref)
         }
         std::cerr << std::endl;
     }
-    if (type_is_instr(memref.instr.type) ||
-        memref.data.type == TRACE_TYPE_READ ||
+    if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
+        shard->tid = memref.exit.tid;
+        return true;
+    }
+    if (type_is_instr(memref.instr.type) || memref.data.type == TRACE_TYPE_READ ||
         memref.data.type == TRACE_TYPE_WRITE ||
         // We may potentially handle prefetches differently.
         // TRACE_TYPE_PREFETCH_INSTR is handled above.
         type_is_prefetch(memref.data.type)) {
-        ++total_refs;
-        addr_t tag = memref.data.addr >> line_size_bits;
-        std::map<addr_t, line_ref_t*>::iterator it = cache_map.find(tag);
-        if (it == cache_map.end()) {
+        ++shard->total_refs;
+        addr_t tag = memref.data.addr >> line_size_bits_;
+        std::unordered_map<addr_t, line_ref_t *>::iterator it =
+            shard->cache_map.find(tag);
+        if (it == shard->cache_map.end()) {
             line_ref_t *ref = new line_ref_t(tag);
             // insert into the map
-            cache_map.insert(std::pair<addr_t, line_ref_t*>(tag, ref));
+            shard->cache_map.insert(std::pair<addr_t, line_ref_t *>(tag, ref));
             // insert into the list
-            ref_list->add_to_front(ref);
+            shard->ref_list->add_to_front(ref);
         } else {
-            int_least64_t dist = ref_list->move_to_front(it->second);
-            std::map<int_least64_t, int_least64_t>::iterator dist_it =
-                dist_map.find(dist);
-            if (dist_it == dist_map.end())
-                dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
+            int_least64_t dist = shard->ref_list->move_to_front(it->second);
+            std::unordered_map<int_least64_t, int_least64_t>::iterator dist_it =
+                shard->dist_map.find(dist);
+            if (dist_it == shard->dist_map.end())
+                shard->dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
             else
                 ++dist_it->second;
             if (DEBUG_VERBOSE(3)) {
@@ -127,8 +153,35 @@ reuse_distance_t::process_memref(const memref_t &memref)
     return true;
 }
 
-bool cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
-                    const std::pair<addr_t, line_ref_t*> &r)
+bool
+reuse_distance_t::process_memref(const memref_t &memref)
+{
+    // For serial operation we index using the tid.
+    shard_data_t *shard;
+    const auto &lookup = shard_map_.find(memref.data.tid);
+    if (lookup == shard_map_.end()) {
+        shard = new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
+                                 knobs_.verify_skip);
+        shard_map_[memref.data.tid] = shard;
+    } else
+        shard = lookup->second;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(shard), memref)) {
+        error_string_ = shard->error;
+        return false;
+    }
+    return true;
+}
+
+static bool
+cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
+             const std::pair<int_least64_t, int_least64_t> &r)
+{
+    return l.first < r.first;
+}
+
+static bool
+cmp_total_refs(const std::pair<addr_t, line_ref_t *> &l,
+               const std::pair<addr_t, line_ref_t *> &r)
 {
     if (l.second->total_refs > r.second->total_refs)
         return true;
@@ -136,11 +189,14 @@ bool cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
         return false;
     if (l.second->distant_refs > r.second->distant_refs)
         return true;
-    return false;
+    if (l.second->distant_refs < r.second->distant_refs)
+        return false;
+    return l.first < r.first;
 }
 
-bool cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
-                      const std::pair<addr_t, line_ref_t*> &r)
+static bool
+cmp_distant_refs(const std::pair<addr_t, line_ref_t *> &l,
+                 const std::pair<addr_t, line_ref_t *> &r)
 {
     if (l.second->distant_refs > r.second->distant_refs)
         return true;
@@ -148,16 +204,17 @@ bool cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
         return false;
     if (l.second->total_refs > r.second->total_refs)
         return true;
-    return false;
+    if (l.second->total_refs < r.second->total_refs)
+        return false;
+    return l.first < r.first;
 }
 
-bool
-reuse_distance_t::print_results()
+void
+reuse_distance_t::print_shard_results(const shard_data_t *shard)
 {
-    std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << "Total accesses: " << total_refs << "\n";
-    std::cerr << "Unique accesses: " << ref_list->cur_time << "\n";
-    std::cerr << "Unique cache lines accessed: " << ref_list->unique_lines << "\n";
+    std::cerr << "Total accesses: " << shard->total_refs << "\n";
+    std::cerr << "Unique accesses: " << shard->ref_list->cur_time_ << "\n";
+    std::cerr << "Unique cache lines accessed: " << shard->cache_map.size() << "\n";
     std::cerr << "\n";
 
     std::cerr.precision(2);
@@ -165,23 +222,24 @@ reuse_distance_t::print_results()
 
     double sum = 0.0;
     int_least64_t count = 0;
-    for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
-         it != dist_map.end(); ++it) {
-        sum += it->first * it->second;
-        count += it->second;
+    for (const auto &it : shard->dist_map) {
+        sum += it.first * it.second;
+        count += it.second;
     }
     double mean = sum / count;
     std::cerr << "Reuse distance mean: " << mean << "\n";
     double sum_of_squares = 0;
     int_least64_t recount = 0;
     bool have_median = false;
-    for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
-         it != dist_map.end(); ++it) {
+    std::vector<std::pair<int_least64_t, int_least64_t>> sorted(shard->dist_map.size());
+    std::partial_sort_copy(shard->dist_map.begin(), shard->dist_map.end(), sorted.begin(),
+                           sorted.end(), cmp_dist_key);
+    for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         double diff = it->first - mean;
         sum_of_squares += (diff * diff) * it->second;
         if (!have_median) {
             recount += it->second;
-            if (recount >= count/2) {
+            if (recount >= count / 2) {
                 std::cerr << "Reuse distance median: " << it->first << "\n";
                 have_median = true;
             }
@@ -190,62 +248,117 @@ reuse_distance_t::print_results()
     double stddev = std::sqrt(sum_of_squares / count);
     std::cerr << "Reuse distance standard deviation: " << stddev << "\n";
 
-    if (knob_report_histogram) {
+    if (knobs_.report_histogram) {
         std::cerr << "Reuse distance histogram:\n";
         std::cerr << "Distance" << std::setw(12) << "Count"
                   << "  Percent  Cumulative\n";
         double cum_percent = 0;
-        for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
-             it != dist_map.end(); ++it) {
+        for (auto it = sorted.begin(); it != sorted.end(); ++it) {
             double percent = it->second / static_cast<double>(count);
             cum_percent += percent;
-            std::cerr << std::setw(8) << it->first
-                      << std::setw(12) << it->second
-                      << std::setw(8) << percent*100. << "%"
-                      << std::setw(8) << cum_percent*100. << "%\n";
+            std::cerr << std::setw(8) << it->first << std::setw(12) << it->second
+                      << std::setw(8) << percent * 100. << "%" << std::setw(8)
+                      << cum_percent * 100. << "%\n";
         }
     } else {
         std::cerr << "(Pass -reuse_distance_histogram to see all the data.)\n";
     }
 
     std::cerr << "\n";
-    std::cerr << "Reuse distance threshold = "
-              << ref_list->threshold << " cache lines\n";
-    std::vector<std::pair<addr_t, line_ref_t*> > top(knob_report_top);
-    std::partial_sort_copy(cache_map.begin(), cache_map.end(),
-                           top.begin(), top.end(), cmp_total_refs);
+    std::cerr << "Reuse distance threshold = " << knobs_.distance_threshold
+              << " cache lines\n";
+    std::vector<std::pair<addr_t, line_ref_t *>> top(knobs_.report_top);
+    std::partial_sort_copy(shard->cache_map.begin(), shard->cache_map.end(), top.begin(),
+                           top.end(), cmp_total_refs);
     std::cerr << "Top " << top.size() << " frequently referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
-              << ": " << std::setw(17) << "#references  "
-              << std::setw(14) << "#distant refs" << "\n";
-    for (std::vector<std::pair<addr_t, line_ref_t*> >::iterator it = top.begin();
+              << ": " << std::setw(17) << "#references  " << std::setw(14)
+              << "#distant refs"
+              << "\n";
+    for (std::vector<std::pair<addr_t, line_ref_t *>>::iterator it = top.begin();
          it != top.end(); ++it) {
         if (it->second == NULL) // Very small app.
             break;
         std::cerr << std::setw(18) << std::hex << std::showbase
-                  << (it->first << line_size_bits)
-                  << ": " << std::setw(12) << std::dec << it->second->total_refs
-                  << ", " << std::setw(12) << std::dec << it->second->distant_refs
-                  << "\n";
+                  << (it->first << line_size_bits_) << ": " << std::setw(12) << std::dec
+                  << it->second->total_refs << ", " << std::setw(12) << std::dec
+                  << it->second->distant_refs << "\n";
     }
     top.clear();
-    top.resize(knob_report_top);
-    std::partial_sort_copy(cache_map.begin(), cache_map.end(),
-                           top.begin(), top.end(), cmp_distant_refs);
+    top.resize(knobs_.report_top);
+    std::partial_sort_copy(shard->cache_map.begin(), shard->cache_map.end(), top.begin(),
+                           top.end(), cmp_distant_refs);
     std::cerr << "Top " << top.size() << " distant repeatedly referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
-              << ": " << std::setw(17) << "#references  "
-              << std::setw(14) << "#distant refs" << "\n";
-    for (std::vector<std::pair<addr_t, line_ref_t*> >::iterator it = top.begin();
+              << ": " << std::setw(17) << "#references  " << std::setw(14)
+              << "#distant refs"
+              << "\n";
+    for (std::vector<std::pair<addr_t, line_ref_t *>>::iterator it = top.begin();
          it != top.end(); ++it) {
         if (it->second == NULL) // Very small app.
             break;
         std::cerr << std::setw(18) << std::hex << std::showbase
-                  << (it->first << line_size_bits)
-                  << ": " << std::setw(12) << std::dec << it->second->total_refs
-                  << ", " << std::setw(12) << std::dec << it->second->distant_refs
-                  << "\n";
+                  << (it->first << line_size_bits_) << ": " << std::setw(12) << std::dec
+                  << it->second->total_refs << ", " << std::setw(12) << std::dec
+                  << it->second->distant_refs << "\n";
+    }
+}
+
+bool
+reuse_distance_t::print_results()
+{
+    // First, aggregate the per-shard data into whole-trace data.
+    auto aggregate = std::unique_ptr<shard_data_t>(new shard_data_t(
+        knobs_.distance_threshold, knobs_.skip_list_distance, knobs_.verify_skip));
+    for (const auto &shard : shard_map_) {
+        aggregate->total_refs += shard.second->total_refs;
+        // We simply sum the unique accesses.
+        // If the user wants the unique accesses over the merged trace they
+        // can create a single shard and invoke the parallel operations.
+        aggregate->ref_list->cur_time_ += shard.second->ref_list->cur_time_;
+        // We merge the histogram and the cache_map.
+        for (const auto &entry : shard.second->dist_map) {
+            aggregate->dist_map[entry.first] += entry.second;
+        }
+        for (const auto &entry : shard.second->cache_map) {
+            const auto &existing = aggregate->cache_map.find(entry.first);
+            line_ref_t *ref;
+            if (existing == aggregate->cache_map.end()) {
+                ref = new line_ref_t(entry.first);
+                aggregate->cache_map.insert(
+                    std::pair<addr_t, line_ref_t *>(entry.first, ref));
+                ref->total_refs = 0;
+            } else {
+                ref = existing->second;
+            }
+            ref->total_refs += entry.second->total_refs;
+            ref->distant_refs += entry.second->distant_refs;
+        }
     }
 
+    std::cerr << TOOL_NAME << " aggregated results:\n";
+    print_shard_results(aggregate.get());
+
+    // For regular shards the line_ref_t's are deleted in ~line_ref_list_t.
+    for (auto &iter : aggregate->cache_map) {
+        delete iter.second;
+    }
+
+    if (shard_map_.size() > 1) {
+        using keyval_t = std::pair<memref_tid_t, shard_data_t *>;
+        std::vector<keyval_t> sorted(shard_map_.begin(), shard_map_.end());
+        std::sort(sorted.begin(), sorted.end(), [](const keyval_t &l, const keyval_t &r) {
+            return l.second->total_refs > r.second->total_refs;
+        });
+        for (const auto &shard : sorted) {
+            std::cerr << "\n==================================================\n"
+                      << TOOL_NAME << " results for shard " << shard.first << " (thread "
+                      << shard.second->tid << "):\n";
+            print_shard_results(shard.second);
+        }
+    }
+
+    // Reset the i/o format for subsequent tool invocations.
+    std::cerr << std::dec;
     return true;
 }

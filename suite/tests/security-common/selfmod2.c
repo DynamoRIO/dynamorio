@@ -31,16 +31,17 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
+#    include "tools.h"
 
-int foo(int value);
+int
+foo(int value);
 
 int
 main(void)
 {
     INIT();
 
-    protect_mem(foo, PAGE_SIZE, ALLOW_EXEC|ALLOW_WRITE|ALLOW_READ);
+    protect_mem(foo, PAGE_SIZE, ALLOW_EXEC | ALLOW_WRITE | ALLOW_READ);
 
     print("foo returned %d\n", foo(10));
     print("foo returned %d\n", foo(10));
@@ -49,7 +50,8 @@ main(void)
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 /* int bar(int value)
@@ -88,4 +90,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

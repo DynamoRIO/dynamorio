@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,17 +49,17 @@
  * define or declare these routines.  We simplify our lives by avoiding
  * string.h.
  *
- * Other files are free to include string.h.  If the compiler decides not to
- * inline, it will emit a call to the routine with the standard name, and the
- * linker will resolve it to our implementations.
+ * Other files should not include string.h either.  On UNIX, we no longer use
+ * the standard string function names, so the linker will not resolve a
+ * compiler-inlined symbol to ours.
  */
 #ifdef _STRING_H
-# error "Don't include <string.h> in string.c"
+#    error "Don't include <string.h>"
 #endif
 
 /* Private strlen. */
 size_t
-strlen(const char *str)
+d_r_strlen(const char *str)
 {
     const char *cur = str;
     while (*cur != '\0') {
@@ -70,7 +70,7 @@ strlen(const char *str)
 
 /* Private wcslen. */
 size_t
-wcslen(const wchar_t *str)
+d_r_wcslen(const wchar_t *str)
 {
     const wchar_t *cur = str;
     while (*cur != L'\0') {
@@ -84,16 +84,16 @@ wcslen(const wchar_t *str)
  * returning NULL.
  */
 char *
-strchr(const char *str, int c)
+d_r_strchr(const char *str, int c)
 {
     while (true) {
         if (*str == c)
-            return (char *) str;
+            return (char *)str;
         if (*str == '\0')
             return NULL;
         str++;
     }
-    return NULL;  /* Keep the compiler happy. */
+    return NULL; /* Keep the compiler happy. */
 }
 
 /* Private strrchr.  Returns pointer to last instance of c in str or NULL if c
@@ -101,7 +101,7 @@ strchr(const char *str, int c)
  * returning NULL.
  */
 char *
-strrchr(const char *str, int c)
+d_r_strrchr(const char *str, int c)
 {
     const char *ret = NULL;
     while (true) {
@@ -111,94 +111,102 @@ strrchr(const char *str, int c)
             break;
         str++;
     }
-    return (char *) ret;
+    return (char *)ret;
 }
 
 /* Private strncpy.  Standard caveat about not copying trailing null byte on
  * truncation applies.
  */
+#define D_R_STRNCPY_BODY()                        \
+    do {                                          \
+        size_t i;                                 \
+        for (i = 0; i < n && src[i] != '\0'; i++) \
+            dst[i] = src[i];                      \
+        /* Pad the rest with nulls. */            \
+        for (; i < n; i++)                        \
+            dst[i] = '\0';                        \
+        return dst;                               \
+    } while (0)
 char *
-strncpy(char *dst, const char *src, size_t n)
+d_r_strncpy(char *dst, const char *src, size_t n)
 {
-    size_t i;
-    for (i = 0; i < n && src[i] != '\0'; i++)
-        dst[i] = src[i];
-    /* Pad the rest with nulls. */
-    for (; i < n; i++)
-        dst[i] = '\0';
-    return dst;
+    D_R_STRNCPY_BODY();
 }
 
-/* Private memcpy is in arch/<arch>/<arch>.asm */
+/* Private strncat. */
+#define D_R_STRNCAT_BODY()                        \
+    do {                                          \
+        size_t dest_len = strlen(dest);           \
+        size_t i;                                 \
+        for (i = 0; i < n && src[i] != '\0'; i++) \
+            dest[dest_len + i] = src[i];          \
+        dest[dest_len + i] = '\0';                \
+        return dest;                              \
+    } while (0)
+char *
+d_r_strncat(char *dest, const char *src, size_t n)
+{
+    D_R_STRNCAT_BODY();
+}
 
-/* Private memset is in arch/<arch>/<arch>.asm */
+/* Private memcpy is in arch/<arch>/<arch>.asm or memfuncs.asm */
+
+/* Private memset is in arch/<arch>/<arch>.asm or memfuncs.asm */
 
 /* Private memmove.  The only difference between memcpy and memmove is that if
  * you need to shift overlapping data forwards in memory, memmove will do what
  * you want.
+ * We also have a version named "memmove" in lib/memmove.c for shared
+ * DR libc isolation.
  */
+
+#define D_R_MEMMOVE_BODY()                              \
+    do {                                                \
+        ssize_t i;                                      \
+        byte *dst_b = (byte *)dst;                      \
+        const byte *src_b = (const byte *)src;          \
+        if (dst < src)                                  \
+            return memcpy(dst, src, n);                 \
+        /* FIXME: Could use reverse DF and rep movs. */ \
+        for (i = n - 1; i >= 0; i--) {                  \
+            dst_b[i] = src_b[i];                        \
+        }                                               \
+        return dst;                                     \
+    } while (0)
 void *
-memmove(void *dst, const void *src, size_t n)
+d_r_memmove(void *dst, const void *src, size_t n)
 {
-    ssize_t i;
-    byte *dst_b = (byte *) dst;
-    const byte *src_b = (const byte *) src;
-    if (dst < src)
-        return memcpy(dst, src, n);
-    /* FIXME: Could use reverse DF and rep movs. */
-    for (i = n - 1; i >= 0; i--) {
-        dst_b[i] = src_b[i];
-    }
-    return dst;
+    D_R_MEMMOVE_BODY();
 }
 
 #ifdef UNIX
 /* gcc emits calls to these *_chk variants in release builds when the size of
  * dst is known at compile time.  In C, the caller is responsible for cleaning
- * up arguments on the stack, so we alias these *_chk routines to the non-chk
- * routines and rely on the caller to clean up the extra dst_len arg.
+ * up arguments on the stack. We used to alias these *_chk routines to the non-chk
+ * routines. Current gcc versions don't accept aliases with a different function
+ * signature. Instead, we are now manually inlining the function body. We rely
+ * on the caller to clean up the extra dst_len arg.
  */
 void *
 __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
-# ifdef MACOS
-/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
- * XXX: better to test for support at config time: for now assuming none on Mac.
- */
 {
-  return memmove(dst, src, n);
+    D_R_MEMMOVE_BODY();
 }
-# else
-    __attribute__((alias("memmove")));
-# endif
 void *
 __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
-# ifdef MACOS
-/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
- * XXX: better to test for support at config time: for now assuming none on Mac.
- */
 {
-  return strncpy(dst, src, n);
+    D_R_STRNCPY_BODY();
 }
-# else
-    __attribute__((alias("strncpy")));
-# endif
+void *
+__strncat_chk(char *dest, const char *src, size_t n, size_t dst_len)
+{
+    D_R_STRNCAT_BODY();
+}
 #endif
-
-/* Private strncat. */
-char *
-strncat(char *dest, const char *src, size_t n)
-{
-    size_t dest_len = strlen(dest);
-    size_t i;
-    for (i = 0; i < n && src[i] != '\0'; i++)
-        dest[dest_len + i] = src[i];
-    dest[dest_len + i] = '\0';
-    return dest;
-}
 
 /* Private strcmp. */
 int
-strcmp(const char *left, const char *right)
+d_r_strcmp(const char *left, const char *right)
 {
     size_t i;
     for (i = 0; left[i] != '\0' || right[i] != '\0'; i++) {
@@ -212,7 +220,7 @@ strcmp(const char *left, const char *right)
 
 /* Private strncmp. */
 int
-strncmp(const char *left, const char *right, size_t n)
+d_r_strncmp(const char *left, const char *right, size_t n)
 {
     size_t i;
     for (i = 0; i < n && (left[i] != '\0' || right[i] != '\0'); i++) {
@@ -226,7 +234,7 @@ strncmp(const char *left, const char *right, size_t n)
 
 /* Private memcmp. */
 int
-memcmp(const void *left_v, const void *right_v, size_t n)
+d_r_memcmp(const void *left_v, const void *right_v, size_t n)
 {
     /* Use unsigned comparisons. */
     const byte *left = left_v;
@@ -243,13 +251,13 @@ memcmp(const void *left_v, const void *right_v, size_t n)
 
 /* Private strstr. */
 char *
-strstr(const char *haystack, const char *needle)
+d_r_strstr(const char *haystack, const char *needle)
 {
     const char *cur = haystack;
     size_t needle_len = strlen(needle);
     while (*cur != '\0') {
         if (strncmp(cur, needle, needle_len) == 0) {
-            return (char *) cur;
+            return (char *)cur;
         }
         cur++;
     }
@@ -258,7 +266,7 @@ strstr(const char *haystack, const char *needle)
 
 /* Private tolower. */
 int
-tolower(int c)
+d_r_tolower(int c)
 {
     if (c >= 'A' && c <= 'Z')
         return (c - ('A' - 'a'));
@@ -267,7 +275,7 @@ tolower(int c)
 
 /* Private strcasecmp. */
 int
-strcasecmp(const char *left, const char *right)
+d_r_strcasecmp(const char *left, const char *right)
 {
     size_t i;
     for (i = 0; left[i] != '\0' || right[i] != '\0'; i++) {
@@ -289,16 +297,15 @@ strcasecmp(const char *left, const char *right)
  * can call parse_int directly.
  */
 unsigned long
-strtoul(const char *str, char **end, int base)
+d_r_strtoul(const char *str, char **end, int base)
 {
     uint64 num;
-    const char *parse_end = parse_int(str, &num, base, 0/*width*/,
-                                      true/*signed*/);
+    const char *parse_end = d_r_parse_int(str, &num, base, 0 /*width*/, true /*signed*/);
     if (end != NULL)
-        *end = (char *) parse_end;
+        *end = (char *)parse_end;
     if (parse_end == NULL)
         return ULONG_MAX;
-    return (unsigned long) num;  /* truncate */
+    return (unsigned long)num; /* truncate */
 }
 
 #ifdef STANDALONE_UNIT_TEST
@@ -337,7 +344,7 @@ unit_test_string(void)
 
     /* strncpy, strncat */
     strncpy(buf, test_path, sizeof(buf));
-    EXPECT(is_region_memset_to_char((byte *) buf + strlen(test_path),
+    EXPECT(is_region_memset_to_char((byte *)buf + strlen(test_path),
                                     sizeof(buf) - strlen(test_path), '\0'),
            true);
     strncat(buf, "/foo_wont_copy", 4);
@@ -345,26 +352,26 @@ unit_test_string(void)
 
     /* strtoul */
     num = strtoul(identity("-10"), NULL, 0);
-    EXPECT((long)num, -10);  /* negative */
+    EXPECT((long)num, -10); /* negative */
     num = strtoul(identity("0777"), NULL, 0);
-    EXPECT(num, 0777);  /* octal */
+    EXPECT(num, 0777); /* octal */
     num = strtoul(identity("0xdeadBEEF"), NULL, 0);
-    EXPECT(num, 0xdeadbeef);  /* hex */
-    num = strtoul(identity("deadBEEF next"), (char **) &ret, 16);
-    EXPECT(num, 0xdeadbeef);  /* non-0x prefixed hex */
-    EXPECT(strcmp(ret, " next"), 0);  /* end */
+    EXPECT(num, 0xdeadbeef); /* hex */
+    num = strtoul(identity("deadBEEF next"), (char **)&ret, 16);
+    EXPECT(num, 0xdeadbeef);         /* non-0x prefixed hex */
+    EXPECT(strcmp(ret, " next"), 0); /* end */
     num = strtoul(identity("1001a"), NULL, 2);
-    EXPECT(num, 9);  /* binary */
+    EXPECT(num, 9); /* binary */
     num = strtoul(identity("1aZ"), NULL, 36);
-    EXPECT(num, 1 * 36 * 36 + 10 * 36 + 35);  /* weird base */
-    num = strtoul(identity("1aZ"), (char **) &ret, 37);
-    EXPECT(num, ULONG_MAX);  /* invalid base */
+    EXPECT(num, 1 * 36 * 36 + 10 * 36 + 35); /* weird base */
+    num = strtoul(identity("1aZ"), (char **)&ret, 37);
+    EXPECT(num, ULONG_MAX); /* invalid base */
     EXPECT(ret == NULL, true);
 
     /* memmove */
     strncpy(buf, test_path, sizeof(buf));
     memmove(buf + 4, buf, strlen(buf) + 1);
-    strncpy(buf, "/foo", 4);
+    memcpy(buf, "/foo", 4);
     EXPECT(strcmp(buf, "/foo/path/to/file"), 0);
 
     print_file(STDERR, "done testing string\n");

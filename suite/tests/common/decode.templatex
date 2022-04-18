@@ -1,0 +1,67 @@
+(<Application .*common\.decode.*AVX-512 was detected at PC 0x[0-9a-f]+. AVX-512 is not fully supported yet.>
+)?Start
+#if !defined(X64)
+Jumping to a sequence of every addr16 modrm byte
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_alloc) && !defined(low) && !defined(client) && !defined(thin_client)
+#  if !defined(detect_mode)
+    SEC_VIO_AUTO_STOP
+#   if !defined(internal_detach_mask)
+     STOP
+#   endif
+#  else
+    SEC_VIO_CONT
+#  endif
+# endif
+Done with modrm test: tested 256
+#endif
+Testing nops
+Done with nops
+Testing SSE3
+Bad instruction, instance 1
+Testing 3D-Now
+Bad instruction, instance 2
+Testing far call/jmp
+#if defined(X64)
+Bad instruction, instance 3
+Bad instruction, instance 4
+Bad instruction, instance 5
+Bad instruction, instance 6
+#else
+Access violation, instance 3
+Access violation, instance 4
+Access violation, instance 5
+Access violation, instance 6
+#endif
+Access violation, instance 7
+Access violation, instance 8
+#if !(defined(WINDOWS) && defined(X64))
+Testing data16 mbr
+Access violation, instance 9
+Access violation, instance 10
+Access violation, instance 11
+# if defined(X64)
+Bad instruction, instance 12
+Bad instruction, instance 13
+# else
+Access violation, instance 12
+Access violation, instance 13
+# endif
+Access violation, instance 14
+Access violation, instance 15
+Access violation, instance 16
+Access violation, instance 17
+Access violation, instance 18
+#endif
+Testing rip-rel ind branch
+Made it to actual_call_target
+Testing bsr
+Testing SSE2
+#if !(defined(WINDOWS) && defined(X64))
+Bad instruction, instance 19
+#else
+Bad instruction, instance 9
+#endif
+Testing mangle_seg
+Testing jecxz
+(Testing AVX-512 VEX
+)?All done

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,7 +52,7 @@ extern "C" {
 /**
  * \addtogroup drcontainers Container Data Structures
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** The type of hash key */
 typedef enum {
@@ -77,9 +77,14 @@ typedef struct _hash_entry_t {
 
 /** Configuration parameters for a hashtable. */
 typedef struct _hashtable_config_t {
-    size_t size; /**< The size of the hashtable_config_t struct used */
-    bool resizable; /**< Whether the table should be resized */
+    size_t size;           /**< The size of the hashtable_config_t struct used */
+    bool resizable;        /**< Whether the table should be resized */
     uint resize_threshold; /**< Resize the table at this % full */
+    /**
+     * Called whenever an entry is removed, with the key passed in.  If "str_dup" is set
+     * to true in hashtable_init() or hashtable_init_ex(), this field is ignored.
+     */
+    void (*free_key_func)(void *);
 } hashtable_config_t;
 
 typedef struct _hashtable_t {
@@ -89,9 +94,9 @@ typedef struct _hashtable_t {
     void *lock;
     uint table_bits;
     bool synch;
-    void (*free_payload_func)(void*);
-    uint (*hash_key_func)(void*);
-    bool (*cmp_key_func)(void*, void*);
+    void (*free_payload_func)(void *);
+    uint (*hash_key_func)(void *);
+    bool (*cmp_key_func)(void *, void *);
     uint entries;
     hashtable_config_t config;
     uint persist_count;
@@ -112,7 +117,7 @@ stri_eq(const char *s1, const char *s2);
  * the defaults will be used.
  */
 void
-hashtable_global_config(void *(*alloc_func)(size_t), void (*free_func)(void*, size_t),
+hashtable_global_config(void *(*alloc_func)(size_t), void (*free_func)(void *, size_t),
                         void (*assert_fail_func)(const char *));
 
 /**
@@ -150,9 +155,9 @@ hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str
  *   For HASH_CUSTOM, a callback must be provided.
  */
 void
-hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype,
-                  bool str_dup, bool synch, void (*free_payload_func)(void*),
-                  uint (*hash_key_func)(void*), bool (*cmp_key_func)(void*, void*));
+hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,
+                  bool synch, void (*free_payload_func)(void *),
+                  uint (*hash_key_func)(void *), bool (*cmp_key_func)(void *, void *));
 
 /** Configures optional parameters of hashtable operation. */
 void
@@ -194,6 +199,29 @@ bool
 hashtable_remove_range(hashtable_t *table, void *start, void *end);
 
 /**
+ * Calls the \p apply_func for each payload.
+ * @param table The hashtable to apply the function.
+ * @param apply_func A pointer to a function that is called for all payloads
+ * stored in the map.
+ */
+void
+hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload));
+
+/**
+ * Calls the \p apply_func for each payload with user data. Similar to
+ * hashtable_apply_to_all_payloads().
+ * @param table The hashtable to apply the function.
+ * @param apply_func A pointer to a function that is called for all payloads
+ * stored in the map. It also takes user data as a parameter.
+ * @param user_data User data that is available when iterating through payloads.
+ */
+void
+hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
+                                          void (*apply_func)(void *payload,
+                                                             void *user_data),
+                                          void *user_data);
+
+/**
  * Removes all entries from the table.  If free_payload_func was specified
  * calls it for each payload.
  */
@@ -233,14 +261,14 @@ typedef enum {
      * to allocated memory.  By default payloads are treated as
      * inlined values if this flag is not set.
      */
-    DR_HASHPERS_PAYLOAD_IS_POINTER      = 0x0001,
+    DR_HASHPERS_PAYLOAD_IS_POINTER = 0x0001,
     /**
      * Valid for hashtable_resurrect().  Only applies if
      * DR_HASHPERS_KEY_IS_POINTER.  Performs a shallow clone of the
      * payload upon resurrection.  If this flag is not set, the
      * payloads will remain pointing into the mapped file.
      */
-    DR_HASHPERS_CLONE_PAYLOAD           = 0x0002,
+    DR_HASHPERS_CLONE_PAYLOAD = 0x0002,
     /**
      * Valid for hashtable_persist_size(), hashtable_persist(), and
      * hashtable_resurrect(), and the same value must be passed to all.
@@ -250,21 +278,21 @@ typedef enum {
      * flag must match across all three calls hashtable_persist_size(),
      * hashtable_persist(), and hashtable_resurrect().
      */
-    DR_HASHPERS_REBASE_KEY              = 0x0004,
+    DR_HASHPERS_REBASE_KEY = 0x0004,
     /**
      * Valid for hashtable_persist_size() and hashtable_persist() and
      * the same value must be passed to both.  Only applies if keys
      * are of type HASH_INTPTR.  Only persists entries whose key is
      * in the address range being persisted.
      */
-    DR_HASHPERS_ONLY_IN_RANGE           = 0x0008,
+    DR_HASHPERS_ONLY_IN_RANGE = 0x0008,
     /**
      * Valid for hashtable_persist_size() and hashtable_persist() and
      * the same value must be passed to both.  Only applies if keys
      * are of type HASH_INTPTR.  Only persists entries for which
      * dr_fragment_persistable() returns true.
      */
-    DR_HASHPERS_ONLY_PERSISTED          = 0x0010,
+    DR_HASHPERS_ONLY_PERSISTED = 0x0010,
 } hasthable_persist_flags_t;
 /* DR_API EXPORT END */
 
@@ -307,8 +335,8 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
  * @param[in] flags       Controls various aspects of the persistence
  */
 bool
-hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size,
-                  file_t fd, void *perscxt, hasthable_persist_flags_t flags);
+hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t fd,
+                  void *perscxt, hasthable_persist_flags_t flags);
 
 /**
  * For use persisting a table of single-alloc entries (i.e., via a
@@ -332,7 +360,7 @@ hashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
                     size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
                     bool (*process_payload)(void *key, void *payload, ptr_int_t shift));
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

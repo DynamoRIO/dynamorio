@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,14 +36,16 @@
  * facing routines and convert to UTF-8 for DR API routines.
  */
 #ifdef WINDOWS
-# define UNICODE
-# define _UNICODE
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h>
+#    define UNICODE
+#    define _UNICODE
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
 #else
-# include <sys/types.h>
-# include <sys/wait.h>
-# include <unistd.h>  /* for fork */
+#    include <sys/types.h>
+#    include <sys/wait.h>
+#    include <unistd.h> /* for fork */
+#    include <cstdlib>
+#    include <signal.h>
 #endif
 
 #include <assert.h>
@@ -58,18 +60,43 @@
 #include "common/options.h"
 #include "common/utils.h"
 
-#define FATAL_ERROR(msg, ...) do { \
-    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
-    fflush(stderr); \
-    exit(1); \
-} while (0)
+#define FATAL_ERROR(msg, ...)                               \
+    do {                                                    \
+        fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
+        fflush(stderr);                                     \
+        exit(1);                                            \
+    } while (0)
 
-#define NOTIFY(level, prefix, msg, ...) do {     \
-    if (op_verbose.get_value() >= level) {                                   \
-        fprintf(stderr, "%s: " msg "\n", prefix, ##__VA_ARGS__);        \
-        fflush(stderr); \
-    } \
-} while (0)
+#define NOTIFY(level, prefix, msg, ...)                              \
+    do {                                                             \
+        if (op_verbose.get_value() >= level) {                       \
+            fprintf(stderr, "%s: " msg "\n", prefix, ##__VA_ARGS__); \
+            fflush(stderr);                                          \
+        }                                                            \
+    } while (0)
+
+static analyzer_t *analyzer;
+#ifdef UNIX
+static pid_t child;
+#endif
+
+#ifdef UNIX
+static void
+signal_handler(int sig, siginfo_t *info, void *cxt)
+{
+#    define INTERRUPT_MSG "Interrupted: exiting.\n"
+    ssize_t res = write(STDERR_FILENO, INTERRUPT_MSG, sizeof(INTERRUPT_MSG));
+    (void)res; // Work around compiler warnings.
+    // Terminate child in case shell didn't already send this there.
+    // It's up to the child to terminate grandchildren not already notified.
+    if (child != 0)
+        kill(child, SIGINT);
+    // Destroy pipe file if it's open.
+    if (analyzer != NULL)
+        delete analyzer;
+    exit(1);
+}
+#endif
 
 #define CLIENT_ID 0
 
@@ -88,7 +115,7 @@ file_is_writable(const char *path)
 }
 
 static void
-get_full_path(const char *app, char *buf, size_t buflen/*# elements*/)
+get_full_path(const char *app, char *buf, size_t buflen /*# elements*/)
 {
     drfront_status_t sc = drfront_get_app_full_path(app, buf, buflen);
     if (sc != DRFRONT_SUCCESS)
@@ -96,8 +123,8 @@ get_full_path(const char *app, char *buf, size_t buflen/*# elements*/)
 }
 
 static bool
-configure_application(char *app_name, char **app_argv,
-                      std::string tracer_ops, void **inject_data)
+configure_application(char *app_name, char **app_argv, std::string tracer_ops,
+                      void **inject_data)
 {
     int errcode;
     char *process;
@@ -114,10 +141,10 @@ configure_application(char *app_name, char **app_argv,
 #ifdef WINDOWS
         char buf[MAXIMUM_PATH];
         int sofar = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s", msg.c_str());
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                      NULL, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                      (LPTSTR) buf + sofar,
-                      BUFFER_SIZE_ELEMENTS(buf) - sofar*sizeof(char), NULL);
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
+                      errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      (LPTSTR)buf + sofar,
+                      BUFFER_SIZE_ELEMENTS(buf) - sofar * sizeof(char), NULL);
 #endif
         FATAL_ERROR("%s", msg.c_str());
     }
@@ -125,22 +152,40 @@ configure_application(char *app_name, char **app_argv,
     pid = dr_inject_get_process_id(*inject_data);
 
     process = dr_inject_get_image_name(*inject_data);
-    NOTIFY(1, "INFO", "configuring %s pid=%d dr_ops=\"%s\"", process, pid,
+    NOTIFY(1, "INFO", "configuring %s pid=" PIDFMT " dr_ops=\"%s\"", process, pid,
            op_dr_ops.get_value().c_str());
-    if (dr_register_process(process, pid,
-                            false/*local*/, op_dr_root.get_value().c_str(),
-                            DR_MODE_CODE_MANIPULATION,
-                            op_dr_debug.get_value(), DR_PLATFORM_DEFAULT,
+    if (dr_register_process(process, pid, false /*local*/, op_dr_root.get_value().c_str(),
+                            DR_MODE_CODE_MANIPULATION, op_dr_debug.get_value(),
+                            DR_PLATFORM_DEFAULT,
                             op_dr_ops.get_value().c_str()) != DR_SUCCESS) {
         FATAL_ERROR("failed to register DynamoRIO configuration");
     }
     NOTIFY(1, "INFO", "configuring client \"%s\" ops=\"%s\"",
            op_tracer.get_value().c_str(), tracer_ops.c_str());
-    if (dr_register_client(process, pid,
-                           false/*local*/, DR_PLATFORM_DEFAULT, CLIENT_ID,
+    if (dr_register_client(process, pid, false /*local*/, DR_PLATFORM_DEFAULT, CLIENT_ID,
                            0, op_tracer.get_value().c_str(),
                            tracer_ops.c_str()) != DR_SUCCESS) {
         FATAL_ERROR("failed to register DynamoRIO client configuration");
+    }
+    if (!op_tracer_alt.get_value().empty()) {
+        dr_config_client_t info;
+        info.struct_size = sizeof(info);
+        info.id = CLIENT_ID;
+        info.priority = 1;
+        char local_path[MAXIMUM_PATH];
+        dr_snprintf(local_path, BUFFER_SIZE_ELEMENTS(local_path), "%s",
+                    op_tracer_alt.get_value().c_str());
+        info.path = (char *)local_path;
+        char local_ops[MAXIMUM_PATH];
+        dr_snprintf(local_ops, BUFFER_SIZE_ELEMENTS(local_path), "%s",
+                    op_tracer_ops.get_value().c_str());
+        info.options = (char *)local_ops;
+        info.is_alt_bitwidth = true;
+        NOTIFY(1, "INFO", "configuring alt-bitwidth client \"%s\"",
+               op_tracer_alt.get_value().c_str());
+        if (dr_register_client_ex(process, pid, false /*local*/, DR_PLATFORM_DEFAULT,
+                                  &info) != DR_SUCCESS)
+            FATAL_ERROR("failed to register DynamoRIO client configuration");
     }
     return true;
 }
@@ -158,15 +203,39 @@ _tmain(int argc, const TCHAR *targv[])
     char buf[MAXIMUM_PATH];
     drfront_status_t sc;
     bool is64, is32;
-    analyzer_t *analyzer = NULL;
     std::string tracer_ops;
-#ifdef UNIX
-    pid_t child = 0;
-#endif
     bool have_trace_file;
 
+#ifdef UNIX
+    // We want to clean up the pipe file on control-C.
+    struct sigaction act;
+    act.sa_sigaction = signal_handler;
+    sigfillset(&act.sa_mask); // Block all within handler.
+    act.sa_flags = SA_SIGINFO;
+    int rc = sigaction(SIGINT, &act, NULL);
+    if (rc != 0)
+        NOTIFY(0, "WARNING", "Failed to set up interrupt handler\n");
+#else
+    // We do not bother with SetConsoleCtrlHandler for two reasons:
+    // one, there's no problem to solve like the UNIX fifo file left
+    // behind.  Two, the ^c handler in a new thread is more work to
+    // deal with as it races w/ the main thread.
+#    ifdef DEBUG
+    // Avoid pop-up messageboxes in tests.
+    if (!IsDebuggerPresent()) {
+        /* Set for _CRT_{WARN,ERROR,ASSERT}. */
+        for (int i = 0; i < _CRT_ERRCNT; i++) {
+            _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+            _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);
+        }
+        /* This may control assert() and _wassert() in release build. */
+        _set_error_mode(_OUT_TO_STDERR);
+    }
+#    endif
+#endif
+
 #if defined(WINDOWS) && !defined(_UNICODE)
-# error _UNICODE must be defined
+#    error _UNICODE must be defined
 #else
     /* Convert to UTF-8 */
     sc = drfront_convert_args(targv, &argv, argc);
@@ -181,8 +250,7 @@ _tmain(int argc, const TCHAR *targv[])
     // a pre-configured .drrun file with proper paths.
 
     std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc,
-                                       (const char **) argv,
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, &app_idx)) {
         // We try to support no "--" separating the app
         if (argv[app_idx] != NULL && argv[app_idx][0] != '-') {
@@ -221,6 +289,10 @@ _tmain(int argc, const TCHAR *targv[])
         if (!file_is_readable(op_tracer.get_value().c_str())) {
             FATAL_ERROR("tracer library %s is unreadable", op_tracer.get_value().c_str());
         }
+        // We deliberately do *not* check -tracer_alt, since we're guessing that
+        // path is available and it won't be for a single build dir.
+        // An other-bitwidth child will exit with a fatal error if the lib
+        // is not there and the user runs such an app.
         if (!file_is_readable(op_dr_root.get_value().c_str())) {
             FATAL_ERROR("invalid -dr_root %s", op_dr_root.get_value().c_str());
         }
@@ -235,7 +307,9 @@ _tmain(int argc, const TCHAR *targv[])
     } else {
         analyzer = new analyzer_multi_t;
         if (!*analyzer) {
-            FATAL_ERROR("failed to initialize analyzer");
+            std::string error_string_ = analyzer->get_error_string();
+            FATAL_ERROR("failed to initialize analyzer%s%s",
+                        error_string_.empty() ? "" : ": ", error_string_.c_str());
         }
     }
 
@@ -243,11 +317,15 @@ _tmain(int argc, const TCHAR *targv[])
 
     if (!have_trace_file) {
         /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
-        dr_get_config_dir(false/*local*/, true/*use temp*/, buf,
+        dr_get_config_dir(false /*local*/, true /*use temp*/, buf,
                           BUFFER_SIZE_ELEMENTS(buf));
         NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
 
 #ifdef UNIX
+        // We could try to arrange for the child to auto-exit if the parent dies via
+        // prctl(PR_SET_PDEATHSIG, SIGTERM) on Linux and kqueue on Mac, plus
+        // checking for ppid changes for up front races, but that won't propagate
+        // to grandchildren.
         if (op_offline.get_value())
             child = 0;
         else
@@ -258,16 +336,16 @@ _tmain(int argc, const TCHAR *targv[])
         } else if (child == 0) {
             /* child, or offline where we exec this process */
             if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
-                !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
+                !dr_inject_process_inject(inject_data, false /*!force*/, NULL)) {
                 FATAL_ERROR("unable to inject");
                 assert(false); // won't get here
             }
             FATAL_ERROR("failed to exec application");
         }
-        /* parent */
+        /* parent_ */
 #else
         if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
-            !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
+            !dr_inject_process_inject(inject_data, false /*!force*/, NULL)) {
             FATAL_ERROR("unable to inject");
         }
         dr_inject_process_run(inject_data);
@@ -276,38 +354,45 @@ _tmain(int argc, const TCHAR *targv[])
 
     if (!op_offline.get_value() || have_trace_file) {
         if (!analyzer->run()) {
-            FATAL_ERROR("failed to run analyzer");
+            std::string error_string_ = analyzer->get_error_string();
+            FATAL_ERROR("failed to run analyzer%s%s", error_string_.empty() ? "" : ": ",
+                        error_string_.c_str());
         }
     }
 
     if (!have_trace_file) {
 #ifdef WINDOWS
         NOTIFY(1, "INFO", "waiting for app to exit...");
-        errcode = WaitForSingleObject(dr_inject_get_process_handle(inject_data),
-                                      INFINITE);
+        errcode =
+            WaitForSingleObject(dr_inject_get_process_handle(inject_data), INFINITE);
         if (errcode != WAIT_OBJECT_0)
             NOTIFY(1, "INFO", "failed to wait for app: %d\n", errcode);
-        errcode = dr_inject_process_exit(inject_data, false/*don't kill process*/);
+        errcode = dr_inject_process_exit(inject_data, false /*don't kill process*/);
 #else
-# ifndef NDEBUG
+#    ifndef NDEBUG
         pid_t result =
-# endif
+#    endif
             waitpid(child, &errcode, 0);
         assert(result == child);
 #endif
 
         if (!op_offline.get_value()) { // Skipping for offline to match UNIX.
             // XXX: we may want a prefix on our output
-            std::cerr << "---- <application exited with code " << errcode <<
-                "> ----" << std::endl;
+            std::cerr << "---- <application exited with code " << errcode << "> ----"
+                      << std::endl;
         }
     } else
         errcode = 0;
 
-    analyzer->print_stats();
-
-    // release analyzer's space
-    delete analyzer;
+    if (analyzer != nullptr) {
+        if (!analyzer->print_stats()) {
+            std::string error_string_ = analyzer->get_error_string();
+            FATAL_ERROR("failed to print results%s%s", error_string_.empty() ? "" : ": ",
+                        error_string_.c_str());
+        }
+        // release analyzer's space
+        delete analyzer;
+    }
 
     sc = drfront_cleanup_args(argv, argc);
     if (sc != DRFRONT_SUCCESS)

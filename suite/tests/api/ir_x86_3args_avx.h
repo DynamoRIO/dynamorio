@@ -32,10 +32,14 @@
  */
 
 /* AVX 256-bit */
-OPCODE(vunpcklps_256, vunpcklps, vunpcklps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
-OPCODE(vunpcklpd_256, vunpcklpd, vunpcklpd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
-OPCODE(vunpckhps_256, vunpckhps, vunpckhps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
-OPCODE(vunpckhpd_256, vunpckhpd, vunpckhpd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vunpcklps_256, vunpcklps, vunpcklps, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16), MEMARG(OPSZ_16))
+OPCODE(vunpcklpd_256, vunpcklpd, vunpcklpd, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16), MEMARG(OPSZ_16))
+OPCODE(vunpckhps_256, vunpckhps, vunpckhps, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16), MEMARG(OPSZ_16))
+OPCODE(vunpckhpd_256, vunpckhpd, vunpckhpd, 0, REGARG(YMM0),
+       REGARG_PARTIAL(YMM1, OPSZ_16), MEMARG(OPSZ_16))
 OPCODE(vandps_256, vandps, vandps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vandpd_256, vandpd, vandpd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vandnps_256, vandnps, vandnps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
@@ -60,8 +64,10 @@ OPCODE(vhaddpd_256, vhaddpd, vhaddpd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ
 OPCODE(vhaddps_256, vhaddps, vhaddps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vhsubpd_256, vhsubpd, vhsubpd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vhsubps_256, vhsubps, vhsubps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
-OPCODE(vaddsubpd_256, vaddsubpd, vaddsubpd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
-OPCODE(vaddsubps_256, vaddsubps, vaddsubps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vaddsubpd_256, vaddsubpd, vaddsubpd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vaddsubps_256, vaddsubps, vaddsubps, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
 OPCODE(vroundps_256, vroundps, vroundps, 0, REGARG(YMM0), REGARG(YMM1), IMMARG(OPSZ_1))
 OPCODE(vroundpd_256, vroundpd, vroundpd, 0, REGARG(YMM0), REGARG(YMM1), IMMARG(OPSZ_1))
 OPCODE(vpcmpestrm, vpcmpestrm, vpcmpestrm, 0, REGARG(XMM0), MEMARG(OPSZ_16),
@@ -72,7 +78,7 @@ OPCODE(vpcmpistrm, vpcmpistrm, vpcmpistrm, 0, REGARG(XMM0), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
 OPCODE(vpcmpistri, vpcmpistri, vpcmpistri, 0, REGARG(XMM0), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
-OPCODE(vcvtps2ph_256, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_32), REGARG(YMM0),
+OPCODE(vcvtps2ph_256, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_16), REGARG(YMM0),
        IMMARG(OPSZ_1))
 OPCODE(vmaskmovps_ld_256, vmaskmovps, vmaskmovps, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
@@ -90,7 +96,9 @@ OPCODE(vpermilps_noimm_256, vpermilps, vpermilps, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
 OPCODE(vpermilpd_noimm_256, vpermilpd, vpermilpd, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vextractf128_256, vextractf128, vextractf128, 0, MEMARG(OPSZ_16),
+OPCODE(vextractf128_m256, vextractf128, vextractf128, 0, MEMARG(OPSZ_16),
+       REGARG_PARTIAL(YMM0, OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vextractf128_r256, vextractf128, vextractf128, 0, REGARG(XMM0),
        REGARG_PARTIAL(YMM0, OPSZ_16), IMMARG(OPSZ_1))
 
 /* AVX2 256-bit */
@@ -102,12 +110,9 @@ OPCODE(vpunpckldq_256, vpunpckldq, vpunpckldq, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
 OPCODE(vpacksswb_256, vpacksswb, vpacksswb, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vpcmpgtb_256, vpcmpgtb, vpcmpgtb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpcmpgtw_256, vpcmpgtw, vpcmpgtw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpcmpgtd_256, vpcmpgtd, vpcmpgtd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
+OPCODE(vpcmpgtb_256, vpcmpgtb, vpcmpgtb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpcmpgtw_256, vpcmpgtw, vpcmpgtw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpcmpgtd_256, vpcmpgtd, vpcmpgtd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpackuswb_256, vpackuswb, vpackuswb, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
 OPCODE(vpunpckhbw_256, vpunpckhbw, vpunpckhbw, 0, REGARG(YMM0), REGARG(YMM1),
@@ -122,174 +127,92 @@ OPCODE(vpunpcklqdq_256, vpunpcklqdq, vpunpcklqdq, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
 OPCODE(vpunpckhqdq_256, vpunpckhqdq, vpunpckhqdq, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vpcmpeqb_256, vpcmpeqb, vpcmpeqb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpcmpeqw_256, vpcmpeqw, vpcmpeqw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpcmpeqd_256, vpcmpeqd, vpcmpeqd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsrlw_256, vpsrlw, vpsrlw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsrld_256, vpsrld, vpsrld, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsrlq_256, vpsrlq, vpsrlq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddq_256, vpaddq, vpaddq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmullw_256, vpmullw, vpmullw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubusb_256, vpsubusb, vpsubusb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubusw_256, vpsubusw, vpsubusw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpminub_256, vpminub, vpminub, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpand_256, vpand, vpand, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddusb_256, vpaddusb, vpaddusb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddusw_256, vpaddusw, vpaddusw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmaxub_256, vpmaxub, vpmaxub, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpandn_256, vpandn, vpandn, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpavgb_256, vpavgb, vpavgb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsraw_256, vpsraw, vpsraw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsrad_256, vpsrad, vpsrad, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpavgw_256, vpavgw, vpavgw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmulhuw_256, vpmulhuw, vpmulhuw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmulhw_256, vpmulhw, vpmulhw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubsb_256, vpsubsb, vpsubsb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubsw_256, vpsubsw, vpsubsw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpminsw_256, vpminsw, vpminsw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpor_256, vpor, vpor, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddsb_256, vpaddsb, vpaddsb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddsw_256, vpaddsw, vpaddsw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmaxsw_256, vpmaxsw, vpmaxsw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpxor_256, vpxor, vpxor, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsllw_256, vpsllw, vpsllw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpslld_256, vpslld, vpslld, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsllq_256, vpsllq, vpsllq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmuludq_256, vpmuludq, vpmuludq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmaddwd_256, vpmaddwd, vpmaddwd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsadbw_256, vpsadbw, vpsadbw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubb_256, vpsubb, vpsubb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubw_256, vpsubw, vpsubw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubd_256, vpsubd, vpsubd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsubq_256, vpsubq, vpsubq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddb_256, vpaddb, vpaddb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddw_256, vpaddw, vpaddw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpaddd_256, vpaddd, vpaddd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vphaddw_256, vphaddw, vphaddw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vphaddd_256, vphaddd, vphaddd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vphaddsw_256, vphaddsw, vphaddsw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
+OPCODE(vpcmpeqb_256, vpcmpeqb, vpcmpeqb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpcmpeqw_256, vpcmpeqw, vpcmpeqw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpcmpeqd_256, vpcmpeqd, vpcmpeqd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsrlw_256, vpsrlw, vpsrlw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsrld_256, vpsrld, vpsrld, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsrlq_256, vpsrlq, vpsrlq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddq_256, vpaddq, vpaddq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmullw_256, vpmullw, vpmullw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubusb_256, vpsubusb, vpsubusb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubusw_256, vpsubusw, vpsubusw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpminub_256, vpminub, vpminub, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpand_256, vpand, vpand, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddusb_256, vpaddusb, vpaddusb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddusw_256, vpaddusw, vpaddusw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmaxub_256, vpmaxub, vpmaxub, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpandn_256, vpandn, vpandn, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpavgb_256, vpavgb, vpavgb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsraw_256, vpsraw, vpsraw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsrad_256, vpsrad, vpsrad, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpavgw_256, vpavgw, vpavgw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmulhuw_256, vpmulhuw, vpmulhuw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmulhw_256, vpmulhw, vpmulhw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubsb_256, vpsubsb, vpsubsb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubsw_256, vpsubsw, vpsubsw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpminsw_256, vpminsw, vpminsw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpor_256, vpor, vpor, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddsb_256, vpaddsb, vpaddsb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddsw_256, vpaddsw, vpaddsw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmaxsw_256, vpmaxsw, vpmaxsw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpxor_256, vpxor, vpxor, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsllw_256, vpsllw, vpsllw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpslld_256, vpslld, vpslld, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsllq_256, vpsllq, vpsllq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmuludq_256, vpmuludq, vpmuludq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmaddwd_256, vpmaddwd, vpmaddwd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsadbw_256r, vpsadbw, vpsadbw, 0, REGARG(YMM0), REGARG(YMM1), REGARG(YMM2))
+OPCODE(vpsadbw_256m, vpsadbw, vpsadbw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubb_256, vpsubb, vpsubb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubw_256, vpsubw, vpsubw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubd_256, vpsubd, vpsubd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsubq_256, vpsubq, vpsubq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddb_256, vpaddb, vpaddb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddw_256, vpaddw, vpaddw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpaddd_256, vpaddd, vpaddd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vphaddw_256, vphaddw, vphaddw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vphaddd_256, vphaddd, vphaddd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vphaddsw_256, vphaddsw, vphaddsw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpmaddubsw_256, vpmaddubsw, vpmaddubsw, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vphsubw_256, vphsubw, vphsubw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vphsubd_256, vphsubd, vphsubd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vphsubsw_256, vphsubsw, vphsubsw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsignb_256, vpsignb, vpsignb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsignw_256, vpsignw, vpsignw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpsignd_256, vpsignd, vpsignd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
+OPCODE(vphsubw_256, vphsubw, vphsubw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vphsubd_256, vphsubd, vphsubd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vphsubsw_256, vphsubsw, vphsubsw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsignb_256, vpsignb, vpsignb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsignw_256, vpsignw, vpsignw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsignd_256, vpsignd, vpsignd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpmulhrsw_256, vpmulhrsw, vpmulhrsw, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vpabsb_256, vpabsb, vpabsb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpabsw_256, vpabsw, vpabsw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpabsd_256, vpabsd, vpabsd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmuldq_256, vpmuldq, vpmuldq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpcmpeqq_256, vpcmpeqq, vpcmpeqq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
+OPCODE(vpmuldq_256, vpmuldq, vpmuldq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpcmpeqq_256, vpcmpeqq, vpcmpeqq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpackusdw_256, vpackusdw, vpackusdw, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
-OPCODE(vpcmpgtq_256, vpcmpgtq, vpcmpgtq, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpminsb_256, vpminsb, vpminsb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpminsd_256, vpminsd, vpminsd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpminuw_256, vpminuw, vpminuw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpminud_256, vpminud, vpminud, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmaxsb_256, vpmaxsb, vpmaxsb, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmaxsd_256, vpmaxsd, vpmaxsd, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmaxuw_256, vpmaxuw, vpmaxuw, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmaxud_256, vpmaxud, vpmaxud, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
-OPCODE(vpmulld_256, vpmulld, vpmulld, 0, REGARG(YMM0), REGARG(YMM1),
-       MEMARG(OPSZ_32))
+OPCODE(vpcmpgtq_256, vpcmpgtq, vpcmpgtq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpminsb_256, vpminsb, vpminsb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpminsd_256, vpminsd, vpminsd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpminuw_256, vpminuw, vpminuw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpminud_256, vpminud, vpminud, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmaxsb_256, vpmaxsb, vpmaxsb, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmaxsd_256, vpmaxsd, vpmaxsd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmaxuw_256, vpmaxuw, vpmaxuw, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmaxud_256, vpmaxud, vpmaxud, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpmulld_256, vpmulld, vpmulld, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
 
-OPCODE(vpshufhw_256, vpshufhw, vpshufhw, 0, REGARG(YMM0), MEMARG(OPSZ_32),
-       IMMARG(OPSZ_1))
-OPCODE(vpshufd_256, vpshufd, vpshufd, 0, REGARG(YMM0), MEMARG(OPSZ_32),
-       IMMARG(OPSZ_1))
-OPCODE(vpshuflw_256, vpshuflw, vpshuflw, 0, REGARG(YMM0), MEMARG(OPSZ_32),
-       IMMARG(OPSZ_1))
+OPCODE(vpshufhw_256, vpshufhw, vpshufhw, 0, REGARG(YMM0), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpshufd_256, vpshufd, vpshufd, 0, REGARG(YMM0), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpshuflw_256, vpshuflw, vpshuflw, 0, REGARG(YMM0), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
 
-OPCODE(vpsrldq_256, vpsrldq, vpsrldq, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpslldq_256, vpslldq, vpslldq, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpsrlw_b_256, vpsrlw, vpsrlw, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpsraw_b_256, vpsraw, vpsraw, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpsllw_b_256, vpsllw, vpsllw, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpsrld_b_256, vpsrld, vpsrld, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpsrad_b_256, vpsrad, vpsrad, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpslld_b_256, vpslld, vpslld, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpsrlq_b_256, vpsrlq, vpsrlq, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
-OPCODE(vpsllq_b_256, vpsllq, vpsllq, 0, REGARG(YMM0), IMMARG(OPSZ_1),
-       REGARG(YMM1))
+OPCODE(vpsrldq_256, vpsrldq, vpsrldq, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpslldq_256, vpslldq, vpslldq, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpsrlw_b_256, vpsrlw, vpsrlw, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpsraw_b_256, vpsraw, vpsraw, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpsllw_b_256, vpsllw, vpsllw, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpsrld_b_256, vpsrld, vpsrld, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpsrad_b_256, vpsrad, vpsrad, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpslld_b_256, vpslld, vpslld, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpsrlq_b_256, vpsrlq, vpsrlq, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
+OPCODE(vpsllq_b_256, vpsllq, vpsllq, 0, REGARG(YMM0), IMMARG(OPSZ_1), REGARG(YMM1))
 
 OPCODE(vpmaskmovd_ld_256, vpmaskmovd, vpmaskmovd, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))

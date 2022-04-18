@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,23 +41,25 @@ static bool verbose = false;
 
 #ifdef WINDOWS
 static bool found_ordinal_import = false;
-# define LIB_TO_LOOK_FOR "COMDLG32.dll"
+#    define LIB_TO_LOOK_FOR "COMDLG32.dll"
 #else
-# define LIB_TO_LOOK_FOR "libclient.modules.appdll.so"
+#    define LIB_TO_LOOK_FOR "libclient.modules.appdll.so"
 #endif
 
-#define INFO(msg, ...) do { \
-    if (verbose) { \
-        dr_fprintf(STDERR, msg, ##__VA_ARGS__); \
-    } \
-} while (0)
+#define INFO(msg, ...)                              \
+    do {                                            \
+        if (verbose) {                              \
+            dr_fprintf(STDERR, msg, ##__VA_ARGS__); \
+        }                                           \
+    } while (0)
 
 /* Only compare the start of the string to avoid caring about LoadLibraryA vs
  * LoadLibraryW on Windows.
  */
 static const char load_library_symbol[] = IF_WINDOWS_ELSE("LoadLibrary", "dlopen");
 
-bool string_match(const char *str1, const char *str2)
+bool
+string_match(const char *str1, const char *str2)
 {
     if (str1 == NULL || str2 == NULL)
         return false;
@@ -72,8 +74,8 @@ bool string_match(const char *str1, const char *str2)
     return false;
 }
 
-static
-void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
+static void
+module_load_event(void *dcontext, const module_data_t *data, bool loaded)
 {
     /* It's easier to simply print all module loads and unloads, but
      * it appears that loading a module like advapi32.dll causes
@@ -101,6 +103,25 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
     if (string_match(data->names.module_name, LIB_TO_LOOK_FOR))
         dr_fprintf(STDERR, "LOADED MODULE: %s\n", data->names.module_name);
 
+#ifdef UNIX
+    /* Sanity checks on the preferred_base field. */
+    if (data->preferred_base != 0) {
+        module_data_t *main_mod = dr_get_main_module();
+        if (main_mod->start != data->start &&
+            /* DR and the client have non-0 preferred bases. */
+            strstr(dr_module_preferred_name(data), "dynamorio") == NULL &&
+            dr_get_client_base(0) != data->start) {
+            dr_fprintf(STDERR, "ERROR: expected 0 preferred base for regular .so\n");
+        }
+        dr_free_module_data(main_mod);
+    }
+#else
+    if (data->preferred_base == 0) {
+        dr_fprintf(STDERR, "ERROR: expected non-zero preferred_base for %s\n",
+                   dr_module_preferred_name(data));
+    }
+#endif
+
 #ifdef WINDOWS
     /* Test iterating symbols imported from a specific module.  The typical use
      * case is probably going to be looking for a specific module, like ntdll,
@@ -111,14 +132,12 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
         INFO("iterating imports for module %s\n", data->full_path);
         mod_iter = dr_module_import_iterator_start(data->handle);
         while (dr_module_import_iterator_hasnext(mod_iter)) {
-            dr_module_import_t *mod_import =
-                dr_module_import_iterator_next(mod_iter);
+            dr_module_import_t *mod_import = dr_module_import_iterator_next(mod_iter);
             INFO("import module: %s\n", mod_import->modname);
-            sym_iter = dr_symbol_import_iterator_start
-                (data->handle, mod_import->module_import_desc);
+            sym_iter = dr_symbol_import_iterator_start(data->handle,
+                                                       mod_import->module_import_desc);
             while (dr_symbol_import_iterator_hasnext(sym_iter)) {
-                dr_symbol_import_t *sym_import =
-                    dr_symbol_import_iterator_next(sym_iter);
+                dr_symbol_import_t *sym_import = dr_symbol_import_iterator_next(sym_iter);
                 if (strcmp(mod_import->modname, sym_import->modname) != 0) {
                     dr_fprintf(STDERR, "ERROR: modname mismatch: %s vs %s\n",
                                mod_import->modname, sym_import->name);
@@ -136,13 +155,12 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
         }
         dr_module_import_iterator_stop(mod_iter);
     }
-#else /* UNIX */
+#else  /* UNIX */
     /* Linux has no module import iterator, just symbols. */
     sym_iter = dr_symbol_import_iterator_start(data->handle, NULL);
     while (dr_symbol_import_iterator_hasnext(sym_iter)) {
         dr_symbol_import_t *sym_import = dr_symbol_import_iterator_next(sym_iter);
-        INFO("%s imports %s\n", dr_module_preferred_name(data),
-             sym_import->name);
+        INFO("%s imports %s\n", dr_module_preferred_name(data), sym_import->name);
     }
     dr_symbol_import_iterator_stop(sym_iter);
 #endif /* WINDOWS */
@@ -150,21 +168,20 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
     exp_iter = dr_symbol_export_iterator_start(data->handle);
     while (dr_symbol_export_iterator_hasnext(exp_iter)) {
         dr_symbol_export_t *sym = dr_symbol_export_iterator_next(exp_iter);
-        INFO("%s exports %s @"PFX" forward=%s ordinal=%d indirect=%d code=%d\n",
+        INFO("%s exports %s @" PFX " forward=%s ordinal=%d indirect=%d code=%d\n",
              dr_module_preferred_name(data), sym->name, sym->addr,
-             sym->forward == NULL ? "\"\"" : sym->forward,
-             sym->ordinal, sym->is_indirect_code, sym->is_code);
+             sym->forward == NULL ? "\"\"" : sym->forward, sym->ordinal,
+             sym->is_indirect_code, sym->is_code);
         if (strcmp(sym->name, "decode_next_pc") == 0)
             found_sym = true;
     }
     dr_symbol_export_iterator_stop(exp_iter);
-    if (strstr(dr_module_preferred_name(data), "dynamorio") != NULL &&
-        !found_sym)
+    if (strstr(dr_module_preferred_name(data), "dynamorio") != NULL && !found_sym)
         dr_fprintf(STDERR, "failed to find a DR export\n");
 }
 
-static
-void module_unload_event(void *dcontext, const module_data_t *data)
+static void
+module_unload_event(void *dcontext, const module_data_t *data)
 {
     if (string_match(data->names.module_name, LIB_TO_LOOK_FOR))
         dr_fprintf(STDERR, "UNLOADED MODULE: %s\n", data->names.module_name);
@@ -173,24 +190,24 @@ void module_unload_event(void *dcontext, const module_data_t *data)
 static void
 test_aux_lib(client_id_t id)
 {
-    const char *auxname = IF_WINDOWS_ELSE("client.modules.appdll.dll",
-                                          "libclient.modules.appdll.so");
+    const char *auxname =
+        IF_WINDOWS_ELSE("client.modules.appdll.dll", "libclient.modules.appdll.so");
     char buf[MAXIMUM_PATH];
     char path[MAXIMUM_PATH];
     dr_auxlib_handle_t lib;
     char *sep;
-    if (dr_snprintf(path, sizeof(path)/sizeof(path[0]), "%s",
-                    dr_get_client_path(id)) < 0) {
+    if (dr_snprintf(path, sizeof(path) / sizeof(path[0]), "%s", dr_get_client_path(id)) <
+        0) {
         dr_fprintf(STDERR, "ERROR printing to buffer\n");
         return;
     }
     sep = path;
     while (*sep != '\0')
         sep++;
-    while (sep > path && *sep != '/' IF_WINDOWS(&& *sep != '\\'))
+    while (sep > path && *sep != '/' IF_WINDOWS(&&*sep != '\\'))
         sep--;
     *sep = '\0';
-    if (dr_snprintf(buf, sizeof(buf)/sizeof(buf[0]), "%s/%s", path, auxname) < 0) {
+    if (dr_snprintf(buf, sizeof(buf) / sizeof(buf[0]), "%s/%s", path, auxname) < 0) {
         dr_fprintf(STDERR, "ERROR printing to buffer\n");
         return;
     }
@@ -200,7 +217,7 @@ test_aux_lib(client_id_t id)
         dr_auxlib_routine_ptr_t func = dr_lookup_aux_library_routine(lib, "foo_export");
         if (func != NULL) {
             if (!dr_memory_is_in_client((byte *)func)) {
-                dr_fprintf(STDERR, "ERROR: aux lib "PFX" not considered client\n",
+                dr_fprintf(STDERR, "ERROR: aux lib " PFX " not considered client\n",
                            func);
             }
         } else
@@ -217,12 +234,10 @@ static bool
 module_imports_from_kernel_star(module_handle_t mod)
 {
     bool found_module = false;
-    dr_module_import_iterator_t *mod_iter =
-        dr_module_import_iterator_start(mod);
+    dr_module_import_iterator_t *mod_iter = dr_module_import_iterator_start(mod);
     while (dr_module_import_iterator_hasnext(mod_iter)) {
         /* The exe probably imports from kernel32. */
-        dr_module_import_t *mod_import =
-            dr_module_import_iterator_next(mod_iter);
+        dr_module_import_t *mod_import = dr_module_import_iterator_next(mod_iter);
         if (_strnicmp(mod_import->modname, "KERNEL", 6) == 0) {
             found_module = true;
         }
@@ -246,8 +261,11 @@ exit_event(void)
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
+    if (id != 0)
+        dr_fprintf(STDERR, "ERROR: We assume the id is 0.\n");
     dr_symbol_import_iterator_t *sym_iter;
     bool found_symbol = false;
     module_data_t *main_mod = dr_get_main_module();
@@ -269,8 +287,8 @@ void dr_init(client_id_t id)
     sym_iter = dr_symbol_import_iterator_start(mod_handle, NULL);
     while (dr_symbol_import_iterator_hasnext(sym_iter)) {
         dr_symbol_import_t *sym_import = dr_symbol_import_iterator_next(sym_iter);
-        if (strncmp(sym_import->name, load_library_symbol,
-                    strlen(load_library_symbol)) == 0) {
+        if (strncmp(sym_import->name, load_library_symbol, strlen(load_library_symbol)) ==
+            0) {
             found_symbol = true;
         }
     }

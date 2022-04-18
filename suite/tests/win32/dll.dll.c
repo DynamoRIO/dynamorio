@@ -32,23 +32,18 @@
 
 #include "tools.h"
 
-int  __declspec(dllexport)
-import_me(int x)
+int __declspec(dllexport) import_me(int x)
 {
     print("in import\n");
-    return 2*x;
+    return 2 * x;
 }
 
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        print("win32.dll.dll.dll process attach\n");
-        break;
-    case DLL_PROCESS_DETACH:
-        print("win32.dll.dll.dll process detach\n");
-        break;
+    case DLL_PROCESS_ATTACH: print("win32.dll.dll.dll process attach\n"); break;
+    case DLL_PROCESS_DETACH: print("win32.dll.dll.dll process detach\n"); break;
     }
     return TRUE;
 }

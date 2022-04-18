@@ -39,11 +39,11 @@
 #include "../ext_utils.h"
 
 #ifdef DEBUG
-# define IF_DEBUG(x) x
+#    define IF_DEBUG(x) x
 #else
-# define IF_DEBUG(x) /* nothing */
+#    define IF_DEBUG(x) /* nothing */
 #endif
 
-#define MAX(x,y) ((x) >= (y) ? (x) : (y))
+#define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
 #endif /* _CONTAINERS_PRIVATE_H_ */

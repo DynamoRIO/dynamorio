@@ -44,23 +44,23 @@
 #define _STDAFX_H_
 
 #define _WIN32_WINNT 0x0400
-#define _WIN32_IE    0x0400 /* _WIN32_IE_IE40: MFC requires at least this */
+#define _WIN32_IE 0x0400 /* _WIN32_IE_IE40: MFC requires at least this */
 
 #if _MSC_VER > 1000
-#pragma once
+#    pragma once
 #endif // _MSC_VER > 1000
 
-#define VC_EXTRALEAN        // Exclude rarely-used stuff from Windows headers
+#define VC_EXTRALEAN // Exclude rarely-used stuff from Windows headers
 
-#include <afxwin.h>         // MFC core and standard components
-#include <afxext.h>         // MFC extensions
-#include <afxdtctl.h>       // MFC support for Internet Explorer 4 Comon Controls
+#include <afxwin.h>   // MFC core and standard components
+#include <afxext.h>   // MFC extensions
+#include <afxdtctl.h> // MFC support for Internet Explorer 4 Comon Controls
 #ifndef _AFX_NO_AFXCMN_SUPPORT
-#include <afxcmn.h>         // MFC support for Windows Common Controls
-#endif // _AFX_NO_AFXCMN_SUPPORT
-
+#    include <afxcmn.h> // MFC support for Windows Common Controls
+#endif                  // _AFX_NO_AFXCMN_SUPPORT
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // _STDAFX_H_

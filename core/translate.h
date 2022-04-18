@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,9 +51,9 @@ enum {
      * though currently the table creation scheme doesn't follow that
      * on all contig-identical borders.
      */
-    TRANSLATE_IDENTICAL      = 0x0001, /* otherwise contiguous */
-    TRANSLATE_OUR_MANGLING   = 0x0002, /* added by our own mangling (PR 267260) */
-}; /* no typedef b/c we need ushort not int */
+    TRANSLATE_IDENTICAL = 0x0001,    /* otherwise contiguous */
+    TRANSLATE_OUR_MANGLING = 0x0002, /* added by our own mangling (PR 267260) */
+};                                   /* no typedef b/c we need ushort not int */
 
 /* Translation table entry (case 3559).
  * PR 299783: for now we only support pc translation, not full arbitrary reg
@@ -85,7 +85,8 @@ typedef struct _translation_info_t {
 #define IS_SHARED_SYSCALL_THREAD_SHARED IF_X64_ELSE(true, false)
 
 /* state translation for faults and thread relocation */
-app_pc recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f);
+app_pc
+recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f);
 
 typedef enum {
     RECREATE_FAILURE,
@@ -97,14 +98,24 @@ recreate_success_t
 recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restore_memory,
                    fragment_t *f);
 
-void translation_info_free(dcontext_t *tdcontext, translation_info_t *info);
-translation_info_t *record_translation_info(dcontext_t *dcontext, fragment_t *f,
-                                            instrlist_t *ilist);
-void translation_info_print(const translation_info_t *info, cache_pc start, file_t file);
+void
+translation_info_free(dcontext_t *tdcontext, translation_info_t *info);
+translation_info_t *
+record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist);
+void
+translation_info_print(const translation_info_t *info, cache_pc start, file_t file);
 #ifdef INTERNAL
-void stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist);
+void
+stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist);
 #endif
 
-bool at_syscall_translation(dcontext_t *dcontext, app_pc pc);
+bool
+at_syscall_translation(dcontext_t *dcontext, app_pc pc);
+
+/* Returns the direct translation when given the "official" translation.
+ * Some special cases like rseq sequences obfuscate the interrupted PC: i#4041.
+ */
+app_pc
+translate_last_direct_translation(dcontext_t *dcontext, app_pc pc);
 
 #endif /* _TRANSLATE_H_ */

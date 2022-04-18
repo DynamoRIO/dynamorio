@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -36,6 +37,7 @@
 #include "dr_api.h"
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 /* An arbitrary PC for more readable disassembly of PC-relative operands. */
 #define ORIG_PC ((byte *)0x10000000)
@@ -63,7 +65,8 @@ map_file(const char *file_name, byte **map_base, size_t *map_size)
 }
 
 void
-check_inst(void *dc, uint enc, const char *dis, size_t len, bool verbose, bool *failed)
+check_inst(void *dc, uint enc, uint expected_enc, const char *dis, size_t len,
+           bool verbose, bool *failed)
 {
     size_t buflen = (len < 100 ? 100 : len) + 2;
     char *buf = malloc(buflen);
@@ -79,8 +82,7 @@ check_inst(void *dc, uint enc, const char *dis, size_t len, bool verbose, bool *
     }
 
     /* Test disassembler. */
-    disassemble_to_buffer(dc, (byte *)&enc, ORIG_PC, false, false,
-                          buf, buflen, NULL);
+    disassemble_to_buffer(dc, (byte *)&enc, ORIG_PC, false, false, buf, buflen, NULL);
     end = buf + strlen(buf);
     if (end > buf && *(end - 1) == '\n')
         --end;
@@ -99,7 +101,7 @@ check_inst(void *dc, uint enc, const char *dis, size_t len, bool verbose, bool *
     instr_init(dc, &instr);
     decode_from_copy(dc, (byte *)&enc, ORIG_PC, &instr);
     pc2 = instr_encode_to_copy(dc, &instr, (byte *)&enc2, ORIG_PC);
-    if (pc2 != (byte *)&enc2 + 4 || enc2 != enc) {
+    if (pc2 != (byte *)&enc2 + 4 || (enc2 != enc && enc2 != expected_enc)) {
         if (verbose)
             dr_printf("\n");
         dr_printf("Error: Reencoding differs:\n%08x  ", enc);
@@ -109,6 +111,7 @@ check_inst(void *dc, uint enc, const char *dis, size_t len, bool verbose, bool *
         dr_printf("\n");
         *failed = true;
     }
+    instr_free(dc, &instr);
 }
 
 void
@@ -120,47 +123,82 @@ error(const char *line, size_t len, const char *s)
     exit(1);
 }
 
+const char *
+skip_whitespace(const char *end, const char *s)
+{
+    while (s < end && isspace(*s))
+        ++s;
+
+    return s;
+}
+
 void
 do_line(void *dc, const char *line, size_t len, bool verbose, bool *failed)
 {
+    // the line is colon delimited
     const char *end = line + len;
-    const char *s = line;
-    uint enc = 0;
-    const char *t1, *t2;
+    const char *cursor = line;
 
-    while (s < end && strchr(" \t", *s) != NULL)
-        ++s;
-    if (s >= end || *s == '#')
+    const char *field_start[4];
+    const char *field_end[4];
+    int fields;
+
+    cursor = skip_whitespace(end, cursor);
+    if (cursor >= end || *cursor == '#')
         return; /* blank line or comment */
-    t1 = s;
-    while (s < end) {
-        const char *hex = "0123456789abcdef";
-        char *t = strchr(hex, *s);
-        if (t == NULL)
-            break;
-        enc = enc << 4 | (t - hex);
-        ++s;
+
+    int field = 0;
+    while (cursor < end && field < 4) {
+        field_start[field] = cursor;
+        while (*cursor != ':' && cursor < end)
+            cursor++;
+        field_end[field] = cursor;
+        field++;
+        cursor++; // skip the :
+        cursor = skip_whitespace(end, cursor);
     }
-    t2 = s;
-    while (s < end && strchr(" \t", *s) != NULL)
-        ++s;
-    if (t1 == t2 || s >= end || *s != ':')
-        error(line, len, "First colon-separated field should contain lower-case hex.");
-    ++s;
-    while (s < end && *s != ':')
-        ++s;
-    if (s >= end)
-        error(line, len, "Third colons-separated field is missing.");
-    ++s;
-    while (s < end && strchr(" \t", *s) != NULL)
-        ++s;
-    check_inst(dc, enc, s, end - s, verbose, failed);
+    fields = field;
+    if (fields < 3)
+        error(line, len, "line does not have enough fields");
+    char *ptr;
+    uint enc = strtoul(field_start[0], &ptr, 16);
+
+    if (ptr < field_start[0] + 8)
+        error(line, len, "First field is not a valid hex encoding");
+
+    // field 2 contains the assembly for reference and is skipped
+
+    const char *decode_start;
+    uint decode_length;
+    uint expected_enc = 0;
+    if (fields == 3) {
+        decode_start = field_start[2];
+        decode_length = field_end[2] - field_start[2];
+    } else {
+        // Sometimes we don't expect the encoded value to match the initial value,
+        // such as when there are bits that are allowed to vary in the spec (soft bits).
+        // In these cases there will be an additional field at position 3 with an
+        // encoding. Wind forward looking for a :, making sure we note the current
+        // position in case we don't find one.
+        decode_start = field_start[3];
+        decode_length = field_end[3] - field_start[3];
+
+        expected_enc = strtoul(field_start[2], &ptr, 16);
+
+        if (ptr < field_start[2] + 8)
+            error(line, len, "expected encoding field is not a valid hex encoding");
+    }
+
+    check_inst(dc, enc, expected_enc, decode_start, decode_length, verbose, failed);
 }
 
 int
 run_test(void *dc, const char *file, bool verbose)
 {
+    bool test_failed = false;
     bool failed = false;
+    int failures = 0;
+    int lines = 0;
     byte *map_base;
     size_t map_size;
     byte *s, *end;
@@ -173,10 +211,19 @@ run_test(void *dc, const char *file, bool verbose)
     s = map_base;
     end = map_base + map_size;
     while (s < end) {
+        lines++;
+        test_failed = false;
         byte *t = memchr(s, '\n', end - s);
-        do_line(dc, s, (t == NULL ? end : t) - s, verbose, &failed);
+        do_line(dc, (const char *)s, (t == NULL ? end : t) - s, verbose, &test_failed);
         s = (t == NULL ? end : t + 1);
+        if (test_failed) {
+            failures++;
+            failed = true;
+        }
     }
+
+    if (failures > 0)
+        dr_printf("%i out of %i tests failed\n", failures, lines);
 
     if (failed) {
         dr_printf("FAIL\n");
@@ -199,9 +246,9 @@ main(int argc, char *argv[])
 {
     void *dc = dr_standalone_init();
 
-    if (argc != 3 || (strcmp(argv[1], "-q") != 0 &&
-                      strcmp(argv[1], "-v") != 0 &&
-                      strcmp(argv[1], "-d") != 0)) {
+    if (argc != 3 ||
+        (strcmp(argv[1], "-q") != 0 && strcmp(argv[1], "-v") != 0 &&
+         strcmp(argv[1], "-d") != 0)) {
         dr_printf("Usage: %s [-q |- v] FILE\n", argv[0]);
         dr_printf("   Or: %s -d NUMBER\n", argv[0]);
         dr_printf("Test the disassembler, decoder and encoder on a set of test cases.\n"
@@ -209,13 +256,17 @@ main(int argc, char *argv[])
                   "  -q FILE    Run test quietly.\n"
                   "  -v FILE    Run test verbosely.\n"
                   "  -d NUMBER  Disassemble a single instruction.\n");
+        dr_standalone_exit();
         return 0;
     }
 
     if (strcmp(argv[1], "-d") == 0) {
         run_decode(dc, argv[2]);
+        dr_standalone_exit();
         return 0;
     }
 
-    return run_test(dc, argv[2], (strcmp(argv[1], "-v") == 0));
+    int res = run_test(dc, argv[2], (strcmp(argv[1], "-v") == 0));
+    dr_standalone_exit();
+    return res;
 }

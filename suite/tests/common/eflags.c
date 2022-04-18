@@ -35,35 +35,31 @@
 /* Tests preservation of eflags across indirect branches
  */
 
-#include "tools.h"
+#    include "tools.h"
 
-#define VERBOSE 0
+#    define VERBOSE 0
 
 /* asm routine */
-void test_eflags_pos(uint pos);
+void
+test_eflags_pos(uint pos);
 
 /*
  * eflags we care about:
  *  11 10  9  8  7  6  5  4  3  2  1  0
  *  OF DF       SF ZF    AF    PF    CF
  */
-const char *flags[] = {
-    "CF", "", "PF", "", "AF", "", "ZF", "SF", "",  "", "DF", "OF"
-};
+const char *flags[] = { "CF", "", "PF", "", "AF", "", "ZF", "SF", "", "", "DF", "OF" };
 
-const uint eflag_pos[] = {
-    0, 2, 4, 6, 7, 10, 11
-};
-#define NUM_FLAGS (sizeof(eflag_pos)/sizeof(eflag_pos[0]))
+const uint eflag_pos[] = { 0, 2, 4, 6, 7, 10, 11 };
+#    define NUM_FLAGS (sizeof(eflag_pos) / sizeof(eflag_pos[0]))
 
 void
 test_flag(uint eflags, uint pos, bool set)
 {
-#if VERBOSE
-    print("eflags where %d should be %d: "PFX"\n", pos, set, eflags);
-#endif
-    if ((set && ((eflags & (1 << pos)) == 0)) ||
-        (!set && ((eflags & (1 << pos)) != 0)))
+#    if VERBOSE
+    print("eflags where %d should be %d: " PFX "\n", pos, set, eflags);
+#    endif
+    if ((set && ((eflags & (1 << pos)) == 0)) || (!set && ((eflags & (1 << pos)) != 0)))
         print("ERROR %d %s\n", set, flags[pos]);
     else
         print("OK %d %s\n", set, flags[pos]);
@@ -75,14 +71,14 @@ main()
     uint i;
     INIT();
 
-    for (i=0; i<NUM_FLAGS; i++) {
+    for (i = 0; i < NUM_FLAGS; i++) {
         test_eflags_pos(eflag_pos[i]);
     }
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 DECL_EXTERN(test_flag)
@@ -152,4 +148,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

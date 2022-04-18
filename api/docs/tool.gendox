@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,9 +33,9 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_tool DynamoRIO-Based Tools
+\page page_tool Available Tools
 
-DynamoRIO-based tools are provided for direct use.
+A collection of powerful DynamoRIO-based tools are provided for direct use.
 A tool can be invoked using the option \p -t with the tool name.
 For example:
 \code
@@ -48,7 +48,19 @@ the section \ref tool_frontend.
 REPLACE_WITH_GENDOX_SUBPAGES
 - \subpage page_drmemory
 - \subpage page_drstrace
+- \subpage page_drltrace
 - \subpage page_symquery
+- \subpage page_additional_tools
+
+
+\page page_additional_tools Additional Sample Tools
+
+DynamoRIO provides a number of additional tools that do not each contain a
+separate front-end or extensive documentation.  These samples are meant as
+starting points for building customized tools, but can also be used
+directly with the \p -c option to \p drrun.  They are listed and described
+at \ref API_samples.
+
 */
 
 /**
@@ -76,6 +88,17 @@ should point at the local documentation provided with the release package.
 included with DynamoRIO versions 5.0.0 and higher.  If this documentation
 is part of a DynamoRIO public release, <a
 href="../../drmemory/drmemory/docs/html/page_drstrace.html">this link</a> should
+point at the local documentation provided with the release package.
+*/
+
+/**
+\page page_drltrace Library Call Tracer
+
+\p drltrace is a library call tracing tool for all platforms.  It is part of the
+<a href="http://drmemory.org">Dr. Memory tool suite</a>.  It is also
+included with DynamoRIO versions 5.0.0 and higher.  If this documentation
+is part of a DynamoRIO public release, <a
+href="../../drmemory/drmemory/docs/html/page_drltrace.html">this link</a> should
 point at the local documentation provided with the release package.
 */
 

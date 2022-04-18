@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,20 +44,20 @@
 /* case 9750: use these constants to specify empty and all-encompassing address
  * space regions for flushing, etc.
  */
-#define EMPTY_REGION_BASE  ((app_pc)PTR_UINT_1) /* avoid [0,0) == wrapped universal */
-#define EMPTY_REGION_SIZE  ((size_t)0U)
-#define UNIVERSAL_REGION_BASE  ((app_pc)NULL)
+#define EMPTY_REGION_BASE ((app_pc)PTR_UINT_1) /* avoid [0,0) == wrapped universal */
+#define EMPTY_REGION_SIZE ((size_t)0U)
+#define UNIVERSAL_REGION_BASE ((app_pc)NULL)
 /* really open-ended should have this 1 larger */
-#define UNIVERSAL_REGION_SIZE  POINTER_MAX
+#define UNIVERSAL_REGION_SIZE POINTER_MAX
 /* really open-ended would make this wrap around to 0 */
-#define UNIVERSAL_REGION_END   ((app_pc)POINTER_MAX)
+#define UNIVERSAL_REGION_END ((app_pc)POINTER_MAX)
 
 /* opaque struct */
 struct vm_area_t;
 
 enum {
     /* these are bitmask flags */
-    VECTOR_SHARED        = 0x0001,
+    VECTOR_SHARED = 0x0001,
     VECTOR_FRAGMENT_LIST = 0x0002, /* for vmareas.c-only use */
     /* never merge adjacent regions */
     VECTOR_NEVER_MERGE_ADJACENT = 0x0004,
@@ -66,7 +66,7 @@ enum {
     /* case 10335: if a higher-level lock is being used, set this
      * flag to avoid the redundant vector-level lock
      */
-    VECTOR_NO_LOCK       = 0x0010,
+    VECTOR_NO_LOCK = 0x0010,
 };
 
 #define VECTOR_NEVER_MERGE (VECTOR_NEVER_MERGE_ADJACENT | VECTOR_NEVER_OVERLAP)
@@ -92,11 +92,11 @@ struct vm_area_vector_t {
 
     /* Callbacks to support payloads */
     /* Frees a payload */
-    void (*free_payload_func)(void*);
+    void (*free_payload_func)(void *);
     /* Returns the payload to use for a new region split from the given data's
      * region.
      */
-    void *(*split_payload_func)(void*);
+    void *(*split_payload_func)(void *);
     /* Should adjacent/overlapping regions w/ given payloads be merged?
      * If it returns false, adjacent regions are not merged, and
      * a new overlapping region is split (the split_payload_func is
@@ -105,7 +105,7 @@ struct vm_area_vector_t {
      * for overlapping.
      * The VECTOR_NEVER_MERGE_ADJACENT flag takes precedence over this function.
      */
-    bool (*should_merge_func)(bool adjacent, void*, void*);
+    bool (*should_merge_func)(bool adjacent, void *, void *);
     /* Merge adjacent or overlapping regions: dst is first arg.
      * If NULL, the free_payload_func will be called for src.
      * If non-NULL, the free_payload_func will NOT be called.
@@ -116,9 +116,11 @@ struct vm_area_vector_t {
 /* vm_area_vectors should NOT be declared statically if their locks need to be
  * accessed on a regular basis.  Instead, allocate them on the heap with this macro:
  */
-#define VMVECTOR_ALLOC_VECTOR(v, dc, flags, lockname) do {    \
-        v = vmvector_create_vector((dc), (flags));            \
-        ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
+#define VMVECTOR_ALLOC_VECTOR(v, dc, flags, lockname)             \
+    do {                                                          \
+        v = vmvector_create_vector((dc), (flags));                \
+        if (!TEST(VECTOR_NO_LOCK, (flags)))                       \
+            ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
     } while (0);
 
 /* iterator over a vm_area_vector_t */
@@ -142,11 +144,10 @@ extern mutex_t shared_delete_lock;
 
 /* operations on the opaque vector struct */
 void
-vmvector_set_callbacks(vm_area_vector_t *v,
-                       void (*free_func)(void*),
-                       void *(*split_func)(void*),
-                       bool (*should_merge_func)(bool, void*, void*),
-                       void *(*merge_func)(void*, void*));
+vmvector_set_callbacks(vm_area_vector_t *v, void (*free_func)(void *),
+                       void *(*split_func)(void *),
+                       bool (*should_merge_func)(bool, void *, void *),
+                       void *(*merge_func)(void *, void *));
 
 void
 vmvector_print(vm_area_vector_t *v, file_t outf);
@@ -194,14 +195,14 @@ bool
 vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start, app_pc *end,
                      void **data);
 
-/* Returns false if pc is in a vmarea in v.
- * Otherwise, returns the start pc of the vmarea prior to pc in prev (NULL
- * if none) and the start pc of the vmarea after pc in next (POINTER_MAX
- * if none).
+/* Returns false if pc is in a vmarea in v.  Otherwise, returns the bounds of the
+ * vmarea prior to pc in [prev_start,prev_end) (both NULL if none) and the bounds of
+ * the vmarea after pc in [next_start,next_end) (both POINTER_MAX if none).
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc,
-                          OUT app_pc *prev, OUT app_pc *next);
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
+                          OUT app_pc *prev_end, OUT app_pc *next_start,
+                          OUT app_pc *next_end);
 
 bool
 vmvector_modify_data(vm_area_vector_t *v, app_pc start, app_pc end, void *data);
@@ -226,10 +227,10 @@ vmvector_iterator_startover(vmvector_iterator_t *vmvi);
 bool
 vmvector_iterator_hasnext(vmvector_iterator_t *vmvi);
 /* does not increment the iterator */
-void*
+void *
 vmvector_iterator_peek(vmvector_iterator_t *vmvi, /* IN/OUT */
                        app_pc *area_start /* OUT */, app_pc *area_end /* OUT */);
-void*
+void *
 vmvector_iterator_next(vmvector_iterator_t *vmvi, /* IN/OUT */
                        app_pc *area_start /* OUT */, app_pc *area_end /* OUT */);
 void
@@ -238,6 +239,9 @@ vmvector_iterator_stop(vmvector_iterator_t *vmvi);
 /* called earlier than vm_areas_init() to allow add_dynamo_vm_area to be called */
 void
 dynamo_vm_areas_init(void);
+
+void
+dynamo_vm_areas_exit(void);
 
 /* initialize per process */
 int
@@ -310,7 +314,7 @@ get_executable_area_flags(app_pc addr, uint *frag_flags);
 
 /* returns any VM_ flags associated with addr's vm area
  * returns 0 if no area is found
-*/
+ */
 bool
 get_executable_area_vm_flags(app_pc addr, uint *vm_flags);
 
@@ -330,6 +334,9 @@ mark_executable_area_coarse_frozen(coarse_info_t *info);
  */
 bool
 is_executable_area_writable(app_pc addr);
+
+app_pc
+is_executable_area_writable_overlap(app_pc start, app_pc end);
 
 /* combines is_executable_area_writable and is_pretend_writable_address */
 bool
@@ -396,8 +403,8 @@ self_owns_dynamo_vm_area_lock(void);
  * update heap areas!
  */
 bool
-add_dynamo_heap_vm_area(app_pc start, app_pc end, bool writable, bool from_unmod_image
-                        _IF_DEBUG(const char *comment));
+add_dynamo_heap_vm_area(app_pc start, app_pc end, bool writable,
+                        bool from_unmod_image _IF_DEBUG(const char *comment));
 
 /* assumes caller holds a private vmareas lock --
  * only for use by heap_vmareas_synch_units()
@@ -420,11 +427,11 @@ is_dynamo_address(app_pc addr);
 /* check if any features that need pretend writable areas are enabled,
  * in default product configuration should always be true
  */
-#define USING_PRETEND_WRITABLE()                                \
-        (DYNAMO_OPTION(handle_DR_modify) == DR_MODIFY_NOP ||    \
-         DYNAMO_OPTION(handle_ntdll_modify) == DR_MODIFY_NOP || \
-         !IS_STRING_OPTION_EMPTY(patch_proof_list) ||           \
-         !IS_STRING_OPTION_EMPTY(patch_proof_default_list))
+#define USING_PRETEND_WRITABLE()                            \
+    (DYNAMO_OPTION(handle_DR_modify) == DR_MODIFY_NOP ||    \
+     DYNAMO_OPTION(handle_ntdll_modify) == DR_MODIFY_NOP || \
+     !IS_STRING_OPTION_EMPTY(patch_proof_list) ||           \
+     !IS_STRING_OPTION_EMPTY(patch_proof_default_list))
 
 /* returns true iff address is an address that the app thinks is writable
  * but really is not, as it overlaps DR memory
@@ -474,9 +481,8 @@ executable_vm_area_executed_from(app_pc start, app_pc end);
  * non-contiguous regions if !contig.
  */
 bool
-executable_area_overlap_bounds(app_pc start, app_pc end,
-                               app_pc *overlap_start/*OUT*/, app_pc *overlap_end/*OUT*/,
-                               uint frag_flags, bool contig);
+executable_area_overlap_bounds(app_pc start, app_pc end, app_pc *overlap_start /*OUT*/,
+                               app_pc *overlap_end /*OUT*/, uint frag_flags, bool contig);
 
 /* Coarse unit iterator with support for vm area start and end bounds */
 void
@@ -493,13 +499,11 @@ vm_area_coarse_iter_next(vmvector_iterator_t *vmvi, app_pc end);
 void
 vm_area_coarse_iter_stop(vmvector_iterator_t *vmvi);
 
-#ifdef CLIENT_INTERFACE
 /* To give clients a chance to process pcaches as we load them, we
  * delay the loading until we've initialized the clients.
  */
 void
 vm_area_delay_load_coarse_units(void);
-#endif
 
 void
 executable_areas_lock(void);
@@ -530,8 +534,8 @@ free_nonexec_coarse_and_unlock(void);
 
 /* add dynamo-internal area to the dynamo-internal area list */
 bool
-add_dynamo_vm_area(app_pc start, app_pc end, uint prot, bool from_unmod_image
-                   _IF_DEBUG(const char *comment));
+add_dynamo_vm_area(app_pc start, app_pc end, uint prot,
+                   bool from_unmod_image _IF_DEBUG(const char *comment));
 bool
 is_dynamo_area_buffer(byte *heap_pc);
 
@@ -539,23 +543,22 @@ is_dynamo_area_buffer(byte *heap_pc);
 bool
 remove_dynamo_vm_area(app_pc start, app_pc end);
 
-#ifdef PROGRAM_SHEPHERDING  /* Fix for case 5061.  See case 5075. */
-extern const char * const action_message[];
+#ifdef PROGRAM_SHEPHERDING /* Fix for case 5061.  See case 5075. */
+extern const char *const action_message[];
 
 /* be sure to keep this enum and the two arrays, action_message[] &
  * action_event_id[] located in vmareas.c, in synch
  */
 typedef enum {
     ACTION_TERMINATE_PROCESS,
-    ACTION_CONTINUE,            /* detect mode */
+    ACTION_CONTINUE, /* detect mode */
     ACTION_TERMINATE_THREAD,
     ACTION_THROW_EXCEPTION,
 } action_type_t;
 
 /* Wrapper for security_violation_internal. */
 security_violation_t
-security_violation(dcontext_t *dcontext, app_pc addr,
-                   security_violation_t violation_type,
+security_violation(dcontext_t *dcontext, app_pc addr, security_violation_t violation_type,
                    security_option_t type_handling);
 
 /* attack handling - reports violation and possibly terminates the process */
@@ -563,8 +566,7 @@ security_violation_t
 security_violation_internal(dcontext_t *dcontext, app_pc addr,
                             security_violation_t violation_type,
                             security_option_t type_handling, const char *threat_id,
-                            const action_type_t desired_action,
-                            read_write_lock_t *lock);
+                            const action_type_t desired_action, read_write_lock_t *lock);
 
 /* returns whether it ended up deleting the self-writing fragment
  * by flushing the region
@@ -572,22 +574,21 @@ security_violation_internal(dcontext_t *dcontext, app_pc addr,
 bool
 vm_area_fragment_self_write(dcontext_t *dcontext, app_pc tag);
 
-# ifdef WINDOWS
-#  define USING_FUTURE_EXEC_LIST (dynamo_options.executable_if_alloc ||  \
-                                  dynamo_options.executable_if_x     ||  \
-                                  dynamo_options.executable_if_flush ||  \
-                                  dynamo_options.executable_if_hook)
-# else
-#  define USING_FUTURE_EXEC_LIST (dynamo_options.executable_if_alloc ||  \
-                                  dynamo_options.executable_if_x)
-# endif
+#    ifdef WINDOWS
+#        define USING_FUTURE_EXEC_LIST                                               \
+            (dynamo_options.executable_if_alloc || dynamo_options.executable_if_x || \
+             dynamo_options.executable_if_flush || dynamo_options.executable_if_hook)
+#    else
+#        define USING_FUTURE_EXEC_LIST \
+            (dynamo_options.executable_if_alloc || dynamo_options.executable_if_x)
+#    endif
 
 #endif
 
 /* newly allocated or mapped in memory region */
 bool
-app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size,
-                      uint prot, bool image _IF_DEBUG(const char *comment));
+app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
+                      bool image _IF_DEBUG(const char *comment));
 
 /* de-allocated or un-mapped memory region */
 void
@@ -598,9 +599,9 @@ app_memory_deallocation(dcontext_t *dcontext, app_pc base, size_t size,
  * returns one of the following codes
  */
 enum {
-    DO_APP_MEM_PROT_CHANGE,   /* Let the system call execute normally */
-    FAIL_APP_MEM_PROT_CHANGE, /* skip the system call and return a
-                               * failure code to the app */
+    DO_APP_MEM_PROT_CHANGE,      /* Let the system call execute normally */
+    FAIL_APP_MEM_PROT_CHANGE,    /* skip the system call and return a
+                                  * failure code to the app */
     PRETEND_APP_MEM_PROT_CHANGE, /* skip the system call but return success */
     SUBSET_APP_MEM_PROT_CHANGE,  /* make a system call with modified protection,
                                   * expect to return success,
@@ -613,30 +614,32 @@ enum {
  */
 enum {
     /* these are mutually exclusive */
-    DR_MODIFY_HALT  = 0, /* throw an internal error at the mem prot attempt */
-    DR_MODIFY_NOP   = 1, /* turn the mem prot and later write faults into nops */
-    DR_MODIFY_FAIL  = 2, /* have the mem prot fail */
+    DR_MODIFY_HALT = 0,  /* throw an internal error at the mem prot attempt */
+    DR_MODIFY_NOP = 1,   /* turn the mem prot and later write faults into nops */
+    DR_MODIFY_FAIL = 2,  /* have the mem prot fail */
     DR_MODIFY_ALLOW = 3, /* let the app muck with us -- WARNING: use at own risk */
-    DR_MODIFY_OFF   = 4, /* we don't even check for attempts; WARNING: use at own risk */
+    DR_MODIFY_OFF = 4,   /* we don't even check for attempts; WARNING: use at own risk */
 };
 
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot,
-                     bool hint);
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, bool hint,
+                     bool update_areas, bool image);
 
 uint
 app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
-                             uint prot, /* platform independent MEMPROT_ */
+                             uint prot,         /* platform independent MEMPROT_ */
                              uint *new_memprot, /* OUT */
-                             uint *old_memprot /* OPTIONAL OUT*/);
+                             uint *old_memprot /* OPTIONAL OUT*/, bool image);
 
 #ifdef WINDOWS
 /* memory region base:base+size was flushed from hardware icache by app */
-void app_memory_flush(dcontext_t *dcontext, app_pc base, size_t size, uint prot);
-# ifdef PROGRAM_SHEPHERDING
+void
+app_memory_flush(dcontext_t *dcontext, app_pc base, size_t size, uint prot);
+#    ifdef PROGRAM_SHEPHERDING
 /* was pc ever the start pc arg to a flush request? */
-bool was_address_flush_start(dcontext_t *dcontext, app_pc pc);
-# endif
+bool
+was_address_flush_start(dcontext_t *dcontext, app_pc pc);
+#    endif
 #endif
 
 /* we keep a list of vm areas per thread, to make flushing fragments
@@ -674,8 +677,8 @@ void
 release_vm_areas_lock(dcontext_t *dcontext, uint fragment_flags);
 
 bool
-vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
-                    uint list_flags, fragment_t *f, bool have_locks);
+vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist, uint list_flags,
+                    fragment_t *f, bool have_locks);
 
 void
 vm_area_destroy_list(dcontext_t *dcontext, void *vmlist);
@@ -699,8 +702,7 @@ unlink_fragments_for_deletion(dcontext_t *dcontext, fragment_t *list,
 /* returns the number of fragments unlinked */
 int
 vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
-                         int pending_delete_threads
-                         _IF_DGCDIAG(app_pc written_pc));
+                         int pending_delete_threads _IF_DGCDIAG(app_pc written_pc));
 
 /* removes incoming links for all private fragments in the dcontext
  * thread that contain 'pc'
@@ -746,12 +748,12 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end);
 
 /* Returns NULL if should re-execute the faulting write
  * Else returns the target pc for a new basic block -- caller should
- * return to dispatch rather than the code cache.
+ * return to d_r_dispatch rather than the code cache.
  * Pass in the fragment containing instr_cache_pc if known: else pass NULL.
  */
 app_pc
-handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                     app_pc instr_app_pc, app_pc target, fragment_t *f);
+handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr_app_pc,
+                     app_pc target, fragment_t *f);
 
 /* Returns the counter a selfmod fragment should execute for -sandbox2ro_threshold */
 uint *
@@ -772,19 +774,17 @@ is_address_on_stack(dcontext_t *dcontext, app_pc address);
 bool
 is_driver_address(app_pc addr);
 
-
 /* FIXME clean up: safe_apc_or_thread_target, apc_thread_policy_helper and
  * aslr_report_violation should all be ifdef WINDOWS, and may be in a
  * different file
  */
 #ifdef PROGRAM_SHEPHERDING
-#  ifdef WINDOWS
-#    define APC_API __stdcall
-#  else  /* !WINDOWS */
-#    define APC_API
-#  endif
-void
-APC_API
+#    ifdef WINDOWS
+#        define APC_API __stdcall
+#    else /* !WINDOWS */
+#        define APC_API
+#    endif
+void APC_API
 safe_apc_or_thread_target(reg_t arg);
 #endif /* PROGRAM_SHEPHERDING */
 
@@ -800,13 +800,11 @@ typedef enum {
 
 void
 apc_thread_policy_helper(app_pc *apc_target_location, /* IN/OUT */
-                         security_option_t target_policy,
-                         apc_thread_type_t target_type);
+                         security_option_t target_policy, apc_thread_type_t target_type);
 
 /* a helper procedure for reporting ASLR violations */
 void
-aslr_report_violation(app_pc execution_fault_pc,
-                      security_option_t handling_policy);
+aslr_report_violation(app_pc execution_fault_pc, security_option_t handling_policy);
 
 /* tamper resistant areas used for handle_ntdll_modify */
 void

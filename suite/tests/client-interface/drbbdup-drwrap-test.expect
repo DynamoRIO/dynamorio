@@ -1,0 +1,17 @@
+in wrap_pre
+wrapme: arg 1
+in wrap_post
+first wrapme returned 1
+in wrap_pre
+wrapme: arg 42
+switching to instrumentation mode 1
+second wrapme returned 42
+wrapme: arg 2
+switching to instrumentation mode 0
+third wrapme returned 2
+in wrap_pre
+wrapme: arg 1
+in wrap_post
+fourth wrapme returned 1
+loaded library
+thank you for testing the client interface

@@ -1,0 +1,29 @@
+pre-DR init
+Warning: duplicated function name malloc in [^W]*
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+pre-DR init
+Warning: duplicated function name malloc in [^W]*
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+pre-DR init
+Warning: duplicated function name malloc in [^W]*
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+.*
+.* 70.. function id markers.*
+.* 40.. function return address markers.*
+.* 40.. function argument markers.*
+.* 30.. function return value markers.*

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,20 +38,73 @@
 #include <string>
 #include "analysis_tool.h"
 
-// These options are currently documented in ../common/options.cpp.
+/**
+ * @file drmemtrace/cache_simulator_create.h
+ * @brief DrMemtrace cache simulator creation.
+ */
+
+/**
+ * The options for cache_simulator_create().
+ * The options are currently documented in \ref sec_drcachesim_ops.
+ */
+// The options are currently documented in ../common/options.cpp.
+struct cache_simulator_knobs_t {
+    cache_simulator_knobs_t()
+        : num_cores(4)
+        , line_size(64)
+        , L1I_size(32 * 1024U)
+        , L1D_size(32 * 1024U)
+        , L1I_assoc(8)
+        , L1D_assoc(8)
+        , LL_size(8 * 1024 * 1024)
+        , LL_assoc(16)
+        , LL_miss_file("")
+        , model_coherence(false)
+        , replace_policy("LRU")
+        , data_prefetcher("nextline")
+        , skip_refs(0)
+        , warmup_refs(0)
+        , warmup_fraction(0.0)
+        , sim_refs(1ULL << 63)
+        , cpu_scheduling(false)
+        , verbose(0)
+    {
+    }
+    unsigned int num_cores;
+    unsigned int line_size;
+    uint64_t L1I_size;
+    uint64_t L1D_size;
+    unsigned int L1I_assoc;
+    unsigned int L1D_assoc;
+    uint64_t LL_size;
+    unsigned int LL_assoc;
+    std::string LL_miss_file;
+    bool model_coherence;
+    std::string replace_policy;
+    std::string data_prefetcher;
+    uint64_t skip_refs;
+    uint64_t warmup_refs;
+    double warmup_fraction;
+    uint64_t sim_refs;
+    bool cpu_scheduling;
+    unsigned int verbose;
+};
+
+/** Creates an instance of a cache simulator with a 2-level hierarchy. */
 analysis_tool_t *
-cache_simulator_create(unsigned int num_cores = 4,
-                       unsigned int line_size = 64,
-                       uint64_t L1I_size = 32*1024U,
-                       uint64_t L1D_size = 32*1024U,
-                       unsigned int L1I_assoc = 8,
-                       unsigned int L1D_assoc = 8,
-                       uint64_t LL_size = 8*1024*1024,
-                       unsigned int LL_assoc = 16,
-                       std::string replace_policy = "LRU",
-                       uint64_t skip_refs = 0,
-                       uint64_t warmup_refs = 0,
-                       uint64_t sim_refs = 1ULL << 63,
-                       unsigned int verbose = 0);
+cache_simulator_create(const cache_simulator_knobs_t &knobs);
+
+/**
+ * Creates an instance of a cache simulator using a cache hierarchy defined
+ * in a configuration file.
+ */
+analysis_tool_t *
+cache_simulator_create(const std::string &config_file);
+
+/** Creates an instance of a cache miss analyzer. */
+analysis_tool_t *
+cache_miss_analyzer_create(const cache_simulator_knobs_t &knobs,
+                           unsigned int miss_count_threshold, double miss_frac_threshold,
+                           double confidence_threshold);
 
 #endif /* _CACHE_SIMULATOR_CREATE_H_ */

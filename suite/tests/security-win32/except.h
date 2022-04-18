@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,49 +39,55 @@
 
 #include "tools.h"
 
-#define initialize_registry_context() /* stick to a known value */      \
-     __asm { push 0 }                                                   \
-     __asm { popfd }                                                    \
-     __asm { mov  ebx, 0xbbcdcdcd }                                     \
-     __asm { mov  ecx, 0xcccdcdcd }                                     \
-     __asm { mov  edx, 0xddcdcdcd }                                     \
-     __asm { mov  edi, 0xeecdcdcd }                                     \
-     __asm { mov  esi, 0xffcdcdcd }
+#define initialize_registry_context() /* stick to a known value */ \
+    __asm { push 0 }                                               \
+    __asm                                                          \
+    {                                                              \
+        popfd                                                      \
+    }                                                              \
+    __asm { mov  ebx, 0xbbcdcdcd }                                  \
+    __asm                                                          \
+    {                                                              \
+        mov ecx, 0xcccdcdcd                                        \
+    }                                                              \
+    __asm { mov  edx, 0xddcdcdcd }                                  \
+    __asm                                                          \
+    {                                                              \
+        mov edi, 0xeecdcdcd                                        \
+    }                                                              \
+    __asm { mov  esi, 0xffcdcdcd }
 
-#define NO_DEBUG_REGISTERS      /* We shouldn't be messing with these registers,
-                                   so diffs here maybe not our fault (VMware's?) */
+#define NO_DEBUG_REGISTERS /* We shouldn't be messing with these registers, \
+                              so diffs here maybe not our fault (VMware's?) */
 
 void
 dump_context_info(CONTEXT *context, int all)
 {
-#define DUMP(r) print(#r"=0x%08x ", context->r);
+#define DUMP(r) print(#r "=0x%08x ", context->r);
+    /* Avoid trailing spaces. */
+#define DUMP_NOSPACE(r) print(#r "=0x%08x", context->r);
+#define DUMP_DOUBLE_EOL(r) print(#r "=0x%08x\n\n  ", context->r);
+#define DUMP_EOL(r) print(#r "=0x%08x\n  ", context->r);
     print("  ");
-    DUMP(ContextFlags);
-    print("\n  ");
+    DUMP_EOL(ContextFlags);
 
     if (all || context->ContextFlags & CONTEXT_INTEGER) {
         DUMP(Edi);
         DUMP(Esi);
-        DUMP(Ebx);
-        print("\n  ");
+        DUMP_EOL(Ebx);
         DUMP(Edx);
-        DUMP(Ecx);
-        print("\n  ");
-        print("\n  ");
-        DUMP(Eax);
-        print("\n  ");
+        DUMP_DOUBLE_EOL(Ecx);
+        DUMP_EOL(Eax);
     }
 
     if (all || context->ContextFlags & CONTEXT_CONTROL) {
         DUMP(Ebp);
         DUMP(Eip);
-        DUMP(SegCs);              // MUST BE SANITIZED
-        print("\n  ");
+        DUMP_EOL(SegCs); // MUST BE SANITIZED
         /* only printing low word - RF is different between SP0 & SP4 */
         DUMP(EFlags & 0xFFFF);
         DUMP(Esp);
-        DUMP(SegSs);
-        print("\n  ");
+        DUMP_EOL(SegSs);
     }
 
 #ifndef NO_DEBUG_REGISTERS
@@ -88,11 +95,9 @@ dump_context_info(CONTEXT *context, int all)
         DUMP(Dr0);
         DUMP(Dr1);
         DUMP(Dr2);
-        DUMP(Dr3);
-        print("\n  ");
+        DUMP_EOL(Dr3);
         DUMP(Dr6);
-        DUMP(Dr7);
-        print("\n  ");
+        DUMP_EOL(Dr7);
     }
 #endif
 
@@ -104,7 +109,7 @@ dump_context_info(CONTEXT *context, int all)
         DUMP(SegGs);
         DUMP(SegFs);
         DUMP(SegEs);
-        DUMP(SegDs);
+        DUMP_NOSPACE(SegDs);
     }
 
 #undef DUMP
@@ -112,23 +117,20 @@ dump_context_info(CONTEXT *context, int all)
 }
 
 void
-dump_exception_info(EXCEPTION_RECORD* exception, CONTEXT *context)
+dump_exception_info(EXCEPTION_RECORD *exception, CONTEXT *context)
 {
-    print("\texception code = 0x%08x, ExceptionFlags=0x%08x\n\trecord=%p, params=%d\n",
-           exception->ExceptionCode,
-           exception->ExceptionFlags,
-           exception->ExceptionRecord, /* follow if non NULL */
-           exception->NumberParameters);
-    if(exception->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        print("\tPC 0x%08x tried to %s address 0x%08x\n",
-               exception->ExceptionAddress,
-               (exception->ExceptionInformation[0]==0)?"read":"write",
-               exception->ExceptionInformation[1]);
+    print("    exception code = 0x%08x, ExceptionFlags=0x%08x\n"
+          "    record=%p, params=%d\n",
+          exception->ExceptionCode, exception->ExceptionFlags,
+          exception->ExceptionRecord, /* follow if non NULL */
+          exception->NumberParameters);
+    if (exception->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        print("    PC 0x%08x tried to %s address 0x%08x\n", exception->ExceptionAddress,
+              (exception->ExceptionInformation[0] == 0) ? "read" : "write",
+              exception->ExceptionInformation[1]);
     }
-    print("\tpc=0x%08x eax=0x%08x\n",
-           context->Eip, context->Eax);
+    print("    pc=0x%08x eax=0x%08x\n", context->Eip, context->Eax);
     dump_context_info(context, 0); /* existing context */
 }
-
 
 #endif

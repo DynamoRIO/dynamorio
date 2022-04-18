@@ -36,7 +36,7 @@
  */
 
 #ifdef __CLASS__
-# undef __CLASS__
+#    undef __CLASS__
 #endif
 #define __CLASS__ "drgui_options_window_t::"
 
@@ -74,16 +74,13 @@ drgui_options_window_t::drgui_options_window_t(QActionGroup *tool_group_)
     tool_page_stack = new QStackedWidget(this);
 
     save_button = new QPushButton(tr("Save"));
-    connect(save_button, SIGNAL(clicked()),
-            this, SLOT(save()));
+    connect(save_button, SIGNAL(clicked()), this, SLOT(save()));
 
     reset_button = new QPushButton(tr("Reset"), this);
-    connect(reset_button, SIGNAL(clicked()),
-            this, SLOT(cancel()));
+    connect(reset_button, SIGNAL(clicked()), this, SLOT(cancel()));
 
     cancel_button = new QPushButton(tr("Cancel"), this);
-    connect(cancel_button, SIGNAL(clicked()),
-            this, SLOT(cancel()));
+    connect(cancel_button, SIGNAL(clicked()), this, SLOT(cancel()));
 
     horizontal_layout = new QHBoxLayout;
     horizontal_layout->addWidget(tool_page_list);
@@ -115,12 +112,12 @@ drgui_options_window_t::create_tool_list(void)
     list_font.setPointSize(12);
     list_font.setBold(true);
 
-   drgui_tool_interface_t *i_tool;
+    drgui_tool_interface_t *i_tool;
     foreach (QAction *action, tool_action_group->actions()) {
         i_tool = qobject_cast<drgui_tool_interface_t *>(action->parent());
         /* Skip if already added */
-        if (!tool_page_list->findItems(i_tool->tool_names().first(),
-                                       Qt::MatchExactly).isEmpty())
+        if (!tool_page_list->findItems(i_tool->tool_names().first(), Qt::MatchExactly)
+                 .isEmpty())
             continue;
         tool_page_stack->addWidget(i_tool->create_options_page());
         QListWidgetItem *config_button = new QListWidgetItem(tool_page_list);
@@ -131,16 +128,15 @@ drgui_options_window_t::create_tool_list(void)
     }
 
     connect(tool_page_list,
-            SIGNAL(currentItemChanged(QListWidgetItem*, QListWidgetItem*)),
-            this, SLOT(change_page(QListWidgetItem*, QListWidgetItem*)));
+            SIGNAL(currentItemChanged(QListWidgetItem *, QListWidgetItem *)), this,
+            SLOT(change_page(QListWidgetItem *, QListWidgetItem *)));
 }
 
 /* Private
  * Changes the viewed page in tool_page_stack
  */
 void
-drgui_options_window_t::change_page(QListWidgetItem *current,
-                                    QListWidgetItem *previous)
+drgui_options_window_t::change_page(QListWidgetItem *current, QListWidgetItem *previous)
 {
     if (!current)
         current = previous;
@@ -156,8 +152,7 @@ drgui_options_window_t::save(void)
 {
     for (int i = 0; i < tool_page_stack->count(); i++) {
         drgui_options_interface_t *i_opt;
-        i_opt = qobject_cast<drgui_options_interface_t *>
-                    (tool_page_stack->widget(i));
+        i_opt = qobject_cast<drgui_options_interface_t *>(tool_page_stack->widget(i));
         i_opt->write_settings();
     }
 }
@@ -181,8 +176,7 @@ drgui_options_window_t::cancel(void)
 {
     for (int i = 0; i < tool_page_stack->count(); i++) {
         drgui_options_interface_t *i_opt;
-        i_opt = qobject_cast<drgui_options_interface_t *>
-                    (tool_page_stack->widget(i));
+        i_opt = qobject_cast<drgui_options_interface_t *>(tool_page_stack->widget(i));
         i_opt->read_settings();
     }
     if (sender() == cancel_button)

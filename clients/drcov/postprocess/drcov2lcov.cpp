@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,7 @@
 #include "hashtable.h"
 #include "dr_frontend.h"
 #include <iostream>
+#include <vector>
 
 #include "../../common/utils.h"
 #undef ASSERT /* we're standalone, so no client assert */
@@ -56,35 +57,38 @@
 #include <limits.h>
 
 #ifdef UNIX
-# include <dirent.h> /* opendir, readdir */
-# include <unistd.h> /* getcwd */
+#    include <dirent.h> /* opendir, readdir */
+#    include <unistd.h> /* getcwd */
 #else
-# include <windows.h>
-# include <direct.h> /* _getcwd */
-# pragma comment(lib, "User32.lib")
+#    include <windows.h>
+#    include <direct.h> /* _getcwd */
+#    pragma comment(lib, "User32.lib")
 #endif
 
-#define PRINT(lvl, ...) do {                                \
-    if (op_verbose.get_value() >= lvl) {                    \
-        fprintf(stdout, "[DRCOV2LCOV] INFO(%d):    ", lvl); \
-        fprintf(stdout, __VA_ARGS__);                       \
-    }                                                       \
-} while (0)
+#define PRINT(lvl, ...)                                         \
+    do {                                                        \
+        if (op_verbose.get_value() >= lvl) {                    \
+            fprintf(stdout, "[DRCOV2LCOV] INFO(%d):    ", lvl); \
+            fprintf(stdout, __VA_ARGS__);                       \
+        }                                                       \
+    } while (0)
 
-#define WARN(lvl, ...) do {                                 \
-    if (op_warning.get_value() >= lvl) {                    \
-        fprintf(stderr, "[DRCOV2LCOV] WARNING(%d): ", lvl); \
-        fprintf(stderr, __VA_ARGS__);                       \
-    }                                                       \
-} while (0)
+#define WARN(lvl, ...)                                          \
+    do {                                                        \
+        if (op_warning.get_value() >= lvl) {                    \
+            fprintf(stderr, "[DRCOV2LCOV] WARNING(%d): ", lvl); \
+            fprintf(stderr, __VA_ARGS__);                       \
+        }                                                       \
+    } while (0)
 
-#define ASSERT(val, ...) do {                               \
-    if (!(val)) {                                           \
-        fprintf(stderr, "[DRCOV2LCOV] ERROR:      ");       \
-        fprintf(stderr, __VA_ARGS__);                       \
-        exit(1);                                            \
-    }                                                       \
-} while (0)
+#define ASSERT(val, ...)                                  \
+    do {                                                  \
+        if (!(val)) {                                     \
+            fprintf(stderr, "[DRCOV2LCOV] ERROR:      "); \
+            fprintf(stderr, __VA_ARGS__);                 \
+            exit(1);                                      \
+        }                                                 \
+    } while (0)
 
 #define DEFAULT_OUTPUT_FILE "coverage.info"
 
@@ -94,102 +98,104 @@
  * They are present on the app module list for various reasons (xref i#479).
  */
 #ifdef WINDOWS
-# define DR_LIB_NAME "dynamorio.dll"
-# define DR_PRELOAD_NAME "preinject.dll"
-# define DRCOV_LIB_NAME "drcov.dll"
+#    define DR_LIB_NAME "dynamorio.dll"
+#    define DR_PRELOAD_NAME "preinject.dll"
+#    define DRCOV_LIB_NAME "drcov.dll"
 /* Often combined with Dr. Memory */
-# define DRMEM_LIB_NAME "drmemorylib.dll"
+#    define DRMEM_LIB_NAME "drmemorylib.dll"
 #else
-# define DR_LIB_NAME "libdynamorio." /* cover .so and .dylib */
-# define DR_PRELOAD_NAME "libdrpreload."
-# define DRCOV_LIB_NAME "libdrcov."
-# define DRMEM_LIB_NAME "libdrmemorylib."
+#    define DR_LIB_NAME "libdynamorio." /* cover .so and .dylib */
+#    define DR_PRELOAD_NAME "libdrpreload."
+#    define DRCOV_LIB_NAME "libdrcov."
+#    define DRMEM_LIB_NAME "libdrmemorylib."
 #endif
 
 /***************************************************************************
  * Options
  */
 
-static droption_t<std::string> op_input
-(DROPTION_SCOPE_FRONTEND, "input", "", "Single drcov log file to process",
- "Specifies a single drcov output file for processing.");
+static droption_t<std::string>
+    op_input(DROPTION_SCOPE_FRONTEND, "input", "", "Single drcov log file to process",
+             "Specifies a single drcov output file for processing.");
 
-static droption_t<std::string> op_dir
-(DROPTION_SCOPE_FRONTEND, "dir", "", "Directory with drcov.*.log files to process",
- "Specifies a directory within which all drcov.*.log files will be processed.");
+static droption_t<std::string>
+    op_dir(DROPTION_SCOPE_FRONTEND, "dir", "",
+           "Directory with drcov.*.log files to process",
+           "Specifies a directory within which all drcov.*.log files will be processed.");
 
-static droption_t<std::string> op_list
-(DROPTION_SCOPE_FRONTEND, "list", "", "Text file listing log files to process",
- "Specifies a text file that contains a list of paths of log files for processing.");
+static droption_t<std::string> op_list(
+    DROPTION_SCOPE_FRONTEND, "list", "", "Text file listing log files to process",
+    "Specifies a text file that contains a list of paths of log files for processing.");
 
-static droption_t<std::string> op_output
-(DROPTION_SCOPE_FRONTEND, "output", DEFAULT_OUTPUT_FILE, "Names the output file",
- "Specifies the name for the output file.");
+static droption_t<std::string> op_output(DROPTION_SCOPE_FRONTEND, "output",
+                                         DEFAULT_OUTPUT_FILE, "Names the output file",
+                                         "Specifies the name for the output file.");
 
-static droption_t<std::string> op_test_pattern
-(DROPTION_SCOPE_FRONTEND, "test_pattern", "", "Enable test coverage for this function",
- "Includes test coverage information in the output file (which means that the output "
- "is no longer compatible with lcov).  The test coverage information is based on "
- "matching the function specified in the pattern string.");
+static droption_t<std::string> op_test_pattern(
+    DROPTION_SCOPE_FRONTEND, "test_pattern", "", "Enable test coverage for this function",
+    "Includes test coverage information in the output file (which means that the output "
+    "is no longer compatible with lcov).  The test coverage information is based on "
+    "matching the function specified in the pattern string.");
 
-static droption_t<std::string> op_mod_filter
-(DROPTION_SCOPE_FRONTEND, "mod_filter", "", "Only include coverage for this library",
- "Requests that coverage information for all libraries and executables whose paths "
- "do not contain the given filter string be excluded from the output. "
- "Only one such filter can be specified.");
+static droption_t<std::string> op_mod_filter(
+    DROPTION_SCOPE_FRONTEND, "mod_filter", "", "Only include coverage for this library",
+    "Requests that coverage information for all libraries and executables whose paths "
+    "do not contain the given filter string be excluded from the output. "
+    "Only one such filter can be specified.");
 
-static droption_t<std::string> op_mod_skip_filter
-(DROPTION_SCOPE_FRONTEND, "mod_skip_filter", "", "Skip coverage for this library",
- "Requests that coverage information for all libraries and executables whose paths "
- "contain the given filter string be excluded from the output. "
- "Only one such filter can be specified.");
+static droption_t<std::string> op_mod_skip_filter(
+    DROPTION_SCOPE_FRONTEND, "mod_skip_filter", "", "Skip coverage for this library",
+    "Requests that coverage information for all libraries and executables whose paths "
+    "contain the given filter string be excluded from the output. "
+    "Only one such filter can be specified.");
 
-static droption_t<std::string> op_src_filter
-(DROPTION_SCOPE_FRONTEND, "src_filter", "", "Only include coverage for this source",
- "Requests that coverage information for all sources files whose paths do not "
- "contain the given filter string be excluded from the output. "
- "Only one such filter can be specified.");
+static droption_t<std::string> op_src_filter(
+    DROPTION_SCOPE_FRONTEND, "src_filter", "", "Only include coverage for this source",
+    "Requests that coverage information for all sources files whose paths do not "
+    "contain the given filter string be excluded from the output. "
+    "Only one such filter can be specified.");
 
-static droption_t<std::string> op_src_skip_filter
-(DROPTION_SCOPE_FRONTEND, "src_skip_filter", "", "Skip coverage for this source",
- "Requests that coverage information for all sources files whose paths "
- "contain the given filter string be excluded from the output. "
- "Only one such filter can be specified.");
+static droption_t<std::string> op_src_skip_filter(
+    DROPTION_SCOPE_FRONTEND, "src_skip_filter", "", "Skip coverage for this source",
+    "Requests that coverage information for all sources files whose paths "
+    "contain the given filter string be excluded from the output. "
+    "Only one such filter can be specified.");
 
-static droption_t<std::string> op_reduce_set
-(DROPTION_SCOPE_FRONTEND, "reduce_set", "", "Output minimal inputs with same coverage",
- "Results in drcov2lcov identifying a smaller set of log files from the inputs that "
- "have the same code coverage as the full set.  The smaller set's file paths are "
- "written to the given output file path.");
+static droption_t<std::string> op_reduce_set(
+    DROPTION_SCOPE_FRONTEND, "reduce_set", "", "Output minimal inputs with same coverage",
+    "Results in drcov2lcov identifying a smaller set of log files from the inputs that "
+    "have the same code coverage as the full set.  The smaller set's file paths are "
+    "written to the given output file path.");
 
-static droption_t<twostring_t> op_pathmap
-(DROPTION_SCOPE_FRONTEND, "pathmap", 0, twostring_t("",""), "Map library to local path",
- "Takes two values: the first specifies the library path to look for in each drcov "
- "log file and the second specifies the path to replace it with before looking "
- "for debug information for that library.  Only one path is currently supported.");
+static droption_t<twostring_t> op_pathmap(
+    DROPTION_SCOPE_FRONTEND, "pathmap", 0, twostring_t("", ""),
+    "Map library to local path",
+    "Takes two values: the first specifies the library path to look for in each drcov "
+    "log file and the second specifies the path to replace it with before looking "
+    "for debug information for that library.  Only one path is currently supported.");
 
-static droption_t<bool> op_include_tool
-(DROPTION_SCOPE_FRONTEND, "include_tool_code", false, "Include execution of tool itself",
- "Requests that execution from the drcov tool libraries themselves be included in the "
- "coverage output.  Normally such execution is excluded and the output focuses on "
- "the application only.");
+static droption_t<bool> op_include_tool(
+    DROPTION_SCOPE_FRONTEND, "include_tool_code", false,
+    "Include execution of tool itself",
+    "Requests that execution from the drcov tool libraries themselves be included in the "
+    "coverage output.  Normally such execution is excluded and the output focuses on "
+    "the application only.");
 
-static droption_t<bool> op_help
-(DROPTION_SCOPE_FRONTEND, "help", false, "Print this message",
- "Prints the usage message.");
+static droption_t<bool> op_help(DROPTION_SCOPE_FRONTEND, "help", false,
+                                "Print this message", "Prints the usage message.");
 
-static droption_t<unsigned int> op_verbose
-(DROPTION_SCOPE_FRONTEND, "verbose", 1, 0, 64, "Verbosity level",
- "Verbosity level for informational notifications.");
+static droption_t<unsigned int>
+    op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", 1, 0, 64, "Verbosity level",
+               "Verbosity level for informational notifications.");
 
-static droption_t<unsigned int> op_warning
-(DROPTION_SCOPE_FRONTEND, "warning", 1, 0, 64, "Warning level",
- "Level for enabling progressively less serious warning messages.");
+static droption_t<unsigned int>
+    op_warning(DROPTION_SCOPE_FRONTEND, "warning", 1, 0, 64, "Warning level",
+               "Level for enabling progressively less serious warning messages.");
 
-static droption_t<bool> op_help_html
-(DROPTION_SCOPE_FRONTEND, "help_html", DROPTION_FLAG_INTERNAL, false,
- "Print usage in html",
- "For internal use.  Prints option usage in a longer html format.");
+static droption_t<bool>
+    op_help_html(DROPTION_SCOPE_FRONTEND, "help_html", DROPTION_FLAG_INTERNAL, false,
+                 "Print usage in html",
+                 "For internal use.  Prints option usage in a longer html format.");
 
 static char input_file_buf[MAXIMUM_PATH];
 static char input_dir_buf[MAXIMUM_PATH];
@@ -242,11 +248,11 @@ null_terminate_path(char *path)
  * - Chunks are linked together as a linked-list, with largest chunk at front.
  */
 
-#define LINE_HASH_TABLE_BITS   10
+#define LINE_HASH_TABLE_BITS 10
 #define LINE_TABLE_INIT_SIZE 1024 /* first chunk holds 1024 lines */
-#define LINE_TABLE_INIT_PRINT_BUF_SIZE (16*1024)
+#define LINE_TABLE_INIT_PRINT_BUF_SIZE (16 * 1024)
 #define SOURCE_FILE_START_LINE_SIZE (MAXIMUM_PATH + 10) /* "SF:%s\n" */
-#define SOURCE_FILE_END_LINE_SIZE   20 /* "end_of_record\n" */
+#define SOURCE_FILE_END_LINE_SIZE 20                    /* "end_of_record\n" */
 #define MAX_CHAR_PER_LINE 256 /* large enough to hold the test function name */
 #define MAX_LINE_PER_FILE 0x20000
 
@@ -255,9 +261,9 @@ static hashtable_t line_htable;
 static uint num_line_htable_entries;
 
 enum {
-    SOURCE_LINE_STATUS_NONE   =  0, /* not compiled to object file */
-    SOURCE_LINE_STATUS_SKIP   = -1, /* not executed */
-    SOURCE_LINE_STATUS_EXEC   =  1, /* executed */
+    SOURCE_LINE_STATUS_NONE = 0,  /* not compiled to object file */
+    SOURCE_LINE_STATUS_SKIP = -1, /* not executed */
+    SOURCE_LINE_STATUS_EXEC = 1,  /* executed */
 };
 
 /* i#1465: add unittest case coverage information in drcov */
@@ -270,12 +276,12 @@ static const char *non_exec = "<NON-EXEC>"; /* not executed code */
  */
 typedef struct _line_chunk_t line_chunk_t;
 struct _line_chunk_t {
-    uint num_lines;   /* the size of the chunk */
-    uint first_num;   /* the first line number of the chunk */
-    uint last_num;    /* the last line number of the chunk */
+    uint num_lines; /* the size of the chunk */
+    uint first_num; /* the first line number of the chunk */
+    uint last_num;  /* the last line number of the chunk */
     union {
-        byte *exec;   /* array of the execution info on the line */
-        const char **test;  /* array of the test name ptr on the line */
+        byte *exec;        /* array of the execution info on the line */
+        const char **test; /* array of the test name ptr on the line */
     } info;
     line_chunk_t *next;
 };
@@ -293,19 +299,19 @@ typedef struct _line_table_t {
 static line_chunk_t *
 line_chunk_alloc(uint num_lines)
 {
-    line_chunk_t *chunk = (line_chunk_t *) malloc(sizeof(*chunk));
+    line_chunk_t *chunk = (line_chunk_t *)malloc(sizeof(*chunk));
     void *line_info;
     ASSERT(chunk != NULL, "Failed to create line chunk\n");
     chunk->num_lines = num_lines;
     ASSERT(SOURCE_LINE_STATUS_NONE == 0, "SOURCE_LINE_STATUS_NONE is not 0");
     if (op_test_pattern.specified()) {
-         /* init with NULL */
+        /* init with NULL */
         line_info = calloc(num_lines, sizeof(chunk->info.test[0]));
-        chunk->info.test = (const char **) line_info;
+        chunk->info.test = (const char **)line_info;
     } else {
         /* init with SOURCE_LINE_STATUS_NONE */
         line_info = calloc(num_lines, sizeof(chunk->info.exec[0]));
-        chunk->info.exec = (byte *) line_info;
+        chunk->info.exec = (byte *)line_info;
     }
     ASSERT(line_info != NULL, "Failed to alloc line info array\n");
     return chunk;
@@ -326,9 +332,7 @@ line_chunk_print(line_chunk_t *chunk, char *start)
 {
     uint i, line_num;
     int res;
-    for (i = 0, line_num = chunk->first_num;
-         i < chunk->num_lines;
-         i++, line_num++) {
+    for (i = 0, line_num = chunk->first_num; i < chunk->num_lines; i++, line_num++) {
         res = 0;
         /* only print lines that have test/exec info */
         if (op_test_pattern.specified()) {
@@ -344,14 +348,14 @@ line_chunk_print(line_chunk_t *chunk, char *start)
                  * third_party/lcov/genhtml about how TDNA is formated.
                  */
                 res = dr_snprintf(start, MAX_CHAR_PER_LINE, "TNDA:%u,%s\n", line_num,
-                                  chunk->info.test[i] == non_exec ?
-                                  "0" : chunk->info.test[i]);
+                                  chunk->info.test[i] == non_exec ? "0"
+                                                                  : chunk->info.test[i]);
             }
         } else {
             if (chunk->info.exec[i] != (byte)SOURCE_LINE_STATUS_NONE) {
-                res = dr_snprintf(start, MAX_CHAR_PER_LINE, "DA:%u,%u\n", line_num,
-                                  chunk->info.exec[i] ==
-                                  (byte)SOURCE_LINE_STATUS_SKIP ? 0 : 1);
+                res = dr_snprintf(
+                    start, MAX_CHAR_PER_LINE, "DA:%u,%u\n", line_num,
+                    chunk->info.exec[i] == (byte)SOURCE_LINE_STATUS_SKIP ? 0 : 1);
             }
         }
         ASSERT(res < MAX_CHAR_PER_LINE && res != -1, "Error on printing\n");
@@ -366,13 +370,12 @@ line_table_print(line_table_t *line_table, char *start)
     int i;
     line_chunk_t **array, *chunk;
 
-    array = (line_chunk_t **) malloc(sizeof(*array) * line_table->num_chunks);
+    array = (line_chunk_t **)malloc(sizeof(*array) * line_table->num_chunks);
     /* We need print the chunks in reverse order, i.e., lower line number first,
      * so we put them into an array and then print them to avoid recursive call.
      */
-    for (chunk  = line_table->chunk, i = line_table->num_chunks - 1;
-         chunk != NULL && i >= 0;
-         chunk  = chunk->next, i--) {
+    for (chunk = line_table->chunk, i = line_table->num_chunks - 1;
+         chunk != NULL && i >= 0; chunk = chunk->next, i--) {
         array[i] = chunk;
     }
     ASSERT(i == -1 && chunk == NULL, "Wrong line-table\n");
@@ -396,19 +399,18 @@ line_table_print_buf_size(line_table_t *line_table)
 static line_table_t *
 line_table_create(const char *file)
 {
-    line_table_t *table = (line_table_t *) malloc(sizeof(*table));
+    line_table_t *table = (line_table_t *)malloc(sizeof(*table));
     line_chunk_t *chunk = line_chunk_alloc(LINE_TABLE_INIT_SIZE);
     ASSERT(table != NULL && chunk != NULL, "Failed to alloc line table");
-    table->file       = file;
-    table->chunk      = chunk;
+    table->file = file;
+    table->chunk = chunk;
     table->num_chunks = 1;
-    chunk->first_num  = 1;
-    chunk->last_num   = chunk->first_num + chunk->num_lines - 1;
-    chunk->next       = NULL;
-    PRINT(5, "line table " PFX" added\n", (ptr_uint_t)table);
-    PRINT(7, "Init chunk %u-%u (%u) for " PFX" @" PFX"\n",
-          chunk->first_num, chunk->last_num, chunk->num_lines,
-          (ptr_uint_t)table, (ptr_uint_t)chunk);
+    chunk->first_num = 1;
+    chunk->last_num = chunk->first_num + chunk->num_lines - 1;
+    chunk->next = NULL;
+    PRINT(5, "line table " PFX " added\n", table);
+    PRINT(7, "Init chunk %u-%u (%u) for " PFX " @" PFX "\n", chunk->first_num,
+          chunk->last_num, chunk->num_lines, table, chunk);
     return table;
 }
 
@@ -417,7 +419,7 @@ line_table_delete(void *p)
 {
     line_table_t *table = (line_table_t *)p;
     line_chunk_t *chunk, *next;
-    PRINT(5, "line table " PFX" delete\n", (ptr_uint_t)table);
+    PRINT(5, "line table " PFX " delete\n", table);
     for (chunk = table->chunk; chunk != NULL; chunk = next) {
         next = chunk->next;
         line_chunk_free(chunk);
@@ -445,17 +447,16 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
         /* find right size for the new chunk */
         for (num_lines = chunk->last_num * 2; num_lines < line; num_lines *= 2)
             ; /* do nothing */
-        num_lines        -= chunk->last_num;
-        tmp               = line_chunk_alloc(num_lines);
-        tmp->first_num    = chunk->last_num + 1;
-        tmp->last_num     = tmp->first_num + num_lines - 1;
-        tmp->next         = chunk;
-        chunk             = tmp;
+        num_lines -= chunk->last_num;
+        tmp = line_chunk_alloc(num_lines);
+        tmp->first_num = chunk->last_num + 1;
+        tmp->last_num = tmp->first_num + num_lines - 1;
+        tmp->next = chunk;
+        chunk = tmp;
         line_table->chunk = chunk;
         line_table->num_chunks++;
-        PRINT(7, "New chunk %u-%u (%u) for " PFX" @" PFX"\n",
-              chunk->first_num, chunk->last_num, chunk->num_lines,
-              (ptr_uint_t)line_table, (ptr_uint_t)chunk);
+        PRINT(7, "New chunk %u-%u (%u) for " PFX " @" PFX "\n", chunk->first_num,
+              chunk->last_num, chunk->num_lines, line_table, chunk);
     }
 
     for (; chunk != NULL; chunk = chunk->next) {
@@ -482,8 +483,8 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
                  */
                 if (chunk->info.exec[line - chunk->first_num] != status &&
                     chunk->info.exec[line - chunk->first_num] !=
-                    (byte)SOURCE_LINE_STATUS_EXEC)
-                    chunk->info.exec[line - chunk->first_num]  = status;
+                        (byte)SOURCE_LINE_STATUS_EXEC)
+                    chunk->info.exec[line - chunk->first_num] = status;
             }
             return;
         }
@@ -496,41 +497,40 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
 
 #define TEST_HASH_TABLE_BITS 10
 
-#define MODULE_HASH_TABLE_BITS 6
-static hashtable_t module_htable;
-static uint num_module_htable_entries;
-
-#define MODULE_TABLE_IGNORE  ((void *)(ptr_int_t)(-1))
+#define MODULE_TABLE_IGNORE ((void *)(ptr_int_t)(-1))
 #define MIN_LOG_FILE_SIZE 20
 
 /* when use bitmap as bb_table */
-#define BITS_PER_BYTE        8
-#define BITMAP_INDEX(x)      ((x) / BITS_PER_BYTE)
-#define BITMAP_OFFSET(x)     ((x) % BITS_PER_BYTE)
-#define BITMAP_MASK(offs)    (1 << (offs))
+#define BITS_PER_BYTE 8
+#define BITMAP_INDEX(x) ((x) / BITS_PER_BYTE)
+#define BITMAP_OFFSET(x) ((x) % BITS_PER_BYTE)
+#define BITMAP_MASK(offs) (1 << (offs))
 
 /* bitmap_set[start_offs][end_offs]: the value that all bits are set
  * from start_offs to end_offs in a byte.
  */
 byte bitmap_set[8][8] = {
-    { 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff},
-    { 0x0, 0x2, 0x6, 0xe, 0x1e, 0x3e, 0x7e, 0xfe},
-    { 0x0, 0x0, 0x4, 0xc, 0x1c, 0x3c, 0x7c, 0xfc},
-    { 0x0, 0x0, 0x0, 0x8, 0x18, 0x38, 0x78, 0xf8},
-    { 0x0, 0x0, 0x0, 0x0, 0x10, 0x30, 0x70, 0xf0},
-    { 0x0, 0x0, 0x0, 0x0, 0x00, 0x20, 0x60, 0xe0},
-    { 0x0, 0x0, 0x0, 0x0, 0x00, 0x00, 0x40, 0xc0},
-    { 0x0, 0x0, 0x0, 0x0, 0x00, 0x00, 0x00, 0x80},
+    { 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff },
+    { 0x0, 0x2, 0x6, 0xe, 0x1e, 0x3e, 0x7e, 0xfe },
+    { 0x0, 0x0, 0x4, 0xc, 0x1c, 0x3c, 0x7c, 0xfc },
+    { 0x0, 0x0, 0x0, 0x8, 0x18, 0x38, 0x78, 0xf8 },
+    { 0x0, 0x0, 0x0, 0x0, 0x10, 0x30, 0x70, 0xf0 },
+    { 0x0, 0x0, 0x0, 0x0, 0x00, 0x20, 0x60, 0xe0 },
+    { 0x0, 0x0, 0x0, 0x0, 0x00, 0x00, 0x40, 0xc0 },
+    { 0x0, 0x0, 0x0, 0x0, 0x00, 0x00, 0x00, 0x80 },
 };
 #define BB_TABLE_RANGE_SET 0xff
 
 enum {
     BB_TABLE_ENTRY_INVALID = -1, /* Invalid lookup in bb table */
-    BB_TABLE_ENTRY_CLEAR   = 0,
-    BB_TABLE_ENTRY_SET     = 1,
+    BB_TABLE_ENTRY_CLEAR = 0,
+    BB_TABLE_ENTRY_SET = 1,
 };
 
 typedef struct _module_table_t {
+    char *path;
+    uintptr_t seg_start;
+    size_t seg_offs;
     size_t size;
     union {
         byte *bitmap;        /* store exec info (bit) for each app byte */
@@ -539,16 +539,21 @@ typedef struct _module_table_t {
     hashtable_t test_htable; /* hashtable for test functions found in the module */
 } module_table_t;
 
+#define MODULE_HASH_TABLE_BITS 6
+static std::vector<module_table_t *> module_vec;
+
 static void
-module_table_delete(void *p)
+module_vec_delete()
 {
-    module_table_t *table = (module_table_t *)p;
-    PRINT(3, "Delete module table " PFX"\n", (ptr_uint_t)table);
-    if (table != MODULE_TABLE_IGNORE) {
-        free(table->bb_table.bitmap);
-        if (op_test_pattern.specified())
-            hashtable_delete(&table->test_htable);
-        free(table);
+    for (auto *table : module_vec) {
+        PRINT(3, "Delete module table " PFX "\n", table);
+        if (table != MODULE_TABLE_IGNORE) {
+            free(table->path);
+            free(table->bb_table.bitmap);
+            if (op_test_pattern.specified())
+                hashtable_delete(&table->test_htable);
+            free(table);
+        }
     }
 }
 
@@ -576,13 +581,11 @@ bb_bitmap_add(module_table_t *table, bb_entry_t *entry)
     if (TEST(BITMAP_MASK(offs), bm[idx]))
         return false;
     /* now we add a new bb */
-    PRINT(6, "Add " PFX"-" PFX" in table " PFX"\n",
-          (ptr_uint_t)entry->start,
-          (ptr_uint_t)entry->start + entry->size,
-          (ptr_uint_t)table);
+    PRINT(6, "Add 0x%x-0x%x in table " PFX "\n", entry->start, entry->start + entry->size,
+          table);
     addr_end = entry->start + entry->size - 1;
-    idx_end  = BITMAP_INDEX(addr_end);
-    offs_end = (idx_end > idx) ? BITS_PER_BYTE-1 : BITMAP_OFFSET(addr_end);
+    idx_end = BITMAP_INDEX(addr_end);
+    offs_end = (idx_end > idx) ? BITS_PER_BYTE - 1 : BITMAP_OFFSET(addr_end);
     /* first byte in the bitmap */
     bm[idx] |= bitmap_set[offs][offs_end];
     /* set all the middle byte */
@@ -619,13 +622,13 @@ bb_array_add(module_table_t *table, bb_entry_t *entry)
     const char **ba = table->bb_table.array;
     char *test_name;
     uint i, offset;
-    offset = (uint) entry->start;
+    offset = (uint)entry->start;
     /* we assume that the whole bb is seen if its start addr is seen */
     if (ba[offset] != NULL)
         return false;
     /* check if current bb starts a new test */
-    test_name = (char *)hashtable_lookup(&table->test_htable,
-                                         (void *)(ptr_int_t)entry->start);
+    test_name =
+        (char *)hashtable_lookup(&table->test_htable, (void *)(ptr_int_t)entry->start);
     if (test_name != NULL) {
         PRINT(6, "start new test %s\n", test_name);
         cur_test = test_name;
@@ -635,12 +638,14 @@ bb_array_add(module_table_t *table, bb_entry_t *entry)
     return true;
 }
 
-
 static int
-module_table_bb_lookup(module_table_t *table, uint addr, const char **info)
+module_table_bb_lookup(module_table_t *table, uint64 addr_from_abs_base,
+                       const char **info)
 {
-    PRINT(5, "lookup " PFX" in module table " PFX"\n",
-          (ptr_uint_t)addr, (ptr_uint_t)table);
+    if (addr_from_abs_base - table->seg_offs > UINT_MAX)
+        return BB_TABLE_ENTRY_INVALID;
+    uint addr = (uint)(addr_from_abs_base - table->seg_offs);
+    PRINT(5, "lookup 0x%x in module table " PFX "\n", addr, table);
     /* We see this and it seems to be erroneous data from the pdb,
      * xref drsym_enumerate_lines() from drsyms.
      */
@@ -658,9 +663,8 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
     if (table == MODULE_TABLE_IGNORE)
         return false;
     if (table->size <= entry->start + entry->size) {
-        WARN(3, "Wrong range " PFX"-" PFX" or table size " PFX" for table " PFX"\n",
-             (ptr_uint_t)entry->start, (ptr_uint_t)entry->start + entry->size,
-             (ptr_uint_t)table->size,  (ptr_uint_t)table);
+        WARN(3, "Wrong range 0x%x-0x%x or table size 0x%zx for table " PFX "\n",
+             entry->start, entry->start + entry->size, table->size, table);
         return false;
     }
     if (op_test_pattern.specified())
@@ -669,17 +673,25 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
         return bb_bitmap_add(table, entry);
 }
 
+static char *
+my_strdup(const char *src)
+{
+    /* strdup is deprecated on Windows */
+    size_t alloc_sz = strlen(src) + 1;
+    char *res = (char *)malloc(alloc_sz);
+    strncpy(res, src, alloc_sz);
+    res[alloc_sz - 1] = '\0';
+    return res;
+}
+
 static bool
 search_cb(drsym_info_t *info, drsym_error_t status, void *data)
 {
     module_table_t *table = (module_table_t *)data;
     if (info != NULL && info->name != NULL &&
         strstr(info->name, op_test_pattern.get_value().c_str()) != NULL) {
-        char *name = (char *) malloc(strlen(info->name) + 1);
-        /* strdup is deprecated on Windows */
-        strncpy(name, info->name, strlen(info->name) + 1);
-        PRINT(5, "function %s: " PFX"-" PFX"\n",
-              name, (ptr_uint_t)info->start_offs, (ptr_uint_t)info->end_offs);
+        char *name = my_strdup(info->name);
+        PRINT(5, "function %s: 0x%zx-0x%zx\n", name, info->start_offs, info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
     }
@@ -703,22 +715,25 @@ module_table_search_testcase(const char *module, module_table_t *table)
     symres = drsym_search_symbols_ex(module, op_test_pattern.get_value().c_str(), flags,
                                      search_cb, sizeof(drsym_info_t), table);
 #else
-    symres = drsym_enumerate_symbols_ex(module, search_cb, sizeof(drsym_info_t),
-                                        table, flags);
+    symres =
+        drsym_enumerate_symbols_ex(module, search_cb, sizeof(drsym_info_t), table, flags);
 #endif
     if (symres != DRSYM_SUCCESS)
         WARN(1, "fail to search testcase in module %s\n", module);
 }
 
 static module_table_t *
-module_table_create(const char *module, size_t size)
+module_table_create(const char *module, uintptr_t seg_start, size_t seg_offs, size_t size)
 {
     module_table_t *table;
     ASSERT(ALIGNED(size, dr_page_size()), "Module size is not aligned");
 
-    table = (module_table_t *) calloc(1, sizeof(*table));
+    table = (module_table_t *)calloc(1, sizeof(*table));
     ASSERT(table != NULL, "Failed to allocate module table");
-    table->size = (size_t)size;
+    table->path = my_strdup(module);
+    table->seg_start = seg_start;
+    table->seg_offs = seg_offs;
+    table->size = size;
     PRINT(3, "module table %p, %u\n", table, (uint)size);
     if (op_test_pattern.specified()) {
         /* i#1465: add unittest case coverage information in drcov.
@@ -728,25 +743,23 @@ module_table_create(const char *module, size_t size)
          * and we are doing this calloc for all modules simultaneously,
          * so we might use a huge amount of memory!
          */
-        table->bb_table.array = (const char **)
-            calloc(size, sizeof(char *) /* test name */);
+        table->bb_table.array =
+            (const char **)calloc(size, sizeof(char *) /* test name */);
         ASSERT(table->bb_table.array != NULL, "Failed to create module table");
         module_table_search_testcase(module, table);
     } else {
         /* we use bitmap for bb_table */
-        table->bb_table.bitmap = (byte *) calloc(1, size/BITS_PER_BYTE);
+        table->bb_table.bitmap = (byte *)calloc(1, size / BITS_PER_BYTE);
         ASSERT(table->bb_table.bitmap != NULL, "Failed to create module table");
     }
     return table;
 }
 
 static bool
-module_is_from_tool(const char * path)
+module_is_from_tool(const char *path)
 {
-    return (strstr(path, DR_LIB_NAME) != NULL ||
-            strstr(path, DR_PRELOAD_NAME) != NULL ||
-            strstr(path, DRCOV_LIB_NAME) != NULL ||
-            strstr(path, DRMEM_LIB_NAME) != NULL);
+    return (strstr(path, DR_LIB_NAME) != NULL || strstr(path, DR_PRELOAD_NAME) != NULL ||
+            strstr(path, DRCOV_LIB_NAME) != NULL || strstr(path, DRMEM_LIB_NAME) != NULL);
 }
 
 static const char *
@@ -761,58 +774,64 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
     /* module table header */
     if (drmodtrack_offline_read(INVALID_FILE, buf, &buf, &handle, num_mods) !=
         DRCOVLIB_SUCCESS) {
-        WARN(2, "Failed to read module table");
+        WARN(1, "Failed to read module table");
         return NULL;
     }
 
-    *tables = (module_table_t **) calloc(*num_mods, sizeof(*tables));
+    *tables = (module_table_t **)calloc(*num_mods, sizeof(*tables));
     for (i = 0; i < *num_mods; i++) {
         module_table_t *mod_table;
-        drmodtrack_info_t info = {sizeof(info),};
+        drmodtrack_info_t info = {
+            sizeof(info),
+        };
 
         if (drmodtrack_offline_lookup(handle, i, &info) != DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
-        PRINT(5, "Module: %u, " PFX", %s\n", i, (ptr_uint_t)info.size, info.path);
-        mod_table = (module_table_t *)hashtable_lookup(&module_htable, (void*)info.path);
-        if (mod_table == NULL) {
-            modpath = info.path;
-            if (info.size >= UINT_MAX)
-                ASSERT(false, "module size is too large");
-            /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
-             * so these should be case-insensitive on Windows.
-             */
-            if (strstr(info.path, "<unknown>") != NULL ||
-                (op_mod_filter.specified() &&
-                 strstr(info.path, op_mod_filter.get_value().c_str()) == NULL) ||
-                (op_mod_skip_filter.specified() &&
-                 strstr(info.path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
-                (!op_include_tool.get_value() && module_is_from_tool(info.path)))
-                mod_table = (module_table_t *) MODULE_TABLE_IGNORE;
-            else {
-                if (op_pathmap.specified()) {
-                    const char *tofind = op_pathmap.get_value().first.c_str();
-                    const char *match = strstr(info.path, tofind);
-                    if (match != NULL) {
-                        if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst),
-                                        "%.*s%s%s", match - info.path, info.path,
-                                        op_pathmap.get_value().second.c_str(),
-                                        match + strlen(tofind)) <= 0) {
-                            WARN(1, "Failed to replace %s in %s\n", tofind, info.path);
-                        } else {
-                            NULL_TERMINATE_BUFFER(subst);
-                            PRINT(2, "Substituting |%s| for |%s|\n", subst, info.path);
-                            modpath = subst;
-                        }
+        PRINT(5, "Module: %u, 0x%zx, %s\n", i, info.size, info.path);
+        modpath = info.path;
+        if (info.size >= UINT_MAX)
+            ASSERT(false, "module size is too large");
+        /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+         * so these should be case-insensitive on Windows.
+         */
+        if (strstr(info.path, "<unknown>") != NULL ||
+            (op_mod_filter.specified() &&
+             strstr(info.path, op_mod_filter.get_value().c_str()) == NULL) ||
+            (op_mod_skip_filter.specified() &&
+             strstr(info.path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
+            (!op_include_tool.get_value() && module_is_from_tool(info.path)))
+            mod_table = (module_table_t *)MODULE_TABLE_IGNORE;
+        else {
+            if (op_pathmap.specified()) {
+                const char *tofind = op_pathmap.get_value().first.c_str();
+                const char *match = strstr(info.path, tofind);
+                if (match != NULL) {
+                    if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst), "%.*s%s%s",
+                                    match - info.path, info.path,
+                                    op_pathmap.get_value().second.c_str(),
+                                    match + strlen(tofind)) <= 0) {
+                        WARN(1, "Failed to replace %s in %s\n", tofind, info.path);
+                    } else {
+                        NULL_TERMINATE_BUFFER(subst);
+                        PRINT(2, "Substituting |%s| for |%s|\n", subst, info.path);
+                        modpath = subst;
                     }
                 }
-                mod_table = module_table_create(modpath, info.size);
             }
-            PRINT(4, "Create module table " PFX" for module %s\n",
-                  (ptr_uint_t)mod_table, modpath);
-            num_module_htable_entries++;
-            if (!hashtable_add(&module_htable, (void *)modpath, mod_table))
-                ASSERT(false, "Failed to add new module");
+            size_t seg_offs = 0;
+            if (info.containing_index != i) {
+                ASSERT(info.containing_index <= i, "invalid containing index");
+                seg_offs =
+                    (uintptr_t)info.start - (*tables)[info.containing_index]->seg_start;
+            }
+            mod_table =
+                module_table_create(modpath, (uintptr_t)info.start, seg_offs, info.size);
         }
+        PRINT(4, "Create module table " PFX " for module %s\n", mod_table, modpath);
+        module_vec.push_back(mod_table);
+        /* XXX: We could just use module_vec in the caller instead of this extra
+         * array, now that module_vec is a vector instead of a hashtable.
+         */
         (*tables)[i] = mod_table;
     }
     if (drmodtrack_offline_exit(handle) != DRCOVLIB_SUCCESS)
@@ -835,8 +854,7 @@ read_bb_list(const char *buf, module_table_t **tables, uint num_mods, uint num_b
         cur_test = non_test;
     }
     for (i = 0, entry = (bb_entry_t *)buf; i < num_bbs; i++, entry++) {
-        PRINT(6, "BB: " PFX", %u, %u\n",
-              (ptr_uint_t)entry->start, entry->size, entry->mod_id);
+        PRINT(6, "BB: 0x%x, %u, %u\n", entry->start, entry->size, entry->mod_id);
         /* we could have mod id USHRT_MAX for unknown module e.g., [vdso] */
         if (entry->mod_id < num_mods)
             add_new_bb = module_table_bb_add(tables[entry->mod_id], entry) || add_new_bb;
@@ -848,8 +866,8 @@ read_bb_list(const char *buf, module_table_t **tables, uint num_mods, uint num_b
 static const char *
 read_file_header(const char *buf)
 {
-    char  str[MAXIMUM_PATH];
-    uint  version;
+    char str[MAXIMUM_PATH];
+    uint version;
 
     PRINT(3, "Reading file header...\n");
     /* version number */
@@ -860,24 +878,30 @@ read_file_header(const char *buf)
      */
     PRINT(4, "Reading version number\n");
     if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1) {
-        WARN(2, "Failed to read version number");
+        WARN(1, "Failed to read version number");
         return NULL;
     }
     if (version != DRCOV_VERSION) {
-        WARN(2, "Version mismatch: file version %d vs tool version %d\n",
-             version, DRCOV_VERSION);
-        return NULL;
+        if (version == DRCOV_VERSION_MODULE_OFFSETS) {
+            WARN(1,
+                 "File is in legacy version 2 format: only code in the first "
+                 "segment of each module will be reported\n");
+        } else {
+            WARN(1, "Version mismatch: file version %d vs tool version %d\n", version,
+                 DRCOV_VERSION);
+            return NULL;
+        }
     }
     buf = move_to_next_line(buf);
 
     /* flavor */
     PRINT(4, "Reading flavor\n");
     if (dr_sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
-        WARN(2, "Failed to read version number");
+        WARN(1, "Failed to read version number");
         return NULL;
     }
     if (strcmp(str, DRCOV_FLAVOR) != 0) {
-        WARN(2, "Fatal file mismatch: file %s vs tool %s\n", str, DRCOV_FLAVOR);
+        WARN(1, "Fatal file mismatch: file %s vs tool %s\n", str, DRCOV_FLAVOR);
         return NULL;
     }
     buf = move_to_next_line(buf);
@@ -886,8 +910,8 @@ read_file_header(const char *buf)
 }
 
 static file_t
-open_input_file(const char *fname, const char **map_out OUT,
-                size_t *map_size OUT, uint64 *file_sz OUT)
+open_input_file(const char *fname, const char **map_out OUT, size_t *map_size OUT,
+                uint64 *file_sz OUT)
 {
     uint64 file_size;
     char *map;
@@ -896,23 +920,23 @@ open_input_file(const char *fname, const char **map_out OUT,
     ASSERT(map_out != NULL && map_size != NULL, "map_out must not be NULL");
     f = dr_open_file(fname, DR_FILE_READ | DR_FILE_ALLOW_LARGE);
     if (f == INVALID_FILE) {
-        WARN(2, "Failed to open file %s\n", fname);
+        WARN(1, "Failed to open file %s\n", fname);
         return INVALID_FILE;
     }
     if (!dr_file_size(f, &file_size)) {
-        WARN(2, "Failed to get input file size for %s\n", fname);
+        WARN(1, "Failed to get input file size for %s\n", fname);
         dr_close_file(f);
         return INVALID_FILE;
     }
     if (file_size <= MIN_LOG_FILE_SIZE) {
-        WARN(2, "File size is 0 for %s\n", fname);
+        WARN(1, "File size is 0 for %s\n", fname);
         dr_close_file(f);
         return INVALID_FILE;
     }
     *map_size = (size_t)file_size;
-    map = (char *) dr_map_file(f, map_size, 0, NULL, DR_MEMPROT_READ, 0);
+    map = (char *)dr_map_file(f, map_size, 0, NULL, DR_MEMPROT_READ, 0);
     if (map == NULL || (size_t)file_size > *map_size) {
-        WARN(2, "Failed to map file %s\n", fname);
+        WARN(1, "Failed to map file %s\n", fname);
         dr_close_file(f);
         return INVALID_FILE;
     }
@@ -933,11 +957,11 @@ static bool
 read_drcov_file(const char *input)
 {
     file_t log;
-    const char  *map, *ptr;
+    const char *map, *ptr;
     size_t map_size;
     module_table_t **tables;
-    uint   num_mods, num_bbs;
-    bool   res;
+    uint num_mods, num_bbs;
+    bool res;
 
     PRINT(2, "Reading drcov log file: %s\n", input);
     log = open_input_file(input, &map, &map_size, NULL);
@@ -960,7 +984,7 @@ read_drcov_file(const char *input)
         return false;
     }
     ptr = move_to_next_line(ptr);
-    if (num_bbs*sizeof(bb_entry_t) > map_size) {
+    if (num_bbs * sizeof(bb_entry_t) > map_size) {
         WARN(1, "Wrong number of bbs, corrupt log file %s\n", input);
         close_input_file(log, map, map_size);
         return false;
@@ -978,8 +1002,7 @@ is_drcov_log_file(const char *fname)
     if (((fname[0] == 'd' && fname[1] == 'r') ||
          /* legacy data files before rebranding */
          (fname[0] == 'b' && fname[1] == 'b')) &&
-        fname[2] == 'c' && fname[3] == 'o' &&
-        fname[4] == 'v' && fname[5] == '.' &&
+        fname[2] == 'c' && fname[3] == 'o' && fname[4] == 'v' && fname[5] == '.' &&
         strstr(fname, ".log") != NULL)
         return true;
     return false;
@@ -1000,8 +1023,7 @@ read_drcov_dir(void)
             if (is_drcov_log_file(ent->d_name)) {
                 ASSERT(ent->d_name[0] != '/',
                        "ent->d_name: %s should not be an absolute path\n", ent->d_name);
-                if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path),
-                                "%s/%s", input_dir_buf,
+                if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s/%s", input_dir_buf,
                                 ent->d_name) <= 0) {
                     WARN(1, "Fail to get full path of log file %s\n", ent->d_name);
                 } else {
@@ -1011,7 +1033,7 @@ read_drcov_dir(void)
                 }
             }
         }
-        closedir (dir);
+        closedir(dir);
     } else {
         /* could not open directory */
         WARN(1, "Failed to open directory %s\n", input_dir_buf);
@@ -1033,7 +1055,7 @@ read_drcov_dir(void)
 
     /* append \* to the end */
     strcpy(path, input_dir_buf);
-    if (path[strlen(path)-1] == '\\') {
+    if (path[strlen(path) - 1] == '\\') {
         strcat(path, "*");
         has_sep = true;
     } else {
@@ -1067,8 +1089,8 @@ static bool
 read_drcov_list(void)
 {
     file_t list;
-    const char  *map, *ptr;
-    char   path[MAXIMUM_PATH];
+    const char *map, *ptr;
+    char path[MAXIMUM_PATH];
     size_t map_size;
     uint64 file_size;
     bool found_logs = false;
@@ -1080,7 +1102,7 @@ read_drcov_list(void)
         return false;
     }
     /* process each file in the list */
-    for (ptr = map; ptr < map + file_size; ) {
+    for (ptr = map; ptr < map + file_size;) {
         if (dr_sscanf(ptr, "%s\n", path) != 1)
             break;
         NULL_TERMINATE_BUFFER(path);
@@ -1110,7 +1132,7 @@ read_drcov_input(void)
 static bool
 enum_line_cb(drsym_line_info_t *info, void *data)
 {
-    int   status;
+    int status;
     module_table_t *table = (module_table_t *)data;
     line_table_t *line_table;
     const char *test_info = NULL;
@@ -1123,59 +1145,55 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         (op_src_skip_filter.specified() &&
          strstr(info->file, op_src_skip_filter.get_value().c_str()) != NULL))
         return true;
-    line_table = (line_table_t *) hashtable_lookup(&line_htable, (void *)info->file);
+    line_table = (line_table_t *)hashtable_lookup(&line_htable, (void *)info->file);
     if (line_table == NULL) {
         num_line_htable_entries++;
         line_table = line_table_create(info->file);
         if (!hashtable_add(&line_htable, (void *)info->file, line_table))
             ASSERT(false, "Failed to add new source line table");
     }
-    status = module_table_bb_lookup(table, (uint)info->line_addr, &test_info);
+    status = module_table_bb_lookup(table, info->line_addr, &test_info);
     /* info->line is uint64 */
     ASSERT((uint)info->line == info->line, "info->line is too large");
     if (status == BB_TABLE_ENTRY_SET) {
         PRINT(5, "exec: ");
-        line_table_add(line_table, (uint)info->line,
-                       (byte)SOURCE_LINE_STATUS_EXEC, test_info);
+        line_table_add(line_table, (uint)info->line, (byte)SOURCE_LINE_STATUS_EXEC,
+                       test_info);
     } else if (status == BB_TABLE_ENTRY_CLEAR) {
         PRINT(5, "skip: ");
-        line_table_add(line_table, (uint)info->line,
-                       (byte)SOURCE_LINE_STATUS_SKIP, test_info);
+        line_table_add(line_table, (uint)info->line, (byte)SOURCE_LINE_STATUS_SKIP,
+                       test_info);
     } else {
-        WARN(2, "Invalid bb lookup, Table: " PFX", Addr: " PFX"\n",
-             (ptr_uint_t)table, (ptr_uint_t)info->line);
+        WARN(2, "Invalid bb lookup, Table: " PFX ", Addr: " PIFX "\n", table,
+             IF_NOT_X64((uint)) info->line);
     }
-    PRINT(5, "%s, %s, %llu, " PFX"\n",
-          info->cu_name, info->file, (unsigned long long)info->line,
-          (ptr_uint_t)info->line_addr);
+    PRINT(5, "%s, %s, %llu, 0x%zx\n", info->cu_name, info->file,
+          (unsigned long long)info->line, info->line_addr);
     return true;
 }
 
 static bool
 enumerate_line_info(void)
 {
-    uint i, num_entries = 0;
     /* iterate module table */
-    for (i = 0; i < HASHTABLE_SIZE(module_htable.table_bits); i++) {
-        hash_entry_t *e;
-        drsym_error_t res;
-        for (e = module_htable.table[i]; e != NULL; e = e->next) {
-            num_entries++;
-            PRINT(3, "Enumerate line info for %s\n", (char *)e->key);
-            if (strcmp((char *)e->key, "<unknown>") == 0)
-                continue;
-            if (e->payload == MODULE_TABLE_IGNORE)
-                continue;
-            res = drsym_enumerate_lines((const char *)e->key, enum_line_cb, e->payload);
-            if (res != DRSYM_SUCCESS)
-                WARN(1, "Failed to enumerate lines for %s\n", (char *)e->key);
-            res = drsym_free_resources((char *)e->key);
-            if (res != DRSYM_SUCCESS)
-                WARN(1, "Failed to free resource for %s\n", (char *)e->key);
+    for (const auto *mod_table : module_vec) {
+        if (mod_table == MODULE_TABLE_IGNORE)
+            continue;
+        if (strcmp(mod_table->path, "<unknown>") == 0)
+            continue;
+        bool has_lines = true;
+        PRINT(3, "Enumerate line info for %s\n", mod_table->path);
+        drsym_error_t res =
+            drsym_enumerate_lines(mod_table->path, enum_line_cb, (void *)mod_table);
+        if (res != DRSYM_SUCCESS) {
+            WARN(1, "Failed to enumerate lines for %s\n", mod_table->path);
+            has_lines = false;
         }
+        res = drsym_free_resources(mod_table->path);
+        /* I'm using has_lines to avoid warning on vdso. */
+        if (res != DRSYM_SUCCESS && has_lines)
+            WARN(1, "Failed to free resource for %s\n", mod_table->path);
     }
-    ASSERT(num_entries == num_module_htable_entries,
-           "Wrong number of hashtable entries");
     return true;
 }
 
@@ -1202,29 +1220,27 @@ write_lcov_output(void)
     size_t buf_sz;
 
     PRINT(2, "Writing output lcov file: %s\n", output_file_buf);
-    log = dr_open_file(output_file_buf,
-                       DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+    log = dr_open_file(output_file_buf, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     if (log == INVALID_FILE) {
         ASSERT(false, "Failed to open output file %s\n", output_file_buf);
         return false;
     }
 
     /* sort them before print */
-    src_array = (hash_entry_t **) calloc(line_htable.entries, sizeof(src_array[0]));
+    src_array = (hash_entry_t **)calloc(line_htable.entries, sizeof(src_array[0]));
     for (i = 0; i < HASHTABLE_SIZE(line_htable.table_bits); i++) {
         for (e = line_htable.table[i]; e != NULL; e = e->next) {
             src_array[num_entries] = e;
             num_entries++;
         }
     }
-    ASSERT(num_entries == num_line_htable_entries &&
-           line_htable.entries == num_entries,
+    ASSERT(num_entries == num_line_htable_entries && line_htable.entries == num_entries,
            "Wrong number of hashtable entries");
     qsort(src_array, num_entries, sizeof(src_array[0]), compare_source_file);
 
     /* print */
     buf_sz = LINE_TABLE_INIT_PRINT_BUF_SIZE;
-    buf = (char *) malloc(buf_sz);
+    buf = (char *)malloc(buf_sz);
     ASSERT(buf != NULL, "Failed to alloc print buffer\n");
     for (i = 0; i < num_entries; i++) {
         e = src_array[i];
@@ -1232,12 +1248,12 @@ write_lcov_output(void)
         if (line_table_print_buf_size((line_table_t *)e->payload) >= buf_sz) {
             free(buf);
             buf_sz = line_table_print_buf_size((line_table_t *)e->payload);
-            buf = (char *) malloc(buf_sz);
+            buf = (char *)malloc(buf_sz);
             ASSERT(buf != NULL, "Failed to alloc print buffer\n");
         }
-        ptr  = buf;
+        ptr = buf;
         ptr += dr_snprintf(ptr, SOURCE_FILE_START_LINE_SIZE, "SF:%s\n", e->key);
-        ptr  = line_table_print((line_table_t *)e->payload, ptr);
+        ptr = line_table_print((line_table_t *)e->payload, ptr);
         ptr += dr_snprintf(ptr, SOURCE_FILE_END_LINE_SIZE, "end_of_record\n");
         dr_write_file(log, buf, ptr - buf);
     }
@@ -1256,24 +1272,22 @@ print_usage()
 {
     fprintf(stderr, "drcov2lcov: convert drcov file format to lcov file format\n");
     fprintf(stderr, "usage: drcov2lcov [options]\n%s",
-             droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+            droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
 }
 
 static bool
 option_init(int argc, const char *argv[])
 {
     std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv,
-                                       &parse_err, NULL)) {
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv, &parse_err,
+                                       NULL)) {
         WARN(0, "Usage error: %s\n", parse_err.c_str());
         print_usage();
         return false;
     }
     if (op_help_html.specified()) {
-        std::cout << droption_parser_t::usage_long(DROPTION_SCOPE_ALL,
-                                                   "- <b>", "</b>\n",
-                                                   "  <br><i>", "</i>\n",
-                                                   "  <br>", "\n")
+        std::cout << droption_parser_t::usage_long(DROPTION_SCOPE_ALL, "- <b>", "</b>\n",
+                                                   "  <br><i>", "</i>\n", "  <br>", "\n")
                   << std::endl;
         exit(0);
     }
@@ -1284,8 +1298,7 @@ option_init(int argc, const char *argv[])
     }
 
     if (op_input.specified()) {
-        if (drfront_get_absolute_path(op_input.get_value().c_str(),
-                                      input_file_buf,
+        if (drfront_get_absolute_path(op_input.get_value().c_str(), input_file_buf,
                                       BUFFER_SIZE_ELEMENTS(input_file_buf)) !=
             DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input file %s\n",
@@ -1297,8 +1310,7 @@ option_init(int argc, const char *argv[])
     }
 
     if (op_list.specified()) {
-        if (drfront_get_absolute_path(op_list.get_value().c_str(),
-                                      input_list_buf,
+        if (drfront_get_absolute_path(op_list.get_value().c_str(), input_list_buf,
                                       BUFFER_SIZE_ELEMENTS(input_list_buf)) !=
             DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input list %s\n",
@@ -1316,8 +1328,7 @@ option_init(int argc, const char *argv[])
             input_dir = "./";
         } else
             input_dir = op_dir.get_value();
-        if (drfront_get_absolute_path(input_dir.c_str(),
-                                      input_dir_buf,
+        if (drfront_get_absolute_path(input_dir.c_str(), input_dir_buf,
                                       BUFFER_SIZE_ELEMENTS(input_dir_buf)) !=
             DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input dir |%s|\n", input_dir.c_str());
@@ -1329,11 +1340,9 @@ option_init(int argc, const char *argv[])
 
     if (!op_output.specified())
         WARN(1, "No output file name specified: using default %s\n", DEFAULT_OUTPUT_FILE);
-    if (drfront_get_absolute_path(!op_output.specified() ? DEFAULT_OUTPUT_FILE :
-                                  op_output.get_value().c_str(),
-                                  output_file_buf,
-                                  BUFFER_SIZE_ELEMENTS(output_file_buf)) !=
-        DRFRONT_SUCCESS) {
+    if (drfront_get_absolute_path(
+            !op_output.specified() ? DEFAULT_OUTPUT_FILE : op_output.get_value().c_str(),
+            output_file_buf, BUFFER_SIZE_ELEMENTS(output_file_buf)) != DRFRONT_SUCCESS) {
         WARN(1, "Failed to get full path of output file\n");
         return false;
     }
@@ -1341,8 +1350,7 @@ option_init(int argc, const char *argv[])
     PRINT(2, "Output file: %s\n", output_file_buf);
 
     if (op_reduce_set.specified()) {
-        if (drfront_get_absolute_path(op_reduce_set.get_value().c_str(),
-                                      set_file_buf,
+        if (drfront_get_absolute_path(op_reduce_set.get_value().c_str(), set_file_buf,
                                       BUFFER_SIZE_ELEMENTS(set_file_buf)) !=
             DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of reduce_set file\n");
@@ -1374,14 +1382,9 @@ main(int argc, const char *argv[])
         ASSERT(false, "Unable to initialize symbol translation");
         return 1;
     }
-    hashtable_init_ex(&module_htable, MODULE_HASH_TABLE_BITS, HASH_STRING,
-                      true /* strdup */, false /* !synch */,
-                      module_table_delete /* free */,
-                      NULL /* hash */, NULL /* cmp */);
-    hashtable_init_ex(&line_htable, LINE_HASH_TABLE_BITS, HASH_STRING,
-                      true /* strdup */, false /* !synch */,
-                      line_table_delete /* free */,
-                      NULL /* hash */, NULL /* cmp */);
+    hashtable_init_ex(&line_htable, LINE_HASH_TABLE_BITS, HASH_STRING, true /* strdup */,
+                      false /* !synch */, line_table_delete /* free */, NULL /* hash */,
+                      NULL /* cmp */);
 
     PRINT(1, "Reading input files...\n");
     if (!read_drcov_input()) {
@@ -1401,7 +1404,7 @@ main(int argc, const char *argv[])
         return 1;
     }
 
-    hashtable_delete(&module_htable);
+    module_vec_delete();
     hashtable_delete(&line_htable);
     if (drsym_exit() != DRSYM_SUCCESS) {
         ASSERT(false, "Failed to clean up symbol library\n");
@@ -1409,5 +1412,6 @@ main(int argc, const char *argv[])
     }
     if (set_log != INVALID_FILE)
         dr_close_file(set_log);
+    dr_standalone_exit();
     return 0;
 }

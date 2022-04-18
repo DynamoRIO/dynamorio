@@ -38,13 +38,13 @@
 #include "client_tools.h"
 
 #ifndef WINDOWS
-# error Windows-only
+#    error Windows-only
 #endif
 
 #include <shlwapi.h>
 
-static
-void exit_event(void)
+static void
+exit_event(void)
 {
     dr_fprintf(STDERR, "in exit\n");
 }

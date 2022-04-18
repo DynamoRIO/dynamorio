@@ -1,9 +1,18 @@
+in event_thread_init_null_user_data
+in event_thread_init_user_data
 in event_thread_init_ex
 in event_thread_init
+in insert A
+in insert B
+in insert C
+in pre_sys_B_user_data
 in pre_sys_B
+in pre_sys_A_user_data
 in pre_sys_A
 /* B is here with late injection */
+in post_sys_B_user_data
 in post_sys_B
+in post_sys_A_user_data
 in post_sys_A
 #ifdef UNIX
 B
@@ -20,9 +29,18 @@ Inside handler
 in wnd_callback 0x0*0008001 0 2
 Got message 0x0*0008001 1 3
 All done
+appdll initialized
 #else
+appdll initialized
 Estimation of pi is 3.142425985001098
+in signal_A_user_data
+in signal_B_user_data
 #endif
 saw event_thread_exit
 saw event_thread_exit_ex
+saw event_thread_exit_user_data
+saw event_thread_exit_null_user_data
+saw event_mod_load
+saw event_mod_unload
+saw event_meta_instru
 all done

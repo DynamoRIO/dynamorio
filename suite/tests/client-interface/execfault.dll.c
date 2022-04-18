@@ -35,7 +35,7 @@
 #include "client_tools.h"
 
 #if defined(UNIX)
-# include <signal.h>
+#    include <signal.h>
 
 static dr_signal_action_t
 signal_event(void *dcontext, dr_siginfo_t *info)
@@ -43,9 +43,7 @@ signal_event(void *dcontext, dr_siginfo_t *info)
     if (info->sig == SIGABRT) {
         /* do nothing */
     } else {
-        dr_fprintf(STDERR,
-                   "dr handler got signal %d with addr "PFX"\n",
-                   info->sig,
+        dr_fprintf(STDERR, "dr handler got signal %d with addr " PFX "\n", info->sig,
                    /* info->access_address is only for data accesses,
                     * and info->raw_mcontext_valid is false for exec
                     */
@@ -59,8 +57,7 @@ static bool
 exception_event(void *dcontext, dr_exception_t *excpt)
 {
     void *fault_address = (void *)excpt->record->ExceptionInformation[1];
-    dr_fprintf(STDERR,
-               "dr handler got exception %x with addr "PFX"\n",
+    dr_fprintf(STDERR, "dr handler got exception %x with addr " PFX "\n",
                excpt->record->ExceptionCode,
                (ptr_uint_t)excpt->record->ExceptionInformation[1]);
     return true;

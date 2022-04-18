@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,13 +39,6 @@
 #include "drreg.h"
 #include <string.h> /* memset */
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
-
 #define MINSERT instrlist_meta_preinsert
 
 static app_pc app;
@@ -58,33 +51,28 @@ dereference_app(app_pc app_addr)
 }
 
 static void
-instrument_mem(void *drcontext, instrlist_t *bb, instr_t *inst,
-               opnd_t ref)
+instrument_mem(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t ref)
 {
     reg_id_t reg_ptr, reg_tmp;
     bool ok;
 
-    if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg_ptr) !=
-        DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, inst, NULL, &reg_tmp) !=
-        DRREG_SUCCESS) {
+    if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg_ptr) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, inst, NULL, &reg_tmp) != DRREG_SUCCESS) {
         CHECK(false, "drreg_reserve_register() failed");
     }
-    ok = drutil_insert_get_mem_addr(drcontext, bb, inst, ref,
-                                    reg_ptr, reg_tmp);
+    ok = drutil_insert_get_mem_addr(drcontext, bb, inst, ref, reg_ptr, reg_tmp);
     CHECK(ok, "drutil_insert_get_mem_addr() failed");
     /* Test that a clean call is predicated correctly; if this clean call
      * is not predicated correctly then DR will crash.
      */
-    dr_insert_clean_call(drcontext, bb, inst, (void *)dereference_app,
-                         false, 1, opnd_create_reg(reg_ptr));
+    dr_insert_clean_call(drcontext, bb, inst, (void *)dereference_app, false, 1,
+                         opnd_create_reg(reg_ptr));
     /* Test that regular meta-instrumentation is predicated correctly; if
      * this load is not predicated correctly then DR will crash.
      */
-    MINSERT(bb, inst, XINST_CREATE_load_1byte
-            (drcontext,
-             opnd_create_reg(reg_tmp),
-             OPND_CREATE_MEM8(reg_ptr, 0)));
+    MINSERT(bb, inst,
+            XINST_CREATE_load_1byte(drcontext, opnd_create_reg(reg_tmp),
+                                    OPND_CREATE_MEM8(reg_ptr, 0)));
 
     if (drreg_unreserve_register(drcontext, bb, inst, reg_ptr) != DRREG_SUCCESS ||
         drreg_unreserve_register(drcontext, bb, inst, reg_tmp) != DRREG_SUCCESS)
@@ -125,10 +113,8 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
-    if (!drmgr_init() ||
-        drreg_init(&ops) != DRREG_SUCCESS ||
-        !drutil_init())
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init())
         CHECK(false, "init failed");
 
     dr_register_exit_event(event_exit);

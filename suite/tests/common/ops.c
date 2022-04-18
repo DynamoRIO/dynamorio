@@ -39,16 +39,17 @@
 
 static int a[ITERS];
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
-    int i,j;
+    int i, j;
 
-    for (i=0; i<ITERS; i++) {
+    for (i = 0; i < ITERS; i++) {
         if (i % 2 == 0) {
-            res += cos(1./(double)(i+1));
+            res += cos(1. / (double)(i + 1));
         } else {
-            res += sin(1./(double)(i+1));
+            res += sin(1. / (double)(i + 1));
         }
         j = (i << 4) / (i | 0x38);
         a[i] += j;
@@ -56,4 +57,3 @@ int main(int argc, char *argv[])
     printf("%f\n", res);
     return 0;
 }
-

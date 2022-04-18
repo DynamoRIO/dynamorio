@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,20 +32,27 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
-#include "configure.h"
-#include "dr_api.h"
-#include "tools.h"
-#include <math.h>
+#    include "configure.h"
+#    include "dr_api.h"
+#    include "tools.h"
+#    include <math.h>
 
 /* asm routine and labels */
-void asm_func(void);
-void asm_label1(void);
-void asm_label2(void);
-void asm_label3(void);
+void
+asm_func(void);
+void
+asm_label1(void);
+void
+asm_label2(void);
+void
+asm_label3(void);
+void
+asm_return(void);
 static bool bb_seen_func;
 static bool bb_seen_label1;
 static bool bb_seen_label2;
 static bool bb_seen_label3;
+static bool bb_seen_return;
 
 static void
 clean_callee(void)
@@ -54,8 +61,7 @@ clean_callee(void)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     if (tag == asm_func)
         dr_fprintf(STDERR, "bb asm_func\n");
@@ -65,10 +71,11 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         dr_fprintf(STDERR, "bb asm_label2\n");
     else if (tag == asm_label3)
         dr_fprintf(STDERR, "bb asm_label3\n");
+    else if (tag == asm_return)
+        dr_fprintf(STDERR, "bb asm_return\n");
 
     /* Test instrumentation. */
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                         clean_callee, false, 0);
+    dr_insert_clean_call(drcontext, bb, instrlist_first(bb), clean_callee, false, 0);
     return DR_EMIT_DEFAULT;
 }
 
@@ -105,51 +112,116 @@ int
 main(int argc, const char *argv[])
 {
     bool success;
-    app_pc tags[] = {(app_pc)asm_func,
-                     (app_pc)asm_label1,
-                     (app_pc)asm_label2,
-                     (app_pc)asm_label3};
-    print("pre-DR init\n");
-    dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
+    app_pc tags[] = { (app_pc)asm_func, (app_pc)asm_label1, (app_pc)asm_label2,
+                      (app_pc)asm_label3, (app_pc)asm_return };
+    app_pc return_tags[] = { (app_pc)asm_return };
 
-    success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
-    assert(success);
+    // For testing ibt prepop, we want bb's to be indirect branch targets.
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-disable_traces -shared_bb_ibt_tables "
+                   // Standard test options.
+                   "-stderr_mask 0xc"))
+        dr_fprintf(STDERR, "Failed to set env var!\n");
 
-    print("pre-DR start\n");
-    dr_app_start();
-    assert(dr_app_running_under_dynamorio());
+    // Attach and re-attach.
+    for (int i = 0; i < 2; ++i) {
+        print("pre-DR init\n");
+        dr_app_setup();
+        assert(!dr_app_running_under_dynamorio());
+        dr_stats_t stats = { sizeof(dr_stats_t) };
+        bool got_stats = dr_get_stats(&stats);
+        assert(got_stats);
+        assert(stats.basic_block_count == 0);
+#    ifdef ARM
+        /* Our asm is arm, not thumb. */
+        dr_isa_mode_t old_mode;
+        dr_set_isa_mode(dr_get_current_drcontext(), DR_ISA_ARM_A32, &old_mode);
+#    endif
+        success = dr_prepopulate_cache(tags, sizeof(tags) / sizeof(tags[0]));
+#    ifdef ARM
+        dr_set_isa_mode(dr_get_current_drcontext(), old_mode, NULL);
+#    endif
+        assert(success);
+        success =
+            dr_prepopulate_indirect_targets(DR_INDIRECT_RETURN, return_tags,
+                                            sizeof(return_tags) / sizeof(return_tags[0]));
+        // There's no simple way to verify DR did not have to lazily add asm_return
+        // to any ibt table: we could export the num_exits_ind_bad_miss stat, but it's
+        // going to make a flaky test as it depends on the compiler precisely how
+        // many we see in the base case.  Maybe we could run twice, once with and once
+        // without indirect prepop, and compare those.  The stats export is problematic
+        // though as it's a debug-only stat and we want to limit dr_stats_t to
+        // stats available in release build too.  For now, I did a manual test and
+        // saw 8 "ind target in cache but not table" exits w/o prepop of the table
+        // and 7 with and confirmed there's no lazy filling for asm_return.
+        assert(success);
+        got_stats = dr_get_stats(&stats);
+        assert(got_stats);
+        assert(stats.basic_block_count > 0);
+        assert(stats.peak_num_threads > 0);
+        assert(stats.num_threads_created > 0);
 
-    if (do_some_work() < 0)
-        print("error in computation\n");
+        print("pre-DR start\n");
+        dr_app_start();
+        assert(dr_app_running_under_dynamorio());
 
-    print("pre-DR detach\n");
-    dr_app_stop_and_cleanup();
-    assert(!dr_app_running_under_dynamorio());
+        if (do_some_work() < 0)
+            print("error in computation\n");
 
-    if (do_some_work() < 0)
-        print("error in computation\n");
+        if (i > 0) {
+            print("pre-DR detach with stats\n");
+            dr_stats_t end_stats = { sizeof(dr_stats_t) };
+            dr_app_stop_and_cleanup_with_stats(&end_stats);
+            assert(end_stats.basic_block_count > 0);
+        } else {
+            print("pre-DR detach\n");
+            dr_app_stop_and_cleanup();
+        }
+        assert(!dr_app_running_under_dynamorio());
+
+        if (do_some_work() < 0)
+            print("error in computation\n");
+    }
     print("all done\n");
     return 0;
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 DECLARE_GLOBAL(asm_label1)
 DECLARE_GLOBAL(asm_label2)
 DECLARE_GLOBAL(asm_label3)
+DECLARE_GLOBAL(asm_return)
 
 #define FUNCNAME asm_func
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         INC(ARG1)
-        JUMP     asm_label1
+#   ifdef AARCH64
+        stp      x29, x30, [sp, #-16]!
+#   elif defined(ARM)
+        push     {lr}
+#   endif
+#   ifdef ARM
+        /* We don't use CALLC0 b/c it uses blx which swaps to Thumb. */
+        bl       asm_label1
+#   else
+        CALLC0(asm_label1)
+#   endif
+ADDRTAKEN_LABEL(asm_return:)
+#   ifdef AARCH64
+        ldp      x29, x30, [sp], #16
+#   elif defined(ARM)
+        pop      {lr}
+#   endif
+        JUMP     asm_label2
 
 ADDRTAKEN_LABEL(asm_label1:)
         INC(ARG2)
-        JUMP     asm_label2
+        RETURN
 
 ADDRTAKEN_LABEL(asm_label2:)
         INC(ARG3)
@@ -162,4 +234,5 @@ ADDRTAKEN_LABEL(asm_label3:)
 
 
 END_FILE
+/* Not turning clang format back on b/c of a clang-format-diff wart. */
 #endif

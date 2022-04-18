@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,11 +37,11 @@
 #include "signal_private.h" /* pulls in globals.h for us, in right order */
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 #ifndef ARM
-# error ARM-only
+#    error ARM-only
 #endif
 
 #include "arch.h"
@@ -57,28 +57,27 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
-
 #ifdef DEBUG
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr0  ="PFX"\n", sc->SC_R0);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr1  ="PFX"\n", sc->SC_R1);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr2  ="PFX"\n", sc->SC_R2);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr3  ="PFX"\n", sc->SC_R3);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr4  ="PFX"\n", sc->SC_R4);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr5  ="PFX"\n", sc->SC_R5);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr6  ="PFX"\n", sc->SC_R6);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr7  ="PFX"\n", sc->SC_R7);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr8  ="PFX"\n", sc->SC_R8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr9  ="PFX"\n", sc->SC_R9);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr10 ="PFX"\n", sc->SC_R10);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr11 ="PFX"\n", sc->SC_R11);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr12 ="PFX"\n", sc->SC_R12);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tsp  ="PFX"\n", sc->SC_XSP);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr14 ="PFX"\n", sc->SC_LR);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tpc  ="PFX"\n", sc->SC_XIP);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tcpsr="PFX"\n", sc->SC_XFLAGS);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr0  =" PFX "\n", sc->SC_R0);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr1  =" PFX "\n", sc->SC_R1);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr2  =" PFX "\n", sc->SC_R2);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr3  =" PFX "\n", sc->SC_R3);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr4  =" PFX "\n", sc->SC_R4);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr5  =" PFX "\n", sc->SC_R5);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr6  =" PFX "\n", sc->SC_R6);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr7  =" PFX "\n", sc->SC_R7);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr8  =" PFX "\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr9  =" PFX "\n", sc->SC_R9);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr10 =" PFX "\n", sc->SC_R10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr11 =" PFX "\n", sc->SC_R11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr12 =" PFX "\n", sc->SC_R12);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tsp  =" PFX "\n", sc->SC_XSP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr14 =" PFX "\n", sc->SC_LR);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpc  =" PFX "\n", sc->SC_XIP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tcpsr=" PFX "\n", sc->SC_XFLAGS);
     /* XXX: should we take in sig_full_cxt_t to dump SIMD regs? */
 }
 #endif /* DEBUG */
@@ -104,6 +103,8 @@ static bool vfp_is_offset = false;
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
+    if (sc_full->fp_simd_state == NULL)
+        return;
     char *frame = ((char *)sc_full->fp_simd_state +
                    (vfp_is_offset ? sizeof(kernel_iwmmxt_sigframe_t) : 0));
     kernel_vfp_sigframe_t *vfp = (kernel_vfp_sigframe_t *)frame;
@@ -116,6 +117,8 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
+    if (sc_full->fp_simd_state == NULL)
+        return;
     char *frame = (char *)sc_full->fp_simd_state;
     kernel_vfp_sigframe_t *vfp;
     if (vfp_is_offset) {
@@ -140,7 +143,7 @@ signal_frame_extra_size(bool include_alignment)
 }
 
 static void
-vfp_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+vfp_query_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 {
     uint offset = sizeof(kernel_iwmmxt_sigframe_t);
     char *coproc = (char *)&ucxt->coproc;
@@ -149,14 +152,14 @@ vfp_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
      */
     kernel_vfp_sigframe_t *vfp0 = (kernel_vfp_sigframe_t *)coproc;
     kernel_vfp_sigframe_t *vfp1 = (kernel_vfp_sigframe_t *)(coproc + offset);
-    bool vfp0_good = (vfp0->magic == VFP_MAGIC &&
-                      vfp0->size == sizeof(kernel_vfp_sigframe_t));
-    bool vfp1_good = (vfp1->magic == VFP_MAGIC &&
-                      vfp1->size == sizeof(kernel_vfp_sigframe_t));
+    bool vfp0_good =
+        (vfp0->magic == VFP_MAGIC && vfp0->size == sizeof(kernel_vfp_sigframe_t));
+    bool vfp1_good =
+        (vfp1->magic == VFP_MAGIC && vfp1->size == sizeof(kernel_vfp_sigframe_t));
     ASSERT(offset == 160);
     if (vfp0_good == vfp1_good) {
-        SYSLOG(SYSLOG_CRITICAL, CANNOT_FIND_VFP_FRAME, 2,
-               get_application_name(), get_application_pid());
+        SYSLOG(SYSLOG_CRITICAL, CANNOT_FIND_VFP_FRAME, 2, get_application_name(),
+               get_application_pid());
         os_terminate(NULL, TERMINATE_PROCESS);
     }
     vfp_is_offset = vfp1_good;

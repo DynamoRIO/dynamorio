@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,30 +35,31 @@
 
 #ifdef WINDOWS
 /* Choose based on _UNICODE on Windows. */
-# include <tchar.h>
+#    include <tchar.h>
 #else
 /* Paths always use char on Linux. */
-# define TCHAR char
-# define _tcsstr strstr
-# define _tcslen strlen
-# define _tcscmp strcmp
-# define _tcsncpy strncpy
-# define _sntprintf snprintf
-# define _tcstoul strtoul
-# define _TEXT(str) str
-# define _wfopen fopen
-# define _wremove remove
+#    define TCHAR char
+#    define _tcsstr strstr
+#    define _tcslen strlen
+#    define _tcscmp strcmp
+#    define _tcsncpy strncpy
+/* TODO: Switch to DR's snprintf for consistent behavior, like dr_config.c has done. */
+#    define _sntprintf snprintf
+#    define _tcstoul strtoul
+#    define _TEXT(str) str
+#    define _wfopen fopen
+#    define _wremove remove
 #endif
 
 #ifdef _UNICODE
-# define TSTR_FMT "%S"
+#    define TSTR_FMT "%S"
 #else
-# define TSTR_FMT "%s"
+#    define TSTR_FMT "%s"
 #endif
 
 /* Convenient place for other string compat routines. */
 #ifndef WINDOWS
-# define _snprintf snprintf
+#    define _snprintf snprintf
 #endif
 
 #endif /* _SHARELIB_OUR_TCHAR_H_ */

@@ -58,10 +58,11 @@ static uint verbose;
 static bool nudge_kills;
 static client_id_t client_id;
 
-#define NOTIFY(level, ...) do {          \
-    if (verbose >= (level))              \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-} while (0)
+#define NOTIFY(level, ...)                   \
+    do {                                     \
+        if (verbose >= (level))              \
+            dr_fprintf(STDERR, __VA_ARGS__); \
+    } while (0)
 
 #define OPTION_MAX_LENGTH MAXIMUM_PATH
 
@@ -77,7 +78,7 @@ static void
 event_nudge(void *drcontext, uint64 argument)
 {
     int nudge_arg = (int)argument;
-    int exit_arg  = (int)(argument >> 32);
+    int exit_arg = (int)(argument >> 32);
     if (nudge_arg == NUDGE_TERMINATE_PROCESS) {
         static int nudge_term_count;
         /* handle multiple from both NtTerminateProcess and NtTerminateJobObject */
@@ -96,8 +97,7 @@ event_soft_kill(process_id_t pid, int exit_code)
     /* we pass [exit_code, NUDGE_TERMINATE_PROCESS] to target process */
     dr_config_status_t res;
     res = dr_nudge_client_ex(pid, client_id,
-                             NUDGE_TERMINATE_PROCESS | (uint64)exit_code << 32,
-                             0);
+                             NUDGE_TERMINATE_PROCESS | (uint64)exit_code << 32, 0);
     if (res == DR_SUCCESS) {
         /* skip syscall since target will terminate itself */
         return true;
@@ -126,7 +126,7 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
     /* default values */
     nudge_kills = true;
 
-    for (i = 1/*skip client*/; i < argc; i++) {
+    for (i = 1 /*skip client*/; i < argc; i++) {
         token = argv[i];
         if (strcmp(token, "-dump_text") == 0)
             ops->flags |= DRCOVLIB_DUMP_AS_TEXT;
@@ -139,8 +139,10 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
         else if (strcmp(token, "-logdir") == 0) {
             USAGE_CHECK((i + 1) < argc, "missing logdir path");
             ops->logdir = argv[++i];
-        }
-        else if (strcmp(token, "-native_until_thread") == 0) {
+        } else if (strcmp(token, "-logprefix") == 0) {
+            USAGE_CHECK((i + 1) < argc, "missing logprefix string");
+            ops->logprefix = argv[++i];
+        } else if (strcmp(token, "-native_until_thread") == 0) {
             USAGE_CHECK((i + 1) < argc, "missing -native_until_thread number");
             token = argv[++i];
             if (dr_sscanf(token, "%d", &ops->native_until_thread) != 1 ||
@@ -148,16 +150,14 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
                 ops->native_until_thread = 0;
                 USAGE_CHECK(false, "invalid -native_until_thread number");
             }
-        }
-        else if (strcmp(token, "-verbose") == 0) {
+        } else if (strcmp(token, "-verbose") == 0) {
             /* XXX: should drcovlib expose its internal verbose param? */
             USAGE_CHECK((i + 1) < argc, "missing -verbose number");
             token = argv[++i];
             if (dr_sscanf(token, "%u", &verbose) != 1) {
                 USAGE_CHECK(false, "invalid -verbose number");
             }
-        }
-        else {
+        } else {
             NOTIFY(0, "UNRECOGNIZED OPTION: \"%s\"\n", token);
             USAGE_CHECK(false, "invalid option");
         }
@@ -169,7 +169,9 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drcovlib_options_t ops = {sizeof(ops),};
+    drcovlib_options_t ops = {
+        sizeof(ops),
+    };
     dr_set_client_name("DrCov", "http://dynamorio.org/issues");
     client_id = id;
 

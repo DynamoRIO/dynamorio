@@ -52,11 +52,11 @@ native_module_exit(void)
 void
 native_module_hook(module_area_t *ma, bool at_map)
 {
-    ASSERT_CURIOSITY(__FUNCTION__" NYI");
+    ASSERT_CURIOSITY(__FUNCTION__ " NYI");
 }
 
 void
 native_module_unhook(module_area_t *ma)
 {
-    ASSERT_CURIOSITY(__FUNCTION__" NYI");
+    ASSERT_CURIOSITY(__FUNCTION__ " NYI");
 }

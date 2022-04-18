@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -36,8 +36,9 @@
 #include "drcovlib_private.h"
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 
-#define MODULE_FILE_VERSION 3
+#define MODULE_FILE_VERSION 5
 
 #define NUM_GLOBAL_MODULE_CACHE 8
 #define NUM_THREAD_MODULE_CACHE 4
@@ -54,6 +55,9 @@ typedef struct _module_entry_t {
      */
     module_data_t *data;
     void *custom;
+    /* The file offset of the segment */
+    uint64 offset;
+    app_pc preferred_base;
 } module_entry_t;
 
 typedef struct _module_table_t {
@@ -75,9 +79,9 @@ static int tls_idx = -1;
 static module_table_t module_table;
 
 /* Custom per-module field support. */
-static void * (*module_load_cb)(module_data_t *module);
+static void *(*module_load_cb)(module_data_t *module, int seg_idx);
 static int (*module_print_cb)(void *data, char *dst, size_t max_len);
-static const char * (*module_parse_cb)(const char *src, OUT void **data);
+static const char *(*module_parse_cb)(const char *src, OUT void **data);
 static void (*module_free_cb)(void *data);
 
 /* we use direct map cache to avoid locking */
@@ -92,21 +96,18 @@ global_module_cache_add(module_entry_t **cache, module_entry_t *entry)
  * entries, shifting results in the oldest entry being discarded.
  */
 static inline void
-thread_module_cache_adjust(module_entry_t **cache,
-                           module_entry_t  *entry,
-                           uint pos,
+thread_module_cache_adjust(module_entry_t **cache, module_entry_t *entry, uint pos,
                            uint max_pos)
 {
     uint i;
     ASSERT(pos < max_pos, "wrong pos");
     for (i = pos; i > 0; i--)
-        cache[i] = cache[i-1];
+        cache[i] = cache[i - 1];
     cache[0] = entry;
 }
 
 static inline void
-thread_module_cache_add(module_entry_t **cache, uint cache_size,
-                        module_entry_t *entry)
+thread_module_cache_add(module_entry_t **cache, uint cache_size, module_entry_t *entry)
 {
     thread_module_cache_adjust(cache, entry, cache_size - 1, cache_size);
 }
@@ -115,11 +116,10 @@ static void
 module_table_entry_free(void *tofree)
 {
     module_entry_t *entry = (module_entry_t *)tofree;
-    if (entry->id == entry->containing_id) {
-        if (module_free_cb != NULL)
-            module_free_cb(((module_entry_t *)entry)->custom);
+    if (module_free_cb != NULL)
+        module_free_cb(((module_entry_t *)entry)->custom);
+    if (entry->id == entry->containing_id) /* Else a sub-entry which shares data. */
         dr_free_module_data(((module_entry_t *)entry)->data);
-    } /* else a sub-entry which shares custom and data */
     dr_global_free(entry, sizeof(module_entry_t));
 }
 
@@ -127,7 +127,7 @@ static void
 event_module_load(void *drcontext, const module_data_t *data, bool loaded)
 {
     module_entry_t *entry = NULL;
-    module_data_t  *mod;
+    module_data_t *mod;
     int i;
     /* Some apps repeatedly unload and reload the same module,
      * so we will try to re-use the old one.
@@ -137,9 +137,9 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
     /* Assuming most recently loaded entries are most likely to be unloaded,
      * we iterate the module table in a backward way for better performance.
      */
-    for (i = module_table.vector.entries-1; i >= 0; i--) {
+    for (i = module_table.vector.entries - 1; i >= 0; i--) {
         entry = drvector_get_entry(&module_table.vector, i);
-        mod   = entry->data;
+        mod = entry->data;
         if (entry->unload &&
             /* Only check the main (containing) module.
              * This is necessary because the loop is backward.
@@ -148,20 +148,17 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             /* If the same module is re-loaded at the same address,
              * we will try to use the existing entry.
              */
-            mod->start       == data->start        &&
-            mod->end         == data->end          &&
-            mod->entry_point == data->entry_point  &&
+            mod->start == data->start && mod->end == data->end &&
+            mod->entry_point == data->entry_point &&
 #ifdef WINDOWS
-            mod->checksum    == data->checksum     &&
-            mod->timestamp   == data->timestamp    &&
+            mod->checksum == data->checksum && mod->timestamp == data->timestamp &&
 #endif
             /* If a module w/ no name (there are some) is loaded, we will
              * keep making new entries.
              */
             dr_module_preferred_name(data) != NULL &&
-            dr_module_preferred_name(mod)  != NULL &&
-            strcmp(dr_module_preferred_name(data),
-                   dr_module_preferred_name(mod)) == 0) {
+            dr_module_preferred_name(mod) != NULL &&
+            strcmp(dr_module_preferred_name(data), dr_module_preferred_name(mod)) == 0) {
             entry->unload = false;
 #ifndef WINDOWS
             if (!mod->contiguous) {
@@ -191,32 +188,35 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         entry->unload = false;
         entry->data = dr_copy_module_data(data);
         if (module_load_cb != NULL)
-            entry->custom = module_load_cb(entry->data);
+            entry->custom = module_load_cb(entry->data, 0);
         drvector_append(&module_table.vector, entry);
-#ifndef WINDOWS
-        if (!data->contiguous) {
-            uint j;
-            module_entry_t *sub_entry;
-            ASSERT(entry->start == data->segments[0].start, "illegal segments");
-            entry->end = data->segments[0].end;
-            for (j = 1/*we did 1st*/; j < data->num_segments; j++) {
-                if (data->segments[j].start == data->segments[j-1].end)
-                    continue; /* contiguous */
-                /* Add an entry for each separate piece.  On unload we assume
-                 * that these entries are consecutive following the main entry.
-                 */
-                sub_entry = dr_global_alloc(sizeof(*sub_entry));
-                sub_entry->id = module_table.vector.entries;
-                sub_entry->containing_id = entry->id;
-                sub_entry->start = data->segments[j].start;
-                sub_entry->end = data->segments[j].end;
-                sub_entry->unload = false;
-                /* These fields are shared. */
-                sub_entry->data = entry->data;
-                sub_entry->custom = entry->custom;
-                drvector_append(&module_table.vector, sub_entry);
-                global_module_cache_add(module_table.cache, sub_entry);
-            }
+        entry->preferred_base = data->preferred_base;
+#ifdef WINDOWS
+        entry->offset = 0;
+#else
+        entry->offset = data->segments[0].offset;
+        uint j;
+        module_entry_t *sub_entry;
+        ASSERT(entry->start == data->segments[0].start, "illegal segments");
+        entry->end = data->segments[0].end;
+        for (j = 1 /*we did 1st*/; j < data->num_segments; j++) {
+            /* Add an entry for each separate piece.  On unload we assume
+             * that these entries are consecutive following the main entry.
+             */
+            sub_entry = dr_global_alloc(sizeof(*sub_entry));
+            sub_entry->id = module_table.vector.entries;
+            sub_entry->containing_id = entry->id;
+            sub_entry->start = data->segments[j].start;
+            sub_entry->end = data->segments[j].end;
+            sub_entry->unload = false;
+            sub_entry->data = entry->data; /* Shared among all segments. */
+            if (module_load_cb != NULL)
+                sub_entry->custom = module_load_cb(sub_entry->data, j);
+            sub_entry->offset = data->segments[j].offset;
+            sub_entry->preferred_base =
+                (sub_entry->start - entry->start) + entry->preferred_base;
+            drvector_append(&module_table.vector, sub_entry);
+            global_module_cache_add(module_table.cache, sub_entry);
         }
 #endif
     }
@@ -235,16 +235,20 @@ pc_is_in_module(module_entry_t *entry, app_pc pc)
 }
 
 static inline void
-lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *mod_base)
+lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *seg_base,
+                         OUT app_pc *mod_base)
 {
     if (mod_index != NULL)
         *mod_index = entry->id; /* We expose the segment. */
+    if (seg_base != NULL)
+        *seg_base = entry->start;
     if (mod_base != NULL)
         *mod_base = entry->data->start; /* Yes, absolute base, not segment base. */
 }
 
-drcovlib_status_t
-drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base)
+static drcovlib_status_t
+drmodtrack_lookup_helper(void *drcontext, app_pc pc, OUT uint *mod_index,
+                         OUT app_pc *seg_base, OUT app_pc *mod_base)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     module_entry_t *entry;
@@ -260,7 +264,7 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
                 thread_module_cache_adjust(data->cache, entry, i,
                                            NUM_THREAD_MODULE_CACHE);
             }
-            lookup_helper_set_fields(entry, mod_index, mod_base);
+            lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
             return DRCOVLIB_SUCCESS;
         }
     }
@@ -269,7 +273,7 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
     for (i = 0; i < NUM_GLOBAL_MODULE_CACHE; i++) {
         entry = module_table.cache[i];
         if (pc_is_in_module(entry, pc)) {
-            lookup_helper_set_fields(entry, mod_index, mod_base);
+            lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
             return DRCOVLIB_SUCCESS;
         }
     }
@@ -287,9 +291,22 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
         entry = NULL;
     }
     if (entry != NULL)
-        lookup_helper_set_fields(entry, mod_index, mod_base);
+        lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
     drvector_unlock(&module_table.vector);
     return entry == NULL ? DRCOVLIB_ERROR_NOT_FOUND : DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base)
+{
+    return drmodtrack_lookup_helper(drcontext, pc, mod_index, NULL, mod_base);
+}
+
+drcovlib_status_t
+drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
+                          OUT app_pc *segment_base)
+{
+    return drmodtrack_lookup_helper(drcontext, pc, segment_index, segment_base, NULL);
 }
 
 static void
@@ -311,17 +328,15 @@ event_module_unload(void *drcontext, const module_data_t *data)
     if (entry != NULL) {
         entry->unload = true;
 #ifndef WINDOWS
-        if (!data->contiguous) {
-            int j;
-            /* Find non-contiguous entries, which are consecutive and after the main. */
-            for (j = i + 1; j < module_table.vector.entries; j++) {
-                module_entry_t *sub_entry = drvector_get_entry(&module_table.vector, j);
-                ASSERT(sub_entry != NULL, "fail to get module entry");
-                if (sub_entry->containing_id == entry->id)
-                    sub_entry->unload = true;
-                else
-                    break;
-            }
+        int j;
+        /* Find non-contiguous entries, which are consecutive and after the main. */
+        for (j = i + 1; j < module_table.vector.entries; j++) {
+            module_entry_t *sub_entry = drvector_get_entry(&module_table.vector, j);
+            ASSERT(sub_entry != NULL, "fail to get module entry");
+            if (sub_entry->containing_id == entry->id)
+                sub_entry->unload = true;
+            else
+                break;
         }
 #endif
     } else
@@ -352,8 +367,7 @@ drmodtrack_init(void)
     if (count > 1)
         return DRCOVLIB_SUCCESS;
 
-    if (!drmgr_init() ||
-        !drmgr_register_thread_init_event(event_thread_init) ||
+    if (!drmgr_init() || !drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_module_load_event(event_module_load) ||
         !drmgr_register_module_unload_event(event_module_unload))
@@ -376,6 +390,7 @@ drmodtrack_exit(void)
     if (count != 0)
         return DRCOVLIB_SUCCESS;
 
+    drmgr_unregister_tls_field(tls_idx);
     drvector_delete(&module_table.vector);
     drmgr_exit();
     return DRCOVLIB_SUCCESS;
@@ -397,6 +412,8 @@ typedef struct _module_read_entry_t {
     char *path; /* may or may not point to path_buf */
     char path_buf[MAXIMUM_PATH];
     void *custom;
+    uint64 offset;
+    app_pc preferred_base;
 } module_read_entry_t;
 
 typedef struct _module_read_info_t {
@@ -411,17 +428,18 @@ static int
 module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t size)
 {
     int len, total_len = 0;
-    len = dr_snprintf(buf, size, "%3u, %3u, " PFX ", " PFX ", " PFX ", ",
-                      idx, entry->containing_id, entry->base,
-                      entry->base+entry->size, entry->entry);
+    len = dr_snprintf(buf, size,
+                      "%3u, %3u, " PFX ", " PFX ", " PFX ", " ZHEX64_FORMAT_STRING
+                      ", " PFX ", ",
+                      idx, entry->containing_id, entry->base, entry->base + entry->size,
+                      entry->entry, entry->offset, entry->preferred_base);
     if (len == -1)
         return -1;
     buf += len;
     total_len += len;
     size -= len;
 #ifdef WINDOWS
-    len = dr_snprintf(buf, size, "0x%08x, 0x%08x, ",
-                      entry->checksum, entry->timestamp);
+    len = dr_snprintf(buf, size, "0x%08x, 0x%08x, ", entry->checksum, entry->timestamp);
     if (len == -1)
         return -1;
     buf += len;
@@ -464,6 +482,11 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
 #endif
     read_entry.path = full_path;
     read_entry.custom = entry->custom;
+    /* For unices we record the physical offset from the backing file
+     *(always 0 on Windows).
+     */
+    read_entry.offset = entry->offset;
+    read_entry.preferred_base = entry->preferred_base;
     return module_read_entry_print(&read_entry, entry->id, buf, size);
 }
 
@@ -474,7 +497,7 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
     char *buf = buf_in;
     if (buf == NULL || size == 0)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
-    size--;  /* for the terminating null character */
+    size--; /* for the terminating null character */
     len = dr_snprintf(buf, size, "Module Table: version %u, count %u\n",
                       MODULE_FILE_VERSION, count);
     if (len == -1)
@@ -482,7 +505,9 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
     buf += len;
     size -= len;
 
-    len = dr_snprintf(buf, size, "Columns: id, containing_id, start, end, entry");
+    len = dr_snprintf(
+        buf, size,
+        "Columns: id, containing_id, start, end, entry, offset, preferred_base");
     if (len == -1)
         return DRCOVLIB_ERROR_BUF_TOO_SMALL;
     buf += len;
@@ -535,11 +560,11 @@ drmodtrack_dump_buf(char *buf_start, size_t size, OUT size_t *wrote)
         }
         buf += len;
         size -= len;
-     }
+    }
     buf[0] = '\0';
     drvector_unlock(&module_table.vector);
     if (wrote != NULL)
-        *wrote = buf + 1/*null*/ - buf_start;
+        *wrote = buf + 1 /*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -549,11 +574,12 @@ drmodtrack_dump(file_t log)
     drcovlib_status_t res;
     size_t size = 200 + module_table.vector.entries * (MAXIMUM_PATH + 40);
     char *buf;
+    size_t wrote;
     do {
         buf = dr_global_alloc(size);
-        res = drmodtrack_dump_buf(buf, size, NULL);
+        res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS)
-            dr_write_file(log, buf, strlen(buf));
+            dr_write_file(log, buf, wrote - 1 /*no null*/);
         dr_global_free(buf, size);
         size *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
@@ -594,7 +620,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                         OUT void **handle, OUT uint *num_mods)
 {
     module_read_info_t *info = NULL;
-    uint i;
+    uint i, mods_parsed = 0;
     uint64 file_size;
     size_t map_size = 0;
     const char *buf, *map_start;
@@ -612,7 +638,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
         if (!dr_file_size(file, &file_size))
             return DRCOVLIB_ERROR_INVALID_PARAMETER;
         map_size = (size_t)file_size;
-        map_start = (char *) dr_map_file(file, &map_size, 0, NULL, DR_MEMPROT_READ, 0);
+        map_start = (char *)dr_map_file(file, &map_size, 0, NULL, DR_MEMPROT_READ, 0);
         if (map_start == NULL || map_size < file_size)
             return DRCOVLIB_ERROR_INVALID_PARAMETER; /* assume bad perms or sthg */
     }
@@ -623,8 +649,8 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     /* Module table header, handling the pre-versioning legacy format. */
     if (dr_sscanf(buf, "Module Table: %u\n", num_mods) == 1)
         version = 1;
-    else if (dr_sscanf(buf, "Module Table: version %u, count %u\n", &version,
-                       num_mods) != 2 ||
+    else if (dr_sscanf(buf, "Module Table: version %u, count %u\n", &version, num_mods) !=
+                 2 ||
              version > MODULE_FILE_VERSION)
         goto read_error;
     buf = move_to_next_line(buf);
@@ -643,33 +669,52 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     info->mod = (module_read_entry_t *)dr_global_alloc(*num_mods * sizeof(*info->mod));
 
     /* module lists */
+    mods_parsed = 0;
     for (i = 0; i < *num_mods; i++) {
         uint mod_id;
         if (version == 1) {
-            if (dr_sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]",
-                          &mod_id, &info->mod[i].size, info->mod[i].path) != 3 ||
+            if (dr_sscanf(buf, " %u, %" INT64_FORMAT "u, %[^\n\r]", &mod_id,
+                          &info->mod[i].size, info->mod[i].path) != 3 ||
                 mod_id != i)
                 goto read_error;
         } else {
-            app_pc end;
+            app_pc end = NULL;
             if (version == 2) {
-                if (dr_sscanf(buf, "%u, "PIFX", "PIFX", "PIFX", ",
-                              &mod_id, &info->mod[i].base, &end,
-                              &info->mod[i].entry) != 4 ||
+                if (dr_sscanf(buf, "%u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
+                              &info->mod[i].base, &end, &info->mod[i].entry) != 4 ||
                     mod_id != i)
                     goto read_error;
                 info->mod[i].containing_id = mod_id;
                 buf = skip_commas_and_spaces(buf, 4);
-            } else {
-                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", ",
-                              &mod_id, &info->mod[i].containing_id,
-                              &info->mod[i].base, &end, &info->mod[i].entry) != 5 ||
+                if (buf == NULL)
+                    goto read_error;
+            } else if (version >= 3) {
+                info->mod[i].offset = (uint64)-1;
+                info->mod[i].preferred_base = (app_pc)-1L;
+                if (dr_sscanf(buf, "%u, %u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
+                              &info->mod[i].containing_id, &info->mod[i].base, &end,
+                              &info->mod[i].entry) != 5 ||
                     mod_id != i)
                     goto read_error;
                 buf = skip_commas_and_spaces(buf, 5);
+                if (buf == NULL)
+                    goto read_error;
+                if (version >= 4) {
+                    if (dr_sscanf(buf, HEX64_FORMAT_STRING ", ", &info->mod[i].offset) !=
+                        1)
+                        goto read_error;
+                    buf = skip_commas_and_spaces(buf, 1);
+                    if (buf == NULL)
+                        goto read_error;
+                }
+                if (version >= 5) {
+                    if (dr_sscanf(buf, PIFX ", ", &info->mod[i].preferred_base) != 1)
+                        goto read_error;
+                    buf = skip_commas_and_spaces(buf, 1);
+                    if (buf == NULL)
+                        goto read_error;
+                }
             }
-            if (buf == NULL)
-                goto read_error;
             info->mod[i].size = end - info->mod[i].base;
 #ifdef WINDOWS
             if (dr_sscanf(buf, "0x%x, 0x%x, ", &info->mod[i].checksum,
@@ -683,6 +728,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                 buf = module_parse_cb(buf, &info->mod[i].custom);
             if (buf == NULL)
                 goto read_error;
+            ++mods_parsed;
             info->mod[i].path = info->mod[i].path_buf;
             if (dr_sscanf(buf, " %[^\n\r]", info->mod[i].path) != 1)
                 goto read_error;
@@ -696,7 +742,11 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
     *handle = (void *)info;
     return DRCOVLIB_SUCCESS;
 
- read_error:
+read_error:
+    if (module_free_cb != NULL) {
+        for (i = 0; i < mods_parsed; i++)
+            module_free_cb(info->mod[i].custom);
+    }
     if (info != NULL) {
         dr_global_free(info->mod, *num_mods * sizeof(*info->mod));
         dr_global_free(info, sizeof(*info));
@@ -711,7 +761,7 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
 {
     module_read_info_t *info = (module_read_info_t *)handle;
     if (info == NULL || index >= info->num_mods || out == NULL ||
-        out->struct_size != sizeof(*out))
+        out->struct_size < offsetof(drmodtrack_info_t, custom) + sizeof(out->custom))
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     out->containing_index = info->mod[index].containing_id;
     out->start = info->mod[index].base;
@@ -722,6 +772,12 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
     out->timestamp = info->mod[index].timestamp;
 #endif
     out->custom = info->mod[index].custom;
+    if (out->struct_size > offsetof(drmodtrack_info_t, index))
+        out->index = index;
+    if (out->struct_size > offsetof(drmodtrack_info_t, offset))
+        out->offset = info->mod[index].offset;
+    if (out->struct_size > offsetof(drmodtrack_info_t, preferred_base))
+        out->preferred_base = info->mod[index].preferred_base;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -750,7 +806,7 @@ drmodtrack_offline_write(void *handle, OUT char *buf_start, size_t size,
     }
     *buf = '\0';
     if (wrote != NULL)
-        *wrote = buf + 1/*null*/ - buf_start;
+        *wrote = buf + 1 /*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -773,9 +829,9 @@ drmodtrack_offline_exit(void *handle)
 }
 
 drcovlib_status_t
-drmodtrack_add_custom_data(void * (*load_cb)(module_data_t *module),
+drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
-                           const char * (*parse_cb)(const char *src, OUT void **data),
+                           const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data))
 {
     /* We blindly replace if values already exist, as documented. */

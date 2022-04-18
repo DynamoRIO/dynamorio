@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,22 +47,24 @@ static void
 at_syscall()
 {
     if (monitoring) {
-        dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
+        dr_mcontext_t mcontext;
+        mcontext.size = sizeof(mcontext);
+        mcontext.flags = DR_MC_ALL;
         void *drcontext = dr_get_current_drcontext();
         dr_get_mcontext(drcontext, &mcontext);
-        dr_fprintf(STDERR, PFX"\n", mcontext.xax);
+        dr_fprintf(STDERR, PFX "\n", mcontext.xax);
 
         {
             /* Sanity checks for reg_get_value_ex() */
-            byte val[sizeof(dr_ymm_t)];
+            byte val[sizeof(dr_zmm_t)];
             if (!reg_get_value_ex(DR_REG_XMM0, &mcontext, val) ||
-                memcmp(val, &mcontext.ymm[0], sizeof(dr_xmm_t)) != 0)
+                memcmp(val, &mcontext.simd[0], sizeof(dr_xmm_t)) != 0)
                 dr_fprintf(STDERR, "reg_get_value_ex xmm0 mismatch\n");
             if (!reg_get_value_ex(DR_REG_YMM0, &mcontext, val) ||
-                memcmp(val, &mcontext.ymm[0], sizeof(dr_ymm_t)) != 0)
+                memcmp(val, &mcontext.simd[0], sizeof(dr_ymm_t)) != 0)
                 dr_fprintf(STDERR, "reg_get_value_ex ymm0 mismatch\n");
             if (!reg_get_value_ex(DR_REG_XBP, &mcontext, val) ||
-                *(reg_t*)val != reg_get_value(DR_REG_XBP, &mcontext))
+                *(reg_t *)val != reg_get_value(DR_REG_XBP, &mcontext))
                 dr_fprintf(STDERR, "reg_get_value_ex xbp mismatch\n");
         }
 
@@ -71,15 +73,15 @@ at_syscall()
             /* Test dr_mcontext_to_context */
             CONTEXT cxt;
             if (!dr_mcontext_to_context(&cxt, &mcontext) ||
-                (app_pc)cxt.IF_X64_ELSE(Rip,Eip) != mcontext.pc ||
-                (reg_t)cxt.IF_X64_ELSE(Rax,Eax) != mcontext.xax ||
-                (reg_t)cxt.IF_X64_ELSE(Rcx,Ecx) != mcontext.xcx ||
-                (reg_t)cxt.IF_X64_ELSE(Rdx,Edx) != mcontext.xdx ||
-                (reg_t)cxt.IF_X64_ELSE(Rbx,Ebx) != mcontext.xbx ||
-                (reg_t)cxt.IF_X64_ELSE(Rsp,Esp) != mcontext.xsp ||
-                (reg_t)cxt.IF_X64_ELSE(Rbp,Ebp) != mcontext.xbp ||
-                (reg_t)cxt.IF_X64_ELSE(Rsi,Esi) != mcontext.xsi ||
-                (reg_t)cxt.IF_X64_ELSE(Rdi,Edi) != mcontext.xdi)
+                (app_pc)cxt.IF_X64_ELSE(Rip, Eip) != mcontext.pc ||
+                (reg_t)cxt.IF_X64_ELSE(Rax, Eax) != mcontext.xax ||
+                (reg_t)cxt.IF_X64_ELSE(Rcx, Ecx) != mcontext.xcx ||
+                (reg_t)cxt.IF_X64_ELSE(Rdx, Edx) != mcontext.xdx ||
+                (reg_t)cxt.IF_X64_ELSE(Rbx, Ebx) != mcontext.xbx ||
+                (reg_t)cxt.IF_X64_ELSE(Rsp, Esp) != mcontext.xsp ||
+                (reg_t)cxt.IF_X64_ELSE(Rbp, Ebp) != mcontext.xbp ||
+                (reg_t)cxt.IF_X64_ELSE(Rsi, Esi) != mcontext.xsi ||
+                (reg_t)cxt.IF_X64_ELSE(Rdi, Edi) != mcontext.xdi)
                 dr_fprintf(STDERR, "dr_mcontext_to_context failed\n");
         }
 #endif
@@ -87,25 +89,21 @@ at_syscall()
 }
 
 static dr_emit_flags_t
-bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     app_pc pc = dr_fragment_app_pc(tag);
 
     if (pc == start_pc) {
         dr_fprintf(STDERR, "starting syscall monitoring\n");
         monitoring = true;
-    }
-    else if (pc == stop_pc) {
+    } else if (pc == stop_pc) {
         dr_fprintf(STDERR, "stopping syscall monitoring\n");
         monitoring = false;
-    }
-    else {
-        instr_t* instr;
-        instr_t* next_instr;
+    } else {
+        instr_t *instr;
+        instr_t *next_instr;
 
-        for (instr = instrlist_first(bb);
-             instr != NULL;
-             instr = next_instr) {
+        for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
 
             next_instr = instr_get_next(instr);
 
@@ -119,9 +117,9 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 }
 
 #ifdef WINDOWS
-# define TEST_NAME "client.syscall.exe"
+#    define TEST_NAME "client.syscall.exe"
 #else
-# define TEST_NAME "client.syscall"
+#    define TEST_NAME "client.syscall"
 #endif
 
 #ifdef UNIX
@@ -182,7 +180,7 @@ dr_init(client_id_t id)
 
     /* Register the BB hook */
     dr_register_bb_event(bb_event);
-#ifdef UNIX  /* With early injection, libc won't be loaded until later. */
+#ifdef UNIX /* With early injection, libc won't be loaded until later. */
     dr_register_module_load_event(event_module_load);
 #endif
 }

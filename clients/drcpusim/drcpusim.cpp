@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -33,7 +33,6 @@
 /* drcpusim.cpp: client for simulating instruction sets of legacy processors
  *
  * XXX i#1732: add more features, such as:
- * + Whitelist/blacklist to ignore system libraries
  * + Add more recent Intel models
  * + Add Atom models
  * + Add AMD models
@@ -49,14 +48,17 @@
 #include <sstream>
 
 // XXX i#1732: make a msgbox on Windows (controlled by option for batch runs)
-#define NOTIFY(level, ...) do {            \
-    if (op_verbose.get_value() >= (level)) \
-        dr_fprintf(STDERR, __VA_ARGS__);   \
-} while (0)
+#define NOTIFY(level, ...)                     \
+    do {                                       \
+        if (op_verbose.get_value() >= (level)) \
+            dr_fprintf(STDERR, __VA_ARGS__);   \
+    } while (0)
 
 static bool (*opcode_supported)(instr_t *);
 
-static std::vector<std::string> blacklist;
+static std::vector<std::string> blocklist;
+
+static app_pc exe_start;
 
 /* DR deliberately does not bother to keep model-specific information in its
  * IR.  Thus we have our own routines here that mostly just check opcodes.
@@ -70,11 +72,11 @@ static std::vector<std::string> blacklist;
  * Intel
  */
 
-# define CPUID_INTEL_EBX /* Genu */ 0x756e6547
-# define CPUID_INTEL_EDX /* ineI */ 0x49656e69
-# define CPUID_INTEL_ECX /* ntel */ 0x6c65746e
+#    define CPUID_INTEL_EBX /* Genu */ 0x756e6547
+#    define CPUID_INTEL_EDX /* ineI */ 0x49656e69
+#    define CPUID_INTEL_ECX /* ntel */ 0x6c65746e
 
-# define FEAT(DR_proc_val) (1U << ((FEATURE_##DR_proc_val) % 32))
+#    define FEAT(DR_proc_val) (1U << ((FEATURE_##DR_proc_val) % 32))
 
 // Family encoding:
 //   ext family | ext model | type  | family | model | stepping
@@ -96,13 +98,9 @@ cpuid_encode_family(unsigned int family, unsigned int model, unsigned int steppi
     DR_ASSERT((model & ~0xf) == 0);
     DR_ASSERT((family & ~0xf) == 0);
     DR_ASSERT((ext_model & ~0xf) == 0);
-    return
-        (ext_family << 20) |
-        (ext_model << 16) |
+    return (ext_family << 20) | (ext_model << 16) |
         // type is 0 == Original OEM
-        (family << 8) |
-        (model << 4) |
-        stepping;
+        (family << 8) | (model << 4) | stepping;
 }
 
 typedef struct _cpuid_model_t {
@@ -127,8 +125,7 @@ instr_is_3DNow_no_Intel(instr_t *instr)
      * use it, so we do not complain about it by default.
      */
     return (instr_is_3DNow(instr) &&
-            (instr_get_opcode(instr) != OP_prefetchw ||
-             !op_allow_prefetchw.get_value()));
+            (instr_get_opcode(instr) != OP_prefetchw || !op_allow_prefetchw.get_value()));
 }
 
 /***************************************************
@@ -142,135 +139,125 @@ static cpuid_model_t model_Pentium = {
     // These are values observed on real processors.
     // XXX: DR should add some MODEL_PENTIUM, etc. values.
     cpuid_encode_family(FAMILY_PENTIUM, 2, 11),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) |
-      // ISA-affecting:
-      FEAT(CX8),
-    0,
-    0,
-    0,
-    0
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        // ISA-affecting:
+        FEAT(CX8),
+    0, 0, 0, 0
 };
 
 static bool
 opcode_supported_Pentium(instr_t *instr)
 {
-# ifdef X64
+#    ifdef X64
     // XXX: someone could construct x64-only opcodes (e.g., OP_movsxd) or
     // instrs (by using REX prefixes) in 32-bit -- we ignore that and assume
     // we only care about instrs in the app binary.
     return false;
-# else
+#    else
     int opc = instr_get_opcode(instr);
     if (instr_is_mmx(instr) || instr_is_sse(instr) || instr_is_sse2(instr) ||
-        instr_is_3DNow_no_Intel(instr) ||
-        (opc >= OP_cmovo && opc <= OP_cmovnle) ||
-        opc == OP_sysenter || opc == OP_sysexit ||
-        opc == OP_fxsave32 || opc == OP_fxrstor32 ||
+        instr_is_3DNow_no_Intel(instr) || (opc >= OP_cmovo && opc <= OP_cmovnle) ||
+        opc == OP_sysenter || opc == OP_sysexit || opc == OP_fxsave32 ||
+        opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
         opc >= OP_fisttp)
         return false;
     return true;
-# endif
+#    endif
 }
 
 /***************************************************
  * Pentium with MMX
  */
-static cpuid_model_t model_PentiumMMX = {
-    2,
-    0, // see Pentium comment
-    cpuid_encode_family(FAMILY_PENTIUM, 4, 3),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(MMX),
-    0,
-    0,
-    0,
-    0
-};
+static cpuid_model_t model_PentiumMMX = { 2,
+                                          0, // see Pentium comment
+                                          cpuid_encode_family(FAMILY_PENTIUM, 4, 3),
+                                          FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) |
+                                              FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+                                              // ISA-affecting:
+                                              FEAT(CX8) | FEAT(MMX),
+                                          0,
+                                          0,
+                                          0,
+                                          0 };
 
 static bool
 opcode_supported_PentiumMMX(instr_t *instr)
 {
-# ifdef X64
+#    ifdef X64
     return false;
-# else
+#    else
     int opc = instr_get_opcode(instr);
-    if (instr_is_sse(instr) || instr_is_sse2(instr) ||
-        instr_is_3DNow_no_Intel(instr) ||
-        (opc >= OP_cmovo && opc <= OP_cmovnle) ||
-        opc == OP_sysenter || opc == OP_sysexit ||
-        opc == OP_fxsave32 || opc == OP_fxrstor32 ||
+    if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
+        (opc >= OP_cmovo && opc <= OP_cmovnle) || opc == OP_sysenter ||
+        opc == OP_sysexit || opc == OP_fxsave32 || opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
         opc >= OP_fisttp)
         return false;
     return true;
-# endif
+#    endif
 }
 
 /***************************************************
  * Pentium Pro
  */
-static cpuid_model_t model_PentiumPro = {
-    2,
-    0, // see Pentium comment
-    cpuid_encode_family(FAMILY_PENTIUM_PRO, 1, 7),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV),
-    0,
-    0,
-    0,
-    0
-};
+static cpuid_model_t model_PentiumPro = { 2,
+                                          0, // see Pentium comment
+                                          cpuid_encode_family(FAMILY_PENTIUM_PRO, 1, 7),
+                                          FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) |
+                                              FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+                                              FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) |
+                                              FEAT(PAE) |
+                                              // ISA-affecting:
+                                              FEAT(CX8) | FEAT(CMOV),
+                                          0,
+                                          0,
+                                          0,
+                                          0 };
 
 static bool
 opcode_supported_PentiumPro(instr_t *instr)
 {
-# ifdef X64
+#    ifdef X64
     return false;
-# else
+#    else
     int opc = instr_get_opcode(instr);
     if (instr_is_mmx(instr) || instr_is_sse(instr) || instr_is_sse2(instr) ||
-        instr_is_3DNow_no_Intel(instr) ||
-        opc == OP_sysenter || opc == OP_sysexit ||
+        instr_is_3DNow_no_Intel(instr) || opc == OP_sysenter || opc == OP_sysexit ||
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
         opc >= OP_fisttp)
         return false;
     return true;
-# endif
+#    endif
 }
 
 /***************************************************
  * Klamath Pentium 2
  */
-static cpuid_model_t model_Klamath = {
-    2,
-    0, // see Pentium comment
-    cpuid_encode_family(FAMILY_PENTIUM_2, 3, 4),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP),
-    0,
-    0,
-    0,
-    0
-};
+static cpuid_model_t model_Klamath = { 2,
+                                       0, // see Pentium comment
+                                       cpuid_encode_family(FAMILY_PENTIUM_2, 3, 4),
+                                       FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) |
+                                           FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+                                           FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) |
+                                           FEAT(PAE) |
+                                           // ISA-affecting:
+                                           FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP),
+                                       0,
+                                       0,
+                                       0,
+                                       0 };
 
 static bool
 opcode_supported_Klamath(instr_t *instr)
 {
-# ifdef X64
+#    ifdef X64
     return false;
-# else
+#    else
     int opc = instr_get_opcode(instr);
     if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
@@ -279,7 +266,7 @@ opcode_supported_Klamath(instr_t *instr)
         opc >= OP_fisttp)
         return false;
     return true;
-# endif
+#    endif
 }
 
 /***************************************************
@@ -289,11 +276,10 @@ static cpuid_model_t model_Deschutes = {
     2,
     0, // see Pentium comment
     cpuid_encode_family(FAMILY_PENTIUM_2, 5, 2),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR),
     0,
     0,
     0,
@@ -303,9 +289,9 @@ static cpuid_model_t model_Deschutes = {
 static bool
 opcode_supported_Deschutes(instr_t *instr)
 {
-# ifdef X64
+#    ifdef X64
     return false;
-# else
+#    else
     int opc = instr_get_opcode(instr);
     if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
@@ -313,7 +299,7 @@ opcode_supported_Deschutes(instr_t *instr)
         opc >= OP_fisttp)
         return false;
     return true;
-# endif
+#    endif
 }
 
 /***************************************************
@@ -323,12 +309,10 @@ static cpuid_model_t model_Pentium3 = {
     3,
     0, // see Pentium comment
     cpuid_encode_family(FAMILY_PENTIUM_3, 7, 2),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE),
     0,
     0,
     0,
@@ -338,9 +322,9 @@ static cpuid_model_t model_Pentium3 = {
 static bool
 opcode_supported_Pentium3(instr_t *instr)
 {
-# ifdef X64
+#    ifdef X64
     return false;
-# else
+#    else
     int opc = instr_get_opcode(instr);
     if (instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
@@ -348,7 +332,7 @@ opcode_supported_Pentium3(instr_t *instr)
         opc >= OP_fisttp)
         return false;
     return true;
-# endif
+#    endif
 }
 
 /***************************************************
@@ -358,13 +342,12 @@ static cpuid_model_t model_Banias = {
     2,
     0x80000004,
     cpuid_encode_family(FAMILY_PENTIUM_4, 2, 4),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
     0,
     0,
     0,
@@ -374,9 +357,9 @@ static cpuid_model_t model_Banias = {
 static bool
 opcode_supported_Banias(instr_t *instr)
 {
-# ifdef X64
+#    ifdef X64
     return false;
-# else
+#    else
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE3+ were
@@ -384,7 +367,7 @@ opcode_supported_Banias(instr_t *instr)
         (opc >= OP_fisttp && !instr_is_sse2(instr)))
         return false;
     return true;
-# endif
+#    endif
 }
 
 /***************************************************
@@ -397,17 +380,15 @@ static cpuid_model_t model_Prescott = {
     5, // XXX: maybe 2, maybe 6?
     0x80000008,
     cpuid_encode_family(FAMILY_PENTIUM_4, 4, 10),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
-    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
-      FEAT(TM2) |
-      // ISA-affecting:
-      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) | FEAT(TM2) |
+        // ISA-affecting:
+        FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16),
     FEAT(EM64T) | FEAT(XD_Bit),
     FEAT(LAHF),
     0
@@ -420,11 +401,12 @@ opcode_supported_Prescott(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSSE3+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_pshufb && !instr_is_sse2(instr)
-# ifdef X64
+        (opc >= OP_pshufb &&
+         !instr_is_sse2(instr)
+#    ifdef X64
          // Allow new x64 opcodes
          && opc != OP_movsxd && opc != OP_swapgs
-# endif
+#    endif
          ))
         return false;
     return true;
@@ -438,17 +420,17 @@ static cpuid_model_t model_Merom = {
     10,
     0x80000008,
     cpuid_encode_family(FAMILY_CORE_2, MODEL_CORE_MEROM, 11),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) /* no HTT */ | FEAT(PBE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
-    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
-      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
-      // ISA-affecting:
-      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) /* no HTT */ |
+        FEAT(PBE) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) | FEAT(TM2) |
+        FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
+        // ISA-affecting:
+        FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3),
     FEAT(EM64T) | FEAT(XD_Bit),
     FEAT(LAHF),
     0
@@ -461,12 +443,13 @@ opcode_supported_Merom(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_popcnt && !instr_is_sse2(instr)
-# ifdef X64
+        (opc >= OP_popcnt &&
+         !instr_is_sse2(instr)
+#    ifdef X64
          // Allow new x64 opcodes
          && opc != OP_movsxd && opc != OP_swapgs
-# endif
-        ))
+#    endif
+         ))
         return false;
     return true;
 }
@@ -481,17 +464,17 @@ static cpuid_model_t model_Penryn = {
     10,
     0x80000008,
     cpuid_encode_family(FAMILY_CORE_2, MODEL_CORE_PENRYN, 6),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) /* no HTT */ | FEAT(PBE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
-    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
-      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
-      // ISA-affecting:
-      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) /* no HTT */ |
+        FEAT(PBE) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) | FEAT(TM2) |
+        FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
+        // ISA-affecting:
+        FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41),
     FEAT(EM64T) | FEAT(XD_Bit),
     FEAT(LAHF),
     0
@@ -504,12 +487,13 @@ opcode_supported_Penryn(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_popcnt && !instr_is_sse2(instr) && !instr_is_sse41(instr)
-# ifdef X64
+        (opc >= OP_popcnt && !instr_is_sse2(instr) &&
+         !instr_is_sse41(instr)
+#    ifdef X64
          // Allow new x64 opcodes
          && opc != OP_movsxd && opc != OP_swapgs
-# endif
-        ))
+#    endif
+         ))
         return false;
     return true;
 }
@@ -522,18 +506,17 @@ static cpuid_model_t model_Nehalem = {
     10,
     0x80000008,
     cpuid_encode_family(FAMILY_CORE_2, MODEL_I7_GAINESTOWN, 5),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
-    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
-      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
-      // ISA-affecting:
-      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
-      FEAT(SSE42) | FEAT(POPCNT),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) | FEAT(TM2) |
+        FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
+        // ISA-affecting:
+        FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+        FEAT(SSE42) | FEAT(POPCNT),
     FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP),
     FEAT(LAHF),
     0
@@ -543,8 +526,7 @@ static bool
 opcode_supported_Nehalem(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow_no_Intel(instr) ||
-        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+    if (instr_is_3DNow_no_Intel(instr) || (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
         (opc >= OP_vmcall && !instr_is_sse2(instr) && opc != OP_rdtscp))
@@ -559,18 +541,17 @@ static cpuid_model_t model_Westmere = {
     10,
     0x80000008,
     cpuid_encode_family(FAMILY_CORE_2, MODEL_I7_WESTMERE, 2),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
-    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
-      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) |
-      // ISA-affecting:
-      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
-      FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) | FEAT(TM2) |
+        FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) |
+        // ISA-affecting:
+        FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+        FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ),
     FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP) | FEAT(PDPE1GB),
     FEAT(LAHF),
     0
@@ -580,8 +561,7 @@ static bool
 opcode_supported_Westmere(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow_no_Intel(instr) ||
-        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+    if (instr_is_3DNow_no_Intel(instr) || (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         // We assume that new and only new opcodes were appended to
         // the enum, except some SSE2 added late.
         // We assume we don't care about AMD SVM or Intel VMX (user-mode only).
@@ -597,20 +577,18 @@ static cpuid_model_t model_Sandybridge = {
     11,
     0x80000008,
     cpuid_encode_family(FAMILY_CORE_2, MODEL_SANDYBRIDGE, 7),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
-    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
-      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) |
-      FEAT(x2APIC) |
-      // ISA-affecting:
-      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
-      FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ) | FEAT(AVX) |
-      FEAT(XSAVE) | FEAT(OSXSAVE),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) | FEAT(TM2) |
+        FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) | FEAT(x2APIC) |
+        // ISA-affecting:
+        FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+        FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ) | FEAT(AVX) |
+        FEAT(XSAVE) | FEAT(OSXSAVE),
     FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP), /*no PDPE1GB */
     FEAT(LAHF),
     0
@@ -620,8 +598,7 @@ static bool
 opcode_supported_Sandybridge(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow_no_Intel(instr) ||
-        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+    if (instr_is_3DNow_no_Intel(instr) || (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         opc == OP_movbe ||
         // We assume that new and only new opcodes were appended to
         // the enum, except some SSE2 and split *xsave64 added late.
@@ -638,20 +615,18 @@ static cpuid_model_t model_Ivybridge = {
     11,
     0x80000008,
     cpuid_encode_family(FAMILY_CORE_2, MODEL_IVYBRIDGE, 9),
-    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
-      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
-      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
-      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
-      // ISA-affecting:
-      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
-      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
-    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
-      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) |
-      FEAT(x2APIC) |
-      // ISA-affecting:
-      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
-      FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ) | FEAT(AVX) |
-      FEAT(XSAVE) | FEAT(OSXSAVE) | FEAT(F16C) | FEAT(RDRAND),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) | FEAT(MCE) |
+        FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) | FEAT(PSE_36) | FEAT(PAT) |
+        FEAT(APIC) | FEAT(DS) | FEAT(SS) | FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+        // ISA-affecting:
+        FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) | FEAT(SSE) |
+        FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) | FEAT(TM2) |
+        FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) | FEAT(x2APIC) |
+        // ISA-affecting:
+        FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+        FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ) | FEAT(AVX) |
+        FEAT(XSAVE) | FEAT(OSXSAVE) | FEAT(F16C) | FEAT(RDRAND),
     FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP), /*no PDPE1GB */
     FEAT(LAHF),
     FEAT(FSGSBASE) | FEAT(ERMSB)
@@ -661,8 +636,7 @@ static bool
 opcode_supported_Ivybridge(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow_no_Intel(instr) ||
-        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+    if (instr_is_3DNow_no_Intel(instr) || (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         opc == OP_movbe ||
         // FMA
         (opc >= OP_vfmadd132ps && opc <= OP_vfnmsub231sd) ||
@@ -729,12 +703,15 @@ report_invalid_opcode(int opc, app_pc pc)
     // XXX i#1732: ideally, provide a callstack: this is where we'd want DrCallstack.
     module_data_t *mod = dr_lookup_module(pc);
     const char *modname = NULL;
+    if (op_ignore_all_libs.get_value() && mod != NULL && mod->start != exe_start) {
+        dr_free_module_data(mod);
+        return;
+    }
     if (mod != NULL)
         modname = dr_module_preferred_name(mod);
     if (modname != NULL) {
-        for (std::vector<std::string>::iterator i = blacklist.begin();
-             i != blacklist.end();
-             ++i) {
+        for (std::vector<std::string>::iterator i = blocklist.begin();
+             i != blocklist.end(); ++i) {
             if (*i == modname) {
                 dr_free_module_data(mod);
                 return;
@@ -742,12 +719,11 @@ report_invalid_opcode(int opc, app_pc pc)
         }
         // It would be nice to share pieces of the msg but we'd want to
         // build up a buffer to ensure a single atomic print.
-        NOTIFY(0, "<Invalid %s instruction \"%s\" @ %s+" PIFX".  %s.>\n",
-               op_cpu.get_value().c_str(), decode_opcode_name(opc),
-               modname, pc - mod->start,
-               op_continue.get_value() ? "Continuing" : "Aborting");
+        NOTIFY(0, "<Invalid %s instruction \"%s\" @ %s+" PIFX ".  %s.>\n",
+               op_cpu.get_value().c_str(), decode_opcode_name(opc), modname,
+               pc - mod->start, op_continue.get_value() ? "Continuing" : "Aborting");
     } else {
-        NOTIFY(0, "<Invalid %s instruction \"%s\" @ " PFX".  %s.>\n",
+        NOTIFY(0, "<Invalid %s instruction \"%s\" @ " PFX ".  %s.>\n",
                op_cpu.get_value().c_str(), decode_opcode_name(opc), pc,
                op_continue.get_value() ? "Continuing" : "Aborting");
     }
@@ -758,9 +734,8 @@ report_invalid_opcode(int opc, app_pc pc)
 }
 
 static dr_emit_flags_t
-event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
-                      instr_t *instr, bool for_trace,
-                      bool translating, void *user_data)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
     // We check meta instrs too
     if (!opcode_supported(instr))
@@ -781,8 +756,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         dr_save_reg(drcontext, bb, instr, DR_REG_XCX, SPILL_SLOT_2);
         // XXX: technically drmgr doesn't want us inserting instrs *after* the
         // app instr but this is the simplest way to go.
-        dr_insert_clean_call(drcontext, bb, instr_get_next(instr), (void *)fake_cpuid,
-                             false, 0);
+        dr_insert_clean_call_ex(
+            drcontext, bb, instr_get_next(instr), (void *)fake_cpuid,
+            static_cast<dr_cleancall_save_t>(DR_CLEANCALL_READS_APP_CONTEXT |
+                                             DR_CLEANCALL_WRITES_APP_CONTEXT),
+            0);
     }
 #endif
     return DR_EMIT_DEFAULT;
@@ -804,8 +782,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 #endif
 
     std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
-                                       &parse_err, NULL)) {
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, &parse_err,
+                                       NULL)) {
         NOTIFY(0, "Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
@@ -826,33 +804,27 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     } else if (op_cpu.get_value() == "PentiumPro") {
         opcode_supported = opcode_supported_PentiumPro;
         model_info = &model_PentiumPro;
-    } else if (op_cpu.get_value() == "Pentium2" ||
-               op_cpu.get_value() == "Klamath") {
+    } else if (op_cpu.get_value() == "Pentium2" || op_cpu.get_value() == "Klamath") {
         opcode_supported = opcode_supported_Klamath;
         model_info = &model_Klamath;
     } else if (op_cpu.get_value() == "Deschutes") {
         opcode_supported = opcode_supported_Deschutes;
         model_info = &model_Deschutes;
-    } else if (op_cpu.get_value() == "Pentium3" ||
-               op_cpu.get_value() == "Coppermine" ||
+    } else if (op_cpu.get_value() == "Pentium3" || op_cpu.get_value() == "Coppermine" ||
                op_cpu.get_value() == "Tualatin") {
         opcode_supported = opcode_supported_Pentium3;
         model_info = &model_Pentium3;
-    } else if (op_cpu.get_value() == "PentiumM" ||
-               op_cpu.get_value() == "Banias" ||
+    } else if (op_cpu.get_value() == "PentiumM" || op_cpu.get_value() == "Banias" ||
                op_cpu.get_value() == "Dothan" ||
                // These are early Pentium4 models
-               op_cpu.get_value() == "Willamette" ||
-               op_cpu.get_value() == "Northwood") {
+               op_cpu.get_value() == "Willamette" || op_cpu.get_value() == "Northwood") {
         opcode_supported = opcode_supported_Banias;
         model_info = &model_Banias;
-    } else if (op_cpu.get_value() == "Pentium4" ||
-               op_cpu.get_value() == "Prescott" ||
+    } else if (op_cpu.get_value() == "Pentium4" || op_cpu.get_value() == "Prescott" ||
                op_cpu.get_value() == "Presler") {
         opcode_supported = opcode_supported_Prescott;
         model_info = &model_Prescott;
-    } else if (op_cpu.get_value() == "Core2" ||
-               op_cpu.get_value() == "Merom") {
+    } else if (op_cpu.get_value() == "Core2" || op_cpu.get_value() == "Merom") {
         opcode_supported = opcode_supported_Merom;
         model_info = &model_Merom;
     } else if (op_cpu.get_value() == "Penryn") {
@@ -883,11 +855,18 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_abort();
 #endif
 
-    if (!op_blacklist.get_value().empty()) {
-        std::stringstream stream(op_blacklist.get_value());
+    if (!op_blocklist.get_value().empty()) {
+        std::stringstream stream(op_blocklist.get_value());
         std::string entry;
         while (std::getline(stream, entry, ':'))
-            blacklist.push_back(entry);
+            blocklist.push_back(entry);
+    }
+
+    if (op_ignore_all_libs.get_value()) {
+        module_data_t *exe = dr_get_main_module();
+        DR_ASSERT(exe != NULL);
+        exe_start = exe->start;
+        dr_free_module_data(exe);
     }
 
     if (!drmgr_init())

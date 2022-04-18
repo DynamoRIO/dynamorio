@@ -37,11 +37,8 @@
 #include "ntdll_redir.h"
 #include "drwinapi_private.h"
 
-VOID
-WINAPI
-redirect_InitializeCriticalSection(
-    __out LPCRITICAL_SECTION lpCriticalSection
-    )
+VOID WINAPI
+redirect_InitializeCriticalSection(__out LPCRITICAL_SECTION lpCriticalSection)
 {
     NTSTATUS res = redirect_RtlInitializeCriticalSection(lpCriticalSection);
     /* The man page for RtlInitializeCriticalSection implies it doesn't set
@@ -52,15 +49,12 @@ redirect_InitializeCriticalSection(
         set_last_error(ntstatus_to_last_error(res));
 }
 
-BOOL
-WINAPI
-redirect_InitializeCriticalSectionAndSpinCount(
-    __out LPCRITICAL_SECTION lpCriticalSection,
-    __in  DWORD dwSpinCount
-    )
+BOOL WINAPI
+redirect_InitializeCriticalSectionAndSpinCount(__out LPCRITICAL_SECTION lpCriticalSection,
+                                               __in DWORD dwSpinCount)
 {
-    NTSTATUS res = redirect_RtlInitializeCriticalSectionAndSpinCount
-        (lpCriticalSection, dwSpinCount);
+    NTSTATUS res =
+        redirect_RtlInitializeCriticalSectionAndSpinCount(lpCriticalSection, dwSpinCount);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return FALSE;
@@ -68,16 +62,12 @@ redirect_InitializeCriticalSectionAndSpinCount(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_InitializeCriticalSectionEx(
-    __out LPCRITICAL_SECTION lpCriticalSection,
-    __in  DWORD dwSpinCount,
-    __in  DWORD Flags
-    )
+BOOL WINAPI
+redirect_InitializeCriticalSectionEx(__out LPCRITICAL_SECTION lpCriticalSection,
+                                     __in DWORD dwSpinCount, __in DWORD Flags)
 {
-    NTSTATUS res = redirect_RtlInitializeCriticalSectionEx
-        (lpCriticalSection, dwSpinCount, Flags);
+    NTSTATUS res =
+        redirect_RtlInitializeCriticalSectionEx(lpCriticalSection, dwSpinCount, Flags);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return FALSE;
@@ -85,20 +75,14 @@ redirect_InitializeCriticalSectionEx(
     return TRUE;
 }
 
-VOID
-WINAPI
-redirect_DeleteCriticalSection(
-    __inout LPCRITICAL_SECTION lpCriticalSection
-    )
+VOID WINAPI
+redirect_DeleteCriticalSection(__inout LPCRITICAL_SECTION lpCriticalSection)
 {
     redirect_RtlDeleteCriticalSection(lpCriticalSection);
 }
 
-VOID
-WINAPI
-redirect_EnterCriticalSection(
-    __inout LPCRITICAL_SECTION lpCriticalSection
-    )
+VOID WINAPI
+redirect_EnterCriticalSection(__inout LPCRITICAL_SECTION lpCriticalSection)
 {
     /* XXX: invoking ntdll routine b/c DR is already doing so.
      * We've seen some alloc/free mismatches in Initialize and Delete
@@ -107,11 +91,8 @@ redirect_EnterCriticalSection(
     RtlEnterCriticalSection(lpCriticalSection);
 }
 
-VOID
-WINAPI
-redirect_LeaveCriticalSection(
-    __inout LPCRITICAL_SECTION lpCriticalSection
-    )
+VOID WINAPI
+redirect_LeaveCriticalSection(__inout LPCRITICAL_SECTION lpCriticalSection)
 {
     /* XXX: invoking ntdll routine b/c DR is already doing so.
      * We've seen some alloc/free mismatches in Initialize and Delete
@@ -120,51 +101,35 @@ redirect_LeaveCriticalSection(
     RtlLeaveCriticalSection(lpCriticalSection);
 }
 
-LONG
-WINAPI
-redirect_InterlockedCompareExchange(
-    __inout __drv_interlocked LONG volatile *Destination,
-    __in LONG ExChange,
-    __in LONG Comperand
-    )
+LONG WINAPI
+redirect_InterlockedCompareExchange(__inout __drv_interlocked LONG volatile *Destination,
+                                    __in LONG ExChange, __in LONG Comperand)
 {
     return _InterlockedCompareExchange(Destination, ExChange, Comperand);
 }
 
-LONG
-WINAPI
-redirect_InterlockedDecrement(
-    __inout __drv_interlocked LONG volatile *Addend
-    )
+LONG WINAPI
+redirect_InterlockedDecrement(__inout __drv_interlocked LONG volatile *Addend)
 {
     return _InterlockedDecrement(Addend);
 }
 
-LONG
-WINAPI
-redirect_InterlockedExchange(
-    __inout __drv_interlocked LONG volatile *Target,
-    __in LONG Value
-    )
+LONG WINAPI
+redirect_InterlockedExchange(__inout __drv_interlocked LONG volatile *Target,
+                             __in LONG Value)
 {
     return _InterlockedExchange(Target, Value);
 }
 
-LONG
-WINAPI
-redirect_InterlockedIncrement(
-    __inout __drv_interlocked LONG volatile *Addend
-    )
+LONG WINAPI
+redirect_InterlockedIncrement(__inout __drv_interlocked LONG volatile *Addend)
 {
     return _InterlockedIncrement(Addend);
 }
 
 DWORD
 WINAPI
-redirect_WaitForSingleObject(
-    __in HANDLE hHandle,
-    __in DWORD dwMilliseconds
-    )
+redirect_WaitForSingleObject(__in HANDLE hHandle, __in DWORD dwMilliseconds)
 {
     NTSTATUS res;
     LARGE_INTEGER li;
@@ -176,7 +141,7 @@ redirect_WaitForSingleObject(
         timeout = &li;
     }
     /* XXX: are there special handles we need to convert to real handles? */
-    res = NtWaitForSingleObject(hHandle, FALSE/*!alertable*/, timeout);
+    res = NtWaitForSingleObject(hHandle, FALSE /*!alertable*/, timeout);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return WAIT_FAILED;

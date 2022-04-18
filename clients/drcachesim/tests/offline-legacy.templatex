@@ -1,0 +1,43 @@
+Cache simulation results:
+Core #0 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                         *61[,\.]?538
+    Misses:                            724
+    Compulsory misses:           *[0-9,\.]*
+    Invalidations:                       0
+    Miss rate:                        1[,\.]16%
+  L1D stats:
+    Hits:                         *21[,\.]?189
+    Misses:                            774
+    Compulsory misses:           *[0-9,\.]*
+    Invalidations:                       0
+    Prefetch hits:                     151
+    Prefetch misses:                   623
+    Miss rate:                        3[,\.]52%
+Core #1 \(4 thread\(s\)\)
+  L1I stats:
+    Hits:                         *19[,\.]?428
+    Misses:                            130
+    Compulsory misses:           *[0-9,\.]*
+    Invalidations:                       0
+    Miss rate:                        0[,\.]66%
+  L1D stats:
+    Hits:                         *20[,\.]?477
+    Misses:                            258
+    Compulsory misses:           *[0-9,\.]*
+    Invalidations:                       0
+    Prefetch hits:                      66
+    Prefetch misses:                   192
+    Miss rate:                        1[,\.]24%
+Core #2 \(0 thread\(s\)\)
+Core #3 \(0 thread\(s\)\)
+LL stats:
+    Hits:                              342
+    Misses:                        *1[,\.]?544
+    Compulsory misses:           *[0-9,\.]*
+    Invalidations:                       0
+    Prefetch hits:                     141
+    Prefetch misses:                   674
+    Local miss rate:                 81[,\.]87%
+    Child hits:                  *122[,\.]?849
+    Total miss rate:                  1[,\.]24%

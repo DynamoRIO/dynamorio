@@ -1,0 +1,56 @@
+
+    -------------------------------------------------------------------
+     Performance for solving AX=B Linear Equation using Jacobi method
+     Running on DynamoRIO
+     Client version .*
+    ...................................................................
+
+     Matrix Size :  64
+     Threads     :  4
+
+
+     Started iteration 1 of the computation...
+
+     Finished computing current solution distance in mode 0.
+     Mode changed to 0.
+
+     Started iteration 2 of the computation...
+
+     Finished computing current solution distance in mode 0.
+     Mode changed to 0.
+
+     Started iteration 3 of the computation...
+
+     Finished computing current solution distance in mode 0.
+     Mode changed to 0.
+
+
+     The Jacobi Method For AX=B .........DONE
+     Total Number Of iterations   :  3
+    ...................................................................
+---- <application exited with code 0> ----
+TLB simulation results:
+Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
+  L1I stats:
+    Hits:                    *[0-9,\.]*
+    Misses:                  *[0-9,\.]*
+    Compulsory misses:       *[0-9,\.]*
+    Invalidations:           *[0-9]*
+    Miss rate:               *[0-9,\.]*%
+  L1D stats:
+    Hits:                    *[0-9,\.]*
+    Misses:                  *[0-9,\.]*
+    Compulsory misses:       *[0-9,\.]*
+    Invalidations:           *[0-9[*
+    Miss rate:               *[0-9,\.]*%
+  LL stats:
+    Hits:                    *[0-9,\.]*
+    Misses:                  *[0-9,\.]*
+    Compulsory misses:       *[0-9,\.]*
+    Invalidations:           *[0-9]*
+    Local miss rate:        *[0-9,.]*%
+    Child hits:              *[0-9,\.]*
+    Total miss rate:         *[0-9,\.]*%
+Core #1 \([0-9] traced CPU\(s\).*
+Core #2 \([0-9] traced CPU\(s\).*
+Core #3 \([0-9] traced CPU\(s\).*

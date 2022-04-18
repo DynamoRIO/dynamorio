@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -37,7 +37,7 @@ extern "C" {
 /**
  * \addtogroup drutil Instrumentation Utilities
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /***************************************************************************
  * INIT
@@ -62,7 +62,6 @@ DR_EXPORT
 void
 drutil_exit(void);
 
-
 /***************************************************************************
  * MEMORY TRACING
  */
@@ -78,8 +77,11 @@ DR_EXPORT
  * All registers used in \p memref must hold their original
  * application values in order for the proper address to be computed
  * into \p dst.  The \p dst register may overlap with the registers
- * used in \p memref, but \p scratch must be different from those used
+ * used in \p memref.  On ARM, \p scratch must be different from those used
  * in \p memref (as well as from \p dst).
+ * On x86, \p scratch will not be used unless \p memref is a far reference
+ * that either uses \p dst or is a base-disp with both a base and an index,
+ * or \p memref is a reference in the #OP_xlat instruction.
  *
  * To obtain each memory address referenced in a single-instruction
  * string loop, use drutil_expand_rep_string() to transform such loops
@@ -93,11 +95,41 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
 
 DR_EXPORT
 /**
+ * Identical to drutil_insert_get_mem_addr() except it returns in the optional
+ * OUT parameter \p scratch_used whether or not \p scratch was written to.
+ */
+bool
+drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
+                              opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                              OUT bool *scratch_used);
+
+DR_EXPORT
+/**
  * Returns the size of the memory reference \p memref in bytes.
  * To handle OP_enter, requires the containing instruction \p inst
  * to be passed in.
  * For single-instruction string loops, returns the size referenced
  * by each iteration.
+ *
+ * If the instruction is part of the xsave family of instructions, this
+ * returns an incomplete computation of the xsave instruction's written
+ * xsave area's size. Specifically, it
+ *
+ * - Ignores the user state mask components set in edx:eax, because they are
+ *   dynamic values. The real output size of xsave depends on the instruction's
+ *   user state mask AND the user state mask as supported by the CPU based on
+ *   the XCR0 control register.
+ * - Ignores supervisor state component PT
+ *   (enabled/disabled by user state component mask bit 8).
+ * - Ignores the user state component PKRU state
+ *   (enabled/disabled by user state component mask bit 9).
+ * - Ignores the xsaveopt flavor of xsave.
+ * - Ignores the xsavec flavor of xsave (compacted format).
+ *
+ * It computes the expected size for the standard format of the x87 user state
+ * component (enabled/disabled by user state component mask bit 0), the SSE user
+ * state component (bit 1), the AVX user state component (bit 2), the MPX user
+ * state components (bit 2 and 3) and the AVX-512 user state component (bit 7).
  */
 uint
 drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst);
@@ -111,6 +143,11 @@ DR_EXPORT
  * (by truncating the prior block before the loop, and truncating
  * instructions after the loop) and then exanding it into a
  * multi-instruction loop.
+ *
+ * Clients applying this expansion are encouraged to use emulation-aware
+ * instrumentation via drmgr_orig_app_instr_for_fetch() and
+ * drmgr_orig_app_instr_for_operands() in order to observe the original
+ * string loop opcode with the expanded memory operands.
  *
  * WARNING: The added multi-instruction loop contains several
  * control-transfer instructions and is not straight-line code, which
@@ -153,8 +190,18 @@ bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
                             OUT instr_t **stringop);
 
+DR_EXPORT
+/**
+ * Returns whether the given instr is a stringop loop.
+ *
+ * @param[in]  inst        The instr to inspect.
+ *
+ * \return whether given instr is a stringop loop.
+ */
+bool
+drutil_instr_is_stringop_loop(instr_t *inst);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

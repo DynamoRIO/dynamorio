@@ -43,14 +43,14 @@
 #define VERBOSE 0
 #define KNOWN_DLLS 1
 
-void*
-get_module_preferred_base(void* module_base)
+void *
+get_module_preferred_base(void *module_base)
 {
     IMAGE_DOS_HEADER *dos;
     IMAGE_NT_HEADERS *nt;
-    dos = (IMAGE_DOS_HEADER *) module_base;
-    nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
-    return (void *) nt->OptionalHeader.ImageBase;
+    dos = (IMAGE_DOS_HEADER *)module_base;
+    nt = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos) + dos->e_lfanew);
+    return (void *)nt->OptionalHeader.ImageBase;
 }
 
 int num_checks = 0;
@@ -58,11 +58,11 @@ int num_at_base = 0;
 int num_no_module = 0;
 
 void
-do_check(const char* hook_dll, const char* hookfn)
+do_check(const char *hook_dll, const char *hookfn)
 {
     HANDLE target_mod = GetModuleHandle(hook_dll);
-    void* preferred = NULL;
-    unsigned char* hooktarget;
+    void *preferred = NULL;
+    unsigned char *hooktarget;
 
     if (target_mod == NULL) {
         HMODULE hmod = LoadLibrary(hook_dll);
@@ -74,7 +74,7 @@ do_check(const char* hook_dll, const char* hookfn)
              * target!  can't think of a way to exploit ;)
              */
             print("GLE: %d\n", GetLastError());
-            print("error: hmod "PFX", target_mod "PFX"\n", hmod, target_mod);
+            print("error: hmod " PFX ", target_mod " PFX "\n", hmod, target_mod);
         }
         if (target_mod == NULL) {
             num_no_module++;
@@ -82,7 +82,7 @@ do_check(const char* hook_dll, const char* hookfn)
         }
     }
 
-    hooktarget = (char*)GetProcAddress(target_mod, hookfn);
+    hooktarget = (char *)GetProcAddress(target_mod, hookfn);
 
     if (hooktarget == NULL) {
         print("error: couldn't find %s!%s\n", hook_dll, hookfn);
@@ -92,9 +92,8 @@ do_check(const char* hook_dll, const char* hookfn)
     if (target_mod != NULL)
         preferred = get_module_preferred_base(target_mod);
 #if VERBOSE
-    print("%s at "PFX", preferred "PFX"\n", hook_dll, target_mod,
-          preferred);
-    print("%s!%s "PFX"\n", hook_dll, hookfn, hooktarget);
+    print("%s at " PFX ", preferred " PFX "\n", hook_dll, target_mod, preferred);
+    print("%s!%s " PFX "\n", hook_dll, hookfn, hooktarget);
 #endif
     print("%s at %s base\n", hook_dll,
           (preferred == target_mod) ? "preferred" : "randomized");
@@ -177,8 +176,6 @@ main()
     print("%d DLL not found\n", num_no_module);
     print("done\n");
 }
-
-
 
 /* KnownDlls
 

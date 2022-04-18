@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,19 +44,24 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
-#ifndef UNIX
-# include <process.h>
+#ifdef UNIX
+#    include <signal.h>
+#    include <ucontext.h>
+#else
+#    include <process.h>
 #endif
+#include "../../../suite/tests/condvar.h"
 
 static const int num_threads = 8;
 static const int burst_owner = 4;
 static bool finished[num_threads];
+static void *burst_owner_finished;
 
 bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -78,21 +83,33 @@ unsigned int __stdcall
 #else
 void *
 #endif
-thread_func(void *arg)
+    thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
+    static const int reattach_iters = 4;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
-    static const int iter_start = outer_iters/3;
+    static const int iter_start = outer_iters / 3;
     static const int iter_stop = iter_start + 4;
 
-    /* We use an outer loop to test re-attaching (i#2157), except
-     * there is an unfixed bug i#2175.
-     * XXX i#2175: up the iter count once we fix the bug.
-     */
-    for (int j = 0; j < 1; ++j) {
-        if (j > 0 && idx == burst_owner)
+#ifdef UNIX
+    /* We test sigaltstack with attach+detach to avoid bugs like i#3116 */
+    stack_t sigstack;
+#    define ALT_STACK_SIZE (SIGSTKSZ * 2)
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = SS_ONSTACK;
+    int res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+#endif
+
+    /* We use an outer loop to test re-attaching (i#2157). */
+    for (int j = 0; j < reattach_iters; ++j) {
+        if (idx == burst_owner) {
+            std::cerr << "pre-DR init\n";
             dr_app_setup();
+            assert(!dr_app_running_under_dynamorio());
+        }
         for (int i = 0; i < outer_iters; ++i) {
             if (idx == burst_owner && i == iter_start) {
                 std::cerr << "pre-DR start\n";
@@ -112,6 +129,24 @@ thread_func(void *arg)
             }
         }
     }
+
+#ifdef UNIX
+    stack_t check_stack;
+    res = sigaltstack(NULL, &check_stack);
+    assert(res == 0 && check_stack.ss_sp == sigstack.ss_sp &&
+           check_stack.ss_size == sigstack.ss_size);
+    sigstack.ss_flags = SS_DISABLE;
+    res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+    free(sigstack.ss_sp);
+#endif
+
+    if (idx == burst_owner) {
+        signal_cond_var(burst_owner_finished);
+    } else {
+        /* Avoid having < 1 thread per core in the output. */
+        wait_cond_var(burst_owner_finished);
+    }
     finished[idx] = true;
     return 0;
 }
@@ -129,19 +164,17 @@ main(int argc, const char *argv[])
      * running more and their trace files get up to 65MB or more, with the
      * merged result several GB's: too much for a test.  We thus cap each thread.
      */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;"
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-stderr_mask 0xc -client_lib ';;"
                    "-offline -max_trace_size 256K'"))
         std::cerr << "failed to set env var!\n";
 
-    std::cerr << "pre-DR init\n";
-    dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
-
+    burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
-        pthread_create(&thread[i], NULL, thread_func, (void*)(uintptr_t)i);
+        pthread_create(&thread[i], NULL, thread_func, (void *)(uintptr_t)i);
 #else
-        thread[i] = _beginthreadex(NULL, 0, thread_func, (void*)(uintptr_t)i, 0, NULL);
+        thread[i] = _beginthreadex(NULL, 0, thread_func, (void *)(uintptr_t)i, 0, NULL);
 #endif
     }
     for (uint i = 0; i < num_threads; i++) {
@@ -156,5 +189,6 @@ main(int argc, const char *argv[])
             std::cerr << "thread " << i << " failed to finish\n";
     }
     std::cerr << "all done\n";
+    destroy_cond_var(burst_owner_finished);
     return 0;
 }

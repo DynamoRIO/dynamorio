@@ -40,18 +40,18 @@
 #include "drmgr.h"
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
+#define NULL_TERMINATE(buf) (buf)[(sizeof((buf)) / sizeof((buf)[0])) - 1] = '\0'
 
-static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag,
-                                             instrlist_t *bb, instr_t *instr,
-                                             bool for_trace, bool translating,
-                                             void *user_data);
-static void exit_event(void);
+static dr_emit_flags_t
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data);
+static void
+exit_event(void);
 
 static int div_count = 0, div_p2_count = 0;
 static void *count_mutex; /* for multithread support */
@@ -74,7 +74,7 @@ exit_event(void)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
                       "  saw %d div instructions\n"
                       "  of which %d were powers of 2\n",
@@ -120,22 +120,20 @@ instr_is_div(instr_t *instr, OUT opnd_t *opnd)
         return true;
     }
 #else
-# error NYI
+#    error NYI
 #endif
     return false;
 }
 
 static dr_emit_flags_t
-event_app_instruction(void* drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data)
 {
     /* if find div, insert a clean call to our instrumentation routine */
     opnd_t opnd;
     if (instr_is_div(instr, &opnd)) {
-        dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
-                             false /*no fp save*/, 2,
-                             OPND_CREATE_INTPTR(instr_get_app_pc(instr)), opnd);
+        dr_insert_clean_call(drcontext, bb, instr, (void *)callback, false /*no fp save*/,
+                             2, OPND_CREATE_INTPTR(instr_get_app_pc(instr)), opnd);
     }
     return DR_EMIT_DEFAULT;
 }
-

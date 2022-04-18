@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -40,14 +40,14 @@ START_FILE
 
 DECL_EXTERN(dynamorio_app_take_over_helper)
 #if defined(UNIX)
-DECL_EXTERN(master_signal_handler_C)
+DECL_EXTERN(main_signal_handler_C)
 DECL_EXTERN(dr_setjmp_sigmask)
 #endif
 DECL_EXTERN(relocate_dynamorio)
 DECL_EXTERN(privload_early_inject)
 
 DECL_EXTERN(exiting_thread_count)
-DECL_EXTERN(initstack)
+DECL_EXTERN(d_r_initstack)
 DECL_EXTERN(initstack_mutex)
 
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
@@ -59,18 +59,18 @@ DECL_EXTERN(initstack_mutex)
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
 #ifdef X64
-# define NUM_SIMD_SLOTS 32
-# define SIMD_REG_SIZE  16
-# define NUM_GPR_SLOTS  33 /* incl flags */
-# define GPR_REG_SIZE    8
+# define MCXT_NUM_SIMD_SLOTS 32
+# define SIMD_REG_SIZE       16
+# define NUM_GPR_SLOTS       33 /* incl flags */
+# define GPR_REG_SIZE         8
 #else
-# define NUM_SIMD_SLOTS 16
-# define SIMD_REG_SIZE  16
-# define NUM_GPR_SLOTS  17 /* incl flags */
-# define GPR_REG_SIZE    4
+# define MCXT_NUM_SIMD_SLOTS 16
+# define SIMD_REG_SIZE       16
+# define NUM_GPR_SLOTS       17 /* incl flags */
+# define GPR_REG_SIZE         4
 #endif
-#define PRE_SIMD_PADDING 0
-#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + NUM_SIMD_SLOTS*SIMD_REG_SIZE)
+#define PRE_SIMD_PADDING     0
+#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + MCXT_NUM_SIMD_SLOTS*SIMD_REG_SIZE)
 #define PRIV_MCXT_SIZE (NUM_GPR_SLOTS*GPR_REG_SIZE + PRIV_MCXT_SIMD_SIZE)
 #define PRIV_MCXT_SP_FROM_SIMD (-(4*GPR_REG_SIZE)) /* flags, pc, lr, then sp */
 #define PRIV_MCXT_PC_FROM_SIMD (-(2*GPR_REG_SIZE)) /* flags, then pc */
@@ -120,7 +120,6 @@ call_dispatch_alt_stack_no_free:
         END_FUNC(call_switch_stack)
 
 
-#ifdef CLIENT_INTERFACE
 /*
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
@@ -165,20 +164,34 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      REG_SP, REG_R4
         pop      {REG_R1-REG_R5, pc} /* don't need r1-r3 values but this is simplest */
         END_FUNC(dr_call_on_clean_stack)
-#endif /* CLIENT_INTERFACE */
 
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
-/* FIXME i#1551: NYI on ARM */
 /*
  * dr_app_start - Causes application to run under Dynamo control
  */
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+        push     {lr}
+        vstmdb   sp!, {d16-d31}
+        vstmdb   sp!, {d0-d15}
+        mrs      REG_R0, cpsr /* r0 is scratch */
+        push     {REG_R0}
+        /* We can't push all regs w/ writeback */
+        stmdb    sp, {REG_R0-r15}
+        str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        /* we need the sp at function entry */
+        mov      REG_R0, sp
+        add      REG_R0, REG_R0, #(PRIV_MCXT_SIMD_SIZE + 8) /* offset simd,cpsr,lr */
+        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        sub      sp, sp, #(PRIV_MCXT_SIZE-PRIV_MCXT_SIMD_SIZE-4) /* simd,cpsr */
+        mov      REG_R0, sp
+        CALLC1(GLOBAL_REF(dr_app_start_helper), REG_R0)
+        /* if we get here, DR is not taking over */
+        add      sp, sp, #PRIV_MCXT_SIZE
+        pop      {pc}
         END_FUNC(dr_app_start)
 
 /*
@@ -188,7 +201,6 @@ GLOBAL_LABEL(dr_app_start:)
  */
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
 GLOBAL_LABEL(dr_app_take_over:)
-        /* FIXME i#1551: NYI on ARM */
         b        GLOBAL_REF(dynamorio_app_take_over)
         END_FUNC(dr_app_take_over)
 
@@ -200,9 +212,8 @@ GLOBAL_LABEL(dr_app_take_over:)
  */
         DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
 GLOBAL_LABEL(dr_app_running_under_dynamorio:)
-        /* FIXME i#1551: NYI on ARM */
         mov      r0, #0
-        bl       GLOBAL_REF(unexpected_return)
+        bx       lr
         END_FUNC(dr_app_running_under_dynamorio)
 #endif /* DR_APP_EXPORTS */
 
@@ -279,7 +290,7 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* switch to initstack for cleanup of dstack */
+        /* switch to d_r_initstack for cleanup of dstack */
         /* we use r6, r7, and r8 here so that atomic_swap doesn't clobber them */
         mov      REG_R6, #1
         ldr      REG_R8, .Lgot1
@@ -300,12 +311,12 @@ cat_have_lock:
         /* swap stacks */
         ldr      REG_R2, .Lgot2
         add      REG_R2, REG_R2, pc
-        ldr      REG_R3, .Linitstack
+        ldr      REG_R3, .Ld_r_initstack
 .LPIC2: ldr      REG_R3, [REG_R3, REG_R2]
         ldr      sp, [REG_R3]
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_R4) /* pass dstack */
-        /* give up initstack mutex */
+        /* give up initstack_mutex */
         ldr      REG_R2, .Lgot3
         add      REG_R2, REG_R2, pc
         ldr      REG_R3, .Linitstack_mutex
@@ -338,8 +349,8 @@ cat_have_lock:
         .long   _GLOBAL_OFFSET_TABLE_-.LPIC4
 .Lexiting_thread_count:
         .word   exiting_thread_count(GOT)
-.Linitstack:
-        .word   initstack(GOT)
+.Ld_r_initstack:
+        .word   d_r_initstack(GOT)
 .Linitstack_mutex:
         .word   initstack_mutex(GOT)
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
@@ -399,56 +410,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         END_FUNC(safe_read_asm)
 
 
-#ifdef UNIX
-/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
- */
-
-/* Private memcpy.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        ldrb     REG_R3, [ARG2]
-        strb     REG_R3, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG2, ARG2, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memcpy)
-
-/* Private memset.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        strb     ARG2, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memset)
-
-/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-#endif /* UNIX */
-
-
-#ifdef CLIENT_INTERFACE
 /* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
  *
  * int dr_try_start(try_except_context_t *cxt) ;
@@ -505,8 +466,6 @@ GLOBAL_LABEL(our_cpuid:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(our_cpuid)
 
-#endif /* CLIENT_INTERFACE */
-
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)
 GLOBAL_LABEL(client_int_syscall:)
@@ -530,12 +489,28 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-
+/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                             void *ctid, void (*func)(void))
+ */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-        /* FIXME i#1551: NYI on ARM */
-        mov      r0, #0
+        /* Save callee-saved regs we clobber in the parent. */
+        push     {r4, r5, r7}
+        ldr      r4, [sp, #12] /* ARG5 minus the pushes above */
+        ldr      r5, [sp, #16] /* ARG6 minus the pushes above */
+        /* All args are now in syscall registers. */
+        /* Push func on the new stack. */
+        stmdb    ARG2!, {r5}
+        mov      r7, #SYS_clone
+        svc      0
+        cmp      r0, #0
+        bne      dynamorio_clone_parent
+        ldmia    sp!, {r0}
+        blx      r0
         bl       GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+        pop      {r4, r5, r7}
+        bx       lr
         END_FUNC(dynamorio_clone)
 
         DECLARE_FUNC(dynamorio_sigreturn)
@@ -570,17 +545,17 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #ifndef HAVE_SIGALTSTACK
 # error NYI
 #endif
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
         mov      ARG4, sp /* pass as extra arg */
         /* i#2107: we repeat the mov to work around odd behavior on Android
          * where sometimes the kernel sends control to the 2nd instruction here.
          */
         mov      ARG4, sp /* pass as extra arg */
-        b        GLOBAL_REF(master_signal_handler_C)
-        /* master_signal_handler_C will do the ret */
+        b        GLOBAL_REF(main_signal_handler_C)
+        /* main_signal_handler_C will do the ret */
         bl       GLOBAL_REF(unexpected_return)
-        END_FUNC(master_signal_handler)
+        END_FUNC(main_signal_handler)
 
 #endif /* LINUX */
 

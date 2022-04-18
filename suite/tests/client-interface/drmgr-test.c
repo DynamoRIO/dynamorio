@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,12 +32,11 @@
 
 #include "tools.h"
 
-static char table[2] = {'A', 'B'};
 #ifdef WINDOWS
 /* based on suite/tests/win32/callback.c */
 
-#include <windows.h>
-#include <stdio.h>
+#    include <windows.h>
+#    include <stdio.h>
 
 static volatile bool thread_ready = false;
 static volatile bool past_crash = false;
@@ -52,11 +51,11 @@ static const WPARAM WP_NOP = 0;
 static const WPARAM WP_EXIT = 1;
 static const WPARAM WP_CRASH = 3;
 
-static const uint BAD_WRITE = 0x40;
+static const ptr_uint_t BAD_WRITE = 0x40;
 
-#ifndef WM_DWMNCRENDERINGCHANGED
-# define WM_DWMNCRENDERINGCHANGED 0x031F
-#endif
+#    ifndef WM_DWMNCRENDERINGCHANGED
+#        define WM_DWMNCRENDERINGCHANGED 0x031F
+#    endif
 
 /* This is where all our callbacks come.  We get 4 default messages:
  *   WM_GETMINMAXINFO                0x0024
@@ -74,18 +73,17 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     bool cross_cb_seh_supported;
     if (message == MSG_CUSTOM) {
-        print("in wnd_callback "PFX" %d %d\n", message, wParam, lParam);
+        print("in wnd_callback " PFX " %d %d\n", message, wParam, lParam);
         if (wParam == WP_CRASH) {
             /* ensure SendMessage returns prior to our crash */
             ReplyMessage(TRUE);
             print("About to crash\n");
-#ifdef X64
+#    ifdef X64
             cross_cb_seh_supported = false;
-#else
-            cross_cb_seh_supported =
-                (get_windows_version() < WINDOWS_VERSION_7 ||
-                 !is_wow64(GetCurrentProcess()));
-#endif
+#    else
+            cross_cb_seh_supported = (get_windows_version() < WINDOWS_VERSION_7 ||
+                                      !is_wow64(GetCurrentProcess()));
+#    endif
             if (!cross_cb_seh_supported) {
                 /* FIXME i#266: even natively this exception is not making it across
                  * the callback boundary!  Is that a fundamental limitation of the
@@ -96,15 +94,17 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 __try {
                     *((int *)BAD_WRITE) = 4;
                     print("Should not get here\n");
-                }
-                __except (/* Only catch the bad write, to not mask DR errors (like
-                           * case 10579) */
-                          (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION &&
-                           (GetExceptionInformation())->ExceptionRecord->
-                           ExceptionInformation[0] == 1 /* write */ &&
-                           (GetExceptionInformation())->ExceptionRecord->
-                           ExceptionInformation[1] == BAD_WRITE) ?
-                          EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+                } __except (/* Only catch the bad write, to not mask DR errors (like
+                             * case 10579) */
+                            (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION &&
+                             (GetExceptionInformation())
+                                     ->ExceptionRecord->ExceptionInformation[0] ==
+                                 1 /* write */
+                             && (GetExceptionInformation())
+                                     ->ExceptionRecord->ExceptionInformation[1] ==
+                                 BAD_WRITE)
+                                ? EXCEPTION_EXECUTE_HANDLER
+                                : EXCEPTION_CONTINUE_SEARCH) {
                     print("Inside handler\n");
                     past_crash = true;
                 }
@@ -117,26 +117,27 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     } else {
         /* lParam varies so don't make template nondet */
         if (message != WM_DWMNCRENDERINGCHANGED)
-            print("in wnd_callback "PFX" %d\n", message, wParam);
+            print("in wnd_callback " PFX " %d\n", message, wParam);
         return DefWindowProc(hwnd, message, wParam, lParam);
     }
 }
 
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     MSG msg;
     char *winName = "foobar";
-    WNDCLASS wndclass = {0, wnd_callback, 0, 0, NULL/* WinMain hwnd would be here */,
-                         NULL, NULL,
-                         NULL, NULL, winName};
+    WNDCLASS wndclass = {
+        0,    wnd_callback, 0,    0,    NULL /* WinMain hwnd would be here */,
+        NULL, NULL,         NULL, NULL, winName
+    };
 
     if (!RegisterClass(&wndclass)) {
         print("Unable to create window class\n");
         return 0;
     }
     hwnd = CreateWindow(winName, winName, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-                        CW_USEDEFAULT, NULL, NULL, NULL/* WinMain hwnd would be here */,
+                        CW_USEDEFAULT, NULL, NULL, NULL /* WinMain hwnd would be here */,
                         NULL);
     /* deliberately not calling ShowWindow */
 
@@ -151,24 +152,24 @@ run_func(void * arg)
                 /* Messages not auto-sent to callbacks are processed here */
                 if ((msg.message != MSG_CUSTOM || msg.wParam != WP_NOP) &&
                     msg.message != WM_DWMNCRENDERINGCHANGED) {
-                    print("Got message "PFX" %d %d\n",
-                          msg.message, msg.wParam, msg.lParam);
+                    print("Got message " PFX " %d %d\n", msg.message, msg.wParam,
+                          msg.lParam);
                 }
                 last_received = msg.message;
                 if (msg.message == MSG_CUSTOM && msg.wParam == WP_EXIT)
-                    break; /* Done */
+                    break;              /* Done */
                 TranslateMessage(&msg); /* convert virtual-key msgs to character msgs */
                 DispatchMessage(&msg);
             }
-        }
-        __except (/* Only catch the bad write, to not mask DR errors (like
-                   * case 10579) */
-                  (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION &&
-                   (GetExceptionInformation())->ExceptionRecord->ExceptionInformation[0]
-                   == 1 /* write */ &&
-                   (GetExceptionInformation())->ExceptionRecord->ExceptionInformation[1]
-                   == BAD_WRITE) ?
-                  EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        } __except (/* Only catch the bad write, to not mask DR errors (like
+                     * case 10579) */
+                    (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION &&
+                     (GetExceptionInformation())
+                             ->ExceptionRecord->ExceptionInformation[0] == 1 /* write */
+                     && (GetExceptionInformation())
+                             ->ExceptionRecord->ExceptionInformation[1] == BAD_WRITE)
+                        ? EXCEPTION_EXECUTE_HANDLER
+                        : EXCEPTION_CONTINUE_SEARCH) {
             /* This should have crossed the callback boundary
              * On xpsp2 and earlier we never see a callback return for
              * the crashing callback, while on 2k3sp1 we do see one.
@@ -178,11 +179,11 @@ run_func(void * arg)
             continue;
         }
     }
-    return (int) msg.wParam;
+    return (int)msg.wParam;
 }
 
 int
-main()
+main(int argc, char **argv)
 {
     int tid;
     HANDLE hThread;
@@ -231,19 +232,32 @@ main()
         Sleep(0);
 
     WaitForSingleObject(hThread, INFINITE);
+
+    char ALIGN_VAR(64) buffer[2048];
+    _xsave(buffer, -1);
+
     print("All done\n");
+
+    HMODULE hmod;
+
+    /*
+     * Load and unload a module to cause a module unload event
+     */
+    hmod = LoadLibrary(argv[1]);
+    FreeLibrary(hmod);
 
     return 0;
 }
-
 
 /***************************************************************************/
 #else
 /* based on suite/tests/pthreads/pthreads.c */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
+#    include <stdio.h>
+#    include <stdlib.h>
+#    include <pthread.h>
+#    include <dlfcn.h>
+#    include <signal.h>
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
@@ -252,19 +266,19 @@ volatile double intervals; /* How many intervals? */
 void *
 process(void *arg)
 {
-    char *id = (char *) arg;
+    char *id = (char *)arg;
     register double width, localsum;
     register int i;
     register int iproc;
 
-    iproc = (*((char *) arg) - '0');
+    iproc = (*((char *)arg) - '0');
 
     /* Set width */
     width = 1.0 / intervals;
 
     /* Do the local computations */
     localsum = 0;
-    for (i=iproc; i<intervals; i+=2) {
+    for (i = iproc; i < intervals; i += 2) {
         register double x = (i + 0.5) * width;
         localsum += 4.0 / (1.0 + x * x);
     }
@@ -275,32 +289,73 @@ process(void *arg)
     pi += localsum;
     pthread_mutex_unlock(&pi_lock);
 
-    return(NULL);
+    return (NULL);
 }
 
 int
 main(int argc, char **argv)
 {
     pthread_t thread0, thread1;
-    void * retval;
-#ifdef X86
+    void *retval;
+    char table[2] = { 'A', 'B' };
+#    ifdef X86
     char ch;
-    /* test xlat for drutil_insert_get_mem_addr,
+    /* Test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
      */
-    __asm("mov %1, %%ebx\n\t"
-          "mov $0x1, %%eax\n\t"
-          "xlat\n\t"
-          "movb %%al, %0\n\t"
-          : "=m"(ch) : "g"(&table) : "%eax", "%ebx");
+    __asm("mov %1, %%" IF_X64_ELSE("rbx", "ebx") "\n\t"
+                                                 "mov $0x1, %%eax\n\t"
+                                                 "xlat\n\t"
+                                                 "movb %%al, %0\n\t"
+          : "=m"(ch)
+          : "g"(&table)
+          : "%eax", "%ebx");
     print("%c\n", ch);
     /* XXX: should come up w/ some clever way to ensure
      * this gets the right address: for now just making sure
      * it doesn't crash.
      */
-#else
+#    else
     print("%c\n", table[1]);
-#endif
+#    endif
+
+#    ifdef X86
+    /* Test xsave for drutil_opnd_mem_size_in_bytes. We're assuming that
+     * xsave support is available and enabled, which should be the case
+     * on all machines we're running on.
+     * Ideally we'd run whatever cpuid invocations are needed to figure out the exact
+     * size but 16K is more than enough for the foreseeable future: it's 576 bytes
+     * with SSE and ~2688 for AVX-512.
+     */
+    char ALIGN_VAR(64) buffer[16 * 1024];
+    __asm("xor %%edx, %%edx\n\t"
+          "or $-1, %%eax\n\t"
+          "xsave %0\n\t"
+          : "=m"(buffer)
+          :
+          : "eax", "edx", "memory");
+#    endif
+
+    /* Test rep string expansions. */
+    char buf1[1024];
+    char buf2[1024];
+#    ifdef X86_64
+    __asm("lea %[buf1], %%rdi\n\t"
+          "lea %[buf2], %%rsi\n\t"
+          "mov %[count], %%ecx\n\t"
+          "rep movsq\n\t"
+          :
+          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2), [ count ] "i"(sizeof(buf1))
+          : "ecx", "rdi", "rsi", "memory");
+#    elif defined(X86_32)
+    __asm("lea %[buf1], %%edi\n\t"
+          "lea %[buf2], %%esi\n\t"
+          "mov %[count], %%ecx\n\t"
+          "rep movsd\n\t"
+          :
+          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2), [ count ] "i"(sizeof(buf1))
+          : "ecx", "edi", "esi", "memory");
+#    endif
 
     intervals = 10;
     /* Initialize the lock on pi */
@@ -314,15 +369,23 @@ main(int argc, char **argv)
     }
 
     /* Join (collapse) the two threads */
-    if (pthread_join(thread0, &retval) ||
-        pthread_join(thread1, &retval)) {
+    if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
         print("%s: thread join failed\n", argv[0]);
         exit(1);
     }
 
+    void *hmod;
+    hmod = dlopen(argv[1], RTLD_LAZY | RTLD_LOCAL);
+    if (hmod != NULL)
+        dlclose(hmod);
+    else
+        print("module load failed: %s\n", dlerror());
+
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
+
+    /* Let's raise a signal */
+    raise(SIGUSR1);
     return 0;
 }
 #endif /* !WINDOWS */
-

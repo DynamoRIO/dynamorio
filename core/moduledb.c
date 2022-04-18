@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,6 @@
 #include "utils.h"
 #include "moduledb.h"
 #include "module_shared.h"
-#include <string.h>  /* for memset, strlen */
 
 /* An array of pointers to the various exempt lists indexed by the
  * moduledb_exempt_list_t enum.  We have the ugliness of an extra indirection
@@ -55,12 +54,11 @@ static char *
 moduledb_add_to_exempt_list(char *list, const char *name)
 {
     size_t cur_size_less_null = (list == NULL) ? 0 : strlen(list);
-    size_t needed_size = cur_size_less_null +
-        ((cur_size_less_null > 0) ? 1 /* ; */ : 0) +
+    size_t needed_size = cur_size_less_null + ((cur_size_less_null > 0) ? 1 /* ; */ : 0) +
         strlen(name) + 1 /* NULL */;
-    char *new_list = (char *)
-        global_heap_realloc(list, cur_size_less_null + 1 /* NULL */,
-                            needed_size, sizeof(*list) HEAPACCT(ACCT_OTHER));
+    char *new_list =
+        (char *)global_heap_realloc(list, cur_size_less_null + 1 /* NULL */, needed_size,
+                                    sizeof(*list) HEAPACCT(ACCT_OTHER));
     if (cur_size_less_null == 0)
         *new_list = '\0';
     else
@@ -88,56 +86,52 @@ moduledb_remove_from_exempt_list(char *list, const char *name)
 static void
 moduledb_update_exempt_list(char **list, const char *name, bool add)
 {
-    LOG(GLOBAL, LOG_MODULEDB, 2,
-        "\tlist before update \"%s\"\n", (*list == NULL) ? "" : *list);
-    write_lock(&moduledb_lock);
+    LOG(GLOBAL, LOG_MODULEDB, 2, "\tlist before update \"%s\"\n",
+        (*list == NULL) ? "" : *list);
+    d_r_write_lock(&moduledb_lock);
     if (add && (*list == NULL || !check_filter(*list, name))) {
         *list = moduledb_add_to_exempt_list(*list, name);
     } else if (!add && *list != NULL && check_filter(*list, name)) {
         *list = moduledb_remove_from_exempt_list(*list, name);
     }
-    write_unlock(&moduledb_lock);
-    LOG(GLOBAL, LOG_MODULEDB, 2,
-        "\tlist after update \"%s\"\n", (*list == NULL) ? "" : *list);
+    d_r_write_unlock(&moduledb_lock);
+    LOG(GLOBAL, LOG_MODULEDB, 2, "\tlist after update \"%s\"\n",
+        (*list == NULL) ? "" : *list);
 }
 
 static void
 moduledb_process_relaxation_flags(uint flags, const char *name, bool add)
 {
-    ASSERT_NOT_IMPLEMENTED(!TESTANY(~(MODULEDB_ALL_SECTIONS_BITS|MODULEDB_RCT_EXEMPT_TO|
-                                      MODULEDB_REPORT_ON_LOAD|MODULEDB_DLL2HEAP|
-                                      MODULEDB_DLL2STACK), flags));
+    ASSERT_NOT_IMPLEMENTED(
+        !TESTANY(~(MODULEDB_ALL_SECTIONS_BITS | MODULEDB_RCT_EXEMPT_TO |
+                   MODULEDB_REPORT_ON_LOAD | MODULEDB_DLL2HEAP | MODULEDB_DLL2STACK),
+                 flags));
     if (TEST(MODULEDB_RCT_EXEMPT_TO, flags)) {
-        LOG(GLOBAL, LOG_MODULEDB, 1,
-            "%s module %s to moduledb exempt rct\n",
+        LOG(GLOBAL, LOG_MODULEDB, 1, "%s module %s to moduledb exempt rct\n",
             add ? "Adding" : "Removing", name);
-        moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_RCT),
-                                    name, add);
+        moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_RCT), name, add);
     }
     if (TEST(MODULEDB_DLL2HEAP, flags)) {
-        LOG(GLOBAL, LOG_MODULEDB, 1,
-            "%s module %s to moduledb exempt dll2heap\n",
+        LOG(GLOBAL, LOG_MODULEDB, 1, "%s module %s to moduledb exempt dll2heap\n",
             add ? "Adding" : "Removing", name);
-        moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_DLL2HEAP),
-                                    name, add);
+        moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_DLL2HEAP), name,
+                                    add);
     }
     if (TEST(MODULEDB_DLL2STACK, flags)) {
-        LOG(GLOBAL, LOG_MODULEDB, 1,
-            "%s module %s to moduledb exempt dll2stack\n",
+        LOG(GLOBAL, LOG_MODULEDB, 1, "%s module %s to moduledb exempt dll2stack\n",
             add ? "Adding" : "Removing", name);
-        moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_DLL2STACK),
-                                    name, add);
+        moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_DLL2STACK), name,
+                                    add);
     }
     if (TESTANY(MODULEDB_ALL_SECTIONS_BITS, flags)) {
-        uint all_sections = (flags & MODULEDB_ALL_SECTIONS_BITS) >>
-            MODULEDB_ALL_SECTIONS_SHIFT;
+        uint all_sections =
+            (flags & MODULEDB_ALL_SECTIONS_BITS) >> MODULEDB_ALL_SECTIONS_SHIFT;
         ASSERT_NOT_IMPLEMENTED(all_sections == SECTION_ALLOW);
         if (all_sections == SECTION_ALLOW) {
-            LOG(GLOBAL, LOG_MODULEDB, 1,
-                "%s module %s to moduledb exec if image\n",
+            LOG(GLOBAL, LOG_MODULEDB, 1, "%s module %s to moduledb exec if image\n",
                 add ? "Adding" : "Removing", name);
-            moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_IMAGE),
-                                        name, add);
+            moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_IMAGE), name,
+                                        add);
         }
     }
 }
@@ -146,8 +140,7 @@ moduledb_process_relaxation_flags(uint flags, const char *name, bool add)
 START_DATA_SECTION(FREQ_PROTECTED_SECTION, "w")
 
 void
-moduledb_report_exemption(const char *fmt, app_pc addr1, app_pc addr2,
-                          const char *name)
+moduledb_report_exemption(const char *fmt, app_pc addr1, app_pc addr2, const char *name)
 {
     ASSERT(exemption_lists != NULL);
     /* FIXME - need a release version of this */
@@ -155,10 +148,12 @@ moduledb_report_exemption(const char *fmt, app_pc addr1, app_pc addr2,
     DODEBUG({
         /* FIXME - would be nice to only report unique module names per type. */
         DO_THRESHOLD_SAFE(DYNAMO_OPTION(moduledb_exemptions_report_max),
-                          FREQ_PROTECTED_SECTION, {
-            /* < max */
-            SYSLOG_INTERNAL_WARNING(fmt, addr1, addr2, name);
-        },  { /* > max -> nothing */ });
+                          FREQ_PROTECTED_SECTION,
+                          {
+                              /* < max */
+                              SYSLOG_INTERNAL_WARNING(fmt, addr1, addr2, name);
+                          },
+                          { /* > max -> nothing */ });
     });
 }
 
@@ -178,20 +173,19 @@ moduledb_process_image(const char *name, app_pc base, bool add)
 
     /* caller has already verified this is a pe module */
     got_company_name =
-        get_module_company_name(base, company_name,
-                                BUFFER_SIZE_ELEMENTS(company_name));
+        get_module_company_name(base, company_name, BUFFER_SIZE_ELEMENTS(company_name));
     if (!got_company_name)
         company_name[0] = '\0';
 
     if (got_company_name && company_name[0] != '\0' &&
-        (!IS_STRING_OPTION_EMPTY(whitelist_company_names_default) ||
-         !IS_STRING_OPTION_EMPTY(whitelist_company_names)) &&
-        check_list_default_and_append(dynamo_options.whitelist_company_names_default,
-                                      dynamo_options.whitelist_company_names,
+        (!IS_STRING_OPTION_EMPTY(allowlist_company_names_default) ||
+         !IS_STRING_OPTION_EMPTY(allowlist_company_names)) &&
+        check_list_default_and_append(dynamo_options.allowlist_company_names_default,
+                                      dynamo_options.allowlist_company_names,
                                       company_name)) {
         relax = false;
         LOG(GLOBAL, LOG_MODULEDB, 1,
-            "Found module \"%s\" from whitelisted company \"%s\"\n",
+            "Found module \"%s\" from allowlisted company \"%s\"\n",
             name == NULL ? "no-name" : name, company_name);
         /* FIXME - not all of our modules have the Company name
          * field set (drpreinject & liveshields don't), need to avoid
@@ -209,27 +203,31 @@ moduledb_process_image(const char *name, app_pc base, bool add)
                  * the module at least, but this a bad time w/respect to the loader to
                  * be walking the lists. */
                 SYSLOG_INTERNAL_WARNING("Unable to relax for nameless unknown module "
-                                        "from \"%s\" @"PFX, company_name, base);
+                                        "from \"%s\" @" PFX,
+                                        company_name, base);
             }
         } else {
             LOG(GLOBAL, LOG_MODULEDB, 1, "Loaded unknown module %s\n", name);
             /* process the relaxations */
-            moduledb_process_relaxation_flags(DYNAMO_OPTION(unknown_module_policy),
-                                              name, add);
+            moduledb_process_relaxation_flags(DYNAMO_OPTION(unknown_module_policy), name,
+                                              add);
             /* FIXME - prob. too noisy, on my machine there are
              * usually 5 of these per process, two for logitech mouse hook
              * dlls, 1 for drpreinject and 2 for Norton av. */
-            if (add && TEST(MODULEDB_REPORT_ON_LOAD,
-                            DYNAMO_OPTION(unknown_module_policy))) {
+            if (add &&
+                TEST(MODULEDB_REPORT_ON_LOAD, DYNAMO_OPTION(unknown_module_policy))) {
                 /* FIXME - will prob. need a release version of this */
                 DODEBUG({
                     DO_THRESHOLD_SAFE(DYNAMO_OPTION(unknown_module_load_report_max),
-                                      FREQ_PROTECTED_SECTION, {
-                        /* < max */
-                        SYSLOG_INTERNAL_INFO("Relaxing protections for unknown module "
-                                             "%s @"PFX" from \"%s\"",
-                                             name, base, company_name);
-                    }, { /* > max -> nothing */ });
+                                      FREQ_PROTECTED_SECTION,
+                                      {
+                                          /* < max */
+                                          SYSLOG_INTERNAL_INFO(
+                                              "Relaxing protections for unknown module "
+                                              "%s @" PFX " from \"%s\"",
+                                              name, base, company_name);
+                                      },
+                                      { /* > max -> nothing */ });
                 });
             }
         }
@@ -239,18 +237,16 @@ moduledb_process_image(const char *name, app_pc base, bool add)
 /* back to normal section */
 END_DATA_SECTION()
 
-static const char *const
-exempt_list_names[MODULEDB_EXEMPT_NUM_LISTS] = {
-    "rct", "image", "dll2heap", "dll2stack"
-};
+static const char *const exempt_list_names[MODULEDB_EXEMPT_NUM_LISTS] = { "rct", "image",
+                                                                          "dll2heap",
+                                                                          "dll2stack" };
 
 void
 moduledb_init()
 {
     uint exempt_array_size = (MODULEDB_EXEMPT_NUM_LISTS) * sizeof(char *);
     ASSERT(exemption_lists == NULL);
-    exemption_lists = (char **)
-        global_heap_alloc(exempt_array_size HEAPACCT(ACCT_OTHER));
+    exemption_lists = (char **)global_heap_alloc(exempt_array_size HEAPACCT(ACCT_OTHER));
     ASSERT(exemption_lists != NULL);
     memset(exemption_lists, 0, exempt_array_size);
     DOCHECK(1, {
@@ -272,12 +268,14 @@ moduledb_exit()
     for (i = 0; i < MODULEDB_EXEMPT_NUM_LISTS; i++) {
         char *list = GET_EXEMPT_LIST(i);
         if (list != NULL) {
-            global_heap_free(list, strlen(list) + 1 /* NULL */
-                             HEAPACCT(ACCT_OTHER));
+            global_heap_free(list,
+                             strlen(list) +
+                                 1 /* NULL */
+                                 HEAPACCT(ACCT_OTHER));
         }
     }
-    global_heap_free(exemption_lists, (MODULEDB_EXEMPT_NUM_LISTS) * sizeof(char *)
-                     HEAPACCT(ACCT_OTHER));
+    global_heap_free(exemption_lists,
+                     (MODULEDB_EXEMPT_NUM_LISTS) * sizeof(char *) HEAPACCT(ACCT_OTHER));
     DELETE_READWRITE_LOCK(moduledb_lock);
     if (doing_detach)
         exemption_lists = NULL;
@@ -296,7 +294,7 @@ moduledb_check_exempt_list(moduledb_exempt_list_t list, const char *name)
 {
     bool found = false;
     ASSERT(exemption_lists != NULL);
-    read_lock(&moduledb_lock);
+    d_r_read_lock(&moduledb_lock);
     if (GET_EXEMPT_LIST(list) != NULL) {
         LOG(GLOBAL, LOG_MODULEDB, 2,
             "Moduledb checking %s exempt list =\"%s\" for module \"%s\"\n",
@@ -304,7 +302,7 @@ moduledb_check_exempt_list(moduledb_exempt_list_t list, const char *name)
             GET_EXEMPT_LIST(list) == NULL ? "" : GET_EXEMPT_LIST(list), name);
         found = check_filter(GET_EXEMPT_LIST(list), name);
     }
-    read_unlock(&moduledb_lock);
+    d_r_read_unlock(&moduledb_lock);
     return found;
 }
 
@@ -313,14 +311,13 @@ print_moduledb_exempt_lists(file_t file)
 {
     int i;
     ASSERT(exemption_lists != NULL);
-    read_lock(&moduledb_lock);
+    d_r_read_lock(&moduledb_lock);
     for (i = 0; i < MODULEDB_EXEMPT_NUM_LISTS; i++) {
         ASSERT(exempt_list_names[i] != NULL);
-        print_file(file, "moduledb %s exemption list =\"%s\"\n",
-                   exempt_list_names[i],
+        print_file(file, "moduledb %s exemption list =\"%s\"\n", exempt_list_names[i],
                    GET_EXEMPT_LIST(i) == NULL ? "" : GET_EXEMPT_LIST(i));
     }
-    read_unlock(&moduledb_lock);
+    d_r_read_unlock(&moduledb_lock);
 }
 
 #ifdef PROCESS_CONTROL
@@ -331,7 +328,7 @@ print_moduledb_exempt_lists(file_t file)
  *       create a separate file; for now let it be here.
  */
 
-/* As of today, either the blacklist or the whitelist can be used, not both,
+/* As of today, either the blocklist or the allowlist can be used, not both,
  * according to the PRD.  In that case there is no need to distinguish between
  * "not matched" and "no hashlist".  However, if we decide that both need to
  * co-exist (Windows sw restriction policies do a mix), then this is needed.
@@ -355,12 +352,12 @@ enum {
 };
 
 /* This macro defines "matched" to either being on the hashlist or the hashlist
- * being empty; empty hashlist is a wildcard match for white and black list
- * modes, but not for whitelist integrity mode.  Note, this macro is used only
- * for white and black list modes, not whitelist integrity mode.
+ * being empty; empty hashlist is a wildcard match for allow and block list
+ * modes, but not for allowlist integrity mode.  Note, this macro is used only
+ * for allow and block list modes, not allowlist integrity mode.
  */
-# define IS_PROCESS_CONTROL_MATCHED(x) \
-     ((x) == PROCESS_CONTROL_MATCHED || (x) == PROCESS_CONTROL_HASHLIST_EMPTY)
+#    define IS_PROCESS_CONTROL_MATCHED(x) \
+        ((x) == PROCESS_CONTROL_MATCHED || (x) == PROCESS_CONTROL_HASHLIST_EMPTY)
 
 /* Records an event static that the hash list in reg_key is too long.
  * Note: the reg_key here is (char *) as opposed to (wchar_t *) because our
@@ -369,7 +366,7 @@ enum {
 static void
 process_control_report_long_list(const char *reg_key)
 {
-    char num_hash_str[6];   /* Won't need more than 5 digits for num hashes! */
+    char num_hash_str[6]; /* Won't need more than 5 digits for num hashes! */
 
     snprintf(num_hash_str, BUFFER_SIZE_ELEMENTS(num_hash_str), "%d",
              DYNAMO_OPTION(pc_num_hashes));
@@ -377,9 +374,8 @@ process_control_report_long_list(const char *reg_key)
     /* Be safe, in case some one uses more than 99999 hashes! */
     NULL_TERMINATE_BUFFER(num_hash_str);
 
-    SYSLOG(SYSLOG_WARNING, PROC_CTL_HASH_LIST_TOO_LONG, 4,
-           get_application_name(), get_application_pid(),
-           reg_key, num_hash_str);
+    SYSLOG(SYSLOG_WARNING, PROC_CTL_HASH_LIST_TOO_LONG, 4, get_application_name(),
+           get_application_pid(), reg_key, num_hash_str);
 }
 
 /* This routine reads the hash keys from either the app-specific or the anonymous
@@ -388,12 +384,12 @@ process_control_report_long_list(const char *reg_key)
  */
 static int
 process_control_match(const char *md5_hash,
-#ifdef PARAMS_IN_REGISTRY
-                      const IF_WINDOWS_ELSE_NP(wchar_t, char) *reg_key
-#else
+#    ifdef PARAMS_IN_REGISTRY
+                      const IF_WINDOWS_ELSE_NP(wchar_t, char) * reg_key
+#    else
                       const char *reg_key
-#endif
-                      )
+#    endif
+)
 {
     int ret_val, res;
     char *hash_list;
@@ -411,18 +407,18 @@ process_control_match(const char *md5_hash,
      */
     hash_list = heap_alloc(GLOBAL_DCONTEXT, list_size HEAPACCT(ACCT_OTHER));
 
-    hash_list[0] = '\0';    /* be safe, in case there is no list */
+    hash_list[0] = '\0'; /* be safe, in case there is no list */
     /* xref case 9119, we want the value from the unqualified key since our usage of
      * this only depends on the exe (not its cmdline). */
     res = get_unqualified_parameter(reg_key, hash_list, list_size);
-    hash_list[list_size - 1] = '\0';    /* be safe */
+    hash_list[list_size - 1] = '\0'; /* be safe */
 
     if (IS_GET_PARAMETER_SUCCESS(res)) {
         if (hash_list[0] == '\0') {
-            /* empty hash is a wildcard match only for white and black list
-             * modes, not for whitelist integrity mode. */
+            /* empty hash is a wildcard match only for allow and block list
+             * modes, not for allowlist integrity mode. */
             ret_val = PROCESS_CONTROL_HASHLIST_EMPTY;
-        } else if (check_filter(hash_list, md5_hash)) {     /* hash matched */
+        } else if (check_filter(hash_list, md5_hash)) { /* hash matched */
             ret_val = PROCESS_CONTROL_MATCHED;
         } else {
             ret_val = PROCESS_CONTROL_NOT_MATCHED;
@@ -433,7 +429,7 @@ process_control_match(const char *md5_hash,
          * to do otherwise, we should restrict them because combinations
          * like app specific anonymous hashes don't make sense.  But how to?
          */
-    } else if (res == GET_PARAMETER_BUF_TOO_SMALL) {   /* Case 9252. */
+    } else if (res == GET_PARAMETER_BUF_TOO_SMALL) { /* Case 9252. */
         ret_val = PROCESS_CONTROL_LONG_LIST;
     } else {
         ASSERT(res == GET_PARAMETER_FAILURE);
@@ -445,26 +441,26 @@ process_control_match(const char *md5_hash,
     return ret_val;
 }
 
-/* In the regular whitelist mode, the process will be allowed to run if its
+/* In the regular allowlist mode, the process will be allowed to run if its
  * executable's hash matches a hash either on the app specific list or the
  * anonymous list, or if any of those lists are empty.
  *
- * In the whitelist integrity mode, the process will be allowed to run if its
+ * In the allowlist integrity mode, the process will be allowed to run if its
  * executable's hash matches a hash on its app specific hashlist or there is no
  * app specific hashlist at all.  The idea is to ascertain that an executable
  * hasn't changed.  If there is no need to track the change, then those exe's
  * won't have a hashlist.
- *      Though the regular whitelist mode can be used to do the same, there are
+ *      Though the regular allowlist mode can be used to do the same, there are
  * holes in it like the ones below that have to be manually fixed.
  *  1. support for anonymous hashes; would have to be disabled or not used.
  *  2. support exe names without hashes; same resolution as point #1.
  *  3. apps would be killed if there is no hashlist; would have to add empty
  *      global hashlists.
  *
- * Note: xref case 10969 for whitelist integrity mode.
+ * Note: xref case 10969 for allowlist integrity mode.
  */
 static void
-process_control_whitelist(const char *md5_hash)
+process_control_allowlist(const char *md5_hash)
 {
     security_option_t type_handling;
     action_type_t desired_action;
@@ -472,19 +468,19 @@ process_control_whitelist(const char *md5_hash)
     const char *threat_id = NULL;
     int anonymous = PROCESS_CONTROL_NOT_MATCHED;
     int app_specific =
-        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_APP_PROCESS_WHITELIST));
+        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_APP_PROCESS_ALLOWLIST));
 
-    /* Do the pure whitelist mode check in case both modes were specified
+    /* Do the pure allowlist mode check in case both modes were specified
      * accidentally; a matter of precedence.
      */
-    if (IS_PROCESS_CONTROL_MODE_WHITELIST()) {
+    if (IS_PROCESS_CONTROL_MODE_ALLOWLIST()) {
         /* Allow the process if md5_hash matched a hash on either the app
          * specific or anonymous hash list.
          */
         if (IS_PROCESS_CONTROL_MATCHED(app_specific))
             return;
-        anonymous = process_control_match
-            (md5_hash, PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST));
+        anonymous = process_control_match(
+            md5_hash, PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_ALLOWLIST));
         if (IS_PROCESS_CONTROL_MATCHED(anonymous))
             return;
 
@@ -495,10 +491,10 @@ process_control_whitelist(const char *md5_hash)
          * search the full list.  Do no harm and ignore process control.  Case 9252.
          */
         if (anonymous == PROCESS_CONTROL_LONG_LIST) {
-            process_control_report_long_list(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST);
+            process_control_report_long_list(DYNAMORIO_VAR_ANON_PROCESS_ALLOWLIST);
             return;
         }
-    } else if (IS_PROCESS_CONTROL_MODE_WHITELIST_INTEGRITY()) {
+    } else if (IS_PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY()) {
         /* Allow the process only if md5_hash matched a hash on the app
          * specific hash list; this is the integrity tracking part.  If there
          * is no hash list, it means that this process's exe wasn't added to
@@ -513,10 +509,10 @@ process_control_whitelist(const char *md5_hash)
          */
         ASSERT(app_specific != PROCESS_CONTROL_HASHLIST_EMPTY);
 
-        threat_id = "WHIT.INTG";    /* WHIT.NOMA = WHITe list INTeGrity mode. */
+        threat_id = "WHIT.INTG"; /* WHIT.NOMA = WHITe list INTeGrity mode. */
     } else {
         ASSERT_NOT_REACHED();
-        return;     /* play it safe */
+        return; /* play it safe */
     }
 
     /* If there was no match on the app specific list and if it was too
@@ -524,29 +520,29 @@ process_control_whitelist(const char *md5_hash)
      * the full list.  Do no harm and ignore process control.  Case 9252.
      */
     if (app_specific == PROCESS_CONTROL_LONG_LIST) {
-        process_control_report_long_list(DYNAMORIO_VAR_APP_PROCESS_WHITELIST);
+        process_control_report_long_list(DYNAMORIO_VAR_APP_PROCESS_ALLOWLIST);
         return;
     }
 
     /* At this point, it should either be not-matched or no-hashlist.
-     * Note: No hashlist is equivalent to no match; for white list, this means
+     * Note: No hashlist is equivalent to no match; for allowlist, this means
      * kill.
      */
     ASSERT((app_specific == PROCESS_CONTROL_NOT_MATCHED ||
             app_specific == PROCESS_CONTROL_NO_HASHLIST));
     /* Anonymous lists aren't applicable for integrity mode. */
-    if (IS_PROCESS_CONTROL_MODE_WHITELIST()) {
+    if (IS_PROCESS_CONTROL_MODE_ALLOWLIST()) {
         ASSERT((anonymous == PROCESS_CONTROL_NOT_MATCHED ||
                 anonymous == PROCESS_CONTROL_NO_HASHLIST));
     }
 
-#ifdef PROGRAM_SHEPHERDING
+#    ifdef PROGRAM_SHEPHERDING
     /* Process control has its own detect_mode; case 10610. */
     if (DYNAMO_OPTION(pc_detect_mode)) {
         type_handling = OPTION_REPORT;
         desired_action = ACTION_CONTINUE;
     } else {
-        type_handling = OPTION_REPORT|OPTION_BLOCK_IGNORE_DETECT;
+        type_handling = OPTION_REPORT | OPTION_BLOCK_IGNORE_DETECT;
         desired_action = ACTION_TERMINATE_PROCESS;
     }
 
@@ -554,63 +550,60 @@ process_control_whitelist(const char *md5_hash)
      * pid are already in the event, the threat ID has nothing else to
      * convey, hence a constant string is used.
      */
-    security_violation_internal(GLOBAL_DCONTEXT, NULL,
-                                PROCESS_CONTROL_VIOLATION,
-                                type_handling, threat_id,
-                                desired_action, NULL);
+    security_violation_internal(GLOBAL_DCONTEXT, NULL, PROCESS_CONTROL_VIOLATION,
+                                type_handling, threat_id, desired_action, NULL);
 
     /* Can reach here only if process control is in detect mode. */
     ASSERT(DYNAMO_OPTION(pc_detect_mode));
-#endif
+#    endif
 }
 
 static void
-process_control_blacklist(const char *md5_hash)
+process_control_blocklist(const char *md5_hash)
 {
     security_option_t type_handling;
     action_type_t desired_action;
     int app_specific =
-        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST));
+        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_APP_PROCESS_BLOCKLIST));
 
     int anonymous =
-        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST));
+        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_BLOCKLIST));
 
-    ASSERT(IS_PROCESS_CONTROL_MODE_BLACKLIST());
+    ASSERT(IS_PROCESS_CONTROL_MODE_BLOCKLIST());
 
     if (IS_PROCESS_CONTROL_MATCHED(app_specific) ||
         IS_PROCESS_CONTROL_MATCHED(anonymous)) {
-#ifdef PROGRAM_SHEPHERDING
+#    ifdef PROGRAM_SHEPHERDING
         /* Process control has its own detect_mode; case 10610. */
         if (DYNAMO_OPTION(pc_detect_mode)) {
             type_handling = OPTION_REPORT;
             desired_action = ACTION_CONTINUE;
         } else {
-            type_handling = OPTION_REPORT|OPTION_BLOCK_IGNORE_DETECT;
+            type_handling = OPTION_REPORT | OPTION_BLOCK_IGNORE_DETECT;
             desired_action = ACTION_TERMINATE_PROCESS;
         }
 
-        /* All process control violations will be .K; for blacklist we kill
+        /* All process control violations will be .K; for blocklist we kill
          * if the current executable's process is either on the anonymous
-         * or on the app specific whitelist.  As the exe name and
+         * or on the app specific allowlist.  As the exe name and
          * pid are already in the event, the threat ID will only convey what
          * list was used, anonymous ("ANON.BLAC") or app-specific ("ANON.BLAC").
          */
-        security_violation_internal(GLOBAL_DCONTEXT, NULL,
-                                    PROCESS_CONTROL_VIOLATION, type_handling,
-                                    app_specific == PROCESS_CONTROL_MATCHED ?
-                                        "BLAC.APPS" : "BLAC.ANON",
-                                    desired_action, NULL);
+        security_violation_internal(
+            GLOBAL_DCONTEXT, NULL, PROCESS_CONTROL_VIOLATION, type_handling,
+            app_specific == PROCESS_CONTROL_MATCHED ? "BLAC.APPS" : "BLAC.ANON",
+            desired_action, NULL);
 
         /* Can reach here only if process control is in detect mode. */
         ASSERT(DYNAMO_OPTION(pc_detect_mode));
-#endif
-    } else if (app_specific == PROCESS_CONTROL_LONG_LIST) {     /* Case 9252. */
-        process_control_report_long_list(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST);
-    } else if (anonymous == PROCESS_CONTROL_LONG_LIST){         /* Case 9252. */
-        process_control_report_long_list(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST);
+#    endif
+    } else if (app_specific == PROCESS_CONTROL_LONG_LIST) { /* Case 9252. */
+        process_control_report_long_list(DYNAMORIO_VAR_APP_PROCESS_BLOCKLIST);
+    } else if (anonymous == PROCESS_CONTROL_LONG_LIST) { /* Case 9252. */
+        process_control_report_long_list(DYNAMORIO_VAR_ANON_PROCESS_BLOCKLIST);
     } else {
         /* At this point, it should either be not-matched or no-hashlist.
-         * Note: No hashlist is equivalent to no match; for black list, this
+         * Note: No hashlist is equivalent to no match; for blocklist, this
          * means don't kill.
          */
         ASSERT((app_specific == PROCESS_CONTROL_NOT_MATCHED ||
@@ -640,9 +633,9 @@ process_control(void)
         return;
     }
 
-    is_black = IS_PROCESS_CONTROL_MODE_BLACKLIST();
-    is_white = IS_PROCESS_CONTROL_MODE_WHITELIST();
-    is_white_intg = IS_PROCESS_CONTROL_MODE_WHITELIST_INTEGRITY();
+    is_black = IS_PROCESS_CONTROL_MODE_BLOCKLIST();
+    is_white = IS_PROCESS_CONTROL_MODE_ALLOWLIST();
+    is_white_intg = IS_PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY();
 
     /* Currently only one mode can be used; this is how our product is sold.
      * However, there is nothing preventing us from using all of them (just
@@ -656,14 +649,15 @@ process_control(void)
            (!is_black && !is_white && is_white_intg));
 
     if (is_black)
-        process_control_blacklist(md5_hash);
+        process_control_blocklist(md5_hash);
     else if (is_white || is_white_intg)
-        process_control_whitelist(md5_hash);
+        process_control_allowlist(md5_hash);
     else
         ASSERT_NOT_REACHED();
 }
 
-void process_control_init(void)
+void
+process_control_init(void)
 {
     process_control();
 }

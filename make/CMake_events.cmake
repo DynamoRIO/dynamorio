@@ -46,7 +46,9 @@ add_custom_command(
        ${SYSLOG_SRCS}
   VERBATIM # recommended: p260
   )
-if (WIN32)
+if (WIN32 AND NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
+  # In MSYS2 we do not define CMAKE_MC_COMPILER
+  # so we can't use Windows event log.
   set(EVENTS_SRCS ${PROJECT_BINARY_DIR}/events.h)
   set_source_files_properties(${EVENTS_SRCS} PROPERTIES GENERATED true)
   add_custom_command(
@@ -58,7 +60,6 @@ if (WIN32)
          ${PROJECT_SOURCE_DIR}/core/win32/events.mc
     VERBATIM # recommended: p260
   )
-else (WIN32)
+else ()
   set(EVENTS_SRCS "")
-endif (WIN32)
-
+endif ()

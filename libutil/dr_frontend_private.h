@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,12 +32,21 @@
 
 /* The header is used to add private internal defines for dr_frontend. */
 
-/* We copied these values from utils.* b/c we can't simply link utils.c with
- * the frontend (it also requires to include a number of additional *.c for
- * utils.c). The values are used in DO_DEBUG macros.
+/* We now make diagnostics available in release build as well, so we
+ * have our own defines separate from libutil/utils.h.
  */
-#ifdef DEBUG
-# define debuglevel DL_FATAL
-# define abortlevel DL_FATAL
+extern int drfrontend_verbosity;
+
+#ifdef WINDOWS
+/* Disable warning about "while (0)" below. */
+#    pragma warning(disable : 4127)
 #endif
 
+#undef NOTIFY
+#define NOTIFY(level, ...)                     \
+    do {                                       \
+        if (drfrontend_verbosity >= (level)) { \
+            fprintf(stderr, __VA_ARGS__);      \
+            fflush(stderr);                    \
+        }                                      \
+    } while (0)

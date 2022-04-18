@@ -36,8 +36,8 @@
  * dr_lookup_module_by_name(), and dr_get_proc_address()). Also checks that the client
  * isn't seeing code from weird locations. */
 
-static
-bool is_in_known_module(app_pc pc, bool *found_section, IMAGE_SECTION_HEADER *section)
+static bool
+is_in_known_module(app_pc pc, bool *found_section, IMAGE_SECTION_HEADER *section)
 {
     bool found = false;
     module_data_t *data = dr_lookup_module(pc);
@@ -56,8 +56,8 @@ IMAGE_SECTION_HEADER section;
 
 app_pc exit_proc_addr;
 
-static
-dr_emit_flags_t bb_event(void *drcontext, app_pc tag, instrlist_t *bb, bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, app_pc tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
     app_pc bb_addr, instr_addr;
@@ -68,33 +68,37 @@ dr_emit_flags_t bb_event(void *drcontext, app_pc tag, instrlist_t *bb, bool for_
     /* vsyscall: some versions of windows jump to 0x7ffe0300 to
      * execute a syscall; this address is not contained in any module.
      */
-    if ((ptr_uint_t)bb_addr == 0x7ffe0300 ||
-        (ptr_uint_t)bb_addr == 0x7ffe0302)
+    if ((ptr_uint_t)bb_addr == 0x7ffe0300 || (ptr_uint_t)bb_addr == 0x7ffe0302)
         return DR_EMIT_DEFAULT;
 
     if (!is_in_known_module(bb_addr, &found_section, &section)) {
-        dr_fprintf(STDERR, "ERROR: BB addr "PFX" in unknown module\n", bb_addr);
+        dr_fprintf(STDERR, "ERROR: BB addr " PFX " in unknown module\n", bb_addr);
     }
     if (!found_section) {
-        dr_fprintf(STDERR, "ERROR: BB addr "PFX" isn't within a module section\n", bb_addr);
+        dr_fprintf(STDERR, "ERROR: BB addr " PFX " isn't within a module section\n",
+                   bb_addr);
     }
     if ((section.Characteristics & IMAGE_SCN_CNT_CODE) == 0) {
-        dr_fprintf(STDERR, "ERROR: BB addr "PFX" isn't within a code section\n", bb_addr);
+        dr_fprintf(STDERR, "ERROR: BB addr " PFX " isn't within a code section\n",
+                   bb_addr);
     }
 
-    for (instr = instrlist_first(bb);
-         instr != NULL; instr = next_instr) {
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
 
         instr_addr = instr_get_app_pc(instr);
         if (!is_in_known_module(instr_addr, &found_section, &section)) {
-            dr_fprintf(STDERR, "ERROR: instr addr "PFX" in unknown module\n", instr_addr);
+            dr_fprintf(STDERR, "ERROR: instr addr " PFX " in unknown module\n",
+                       instr_addr);
         }
         if (!found_section) {
-            dr_fprintf(STDERR, "ERROR: instr addr "PFX" isn't within a module section\n", instr_addr);
+            dr_fprintf(STDERR,
+                       "ERROR: instr addr " PFX " isn't within a module section\n",
+                       instr_addr);
         }
         if ((section.Characteristics & IMAGE_SCN_CNT_CODE) == 0) {
-            dr_fprintf(STDERR, "ERROR: instr addr "PFX" isn't within a code section\n", instr_addr);
+            dr_fprintf(STDERR, "ERROR: instr addr " PFX " isn't within a code section\n",
+                       instr_addr);
         }
         if (instr_addr == exit_proc_addr) {
             dr_fprintf(STDERR, "Hit kernel32!ExitProcess\n");
@@ -105,7 +109,8 @@ dr_emit_flags_t bb_event(void *drcontext, app_pc tag, instrlist_t *bb, bool for_
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     module_data_t *data;
     dr_fprintf(STDERR, "thank you for testing the client interface\n");

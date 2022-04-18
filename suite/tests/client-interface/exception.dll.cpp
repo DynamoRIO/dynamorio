@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,23 +34,23 @@
 #include <string>
 #include <stdexcept>
 #ifdef LINUX
-# define _GNU_SOURCE 1
-# define __USE_GNU 1
-# include <link.h> /* struct dl_phdr_info */
+#    define _GNU_SOURCE 1
+#    define __USE_GNU 1
+#    include <link.h> /* struct dl_phdr_info */
 #endif
 #ifdef WINDOWS
-# pragma warning(disable : 4100) /* 'id' : unreferenced formal parameter */
-# pragma warning(disable : 4702) /* unreachable code */
+#    pragma warning(disable : 4100) /* 'id' : unreferenced formal parameter */
+#    pragma warning(disable : 4702) /* unreachable code */
 #endif
 
 #ifdef LINUX
 static int
 dl_iterate_cb(struct dl_phdr_info *info, size_t size, void *data)
 {
-# ifdef VERBOSE
-    dr_printf("dl_iterate_cb: addr="PFX" hdrs="PFX" num=%d name=%s\n",
+#    ifdef VERBOSE
+    dr_printf("dl_iterate_cb: addr=" PFX " hdrs=" PFX " num=%d name=%s\n",
               info->dlpi_addr, info->dlpi_phdr, info->dlpi_phnum, info->dlpi_name);
-# endif
+#    endif
     return 0; /* continue */
 }
 #endif
@@ -77,12 +77,15 @@ dr_init(client_id_t id)
 
     bool ok;
     /* test DR_TRY_EXCEPT */
-    DR_TRY_EXCEPT(dr_get_current_drcontext(), {
-        ok = false;
-        *((int *)4) = 42;
-    }, { /* EXCEPT */
-        ok = true;
-    });
+    DR_TRY_EXCEPT(
+        dr_get_current_drcontext(),
+        {
+            ok = false;
+            *((int *)4) = 42;
+        },
+        { /* EXCEPT */
+          ok = true;
+        });
     if (!ok)
         dr_printf("DR_TRY_EXCEPT failure\n");
 

@@ -41,13 +41,15 @@ pointer_plus_three(void **a)
     return a + 3;
 }
 
-void baz()
+void
+baz()
 {
     print("** Return address successfully overwritten **\n");
     exit(1);
 }
 
-void bar()
+void
+bar()
 {
     void **a[2];
     /* Can't create a new local or we'll disturb the frame layout. */
@@ -56,7 +58,8 @@ void bar()
     *a[0] = (void *)baz;
 }
 
-void foo()
+void
+foo()
 {
     void **a[2];
     /* Can't create a new local or we'll disturb the frame layout. */
@@ -64,7 +67,8 @@ void foo()
     *a[0] = (void *)bar;
 }
 
-int main()
+int
+main()
 {
     foo();
     fprintf(stderr, "** unexpected return from foo\n");

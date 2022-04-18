@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -52,12 +52,14 @@
  * dr_api.h cannot be used in the test suite because they pop up message boxes
  * on Windows.
  */
-#define ASSERT_MSG(x, msg) \
-    ((void)((!(x)) ? \
-            (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", \
-                     __FILE__,  __LINE__, #x, msg), \
-             dr_abort(), 0) : 0))
+#define ASSERT_MSG(x, msg)                                                           \
+    ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
+                                 __LINE__, #x, msg),                                 \
+                      dr_abort(), 0)                                                 \
+                   : 0))
 #define ASSERT(x) ASSERT_MSG(x, "")
+/* Same as ASSERT_MSG, but kept separate due to existing uses across many files. */
+#define CHECK(x, msg) ASSERT_MSG(x, msg)
 
 /* Redefine DR_ASSERT* to alias ASSERT*.  This makes it easier to import sample
  * clients into the test suite. */
@@ -68,11 +70,10 @@
 
 /* Standard pointer-width integer alignment macros.  Not provided by dr_api.h.
  */
-#define ALIGN_BACKWARD(x, alignment) \
-        (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 #define ALIGN_FORWARD(x, alignment) \
-        ((((ptr_uint_t)x) + (((ptr_uint_t)alignment)-1)) & \
-         (~(((ptr_uint_t)alignment)-1)))
+    ((((ptr_uint_t)x) + (((ptr_uint_t)alignment) - 1)) & (~(((ptr_uint_t)alignment) - 1)))
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
 /* Xref i#302 */
 #define POINTER_OVERFLOW_ON_ADD(ptr, add) \
@@ -80,10 +81,10 @@
 #define POINTER_UNDERFLOW_ON_SUB(ptr, sub) \
     (((ptr_uint_t)(ptr)) - (sub) > ((ptr_uint_t)(ptr)))
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 /* check if all bits in mask are set in var */
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
@@ -93,11 +94,36 @@
 #define TEST TESTANY
 
 #ifdef WINDOWS
-# define IF_WINDOWS_ELSE(x, y) x
-# define IF_WINDOWS(x) x
+#    define IF_WINDOWS_ELSE(x, y) x
+#    define IF_WINDOWS(x) x
 #else
-# define IF_WINDOWS_ELSE(x, y) y
-# define IF_WINDOWS(x)
+#    define IF_WINDOWS_ELSE(x, y) y
+#    define IF_WINDOWS(x)
 #endif
+
+static inline void
+check_stack_alignment(void)
+{
+#if defined(X86) && defined(UNIX)
+    reg_t sp;
+    __asm__ __volatile__("mov %%" IF_X64_ELSE("rsp", "esp") ", %0" : "=m"(sp));
+#    define STACK_ALIGNMENT 16
+    ASSERT(ALIGNED(sp, STACK_ALIGNMENT));
+#elif defined(AARCH64)
+    reg_t sp;
+    __asm__ __volatile__("mov %0, sp" : "=r"(sp));
+#    define STACK_ALIGNMENT 16
+    ASSERT(ALIGNED(sp, STACK_ALIGNMENT));
+#elif defined(ARM)
+    reg_t sp;
+    __asm__ __volatile__("str sp, %0" : "=m"(sp));
+#    define STACK_ALIGNMENT 8
+    ASSERT(ALIGNED(sp, STACK_ALIGNMENT));
+#else
+    /* TODO i#4267: If we change Windows to be more than 4-byte alignment we should
+     * add a separate-file asm routine to check alignment there.
+     */
+#endif
+}
 
 #endif /* DR_CLIENT_TOOLS_H */

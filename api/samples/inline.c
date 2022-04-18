@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,9 +45,9 @@
 #define VERBOSE 1
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
 /****************************************************************************/
@@ -58,13 +58,15 @@ static int num_traces;
 static int num_complete_inlines;
 #endif
 
-static void event_exit(void);
-static dr_emit_flags_t event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
-                                        bool for_trace, bool translating,
-                                        void **user_data);
-static void event_fragment_deleted(void *drcontext, void *tag);
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating, void **user_data);
+static void
+event_fragment_deleted(void *drcontext, void *tag);
 static dr_custom_trace_action_t
-query_end_trace(void *drcontext, void * trace_tag, void *next_tag);
+query_end_trace(void *drcontext, void *trace_tag, void *next_tag);
 
 /****************************************************************************/
 /* We use a hashtable to know if a particular tag is for a call trace or a
@@ -91,12 +93,12 @@ static hashtable_t head_table;
 #define HASH_BITS 13
 
 /* Max call-trace size */
-#define INLINE_SIZE_LIMIT (4*1024)
+#define INLINE_SIZE_LIMIT (4 * 1024)
 
 static trace_head_entry_t *
 create_trace_head_entry(void *tag)
 {
-    trace_head_entry_t *e = (trace_head_entry_t *) dr_global_alloc(sizeof(*e));
+    trace_head_entry_t *e = (trace_head_entry_t *)dr_global_alloc(sizeof(*e));
     e->tag = tag;
     e->end_next = 0;
     e->size = 0;
@@ -109,7 +111,7 @@ create_trace_head_entry(void *tag)
 static void
 free_trace_head_entry(void *entry)
 {
-    trace_head_entry_t *e = (trace_head_entry_t *) entry;
+    trace_head_entry_t *e = (trace_head_entry_t *)entry;
     dr_global_free(e, sizeof(*e));
 }
 
@@ -118,14 +120,13 @@ free_trace_head_entry(void *entry)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Sample Client 'inline'",
-                       "http://dynamorio.org/issues");
+    dr_set_client_name("DynamoRIO Sample Client 'inline'", "http://dynamorio.org/issues");
     if (!drmgr_init())
         DR_ASSERT(false);
 
-    hashtable_init_ex(&head_table, HASH_BITS, HASH_INTPTR, false/*!strdup*/,
-                      false/*synchronization is external*/,
-                      free_trace_head_entry, NULL, NULL);
+    hashtable_init_ex(&head_table, HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                      false /*synchronization is external*/, free_trace_head_entry, NULL,
+                      NULL);
 
     dr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_analyze_bb, NULL, NULL))
@@ -134,14 +135,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_end_trace_event(query_end_trace);
 
     /* Make it easy to tell from the log file which client executed. */
-    dr_log(NULL, LOG_ALL, 1, "Client 'inline' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'inline' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* Ask for best-effort printing to cmd window.  Must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client inline is running\n");
     }
 #endif
@@ -153,13 +154,13 @@ event_exit(void)
 #ifdef SHOW_RESULTS
     /* Display the results! */
     char msg[512];
-    int len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    int len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                           "Inlining results:\n"
                           "  Number of traces: %d\n"
                           "  Number of complete inlines: %d\n",
                           num_traces, num_complete_inlines);
     DR_ASSERT(len > 0);
-    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    msg[sizeof(msg) / sizeof(msg[0]) - 1] = '\0';
     DISPLAY_STRING(msg);
 #endif
     hashtable_delete(&head_table);
@@ -172,16 +173,15 @@ event_exit(void)
 /* the work itself */
 
 static dr_emit_flags_t
-event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating, void **user_data)
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating, void **user_data)
 {
     instr_t *instr;
     trace_head_entry_t *e = NULL;
     if (translating)
         return DR_EMIT_DEFAULT;
-    for (instr  = instrlist_first_app(bb);
-         instr != NULL;
-         instr  = instr_get_next_app(instr)) {
+    for (instr = instrlist_first_app(bb); instr != NULL;
+         instr = instr_get_next_app(instr)) {
         /* Blocks containing calls are trace heads. */
         if (instr_is_call(instr)) {
             dr_mark_trace_head(drcontext, tag);
@@ -196,8 +196,8 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
             e->is_trace_head = true;
             hashtable_unlock(&head_table);
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
-                   "inline: marking bb "PFX" as call trace head\n", tag);
+            dr_log(drcontext, DR_LOG_ALL, 3,
+                   "inline: marking bb " PFX " as call trace head\n", tag);
 #endif
             /* Doesn't matter what's in rest of the bb. */
             return DR_EMIT_DEFAULT;
@@ -213,8 +213,8 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
             e->has_ret = true;
             hashtable_unlock(&head_table);
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
-                   "inline: marking bb "PFX" as return trace head\n", tag);
+            dr_log(drcontext, DR_LOG_ALL, 3,
+                   "inline: marking bb " PFX " as return trace head\n", tag);
 #endif
         }
     }
@@ -265,8 +265,8 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
              * end up never entering the call trace.
              */
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
-                   "inline: ending trace "PFX" before block "PFX" containing call\n",
+            dr_log(drcontext, DR_LOG_ALL, 3,
+                   "inline: ending trace " PFX " before block " PFX " containing call\n",
                    trace_tag, next_tag);
 #endif
 #ifdef SHOW_RESULTS
@@ -279,9 +279,8 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
         e->end_next--;
         if (e->end_next == 0) {
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
-                   "inline: ending trace "PFX" before "PFX"\n",
-                   trace_tag, next_tag);
+            dr_log(drcontext, DR_LOG_ALL, 3,
+                   "inline: ending trace " PFX " before " PFX "\n", trace_tag, next_tag);
 #endif
 #ifdef SHOW_RESULTS
             num_complete_inlines++;
@@ -296,8 +295,9 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
         e->size += size;
         if (e->size > INLINE_SIZE_LIMIT) {
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
-                   "inline: ending trace "PFX" before "PFX" because reached size limit\n",
+            dr_log(drcontext, DR_LOG_ALL, 3,
+                   "inline: ending trace " PFX " before " PFX
+                   " because reached size limit\n",
                    trace_tag, next_tag);
 #endif
 #ifdef SHOW_RESULTS
@@ -310,9 +310,9 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
             /* End trace after NEXT block */
             e->end_next = 2;
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
-                   "inline: going to be ending trace "PFX" after "PFX"\n",
-                   trace_tag, next_tag);
+            dr_log(drcontext, DR_LOG_ALL, 3,
+                   "inline: going to be ending trace " PFX " after " PFX "\n", trace_tag,
+                   next_tag);
 #endif
             hashtable_unlock(&head_table);
             return CUSTOM_TRACE_CONTINUE;
@@ -320,10 +320,9 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
     }
     /* Do not end trace */
 #ifdef VERBOSE
-    dr_log(drcontext, LOG_ALL, 3,
-           "inline: NOT ending trace "PFX" after "PFX"\n", trace_tag, next_tag);
+    dr_log(drcontext, DR_LOG_ALL, 3, "inline: NOT ending trace " PFX " after " PFX "\n",
+           trace_tag, next_tag);
 #endif
     hashtable_unlock(&head_table);
     return CUSTOM_TRACE_CONTINUE;
 }
-

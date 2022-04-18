@@ -1,0 +1,20 @@
+in foo_t::foo_t
+in foo_t::foo_t
+sum is 14
+static TLS is 0xdeadbeef
+foo.val is 0xdeadbeef
+#ifdef WINDOWS
+vector holds 0xdeadbeef
+#endif
+in foo_t::foo_t
+sum is 14
+static TLS is 0xdeadbeef
+foo.val is 0xdeadbeef
+#ifdef WINDOWS
+vector holds 0xdeadbeef
+#endif
+static TLS is 0xdeadbef0
+foo.val is 0xdeadbeee
+#ifdef WINDOWS
+vector holds 0xdeadbeee
+#endif

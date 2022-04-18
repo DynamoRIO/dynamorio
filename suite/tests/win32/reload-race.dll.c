@@ -33,21 +33,22 @@
 #include "tools.h"
 
 int
-fib(int n) {
+fib(int n)
+{
     if (n <= 1)
         return 1;
-    return fib(n-1) + fib(n-2);
+    return fib(n - 1) + fib(n - 2);
 }
 
 int
-fact(int n) {
+fact(int n)
+{
     if (n <= 1)
         return 1;
-    return n * fact(n-1);
+    return n * fact(n - 1);
 }
 
-int  __declspec(dllexport)
-import_me1(int x)
+int __declspec(dllexport) import_me1(int x)
 {
     /* any printing here can not be matched */
 #ifdef VERBOSE
@@ -62,8 +63,7 @@ import_me1(int x)
         return fact(x);
 }
 
-int  __declspec(dllexport)
-import_me2(int x)
+int __declspec(dllexport) import_me2(int x)
 {
     /* any printing here can not be matched */
 #ifdef VERBOSE
@@ -93,12 +93,8 @@ BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        properly_initalized = 1;
-        break;
-    case DLL_PROCESS_DETACH:
-        properly_initalized = 0;
-        break;
+    case DLL_PROCESS_ATTACH: properly_initalized = 1; break;
+    case DLL_PROCESS_DETACH: properly_initalized = 0; break;
     }
     return TRUE;
 }

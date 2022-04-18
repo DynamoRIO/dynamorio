@@ -1,15 +1,9 @@
-.*make/style_checks/style_test.c:36: error: Missing newline after return type.
-.*make/style_checks/style_test.c:39: error: Body should be on its own line.
-.*make/style_checks/style_test.c:40: error: Line contains NOCHECKIN.
-.*make/style_checks/style_test.c:43: error: Multi-line body needs {}.
-.*make/style_checks/style_test.c:43: error: Missing space after control keyword: "if\(".
-.*make/style_checks/style_test.c:46: error: Multi-line body needs {}.
-.*make/style_checks/style_test.c:50: error: Multi-line body needs {}.
-.*make/style_checks/style_test.c:53: error: Multi-line body needs {}.
-.*make/style_checks/style_test.c:59: error: Extra space after function name: "foo ".
-.*make/style_checks/style_test.c:63: error: Wrong indentation for macro, current indentation level is 0 and line should start with '#define'.
-.*make/style_checks/style_test.c:64: error: Wrong indentation for macro, current indentation level is 0 and line should start with '#include "foo.h"'.
-.*make/style_checks/style_test.c:67: error: Wrong indentation for macro, current indentation level is 1 and line should start with '#elif'.
-.*make/style_checks/style_test.c:68: error: Wrong indentation for macro, current indentation level is 1 and line should start with '#else'.
-.*make/style_checks/style_test.c:69: error: Wrong indentation for macro, current indentation level is 1 and line should start with '# undef'.
-.*make/style_checks/style_test.c:70: error: Wrong indentation for macro, current indentation level is 0 and line should start with '#endif'.
+.*make/style_checks/style_test.c:37: error: Missing newline after return type.
+.*make/style_checks/style_test.c:40: error: Body should be on its own line.
+.*make/style_checks/style_test.c:41: error: Line contains NOCHECKIN.
+.*make/style_checks/style_test.c:44: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:44: error: Missing space after control keyword: "if\(".
+.*make/style_checks/style_test.c:47: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:51: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:54: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:60: error: Extra space after function name: "foo ".

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,12 +34,6 @@
 #ifndef _DR_CONFIG_H_
 #define _DR_CONFIG_H_ 1
 
-/* Internally we mark routines with export linkage. */
-#include "configure.h"  /* for WINDOWS/UNIX */
-#include "globals_shared.h"  /* for DR_EXPORT */
-
-/* DR_API EXPORT TOFILE dr_config.h */
-/* DR_API EXPORT BEGIN */
 /****************************************************************************
  * Deployment API
  */
@@ -69,28 +63,28 @@ typedef enum {
      */
     DR_MODE_NONE = 0,
 
-    /** Run DynamoRIO in Code Manipulation mode. */
-#ifdef HOT_PATCHING_INTERFACE
-    /** Note that this mode also supports the Probe API. */
-#endif
+    /**
+     * Run DynamoRIO in Code Manipulation mode.
+     * This does not preclude using the Probe API.
+     */
     DR_MODE_CODE_MANIPULATION = 1,
 
-#ifdef HOT_PATCHING_INTERFACE
-    /** Run DynamoRIO in Probe mode.  This mode has no code cache. */
+    /**
+     * Run DynamoRIO in Probe mode.  This mode has no code cache.
+     * \warning This mode is not fully supported at this time.
+     */
     DR_MODE_PROBE = 2,
 
-#endif
-
-#ifdef PROGRAM_SHEPHERDING
-    /** Run DynamoRIO in Memory Firewall mode. */
+    /**
+     * Run DynamoRIO in security Memory Firewall mode.
+     * \warning This mode is not fully supported at this time.
+     */
     DR_MODE_MEMORY_FIREWALL = 3,
-
-#endif
 
     /**
      * Do not run this application under DynamoRIO control.
      * Useful for following all child processes except a handful
-     * (blacklist).
+     * (blocklist).
      */
     DR_MODE_DO_NOT_RUN = 4,
 
@@ -143,6 +137,17 @@ typedef enum {
      */
     DR_CONFIG_DIR_NOT_FOUND,
 
+    /**
+     * A parameter was not set.
+     */
+    DR_CONFIG_INVALID_PARAMETER,
+
+    /**
+     * A primary client configuration was not found at the time an alternate bitwidth
+     * client was attempted to be registered.
+     */
+    DR_CONFIG_CLIENT_NOT_FOUND,
+
 } dr_config_status_t;
 
 /** Allow targeting both 32-bit and native 64-bit processes separately. */
@@ -153,6 +158,70 @@ typedef enum {
     DR_PLATFORM_NONE,    /**< Invalid platform. */
 } dr_platform_t;
 
+/**
+ * Information about a client library setup.
+ */
+typedef struct _dr_config_client_t {
+    /**
+     * The size of this structure.  This field must be set when passing as an input
+     * to functions like dr_get_client_info_ex().  Used for backward compatibility.
+     */
+    size_t struct_size;
+    /**
+     * This is a client_id_t uniquely identifying the client.  DynamoRIO provides the
+     * client ID as a parameter to dr_client_main().  Clients use this ID to retrieve
+     * client-specific path and option information. Outside entities also identify
+     * the target of a nudge via this ID.
+     */
+    client_id_t id;
+    /**
+     * The client number, or priority.  Client registration includes a value
+     * indicating the priority of a client relative to other clients.  In
+     * multi-client settings, a client's priority influences event callback
+     * ordering.  That is, higher priority clients can register their callbacks first;
+     * DynamoRIO then calls these routines last.  Client priorities range
+     * consecutively from 0 to N-1, where N is the number of registered clients.
+     * Specify priority 0 to register a client with highest priority.
+     */
+    size_t priority;
+    /**
+     * A NULL-terminated string specifying the full path to a valid client library.
+     * The string length cannot exceed #MAXIMUM_PATH.  The client path may not
+     * include any semicolons and when combined with \p client_options may not
+     * include all three quote characters (', ", `) simultaneously.
+     *
+     * When querying via dr_get_client_info_ex() or dr_client_iterator_next_ex(), the
+     * caller must either set this to NULL if that data is not needed or point at a
+     * caller-allocated array of length #MAXIMUM_PATH.
+     */
+    char *path;
+    /**
+     * A NULL-terminated string specifying options that are available to the client
+     * as arguments of dr_client_main() or via dr_get_option_array().  The string
+     * length cannot exceed #DR_MAX_OPTIONS_LENGTH.  The client options may not
+     * include any semicolons and when combined with \p client_path may not include
+     * all three quote characters (', ", `) simultaneously.
+     *
+     * When querying via dr_get_client_info_ex() or dr_client_iterator_next_ex(), the
+     * caller must either set this to NULL if that data is not needed or point at a
+     * caller-allocated array of length #DR_MAX_OPTIONS_LENGTH.
+     */
+    char *options;
+    /**
+     * Specifies whether this is a regular client registration for the target process
+     * (this field is false) or whether this is an "alternate bitwidth" registration
+     * which specifies the configuration to use if the target process creates a child
+     * process that is a different bitwidth from itself.  The regular client must
+     * first be registered on its own before the alternate client is registered, and
+     * the alternate must have the same client ID.  If the target process creates a
+     * child application of a different bitwdith (e.g., the target process is 64-bit
+     * and it creates a 32-bit child), this registration allows a client of the
+     * appropriate bitwidth to be loaded into the child.  Unregistering a client with
+     * dr_unregister_client() will also unregister the alternate bitwidth client with
+     * the same client ID.
+     */
+    bool is_alt_bitwidth;
+} dr_config_client_t;
 
 /* Note that we provide this as an inlined function for use by
  * dr_nudge_client and dr_nudge_client_ex without requiring drconfiglib
@@ -174,48 +243,22 @@ dr_config_status_code_to_string(dr_config_status_t code)
      * the status enum.
      */
     switch (code) {
-    case DR_SUCCESS:
-        msg = "success";
-        break;
-    case DR_PROC_REG_EXISTS:
-        msg = "registration already exists";
-        break;
-    case DR_PROC_REG_INVALID:
-        msg = "target process is not registered";
-        break;
-    case DR_PRIORITY_INVALID:
-        msg = "invalid priority value";
-        break;
-    case DR_ID_CONFLICTING:
-        msg = "conflicting ID";
-        break;
-    case DR_ID_INVALID:
-        msg = "invalid client ID";
-        break;
-    case DR_NUDGE_PID_NOT_INJECTED:
-        msg = "target process is not under DynamoRIO";
-        break;
-    case DR_NUDGE_TIMEOUT:
-        msg = "timed out";
-        break;
-    case DR_CONFIG_STRING_TOO_LONG:
-        msg = "config option string too long";
-        break;
-    case DR_CONFIG_FILE_WRITE_FAILED:
-        msg = "failed to write to the config file";
-        break;
-    case DR_NUDGE_PID_NOT_FOUND:
-        msg = "target process id does not exist";
-        break;
+    case DR_SUCCESS: msg = "success"; break;
+    case DR_PROC_REG_EXISTS: msg = "registration already exists"; break;
+    case DR_PROC_REG_INVALID: msg = "target process is not registered"; break;
+    case DR_PRIORITY_INVALID: msg = "invalid priority value"; break;
+    case DR_ID_CONFLICTING: msg = "conflicting ID"; break;
+    case DR_ID_INVALID: msg = "invalid client ID"; break;
+    case DR_NUDGE_PID_NOT_INJECTED: msg = "target process is not under DynamoRIO"; break;
+    case DR_NUDGE_TIMEOUT: msg = "timed out"; break;
+    case DR_CONFIG_STRING_TOO_LONG: msg = "config option string too long"; break;
+    case DR_CONFIG_FILE_WRITE_FAILED: msg = "failed to write to the config file"; break;
+    case DR_NUDGE_PID_NOT_FOUND: msg = "target process id does not exist"; break;
     case DR_CONFIG_DIR_NOT_FOUND:
         msg = "failed to locate a valid config directory";
         break;
-    case DR_FAILURE:
-        msg = "unknown failure";
-        break;
-    default:
-        msg = "invalid dr_config_status_t code";
-        break;
+    case DR_FAILURE: msg = "unknown failure"; break;
+    default: msg = "invalid dr_config_status_t code"; break;
     }
     return msg;
 }
@@ -259,7 +302,11 @@ DR_EXPORT
  *
  * \param[in]   dr_root_dir     A NULL-terminated string specifying the full
  *                              path to a valid DynamoRIO root directory.
- *                              The string length cannot exceed MAX_PATH.
+ *                              The string length cannot exceed #MAXIMUM_PATH.
+ *                              The path to the DynamoRIO library to be used will
+ *                              be constructed from this path assuming a default
+ *                              layout.  To precisely specify the path, call
+ *                               dr_register_inject_paths() afterward.
  *
  * \param[in]   dr_mode         Specifies the mode under which DynamoRIO should
  *                              operate.  See dr_operation_mode_t.
@@ -291,14 +338,9 @@ DR_EXPORT
  * unregistered.
  */
 dr_config_status_t
-dr_register_process(const char *process_name,
-                    process_id_t pid,
-                    bool global,
-                    const char *dr_root_dir,
-                    dr_operation_mode_t dr_mode,
-                    bool debug,
-                    dr_platform_t dr_platform,
-                    const char *dr_options);
+dr_register_process(const char *process_name, process_id_t pid, bool global,
+                    const char *dr_root_dir, dr_operation_mode_t dr_mode, bool debug,
+                    dr_platform_t dr_platform, const char *dr_options);
 
 DR_EXPORT
 /**
@@ -335,10 +377,69 @@ DR_EXPORT
  *              is not currently registered to run under DynamoRIO.
  */
 dr_config_status_t
-dr_unregister_process(const char *process_name,
-                      process_id_t pid,
-                      bool global,
+dr_unregister_process(const char *process_name, process_id_t pid, bool global,
                       dr_platform_t dr_platform);
+
+DR_EXPORT
+/**
+ * Sets the paths to the DynamoRIO library and the alternate-bitwidth DynamoRIO
+ * library for a process that has already been registered via dr_register_process().
+ * If this routine is not called, default library paths will be used which assume
+ * a default path layout within the \p dr_root_dir passed to dr_register_process().
+ *
+ * \param[in]   process_name    A NULL-terminated string specifying the name
+ *                              of the target process.  The string should
+ *                              identify the base name of the process, not the
+ *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be modified.  If pid == 0, the general
+ *                              configuration for process_name will be modified.
+ *
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              configurations to check.
+ *
+ * \param[in]   dr_lib_path     A NULL-terminated string specifying the full
+ *                              path to a valid DynamoRIO library of the same
+ *                              bitwidth as \p dr_platform.
+ *                              The string length cannot exceed #MAXIMUM_PATH.
+ *
+ * \param[in]   dr_alt_lib_path A NULL-terminated string specifying the full
+ *                              path to a valid DynamoRIO library of the alternative
+ *                              bitwidth to \p dr_platform.
+ *                              The string length cannot exceed #MAXIMUM_PATH.
+ *
+ * \return      A dr_config_status_t code indicating the result of
+ *              registration.  Note that registration fails if the requested
+ *              process is already registered.  To modify a process's
+ *              registration, first call dr_unregister_process() to remove an
+ *              existing registration.
+ *
+ * \remarks
+ * After registration, a process will run under DynamoRIO when launched by the
+ * drinject tool or using drinjectlib.  Note that some processes may require a
+ * system reboot to restart.  Process registration that is not specific to one
+ * pid (i.e., if \p pid == 0) persists across reboots until explicitly
+ * unregistered.
+ */
+dr_config_status_t
+dr_register_inject_paths(const char *process_name, process_id_t pid, bool global,
+                         dr_platform_t dr_platform, const char *dr_lib_path,
+                         const char *dr_alt_lib_path);
 
 #ifdef WINDOWS
 
@@ -372,8 +473,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_register_syswide(dr_platform_t dr_platform,
-                    const char *dr_root_dir);
+dr_register_syswide(dr_platform_t dr_platform, const char *dr_root_dir);
 
 DR_EXPORT
 /**
@@ -396,8 +496,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_unregister_syswide(dr_platform_t dr_platform,
-                      const char *dr_root_dir);
+dr_unregister_syswide(dr_platform_t dr_platform, const char *dr_root_dir);
 
 DR_EXPORT
 /**
@@ -415,8 +514,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 bool
-dr_syswide_is_on(dr_platform_t dr_platform,
-                 const char *dr_root_dir);
+dr_syswide_is_on(dr_platform_t dr_platform, const char *dr_root_dir);
 
 #endif /* WINDOWS */
 
@@ -455,7 +553,7 @@ DR_EXPORT
  *                              directory provided at registration.  Callers can
  *                              pass NULL if this value is not needed.  Otherwise,
  *                              the parameter must be a caller-allocated array of
- *                              length MAX_PATH.
+ *                              length #MAXIMUM_PATH.
  *
  * \param[out]  dr_mode         If the process is registered, the mode provided
  *                              at registration.  Callers can pass NULL if this
@@ -474,14 +572,10 @@ DR_EXPORT
  * \return      true if the process is registered for the given platform.
  */
 bool
-dr_process_is_registered(const char *process_name,
-                         process_id_t pid,
-                         bool global,
-                         dr_platform_t dr_platform,
-                         char *dr_root_dir              /* OUT */,
-                         dr_operation_mode_t *dr_mode   /* OUT */,
-                         bool *debug                    /* OUT */,
-                         char *dr_options               /* OUT */);
+dr_process_is_registered(const char *process_name, process_id_t pid, bool global,
+                         dr_platform_t dr_platform, char *dr_root_dir /* OUT */,
+                         dr_operation_mode_t *dr_mode /* OUT */, bool *debug /* OUT */,
+                         char *dr_options /* OUT */);
 
 #ifdef WINDOWS
 
@@ -514,8 +608,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_registered_process_iterator_t *
-dr_registered_process_iterator_start(dr_platform_t dr_platform,
-                                     bool global);
+dr_registered_process_iterator_start(dr_platform_t dr_platform, bool global);
 
 DR_EXPORT
 /**
@@ -539,12 +632,12 @@ DR_EXPORT
  * \param[out]   process_name   The name of the registered process. Callers can
  *                              pass NULL if this value is not needed. Otherwise
  *                              the parameter must be a caller-allocated array
- *                              of length MAX_PATH.
+ *                              of length #MAXIMUM_PATH.
  *
  * \param[out]  dr_root_dir     The root DynamoRIO directory provided at registration.
  *                              Callers can pass NULL if this value is not needed.
  *                              Otherwise, the parameter must be a caller-allocated
- *                              array of length MAX_PATH.
+ *                              array of length #MAXIMUM_PATH.
  *
  * \param[out]  dr_mode         If the process is registered, the mode provided
  *                              at registration.  Callers can pass NULL if this
@@ -569,8 +662,7 @@ dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
                                     char *process_name /* OUT */,
                                     char *dr_root_dir /* OUT */,
                                     dr_operation_mode_t *dr_mode /* OUT */,
-                                    bool *debug /* OUT */,
-                                    char *dr_options /* OUT */);
+                                    bool *debug /* OUT */, char *dr_options /* OUT */);
 
 DR_EXPORT
 /**
@@ -615,7 +707,7 @@ DR_EXPORT
  * \param[in]   dr_platform     Configurations are kept separate
  *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
- *                              configurations to unset.
+ *                              configurations to set.
  *
  * \param[in]   client_id       A client_id_t uniquely identifying the client.
  *                              DynamoRIO provides the client ID as a parameter
@@ -637,7 +729,7 @@ DR_EXPORT
  *
  * \param[in]   client_path     A NULL-terminated string specifying the full path
  *                              to a valid client library.  The string length
- *                              cannot exceed MAX_PATH.  The client path may not
+ *                              cannot exceed #MAXIMUM_PATH.  The client path may not
  *                              include any semicolons and when combined with
  *                              \p client_options may not include all
  *                              three quote characters (', ", `) simultaneously.
@@ -653,14 +745,54 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of registration.
  */
 dr_config_status_t
-dr_register_client(const char *process_name,
-                   process_id_t pid,
-                   bool global,
-                   dr_platform_t dr_platform,
-                   client_id_t client_id,
-                   size_t client_pri,
-                   const char *client_path,
-                   const char *client_options);
+dr_register_client(const char *process_name, process_id_t pid, bool global,
+                   dr_platform_t dr_platform, client_id_t client_id, size_t client_pri,
+                   const char *client_path, const char *client_options);
+
+DR_EXPORT
+/**
+ * Register a client for a particular process.  Note that the process must first
+ * be registered via dr_register_process() before calling this routine.
+ * The #dr_config_client_t structure allows specifying additional options beyond
+ * what dr_register_client() supports, such as an alternate bitwidth client.
+ * For an alternate bitwidth client, the main client must first be
+ * registered by an earlier call.  Unregistering a client with
+ * dr_unregister_client() will also unregister the alternate bitwidth
+ * client.
+ *
+ * \param[in]   process_name    A NULL-terminated string specifying the name
+ *                              of the target process.  The string should
+ *                              identify the base name of the process, not the
+ *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be modified.  If pid == 0, the general
+ *                              configuration for process_name will be modified.
+ *
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              configurations to set.
+ *
+ * \param[in]   client          Defines the attributes of the client to be registered.
+ *
+ * \return      A dr_config_status_t code indicating the result of registration.
+ */
+dr_config_status_t
+dr_register_client_ex(const char *process_name, process_id_t pid, bool global,
+                      dr_platform_t dr_platform, IN dr_config_client_t *client);
 
 DR_EXPORT
 /**
@@ -698,11 +830,8 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of unregistration.
  */
 dr_config_status_t
-dr_unregister_client(const char *process_name,
-                     process_id_t pid,
-                     bool global,
-                     dr_platform_t dr_platform,
-                     client_id_t client_id);
+dr_unregister_client(const char *process_name, process_id_t pid, bool global,
+                     dr_platform_t dr_platform, client_id_t client_id);
 
 DR_EXPORT
 /**
@@ -736,17 +865,17 @@ DR_EXPORT
  *                              configurations to unset.
  *
  * \return      The number of clients registered for the given process and platform.
+ *              An alternative bitwidth client is counted as a separate client.
  */
 size_t
-dr_num_registered_clients(const char *process_name,
-                          process_id_t pid,
-                          bool global,
+dr_num_registered_clients(const char *process_name, process_id_t pid, bool global,
                           dr_platform_t dr_platform);
 
 DR_EXPORT
 /**
- * Retrieve client registration information for a particular process for
- * the current user.
+ * Retrieve client registration information for a particular process for the current
+ * user.  If multiple clients are registered (alternative bitwidth clients are
+ * considered separate), information on the highest-priority client is returned.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name
  *                              of the target process.  The string should
@@ -782,7 +911,7 @@ DR_EXPORT
  * \param[out]  client_path     The client's path provided at registration.
  *                              Callers can pass NULL if this value is not needed.
  *                              Otherwise, the parameter must be a caller-allocated
- *                              array of length MAX_PATH.
+ *                              array of length #MAXIMUM_PATH.
  *
  * \param[out]  client_options  The client options provided at registration.
  *                              Callers can pass NULL if this value is not needed.
@@ -792,14 +921,58 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of the call.
  */
 dr_config_status_t
-dr_get_client_info(const char *process_name,
-                   process_id_t pid,
-                   bool global,
-                   dr_platform_t dr_platform,
-                   client_id_t client_id,
-                   size_t *client_pri,  /* OUT */
-                   char *client_path,   /* OUT */
+dr_get_client_info(const char *process_name, process_id_t pid, bool global,
+                   dr_platform_t dr_platform, client_id_t client_id,
+                   size_t *client_pri, /* OUT */
+                   char *client_path,  /* OUT */
                    char *client_options /* OUT */);
+
+DR_EXPORT
+/**
+ * Retrieve client registration information for a particular process for the current
+ * user.  If multiple clients are registered (alternative bitwidth clients are
+ * considered separate), information on the highest-priority client is returned.
+ *
+ * \param[in]   process_name    A NULL-terminated string specifying the name
+ *                              of the target process.  The string should
+ *                              identify the base name of the process, not the
+ *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be queried.  If pid == 0, the general
+ *                              configuration for process_name will be queried.
+ *
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              configurations to unset.
+ *
+ * \param[out]  client          The returned information about the client.  On input,
+ *                              the struct_size field must be set and the client_id
+ *                              field set to the unique client ID provided at client
+ *                              registration to be queried.  Furthermore, the client_path
+ *                              and client_options fields must each either be NULL
+ *                              if that data is not needed or point at a caller-allocated
+ *                              array of length #MAXIMUM_PATH for client_path or
+ *                              #DR_MAX_OPTIONS_LENGTH for client_options.
+ *
+ * \return      A dr_config_status_t code indicating the result of the call.
+ */
+dr_config_status_t
+dr_get_client_info_ex(const char *process_name, process_id_t pid, bool global,
+                      dr_platform_t dr_platform, dr_config_client_t *client /* IN/OUT */);
 
 typedef struct _dr_client_iterator_t dr_client_iterator_t;
 
@@ -839,9 +1012,7 @@ DR_EXPORT
  *              dr_client_iterator_stop()
  */
 dr_client_iterator_t *
-dr_client_iterator_start(const char *process_name,
-                         process_id_t pid,
-                         bool global,
+dr_client_iterator_start(const char *process_name, process_id_t pid, bool global,
                          dr_platform_t dr_platform);
 
 DR_EXPORT
@@ -866,7 +1037,7 @@ DR_EXPORT
  * \param[out]  client_path     The client's path provided at registration.
  *                              Callers can pass NULL if this value is not needed.
  *                              Otherwise, the parameter must be a caller-allocated
- *                              array of length MAX_PATH.
+ *                              array of length #MAXIMUM_PATH.
  *
  * \param[out]  client_options  The client options provided at registration.
  *                              Callers can pass NULL if this value is not needed.
@@ -874,11 +1045,27 @@ DR_EXPORT
  *                              array of length #DR_MAX_OPTIONS_LENGTH.
  */
 void
-dr_client_iterator_next(dr_client_iterator_t *iter,
-                        client_id_t *client_id, /* OUT */
-                        size_t *client_pri,     /* OUT */
-                        char *client_path,      /* OUT */
-                        char *client_options    /* OUT */);
+dr_client_iterator_next(dr_client_iterator_t *iter, client_id_t *client_id, /* OUT */
+                        size_t *client_pri,                                 /* OUT */
+                        char *client_path,                                  /* OUT */
+                        char *client_options /* OUT */);
+
+DR_EXPORT
+/**
+ * Return information about a client.
+ *
+ * \param[in]   iter            A client iterator created with dr_client_iterator_start()
+ *
+ * \param[out]  client          The returned information about the client.  On input,
+ *                              the struct_size field must be set and the client_path
+ *                              and client_options fields must each either be NULL
+ *                              if that data is not needed or point at a caller-allocated
+ *                              array of length #MAXIMUM_PATH for client_path or
+ *                              #DR_MAX_OPTIONS_LENGTH for client_options.
+ */
+dr_config_status_t
+dr_client_iterator_next_ex(dr_client_iterator_t *iter, dr_config_client_t *client
+                           /* IN/OUT */);
 
 DR_EXPORT
 /**
@@ -937,11 +1124,8 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_nudge_process(const char *process_name,
-                 client_id_t client_id,
-                 uint64 arg,
-                 uint timeout_ms,
-                 int *nudge_count /*OUT */);
+dr_nudge_process(const char *process_name, client_id_t client_id, uint64 arg,
+                 uint timeout_ms, int *nudge_count /*OUT */);
 #endif
 
 DR_EXPORT
@@ -981,10 +1165,7 @@ DR_EXPORT
  * \note Not yet available on MacOS.
  */
 dr_config_status_t
-dr_nudge_pid(process_id_t process_id,
-             client_id_t client_id,
-             uint64 arg,
-             uint timeout_ms);
+dr_nudge_pid(process_id_t process_id, client_id_t client_id, uint64 arg, uint timeout_ms);
 
 #ifdef WINDOWS
 DR_EXPORT
@@ -1026,9 +1207,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_nudge_all(client_id_t client_id,
-             uint64 arg,
-             uint timeout_ms,
+dr_nudge_all(client_id_t client_id, uint64 arg, uint timeout_ms,
              int *nudge_count /*OUT */);
 #endif /* WINDOWS */
 
@@ -1065,15 +1244,11 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of the request.
  */
 dr_config_status_t
-dr_get_config_dir(bool global,
-                  bool alternative_local,
-                  char *config_dir /* OUT */,
+dr_get_config_dir(bool global, bool alternative_local, char *config_dir /* OUT */,
                   size_t config_dir_sz);
 
 #ifdef __cplusplus
 }
 #endif
-
-/* DR_API EXPORT END */
 
 #endif /* _DR_CONFIG_H_ */

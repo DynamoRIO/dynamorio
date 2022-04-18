@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,8 +34,6 @@
 #ifndef _DR_INJECT_H_
 #define _DR_INJECT_H_ 1
 
-/* DR_API EXPORT TOFILE dr_inject.h */
-/* DR_API EXPORT BEGIN */
 /****************************************************************************
  * Injection API
  */
@@ -61,13 +59,13 @@ extern "C" {
  * We use ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE in both Windows and Unix
  * assuming no error code conflict on Unix.
  */
-# define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
+#    define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
+#endif
 /**
  * Alias of ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE to indicate it is not
  * a fatal error on Unix.
  */
-# define WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
-#endif
+#define WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
 
 DR_EXPORT
 /**
@@ -102,8 +100,25 @@ DR_EXPORT
  *          when finished to clean up internally-allocated resources.
  */
 int
-dr_inject_process_create(const char *app_name, const char **app_cmdline,
-                         void **data);
+dr_inject_process_create(const char *app_name, const char **app_cmdline, void **data);
+
+#ifdef WINDOWS
+DR_EXPORT
+/**
+ * Attach to an existing process.
+ *
+ * \param[in]   pid            PID for process to attach.
+ *
+ * \param[out]  data           An opaque pointer that should be passed to
+ *                             subsequent dr_inject_* routines to refer to
+ *                             this process.
+ * \param[out]  app_name       Pointer to the name of the target process.
+ *                             Only valid until dr_inject_process_exit.
+ * \return  Returns 0 on success.  On failure, returns a system error code.`
+ */
+int
+dr_inject_process_attach(process_id_t pid, void **data, char **app_name);
+#endif
 
 #ifdef UNIX
 
@@ -137,8 +152,35 @@ DR_EXPORT
  *          when finished to clean up internally-allocated resources.
  */
 int
-dr_inject_prepare_to_exec(const char *app_name, const char **app_cmdline,
-                          void **data);
+dr_inject_prepare_to_exec(const char *app_name, const char **app_cmdline, void **data);
+
+DR_EXPORT
+/**
+ * Prepare to ptrace(ATTACH) the provided process.  Use
+ * dr_inject_process_inject() to perform the ptrace(ATTACH) under DR.
+ *
+ * \note Only available on Linux.
+ *
+ * \param[in]   pid            The pid for the target executable. The caller
+ *                             must ensure this data is valid until the
+ *                             inject data is disposed.
+ *
+ * \param[in]   app_name       The path to the target executable.  The caller
+ *                             must ensure this data is valid until the
+ *                             inject data is disposed.
+ *
+ * \param[in]   wait_syscall   Syscall handling mode in inject stage.
+ *                             If true, will wait for completion of ongoing syscall.
+ *                             Else start inject immediately.
+ *
+ * \param[out]  data           An opaque pointer that should be passed to
+ *                             subsequent dr_inject_* routines to refer to
+ *                             this process.
+ * \return  Whether successful.
+ */
+int
+dr_inject_prepare_to_attach(process_id_t pid, const char *app_name, bool wait_syscall,
+                            void **data);
 
 DR_EXPORT
 /**
@@ -182,6 +224,20 @@ dr_inject_prepare_new_process_group(void *data);
 
 #endif /* UNIX */
 
+#ifdef WINDOWS
+DR_EXPORT
+/**
+ * Specifies that late injection should be used for the process created by
+ * dr_inject_process_create().
+ *
+ * \param[in]   data           The pointer returned by dr_inject_process_create()
+ *
+ * \return  Whether successful.
+ */
+bool
+dr_inject_use_late_injection(void *data);
+#endif
+
 DR_EXPORT
 /**
  * Injects DynamoRIO into a process created by dr_inject_process_create(), or
@@ -199,8 +255,7 @@ DR_EXPORT
  * \return  Whether successful.
  */
 bool
-dr_inject_process_inject(void *data, bool force_injection,
-                         const char *library_path);
+dr_inject_process_inject(void *data, bool force_injection, const char *library_path);
 
 DR_EXPORT
 /**
@@ -237,9 +292,9 @@ DR_EXPORT
  *
  * \param[in]   terminate      If true, the process is forcibly terminated.
  *
- * \return  Returns the exit code of the process.  If the caller did not wait
- *          for the process to finish before calling this, the code will be
- *          STILL_ACTIVE.
+ * \return  Returns the exit code of the process, always returns 0 for ptraced process.
+ *          If the caller did not wait for the process to finish before calling this,
+ *          the code will be STILL_ACTIVE.
  */
 int
 dr_inject_process_exit(void *data, bool terminate);
@@ -307,7 +362,5 @@ dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem
 #ifdef __cplusplus
 }
 #endif
-
-/* DR_API EXPORT END */
 
 #endif /* _DR_INJECT_H_ */

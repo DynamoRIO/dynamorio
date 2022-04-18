@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,41 +50,45 @@
 #include <limits.h>
 
 #ifndef MIN
-# define MIN(x, y) ((x) <= (y) ? (x) : (y))
+#    define MIN(x, y) ((x) <= (y) ? (x) : (y))
 #endif
 
 #ifndef SIZE_T_MAX
-# ifdef X64
-#  define SIZE_T_MAX ULLONG_MAX
-# else
-#  define SIZE_T_MAX UINT_MAX
-# endif
+#    ifdef X64
+#        define SIZE_T_MAX ULLONG_MAX
+#    else
+#        define SIZE_T_MAX UINT_MAX
+#    endif
 #endif
 
 static bool verbose = 0;
 
 #undef NOTIFY
 #ifdef DEBUG
-# define NOTIFY(n, ...) do { \
-    if (verbose >= (n)) {             \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-    } \
-} while (0)
+#    define NOTIFY(n, ...)                       \
+        do {                                     \
+            if (verbose >= (n)) {                \
+                dr_fprintf(STDERR, __VA_ARGS__); \
+            }                                    \
+        } while (0)
 #else
-# define NOTIFY(n, ...) /* nothing */
+#    define NOTIFY(n, ...) /* nothing */
 #endif
 
-#define NOTIFY_ELF(msg) do { \
-    if (verbose) { \
-        dr_fprintf(STDERR, "drsyms %s: Elf error: %s\n", msg, elf_errmsg(elf_errno())); \
-    } \
-} while (0)
+#define NOTIFY_ELF(msg)                                           \
+    do {                                                          \
+        if (verbose) {                                            \
+            dr_fprintf(STDERR, "drsyms %s: Elf error: %s\n", msg, \
+                       elf_errmsg(elf_errno()));                  \
+        }                                                         \
+    } while (0)
 
-#define NOTIFY_DWARF(de) do { \
-    if (verbose) { \
-        dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
-    } \
-} while (0)
+#define NOTIFY_DWARF(de)                                                       \
+    do {                                                                       \
+        if (verbose) {                                                         \
+            dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
+        }                                                                      \
+    } while (0)
 
 /******************************************************************************
  * ELF helpers.
@@ -95,23 +99,23 @@ static bool verbose = 0;
  * representation.
  */
 #ifdef X64
-# define elf_getehdr elf64_getehdr
-# define elf_getphdr elf64_getphdr
-# define elf_getshdr elf64_getshdr
-# define Elf_Ehdr Elf64_Ehdr
-# define Elf_Phdr Elf64_Phdr
-# define Elf_Shdr Elf64_Shdr
-# define Elf_Sym  Elf64_Sym
-# define ELF_ST_TYPE ELF64_ST_TYPE
+#    define elf_getehdr elf64_getehdr
+#    define elf_getphdr elf64_getphdr
+#    define elf_getshdr elf64_getshdr
+#    define Elf_Ehdr Elf64_Ehdr
+#    define Elf_Phdr Elf64_Phdr
+#    define Elf_Shdr Elf64_Shdr
+#    define Elf_Sym Elf64_Sym
+#    define ELF_ST_TYPE ELF64_ST_TYPE
 #else
-# define elf_getehdr elf32_getehdr
-# define elf_getphdr elf32_getphdr
-# define elf_getshdr elf32_getshdr
-# define Elf_Ehdr Elf32_Ehdr
-# define Elf_Phdr Elf32_Phdr
-# define Elf_Shdr Elf32_Shdr
-# define Elf_Sym  Elf32_Sym
-# define ELF_ST_TYPE ELF32_ST_TYPE
+#    define elf_getehdr elf32_getehdr
+#    define elf_getphdr elf32_getphdr
+#    define elf_getshdr elf32_getshdr
+#    define Elf_Ehdr Elf32_Ehdr
+#    define Elf_Phdr Elf32_Phdr
+#    define Elf_Shdr Elf32_Shdr
+#    define Elf_Sym Elf32_Sym
+#    define ELF_ST_TYPE ELF32_ST_TYPE
 #endif
 
 typedef struct _elf_info_t {
@@ -122,6 +126,8 @@ typedef struct _elf_info_t {
     byte *map_base;
     ptr_uint_t load_base;
     drsym_debug_kind_t debug_kind;
+#define MAX_BUILD_ID_LENGTH 128
+    char build_id[MAX_BUILD_ID_LENGTH];
 } elf_info_t;
 
 /* Looks for a section with real data, not just a section with a header */
@@ -129,7 +135,7 @@ static Elf_Scn *
 find_elf_section_by_name(Elf *elf, const char *match_name)
 {
     Elf_Scn *scn;
-    size_t shstrndx;  /* Means "section header string table section index" */
+    size_t shstrndx; /* Means "section header string table section index" */
 
     if (elf_getshdrstrndx(elf, &shstrndx) != 0) {
         NOTIFY_ELF("elf_getshdrstrndx");
@@ -160,6 +166,52 @@ find_elf_section_by_name(Elf *elf, const char *match_name)
         }
     }
     return NULL;
+}
+
+/* Reads the build id into mod->build_id. */
+static void
+read_build_id(Elf *elf, elf_info_t *mod)
+{
+    Elf_Scn *scn;
+    for (scn = elf_getscn(elf, 0); scn != NULL; scn = elf_nextscn(elf, scn)) {
+        Elf_Shdr *section_header = elf_getshdr(scn);
+        if (section_header == NULL || section_header->sh_type != SHT_NOTE)
+            continue;
+        Elf_Data *data = elf_getdata(scn, NULL);
+        Elf_Note *note = (Elf_Note *)data->d_buf;
+        if (note->n_type == NT_GNU_BUILD_ID) {
+            /* Following the note are the name and value. */
+            byte *src = ((byte *)(note + 1)) + note->n_namesz;
+            size_t size = note->n_descsz;
+            if ((byte *)data->d_buf + data->d_size < src + note->n_descsz) {
+                NOTIFY_ELF("note data is shorter than specified length");
+                size = (byte *)data->d_buf + data->d_size - src;
+            }
+            char *dst = mod->build_id;
+            for (int i = 0; i < size; i++) {
+                /* We're writing 3 chars at a time (2 digits + newline). */
+                if (dst + 3 > mod->build_id + MAX_BUILD_ID_LENGTH) {
+                    NOTIFY_ELF("build id is too long");
+                    /* It is already null-terminated from the prior write.  Return
+                     * the truncated id.  It will likely still work for buildid-dir
+                     * purposes where we only need the 1st 2 chars, and the rest
+                     * come from the debuglink name.
+                     */
+                    return;
+                }
+                unsigned int val = (unsigned int)*src;
+                int len = dr_snprintf(dst, 3, "%02x", val);
+                if (len < 0) {
+                    NOTIFY_ELF("malformed build id");
+                    mod->build_id[0] = '\0';
+                    return;
+                }
+                dst += len;
+                src++;
+            }
+            return;
+        }
+    }
 }
 
 /* Iterates the program headers for an ELF object and returns the minimum
@@ -248,7 +300,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
              * as the current machine, which is reasonable considering this module is
              * probably loaded in the current process.
              */
-            mod->syms = (Elf_Sym*)(((char*) mod->map_base) + symtab_shdr->sh_offset);
+            mod->syms = (Elf_Sym *)(((char *)mod->map_base) + symtab_shdr->sh_offset);
         }
     }
 
@@ -256,13 +308,15 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
         mod->debug_kind |= DRSYM_LINE_NUMS | DRSYM_DWARF_LINE;
     }
 
-    return (void *) mod;
+    read_build_id(mod->elf, mod);
+
+    return (void *)mod;
 }
 
 bool
 drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     mod->map_base = map_base; /* shouldn't change, though */
     mod->load_base = find_load_base(mod->elf);
     return true;
@@ -271,7 +325,7 @@ drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 bool
 drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     Dwarf_Error de; /* expensive to init (DrM#1770) */
     if (mod == NULL)
         return false;
@@ -285,7 +339,7 @@ drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
 void
 drsym_obj_mod_exit(void *mod_in)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     if (mod == NULL)
         return;
     if (mod->elf != NULL)
@@ -296,15 +350,15 @@ drsym_obj_mod_exit(void *mod_in)
 drsym_debug_kind_t
 drsym_obj_info_avail(void *mod_in)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     return mod->debug_kind;
 }
 
 byte *
 drsym_obj_load_base(void *mod_in)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
-    return (byte *) mod->load_base;
+    elf_info_t *mod = (elf_info_t *)mod_in;
+    return (byte *)mod->load_base;
 }
 
 /* Return the path contained in the .gnu_debuglink section or NULL if we cannot
@@ -316,7 +370,7 @@ drsym_obj_load_base(void *mod_in)
 const char *
 drsym_obj_debuglink_section(void *mod_in, const char *modpath)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     Elf_Shdr *section_header;
     Elf_Scn *scn = find_elf_section_by_name(mod->elf, ".gnu_debuglink");
     if (scn == NULL)
@@ -326,13 +380,13 @@ drsym_obj_debuglink_section(void *mod_in, const char *modpath)
         NOTIFY_ELF("elf_getshdr .gnu_debuglink");
         return NULL;
     }
-    return ((char*) mod->map_base) + section_header->sh_offset;
+    return ((char *)mod->map_base) + section_header->sh_offset;
 }
 
 uint
 drsym_obj_num_symbols(void *mod_in)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     if (mod == NULL)
         return 0;
     return mod->num_syms;
@@ -341,7 +395,7 @@ drsym_obj_num_symbols(void *mod_in)
 const char *
 drsym_obj_symbol_name(void *mod_in, uint idx)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     if (mod == NULL || idx >= mod->num_syms || mod->syms == NULL)
         return NULL;
     return elf_strptr(mod->elf, mod->strtab_idx, mod->syms[idx].st_name);
@@ -349,16 +403,16 @@ drsym_obj_symbol_name(void *mod_in, uint idx)
 
 drsym_error_t
 drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                       size_t *offs_end OUT)
+                      size_t *offs_end OUT)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     if (offs_start == NULL || mod == NULL || idx >= mod->num_syms || mod->syms == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
     /* Keep this consistent with symbol_is_import() and elf_hash_lookup(), both at
      * core/unix/module_elf.c
      */
     if ((mod->syms[idx].st_value == 0 &&
-        ELF_ST_TYPE(mod->syms[idx].st_info) != STT_TLS) ||
+         ELF_ST_TYPE(mod->syms[idx].st_info) != STT_TLS) ||
         mod->syms[idx].st_shndx == 0) {
         /* We're looking at .dynsym and this is an import */
         *offs_start = 0;
@@ -381,7 +435,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
 drsym_error_t
 drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
 {
-    elf_info_t *mod = (elf_info_t *) mod_in;
+    elf_info_t *mod = (elf_info_t *)mod_in;
     int i;
     int closest_idx = -1;
     size_t closest_diff = SIZE_T_MAX;
@@ -389,16 +443,18 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     if (mod == NULL || mod->syms == NULL || idx == NULL)
         return DRSYM_ERROR;
 
-    NOTIFY(1, "%s: +"PIFX"\n", __FUNCTION__, modoffs);
+    NOTIFY(1, "%s: +" PIFX "\n", __FUNCTION__, modoffs);
     /* XXX: if a function is split into non-contiguous pieces, will it
      * have multiple entries?
      */
     for (i = 0; i < mod->num_syms; i++) {
         size_t lo_offs = mod->syms[i].st_value - mod->load_base;
         size_t hi_offs = lo_offs + mod->syms[i].st_size;
-        NOTIFY(3, "\tcomparing +"PIFX" to "PIFX"-"PIFX"\n", modoffs, lo_offs, hi_offs);
+        NOTIFY(3, "\tcomparing +" PIFX " to " PIFX "-" PIFX "\n", modoffs, lo_offs,
+               hi_offs);
         if (lo_offs <= modoffs && modoffs < hi_offs) {
-            NOTIFY(2, "\tfound +"PIFX" in "PIFX"-"PIFX"\n", modoffs, lo_offs, hi_offs);
+            NOTIFY(2, "\tfound +" PIFX " in " PIFX "-" PIFX "\n", modoffs, lo_offs,
+                   hi_offs);
             *idx = i;
             return DRSYM_SUCCESS;
         }
@@ -407,7 +463,7 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
             if (modoffs - lo_offs < closest_diff) {
                 closest_idx = i;
                 closest_diff = modoffs - lo_offs;
-                NOTIFY(3, "\tclosest diff is now "PIFX"\n", closest_diff);
+                NOTIFY(3, "\tclosest diff is now " PIFX "\n", closest_diff);
             }
         }
     }
@@ -415,7 +471,7 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     if (closest_idx >= 0 && mod->syms[closest_idx].st_size == 0) {
         /* i#1337: rule out anything without a name */
         const char *name = drsym_obj_symbol_name(mod_in, closest_idx);
-        NOTIFY(2, "\tusing closest +"PIFX" diff "PIFX"\n", modoffs, closest_diff);
+        NOTIFY(2, "\tusing closest +" PIFX " diff " PIFX "\n", modoffs, closest_diff);
         if (name != NULL && name[0] != '\0') {
             *idx = closest_idx;
             return DRSYM_SUCCESS;
@@ -423,6 +479,13 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     }
 
     return DRSYM_ERROR_SYMBOL_NOT_FOUND;
+}
+
+const char *
+drsym_obj_build_id(void *mod_in)
+{
+    elf_info_t *mod = (elf_info_t *)mod_in;
+    return mod->build_id;
 }
 
 /******************************************************************************

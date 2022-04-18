@@ -1,0 +1,406 @@
+/* ******************************************************************************
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_multi_trace_window Multi-Window Memtraces
+
+\tableofcontents
+
+# Overview
+
+Memory address traces (or "memtraces") are critical tools for analyzing application
+behavior and performance.  DynamoRIO's \ref page_drcachesim provides memtrace
+gathering and analyzing tools.  Today, these memtraces are gathered either during a
+full execution of a standalone application, or during a short burst of execution on a
+server (using the start/stop interfaces as described at \ref sec_drcachesim_partial).
+For long-running benchmarks with phased behavior, however, we would like to instead
+gather a series of smaller memtrace samples to ease simulation while still
+representing the application in the aggregate.
+
+# Initial Use Case: SPEC2017
+
+An initial use case driving this work is the gathering of memtraces from SPEC2017.
+These benchmarks execute tens of trillions of instructions each and include phased
+behavior.  Our goal is to gather uniformly sampled memtrace sequences across the
+whole execution.  To support a full warmup for each sample, our target is 10 billion
+instructions in each.  Something like 50 samples per benchmark should suffice to
+capture major phases.  With these parameters, for a 25-trillion-instruction
+benchmark, that would look like a series of 10 billion instruction traces each
+followed by 490 billion instructions of untraced execution.
+
+# Design Point: Separate Traces v. Merged-with-Markers
+
+Focusing on a use case of a series of 50 10-billion-instruction traces for a SPEC
+benchmark, there are two main ways to store them.  We could create 50 independent
+sets of trace files, each with its own metadata and separate set of sharded data
+files.  A simulator could either simulate all 50 separately and aggregate just the
+resulting statistics, or a single instance of a simulator could skip ahead to each
+new sample and use the first portion of the sample to warm up caches and other state.
+
+The alternative is to store all the data in one set of data files, with metadata
+markers inserted to indicate the division points between the samples.  This doesn’t
+support the separate simulation model up front, though we could provide an iterator
+interface that skips ahead to a target window and stops at the end of that window (or
+the simulator could be modified to stop when it sees a window separation marker).
+However, this will not be as efficient for parallel simulation with separate
+simulator instances for each window, since the skipping ahead will take some time.
+This arrangement does more easily support the single-simulator-instance approach, and
+more readily fits with online simulation.
+
+In terms of implementation, there are several factors to consider here.
+
+## Separate raw files
+
+If we want separate final traces, at first the simplest approach is to produce a
+separate set of raw files for each tracing window.  These would be post-processed
+separately and independently.
+
+However, implementing this split does not fit well in the current interfaces.  To
+work with other filesystems, we have separated out the i/o and in particular
+directory creation, and some proprietary uses rework the output completely to write
+to a fixed set of destinations which are mapped back to per-thread raw files during
+post-processing.  Creating new sets of outputs at tracing time would require new
+interfaces and significant refactoring for these use cases.
+
+For typical use with files on the local disk, we could add creation of a new
+directory (and duplication of the module file) for each window by the tracing thread
+that hits the end-of-window trigger.  The other threads would each create a new
+output raw file each time they transitioned to a new window (see also the Proposal A
+discussion below).  This is implemented today with the \p -split_windows option.
+
+## Splitting during raw2trace
+
+Alternatively, we could keep a single raw file for each thread and split it up into
+per-window final trace files during postprocessing by the raw2trace tool.  We would
+use markers inserted at the window transition points to identify where to separate.
+
+raw2trace would need to create a new output dir and duplicate the trace headers and
+module file.  Like for separate raw files, this goes against the current i/o
+separation where today we pass in a list of all the input and output files up front
+and raw2trace never opens a file on its own, to better support proprietary
+filesystems with upstream code.
+
+Another concern here is hitting file size limits with a single raw file across many
+sample traces.  For the example above of 50 10-billion-instruction traces, if we
+assume an average of 2 dynamic instructions per raw entry, each window might contain
+5GB of data, reaching 250GB for all 50.  Furthermore, the final trace is even larger.
+
+The file size problem gets worse if we use a constant sampling interval across
+SPEC2017.  Some SPEC2017 benchmarks have many more instructions than others.  The
+bwaves_s benchmark has 382 trillion instructions, so a constant interval might result
+in it having 50x more data than other benchmarks, exceeding the file size limit.  A
+constant number of windows is preferred for this reason.
+
+## Splitting after raw2trace using an analyzer
+
+Given the complexities of splitting in earlier steps, and given that we may want to
+use a single simulator instance to process all of the sample traces, and given that
+for online trace analysis we will likely also have a single simulator instance:
+perhaps we should not try to split the samples and instead treat the 50 samples as a
+single trace with internal markers indicating the window division.
+
+Online and offline analyzers can use window ID markers to fast-forward or pause and
+align each thread to the next window.  Maybe the existing serial iterator can have
+built-in support for aligning the windows.
+
+If single-file final traces will exist, we would need to update all our existing
+analyzers to handle the gaps in the traces: reset state for function and callstack
+trackers; keep per-window numbers for statistics gatherers.
+
+We can also create an analyzer that splits a final trace up if we do want separate
+traces.
+
+## Decision: Split the final trace with an analyzer
+
+Separate files seems to be the most flexible and useful setup for our expected use
+cases, in particular parallel simulation.  But given that separating early in the
+pipeline is complex, we’ll split after raw2trace post-processing, with a new analyzer
+tool.
+
+We’ll update some simple inspection and sanity tools (view, basic_counts, and
+invariant_checker) to handle and visualize windows, but we’ll assume that trace
+windows will be split before being analyzed by any more complex analysis tools.  For
+online traces we will probably stick with multi-window-at-once.
+
+We’ll create a tool to manually split up multi-window trace files.
+
+Update: We ended up implementing splitting at the raw file output level for the
+local-disk use case; we may additionally implement splitting in an anlyzer for other
+use cases.
+
+# Design Point: Continuous Control v. Re-Attach
+
+One method of obtaining multiple traces is to repeat today’s bursts over and over,
+with a full detach from the application after each trace.  However, each attach point
+is expensive, with long periods of profiling and code cache pre-population.  While a
+scheme of sharing the profiling and perhaps code cache could be developed while
+keeping a full detach, a simpler approach is to remain in control but switch from
+tracing to instruction counting in between tracing windows.  Instruction counting is
+needed to determine where to start the next window in any case.
+
+Instruction counting through instrumentation is not cheap, incurring perhaps a 1.5x
+slowdown.  Compared to the 50x overhead while tracing, however, it is acceptable.  If
+lower overhead is desired in the future, a scheme using a full detach and using
+hardware performance counters to count instruction can be investigated.  The decision
+for the initial implementation, however, is to use the simpler alternating tracing
+and counting instrumentation windows.
+
+# Design Point: Instrumentation Dispatch v. Flushing
+
+As the prior section concluded, we plan to alternate between tracing and instruction
+counting.  There are two main approaches to varying instrumentation during execution:
+inserting all cases up front with a dispatch to the desired current scheme, and
+replacing instrumentation by flushing the system’s software code cache when changing
+schemes.
+
+Flushing is an expensive process, and can be fragile as the lower-overhead forms of
+flushing open up race conditions between threads executing the old and new code cache
+contents.  Its complexity is one reason we are deciding to instead use a dispatch
+approach for our initial implementation.
+
+With dispatch, we insert both tracing and counting instrumentation for each block in
+the software code cache.  Dispatch code at the top of the block selects which scheme
+to use.  The current mode, either tracing or counting, is stored in memory and needs
+to be synchronized across all threads.
+
+The simplest method of synchronizing the instrumentation mode is to store it in a
+global variable, have the dispatch code use a load-acquire to read it, and modify it
+with a store-release.  There is overhead to a load-acquire at the top of every block,
+but experimentation shows that it is reasonable compared to the overhead of the
+instrumentation itself even for instruction counting mode, and its simplicity makes
+it our choice for the initial implementation.
+
+The mechanisms for creating the dispatch and separate copies for the modes is
+provided for us by the drbbdup library.  This library was, however, missing
+some key pieces we had to add.
+
+## AArch64 support for drbbdup
+
+The drbbdup library had no AArch64 support initially.  It needed some updates to
+generated code sequences, as well as handling of the weak memory model on AArch64.
+To support storing the mode variable in global memory with the short reach of AArch64
+memory addressing modes, we added explicit support for using a scratch register to
+hold the address.  For the weak memory mode, explicit support for using a
+load-acquire to read the value was added.
+
+## Function wrapping support for drbbdup
+
+The function wrapping library used when tracing does not easily work with drbbdup out
+of the box, due to the different control models.  We added an inverted control mode
+to the wrapping library to allow enabling wrapping only for the tracing mode and not
+for the counting mode.
+
+However, there is a complication here where a transition to counting mode while in
+the middle of a wrapped function can cause problems if cleanup at exiting the
+function is skipped.  We ended up adding support for cleanup-only execution of
+function wrapping actions which is invoked while counting, with full wrapping actions
+enabled while tracing.
+
+A final minor change to support DRWRAP_REPLACE_RETADDR was to use the tag rather than
+the first instruction’s application PC, since that wrapping scheme creates some
+blocks with nothing but synthetic instructions with no corresponding application PC.
+
+## Write-xor-execute support for drbbdup
+
+The drbbdup library uses its own generated code area for out-of-line callouts, but
+only for dynamically discovered instrumentation cases.  This does not play well with
+write-xor-execute security features where we need to separate writable and executable
+code and have a special mechanism for DynamoRIO’s code cache that does not currently
+extend to tools using their own caches.  To solve this for our use case which has
+only static cases, we simply disabled the drbbdup code cache when a new flag is set
+disabling dynamic case support.
+
+## Emulation support for drbbdup
+
+The memtrace code uses emulation sequence markers for instrumenting the proper
+application instructions in the face of various expansions for repeated string loops
+and scatter-gather instructions.  However, the drbbdup library presents its own
+interface layer which hides the markers and in fact results in memtrace missing some
+application instructions.
+
+## Consider partial detach with PMU instruction counting for non-tracing windows?
+
+We could reduce the overhead of the non-tracing windows where we’re counting
+instructions by using the PMU to count for us.  We would do something like a detach
+but keep our code cache (and assume no code changes by the application) and re-attach
+when the PMU counting reaches the target.
+
+# Handling Phase Transitions
+
+For a normal memtrace burst, we completely detach from the server at the end of our
+desired trace duration.  This detach process synchronizes with every application
+thread.
+
+For multi-window traces, we are using multi-case dispatched instrumentation where we
+change the instrumentation type for each window.  We have no detach to go through and
+wake up all threads and have them flush their trace buffers and we're deliberately
+trying to avoid a global synchronization point.  Yet we would prefer perfect
+transitions between windows, whether that's separate raw files or accurately-placed
+markers.
+
+## Key step: Add end-of-block phase change check
+
+We do flush prior to a syscall, so a thread at a kernel wait point should have an
+empty buffer and not be a concern.
+
+The main concern is a thread not in a wait state that happens to not be scheduled
+consistently for a long time and so does not fill up its buffer until well after the
+window ends.
+
+We can augment the current end-of-block flush check which today looks for the buffer
+being full.  We can add a check for the prior window having ended, by having a global
+window ordinal and storing its value per thread at the start of filling up a new
+buffer.  (This is better than simply checking the drbbdup mode value for being in
+non-tracing mode as that will not catch a double mode change.)  If the prior window
+has ended, we can flush the buffer, or simply add a marker, depending on the scheme
+(see below).
+
+A thread that receives a signal mid-block (it would have to be a synchronous signal
+as DR waits until the end of the block for asynchronous) will skip its end-of-block
+checks and redirect to run the app's signal handler: but it would hit the checks for
+the first block of the handler.
+
+The worst case inaccuracy here is a thread who starts writing in window N but ends up
+unscheduled until a much later window M.  But at most one basic block's worth of
+trace entries will be placed into window N even though they happened later.  Thus we
+have "basic block accuracy", which is pretty good, as typically a basic block only
+contains a few instructions.
+
+## Proposal A: Separate raw files split at flush time
+
+If we're splitting raw files (see above), we would use the end-of-block window-change
+flush to emit a thread exit and create a new file.  In post-processing, we'd add any
+missing thread exits to threads that don't have them, to cover waiting threads who
+never reached a flush.
+
+As discussed above, the trigger thread would create a new directory for each window.
+A just-finished buffer is written to the directory corresponding to the window for
+its start point.
+
+A thread that is unscheduled for a long time could have a nearly-full buffer that is
+not written out until many windows later, but it would be written to the old
+directory for the old window.  The next buffer would go to a new file in the new
+window, with no files in the in-between window directories.
+
+## Proposal B (winner): Label buffers with owning window
+
+If we add the window ordinal to every buffer header, we can identify which window
+they belong to, and avoid the need to separate raw files.  A window-end flush ensures
+a buffer belongs solely to the window identified in its header; the next buffer will
+have the new window value.
+
+This scheme can be used with file splitting during raw2trace, or waiting until
+analysis.  Each thread has one raw file which contains all windows during the
+execution.
+
+## Proposal C: Trigger thread identifies buffer transition point of the other threads
+
+For this proposal, the thread triggering the end of the window walks the other
+threads and identifies the phase transition point inside the buffer, telling the
+post-processor where to split them.
+
+I considered having the triggerer also flush the buffers, but that is challenging
+with a race with the owner also flushing.  Plus, it still requires post-processing
+help to identify the precise point for splitting the buffer (without synchronization
+the triggerer can only get close).
+
+To avoid barriers on common case trace buffer writes, we use a lazy scheme where the
+triggerer does not modify the trace buffers themselves, but instead marks which
+portion has been written using a separate variable never accessed in a fastpath.
+
+Implementation:
+
++ The tracer maintains a global list of thread buffers using a global mutex on thread
+  init and exit.
+
++ Each trace buffer has a corresponding set of externally_written variables, each
+  holding a distance into the buffer that was written out by another thread.
+
++ On hitting the trace window endpoint threshold, the triggering thread grabs the
+  mutex and walks the buffers.
+
+  The triggerer doesn't have the current buffer position pointer.  Instead it walks
+  the buffer until it reaches zeroed memory (we zero the buffer after each flush).
+  We have no synchronization with the owning thread: but observing writes out of
+  order should be ok since we'll just miss one by stopping too early.  We need to fix
+  things up in post-processing in any case, because we need the phase transition to
+  be at a clean point (we can't identify that point from triggerer: if we end at an
+  instr entry, we don't know if some memrefs are coming afterward or not).  In
+  post-processing we adjust that position to the end of the block, and we split the
+  buffer contents around that point to the neighboring traces.
+
+  The triggerer does a store-release of the furthest-writting point into the
+  externally_written variable.
+
++ Whenever a thread writes out its buffer, it does a load-acquire on the
+  externally_written variable and if non-zero it writes out a marker in the buffer
+  header.  Post-processing reads the marker and uses it to split the buffer at the
+  nearest block boundary after the marker value.
+
++ If windows are small enough that the triggerer doesn't complete its buffer walk
+  before a new window starts: other thread buffers may completely go into the new
+  window.  That seems ok: if the windows are that small, in the absence of
+  application synchronization the resulting window split should be a possible thread
+  ordering.
+
+This scheme ends up with block-level accuracy since the trigger thread's marked
+transition point must be adjusted to essentially a block boundary in post-processing.
+Thus, it does not seem any better than the other schemes, and it is more complex.
+
+## Decision: Proposal B
+
+We decided to go with Proposal B as it works best with our file separation decision
+and is simple to implement.
+
+# Online Traces
+
+It makes sense for offline to treat each window trace as separate and simulate them
+separately (though aggregating the results to cover the whole application).
+
+But for online: we have the same instance of the simulator or analysis tool
+throughout the whole application run.  It will get confused if it throws away thread
+bookkeeping on a thread exit for a window.
+
+Either we have a window-controller simulator who spins up and down a new instance of
+the real target simulator/tool on each window, or we introduce new "end phase/start
+phase" markers.  If we have split offline traces, those would only be for online
+though which does not sound appealing.  Simulators/tools would need special handling
+for them: reporting statistics for the phase while continuing to aggregate for a
+multi-phase report or something.
+
+We might want combined files for offline too, as discussed above.  That would unify
+the two, which is appealing.
+
+
+ ****************************************************************************
+ */

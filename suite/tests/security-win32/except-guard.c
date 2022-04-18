@@ -30,17 +30,14 @@
  * DAMAGE.
  */
 
-
 #include "tools.h"
 #include <windows.h>
 
-
 static int count = 0;
-
 
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_GUARD_PAGE_VIOLATION) {
         count++;
@@ -51,11 +48,11 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 }
 
 void
-bar(int guard) {
+bar(int guard)
+{
     if (guard > 0) {
         print("test guard without alloc\n");
-    }
-    else {
+    } else {
         print("test without guard\n");
     }
     return;
@@ -64,23 +61,23 @@ bar(int guard) {
 int
 main(void)
 {
-    unsigned char * buf ;
+    unsigned char *buf;
     void (*foo)(void);
     int old_prot;
 
     INIT();
 
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 
     print("start of test, count = %d\n", count);
 
-    buf = VirtualAlloc(NULL,4096,MEM_COMMIT|MEM_RESERVE,PAGE_EXECUTE_READWRITE);
+    buf = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     /* 3 nops and a ret */
     buf[0] = '\x90';
     buf[1] = '\x90';
     buf[2] = '\x90';
     buf[3] = '\xc3';
-    foo = (void*) buf;
+    foo = (void *)buf;
 
     /* sets allocated buffer with guard page status */
     VirtualProtect(buf, 4096, PAGE_EXECUTE_READWRITE | PAGE_GUARD, &old_prot);
@@ -88,7 +85,8 @@ main(void)
 
     bar(0);
     /* sets static code with guard page status */
-    VirtualProtect((unsigned char *) bar, 8, PAGE_EXECUTE_READWRITE | PAGE_GUARD, &old_prot);
+    VirtualProtect((unsigned char *)bar, 8, PAGE_EXECUTE_READWRITE | PAGE_GUARD,
+                   &old_prot);
     bar(1);
     /* to check that we do not get any more exceptions */
     bar(0);
@@ -97,4 +95,3 @@ main(void)
 
     return 0;
 }
-

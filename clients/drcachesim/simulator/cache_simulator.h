@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,54 +36,84 @@
 #ifndef _CACHE_SIMULATOR_H_
 #define _CACHE_SIMULATOR_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include "simulator.h"
+#include "cache_simulator_create.h"
 #include "cache_stats.h"
 #include "cache.h"
+#include "snoop_filter.h"
+#include <limits.h>
 
-class cache_simulator_t : public simulator_t
-{
- public:
-    cache_simulator_t(unsigned int num_cores,
-                      unsigned int line_size,
-                      uint64_t L1I_size,
-                      uint64_t L1D_size,
-                      unsigned int L1I_assoc,
-                      unsigned int L1D_assoc,
-                      uint64_t LL_size,
-                      unsigned int LL_assoc,
-                      std::string replace_policy,
-                      uint64_t skip_refs,
-                      uint64_t warmup_refs,
-                      uint64_t sim_refs,
-                      unsigned int verbose);
+enum class cache_split_t { DATA, INSTRUCTION };
+
+// Error codes returned when passing wrong parameters to the
+// get_cache_metric function.
+typedef enum {
+    // Core number is larger then congifured number of cores.
+    STATS_ERROR_WRONG_CORE_NUMBER = INT_MIN,
+    // Cache level is larger then configured number of levels.
+    STATS_ERROR_WRONG_CACHE_LEVEL,
+    // Given cache doesn't support counting statistics.
+    STATS_ERROR_NO_CACHE_STATS,
+} stats_error_t;
+
+class cache_simulator_t : public simulator_t {
+public:
+    // This constructor is used when the cache hierarchy is configured
+    // using a set of knobs. It assumes a 2-level cache hierarchy with
+    // private L1 data and instruction caches and a shared LLC.
+    cache_simulator_t(const cache_simulator_knobs_t &knobs);
+
+    // This constructor is used when the arbitrary cache hierarchy is
+    // defined in a configuration file.
+    cache_simulator_t(std::istream *config_file);
+
     virtual ~cache_simulator_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
 
- protected:
+    int_least64_t
+    get_cache_metric(metric_name_t metric, unsigned level, unsigned core = 0,
+                     cache_split_t split = cache_split_t::DATA) const;
+
+    // Exposed to make it easy to test
+    bool
+    check_warmed_up();
+    uint64_t
+    remaining_sim_refs() const;
+
+    const cache_simulator_knobs_t &
+    get_knobs() const;
+
+protected:
     // Create a cache_t object with a specific replacement policy.
-    virtual cache_t *create_cache(std::string policy);
+    virtual cache_t *
+    create_cache(const std::string &policy);
 
-    // Currently we only support a simple 2-level hierarchy.
-    // XXX i#1715: add support for arbitrary cache layouts.
-
-    unsigned int knob_line_size;
-    uint64_t knob_L1I_size;
-    uint64_t knob_L1D_size;
-    unsigned int knob_L1I_assoc;
-    unsigned int knob_L1D_assoc;
-    uint64_t knob_LL_size;
-    unsigned int knob_LL_assoc;
-    std::string knob_replace_policy;
+    cache_simulator_knobs_t knobs_;
 
     // Implement a set of ICaches and DCaches with pointer arrays.
     // This is useful for implementing polymorphism correctly.
-    cache_t **icaches;
-    cache_t **dcaches;
+    cache_t **l1_icaches_;
+    cache_t **l1_dcaches_;
+    // This is an array of coherent caches for the snoop filter.
+    // Cache IDs index into this array.
+    cache_t **snooped_caches_;
 
-    cache_t *llcache;
+    // The following unordered maps map a cache's name to a pointer to it.
+    std::unordered_map<std::string, cache_t *> llcaches_;     // LLC(s)
+    std::unordered_map<std::string, cache_t *> other_caches_; // Non-L1, non-LLC caches
+    std::unordered_map<std::string, cache_t *> all_caches_;   // All caches.
+    // This is a list of non-coherent caches for shared caches above snoop filter.
+    std::unordered_map<std::string, cache_t *> non_coherent_caches_;
 
+    // Snoop filter tracks ownership of cache lines across private caches.
+    snoop_filter_t *snoop_filter_ = nullptr;
+
+private:
+    bool is_warmed_up_;
 };
 
 #endif /* _CACHE_SIMULATOR_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,19 +39,23 @@
  * for us.
  */
 #include "dr_api.h"
-#include "drmemtrace.h"
+#include "drmemtrace/drmemtrace.h"
 #include "drcovlib.h"
+#include "tracer/raw2trace.h"
+#include "tracer/raw2trace_directory.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define MAGIC_VALUE ((void *)(ptr_uint_t)0xdeadbeefUL)
+
 bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -75,8 +79,7 @@ local_open_file(const char *fname, uint mode_flags)
      * functions for transparency.
      */
     file_t f = dr_open_file(fname, mode_flags);
-    dr_fprintf(STDERR, "open file %s with flag 0x%x @ %d\n",
-               fname, mode_flags, f);
+    dr_fprintf(STDERR, "open file %s with flag 0x%x @ %d\n", fname, mode_flags, f);
     return f;
 }
 
@@ -87,8 +90,8 @@ local_read_file(file_t file, void *data, size_t count)
      * functions for transparency.
      */
     ssize_t res = dr_read_file(file, data, count);
-    dr_fprintf(STDERR, "reading %u bytes from file %d to @ " PFX
-               ", actual read %d bytes\n",
+    dr_fprintf(STDERR,
+               "reading %u bytes from file %d to @ " PFX ", actual read %d bytes\n",
                count, file, data, res);
     return res;
 }
@@ -101,8 +104,8 @@ local_write_file(file_t file, const void *data, size_t size)
      * functions for transparency.
      */
     ssize_t res = dr_write_file(file, data, size);
-    dr_fprintf(STDERR, "%d: writing %u bytes @ " PFX
-               " to file %d, actual write %d bytes\n",
+    dr_fprintf(STDERR,
+               "%d: writing %u bytes @ " PFX " to file %d, actual write %d bytes\n",
                count, size, data, file, res);
     /* Assuming it is a single-threaded app, we do not worry about
      * racy access on count.
@@ -131,31 +134,42 @@ local_create_dir(const char *dir)
     /* This is called within the DR context, so we use DR
      * functions for transparency.
      */
-    dr_fprintf(STDERR, "create dir %s %s\n",
-               res ? "successfully" : "failed to", dir);
+    dr_fprintf(STDERR, "create dir %s %s\n", res ? "successfully" : "failed to", dir);
     return res;
 }
 
 static void *
-load_cb(module_data_t *module)
+load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
+    if (seg_idx > 0)
+        return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
 static int
 print_cb(void *data, char *dst, size_t max_len)
 {
-    return dr_snprintf(dst, max_len, PFX",", data);
+    return dr_snprintf(dst, max_len, PFX ",", data);
 }
 
 static const char *
 parse_cb(const char *src, OUT void **data)
 {
     const char *res;
-    if (dr_sscanf(src, PIFX",", data) != 1)
+    if (dr_sscanf(src, PIFX ",", data) != 1)
         return NULL;
     res = strchr(src, ',');
     return (res == NULL) ? NULL : res + 1;
+}
+
+static std::string
+process_cb(drmodtrack_info_t *info, void *data, void *user_data)
+{
+    assert((app_pc)data == info->start);
+    assert(user_data == MAGIC_VALUE);
+    return "";
 }
 
 static void
@@ -167,53 +181,51 @@ free_cb(void *data)
 static void
 post_process()
 {
-    /* We now remove the custom field, so our test can go through regular
-     * raw2trace processing.
-     */
-    void *drcovlib = dr_standalone_init();
-    drcovlib_status_t res =
-        drmodtrack_add_custom_data(NULL, NULL, parse_cb, free_cb);
-    assert(res == DRCOVLIB_SUCCESS);
-    const char *modlist_path;
-    drmemtrace_status_t mem_res = drmemtrace_get_modlist_path(&modlist_path);
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
-    dr_fprintf(STDERR, "processing %s\n", modlist_path);
-    file_t f = dr_open_file(modlist_path, DR_FILE_READ);
-    assert(f != INVALID_FILE);
-    void *modhandle;
-    uint num_mods;
-    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle, &num_mods);
-    assert(res == DRCOVLIB_SUCCESS);
-
-    for (uint i = 0; i < num_mods; ++i) {
-        drmodtrack_info_t info = {sizeof(info),};
-        res = drmodtrack_offline_lookup(modhandle, i, &info);
+    void *dr_context = dr_standalone_init();
+    {
+        /* First, test just the module parsing w/o writing a final trace, in a separate
+         * scope to delete the drmodtrack state afterward.
+         */
+        raw2trace_directory_t dir;
+        std::string dir_err = dir.initialize(raw_dir, "");
+        assert(dir_err.empty());
+        std::unique_ptr<module_mapper_t> module_mapper = module_mapper_t::create(
+            dir.modfile_bytes_, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(module_mapper->get_last_error().empty());
+        // Test back-compat of deprecated APIs.
+        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, NULL);
+        std::string error =
+            raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(error.empty());
+        error = raw2trace.do_module_parsing();
+        assert(error.empty());
+        // Test writing module data and reading it back in.
+        char buf[128 * 204];
+        size_t wrote;
+        drcovlib_status_t res = module_mapper->write_module_data(
+            buf, BUFFER_SIZE_BYTES(buf), print_cb, &wrote);
         assert(res == DRCOVLIB_SUCCESS);
-        assert(((app_pc)info.custom) == info.start ||
-               info.containing_index != i);
+        std::unique_ptr<module_mapper_t> remapper =
+            module_mapper_t::create(buf, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(remapper->get_last_error().empty());
     }
-
-    char *buf_offline;
-    size_t size_offline = 8192;
-    size_t wrote;
-    do {
-        buf_offline = (char *)dr_global_alloc(size_offline);
-        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline, &wrote);
-        if (res == DRCOVLIB_SUCCESS)
-            break;
-        dr_global_free(buf_offline, size_offline);
-        size_offline *= 2;
-    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
-    assert(res == DRCOVLIB_SUCCESS);
-    assert(wrote == strlen(buf_offline) + 1/*null*/);
-    dr_close_file(f);
-    drmodtrack_offline_exit(modhandle);
-
-    /* Now replace the file */
-    f = dr_open_file(modlist_path, DR_FILE_WRITE_OVERWRITE);
-    assert(f != INVALID_FILE);
-    dr_write_file(f, buf_offline, wrote - 1/*don't need null in file*/);
-    dr_close_file(f);
+    /* Now write a final trace to a location that the drcachesim -indir step
+     * run by the outer test harness will find (TRACE_FILENAME).
+     */
+    raw2trace_directory_t dir;
+    std::string dir_err = dir.initialize(raw_dir, "");
+    assert(dir_err.empty());
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, dr_context,
+                          0);
+    std::string error =
+        raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
+    assert(error.empty());
+    error = raw2trace.do_conversion();
+    assert(error.empty());
+    dr_standalone_exit();
 }
 
 int
@@ -221,7 +233,7 @@ main(int argc, const char *argv[])
 {
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
-    static int iter_start = outer_iters/3;
+    static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))

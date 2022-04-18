@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,13 +34,13 @@
 /* Containers DynamoRIO Extension: Hashtable */
 
 #ifdef WINDOWS
-# define _CRT_SECURE_NO_DEPRECATE 1
+#    define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 #include "dr_api.h"
 #include "hashtable.h"
 #include "containers_private.h"
 #ifdef UNIX
-# include <string.h>
+#    include <string.h>
 #endif
 #include <stddef.h> /* offsetof */
 
@@ -87,7 +87,7 @@ stri_eq(const char *s1, const char *s2)
 
 /* We parametrize heap and assert for use in multiple libraries */
 static void *(*alloc_func)(size_t);
-static void (*free_func)(void*, size_t);
+static void (*free_func)(void *, size_t);
 static void (*assert_fail_func)(const char *);
 
 /* If no assert func is registered we just abort since we don't know
@@ -97,31 +97,32 @@ static void (*assert_fail_func)(const char *);
  * the msg should identify the source.
  */
 #ifdef WINDOWS
-# define IF_WINDOWS(x) x
+#    define IF_WINDOWS(x) x
 #else
-# define IF_WINDOWS(x)
+#    define IF_WINDOWS(x)
 #endif
 #ifdef DEBUG
-# define ASSERT(x, msg) do { \
-    if (!(x)) { \
-        if (assert_fail_func != NULL) { \
-            (*assert_fail_func)(msg); \
-        } else { \
-            dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", \
-                       __FILE__,  __LINE__, #x, msg); \
-            IF_WINDOWS(dr_messagebox("ASSERT FAILURE: %s:%d: %s (%s)", \
-                                     __FILE__,  __LINE__, #x, msg);) \
-            dr_abort(); \
-        } \
-    } \
-} while (0)
+#    define ASSERT(x, msg)                                                               \
+        do {                                                                             \
+            if (!(x)) {                                                                  \
+                if (assert_fail_func != NULL) {                                          \
+                    (*assert_fail_func)(msg);                                            \
+                } else {                                                                 \
+                    dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__,       \
+                               __LINE__, #x, msg);                                       \
+                    IF_WINDOWS(dr_messagebox("ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
+                                             __LINE__, #x, msg);)                        \
+                    dr_abort();                                                          \
+                }                                                                        \
+            }                                                                            \
+        } while (0)
 #else
-# define ASSERT(x, msg) /* nothing */
+#    define ASSERT(x, msg) /* nothing */
 #endif
 
 /* To support use in other libraries we allow parametrization */
 void
-hashtable_global_config(void *(*alloc_fptr)(size_t), void (*free_fptr)(void*, size_t),
+hashtable_global_config(void *(*alloc_fptr)(size_t), void (*free_fptr)(void *, size_t),
                         void (*assert_fail_fptr)(const char *))
 {
     alloc_func = alloc_fptr;
@@ -147,11 +148,11 @@ hash_free(void *ptr, size_t size)
         dr_global_free(ptr, size);
 }
 
-
-#define HASH_MASK(num_bits) ((~0U)>>(32-(num_bits)))
+#define HASH_MASK(num_bits) ((~0U) >> (32 - (num_bits)))
 #define HASH_FUNC_BITS(val, num_bits) ((val) & (HASH_MASK(num_bits)))
 #define HASH_FUNC(val, mask) ((val) & (mask))
 
+/* caller must hold lock */
 static uint
 hash_key(hashtable_t *table, void *key)
 {
@@ -159,7 +160,7 @@ hash_key(hashtable_t *table, void *key)
     if (table->hash_key_func != NULL) {
         hash = table->hash_key_func(key);
     } else if (table->hashtype == HASH_STRING || table->hashtype == HASH_STRING_NOCASE) {
-        const char *s = (const char *) key;
+        const char *s = (const char *)key;
         char c;
         uint i, shift;
         uint max_shift = ALIGN_FORWARD(table->table_bits, 8);
@@ -167,7 +168,7 @@ hash_key(hashtable_t *table, void *key)
         for (i = 0; s[i] != '\0'; i++) {
             c = s[i];
             if (table->hashtype == HASH_STRING_NOCASE)
-                c = (char) tolower(c);
+                c = (char)tolower(c);
             shift = (i % 4) * 8;
             if (shift > max_shift)
                 shift = max_shift;
@@ -177,7 +178,7 @@ hash_key(hashtable_t *table, void *key)
         /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
         ASSERT(table->hashtype == HASH_INTPTR,
                "hashtable.c hash_key internal error: invalid hash type");
-        hash = (uint)(ptr_uint_t) key;
+        hash = (uint)(ptr_uint_t)key;
     }
     return HASH_FUNC_BITS(hash, table->table_bits);
 }
@@ -188,9 +189,9 @@ keys_equal(hashtable_t *table, void *key1, void *key2)
     if (table->cmp_key_func != NULL)
         return table->cmp_key_func(key1, key2);
     else if (table->hashtype == HASH_STRING)
-        return strcmp((const char *) key1, (const char *) key2) == 0;
+        return strcmp((const char *)key1, (const char *)key2) == 0;
     else if (table->hashtype == HASH_STRING_NOCASE)
-        return stri_eq((const char *) key1, (const char *) key2);
+        return stri_eq((const char *)key1, (const char *)key2);
     else {
         /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
         ASSERT(table->hashtype == HASH_INTPTR,
@@ -201,12 +202,12 @@ keys_equal(hashtable_t *table, void *key1, void *key2)
 
 void
 hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,
-                  bool synch, void (*free_payload_func)(void*),
-                  uint (*hash_key_func)(void*), bool (*cmp_key_func)(void*, void*))
+                  bool synch, void (*free_payload_func)(void *),
+                  uint (*hash_key_func)(void *), bool (*cmp_key_func)(void *, void *))
 {
-    hash_entry_t **alloc = (hash_entry_t **)
-        hash_alloc((size_t)HASHTABLE_SIZE(num_bits) * sizeof(hash_entry_t*));
-    memset(alloc, 0, (size_t)HASHTABLE_SIZE(num_bits) * sizeof(hash_entry_t*));
+    hash_entry_t **alloc = (hash_entry_t **)hash_alloc((size_t)HASHTABLE_SIZE(num_bits) *
+                                                       sizeof(hash_entry_t *));
+    memset(alloc, 0, (size_t)HASHTABLE_SIZE(num_bits) * sizeof(hash_entry_t *));
     table->table = alloc;
     table->hashtype = hashtype;
     table->str_dup = str_dup;
@@ -219,12 +220,13 @@ hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool 
     table->hash_key_func = hash_key_func;
     table->cmp_key_func = cmp_key_func;
     ASSERT(table->hashtype != HASH_CUSTOM ||
-           (table->hash_key_func != NULL && table->cmp_key_func != NULL),
+               (table->hash_key_func != NULL && table->cmp_key_func != NULL),
            "hashtable_init_ex missing cmp/hash key func");
     table->entries = 0;
     table->config.size = sizeof(table->config);
     table->config.resizable = true;
     table->config.resize_threshold = 75;
+    table->config.free_key_func = NULL;
 }
 
 void
@@ -242,6 +244,8 @@ hashtable_configure(hashtable_t *table, hashtable_config_t *config)
         table->config.resizable = config->resizable;
     if (config->size > offsetof(hashtable_config_t, resize_threshold))
         table->config.resize_threshold = config->resize_threshold;
+    if (config->size > offsetof(hashtable_config_t, free_key_func))
+        table->config.free_key_func = config->free_key_func;
 }
 
 void
@@ -269,9 +273,10 @@ hashtable_lookup(hashtable_t *table, void *key)
 {
     void *res = NULL;
     hash_entry_t *e;
-    uint hindex = hash_key(table, key);
-    if (table->synch)
+    if (table->synch) {
         dr_mutex_lock(table->lock);
+    }
+    uint hindex = hash_key(table, key);
     for (e = table->table[hindex]; e != NULL; e = e->next) {
         if (keys_equal(table, e->key, key)) {
             res = e->payload;
@@ -287,7 +292,7 @@ hashtable_lookup(hashtable_t *table, void *key)
 static bool
 hashtable_check_for_resize(hashtable_t *table)
 {
-    size_t capacity = (size_t) HASHTABLE_SIZE(table->table_bits);
+    size_t capacity = (size_t)HASHTABLE_SIZE(table->table_bits);
     if (table->config.resizable &&
         /* avoid fp ops.  should check for overflow. */
         table->entries * 100 > table->config.resize_threshold * capacity) {
@@ -297,8 +302,8 @@ hashtable_check_for_resize(hashtable_t *table)
         /* double the size */
         old_bits = table->table_bits;
         table->table_bits++;
-        new_sz = (size_t) HASHTABLE_SIZE(table->table_bits) * sizeof(hash_entry_t*);
-        new_table = (hash_entry_t **) hash_alloc(new_sz);
+        new_sz = (size_t)HASHTABLE_SIZE(table->table_bits) * sizeof(hash_entry_t *);
+        new_table = (hash_entry_t **)hash_alloc(new_sz);
         memset(new_table, 0, new_sz);
         /* rehash the old table into the new */
         for (i = 0; i < HASHTABLE_SIZE(old_bits); i++) {
@@ -311,7 +316,7 @@ hashtable_check_for_resize(hashtable_t *table)
                 e = nexte;
             }
         }
-        hash_free(table->table, capacity * sizeof(hash_entry_t*));
+        hash_free(table->table, capacity * sizeof(hash_entry_t *));
         table->table = new_table;
         return true;
     }
@@ -321,12 +326,13 @@ hashtable_check_for_resize(hashtable_t *table)
 bool
 hashtable_add(hashtable_t *table, void *key, void *payload)
 {
-    uint hindex = hash_key(table, key);
-    hash_entry_t *e;
     /* if payload is null can't tell from lookup miss */
     ASSERT(payload != NULL, "hashtable_add internal error");
-    if (table->synch)
+    if (table->synch) {
         dr_mutex_lock(table->lock);
+    }
+    uint hindex = hash_key(table, key);
+    hash_entry_t *e;
     for (e = table->table[hindex]; e != NULL; e = e->next) {
         if (keys_equal(table, e->key, key)) {
             /* we have a use where payload != existing entry so we don't assert on that */
@@ -335,11 +341,11 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
             return false;
         }
     }
-    e = (hash_entry_t *) hash_alloc(sizeof(*e));
+    e = (hash_entry_t *)hash_alloc(sizeof(*e));
     if (table->str_dup) {
-        const char *s = (const char *) key;
-        e->key = hash_alloc(strlen(s)+1);
-        strncpy((char *)e->key, s, strlen(s)+1);
+        const char *s = (const char *)key;
+        e->key = hash_alloc(strlen(s) + 1);
+        strncpy((char *)e->key, s, strlen(s) + 1);
     } else
         e->key = key;
     e->payload = payload;
@@ -355,21 +361,22 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
 void *
 hashtable_add_replace(hashtable_t *table, void *key, void *payload)
 {
+    /* if payload is null can't tell from lookup miss */
+    ASSERT(payload != NULL, "hashtable_add_replace internal error");
+    if (table->synch) {
+        dr_mutex_lock(table->lock);
+    }
     void *old_payload = NULL;
     uint hindex = hash_key(table, key);
     hash_entry_t *e, *new_e, *prev_e;
-    /* if payload is null can't tell from lookup miss */
-    ASSERT(payload != NULL, "hashtable_add_replace internal error");
-    new_e = (hash_entry_t *) hash_alloc(sizeof(*new_e));
+    new_e = (hash_entry_t *)hash_alloc(sizeof(*new_e));
     if (table->str_dup) {
-        const char *s = (const char *) key;
-        new_e->key = hash_alloc(strlen(s)+1);
-        strncpy((char *)new_e->key, s, strlen(s)+1);
+        const char *s = (const char *)key;
+        new_e->key = hash_alloc(strlen(s) + 1);
+        strncpy((char *)new_e->key, s, strlen(s) + 1);
     } else
         new_e->key = key;
     new_e->payload = payload;
-    if (table->synch)
-        dr_mutex_lock(table->lock);
     for (e = table->table[hindex], prev_e = NULL; e != NULL; prev_e = e, e = e->next) {
         if (keys_equal(table, e->key, key)) {
             if (prev_e == NULL)
@@ -379,6 +386,8 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
             new_e->next = e->next;
             if (table->str_dup)
                 hash_free(e->key, strlen((const char *)e->key) + 1);
+            else if (table->config.free_key_func != NULL)
+                (table->config.free_key_func)(e->key);
             /* up to caller to free payload */
             old_payload = e->payload;
             hash_free(e, sizeof(*e));
@@ -401,9 +410,10 @@ hashtable_remove(hashtable_t *table, void *key)
 {
     bool res = false;
     hash_entry_t *e, *prev_e;
-    uint hindex = hash_key(table, key);
-    if (table->synch)
+    if (table->synch) {
         dr_mutex_lock(table->lock);
+    }
+    uint hindex = hash_key(table, key);
     for (e = table->table[hindex], prev_e = NULL; e != NULL; prev_e = e, e = e->next) {
         if (keys_equal(table, e->key, key)) {
             if (prev_e == NULL)
@@ -412,6 +422,8 @@ hashtable_remove(hashtable_t *table, void *key)
                 prev_e->next = e->next;
             if (table->str_dup)
                 hash_free(e->key, strlen((const char *)e->key) + 1);
+            else if (table->config.free_key_func != NULL)
+                (table->config.free_key_func)(e->key);
             if (table->free_payload_func != NULL)
                 (table->free_payload_func)(e->payload);
             hash_free(e, sizeof(*e));
@@ -443,6 +455,8 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
                     prev_e->next = e->next;
                 if (table->str_dup)
                     hash_free(e->key, strlen((const char *)e->key) + 1);
+                else if (table->config.free_key_func != NULL)
+                    (table->config.free_key_func)(e->key);
                 if (table->free_payload_func != NULL)
                     (table->free_payload_func)(e->payload);
                 hash_free(e, sizeof(*e));
@@ -457,6 +471,39 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
     return res;
 }
 
+void
+hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload))
+{
+    DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
+    uint i;
+    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+        hash_entry_t *e = table->table[i];
+        while (e != NULL) {
+            hash_entry_t *nexte = e->next;
+            apply_func(e->payload);
+            e = nexte;
+        }
+    }
+}
+
+void
+hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
+                                          void (*apply_func)(void *payload,
+                                                             void *user_data),
+                                          void *user_data)
+{
+    DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
+    uint i;
+    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+        hash_entry_t *e = table->table[i];
+        while (e != NULL) {
+            hash_entry_t *nexte = e->next;
+            apply_func(e->payload, user_data);
+            e = nexte;
+        }
+    }
+}
+
 static void
 hashtable_clear_internal(hashtable_t *table)
 {
@@ -467,6 +514,8 @@ hashtable_clear_internal(hashtable_t *table)
             hash_entry_t *nexte = e->next;
             if (table->str_dup)
                 hash_free(e->key, strlen((const char *)e->key) + 1);
+            else if (table->config.free_key_func != NULL)
+                (table->config.free_key_func)(e->key);
             if (table->free_payload_func != NULL)
                 (table->free_payload_func)(e->payload);
             hash_free(e, sizeof(*e));
@@ -493,8 +542,8 @@ hashtable_delete(hashtable_t *table)
     if (table->synch)
         dr_mutex_lock(table->lock);
     hashtable_clear_internal(table);
-    hash_free(table->table, (size_t)HASHTABLE_SIZE(table->table_bits) *
-              sizeof(hash_entry_t*));
+    hash_free(table->table,
+              (size_t)HASHTABLE_SIZE(table->table_bits) * sizeof(hash_entry_t *));
     table->table = NULL;
     table->entries = 0;
     if (table->synch)
@@ -552,7 +601,7 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
         ptr_uint_t start = 0;
         size_t size = 0;
         if (perscxt != NULL) {
-            start = (ptr_uint_t) dr_persist_start(perscxt);
+            start = (ptr_uint_t)dr_persist_start(perscxt);
             size = dr_persist_size(perscxt);
         }
         count = 0;
@@ -576,12 +625,12 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
     table->persist_count = count;
     return sizeof(count) +
         (TEST(DR_HASHPERS_REBASE_KEY, flags) ? sizeof(ptr_uint_t) : 0) +
-        count * (entry_size + sizeof(void*));
+        count * (entry_size + sizeof(void *));
 }
 
 bool
-hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size,
-                  file_t fd, void *perscxt, hasthable_persist_flags_t flags)
+hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t fd,
+                  void *perscxt, hasthable_persist_flags_t flags)
 {
     uint i;
     ptr_uint_t start = 0;
@@ -590,7 +639,7 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size,
     if (TEST(DR_HASHPERS_REBASE_KEY, flags) && perscxt == NULL)
         return false; /* invalid params */
     if (perscxt != NULL) {
-        start = (ptr_uint_t) dr_persist_start(perscxt);
+        start = (ptr_uint_t)dr_persist_start(perscxt);
         size = dr_persist_size(perscxt);
     }
     if (!hash_write_file(fd, &table->persist_count, sizeof(table->persist_count)))
@@ -614,7 +663,7 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size,
                     if (!hash_write_file(fd, he->payload, entry_size))
                         return false;
                 } else {
-                    ASSERT(entry_size <= sizeof(void*), "inlined data too large");
+                    ASSERT(entry_size <= sizeof(void *), "inlined data too large");
                     if (!hash_write_file(fd, &he->payload, entry_size))
                         return false;
                 }
@@ -650,7 +699,7 @@ hashtable_resurrect(void *drcontext, byte **map INOUT, hashtable_t *table,
         void *inmap, *toadd;
         void *key = *(void **)(*map);
         *map += sizeof(key);
-        inmap = (void *) *map;
+        inmap = (void *)*map;
         *map += entry_size;
         if (TEST(DR_HASHPERS_PAYLOAD_IS_POINTER, flags)) {
             toadd = inmap;
@@ -664,7 +713,7 @@ hashtable_resurrect(void *drcontext, byte **map INOUT, hashtable_t *table,
             memcpy(&toadd, inmap, entry_size);
         }
         if (TEST(DR_HASHPERS_REBASE_KEY, flags)) {
-            key = (void *) (((ptr_int_t)key) + shift_amt);
+            key = (void *)(((ptr_int_t)key) + shift_amt);
         }
         if (process_payload != NULL) {
             if (!process_payload(key, toadd, shift_amt))

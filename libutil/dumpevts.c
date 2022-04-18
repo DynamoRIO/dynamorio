@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,7 +31,6 @@
  * DAMAGE.
  */
 
-
 #include "share.h"
 #include "elm.h"
 
@@ -41,22 +40,19 @@
 int count = 0;
 int last = -1;
 
-void my_elm_formatted_cb(unsigned int mID,
-                         unsigned int type,
-                         WCHAR *message,
-                         DWORD timestamp)
+void
+my_elm_formatted_cb(unsigned int mID, unsigned int type, WCHAR *message, DWORD timestamp)
 {
     char *type_s;
     count++;
 
     switch (type) {
-    case 0x1 : type_s = "ERROR"; break;
-    case 0x2 : type_s = "WARNING"; break;
-    case 0x4 : type_s = "INFO"; break;
-    default : type_s = "<unknown>"; break;
+    case 0x1: type_s = "ERROR"; break;
+    case 0x2: type_s = "WARNING"; break;
+    case 0x4: type_s = "INFO"; break;
+    default: type_s = "<unknown>"; break;
     }
-    printf("Record %d, type=%s, %s%S\n",
-           mID, type_s, ctime((long *)&timestamp), message);
+    printf("Record %d, type=%s, %s%S\n", mID, type_s, ctime((long *)&timestamp), message);
 }
 
 void
@@ -65,8 +61,7 @@ my_elm_err_cb(unsigned int errcode, WCHAR *msg)
     if (errcode == ELM_ERR_FATAL) {
         fprintf(stderr, "elm FATAL error: %S\n", msg);
         exit(1);
-    }
-    else if (errcode == ELM_ERR_WARN) {
+    } else if (errcode == ELM_ERR_WARN) {
         fprintf(stderr, "elm warning: %S\n", msg);
         fflush(stderr);
     }
@@ -90,30 +85,25 @@ main(int argc, char **argv)
 
     if (argc > 1) {
         if (0 == strcmp(argv[1], "-clear")) {
-            DWORD res = clear_eventlog();
+            res = clear_eventlog();
             if (res != ERROR_SUCCESS)
                 fprintf(stderr, "Error %d clearing Event Log!\n", res);
             else
                 printf("Eventlog cleared.\n");
             return 0;
-        }
-        else if (0 == strcmp(argv[1], "-start")) {
+        } else if (0 == strcmp(argv[1], "-start")) {
             if (argc > 2) {
                 last = atoi(argv[2]);
-            }
-            else {
+            } else {
                 usage();
             }
-        }
-        else {
+        } else {
             usage();
         }
     }
 
     do_once = TRUE;
-    res = start_eventlog_monitor(TRUE, &my_elm_formatted_cb,
-                                 NULL, &my_elm_err_cb,
-                                 last);
+    res = start_eventlog_monitor(TRUE, &my_elm_formatted_cb, NULL, &my_elm_err_cb, last);
 
     if (res != ERROR_SUCCESS) {
         printf("error %d starting monitor\n", res);

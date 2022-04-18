@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,11 +43,11 @@
 /* buildtools\VC\8.0\dist\VC\PlatformSDK\Include\prsht.h(201)
  * "nonstandard extension used : nameless struct/union"
  */
-#pragma warning( disable : 4201 )
+#pragma warning(disable : 4201)
 /* buildtools\VC\8.0\dist\VC\PlatformSDK\Include\wintrust.h(459)
  * "named type definition in parentheses"
  */
-#pragma warning( disable : 4115 )
+#pragma warning(disable : 4115)
 
 /* Like all of DR, we use utf8 internally and for our API and convert to wchar
  * when interacting with the Windows kernel.
@@ -63,7 +63,6 @@
 #include <imagehlp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>             /* memset */
 #include <time.h>
 #include <tchar.h>
 
@@ -75,12 +74,12 @@
 
 #define VERBOSE 0
 #if VERBOSE
-# define DO_VERBOSE(x) x
-# undef printf
-# define VERBOSE_PRINT printf
+#    define DO_VERBOSE(x) x
+#    undef printf
+#    define VERBOSE_PRINT printf
 #else
-# define DO_VERBOSE(x)
-# define VERBOSE_PRINT(...)
+#    define DO_VERBOSE(x)
+#    define VERBOSE_PRINT(...)
 #endif
 #define FP stderr
 
@@ -92,52 +91,58 @@
 #define HANDLE_CONTROL_C 0
 
 /* global vars */
-static int limit; /* in seconds */
-static BOOL showmem;
-static BOOL showstats;
-static BOOL inject;
-static BOOL force_injection;
+static int limit;                   /* in seconds */
 static BOOL use_environment = TRUE; /* FIXME : for now default to using
                                      * the environment, below we check and
                                      * never use the environment if using
                                      * debug injection.  Revisit.
                                      */
-static double wallclock; /* in seconds */
+static double wallclock;            /* in seconds */
 
 /* FIXME : assert stuff, internal error, display_message duplicated from
  * pre_inject, share? */
 
 /* for asserts, copied from utils.h */
 #ifdef assert
-# undef assert
+#    undef assert
 #endif
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
-void internal_error(const char *file, int line, const char *msg);
+void
+d_r_internal_error(const char *file, int line, const char *msg);
 #undef ASSERT
 #ifdef DEBUG
-void display_error(char *msg);
-# ifdef INTERNAL
-#  define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, #x); }
-# else
-#  define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, ""); }
-# endif /* INTERNAL */
+void
+display_error(char *msg);
+#    ifdef INTERNAL
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, #x); \
+            }
+#    else
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, ""); \
+            }
+#    endif /* INTERNAL */
 #else
-# define display_error(msg) ((void) 0)
-# define ASSERT(x)         ((void) 0)
+#    define display_error(msg) ((void)0)
+#    define ASSERT(x) ((void)0)
 #endif /* DEBUG */
 
 /* in ntdll.c */
-extern char *get_application_name(void);
-extern char *get_application_pid(void);
+extern char *
+get_application_name(void);
+extern char *
+get_application_pid(void);
 
 static void
 display_error_helper(wchar_t *msg)
 {
     wchar_t title_buf[MAX_PATH + 64];
     _snwprintf(title_buf, BUFFER_SIZE_ELEMENTS(title_buf),
-              L_PRODUCT_NAME L" Notice: %hs(%hs)",
-              get_application_name(), get_application_pid());
+               L_PRODUCT_NAME L" Notice: %hs(%hs)", get_application_name(),
+               get_application_pid());
     NULL_TERMINATE_BUFFER(title_buf);
 
     /* for unit tests: assume that if a limit is set, we are in a
@@ -152,18 +157,17 @@ display_error_helper(wchar_t *msg)
 }
 
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
 #ifdef INTERNAL
-# define FILENAME_LENGTH L""
+#    define FILENAME_LENGTH L""
 #else
-/* truncate file name to first character */
-# define FILENAME_LENGTH L".1"
+    /* truncate file name to first character */
+#    define FILENAME_LENGTH L".1"
 #endif
     wchar_t buf[512];
     _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-              L"Injector Error %" FILENAME_LENGTH L"hs:%d %hs\n",
-              file, line, expr);
+               L"Injector Error %" FILENAME_LENGTH L"hs:%d %hs\n", file, line, expr);
     NULL_TERMINATE_BUFFER(buf);
     display_error_helper(buf);
     TerminateProcess(GetCurrentProcess(), (uint)-1);
@@ -173,21 +177,21 @@ internal_error(const char *file, int line, const char *expr)
 void
 display_error(char *msg)
 {
-# ifdef DISABLED /* going with msgbox always! */
+#    ifdef DISABLED /* going with msgbox always! */
     fprintf(FP, msg);
-# else
+#    else
     wchar_t buf[512];
     _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%hs", msg);
     NULL_TERMINATE_BUFFER(buf);
     display_error_helper(buf);
-# endif
+#    endif
 }
 #endif /* DEBUG */
 
 #if HANDLE_CONTROL_C
 BOOL WINAPI
-HandlerRoutine(DWORD dwCtrlType   //  control signal type
-                           )
+HandlerRoutine(DWORD dwCtrlType //  control signal type
+)
 {
     printf("Inside HandlerRoutine!\n");
     fflush(stdout);
@@ -198,9 +202,9 @@ HandlerRoutine(DWORD dwCtrlType   //  control signal type
 
 /* Always null-terminates */
 static bool
-char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elements*/)
+char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# elements*/)
 {
-    int res = MultiByteToWideChar(CP_UTF8, 0/*=>MB_PRECOMPOSED*/, str, -1/*null-term*/,
+    int res = MultiByteToWideChar(CP_UTF8, 0 /*=>MB_PRECOMPOSED*/, str, -1 /*null-term*/,
                                   wbuf, (int)wbuflen);
     if (res <= 0)
         return false;
@@ -210,10 +214,10 @@ char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elements*/)
 
 /* Always null-terminates */
 static bool
-tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen/*# elements*/)
+tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elements*/)
 {
-    int res = WideCharToMultiByte(CP_UTF8, 0, wstr, -1/*null-term*/,
-                                  buf, (int)buflen, NULL, NULL);
+    int res = WideCharToMultiByte(CP_UTF8, 0, wstr, -1 /*null-term*/, buf, (int)buflen,
+                                  NULL, NULL);
     if (res <= 0)
         return false;
     buf[buflen - 1] = '\0';
@@ -226,6 +230,8 @@ tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen/*# elements*/)
 typedef struct _dr_inject_info_t {
     PROCESS_INFORMATION pi;
     bool using_debugger_injection;
+    bool using_thread_injection;
+    bool attached;
     TCHAR wimage_name[MAXIMUM_PATH];
     /* We need something to point at for dr_inject_get_image_name so we just
      * keep a utf8 buffer as well.
@@ -237,7 +243,7 @@ DYNAMORIO_EXPORT
 char *
 dr_inject_get_image_name(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     if (data == NULL)
         return NULL;
     return info->image_name;
@@ -247,7 +253,7 @@ DYNAMORIO_EXPORT
 HANDLE
 dr_inject_get_process_handle(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     if (data == NULL)
         return INVALID_HANDLE_VALUE;
     return info->pi.hProcess;
@@ -257,7 +263,7 @@ DYNAMORIO_EXPORT
 process_id_t
 dr_inject_get_process_id(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     if (data == NULL)
         return 0;
     return info->pi.dwProcessId;
@@ -267,7 +273,7 @@ DYNAMORIO_EXPORT
 bool
 dr_inject_using_debug_key(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     if (data == NULL)
         return false;
     return info->using_debugger_injection;
@@ -277,7 +283,7 @@ DYNAMORIO_EXPORT
 void
 dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     VM_COUNTERS mem;
     /* not in DR library - floating point use is OK */
     int secs = elapsed_secs;
@@ -293,37 +299,30 @@ dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem
     if (showstats) {
         int cpu = get_process_load(info->pi.hProcess);
         /* Elapsed real (wall clock) time.  */
-        if (secs >= 3600) {     /* One hour -> h:m:s.  */
-            fprintf(FP, "%ld:%02ld:%02ldelapsed ",
-                    secs / 3600,
-                    (secs % 3600) / 60,
+        if (secs >= 3600) { /* One hour -> h:m:s.  */
+            fprintf(FP, "%ld:%02ld:%02ldelapsed ", secs / 3600, (secs % 3600) / 60,
                     secs % 60);
         } else {
-            fprintf(FP, "%ld:%02ld.%02ldelapsed ",      /* -> m:s.  */
-                    secs / 60,
-                    secs % 60,
-                    0 /* for now */);
+            fprintf(FP, "%ld:%02ld.%02ldelapsed ", /* -> m:s.  */
+                    secs / 60, secs % 60, 0 /* for now */);
         }
         fprintf(FP, "%d%%CPU \n", cpu);
-        fprintf(FP, "(%lu tot, %lu RSS, %lu paged, %lu non, %lu swap)k\n",
-                mem.PeakVirtualSize/1024,
-                mem.PeakWorkingSetSize/1024,
-                mem.QuotaPeakPagedPoolUsage/1024,
-                mem.QuotaPeakNonPagedPoolUsage/1024,
-                mem.PeakPagefileUsage/1024);
+        fprintf(FP, "(%zu tot, %zu RSS, %zu paged, %zu non, %zu swap)k\n",
+                mem.PeakVirtualSize / 1024, mem.PeakWorkingSetSize / 1024,
+                mem.QuotaPeakPagedPoolUsage / 1024, mem.QuotaPeakNonPagedPoolUsage / 1024,
+                mem.PeakPagefileUsage / 1024);
     }
     if (showmem) {
         fprintf(FP, "Process Memory Statistics:\n");
-        fprintf(FP, "\tPeak virtual size:         %6d KB\n",
-               mem.PeakVirtualSize/1024);
-        fprintf(FP, "\tPeak working set size:     %6d KB\n",
-               mem.PeakWorkingSetSize/1024);
-        fprintf(FP, "\tPeak paged pool usage:     %6d KB\n",
-               mem.QuotaPeakPagedPoolUsage/1024);
-        fprintf(FP, "\tPeak non-paged pool usage: %6d KB\n",
-               mem.QuotaPeakNonPagedPoolUsage/1024);
-        fprintf(FP, "\tPeak pagefile usage:       %6d KB\n",
-               mem.PeakPagefileUsage/1024);
+        fprintf(FP, "\tPeak virtual size:         %6zu KB\n", mem.PeakVirtualSize / 1024);
+        fprintf(FP, "\tPeak working set size:     %6zu KB\n",
+                mem.PeakWorkingSetSize / 1024);
+        fprintf(FP, "\tPeak paged pool usage:     %6zu KB\n",
+                mem.QuotaPeakPagedPoolUsage / 1024);
+        fprintf(FP, "\tPeak non-paged pool usage: %6zu KB\n",
+                mem.QuotaPeakNonPagedPoolUsage / 1024);
+        fprintf(FP, "\tPeak pagefile usage:       %6zu KB\n",
+                mem.PeakPagefileUsage / 1024);
     }
 }
 
@@ -346,34 +345,34 @@ static HKEY product_name_key;
 /* This check is necessary since we don't have
  * preprocessor warnings enabled on windows */
 #if defined(TEMP_CMD) || defined(DO_CMD)
-#error TEMP_CMD or DO_ENV_VARS macro already declared!
+#    error TEMP_CMD or DO_ENV_VARS macro already declared!
 #endif
 /* if need to add or remove environment variables looked for, do it here */
-#define DO_ENV_VARS()                             \
- TEMP_CMD(options, OPTIONS);                      \
- TEMP_CMD(logdir, LOGDIR);                        \
- TEMP_CMD(unsupported, UNSUPPORTED);              \
- TEMP_CMD(rununder, RUNUNDER);                    \
- TEMP_CMD(autoinject, AUTOINJECT);                \
- TEMP_CMD(cache_root, CACHE_ROOT);                \
- TEMP_CMD(cache_shared, CACHE_SHARED)
+#define DO_ENV_VARS()                   \
+    TEMP_CMD(options, OPTIONS);         \
+    TEMP_CMD(logdir, LOGDIR);           \
+    TEMP_CMD(unsupported, UNSUPPORTED); \
+    TEMP_CMD(rununder, RUNUNDER);       \
+    TEMP_CMD(autoinject, AUTOINJECT);   \
+    TEMP_CMD(cache_root, CACHE_ROOT);   \
+    TEMP_CMD(cache_shared, CACHE_SHARED)
 
-#define TEMP_CMD(name, NAME)                               \
- static BOOL overwrote_##name##_value;                     \
- static BOOL created_##name##_value;                       \
- static TCHAR old_##name##_value[MAX_REGISTRY_PARAMETER]
+#define TEMP_CMD(name, NAME)              \
+    static BOOL overwrote_##name##_value; \
+    static BOOL created_##name##_value;   \
+    static TCHAR old_##name##_value[MAX_REGISTRY_PARAMETER]
 
 /* Note - leading spacs is to avoid make ugly rule on zero argument function
  * declerations not using void - xref PR 215100 */
- DO_ENV_VARS();
+DO_ENV_VARS();
 
 static void
 set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
 {
 #undef TEMP_CMD
-#define TEMP_CMD(name, NAME)                     \
- BOOL do_##name;                                 \
- TCHAR name##_value[MAX_REGISTRY_PARAMETER]
+#define TEMP_CMD(name, NAME) \
+    BOOL do_##name;          \
+    TCHAR name##_value[MAX_REGISTRY_PARAMETER]
 
     DO_ENV_VARS();
 
@@ -383,16 +382,15 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
 
     /* get environment variable values if they are set */
 #undef TEMP_CMD
-#define TEMP_CMD(name, NAME)                                                  \
- name##_value[0] = _T('\0');  /* to be pedantic */                            \
- len = GetEnvironmentVariable(_TEXT(DYNAMORIO_VAR_##NAME), name##_value,      \
-                              BUFFER_SIZE_ELEMENTS(name##_value));            \
- do_##name = (use_environment &&                                              \
-              (len > 0 ||                                                     \
-              (len == 0 && GetLastError() != ERROR_ENVVAR_NOT_FOUND)));       \
- ASSERT(len < BUFFER_SIZE_ELEMENTS(name##_value));                            \
- VERBOSE_PRINT(("Environment var %s for %s, value = %s\n",                    \
-        do_##name ? "set" : "not set", #name, name##_value));
+#define TEMP_CMD(name, NAME)                                                           \
+    name##_value[0] = _T('\0'); /* to be pedantic */                                   \
+    len = GetEnvironmentVariable(_TEXT(DYNAMORIO_VAR_##NAME), name##_value,            \
+                                 BUFFER_SIZE_ELEMENTS(name##_value));                  \
+    do_##name = (use_environment &&                                                    \
+                 (len > 0 || (len == 0 && GetLastError() != ERROR_ENVVAR_NOT_FOUND))); \
+    ASSERT(len < BUFFER_SIZE_ELEMENTS(name##_value));                                  \
+    VERBOSE_PRINT(("Environment var %s for %s, value = %s\n",                          \
+                   do_##name ? "set" : "not set", #name, name##_value));
 
     DO_ENV_VARS();
 
@@ -418,17 +416,15 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
     /* XXX: doesn't support svchost-* yet */
     /* _TEXT("x" "y") does not work so we hardcode the wide constants */
     ASSERT(_tcsicmp(L_SVCHOST_EXE_NAME, image_name));
-    res = RegCreateKeyEx(DYNAMORIO_REGISTRY_HIVE,
-                         L_DYNAMORIO_REGISTRY_KEY, 0,  NULL,
+    res = RegCreateKeyEx(DYNAMORIO_REGISTRY_HIVE, L_DYNAMORIO_REGISTRY_KEY, 0, NULL,
                          REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL,
                          &product_name_key, &disp);
     ASSERT(res == ERROR_SUCCESS);
     if (disp == REG_CREATED_NEW_KEY) {
         created_product_reg_key = TRUE;
     }
-    res = RegCreateKeyEx(product_name_key, image_name, 0, NULL,
-                         REG_OPTION_NON_VOLATILE, KEY_QUERY_VALUE|KEY_SET_VALUE,
-                         NULL, &image_name_key, &disp);
+    res = RegCreateKeyEx(product_name_key, image_name, 0, NULL, REG_OPTION_NON_VOLATILE,
+                         KEY_QUERY_VALUE | KEY_SET_VALUE, NULL, &image_name_key, &disp);
     ASSERT(res == ERROR_SUCCESS);
     if (disp == REG_CREATED_NEW_KEY) {
         created_image_reg_key = TRUE;
@@ -443,30 +439,31 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
 
     /* Now set values */
 #undef TEMP_CMD
-#define TEMP_CMD(name, NAME)                                                  \
- if (do_##name) {                                                             \
-    size = BUFFER_SIZE_BYTES(old_##name##_value);                             \
-    res = RegQueryValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME),        \
-                          NULL, &type, (BYTE *) old_##name##_value, &size);   \
-    ASSERT(size <= BUFFER_SIZE_BYTES(old_##name##_value));                    \
-    if (res == ERROR_SUCCESS) {                                               \
-        overwrote_##name##_value = TRUE;                                      \
-        ASSERT(type == REG_SZ);                                               \
-    } else {                                                                  \
-        created_##name##_value = TRUE;                                        \
-    }                                                                         \
-    res = RegSetValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME),          \
-                        0, REG_SZ, (BYTE *) name##_value,                     \
-                        (DWORD) (_tcslen(name##_value)+1)*sizeof(TCHAR));     \
-    ASSERT(res == ERROR_SUCCESS);                                             \
-    VERBOSE_PRINT(("%s %s registry value with \"%s\" replacing \"%s\"\n",     \
-           overwrote_##name##_value  ? "overwrote" : "created", #name,        \
-           name##_value, overwrote_##name##_value ? old_##name##_value : ""));\
- }
+#define TEMP_CMD(name, NAME)                                                            \
+    if (do_##name) {                                                                    \
+        size = BUFFER_SIZE_BYTES(old_##name##_value);                                   \
+        res = RegQueryValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME), NULL, &type, \
+                              (BYTE *)old_##name##_value, &size);                       \
+        ASSERT(size <= BUFFER_SIZE_BYTES(old_##name##_value));                          \
+        if (res == ERROR_SUCCESS) {                                                     \
+            overwrote_##name##_value = TRUE;                                            \
+            ASSERT(type == REG_SZ);                                                     \
+        } else {                                                                        \
+            created_##name##_value = TRUE;                                              \
+        }                                                                               \
+        res = RegSetValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME), 0, REG_SZ,     \
+                            (BYTE *)name##_value,                                       \
+                            (DWORD)(_tcslen(name##_value) + 1) * sizeof(TCHAR));        \
+        ASSERT(res == ERROR_SUCCESS);                                                   \
+        VERBOSE_PRINT(("%s %s registry value with \"%s\" replacing \"%s\"\n",           \
+                       overwrote_##name##_value ? "overwrote" : "created", #name,       \
+                       name##_value,                                                    \
+                       overwrote_##name##_value ? old_##name##_value : ""));            \
+    }
 
     DO_ENV_VARS();
 
-    DO_VERBOSE({fflush(stdout);});
+    DO_VERBOSE({ fflush(stdout); });
 }
 
 static void
@@ -478,19 +475,19 @@ unset_registry_from_env(const TCHAR *image_name)
 
     /* restore registry values */
 #undef TEMP_CMD
-#define TEMP_CMD(name, NAME)                                                 \
- if (overwrote_##name##_value) {                                             \
-     res = RegSetValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME), 0,     \
-                         REG_SZ /* FIXME : abstracted somewhere? */,         \
-                         (BYTE *) old_##name##_value,                        \
-                         (DWORD)(_tcslen(old_##name##_value)+1) * sizeof(TCHAR));\
-     ASSERT(res == ERROR_SUCCESS);                                           \
-     VERBOSE_PRINT(("Restored %s value to %s\n", #name, old_##name##_value));\
- } else if (created_##name##_value) {                                        \
-     res = RegDeleteValue(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME));      \
-     ASSERT(res == ERROR_SUCCESS);                                           \
-     VERBOSE_PRINT(("Deleted %s value\n", #name));                           \
- }
+#define TEMP_CMD(name, NAME)                                                           \
+    if (overwrote_##name##_value) {                                                    \
+        res = RegSetValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME), 0,            \
+                            REG_SZ /* FIXME : abstracted somewhere? */,                \
+                            (BYTE *)old_##name##_value,                                \
+                            (DWORD)(_tcslen(old_##name##_value) + 1) * sizeof(TCHAR)); \
+        ASSERT(res == ERROR_SUCCESS);                                                  \
+        VERBOSE_PRINT(("Restored %s value to %s\n", #name, old_##name##_value));       \
+    } else if (created_##name##_value) {                                               \
+        res = RegDeleteValue(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME));             \
+        ASSERT(res == ERROR_SUCCESS);                                                  \
+        VERBOSE_PRINT(("Deleted %s value\n", #name));                                  \
+    }
 
     DO_ENV_VARS();
 
@@ -501,12 +498,11 @@ unset_registry_from_env(const TCHAR *image_name)
         VERBOSE_PRINT(("deleted image reg key\n"));
     }
     if (created_product_reg_key) {
-        res = RegDeleteKey(DYNAMORIO_REGISTRY_HIVE,
-                           L_DYNAMORIO_REGISTRY_KEY);
+        res = RegDeleteKey(DYNAMORIO_REGISTRY_HIVE, L_DYNAMORIO_REGISTRY_KEY);
         ASSERT(res == ERROR_SUCCESS);
         VERBOSE_PRINT(("deleted product reg key\n"));
     }
-    DO_VERBOSE({fflush(stdout);});
+    DO_VERBOSE({ fflush(stdout); });
 }
 
 #undef DO_ENV_VARS
@@ -524,7 +520,7 @@ unset_registry_from_env(const TCHAR *image_name)
 
 static HKEY debugger_key;
 static TCHAR debugger_key_full_name[MAX_PATH];
-static TCHAR debugger_key_value[3*MAX_PATH];
+static TCHAR debugger_key_value[3 * MAX_PATH];
 static DWORD debugger_key_value_size = BUFFER_SIZE_BYTES(debugger_key_value);
 static BOOL (*debug_stop_function)(int);
 
@@ -534,24 +530,21 @@ using_debugger_key_injection(const TCHAR *image_name)
 {
     int res;
 
-    debug_stop_function = (BOOL (*)(int))
-        (GetProcAddress(GetModuleHandle(TEXT("Kernel32")),
-                        "DebugActiveProcessStop"));
+    debug_stop_function = (BOOL(*)(int))(
+        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "DebugActiveProcessStop"));
 
-    _sntprintf(debugger_key_full_name,
-               BUFFER_SIZE_ELEMENTS(debugger_key_full_name), _TEXT("%hs\\%s"),
-               DEBUGGER_INJECTION_KEY, image_name);
+    _sntprintf(debugger_key_full_name, BUFFER_SIZE_ELEMENTS(debugger_key_full_name),
+               _TEXT("%hs\\%s"), DEBUGGER_INJECTION_KEY, image_name);
     NULL_TERMINATE_BUFFER(debugger_key_full_name);
 
     VERBOSE_PRINT(("debugger key %s\n", debugger_key_full_name));
 
-    res = RegOpenKeyEx(DEBUGGER_INJECTION_HIVE, debugger_key_full_name,
-                       0, KEY_QUERY_VALUE + KEY_SET_VALUE, &debugger_key);
+    res = RegOpenKeyEx(DEBUGGER_INJECTION_HIVE, debugger_key_full_name, 0,
+                       KEY_QUERY_VALUE + KEY_SET_VALUE, &debugger_key);
     if (ERROR_SUCCESS != res)
         return false;
-    res = RegQueryValueEx(debugger_key, _TEXT(DEBUGGER_INJECTION_VALUE_NAME),
-                          NULL, NULL, (BYTE *) debugger_key_value,
-                          &debugger_key_value_size);
+    res = RegQueryValueEx(debugger_key, _TEXT(DEBUGGER_INJECTION_VALUE_NAME), NULL, NULL,
+                          (BYTE *)debugger_key_value, &debugger_key_value_size);
     if (ERROR_SUCCESS != res ||
         /* FIXME : it would be better to check if our commandline matched
          * what was in the registry value, instead of looking for drinject */
@@ -567,12 +560,11 @@ using_debugger_key_injection(const TCHAR *image_name)
     return true;
 }
 
-static
-void unset_debugger_key_injection()
+static void
+unset_debugger_key_injection()
 {
     if (debug_stop_function == NULL) {
-        int res = RegDeleteValue(debugger_key,
-                                 _TEXT(DEBUGGER_INJECTION_VALUE_NAME));
+        int res = RegDeleteValue(debugger_key, _TEXT(DEBUGGER_INJECTION_VALUE_NAME));
         VERBOSE_PRINT(("Successfully deleted debugger registry value? %s\n",
                        (ERROR_SUCCESS == res) ? "yes" : "no"));
         if (ERROR_SUCCESS != res) {
@@ -583,14 +575,13 @@ void unset_debugger_key_injection()
     }
 }
 
-static
-void restore_debugger_key_injection(int id, BOOL started)
+static void
+restore_debugger_key_injection(int id, BOOL started)
 {
     int res;
     if (debug_stop_function == NULL) {
-        res = RegSetValueEx(debugger_key,
-                            _TEXT(DEBUGGER_INJECTION_VALUE_NAME), 0, REG_SZ,
-                            (BYTE *) debugger_key_value, debugger_key_value_size);
+        res = RegSetValueEx(debugger_key, _TEXT(DEBUGGER_INJECTION_VALUE_NAME), 0, REG_SZ,
+                            (BYTE *)debugger_key_value, debugger_key_value_size);
         VERBOSE_PRINT(("Successfully restored debugger registry value? %s\n",
                        (ERROR_SUCCESS == res) ? "yes" : "no"));
     } else {
@@ -648,19 +639,17 @@ exe_is_right_bitwidth(const TCHAR *wexe, int *errcode)
     DWORD read;
     IMAGE_DOS_HEADER dos;
     IMAGE_NT_HEADERS nt;
-    f = CreateFile(wexe, GENERIC_READ, FILE_SHARE_READ,
-                   NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    f = CreateFile(wexe, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                   FILE_ATTRIBUTE_NORMAL, NULL);
     if (f == INVALID_HANDLE_VALUE)
         goto read_nt_headers_error;
-    if (!ReadFile(f, &dos, sizeof(dos), &read, NULL) ||
-        read != sizeof(dos) ||
+    if (!ReadFile(f, &dos, sizeof(dos), &read, NULL) || read != sizeof(dos) ||
         dos.e_magic != IMAGE_DOS_SIGNATURE)
         goto read_nt_headers_error;
     offs = SetFilePointer(f, dos.e_lfanew, NULL, FILE_BEGIN);
     if (offs == INVALID_SET_FILE_POINTER)
         goto read_nt_headers_error;
-    if (!ReadFile(f, &nt, sizeof(nt), &read, NULL) ||
-        read != sizeof(nt) ||
+    if (!ReadFile(f, &nt, sizeof(nt), &read, NULL) || read != sizeof(nt) ||
         nt.Signature != IMAGE_NT_SIGNATURE)
         goto read_nt_headers_error;
     res = (nt.OptionalHeader.Magic ==
@@ -669,7 +658,7 @@ exe_is_right_bitwidth(const TCHAR *wexe, int *errcode)
     if (!res)
         *errcode = ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE;
     return res;
- read_nt_headers_error:
+read_nt_headers_error:
     *errcode = ERROR_FILE_NOT_FOUND;
     if (f != INVALID_HANDLE_VALUE)
         CloseHandle(f);
@@ -767,8 +756,7 @@ append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg
  */
 DYNAMORIO_EXPORT
 int
-dr_inject_process_create(const char *app_name, const char **argv,
-                         void **data OUT)
+dr_inject_process_create(const char *app_name, const char **argv, void **data OUT)
 {
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     STARTUPINFO si;
@@ -803,13 +791,13 @@ dr_inject_process_create(const char *app_name, const char **argv,
      * up as utf8 and then convert it.
      */
     app_cmdline = malloc(MAX_CMDLINE);
-    wapp_cmdline = malloc(MAX_CMDLINE*sizeof(wchar_t));
+    wapp_cmdline = malloc(MAX_CMDLINE * sizeof(wchar_t));
     if (app_cmdline == NULL || wapp_cmdline == NULL)
         return GetLastError();
     for (i = 0; argv[i] != NULL; i++) {
         append_app_arg_and_space(app_cmdline, MAX_CMDLINE, &sofar, argv[i]);
     }
-    app_cmdline[sofar-1] = '\0'; /* Trim the trailing space. */
+    app_cmdline[sofar - 1] = '\0'; /* Trim the trailing space. */
     if (!char_to_tchar(app_cmdline, wapp_cmdline, MAX_CMDLINE))
         return ERROR_INVALID_PARAMETER;
 
@@ -825,22 +813,23 @@ dr_inject_process_create(const char *app_name, const char **argv,
     strncpy(info->image_name, get_image_name(app_name),
             BUFFER_SIZE_ELEMENTS(info->image_name));
     _tcsncpy(info->wimage_name, get_image_wname(wapp_name),
-            BUFFER_SIZE_ELEMENTS(info->wimage_name));
+             BUFFER_SIZE_ELEMENTS(info->wimage_name));
 
     /* FIXME, won't need to check this, or unset/restore debugger_key_injection
      * if we have our own version of CreateProcess that doesn't check the
      * debugger key */
     info->using_debugger_injection = using_debugger_key_injection(info->wimage_name);
-
     if (info->using_debugger_injection) {
         unset_debugger_key_injection();
     }
+    info->using_thread_injection = false;
 
     /* Must specify TRUE for bInheritHandles so child inherits stdin! */
     res = CreateProcess(wapp_name, wapp_cmdline, NULL, NULL, TRUE,
                         CREATE_SUSPENDED |
-                        ((debug_stop_function && info->using_debugger_injection) ?
-                         DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS : 0),
+                            ((debug_stop_function && info->using_debugger_injection)
+                                 ? DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS
+                                 : 0),
                         NULL, NULL, &si, &info->pi);
     if (!res)
         errcode = GetLastError();
@@ -851,16 +840,134 @@ dr_inject_process_create(const char *app_name, const char **argv,
         restore_debugger_key_injection(info->pi.dwProcessId, res);
     }
 
-    *data = (void *) info;
+    *data = (void *)info;
     return errcode;
+}
+
+static int
+create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD tid OUT)
+{
+    uint64 kernel32;
+    uint64 sleep_address;
+    bool target_is_32;
+
+    *thread_handle = NULL;
+    *tid = 0;
+
+    target_is_32 = is_32bit_process(process_handle);
+    kernel32 = find_remote_dll_base(process_handle, !target_is_32, "kernel32.dll");
+    if (kernel32 == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    sleep_address = get_remote_proc_address(process_handle, kernel32, "SleepEx");
+    if (sleep_address == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    *thread_handle = CreateRemoteThread(process_handle, NULL, 0,
+                                        (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
+                                        (LPVOID)(SIZE_T)INFINITE, CREATE_SUSPENDED, tid);
+    if (*thread_handle == NULL) {
+        return GetLastError();
+    }
+
+    return ERROR_SUCCESS;
+}
+
+DYNAMORIO_EXPORT
+int
+dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
+{
+    dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
+    memset(info, 0, sizeof(*info));
+    bool received_initial_debug_event = false;
+    DEBUG_EVENT dbgevt = { 0 };
+    wchar_t exe_path[MAX_PATH];
+    DWORD exe_path_size = MAX_PATH;
+    wchar_t *exe_name;
+    HANDLE process_handle;
+    int res;
+
+    *data = info;
+
+    if (DebugActiveProcess((DWORD)pid) == false) {
+        return GetLastError();
+    }
+
+    DebugSetProcessKillOnExit(false);
+
+    info->using_debugger_injection = false;
+    info->attached = true;
+
+    do {
+        dbgevt.dwProcessId = (DWORD)pid;
+        WaitForDebugEvent(&dbgevt, INFINITE);
+        ContinueDebugEvent(dbgevt.dwProcessId, dbgevt.dwThreadId, DBG_CONTINUE);
+
+        if (dbgevt.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT) {
+            received_initial_debug_event = true;
+        }
+    } while (received_initial_debug_event == false);
+
+    info->pi.dwProcessId = dbgevt.dwProcessId;
+
+    DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hProcess,
+                    GetCurrentProcess(), &info->pi.hProcess, 0, FALSE,
+                    DUPLICATE_SAME_ACCESS);
+
+    process_handle = info->pi.hProcess;
+
+    /* XXX i#725: Attach does not begin as long as the injected thread is blocking.
+     * To overcome it, We create a new thread in the target process that will live
+     * as long as the target lives, and inject into it.
+     * For better transparency we should exit the thread immediately after injection.
+     * Would require changing termination assumptions in win32/syscall.c.
+     */
+    res = create_attach_thread(process_handle, &info->pi.hThread, &info->pi.dwThreadId);
+    if (res != ERROR_SUCCESS) {
+        return res;
+    }
+
+    BOOL(__stdcall * query_full_process_image_name_w)
+    (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
+        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
+
+    if (query_full_process_image_name_w(process_handle, 0, exe_path, &exe_path_size) ==
+        0) {
+        return GetLastError();
+    }
+
+    exe_name = wcsrchr(exe_path, '\\');
+    if (exe_name == NULL) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    wchar_to_char(info->image_name, BUFFER_SIZE_ELEMENTS(info->image_name), exe_name,
+                  wcslen(exe_name) * sizeof(wchar_t));
+
+    char_to_tchar(info->image_name, info->wimage_name,
+                  BUFFER_SIZE_ELEMENTS(info->image_name));
+
+    *app_name = info->image_name;
+
+    return ERROR_SUCCESS;
 }
 
 DYNAMORIO_EXPORT
 bool
-dr_inject_process_inject(void *data, bool force_injection,
-                         const char *library_path)
+dr_inject_use_late_injection(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
+    info->using_thread_injection = true;
+    return true;
+}
+
+DYNAMORIO_EXPORT
+bool
+dr_inject_process_inject(void *data, bool force_injection, const char *library_path)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     CONTEXT cxt;
     bool inject = true;
     char library_path_buf[MAXIMUM_PATH];
@@ -869,10 +976,9 @@ dr_inject_process_inject(void *data, bool force_injection,
     if (!force_injection) {
         int inject_flags = systemwide_should_inject(info->pi.hProcess, NULL);
         bool syswide_will_inject = systemwide_inject_enabled() &&
-            TEST(INJECT_TRUE, inject_flags) &&
-            !TEST(INJECT_EXPLICIT, inject_flags);
-        bool should_not_takeover = TEST(INJECT_EXCLUDED, inject_flags) &&
-            info->using_debugger_injection;
+            TEST(INJECT_TRUE, inject_flags) && !TEST(INJECT_EXPLICIT, inject_flags);
+        bool should_not_takeover =
+            TEST(INJECT_EXCLUDED, inject_flags) && info->using_debugger_injection;
         /* case 10794: to support follow_children we inject even if
          * syswide_will_inject.  we use RUNUNDER_EXPLICIT to avoid
          * user32 injection from happening, to get consistent injection.
@@ -903,9 +1009,9 @@ dr_inject_process_inject(void *data, bool force_injection,
         /* XXX i#943: we assume this return a utf8 value but that may not be true
          * for PARAMS_IN_REGISTRY?
          */
-        err = get_process_parameter(info->pi.hProcess,
-                                    PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
-                                    library_path_buf, sizeof(library_path_buf));
+        err =
+            get_process_parameter(info->pi.hProcess, PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
+                                  library_path_buf, sizeof(library_path_buf));
         if (err != GET_PARAMETER_SUCCESS && err != GET_PARAMETER_NOAPPSPECIFIC) {
             inject = false;
             display_error("WARNING: this application is not configured to run under "
@@ -929,12 +1035,24 @@ dr_inject_process_inject(void *data, bool force_injection,
 #endif
 
     inject_init();
-    /* FIXME PR 211367: use early_inject instead of this late injection!
-     * but non-trivial to gather the relevant addresses: so wait for
-     * earliest injection => i#234/PR 204587 prereq?
+    /* Like the core, we use map injection, which supports cross-arch injection, is
+     * in some ways cleaner than thread injection, and supports early injection at
+     * various points.  For now we use the (late) thread entry as the takeover point.
+     * TODO PR 211367: use earlier injection instead of this late injection!
+     * But it's non-trivial to gather the relevant addresses.
+     * i#234/PR 204587 is a prereq?
      */
-    if (!inject_into_thread(info->pi.hProcess, &cxt, info->pi.hThread,
-                            (char *)library_path)) {
+    bool res = false;
+    /* We provide a way to fall back on thread injection. */
+    if (info->using_thread_injection) {
+        res = inject_into_thread(info->pi.hProcess, &cxt, info->pi.hThread,
+                                 (char *)library_path);
+    } else {
+        res = inject_into_new_process(info->pi.hProcess, info->pi.hThread,
+                                      (char *)library_path, true /*map*/,
+                                      INJECT_LOCATION_ThreadStart, NULL);
+    }
+    if (!res) {
         close_handle(info->pi.hProcess);
         TerminateProcess(info->pi.hProcess, 0);
         return false;
@@ -946,7 +1064,11 @@ DYNAMORIO_EXPORT
 bool
 dr_inject_process_run(void *data)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
+    if (info->attached == true) {
+        /* detach the debugger */
+        DebugActiveProcessStop(info->pi.dwProcessId);
+    }
     /* resume the suspended app process so its main thread can run */
     ResumeThread(info->pi.hThread);
     close_handle(info->pi.hThread);
@@ -958,7 +1080,7 @@ DYNAMORIO_EXPORT
 bool
 dr_inject_wait_for_child(void *data, uint64 timeout_millis)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     wait_status_t wait_result;
     if (timeout_millis == 0)
         timeout_millis = INFINITE;
@@ -971,7 +1093,7 @@ DYNAMORIO_EXPORT
 int
 dr_inject_process_exit(void *data, bool terminate)
 {
-    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
     int exitcode = -1;
 #ifdef PARAMS_IN_REGISTRY
     if (!info->using_debugger_injection) {
@@ -981,9 +1103,8 @@ dr_inject_process_exit(void *data, bool terminate)
     if (terminate) {
         TerminateProcess(info->pi.hProcess, 0);
     }
-    GetExitCodeProcess(info->pi.hProcess, (LPDWORD) &exitcode);
+    GetExitCodeProcess(info->pi.hProcess, (LPDWORD)&exitcode);
     close_handle(info->pi.hProcess);
     HeapFree(GetProcessHeap(), 0, info);
     return exitcode;
 }
-

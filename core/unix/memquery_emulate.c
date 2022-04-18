@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -43,10 +43,9 @@
 #include "../globals.h"
 #include "memquery.h"
 #include "os_private.h"
-#include <string.h>
 
 #ifdef HAVE_MEMINFO
-# error Use kernel queries instead of emulation
+#    error Use kernel queries instead of emulation
 #endif
 
 /* must be prior to including dlfcn.h */
@@ -69,9 +68,15 @@ memquery_exit(void)
 }
 
 bool
+memquery_from_os_will_block(bool may_alloc)
+{
+    return false;
+}
+
+bool
 memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 {
-    maps_iter_t *mi = (maps_iter_t *) &iter->internal;
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
     /* XXX i#1270: implement an iterator that does not use allmem -- or should
      * we go ahead and use allmem and adjust callers to that?  For using
      * allmem we'd refactor find_vm_areas_via_probe() into this iterator,
@@ -85,13 +90,13 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 void
 memquery_iterator_stop(memquery_iter_t *iter)
 {
-    maps_iter_t *mi = (maps_iter_t *) &iter->internal;
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
 }
 
 bool
 memquery_iterator_next(memquery_iter_t *iter)
 {
-    maps_iter_t *mi = (maps_iter_t *) &iter->internal;
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
     return false;
 }
 
@@ -114,7 +119,7 @@ typedef struct _dl_iterate_data_t {
 static int
 dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
 {
-    dl_iterate_data_t *iter_data = (dl_iterate_data_t *) data;
+    dl_iterate_data_t *iter_data = (dl_iterate_data_t *)data;
     /* info->dlpi_addr is offset from preferred so we need to calculate the
      * absolute address of the base.
      * we can calculate the absolute address of the first segment, but ELF
@@ -128,16 +133,15 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
      * such cases short of walking backward and looking for the magic #s.
      */
     app_pc pref_start, pref_end;
-    app_pc min_vaddr =
-        module_vaddr_from_prog_header((app_pc)info->dlpi_phdr, info->dlpi_phnum,
-                                      NULL, NULL);
+    app_pc min_vaddr = module_vaddr_from_prog_header((app_pc)info->dlpi_phdr,
+                                                     info->dlpi_phnum, NULL, NULL);
     app_pc base = info->dlpi_addr + min_vaddr;
     /* Note that dl_iterate_phdr doesn't give a name for the executable or
      * ld-linux.so presumably b/c those are mapped by the kernel so the
      * user-space loader doesn't need to know their file paths.
      */
     LOG(GLOBAL, LOG_VMAREAS, 2,
-        "dl_iterate_get_path_cb: addr="PFX" hdrs="PFX" base="PFX" name=%s\n",
+        "dl_iterate_get_path_cb: addr=" PFX " hdrs=" PFX " base=" PFX " name=%s\n",
         info->dlpi_addr, info->dlpi_phdr, base, info->dlpi_name);
     /* all we have is an addr somewhere in the module, so we need the end */
     if (module_walk_program_headers(base,
@@ -148,8 +152,7 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
                                     true, /* i#1589: ld.so relocated .dynamic */
                                     &pref_start, NULL, &pref_end, NULL, NULL)) {
         /* we're passed back start,end of preferred base */
-        if ((iter_data->target_addr != NULL &&
-             iter_data->target_addr >= base &&
+        if ((iter_data->target_addr != NULL && iter_data->target_addr >= base &&
              iter_data->target_addr < base + (pref_end - pref_start)) ||
             (iter_data->target_path != NULL &&
              /* if we're passed an ambiguous name, we return first hit.
@@ -178,8 +181,9 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
 
 /* See memquery.h for full interface specs */
 int
-memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
-                        char *fullpath/*OPTIONAL OUT*/, size_t path_size)
+memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
+                        char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
+                        char *filename /*OPTIONAL OUT*/, size_t filename_size)
 {
     int count = 0;
     dl_iterate_data_t iter_data;
@@ -194,18 +198,17 @@ memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*
      */
     iter_data.target_addr = (start == NULL) ? NULL : *start;
     iter_data.target_path = name;
-    iter_data.path_out = fullpath;
-    iter_data.path_size = (fullpath == NULL) ? 0 : path_size;
-    DEBUG_DECLARE(int res = )
-        dl_iterate_phdr(dl_iterate_get_path_cb, &iter_data);
+    iter_data.path_out = fulldir;
+    iter_data.path_size = (fulldir == NULL) ? 0 : fulldir_size;
+    DEBUG_DECLARE(int res =)
+    dl_iterate_phdr(dl_iterate_get_path_cb, &iter_data);
     ASSERT(res == 1);
     mod_start = iter_data.mod_start;
     cur_end = iter_data.mod_end;
     count = 1;
-    LOG(GLOBAL, LOG_VMAREAS, 2,
-        "get_library_bounds %s => "PFX"-"PFX" %s\n",
+    LOG(GLOBAL, LOG_VMAREAS, 2, "get_library_bounds %s => " PFX "-" PFX " %s\n",
         name == NULL ? "<null>" : name, mod_start, cur_end,
-        fullpath == NULL ? "<no path requested>" : fullpath);
+        fulldir == NULL ? "<no path requested>" : fulldir);
 
     if (start != NULL)
         *start = mod_start;
@@ -231,7 +234,7 @@ memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*
 static int
 dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
 {
-    int *count = (int *) data;
+    int *count = (int *)data;
     uint i;
     /* see comments in dl_iterate_get_path_cb() */
     app_pc modend;
@@ -240,7 +243,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
     app_pc modbase = info->dlpi_addr + min_vaddr;
     size_t modsize = modend - min_vaddr;
     LOG(GLOBAL, LOG_VMAREAS, 2,
-        "dl_iterate_get_areas_cb: addr="PFX" hdrs="PFX" base="PFX" name=%s\n",
+        "dl_iterate_get_areas_cb: addr=" PFX " hdrs=" PFX " base=" PFX " name=%s\n",
         info->dlpi_addr, info->dlpi_phdr, modbase, info->dlpi_name);
     ASSERT(info->dlpi_phnum == module_num_program_headers(modbase));
 
@@ -261,18 +264,17 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
         if (module_walk_program_headers(modbase, modsize, false,
                                         true, /* i#1589: ld.so relocated .dynamic */
                                         NULL, NULL, NULL, &soname, NULL) &&
-            strncmp(soname, VSYSCALL_PAGE_SO_NAME,
-                    strlen(VSYSCALL_PAGE_SO_NAME)) == 0) {
+            strncmp(soname, VSYSCALL_PAGE_SO_NAME, strlen(VSYSCALL_PAGE_SO_NAME)) == 0) {
             ASSERT(!dynamo_initialized); /* .data should be +w */
             ASSERT(vsyscall_page_start == NULL);
             vsyscall_page_start = modbase;
-            LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX"\n",
+            LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ " PFX "\n",
                 vsyscall_page_start);
         }
     }
 #endif
     if (modbase != vsyscall_page_start)
-        module_list_add(modbase, modsize, false, info->dlpi_name, 0/*don't have inode*/);
+        module_list_add(modbase, modsize, false, info->dlpi_name, 0 /*don't have inode*/);
 
     for (i = 0; i < info->dlpi_phnum; i++) {
         app_pc start, end;
@@ -281,18 +283,18 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
         if (module_read_program_header(modbase, i, &start, &end, &prot, &align)) {
             start += info->dlpi_addr;
             end += info->dlpi_addr;
-            LOG(GLOBAL, LOG_VMAREAS, 2,
-                "\tsegment %d: "PFX"-"PFX" %s align=%d\n",
-                i, start, end, memprot_string(prot), align);
-            start = (app_pc) ALIGN_BACKWARD(start, PAGE_SIZE);
-            end = (app_pc) ALIGN_FORWARD(end, PAGE_SIZE);
+            LOG(GLOBAL, LOG_VMAREAS, 2, "\tsegment %d: " PFX "-" PFX " %s align=%d\n", i,
+                start, end, memprot_string(prot), align);
+            start = (app_pc)ALIGN_BACKWARD(start, PAGE_SIZE);
+            end = (app_pc)ALIGN_FORWARD(end, PAGE_SIZE);
             LOG(GLOBAL, LOG_VMAREAS, 4,
-                "find_executable_vm_areas: adding: "PFX"-"PFX" prot=%d\n",
-                start, end, prot);
+                "find_executable_vm_areas: adding: " PFX "-" PFX " prot=%d\n", start, end,
+                prot);
             all_memory_areas_lock();
             update_all_memory_areas(start, end, prot, DR_MEMTYPE_IMAGE);
             all_memory_areas_unlock();
-            if (app_memory_allocation(NULL, start, end - start, prot, true/*image*/
+            if (app_memory_allocation(NULL, start, end - start, prot,
+                                      true /*image*/
                                       _IF_DEBUG("ELF SO")))
                 (*count)++;
         }
@@ -306,19 +308,19 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
  * if the probe was successful, returns in prot the results.
  */
 static app_pc
-probe_address(dcontext_t *dcontext, app_pc pc_in,
-              byte *our_heap_start, byte *our_heap_end, OUT uint *prot)
+probe_address(dcontext_t *dcontext, app_pc pc_in, OUT uint *prot)
 {
     app_pc base;
     size_t size;
-    app_pc pc = (app_pc) ALIGN_BACKWARD(pc_in, PAGE_SIZE);
+    app_pc pc = (app_pc)ALIGN_BACKWARD(pc_in, PAGE_SIZE);
     ASSERT(ALIGNED(pc, PAGE_SIZE));
     ASSERT(prot != NULL);
     *prot = MEMPROT_NONE;
 
     /* skip our own vmheap */
-    if (pc >= our_heap_start && pc < our_heap_end)
-        return our_heap_end;
+    app_pc heap_end;
+    if (is_vmm_reserved_address(pc, 1, NULL, &heap_end))
+        return heap_end;
     /* if no vmheap and we probe our own stack, the SIGSEGV handler will
      * report stack overflow as it checks that prior to handling TRY
      */
@@ -327,7 +329,7 @@ probe_address(dcontext_t *dcontext, app_pc pc_in,
 #ifdef VMX86_SERVER
     /* Workaround for PR 380621 */
     if (is_vmkernel_addr_in_user_space(pc, &base)) {
-        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: skipping vmkernel region "PFX"-"PFX"\n",
+        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: skipping vmkernel region " PFX "-" PFX "\n",
             __func__, pc, base);
         return base;
     }
@@ -339,24 +341,30 @@ probe_address(dcontext_t *dcontext, app_pc pc_in,
     if (!dynamo_initialized && get_memory_info(pc, &base, &size, prot))
         return base + size;
 
-    TRY_EXCEPT(dcontext, /* try */ {
-        PROBE_READ_PC(pc);
-        *prot |= MEMPROT_READ;
-    }, /* except */ {
-        /* nothing: just continue */
-    });
+    TRY_EXCEPT(dcontext, /* try */
+               {
+                   PROBE_READ_PC(pc);
+                   *prot |= MEMPROT_READ;
+               },
+               /* except */
+               {
+                   /* nothing: just continue */
+               });
     /* x86 can't be writable w/o being readable.  avoiding nested TRY though. */
     if (TEST(MEMPROT_READ, *prot)) {
-        TRY_EXCEPT(dcontext, /* try */ {
-            PROBE_WRITE_PC(pc);
-            *prot |= MEMPROT_WRITE;
-        }, /* except */ {
-            /* nothing: just continue */
-        });
+        TRY_EXCEPT(dcontext, /* try */
+                   {
+                       PROBE_WRITE_PC(pc);
+                       *prot |= MEMPROT_WRITE;
+                   },
+                   /* except */
+                   {
+                       /* nothing: just continue */
+                   });
     }
 
-    LOG(GLOBAL, LOG_VMAREAS, 5, "%s: probe "PFX" => %s\n",
-        __func__, pc, memprot_string(*prot));
+    LOG(GLOBAL, LOG_VMAREAS, 5, "%s: probe " PFX " => %s\n", __func__, pc,
+        memprot_string(*prot));
 
     /* PR 403000 - for unaligned probes return the address passed in as arg. */
     return pc_in;
@@ -364,8 +372,7 @@ probe_address(dcontext_t *dcontext, app_pc pc_in,
 
 /* helper for find_vm_areas_via_probe() */
 static inline int
-probe_add_region(app_pc *last_start, uint *last_prot,
-                 app_pc pc, uint prot, bool force)
+probe_add_region(app_pc *last_start, uint *last_prot, app_pc pc, uint prot, bool force)
 {
     int count = 0;
     if (force || prot != *last_prot) {
@@ -375,8 +382,8 @@ probe_add_region(app_pc *last_start, uint *last_prot,
             /* images were done separately */
             update_all_memory_areas(*last_start, pc, *last_prot, DR_MEMTYPE_DATA);
             all_memory_areas_unlock();
-            if (app_memory_allocation(NULL, *last_start, pc - *last_start,
-                                      *last_prot, false/*!image*/ _IF_DEBUG("")))
+            if (app_memory_allocation(NULL, *last_start, pc - *last_start, *last_prot,
+                                      false /*!image*/ _IF_DEBUG("")))
                 count++;
         }
         *last_prot = prot;
@@ -415,11 +422,9 @@ find_vm_areas_via_probe(void)
     dcontext_t *dcontext = get_thread_private_dcontext();
     app_pc pc, last_start = NULL;
     uint prot, last_prot = MEMPROT_NONE;
-    byte *our_heap_start, *our_heap_end;
-    get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
 
-    DEBUG_DECLARE(int res = )
-       dl_iterate_phdr(dl_iterate_get_areas_cb, &count);
+    DEBUG_DECLARE(int res =)
+    dl_iterate_phdr(dl_iterate_get_areas_cb, &count);
     ASSERT(res == 0);
 
     ASSERT(dcontext != NULL);
@@ -432,18 +437,17 @@ find_vm_areas_via_probe(void)
         size_t length;
         char name[MAXIMUM_PATH];
         LOG(GLOBAL, LOG_ALL, 1, "VSI mmaps:\n");
-        while (vmk_mmemquery_iter_next(iter, &start, &length, (int *)&prot,
-                                   name, BUFFER_SIZE_ELEMENTS(name))) {
-            LOG(GLOBAL, LOG_ALL, 1, "\t"PFX"-"PFX": %d %s\n",
-                start, start + length, prot, name);
+        while (vmk_mmemquery_iter_next(iter, &start, &length, (int *)&prot, name,
+                                       BUFFER_SIZE_ELEMENTS(name))) {
+            LOG(GLOBAL, LOG_ALL, 1, "\t" PFX "-" PFX ": %d %s\n", start, start + length,
+                prot, name);
             ASSERT(ALIGNED(start, PAGE_SIZE));
             last_prot = MEMPROT_NONE;
-            for (pc = start; pc < start + length; ) {
+            for (pc = start; pc < start + length;) {
                 prot = MEMPROT_NONE;
-                app_pc next_pc =
-                    probe_address(dcontext, pc, our_heap_start, our_heap_end, &prot);
-                count += probe_add_region(&last_start, &last_prot, pc, prot,
-                                          next_pc != pc);
+                app_pc next_pc = probe_address(dcontext, pc, &prot);
+                count +=
+                    probe_add_region(&last_start, &last_prot, pc, prot, next_pc != pc);
                 if (next_pc != pc) {
                     pc = next_pc;
                     last_prot = MEMPROT_NONE; /* ensure we add adjacent region */
@@ -458,15 +462,15 @@ find_vm_areas_via_probe(void)
         return count;
     } /* else, fall back to full probing */
 #else
-# ifdef X64
-/* no lazy probing support yet */
-#  error X64 requires HAVE_MEMINFO: PR 364552
-# endif
+#    ifdef X64
+    /* no lazy probing support yet */
+#        error X64 requires HAVE_MEMINFO: PR 364552
+#    endif
 #endif
     ASSERT(ALIGNED(USER_MAX, PAGE_SIZE));
-    for (pc = (app_pc) PAGE_SIZE; pc < (app_pc) USER_MAX; ) {
+    for (pc = (app_pc)PAGE_SIZE; pc < (app_pc)USER_MAX;) {
         prot = MEMPROT_NONE;
-        app_pc next_pc = probe_address(dcontext, pc, our_heap_start, our_heap_end, &prot);
+        app_pc next_pc = probe_address(dcontext, pc, &prot);
         count += probe_add_region(&last_start, &last_prot, pc, prot, next_pc != pc);
         if (next_pc != pc) {
             pc = next_pc;
@@ -487,7 +491,7 @@ bool
 memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
 {
     app_pc probe_pc, next_pc;
-    app_pc start_pc = (app_pc) pc, end_pc = (app_pc) pc + PAGE_SIZE;
+    app_pc start_pc = (app_pc)pc, end_pc = (app_pc)pc + PAGE_SIZE;
     byte *our_heap_start, *our_heap_end;
     uint cur_prot = MEMPROT_NONE;
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -495,13 +499,11 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
     /* don't crash if no dcontext, which happens (PR 452174) */
     if (dcontext == NULL)
         return false;
-    get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
     /* FIXME PR 235433: replace w/ real query to avoid all these probes */
 
-    next_pc = probe_address(dcontext, (app_pc) pc, our_heap_start,
-                            our_heap_end, &cur_prot);
+    next_pc = probe_address(dcontext, (app_pc)pc, &cur_prot);
     if (next_pc != pc) {
-        if (pc >= our_heap_start && pc < our_heap_end) {
+        if (is_vmm_reserved_address(pc, 1, &our_heap_start, &our_heap_end)) {
             /* Just making all readable for now */
             start_pc = our_heap_start;
             end_pc = our_heap_end;
@@ -511,21 +513,19 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
             return false;
         }
     } else {
-        for (probe_pc = (app_pc) ALIGN_BACKWARD(pc, PAGE_SIZE) - PAGE_SIZE;
-             probe_pc > (app_pc) NULL; probe_pc -= PAGE_SIZE) {
+        for (probe_pc = (app_pc)ALIGN_BACKWARD(pc, PAGE_SIZE) - PAGE_SIZE;
+             probe_pc > (app_pc)NULL; probe_pc -= PAGE_SIZE) {
             uint prot = MEMPROT_NONE;
-            next_pc = probe_address(dcontext, probe_pc, our_heap_start,
-                                    our_heap_end, &prot);
+            next_pc = probe_address(dcontext, probe_pc, &prot);
             if (next_pc != pc || prot != cur_prot)
                 break;
         }
         start_pc = probe_pc + PAGE_SIZE;
         ASSERT(ALIGNED(USER_MAX, PAGE_SIZE));
-        for (probe_pc = (app_pc) ALIGN_FORWARD(pc, PAGE_SIZE);
-             probe_pc < (app_pc) USER_MAX; probe_pc += PAGE_SIZE) {
+        for (probe_pc = (app_pc)ALIGN_FORWARD(pc, PAGE_SIZE); probe_pc < (app_pc)USER_MAX;
+             probe_pc += PAGE_SIZE) {
             uint prot = MEMPROT_NONE;
-            next_pc = probe_address(dcontext, probe_pc, our_heap_start,
-                                    our_heap_end, &prot);
+            next_pc = probe_address(dcontext, probe_pc, &prot);
             if (next_pc != pc || prot != cur_prot)
                 break;
         }

@@ -1,0 +1,77 @@
+Handlers for signals: 10, 12
+Signal blocked: 12
+Signal blocked: 10
+Testing epoll_pwait
+Signal received: 10
+Signal received: 12
+Signal received: 10
+Signal received: 12
+Testing pselect
+Signal received: 10
+Signal received: 12
+Signal received: 10
+Signal received: 12
+Testing raw pselect6_time64
+Signal received: 10
+Signal received: 12
+Signal received: 10
+Signal received: 12
+Testing ppoll
+Signal received: 10
+Signal received: 12
+Signal received: 10
+Signal received: 12
+Testing raw ppoll_time64
+Signal received: 10
+Signal received: 12
+Signal received: 10
+Signal received: 12
+Testing epoll_pwait failure
+Testing pselect failure
+Testing ppoll failure
+#if defined(X86) && defined(X64)
+Testing epoll_pwait, preserve mask
+Signal received: 10
+Signal received: 12
+Testing pselect, preserve mask
+Signal received: 10
+Signal received: 12
+Testing ppoll, preserve mask
+Signal received: 10
+Signal received: 12
+#endif
+Signal unblocked: 12
+Signal unblocked: 10
+Testing epoll_pwait with NULL sigmask
+Signal received: 10
+Signal received: 12
+Testing pselect with NULL sigmask
+Signal received: 10
+Signal received: 12
+Testing ppoll with NULL sigmask
+Signal received: 10
+Signal received: 12
+Testing raw epoll_pwait with NULL sigmask
+Signal received: 10
+Signal received: 12
+Testing raw pselect with NULL sigmask
+Signal received: 10
+Signal received: 12
+Testing raw pselect with NULL struct pointer
+Signal received: 10
+Signal received: 12
+#if defined(X86) && defined(X64)
+Testing raw pselect with NULL struct pointer, inline asm
+Signal received: 10
+Signal received: 12
+#endif
+Testing raw pselect6_time64 with NULL sigmask
+Signal received: 10
+Signal received: 12
+Testing raw ppoll with NULL sigmask
+Signal received: 10
+Signal received: 12
+Testing raw ppoll_time64 with NULL sigmask
+Signal received: 10
+Signal received: 12
+Done

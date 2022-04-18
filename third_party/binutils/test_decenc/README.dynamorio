@@ -1,0 +1,8 @@
+
+The encodings and some contents of this test suite were obtained from the version 2.32
+tarball downloaded from https://www.gnu.org/software/binutils/.
+
+Specifically some contents of the .asm files in this suite were copied and re-formatted
+based on tests derived from binutils-2.32/gas/testsuite/gas/i386/.
+
+For the original test suite's license see the file COPYING.

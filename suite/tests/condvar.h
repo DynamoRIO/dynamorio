@@ -33,9 +33,9 @@
 /* Because these routines use pthreads, we separate them from tools.c. */
 
 #ifdef UNIX
-# include <pthread.h>
+#    include <pthread.h>
 #else
-# include <windows.h>
+#    include <windows.h>
 #endif
 #include <stdlib.h>
 
@@ -57,7 +57,7 @@ typedef struct _win_condvar_t {
 static void *
 create_cond_var(void)
 {
-    win_condvar_t *cv = (win_condvar_t *) malloc(sizeof(*cv));
+    win_condvar_t *cv = (win_condvar_t *)malloc(sizeof(*cv));
     if (cv != NULL) {
         InitializeConditionVariable(&cv->condvar);
         InitializeCriticalSection(&cv->critsec);
@@ -69,7 +69,7 @@ create_cond_var(void)
 static void
 wait_cond_var(void *var)
 {
-    win_condvar_t *cv = (win_condvar_t *) var;
+    win_condvar_t *cv = (win_condvar_t *)var;
     EnterCriticalSection(&cv->critsec);
     while (!cv->flag) {
         /* What should we do if it fails? */
@@ -82,7 +82,7 @@ wait_cond_var(void *var)
 static void
 signal_cond_var(void *var)
 {
-    win_condvar_t *cv = (win_condvar_t *) var;
+    win_condvar_t *cv = (win_condvar_t *)var;
     EnterCriticalSection(&cv->critsec);
     cv->flag = true;
     WakeAllConditionVariable(&cv->condvar);
@@ -92,7 +92,7 @@ signal_cond_var(void *var)
 static void
 reset_cond_var(void *var)
 {
-    win_condvar_t *cv = (win_condvar_t *) var;
+    win_condvar_t *cv = (win_condvar_t *)var;
     EnterCriticalSection(&cv->critsec);
     cv->flag = false;
     LeaveCriticalSection(&cv->critsec);
@@ -101,7 +101,7 @@ reset_cond_var(void *var)
 static void
 destroy_cond_var(void *var)
 {
-    win_condvar_t *cv = (win_condvar_t *) var;
+    win_condvar_t *cv = (win_condvar_t *)var;
     DeleteCriticalSection(&cv->critsec);
     free(cv);
 }
@@ -116,10 +116,10 @@ typedef struct _pthread_condvar_t {
 static void *
 create_cond_var(void)
 {
-    pthread_condvar_t *cv = (pthread_condvar_t *) malloc(sizeof(*cv));
+    pthread_condvar_t *cv = (pthread_condvar_t *)malloc(sizeof(*cv));
     if (cv != NULL) {
         pthread_mutex_init(&cv->lock, NULL);
-        pthread_cond_init(&cv->condvar,  NULL);
+        pthread_cond_init(&cv->condvar, NULL);
         cv->flag = false;
     }
     return (void *)cv;
@@ -128,7 +128,7 @@ create_cond_var(void)
 static void
 wait_cond_var(void *var)
 {
-    pthread_condvar_t *cv = (pthread_condvar_t *) var;
+    pthread_condvar_t *cv = (pthread_condvar_t *)var;
     pthread_mutex_lock(&cv->lock);
     while (!cv->flag)
         pthread_cond_wait(&cv->condvar, &cv->lock);
@@ -139,7 +139,7 @@ wait_cond_var(void *var)
 static void
 signal_cond_var(void *var)
 {
-    pthread_condvar_t *cv = (pthread_condvar_t *) var;
+    pthread_condvar_t *cv = (pthread_condvar_t *)var;
     pthread_mutex_lock(&cv->lock);
     cv->flag = true;
     pthread_cond_broadcast(&cv->condvar);
@@ -149,7 +149,7 @@ signal_cond_var(void *var)
 static void
 reset_cond_var(void *var)
 {
-    pthread_condvar_t *cv = (pthread_condvar_t *) var;
+    pthread_condvar_t *cv = (pthread_condvar_t *)var;
     pthread_mutex_lock(&cv->lock);
     cv->flag = false;
     pthread_mutex_unlock(&cv->lock);
@@ -158,7 +158,7 @@ reset_cond_var(void *var)
 static void
 destroy_cond_var(void *var)
 {
-    pthread_condvar_t *cv = (pthread_condvar_t *) var;
+    pthread_condvar_t *cv = (pthread_condvar_t *)var;
     pthread_mutex_destroy(&cv->lock);
     pthread_cond_destroy(&cv->condvar);
     free(cv);

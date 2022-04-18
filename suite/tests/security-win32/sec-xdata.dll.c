@@ -47,18 +47,14 @@ code_buf good_code_buffer = {0};
 #pragma data_seg(".xdata")
 /* NOTE - compilers are stupid, without the "= {0}" this will be put in the regular
  * .data section and now .xdata section will be made. wtf??? */
-char good_xdata_buf[1024] = {0};
+char good_xdata_buf[1024] = { 0 };
 #pragma data_seg()
 
-
 /* our Makefile expects a .lib */
-int
-__declspec(dllexport)
-make_a_lib(int arg)
+int __declspec(dllexport) make_a_lib(int arg)
 {
     return 1;
 }
-
 
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
@@ -66,8 +62,8 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
     char *code;
     switch (reason_for_call) {
     case DLL_PROCESS_ATTACH:
-        code = copy_to_buf(good_xdata_buf, sizeof(good_xdata_buf),
-                           NULL, CODE_INC, COPY_NORMAL);
+        code = copy_to_buf(good_xdata_buf, sizeof(good_xdata_buf), NULL, CODE_INC,
+                           COPY_NORMAL);
         test_print(code, 0);
         break;
     }

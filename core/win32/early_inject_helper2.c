@@ -32,17 +32,16 @@
 
 /* Copyright (c) 2006-2007 Determina Corp. */
 
-#pragma warning( disable : 4100) //'hModule' : unreferenced formal parameter
+#pragma warning(disable : 4100) //'hModule' : unreferenced formal parameter
 /* shows up in buildtools/VC/8.0/dist/VC/include/vadefs.h
  * supposed to include identifier in the pop pragma and they don't
  */
-#pragma warning( disable : 4159) // #pragma pack has popped previously pushed identifier
+#pragma warning(disable : 4159) // #pragma pack has popped previously pushed identifier
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-__declspec(dllexport) void
-dr_early_inject_helper2_dummy_func()
+__declspec(dllexport) void dr_early_inject_helper2_dummy_func()
 {
     /* nothing */
 }

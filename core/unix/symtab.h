@@ -43,12 +43,15 @@
 #define _SYMTAB_H_ 1
 
 /* initialization */
-bool symtab_init(void);
+bool
+symtab_init(void);
 
 /* atexit cleanup */
-void symtab_exit(void);
+void
+symtab_exit(void);
 
 /* handle a pc sample */
-const char * symtab_lookup_pc(void *pc);
+const char *
+symtab_lookup_pc(void *pc);
 
 #endif /* _SYMTAB_H_ */

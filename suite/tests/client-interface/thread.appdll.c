@@ -36,29 +36,20 @@
 #ifdef WINDOWS
 /* test client thread transparency wrt DllMain (PR 210591) */
 
-int  __declspec(dllexport)
-import_me(int x)
+int __declspec(dllexport) import_me(int x)
 {
     print("in import %d\n", x);
-    return 2*x;
+    return 2 * x;
 }
 
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        print("thread.appdll.dll process attach\n");
-        break;
-    case DLL_PROCESS_DETACH:
-        print("thread.appdll.dll process detach\n");
-        break;
-    case DLL_THREAD_ATTACH:
-        print("thread.appdll.dll thread attach\n");
-        break;
-    case DLL_THREAD_DETACH:
-        print("thread.appdll.dll thread detach\n");
-        break;
+    case DLL_PROCESS_ATTACH: print("thread.appdll.dll process attach\n"); break;
+    case DLL_PROCESS_DETACH: print("thread.appdll.dll process detach\n"); break;
+    case DLL_THREAD_ATTACH: print("thread.appdll.dll thread attach\n"); break;
+    case DLL_THREAD_DETACH: print("thread.appdll.dll thread detach\n"); break;
     }
     return TRUE;
 }

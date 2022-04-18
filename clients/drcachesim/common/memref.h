@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,61 +39,91 @@
 #include <stddef.h> // for size_t
 #include "trace_entry.h"
 
+/**
+ * @file drmemtrace/memref.h
+ * @brief DrMemtrace trace entry structures.
+ */
+
 // On some platforms, like MacOS, a thread id is 64 bits.
 // We just make both 64 bits to cover all our bases.
-typedef int_least64_t memref_pid_t;
-typedef int_least64_t memref_tid_t;
+typedef int_least64_t memref_pid_t; /**< Process id type. */
+typedef int_least64_t memref_tid_t; /**< Thread id type. */
 
-// Each trace entry is one of the following.
-// Although the pc of each data reference is provided, the trace also guarantees that
-// an instruction entry immediately precedes the data references that it is
-// responsible for, with no intervening trace entries.
-
+/** A trace entry representing a data load, store, or prefetch. */
 struct _memref_data_t {
-    // TRACE_TYPE_READ, TRACE_TYPE_WRITE, and TRACE_TYPE_PREFETCH*:
-    // data references.
-    trace_type_t type;
-    memref_pid_t pid;
-    memref_tid_t tid;
-    addr_t addr;
-    size_t size;
-    addr_t pc;
+    trace_type_t type; /**< #TRACE_TYPE_READ, #TRACE_TYPE_WRITE, or type_is_prefetch(). */
+    memref_pid_t pid;  /**< Process id. */
+    memref_tid_t tid;  /**< Thread id. */
+    addr_t addr;       /**< Address of data being loaded or stored. */
+    size_t size;       /**< Size of data being loaded or stored. */
+    addr_t pc;         /**< Program counter of instruction performing load or store. */
 };
 
+/** A trace entry representing an instruction fetch. */
 struct _memref_instr_t {
-    // TRACE_TYPE_INSTR_* (minus BUNDLE): instruction fetch.
-    trace_type_t type;
-    memref_pid_t pid;
-    memref_tid_t tid;
-    addr_t addr;
-    size_t size;
+    trace_type_t type; /**< Matches type_is_instr() or #TRACE_TYPE_INSTR_NO_FETCH. */
+    memref_pid_t pid;  /**< Process id. */
+    memref_tid_t tid;  /**< Thread id. */
+    addr_t addr;       /**< The address of the instruction (i.e., program counter). */
+    size_t size;       /**< The length of the instruction. */
 };
 
+/** A trace entry representing a software-requested explicit cache flush. */
 struct _memref_flush_t {
-    // TRACE_TYPE_INSTR_FLUSH, TRACE_TYPE_DATA_FLUSH: explicit cache flush.
-    trace_type_t type;
-    memref_pid_t pid;
-    memref_tid_t tid;
-    addr_t addr;
-    size_t size;
-    addr_t pc;
+    trace_type_t type; /**< #TRACE_TYPE_INSTR_FLUSH or #TRACE_TYPE_DATA_FLUSH. */
+    memref_pid_t pid;  /**< Process id. */
+    memref_tid_t tid;  /**< Thread id. */
+    addr_t addr;       /**< The start address of the region being flushed. */
+    size_t size;       /**< The size of the region being flushed. */
+    addr_t pc;         /**< Program counter of the instruction requesting the flush. */
 };
 
+/** A trace entry representing a thread exit. */
 struct _memref_thread_exit_t {
-    // TRACE_TYPE_THREAD_EXIT.
-    trace_type_t type;
-    memref_pid_t pid;
-    memref_tid_t tid;
+    trace_type_t type; /**< #TRACE_TYPE_THREAD_EXIT. */
+    memref_pid_t pid;  /**< Process id. */
+    memref_tid_t tid;  /**< Thread id. */
 };
 
+/**
+ * A trace entry containing metadata identifying some event that occurred at this
+ * point in the trace.  Common markers include timestamp and cpu information for
+ * certain points in the trace.  Another marker type represents a kernel-mediated
+ * control flow change such as a signal delivery, entry into an APC, callback, or
+ * exception dispatcher on Windows, or a system call that changes the context such as
+ * a signal return.
+ */
+struct _memref_marker_t {
+    trace_type_t type;               /**< #TRACE_TYPE_MARKER. */
+    memref_pid_t pid;                /**< Process id. */
+    memref_tid_t tid;                /**< Thread id. */
+    trace_marker_type_t marker_type; /**< Identifies the type of marker. */
+    uintptr_t marker_value; /**< A value whose meaning depends on the marker type. */
+};
+
+/**
+ * Each trace entry is one of the structures in this union.
+ * Each entry identifies the originating process and thread.
+ * Although the pc of each data reference is provided, the trace also guarantees that
+ * an instruction entry immediately precedes the data references that it is
+ * responsible for, with no intervening trace entries (unless it is a trace filtered
+ * with an online first-level cache).
+ * Offline traces further guarantee that an instruction entry for a branch
+ * instruction is always followed by an instruction entry for the branch's
+ * target (with any memory references for the branch in between of course)
+ * without a thread switch intervening, to make it simpler to identify branch
+ * targets (again, unless the trace is filtered by an online first-level cache).
+ * Online traces do not currently guarantee this.
+ */
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
     // addr and size fields of data, instr, or flush generically if known to be one
     // of those types, due to the shared fields in our union of structs.
-    struct _memref_data_t data;
-    struct _memref_instr_t instr;
-    struct _memref_flush_t flush;
-    struct _memref_thread_exit_t exit;
+    struct _memref_data_t data;        /**< A data load or store. */
+    struct _memref_instr_t instr;      /**< An instruction fetch. */
+    struct _memref_flush_t flush;      /**< A software-initiated cache flush. */
+    struct _memref_thread_exit_t exit; /**< A thread exit. */
+    struct _memref_marker_t marker;    /**< A marker holding metadata. */
 } memref_t;
 
 #endif /* _MEMREF_H_ */

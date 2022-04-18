@@ -1,0 +1,11 @@
+Got SIGSEGV
+Got SIGSEGV
+Performing synchall flush
+change_stolen_reg_value entered
+test value = 7
+setting TLS
+read_and_restore_stolen_reg_value entered
+test value = 7
+fetching TLS
+mc->stolen_reg after = 7
+Done

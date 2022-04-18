@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,36 +43,37 @@
 #ifndef _DRMARKER_H_
 #define _DRMARKER_H_
 
-
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define L_DR_MARKER_HOOKED_DLL L"ntdll.dll"
 #ifdef UNICODE
-# define DR_MARKER_HOOKED_DLL L_DR_MARKER_HOOKED_DLL
+#    define DR_MARKER_HOOKED_DLL L_DR_MARKER_HOOKED_DLL
 #else
-# define DR_MARKER_HOOKED_DLL "ntdll.dll"
+#    define DR_MARKER_HOOKED_DLL "ntdll.dll"
 #endif
 
 #define DR_MARKER_HOOKED_FUNCTION KiUserCallbackDispatcher
-#define DR_MARKER_HOOKED_FUNCTION_ARGS (IN PVOID Unknown1, IN PVOID Unknown2, \
-                                        IN PVOID Unknown3)
+#define DR_MARKER_HOOKED_FUNCTION_ARGS \
+    (IN PVOID Unknown1, IN PVOID Unknown2, IN PVOID Unknown3)
 #define DR_MARKER_HOOKED_FUNCTION_STRING STRINGIFY(DR_MARKER_HOOKED_FUNCTION)
 
 enum {
-    DR_MARKER_RELEASE_BUILD  = 0x1,
-    DR_MARKER_DEBUG_BUILD    = 0x2,
-    DR_MARKER_PROFILE_BUILD  = 0x4,
-    DR_MARKER_BUILD_TYPES    =
-        DR_MARKER_RELEASE_BUILD|DR_MARKER_DEBUG_BUILD|DR_MARKER_PROFILE_BUILD
+    DR_MARKER_RELEASE_BUILD = 0x1,
+    DR_MARKER_DEBUG_BUILD = 0x2,
+    DR_MARKER_PROFILE_BUILD = 0x4,
+    DR_MARKER_BUILD_TYPES =
+        DR_MARKER_RELEASE_BUILD | DR_MARKER_DEBUG_BUILD | DR_MARKER_PROFILE_BUILD
 };
 
 #define DR_MARKER_VERSION_1 1
 #define DR_MARKER_VERSION_2 2
 
-#define WINDBG_CMD_MAX_LEN 2048
+/* The dr_marker_t struct must be <4096 for the PAGE_START assumptions of the
+ * marker location code to work.
+ */
+#define WINDBG_CMD_MAX_LEN 3072
 
 /* CAUTION: This structure is shared across processes, so any changes to it
  *          should only be field addtions.  NO DELETIONS ALLOWED; to obsolete
@@ -103,11 +104,7 @@ typedef struct _dr_marker_t {
      * into DR are added */
 } dr_marker_t;
 
-enum {
-    DR_MARKER_FOUND                   = 0,
-    DR_MARKER_NOT_FOUND               = 1,
-    DR_MARKER_ERROR                   = 2
-};
+enum { DR_MARKER_FOUND = 0, DR_MARKER_NOT_FOUND = 1, DR_MARKER_ERROR = 2 };
 
 /* process must grant PROCESS_VM_READ */
 int

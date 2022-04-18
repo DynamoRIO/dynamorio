@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,57 +42,59 @@
  * to link both ntdll.lib and a libc.lib).
  */
 
+#include <stdio.h> /* sscanf */
+
 #include "configure.h"
 #if defined(NOT_DYNAMORIO_CORE)
-# define ASSERT(x)
-# define ASSERT_NOT_REACHED()
-# define ASSERT_NOT_IMPLEMENTED(x)
-# define DODEBUG(x)
-# define DOCHECK(n, x)
-# define DECLARE_NEVERPROT_VAR(var, ...) var = __VA_ARGS__;
-# define ALIGN_BACKWARD(x, alignment) (((ULONG_PTR)x) & (~((alignment)-1)))
-# define PAGE_SIZE 4096
+#    define ASSERT(x)
+#    define ASSERT_NOT_REACHED()
+#    define ASSERT_NOT_IMPLEMENTED(x)
+#    define DODEBUG(x)
+#    define DOCHECK(n, x)
+#    define DECLARE_NEVERPROT_VAR(var, ...) var = __VA_ARGS__;
+#    define ALIGN_BACKWARD(x, alignment) (((ULONG_PTR)x) & (~((alignment)-1)))
+#    define PAGE_SIZE 4096
 #else
 /* we include globals.h mainly for ASSERT, even though we're
  * used by preinject.
- * preinject just defines its own internal_error!
+ * preinject just defines its own d_r_internal_error!
  */
-# include "../globals.h"
-# if !defined(NOT_DYNAMORIO_CORE_PROPER)
-#  include "os_private.h" /* for is_readable_pe_base() */
-#  include "../module_shared.h" /* for is_in_code_section() */
-# endif
-# ifdef CLIENT_INTERFACE
-#  include "instrument.h" /* dr_lookup_module_by_name */
-# endif
+#    include "../globals.h"
+#    include "os_private.h"
+#    if !defined(NOT_DYNAMORIO_CORE_PROPER)
+#        include "../module_shared.h" /* for is_in_code_section() */
+#    endif
+#    include "instrument.h" /* dr_lookup_module_by_name */
 #endif
 
 #include "ntdll.h"
 
 /* We have to hack away things we use here that won't work for non-core */
 #if defined(NOT_DYNAMORIO_CORE_PROPER) || defined(NOT_DYNAMORIO_CORE)
-# undef strcasecmp
-# define strcasecmp _stricmp
-# define wcscasecmp _wcsicmp
-# undef TRY_EXCEPT_ALLOW_NO_DCONTEXT
-# define TRY_EXCEPT_ALLOW_NO_DCONTEXT(dc, try, except) try
-# undef ASSERT_OWN_NO_LOCKS
-# define ASSERT_OWN_NO_LOCKS() /* who cares if not the core */
-# undef ASSERT_CURIOSITY
-# define ASSERT_CURIOSITY(x) /* who cares if not the core */
+#    undef strcasecmp
+#    define strcasecmp _stricmp
+#    define wcscasecmp _wcsicmp
+#    undef TRY_EXCEPT_ALLOW_NO_DCONTEXT
+#    define TRY_EXCEPT_ALLOW_NO_DCONTEXT(dc, try, except) try
+#    undef ASSERT_OWN_NO_LOCKS
+#    define ASSERT_OWN_NO_LOCKS() /* who cares if not the core */
+#    undef ASSERT_CURIOSITY
+#    define ASSERT_CURIOSITY(x) /* who cares if not the core */
 /* since not including os_shared.h (this is impl in ntdll.c): */
-bool is_readable_without_exception(const byte *pc, size_t size);
+bool
+is_readable_without_exception(const byte *pc, size_t size);
 /* allow converting functions to and from data pointers */
-# pragma warning(disable : 4055)
-# pragma warning(disable : 4054)
-# define convert_data_to_function(func) ((generic_func_t) (func))
-# undef LOG /* remove preinject's LOG */
-# define LOG(...) /* nothing */
+#    pragma warning(disable : 4055)
+#    pragma warning(disable : 4054)
+#    define convert_data_to_function(func) ((generic_func_t)(func))
+#    undef LOG       /* remove preinject's LOG */
+#    define LOG(...) /* nothing */
 #endif
 
-#if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE) &&\
-    !defined(NOT_DYNAMORIO_CORE_PROPER)
-# include "instrument.h"
+#define MAX_FUNCNAME_SIZE 128
+
+#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    include "instrument.h"
 typedef struct _pe_symbol_export_iterator_t {
     dr_symbol_export_t info;
 
@@ -104,7 +106,7 @@ typedef struct _pe_symbol_export_iterator_t {
     PUSHORT ordinals;
     PULONG fnames; /* array of RVAs */
     uint idx;
-    bool hasnext;                           /* set to false on error or end */
+    bool hasnext; /* set to false on error or end */
 } pe_symbol_export_iterator_t;
 #endif
 
@@ -118,10 +120,10 @@ typedef struct _pe_symbol_export_iterator_t {
  * !not_readable() below.
  * FIXME : beware of multi-thread races, just because this returns true,
  * doesn't mean another thread can't make the region unreadable between the
- * check here and the actual read later.  See safe_read() as an alt.
+ * check here and the actual read later.  See d_r_safe_read() as an alt.
  */
 /* throw-away buffer */
-DECLARE_NEVERPROT_VAR(static char is_readable_buf[4/*efficient read*/], {0});
+DECLARE_NEVERPROT_VAR(static char is_readable_buf[4 /*efficient read*/], { 0 });
 bool
 is_readable_without_exception(const byte *pc, size_t size)
 {
@@ -131,14 +133,14 @@ is_readable_without_exception(const byte *pc, size_t size)
      * if multiple threads write into the buffer at once.  Nearly all of our
      * calls ask about areas smaller than a page.
      */
-    byte *check_pc = (byte *) ALIGN_BACKWARD(pc, PAGE_SIZE);
+    byte *check_pc = (byte *)ALIGN_BACKWARD(pc, PAGE_SIZE);
     if (size > (size_t)((byte *)POINTER_MAX - pc))
         size = (byte *)POINTER_MAX - pc;
     do {
         size_t bytes_read = 0;
 #if defined(NOT_DYNAMORIO_CORE)
         if (!ReadProcessMemory(NT_CURRENT_PROCESS, check_pc, is_readable_buf,
-                               sizeof(is_readable_buf), (SIZE_T*) &bytes_read) ||
+                               sizeof(is_readable_buf), (SIZE_T *)&bytes_read) ||
             bytes_read != sizeof(is_readable_buf)) {
 #else
         if (!nt_read_virtual_memory(NT_CURRENT_PROCESS, check_pc, is_readable_buf,
@@ -148,42 +150,50 @@ is_readable_without_exception(const byte *pc, size_t size)
             return false;
         }
         check_pc += PAGE_SIZE;
-    } while (check_pc != 0/*overflow*/ && check_pc < pc+size);
+    } while (check_pc != 0 /*overflow*/ && check_pc < pc + size);
     return true;
 }
 
 #if defined(WINDOWS) && !defined(NOT_DYNAMORIO_CORE)
 /* Image entry point is stored at,
- * PEB->DOS_HEADER->NT_HEADER->OptionalHeader.AddressOfEntryPoint
+ * PEB->DOS_HEADER->NT_HEADER->OptionalHeader.AddressOfEntryPoint.
+ * Handles both 32-bit and 64-bit remote processes.
  */
-void *
+uint64
 get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code)
 {
-    PEB peb;
-    LPVOID peb_base;
-    IMAGE_DOS_HEADER *dos_ptr, dos;
-    IMAGE_NT_HEADERS *nt_ptr, nt;
+    uint64 peb_base;
+    /* Handle the two possible widths of peb.ImageBaseAddress: */
+    union {
+        uint64 dos64;
+        uint dos32;
+    } dos_ptr;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS nt;
     bool res;
     size_t nbytes;
-
-    peb_base = get_peb(process_handle);
-    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base,
-                                 &peb, sizeof(peb), &nbytes);
-    if (!res || nbytes != sizeof(peb))
-        return NULL;
-    dos_ptr = (IMAGE_DOS_HEADER *)peb.ImageBaseAddress;
-    res = nt_read_virtual_memory(process_handle, (void*)dos_ptr,
-                                 &dos, sizeof(dos), &nbytes);
+    bool peb_is_32 = IF_X64_ELSE(false, is_32bit_process(process_handle));
+    /* Read peb.ImageBaseAddress. */
+    peb_base = get_peb_maybe64(process_handle);
+    res = read_remote_memory_maybe64(
+        process_handle,
+        peb_base + (peb_is_32 ? X86_IMAGE_BASE_PEB_OFFSET : X64_IMAGE_BASE_PEB_OFFSET),
+        &dos_ptr, sizeof(dos_ptr), &nbytes);
+    if (!res || nbytes != sizeof(dos_ptr))
+        return 0;
+    uint64 dos_base = peb_is_32 ? dos_ptr.dos32 : dos_ptr.dos64;
+    res =
+        read_remote_memory_maybe64(process_handle, dos_base, &dos, sizeof(dos), &nbytes);
     if (!res || nbytes != sizeof(dos))
-        return NULL;
-    nt_ptr = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos_ptr) + dos.e_lfanew);
-    res = nt_read_virtual_memory(process_handle, (void*)nt_ptr,
-                                 &nt, sizeof(nt), &nbytes);
+        return 0;
+    res = read_remote_memory_maybe64(process_handle, dos_base + dos.e_lfanew, &nt,
+                                     sizeof(nt), &nbytes);
     if (!res || nbytes != sizeof(nt))
-        return NULL;
+        return 0;
+    /* IMAGE_NT_HEADERS.FileHeader == IMAGE_NT_HEADERS64.FileHeader */
     *x86_code = nt.FileHeader.Machine == IMAGE_FILE_MACHINE_I386;
-    return (void*)((byte*)dos_ptr +
-                   (size_t)nt.OptionalHeader.AddressOfEntryPoint);
+    ASSERT(BOOLS_MATCH(is_32bit_process(process_handle), *x86_code));
+    return dos_base + (size_t)OPT_HDR(&nt, AddressOfEntryPoint);
 }
 #endif
 
@@ -195,14 +205,13 @@ get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code)
  * readability of any RVAs it contains (for that use get_module_exports_directory_check
  * or verify in the caller at usage). Xref case 9717.
  */
-static
-IMAGE_EXPORT_DIRECTORY*
+static IMAGE_EXPORT_DIRECTORY *
 get_module_exports_directory_common(app_pc base_addr,
                                     size_t *exports_size /* OPTIONAL OUT */
-                                    _IF_NOT_X64(bool ldr64))
+                                        _IF_NOT_X64(bool ldr64))
 {
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) base_addr;
-    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (base_addr + dos->e_lfanew);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base_addr;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base_addr + dos->e_lfanew);
     IMAGE_DATA_DIRECTORY *expdir;
     ASSERT(dos->e_magic == IMAGE_DOS_SIGNATURE);
     ASSERT(nt != NULL && nt->Signature == IMAGE_NT_SIGNATURE);
@@ -214,7 +223,7 @@ get_module_exports_directory_common(app_pc base_addr,
 #endif
         expdir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_EXPORT;
 
-    /* avoid preinject link issues: we don't have is_readable_pe_base */
+        /* avoid preinject link issues: we don't have is_readable_pe_base */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* callers should have done this in release builds */
     ASSERT(is_readable_pe_base(base_addr));
@@ -228,30 +237,30 @@ get_module_exports_directory_common(app_pc base_addr,
         /* We do see MEM_MAPPED PE files: case 7947 */
         if (mbi.Type != MEM_IMAGE) {
             LOG(THREAD_GET, LOG_SYMBOLS, 1,
-                "get_module_exports_directory(base_addr="PFX"): !MEM_IMAGE\n",
+                "get_module_exports_directory(base_addr=" PFX "): !MEM_IMAGE\n",
                 base_addr);
             ASSERT_CURIOSITY(expdir == NULL || expdir->Size == 0);
         }
     });
 
     LOG(THREAD_GET, LOG_SYMBOLS, 5,
-        "get_module_exports_directory(base_addr="PFX", expdir="PFX")\n",
-        base_addr, expdir);
+        "get_module_exports_directory(base_addr=" PFX ", expdir=" PFX ")\n", base_addr,
+        expdir);
 
     if (expdir != NULL) {
         ULONG size = expdir->Size;
         ULONG exports_vaddr = expdir->VirtualAddress;
 
         LOG(THREAD_GET, LOG_SYMBOLS, 5,
-            "get_module_exports_directory(base_addr="PFX") expdir="PFX
+            "get_module_exports_directory(base_addr=" PFX ") expdir=" PFX
             " size=%d exports_vaddr=%d\n",
             base_addr, expdir, size, exports_vaddr);
 
         /* not all DLLs have exports - e.g. drpreinject.dll, or
          * shdoclc.dll in notepad help */
         if (size > 0) {
-            IMAGE_EXPORT_DIRECTORY *exports = (IMAGE_EXPORT_DIRECTORY *)
-                (base_addr + exports_vaddr);
+            IMAGE_EXPORT_DIRECTORY *exports =
+                (IMAGE_EXPORT_DIRECTORY *)(base_addr + exports_vaddr);
             ASSERT_CURIOSITY(size >= sizeof(IMAGE_EXPORT_DIRECTORY));
             if (is_readable_without_exception((app_pc)exports,
                                               sizeof(IMAGE_EXPORT_DIRECTORY))) {
@@ -273,25 +282,23 @@ get_module_exports_directory_common(app_pc base_addr,
 /* Same as get_module_exports_directory except also verifies that the functions (and,
  * if check_names, ordinals and fnames) arrays are readable. NOTE - does not verify that
  * the RVA names pointed to by fnames are themselves readable strings. */
-static
-IMAGE_EXPORT_DIRECTORY*
+static IMAGE_EXPORT_DIRECTORY *
 get_module_exports_directory_check_common(app_pc base_addr,
                                           size_t *exports_size /*OPTIONAL OUT*/,
-                                          bool check_names
-                                          _IF_NOT_X64(bool ldr64))
+                                          bool check_names _IF_NOT_X64(bool ldr64))
 {
-    IMAGE_EXPORT_DIRECTORY *exports = get_module_exports_directory_common
-        (base_addr, exports_size _IF_NOT_X64(ldr64));
+    IMAGE_EXPORT_DIRECTORY *exports =
+        get_module_exports_directory_common(base_addr, exports_size _IF_NOT_X64(ldr64));
     if (exports != NULL) {
-        PULONG functions =  (PULONG) (base_addr + exports->AddressOfFunctions);
-        PUSHORT ordinals = (PUSHORT) (base_addr + exports->AddressOfNameOrdinals);
-        PULONG fnames    =  (PULONG) (base_addr + exports->AddressOfNames);
+        PULONG functions = (PULONG)(base_addr + exports->AddressOfFunctions);
+        PUSHORT ordinals = (PUSHORT)(base_addr + exports->AddressOfNameOrdinals);
+        PULONG fnames = (PULONG)(base_addr + exports->AddressOfNames);
         if (exports->NumberOfFunctions > 0) {
-            if (!is_readable_without_exception((byte *)functions,
-                                               exports->NumberOfFunctions *
-                                               sizeof(*functions))) {
-                ASSERT_CURIOSITY(false &&  "ill-formed exports directory, unreadable "
-                                 "functions array, partial map?" ||
+            if (!is_readable_without_exception(
+                    (byte *)functions, exports->NumberOfFunctions * sizeof(*functions))) {
+                ASSERT_CURIOSITY(false &&
+                                     "ill-formed exports directory, unreadable "
+                                     "functions array, partial map?" ||
                                  EXEMPT_TEST("win32.partial_map.exe"));
                 return NULL;
             }
@@ -299,12 +306,13 @@ get_module_exports_directory_check_common(app_pc base_addr,
         if (exports->NumberOfNames > 0 && check_names) {
             ASSERT_CURIOSITY(exports->NumberOfFunctions > 0 &&
                              "ill-formed exports directory");
-            if (!is_readable_without_exception((byte *)ordinals, exports->NumberOfNames *
-                                               sizeof(*ordinals)) ||
-                !is_readable_without_exception((byte *)fnames, exports->NumberOfNames *
-                                               sizeof(*fnames))) {
-                ASSERT_CURIOSITY(false &&  "ill-formed exports directory, unreadable "
-                                 "ordinal or names array, partial map?" ||
+            if (!is_readable_without_exception(
+                    (byte *)ordinals, exports->NumberOfNames * sizeof(*ordinals)) ||
+                !is_readable_without_exception(
+                    (byte *)fnames, exports->NumberOfNames * sizeof(*fnames))) {
+                ASSERT_CURIOSITY(false &&
+                                     "ill-formed exports directory, unreadable "
+                                     "ordinal or names array, partial map?" ||
                                  EXEMPT_TEST("win32.partial_map.exe"));
                 return NULL;
             }
@@ -330,8 +338,8 @@ get_module_exports_directory_check_common(app_pc base_addr,
  * behavior we want?). Name is case insensitive.
  */
 static generic_func_t
-get_proc_address_common(module_base_t lib, const char *name, uint ordinal
-                        _IF_NOT_X64(bool ldr64), const char **forwarder OUT)
+get_proc_address_common(module_base_t lib, const char *name,
+                        uint ordinal _IF_NOT_X64(bool ldr64), const char **forwarder OUT)
 {
     app_pc module_base;
     size_t exports_size;
@@ -339,7 +347,7 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
     IMAGE_EXPORT_DIRECTORY *exports;
     PULONG functions; /* array of RVAs */
     PUSHORT ordinals;
-    PULONG fnames; /* array of RVAs */
+    PULONG fnames;       /* array of RVAs */
     uint ord = UINT_MAX; /* the ordinal to use */
     app_pc func;
 
@@ -356,7 +364,8 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
     if (lib == NULL || (ordinal == UINT_MAX && (name == NULL || *name == '\0')))
         return NULL;
 
-    /* avoid non-core issues: we don't have get_allocation_size or is_readable_pe_base */
+        /* avoid non-core issues: we don't have get_allocation_size or is_readable_pe_base
+         */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* FIXME - get_allocation_size and is_readable_pe_base are expensive
      * operations, we could put the onus on the caller to only pass in a
@@ -367,24 +376,39 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
     if (!is_readable_pe_base(module_base))
         return NULL;
 #else
-    module_base = (app_pc) lib;
+    module_base = (app_pc)lib;
 #endif
 
-    exports = get_module_exports_directory_check_common
-        (module_base, &exports_size, true _IF_NOT_X64(ldr64));
-    if (exports == NULL || exports_size == 0 || exports->NumberOfNames == 0 ||
-        /* just extra sanity check */ exports->AddressOfNames == 0)
+    exports = get_module_exports_directory_check_common(module_base, &exports_size,
+                                                        true _IF_NOT_X64(ldr64));
+
+    /* NB: There are some DLLs (like System32\profapi.dll) that have no named
+     * exported functions names, only ordinals. As a result, the only correct
+     * checks we can do here are on the presence and size of the export table
+     * and the presence and count of the function export list.
+     */
+    if (exports == NULL || exports_size == 0 || exports->AddressOfFunctions == 0 ||
+        exports->NumberOfFunctions == 0) {
+        LOG(GLOBAL, LOG_INTERP, 1, "%s: module 0x%08x doesn't have any exports\n",
+            __FUNCTION__, module_base);
         return NULL;
+    }
 
     /* avoid preinject issues: doesn't have module_size */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-    /* sanity check */
-    ASSERT(exports->AddressOfFunctions < module_size &&
-           exports->AddressOfFunctions > 0 &&
-           exports->AddressOfNameOrdinals < module_size &&
-           exports->AddressOfNameOrdinals > 0 &&
-           exports->AddressOfNames < module_size &&
-           exports->AddressOfNames > 0);
+    /* sanity checks, split up for readability */
+    /* The DLL either exports nothing or has a sane combination of export
+     * table address and function count.
+     */
+    ASSERT(exports->AddressOfFunctions == 0 ||
+           (exports->AddressOfFunctions < module_size && exports->NumberOfFunctions > 0));
+
+    /* The DLL either exports no names for its functions or has a sane combination
+     * of name and ordinal table addresses and counts.
+     */
+    ASSERT((exports->AddressOfNames == 0 && exports->AddressOfNameOrdinals == 0) ||
+           (exports->AddressOfNames < module_size &&
+            exports->AddressOfNameOrdinals < module_size && exports->NumberOfNames > 0));
 #endif
 
     functions = (PULONG)(module_base + exports->AddressOfFunctions);
@@ -396,26 +420,38 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
          * support ordinals starting at 1 (i#1866).
          */
         ord = ordinal - exports->Base;
+    } else if (name[0] == '#') {
+        /* Ordinal forwarders are formatted as #XXX, when XXX is a positive
+         * base-10 integer.
+         */
+        if (sscanf(name, "#%u", &ord) != 1) {
+            ASSERT_CURIOSITY(false && "non-numeric ordinal forwarder");
+            return NULL;
+        }
+
+        /* Like raw ordinals, these are offset from the export base.
+         */
+        ord -= exports->Base;
     } else {
         /* FIXME - linear walk, if this routine becomes performance critical we
          * we should use a binary search. */
         bool match = false;
         for (i = 0; i < exports->NumberOfNames; i++) {
             char *export_name = (char *)(module_base + fnames[i]);
-            ASSERT_CURIOSITY((app_pc)export_name > module_base &&  /* sanity check */
-                             (app_pc)export_name < module_base + module_size ||
+            ASSERT_CURIOSITY((app_pc)export_name > module_base && /* sanity check */
+                                 (app_pc)export_name < module_base + module_size ||
                              EXEMPT_TEST("win32.partial_map.exe"));
             /* FIXME - xref case 9717, we haven't verified that export_name string is
              * safely readable (might not be the case for improperly formed or partially
              * mapped module) and the try will only protect us if we have a thread_private
              * dcontext. Could use is_string_readable_without_exception(), but that may be
              * too much of a perf hit for the no private dcontext case. */
-            TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
-                match = (strcasecmp(name, export_name) == 0);
-            }, {
-                ASSERT_CURIOSITY_ONCE(false && "Exception during get_proc_address" ||
-                                      EXEMPT_TEST("win32.partial_map.exe"));
-            });
+            TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+                dcontext, { match = (strcasecmp(name, export_name) == 0); },
+                {
+                    ASSERT_CURIOSITY_ONCE(false && "Exception during get_proc_address" ||
+                                          EXEMPT_TEST("win32.partial_map.exe"));
+                });
             if (match) {
                 /* we have a match */
                 ord = ordinals[i];
@@ -437,8 +473,7 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
     if (func == module_base) {
         /* entries can be 0 when no code/data is exported for that
          * ordinal */
-        ASSERT_CURIOSITY(false &&
-                         "get_proc_addr of name with empty export");
+        ASSERT_CURIOSITY(false && "get_proc_addr of name with empty export");
         return NULL;
     }
     /* avoid non-core issues: we don't have module_size */
@@ -457,14 +492,14 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
              */
             return convert_data_to_function(func);
         }
-        ASSERT_CURIOSITY(false && "get_proc_addr export location "
-                         "outside of module bounds" ||
+        ASSERT_CURIOSITY(false &&
+                             "get_proc_addr export location "
+                             "outside of module bounds" ||
                          EXEMPT_TEST("win32.partial_map.exe"));
         return NULL;
     }
 #endif
-    if (func >= (app_pc)exports &&
-        func < (app_pc)exports + exports_size) {
+    if (func >= (app_pc)exports && func < (app_pc)exports + exports_size) {
         /* FIXME - is forwarded function, should we still return it
          * or return the target? Check - what does GetProcAddress do?
          * For now we return NULL. Looking up the target would require
@@ -473,51 +508,38 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
          * up anyways. */
         if (forwarder != NULL) {
             /* func should point at something like "NTDLL.strlen" */
-            *forwarder = (const char *) func;
+            *forwarder = (const char *)func;
             return NULL;
         } else {
-            ASSERT_NOT_IMPLEMENTED(false &&
-                                   "get_proc_addr export is forwarded");
+            ASSERT_NOT_IMPLEMENTED(false && "get_proc_addr export is forwarded");
             return NULL;
         }
     }
     /* avoid non-core issues: we don't have is_in_code_section */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-# ifndef CLIENT_INTERFACE
-    /* CLIENT_INTERFACE uses a data export for versioning (PR 250952) */
-    /* FIXME - this check is also somewhat costly. */
-    if (!is_in_code_section(module_base, func, NULL, NULL)) {
-        /* FIXME - export isn't in a code section. Prob. a data
-         * export?  For now we return NULL as all current users are
-         * going to call or hook the returned value. */
-        ASSERT_CURIOSITY(false &&
-                         "get_proc_addr export not in code section");
-        return NULL;
-    }
-# endif
 #endif
     /* get around warnings converting app_pc to generic_func_t */
     return convert_data_to_function(func);
 }
 
-IMAGE_EXPORT_DIRECTORY*
+IMAGE_EXPORT_DIRECTORY *
 get_module_exports_directory(app_pc base_addr, size_t *exports_size /* OPTIONAL OUT */)
 {
-    return get_module_exports_directory_common
-        (base_addr, exports_size _IF_NOT_X64(false));
+    return get_module_exports_directory_common(base_addr,
+                                               exports_size _IF_NOT_X64(false));
 }
 
-IMAGE_EXPORT_DIRECTORY*
+IMAGE_EXPORT_DIRECTORY *
 get_module_exports_directory_check(app_pc base_addr,
                                    size_t *exports_size /*OPTIONAL OUT*/,
                                    bool check_names)
 {
-    return get_module_exports_directory_check_common
-        (base_addr, exports_size, check_names _IF_NOT_X64(false));
+    return get_module_exports_directory_check_common(base_addr, exports_size,
+                                                     check_names _IF_NOT_X64(false));
 }
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name)
+d_r_get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), NULL);
 }
@@ -538,14 +560,13 @@ get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwar
     return get_proc_address_common(lib, NULL, ordinal _IF_NOT_X64(false), forwarder);
 }
 
-#if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE) &&\
-    !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 
 generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name)
 {
     /* We match GetProcAddress and follow forwarded exports (i#428).
-     * Not doing this inside get_proc_address() b/c I'm not certain the core
+     * Not doing this inside d_r_get_proc_address() b/c I'm not certain the core
      * never relies on the answer being inside the asked-about module.
      */
     const char *forwarder, *forwfunc;
@@ -562,26 +583,25 @@ get_proc_address_resolve_forward(module_base_t lib, const char *name)
          * so I've never seen a full filename or path.
          * but there could still be extra dots somewhere: watch for them.
          */
-        if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc+1, '.') != NULL) {
+        if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc + 1, '.') != NULL) {
             CLIENT_ASSERT(false, "unexpected forwarder string");
             return NULL;
         }
-        if (forwfunc - forwarder + strlen("dll") >=
-            BUFFER_SIZE_ELEMENTS(forwmodpath)) {
+        if (forwfunc - forwarder + strlen("dll") >= BUFFER_SIZE_ELEMENTS(forwmodpath)) {
             CLIENT_ASSERT(false, "import string too long");
-            LOG(GLOBAL, LOG_INTERP, 1, "%s: import string %s too long\n",
-                __FUNCTION__, forwarder);
+            LOG(GLOBAL, LOG_INTERP, 1, "%s: import string %s too long\n", __FUNCTION__,
+                forwarder);
             return NULL;
         }
         snprintf(forwmodpath, forwfunc - forwarder, "%s", forwarder);
         snprintf(forwmodpath + (forwfunc - forwarder), strlen("dll"), "dll");
-        forwmodpath[forwfunc - 1/*'.'*/ - forwarder + strlen(".dll")] = '\0';
-        LOG(GLOBAL, LOG_INTERP, 3, "\tforwarder %s => %s %s\n",
-            forwarder, forwmodpath, forwfunc);
+        forwmodpath[forwfunc - 1 /*'.'*/ - forwarder + strlen(".dll")] = '\0';
+        LOG(GLOBAL, LOG_INTERP, 3, "\tforwarder %s => %s %s\n", forwarder, forwmodpath,
+            forwfunc);
         forwmod = dr_lookup_module_by_name(forwmodpath);
         if (forwmod == NULL) {
-            LOG(GLOBAL, LOG_INTERP, 1, "%s: unable to load forwarder for %s\n"
-                __FUNCTION__, forwarder);
+            LOG(GLOBAL, LOG_INTERP, 1,
+                "%s: unable to load forwarder for %s\n" __FUNCTION__, forwarder);
             return NULL;
         }
         /* should be listed as import; don't want to inc ref count on each forw */
@@ -600,12 +620,12 @@ dr_symbol_export_iterator_start(module_handle_t handle)
 
     iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
     memset(iter, 0, sizeof(*iter));
-    iter->mod_base = (byte *) handle;
+    iter->mod_base = (byte *)handle;
     iter->mod_size = get_allocation_size(iter->mod_base, &base_check);
     if (base_check != iter->mod_base || !is_readable_pe_base(base_check))
         goto error;
-    iter->exports = get_module_exports_directory_check_common
-        (iter->mod_base, &iter->exports_size, true _IF_NOT_X64(false));
+    iter->exports = get_module_exports_directory_check_common(
+        iter->mod_base, &iter->exports_size, true _IF_NOT_X64(false));
     if (iter->exports == NULL || iter->exports_size == 0 ||
         iter->exports->AddressOfNames >= iter->mod_size ||
         iter->exports->AddressOfFunctions >= iter->mod_size ||
@@ -618,7 +638,7 @@ dr_symbol_export_iterator_start(module_handle_t handle)
     iter->idx = 0;
     iter->hasnext = (iter->idx < iter->exports->NumberOfNames);
 
-    return (dr_symbol_export_iterator_t *) iter;
+    return (dr_symbol_export_iterator_t *)iter;
 
 error:
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
@@ -629,7 +649,7 @@ DR_API
 bool
 dr_symbol_export_iterator_hasnext(dr_symbol_export_iterator_t *dr_iter)
 {
-    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *) dr_iter;
+    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *)dr_iter;
     return (iter != NULL && iter->hasnext);
 }
 
@@ -637,7 +657,7 @@ DR_API
 dr_symbol_export_t *
 dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *dr_iter)
 {
-    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *) dr_iter;
+    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *)dr_iter;
     dcontext_t *dcontext = get_thread_private_dcontext();
 
     CLIENT_ASSERT(iter != NULL, "invalid parameter");
@@ -663,7 +683,7 @@ dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *dr_iter)
         /* an already-patched forward -- we leave as is */
     } else if (iter->info.addr >= (app_pc)iter->exports &&
                iter->info.addr < (app_pc)iter->exports + iter->exports_size) {
-        iter->info.forward = (const char *) iter->info.addr;
+        iter->info.forward = (const char *)iter->info.addr;
         iter->info.addr = NULL;
     }
     iter->info.is_code = true;
@@ -677,13 +697,13 @@ DR_API
 void
 dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 {
-    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *) dr_iter;
+    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *)dr_iter;
     if (iter == NULL)
         return;
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
 
-# endif /* CLIENT_INTERFACE */
+#    endif /* core proper */
 
 /* returns NULL if no loader module is found
  * N.B.: walking loader data structures at random times is dangerous! See
@@ -700,7 +720,7 @@ get_ldr_module_by_name(wchar_t *name)
     PEB_LDR_DATA *ldr = peb->LoaderData;
     LIST_ENTRY *e, *mark;
     LDR_MODULE *mod;
-    uint traversed = 0;     /* a simple infinite loop break out */
+    uint traversed = 0; /* a simple infinite loop break out */
 
     /* Now, you'd think these would actually be in memory order, but they
      * don't seem to be for me!
@@ -708,8 +728,7 @@ get_ldr_module_by_name(wchar_t *name)
     mark = &ldr->InMemoryOrderModuleList;
 
     for (e = mark->Flink; e != mark; e = e->Flink) {
-        mod = (LDR_MODULE *) ((char *)e -
-                              offsetof(LDR_MODULE, InMemoryOrderModuleList));
+        mod = (LDR_MODULE *)((char *)e - offsetof(LDR_MODULE, InMemoryOrderModuleList));
         /* NOTE - for comparison we could use pe_name or mod->BaseDllName.
          * Our current usage is just to get user32.dll for which BaseDllName
          * is prob. better (can't rename user32, and a random dll could have
@@ -751,16 +770,15 @@ ldr_module_statically_linked(LDR_MODULE *mod)
      * are very confusingly used, so for now we accept any of the 3.
      */
     bool win8plus = false;
-# if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
     PEB *peb = get_own_peb();
     win8plus = ((peb->OSMajorVersion == 6 && peb->OSMinorVersion >= 2) ||
                 peb->OSMajorVersion > 6);
-# else
+#    else
     win8plus = (get_os_version() >= WINDOWS_VERSION_8);
-# endif
+#    endif
     if (win8plus) {
-        return (mod->LoadCount == -1 ||
-                TEST(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
+        return (mod->LoadCount == -1 || TEST(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
                 mod->LoadReason == LoadReasonStaticDependency ||
                 mod->LoadReason == LoadReasonStaticForwarderDependency);
     } else
@@ -789,7 +807,7 @@ typedef struct ALIGN_VAR(8) _PEB_LDR_DATA_64 {
     ULONG Length;
     BOOLEAN Initialized;
     PVOID SsHandle;
-    uint  SsHandle_hi;
+    uint SsHandle_hi;
     LIST_ENTRY_64 InLoadOrderModuleList;
     LIST_ENTRY_64 InMemoryOrderModuleList;
     LIST_ENTRY_64 InInitializationOrderModuleList;
@@ -815,22 +833,13 @@ typedef struct ALIGN_VAR(8) _LDR_MODULE_64 {
     ULONG TimeDateStamp;
 } LDR_MODULE_64;
 
-typedef void (*void_func_t) ();
+typedef void (*void_func_t)();
 
-#define MAX_MODNAME_SIZE 128
-#define MAX_FUNCNAME_SIZE 128
+#    define MAX_MODNAME_SIZE 128
 
-/* in arch/x86.asm */
+/* in drlibc_x86.asm */
 extern int
 switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *result);
-
-/* in arch/x86.asm */
-/* Switches from 32-bit mode to 64-bit mode and invokes func, passing
- * arg1, arg2, and arg3.  Works fine when func takes fewer than 3 args
- * as well.
- */
-extern int
-switch_modes_and_call(uint64 func, void *arg1, void *arg2, void *arg3);
 
 /* Here and not in ntdll.c b/c libutil targets link to this file but not
  * ntdll.c
@@ -845,22 +854,24 @@ get_own_x64_peb(void)
     uint peb64, peb64_hi;
     if (!is_wow64_process(NT_CURRENT_PROCESS)) {
         ASSERT_NOT_REACHED();
-        return NULL;
+        return 0;
     }
     __asm {
         mov eax, dword ptr gs:X64_PEB_TIB_OFFSET
         mov peb64, eax
         mov eax, dword ptr gs:(X64_PEB_TIB_OFFSET+4)
         mov peb64_hi, eax
-    };
+    }
+    ;
     ASSERT(peb64_hi == 0); /* Though could we even read it if it were high? */
-    return (uint64) peb64;
+    return (uint64)peb64;
 }
 
-#ifdef NOT_DYNAMORIO_CORE
+#    ifdef NOT_DYNAMORIO_CORE
 /* This is not in the headers exported to libutil */
-process_id_t get_process_id(void);
-#endif
+process_id_t
+get_process_id(void);
+#    endif
 
 static bool
 read64(uint64 addr, size_t sz, void *buf)
@@ -871,21 +882,21 @@ read64(uint64 addr, size_t sz, void *buf)
     /* On Win10, passing NT_CURRENT_PROCESS results in STATUS_INVALID_HANDLE
      * (pretty strange).
      */
-#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
     if (get_os_version() >= WINDOWS_VERSION_10)
         proc = process_handle_from_id(get_process_id());
-#else
+#    else
     /* We don't have easy access to version info or PEB so we always use a real handle */
-    proc = OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION, FALSE,
+    proc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE,
                        GetCurrentProcessId());
-#endif
+#    endif
     res = nt_wow64_read_virtual_memory64(proc, addr, buf, sz, &got);
     if (proc != NT_CURRENT_PROCESS) {
-#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
         close_handle(proc);
-#else
+#    else
         CloseHandle(proc);
-#endif
+#    endif
     }
     return (NT_SUCCESS(res) && got == sz);
 }
@@ -916,7 +927,7 @@ get_ldr_module_64(const wchar_t *name, uint64 base, LDR_MODULE_64 *out)
     LIST_ENTRY_64 e, mark;
     LDR_MODULE_64 mod;
     wchar_t local_buf[MAX_MODNAME_SIZE];
-    uint traversed = 0;     /* a simple infinite loop break out */
+    uint traversed = 0; /* a simple infinite loop break out */
 
     if (ldr_addr == 0 || !read64(ldr_addr, sizeof(ldr), &ldr))
         return false;
@@ -940,7 +951,7 @@ get_ldr_module_64(const wchar_t *name, uint64 base, LDR_MODULE_64 *out)
             if (!read64(mod.BaseDllName.u.Buffer64, len, local_buf))
                 return false;
             if (len < BUFFER_SIZE_BYTES(local_buf))
-                local_buf[len/sizeof(wchar_t)] = L'\0';
+                local_buf[len / sizeof(wchar_t)] = L'\0';
             else
                 NULL_TERMINATE_BUFFER(local_buf);
             if (wcscasecmp(name, local_buf) == 0) {
@@ -980,8 +991,8 @@ get_module_handle_64(const wchar_t *name)
 {
     /* Be careful: we can't directly de-ref any ptrs b/c they can be >4GB */
     LDR_MODULE_64 mod;
-    if (!get_ldr_module_64(name, NULL, &mod))
-        return NULL;
+    if (!get_ldr_module_64(name, 0, &mod))
+        return 0;
     return mod.BaseAddress;
 }
 
@@ -1000,13 +1011,12 @@ get_proc_address_64(uint64 lib, const char *name)
     uint i;
     PULONG functions; /* array of RVAs */
     PUSHORT ordinals;
-    PULONG fnames; /* array of RVAs */
+    PULONG fnames;       /* array of RVAs */
     uint ord = UINT_MAX; /* the ordinal to use */
     uint64 func = 0;
     char local_buf[MAX_FUNCNAME_SIZE];
 
-    if (!read64(lib, sizeof(dos), &dos) ||
-        !read64(lib + dos.e_lfanew, sizeof(nt), &nt))
+    if (!read64(lib, sizeof(dos), &dos) || !read64(lib + dos.e_lfanew, sizeof(nt), &nt))
         return 0;
     ASSERT(dos.e_magic == IMAGE_DOS_SIGNATURE);
     ASSERT(nt.Signature == IMAGE_NT_SIGNATURE);
@@ -1019,27 +1029,27 @@ get_proc_address_64(uint64 lib, const char *name)
     if (exports.NumberOfNames == 0 || exports.AddressOfNames == 0)
         return 0;
 
-#if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
-    functions = (PULONG)
-        HeapAlloc(GetProcessHeap(), 0, exports.NumberOfFunctions * sizeof(ULONG));
-    ordinals = (PUSHORT)
-        HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(USHORT));
-    fnames = (PULONG)
-        HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(ULONG));
-#else
-    functions = (PULONG)
-        global_heap_alloc(exports.NumberOfFunctions * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
-    ordinals = (PUSHORT)
-        global_heap_alloc(exports.NumberOfNames * sizeof(USHORT) HEAPACCT(ACCT_OTHER));
-    fnames = (PULONG)
-        global_heap_alloc(exports.NumberOfNames * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
-#endif
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    functions =
+        (PULONG)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfFunctions * sizeof(ULONG));
+    ordinals =
+        (PUSHORT)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(USHORT));
+    fnames =
+        (PULONG)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(ULONG));
+#    else
+    functions = (PULONG)global_heap_alloc(exports.NumberOfFunctions *
+                                          sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+    ordinals = (PUSHORT)global_heap_alloc(exports.NumberOfNames *
+                                          sizeof(USHORT) HEAPACCT(ACCT_OTHER));
+    fnames = (PULONG)global_heap_alloc(exports.NumberOfNames *
+                                       sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+#    endif
     if (read64(lib + exports.AddressOfFunctions,
                exports.NumberOfFunctions * sizeof(ULONG), functions) &&
         read64(lib + exports.AddressOfNameOrdinals,
                exports.NumberOfNames * sizeof(USHORT), ordinals) &&
-        read64(lib + exports.AddressOfNames,
-               exports.NumberOfNames * sizeof(ULONG), fnames)) {
+        read64(lib + exports.AddressOfNames, exports.NumberOfNames * sizeof(ULONG),
+               fnames)) {
         bool match = false;
         for (i = 0; i < exports.NumberOfNames; i++) {
             if (!read64(lib + fnames[i], BUFFER_SIZE_BYTES(local_buf), local_buf))
@@ -1057,18 +1067,17 @@ get_proc_address_64(uint64 lib, const char *name)
              functions[ord] >= expdir->VirtualAddress + exports_size))
             func = lib + functions[ord];
     }
-#if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
     HeapFree(GetProcessHeap(), 0, functions);
     HeapFree(GetProcessHeap(), 0, ordinals);
     HeapFree(GetProcessHeap(), 0, fnames);
-#else
-    global_heap_free(functions, exports.NumberOfFunctions * sizeof(ULONG)
-                     HEAPACCT(ACCT_OTHER));
-    global_heap_free(ordinals, exports.NumberOfNames * sizeof(USHORT)
-                     HEAPACCT(ACCT_OTHER));
-    global_heap_free(fnames, exports.NumberOfNames * sizeof(ULONG)
-                     HEAPACCT(ACCT_OTHER));
-#endif
+#    else
+    global_heap_free(functions,
+                     exports.NumberOfFunctions * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+    global_heap_free(ordinals,
+                     exports.NumberOfNames * sizeof(USHORT) HEAPACCT(ACCT_OTHER));
+    global_heap_free(fnames, exports.NumberOfNames * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+#    endif
     return func;
 }
 
@@ -1076,7 +1085,7 @@ get_proc_address_64(uint64 lib, const char *name)
  * to switch _snwprintf, etc. to work w/ UNICODE.
  * Up to caller to synchronize and avoid interfering w/ app.
  */
-# ifndef NOT_DYNAMORIO_CORE
+#    ifndef NOT_DYNAMORIO_CORE
 HANDLE
 load_library_64(const char *path)
 {
@@ -1093,9 +1102,9 @@ load_library_64(const char *path)
     NULL_TERMINATE_BUFFER(wpath);
 
     ASSERT((wcslen(wpath) + 1) * sizeof(wchar_t) <= USHRT_MAX);
-    us.Length = (USHORT) wcslen(wpath) * sizeof(wchar_t);
+    us.Length = (USHORT)wcslen(wpath) * sizeof(wchar_t);
     /* If not >= 2 bytes larger then STATUS_INVALID_PARAMETER ((NTSTATUS)0xC000000DL) */
-    us.MaximumLength = (USHORT) (wcslen(wpath) + 1) * sizeof(wchar_t);
+    us.MaximumLength = (USHORT)(wcslen(wpath) + 1) * sizeof(wchar_t);
     us.u.b32.Buffer32 = wpath;
     us.u.b32.Buffer32_hi = 0;
 
@@ -1105,13 +1114,13 @@ load_library_64(const char *path)
     if (ntdll64 > UINT_MAX || ntdll64 == 0)
         return NULL;
 
-    LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64 at "UINT64_FORMAT_STRING" %s\n",
+    LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64 at " UINT64_FORMAT_STRING " %s\n",
         ntdll64, path);
     /* There is no kernel32 so we use LdrLoadDll.
      * 32-bit GetProcAddress is doing some header checks and fails,
      * Our 32-bit get_proc_address does work though.
      */
-    ntdll64_LoadLibrary = (byte *)(uint) get_proc_address_64(ntdll64, "LdrLoadDll");
+    ntdll64_LoadLibrary = (byte *)(uint)get_proc_address_64(ntdll64, "LdrLoadDll");
     LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64!LdrLoadDll at 0x%08x\n",
         ntdll64_LoadLibrary);
     if (ntdll64_LoadLibrary == NULL)
@@ -1124,11 +1133,11 @@ load_library_64(const char *path)
      * loading kernel32, though its entry point fails on Vista+).
      */
     success = switch_modes_and_load(ntdll64_LoadLibrary, &us, &result);
-    LOG(THREAD_GET, LOG_LOADER, 3, "Loaded at 0x%08x with success 0x%08x\n",
-        result, success);
+    LOG(THREAD_GET, LOG_LOADER, 3, "Loaded at 0x%08x with success 0x%08x\n", result,
+        success);
     if (success >= 0) {
         /* preinject doesn't have get_os_version() but it only loads DR */
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+#        if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
         if (get_os_version() >= WINDOWS_VERSION_VISTA) {
             /* The WOW64 x64 loader on Vista+ does not seem to
              * call any entry points so we do so here.
@@ -1141,11 +1150,11 @@ load_library_64(const char *path)
              */
             LDR_MODULE_64 mod;
             dr_auxlib64_routine_ptr_t entry;
-            DEBUG_DECLARE(bool ok = )
-                get_ldr_module_64(NULL, (uint64)result, &mod);
+            DEBUG_DECLARE(bool ok =)
+            get_ldr_module_64(NULL, (uint64)result, &mod);
             ASSERT(ok);
-            entry = (dr_auxlib64_routine_ptr_t) mod.EntryPoint;
-            if (entry != NULL) {
+            entry = (dr_auxlib64_routine_ptr_t)mod.EntryPoint;
+            if (entry != 0) {
                 if (dr_invoke_x64_routine(entry, 3, result, DLL_PROCESS_ATTACH, NULL))
                     return result;
                 else {
@@ -1155,7 +1164,7 @@ load_library_64(const char *path)
             } else
                 return result;
         } else
-#endif
+#        endif
             return result;
     }
     return NULL;
@@ -1171,11 +1180,33 @@ free_library_64(HANDLE lib)
     if (ntdll64 > UINT_MAX || ntdll64 == 0)
         return false;
     ntdll64_LdrUnloadDll = get_proc_address_64(ntdll64, "LdrUnloadDll");
-    res = switch_modes_and_call(ntdll64_LdrUnloadDll, (void *)lib, NULL, NULL);
+    invoke_func64_t args = { ntdll64_LdrUnloadDll, (uint64)lib };
+    res = switch_modes_and_call(&args);
     return (res >= 0);
 }
 
-#  ifndef NOT_DYNAMORIO_CORE_PROPER
+size_t
+nt_get_context64_size(void)
+{
+    static size_t context64_size;
+    if (context64_size == 0) {
+        uint64 ntdll64_RtlGetExtendedContextLength;
+        int len = 0;
+        uint64 len_param = (uint64)&len;
+        uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
+        ASSERT(ntdll64 != 0);
+        ntdll64_RtlGetExtendedContextLength =
+            get_proc_address_64(ntdll64, "RtlGetExtendedContextLength");
+        invoke_func64_t args = { ntdll64_RtlGetExtendedContextLength, CONTEXT_XSTATE,
+                                 len_param };
+        NTSTATUS res = switch_modes_and_call(&args);
+        ASSERT(NT_SUCCESS(res));
+        /* Add 16 so we can align it forward to 16. */
+        context64_size = len + 16;
+    }
+    return context64_size;
+}
+
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 {
@@ -1186,11 +1217,12 @@ thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
      */
     uint64 ntdll64_GetContextThread;
     NTSTATUS res;
-    uint64 ntdll64= get_module_handle_64(L"ntdll.dll");
+    uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
     if (ntdll64 == 0)
         return false;
     ntdll64_GetContextThread = get_proc_address_64(ntdll64, "NtGetContextThread");
-    res = switch_modes_and_call(ntdll64_GetContextThread, thread, cxt64, NULL);
+    invoke_func64_t args = { ntdll64_GetContextThread, (uint64)thread, (uint64)cxt64 };
+    res = switch_modes_and_call(&args);
     return NT_SUCCESS(res);
 }
 
@@ -1199,17 +1231,282 @@ thread_set_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 {
     uint64 ntdll64_SetContextThread;
     NTSTATUS res;
-    uint64 ntdll64= get_module_handle_64(L"ntdll.dll");
+    uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
     if (ntdll64 == 0)
         return false;
     ntdll64_SetContextThread = get_proc_address_64(ntdll64, "NtSetContextThread");
-    res = switch_modes_and_call(ntdll64_SetContextThread, thread, cxt64, NULL);
+    invoke_func64_t args = { ntdll64_SetContextThread, (uint64)thread, (uint64)cxt64 };
+    res = switch_modes_and_call(&args);
     return NT_SUCCESS(res);
 }
-#  endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
-# endif /* !NOT_DYNAMORIO_CORE */
+bool
+remote_protect_virtual_memory_64(HANDLE process, uint64 base, size_t size, uint prot,
+                                 uint *old_prot)
+{
+    uint64 ntdll64_ProtectVirtualMemory;
+    NTSTATUS res;
+    uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == 0)
+        return false;
+    uint64 size64 = size;
+    uint64 *size_ptr = &size64;
+    uint64 mybase = base;
+    uint64 *base_ptr = &mybase;
+    ntdll64_ProtectVirtualMemory = get_proc_address_64(ntdll64, "NtProtectVirtualMemory");
+    invoke_func64_t args = { ntdll64_ProtectVirtualMemory,
+                             (uint64)process,
+                             (uint64)base_ptr,
+                             (uint64)size_ptr,
+                             prot,
+                             (uint64)old_prot };
+    res = switch_modes_and_call(&args);
+    return NT_SUCCESS(res);
+}
 
-#endif /* !X64 */
+NTSTATUS
+remote_query_virtual_memory_64(HANDLE process, uint64 addr,
+                               MEMORY_BASIC_INFORMATION64 *mbi, size_t mbilen,
+                               uint64 *got)
+{
+    uint64 ntdll64_QueryVirtualMemory;
+    NTSTATUS res;
+    uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == 0)
+        return false;
+    ntdll64_QueryVirtualMemory = get_proc_address_64(ntdll64, "NtQueryVirtualMemory");
+    invoke_func64_t args = { ntdll64_QueryVirtualMemory,
+                             (uint64)process,
+                             addr,
+                             MemoryBasicInformation,
+                             (uint64)mbi,
+                             mbilen,
+                             (uint64)got };
+    res = switch_modes_and_call(&args);
+    return NT_SUCCESS(res);
+}
+#    endif /* !NOT_DYNAMORIO_CORE */
+#endif     /* !X64 */
+
+#ifndef NOT_DYNAMORIO_CORE
+bool
+remote_protect_virtual_memory_maybe64(HANDLE process, uint64 base, size_t size, uint prot,
+                                      uint *old_prot)
+{
+#    ifdef X64
+    return nt_remote_protect_virtual_memory(process, (void *)base, size, prot, old_prot);
+#    else
+    return remote_protect_virtual_memory_64(process, base, size, prot, old_prot);
+#    endif
+}
+
+NTSTATUS
+remote_query_virtual_memory_maybe64(HANDLE process, uint64 addr,
+                                    MEMORY_BASIC_INFORMATION64 *mbi, size_t mbilen,
+                                    uint64 *got)
+{
+#    ifdef X64
+    return nt_remote_query_virtual_memory(process, (void *)addr,
+                                          (MEMORY_BASIC_INFORMATION *)mbi, mbilen, got);
+#    else
+    return remote_query_virtual_memory_64(process, addr, mbi, mbilen, got);
+#    endif
+}
+#endif
+
+/* Excluding from libutil b/c it doesn't need it and is_32bit_process() and
+ * read_remote_memory_maybe64() aren't exported to libutil.
+ */
+#ifndef NOT_DYNAMORIO_CORE
+static bool
+read_remote_maybe64(HANDLE process, uint64 addr, size_t bufsz, void *buf)
+{
+    size_t num_read;
+    return read_remote_memory_maybe64(process, addr, buf, bufsz, &num_read) &&
+        num_read == bufsz;
+}
+
+uint64
+find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
+{
+    MEMORY_BASIC_INFORMATION64 mbi;
+    uint64 got;
+    NTSTATUS res;
+    uint64 addr = 0;
+    char name[MAXIMUM_PATH];
+    do {
+        res = remote_query_virtual_memory_maybe64(phandle, addr, &mbi, sizeof(mbi), &got);
+        if (got != sizeof(mbi) || !NT_SUCCESS(res))
+            break;
+#    if VERBOSE
+        print_file(STDERR, "0x%I64x-0x%I64x type=0x%x state=0x%x\n", mbi.BaseAddress,
+                   mbi.BaseAddress + mbi.RegionSize, mbi.Type, mbi.State);
+#    endif
+        if (mbi.Type == MEM_IMAGE && mbi.BaseAddress == mbi.AllocationBase) {
+            bool is_64;
+            if (get_remote_dll_short_name(phandle, mbi.BaseAddress, name,
+                                          BUFFER_SIZE_ELEMENTS(name), &is_64)) {
+#    if VERBOSE
+                print_file(STDERR, "found |%s| @ 0x%I64x 64=%d\n", name, mbi.BaseAddress,
+                           is_64);
+#    endif
+                if (_strcmpi(name, dll_name) == 0 && BOOLS_MATCH(find64bit, is_64))
+                    return mbi.BaseAddress;
+            }
+        }
+        if (addr + mbi.RegionSize < addr)
+            break;
+        /* XXX - this check is needed because otherwise, for 32-bit targets on a 64
+         * bit machine, this loop doesn't return if the dll is not loaded.
+         * When addr passes 0x800000000000 remote_query_virtual_memory_maybe64
+         * returns the previous mbi (ending at 0x7FFFFFFF0000).
+         * For now just return if the addr is not inside the mbi region. */
+        if (mbi.BaseAddress + mbi.RegionSize < addr)
+            break;
+        addr += mbi.RegionSize;
+    } while (true);
+    return 0;
+}
+
+/* Handles 32-bit or 64-bit remote processes.
+ * Ignores forwarders and ordinals.
+ */
+uint64
+get_remote_proc_address(HANDLE process, uint64 remote_base, const char *name)
+{
+    uint64 lib = remote_base;
+    size_t exports_size;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS64 nt64;
+    IMAGE_NT_HEADERS32 nt32;
+    IMAGE_DATA_DIRECTORY *expdir;
+    IMAGE_EXPORT_DIRECTORY exports;
+    uint i;
+    PULONG functions; /* array of RVAs */
+    PUSHORT ordinals;
+    PULONG fnames;       /* array of RVAs */
+    uint ord = UINT_MAX; /* the ordinal to use */
+    uint64 func = 0;
+    char local_buf[MAX_FUNCNAME_SIZE];
+
+    if (!read_remote_maybe64(process, lib, sizeof(dos), &dos))
+        return 0;
+    ASSERT(dos.e_magic == IMAGE_DOS_SIGNATURE);
+    if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt64), &nt64))
+        return 0;
+    ASSERT(nt64.Signature == IMAGE_NT_SIGNATURE);
+    if (nt64.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+        if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt32), &nt32))
+            return 0;
+        ASSERT(nt32.Signature == IMAGE_NT_SIGNATURE);
+        expdir = &nt32.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    } else {
+        expdir = &nt64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    }
+    exports_size = expdir->Size;
+    if (exports_size <= 0 ||
+        !read_remote_maybe64(process, lib + expdir->VirtualAddress,
+                             MIN(exports_size, sizeof(exports)), &exports))
+        return 0;
+    if (exports.NumberOfNames == 0 || exports.AddressOfNames == 0)
+        return 0;
+
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    functions =
+        (PULONG)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfFunctions * sizeof(ULONG));
+    ordinals =
+        (PUSHORT)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(USHORT));
+    fnames =
+        (PULONG)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(ULONG));
+#    else
+    functions = (PULONG)global_heap_alloc(exports.NumberOfFunctions *
+                                          sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+    ordinals = (PUSHORT)global_heap_alloc(exports.NumberOfNames *
+                                          sizeof(USHORT) HEAPACCT(ACCT_OTHER));
+    fnames = (PULONG)global_heap_alloc(exports.NumberOfNames *
+                                       sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+#    endif
+    if (read_remote_maybe64(process, lib + exports.AddressOfFunctions,
+                            exports.NumberOfFunctions * sizeof(ULONG), functions) &&
+        read_remote_maybe64(process, lib + exports.AddressOfNameOrdinals,
+                            exports.NumberOfNames * sizeof(USHORT), ordinals) &&
+        read_remote_maybe64(process, lib + exports.AddressOfNames,
+                            exports.NumberOfNames * sizeof(ULONG), fnames)) {
+        bool match = false;
+        for (i = 0; i < exports.NumberOfNames; i++) {
+            if (!read_remote_maybe64(process, lib + fnames[i],
+                                     BUFFER_SIZE_BYTES(local_buf), local_buf))
+                break;
+            NULL_TERMINATE_BUFFER(local_buf);
+            if (strcasecmp(name, local_buf) == 0) {
+                match = true;
+                ord = ordinals[i];
+                break;
+            }
+        }
+        if (match && ord < exports.NumberOfFunctions && functions[ord] != 0 &&
+            /* We don't support forwarded functions */
+            (functions[ord] < expdir->VirtualAddress ||
+             functions[ord] >= expdir->VirtualAddress + exports_size))
+            func = lib + functions[ord];
+    }
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    HeapFree(GetProcessHeap(), 0, functions);
+    HeapFree(GetProcessHeap(), 0, ordinals);
+    HeapFree(GetProcessHeap(), 0, fnames);
+#    else
+    global_heap_free(functions,
+                     exports.NumberOfFunctions * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+    global_heap_free(ordinals,
+                     exports.NumberOfNames * sizeof(USHORT) HEAPACCT(ACCT_OTHER));
+    global_heap_free(fnames, exports.NumberOfNames * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+#    endif
+    return func;
+}
+
+/* Handles 32-bit or 64-bit remote processes. */
+bool
+get_remote_dll_short_name(HANDLE process, uint64 remote_base, OUT char *name,
+                          size_t name_len, OUT bool *is_64)
+{
+    uint64 lib = remote_base;
+    size_t exports_size;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS64 nt64;
+    IMAGE_NT_HEADERS32 nt32;
+    IMAGE_DATA_DIRECTORY *expdir;
+    IMAGE_EXPORT_DIRECTORY exports;
+    if (!read_remote_maybe64(process, lib, sizeof(dos), &dos))
+        return false;
+    if (dos.e_magic != IMAGE_DOS_SIGNATURE)
+        return false;
+    if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt64), &nt64))
+        return false;
+    if (nt64.Signature != IMAGE_NT_SIGNATURE)
+        return false;
+    if (nt64.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+        if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt32), &nt32))
+            return 0;
+        ASSERT(nt32.Signature == IMAGE_NT_SIGNATURE);
+        expdir = &nt32.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+        if (is_64 != NULL)
+            *is_64 = false;
+    } else {
+        expdir = &nt64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+        if (is_64 != NULL)
+            *is_64 = true;
+    }
+    exports_size = expdir->Size;
+    if (exports_size <= 0 ||
+        !read_remote_maybe64(process, lib + expdir->VirtualAddress,
+                             MIN(exports_size, sizeof(exports)), &exports))
+        return false;
+    if (exports.Name == 0 ||
+        !read_remote_maybe64(process, lib + exports.Name, name_len, name))
+        return false;
+    name[name_len - 1] = '\0';
+    return true;
+}
+#endif
+
 /****************************************************************************/
-

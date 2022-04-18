@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,13 +38,16 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_ 1
 
-#include "dr_config.h"  /* for dr_platform_t */
+#include "dr_config.h" /* for dr_platform_t */
 
 void
-config_init(void);
+d_r_config_init(void);
 
 void
-config_exit(void);
+d_r_config_exit(void);
+
+bool
+d_r_config_initialized(void);
 
 void
 config_heap_init(void);
@@ -63,23 +66,21 @@ const char *
 get_config_val_ex(const char *var, bool *app_specific, bool *from_env);
 
 bool
-get_config_val_other_app(const char *appname, process_id_t pid,
-                         dr_platform_t platform,
-                         const char *var, char *val, size_t valsz,
-                         bool *app_specific, bool *from_env, bool *from_1config);
+get_config_val_other_app(const char *appname, process_id_t pid, dr_platform_t platform,
+                         const char *var, char *val, size_t valsz, bool *app_specific,
+                         bool *from_env, bool *from_1config);
 
 bool
-get_config_val_other_arch(const char *var, char *val, size_t valsz,
-                          bool *app_specific, bool *from_env, bool *from_1config);
-
+get_config_val_other_arch(const char *var, char *val, size_t valsz, bool *app_specific,
+                          bool *from_env, bool *from_1config);
 
 /**************************************************/
 #ifdef PARAMS_IN_REGISTRY
 
-# define PARAM_STR(name) L_IF_WIN(name)
+#    define PARAM_STR(name) L_IF_WIN(name)
 /* redeclared in inject_shared.h */
 int
-get_parameter(const wchar_t *name, char *value, int maxlen);
+d_r_get_parameter(const wchar_t *name, char *value, int maxlen);
 
 int
 get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache);
@@ -87,10 +88,10 @@ get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache
 /**************************************************/
 #else
 
-# define PARAM_STR(name) name
+#    define PARAM_STR(name) name
 
 int
-get_parameter(const char *name, char *value, int maxlen);
+d_r_get_parameter(const char *name, char *value, int maxlen);
 
 int
 get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache);
@@ -98,14 +99,13 @@ get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache);
 int
 get_unqualified_parameter(const char *name, char *value, int maxlen);
 
-# ifdef UNIX
+#    ifdef UNIX
 bool
 should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env,
                             bool *rununder_on OUT);
-# endif
+#    endif
 
 #endif /* PARAMS_IN_REGISTRY */
 /**************************************************/
-
 
 #endif /* _CONFIG_H_ */

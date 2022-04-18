@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@ struct _os_privmod_data_t;
 typedef struct _os_privmod_data_t os_privmod_data_t;
 
 #ifdef LINUX
-# include "module_elf.h"
+#    include "module_elf.h"
 #endif
 
 typedef void (*fp_t)(int argc, char **argv, char **env);
@@ -49,46 +49,68 @@ typedef void (*fp_t)(int argc, char **argv, char **env);
  */
 struct _os_privmod_data_t {
     os_module_data_t os_data;
-    ptr_int_t      load_delta;  /* delta from preferred base */
-    app_pc         max_end; /* relative pc */
-    char          *soname;
+    ptr_int_t load_delta; /* delta from preferred base */
+    app_pc max_end;       /* relative pc */
+    char *soname;
 #ifdef LINUX
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
-    size_t         dynsz;
-    ELF_ADDR       pltgot;
-    size_t         pltrelsz;
-    ELF_WORD       pltrel;
-    bool           textrel;
-    app_pc         jmprel;
-    ELF_REL_TYPE  *rel;
-    size_t         relsz;
-    size_t         relent;
+    size_t dynsz;
+    ELF_ADDR pltgot;
+    size_t pltrelsz;
+    ELF_WORD pltrel;
+    bool textrel;
+    app_pc jmprel;
+    ELF_REL_TYPE *rel;
+    size_t relsz;
+    size_t relent;
     ELF_RELA_TYPE *rela;
-    size_t         relasz;
-    size_t         relaent;
-    app_pc         verneed;
-    int            verneednum;
-    int            relcount;
-    ELF_HALF      *versym;
+    size_t relasz;
+    size_t relaent;
+    app_pc verneed;
+    int verneednum;
+    int relcount;
+    ELF_HALF *versym;
 #else
     /* XXX i#1285: MacOS private loader NYI */
 #endif
     /* initialization/finalization function */
-    fp_t           init;
-    fp_t           fini;
-    fp_t          *init_array;  /* an array of init func ptrs */
-    fp_t          *fini_array;  /* an array of fini func ptrs */
-    size_t         init_arraysz;
-    size_t         fini_arraysz;
+    fp_t init;
+    fp_t fini;
+    fp_t *init_array; /* an array of init func ptrs */
+    fp_t *fini_array; /* an array of fini func ptrs */
+    size_t init_arraysz;
+    size_t fini_arraysz;
     /* tls info */
-    uint           tls_block_size; /* tls variables size in memory */
-    uint           tls_align;      /* alignment for tls variables  */
-    uint           tls_modid;      /* module id for get tls addr lookup */
-    uint           tls_offset;     /* offset in the TLS segment */
-    uint           tls_image_size; /* tls variables size in the file */
-    uint           tls_first_byte; /* aligned addr of the first tls variable */
-    app_pc         tls_image;      /* tls block address in memory */
+    uint tls_block_size; /* tls variables size in memory */
+    uint tls_align;      /* alignment for tls variables  */
+    uint tls_modid;      /* module id for get tls addr lookup */
+    uint tls_offset;     /* offset in the TLS segment */
+    uint tls_image_size; /* tls variables size in the file */
+    uint tls_first_byte; /* aligned addr of the first tls variable */
+    app_pc tls_image;    /* tls block address in memory */
+    /* This is used to get libunwind walking app libraries. */
+    bool use_app_imports;
 };
+
+#ifdef MACOS
+/* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
+ * There is no official support for that on Linux or Windows and for now we do
+ * not support it either, especially not mixing libraries.
+ */
+#    ifdef X64
+typedef struct mach_header_64 mach_header_t;
+typedef struct segment_command_64 segment_command_t;
+typedef struct section_64 section_t;
+typedef struct nlist_64 nlist_t;
+#    else
+typedef struct mach_header mach_header_t;
+typedef struct segment_command segment_command_t;
+typedef struct section section_t;
+typedef struct nlist nlist_t;
+#    endif
+bool
+is_macho_header(app_pc base, size_t size);
+#endif
 
 void
 module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
@@ -98,19 +120,19 @@ ptr_uint_t
 module_get_text_section(app_pc file_map, size_t file_size);
 
 app_pc
-get_proc_address_from_os_data(os_module_data_t *os_data,
-                              ptr_int_t delta,
-                              const char *name,
-                              bool *is_indirect_code OUT);
+get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t delta,
+                              const char *name, bool *is_indirect_code OUT);
 
 bool
-privload_redirect_sym(ptr_uint_t *r_addr, const char *name);
+privload_redirect_sym(os_privmod_data_t *opd, ptr_uint_t *r_addr, const char *name);
 
 #ifdef LINUX
 void
-module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd,
-                                     ELF_DYNAMIC_ENTRY_TYPE *dyn,
+module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd, ELF_DYNAMIC_ENTRY_TYPE *dyn,
                                      ptr_int_t load_delta);
 #endif
+
+void
+privload_mod_thread_tls_init(void);
 
 #endif /* MODULE_PRIVATE_H */

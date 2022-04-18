@@ -1,5 +1,5 @@
 # ***************************************************************************
-# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
 # Copyright (c) 2013 Branden Clark  All rights reserved.
 # ***************************************************************************
 
@@ -41,29 +41,17 @@ if (NOT Qt5Widgets_FOUND)
   message(STATUS "WARNING: Could not find Qt 5: DrGUI will NOT be built")
   message(STATUS
     "  Point CMake variable Qt5Widgets_DIR at the Qt5WidgetsConfig.cmake directory")
-elseif ("${CMAKE_VERSION}" VERSION_LESS "2.8.10")
-  message(STATUS "WARNING: CMake version is < 2.8.10: DrGUI will NOT be built")
-else () # Qt5 and CMake 2.8.10+
+elseif ("${CMAKE_VERSION}" VERSION_LESS "3.2")
+  message(STATUS "WARNING: CMake version is < 3.2: DrGUI will NOT be built")
+else () # Qt5 and CMake 3.2+
   # Build Qt Visualizer
-  cmake_minimum_required(VERSION 2.8.10)
+  cmake_minimum_required(VERSION 3.7)
 
   message(STATUS "Found Qt 5: DrGUI will be built")
 
   include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-  if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-      "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-    # XXX i#1558: resolve the underlying issue here
-    cmake_policy(SET CMP0043 OLD)
-  endif ()
-
-  # DR's boundary of 2 causes alignment issues with Qt, so we stick to default.
-  # This is okay because this is a standalone app, and does not need to match
-  # DynamoRIO.
-  if (NOT WIN32)
-    string(REPLACE "-mpreferred-stack-boundary=2 " "" CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}")
-  endif (NOT WIN32)
+  cmake_policy(SET CMP0043 OLD)
 
   # Set ouput_dir since drgui_qt is the only executable extension
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_BIN}")
@@ -95,7 +83,14 @@ else () # Qt5 and CMake 2.8.10+
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-strict-overflow")
   endif (WIN32)
   add_executable(drgui ${drgui_SOURCES} ${drgui_MOC_OUTFILES})
-  qt5_use_modules(drgui Widgets)
+
+  # qt5_use_modules has been dropped from newer QT versions.
+  if (Qt5Widgets_VERSION VERSION_LESS 5.11)
+    qt5_use_modules(drgui Widgets)
+  else()
+    target_link_libraries(drgui Qt5::Widgets)
+  endif()
+
   if (WIN32)
     # For version info we need global_shared.h included in resources.rc.
     include_directories(${PROJECT_SOURCE_DIR}/core/lib)
@@ -111,4 +106,4 @@ else () # Qt5 and CMake 2.8.10+
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_interface.h
     DESTINATION
     ${INSTALL_EXT_INCLUDE})
-endif () # Qt5 and CMake 2.8.10+
+endif () # Qt5 and CMake 3.2+

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,47 +31,68 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
-#include <assert.h>
-#include <stdio.h>
-#include <math.h>
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
+#    include <assert.h>
+#    include <stdio.h>
+#    include <math.h>
 
-#ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
-# include <stdlib.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#        include <signal.h>
+#        include <ucontext.h>
+#        include <errno.h>
+#        include <stdlib.h>
+#    endif
 
-#include <setjmp.h>
+#    include <setjmp.h>
 
 /* asm routines */
-void test_priv_0(void);
-void test_priv_1(void);
-void test_priv_2(void);
-void test_priv_3(void);
-void test_prefix_0(void);
-void test_prefix_1(void);
-void test_inval_0(void);
-void test_inval_1(void);
-void test_inval_2(void);
-void test_inval_3(void);
-void test_inval_4(void);
-void test_inval_5(void);
-void test_inval_6(void);
-void test_inval_7(void);
+void
+test_priv_0(void);
+void
+test_priv_1(void);
+void
+test_priv_2(void);
+void
+test_priv_3(void);
+void
+test_prefix_0(void);
+void
+test_prefix_1(void);
+void
+test_inval_0(void);
+void
+test_inval_1(void);
+void
+test_inval_2(void);
+void
+test_inval_3(void);
+void
+test_inval_4(void);
+void
+test_inval_5(void);
+void
+test_inval_6(void);
+void
+test_inval_7(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
 static bool invalid_lock;
 
-#ifdef UNIX
+#    ifdef UNIX
+#        ifndef X86
+#            error NYI /* FIXME i#1551, i#1569: port asm to ARM and AArch64 */
+#        endif
 static void
-signal_handler(int sig)
+signal_handler(int sig, siginfo_t *info, ucontext_t *ucxt)
 {
     if (sig == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (info->si_addr != (void *)sc->SC_XIP) {
+            print("ERROR: si_addr=%p does not match rip=%p\n", info->si_addr, sc->SC_XIP);
+        }
         count++;
         if (invalid_lock) {
             print("Invalid lock sequence, instance %d\n", count);
@@ -90,29 +111,31 @@ signal_handler(int sig)
     }
     exit(-1);
 }
-#else
+#    else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
  */
-# include <windows.h>
+#        include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
-        /* Windows doesn't have an EXCEPTION_ constant to equal the invalid lock code */
-        0xc000001e/*STATUS_INVALID_LOCK_SEQUENCE*/
+            /* Windows doesn't have an EXCEPTION_ constant to equal the invalid lock code
+             */
+            0xc000001e /*STATUS_INVALID_LOCK_SEQUENCE*/
         /* FIXME: DR doesn't generate the invalid lock exception */
-        || (invalid_lock && pExceptionInfo->ExceptionRecord->ExceptionCode ==
-            STATUS_ILLEGAL_INSTRUCTION)) {
+        ||
+        (invalid_lock &&
+         pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION)) {
         CONTEXT *cxt = pExceptionInfo->ContextRecord;
         count++;
         print("Invalid lock sequence, instance %d\n", count);
         /* FIXME : add CXT_XFLAGS (currently comes back incorrect), eip, esp? */
-        print("eax="SZFMT" ebx="SZFMT" ecx="SZFMT" edx="SZFMT" "
-              "edi="SZFMT" esi="SZFMT" ebp="SZFMT"\n",
-              cxt->CXT_XAX, cxt->CXT_XBX, cxt->CXT_XCX, cxt->CXT_XDX,
-              cxt->CXT_XDI, cxt->CXT_XSI, cxt->CXT_XBP);
+        print("eax=" SZFMT " ebx=" SZFMT " ecx=" SZFMT " edx=" SZFMT " "
+              "edi=" SZFMT " esi=" SZFMT " ebp=" SZFMT "\n",
+              cxt->CXT_XAX, cxt->CXT_XBX, cxt->CXT_XCX, cxt->CXT_XDX, cxt->CXT_XDI,
+              cxt->CXT_XSI, cxt->CXT_XBP);
         SIGLONGJMP(mark, count);
     }
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION) {
@@ -120,45 +143,46 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
         print("Bad instruction, instance %d\n", count);
         SIGLONGJMP(mark, count);
     }
-    if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
-        STATUS_PRIVILEGED_INSTRUCTION) {
+    if (pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_PRIVILEGED_INSTRUCTION) {
         count++;
         print("Privileged instruction, instance %d\n", count);
         SIGLONGJMP(mark, count);
     }
     /* Shouldn't get here in normal operation so this isn't #if VERBOSE */
-    print("Exception 0x"PFMT" occurred, process about to die silently\n",
+    print("Exception 0x" PFMT " occurred, process about to die silently\n",
           pExceptionInfo->ExceptionRecord->ExceptionCode);
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress,
-            (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
-            pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+        print("\tPC " PFX " tried to %s address " PFX "\n",
+              pExceptionInfo->ExceptionRecord->ExceptionAddress,
+              (pExceptionInfo->ExceptionRecord->ExceptionInformation[0] == 0) ? "read"
+                                                                              : "write",
+              pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
-#endif
+#    endif
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
     int i;
 
-#ifdef UNIX
-    intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
-#else
-# ifdef X64_DEBUGGER
+#    ifdef UNIX
+    intercept_signal(SIGILL, (handler_3_t)signal_handler, false);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
+#    else
+#        ifdef X64_DEBUGGER
     /* FIXME: the vectored handler works fine in the debugger, but natively
      * the app crashes here: yet the SetUnhandled hits infinite fault loops
      * in the debugger, and works fine natively!
      */
-    AddVectoredExceptionHandler(1/*first*/,
-                                (PVECTORED_EXCEPTION_HANDLER) our_top_handler);
-# else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
-# endif
-#endif
+    AddVectoredExceptionHandler(1 /*first*/,
+                                (PVECTORED_EXCEPTION_HANDLER)our_top_handler);
+#        else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
+#        endif
+#    endif
 
     /* privileged instructions */
     print("Privileged instructions about to happen\n");
@@ -200,7 +224,7 @@ int main(int argc, char *argv[])
     case 5: test_inval_5();
     case 6: test_inval_6();
     case 7: test_inval_7();
-    default: ;
+    default:;
     }
 
     print("All done\n");
@@ -208,7 +232,8 @@ int main(int argc, char *argv[])
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME test_priv_0
@@ -259,11 +284,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
         mov  eax, 1
         mov  ebx, 2
@@ -274,10 +295,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov  ebp, 7
         RAW(f0) RAW(eb) RAW(00)
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -356,4 +374,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

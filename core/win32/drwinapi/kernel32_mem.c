@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,7 +54,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t localheap_lock,
 void
 kernel32_redir_init_mem(void)
 {
-    magic_val = (ptr_uint_t) get_random_offset(POINTER_MAX);
+    magic_val = (ptr_uint_t)get_random_offset(POINTER_MAX);
 }
 
 void
@@ -67,111 +67,75 @@ PVOID
 WINAPI
 redirect_DecodePointer(__in_opt PVOID Ptr)
 {
-    return (PVOID) ((ptr_uint_t)Ptr ^ magic_val);
+    return (PVOID)((ptr_uint_t)Ptr ^ magic_val);
 }
 
 PVOID
 WINAPI
 redirect_EncodePointer(__in_opt PVOID Ptr)
 {
-    return (PVOID) ((ptr_uint_t)Ptr ^ magic_val);
+    return (PVOID)((ptr_uint_t)Ptr ^ magic_val);
 }
 
 HANDLE
 WINAPI
 redirect_GetProcessHeap(VOID)
 {
-#ifdef CLIENT_INTERFACE
-    /* XXX: perhaps all of these redirection routines should be ifdef CLIENT_INTERFACE.
-     * The loader itself is not, for use w/ hotpatching, etc.
-     */
     return get_private_peb()->ProcessHeap;
-#else
-    return get_peb(NT_CURRENT_PROCESS)->ProcessHeap;
-#endif
 }
 
-__bcount(dwBytes)
-LPVOID
-WINAPI
-redirect_HeapAlloc(
-    __in HANDLE hHeap,
-    __in DWORD dwFlags,
-    __in SIZE_T dwBytes
-    )
+__bcount(dwBytes) LPVOID WINAPI
+    redirect_HeapAlloc(__in HANDLE hHeap, __in DWORD dwFlags, __in SIZE_T dwBytes)
 {
     return redirect_RtlAllocateHeap(hHeap, dwFlags, dwBytes);
 }
 
 SIZE_T
 WINAPI
-redirect_HeapCompact(
-    __in HANDLE hHeap,
-    __in DWORD dwFlags
-    )
+redirect_HeapCompact(__in HANDLE hHeap, __in DWORD dwFlags)
 {
     /* We do not support compacting/coalescing here so we just return
      * a reasonably large size for the "largest committed free block".
      * We don't bother checking hHeap and forwarding: won't affect
      * correctness as the app can't rely on this value.
      */
-    return 8*1024;
+    return 8 * 1024;
 }
 
 HANDLE
 WINAPI
-redirect_HeapCreate(
-    __in DWORD flOptions,
-    __in SIZE_T dwInitialSize,
-    __in SIZE_T dwMaximumSize
-    )
+redirect_HeapCreate(__in DWORD flOptions, __in SIZE_T dwInitialSize,
+                    __in SIZE_T dwMaximumSize)
 {
     return redirect_RtlCreateHeap(flOptions | HEAP_CLASS_PRIVATE |
-                                  (dwMaximumSize == 0 ? HEAP_GROWABLE : 0),
+                                      (dwMaximumSize == 0 ? HEAP_GROWABLE : 0),
                                   NULL, dwMaximumSize, dwInitialSize, NULL, NULL);
 }
 
-BOOL
-WINAPI
-redirect_HeapDestroy(
-    __in HANDLE hHeap
-    )
+BOOL WINAPI
+redirect_HeapDestroy(__in HANDLE hHeap)
 {
     return redirect_RtlDestroyHeap(hHeap);
 }
 
-BOOL
-WINAPI
-redirect_HeapFree(
-    __inout HANDLE hHeap,
-    __in    DWORD dwFlags,
-    __deref LPVOID lpMem
-    )
+BOOL WINAPI
+redirect_HeapFree(__inout HANDLE hHeap, __in DWORD dwFlags, __deref LPVOID lpMem)
 {
     return redirect_RtlFreeHeap(hHeap, dwFlags, lpMem);
 }
 
-__bcount(dwBytes)
-LPVOID
-WINAPI
-redirect_HeapReAlloc(
-    __inout HANDLE hHeap,
-    __in    DWORD dwFlags,
-    __deref LPVOID lpMem,
-    __in    SIZE_T dwBytes
-    )
+__bcount(dwBytes) LPVOID WINAPI
+    redirect_HeapReAlloc(__inout HANDLE hHeap, __in DWORD dwFlags, __deref LPVOID lpMem,
+                         __in SIZE_T dwBytes)
 {
     return redirect_RtlReAllocateHeap(hHeap, dwFlags, lpMem, dwBytes);
 }
 
-BOOL
-WINAPI
-redirect_HeapSetInformation(
-    __in_opt HANDLE HeapHandle,
-    __in HEAP_INFORMATION_CLASS HeapInformationClass,
-    __in_bcount_opt(HeapInformationLength) PVOID HeapInformation,
-    __in SIZE_T HeapInformationLength
-    )
+BOOL WINAPI
+redirect_HeapSetInformation(__in_opt HANDLE HeapHandle,
+                            __in HEAP_INFORMATION_CLASS HeapInformationClass,
+                            __in_bcount_opt(HeapInformationLength) PVOID HeapInformation,
+                            __in SIZE_T HeapInformationLength)
 {
     if (HeapInformationClass == HeapCompatibilityInformation) {
         if (HeapInformationLength != sizeof(ULONG) || HeapInformation == NULL)
@@ -189,32 +153,19 @@ redirect_HeapSetInformation(
 
 SIZE_T
 WINAPI
-redirect_HeapSize(
-    __in HANDLE hHeap,
-    __in DWORD dwFlags,
-    __in LPCVOID lpMem
-    )
+redirect_HeapSize(__in HANDLE hHeap, __in DWORD dwFlags, __in LPCVOID lpMem)
 {
-    return redirect_RtlSizeHeap(hHeap, dwFlags, (PVOID) lpMem);
+    return redirect_RtlSizeHeap(hHeap, dwFlags, (PVOID)lpMem);
 }
 
-BOOL
-WINAPI
-redirect_HeapValidate(
-    __in     HANDLE hHeap,
-    __in     DWORD dwFlags,
-    __in_opt LPCVOID lpMem
-    )
+BOOL WINAPI
+redirect_HeapValidate(__in HANDLE hHeap, __in DWORD dwFlags, __in_opt LPCVOID lpMem)
 {
-    return redirect_RtlValidateHeap(hHeap, dwFlags, (PVOID) lpMem);
+    return redirect_RtlValidateHeap(hHeap, dwFlags, (PVOID)lpMem);
 }
 
-BOOL
-WINAPI
-redirect_HeapWalk(
-    __in    HANDLE hHeap,
-    __inout LPPROCESS_HEAP_ENTRY lpEntry
-    )
+BOOL WINAPI
+redirect_HeapWalk(__in HANDLE hHeap, __inout LPPROCESS_HEAP_ENTRY lpEntry)
 {
     /* XXX: what msvcrt routine really depends on this?  Should be
      * used primarily for debugging, right?
@@ -254,10 +205,7 @@ local_header_from_handle(HLOCAL handle)
 
 HLOCAL
 WINAPI
-redirect_LocalAlloc(
-    __in UINT uFlags,
-    __in SIZE_T uBytes
-    )
+redirect_LocalAlloc(__in UINT uFlags, __in SIZE_T uBytes)
 {
     HLOCAL res = NULL;
     local_header_t *hdr;
@@ -276,49 +224,43 @@ redirect_LocalAlloc(
     /* No lock is needed as the lock is to synchronize w/ other Local* routines
      * accessing the same object, and this object has not been returned yet.
      */
-    hdr = (local_header_t *)
-        redirect_RtlAllocateHeap(heap, rtl_flags, uBytes + sizeof(local_header_t));
+    hdr = (local_header_t *)redirect_RtlAllocateHeap(heap, rtl_flags,
+                                                     uBytes + sizeof(local_header_t));
     if (hdr == NULL) {
         set_last_error(ERROR_NOT_ENOUGH_MEMORY);
         return NULL;
     }
 
-    res = (HLOCAL) (hdr + 1); /* even for LMEM_MOVEABLE we return the usable mem */
+    res = (HLOCAL)(hdr + 1); /* even for LMEM_MOVEABLE we return the usable mem */
     hdr->lock_count = 0;
-    hdr->flags = (ushort) uFlags; /* we checked for truncation above */
+    hdr->flags = (ushort)uFlags; /* we checked for truncation above */
     hdr->alloc = NULL;
     return res;
 }
 
 HLOCAL
 WINAPI
-redirect_LocalFree(
-    __deref HLOCAL hMem
-    )
+redirect_LocalFree(__deref HLOCAL hMem)
 {
     HANDLE heap = redirect_GetProcessHeap();
     local_header_t *hdr;
     if (hMem == NULL)
         return NULL;
     hdr = local_header_from_handle(hMem);
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     /* XXX: supposed to raise debug msg + bp if freeing locked object */
     if (hdr->alloc != NULL) {
         ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
         redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr->alloc);
     }
     redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr);
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return NULL;
 }
 
 HLOCAL
 WINAPI
-redirect_LocalReAlloc(
-    __in HLOCAL hMem,
-    __in SIZE_T uBytes,
-    __in UINT uFlags
-    )
+redirect_LocalReAlloc(__in HLOCAL hMem, __in SIZE_T uBytes, __in UINT uFlags)
 {
     HLOCAL res = NULL;
     HANDLE heap = redirect_GetProcessHeap();
@@ -326,7 +268,7 @@ redirect_LocalReAlloc(
     uint rtl_flags = HEAP_NO_SERIALIZE | HEAP_CREATE_ENABLE_EXECUTE;
     if (TEST(LMEM_ZEROINIT, uFlags))
         rtl_flags |= HEAP_ZERO_MEMORY;
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (TEST(LMEM_MODIFY, uFlags)) {
         /* no realloc, just update flags */
         if ((uFlags & 0xffff0000) != 0 || /* flags should be in ushort range */
@@ -336,7 +278,7 @@ redirect_LocalReAlloc(
             res = NULL;
             goto redirect_LocalReAlloc_done;
         }
-        hdr->flags = (ushort) uFlags;
+        hdr->flags = (ushort)uFlags;
         res = hMem;
     } else {
         /* if fixed or locked and LMEM_MOVEABLE is not specified, must realloc in-place */
@@ -344,8 +286,8 @@ redirect_LocalReAlloc(
             (!TEST(LMEM_MOVEABLE, hdr->flags) || hdr->lock_count > 0))
             rtl_flags |= HEAP_REALLOC_IN_PLACE_ONLY;
         else if (TEST(LMEM_MOVEABLE, hdr->flags) && hdr->alloc == NULL) {
-            size_t copy_sz = redirect_RtlSizeHeap(heap, 0, (byte *) hdr) -
-                sizeof(local_header_t);
+            size_t copy_sz =
+                redirect_RtlSizeHeap(heap, 0, (byte *)hdr) - sizeof(local_header_t);
             copy_sz = MIN(copy_sz, uBytes);
             hdr->alloc = redirect_RtlAllocateHeap(heap, rtl_flags,
                                                   uBytes + sizeof(local_header_t));
@@ -355,16 +297,15 @@ redirect_LocalReAlloc(
                 goto redirect_LocalReAlloc_done;
             }
             hdr->alloc->flags = LMEM_INVALID_HANDLE; /* mark as sep alloc */
-            hdr->alloc->alloc = hdr; /* backpointer */
+            hdr->alloc->alloc = hdr;                 /* backpointer */
             memcpy(hdr->alloc + 1, hMem, copy_sz);
             res = hMem;
         }
         if (res == NULL) {
             local_header_t *newmem;
             if (hdr->alloc != NULL) {
-                newmem = (local_header_t *)
-                    redirect_RtlReAllocateHeap(heap, rtl_flags, hdr->alloc,
-                                               uBytes + sizeof(local_header_t));
+                newmem = (local_header_t *)redirect_RtlReAllocateHeap(
+                    heap, rtl_flags, hdr->alloc, uBytes + sizeof(local_header_t));
                 if (newmem == NULL) {
                     set_last_error(ERROR_NOT_ENOUGH_MEMORY);
                     res = NULL;
@@ -375,67 +316,57 @@ redirect_LocalReAlloc(
                 ASSERT(hdr->alloc->alloc == hdr);
                 res = hMem;
             } else {
-                newmem = (local_header_t *)
-                    redirect_RtlReAllocateHeap(heap, rtl_flags, hdr,
-                                               uBytes + sizeof(local_header_t));
+                newmem = (local_header_t *)redirect_RtlReAllocateHeap(
+                    heap, rtl_flags, hdr, uBytes + sizeof(local_header_t));
                 if (newmem == NULL) {
                     set_last_error(ERROR_NOT_ENOUGH_MEMORY);
                     res = NULL;
                     goto redirect_LocalReAlloc_done;
                 }
-                res = (HLOCAL) (newmem + 1);
+                res = (HLOCAL)(newmem + 1);
             }
         }
     }
- redirect_LocalReAlloc_done:
-    mutex_unlock(&localheap_lock);
+redirect_LocalReAlloc_done:
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
 LPVOID
 WINAPI
-redirect_LocalLock(
-    __in HLOCAL hMem
-    )
+redirect_LocalLock(__in HLOCAL hMem)
 {
     LPVOID res = NULL;
     local_header_t *hdr = local_header_from_handle(hMem);
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (TEST(LMEM_MOVEABLE, hdr->flags))
         hdr->lock_count++;
     if (hdr->alloc != NULL)
-        res = (LPVOID) (hdr->alloc + 1);
+        res = (LPVOID)(hdr->alloc + 1);
     else
-        res = (LPVOID) hMem;
-    mutex_unlock(&localheap_lock);
+        res = (LPVOID)hMem;
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
-
 HLOCAL
 WINAPI
-redirect_LocalHandle(
-    __in LPCVOID pMem
-    )
+redirect_LocalHandle(__in LPCVOID pMem)
 {
     local_header_t *hdr = local_header_from_handle((PVOID)pMem);
     if (TEST(LMEM_INVALID_HANDLE, hdr->flags)) {
         /* separate alloc stores the original header */
         hdr = hdr->alloc;
     }
-    return (HLOCAL) (hdr + 1);
+    return (HLOCAL)(hdr + 1);
 }
 
-
-BOOL
-WINAPI
-redirect_LocalUnlock(
-    __in HLOCAL hMem
-    )
+BOOL WINAPI
+redirect_LocalUnlock(__in HLOCAL hMem)
 {
     BOOL res = FALSE;
     local_header_t *hdr = local_header_from_handle(hMem);
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (hdr->lock_count == 0) {
         res = FALSE;
         set_last_error(ERROR_NOT_LOCKED);
@@ -447,82 +378,67 @@ redirect_LocalUnlock(
         } else
             res = TRUE;
     }
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
 SIZE_T
 WINAPI
-redirect_LocalSize(
-    __in HLOCAL hMem
-    )
+redirect_LocalSize(__in HLOCAL hMem)
 {
     SIZE_T res = 0;
     local_header_t *hdr = local_header_from_handle(hMem);
     HANDLE heap = redirect_GetProcessHeap();
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     if (hdr->alloc != NULL) {
         ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
-        res = redirect_RtlSizeHeap(heap, 0, (byte *) hdr->alloc);
+        res = redirect_RtlSizeHeap(heap, 0, (byte *)hdr->alloc);
     } else
-        res = redirect_RtlSizeHeap(heap, 0, (byte *) hdr);
+        res = redirect_RtlSizeHeap(heap, 0, (byte *)hdr);
     if (res != 0) {
         ASSERT(res >= sizeof(local_header_t));
         res -= sizeof(local_header_t);
     }
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
 
-UINT
-WINAPI
-redirect_LocalFlags(
-    __in HLOCAL hMem
-    )
+UINT WINAPI
+redirect_LocalFlags(__in HLOCAL hMem)
 {
     UINT res = 0;
     local_header_t *hdr = local_header_from_handle(hMem);
     HANDLE heap = redirect_GetProcessHeap();
-    mutex_lock(&localheap_lock);
+    d_r_mutex_lock(&localheap_lock);
     res |= (hdr->lock_count & LMEM_LOCKCOUNT);
     if ((hdr->alloc != NULL &&
-         redirect_RtlSizeHeap(heap, 0, (byte *) hdr->alloc) == sizeof(local_header_t)) ||
+         redirect_RtlSizeHeap(heap, 0, (byte *)hdr->alloc) == sizeof(local_header_t)) ||
         (hdr->alloc == NULL &&
-         redirect_RtlSizeHeap(heap, 0, (byte *) hdr) == sizeof(local_header_t)))
+         redirect_RtlSizeHeap(heap, 0, (byte *)hdr) == sizeof(local_header_t)))
         res |= LMEM_DISCARDABLE;
-    mutex_unlock(&localheap_lock);
+    d_r_mutex_unlock(&localheap_lock);
     return res;
 }
-
 
 /***************************************************************************
  * System calls
  */
 
-BOOL
-WINAPI
-redirect_IsBadReadPtr(
-    __in_opt CONST VOID *lp,
-    __in     UINT_PTR ucb
-    )
+BOOL WINAPI
+redirect_IsBadReadPtr(__in_opt CONST VOID *lp, __in UINT_PTR ucb)
 {
     if (ucb == 0)
         return FALSE;
     return !is_readable_without_exception((const byte *)lp, ucb);
 }
 
-BOOL
-WINAPI
-redirect_ReadProcessMemory(
-    __in      HANDLE hProcess,
-    __in      LPCVOID lpBaseAddress,
-    __out_bcount_part(nSize, *lpNumberOfBytesRead) LPVOID lpBuffer,
-    __in      SIZE_T nSize,
-    __out_opt SIZE_T * lpNumberOfBytesRead
-    )
+BOOL WINAPI
+redirect_ReadProcessMemory(__in HANDLE hProcess, __in LPCVOID lpBaseAddress,
+                           __out_bcount_part(nSize, *lpNumberOfBytesRead) LPVOID lpBuffer,
+                           __in SIZE_T nSize, __out_opt SIZE_T *lpNumberOfBytesRead)
 {
     size_t bytes_read;
-    NTSTATUS res = nt_raw_read_virtual_memory(hProcess, (void *) lpBaseAddress, lpBuffer,
+    NTSTATUS res = nt_raw_read_virtual_memory(hProcess, (void *)lpBaseAddress, lpBuffer,
                                               nSize, &bytes_read);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
@@ -533,15 +449,9 @@ redirect_ReadProcessMemory(
     return TRUE;
 }
 
-__bcount(dwSize)
-LPVOID
-WINAPI
-redirect_VirtualAlloc(
-    __in_opt LPVOID lpAddress,
-    __in     SIZE_T dwSize,
-    __in     DWORD flAllocationType,
-    __in     DWORD flProtect
-    )
+__bcount(dwSize) LPVOID WINAPI
+    redirect_VirtualAlloc(__in_opt LPVOID lpAddress, __in SIZE_T dwSize,
+                          __in DWORD flAllocationType, __in DWORD flProtect)
 {
     /* XXX: are MEM_* values beyond MEM_RESERVE and MEM_COMMIT passed to the kernel? */
     PVOID base = lpAddress;
@@ -550,11 +460,11 @@ redirect_VirtualAlloc(
         /* Any overlap when asking for MEM_RESERVE (even when combined w/ MEM_COMMIT)
          * will fail anyway, so we only have to worry about overlap on plain MEM_COMMIT
          */
-        !TEST(MEM_RESERVE, flAllocationType) &&
-        lpAddress != NULL) {
+        !TEST(MEM_RESERVE, flAllocationType) && lpAddress != NULL) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         if (!app_memory_pre_alloc(get_thread_private_dcontext(), lpAddress, dwSize,
-                                  osprot_to_memprot(flProtect), false)) {
+                                  osprot_to_memprot(flProtect), false, true /*update*/,
+                                  false /*!image*/)) {
             set_last_error(ERROR_INVALID_ADDRESS);
             return NULL;
         }
@@ -565,19 +475,14 @@ redirect_VirtualAlloc(
         return NULL;
     }
     if (NT_SUCCESS(res)) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s => "PFX"-"PFX"\n", __FUNCTION__,
-            lpAddress, (app_pc)lpAddress + dwSize);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s => " PFX "-" PFX "\n", __FUNCTION__, lpAddress,
+            (app_pc)lpAddress + dwSize);
     }
     return base;
 }
 
-BOOL
-WINAPI
-redirect_VirtualFree(
-    __in LPVOID lpAddress,
-    __in SIZE_T dwSize,
-    __in DWORD dwFreeType
-    )
+BOOL WINAPI
+redirect_VirtualFree(__in LPVOID lpAddress, __in SIZE_T dwSize, __in DWORD dwFreeType)
 {
     NTSTATUS res;
     if (TEST(MEM_DECOMMIT, dwFreeType))
@@ -596,23 +501,18 @@ redirect_VirtualFree(
     return TRUE;
 }
 
-BOOL
-WINAPI
-redirect_VirtualProtect(
-    __in  LPVOID lpAddress,
-    __in  SIZE_T dwSize,
-    __in  DWORD flNewProtect,
-    __out PDWORD lpflOldProtect
-    )
+BOOL WINAPI
+redirect_VirtualProtect(__in LPVOID lpAddress, __in SIZE_T dwSize,
+                        __in DWORD flNewProtect, __out PDWORD lpflOldProtect)
 {
 #ifndef STANDALONE_UNIT_TEST
     if (!dynamo_vm_area_overlap((byte *)lpAddress, ((byte *)lpAddress) + dwSize)) {
         uint new_prot = osprot_to_memprot(flNewProtect);
         uint mod_prot = osprot_to_memprot(new_prot);
         uint old_prot;
-        uint res = app_memory_protection_change(get_thread_private_dcontext(),
-                                                lpAddress, dwSize, new_prot,
-                                                &mod_prot, &old_prot);
+        uint res = app_memory_protection_change(get_thread_private_dcontext(), lpAddress,
+                                                dwSize, new_prot, &mod_prot, &old_prot,
+                                                false /*!image*/);
         if (res == PRETEND_APP_MEM_PROT_CHANGE) {
             if (lpflOldProtect != NULL)
                 *lpflOldProtect = memprot_to_osprot(old_prot);
@@ -625,41 +525,37 @@ redirect_VirtualProtect(
             ASSERT(res == DO_APP_MEM_PROT_CHANGE);
     }
 #endif
-    return (BOOL)
-        protect_virtual_memory(lpAddress, dwSize, flNewProtect, (uint *)lpflOldProtect);
+    return (BOOL)protect_virtual_memory(lpAddress, dwSize, flNewProtect,
+                                        (uint *)lpflOldProtect);
 }
 
 SIZE_T
 WINAPI
-redirect_VirtualQuery(
-    __in_opt LPCVOID lpAddress,
-    __out_bcount_part(dwLength, return) PMEMORY_BASIC_INFORMATION lpBuffer,
-    __in     SIZE_T dwLength
-    )
+redirect_VirtualQuery(__in_opt LPCVOID lpAddress,
+                      __out_bcount_part(dwLength, return )
+                          PMEMORY_BASIC_INFORMATION lpBuffer,
+                      __in SIZE_T dwLength)
 {
     return redirect_VirtualQueryEx(NT_CURRENT_PROCESS, lpAddress, lpBuffer, dwLength);
 }
 
 SIZE_T
 WINAPI
-redirect_VirtualQueryEx(
-    __in     HANDLE hProcess,
-    __in_opt LPCVOID lpAddress,
-    __out_bcount_part(dwLength, return) PMEMORY_BASIC_INFORMATION lpBuffer,
-    __in     SIZE_T dwLength
-    )
+redirect_VirtualQueryEx(__in HANDLE hProcess, __in_opt LPCVOID lpAddress,
+                        __out_bcount_part(dwLength, return )
+                            PMEMORY_BASIC_INFORMATION lpBuffer,
+                        __in SIZE_T dwLength)
 {
     size_t got;
-    app_pc page = (app_pc) PAGE_START(lpAddress);
-    NTSTATUS res = nt_remote_query_virtual_memory
-        (hProcess, page, lpBuffer, dwLength, &got);
+    app_pc page = (app_pc)PAGE_START(lpAddress);
+    NTSTATUS res =
+        nt_remote_query_virtual_memory(hProcess, page, lpBuffer, dwLength, &got);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return 0;
     }
     return got;
 }
-
 
 #ifdef STANDALONE_UNIT_TEST
 static void
@@ -700,23 +596,23 @@ test_local(void)
     EXPECT(*(int *)loc == 0, true);
     EXPECT(redirect_LocalSize(loc), 6); /* *Size() returns requested, not padded */
 
-    loc = redirect_LocalReAlloc(loc, 26, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    loc = redirect_LocalReAlloc(loc, 26, LMEM_MOVEABLE | LMEM_ZEROINIT);
     EXPECT(*(int *)loc == 0, true);
     EXPECT(redirect_LocalSize(loc), 26);
     EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), false);
 
     /* locking should do nothing since fixed */
-    EXPECT(redirect_LocalLock(loc) == (LPVOID) loc, true);
-    EXPECT(redirect_LocalLock(loc) == (LPVOID) loc, true);
+    EXPECT(redirect_LocalLock(loc) == (LPVOID)loc, true);
+    EXPECT(redirect_LocalLock(loc) == (LPVOID)loc, true);
     EXPECT(redirect_LocalUnlock(loc), FALSE);
     EXPECT(get_last_error(), ERROR_NOT_LOCKED);
 
-    loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE | LMEM_ZEROINIT);
     EXPECT(redirect_LocalSize(loc), 0);
     EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
 
     /* test LMEM_MODIFY */
-    loc = redirect_LocalReAlloc(loc, 0/*ignored*/, LMEM_MODIFY|LMEM_MOVEABLE);
+    loc = redirect_LocalReAlloc(loc, 0 /*ignored*/, LMEM_MODIFY | LMEM_MOVEABLE);
     EXPECT(loc != NULL, true);
     /* locking should now do something */
     EXPECT(redirect_LocalLock(loc) != NULL, true);
@@ -730,7 +626,7 @@ test_local(void)
 
     /**************************************************/
     /* test moveable */
-    loc = redirect_LocalAlloc(LMEM_ZEROINIT|LMEM_MOVEABLE, 6);
+    loc = redirect_LocalAlloc(LMEM_ZEROINIT | LMEM_MOVEABLE, 6);
     EXPECT(loc != NULL, true);
     p = redirect_LocalLock(loc);
     EXPECT(p != NULL, true);
@@ -742,7 +638,7 @@ test_local(void)
     EXPECT(ok, FALSE);
     EXPECT(get_last_error(), NO_ERROR);
     *(int *)p = 42;
-    loc = redirect_LocalReAlloc(loc, 126, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    loc = redirect_LocalReAlloc(loc, 126, LMEM_MOVEABLE | LMEM_ZEROINIT);
     EXPECT(loc != NULL, true);
     EXPECT(redirect_LocalSize(loc), 126);
     p = redirect_LocalLock(p);
@@ -752,7 +648,7 @@ test_local(void)
     EXPECT(ok, FALSE);
     EXPECT(get_last_error(), NO_ERROR);
 
-    loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE | LMEM_ZEROINIT);
     EXPECT(redirect_LocalSize(loc), 0);
     EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
     loc = redirect_LocalFree(loc);
@@ -767,16 +663,16 @@ test_syscalls(void)
     SIZE_T sz;
     BOOL ok;
     PVOID temp =
-        redirect_VirtualAlloc(0, PAGE_SIZE, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+        redirect_VirtualAlloc(0, PAGE_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     EXPECT(temp != NULL, true);
-    sz = redirect_VirtualQuery((char *)temp + PAGE_SIZE/2, &mbi, sizeof(mbi));
+    sz = redirect_VirtualQuery((char *)temp + PAGE_SIZE / 2, &mbi, sizeof(mbi));
     EXPECT(sz == sizeof(mbi), true);
     EXPECT(mbi.BaseAddress == temp, true);
     EXPECT(mbi.AllocationBase == temp, true);
     EXPECT(mbi.AllocationProtect == PAGE_READWRITE, true);
 
-    EXPECT(redirect_VirtualProtect(temp, PAGE_SIZE/2, PAGE_READONLY, &dw), true);
-    sz = redirect_VirtualQuery((char *)temp + PAGE_SIZE/4, &mbi, sizeof(mbi));
+    EXPECT(redirect_VirtualProtect(temp, PAGE_SIZE / 2, PAGE_READONLY, &dw), true);
+    sz = redirect_VirtualQuery((char *)temp + PAGE_SIZE / 4, &mbi, sizeof(mbi));
     EXPECT(sz == sizeof(mbi), true);
     EXPECT(mbi.BaseAddress == temp, true);
     EXPECT(mbi.AllocationBase == temp, true);
@@ -793,7 +689,7 @@ unit_test_drwinapi_kernel32_mem(void)
 
     print_file(STDERR, "testing drwinapi kernel32 memory-related routines\n");
 
-    ran = (PVOID) get_random_offset(POINTER_MAX);
+    ran = (PVOID)get_random_offset(POINTER_MAX);
     temp = redirect_EncodePointer(ran);
     EXPECT(temp != ran, true);
     EXPECT(redirect_DecodePointer(temp) == ran, true);

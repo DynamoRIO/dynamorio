@@ -1,5 +1,5 @@
 /* **********************************************************
- * (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,18 +41,26 @@
 
 /**
  * @file drmemtrace.h
- * @brief Header for DynamoRIO Tracer Library
+ * @brief Header for customizing the DrMemtrace tracer.
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/** Status return values from drmemtrace functions. */
 typedef enum {
-    DRMEMTRACE_SUCCESS,                  /**< Operation succeeded. */
-    DRMEMTRACE_ERROR,                    /**< Operation failed. */
-    DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
+    DRMEMTRACE_SUCCESS,                 /**< Operation succeeded. */
+    DRMEMTRACE_ERROR,                   /**< Operation failed. */
+    DRMEMTRACE_ERROR_INVALID_PARAMETER, /**< Operation failed: invalid parameter. */
+    DRMEMTRACE_ERROR_NOT_IMPLEMENTED,   /**< Operation failed: not implemented. */
 } drmemtrace_status_t;
+
+/**
+ * Name of drmgr instrumentation pass priorities for app2app, analysis, insert,
+ * and instru2instru.
+ */
+#define DRMGR_PRIORITY_NAME_MEMTRACE "memtrace"
 
 DR_EXPORT
 /**
@@ -75,7 +83,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
  *
  * \return the opened file id.
  */
-typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flag);
+typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flags);
 
 /**
  * Function for file read.
@@ -89,9 +97,7 @@ typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flag)
  *
  * \return the actual number of bytes read.
  */
-typedef ssize_t (*drmemtrace_read_file_func_t)(file_t file,
-                                               void *buf,
-                                               size_t count);
+typedef ssize_t (*drmemtrace_read_file_func_t)(file_t file, void *buf, size_t count);
 
 /**
  * Function for file write.
@@ -105,8 +111,7 @@ typedef ssize_t (*drmemtrace_read_file_func_t)(file_t file,
  *
  * \return the actual number of bytes written.
  */
-typedef ssize_t (*drmemtrace_write_file_func_t)(file_t file,
-                                                const void *data,
+typedef ssize_t (*drmemtrace_write_file_func_t)(file_t file, const void *data,
                                                 size_t count);
 
 /**
@@ -115,7 +120,7 @@ typedef ssize_t (*drmemtrace_write_file_func_t)(file_t file,
  *
  * @param[in] file  The file to be closed.
  */
-typedef void  (*drmemtrace_close_file_func_t)(file_t file);
+typedef void (*drmemtrace_close_file_func_t)(file_t file);
 
 /**
  * Function for directory creation.
@@ -127,18 +132,19 @@ typedef void  (*drmemtrace_close_file_func_t)(file_t file);
  */
 typedef bool (*drmemtrace_create_dir_func_t)(const char *dir);
 
-
 DR_EXPORT
 /**
  * Registers functions to replace the default file operations for offline tracing.
+ * If tracing windows are used and separate files per window are not meant to
+ * be supported by "open_file_func", it is up to the user to set \p -no_split_windows.
  *
  * \note The caller is responsible for the transparency and isolation of using
  * those functions, which will be called in the middle of arbitrary
  * application code.
  */
 drmemtrace_status_t
-drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
-                            drmemtrace_read_file_func_t  read_file_func,
+drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
+                            drmemtrace_read_file_func_t read_file_func,
                             drmemtrace_write_file_func_t write_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func);
@@ -159,8 +165,8 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
  *
  * \return whether successful.  Failure is considered unrecoverable.
  */
-typedef bool (*drmemtrace_handoff_func_t)(file_t file, void *data,
-                                          size_t data_size, size_t alloc_size);
+typedef bool (*drmemtrace_handoff_func_t)(file_t file, void *data, size_t data_size,
+                                          size_t alloc_size);
 
 /**
  * Function for process exit.  This is called during the tracer shutdown, giving
@@ -202,50 +208,96 @@ DR_EXPORT
  */
 drmemtrace_status_t
 drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
-                          drmemtrace_exit_func_t exit_func,
-                          void *exit_func_arg);
+                          drmemtrace_exit_func_t exit_func, void *exit_func_arg);
 
+DR_EXPORT
 /**
- * The name of the file in -offline mode where module data is written.
- * Its creation can be customized using drmemtrace_custom_module_data()
- * and then modified before passing to raw2trace via
- * drmodtrack_add_custom_data() and drmodtrack_offline_write().
+ * Retrieves the full path to the output directory in -offline mode
+ * where data is being written.
  */
-#define DRMEMTRACE_MODULE_LIST_FILENAME "modules.log"
+drmemtrace_status_t
+drmemtrace_get_output_path(OUT const char **path);
 
 DR_EXPORT
 /**
  * Retrieves the full path to the file in -offline mode where module data is written.
- * Its creation can be customized using drmemtrace_custom_module_data()
- * and then modified before passing to raw2trace via
- * drmodtrack_add_custom_data() with a parse and free callback
- * and drmodtrack_offline_write() to produce new file contents.
+ * The basename of the file is
+ * #DRMEMTRACE_MODULE_LIST_FILENAME.  Its creation can be customized using
+ * drmemtrace_custom_module_data() with corresponding post-processing with
+ * raw2trace_t::handle_custom_data().
  */
 drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path);
 
 DR_EXPORT
 /**
- * Adds custom data stored with each module in the module list produced for
- * offline trace post-processing.  The \p load_cb is called for each new module,
- * and its return value is the data that is stored.  That data is later printed
- * to a string with \p print_cb, which should return the number of characters
- * printed or -1 on error.  The data is freed with \p free_cb.
+ * Retrieves the full path to the file in -offline mode where function tracing
+ * information is written.  The basename of the file is
+ * #DRMEMTRACE_FUNCTION_LIST_FILENAME.  Each "library!symbol" function that was traced
+ * occupies one line of the file, with comma-separated values preceding it: its
+ * numeric identifier used in trace entries; the number of its arguments that are
+ * recorded; its address in hexadecimal format; and optional flags such as \"noret\".
+ * For example:
  *
- * The user can read and modify the resulting \p modules.log file, prior to
- * passing through the raw2trace post-processor.  Its path can be obtained from
- * drmemtrace_get_modlist_path() (unless drmemtrace_replace_file_ops() moved it:
- * then it's up to the caller to locate and process it), and the \p drmodtrack
- * API can be used to remove the custom field, update the path, and rewrite the
- * file: drmodtrack_add_custom_data(), drmodtrack_offline_read(),
- * drmodtrack_offline_lookup(), drmodtrack_offline_write().
+ *   4,1,0x7fff2348ac,libc!malloc
+ *   5,1,0x7fff267d52,noret,libc!free
+ *
+ * There can be multiple symbols mapping to the same address and thus to the sam
+ * identifier; each will have its own line in the file.
  */
 drmemtrace_status_t
-drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
+drmemtrace_get_funclist_path(OUT const char **path);
+
+DR_EXPORT
+/**
+ * Adds custom data stored with each module in the module list produced for
+ * offline trace post-processing.  The \p load_cb is called for each segment
+ * of each new module (with \p seg_idx indicating the segment number, starting at 0),
+ * and its return value is the data that is stored.  That data is later printed
+ * to a string with \p print_cb, which should return the number of characters
+ * printed or -1 on error.  The data is freed with \p free_cb.  Each is called
+ * separately for each segment of each module.
+ *
+ * On the post-processing side, the user should create a custom post-processor
+ * by linking with raw2trace and calling raw2trace_t::handle_custom_data() to provide
+ * parsing and processing routines for the custom data.
+ */
+drmemtrace_status_t
+drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data));
+
+/**
+ * Activates thread filtering.  The \p should_trace_thread_cb will be
+ * called once for each new thread, with \p user_value passed in for \p
+ * user_data.  If it returns false, that thread will *not* be traced at
+ * all; if it returns true, that thread will be traced normally.  Returns
+ * whether the filter was successfully installed.  \note This feature is
+ * currently only supported for x86.
+ * This routine should be called during initialization, before any
+ * instrumentation is added.  To filter out the calling thread (the initial
+ * application thread) this should be called prior to DR initialization
+ * (via the start/stop API).  Only a single call to this routine is
+ * supported.
+ */
+drmemtrace_status_t
+drmemtrace_filter_threads(bool (*should_trace_thread_cb)(thread_id_t tid,
+                                                         void *user_data),
+                          void *user_value);
+
+DR_EXPORT
+/**
+ * Fetch the timestamp from a raw trace bundle. The API checks if the bundle
+ * is a thread start or not, and fetches the timestamp from the appropriate
+ * location.
+ * Returns DRMEMTRACE_ERROR_INVALID_PARAMETER if the pointer parameters are
+ * null or if the trace is too short.
+ */
+drmemtrace_status_t
+drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
+                                            OUT uint64 *timestamp);
 
 #ifdef __cplusplus
 }
 #endif
-#endif  /* _DRMEMTRACE_H */
+#endif /* _DRMEMTRACE_H */

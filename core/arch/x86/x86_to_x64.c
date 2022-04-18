@@ -43,11 +43,11 @@
 #include "../globals.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrument.h"
 
-static const reg_id_t pushad_registers[] = {REG_EDI, REG_ESI, REG_EBP, REG_R8D,
-                                            REG_EBX, REG_EDX, REG_ECX, REG_EAX};
+static const reg_id_t pushad_registers[] = { REG_EDI, REG_ESI, REG_EBP, REG_R8D,
+                                             REG_EBX, REG_EDX, REG_ECX, REG_EAX };
 
 /* inserts "inst" before "where", and sets its translation */
 static void
@@ -80,7 +80,6 @@ opnd_change_base_reg_to_64(opnd_t opnd)
     index_reg = opnd_get_index(opnd);
     disp = opnd_get_disp(opnd);
 
-
     /* If there's a negative index, then base+index may overflow.
      * So we only perform the optimization when there's no index.
      *
@@ -91,17 +90,12 @@ opnd_change_base_reg_to_64(opnd_t opnd)
      * in which case base+disp may overflow because base will be zero-
      * extended.
      */
-    if (reg_is_32bit(base_reg) && index_reg == REG_NULL &&
-        disp > -4096 && disp < 4096) {
-        opnd = opnd_create_far_base_disp_ex(opnd_get_segment(opnd),
-                                            reg_32_to_64(base_reg),
-                                            index_reg,
-                                            opnd_get_scale(opnd),
-                                            disp,
-                                            opnd_get_size(opnd),
-                                            opnd_is_disp_encode_zero(opnd),
-                                            opnd_is_disp_force_full(opnd),
-                                            opnd_is_disp_short_addr(opnd));
+    if (reg_is_32bit(base_reg) && index_reg == REG_NULL && disp > -4096 && disp < 4096) {
+        opnd = opnd_create_far_base_disp_ex(
+            opnd_get_segment(opnd), reg_32_to_64(base_reg), index_reg,
+            opnd_get_scale(opnd), disp, opnd_get_size(opnd),
+            opnd_is_disp_encode_zero(opnd), opnd_is_disp_force_full(opnd),
+            opnd_is_disp_short_addr(opnd));
     }
 
     return opnd;
@@ -111,14 +105,22 @@ static bool
 instr_is_string_operation(instr_t *instr)
 {
     switch (instr_get_opcode(instr)) {
-    case OP_ins: case OP_rep_ins:
-    case OP_outs: case OP_rep_outs:
-    case OP_movs: case OP_rep_movs:
-    case OP_stos: case OP_rep_stos:
-    case OP_lods: case OP_rep_lods:
-    case OP_cmps: case OP_rep_cmps: case OP_repne_cmps:
-    case OP_scas: case OP_rep_scas: case OP_repne_scas:
-        return true;
+    case OP_ins:
+    case OP_rep_ins:
+    case OP_outs:
+    case OP_rep_outs:
+    case OP_movs:
+    case OP_rep_movs:
+    case OP_stos:
+    case OP_rep_stos:
+    case OP_lods:
+    case OP_rep_lods:
+    case OP_cmps:
+    case OP_rep_cmps:
+    case OP_repne_cmps:
+    case OP_scas:
+    case OP_rep_scas:
+    case OP_repne_scas: return true;
     }
     return false;
 }
@@ -233,18 +235,16 @@ translate_push(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
                 INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
                                  OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, -4)));
             replace(dcontext, ilist, instr,
-                    INSTR_CREATE_mov_st(dcontext,
-                                        OPND_CREATE_MEM32(REG_RSP, 0), src));
+                    INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_RSP, 0), src));
         } else {
-            ASSERT(reg == SEG_CS || reg == SEG_SS || reg == SEG_DS ||
-                   reg == SEG_ES || reg == SEG_FS || reg == SEG_GS);
+            ASSERT(reg == SEG_CS || reg == SEG_SS || reg == SEG_DS || reg == SEG_ES ||
+                   reg == SEG_FS || reg == SEG_GS);
             /* translate: push sreg => mov sreg -> r8
              *                         lea -4(rsp) -> rsp
              *                         mov r8d -> (rsp)
              */
             pre(ilist, *instr,
-                INSTR_CREATE_mov_seg(dcontext,
-                                     opnd_create_reg(REG_R8), src));
+                INSTR_CREATE_mov_seg(dcontext, opnd_create_reg(REG_R8), src));
             pre(ilist, *instr,
                 INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
                                  OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, -4)));
@@ -291,23 +291,20 @@ translate_push_imm(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **ins
     src = instr_get_src(*instr, 0);
     switch (opnd_get_size(src)) {
     case OPSZ_1:
-        pre(ilist, *instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_R8L), src));
+        pre(ilist, *instr, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_R8L), src));
         pre(ilist, *instr,
             INSTR_CREATE_movsx(dcontext, opnd_create_reg(REG_R8D),
                                opnd_create_reg(REG_R8L)));
         break;
     case OPSZ_2:
-        pre(ilist, *instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_R8W), src));
+        pre(ilist, *instr, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_R8W), src));
         pre(ilist, *instr,
             INSTR_CREATE_movsx(dcontext, opnd_create_reg(REG_R8D),
                                opnd_create_reg(REG_R8W)));
         break;
     default:
         ASSERT(opnd_get_size(src) == OPSZ_4);
-        pre(ilist, *instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_R8D), src));
+        pre(ilist, *instr, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_R8D), src));
     }
     pre(ilist, *instr,
         INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
@@ -336,27 +333,24 @@ translate_pop(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
         if (reg == REG_ESP) {
             /* translate: pop esp => mov (rsp) -> esp */
             replace(dcontext, ilist, instr,
-                    INSTR_CREATE_mov_ld(dcontext,
-                                        dst, OPND_CREATE_MEM32(REG_RSP, 0)));
+                    INSTR_CREATE_mov_ld(dcontext, dst, OPND_CREATE_MEM32(REG_RSP, 0)));
         } else if (reg_is_32bit(reg)) {
             /* translate: pop reg32 => mov (rsp) -> reg32
              *                         lea 4(rsp) -> rsp
              */
             pre(ilist, *instr,
-                INSTR_CREATE_mov_ld(dcontext,
-                                    dst, OPND_CREATE_MEM32(REG_RSP, 0)));
+                INSTR_CREATE_mov_ld(dcontext, dst, OPND_CREATE_MEM32(REG_RSP, 0)));
             replace(dcontext, ilist, instr,
                     INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
                                      OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, 4)));
         } else {
-            ASSERT(reg == SEG_DS || reg == SEG_ES || reg == SEG_SS ||
-                   reg == SEG_FS || reg == SEG_GS);
+            ASSERT(reg == SEG_DS || reg == SEG_ES || reg == SEG_SS || reg == SEG_FS ||
+                   reg == SEG_GS);
             /* translate: pop sreg => mov (rsp) -> sreg
              *                        lea 4(rsp) -> rsp
              */
             pre(ilist, *instr,
-                INSTR_CREATE_mov_seg(dcontext,
-                                     dst, OPND_CREATE_MEM16(REG_RSP, 0)));
+                INSTR_CREATE_mov_seg(dcontext, dst, OPND_CREATE_MEM16(REG_RSP, 0)));
             replace(dcontext, ilist, instr,
                     INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
                                      OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, 4)));
@@ -400,19 +394,15 @@ translate_pusha(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
     int i;
 
     pre(ilist, *instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8),
-                            opnd_create_reg(REG_RSP)));
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8), opnd_create_reg(REG_RSP)));
     pre(ilist, *instr,
         INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
-                         OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0,
-                                             -8 * opsz_bytes)));
+                         OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, -8 * opsz_bytes)));
     for (i = 7; i >= 0; --i) {
         instr_t *mov;
-        mov = INSTR_CREATE_mov_st(dcontext,
-                                  opnd_create_base_disp(REG_RSP, REG_NULL, 0,
-                                                        i * opsz_bytes, opsz),
-                                  opnd_create_reg(reg_32_to_opsz(pushad_registers[i],
-                                                                 opsz)));
+        mov = INSTR_CREATE_mov_st(
+            dcontext, opnd_create_base_disp(REG_RSP, REG_NULL, 0, i * opsz_bytes, opsz),
+            opnd_create_reg(reg_32_to_opsz(pushad_registers[i], opsz)));
         if (i > 0)
             pre(ilist, *instr, mov);
         else
@@ -441,24 +431,20 @@ translate_popa(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
     int i;
 
     pre(ilist, *instr,
-        INSTR_CREATE_mov_ld(dcontext,
-                            opnd_create_reg(reg_32_to_opsz(REG_R8D, opsz)),
-                            opnd_create_base_disp(REG_RSP, REG_NULL, 0,
-                                                  7 * opsz_bytes, opsz)));
+        INSTR_CREATE_mov_ld(
+            dcontext, opnd_create_reg(reg_32_to_opsz(REG_R8D, opsz)),
+            opnd_create_base_disp(REG_RSP, REG_NULL, 0, 7 * opsz_bytes, opsz)));
     for (i = 0; i < 8; ++i) {
-        if (pushad_registers[i] == REG_ESP)  /* skip sp/esp */
+        if (pushad_registers[i] == REG_ESP) /* skip sp/esp */
             continue;
         pre(ilist, *instr,
-            INSTR_CREATE_mov_ld(dcontext,
-                                opnd_create_reg(reg_32_to_opsz(pushad_registers[i],
-                                                               opsz)),
-                                opnd_create_base_disp(REG_RSP, REG_NULL, 0,
-                                                      i * opsz_bytes, opsz)));
+            INSTR_CREATE_mov_ld(
+                dcontext, opnd_create_reg(reg_32_to_opsz(pushad_registers[i], opsz)),
+                opnd_create_base_disp(REG_RSP, REG_NULL, 0, i * opsz_bytes, opsz)));
     }
     replace(dcontext, ilist, instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
-                             OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0,
-                                                 8 * opsz_bytes)));
+                             OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, 8 * opsz_bytes)));
     STATS_INC(num_32bit_instrs_translated);
 }
 
@@ -471,8 +457,7 @@ translate_into(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
     pre(ilist, *instr,
         INSTR_CREATE_jcc_short(dcontext, OP_jno_short,
                                opnd_create_instr(instr_get_next(*instr))));
-    replace(dcontext, ilist, instr,
-            INSTR_CREATE_int(dcontext, OPND_CREATE_INT8(4)));
+    replace(dcontext, ilist, instr, INSTR_CREATE_int(dcontext, OPND_CREATE_INT8(4)));
     STATS_INC(num_32bit_instrs_translated);
 }
 
@@ -489,8 +474,7 @@ translate_load_far_pointer(dcontext_t *dcontext, instrlist_t *ilist,
     opnd_t src = opnd_change_base_reg_to_64(instr_get_src(*instr, 0));
     if (opnd_get_size(dst) == OPSZ_2) {
         opnd_set_size(&src, OPSZ_2);
-        pre(ilist, *instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8W), src));
+        pre(ilist, *instr, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8W), src));
         opnd_set_disp(&src, 2);
         pre(ilist, *instr, INSTR_CREATE_mov_seg(dcontext, sreg, src));
         replace(dcontext, ilist, instr,
@@ -498,8 +482,7 @@ translate_load_far_pointer(dcontext_t *dcontext, instrlist_t *ilist,
     } else {
         ASSERT(opnd_get_size(dst) == OPSZ_4);
         opnd_set_size(&src, OPSZ_4);
-        pre(ilist, *instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8D), src));
+        pre(ilist, *instr, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8D), src));
         opnd_set_disp(&src, 4);
         opnd_set_size(&src, OPSZ_2);
         pre(ilist, *instr, INSTR_CREATE_mov_seg(dcontext, sreg, src));
@@ -586,47 +569,23 @@ translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **i
     ASSERT(instrlist_get_our_mangling(ilist));
     ASSERT(instr_get_x86_mode(*instr));
     switch (opc) {
-    case OP_call_ind:
-        translate_indirect_call(dcontext, ilist, instr);
-        break;
-    case OP_jmp_ind:
-        translate_indirect_jump(dcontext, ilist, instr);
-        break;
-    case OP_push:
-        translate_push(dcontext, ilist, instr);
-        break;
-    case OP_push_imm:
-        translate_push_imm(dcontext, ilist, instr);
-        break;
-    case OP_pop:
-        translate_pop(dcontext, ilist, instr);
-        break;
-    case OP_pusha:
-        translate_pusha(dcontext, ilist, instr);
-        break;
-    case OP_popa:
-        translate_popa(dcontext, ilist, instr);
-        break;
-    case OP_into:
-        translate_into(dcontext, ilist, instr);
-        break;
+    case OP_call_ind: translate_indirect_call(dcontext, ilist, instr); break;
+    case OP_jmp_ind: translate_indirect_jump(dcontext, ilist, instr); break;
+    case OP_push: translate_push(dcontext, ilist, instr); break;
+    case OP_push_imm: translate_push_imm(dcontext, ilist, instr); break;
+    case OP_pop: translate_pop(dcontext, ilist, instr); break;
+    case OP_pusha: translate_pusha(dcontext, ilist, instr); break;
+    case OP_popa: translate_popa(dcontext, ilist, instr); break;
+    case OP_into: translate_into(dcontext, ilist, instr); break;
     case OP_les:
-    case OP_lds:
-        translate_load_far_pointer(dcontext, ilist, instr);
-        break;
-    case OP_leave:
-        translate_leave(dcontext, ilist, instr);
-        break;
+    case OP_lds: translate_load_far_pointer(dcontext, ilist, instr); break;
+    case OP_leave: translate_leave(dcontext, ilist, instr); break;
     case OP_enter:
         /* NYI. shoule be similar to leave. */
         ASSERT_NOT_IMPLEMENTED(false);
         break;
-    case OP_pushf:
-        translate_pushf(dcontext, ilist, instr);
-        break;
-    case OP_popf:
-        translate_popf(dcontext, ilist, instr);
-        break;
+    case OP_pushf: translate_pushf(dcontext, ilist, instr); break;
+    case OP_popf: translate_popf(dcontext, ilist, instr); break;
     case OP_daa:
     case OP_das:
     case OP_aaa:

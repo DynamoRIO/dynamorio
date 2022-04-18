@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,17 +53,17 @@ extern "C" {
 /**
  * \addtogroup drreg Register Usage Coordinator
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each drreg operation */
 typedef enum {
-    DRREG_SUCCESS,                  /**< Operation succeeded. */
-    DRREG_ERROR,                    /**< Operation failed. */
-    DRREG_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
+    DRREG_SUCCESS,                     /**< Operation succeeded. */
+    DRREG_ERROR,                       /**< Operation failed. */
+    DRREG_ERROR_INVALID_PARAMETER,     /**< Operation failed: invalid parameter */
     DRREG_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
-    DRREG_ERROR_REG_CONFLICT,       /**< Operation failed: register conflict */
-    DRREG_ERROR_IN_USE,             /**< Operation failed: resource already in use */
-    DRREG_ERROR_OUT_OF_SLOTS,       /**< Operation failed: no more TLS slots */
+    DRREG_ERROR_REG_CONFLICT,          /**< Operation failed: register conflict */
+    DRREG_ERROR_IN_USE,                /**< Operation failed: resource already in use */
+    DRREG_ERROR_OUT_OF_SLOTS,          /**< Operation failed: no more TLS slots */
     /**
      * Operation failed: app value not available.
      * Set \p conservative in \p drreg_options_t to avoid this error.
@@ -84,11 +84,11 @@ typedef enum {
  */
 enum {
     /** Priority of drreg analysis and pre-insert */
-    DRMGR_PRIORITY_INSERT_DRREG_HIGH =  -7500,
+    DRMGR_PRIORITY_INSERT_DRREG_HIGH = -7500,
     /** Priority of drreg post-insert */
-    DRMGR_PRIORITY_INSERT_DRREG_LOW  =   7500,
+    DRMGR_PRIORITY_INSERT_DRREG_LOW = 7500,
     /** Priority of drreg fault handling event */
-    DRMGR_PRIORITY_FAULT_DRREG       =  -7500,
+    DRMGR_PRIORITY_FAULT_DRREG = -7500,
 };
 
 /**
@@ -100,7 +100,7 @@ enum {
 /**
  * Name of drreg instrumentation pass priorities for analysis and insert
  * steps that are meant to take place after any tool actions.
-  */
+ */
 #define DRMGR_PRIORITY_NAME_DRREG_LOW "drreg_low"
 
 /**
@@ -117,7 +117,13 @@ typedef struct _drreg_options_t {
      * requested from DR via dr_raw_tls_calloc().  Any slots needed beyond
      * this number will use DR's base slots, which are not allowed to be
      * used across application instructions.  DR's slots are also more
-     * expensive to access (beyond the first few).
+     * expensive to access (beyond the first few).  DR's base slots may
+     * also be used by APIs like dr_save_reg()/dr_restore_reg() (and the
+     * corresponding dr_read_saved_reg()/dr_write_saved_reg()), which may
+     * cause correctness issues if there's some slot usage conflict within
+     * the same client or with other clients/libraries.  Therefore, all
+     * cooperating client components should use drreg.  Also, clients
+     * should make sure to request sufficient dedicated slots from drreg.
      * This number should be computed as one plus the number of
      * simultaneously used general-purpose register spill slots, as
      * drreg reserves one of the requested slots for arithmetic flag
@@ -141,6 +147,13 @@ typedef struct _drreg_options_t {
      *
      * If multiple drreg_init() calls are made, this field is combined by
      * logical OR.
+     *
+     * XXX i#3801: If a fault occurs between two spills of a GPR or aflags,
+     * where the second spill is after an app write, the current drreg
+     * application state restoration logic does not restore the dead GPR/aflags
+     * even with this field set to true. It is difficult to do so without
+     * additional metadata passed to the state restoration callback.
+     *
      */
     bool conservative;
     /**
@@ -222,6 +235,9 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -274,6 +290,9 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -316,7 +335,27 @@ typedef enum {
      * registers needed inside control flow prior to any forward branches).  Such
      * scratch registers are then restored prior to each application instruction.
      */
-    DRREG_IGNORE_CONTROL_FLOW            = 0x002,
+    DRREG_IGNORE_CONTROL_FLOW = 0x002,
+    /**
+     * Turns off register restoration at the end of the block.
+     * Note that it is still required that registers have their original
+     * values at the end of a basic block. Therefore, restoration needs
+     * to be handled by the user manually, usually via drreg_restore_all().
+     */
+    DRREG_USER_RESTORES_AT_BB_END = 0x004,
+
+    /**
+     * Turns on stricter logic to find free register spill slots. This avoids
+     * conflicts with slots used to spill some register value in prior instrumentation
+     * passes. An example usage is in drx_expand_scatter_gather() which is used in
+     * the app2app pass and requires spilling of registers to slots that may
+     * conflict with slots used during later instrumentation passes. Using this
+     * option also makes spill slots used in prior phases less available in
+     * future phases; the current logic skips over a slot if there's a usage
+     * found anywhere later in the bb added by any previous phase. So it requires
+     * additional spill slots as well.
+     */
+    DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS = 0x008,
 } drreg_bb_properties_t;
 
 DR_EXPORT
@@ -389,7 +428,7 @@ DR_EXPORT
  * application instruction that reads \p app_reg, but sometimes
  * instrumentation needs to read the application value of a register
  * that has been reserved.  If \p app_reg is a dead register,
- * DRREG_ERROR_NO_APP_VALUE may be returned. Set \p conservative in \p
+ * #DRREG_ERROR_NO_APP_VALUE may be returned. Set \p conservative in \p
  * drreg_options_t to avoid this error.
  *
  * If called during drmgr's insertion phase, \p where must be the
@@ -404,8 +443,8 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
-                    reg_id_t app_reg, reg_id_t dst_reg);
+drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t app_reg,
+                    reg_id_t dst_reg);
 
 DR_EXPORT
 /**
@@ -431,13 +470,77 @@ DR_EXPORT
  * any values that were already restored are not undone.
  */
 drreg_status_t
-drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
-                         opnd_t opnd, INOUT reg_id_t *swap);
+drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t opnd,
+                         INOUT reg_id_t *swap);
+
+DR_EXPORT
+/**
+ * Restores the spilled value (typically the application value) for
+ * all registers and flags at \p where.
+ */
+drreg_status_t
+drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *where);
+
+DR_EXPORT
+/**
+ * This routine is meant for use with instrumentation that uses separate control flow
+ * paths, such as a fastpath and a slowpath, where the slowpath needs access to the
+ * full application state yet must retain scratch register parity with the fastpath.
+ * The application value for \p reg is restored into \p reg at \p where_restore, but
+ * internal drreg state is not updated to reflect this.  Furthermore, if doing so
+ * affects subsequent behavior, such as when \p reg is being used to hold the
+ * preserved application value for another register or flags, instructions are
+ * inserted at \p where_respill to restore the state, such that \p where_respill will
+ * operate correctly whether \p where_restore was executed or not.  The optional
+ * output parameters \p restore_needed and \p respill_needed are set to indicate
+ * whether instructions were inserted at \p where_restore and \p where_respill,
+ * respectively.
+ *
+ * For correct operation on x86 in the case when aflags are in xax and this routine
+ * is invoked to get app value of xax, there shouldn't be any new reservation between
+ * \p where_restore and \p where_respill that may write to a spill slot and clobber
+ * the temporary slot used in this routine.
+ *
+ * The results from drreg_reservation_info_ex() can be used to predict the behavior
+ * of this routine.  A restore is needed if !drreg_reserve_info_t.holds_app_value.
+ * and drreg_reserve_info_t.app_value_retained.  A respill is needed if a restore is
+ * needed and drreg_reserve_info_t.opnd is a register.
+ *
+ * If \p app_reg is a dead register, #DRREG_ERROR_NO_APP_VALUE may be returned. Set
+ * \p conservative in \p drreg_options_t to avoid this error.
+ *
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
+ *
+ * To restore the arithmetic flags, pass #DR_REG_NULL for \p reg.
+ *
+ * On ARM, passing \p reg equal to dr_get_stolen_reg() is not supported.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_t reg,
+                                    instr_t *where_restore, instr_t *where_respill,
+                                    bool *restore_needed OUT, bool *respill_needed OUT);
+
+DR_EXPORT
+/**
+ * Invokes drreg_statelessly_restore_app_value() for the arithmetic flags and every
+ * general-purpose register.  Returns the logical OR of the 'restore_needed' and
+ * 'respill_needed' results from all of the drreg_statelessly_restore_app_value() calls.
+ * If any step results in an error, that error is returned and the output parameters
+ * are not filled in (despite partial restores potentially remaining in place).
+ */
+drreg_status_t
+drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *where_restore,
+                              instr_t *where_respill, bool *restore_needed OUT,
+                              bool *respill_needed OUT);
 
 DR_EXPORT
 /**
  * Returns information about the TLS slot assigned to \p reg, which
- * must be a currently-reserved register.
+ * must be a currently-reserved register. To query information about
+ * the arithmetic flags, pass #DR_REG_NULL for \p reg.
  *
  * If \p opnd is non-NULL, returns an opnd_t in \p opnd that references
  * the TLS slot assigned to \p reg.  If too many slots are in use and
@@ -458,6 +561,57 @@ drreg_status_t
 drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
                        bool *is_dr_slot OUT, uint *tls_offs OUT);
 
+/**
+ * Contains information about a register's reservation and restoration status.
+ */
+typedef struct _drreg_reserve_info_t {
+    /** The size of this structure.  It must be set by the caller before querying. */
+    size_t size;
+    /** Whether the register is currently reserved. */
+    bool reserved;
+    /** Whether the register currently holds the application value. */
+    bool holds_app_value;
+    /**
+     * Whether the application's value is stored somewhere (it may not be if the
+     * register is dead and \p conservative is not set in \p drreg_options_t).
+     */
+    bool app_value_retained;
+    /**
+     * True if the register's TLS slot is a DR slot (and can thus be accessed by
+     * dr_read_saved_reg()) and false if either the slot is inside the
+     * dr_raw_tls_calloc() allocation used by drreg or the "slot" is another
+     * register.
+     */
+    bool is_dr_slot;
+    /**
+     * An operand that references the location storing the application value.  If
+     * too many slots are in use and the register is stored in a
+     * non-directly-addressable slot, this is set to a null #opnd_t.
+     * If the register is being kept in a different register, this will be a
+     * register operand holding that location.
+     * If \p app_value_retained is false, this is set to a null #opnd_t.
+     */
+    opnd_t opnd;
+    /**
+     * If the register's application value is not stored in a TLS slot, this is -1.
+     * If so, and the slot is a DR slot, this holds the DR slot index; if it is not a
+     * DR slot, this holds the offset from the TLS base of the slot assigned to the
+     * register.
+     */
+    int tls_offs;
+} drreg_reserve_info_t;
+
+DR_EXPORT
+/**
+ * Returns information about the reservation and restoration status of
+ * \p reg.  The \p size field of \p info must be set before calling.
+ * To query information about the arithmetic flags, pass #DR_REG_NULL for \p reg.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *info OUT);
+
 DR_EXPORT
 /**
  * Terminates exclusive use of the register \p reg.  Restores the
@@ -469,7 +623,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          reg_id_t reg);
+                         reg_id_t reg);
 
 DR_EXPORT
 /**
@@ -492,8 +646,23 @@ DR_EXPORT
 drreg_status_t
 drreg_set_bb_properties(void *drcontext, drreg_bb_properties_t flags);
 
+DR_EXPORT
+/**
+ * Analyzes \p instr and returns whether it is a drreg register spill
+ * in \p spill, a drreg register restore in \p restore, and which
+ * register is being spilled or restored in \p reg_spilled.  Each
+ * output parameter is optional and may be NULL.  If DR's spill slots
+ * are being used (see drreg_options_t.num_spill_slots), this routine
+ * may not be able to distinguish a drreg spill or restore from some
+ * other spill or restore.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
+                                bool *restore OUT, reg_id_t *reg_spilled OUT);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

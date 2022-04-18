@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,20 +38,54 @@
 #include <string>
 #include "analysis_tool.h"
 
-// These options are currently documented in ../common/options.cpp.
+/**
+ * @file drmemtrace/tlb_simulator_create.h
+ * @brief DrMemtrace TLB simulator creation.
+ */
+
+/**
+ * The options for tlb_simulator_create().
+ * The options are currently documented in \ref sec_drcachesim_ops.
+ */
+// The options are currently documented in ../common/options.cpp.
+struct tlb_simulator_knobs_t {
+    tlb_simulator_knobs_t()
+        : num_cores(4)
+        , page_size(4 * 1024)
+        , TLB_L1I_entries(32)
+        , TLB_L1D_entries(32)
+        , TLB_L1I_assoc(32)
+        , TLB_L1D_assoc(32)
+        , TLB_L2_entries(1024)
+        , TLB_L2_assoc(4)
+        , TLB_replace_policy("LFU")
+        , skip_refs(0)
+        , warmup_refs(0)
+        , warmup_fraction(0.0)
+        , sim_refs(1ULL << 63)
+        , cpu_scheduling(false)
+        , verbose(0)
+    {
+    }
+    unsigned int num_cores;
+    uint64_t page_size;
+    unsigned int TLB_L1I_entries;
+    unsigned int TLB_L1D_entries;
+    unsigned int TLB_L1I_assoc;
+    unsigned int TLB_L1D_assoc;
+    unsigned int TLB_L2_entries;
+    unsigned int TLB_L2_assoc;
+    std::string TLB_replace_policy;
+    uint64_t skip_refs;
+    uint64_t warmup_refs;
+    double warmup_fraction;
+    uint64_t sim_refs;
+    bool cpu_scheduling;
+    unsigned int verbose;
+};
+
+/** Creates an instance of a TLB simulator. */
 analysis_tool_t *
-tlb_simulator_create(unsigned int num_cores = 4,
-                     uint64_t page_size = 4*1024,
-                     unsigned int TLB_L1I_entries = 32,
-                     unsigned int TLB_L1D_entries = 32,
-                     unsigned int TLB_L1I_assoc = 32,
-                     unsigned int TLB_L1D_assoc = 32,
-                     unsigned int TLB_L2_entries = 1024,
-                     unsigned int TLB_L2_assoc = 4,
-                     std::string replace_policy = "LFU",
-                     uint64_t skip_refs = 0,
-                     uint64_t warmup_refs = 0,
-                     uint64_t sim_refs = 1ULL << 63,
-                     unsigned int verbose = 0);
+tlb_simulator_create(const tlb_simulator_knobs_t &knobs);
 
 #endif /* _TLB_SIMULATOR_CREATE_H_ */

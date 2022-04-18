@@ -1,0 +1,37 @@
+.*About to create thread
+.*in wnd_callback 0x0*0000024 0
+kernel_xfer_event: type 6
+kernel_xfer_event: type 5
+in wnd_callback 0x0*0000081 0
+kernel_xfer_event: type 6
+kernel_xfer_event: type 5
+.*in wnd_callback 0x0*0000083 0
+kernel_xfer_event: type 6
+kernel_xfer_event: type 5
+in wnd_callback 0x0*0000001 0
+kernel_xfer_event: type 6
+kernel_xfer_event: type 5
+in wnd_callback 0x0*0008001 3 0
+About to crash
+exception c0000005 addr 0x0*0000040
+kernel_xfer_event: type 3
+#ifndef X64
+kernel_xfer_event: type 7
+#endif
+Inside handler
+kernel_xfer_event: type 6
+kernel_xfer_event: type 5
+in wnd_callback 0x0*0008001 0 2
+kernel_xfer_event: type 6
+Got message 0x0*0008001 1 3
+Before _beginthreadex
+kernel_xfer_event: type 2
+kernel_xfer_event: type 7
+QueueUserAPC returned 1
+kernel_xfer_event: type 2
+kernel_xfer_event: type 7
+SleepEx returned 192
+Apc arg = 37
+Result = 100
+After _beginthreadex
+All done

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -50,7 +50,6 @@
  * - delay-load dlls
  * - bound imports
  * - import hint
- * - TLS (though expect only in .exe not .dll)
  *
  * i#234: earliest injection:
  * - use bootstrap loader w/ manual syscalls or ntdll binding to load DR
@@ -78,16 +77,29 @@
 #include "drwinapi/drwinapi.h"
 
 #ifdef X64
-# define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG64
+#    define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG64
 #else
-# define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG32
+#    define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG32
 #endif
+
+typedef struct _os_privmod_data_t {
+    PIMAGE_TLS_CALLBACK *tls_callbacks;
+    int tls_callback_count;
+    int tls_idx;
+    byte *tls_init_data;
+    size_t tls_size;
+} os_privmod_data_t;
+
+static volatile int tls_next_idx;
+static volatile int tls_array_count;
+/* It is complex to realloc this; it is rarely used so we have a simple max. */
+#define TLS_ARRAY_MAX_SIZE 32
 
 /* Not persistent across code cache execution, so not protected.
  * Synchronized by privload_lock.
  */
-DECLARE_NEVERPROT_VAR(static char modpath[MAXIMUM_PATH], {0});
-DECLARE_NEVERPROT_VAR(static char forwmodpath[MAXIMUM_PATH], {0});
+DECLARE_NEVERPROT_VAR(static char modpath[MAXIMUM_PATH], { 0 });
+DECLARE_NEVERPROT_VAR(static char forwmodpath[MAXIMUM_PATH], { 0 });
 
 /* Written during initialization only */
 static char systemroot[MAXIMUM_PATH];
@@ -95,7 +107,7 @@ static char systemroot[MAXIMUM_PATH];
 static bool windbg_cmds_initialized;
 
 /* PE entry points take 3 args */
-typedef BOOL (WINAPI *dllmain_t)(HANDLE, DWORD, LPVOID);
+typedef BOOL(WINAPI *dllmain_t)(HANDLE, DWORD, LPVOID);
 
 /* forward decls */
 
@@ -107,8 +119,8 @@ privload_get_import_descriptor(privmod_t *mod, IMAGE_IMPORT_DESCRIPTOR **imports
                                app_pc *imports_end OUT);
 
 static bool
-privload_process_one_import(privmod_t *mod, privmod_t *impmod,
-                            IMAGE_THUNK_DATA *lookup, app_pc *address);
+privload_process_one_import(privmod_t *mod, privmod_t *impmod, IMAGE_THUNK_DATA *lookup,
+                            app_pc *address);
 
 static const char *
 privload_map_name(const char *impname, privmod_t *immed_dep);
@@ -125,7 +137,6 @@ privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
 static void
 privload_add_windbg_cmds(void);
 
-#ifdef CLIENT_INTERFACE
 /* Isolate the app's PEB by making a copy for use by private libs (i#249) */
 static PEB *private_peb;
 static bool private_peb_initialized = false;
@@ -135,24 +146,26 @@ static void *pre_fls_data;
 static void *pre_nt_rpc;
 /* Isolate TEB->NlsCache: for first thread we need to copy before have dcontext */
 static void *pre_nls_cache;
+/* Isolate TEB->ThreadLocalStoragePointer. */
+static void *pre_static_tls;
 /* FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
-#endif
 
 /* NtTickCount: not really a syscall, just reads KUSER_SHARED_DATA.
  * Redirects to RtlGetTickCount on Win2003+.
  * But, it's not present on XP (i#1195), so we have to dynamically
  * look it up.
  */
-typedef ULONG_PTR (NTAPI *ntdll_NtTickCount_t)(void);
+typedef ULONG_PTR(NTAPI *ntdll_NtTickCount_t)(void);
 static ntdll_NtTickCount_t ntdll_NtTickCount;
 
 /***************************************************************************/
 
-HANDLE WINAPI RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
-                            size_t commit_sz, void *lock, void *params);
+HANDLE WINAPI
+RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz, size_t commit_sz, void *lock,
+              void *params);
 
-BOOL WINAPI RtlDestroyHeap(HANDLE base);
-
+BOOL WINAPI
+RtlDestroyHeap(HANDLE base);
 
 void
 os_loader_init_prologue(void)
@@ -163,10 +176,9 @@ os_loader_init_prologue(void)
     privmod_t *mod;
     /* FIXME i#812: need to delay this for earliest injection */
     if (!dr_earliest_injected && !standalone_library) {
-        user32 = (app_pc) get_module_handle(L"user32.dll");
+        user32 = (app_pc)get_module_handle(L"user32.dll");
     }
 
-#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb)) {
         /* Isolate the app's PEB by making a copy for use by private libs (i#249).
          * We just do a shallow copy for now until we hit an issue w/ deeper fields
@@ -177,7 +189,7 @@ os_loader_init_prologue(void)
          * to get info.PebBaseAddress: we assume they don't do that.  It's not
          * exposed in any WinAPI routine.
          */
-        GET_NTDLL(RtlInitializeCriticalSection, (OUT RTL_CRITICAL_SECTION *crit));
+        GET_NTDLL(RtlInitializeCriticalSection, (OUT RTL_CRITICAL_SECTION * crit));
         PEB *own_peb = get_own_peb();
         /* FIXME: does it need to be page-aligned? */
         private_peb = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, PEB, ACCT_OTHER, UNPROTECTED);
@@ -187,8 +199,8 @@ os_loader_init_prologue(void)
          * One concern here is that the real PEB points at ntdll!FastPebLock
          * but we assume nobody cares.
          */
-        private_peb->FastPebLock = HEAP_TYPE_ALLOC
-            (GLOBAL_DCONTEXT, RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
+        private_peb->FastPebLock = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, RTL_CRITICAL_SECTION,
+                                                   ACCT_OTHER, UNPROTECTED);
         if (!dr_earliest_injected) /* FIXME i#812: need to delay this */
             RtlInitializeCriticalSection(private_peb->FastPebLock);
 
@@ -200,8 +212,8 @@ os_loader_init_prologue(void)
         if (dr_earliest_injected) { /* FIXME i#812: need to delay RtlCreateHeap */
             private_peb->ProcessHeap = own_peb->ProcessHeap;
         } else {
-            private_peb->ProcessHeap = RtlCreateHeap(HEAP_GROWABLE | HEAP_CLASS_PRIVATE,
-                                                     NULL, 0, 0, NULL, NULL);
+            private_peb->ProcessHeap =
+                RtlCreateHeap(HEAP_GROWABLE | HEAP_CLASS_PRIVATE, NULL, 0, 0, NULL, NULL);
             if (private_peb->ProcessHeap == NULL) {
                 SYSLOG_INTERNAL_ERROR("private default heap creation failed");
                 /* fallback */
@@ -216,33 +228,39 @@ os_loader_init_prologue(void)
         }
 
         private_peb_initialized = true;
-        swap_peb_pointer(NULL, true/*to priv*/);
-        LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
-        LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
+        swap_peb_pointer(NULL, true /*to priv*/);
+        LOG(GLOBAL, LOG_LOADER, 2, "app peb=" PFX "\n", own_peb);
+        LOG(GLOBAL, LOG_LOADER, 2, "private peb=" PFX "\n", private_peb);
 
         if (should_swap_teb_nonstack_fields()) {
-            pre_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
-            pre_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
-            pre_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+            pre_fls_data = d_r_get_tls(FLS_DATA_TIB_OFFSET);
+            pre_nt_rpc = d_r_get_tls(NT_RPC_TIB_OFFSET);
+            pre_nls_cache = d_r_get_tls(NLS_CACHE_TIB_OFFSET);
             /* Clear state to separate priv from app.
              * XXX: if we attach or something it seems possible that ntdll or user32
              * or some other shared resource might set these and we want to share
              * the value between app and priv.  In that case we should not clear here
-             * and should relax the asserts in dispatch and is_using_app_peb to
+             * and should relax the asserts in d_r_dispatch and is_using_app_peb to
              * allow app==priv if both ==pre.
              */
-            set_tls(NLS_CACHE_TIB_OFFSET, NULL);
-            set_tls(FLS_DATA_TIB_OFFSET, NULL);
-            set_tls(NT_RPC_TIB_OFFSET, NULL);
-            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache="PFX"\n",
-                pre_nls_cache);
-            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData="PFX"\n",
+            d_r_set_tls(FLS_DATA_TIB_OFFSET, NULL);
+            d_r_set_tls(NT_RPC_TIB_OFFSET, NULL);
+            d_r_set_tls(NLS_CACHE_TIB_OFFSET, NULL);
+            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData=" PFX "\n",
                 pre_fls_data);
-            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->ReservedForNtRpc="PFX"\n",
+            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->ReservedForNtRpc=" PFX "\n",
                 pre_nt_rpc);
+            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache=" PFX "\n",
+                pre_nls_cache);
+        }
+        if (should_swap_teb_static_tls()) {
+            pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
+            d_r_set_tls(STATIC_TLS_TIB_OFFSET, NULL);
+            LOG(GLOBAL, LOG_LOADER, 2,
+                "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n",
+                pre_static_tls);
         }
     }
-#endif
 
     drwinapi_init();
 
@@ -251,11 +269,11 @@ os_loader_init_prologue(void)
     /* We count on having at least one node that's never removed so we
      * don't have to unprot .data and write to modlist later
      */
-    snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s",
-             systemroot, "ntdll.dll");
+    snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s", systemroot,
+             "ntdll.dll");
     NULL_TERMINATE_BUFFER(modpath);
-    mod = privload_insert(NULL, ntdll, get_allocation_size(ntdll, NULL),
-                          "ntdll.dll", modpath);
+    mod = privload_insert(NULL, ntdll, get_allocation_size(ntdll, NULL), "ntdll.dll",
+                          modpath);
     mod->externally_loaded = true;
     /* FIXME i#234: Once we have earliest injection and load DR via this private loader
      * (i#234/PR 204587) we can remove this
@@ -265,11 +283,18 @@ os_loader_init_prologue(void)
     mod->externally_loaded = true;
 
     /* Sometimes a privlib calls LoadLibrary to get a handle to the executable */
-    mod = privload_insert(NULL, get_application_base(),
-                          get_application_end() - get_application_base() + 1,
-                          get_application_short_unqualified_name(),
-                          get_application_name());
+    mod = privload_insert(
+        NULL, get_application_base(), get_application_end() - get_application_base() + 1,
+        get_application_short_unqualified_name(), get_application_name());
     mod->externally_loaded = true;
+#ifdef STATIC_LIBRARY
+    /* Set up TLS and ensure the thread init functions are called.
+     * loader_shared will not call privload_os_finalize() for externally_loaded,
+     * but it will call privload_call_entry() for us.
+     */
+    mod->is_client = true;
+    privload_os_finalize(mod);
+#endif
 
     /* FIXME i#1299: loading a private user32.dll is problematic: it registers
      * callbacks that KiUserCallbackDispatcher invokes.  For now we do not
@@ -280,8 +305,8 @@ os_loader_init_prologue(void)
      * problems later but waiting to see.
      */
     if (user32 != NULL) {
-        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s",
-                 systemroot, "user32.dll");
+        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s", systemroot,
+                 "user32.dll");
         NULL_TERMINATE_BUFFER(modpath);
         mod = privload_insert(NULL, user32, get_allocation_size(user32, NULL),
                               "user32.dll", modpath);
@@ -292,10 +317,9 @@ os_loader_init_prologue(void)
     /* i#1195: NtTickCount is only on 2K3+.  If we can't find it we use
      * the old KUSER_SHARED_DATA so make sure we're on an old OS.
      */
-    ntdll_NtTickCount = (ntdll_NtTickCount_t)
-        get_proc_address(get_ntdll_base(), "NtGetTickCount");
-    ASSERT(ntdll_NtTickCount != NULL ||
-           get_os_version() <= WINDOWS_VERSION_XP);
+    ntdll_NtTickCount =
+        (ntdll_NtTickCount_t)d_r_get_proc_address(get_ntdll_base(), "NtGetTickCount");
+    ASSERT(ntdll_NtTickCount != NULL || get_os_version() <= WINDOWS_VERSION_XP);
 }
 
 void
@@ -312,110 +336,146 @@ os_loader_exit(void)
 {
     drwinapi_exit();
 
-#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb)) {
         /* Swap back so any further peb queries (e.g., reading env var
          * while reporting a leak) use a non-freed peb
          */
-        swap_peb_pointer(NULL, false/*to app*/);
+        swap_peb_pointer(NULL, false /*to app*/);
         /* we do have a dcontext */
         ASSERT(get_thread_private_dcontext != NULL);
-        TRY_EXCEPT(get_thread_private_dcontext(), {
-            RtlDestroyHeap(private_peb->ProcessHeap);
-        }, {
-            /* shouldn't crash, but does on security-win32/sd_tester,
-             * probably b/c it corrupts the heap: regardless we don't
-             * want DR reporting a crash on an ntdll address so we ignore.
-             */
-        });
+        TRY_EXCEPT(get_thread_private_dcontext(),
+                   { RtlDestroyHeap(private_peb->ProcessHeap); },
+                   {
+                       /* shouldn't crash, but does on security-win32/sd_tester,
+                        * probably b/c it corrupts the heap: regardless we don't
+                        * want DR reporting a crash on an ntdll address so we ignore.
+                        */
+                   });
 
         if (get_os_version() >= WINDOWS_VERSION_2003) {
             /* FLS is supported in WinXP-64 or later */
             ntdll_redir_fls_exit(private_peb);
         }
 
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
-                       RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock, RTL_CRITICAL_SECTION,
+                       ACCT_OTHER, UNPROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb, PEB, ACCT_OTHER, UNPROTECTED);
     }
-#endif
+
+    tls_next_idx = 0;
 }
 
 void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
-#ifdef CLIENT_INTERFACE
+    /* XXX i#4030: We do not support libraries loaded after init time.  We'd have
+     * to go through and re-allocate all the thread arrays.
+     * We detect this and abort in privload_os_finalize().
+     */
+    if (tls_next_idx > 0) {
+        if (tls_array_count == 0)
+            tls_array_count = tls_next_idx;
+        ASSERT(tls_array_count == tls_next_idx);
+        dcontext->priv_static_tls = HEAP_ARRAY_ALLOC(
+            GLOBAL_DCONTEXT, byte *, tls_array_count, ACCT_OTHER, PROTECTED);
+        memset(dcontext->priv_static_tls, 0, tls_array_count * sizeof(byte *));
+        d_r_set_tls(STATIC_TLS_TIB_OFFSET, dcontext->priv_static_tls);
+        LOG(THREAD, LOG_LOADER, 2, "set up TLS array @" PFX " for %d libraries\n",
+            dcontext->priv_static_tls, tls_array_count);
+    } else
+        dcontext->priv_static_tls = NULL;
+
     if (INTERNAL_OPTION(private_peb)) {
         if (!dynamo_initialized) {
             /* For first thread use cached pre-priv-lib value for app and
              * whatever value priv libs have set for priv
              */
-            dcontext->app_stack_limit = get_tls(BASE_STACK_TIB_OFFSET);
-            dcontext->app_stack_base = get_tls(TOP_STACK_TIB_OFFSET);
+            dcontext->app_stack_limit = d_r_get_tls(BASE_STACK_TIB_OFFSET);
+            dcontext->app_stack_base = d_r_get_tls(TOP_STACK_TIB_OFFSET);
             if (should_swap_teb_nonstack_fields()) {
-                dcontext->priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
-                dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
-                dcontext->priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
-                dcontext->app_nls_cache = pre_nls_cache;
+                dcontext->priv_fls_data = d_r_get_tls(FLS_DATA_TIB_OFFSET);
+                dcontext->priv_nt_rpc = d_r_get_tls(NT_RPC_TIB_OFFSET);
+                dcontext->priv_nls_cache = d_r_get_tls(NLS_CACHE_TIB_OFFSET);
                 dcontext->app_fls_data = pre_fls_data;
                 dcontext->app_nt_rpc = pre_nt_rpc;
-                set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
-                set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
-                set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
+                dcontext->app_nls_cache = pre_nls_cache;
+                d_r_set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
+                d_r_set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
+                d_r_set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+            }
+            if (should_swap_teb_static_tls()) {
+                dcontext->app_static_tls = pre_static_tls;
+                d_r_set_tls(STATIC_TLS_TIB_OFFSET, dcontext->app_static_tls);
             }
         } else {
             /* The real value will be set by swap_peb_pointer */
             dcontext->app_stack_limit = NULL;
             dcontext->app_stack_base = NULL;
             if (should_swap_teb_nonstack_fields()) {
-                dcontext->app_nls_cache = NULL;
                 dcontext->app_fls_data = NULL;
                 dcontext->app_nt_rpc = NULL;
+                dcontext->app_nls_cache = NULL;
                 /* We assume clearing out any non-NULL value for priv is safe */
-                dcontext->priv_nls_cache = NULL;
                 dcontext->priv_fls_data = NULL;
                 dcontext->priv_nt_rpc = NULL;
+                dcontext->priv_nls_cache = NULL;
+            }
+            if (should_swap_teb_static_tls()) {
+                dcontext->app_static_tls = NULL;
             }
         }
-        LOG(THREAD, LOG_LOADER, 2, "app stack limit="PFX"\n", dcontext->app_stack_limit);
-        LOG(THREAD, LOG_LOADER, 2, "app stack base="PFX"\n", dcontext->app_stack_base);
+        LOG(THREAD, LOG_LOADER, 2, "app stack limit=" PFX "\n",
+            dcontext->app_stack_limit);
+        LOG(THREAD, LOG_LOADER, 2, "app stack base=" PFX "\n", dcontext->app_stack_base);
         if (should_swap_teb_nonstack_fields()) {
-            LOG(THREAD, LOG_LOADER, 2, "app nls_cache="PFX", priv nls_cache="PFX"\n",
-                dcontext->app_nls_cache, dcontext->priv_nls_cache);
-            LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
+            LOG(THREAD, LOG_LOADER, 2, "app fls=" PFX ", priv fls=" PFX "\n",
                 dcontext->app_fls_data, dcontext->priv_fls_data);
-            LOG(THREAD, LOG_LOADER, 2, "app rpc="PFX", priv rpc="PFX"\n",
+            LOG(THREAD, LOG_LOADER, 2, "app rpc=" PFX ", priv rpc=" PFX "\n",
                 dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
+            LOG(THREAD, LOG_LOADER, 2, "app nls_cache=" PFX ", priv nls_cache=" PFX "\n",
+                dcontext->app_nls_cache, dcontext->priv_nls_cache);
+        }
+        if (should_swap_teb_static_tls()) {
+            LOG(THREAD, LOG_LOADER, 2,
+                "app static_tls=" PFX ", priv static_tls=" PFX "\n",
+                dcontext->app_static_tls, dcontext->priv_static_tls);
         }
         /* For swapping teb fields (detach, reset i#25) we'll need to
          * know the teb base from another thread
          */
-        dcontext->teb_base = (byte *) get_tls(SELF_TIB_OFFSET);
-        swap_peb_pointer(dcontext, true/*to priv*/);
+        dcontext->teb_base = (byte *)d_r_get_tls(SELF_TIB_OFFSET);
     }
-#endif
+
+    if (INTERNAL_OPTION(private_peb))
+        swap_peb_pointer(dcontext, true /*to priv*/);
 }
 
 void
 os_loader_thread_init_epilogue(dcontext_t *dcontext)
 {
-#ifdef CLIENT_INTERFACE
     /* For subsequent app threads, peb ptr will be swapped to priv
      * by transfer_to_dispatch(), and w/ FlsData swap we have to
      * properly nest.
      */
-    if (dynamo_initialized/*later thread*/ && !IS_CLIENT_THREAD(dcontext))
-        swap_peb_pointer(dcontext, false/*to app*/);
-#endif
+    if (dynamo_initialized /*later thread*/ && !IS_CLIENT_THREAD(dcontext))
+        swap_peb_pointer(dcontext, false /*to app*/);
 }
 
 void
 os_loader_thread_exit(dcontext_t *dcontext)
 {
-    /* do nothing in Windows */
+    /* i#3633: In case of windows 1903 if priv_fls_data ends up in internal list of
+     * ntdll.dll, we have to unlink it manually. We do unlinking always on thread
+     * exit.
+     */
+    ntdll_redir_fls_thread_exit(dcontext->priv_fls_data);
+    if (tls_array_count > 0) {
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dcontext->priv_static_tls, byte *,
+                        tls_array_count, ACCT_OTHER, PROTECTED);
+        dcontext->priv_static_tls = NULL;
+    }
 }
 
-#ifdef CLIENT_INTERFACE
 /* our copy of the PEB for isolation (i#249) */
 PEB *
 get_private_peb(void)
@@ -429,18 +489,28 @@ get_private_peb(void)
  * We'd like to do so if there are no private WinAPI libs
  * (we assume libs not in the system dir will not write to PEB or TEB fields we
  * care about (mainly Fls ones)), but kernel32 can be loaded in dr_client_main()
- * (which is after arch_init()) via dr_enable_console_printing(); plus,
+ * (which is after d_r_arch_init()) via dr_enable_console_printing(); plus,
  * a client could load kernel32 via dr_load_aux_library(), or a 3rd-party
  * priv lib could load anything at any time.  Xref i#984.
  * This does not indicate whether TEB fields should be swapped: we need
  * to swap TEB stack fields even with no client (DrM#1626, DrM#1723, i#1692).
  * That's covered by SWAP_TEB_STACK{LIMIT,BASE}.
+ *
+ * If we change this to only swap if there's no private WinAPI lib, we'll need
+ * to figure out how to deal with the ordering problem from i#338 where arch_init
+ * needs to know whether to emit swap routines, yet the private loader wants
+ * a dcontext before invoking lib entry routines and so wants loader_init to be
+ * *after* arch_init (or at least, after dynamo_thread_init).
  */
 bool
 should_swap_peb_pointer(void)
 {
-    return (INTERNAL_OPTION(private_peb) &&
-            CLIENTS_EXIST());
+#ifdef STANDALONE_UNIT_TEST
+    /* Our drwinapi tests require FLS isolation, etc. */
+    return true;
+#else
+    return (INTERNAL_OPTION(private_peb) && CLIENTS_EXIST());
+#endif
 }
 
 bool
@@ -448,14 +518,23 @@ should_swap_teb_nonstack_fields(void)
 {
     return should_swap_peb_pointer();
 }
-#endif /* CLIENT_INTERFACE */
+
+bool
+should_swap_teb_static_tls(void)
+{
+    /* XXX: Since today we do not support late-loaded priv libs w/ static TLS, we can
+     * make the decision on whether to swap the TEB.ThreadLocalStoragePointer at
+     * init time and avoid a dynamic check in our gencode in preinsert_swap_peb().
+     */
+    return tls_next_idx > 0 && should_swap_teb_nonstack_fields();
+}
 
 static void *
 get_teb_field(dcontext_t *dcontext, ushort offs)
 {
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
         /* get our own */
-        return get_tls(offs);
+        return d_r_get_tls(offs);
     } else {
         byte *teb = dcontext->teb_base;
         return *((void **)(teb + offs));
@@ -467,7 +546,7 @@ set_teb_field(dcontext_t *dcontext, ushort offs, void *value)
 {
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
         /* set our own */
-        set_tls(offs, value);
+        d_r_set_tls(offs, value);
     } else {
         byte *teb = dcontext->teb_base;
         ASSERT(dcontext->teb_base != NULL);
@@ -482,60 +561,51 @@ is_using_app_peb(dcontext_t *dcontext)
     PEB *cur_peb = get_teb_field(dcontext, PEB_TIB_OFFSET);
     void *cur_stack_limit;
     void *cur_stack_base;
-#ifdef CLIENT_INTERFACE
-    void *cur_nls_cache;
     void *cur_fls;
     void *cur_rpc;
-    if (!INTERNAL_OPTION(private_peb) ||
-        !private_peb_initialized)
+    void *cur_nls_cache;
+    void *cur_static_tls;
+    if (!INTERNAL_OPTION(private_peb) || !private_peb_initialized)
         return true;
-#endif
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
     ASSERT(cur_peb != NULL);
     cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
     cur_stack_base = get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
-    if (IF_CLIENT_INTERFACE_ELSE(!should_swap_peb_pointer() ||
-                                 !should_swap_teb_nonstack_fields(), true)) {
+    if (!should_swap_peb_pointer() || !should_swap_teb_nonstack_fields()) {
         if (SWAP_TEB_STACKLIMIT())
             return cur_stack_limit != dcontext->dstack - DYNAMORIO_STACK_SIZE;
         if (SWAP_TEB_STACKBASE())
             return cur_stack_base != dcontext->dstack;
         return true;
     }
-#ifdef CLIENT_INTERFACE
-    cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
     cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
     cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+    cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
+    cur_static_tls = get_teb_field(dcontext, STATIC_TLS_TIB_OFFSET);
     if (cur_peb == get_private_peb()) {
         /* won't nec equal the priv_ value since could have changed: but should
          * not have the app value!
          */
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
                IS_CLIENT_THREAD(dcontext) || IS_CLIENT_THREAD_EXITING(dcontext));
-        ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
+        ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
                IS_CLIENT_THREAD(dcontext) || IS_CLIENT_THREAD_EXITING(dcontext));
-        ASSERT(cur_nls_cache == NULL ||
-               cur_nls_cache != dcontext->app_nls_cache);
-        ASSERT(cur_fls == NULL ||
-               cur_fls != dcontext->app_fls_data);
-        ASSERT(cur_rpc == NULL ||
-               cur_rpc != dcontext->app_nt_rpc);
+        ASSERT(cur_fls == NULL || cur_fls != dcontext->app_fls_data);
+        ASSERT(cur_rpc == NULL || cur_rpc != dcontext->app_nt_rpc);
+        ASSERT(cur_nls_cache == NULL || cur_nls_cache != dcontext->app_nls_cache);
+        ASSERT(cur_static_tls == NULL || cur_static_tls != dcontext->app_static_tls);
         return false;
     } else {
         /* won't nec equal the app_ value since could have changed: but should
          * not have the priv value!
          */
         ASSERT(!is_dynamo_address(cur_stack_limit));
-        ASSERT(!is_dynamo_address((byte *)cur_stack_base-1));
-        ASSERT(cur_nls_cache == NULL ||
-               cur_nls_cache != dcontext->priv_nls_cache);
-        ASSERT(cur_fls == NULL ||
-               cur_fls != dcontext->priv_fls_data);
-        ASSERT(cur_rpc == NULL ||
-               cur_rpc != dcontext->priv_nt_rpc);
+        ASSERT(!is_dynamo_address((byte *)cur_stack_base - 1));
+        ASSERT(cur_fls == NULL || cur_fls != dcontext->priv_fls_data);
+        ASSERT(cur_rpc == NULL || cur_rpc != dcontext->priv_nt_rpc);
+        ASSERT(cur_static_tls == NULL || cur_static_tls != dcontext->priv_static_tls);
         return true;
     }
-#endif
 }
 
 #ifdef DEBUG
@@ -543,58 +613,58 @@ static void
 print_teb_fields(dcontext_t *dcontext, const char *reason)
 {
     void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
-    byte *cur_stack_base = (byte *) get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
-# ifdef CLIENT_INTERFACE
-    void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
+    byte *cur_stack_base = (byte *)get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
     void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
     void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
-# endif
+    void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
+    void *cur_static_tls = get_teb_field(dcontext, STATIC_TLS_TIB_OFFSET);
     LOG(THREAD, LOG_LOADER, 1, "%s\n", reason);
-    LOG(THREAD, LOG_LOADER, 3, "  cur stack_limit="PFX", app stack_limit="PFX"\n",
+    LOG(THREAD, LOG_LOADER, 3, "  cur stack_limit=" PFX ", app stack_limit=" PFX "\n",
         cur_stack_limit, dcontext->app_stack_limit);
-    LOG(THREAD, LOG_LOADER, 3, "  cur stack_base="PFX", app stack_base="PFX"\n",
+    LOG(THREAD, LOG_LOADER, 3, "  cur stack_base=" PFX ", app stack_base=" PFX "\n",
         cur_stack_base, dcontext->app_stack_base);
-# ifdef CLIENT_INTERFACE
-    LOG(THREAD, LOG_LOADER, 3,
-        "  cur nls_cache="PFX", app nls_cache="PFX", priv nls_cache="PFX"\n",
-        cur_nls_cache, dcontext->app_nls_cache, dcontext->priv_nls_cache);
-    LOG(THREAD, LOG_LOADER, 3, "  cur fls="PFX", app fls="PFX", priv fls="PFX"\n",
+    LOG(THREAD, LOG_LOADER, 3, "  cur fls=" PFX ", app fls=" PFX ", priv fls=" PFX "\n",
         cur_fls, dcontext->app_fls_data, dcontext->priv_fls_data);
-    LOG(THREAD, LOG_LOADER, 3, "  cur rpc="PFX", app rpc="PFX", priv rpc="PFX"\n",
+    LOG(THREAD, LOG_LOADER, 3, "  cur rpc=" PFX ", app rpc=" PFX ", priv rpc=" PFX "\n",
         cur_rpc, dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
-# endif
+    LOG(THREAD, LOG_LOADER, 3,
+        "  cur nls_cache=" PFX ", app nls_cache=" PFX ", priv nls_cache=" PFX "\n",
+        cur_nls_cache, dcontext->app_nls_cache, dcontext->priv_nls_cache);
+    LOG(THREAD, LOG_LOADER, 3,
+        "  cur static_tls=" PFX ", app static_tls=" PFX ", priv static_tls=" PFX "\n",
+        cur_static_tls, dcontext->app_static_tls, dcontext->priv_static_tls);
 }
 #endif
 
 static void
 swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
 {
-#ifdef CLIENT_INTERFACE
     PEB *tgt_peb = to_priv ? get_private_peb() : get_own_peb();
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
     if (TEST(DR_STATE_PEB, flags) && should_swap_peb_pointer()) {
-        set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
-        LOG(THREAD, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
+        set_teb_field(dcontext, PEB_TIB_OFFSET, (void *)tgt_peb);
+        LOG(THREAD, LOG_LOADER, 2, "set teb->peb to " PFX "\n", tgt_peb);
     }
-#endif
     if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
         /* We preserve TEB->LastErrorValue and we swap TEB->FlsData,
          * TEB->ReservedForNtRpc, and TEB->NlsCache.
          */
         void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
-        byte *cur_stack_base = (byte *) get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
-#ifdef CLIENT_INTERFACE
-        void *cur_nls_cache = NULL;
+        byte *cur_stack_base = (byte *)get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
         void *cur_fls = NULL;
         void *cur_rpc = NULL;
+        void *cur_nls_cache = NULL;
+        void *cur_static_tls = NULL;
         if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
-            cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
             cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
             cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+            cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         }
-#endif
+        if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+            cur_static_tls = get_teb_field(dcontext, STATIC_TLS_TIB_OFFSET);
+        }
         DOLOG(3, LOG_LOADER, {
             print_teb_fields(dcontext, to_priv ? "pre swap to priv" : "pre swap to app");
         });
@@ -619,16 +689,10 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
             }
-#ifdef CLIENT_INTERFACE
             if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* note: two calls in a row will clobber app_errno w/ wrong value! */
-                dcontext->app_errno = (int)(ptr_int_t)
-                    get_teb_field(dcontext, ERRNO_TIB_OFFSET);
-                if (dcontext->priv_nls_cache != cur_nls_cache) { /* handle two in a row */
-                    dcontext->app_nls_cache = cur_nls_cache;
-                    set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
-                                  dcontext->priv_nls_cache);
-                }
+                dcontext->app_errno =
+                    (int)(ptr_int_t)get_teb_field(dcontext, ERRNO_TIB_OFFSET);
                 if (dcontext->priv_fls_data != cur_fls) { /* handle two calls in a row */
                     dcontext->app_fls_data = cur_fls;
                     set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->priv_fls_data);
@@ -637,8 +701,20 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     dcontext->app_nt_rpc = cur_rpc;
                     set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->priv_nt_rpc);
                 }
+                if (dcontext->priv_nls_cache != cur_nls_cache) { /* handle two in a row */
+                    dcontext->app_nls_cache = cur_nls_cache;
+                    set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
+                                  dcontext->priv_nls_cache);
+                }
             }
-#endif
+            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+                if (dcontext->priv_static_tls !=
+                    cur_static_tls) { /* handle two in a row */
+                    dcontext->app_static_tls = cur_static_tls;
+                    set_teb_field(dcontext, STATIC_TLS_TIB_OFFSET,
+                                  dcontext->priv_static_tls);
+                }
+            }
         } else {
             if (TEST(DR_STATE_STACK_BOUNDS, flags)) {
                 if (SWAP_TEB_STACKLIMIT() &&
@@ -658,16 +734,10 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_stack_base);
                 }
             }
-#ifdef CLIENT_INTERFACE
             if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* two calls in a row should be fine */
                 set_teb_field(dcontext, ERRNO_TIB_OFFSET,
                               (void *)(ptr_int_t)dcontext->app_errno);
-                if (dcontext->app_nls_cache != cur_nls_cache) { /* handle two in a row */
-                    dcontext->priv_nls_cache = cur_nls_cache;
-                    set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
-                                  dcontext->app_nls_cache);
-                }
                 if (dcontext->app_fls_data != cur_fls) { /* handle two calls in a row */
                     dcontext->priv_fls_data = cur_fls;
                     set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
@@ -676,27 +746,42 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     dcontext->priv_nt_rpc = cur_rpc;
                     set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
                 }
+                if (dcontext->app_nls_cache != cur_nls_cache) { /* handle two in a row */
+                    dcontext->priv_nls_cache = cur_nls_cache;
+                    set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
+                                  dcontext->app_nls_cache);
+                }
             }
-#endif
+            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+                if (dcontext->app_static_tls !=
+                    cur_static_tls) { /* handle two in a row */
+                    /* Unlike the other fields, we control this private one so we
+                     * never set it from the TEB field.
+                     */
+                    set_teb_field(dcontext, STATIC_TLS_TIB_OFFSET,
+                                  dcontext->app_static_tls);
+                }
+            }
         }
-#ifdef CLIENT_INTERFACE
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
                IS_CLIENT_THREAD(dcontext));
-        ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
+        ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
                IS_CLIENT_THREAD(dcontext));
         if (should_swap_teb_nonstack_fields()) {
-            ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
             ASSERT(!is_dynamo_address(dcontext->app_fls_data));
             ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
+            ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
         }
-#endif
+        if (should_swap_teb_static_tls()) {
+            ASSERT(!is_dynamo_address(dcontext->app_static_tls));
+        }
         /* Once we have earier injection we should be able to assert
          * that priv_fls_data is either NULL or a DR address: but on
          * notepad w/ drinject it's neither: need to investigate.
          */
         DOLOG(3, LOG_LOADER, {
-            print_teb_fields(dcontext, to_priv ? "post swap to priv" :
-                             "post swap to app");
+            print_teb_fields(dcontext,
+                             to_priv ? "post swap to priv" : "post swap to app");
         });
     }
 }
@@ -714,33 +799,36 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
 void
 restore_peb_pointer_for_thread(dcontext_t *dcontext)
 {
-#ifdef CLIENT_INTERFACE
     PEB *tgt_peb = get_own_peb();
-    ASSERT_NOT_TESTED();
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
     ASSERT(dcontext != NULL && dcontext->teb_base != NULL);
     if (should_swap_peb_pointer()) {
-        set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
-        LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
+        set_teb_field(dcontext, PEB_TIB_OFFSET, (void *)tgt_peb);
+        LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to " PFX "\n", tgt_peb);
     }
     if (should_swap_teb_nonstack_fields()) {
         set_teb_field(dcontext, ERRNO_TIB_OFFSET, (void *)(ptr_int_t)dcontext->app_errno);
-        LOG(THREAD, LOG_LOADER, 3, "restored app errno to "PIFX"\n", dcontext->app_errno);
+        LOG(THREAD, LOG_LOADER, 3, "restored app errno to " PIFX "\n",
+            dcontext->app_errno);
         /* We also swap TEB->FlsData and TEB->ReservedForNtRpc */
-        set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
-        LOG(THREAD, LOG_LOADER, 3, "restored app nls_cache to "PFX"\n",
-            dcontext->app_nls_cache);
         set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
-        LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
+        LOG(THREAD, LOG_LOADER, 3, "restored app fls to " PFX "\n",
+            dcontext->app_fls_data);
         set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
-        LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_nt_rpc);
+        LOG(THREAD, LOG_LOADER, 3, "restored app fls to " PFX "\n", dcontext->app_nt_rpc);
+        set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+        LOG(THREAD, LOG_LOADER, 3, "restored app nls_cache to " PFX "\n",
+            dcontext->app_nls_cache);
     }
-#endif
+    if (should_swap_teb_static_tls()) {
+        set_teb_field(dcontext, STATIC_TLS_TIB_OFFSET, dcontext->app_static_tls);
+        LOG(THREAD, LOG_LOADER, 3, "restored app static_tls to " PFX "\n",
+            dcontext->app_static_tls);
+    }
 }
 
-#ifdef CLIENT_INTERFACE
 void
 loader_pre_client_thread_exit(dcontext_t *dcontext)
 {
@@ -754,7 +842,6 @@ loader_pre_client_thread_exit(dcontext_t *dcontext)
                       dcontext->dstack - DYNAMORIO_STACK_SIZE);
     }
 }
-#endif /* CLIENT_INTERFACE */
 
 void
 check_app_stack_limit(dcontext_t *dcontext)
@@ -782,8 +869,9 @@ check_app_stack_limit(dcontext_t *dcontext)
              check_pc > (byte *)(ptr_uint_t)PAGE_SIZE);
     if (res == sizeof(mbi) && TEST(PAGE_GUARD, mbi.Protect) &&
         check_pc + PAGE_SIZE < start_pc) {
-        LOG(THREAD, LOG_LOADER, 2, "updated stored TEB.StackLimit from "PFX" to "PFX"\n",
-            start_pc, check_pc + PAGE_SIZE);
+        LOG(THREAD, LOG_LOADER, 2,
+            "updated stored TEB.StackLimit from " PFX " to " PFX "\n", start_pc,
+            check_pc + PAGE_SIZE);
         dcontext->app_stack_limit = check_pc + PAGE_SIZE;
         if (SWAP_TEB_STACKLIMIT())
             dcontext->app_stack_limit = check_pc + PAGE_SIZE;
@@ -795,27 +883,43 @@ check_app_stack_limit(dcontext_t *dcontext)
 bool
 os_should_swap_state(void)
 {
-    return SWAP_TEB_STACKLIMIT() || SWAP_TEB_STACKBASE()
-        IF_CLIENT_INTERFACE(|| should_swap_peb_pointer()
-                            || should_swap_teb_nonstack_fields());
+    return SWAP_TEB_STACKLIMIT() || SWAP_TEB_STACKBASE() || should_swap_peb_pointer() ||
+        should_swap_teb_nonstack_fields();
 }
 
 bool
 os_using_app_state(dcontext_t *dcontext)
 {
-#ifdef CLIENT_INTERFACE
     return is_using_app_peb(dcontext);
-#endif
     return true;
 }
 
 void
 os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 {
-#ifdef CLIENT_INTERFACE
     /* i#249: swap PEB pointers */
-    swap_peb_pointer_ex(dcontext, !to_app/*to priv*/, flags);
-#endif
+    swap_peb_pointer_ex(dcontext, !to_app /*to priv*/, flags);
+}
+
+static void
+privload_alloc_opd(privmod_t *privmod)
+{
+    privmod->os_privmod_data =
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, os_privmod_data_t, ACCT_OTHER, PROTECTED);
+    memset(privmod->os_privmod_data, 0, sizeof(os_privmod_data_t));
+}
+
+static void
+privload_free_opd(privmod_t *privmod)
+{
+    os_privmod_data_t *opd = privmod->os_privmod_data;
+    if (opd->tls_callbacks != NULL) {
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, opd->tls_callbacks, PIMAGE_TLS_CALLBACK,
+                        opd->tls_callback_count, ACCT_OTHER, PROTECTED);
+    }
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, privmod->os_privmod_data, os_privmod_data_t,
+                   ACCT_OTHER, PROTECTED);
+    privmod->os_privmod_data = NULL;
 }
 
 void
@@ -823,18 +927,20 @@ privload_add_areas(privmod_t *privmod)
 {
     vmvector_add(modlist_areas, privmod->base, privmod->base + privmod->size,
                  (void *)privmod);
+    privload_alloc_opd(privmod);
 }
 
 void
 privload_remove_areas(privmod_t *privmod)
 {
+    privload_free_opd(privmod);
     vmvector_remove(modlist_areas, privmod->base, privmod->base + privmod->size);
 }
 
 void
 privload_unmap_file(privmod_t *mod)
 {
-    unmap_file(mod->base, mod->size);
+    d_r_unmap_file(mod->base, mod->size);
 }
 
 bool
@@ -846,8 +952,8 @@ privload_unload_imports(privmod_t *mod)
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
     if (!privload_get_import_descriptor(mod, &imports, &imports_end)) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: error reading imports for %s\n",
-            __FUNCTION__, mod->name);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: error reading imports for %s\n", __FUNCTION__,
+            mod->name);
         return false;
     }
     if (imports == NULL) {
@@ -856,7 +962,7 @@ privload_unload_imports(privmod_t *mod)
     }
 
     while (imports->OriginalFirstThunk != 0) {
-        const char *impname = (const char *) RVA_TO_VA(mod->base, imports->Name);
+        const char *impname = (const char *)RVA_TO_VA(mod->base, imports->Name);
         impname = privload_map_name(impname, mod);
         impmod = privload_lookup(impname);
         /* If we hit an error in the middle of loading we may not have loaded
@@ -865,7 +971,7 @@ privload_unload_imports(privmod_t *mod)
         if (impmod != NULL)
             privload_unload(impmod);
         imports++;
-        ASSERT((app_pc)(imports+1) <= imports_end);
+        ASSERT((app_pc)(imports + 1) <= imports_end);
     }
     /* I used to ASSERT((app_pc)(imports+1) == imports_end) but kernel32 on win2k
      * has an extra 10 bytes in the dir->Size for unknown reasons so suppressing
@@ -888,11 +994,12 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     /* On win32 OS_EXECUTE is required to create a section w/ rwx
      * permissions, which is in turn required to map a view w/ rwx
      */
-    fd = os_open(filename, OS_OPEN_READ | OS_EXECUTE |
-                 /* we should allow renaming (xref PR 214399) as well as
-                  * simultaneous read while holding the file handle
-                  */
-                 OS_SHARE_DELETE /* shared read is on by default */);
+    fd = os_open(filename,
+                 OS_OPEN_READ | OS_EXECUTE |
+                     /* we should allow renaming (xref PR 214399) as well as
+                      * simultaneous read while holding the file handle
+                      */
+                     OS_SHARE_DELETE /* shared read is on by default */);
     if (fd == INVALID_FILE) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to open %s\n", __FUNCTION__, filename);
         return NULL;
@@ -906,10 +1013,10 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
      * an app exception: FIXME: should we raise a better error message?
      */
     *size = 0; /* map at full size */
-    if (dynamo_heap_initialized) {
+    if (dynamo_heap_initialized && !standalone_library) {
         /* These hold the DR lock and update DR areas */
-        map_func = map_file;
-        unmap_func = unmap_file;
+        map_func = d_r_map_file;
+        unmap_func = d_r_unmap_file;
     } else {
         map_func = os_map_file;
         unmap_func = os_unmap_file;
@@ -924,18 +1031,20 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
      * case will be a client lib with a preferred base in the low 2GB which
      * will need no re-mapping.
      */
-    map = (*map_func)(fd, size, 0/*offs*/, NULL/*base*/,
+    map = (*map_func)(fd, size, 0 /*offs*/, NULL /*base*/,
                       /* Ask for max, then restrict pieces */
-                      MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                      MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
-                      MAP_FILE_IMAGE/*image*/);
-    if (map != NULL &&
-        IF_X64_ELSE(module_is_32bit(map),  module_is_64bit(map))) {
+                      MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                      MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                          MAP_FILE_IMAGE /*image*/);
+    if (map != NULL && IF_X64_ELSE(module_is_32bit(map), module_is_64bit(map))) {
         /* XXX i#828: we may eventually support mixed-mode clients.
          * Xref dr_load_aux_x64_library() and load_library_64().
          */
-        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3,
-               get_application_name(), get_application_pid(), filename);
+        /* XXX i#147: Should we try some path substs like s/lib32/lib64/?
+         * Maybe it's better to error out to avoid loading some unintended lib.
+         */
+        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3, get_application_name(),
+               get_application_pid(), filename);
         return NULL;
     }
 #ifdef X64
@@ -948,17 +1057,16 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
             return NULL; /* failed */
         }
         /* Re-map with MAP_FILE_REACHABLE */
-        map = (*map_func)(fd, size, 0/*offs*/, NULL,
-                          MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                          MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
-                          MAP_FILE_IMAGE/*image*/ |
-                          MAP_FILE_REACHABLE);
+        map = (*map_func)(fd, size, 0 /*offs*/, NULL,
+                          MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                          MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                              MAP_FILE_IMAGE /*image*/ | MAP_FILE_REACHABLE);
         DOCHECK(1, {
             if (map != NULL) {
                 byte *region_start = NULL;
                 byte *region_end = NULL;
                 vmcode_get_reachable_region(&region_start, &region_end);
-                ASSERT(map >= region_start && map+*size <= region_end);
+                ASSERT(map >= region_start && map + *size <= region_end);
             }
         });
     }
@@ -970,16 +1078,16 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
 
     pref = get_module_preferred_base(map);
     if (pref != map) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: relocating from "PFX" to "PFX"\n",
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: relocating from " PFX " to " PFX "\n",
             __FUNCTION__, pref, map);
         if (!module_file_relocatable(map)) {
             LOG(GLOBAL, LOG_LOADER, 1, "%s: module not relocatable\n", __FUNCTION__);
             (*unmap_func)(map, *size);
             return NULL;
         }
-        if (!module_rebase(map, *size, (map - pref), true/*+w incremental*/)) {
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to relocate %s\n",
-                __FUNCTION__, filename);
+        if (!module_rebase(map, *size, (map - pref), true /*+w incremental*/)) {
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to relocate %s\n", __FUNCTION__,
+                filename);
             (*unmap_func)(map, *size);
             return NULL;
         }
@@ -998,8 +1106,7 @@ privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
     const char *sep = double_strrchr(name, DIRSEP, ALT_DIRSEP);
     size_t rootlen = strlen(systemroot);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    if (systemroot[0] != '\0' &&
-        strncasecmp(name, systemroot, rootlen) == 0 &&
+    if (systemroot[0] != '\0' && strncasecmp(name, systemroot, rootlen) == 0 &&
         name[rootlen] != '\0' &&
         strncasecmp(name + rootlen + 1, "sys", strlen("sys")) == 0) {
         /* We want to have system32 match syswow64 for WOW64.
@@ -1008,8 +1115,8 @@ privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
          * XXX: I'm assuming we don't need to match different paths in general that
          * map to the same file via symlink or junction.  Xref i#1295.
          */
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s instead of %s\n",
-            __FUNCTION__, sep + 1, name);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s instead of %s\n", __FUNCTION__,
+            sep + 1, name);
         name = sep + 1;
     }
     if (double_strrchr(name, DIRSEP, ALT_DIRSEP) == NULL) {
@@ -1033,8 +1140,8 @@ privload_load_private_library(const char *name, bool reachable)
     privmod_t *newmod;
     app_pc res = NULL;
     acquire_recursive_lock(&privload_lock);
-    newmod = privload_lookup_locate_and_load(name, NULL, NULL, true/*inc refcnt*/,
-                                             reachable);
+    newmod =
+        privload_lookup_locate_and_load(name, NULL, NULL, true /*inc refcnt*/, reachable);
     if (newmod != NULL)
         res = newmod->base;
     release_recursive_lock(&privload_lock);
@@ -1044,6 +1151,10 @@ privload_load_private_library(const char *name, bool reachable)
 void
 privload_load_finalized(privmod_t *mod)
 {
+    DODEBUG({
+        if (d_r_get_proc_address(mod->base, DR_DISALLOW_UNSAFE_STATIC_NAME) != NULL)
+            disallow_unsafe_static_calls = true;
+    });
     if (windbg_cmds_initialized) /* we added libs loaded at init time already */
         privload_add_windbg_cmds_post_init(mod);
 }
@@ -1058,8 +1169,8 @@ privload_process_imports(privmod_t *mod)
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
     if (!privload_get_import_descriptor(mod, &imports, &imports_end)) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: error reading imports for %s\n",
-            __FUNCTION__, mod->name);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: error reading imports for %s\n", __FUNCTION__,
+            mod->name);
         return false;
     }
     if (imports == NULL) {
@@ -1073,9 +1184,9 @@ privload_process_imports(privmod_t *mod)
     while (imports->OriginalFirstThunk != 0) {
         IMAGE_THUNK_DATA *lookup;
         IMAGE_THUNK_DATA *address;
-        const char *impname = (const char *) RVA_TO_VA(mod->base, imports->Name);
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n", __FUNCTION__,
-            mod->name, impname);
+        const char *impname = (const char *)RVA_TO_VA(mod->base, imports->Name);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n", __FUNCTION__, mod->name,
+            impname);
 
         /* FIXME i#233: support bound imports: for now ignoring */
         if (imports->TimeDateStamp == -1) {
@@ -1083,36 +1194,34 @@ privload_process_imports(privmod_t *mod)
              * IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT =>
              * IMAGE_BOUND_IMPORT_DESCRIPTOR
              */
-            LOG(GLOBAL, LOG_LOADER, 2, "%s: %s has new bind imports\n",
-                __FUNCTION__, mod->name);
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: %s has new bind imports\n", __FUNCTION__,
+                mod->name);
         } else if (imports->TimeDateStamp != 0) {
             /* Imports are bound via "old bind" */
-            LOG(GLOBAL, LOG_LOADER, 2, "%s: %s has old bind imports\n",
-                __FUNCTION__, mod->name);
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: %s has old bind imports\n", __FUNCTION__,
+                mod->name);
         }
 
-        impmod = privload_lookup_locate_and_load(impname, mod, mod, true/*inc refcnt*/,
-                                                 false/*=> true if in client/ext dir*/);
+        impmod = privload_lookup_locate_and_load(impname, mod, mod, true /*inc refcnt*/,
+                                                 false /*=> true if in client/ext dir*/);
         if (impmod == NULL) {
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load import lib %s\n",
-                __FUNCTION__, impname);
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load import lib %s\n", __FUNCTION__,
+                impname);
             return false;
         }
-#ifdef CLIENT_INTERFACE
         /* i#852: identify all libs that import from DR as client libs */
         if (impmod->base == get_dynamorio_dll_start())
             mod->is_client = true;
-#endif
 
         /* walk the lookup table and address table in lockstep */
         /* FIXME: should check readability: if had no-dcontext try (i#350) could just
          * do try/except around whole thing
          */
-        lookup = (IMAGE_THUNK_DATA *) RVA_TO_VA(mod->base, imports->OriginalFirstThunk);
-        address = (IMAGE_THUNK_DATA *) RVA_TO_VA(mod->base, imports->FirstThunk);
-        iat = (app_pc) address;
-        if (!protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
-                                    PAGE_READWRITE, &orig_prot))
+        lookup = (IMAGE_THUNK_DATA *)RVA_TO_VA(mod->base, imports->OriginalFirstThunk);
+        address = (IMAGE_THUNK_DATA *)RVA_TO_VA(mod->base, imports->FirstThunk);
+        iat = (app_pc)address;
+        if (!protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE, PAGE_READWRITE,
+                                    &orig_prot))
             return false;
         while (lookup->u1.Function != 0) {
             if (!privload_process_one_import(mod, impmod, lookup, (app_pc *)address)) {
@@ -1123,21 +1232,21 @@ privload_process_imports(privmod_t *mod)
             lookup++;
             address++;
             if (PAGE_START(address) != PAGE_START(iat)) {
-                if (!protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
-                                            orig_prot, &orig_prot))
+                if (!protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE, orig_prot,
+                                            &orig_prot))
                     return false;
-                iat = (app_pc) address;
+                iat = (app_pc)address;
                 if (!protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
                                             PAGE_READWRITE, &orig_prot))
                     return false;
             }
         }
-        if (!protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
-                                    orig_prot, &orig_prot))
+        if (!protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE, orig_prot,
+                                    &orig_prot))
             return false;
 
         imports++;
-        ASSERT((app_pc)(imports+1) <= imports_end);
+        ASSERT((app_pc)(imports + 1) <= imports_end);
     }
     /* I used to ASSERT((app_pc)(imports+1) == imports_end) but kernel32 on win2k
      * has an extra 10 bytes in the dir->Size for unknown reasons so suppressing
@@ -1152,8 +1261,8 @@ static bool
 privload_get_import_descriptor(privmod_t *mod, IMAGE_IMPORT_DESCRIPTOR **imports OUT,
                                app_pc *imports_end OUT)
 {
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) mod->base;
-    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (mod->base + dos->e_lfanew);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)mod->base;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(mod->base + dos->e_lfanew);
     IMAGE_DATA_DIRECTORY *dir;
     ASSERT(is_readable_pe_base(mod->base));
     ASSERT(dos->e_magic == IMAGE_DOS_SIGNATURE);
@@ -1166,7 +1275,7 @@ privload_get_import_descriptor(privmod_t *mod, IMAGE_IMPORT_DESCRIPTOR **imports
         *imports = NULL;
         return true;
     }
-    *imports = (IMAGE_IMPORT_DESCRIPTOR *) RVA_TO_VA(mod->base, dir->VirtualAddress);
+    *imports = (IMAGE_IMPORT_DESCRIPTOR *)RVA_TO_VA(mod->base, dir->VirtualAddress);
     ASSERT_CURIOSITY(dir->Size >= sizeof(IMAGE_IMPORT_DESCRIPTOR));
     if (!is_readable_without_exception((app_pc)*imports, dir->Size)) {
         LOG(GLOBAL, LOG_LOADER, 2, "%s: %s has unreadable imports: partial map?\n",
@@ -1179,8 +1288,8 @@ privload_get_import_descriptor(privmod_t *mod, IMAGE_IMPORT_DESCRIPTOR **imports
 }
 
 static bool
-privload_process_one_import(privmod_t *mod, privmod_t *impmod,
-                            IMAGE_THUNK_DATA *lookup, app_pc *address)
+privload_process_one_import(privmod_t *mod, privmod_t *impmod, IMAGE_THUNK_DATA *lookup,
+                            app_pc *address)
 {
     app_pc dst = NULL;
     const char *forwarder;
@@ -1197,38 +1306,36 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
         /* XXX: for 64-bit this is a 64-bit type: should we widen through
          * get_proc_address_by_ordinal()?
          */
-        DWORD ord = (DWORD) (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG));
+        DWORD ord = (DWORD)(lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG));
         func = get_proc_address_by_ordinal(impmod->base, ord, &forwarder);
         impfunc = "<ordinal>";
     } else {
         /* import by name */
-        IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)
-            RVA_TO_VA(mod->base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
+        IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)RVA_TO_VA(
+            mod->base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
         /* FIXME optimization i#233:
          * - try name->Hint first
          * - build hashtables for quick lookup instead of repeatedly walking
          *   export tables
          */
         /* expensive to check is_readable for name: really we want no-dcxt try (i#350) */
-        func = get_proc_address_ex(impmod->base, (const char *) name->Name, &forwarder);
+        func = get_proc_address_ex(impmod->base, (const char *)name->Name, &forwarder);
         /* set to first-level names for use below in case no forwarder */
-        forwfunc = (const char *) name->Name;
+        forwfunc = (const char *)name->Name;
         impfunc = forwfunc;
     }
     /* loop to handle sequence of forwarders */
     while (func == NULL) {
         if (forwarder == NULL) {
-#ifdef CLIENT_INTERFACE
             /* there's a syslog in loader_init() but we want to provide the symbol */
-            char msg[MAXIMUM_PATH*2];
-            snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                     "import %s not found in ", impfunc); /* name is subsequent arg */
+            char msg[MAXIMUM_PATH * 2];
+            snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), "import %s not found in ",
+                     impfunc); /* name is subsequent arg */
             NULL_TERMINATE_BUFFER(msg);
-            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
-                   get_application_name(), get_application_pid(), msg, impmod->name);
-#endif
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: import %s not found in %s\n",
-                __FUNCTION__, impfunc, impmod->name);
+            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4, get_application_name(),
+                   get_application_pid(), msg, impmod->name);
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: import %s not found in %s\n", __FUNCTION__,
+                impfunc, impmod->name);
             return false;
         }
         forwfunc = strchr(forwarder, '.') + 1;
@@ -1237,34 +1344,33 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
          * so I've never seen a full filename or path.
          * but there could still be extra dots somewhere: watch for them.
          */
-        if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc+1, '.') != NULL) {
+        if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc + 1, '.') != NULL) {
             CLIENT_ASSERT(false, "unexpected forwarder string");
-            return NULL;
+            return false;
         }
-        if (forwfunc - forwarder + strlen("dll") >=
-            BUFFER_SIZE_ELEMENTS(forwmodpath)) {
+        if (forwfunc - forwarder + strlen("dll") >= BUFFER_SIZE_ELEMENTS(forwmodpath)) {
             ASSERT_NOT_REACHED();
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: import string %s too long\n",
-                __FUNCTION__, forwarder);
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: import string %s too long\n", __FUNCTION__,
+                forwarder);
             return false;
         }
         /* we use static buffer: may be clobbered by recursion below */
         snprintf(forwmodpath, forwfunc - forwarder, "%s", forwarder);
         snprintf(forwmodpath + (forwfunc - forwarder), strlen("dll"), "dll");
-        forwmodpath[forwfunc - 1/*'.'*/ - forwarder + strlen(".dll")] = '\0';
-        LOG(GLOBAL, LOG_LOADER, 2, "\tforwarder %s => %s %s\n",
-            forwarder, forwmodpath, forwfunc);
+        forwmodpath[forwfunc - 1 /*'.'*/ - forwarder + strlen(".dll")] = '\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "\tforwarder %s => %s %s\n", forwarder, forwmodpath,
+            forwfunc);
         last_forwmod = forwmod;
         /* don't use forwmodpath past here: recursion may clobber it */
         /* XXX: should inc ref count: but then need to walk individual imports
          * and dec on unload.  For now risking it.
          */
-        forwmod = privload_lookup_locate_and_load
-            (forwmodpath, last_forwmod == NULL ? mod : last_forwmod,
-             mod, false/*!inc refcnt*/, false/*=> true if in client/ext dir*/);
+        forwmod = privload_lookup_locate_and_load(
+            forwmodpath, last_forwmod == NULL ? mod : last_forwmod, mod,
+            false /*!inc refcnt*/, false /*=> true if in client/ext dir*/);
         if (forwmod == NULL) {
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forwarder for %s\n"
-                __FUNCTION__, forwarder);
+            LOG(GLOBAL, LOG_LOADER, 1,
+                "%s: unable to load forwarder for %s\n" __FUNCTION__, forwarder);
             return false;
         }
         /* XXX i#1870: we've seen ordinals listed as "libname.#nnn",
@@ -1274,34 +1380,89 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
         func = get_proc_address_ex(forwmod->base, forwfunc, &forwarder);
     }
     /* write result into IAT */
-    LOG(GLOBAL, LOG_LOADER, 2, "\timport %s @ "PFX" => IAT "PFX"\n",
-        impfunc, func, address);
+    LOG(GLOBAL, LOG_LOADER, 2, "\timport %s @ " PFX " => IAT " PFX "\n", impfunc, func,
+        address);
     if (forwfunc != NULL) {
         /* XXX i#233: support redirecting when imported by ordinal */
         dst = privload_redirect_imports(forwmod, forwfunc, mod);
         DOLOG(2, LOG_LOADER, {
             if (dst != NULL)
-                LOG(GLOBAL, LOG_LOADER, 2, "\tredirect => "PFX"\n", dst);
+                LOG(GLOBAL, LOG_LOADER, 2, "\tredirect => " PFX "\n", dst);
         });
     }
     if (dst == NULL)
-        dst = (app_pc) func;
+        dst = (app_pc)func;
     *address = dst;
     return true;
 }
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason)
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
 {
+    LOG(THREAD, LOG_LOADER, 3, "%s for %s: reason=%d\n", __FUNCTION__, privmod->name,
+        reason);
+    bool return_val = true;
+    bool call_routines = true;
+    if (reason == DLL_THREAD_EXIT) {
+        /* Only call privlib routines if we're cleaning up the currently executing
+         * thread, as that's what the routines are going to do!  Calling on other
+         * threads results in problems like double frees (i#969).  Exiting another
+         * thread should only happen on process exit or forced thread termination.
+         * The former can technically continue (app could call NtTerminateProcess(0)
+         * but then keep going) but we have never seen that; and the latter doesn't
+         * do full native cleanups anyway.  Thus we're not worried about leaks from
+         * not calling DLL_THREAD_EXIT.  (We can't check
+         * get_thread_private_dcontext() b/c it's already cleared.)
+         */
+        call_routines = dcontext->owning_thread == d_r_get_thread_id();
+    }
+    /* First, call the static-TLS callbacks. */
+    os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
+    /* We must set up the thread's TLS first.
+     * For the first thread's we need to set it up before the process init call
+     * (which means we need loader_init() to be *after* dynamo_thread_init()).
+     */
+    if (opd->tls_size > 0 && (reason == DLL_PROCESS_INIT || reason == DLL_THREAD_INIT)) {
+        /* Set up the TLS. */
+        ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
+        byte **tls_array = (byte **)dcontext->priv_static_tls;
+        ASSERT(tls_array_count > opd->tls_idx && tls_array != NULL);
+        if (tls_array[opd->tls_idx] != NULL) {
+            /* Initial thread already set up by process-init call. */
+            ASSERT(reason == DLL_THREAD_INIT);
+        } else {
+            byte *data = global_heap_alloc(opd->tls_size HEAPACCT(ACCT_OTHER));
+            memcpy(data, opd->tls_init_data, opd->tls_size);
+            LOG(THREAD, LOG_LOADER, 2,
+                "Initialized %zd bytes @" PFX " for TLS idx=%d in %s\n", opd->tls_size,
+                data, opd->tls_idx, privmod->name);
+            tls_array[opd->tls_idx] = data;
+        }
+    }
+    for (int i = 0; call_routines && i < opd->tls_callback_count; ++i) {
+        LOG(GLOBAL, LOG_LOADER, 2,
+            "%s: calling TLS callback #%d for %s @" PFX " for reason %d\n", __FUNCTION__,
+            i, privmod->name, opd->tls_callbacks[i], reason);
+        TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+            dcontext, { (*opd->tls_callbacks[i])((HANDLE)privmod->base, reason, NULL); },
+            { /* EXCEPT */
+              SYSLOG_INTERNAL_WARNING("TLS callback " PFX " in %s crashed!",
+                                      opd->tls_callbacks[i], privmod->name);
+            });
+    }
+    /* Then, call the module entry point. */
     app_pc entry = get_module_entry(privmod->base);
-    dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get_module_entry adds base => returns base instead of NULL */
-    if (entry != NULL && entry != privmod->base) {
-        dllmain_t func = (dllmain_t) convert_data_to_function(entry);
+    if (call_routines && entry != NULL && entry != privmod->base &&
+        /* We call the TLS routines for the externally_loaded executable for
+         * static DR, but we never want to call the main entry for externally_loaded..
+         */
+        !privmod->externally_loaded) {
+        dllmain_t func = (dllmain_t)convert_data_to_function(entry);
         BOOL res = FALSE;
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s entry "PFX" for %d\n",
-            __FUNCTION__, privmod->name, entry, reason);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s entry " PFX " for %d\n", __FUNCTION__,
+            privmod->name, entry, reason);
 
         if (get_os_version() >= WINDOWS_VERSION_8 &&
             str_case_prefix(privmod->name, "kernelbase")) {
@@ -1312,13 +1473,13 @@ privload_call_entry(privmod_t *privmod, uint reason)
              */
         }
 
-        TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
-            res = (*func)((HANDLE)privmod->base, reason, NULL);
-        }, { /* EXCEPT */
-            LOG(GLOBAL, LOG_LOADER, 1,
-                "%s: %s entry routine crashed!\n", __FUNCTION__, privmod->name);
-            res = FALSE;
-        });
+        TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+            dcontext, { res = (*func)((HANDLE)privmod->base, reason, NULL); },
+            { /* EXCEPT */
+              LOG(GLOBAL, LOG_LOADER, 1, "%s: %s init routine " PFX " crashed!\n",
+                  __FUNCTION__, privmod->name, func);
+              res = FALSE;
+            });
 
         if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
             /* i#364: win7 _BaseDllInitialize fails to initialize a new console
@@ -1333,13 +1494,29 @@ privload_call_entry(privmod_t *privmod, uint reason)
               * hasn't cause any problems with simple clients.
               */
              str_case_prefix(privmod->name, "combase"))) {
-            LOG(GLOBAL, LOG_LOADER, 1,
-                "%s: ignoring failure of %s entry\n", __FUNCTION__, privmod->name);
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: ignoring failure of %s entry\n", __FUNCTION__,
+                privmod->name);
             res = TRUE;
         }
-        return CAST_TO_bool(res);
+        return_val = CAST_TO_bool(res);
     }
-    return true;
+    if (reason == DLL_THREAD_EXIT && opd->tls_size > 0) {
+        /* Free the TLS. */
+        ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
+        byte **tls_array = (byte **)dcontext->priv_static_tls;
+        ASSERT(tls_array_count > opd->tls_idx && tls_array != NULL);
+        LOG(THREAD, LOG_LOADER, 2, "Freeing %zd bytes @" PFX " for TLS idx=%d in %s\n",
+            opd->tls_size, tls_array[opd->tls_idx], opd->tls_idx, privmod->name);
+        global_heap_free(tls_array[opd->tls_idx], opd->tls_size HEAPACCT(ACCT_OTHER));
+        tls_array[opd->tls_idx] = NULL;
+    }
+    if (reason == DLL_PROCESS_EXIT && privmod->externally_loaded) {
+        /* This happens for the executable for static DR, for which
+         * privload_remove_areas() will not be called.
+         */
+        privload_free_opd(privmod);
+    }
+    return return_val;
 }
 
 /* Map API-set pseudo-dlls to real dlls.
@@ -1358,7 +1535,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
      * But this is simpler than trying to parse that dll's table.
      * We ignore the version suffix ("-1-0", e.g.).
      */
-    if (str_case_prefix(name, "API-MS-Win-Core-APIQuery-L1"))
+    if (str_case_prefix(name, "API-MS-Win-Core-APIQuery-L1") ||
+        str_case_prefix(name, "API-MS-Win-Core-CRT-L1"))
         return "ntdll.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-Console-L1"))
         return "kernel32.dll";
@@ -1404,7 +1582,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessEnvironment-L1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1")) {
+    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1") ||
+             str_case_prefix(name, "API-MS-Win-Core-AppInit-L1-1")) {
         /* This one includes CreateProcessAsUserW which is only in
          * kernel32, but kernel32 itself imports from here and its must come
          * from kernelbase to avoid infinite loop.  XXX: see above: seeming
@@ -1456,7 +1635,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Comm-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Console-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-File-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Job-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-Private-L1-1") ||
@@ -1479,13 +1658,20 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Security-Appcontainer-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Base-Private-L1-1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-File-L2-1")) {
+        /* i#2658: In kernel32 on win7 but kernelbase on win8+. */
+        if (get_os_version() <= WINDOWS_VERSION_7)
+            return "kernel32.dll";
+        else
+            return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1"))
         return "kernel32.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-CRT-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1"))
-        return "msvcrt.dll";
     else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Capability-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Credentials-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Credentials-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-LSAPolicy-L1"))
         return "sechost.dll";
     else if (str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1")) {
@@ -1500,40 +1686,93 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-XState-L2-1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-WIN-SECURITY-LSAPOLICY-L1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-Registry-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-ClassicProvider-L1-1"))
         return "advapi32.dll";
     /**************************************************/
     /* Added in Win10 (some may be 8.1 too) */
-    else if (str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
+    else if (str_case_prefix(name, "API-MS-Win-Core-Console-L2-2") ||
+             str_case_prefix(name, "API-MS-Win-Core-Console-L3-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Console-L3-2") ||
+             str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Fibers-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Heap-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-LibraryLoader-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-3") ||
              str_case_prefix(name, "API-MS-Win-Core-Path-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Pcw-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-PerfCounters-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psm-Key-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Quirks-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-RegistryUserSpecific-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Legacy-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Obsolete-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-String-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-StringAnsi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-URL-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Version-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Version-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-VersionAnsi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Eventing-Provider-L1-1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Job-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-DownLevel-Kernel32-L2-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Appmodel-Runtime-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Appmodel-State-L1-2"))
+        return "kernel.appcore.dll";
     else if (str_case_prefix(name, "API-MS-Win-GDI-")) {
         /* We've seen many different GDI-* */
         return "gdi32full.dll";
     } else if (str_case_prefix(name, "API-MS-Win-CRT-")) {
         /* We've seen CRT-{String,Runtime,Private} */
         return "ucrtbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-COM-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-COM-Private-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-COM-Private-L1-2") ||
+               str_case_prefix(name, "API-MS-Win-Core-Com-MidlProxyStub-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-WinRT-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-WinRT-String-L1-1")) {
+        return "combase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-Kernel32-Private-L1-1")) {
+        return "kernel32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shell-Shellcom-L1-1")) {
+        return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Stateseparation-Helpers-L1-1")) {
+        return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shell-ShellFolders-L1-1")) {
+        /* Moved to windows.storage.dll on Windows 10 */
+        if (get_os_version() >= WINDOWS_VERSION_10) {
+            return "windows.storage.dll";
+        } else {
+            return "kernelbase.dll";
+        }
+    } else if (str_case_prefix(name, "API-MS-Win-Devices-Config-L1-1")) {
+        return "cfgmgr32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shcore-")) {
+        /* There are a lot of these, and they all seem to redirect to shcore.dll */
+        return "shcore.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Storage-Exports-Internal-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Storage-Exports-External-L1-1")) {
+        return "windows.storage.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Security-Cryptoapi-L1-1")) {
+        return "cryptsp.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shlwapi-WinRT-Storage-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Shlwapi-WinRT-IE-L1-1")) {
+        return "shlwapi.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Power-Base-L1-1")) {
+        return "powrprof.dll";
+    } else if (str_case_prefix(name, "Ext-MS-Win-NtUser-") ||
+               str_case_prefix(name, "API-MS-Win-RtCore-NtUser-")) {
+        return "user32.dll";
     } else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
@@ -1549,15 +1788,16 @@ privload_map_name(const char *impname, privmod_t *immed_dep)
 {
     /* 0) on Windows 7, the API-set pseudo-dlls map to real dlls */
     if (get_os_version() >= WINDOWS_VERSION_7 &&
-        str_case_prefix(impname, "API-MS-Win-")) {
+        (str_case_prefix(impname, "API-MS-Win-") ||
+         str_case_prefix(impname, "Ext-MS-Win-"))) {
         IF_DEBUG(const char *apiname = impname;)
         /* We need immediate dependent to avoid infinite chain when hit
          * kernel32 OpenProcessToken forwarder which needs to forward
          * to kernelbase
          */
         impname = map_api_set_dll(impname, immed_dep);
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: mapped API-set dll %s to %s\n",
-            __FUNCTION__, apiname, impname);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: mapped API-set dll %s to %s\n", __FUNCTION__,
+            apiname, impname);
         return impname;
     }
     return impname;
@@ -1586,19 +1826,19 @@ privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachab
      * the path in our data structures.
      */
     if (double_strrchr(impname, DIRSEP, ALT_DIRSEP) != NULL &&
-        os_file_exists(impname, false/*!is_dir*/)) {
+        os_file_exists(impname, false /*!is_dir*/)) {
         mod = privload_load(impname, dependent, reachable);
         return mod; /* if fails to load, don't keep searching */
     }
 
     /* 1) client lib dir(s) and Extensions dir */
     for (i = 0; i < search_paths_idx; i++) {
-        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s",
-                 search_paths[i], impname);
+        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s", search_paths[i],
+                 impname);
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
-        if (os_file_exists(modpath, false/*!is_dir*/)) {
-            mod = privload_load(modpath, dependent, true/*always reachable*/);
+        if (os_file_exists(modpath, false /*!is_dir*/)) {
+            mod = privload_load(modpath, dependent, true /*always reachable*/);
             /* if fails to load, don't keep searching: that seems the most
              * reasonable semantics.  we could keep searching: then should
              * relax the privload_recurse_cnt curiosity b/c won't be reset
@@ -1610,38 +1850,34 @@ privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachab
     /* 2) cur dir: we do not support */
     if (systemroot[0] != '\0') {
         /* 3) system dir */
-        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s",
-                 systemroot, impname);
+        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s", systemroot,
+                 impname);
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
-        if (os_file_exists(modpath, false/*!is_dir*/)) {
+        if (os_file_exists(modpath, false /*!is_dir*/)) {
             mod = privload_load(modpath, dependent, reachable);
             return mod; /* if fails to load, don't keep searching */
         }
         /* 4) windows dir */
-        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s",
-                 systemroot, impname);
+        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s", systemroot, impname);
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
-        if (os_file_exists(modpath, false/*!is_dir*/)) {
+        if (os_file_exists(modpath, false /*!is_dir*/)) {
             mod = privload_load(modpath, dependent, reachable);
             return mod; /* if fails to load, don't keep searching */
         }
     }
     /* 5) dirs on PATH: FIXME: not supported yet */
 
-#ifdef CLIENT_INTERFACE
     if (mod == NULL) {
         /* There's a SYSLOG in loader_init(), but we want the name of the missing
          * library.  If we end up using this loading code for cases where we
          * expect failure, we could switch to a global missing_lib[] that we
          * can write to and have loader_init() use to add to its message.
          */
-        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
-               get_application_name(), get_application_pid(), impname,
-               "\n\tCannot find library");
+        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4, get_application_name(),
+               get_application_pid(), impname, "\n\tCannot find library");
     }
-#endif
     return mod;
 }
 
@@ -1659,16 +1895,14 @@ privload_init_search_paths(void)
 
     privload_add_drext_path();
     /* Get SystemRoot from CurrentVersion reg key */
-    value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY,
-                                   DIAGNOSTICS_SYSTEMROOT_REG_KEY,
-                                   KeyValueFullInformation,
-                                   &diagnostic_value_info,
+    value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY, DIAGNOSTICS_SYSTEMROOT_REG_KEY,
+                                   KeyValueFullInformation, &diagnostic_value_info,
                                    sizeof(diagnostic_value_info), 0);
     if (value_result == REG_QUERY_SUCCESS) {
         snprintf(systemroot, BUFFER_SIZE_ELEMENTS(systemroot), "%S",
-                 (wchar_t*)(diagnostic_value_info.NameAndData  +
-                            diagnostic_value_info.DataOffset -
-                            DECREMENT_FOR_DATA_OFFSET));
+                 (wchar_t *)(diagnostic_value_info.NameAndData +
+                             diagnostic_value_info.DataOffset -
+                             DECREMENT_FOR_DATA_OFFSET));
         NULL_TERMINATE_BUFFER(systemroot);
     } else
         ASSERT_NOT_REACHED();
@@ -1692,7 +1926,7 @@ privload_disable_console_init(privmod_t *mod)
     bool success = false;
     app_pc push1 = NULL, push2 = NULL, push3 = NULL;
     uint orig_prot, count = 0;
-    static const uint MAX_DECODE = IF_X64_ELSE(1200,1024);
+    static const uint MAX_DECODE = IF_X64_ELSE(1200, 1024);
     static const uint MAX_INSTR_COUNT = 1024;
 
     ASSERT(mod != NULL);
@@ -1713,7 +1947,7 @@ privload_disable_console_init(privmod_t *mod)
      */
     instr_init(dcontext, &instr);
     entry = get_module_entry(mod->base);
-    for (pc = entry; pc < entry + MAX_DECODE; ) {
+    for (pc = entry; pc < entry + MAX_DECODE;) {
         if (count++ > MAX_INSTR_COUNT)
             break; /* bail */
         instr_reset(dcontext, &instr);
@@ -1745,8 +1979,7 @@ privload_disable_console_init(privmod_t *mod)
             continue;
         }
 #endif
-        if (prev_marks_call &&
-            instr_get_opcode(&instr) == OP_call) {
+        if (prev_marks_call && instr_get_opcode(&instr) == OP_call) {
             /* For 32-bit we need to continue scanning.  For 64-bit we're there. */
 #ifdef X64
             protect = prev_pc;
@@ -1768,7 +2001,7 @@ privload_disable_console_init(privmod_t *mod)
              * For now we follow the first je which is a little fragile.
              * XXX: build full CFG.
              */
-            for (pc = tgt; pc < tgt + MAX_DECODE; ) {
+            for (pc = tgt; pc < tgt + MAX_DECODE;) {
                 if (count++ > MAX_INSTR_COUNT)
                     break; /* bail */
                 instr_reset(dcontext, &instr);
@@ -1796,57 +2029,56 @@ privload_disable_console_init(privmod_t *mod)
                     prev_lea++;
                     continue;
                 }
-                if (prev_lea >= 2 &&
-                    instr_get_opcode(&instr) == OP_call) {
+                if (prev_lea >= 2 && instr_get_opcode(&instr) == OP_call) {
                     protect = push1;
 #endif
-                    /* found a call preceded by a large lea and maybe some pushes.
-                     * replace the call:
-                     *   e84c000000    call KERNEL32_620000!ConnectConsoleInternal
-                     * =>
-                     *   b801000000    mov eax,0x1
-                     * and change the 3 pushes to nops (this is stdcall).
-                     */
-                    /* 2 pages in case our code crosses a page */
-                    if (!protect_virtual_memory((void *)PAGE_START(protect), PAGE_SIZE*2,
-                                                PAGE_READWRITE, &orig_prot))
-                        break; /* bail */
-                    if (push1 != NULL)
-                        *push1 = RAW_OPCODE_nop;
-                    if (push2 != NULL)
-                        *push2 = RAW_OPCODE_nop;
-                    if (push3 != NULL)
-                        *push3 = RAW_OPCODE_nop;
-                    *(prev_pc) = MOV_IMM2XAX_OPCODE;
-                    *((uint *)(prev_pc+1)) = 1;
-                    protect_virtual_memory((void *)PAGE_START(protect), PAGE_SIZE*2,
-                                           orig_prot, &orig_prot);
-                    success = true;
-                    break; /* done */
+            /* found a call preceded by a large lea and maybe some pushes.
+             * replace the call:
+             *   e84c000000    call KERNEL32_620000!ConnectConsoleInternal
+             * =>
+             *   b801000000    mov eax,0x1
+             * and change the 3 pushes to nops (this is stdcall).
+             */
+            /* 2 pages in case our code crosses a page */
+            if (!protect_virtual_memory((void *)PAGE_START(protect), PAGE_SIZE * 2,
+                                        PAGE_READWRITE, &orig_prot))
+                break; /* bail */
+            if (push1 != NULL)
+                *push1 = RAW_OPCODE_nop;
+            if (push2 != NULL)
+                *push2 = RAW_OPCODE_nop;
+            if (push3 != NULL)
+                *push3 = RAW_OPCODE_nop;
+            *(prev_pc) = MOV_IMM2XAX_OPCODE;
+            *((uint *)(prev_pc + 1)) = 1;
+            protect_virtual_memory((void *)PAGE_START(protect), PAGE_SIZE * 2, orig_prot,
+                                   &orig_prot);
+            success = true;
+            break; /* done */
 #ifndef X64
-                }
-                if (prev_lea > 0) {
-                    if (instr_get_opcode(&instr) == OP_push) {
-                        if (push1 != NULL) {
-                            if (push2 != NULL)
-                                push3 = prev_pc;
-                            else
-                                push2 = prev_pc;
-                        } else
-                            push1 = prev_pc;
-                    } else {
-                        push1 = push2 = push3 = NULL;
-                        prev_lea = 0;
-                    }
-                }
-            }
-            break; /* bailed, or done */
-#endif
         }
-        prev_marks_call = false;
+        if (prev_lea > 0) {
+            if (instr_get_opcode(&instr) == OP_push) {
+                if (push1 != NULL) {
+                    if (push2 != NULL)
+                        push3 = prev_pc;
+                    else
+                        push2 = prev_pc;
+                } else
+                    push1 = prev_pc;
+            } else {
+                push1 = push2 = push3 = NULL;
+                prev_lea = 0;
+            }
+        }
     }
-    instr_free(dcontext, &instr);
-    return success;
+    break; /* bailed, or done */
+#endif
+}
+prev_marks_call = false;
+}
+instr_free(dcontext, &instr);
+return success;
 }
 
 /* GUI apps are initialized without a console. To enable writing to the console
@@ -1856,7 +2088,7 @@ privload_disable_console_init(privmod_t *mod)
  * The solution here would be to monitor such attempts by the app and free the console
  * that is setup here.
  */
-typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
+typedef BOOL(WINAPI *kernel32_AttachConsole_t)(IN DWORD);
 static kernel32_AttachConsole_t kernel32_AttachConsole;
 
 bool
@@ -1864,8 +2096,8 @@ privload_attach_parent_console(app_pc app_kernel32)
 {
     ASSERT(app_kernel32 != NULL);
     if (kernel32_AttachConsole == NULL) {
-        kernel32_AttachConsole = (kernel32_AttachConsole_t)
-            get_proc_address(app_kernel32, "AttachConsole");
+        kernel32_AttachConsole =
+            (kernel32_AttachConsole_t)d_r_get_proc_address(app_kernel32, "AttachConsole");
     }
     if (kernel32_AttachConsole != NULL) {
         if (kernel32_AttachConsole(ATTACH_PARENT_PROCESS) != 0)
@@ -1881,7 +2113,7 @@ privload_attach_parent_console(app_pc app_kernel32)
  * with private kernel32. This will enable console support for 32-bit kernel and
  * 64-bit apps.
  */
-typedef BOOL (WINAPI *kernel32_FreeConsole_t) (VOID);
+typedef BOOL(WINAPI *kernel32_FreeConsole_t)(VOID);
 static kernel32_FreeConsole_t kernel32_FreeConsole;
 
 bool
@@ -1905,8 +2137,8 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
          * To enable console printing for gui apps, we simply detach and reattach.
          */
         if (get_os_version() >= WINDOWS_VERSION_8) {
-            kernel32_FreeConsole = (kernel32_FreeConsole_t)
-                get_proc_address(app_kernel32, "FreeConsole");
+            kernel32_FreeConsole =
+                (kernel32_FreeConsole_t)d_r_get_proc_address(app_kernel32, "FreeConsole");
             if (kernel32_FreeConsole != NULL) {
                 if (kernel32_FreeConsole() == 0)
                     return false;
@@ -1925,7 +2157,7 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
     /* Below here is win7-specific */
     if (get_os_version() != WINDOWS_VERSION_7)
         return true;
-    get_console_cp = (app_pc) get_proc_address(app_kernel32, "GetConsoleCP");
+    get_console_cp = (app_pc)d_r_get_proc_address(app_kernel32, "GetConsoleCP");
     ASSERT(get_console_cp != NULL);
     /* No exported routines directly reference the globals. The easiest and shortest
      * path is through GetConsoleCP, where we look for a call to ConsoleClientCallServer
@@ -1934,7 +2166,7 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
      * pointer in memory. Tested on win7 x86 and x64.
      */
     instr_init(dcontext, &instr);
-    for (pc = get_console_cp; pc < get_console_cp + MAX_DECODE; ) {
+    for (pc = get_console_cp; pc < get_console_cp + MAX_DECODE;) {
         instr_reset(dcontext, &instr);
         pc = decode(dcontext, pc, &instr);
         if (!instr_valid(&instr) || instr_is_return(&instr))
@@ -1945,7 +2177,7 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
              * right away w/ a cmp. From there, we fall through on first je and then
              * follow a jnz where ConsolePortMemoryRemoteDelta is referenced after.
              */
-            for (pc = tgt; pc < tgt + MAX_DECODE; ) {
+            for (pc = tgt; pc < tgt + MAX_DECODE;) {
                 instr_reset(dcontext, &instr);
                 pc = decode(dcontext, pc, &instr);
                 if (!instr_valid(&instr) || instr_is_return(&instr))
@@ -1961,11 +2193,11 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
 #ifdef X64
                     opnd_is_rel_addr(instr_get_src(&instr, 0)) &&
 #else
-                    opnd_is_abs_addr(instr_get_src(&instr, 0)) &&
+                            opnd_is_abs_addr(instr_get_src(&instr, 0)) &&
 #endif
                     opnd_is_immed_int(instr_get_src(&instr, 1)) &&
                     opnd_get_immed_int(instr_get_src(&instr, 1)) == 0) {
-                    console_handle = (app_pc) opnd_get_addr(instr_get_src(&instr, 0));
+                    console_handle = (app_pc)opnd_get_addr(instr_get_src(&instr, 0));
                     continue;
                 }
                 if (instr_get_opcode(&instr) == OP_jnz) {
@@ -1987,9 +2219,9 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
 #ifdef X64
                         opnd_is_rel_addr(instr_get_src(&instr, 0))) {
 #else
-                        opnd_is_abs_addr(instr_get_src(&instr, 0))) {
+                                opnd_is_abs_addr(instr_get_src(&instr, 0))) {
 #endif
-                        console_delta = (app_pc) opnd_get_addr(instr_get_src(&instr, 0));
+                        console_delta = (app_pc)opnd_get_addr(instr_get_src(&instr, 0));
                         success = true;
                     }
                     break; /* done */
@@ -2061,9 +2293,9 @@ private_lib_handle_cb(dcontext_t *dcontext, app_pc pc)
  */
 
 #ifdef X64
-# define SECURITY_COOKIE_INITIAL 0x00002B992DDFA232
+#    define SECURITY_COOKIE_INITIAL 0x00002B992DDFA232
 #else
-# define SECURITY_COOKIE_INITIAL 0xBB40E64E
+#    define SECURITY_COOKIE_INITIAL 0xBB40E64E
 #endif
 #define SECURITY_COOKIE_16BIT_INITIAL 0xBB40
 
@@ -2076,7 +2308,7 @@ get_tick_count(void)
         /* Pre-win2k3, there is no ntdll!NtTickCount, and kernel32!GetTickCount
          * does a simple computation from KUSER_SHARED_DATA.
          */
-        KUSER_SHARED_DATA *kud = (KUSER_SHARED_DATA *) KUSER_SHARED_DATA_ADDRESS;
+        KUSER_SHARED_DATA *kud = (KUSER_SHARED_DATA *)KUSER_SHARED_DATA_ADDRESS;
         ULONG64 val = (ULONG64)kud->TickCountLowDeprecated * kud->TickCountMultiplier;
         return (ULONG_PTR)(val >> 18);
     }
@@ -2085,8 +2317,8 @@ get_tick_count(void)
 static bool
 privload_set_security_cookie(privmod_t *mod)
 {
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) mod->base;
-    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (mod->base + dos->e_lfanew);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)mod->base;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(mod->base + dos->e_lfanew);
     IMAGE_DATA_DIRECTORY *dir;
     IMAGE_LOAD_CONFIG_DIRECTORY *config;
     ptr_uint_t *cookie_ptr;
@@ -2102,20 +2334,21 @@ privload_set_security_cookie(privmod_t *mod)
     dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG;
     if (dir == NULL || dir->Size <= 0)
         return false;
-    config = (IMAGE_LOAD_CONFIG_DIRECTORY *) RVA_TO_VA(mod->base, dir->VirtualAddress);
+    config = (IMAGE_LOAD_CONFIG_DIRECTORY *)RVA_TO_VA(mod->base, dir->VirtualAddress);
     if (dir->Size < offsetof(IMAGE_LOAD_CONFIG_DIRECTORY, SecurityCookie) +
-        sizeof(config->SecurityCookie)) {
+            sizeof(config->SecurityCookie)) {
         ASSERT_CURIOSITY(false && "IMAGE_LOAD_CONFIG_DIRECTORY too small");
         return false;
     }
-    cookie_ptr = (ptr_uint_t *) config->SecurityCookie;
+    cookie_ptr = (ptr_uint_t *)config->SecurityCookie;
     if ((byte *)cookie_ptr < mod->base || (byte *)cookie_ptr >= mod->base + mod->size) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s has out-of-bounds cookie @"PFX"\n",
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s has out-of-bounds cookie @" PFX "\n",
             __FUNCTION__, mod->name, cookie_ptr);
         return false;
     }
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: %s dirsz="PIFX" configsz="PIFX" init cookie="PFX"\n",
-        __FUNCTION__, mod->name, dir->Size, config->Size, *cookie_ptr);
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: %s dirsz=" PIFX " configsz=" PIFX " init cookie=" PFX "\n", __FUNCTION__,
+        mod->name, dir->Size, config->Size, *cookie_ptr);
     if (*cookie_ptr != SECURITY_COOKIE_INITIAL &&
         *cookie_ptr != SECURITY_COOKIE_16BIT_INITIAL) {
         /* I'm assuming a cookie should either be the magic value, or zero if
@@ -2134,20 +2367,19 @@ privload_set_security_cookie(privmod_t *mod)
     /* 64-bit seems to sign-extend so we use ptr_int_t */
     cookie = (ptr_int_t)(time100ns >> 32) ^ (ptr_int_t)time100ns;
     cookie ^= get_process_id();
-    cookie ^= get_thread_id();
+    cookie ^= d_r_get_thread_id();
     cookie ^= get_tick_count();
     nt_query_performance_counter(&perfctr, NULL);
 #ifdef X64
     cookie ^= perfctr.QuadPart;
 #else
-    cookie ^= perfctr.LowPart;
-    cookie ^= perfctr.HighPart;
+            cookie ^= perfctr.LowPart;
+            cookie ^= perfctr.HighPart;
 #endif
 
     if (*cookie_ptr == SECURITY_COOKIE_16BIT_INITIAL)
         cookie &= 0xffff; /* only want low 16 bits */
-    if (cookie == SECURITY_COOKIE_INITIAL ||
-        cookie == SECURITY_COOKIE_16BIT_INITIAL) {
+    if (cookie == SECURITY_COOKIE_INITIAL || cookie == SECURITY_COOKIE_16BIT_INITIAL) {
         /* If it happens to match, make it not match */
         cookie--;
     }
@@ -2157,7 +2389,7 @@ privload_set_security_cookie(privmod_t *mod)
      */
     cookie &= 0x0000ffffffffffff;
 #endif
-    LOG(GLOBAL, LOG_LOADER, 2, "  new cookie value: "PFX"\n", cookie);
+    LOG(GLOBAL, LOG_LOADER, 2, "  new cookie value: " PFX "\n", cookie);
 
     *cookie_ptr = cookie;
     return true;
@@ -2169,11 +2401,71 @@ privload_os_finalize(privmod_t *mod)
     /* Libraries built with /GS require us to set
      * IMAGE_LOAD_CONFIG_DIRECTORY.SecurityCookie (i#1093)
      */
-    privload_set_security_cookie(mod);
+    if (!mod->externally_loaded)
+        privload_set_security_cookie(mod);
 
-    /* FIXME: not supporting TLS today in Windows:
-     * covered by i#233, but we don't expect to see it for dlls, only exes
-     */
+#ifdef STANDALONE_UNIT_TEST
+    /* No static TLS support for later-loaded libs used in the test. */
+    return;
+#endif
+
+    /* Static TLS support. */
+    os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;
+    if (opd == NULL) {
+        /* This happens for the executable for static DR. */
+        ASSERT(mod->externally_loaded);
+        privload_alloc_opd(mod);
+        opd = (os_privmod_data_t *)mod->os_privmod_data;
+    }
+    void **callbacks;
+    int *index;
+    byte *data_start;
+    byte *data_end;
+    if (!module_get_tls_info(mod->base, &callbacks, &index, &data_start, &data_end))
+        return;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s has static TLS\n", mod->name);
+
+    if (callbacks == NULL || *callbacks == NULL) {
+        opd->tls_callbacks = NULL;
+        opd->tls_callback_count = 0;
+    } else {
+        void **cb = callbacks;
+        while (*cb != NULL)
+            cb++;
+        opd->tls_callback_count = (int)(cb - callbacks);
+        ASSERT(opd->tls_callback_count > 0);
+        opd->tls_callbacks = (PIMAGE_TLS_CALLBACK *)convert_data_to_function(
+            HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, PIMAGE_TLS_CALLBACK,
+                             opd->tls_callback_count, ACCT_OTHER, PROTECTED));
+        memcpy(opd->tls_callbacks, callbacks, (cb - callbacks) * sizeof(*cb));
+    }
+    LOG(GLOBAL, LOG_LOADER, 2, "%s has %d TLS callbacks\n", mod->name,
+        opd->tls_callback_count);
+
+    opd->tls_size = data_end - data_start;
+    opd->tls_init_data = data_start;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s has %d TLS bytes (init: " PFX ")\n", mod->name,
+        opd->tls_size, opd->tls_init_data);
+
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    opd->tls_idx = tls_next_idx++;
+    if (opd->tls_idx >= TLS_ARRAY_MAX_SIZE ||
+        (tls_array_count > 0 && opd->tls_idx >= tls_array_count)) {
+        /* XXX: It is not easy to resize for all threads.  We do not support for now.
+         * If we do add support, we'll have to turn should_swap_teb_static_tls() into
+         * a dynamic check in our generated code.
+         */
+        REPORT_FATAL_ERROR_AND_EXIT(
+            PRIVATE_LIBRARY_TLS_LIMIT_CROSSED, 3, get_application_name(),
+            get_application_pid(),
+            (opd->tls_idx >= tls_array_count)
+                ? "Late-loaded libraries with static TLS not supported"
+                : "Too many libaries with static TLS");
+    }
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    LOG(GLOBAL, LOG_LOADER, 2, "TLS index for %s is %d\n", mod->name, opd->tls_idx);
+    *index = opd->tls_idx;
 }
 
 /***************************************************************************/
@@ -2198,18 +2490,18 @@ add_mod_to_drmarker(dr_marker_t *marker, const char *path, const char *modname,
      *   .reload bbcount.dll=74ad0000;.echo "Loaded bbcount.dll";
      *
      */
-# define WINDBG_ADD_PATH ".block{.sympath+ "
+#    define WINDBG_ADD_PATH ".block{.sympath+ "
     if (*sofar + strlen(WINDBG_ADD_PATH) + (last_dir - path) < WINDBG_CMD_MAX_LEN) {
         res = _snprintf(marker->windbg_cmds + *sofar,
-                        strlen(WINDBG_ADD_PATH) + last_dir - path,
-                        "%s%s", WINDBG_ADD_PATH, path);
+                        strlen(WINDBG_ADD_PATH) + last_dir - path, "%s%s",
+                        WINDBG_ADD_PATH, path);
         ASSERT(res == -1);
         *sofar += strlen(WINDBG_ADD_PATH) + last_dir - path;
         return print_to_buffer(marker->windbg_cmds, WINDBG_CMD_MAX_LEN, sofar,
                                /* XXX i#631: for 64-bit, windbg fails to successfully
                                 * load (has start==end) so we use /i as workaround
                                 */
-                               "};\n.reload /i %s="PFMT";.echo \"Loaded %s\";\n",
+                               "};\n.reload /i %s=" PFMT ";.echo \"Loaded %s\";\n",
                                modname, base, modname);
     } else {
         SYSLOG_INTERNAL_WARNING_ONCE("drmarker windbg cmds out of space");
@@ -2260,12 +2552,11 @@ privload_add_windbg_cmds_post_init(privmod_t *mod)
     sofar = strlen(marker->windbg_cmds);
     if (dynamo_initialized) {
         set_protection((byte *)marker, sizeof(*marker),
-                       MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC);
+                       MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC);
     }
     add_mod_to_drmarker(marker, mod->path, mod->name, mod->base, &sofar);
     if (dynamo_initialized) {
-        set_protection((byte *)marker, sizeof(*marker),
-                       MEMPROT_READ|MEMPROT_EXEC);
+        set_protection((byte *)marker, sizeof(*marker), MEMPROT_READ | MEMPROT_EXEC);
     }
     release_recursive_lock(&privload_lock);
 }
@@ -2282,8 +2573,8 @@ privload_add_windbg_cmds_post_init(privmod_t *mod)
  * or sthg that is checked on every LOG or ASSERT.
  */
 
-typedef NTSTATUS (NTAPI *nt_protect_t)(IN HANDLE, IN OUT PVOID *, IN OUT PSIZE_T,
-                                       IN ULONG, OUT PULONG);
+typedef NTSTATUS(NTAPI *nt_protect_t)(IN HANDLE, IN OUT PVOID *, IN OUT PSIZE_T, IN ULONG,
+                                      OUT PULONG);
 static nt_protect_t bootstrap_ProtectVirtualMemory;
 
 /* exported for earliest_inject_init() */
@@ -2294,8 +2585,8 @@ bootstrap_protect_virtual_memory(void *base, size_t size, uint prot, uint *old_p
     SIZE_T sz = size;
     if (bootstrap_ProtectVirtualMemory == NULL)
         return false;
-    res = bootstrap_ProtectVirtualMemory(NT_CURRENT_PROCESS, &base, &sz,
-                                         prot, (ULONG*)old_prot);
+    res = bootstrap_ProtectVirtualMemory(NT_CURRENT_PROCESS, &base, &sz, prot,
+                                         (ULONG *)old_prot);
     return (NT_SUCCESS(res) && sz == size);
 }
 
@@ -2319,8 +2610,8 @@ bootstrap_strcmp(const char *s1, const char *s2, bool ignore_case)
             return -1;
         } else if (*s2 == '\0')
             return 1;
-        c1 = (char) *s1;
-        c2 = (char) *s2;
+        c1 = (char)*s1;
+        c2 = (char)*s2;
         if (ignore_case) {
             c1 = bootstrap_tolower(c1);
             c2 = bootstrap_tolower(c2);
@@ -2336,7 +2627,6 @@ bootstrap_strcmp(const char *s1, const char *s2, bool ignore_case)
     }
 }
 
-
 /* Does not handle forwarders!  Assumed to be called on ntdll only. */
 static generic_func_t
 privload_bootstrap_get_export(byte *modbase, const char *name)
@@ -2346,21 +2636,21 @@ privload_bootstrap_get_export(byte *modbase, const char *name)
     IMAGE_EXPORT_DIRECTORY *exports;
     PULONG functions; /* array of RVAs */
     PUSHORT ordinals;
-    PULONG fnames; /* array of RVAs */
+    PULONG fnames;       /* array of RVAs */
     uint ord = UINT_MAX; /* the ordinal to use */
     app_pc func;
     bool match = false;
 
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) modbase;
-    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (modbase + dos->e_lfanew);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)modbase;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(modbase + dos->e_lfanew);
     IMAGE_DATA_DIRECTORY *expdir;
-    if (dos->e_magic != IMAGE_DOS_SIGNATURE ||
-        nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE || nt == NULL ||
+        nt->Signature != IMAGE_NT_SIGNATURE)
         return NULL;
     expdir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_EXPORT;
     if (expdir == NULL || expdir->Size <= 0)
         return NULL;
-    exports = (IMAGE_EXPORT_DIRECTORY *) (modbase + expdir->VirtualAddress);
+    exports = (IMAGE_EXPORT_DIRECTORY *)(modbase + expdir->VirtualAddress);
     exports_size = expdir->Size;
     if (exports == NULL || exports->NumberOfNames == 0 || exports->AddressOfNames == 0)
         return NULL;
@@ -2378,13 +2668,12 @@ privload_bootstrap_get_export(byte *modbase, const char *name)
             break;
         }
     }
-    if (!match || ord >=exports->NumberOfFunctions)
+    if (!match || ord >= exports->NumberOfFunctions)
         return NULL;
     func = (app_pc)(modbase + functions[ord]);
     if (func == modbase)
         return NULL;
-    if (func >= (app_pc)exports &&
-        func < (app_pc)exports + exports_size) {
+    if (func >= (app_pc)exports && func < (app_pc)exports + exports_size) {
         /* forwarded */
         return NULL;
     }
@@ -2395,8 +2684,8 @@ privload_bootstrap_get_export(byte *modbase, const char *name)
 bool
 privload_bootstrap_dynamorio_imports(byte *dr_base, byte *ntdll_base)
 {
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) dr_base;
-    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (dr_base + dos->e_lfanew);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)dr_base;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(dr_base + dos->e_lfanew);
     IMAGE_DATA_DIRECTORY *dir;
     IMAGE_IMPORT_DESCRIPTOR *imports;
     byte *iat, *imports_end;
@@ -2404,47 +2693,47 @@ privload_bootstrap_dynamorio_imports(byte *dr_base, byte *ntdll_base)
     generic_func_t func;
 
     /* first, get the one library routine we require */
-    bootstrap_ProtectVirtualMemory = (nt_protect_t)
-        privload_bootstrap_get_export(ntdll_base, "NtProtectVirtualMemory");
+    bootstrap_ProtectVirtualMemory =
+        (nt_protect_t)privload_bootstrap_get_export(ntdll_base, "NtProtectVirtualMemory");
     if (bootstrap_ProtectVirtualMemory == NULL)
         return false;
 
     /* get import descriptor (modeled on privload_get_import_descriptor()) */
-    if (dos->e_magic != IMAGE_DOS_SIGNATURE ||
-        nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE || nt == NULL ||
+        nt->Signature != IMAGE_NT_SIGNATURE)
         return false;
     dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_IMPORT;
     if (dir == NULL || dir->Size <= 0)
         return false;
-    imports = (IMAGE_IMPORT_DESCRIPTOR *) RVA_TO_VA(dr_base, dir->VirtualAddress);
+    imports = (IMAGE_IMPORT_DESCRIPTOR *)RVA_TO_VA(dr_base, dir->VirtualAddress);
     imports_end = dr_base + dir->VirtualAddress + dir->Size;
 
     /* walk imports (modeled on privload_process_imports()) */
     while (imports->OriginalFirstThunk != 0) {
         IMAGE_THUNK_DATA *lookup;
         IMAGE_THUNK_DATA *address;
-        const char *impname = (const char *) RVA_TO_VA(dr_base, imports->Name);
+        const char *impname = (const char *)RVA_TO_VA(dr_base, imports->Name);
         if (bootstrap_strcmp(impname, "ntdll.dll", true) != 0)
             return false; /* should only import from ntdll */
         /* DR shouldn't have bound imports so ignoring TimeDateStamp */
 
         /* walk the lookup table and address table in lockstep */
-        lookup = (IMAGE_THUNK_DATA *) RVA_TO_VA(dr_base, imports->OriginalFirstThunk);
-        address = (IMAGE_THUNK_DATA *) RVA_TO_VA(dr_base, imports->FirstThunk);
-        iat = (app_pc) address;
-        if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat),
-                                              PAGE_SIZE, PAGE_READWRITE, &orig_prot))
+        lookup = (IMAGE_THUNK_DATA *)RVA_TO_VA(dr_base, imports->OriginalFirstThunk);
+        address = (IMAGE_THUNK_DATA *)RVA_TO_VA(dr_base, imports->FirstThunk);
+        iat = (app_pc)address;
+        if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
+                                              PAGE_READWRITE, &orig_prot))
             return false;
         while (lookup->u1.Function != 0) {
-            IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)
-                RVA_TO_VA(dr_base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
+            IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)RVA_TO_VA(
+                dr_base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
             if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function))
                 return false; /* no ordinal support */
 
-            func = privload_bootstrap_get_export(ntdll_base, (const char *) name->Name);
+            func = privload_bootstrap_get_export(ntdll_base, (const char *)name->Name);
             if (func == NULL)
                 return false;
-            *(byte **)address = (byte *) func;
+            *(byte **)address = (byte *)func;
 
             lookup++;
             address++;
@@ -2452,18 +2741,18 @@ privload_bootstrap_dynamorio_imports(byte *dr_base, byte *ntdll_base)
                 if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
                                                       orig_prot, &orig_prot))
                     return false;
-                iat = (app_pc) address;
+                iat = (app_pc)address;
                 if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
                                                       PAGE_READWRITE, &orig_prot))
                     return false;
             }
         }
-        if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat),
-                                              PAGE_SIZE, orig_prot, &orig_prot))
+        if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
+                                              orig_prot, &orig_prot))
             return false;
 
         imports++;
-        if ((byte *)(imports+1) > imports_end)
+        if ((byte *)(imports + 1) > imports_end)
             return false;
     }
 

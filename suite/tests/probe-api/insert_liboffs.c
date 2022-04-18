@@ -30,17 +30,19 @@
  * DAMAGE.
  */
 
-int doubler(int num)
+int
+doubler(int num)
 {
-    return num*2;
+    return num * 2;
 }
 
-int main (void)
+int
+main(void)
 {
     int i = 4;
     int j = doubler(i);
     printf("The whole is greater than the sum of parts: ");
     printf("%d + %d = %d\n", i, i, j);
-    if (j == i*2)
+    if (j == i * 2)
         printf(" - apparently not!\n");
 }

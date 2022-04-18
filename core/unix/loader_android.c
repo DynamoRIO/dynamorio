@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -73,17 +73,17 @@ init_android_version(void)
     uint read_ver = 0;
     if (fd != INVALID_FILE) {
         size_t sz = PAGE_SIZE;
-        byte *map = map_file(fd, &sz, 0, NULL, MEMPROT_READ | MEMPROT_WRITE,
-                             MAP_FILE_COPY_ON_WRITE);
+        byte *map = d_r_map_file(fd, &sz, 0, NULL, MEMPROT_READ | MEMPROT_WRITE,
+                                 MAP_FILE_COPY_ON_WRITE);
         if (map != NULL) {
             const char *prop;
-            *(map+sz-1) = '\0'; /* ensure our strstr stops */
+            *(map + sz - 1) = '\0'; /* ensure our strstr stops */
             prop = strstr((const char *)map, VER_PROP);
             if (prop != NULL) {
                 if (sscanf(prop + strlen(VER_PROP), "%d", &read_ver) == 1)
                     android_version = read_ver;
             }
-            unmap_file(map, sz);
+            d_r_unmap_file(map, sz);
         }
     }
     LOG(GLOBAL, LOG_LOADER, 1, "Android version %s is %d\n",
@@ -93,16 +93,16 @@ init_android_version(void)
      * pthread_internal_t struct.
      */
     if (android_version <= 5) {
-        android_tls_base_offs = offsetof(android_v5_pthread_internal_t, dr_tls_base)
-            - offsetof(android_v5_pthread_internal_t, tls) /* the self slot */;
+        android_tls_base_offs = offsetof(android_v5_pthread_internal_t, dr_tls_base) -
+            offsetof(android_v5_pthread_internal_t, tls) /* the self slot */;
         /* i#1931: ensure we do not cross onto a new page. */
         ASSERT(PAGE_START(android_tls_base_offs) ==
-               PAGE_START(sizeof(android_v5_pthread_internal_t) - sizeof(void*)));
+               PAGE_START(sizeof(android_v5_pthread_internal_t) - sizeof(void *)));
     } else {
-        android_tls_base_offs = offsetof(android_v6_pthread_internal_t, dr_tls_base)
-            - offsetof(android_v6_pthread_internal_t, tls) /* the self slot */;
+        android_tls_base_offs = offsetof(android_v6_pthread_internal_t, dr_tls_base) -
+            offsetof(android_v6_pthread_internal_t, tls) /* the self slot */;
         ASSERT(PAGE_START(android_tls_base_offs) ==
-               PAGE_START(sizeof(android_v6_pthread_internal_t) - sizeof(void*)));
+               PAGE_START(sizeof(android_v6_pthread_internal_t) - sizeof(void *)));
     }
 }
 
@@ -117,6 +117,13 @@ size_of_pthread_internal(void)
 
 void
 privload_mod_tls_init(privmod_t *mod)
+{
+    /* Android does not yet support per-module TLS */
+}
+
+/* Called post-reloc. */
+void
+privload_mod_tls_primary_thread_init(privmod_t *mod)
 {
     /* Android does not yet support per-module TLS */
 }
@@ -158,7 +165,7 @@ privload_tls_init(void *app_tls)
             init_thread_v5.tls[ANDROID_TLS_SLOT_THREAD_ID] = &init_thread_v5;
             /* tls[TLS_SLOT_STACK_GUARD] is set to 0 */
             init_thread_v5.tls[ANDROID_TLS_SLOT_BIONIC_PREINIT] = &kernel_args;
-            LOG(GLOBAL, LOG_LOADER, 2, "%s: kernel sp is "PFX"; TLS set to "PFX"\n",
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: kernel sp is " PFX "; TLS set to " PFX "\n",
                 __FUNCTION__, init_thread_v5.tls[ANDROID_TLS_SLOT_BIONIC_PREINIT],
                 init_thread_v5.tls[ANDROID_TLS_SLOT_SELF]);
             res = init_thread_v5.tls[ANDROID_TLS_SLOT_SELF];
@@ -169,38 +176,39 @@ privload_tls_init(void *app_tls)
             init_thread_v6.tls[ANDROID_TLS_SLOT_THREAD_ID] = &init_thread_v6;
             /* tls[TLS_SLOT_STACK_GUARD] is set to 0 */
             init_thread_v6.tls[ANDROID_TLS_SLOT_BIONIC_PREINIT] = &kernel_args;
-            LOG(GLOBAL, LOG_LOADER, 2, "%s: kernel sp is "PFX"; TLS set to "PFX"\n",
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: kernel sp is " PFX "; TLS set to " PFX "\n",
                 __FUNCTION__, init_thread_v6.tls[ANDROID_TLS_SLOT_BIONIC_PREINIT],
                 init_thread_v6.tls[ANDROID_TLS_SLOT_SELF]);
             res = init_thread_v6.tls[ANDROID_TLS_SLOT_SELF];
         }
     } else {
         res = heap_mmap(ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE),
-                        VMM_SPECIAL_MMAP);
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated new TLS at "PFX"; copying from "PFX"\n",
-            __FUNCTION__, res, app_tls);
+                        MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+        LOG(GLOBAL, LOG_LOADER, 2,
+            "%s: allocated new TLS at " PFX "; copying from " PFX "\n", __FUNCTION__, res,
+            app_tls);
         if (app_tls != NULL)
             memcpy(res, app_tls, size_of_pthread_internal());
         if (android_version <= 5) {
             android_v5_pthread_internal_t *thrd;
-            thrd = (android_v5_pthread_internal_t *) res;
+            thrd = (android_v5_pthread_internal_t *)res;
             thrd->tls[ANDROID_TLS_SLOT_SELF] = thrd->tls;
             thrd->tls[ANDROID_TLS_SLOT_THREAD_ID] = thrd;
-            thrd->tid = get_thread_id();
+            thrd->tid = d_r_get_thread_id();
             thrd->dr_tls_base = NULL;
             res = thrd->tls[ANDROID_TLS_SLOT_SELF];
-            LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to "PFX"\n",
-                __FUNCTION__, thrd->tls[ANDROID_TLS_SLOT_SELF]);
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to " PFX "\n", __FUNCTION__,
+                thrd->tls[ANDROID_TLS_SLOT_SELF]);
         } else {
             android_v6_pthread_internal_t *thrd;
-            thrd = (android_v6_pthread_internal_t *) res;
+            thrd = (android_v6_pthread_internal_t *)res;
             thrd->tls[ANDROID_TLS_SLOT_SELF] = thrd->tls;
             thrd->tls[ANDROID_TLS_SLOT_THREAD_ID] = thrd;
-            thrd->tid = get_thread_id();
+            thrd->tid = d_r_get_thread_id();
             thrd->dr_tls_base = NULL;
             res = thrd->tls[ANDROID_TLS_SLOT_SELF];
-            LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to "PFX"\n",
-                __FUNCTION__, thrd->tls[ANDROID_TLS_SLOT_SELF]);
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to " PFX "\n", __FUNCTION__,
+                thrd->tls[ANDROID_TLS_SLOT_SELF]);
         }
     }
 
@@ -228,9 +236,9 @@ bool
 get_kernel_args(int *argc OUT, char ***argv OUT, char ***envp OUT)
 {
     android_kernel_args_t *kargs;
-    void **tls = (void **) get_segment_base(TLS_REG_LIB);
+    void **tls = (void **)get_segment_base(TLS_REG_LIB);
     if (tls != NULL) {
-        kargs = (android_kernel_args_t *) tls[ANDROID_TLS_SLOT_BIONIC_PREINIT];
+        kargs = (android_kernel_args_t *)tls[ANDROID_TLS_SLOT_BIONIC_PREINIT];
         if (kargs != NULL) {
             *argc = kargs->argc;
             *argv = kargs->argv;

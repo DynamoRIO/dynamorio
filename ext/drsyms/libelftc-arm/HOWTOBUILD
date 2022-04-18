@@ -12,26 +12,28 @@ arm-linux-gnueabihf-gcc (Ubuntu/Linaro 4.8.2-16ubuntu4) 4.8.2
 Install required packages:
 $ sudo apt-get install bison build-essential flex libarchive-dev m4 pmake zlib1g-dev
 
-Check out the sources:
-$ svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
-I have r3248.
+Check out the sources.
+We have to stick with r3530 until
+https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
+$ svn co -r 3530 svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
 
 Now build 32-bit with soft-float calling convention (softfp)
 $ export CC=arm-linux-gnueabi-gcc
 $ export LD=arm-linux-gnueabi-ld
 $ export AR=arm-linux-gnueabi-ar
 $ export RANLIB=arm-linux-gnueabi-ranlib
+$ REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
 $ cd common
 $ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-arm/native-elf-format.h native-elf-format.h
 $ cd ../libelf
 $ pmake clean
-$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC" pmake libelf.a
+$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC ${REDIR}" pmake libelf.a
 $ cd ../libdwarf
 $ pmake clean
-$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC" pmake libdwarf.a
+$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC ${REDIR}" pmake libdwarf.a
 $ cd ../libelftc
 $ pmake clean
-$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC" pmake libelftc.a
+$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC ${REDIR}" pmake libelftc.a
 
 Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the DR source tree
 in ext/drsyms/libelftc-arm/lib32-eabi/.
@@ -41,17 +43,18 @@ $ export CC=arm-linux-gnueabihf-gcc
 $ export LD=arm-linux-gnueabihf-ld
 $ export AR=arm-linux-gnueabihf-ar
 $ export RANLIB=arm-linux-gnueabihf-ranlib
+$ REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
 $ cd common
 $ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-arm/native-elf-format.h native-elf-format.h
 $ cd ../libelf
 $ pmake clean
-$ CFLAGS="-O2 -g -fPIC" pmake libelf.a
+$ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelf.a
 $ cd ../libdwarf
 $ pmake clean
-$ CFLAGS="-O2 -g -fPIC" pmake libdwarf.a
+$ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libdwarf.a
 $ cd ../libelftc
 $ pmake clean
-$ CFLAGS="-O2 -g -fPIC" pmake libelftc.a
+$ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelftc.a
 
 Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the DR source tree
 in ext/drsyms/libelftc-arm/lib32-eabihf/.

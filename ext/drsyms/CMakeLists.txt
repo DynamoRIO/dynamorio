@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -31,15 +31,9 @@
 
 # symbol access library
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
-
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.12" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.12")
-  # XXX i#1481: update to cmake 2.8.12's better handling of interface imports
-  cmake_policy(SET CMP0022 OLD)
-endif ()
 
 if (X64)
   set(BITS "64")
@@ -47,7 +41,7 @@ else ()
   set(BITS "32")
 endif ()
 
-if (ARM)
+if (DR_HOST_ARM)
   if (ANDROID)
     set(ARCH "-android")
   else ()
@@ -64,7 +58,7 @@ if (ARM)
   endif ()
 endif()
 
-if (AARCH64)
+if (DR_HOST_AARCH64)
   set(ARCH "-aarch64")
 endif ()
 
@@ -76,7 +70,7 @@ set(DynamoRIO_USE_LIBC ON)
 if (WIN32)
   # XXX: if we add any more of these .lib files we should share this code
   # (currently we have make/ntdll_imports.cmake and here).
-  find_program(LIB_EXECUTABLE lib.exe DOC "path to lib.exe")
+  find_program(LIB_EXECUTABLE lib.exe HINTS "${cl_path}" DOC "path to lib.exe")
   if (NOT LIB_EXECUTABLE)
     message(FATAL_ERROR "Cannot find lib.exe")
   endif (NOT LIB_EXECUTABLE)
@@ -124,9 +118,6 @@ if (WIN32)
     "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/dwarf.pdb" COPYONLY)
   configure_file("${dwarf_dir}/elftc.pdb"
     "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/elftc.pdb" COPYONLY)
-  # while private loader means preferred base is not required, more efficient
-  # to avoid rebase so we avoid conflict w/ client and other exts
-  set(PREFERRED_BASE 0x76000000)
 
 elseif (UNIX)
   set(srcs
@@ -150,6 +141,10 @@ elseif (UNIX)
   set(srcs_static ${srcs})
 endif (WIN32)
 
+# while private loader means preferred base is not required, more efficient
+# to avoid rebase so we avoid conflict w/ client and other exts
+set(PREFERRED_BASE 0x76000000)
+
 add_library(drsyms SHARED ${srcs})
 configure_extension(drsyms OFF)
 
@@ -161,6 +156,8 @@ macro(configure_drsyms_target target)
       add_dependencies(${target} dbghelp_tgt)
     endif ()
   endif ()
+  # we always use the elftoolchain library when building with cmake
+  append_property_list(TARGET ${target} COMPILE_DEFINITIONS "DRSYM_HAVE_LIBELFTC")
 endmacro(configure_drsyms_target)
 
 configure_drsyms_target(drsyms)
@@ -192,7 +189,9 @@ endif ()
 # i#693: CMake will try to export the path to the static libs we use via
 # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
 # user's machine.  Clearing this property prevents that.
-set_target_properties(drsyms PROPERTIES LINK_INTERFACE_LIBRARIES "")
+# i#3474: LINK_INTERFACE_LIBRARIES is deprecated, which is overridden by
+# INTERFACE_LINK_LIBRARIES property if policy CMP0022 is NEW.
+set_target_properties(drsyms PROPERTIES INTERFACE_LINK_LIBRARIES "")
 
 # If drsyms is built static we need to include these with an exports path
 # in DynamoRIOTarget*.cmake and not with the source path here:
@@ -245,6 +244,8 @@ if (WIN32)
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drsyms works pre-Vista.
   if (dbghelp_path)
+    configure_file(${dbghelp_path} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dbghelp.dll
+      COPYONLY)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_EXT_LIB})
   endif ()
 endif (WIN32)

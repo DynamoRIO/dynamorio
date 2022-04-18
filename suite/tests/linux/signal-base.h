@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,31 +50,39 @@
 #include <signal.h>
 #include <ucontext.h>
 #include <sys/time.h> /* itimer */
-#include <string.h> /*  memset */
+#include <string.h>   /*  memset */
 
 /* handler with SA_SIGINFO flag set gets three arguments: */
 typedef void (*handler_t)(int, siginfo_t *, void *);
 
 #if USE_LONGJMP
-#include <setjmp.h>
-static jmp_buf env;
+#    include <setjmp.h>
+static sigjmp_buf env;
 #endif
 
 #if USE_SIGSTACK
-# include <stdlib.h> /* malloc */
+#    include <stdlib.h> /* malloc */
 /* need more space if might get nested signals */
-# if USE_TIMER
-#  define ALT_STACK_SIZE  (SIGSTKSZ*4)
-# else
-#  define ALT_STACK_SIZE  (SIGSTKSZ*2)
-# endif
+#    if USE_TIMER
+#        define ALT_STACK_SIZE (SIGSTKSZ * 4)
+#    else
+#        define ALT_STACK_SIZE (SIGSTKSZ * 2)
+#    endif
 #endif
 
 #if USE_TIMER
 /* need to run long enough to get itimer hit */
-# define ITERS 3500000
+#    define ITERS 3500000
 #else
-# define ITERS 500000
+#    define ITERS 500000
+#endif
+
+#ifdef AARCHXX
+/* i#4719: Work around QEMU bugs where QEMU can't handle signals 63 or 64. */
+#    undef SIGRTMAX
+#    define SIGRTMAX 62
+#    undef __SIGRTMAX
+#    define __SIGRTMAX SIGRTMAX
 #endif
 
 static int a[ITERS];
@@ -90,49 +98,51 @@ static int timer_hits = 0;
 #include <errno.h>
 
 static void
-signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+#if defined(ARM) && !defined(USE_SIGSTACK)
+    /* Test a variety of ISA transitions by tying this to USE_SIGSTACK. */
+    __attribute__((target("arm")))
+#endif
+    signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
-    print("signal_handler: sig=%d, retaddr=0x%08x, ucxt=0x%08x\n",
-          sig, *(&sig - 1), ucxt);
+    print("signal_handler: sig=%d, retaddr=0x%08x, ucxt=0x%08x\n", sig, *(&sig - 1),
+          ucxt);
 #else
-# if USE_TIMER
+#    if USE_TIMER
     if (sig != SIGVTALRM)
-# endif
+#    endif
         print("in signal handler\n");
+#endif
+
+#if USE_SIGSTACK
+    /* Ensure setting a new stack while on the current one fails with EPERM. */
+    stack_t sigstack;
+    sigstack.ss_sp = siginfo; /* will fail: just need sthg */
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = SS_ONSTACK;
+    int rc = sigaltstack(&sigstack, NULL);
+    assert(rc == -1 && errno == EPERM);
 #endif
 
     switch (sig) {
 
     case SIGSEGV: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
-#if USE_LONGJMP && BLOCK_IN_HANDLER
-        sigset_t set;
-        int rc;
-#endif
+        void *pc = (void *)sc->SC_XIP;
 #if VERBOSE
         print("Got SIGSEGV @ 0x%08x\n", pc);
 #else
         print("Got SIGSEGV\n");
 #endif
 #if USE_LONGJMP
-# if BLOCK_IN_HANDLER
-        /* longjmp will bypass sigreturn, and sigreturn is what resets
-         * the set of blocked signals, so we have to unblock them here
-         */
-        rc = sigemptyset(&set); /* reset blocked signals */
-        ASSERT_NOERR(rc);
-        sigprocmask(SIG_SETMASK, &set, NULL);
-# endif
-        longjmp(env, 1);
+        siglongjmp(env, 1);
 #endif
         break;
     }
 
     case SIGUSR1: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
+        void *pc = (void *)sc->SC_XIP;
 #if VERBOSE
         print("Got SIGUSR1 @ 0x%08x\n", pc);
 #else
@@ -144,16 +154,18 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #ifdef LINUX
     case __SIGRTMAX: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
+        void *pc = (void *)sc->SC_XIP;
         /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
          * sources. */
-        assert(__SIGRTMAX == 64 &&
-               __SIGRTMAX == SIGRTMAX);
-# if VERBOSE
+#    ifndef AARCHXX /* i#4719: Work around QEMU bugs handling signals 63,64. */
+        assert(__SIGRTMAX == 64);
+#    endif
+        assert(__SIGRTMAX == SIGRTMAX);
+#    if VERBOSE
         print("Got SIGRTMAX @ 0x%08x\n", pc);
-# else
+#    else
         print("Got SIGRTMAX\n");
-# endif
+#    endif
         break;
     }
 #endif
@@ -161,17 +173,16 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #if USE_TIMER
     case SIGVTALRM: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
-#if VERBOSE
+        void *pc = (void *)sc->SC_XIP;
+#    if VERBOSE
         print("Got SIGVTALRM @ 0x%08x\n", pc);
-#endif
+#    endif
         timer_hits++;
         break;
     }
 #endif
 
-    default:
-        assert(0);
+    default: assert(0);
     }
 }
 
@@ -196,8 +207,12 @@ custom_intercept_signal(int sig, handler_t handler)
     ASSERT_NOERR(rc);
 }
 
-
-int main(int argc, char *argv[])
+int
+#if defined(ARM) && !defined(BLOCK_IN_HANDLER)
+    /* Test a variety of ISA transitions by tying this to BLOCK_IN_HANDLER. */
+    __attribute__((target("arm")))
+#endif
+    main(int argc, char *argv[])
 {
     double res = 0.;
     int i, j, rc;
@@ -208,8 +223,30 @@ int main(int argc, char *argv[])
     struct itimerval t;
 #endif
 
+    /* Block a few signals */
+    sigset_t mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGURG);
+    sigaddset(&mask, SIGALRM);
+    rc = sigprocmask(SIG_SETMASK, &mask, NULL);
+    ASSERT_NOERR(rc);
+
+#if USE_SIGSTACK
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = 0;
+    rc = sigaltstack(&sigstack, NULL);
+    ASSERT_NOERR(rc);
+#    if VERBOSE
+    print("Set up sigstack: 0x%08x - 0x%08x\n", sigstack.ss_sp,
+          sigstack.ss_sp + sigstack.ss_size);
+#    endif
+#endif
+
 #if USE_TIMER
-    custom_intercept_signal(SIGVTALRM, (handler_t) signal_handler);
+    custom_intercept_signal(SIGVTALRM, (handler_t)signal_handler);
     t.it_interval.tv_sec = 0;
     t.it_interval.tv_usec = 10000;
     t.it_value.tv_sec = 0;
@@ -218,23 +255,11 @@ int main(int argc, char *argv[])
     ASSERT_NOERR(rc);
 #endif
 
-#if USE_SIGSTACK
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
-    sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
-    rc = sigaltstack(&sigstack, NULL);
-    ASSERT_NOERR(rc);
-# if VERBOSE
-    print("Set up sigstack: 0x%08x - 0x%08x\n",
-          sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
-# endif
-#endif
-
-    custom_intercept_signal(SIGSEGV, (handler_t) signal_handler);
-    custom_intercept_signal(SIGUSR1, (handler_t) signal_handler);
-    custom_intercept_signal(SIGUSR2, (handler_t) SIG_IGN);
+    custom_intercept_signal(SIGSEGV, (handler_t)signal_handler);
+    custom_intercept_signal(SIGUSR1, (handler_t)signal_handler);
+    custom_intercept_signal(SIGUSR2, (handler_t)SIG_IGN);
 #ifdef LINUX
-    custom_intercept_signal(__SIGRTMAX, (handler_t) signal_handler);
+    custom_intercept_signal(__SIGRTMAX, (handler_t)signal_handler);
 #endif
 
     res = cos(0.56);
@@ -257,7 +282,7 @@ int main(int argc, char *argv[])
 
     print("Generating SIGSEGV\n");
 #if USE_LONGJMP
-    res = setjmp(env);
+    res = sigsetjmp(env, 1);
     if (res == 0) {
         *((volatile int *)0) = 4;
     }
@@ -265,16 +290,23 @@ int main(int argc, char *argv[])
     kill(getpid(), SIGSEGV);
 #endif
 
-    for (i=0; i<ITERS; i++) {
+    for (i = 0; i < ITERS; i++) {
         if (i % 2 == 0) {
-            res += cos(1./(double)(i+1));
+            res += cos(1. / (double)(i + 1));
         } else {
-            res += sin(1./(double)(i+1));
+            res += sin(1. / (double)(i + 1));
         }
         j = (i << 4) / (i | 0x38);
         a[i] += j;
     }
     print("%f\n", res);
+
+    sigset_t check_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    rc = sigprocmask(SIG_BLOCK, NULL, &check_mask);
+    ASSERT_NOERR(rc);
+    assert(memcmp(&mask, &check_mask, sizeof(mask)) == 0);
 
 #if USE_TIMER
     memset(&t, 0, sizeof(t));
@@ -287,7 +319,16 @@ int main(int argc, char *argv[])
         print("Got some timer hits!\n");
 #endif
 
-#if USE_SIGSTACK
+        /* We leave the sigstack in place for the timer so any racy alarm arriving
+         * after we disabled the itimer will be on the alt stack.
+         */
+#if USE_SIGSTACK && !USE_TIMER
+    stack_t check_stack;
+    rc = sigaltstack(NULL, &check_stack);
+    ASSERT_NOERR(rc);
+    assert(check_stack.ss_sp == sigstack.ss_sp &&
+           check_stack.ss_size == sigstack.ss_size &&
+           check_stack.ss_flags == sigstack.ss_flags);
     free(sigstack.ss_sp);
 #endif
     return 0;

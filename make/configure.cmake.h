@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,6 +34,8 @@
 /* configure.cmake.h
  * processed by cmake to contain all configuration defines
  */
+/* We disable formatting as it messes up the ${var} references: */
+/* clang-format off */
 #ifndef _CONFIGURE_H_
 #define _CONFIGURE_H_ 1
 
@@ -56,10 +58,21 @@
 #if defined(MACOS) || defined (LINUX) || defined(VMKERNEL) || defined(ANDROID)
 # define UNIX
 #endif
+#if defined(MACOS) && defined (X64)
+/* Used a lot due to the different TLS.  We thus provide a convenience define. */
+# define MACOS64
+#endif
 
-/* set by high-level VMAP/VMSAFE/VPS configurations */
+/* host, when different */
+#cmakedefine DR_HOST_X86
+#cmakedefine DR_HOST_ARM
+#cmakedefine DR_HOST_AARCH64
+#cmakedefine DR_HOST_AARCHXX
+#cmakedefine DR_HOST_X64
+#cmakedefine DR_HOST_NOT_TARGET
+
+/* high-level configuration */
 #cmakedefine PROGRAM_SHEPHERDING
-#cmakedefine CLIENT_INTERFACE
 #cmakedefine APP_EXPORTS
 #cmakedefine STRACE_CLIENT
 #cmakedefine HOT_PATCHING_INTERFACE
@@ -77,6 +90,9 @@
 # define CALL_PROFILE
 #endif
 #cmakedefine PARAMS_IN_REGISTRY
+#cmakedefine RECORD_MEMQUERY
+#cmakedefine BUILD_TESTS
+#cmakedefine AUTOMATED_TESTING
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}
@@ -89,8 +105,11 @@
 
 /* features */
 #cmakedefine HAVE_FVISIBILITY
+#cmakedefine HAVE_FNOSANITIZE_NULL
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
+#cmakedefine HAVE_RSEQ
+#cmakedefine HAVE_HALF_FLOAT
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool
@@ -134,17 +153,10 @@
 #      after fork.
 #    $(D)HAVE_SIGALTSTACK - set if SYS_sigaltstack is available
 #    $(D)INIT_TAKE_OVER - libdynamorio.so init() takes over so no preload needed
-# not supported but still in code because may be useful later
-#    $(D)STEAL_REGISTER
-#    $(D)DCONTEXT_IN_EDI
-#    $(D)ASSUME_NORMAL_EFLAGS - (NEVER ON) (causes errors w/ Microsoft-compiled apps)
 # internal studies, not for general use
 #    $(D)SHARING_STUDY
 #    $(D)FRAGMENT_SIZES_STUDY
 #    $(D)FOOL_CPUID
-#    ($(D)NATIVE_RETURN: deprecated and now removed, along with:
-#       NATIVE_RETURN_CALLDEPTH, NATIVE_RETURN_RET_IN_TRACES,
-#       and NATIVE_RETURN_TRY_TO_PUT_APP_RETURN_PC_ON_STACK)
 #    $(D)LOAD_DYNAMO_DEBUGBREAK
 # profiling
 #    no longer supported: $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
@@ -167,31 +179,23 @@
 #    $(D)GBOP - generic buffer overflow prevention via hooking APIs
 # optimization of application
 #    $(D)SIDELINE
-#    no longer supported: $(D)SIDELINE_COUNT_STUDY
 #    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
-#    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags)
-#                      (defines ASSUME_NORMAL_EFLAGS)
 #    ($(D)RETURN_STACK: deprecated and now removed)
 #    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
-# transparency
-#    $(D)NOLIBC = doesn't link libc on windows, currently uses ntdll.dll libc
-#      functions, NOLIBC=0 causes the core to be linked against libc and kernel32.dll
 # external interface
-#    $(D)CLIENT_INTERFACE
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
-#    $(D)CUSTOM_EXIT_STUBS -- optional part of CLIENT_INTERFACE
-#      we may want it for our own internal use too, though
-#    $(D)CUSTOM_TRACES -- optional part of CLIENT_INTERFACE
+#    Custom traces is always on, but it
 #      has some sub-features that are aggressive and not supported by default:
 #      $(D)CUSTOM_TRACES_RET_REMOVAL = support for removing inlined rets
-#      $(D)CLIENT_SIDELINE = allows adaptive interface methods to be called
-#                            from other threads safetly, performance hit
-#                            requires CLIENT_INTERFACE
+#        CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
+#        Only useful if custom traces are doing inlining => do not define for external
+#        release, or even by default for internal since it's always on even if
+#        not building custom traces!
 #    $(D)UNSUPPORTED_API -- part of 0.9.4 MIT API but not supported in current API
 #    $(D)NOT_DYNAMORIO_CORE - should be defined by non core components sharing our code
 
@@ -218,9 +222,6 @@
 #    $(D)X86
 #    $(D)X64
 
-# support for running in x86 emulator on IA-64
-#    $(D)IA32_ON_IA64
-
 # build script provides these
 #    $(D)BUILD_NUMBER (<64K == vmware's PRODUCT_BUILD_NUMBER)
 #    $(D)UNIQUE_BUILD_NUMBER (== vmware's BUILD_NUMBER)
@@ -229,13 +230,6 @@
 
 ###################################
 */
-
-#ifdef WINDOWS
-   /* we do not support linking to libc.  we should probably remove
-    * this define from the code and eliminate it altogether.
-    */
-# define NOLIBC
-#endif
 
 #ifdef MACOS
 # define ASSEMBLE_WITH_NASM
@@ -288,28 +282,21 @@
 # define RCT_IND_BRANCH
 #endif
 
-#ifdef CLIENT_INTERFACE
-  /* standard client interface features */
-# define DYNAMORIO_IR_EXPORTS
-# define CUSTOM_TRACES
-# define CLIENT_SIDELINE
-  /* PR 200409: not part of our current API, xref PR 215179 on -pad_jmps
-   * issues with CUSTOM_EXIT_STUBS
-# define CUSTOM_EXIT_STUBS
-# define UNSUPPORTED_API
-   */
-#endif
+/* TODO i#4045: Remove completely from the code base.
+#define UNSUPPORTED_API
+ */
 
-#if defined(HOT_PATCHING_INTERFACE) && defined(CLIENT_INTERFACE)
+#ifdef HOT_PATCHING_INTERFACE
 # define PROBE_API
 #endif
 
-#if defined(PROGRAM_SHEPHERDING) && defined(CLIENT_INTERFACE)
+#ifdef PROGRAM_SHEPHERDING
 /* used by libutil and tools */
 # define MF_API
 # define PROBE_API
 #endif
 
+/* TODO i#4819: Remove this define and replace with a runtime option. */
 #ifdef APP_EXPORTS
 # define DR_APP_EXPORTS
 #endif
@@ -328,3 +315,4 @@
 #endif
 
 #endif /* _CONFIGURE_H_ */
+/* clang-format on */

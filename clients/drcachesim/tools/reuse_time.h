@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,27 +30,60 @@
  * DAMAGE.
  */
 
-#include <map>
+#ifndef _REUSE_TIME_H_
+#define _REUSE_TIME_H_ 1
+
+#include <mutex>
+#include <unordered_map>
 #include <string>
 
 #include "analysis_tool.h"
 
-class reuse_time_t : public analysis_tool_t
-{
- public:
+class reuse_time_t : public analysis_tool_t {
+public:
     reuse_time_t(unsigned int line_size, unsigned int verbose);
-    virtual ~reuse_time_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    ~reuse_time_t() override;
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
- protected:
-    std::map<addr_t, int_least64_t> time_map;
-    int_least64_t time_stamp;
-    std::map<int_least64_t, int_least64_t> reuse_time_histogram;
+protected:
+    // Just like for reuse_distance_t, we assume that the shard unit is the unit over
+    // which we should measure time.  By default this is a traced thread.
+    struct shard_data_t {
+        std::unordered_map<addr_t, int_least64_t> time_map;
+        int_least64_t time_stamp = 0;
+        int_least64_t total_instructions = 0;
+        std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
+        memref_tid_t tid;
+        std::string error;
+    };
 
-    unsigned int knob_verbose;
-    unsigned int knob_line_size;
-    unsigned int line_size_bits;
+    void
+    print_shard_results(const shard_data_t *shard);
+
+    const unsigned int knob_verbose_;
+    const unsigned int knob_line_size_;
+    const unsigned int line_size_bits_;
 
     static const std::string TOOL_NAME;
+
+    // In parallel operation the keys are "shard indices": just ints.
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map (process_memref, print_results) we are single-threaded.
+    std::mutex shard_map_mutex_;
 };
+
+#endif /* _REUSE_TIME_H_ */

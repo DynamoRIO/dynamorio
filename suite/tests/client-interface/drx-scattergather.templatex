@@ -1,0 +1,166 @@
+#ifdef __AVX512F__
+AVX-512 gather ok
+AVX-512 gather ok
+#ifdef X64
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+#endif
+AVX-512 scatter ok
+AVX-512 scatter ok
+#endif
+#ifdef __AVX__
+#ifdef X64
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+#endif
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+#endif
+#ifdef UNIX
+#ifdef __AVX512F__
+Test restoring the AVX-512 gather scratch mask register upon a fault
+Test restoring the AVX-512 scatter scratch mask register upon a fault
+Test restoring the AVX-512 gather scratch xmm register upon a fault
+Test restoring the AVX-512 scatter scratch xmm register upon a fault
+Test restoring the AVX-512 gather mask register upon translation events
+/* FIXME i2985: remove all errors below once restore event has been implemented in drx. */
+Test restoring the AVX-512 scatter mask register upon translation events
+Test updating the AVX-512 gather mask register upon translation events
+Test updating the AVX-512 scatter mask register upon translation events
+#endif
+Test updating the AVX2 gather mask register upon translation events
+Test restoring the AVX2 gather scratch xmm register upon a fault
+#endif
+AVX2/AVX-512 scatter/gather checks ok
+#ifndef TEST_SAMPLE_CLIENT
+#ifdef X64
+#ifdef __AVX512F__
+event_exit, 272 scatter/gather instructions
+#elif defined(__AVX__)
+event_exit, 216 scatter/gather instructions
+#else
+event_exit, 0 scatter/gather instructions
+#endif
+#else
+#ifdef __AVX512F__
+event_exit, 224 scatter/gather instructions
+#elif defined(__AVX__)
+event_exit, 204 scatter/gather instructions
+#else
+event_exit, 0 scatter/gather instructions
+#endif
+#endif
+#endif

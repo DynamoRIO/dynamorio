@@ -1,0 +1,10 @@
+Basic counts tool results:
+Total counts:
+     2299781 total \(fetched\) instructions
+.*
+Thread 23700 counts:
+     1432080 \(fetched\) instructions
+.*
+Thread 23699 counts:
+      867701 \(fetched\) instructions
+.*

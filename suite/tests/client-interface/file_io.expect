@@ -10,6 +10,7 @@ read_only_buf is r
 dr_safe_read() check
 DR_TRY_EXCEPT check
 dr_safe_write() check
+vfprintf check: 1234
 file separation check
 float i/o test: 3.1416
 done

@@ -1,0 +1,96 @@
+T125255  0x7f3ac9a2a9ca => tool\.fib_plus!fib\(0x5\)
+T125255      0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x5, 0x6\)
+T125255      0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x6, 0x6\)
+T125256  0x7f3ac9a2a9ca => tool\.fib_plus!fib\(0x5\)
+T125256      0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x5, 0x6\)
+T125256      0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x6, 0x6\)
+T125255      0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125255      0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x4\)
+T125255          0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x4, 0x5\)
+T125255          0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x5, 0x5\)
+T125255          0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125255          0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x3\)
+T125255              0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x3, 0x4\)
+T125255              0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x4, 0x4\)
+T125255              0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125255              0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x2\)
+T125255                  0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x2, 0x3\)
+T125255                  0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x3, 0x3\)
+T125256      0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125256      0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x4\)
+T125256          0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x4, 0x5\)
+T125256          0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x5, 0x5\)
+T125256          0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125256          0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x3\)
+T125256              0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x3, 0x4\)
+T125256              0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x4, 0x4\)
+T125256              0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125256              0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x2\)
+T125256                  0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x2, 0x3\)
+T125256                  0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x3, 0x3\)
+T125255                  0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125255                  0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x1\) => 0x1
+T125255                  0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x0\) => 0x1
+T125255              => 0x2
+T125255              0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x1\) => 0x1
+T125255          => 0x3
+T125255          0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x2\)
+T125255              0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x2, 0x3\)
+T125255              0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x3, 0x3\)
+T125256                  0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125256                  0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x1\) => 0x1
+T125256                  0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x0\) => 0x1
+T125256              => 0x2
+T125256              0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x1\) => 0x1
+T125256          => 0x3
+T125256          0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x2\)
+T125256              0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x2, 0x3\)
+T125256              0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x3, 0x3\)
+T125255              0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125255              0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x1\) => 0x1
+T125255              0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x0\) => 0x1
+T125255          => 0x2
+T125255      => 0x5
+T125255      0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x3\)
+T125255          0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x3, 0x4\)
+T125255          0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x4, 0x4\)
+T125256              0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125256              0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x1\) => 0x1
+T125256              0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x0\) => 0x1
+T125256          => 0x2
+T125256      => 0x5
+T125256      0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x3\)
+T125256          0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x3, 0x4\)
+T125256          0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x4, 0x4\)
+T125255          0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125255          0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x2\)
+T125255              0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x2, 0x3\)
+T125255              0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x3, 0x3\)
+T125256          0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125256          0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x2\)
+T125256              0x7f3ac9a2a985 => tool\.fib_plus!noret_func\(0x2, 0x3\)
+T125256              0x7f3ac9a2a957 => tool\.fib_plus!noret_func\(0x3, 0x3\)
+T125256              0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125256              0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x1\) => 0x1
+T125256              0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x0\) => 0x1
+T125256          => 0x2
+T125256          0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x1\) => 0x1
+T125256      => 0x3
+T125256  => 0x8
+T125255              0x7f3ac9a2a98f => tool\.fib_plus!noargs\(\) => 0x42
+T125255              0x7f3ac9a2a99c => tool\.fib_plus!fib\(0x1\) => 0x1
+T125255              0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x0\) => 0x1
+T125255          => 0x2
+T125255          0x7f3ac9a2a9ab => tool\.fib_plus!fib\(0x1\) => 0x1
+T125255      => 0x3
+T125255  => 0x8
+Function view tool results:
+Function id=0: tool\.fib_plus!fib
+       30 calls
+       30 returns
+Function id=1: tool\.fib_plus!noret_func
+       28 calls
+        0 returns
+Function id=2: tool\.fib_plus!noargs
+       14 calls
+       14 returns

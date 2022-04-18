@@ -43,8 +43,8 @@
 #include "ShellInterface.h"
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    define new DEBUG_NEW
+#    undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
 
@@ -58,14 +58,15 @@ static const unsigned char zipdata[] = {
 #define DEFAULT_DIR _T("VMware\\DynamoRIO")
 
 // MB of space we take up
-#define DISK_SPACE_REQUIRED  14
+#define DISK_SPACE_REQUIRED 14
 
 /////////////////////////////////////////////////////////////////////////////
 // CCopyDlg property page
 
 IMPLEMENT_DYNCREATE(CCopyDlg, CPropertyPage)
 
-    CCopyDlg::CCopyDlg() : CPropertyPage(CCopyDlg::IDD, 0)
+CCopyDlg::CCopyDlg()
+    : CPropertyPage(CCopyDlg::IDD, 0)
 {
     //{{AFX_DATA_INIT(CCopyDlg)
     m_SpaceAvailable = _T("");
@@ -82,7 +83,8 @@ CCopyDlg::~CCopyDlg()
 {
 }
 
-void CCopyDlg::DoDataExchange(CDataExchange* pDX)
+void
+CCopyDlg::DoDataExchange(CDataExchange *pDX)
 {
     CPropertyPage::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(CCopyDlg)
@@ -93,17 +95,17 @@ void CCopyDlg::DoDataExchange(CDataExchange* pDX)
     //}}AFX_DATA_MAP
 }
 
-
 BEGIN_MESSAGE_MAP(CCopyDlg, CPropertyPage)
-    //{{AFX_MSG_MAP(CCopyDlg)
-    ON_BN_CLICKED(IDC_BROWSE, OnBrowse)
-    //}}AFX_MSG_MAP
-    END_MESSAGE_MAP()
+//{{AFX_MSG_MAP(CCopyDlg)
+ON_BN_CLICKED(IDC_BROWSE, OnBrowse)
+//}}AFX_MSG_MAP
+END_MESSAGE_MAP()
 
-    /////////////////////////////////////////////////////////////////////////////
-    // CCopyDlg message handlers
+/////////////////////////////////////////////////////////////////////////////
+// CCopyDlg message handlers
 
-    BOOL CCopyDlg::OnInitDialog()
+BOOL
+CCopyDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
 
@@ -112,7 +114,7 @@ BEGIN_MESSAGE_MAP(CCopyDlg, CPropertyPage)
     // WARNING: GetDiskFreeSpaceEx is not available on NT < 4.0
     if (!GetDiskFreeSpaceEx(_T("C:\\"), &userbytes, &totalbytes, &freebytes))
         assert(false);
-    __int64 bytes = (freebytes.QuadPart)/(1024*1024);
+    __int64 bytes = (freebytes.QuadPart) / (1024 * 1024);
     m_SpaceAvailable.Format(_T("%8I64u"), bytes);
 
     int res = GetCurrentDirectory(MAX_PATH, m_CWD);
@@ -152,18 +154,19 @@ BEGIN_MESSAGE_MAP(CCopyDlg, CPropertyPage)
     return TRUE;
 }
 
-BOOL CCopyDlg::OnSetActive()
+BOOL
+CCopyDlg::OnSetActive()
 {
-    CPropertySheet* pSheet = (CPropertySheet*)GetParent();
+    CPropertySheet *pSheet = (CPropertySheet *)GetParent();
     ASSERT_KINDOF(CPropertySheet, pSheet);
     // our installer doesn't support Back!
     //      pSheet->SetWizardButtons( PSWIZB_BACK | PSWIZB_NEXT);
-    pSheet->SetWizardButtons( PSWIZB_NEXT);
+    pSheet->SetWizardButtons(PSWIZB_NEXT);
     return CPropertyPage::OnSetActive();
 }
 
-
-LRESULT CCopyDlg::OnWizardNext()
+LRESULT
+CCopyDlg::OnWizardNext()
 {
     if (!CopyFiles()) {
         // select entire directory
@@ -176,17 +179,18 @@ LRESULT CCopyDlg::OnWizardNext()
 
     // need to communicate install dir to later pages
     // use parent Sheet
-    CWizardSheet* pSheet = (CWizardSheet*)GetParent();
+    CWizardSheet *pSheet = (CWizardSheet *)GetParent();
     // add the DynamoRIO on
     pSheet->m_InstallDir.Format(_T("%s\\DynamoRIO"), m_Target);
 
     return CPropertyPage::OnWizardNext();
 }
 
-BOOL CCopyDlg::CopyFiles()
+BOOL
+CCopyDlg::CopyFiles()
 {
-    TCHAR msg[MAX_PATH*2];
-    TCHAR cmd[MAX_PATH*2];
+    TCHAR msg[MAX_PATH * 2];
+    TCHAR cmd[MAX_PATH * 2];
 
     UpdateData(TRUE); // get target dir string
 
@@ -198,8 +202,10 @@ BOOL CCopyDlg::CopyFiles()
 
     // first see if need to clean out existing dir
     if (SetCurrentDirectory(m_Target)) {
-        _stprintf(msg, _T("Directory %s already exists.\n")
-                  _T("Continuing will delete all its existing files.\nContinue?"), m_Target);
+        _stprintf(msg,
+                  _T("Directory %s already exists.\n")
+                  _T("Continuing will delete all its existing files.\nContinue?"),
+                  m_Target);
         int res = MessageBox(msg, _T("Confirmation"), MB_OKCANCEL | MYMBFLAGS);
         if (res == IDCANCEL)
             return FALSE;
@@ -263,12 +269,12 @@ BOOL CCopyDlg::CopyFiles()
 #else
     TCHAR from[MAX_PATH];
     TCHAR to[MAX_PATH];
-# if 0
+#    if 0
     _stprintf(from, _T("%s"), _T("c:\\iye\\rio\\install\\DynamoRIO"));
     //_stprintf(from, _T("%s"), _T("d:\\bruening\\dynamo\\install\\DynamoRIO"));
-# else
+#    else
     _stprintf(from, _T("%s\\DynamoRIO"), m_CWD);
-# endif
+#    endif
     _stprintf(to, _T("%s"), m_Target);
     if (!CShellInterface::CopyDir(from, to, GetParent()->m_hWnd)) {
         _stprintf(msg, _T("Error copying files from %s to %s"), from, to);
@@ -280,7 +286,8 @@ BOOL CCopyDlg::CopyFiles()
     return TRUE;
 }
 
-void CCopyDlg::OnBrowse()
+void
+CCopyDlg::OnBrowse()
 {
     TCHAR folder[MAX_PATH];
     BROWSEINFO bi;

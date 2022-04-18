@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,101 +36,104 @@
  * This test when run natively will fail with an error message
  */
 
-#include "tools.h"
+#    include "tools.h"
 
-#ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#        include <signal.h>
+#        include <ucontext.h>
+#        include <errno.h>
+#    endif
 
-#include <setjmp.h>
+#    include <setjmp.h>
 
 /* asm routines */
-void clear_eflags(void);
-void evil_copy(void *start, int count, ptr_int_t value);
+void
+clear_eflags(void);
+void
+evil_copy(void *start, int count, ptr_int_t value);
 
-#define VERBOSE 0
+#    define VERBOSE 0
 
-#define EXPANDSTR(x) #x
-#define STRINGIFY(x) EXPANDSTR(x)
+#    define EXPANDSTR(x) #    x
+#    define STRINGIFY(x) EXPANDSTR(x)
 
 /* bottom page is a guard page, so ignore it -- consider only top 8KB */
-#define DSTACK_SIZE (8*1024)
+#    define DSTACK_SIZE (8 * 1024)
 
 /* N.B.: dependent on exact DR offsets here! */
-#ifdef UNIX
+#    ifdef UNIX
 /* this used to be 44 prior to 1/24/06 commit, and 20 prior to Mar 11 2006 */
-# define DCONTEXT_TLS_OFFSET IF_X64_ELSE(32, 16)
-# define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x2e8,0x168)
-# ifdef X64
-# define GET_DCONTEXT(var)                                                \
-    asm("mov  %%gs:"STRINGIFY(DCONTEXT_TLS_OFFSET)", %%rax" : : : "rax"); \
-    asm("mov  %%rax, %0" : "=m"((var)));
-# else
-# define GET_DCONTEXT(var)                                                \
-    asm("movl %%fs:"STRINGIFY(DCONTEXT_TLS_OFFSET)", %%eax" : : : "eax"); \
-    asm("movl %%eax, %0" : "=m"((var)));
-# endif
-#else
+#        define DCONTEXT_TLS_OFFSET IF_X64_ELSE(32, 16)
+#        define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x548, 0x2a8)
+#        ifdef X64
+#            define GET_DCONTEXT(var)                                                   \
+                asm("mov  %%gs:" STRINGIFY(DCONTEXT_TLS_OFFSET) ", %%rax" : : : "rax"); \
+                asm("mov  %%rax, %0" : "=m"((var)));
+#        else
+#            define GET_DCONTEXT(var)                                                   \
+                asm("movl %%fs:" STRINGIFY(DCONTEXT_TLS_OFFSET) ", %%eax" : : : "eax"); \
+                asm("movl %%eax, %0" : "=m"((var)));
+#        endif
+#    else
 unsigned int dcontext_tls_offset;
 
-# define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x1a8,0x164)
-# define GET_DCONTEXT(var)                   \
-    var = (void *) IF_X64_ELSE(__readgsqword,__readfsdword)(dcontext_tls_offset);
+#        define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x2c8, 0x2a4)
+#        define GET_DCONTEXT(var) \
+            var = (void *)IF_X64_ELSE(__readgsqword, __readfsdword)(dcontext_tls_offset);
 
 /*     0:001> dt getdc owning_thread
  *        +0x05c owning_thread
  */
-# define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x220,0x1a8)
+#        define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x350, 0x2f0)
 /* offset varies based on release/debug build (# of slots we need)
  * and cache line size (must be aligned) and the -ibl_table_in_tls
  * option being set to true
  */
 
-#endif
+#    endif
 
 SIGJMP_BUF mark;
 int where; /* 0 = normal, 1 = segfault SIGLONGJMP, 2 = evil takeover */
 
-#ifdef UNIX
+#    ifdef UNIX
 static void
 signal_handler(int sig)
 {
     if (sig == SIGSEGV) {
-#if VERBOSE
+#        if VERBOSE
         print("Got seg fault\n");
-#endif
+#        endif
         SIGLONGJMP(mark, 1);
     }
     exit(-1);
 }
-#else
+#    else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
  */
-# include <windows.h>
+#        include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-# if VERBOSE
+#        if VERBOSE
         /* DR gets the target addr wrong for far call/jmp so we don't print it */
-        print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress,
-            (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
-            pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
-# endif
+        print("\tPC " PFX " tried to %s address " PFX "\n",
+              pExceptionInfo->ExceptionRecord->ExceptionAddress,
+              (pExceptionInfo->ExceptionRecord->ExceptionInformation[0] == 0) ? "read"
+                                                                              : "write",
+              pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+#        endif
         SIGLONGJMP(mark, 1);
     }
-# if VERBOSE
+#        if VERBOSE
     print("Exception occurred, process about to die silently\n");
-# endif
+#        endif
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
-#endif
+#    endif
 
 /* global so that evil can use it */
 int *dstack_base;
@@ -162,13 +165,13 @@ main()
     ptr_int_t owning_thread;
     INIT();
 
-#ifdef UNIX
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
-#else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
-#endif
+#    ifdef UNIX
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
+#    else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
+#    endif
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* brute force loop over all TLS entries,
      * and see whether owning_thread is GetCurrentThreadId()
      *     0:001> dt getdc owning_thread
@@ -177,32 +180,32 @@ main()
      *      0:001> dt _TEB TLS64
      *        +0xe10 TLS64 : [64] Ptr32 Void
      */
-    for (tls_offs = 63; tls_offs >=0; tls_offs--) {
-        enum {offsetof_TLS64_in_TEB = IF_X64_ELSE(0x1480, 0xe10)};
-        dcontext_tls_offset = offsetof_TLS64_in_TEB +
-            tls_offs*sizeof(void*);
+    for (tls_offs = 63; tls_offs >= 0; tls_offs--) {
+        enum { offsetof_TLS64_in_TEB = IF_X64_ELSE(0x1480, 0xe10) };
+        dcontext_tls_offset = offsetof_TLS64_in_TEB + tls_offs * sizeof(void *);
         GET_DCONTEXT(dcontext);
-#if VERBOSE
+#        if VERBOSE
         print("%d idx, %x offs\n", tls_offs, dcontext_tls_offset);
-#endif
+#        endif
         where = SIGSETJMP(mark);
         if (where == 0) {
-            owning_thread = *(ptr_int_t *)(((char *)dcontext) +
-                                           OWNING_THREAD_OFFSET_IN_DCONTEXT);
+            owning_thread =
+                *(ptr_int_t *)(((char *)dcontext) + OWNING_THREAD_OFFSET_IN_DCONTEXT);
             /* we didn't crash reading, is it really thread ID? */
-#if VERBOSE
-            print("     %d thread %d vs %d\n", tls_offs, owning_thread, GetCurrentThreadId());
-#endif
+#        if VERBOSE
+            print("     %d thread %d vs %d\n", tls_offs, owning_thread,
+                  GetCurrentThreadId());
+#        endif
             if (owning_thread == GetCurrentThreadId()) {
-#if VERBOSE
+#        if VERBOSE
                 print("     %d is dcontext!\n", tls_offs);
-#endif
+#        endif
                 break;
             }
         } else {
-#if VERBOSE
+#        if VERBOSE
             print("     %d crashed\n", tls_offs);
-#endif
+#        endif
             /* we crashed reading, try next offset */
         }
     }
@@ -211,7 +214,7 @@ main()
               "are you running natively?!?\n");
         exit(1);
     }
-#endif
+#    endif
     where = SIGSETJMP(mark);
     if (where != 0) {
         print("error obtaining dcontext (SIGSETJMP failed): "
@@ -219,9 +222,9 @@ main()
         exit(1);
     }
     GET_DCONTEXT(dcontext)
-#if VERBOSE
-    print("dcontext is "PFX"\n", dcontext);
-#endif
+#    if VERBOSE
+    print("dcontext is " PFX "\n", dcontext);
+#    endif
     dstack = *(int **)(((char *)dcontext) + DSTACK_OFFSET_IN_DCONTEXT);
     if (dstack == NULL || !ALIGNED(dstack, PAGE_SIZE)) {
         print("can't find dstack: old build, or new where dstack offset changed?\n");
@@ -229,15 +232,15 @@ main()
             ;
         exit(-1);
     }
-    dstack_base = (int *) (((char *)dstack) - DSTACK_SIZE);
-#if VERBOSE
-    print("dstack is "PFX"-"PFX"\n", dstack_base, dstack);
-#endif
+    dstack_base = (int *)(((char *)dstack) - DSTACK_SIZE);
+#    if VERBOSE
+    print("dstack is " PFX "-" PFX "\n", dstack_base, dstack);
+#    endif
     print("dcontext->dstack successfully obtained\n");
     where = SIGSETJMP(mark);
-#if VERBOSE
+#    if VERBOSE
     print("SIGSETJMP returned %d\n", where);
-#endif
+#    endif
     if (where == 0) {
         /* if we do the copy in a C loop, trace heads cause us to exit before
          * we've hit the cxt switch return address, so we crash rather than taking
@@ -257,16 +260,16 @@ main()
         evil_copy(dstack_base, DSTACK_SIZE / sizeof(int), (ptr_int_t)evil);
         print("wrote to entire dstack without incident!\n");
     } else if (where == 1) {
-        print("error writing to "PFX" in expected dstack "PFX"-"PFX"\n",
-              pc, dstack_base, dstack);
+        print("error writing to " PFX " in expected dstack " PFX "-" PFX "\n", pc,
+              dstack_base, dstack);
     } else if (where == 2) {
         print("DR has been cracked!  Malicious code is now runnning...\n");
     }
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME clear_eflags
@@ -298,4 +301,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

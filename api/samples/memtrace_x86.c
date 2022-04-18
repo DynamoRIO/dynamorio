@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -46,10 +46,13 @@
  * (2) Inlines the buffer filling code to avoid a full context switch.
  * (3) Uses a lean procedure call for clean calls to reduce code cache size.
  *
- * Illustrates the use of drutil_expand_rep_string() to expand string
- * loops to obtain every memory reference and of
- * drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
- * memory references.
+ * This sample illustrates
+ * - the use of drutil_expand_rep_string() to expand string loops to obtain
+ *   every memory reference;
+ * - the use of drx_expand_scatter_gather() to expand scatter/gather instrs
+ *   into a set of functionally equivalent stores/loads;
+ * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
+ *   memory references.
  *
  * The OUTPUT_TEXT define controls the format of the trace: text or binary.
  * Creating a text trace file makes the tool an order of magnitude (!) slower
@@ -63,13 +66,14 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "drx.h"
 #include "utils.h"
 
 /* Each mem_ref_t includes the type of reference (read or write),
  * the address referenced, and the size of the reference.
  */
 typedef struct _mem_ref_t {
-    bool  write;
+    bool write;
     void *addr;
     size_t size;
     app_pc pc;
@@ -84,57 +88,69 @@ typedef struct _mem_ref_t {
 
 /* thread private log file and counter */
 typedef struct {
-    char   *buf_ptr;
-    char   *buf_base;
+    char *buf_ptr;
+    char *buf_base;
     /* buf_end holds the negative value of real address of buffer end. */
     ptr_int_t buf_end;
-    void   *cache;
-    file_t  log;
+    void *cache;
+    file_t log;
 #if OUTPUT_TEXT
     FILE *logf;
 #endif
-    uint64  num_refs;
+    uint64 num_refs;
 } per_thread_t;
+
+/* Cross-instrumentation-phase data. */
+typedef struct {
+    app_pc last_pc;
+} instru_data_t;
 
 static size_t page_size;
 static client_id_t client_id;
 static app_pc code_cache;
-static void  *mutex;    /* for multithread support */
-static uint64 num_refs; /* keep a global memory reference count */
+static void *mutex;            /* for multithread support */
+static uint64 global_num_refs; /* keep a global memory reference count */
 static int tls_index;
 
-static void event_exit(void);
-static void event_thread_init(void *drcontext);
-static void event_thread_exit(void *drcontext);
-static dr_emit_flags_t event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                                        bool for_trace, bool translating);
+static void
+event_exit(void);
+static void
+event_thread_init(void *drcontext);
+static void
+event_thread_exit(void *drcontext);
+static dr_emit_flags_t
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating);
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void **user_data);
+static dr_emit_flags_t
+event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                bool for_trace, bool translating, void *user_data);
 
-static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
-                                       instr_t *instr, bool for_trace, bool translating,
-                                       void *user_data);
-
-static void clean_call(void);
-static void memtrace(void *drcontext);
-static void code_cache_init(void);
-static void code_cache_exit(void);
-static void instrument_mem(void        *drcontext,
-                           instrlist_t *ilist,
-                           instr_t     *where,
-                           int          pos,
-                           bool         write);
+static void
+clean_call(void);
+static void
+memtrace(void *drcontext);
+static void
+code_cache_init(void);
+static void
+code_cache_exit(void);
+static void
+instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, app_pc pc,
+               instr_t *memref_instr, int pos, bool write);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
-    drreg_options_t ops = {sizeof(ops), 3, false};
+    drreg_options_t ops = { sizeof(ops), 3, false };
     /* Specify priority relative to other instrumentation operations: */
-    drmgr_priority_t priority = {
-        sizeof(priority), /* size of struct */
-        "memtrace",       /* name of our operation */
-        NULL,             /* optional name of operation we should precede */
-        NULL,             /* optional name of operation we should follow */
-        0};               /* numeric priority */
+    drmgr_priority_t priority = { sizeof(priority), /* size of struct */
+                                  "memtrace",       /* name of our operation */
+                                  NULL, /* optional name of operation we should precede */
+                                  NULL, /* optional name of operation we should follow */
+                                  0 };  /* numeric priority */
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
     page_size = dr_page_size();
@@ -146,8 +162,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_bb_app2app_event(event_bb_app2app, &priority) ||
-        !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert, &priority) ||
-        drreg_init(&ops) != DRREG_SUCCESS) {
+        !drmgr_register_bb_instrumentation_event(event_bb_analysis, event_bb_insert,
+                                                 &priority) ||
+        drreg_init(&ops) != DRREG_SUCCESS || !drx_init()) {
         /* something is wrong: can't continue */
         DR_ASSERT(false);
         return;
@@ -157,18 +174,17 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     code_cache_init();
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'memtrace' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'memtrace' initializing\n");
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client memtrace is running\n");
     }
 #endif
 }
-
 
 static void
 event_exit()
@@ -176,10 +192,10 @@ event_exit()
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
                       "  saw %llu memory references\n",
-                      num_refs);
+                      global_num_refs);
     DR_ASSERT(len > 0);
     NULL_TERMINATE_BUFFER(msg);
     DISPLAY_STRING(msg);
@@ -196,12 +212,13 @@ event_exit()
     dr_mutex_destroy(mutex);
     drutil_exit();
     drmgr_exit();
+    drx_exit();
 }
 
 #ifdef WINDOWS
-# define IF_WINDOWS(x) x
+#    define IF_WINDOWS(x) x
 #else
-# define IF_WINDOWS(x) /* nothing */
+#    define IF_WINDOWS(x) /* nothing */
 #endif
 
 static void
@@ -213,9 +230,9 @@ event_thread_init(void *drcontext)
     data = dr_thread_alloc(drcontext, sizeof(per_thread_t));
     drmgr_set_tls_field(drcontext, tls_index, data);
     data->buf_base = dr_thread_alloc(drcontext, MEM_BUF_SIZE);
-    data->buf_ptr  = data->buf_base;
+    data->buf_ptr = data->buf_base;
     /* set buf_end to be negative of address of buffer end for the lea later */
-    data->buf_end  = -(ptr_int_t)(data->buf_base + MEM_BUF_SIZE);
+    data->buf_end = -(ptr_int_t)(data->buf_base + MEM_BUF_SIZE);
     data->num_refs = 0;
 
     /* We're going to dump our data to a per-thread file.
@@ -223,19 +240,18 @@ event_thread_init(void *drcontext)
      * the same directory as our library. We could also pass
      * in a path as a client argument.
      */
-    data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
-                              "memtrace",
+    data->log =
+        log_file_open(client_id, drcontext, NULL /* using client lib path */, "memtrace",
 #ifndef WINDOWS
-                              DR_FILE_CLOSE_ON_FORK |
+                      DR_FILE_CLOSE_ON_FORK |
 #endif
-                              DR_FILE_ALLOW_LARGE);
+                          DR_FILE_ALLOW_LARGE);
 #if OUTPUT_TEXT
     data->logf = log_stream_from_file(data->log);
     fprintf(data->logf,
             "Format: <instr address>,<(r)ead/(w)rite>,<data size>,<data address>\n");
 #endif
 }
-
 
 static void
 event_thread_exit(void *drcontext)
@@ -245,7 +261,7 @@ event_thread_exit(void *drcontext)
     memtrace(drcontext);
     data = drmgr_get_tls_field(drcontext, tls_index);
     dr_mutex_lock(mutex);
-    num_refs += data->num_refs;
+    global_num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
 #ifdef OUTPUT_TEXT
     log_stream_close(data->logf); /* closes fd too */
@@ -256,18 +272,30 @@ event_thread_exit(void *drcontext)
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
-
 /* we transform string loops into regular loops so we can more easily
  * monitor every memory reference they make
  */
 static dr_emit_flags_t
-event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating)
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating)
 {
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
+    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+        DR_ASSERT(false);
+    }
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void **user_data)
+{
+    instru_data_t *data = (instru_data_t *)dr_thread_alloc(drcontext, sizeof(*data));
+    data->last_pc = NULL;
+    *user_data = (void *)data;
     return DR_EMIT_DEFAULT;
 }
 
@@ -275,24 +303,40 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
  * application memory reference.
  */
 static dr_emit_flags_t
-event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
-                instr_t *instr, bool for_trace, bool translating,
-                void *user_data)
+event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
+                bool for_trace, bool translating, void *user_data)
 {
     int i;
-    if (instr_get_app_pc(instr) == NULL)
+    instru_data_t *data = (instru_data_t *)user_data;
+    /* Use the drmgr_orig_app_instr_* interface to properly handle our own use
+     * of drutil_expand_rep_string() and drx_expand_scatter_gather() (as well
+     * as another client/library emulating the instruction stream).
+     */
+    instr_t *instr_fetch = drmgr_orig_app_instr_for_fetch(drcontext);
+    if (instr_fetch != NULL)
+        data->last_pc = instr_get_app_pc(instr_fetch);
+    app_pc last_pc = data->last_pc;
+    if (drmgr_is_last_instr(drcontext, where))
+        dr_thread_free(drcontext, data, sizeof(*data));
+
+    instr_t *instr_operands = drmgr_orig_app_instr_for_operands(drcontext);
+    if (instr_operands == NULL ||
+        (!instr_writes_memory(instr_operands) && !instr_reads_memory(instr_operands)))
         return DR_EMIT_DEFAULT;
-    if (instr_reads_memory(instr)) {
-        for (i = 0; i < instr_num_srcs(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                instrument_mem(drcontext, bb, instr, i, false);
+    DR_ASSERT(instr_is_app(instr_operands));
+    DR_ASSERT(last_pc != NULL);
+
+    if (instr_reads_memory(instr_operands)) {
+        for (i = 0; i < instr_num_srcs(instr_operands); i++) {
+            if (opnd_is_memory_reference(instr_get_src(instr_operands, i))) {
+                instrument_mem(drcontext, bb, where, last_pc, instr_operands, i, false);
             }
         }
     }
-    if (instr_writes_memory(instr)) {
-        for (i = 0; i < instr_num_dsts(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                instrument_mem(drcontext, bb, instr, i, true);
+    if (instr_writes_memory(instr_operands)) {
+        for (i = 0; i < instr_num_dsts(instr_operands); i++) {
+            if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
+                instrument_mem(drcontext, bb, where, last_pc, instr_operands, i, true);
             }
         }
     }
@@ -309,9 +353,9 @@ memtrace(void *drcontext)
     int i;
 #endif
 
-    data      = drmgr_get_tls_field(drcontext, tls_index);
-    mem_ref   = (mem_ref_t *)data->buf_base;
-    num_refs  = (int)((mem_ref_t *)data->buf_ptr - mem_ref);
+    data = drmgr_get_tls_field(drcontext, tls_index);
+    mem_ref = (mem_ref_t *)data->buf_base;
+    num_refs = (int)((mem_ref_t *)data->buf_ptr - mem_ref);
 
 #ifdef OUTPUT_TEXT
     /* We use libc's fprintf as it is buffered and much faster than dr_fprintf
@@ -319,19 +363,18 @@ memtrace(void *drcontext)
      */
     for (i = 0; i < num_refs; i++) {
         /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
-        fprintf(data->logf, PIFX",%c,%d,"PIFX"\n", (ptr_uint_t)mem_ref->pc,
+        fprintf(data->logf, PIFX ",%c,%d," PIFX "\n", (ptr_uint_t)mem_ref->pc,
                 mem_ref->write ? 'w' : 'r', (int)mem_ref->size,
                 (ptr_uint_t)mem_ref->addr);
         ++mem_ref;
     }
 #else
-    dr_write_file(data->log, data->buf_base,
-                  (size_t)(data->buf_ptr - data->buf_base));
+    dr_write_file(data->log, data->buf_base, (size_t)(data->buf_ptr - data->buf_base));
 #endif
 
     memset(data->buf_base, 0, MEM_BUF_SIZE);
     data->num_refs += num_refs;
-    data->buf_ptr   = data->buf_base;
+    data->buf_ptr = data->buf_base;
 }
 
 /* clean_call dumps the memory reference info to the log file */
@@ -345,19 +388,18 @@ clean_call(void)
 static void
 code_cache_init(void)
 {
-    void         *drcontext;
-    instrlist_t  *ilist;
-    instr_t      *where;
-    byte         *end;
+    void *drcontext;
+    instrlist_t *ilist;
+    instr_t *where;
+    byte *end;
 
-    drcontext  = dr_get_current_drcontext();
-    code_cache = dr_nonheap_alloc(page_size,
-                                  DR_MEMPROT_READ  |
-                                  DR_MEMPROT_WRITE |
-                                  DR_MEMPROT_EXEC);
+    drcontext = dr_get_current_drcontext();
+    code_cache =
+        dr_nonheap_alloc(page_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC);
     ilist = instrlist_create(drcontext);
-    /* The lean procecure simply performs a clean call, and then jump back */
-    /* jump back to the DR's code cache */
+    /* The lean procedure simply performs a clean call, and then jumps back
+     * to the DR code cache.
+     */
     where = INSTR_CREATE_jmp_ind(drcontext, opnd_create_reg(DR_REG_XCX));
     instrlist_meta_append(ilist, where);
     /* clean call */
@@ -370,13 +412,11 @@ code_cache_init(void)
     dr_memory_protect(code_cache, page_size, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
 }
 
-
 static void
 code_cache_exit(void)
 {
     dr_nonheap_free(code_cache, page_size);
 }
-
 
 /*
  * instrument_mem is called whenever a memory reference is identified.
@@ -384,15 +424,14 @@ code_cache_exit(void)
  * and jump to our own code cache to call the clean_call when the buffer is full.
  */
 static void
-instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
-               int pos, bool write)
+instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, app_pc pc,
+               instr_t *memref_instr, int pos, bool write)
 {
     instr_t *instr, *call, *restore;
-    opnd_t   ref, opnd1, opnd2;
+    opnd_t ref, opnd1, opnd2;
     reg_id_t reg1, reg2;
     drvector_t allowed;
     per_thread_t *data;
-    app_pc pc;
 
     data = drmgr_get_tls_field(drcontext, tls_index);
 
@@ -402,7 +441,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, DR_REG_XCX, true);
     if (drreg_reserve_register(drcontext, ilist, where, &allowed, &reg2) !=
-        DRREG_SUCCESS ||
+            DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) != DRREG_SUCCESS) {
         DR_ASSERT(false); /* cannot recover */
         drvector_delete(&allowed);
@@ -411,9 +450,9 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     drvector_delete(&allowed);
 
     if (write)
-       ref = instr_get_dst(where, pos);
+        ref = instr_get_dst(memref_instr, pos);
     else
-       ref = instr_get_src(where, pos);
+        ref = instr_get_src(memref_instr, pos);
 
     /* use drutil to get mem address */
     drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg1, reg2);
@@ -449,25 +488,22 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     /* Store size in memory ref */
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, size));
     /* drutil_opnd_mem_size_in_bytes handles OP_enter */
-    opnd2 = OPND_CREATE_INT32(drutil_opnd_mem_size_in_bytes(ref, where));
+    opnd2 = OPND_CREATE_INT32(drutil_opnd_mem_size_in_bytes(ref, memref_instr));
     instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
 
     /* Store pc in memory ref */
-    pc = instr_get_app_pc(where);
     /* For 64-bit, we can't use a 64-bit immediate so we split pc into two halves.
      * We could alternatively load it into reg1 and then store reg1.
      * We use a convenience routine that does the two-step store for us.
      */
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, pc));
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) pc, opnd1,
-                                     ilist, where, NULL, NULL);
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc, opnd1, ilist, where, NULL,
+                                     NULL);
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);
-    opnd2 = opnd_create_base_disp(reg2, DR_REG_NULL, 0,
-                                  sizeof(mem_ref_t),
-                                  OPSZ_lea);
+    opnd2 = opnd_create_base_disp(reg2, DR_REG_NULL, 0, sizeof(mem_ref_t), OPSZ_lea);
     instr = INSTR_CREATE_lea(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
 
@@ -493,7 +529,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     instrlist_meta_preinsert(ilist, where, instr);
 
     /* jecxz call */
-    call  = INSTR_CREATE_label(drcontext);
+    call = INSTR_CREATE_label(drcontext);
     opnd1 = opnd_create_instr(call);
     instr = INSTR_CREATE_jecxz(drcontext, opnd1);
     instrlist_meta_preinsert(ilist, where, instr);

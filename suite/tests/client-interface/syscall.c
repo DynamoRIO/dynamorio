@@ -34,16 +34,17 @@
 #include <stdio.h>
 
 #ifdef WINDOWS
-# include <windows.h>
-# define EXPORT __declspec(dllexport)
+#    include <windows.h>
+#    define EXPORT __declspec(dllexport)
 
-char *get_systemroot(char** env)
+char *
+get_systemroot(char **env)
 {
     const char sroot[] = "SYSTEMROOT=";
-    int len = sizeof(sroot)-1;
+    int len = sizeof(sroot) - 1;
     int i;
 
-    for (i=0; env[i] != NULL; i++) {
+    for (i = 0; env[i] != NULL; i++) {
         if (!strncmp(env[i], sroot, len)) {
             return env[i] + len;
         }
@@ -52,19 +53,24 @@ char *get_systemroot(char** env)
     return "C:\\WINDOWS";
 }
 #else
-# define EXPORT __attribute__((visibility("default")))
+#    define EXPORT __attribute__((visibility("default")))
 #endif
 
 EXPORT
-void start_monitor()
-{}
+void
+start_monitor()
+{
+}
 
 EXPORT
-void stop_monitor()
-{}
+void
+stop_monitor()
+{
+}
 
 #ifdef WINDOWS
-void create_proc(char *cmd, char *cmdline, STARTUPINFO *sinfo)
+void
+create_proc(char *cmd, char *cmdline, STARTUPINFO *sinfo)
 {
     PROCESS_INFORMATION pinfo;
     if (!CreateProcess(cmd,     /* application name */
@@ -86,7 +92,7 @@ void create_proc(char *cmd, char *cmdline, STARTUPINFO *sinfo)
 #endif
 
 int
-main(int argc, char** argv, char** env)
+main(int argc, char **argv, char **env)
 {
 #ifdef WINDOWS
     STARTUPINFO sinfo;

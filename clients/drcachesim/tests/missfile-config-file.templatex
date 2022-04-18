@@ -1,0 +1,32 @@
+Hello, world!
+---- <application exited with code 0> ----
+Cache simulation results:
+Core #0 \([0-9] traced CPU\(s\): #.*\)
+  L1I stats:
+    Warmup hits:                  *[0-9,\.]*
+    Warmup misses:                *[0-9,\.]*
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *[0-9,\.]*
+.*L1D stats:
+    Warmup hits:                  *[0-9,\.]*
+    Warmup misses:                *[0-9,\.]*
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *[0-9,\.]*
+.*L2 stats:
+    Warmup hits:                  *[0-9,\.]*
+    Warmup misses:                *[0-9,\.]*
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *[0-9,\.]*
+.*LLC stats:
+    Warmup hits:                  *[0-9,\.]*
+    Warmup misses:                *[0-9,\.]*
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *0.*

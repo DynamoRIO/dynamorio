@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -38,19 +38,15 @@
 #include "../globals.h"
 #include "tls.h"
 #ifndef AARCH64
-# include "include/syscall.h"
+#    include "include/syscall.h"
 #endif
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 #ifndef AARCHXX
-# error ARM/AArch64-only
-#endif
-
-#ifndef CLIENT_INTERFACE
-# error CLIENT_INTERFACE build only for TLS mangling on ARM/AArch64
+#    error ARM/AArch64-only
 #endif
 
 byte **
@@ -66,14 +62,31 @@ void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
     ASSERT((byte *)(os_tls->self) == segment);
-    LOG(GLOBAL, LOG_THREADS, 2,
-        "tls_thread_init: cur priv lib tls base is "PFX"\n",
-        os_tls->os_seg_info.priv_lib_tls_base);
-    write_thread_register(os_tls->os_seg_info.priv_lib_tls_base);
-    ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
-    ASSERT(*get_dr_tls_base_addr() == NULL);
+    /* XXX: Keep whether we change the thread register consistent with
+     * os_should_swap_state() and os_switch_seg_to_context() code.
+     */
+    if (INTERNAL_OPTION(private_loader)) {
+        LOG(GLOBAL, LOG_THREADS, 2, "tls_thread_init: cur priv lib tls base is " PFX "\n",
+            os_tls->os_seg_info.priv_lib_tls_base);
+        write_thread_register(os_tls->os_seg_info.priv_lib_tls_base);
+        ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
+    } else {
+        /* Use the app's base which is already in place for static DR.
+         * We don't support other use cases of -no_private_loader.
+         */
+        ASSERT(read_thread_register(TLS_REG_LIB) != 0);
+        ASSERT(os_tls->os_seg_info.priv_lib_tls_base == NULL);
+    }
+    ASSERT(*get_dr_tls_base_addr() == NULL ||
+           *get_dr_tls_base_addr() == TLS_SLOT_VAL_EXITED);
     *get_dr_tls_base_addr() = segment;
     os_tls->tls_type = TLS_TYPE_SLOT;
+}
+
+bool
+tls_thread_preinit()
+{
+    return true;
 }
 
 void

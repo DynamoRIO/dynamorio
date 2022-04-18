@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,13 +32,13 @@
 
 #include "trace_entry.h"
 
-const char * const trace_type_names[] = {
+const char *const trace_type_names[] = {
     "read",
     "write",
     "prefetch",
-    "prefetcht0",
-    "prefetcht1",
-    "prefetcht2",
+    "prefetch_read_l1",
+    "prefetch_read_l2",
+    "prefetch_read_l3",
     "prefetchnta",
     "prefetch_read",
     "prefetch_write",
@@ -58,4 +58,26 @@ const char * const trace_type_names[] = {
     "thread",
     "thread_exit",
     "pid",
+    "header",
+    "footer",
+    "hw prefetch",
+    "marker",
+    "non-fetched instr",
+    "maybe-fetched instr",
+    "sysenter",
+    "prefetch_read_l1_nt",
+    "prefetch_read_l2_nt",
+    "prefetch_read_l3_nt",
+    "prefetch_instr_l1",
+    "prefetch_instr_l1_nt",
+    "prefetch_instr_l2",
+    "prefetch_instr_l2_nt",
+    "prefetch_instr_l3",
+    "prefetch_instr_l3_nt",
+    "prefetch_write_l1",
+    "prefetch_write_l1_nt",
+    "prefetch_write_l2",
+    "prefetch_write_l2_nt",
+    "prefetch_write_l3",
+    "prefetch_write_l3_nt",
 };

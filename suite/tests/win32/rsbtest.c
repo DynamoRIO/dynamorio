@@ -52,10 +52,9 @@ $ cl /O2  /Zi foo.c -I.. /link /incremental:no user32.lib
 
  */
 
-
 /* undefine this for a performance test */
 #ifndef NIGHTLY_REGRESSION
-# define NIGHTLY_REGRESSION
+#    define NIGHTLY_REGRESSION
 #endif
 
 #include "tools.h"
@@ -64,15 +63,15 @@ $ cl /O2  /Zi foo.c -I.. /link /incremental:no user32.lib
 
 #ifdef WINDOWS
 /* and compile with user32.lib */
-#include <windows.h>
+#    include <windows.h>
 #endif
 
 #define GOAL 32 /* recursive fib of course is exponential here */
 
 #ifdef NIGHTLY_REGRESSION
-#  define ITER 10*1000
+#    define ITER 10 * 1000
 #else
-#  define ITER 500*100000
+#    define ITER 500 * 100000
 #endif
 
 #define DEPTH 10
@@ -82,9 +81,9 @@ $ cl /O2  /Zi foo.c -I.. /link /incremental:no user32.lib
 
 #define PLAIN_CALL
 
-
 int
-foo(int n) {                    /* CFI */
+foo(int n)
+{ /* CFI */
     __asm {
         /* pay ecx penalty for both cases */
         push ecx
@@ -92,7 +91,7 @@ foo(int n) {                    /* CFI */
         call bar
         call bar
         call bar
-#else  /* CALL=PUSH/JMP */
+#else /* CALL=PUSH/JMP */
         push offset ac1
         jmp bar
 ac1:
@@ -111,13 +110,13 @@ bar:
 #ifdef PLAIN_RET
         ret
 #else
-#ifdef JMP_ESP
-        add esp, 4  // is it safe to use the stack in-between these two ops?
+#    ifdef JMP_ESP
+        add esp, 4 // is it safe to use the stack in-between these two ops?
         jmp dword ptr [esp-4]
-#else
+#    else
         pop ecx
         jmp ecx
-#endif
+#    endif
 #endif
 
      done:
@@ -126,7 +125,8 @@ bar:
 }
 
 int
-foo_second(int n) {
+foo_second(int n)
+{
     __asm {
         /* pay ecx penalty for both cases */
         push ecx
@@ -134,7 +134,7 @@ foo_second(int n) {
         call bar
         call bar
         call bar
-#else  /* CALL=PUSH/JMP */
+#else /* CALL=PUSH/JMP */
         push offset ac1
         jmp bar
 ac1:
@@ -163,7 +163,8 @@ bar:
 }
 
 int
-foo_with_extras(int n) {
+foo_with_extras(int n)
+{
     __asm {
         /* pay ecx penalty for both cases */
         push ecx
@@ -176,7 +177,7 @@ foo_with_extras(int n) {
 bar:
         mov eax, 5
 #ifdef PLAIN_RET
-        push ecx                /* actually adding one more instruction that the pop/jmp*/
+        push ecx /* actually adding one more instruction that the pop/jmp*/
         pop ecx
         ret
 #else
@@ -189,9 +190,9 @@ bar:
     return 5;
 }
 
-
 int
-foo_first(int n) {
+foo_first(int n)
+{
     __asm {
         /* pay ecx penalty for both cases */
         push ecx
@@ -215,14 +216,13 @@ bar:
     return 5;
 }
 
-
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
     int i, t;
 
     /* now a little more realistic depths that fit in the RSB */
-    for (i=0; i<=ITER; i++) {
+    for (i = 0; i <= ITER; i++) {
         t = foo(DEPTH);
         t = foo(DEPTH);
         t = foo(DEPTH);

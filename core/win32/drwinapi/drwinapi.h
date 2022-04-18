@@ -61,4 +61,10 @@ ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb);
 void
 ntdll_redir_fls_exit(PEB *private_peb);
 
+/* i#3633: Fix Windows 1903 issue. FLS is not held inside of PEB but in private
+ * variables inside of ntdll.dll. This routine will perform unlinking to prevent
+ * crash.
+ */
+void
+ntdll_redir_fls_thread_exit(PPVOID fls_data);
 #endif /* _DRWINAPI_H_ */

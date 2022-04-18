@@ -46,23 +46,23 @@
 C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\INCLUDE\rpcasync.h(45) :
 warning C4115: '_RPC_ASYNC_STATE' : named type definition in parentheses
 */
-# pragma warning(disable : 4115)
+#    pragma warning(disable : 4115)
 
-# include "mfapi.h"
+#    include "mfapi.h"
 #endif /* WINDOWS */
 
 #ifdef __cplusplus
-extern "C"{
+extern "C" {
 #endif
 
 /* make sure; for example, mmcgui shouldn't have to know about this */
 #ifndef NOT_DYNAMORIO_CORE
-#  define NOT_DYNAMORIO_CORE
+#    define NOT_DYNAMORIO_CORE
 #endif
 
 /* FIXME: this should be stripped out of the core at some point...*/
 #ifndef HOT_PATCHING_INTERFACE
-#  define HOT_PATCHING_INTERFACE
+#    define HOT_PATCHING_INTERFACE
 #endif
 
 #include "globals_shared.h"

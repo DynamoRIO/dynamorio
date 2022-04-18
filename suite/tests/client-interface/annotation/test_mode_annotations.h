@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -35,8 +35,7 @@
 
 #include "dr_annotations_asm.h"
 
-#define TEST_ANNOTATION_INIT_MODE(mode) \
-    DR_ANNOTATION(test_annotation_init_mode, mode)
+#define TEST_ANNOTATION_INIT_MODE(mode) DR_ANNOTATION(test_annotation_init_mode, mode)
 
 #define TEST_ANNOTATION_INIT_CONTEXT(id, name, mode) \
     DR_ANNOTATION(test_annotation_init_context, id, name, mode)
@@ -45,6 +44,8 @@
 
 #define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
     DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
+
+#define TEST_ANNOTATION_GET_PC() DR_ANNOTATION(test_annotation_get_pc)
 
 #define TEST_ANNOTATION_GET_CLIENT_VERSION() test_annotation_get_client_version()
 
@@ -57,14 +58,15 @@ extern "C" {
 
 DR_DECLARE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode));
 
-DR_DECLARE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
-                                                           const char *name,
-                                                           unsigned int initial_mode));
+DR_DECLARE_ANNOTATION(void, test_annotation_init_context,
+                      (unsigned int id, const char *name, unsigned int initial_mode));
 
 DR_DECLARE_ANNOTATION(unsigned int, test_annotation_get_mode, (unsigned int context_id));
 
-DR_DECLARE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
-                                                       unsigned int mode));
+DR_DECLARE_ANNOTATION(void, test_annotation_set_mode,
+                      (unsigned int context_id, unsigned int mode));
+
+DR_DECLARE_ANNOTATION(void, test_annotation_get_pc, (void));
 
 DR_DECLARE_ANNOTATION(const char *, test_annotation_get_client_version, (void));
 
@@ -75,4 +77,3 @@ DR_DECLARE_ANNOTATION(void, test_annotation_rotate_valgrind_handler, (int phase)
 #endif
 
 #endif
-

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -62,7 +62,7 @@ handler(int sig)
 static void *
 thread_routine(void *arg)
 {
-    int fd = (int)(long) arg;
+    int fd = (int)(long)arg;
     char buf[16];
     signal(SIGUSR1, handler);
 
@@ -93,7 +93,7 @@ main(int argc, char **argv)
     }
 
     pthread_mutex_init(&lock, NULL);
-    pthread_cond_init(&condvar,  NULL);
+    pthread_cond_init(&condvar, NULL);
 
     if (pthread_create(&thread, NULL, thread_routine, (void *)(long)pipefd[0]) != 0) {
         perror("failed to create thread");
@@ -136,6 +136,7 @@ main(int argc, char **argv)
     pthread_mutex_destroy(&lock);
 
     print("all done\n");
+    close(pipefd[1]);
 
     return 0;
 }

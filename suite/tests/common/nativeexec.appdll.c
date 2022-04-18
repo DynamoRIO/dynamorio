@@ -34,24 +34,24 @@
 /* Split C/asm source file. */
 #ifndef ASM_CODE_ONLY
 
-#ifdef USE_DYNAMO
+#    ifdef USE_DYNAMO
 /* for dr_app_handle_mbr_target and dr_app_running_under_dynamorio */
-#  include "configure.h"
-#  include "dr_api.h"
-#endif /* USE_DYNAMO */
+#        include "configure.h"
+#        include "dr_api.h"
+#    endif /* USE_DYNAMO */
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
 /* importing from DR causes trouble injecting */
-# include "dr_annotations.h"
-# define IS_UNDER_DR() DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()
-#else
-# define IS_UNDER_DR() dr_app_running_under_dynamorio()
-#endif
+#        include "dr_annotations.h"
+#        define IS_UNDER_DR() DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()
+#    else
+#        define IS_UNDER_DR() dr_app_running_under_dynamorio()
+#    endif
 
 /* nativeexec.appdll.dll
  * nativeexec.exe calls routines here w/ different call* constructions
  */
-#include "tools.h"
+#    include "tools.h"
 
 typedef void (*int_fn_t)(int);
 typedef int (*int2_fn_t)(int, int);
@@ -61,41 +61,44 @@ typedef void (*tail_caller_t)(int_fn_t, int);
  * jump to a native module directly. Thus we must replace the function
  * pointer with the stub pc returned by dr_app_handle_mbr_target.
  */
-#ifdef UNIX
-#  define CALL_FUNC(fn, x) do {                                 \
-    if (dr_app_running_under_dynamorio()) {                     \
-        fn(x);                                                  \
-    } else {                                                    \
-        int_fn_t fn2 = dr_app_handle_mbr_target((void *)fn);    \
-        fn2(x);                                                 \
-    }                                                           \
-} while(0)
-#else
-#  define CALL_FUNC(fn, x) do { fn(x); } while(0)
-#endif
+#    ifdef UNIX
+#        define CALL_FUNC(fn, x)                                         \
+            do {                                                         \
+                if (dr_app_running_under_dynamorio()) {                  \
+                    fn(x);                                               \
+                } else {                                                 \
+                    int_fn_t fn2 = dr_app_handle_mbr_target((void *)fn); \
+                    fn2(x);                                              \
+                }                                                        \
+            } while (0)
+#    else
+#        define CALL_FUNC(fn, x) \
+            do {                 \
+                fn(x);           \
+            } while (0)
+#    endif
 
-int import_ret_imm(int x, int y);
-void tail_caller(int_fn_t fn, int x);
+int
+import_ret_imm(int x, int y);
+void
+tail_caller(int_fn_t fn, int x);
 
 void EXPORT
 import_me1(int x)
 {
-    print("nativeexec.dll:import_me1(%d) %sunder DR\n", x,
-          IS_UNDER_DR() ? "" : "not ");
+    print("nativeexec.dll:import_me1(%d) %sunder DR\n", x, IS_UNDER_DR() ? "" : "not ");
 }
 
 void EXPORT
 import_me2(int x)
 {
-    print("nativeexec.dll:import_me2(%d) %sunder DR\n", x,
-          IS_UNDER_DR() ? "" : "not ");
+    print("nativeexec.dll:import_me2(%d) %sunder DR\n", x, IS_UNDER_DR() ? "" : "not ");
 }
 
 void EXPORT
 import_me3(int x)
 {
-    print("nativeexec.dll:import_me3(%d) %sunder DR\n", x,
-          IS_UNDER_DR() ? "" : "not ");
+    print("nativeexec.dll:import_me3(%d) %sunder DR\n", x, IS_UNDER_DR() ? "" : "not ");
 }
 
 void EXPORT
@@ -122,18 +125,19 @@ unwind_level5(int_fn_t fn, int x)
     CALL_FUNC(fn, x);
 }
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     return TRUE;
 }
-#endif
+#    endif
 
 #else /* ASM_CODE_ONLY */
 
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
 
+/* clang-format off */
 START_FILE
 
         DECLARE_EXPORTED_FUNC(import_ret_imm)
@@ -159,5 +163,6 @@ GLOBAL_LABEL(tail_caller:)
         END_FUNC(tail_caller)
 
 END_FILE
+/* clang-format on */
 
 #endif /* ASM_CODE_ONLY */

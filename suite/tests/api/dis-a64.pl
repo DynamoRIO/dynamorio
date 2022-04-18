@@ -74,7 +74,7 @@ my %enc;
             $t2 =~ tr/1x/01/;
             ($t1, $t2) = (oct("0b$t1"), oct("0b$t2"));
         }
-        elsif (/^\s*[x-]{32}\s/) {
+        elsif (/^\s*[x?-]{32}\s/) {
             next;
         }
         else {

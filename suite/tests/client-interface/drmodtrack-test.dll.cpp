@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 /* Tests the drmodtrack extension. */
 
 #include "dr_api.h"
@@ -38,38 +37,36 @@
 #include "drx.h"
 #include "client_tools.h"
 #include "string.h"
+#include "stddef.h"
 
 #ifdef WINDOWS
-# pragma warning( disable : 4100) /* unreferenced formal parameter */
-# pragma warning( disable : 4127) /* conditional expression is constant */
+#    pragma warning(disable : 4100) /* unreferenced formal parameter */
+#    pragma warning(disable : 4127) /* conditional expression is constant */
 #endif
-
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
 
 static client_id_t client_id;
 
 static void *
-load_cb(module_data_t *module)
+load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
+    if (seg_idx > 0)
+        return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
 static int
 print_cb(void *data, char *dst, size_t max_len)
 {
-    return dr_snprintf(dst, max_len, PFX",", data);
+    return dr_snprintf(dst, max_len, PFX ",", data);
 }
 
 static const char *
 parse_cb(const char *src, OUT void **data)
 {
     const char *res;
-    if (dr_sscanf(src, PIFX",", data) != 1)
+    if (dr_sscanf(src, PIFX ",", data) != 1)
         return NULL;
     res = strchr(src, ',');
     return (res == NULL) ? NULL : res + 1;
@@ -79,6 +76,63 @@ static void
 free_cb(void *data)
 {
     /* Nothing. */
+}
+
+/* We do simple leak checking via a counter.  We assume single-threaded code. */
+static int alloc_counter;
+
+static void *
+my_alloc(void)
+{
+    ++alloc_counter;
+    return dr_global_alloc(sizeof(app_pc));
+}
+
+static void
+my_free(void *ptr)
+{
+    CHECK(alloc_counter > 0, "double free");
+    --alloc_counter;
+    dr_global_free(ptr, sizeof(app_pc));
+}
+
+static const char *
+parse_alloc_cb(const char *src, OUT void **data)
+{
+    const char *res;
+    app_pc module_start;
+    if (dr_sscanf(src, PIFX ",", &module_start) != 1)
+        return NULL;
+    /* We store it on the heap to test leaks. */
+    app_pc *ptr_to_start = (app_pc *)my_alloc();
+    *ptr_to_start = module_start;
+    *data = ptr_to_start;
+    res = strchr(src, ',');
+    return (res == NULL) ? NULL : res + 1;
+}
+
+static const char *
+parse_alloc_error_cb(const char *src, OUT void **data)
+{
+    static int count_calls;
+    if (++count_calls == 4)
+        return NULL; /* fail to test parsing errors */
+    const char *res;
+    app_pc module_start;
+    if (dr_sscanf(src, PIFX ",", &module_start) != 1)
+        return NULL;
+    /* We store it on the heap to test leaks. */
+    app_pc *ptr_to_start = (app_pc *)my_alloc();
+    *ptr_to_start = module_start;
+    *data = ptr_to_start;
+    res = strchr(src, ',');
+    return (res == NULL) ? NULL : res + 1;
+}
+
+static void
+free_alloc_cb(void *data)
+{
+    my_free(data);
 }
 
 static void
@@ -96,8 +150,8 @@ event_exit(void)
     dr_snprintf(cwd, BUFFER_SIZE_ELEMENTS(cwd), "%.*s", dir - cpath, cpath);
     NULL_TERMINATE_BUFFER(cwd);
 #endif
-    file_t f = drx_open_unique_file(cwd, "drmodtrack-test", "log", 0,
-                                    fname, BUFFER_SIZE_ELEMENTS(fname));
+    file_t f = drx_open_unique_file(cwd, "drmodtrack-test", "log", 0, fname,
+                                    BUFFER_SIZE_ELEMENTS(fname));
     CHECK(f != INVALID_FILE, "drx_open_unique_file failed");
 
     drcovlib_status_t res = drmodtrack_dump(f);
@@ -116,7 +170,7 @@ event_exit(void)
         size_online *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     CHECK(res == DRCOVLIB_SUCCESS, "module dump to buf failed");
-    CHECK(wrote == strlen(buf_online) + 1/*null*/, "returned size off");
+    CHECK(wrote == strlen(buf_online) + 1 /*null*/, "returned size off");
 
     /* Now test offline features. */
     void *modhandle;
@@ -126,11 +180,33 @@ event_exit(void)
     CHECK(res == DRCOVLIB_SUCCESS, "read failed");
 
     for (uint i = 0; i < num_mods; ++i) {
-        drmodtrack_info_t info = {sizeof(info),};
+        drmodtrack_info_t info = {
+            sizeof(info),
+        };
         res = drmodtrack_offline_lookup(modhandle, i, &info);
         CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
-        CHECK(((app_pc)info.custom) == info.start ||
-              info.containing_index != i, "custom field doesn't match");
+        CHECK(((app_pc)info.custom) == info.start, "custom field doesn't match");
+        CHECK(info.index == i, "index field doesn't match");
+#ifndef WINDOWS
+        module_data_t *data = dr_lookup_module(info.start);
+        for (uint j = 0; j < data->num_segments; j++) {
+            module_segment_data_t *seg = data->segments + j;
+            if (seg->start == info.start) {
+                CHECK(seg->offset == info.offset,
+                      "Module data offset and drmodtrack offset don't match");
+                drmodtrack_info_t parent = {
+                    sizeof(parent),
+                };
+                res =
+                    drmodtrack_offline_lookup(modhandle, info.containing_index, &parent);
+                CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
+                CHECK(info.preferred_base ==
+                          parent.preferred_base + (info.start - parent.start),
+                      "Segment preferred base not properly offset");
+            }
+        }
+        dr_free_module_data(data);
+#endif
     }
 
     char *buf_offline;
@@ -145,19 +221,44 @@ event_exit(void)
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     CHECK(res == DRCOVLIB_SUCCESS, "offline write failed");
     CHECK(size_online == size_offline, "sizes do not match");
-    CHECK(wrote == strlen(buf_offline) + 1/*null*/, "returned size off");
+    CHECK(wrote == strlen(buf_offline) + 1 /*null*/, "returned size off");
     CHECK(strcmp(buf_online, buf_offline) == 0, "buffers do not match");
 
+    res = drmodtrack_offline_exit(modhandle);
+    CHECK(res == DRCOVLIB_SUCCESS, "exit failed");
+    modhandle = NULL;
+    dr_global_free(buf_online, size_online);
+    dr_global_free(buf_offline, size_offline);
+
+    /* We do some more offline reads, to test leaks on parsing errors. */
+    /* First ensure no leaks on successful parsing. */
+    res = drmodtrack_add_custom_data(load_cb, print_cb, parse_alloc_cb, free_alloc_cb);
+    CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
+    void *modhandle2;
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle2, &num_mods);
+    CHECK(res == DRCOVLIB_SUCCESS, "read failed");
+    res = drmodtrack_offline_exit(modhandle2);
+    CHECK(res == DRCOVLIB_SUCCESS, "exit failed");
+    modhandle2 = NULL;
+    CHECK(alloc_counter == 0, "memory leak");
+    /* Now ensure no leaks on a parsing error. */
+    res = drmodtrack_add_custom_data(load_cb, print_cb, parse_alloc_error_cb,
+                                     free_alloc_cb);
+    CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
+    void *modhandle3;
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle3, &num_mods);
+    CHECK(res == DRCOVLIB_ERROR, "read should fail");
+    modhandle3 = NULL;
+    CHECK(alloc_counter == 0, "memory leak");
+
+    /* Final cleanup. */
     dr_close_file(f);
     ok = dr_delete_file(fname);
     CHECK(ok, "failed to delete file");
 
-    res = drmodtrack_offline_exit(modhandle);
-    CHECK(res == DRCOVLIB_SUCCESS, "exit failed");
-
-    dr_global_free(buf_online, size_online);
-    dr_global_free(buf_offline, size_offline);
-
+    /* We have to restore the old free_cb as it will be called on the live table. */
+    res = drmodtrack_add_custom_data(load_cb, print_cb, parse_cb, free_cb);
+    CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
     res = drmodtrack_exit();
     CHECK(res == DRCOVLIB_SUCCESS, "module exit failed");
 }

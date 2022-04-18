@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,35 +39,69 @@
 
 #include <assert.h>
 #include <iterator>
-#include <map>
+#include <unordered_map>
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
 #include "utils.h"
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
-{
- public:
-    reader_t();
-    virtual ~reader_t() {}
+#define OUT /* just a marker */
+
+#ifdef DEBUG
+#    define VPRINT(reader, level, ...)                            \
+        do {                                                      \
+            if ((reader)->verbosity_ >= (level)) {                \
+                fprintf(stderr, "%s ", (reader)->output_prefix_); \
+                fprintf(stderr, __VA_ARGS__);                     \
+            }                                                     \
+        } while (0)
+#else
+#    define VPRINT(reader, level, ...) /* nothing */
+#endif
+
+class reader_t : public std::iterator<std::input_iterator_tag, memref_t> {
+public:
+    reader_t()
+    {
+    }
+    reader_t(int verbosity, const char *prefix)
+        : verbosity_(verbosity)
+        , output_prefix_(prefix)
+    {
+    }
+    virtual ~reader_t()
+    {
+    }
 
     // This may block.
-    virtual bool init() = 0;
+    virtual bool
+    init() = 0;
 
-    virtual const memref_t& operator*();
+    virtual const memref_t &operator*();
 
     // To avoid double-dispatch (requires listing all derived types in the base here)
     // and RTTI in trying to get the right operators called for subclasses, we
     // instead directly check at_eof here.  If we end up needing to run code
     // and a bool field is not enough we can change this to invoke a virtual
     // method is_at_eof().
-    virtual bool operator==(const reader_t& rhs) const {
-        return BOOLS_MATCH(at_eof, rhs.at_eof);
+    virtual bool
+    operator==(const reader_t &rhs) const
+    {
+        return BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
-    virtual bool operator!=(const reader_t& rhs) const {
-        return !BOOLS_MATCH(at_eof, rhs.at_eof);
+    virtual bool
+    operator!=(const reader_t &rhs) const
+    {
+        return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
 
-    virtual reader_t& operator++();
+    virtual reader_t &
+    operator++();
+
+    // Supplied for subclasses that may fail in their constructors.
+    virtual bool operator!()
+    {
+        return false;
+    }
 
     // We do not support the post-increment operator for two reasons:
     // 1) It prevents pure virtual functions here, as it cannot
@@ -75,20 +109,38 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     // 2) It is difficult to implement for file_reader_t as streams do not
     //    have a copy constructor.
 
- protected:
-    virtual trace_entry_t * read_next_entry() = 0;
+protected:
+    // This reads the next entry from the stream of entries from all threads interleaved
+    // in timestamp order.
+    virtual trace_entry_t *
+    read_next_entry() = 0;
+    // This reads the next entry from the single stream of entries
+    // from the specified thread.  If it returns false it will set *eof to distinguish
+    // end-of-file from an error.
+    virtual bool
+    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
+                           OUT bool *eof) = 0;
 
-    bool at_eof;
+    // Following typical stream iterator convention, the default constructor
+    // produces an EOF object.
+    // This should be set to false by subclasses in init() and set
+    // back to true when actual EOF is hit.
+    bool at_eof_ = true;
 
- private:
-    trace_entry_t *input_entry;
-    memref_t cur_ref;
-    memref_tid_t cur_tid;
-    memref_pid_t cur_pid;
-    addr_t cur_pc;
-    addr_t next_pc;
-    int bundle_idx;
-    std::map<memref_tid_t, memref_pid_t> tid2pid;
+    int verbosity_ = 0;
+    bool online_ = true;
+    const char *output_prefix_ = "[reader]";
+
+private:
+    trace_entry_t *input_entry_ = nullptr;
+    memref_t cur_ref_;
+    memref_tid_t cur_tid_ = 0;
+    memref_pid_t cur_pid_ = 0;
+    addr_t cur_pc_ = 0;
+    addr_t next_pc_;
+    addr_t prev_instr_addr_ = 0;
+    int bundle_idx_ = 0;
+    std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
 };
 
 #endif /* _READER_H_ */

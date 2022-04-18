@@ -31,27 +31,28 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
-#include <assert.h>
-#include <stdio.h>
-#include <math.h>
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
+#    include <assert.h>
+#    include <stdio.h>
+#    include <math.h>
 
-#ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#        include <signal.h>
+#        include <ucontext.h>
+#        include <errno.h>
+#    endif
 
 /* asm routine */
-void jumpto(unsigned char *buf);
+void
+jumpto(unsigned char *buf);
 
-#define ITERS 1500000
+#    define ITERS 1500000
 
 static int a[ITERS];
 
-#ifdef UNIX
+#    ifdef UNIX
 static void
 signal_handler(int sig)
 {
@@ -59,25 +60,26 @@ signal_handler(int sig)
         print("Got an illegal instruction\n");
     abort();
 }
-#else
+#    else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
  */
-# include <windows.h>
+#        include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION)
         print("Got an illegal instruction\n");
-# if VERBOSE
+#        if VERBOSE
     print("Exception occurred, process about to die silently\n");
-# endif
+#        endif
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
-#endif
+#    endif
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
     unsigned char buf[8];
@@ -85,11 +87,11 @@ int main(int argc, char *argv[])
     buf[1] = 0xfa;
     /* FIXME we don't call INIT here - template can't use SEC_VIO_AUTO_STOP */
 
-#ifdef UNIX
-    intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
-#else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
-#endif
+#    ifdef UNIX
+    intercept_signal(SIGILL, (handler_3_t)signal_handler, false);
+#    else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
+#    endif
 
     print("Bad instr about to happen\n");
 
@@ -101,7 +103,8 @@ int main(int argc, char *argv[])
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME jumpto
@@ -114,4 +117,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

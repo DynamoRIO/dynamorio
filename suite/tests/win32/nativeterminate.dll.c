@@ -36,14 +36,12 @@
  */
 #include "tools.h"
 
-void __declspec(dllexport) __stdcall
-import_me1(int x)
+void __declspec(dllexport) __stdcall import_me1(int x)
 {
     print("nativeexec.dll:import_me1(%d)\n", x);
 }
 
-void __declspec(dllexport) __stdcall
-import_me_die(int x)
+void __declspec(dllexport) __stdcall import_me_die(int x)
 {
     print("nativeexec.dll:import_me_die(%d)\n", x);
     ExitThread(0);

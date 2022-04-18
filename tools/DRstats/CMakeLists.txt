@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -58,13 +58,17 @@ foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
     string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS${config_upper}
       "${CMAKE_CXX_FLAGS${config_upper}}")
   else ()
-    set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_CXX_FLAGS${config_upper}} /MT")
+    if (DEBUG)
+      set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_CXX_FLAGS${config_upper}} /MTd")
+    else ()
+      set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_CXX_FLAGS${config_upper}} /MT")
+    endif ()
   endif ()
 endforeach (config)
 
 set(CMAKE_MFC_FLAG 1) # static dlls
 
-add_definitions(-DNOT_DYNAMORIO_CORE -DWIN32 -DUNICODE -D_UNICODE)
+add_definitions(-DNOT_DYNAMORIO_CORE -DDYNAMORIO_INTERNAL -DWIN32 -DUNICODE -D_UNICODE)
 
 include_directories(
   ${PROJECT_SOURCE_DIR}/libutil
@@ -101,16 +105,10 @@ add_executable(DRstats WIN32
 # somehow VS2010 doesn't find its own SDK uuid.lib
 find_library(uuid_lib uuid)
 if (NOT uuid_lib)
-  # VS2012 doesn't either; nor does find_library find it
-  # XXX: put in more general solution
   if (X64)
-    set(uuid_lib "c:/Program Files (x86)/Windows Kits/8.0/Lib/win8/um/x64/Uuid.Lib")
+    set(uuid_lib "${kits_dir}/Lib/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/um/x64/Uuid.Lib")
   else (X64)
-    set(uuid_lib "c:/Program Files (x86)/Windows Kits/8.0/Lib/win8/um/x86/Uuid.Lib")
-    if (NOT EXISTS ${uuid_lib})
-      # Probably we are in 32-bit Windows which doesn't have "Program Files (x86)" folder
-      set(uuid_lib "c:/Program Files/Windows Kits/8.0/Lib/win8/um/x86/Uuid.Lib")
-    endif ()
+    set(uuid_lib "${kits_dir}/Lib/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/um/x86/Uuid.Lib")
   endif (X64)
   if (NOT EXISTS ${uuid_lib})
     message(FATAL_ERROR "uuid.lib not found")

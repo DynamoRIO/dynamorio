@@ -48,14 +48,10 @@ int count = 0;
  * to execute to original interrupted instruction.)
  */
 
-
-#define TRAP_OPT()                              \
-__pragma optimize("", off)                      \
-__debugbreak()                                  \
-__pragma optimize("", on)
+#define TRAP_OPT() __pragma optimize("", off) __debugbreak() __pragma optimize("", on)
 
 /* don't use at CPL0 INT3 (or INT1, or BOUNDS) - will disable interrupts */
-#define TRAP() __asm { int 3 }  /* 0xcc */
+#define TRAP() __asm { int 3 } /* 0xcc */
 
 #define TRAP_TWO_BYTE() __asm { __emit 0xcd __emit 0x03 }
 /* see Intel manual - this version doesn't have all special characteristics of the 0xcc,
@@ -66,15 +62,14 @@ __pragma optimize("", on)
 
 #define DEBUGGER_INTERFACE() __asm { int 2d }
 
-/* FIXME: test single stepping with TRAP bit set in EFLAGS - can one control this at CPL3? */
+/* FIXME: test single stepping with TRAP bit set in EFLAGS - can one control this at CPL3?
+ */
 
-/* FIXME: case 11058 I don't understand this - INT3 is supposed to save the EIP _AFTER_ the instruction
- * why am I getting the original instruction natively?
+/* FIXME: case 11058 I don't understand this - INT3 is supposed to save the EIP _AFTER_
+ * the instruction why am I getting the original instruction natively?
  */
 /* as a workaround we increment EIP again */
 #define SKIP_INT3 ((GetExceptionInformation())->ContextRecord->CXT_XIP++)
-
-
 
 int
 TrapIfDebugger()
@@ -83,7 +78,8 @@ TrapIfDebugger()
     __try {
         TRAP();
         trapped = 1;
-    } __except (SKIP_INT3, EXCEPTION_CONTINUE_EXECUTION) { }
+    } __except (SKIP_INT3, EXCEPTION_CONTINUE_EXECUTION) {
+    }
     return !trapped;
 }
 
@@ -101,17 +97,19 @@ TrapIfDebuggerVerbose()
         TRAP();
         print("continued after trap\n");
         dbg = 1;
-    } __except (context = (GetExceptionInformation())->ContextRecord,
-                dump_exception_info((GetExceptionInformation())->ExceptionRecord,
-                                    context),
-                trapped = 1,
-                print("in filter\n"),
-                (GetExceptionInformation())->ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT ?
-                /* breakpoint - continue next */ SKIP_INT3, EXCEPTION_CONTINUE_EXECUTION :
-                /* not ours */ EXCEPTION_CONTINUE_SEARCH) {
+    } __except (
+        context = (GetExceptionInformation())->ContextRecord,
+        dump_exception_info((GetExceptionInformation())->ExceptionRecord, context),
+        trapped = 1, print("in filter\n"),
+        (GetExceptionInformation())->ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT
+        ?
+        /* breakpoint - continue next */ SKIP_INT3,
+        EXCEPTION_CONTINUE_EXECUTION :
+        /* not ours */ EXCEPTION_CONTINUE_SEARCH) {
         print("handler NOT REACHED\n");
     }
-    if (!trapped) print("didn't trap, continued in debugger?!\n");
+    if (!trapped)
+        print("didn't trap, continued in debugger?!\n");
     return !trapped;
 }
 
@@ -119,7 +117,8 @@ int
 invalid_handle()
 {
     int dbg;
-    /* case 11051 - why is there an STATUS_INVALID_HANDLE exception on Vista kernel32!CloseHandle */
+    /* case 11051 - why is there an STATUS_INVALID_HANDLE exception on Vista
+     * kernel32!CloseHandle */
     print("Invalid handle about to happen\n");
     print("about to close\n");
     __try {
@@ -127,22 +126,25 @@ invalid_handle()
         dbg = 1;
         CloseHandle(h);
         dbg = 0;
-    } __except(print("in close filter\n", EXCEPTION_CONTINUE_EXECUTION)) {
+    } __except (print("in close filter\n", EXCEPTION_CONTINUE_EXECUTION)) {
     }
     print("continued successfully\n");
     return dbg;
 }
 
-#define name_status(x, s) if ((x) == (s)) print(#s);
+#define name_status(x, s) \
+    if ((x) == (s))       \
+        print(#s);
 
-# include <windows.h>
+#include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
-    print("caught exception "PFX": ", pExceptionInfo->ExceptionRecord->ExceptionCode);
+    print("caught exception " PFX ": ", pExceptionInfo->ExceptionRecord->ExceptionCode);
     /* 0x8.. */
-    name_status(pExceptionInfo->ExceptionRecord->ExceptionCode, STATUS_GUARD_PAGE_VIOLATION);
+    name_status(pExceptionInfo->ExceptionRecord->ExceptionCode,
+                STATUS_GUARD_PAGE_VIOLATION);
     /* STATUS_DATATYPE_MISALIGNMENT maybe on some syscalls? */
     name_status(pExceptionInfo->ExceptionRecord->ExceptionCode, STATUS_BREAKPOINT);
     name_status(pExceptionInfo->ExceptionRecord->ExceptionCode, STATUS_SINGLE_STEP);
@@ -158,25 +160,28 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 int
 main(int argc, char *argv[])
 {
-    int i,j;
+    int i, j;
     int dbg;
     USE_USER32();
     INIT();
 
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 
     i = setjmp(mark);
     print("Test %d\n", i);
 
     switch (i) {
 
-    case 0: dbg = TrapIfDebuggerVerbose();
+    case 0:
+        dbg = TrapIfDebuggerVerbose();
         print("%s\n", dbg ? "debugger handled on first chance" : "not handled");
         /* continue */
-    case 1: dbg = TrapIfDebugger();
+    case 1:
+        dbg = TrapIfDebugger();
         print("%s\n", dbg ? "debugger handled on first chance" : "not handled");
         /* continue */
-    case 2: dbg = invalid_handle();
+    case 2:
+        dbg = invalid_handle();
         print("%s\n", dbg ? "debugger handled on first chance" : "not handled");
         /* continue */
     default:;

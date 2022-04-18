@@ -1,0 +1,8 @@
+Hello, world!
+Opcode mix tool results:
+    *[0-9]* : total executed instructions
+    *[0-9]* : [a-z ]*
+    *[0-9]* : [a-z ]*
+    *[0-9]* : [a-z ]*
+    *[0-9]* : [a-z ]*
+.*

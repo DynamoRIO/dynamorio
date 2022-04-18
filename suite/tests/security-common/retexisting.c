@@ -33,17 +33,18 @@
 
 #ifndef ASM_CODE_ONLY
 
-#include "tools.h"
+#    include "tools.h"
 
 /* In ASM_CODE_ONLY. */
-void precious_push_fake_retaddr(void);
+void
+precious_push_fake_retaddr(void);
 
 void
 precious(void)
 {
-#ifdef USER32    /* map user32.dll for a RunAll test */
+#    ifdef USER32 /* map user32.dll for a RunAll test */
     MessageBeep(0);
-#endif
+#    endif
     print("M-m-my PRECIOUS is stolen! ATTACK SUCCESSFUL!\n");
     exit(1);
 }
@@ -52,7 +53,7 @@ void
 ring(void **retaddr_p)
 {
     print("looking at ring\n");
-    *retaddr_p = (void*)&precious_push_fake_retaddr;
+    *retaddr_p = (void *)&precious_push_fake_retaddr;
 }
 
 ptr_int_t
@@ -73,10 +74,10 @@ ptr_int_t
 twofoo(void)
 {
     ptr_int_t a = foo();
-    print("first foo a="SZFMT"\n", a);
+    print("first foo a=" SZFMT "\n", a);
 
     a += foo();
-    print("second foo a="SZFMT"\n", a);
+    print("second foo a=" SZFMT "\n", a);
     return a;
 }
 
@@ -94,8 +95,9 @@ main(void)
 
 #else
 
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
 
+/* clang-format off */
 START_FILE
 
 DECL_EXTERN(precious)
@@ -112,5 +114,6 @@ GLOBAL_LABEL(precious_push_fake_retaddr:)
         END_FUNC(precious_push_fake_retaddr)
 
 END_FILE
+/* clang-format on */
 
 #endif

@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -48,15 +49,13 @@ class QAction;
 class QMenu;
 class QMdiArea;
 class QMdiSubWindow;
-class QSignalMapper;
 class QActionGroup;
 class QPluginLoader;
 
 class drgui_options_window_t;
 class drgui_tool_interface_t;
 
-class drgui_main_window_t : public QMainWindow
-{
+class drgui_main_window_t : public QMainWindow {
     Q_OBJECT
 
 public:
@@ -64,62 +63,85 @@ public:
     ~drgui_main_window_t(void);
 
 protected:
-    void closeEvent(QCloseEvent *event);
+    void
+    closeEvent(QCloseEvent *event) override;
 
 private slots:
-    void about(void);
+    void
+    about(void);
 
-    void update_menus(void);
+    void
+    update_menus(void);
 
-    void update_window_menu(void);
+    void
+    update_window_menu(void);
 
-    void switch_layout_direction(void);
+    void
+    switch_layout_direction(void);
 
-    void maybe_close_me(void);
+    void
+    maybe_close_me(void);
 
-    void maybe_close(int index);
+    void
+    maybe_close(int index);
 
-    void hide_tab(int index);
+    void
+    hide_tab(int index);
 
-    void close_all_tabs(void);
+    void
+    close_all_tabs(void);
 
-    void activate_next_tab(void);
+    void
+    activate_next_tab(void);
 
-    void activate_previous_tab(void);
+    void
+    activate_previous_tab(void);
 
-    void show_preferences_dialog(void);
+    void
+    show_preferences_dialog(void);
 
-    void add_tab(void);
+    void
+    add_tab(void);
 
-    void add_tab(drgui_tool_interface_t *factory, const QStringList &args);
+    void
+    add_tab(drgui_tool_interface_t *factory, const QStringList &args);
 
-    void add_tool(void);
+    void
+    add_tool(void);
 
-    void new_tool_instance(QWidget *tool, QString tool_name);
+    void
+    new_tool_instance(QWidget *tool, QString tool_name);
 
 private:
-    void create_actions(void);
+    void
+    create_actions(void);
 
-    void create_menus(void);
+    void
+    create_menus(void);
 
-    void create_status_bar(void);
+    void
+    create_status_bar(void);
 
-    void read_settings(void);
+    void
+    read_settings(void);
 
-    void write_settings(void);
+    void
+    write_settings(void);
 
-    QWidget *active_tool(void);
+    QWidget *
+    active_tool(void);
 
-    void load_tools(void);
+    void
+    load_tools(void);
 
-    void add_tool_to_menu(QObject *plugin, const QStringList &texts,
-                          const char *member, QActionGroup *action_group);
+    void
+    add_tool_to_menu(QObject *plugin, const QStringList &texts, const char *member,
+                     QActionGroup *action_group);
 
     /* GUI */
     QDir plugins_dir;
     QStringList plugin_names;
     QTabWidget *tab_area;
-    QSignalMapper *window_mapper;
     QActionGroup *tool_action_group;
     QAction *separator_act;
 

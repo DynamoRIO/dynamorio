@@ -39,18 +39,21 @@
 /* Tiggers a nudge targeting this process.  nudge_action_mask should be drawn from the
  * NUDGE_GENERIC(***) values.  client_id is only relevant for client nudges. */
 dr_config_status_t
-nudge_internal(process_id_t pid, uint nudge_action_mask,
-               uint64 client_arg, client_id_t client_id, uint timeout_ms);
+nudge_internal(process_id_t pid, uint nudge_action_mask, uint64 client_arg,
+               client_id_t client_id, uint timeout_ms);
 
 #ifdef WINDOWS /* only Windows uses threads for nudges */
 /* The following are exported only so other routines can check their addresses for
  * nudge threads.  They are not meant to be called internally. */
-void generic_nudge_target(nudge_arg_t *arg);
-bool generic_nudge_handler(nudge_arg_t *arg);
+void
+generic_nudge_target(nudge_arg_t *arg);
+bool
+generic_nudge_handler(nudge_arg_t *arg);
 /* exit_process is only honored if dcontext != NULL, and exit_code is only honored
  * if exit_process is true
  */
-bool nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code);
+bool
+nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code);
 #else
 
 /* This routine may not return */

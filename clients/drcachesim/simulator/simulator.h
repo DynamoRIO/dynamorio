@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,40 +36,58 @@
 #ifndef _SIMULATOR_H_
 #define _SIMULATOR_H_ 1
 
-#include <map>
+#include <unordered_map>
+#include <vector>
 #include "caching_device_stats.h"
 #include "caching_device.h"
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 
-class simulator_t : public analysis_tool_t
-{
- public:
-    simulator_t(unsigned int num_cores,
-                uint64_t skip_refs,
-                uint64_t warmup_refs,
-                uint64_t sim_refs,
+class simulator_t : public analysis_tool_t {
+public:
+    simulator_t()
+    {
+    }
+    simulator_t(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
+                double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
                 unsigned int verbose);
     virtual ~simulator_t() = 0;
+    bool
+    process_memref(const memref_t &memref) override;
 
- protected:
-    virtual int core_for_thread(memref_tid_t tid);
-    virtual void handle_thread_exit(memref_tid_t tid);
+protected:
+    // Initialize knobs. Success or failure is indicated by setting/resetting
+    // the success variable.
+    void
+    init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
+               double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
+               unsigned int verbose);
+    void
+    print_core(int core) const;
+    int
+    find_emptiest_core(std::vector<int> &counts) const;
+    virtual int
+    core_for_thread(memref_tid_t tid);
+    virtual void
+    handle_thread_exit(memref_tid_t tid);
 
-    int knob_num_cores;
+    unsigned int knob_num_cores_;
+    uint64_t knob_skip_refs_;
+    uint64_t knob_warmup_refs_;
+    double knob_warmup_fraction_;
+    uint64_t knob_sim_refs_;
+    bool knob_cpu_scheduling_;
+    unsigned int knob_verbose_;
+
+    memref_tid_t last_thread_;
+    int last_core_;
 
     // For thread mapping to cores:
-    std::map<memref_tid_t, int> thread2core;
-    unsigned int *thread_counts;
-    unsigned int *thread_ever_counts;
-
-    uint64_t knob_skip_refs;
-    uint64_t knob_warmup_refs;
-    uint64_t knob_sim_refs;
-    unsigned int knob_verbose;
-
-    memref_tid_t last_thread;
-    int last_core;
+    std::unordered_map<int, int> cpu2core_;
+    std::unordered_map<memref_tid_t, int> thread2core_;
+    std::vector<int> cpu_counts_;
+    std::vector<int> thread_counts_;
+    std::vector<int> thread_ever_counts_;
 };
 
 #endif /* _SIMULATOR_H_ */

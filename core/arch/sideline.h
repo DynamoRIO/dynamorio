@@ -41,7 +41,7 @@
 #define _SIDELINE_H_ 1
 
 /* sampled by sideline thread to find hot traces */
-extern volatile fragment_t * sideline_trace;
+extern volatile fragment_t *sideline_trace;
 
 extern int num_processors;
 
@@ -52,31 +52,39 @@ extern event_t paused_for_sideline_event;
 extern event_t resume_from_sideline_event;
 extern mutex_t do_not_delete_lock;
 /* initialization */
-void sideline_init(void);
+void
+sideline_init(void);
 
 /* atexit cleanup */
-void sideline_exit(void);
+void
+sideline_exit(void);
 
 /* tells sideline threads when dynamo is active */
-void sideline_start(void);
-void sideline_stop(void);
+void
+sideline_start(void);
+void
+sideline_stop(void);
 
 /* adds profiling for identification of hot traces  */
-void add_sideline_prefix(dcontext_t *dcontext, instrlist_t *trace);
-void finalize_sideline_prefix(dcontext_t *dcontext, fragment_t *trace_f);
+void
+add_sideline_prefix(dcontext_t *dcontext, instrlist_t *trace);
+void
+finalize_sideline_prefix(dcontext_t *dcontext, fragment_t *trace_f);
 
 /* called when target thread is at safe point so a replaced trace can
  * be completely removed
  */
-void sideline_cleanup_replacement(dcontext_t *dcontext);
+void
+sideline_cleanup_replacement(dcontext_t *dcontext);
 
 /* called by app thread to remove f from sideline data structures */
-void sideline_fragment_delete(fragment_t *f);
+void
+sideline_fragment_delete(fragment_t *f);
 
 /* calls optimize_function on the trace of interest, safely handles replacement */
 fragment_t *
 sideline_optimize(fragment_t *f,
-                  void (*remove_sideline_profiling)(dcontext_t *,instrlist_t *),
-                  void (*optimize_function)(dcontext_t *,fragment_t *,instrlist_t *));
+                  void (*remove_sideline_profiling)(dcontext_t *, instrlist_t *),
+                  void (*optimize_function)(dcontext_t *, fragment_t *, instrlist_t *));
 
 #endif /* _SIDELINE_H_ */

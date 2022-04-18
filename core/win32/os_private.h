@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,12 +68,14 @@ extern app_pc dynamo_dll_end;
 
 extern dcontext_t *early_inject_load_helper_dcontext;
 
-/* passed to early injection init by parent */
+/* Passed to early injection init by parent.  Sized to work for any bitwidth. */
 typedef struct {
-    byte *dr_base;
-    byte *ntdll_base;
-    byte *tofree_base;
-    byte *hook_location;
+    uint64 app_xax;
+    uint64 dr_base;
+    uint64 ntdll_base;
+    uint64 tofree_base;
+    uint64 hook_location;
+    uint hook_prot;
     bool late_injection;
     char dynamorio_lib_path[MAX_PATH];
 } earliest_args_t;
@@ -90,7 +92,7 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);
 
 bool
 maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
-                          CONTEXT *cxt);
+                          HANDLE thread_handle, CONTEXT *cxt);
 
 bool
 translate_context(thread_record_t *trec, CONTEXT *cxt, bool restore_memory);
@@ -128,13 +130,14 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add,
 void
 check_for_ldrpLoadImportModule(byte *base, uint *ebp);
 
-#ifdef CLIENT_SIDELINE
 void
 client_thread_target(void *param);
-#endif
 
-bool os_delete_file_w(const wchar_t *file_name,
-                      file_t directory_handle);
+bool
+is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack);
+
+bool
+os_delete_file_w(const wchar_t *file_name, file_t directory_handle);
 
 byte *
 os_terminate_wow64_stack(HANDLE thread_handle);
@@ -157,15 +160,20 @@ extern int *syscalls;
 /* this points to a windows-version-specific WOW table index array */
 extern int *wow64_index;
 
-#ifdef CLIENT_INTERFACE
 /* i#1230: we support the client adding to the end of these, so they are not const
  * (but they're still in .data, so they're read-only once past init)
  */
-#  define SYS_CONST /* in .data */
-#else
-#  define SYS_CONST const
-#endif
+#define SYS_CONST /* in .data */
 extern int windows_unknown_syscalls[];
+extern SYS_CONST int windows_10_1803_x64_syscalls[];
+extern SYS_CONST int windows_10_1803_wow64_syscalls[];
+extern SYS_CONST int windows_10_1803_x86_syscalls[];
+extern SYS_CONST int windows_10_1709_x64_syscalls[];
+extern SYS_CONST int windows_10_1709_wow64_syscalls[];
+extern SYS_CONST int windows_10_1709_x86_syscalls[];
+extern SYS_CONST int windows_10_1703_x64_syscalls[];
+extern SYS_CONST int windows_10_1703_wow64_syscalls[];
+extern SYS_CONST int windows_10_1703_x86_syscalls[];
 extern SYS_CONST int windows_10_1607_x64_syscalls[];
 extern SYS_CONST int windows_10_1607_wow64_syscalls[];
 extern SYS_CONST int windows_10_1607_x86_syscalls[];
@@ -199,20 +207,22 @@ extern SYS_CONST int windows_NT_sp4_syscalls[];
 /* for x64 this is the # of args */
 extern SYS_CONST uint syscall_argsz[];
 
-extern const char * SYS_CONST syscall_names[];
+extern const char *SYS_CONST syscall_names[];
 
 #ifdef DEBUG
-void check_syscall_array_sizes(void);
+void
+check_syscall_array_sizes(void);
 #endif
 
 bool
 windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory);
 
 enum {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL
@@ -229,10 +239,10 @@ enum {
  * holds the return values the os would expect (i.e. the ntdll wrapper return
  * address for XP/2003), also if used before we know the syscall method will
  * default to 0! */
-#define SYSCALL_PARAM_MAX_OFFSET        (2*XSP_SZ) /* offset for real arguments */
+#define SYSCALL_PARAM_MAX_OFFSET (2 * XSP_SZ) /* offset for real arguments */
 #ifdef X64
 /* retaddr, then args */
-# define SYSCALL_PARAM_OFFSET() (XSP_SZ)
+#    define SYSCALL_PARAM_OFFSET() (XSP_SZ)
 #else
 /* as done on WinXP, syscalls have extra slots before real params */
 /* edx is 4 less than on 2000, plus there's an extra call to provide
@@ -241,12 +251,14 @@ enum {
 /* On Win8, wow64 syscalls do not point edx at the params and
  * instead simply use esp and thus must skip the retaddr.
  */
-# define SYSCALL_PARAM_OFFSET()                          \
-    ((get_syscall_method() == SYSCALL_METHOD_SYSCALL || \
-      get_syscall_method() == SYSCALL_METHOD_SYSENTER)  \
-     ? SYSCALL_PARAM_MAX_OFFSET :                       \
-     ((get_syscall_method() == SYSCALL_METHOD_WOW64 &&  \
-       !syscall_uses_wow64_index()) ? XSP_SZ : 0))
+#    define SYSCALL_PARAM_OFFSET()                               \
+        ((get_syscall_method() == SYSCALL_METHOD_SYSCALL ||      \
+          get_syscall_method() == SYSCALL_METHOD_SYSENTER)       \
+             ? SYSCALL_PARAM_MAX_OFFSET                          \
+             : ((get_syscall_method() == SYSCALL_METHOD_WOW64 && \
+                 !syscall_uses_wow64_index())                    \
+                    ? XSP_SZ                                     \
+                    : 0))
 #endif
 
 static inline reg_t *
@@ -275,7 +287,7 @@ static inline reg_t
 sys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 {
     /* sys_param is also called from handle_system_call where dcontext->whereami
-     * is not set to WHERE_SYSCALL_HANDLER yet.
+     * is not set to DR_WHERE_SYSCALL_HANDLER yet.
      */
     ASSERT(!dcontext->post_syscall);
     return *sys_param_addr(dcontext, param_base, num);
@@ -284,8 +296,7 @@ sys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 static inline reg_t
 postsys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 {
-    ASSERT(dcontext->whereami == WHERE_SYSCALL_HANDLER &&
-           dcontext->post_syscall);
+    ASSERT(dcontext->whereami == DR_WHERE_SYSCALL_HANDLER && dcontext->post_syscall);
 #ifdef X64
     switch (num) {
     /* Register params are volatile so we save in dcontext in pre-syscall */
@@ -313,30 +324,25 @@ void
 exit_syscall_trampolines(void);
 
 bool
-os_get_file_size_by_handle(IN HANDLE file_handle,
-                           uint64 *end_of_file);
+os_get_file_size_by_handle(IN HANDLE file_handle, uint64 *end_of_file);
 bool
-os_set_file_size(IN HANDLE file_handle,
-                 uint64 end_of_file);
+os_set_file_size(IN HANDLE file_handle, uint64 end_of_file);
 
 /* use os_rename_file() for cross-platform uses */
 bool
-os_rename_file_in_directory(IN HANDLE rootdir,
-                            const wchar_t *orig_name,
-                            const wchar_t *new_name,
-                            bool replace);
+os_rename_file_in_directory(IN HANDLE rootdir, const wchar_t *orig_name,
+                            const wchar_t *new_name, bool replace);
 
 /* in callback.c ***************************************************/
 
-/* thread-shared only needs 4 pages on 32-bit but -thread_private needs 5
- * in case we hook the image entry on an early cbret.
- * i#2138: on Win10-x64 extra space is needed for dr_syscall_intercept_natively.
- */
-#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(9*4096,7*4096)
+/* i#2138: on Win10-x64 extra space is needed for dr_syscall_intercept_natively. */
+#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(10 * 4096, 8 * 4096)
 
 /* see notes in intercept_new_thread() about these values */
 #define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
-#define THREAD_START_ARG  IF_X64_ELSE(CXT_XDX, CXT_XBX)
+#define THREAD_START_ARG64 CXT_XDX
+#define THREAD_START_ARG32 CXT_XBX
+#define THREAD_START_ARG IF_X64_ELSE(THREAD_START_ARG64, THREAD_START_ARG32)
 
 void
 callback_init(void);
@@ -344,15 +350,14 @@ callback_init(void);
 void
 callback_exit(void);
 
-dr_marker_t*
+dr_marker_t *
 get_drmarker(void);
 
 #define UNDER_DYN_HACK 0xab
 #define IS_UNDER_DYN_HACK(val) ((byte)(val) == UNDER_DYN_HACK)
 
 byte *
-intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
-                          intercept_function_t prof_func,
+intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */, intercept_function_t prof_func,
                           void *callee_arg, after_intercept_action_t action_after,
                           app_pc *skip_syscall_pc /* OUT */,
                           byte **orig_bytes_pc /* OUT */,
@@ -392,9 +397,7 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt);
     INTERCEPT_POINT(INTERCEPT_EARLY_ASYNCH)       \
     /* syscall trampoline prior to image entry */ \
     INTERCEPT_POINT(INTERCEPT_SYSCALL)
-typedef enum {
-    INTERCEPT_ALL_POINTS
-} retakeover_point_t;
+typedef enum { INTERCEPT_ALL_POINTS } retakeover_point_t;
 #undef INTERCEPT_POINT
 
 void
@@ -404,16 +407,17 @@ bool
 new_thread_is_waiting_for_dr_init(thread_id_t tid, app_pc pc);
 
 void
-context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt);
+context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt);
 
 void
 context_to_mcontext_new_thread(priv_mcontext_t *mcontext, CONTEXT *cxt);
 
 void
-mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext, bool set_cur_seg);
+mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg);
 
 #ifdef DEBUG
-void dump_context_info(CONTEXT *context, file_t file, bool all);
+void
+dump_context_info(CONTEXT *context, file_t file, bool all);
 #endif
 
 /* PR 264138: we need to preserve xmm0-5 for x64 and wow64.
@@ -432,7 +436,7 @@ void dump_context_info(CONTEXT *context, file_t file, bool all);
  * for floating point w/o underlying sse support is not a problem.
  */
 #ifdef CONTEXT_XSTATE
-# undef CONTEXT_XSTATE /* defined in VS2008+ */
+#    undef CONTEXT_XSTATE /* defined in VS2008+ */
 #endif
 /* i#437:
  * http://msdn.microsoft.com/en-us/library/windows/desktop/hh134240(v=vs.85).aspx
@@ -450,33 +454,28 @@ extern uint context_xstate;
  * check looks at both (i#1278)
  */
 #define CONTEXT_PRESERVE_YMM (proc_avx_enabled())
-#define CONTEXT_DR_STATE_NO_YMM  (CONTEXT_INTEGER | CONTEXT_CONTROL | \
-                                  (CONTEXT_PRESERVE_XMM ? CONTEXT_XMM_FLAG : 0U))
-#define CONTEXT_DR_STATE (CONTEXT_DR_STATE_NO_YMM | \
-                          (CONTEXT_PRESERVE_YMM ? CONTEXT_YMM_FLAG : 0U))
+#define CONTEXT_DR_STATE_NO_YMM \
+    (CONTEXT_INTEGER | CONTEXT_CONTROL | (CONTEXT_PRESERVE_XMM ? CONTEXT_XMM_FLAG : 0U))
+#define CONTEXT_DR_STATE \
+    (CONTEXT_DR_STATE_NO_YMM | (CONTEXT_PRESERVE_YMM ? CONTEXT_YMM_FLAG : 0U))
 /* FIXME i#444: including CONTEXT_YMM_FLAG blindly results in STATUS_NOT_SUPPORTED in
  * inject_into_thread()'s NtGetContextThread so for now we remove it:
  */
-#define CONTEXT_DR_STATE_ALLPROC (CONTEXT_INTEGER | CONTEXT_CONTROL | \
-                                  CONTEXT_XMM_FLAG | 0/*CONTEXT_YMM_FLAG: see above*/)
+#define CONTEXT_DR_STATE_ALLPROC                            \
+    (CONTEXT_INTEGER | CONTEXT_CONTROL | CONTEXT_XMM_FLAG | \
+     0 /*CONTEXT_YMM_FLAG: see above*/)
 
-#define XSTATE_HEADER_SIZE 0x40  /* 512 bits */
-#define YMMH_AREA(ymmh_area, i) (((dr_xmm_t*)ymmh_area)[i])
-#define MAX_CONTEXT_64_SIZE     0x6ef /* as observed on win10-x64 */
-#ifdef X64
-# define MAX_CONTEXT_SIZE       MAX_CONTEXT_64_SIZE
-#else
-# define MAX_CONTEXT_SIZE       0x4e3 /* as observed on win10-x64 */
-#endif
+#define XSTATE_HEADER_SIZE 0x40 /* 512 bits */
+#define YMMH_AREA(ymmh_area, i) (((dr_xmm_t *)ymmh_area)[i])
 #define CONTEXT_DYNAMICALLY_LAID_OUT(flags) (TESTALL(CONTEXT_XSTATE, flags))
 
 enum {
-      EXCEPTION_INFORMATION_READ_EXECUTE_FAULT = 0,
-      /* On non-NX capable machines Read and Execute faults are not
-       * differentiated */
-      EXCEPTION_INFORMATION_WRITE_FAULT        = 1,
-      EXCEPTION_INFORMATION_EXECUTE_FAULT      = 8, /* case 5879 */
-      /* Only on NX enabled machines Execute faults are differentiated */
+    EXCEPTION_INFORMATION_READ_EXECUTE_FAULT = 0,
+    /* On non-NX capable machines Read and Execute faults are not
+     * differentiated */
+    EXCEPTION_INFORMATION_WRITE_FAULT = 1,
+    EXCEPTION_INFORMATION_EXECUTE_FAULT = 8, /* case 5879 */
+    /* Only on NX enabled machines Execute faults are differentiated */
 };
 
 #ifndef X64
@@ -487,33 +486,33 @@ enum {
  * have XSAVE_ALIGN.  Neither does 8.0 SDK, but we rule that out via
  * XSTATE_AVX, which is only defined in 8.0.
  */
-# if !defined(XSAVE_ALIGN) && !defined(XSTATE_AVX)
+#    if !defined(XSAVE_ALIGN) && !defined(XSTATE_AVX)
 typedef struct DECLSPEC_ALIGN(16) _M128A {
     ULONGLONG Low;
     LONGLONG High;
 } M128A, *PM128A;
 
 typedef struct _XMM_SAVE_AREA32 {
-    WORD   ControlWord;
-    WORD   StatusWord;
-    BYTE  TagWord;
-    BYTE  Reserved1;
-    WORD   ErrorOpcode;
+    WORD ControlWord;
+    WORD StatusWord;
+    BYTE TagWord;
+    BYTE Reserved1;
+    WORD ErrorOpcode;
     DWORD ErrorOffset;
-    WORD   ErrorSelector;
-    WORD   Reserved2;
+    WORD ErrorSelector;
+    WORD Reserved2;
     DWORD DataOffset;
-    WORD   DataSelector;
-    WORD   Reserved3;
+    WORD DataSelector;
+    WORD Reserved3;
     DWORD MxCsr;
     DWORD MxCsr_Mask;
     M128A FloatRegisters[8];
     M128A XmmRegisters[16];
-    BYTE  Reserved4[96];
+    BYTE Reserved4[96];
 } XMM_SAVE_AREA32, *PXMM_SAVE_AREA32;
-# else
+#    else
 typedef XSAVE_FORMAT XMM_SAVE_AREA32, *PXMM_SAVE_AREA32;
-# endif
+#    endif
 
 typedef struct DECLSPEC_ALIGN(16) _CONTEXT_64 {
 
@@ -542,12 +541,12 @@ typedef struct DECLSPEC_ALIGN(16) _CONTEXT_64 {
     // Segment Registers and processor flags.
     //
 
-    WORD   SegCs;
-    WORD   SegDs;
-    WORD   SegEs;
-    WORD   SegFs;
-    WORD   SegGs;
-    WORD   SegSs;
+    WORD SegCs;
+    WORD SegDs;
+    WORD SegEs;
+    WORD SegFs;
+    WORD SegGs;
+    WORD SegSs;
     DWORD EFlags;
 
     //
@@ -637,6 +636,9 @@ typedef struct DECLSPEC_ALIGN(16) _CONTEXT_64 {
 
 /* in module_shared.c */
 #ifndef X64
+size_t
+nt_get_context64_size(void);
+
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64);
 
@@ -657,14 +659,12 @@ void
 inject_init(void); /* must be called prior to inject_into_thread(void) */
 
 bool
-inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
-                   char *dynamo_path);
+inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_path);
 
-/* inject_location values come form the INJECT_LOCATION_* enum is os_shared.h */
+/* inject_location values come from the INJECT_LOCATION_* enum in os_shared.h. */
 bool
-inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
+inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool map,
                         uint inject_location, void *inject_address);
-
 
 /* in <arch.s> (x86.asm for us) ************************************/
 
@@ -681,12 +681,14 @@ void
 nt_continue_dynamo_start(void);
 
 /* x86.asm custom routine used only for check_for_modified_code() */
-void call_modcode_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                            CONTEXT *cxt, app_pc target, uint flags,
-                            bool using_initstack, fragment_t *fragment);
+void
+call_modcode_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *cxt,
+                       app_pc target, uint flags, bool using_initstack,
+                       fragment_t *fragment);
 
 /* x86.asm routine used for injection */
-void load_dynamo(void);
+void
+load_dynamo(void);
 
 /* in eventlog.c ***************************************************/
 
@@ -698,14 +700,13 @@ eventlog_fast_exit(void);
 void
 eventlog_slow_exit(void);
 
-
 /* in module.c *****************************************************/
 
 #ifdef X64
-#ifndef __IMAGE_UNWIND_INFO
-#define __IMAGE_UNWIND_INFO
-#pragma warning(push)
-#pragma warning(disable : 4214) /* allow byte-sized bitfields */
+#    ifndef __IMAGE_UNWIND_INFO
+#        define __IMAGE_UNWIND_INFO
+#        pragma warning(push)
+#        pragma warning(disable : 4214) /* allow byte-sized bitfields */
 /* These definitions are needed to parse exception handlers to add to the RCT
  * table as part of PR 250395.  These definitions aren't found in any header
  * files.  These seem to be coming directly from internal sources.  I saw a
@@ -733,27 +734,27 @@ typedef enum _unwind_opcode_t {
 typedef union _unwind_code_t {
     struct {
         byte CodeOffset;
-        byte UnwindOp :4;
-        byte OpInfo   :4;
+        byte UnwindOp : 4;
+        byte OpInfo : 4;
     };
     USHORT FrameOffset;
 } unwind_code_t;
 
-#ifndef UNW_FLAG_EHANDLER
-# define UNW_FLAG_EHANDLER  0x01
-# define UNW_FLAG_UHANDLER  0x02
-# define UNW_FLAG_CHAININFO 0x04
-#endif
+#        ifndef UNW_FLAG_EHANDLER
+#            define UNW_FLAG_EHANDLER 0x01
+#            define UNW_FLAG_UHANDLER 0x02
+#            define UNW_FLAG_CHAININFO 0x04
+#        endif
 
 typedef struct _unwind_info_t {
-    byte Version      :3;
-    byte Flags        :5;
+    byte Version : 3;
+    byte Flags : 5;
     byte SizeOfProlog;
     byte CountOfCodes;
-    byte FrameRegister:4;
-    byte FrameOffset  :4;
+    byte FrameRegister : 4;
+    byte FrameOffset : 4;
     unwind_code_t UnwindCode[1];
-#if 0 /* variable-length tail of struct */
+#        if 0 /* variable-length tail of struct */
     /* MSDN uses "((CountOfCodes + 1) & ~1)" which is just align-forward-2,
      * used b/c the UnwindCode array must always have an even capacity */
     unwind_code_t MoreUnwindCode[ALIGN_FORWARD(CountOfCodes, 2) - 1];
@@ -762,19 +763,19 @@ typedef struct _unwind_info_t {
         OPTIONAL ULONG FunctionEntry;
     };
     OPTIONAL ULONG ExceptionData[];
-#endif
+#        endif
 } unwind_info_t;
 
 /* Address of field that's after the unwind code data */
-#define UNWIND_INFO_PTR_ADDR(info) \
-    ((void *)&(info)->UnwindCode[ALIGN_FORWARD((info)->CountOfCodes, 2)])
+#        define UNWIND_INFO_PTR_ADDR(info) \
+            ((void *)&(info)->UnwindCode[ALIGN_FORWARD((info)->CountOfCodes, 2)])
 
 /* Field that's after the unwind code data, treated as an RVA */
-#define UNWIND_INFO_PTR_RVA(info) (*(uint*)UNWIND_INFO_PTR_ADDR(info))
+#        define UNWIND_INFO_PTR_RVA(info) (*(uint *)UNWIND_INFO_PTR_ADDR(info))
 
 /* ExceptionData field (2nd one after the unwind code data) */
-#define UNWIND_INFO_DATA_ADDR(info) (((uint*)UNWIND_INFO_PTR_ADDR(info))+1)
-#define UNWIND_INFO_DATA_RVA(info) (*(((uint*)UNWIND_INFO_PTR_ADDR(info))+1))
+#        define UNWIND_INFO_DATA_ADDR(info) (((uint *)UNWIND_INFO_PTR_ADDR(info)) + 1)
+#        define UNWIND_INFO_DATA_RVA(info) (*(((uint *)UNWIND_INFO_PTR_ADDR(info)) + 1))
 
 /* ExceptionData takes this form.  It is inlined according to my observation
  * but it may instead be pointed at by an RVA.
@@ -789,11 +790,11 @@ typedef struct _scope_table_t {
     } ScopeRecord[1];
 } scope_table_t;
 
-#pragma warning(pop)
-#endif /* __IMAGE_UNWIND_INFO */
-#endif /* X64 */
+#        pragma warning(pop)
+#    endif /* __IMAGE_UNWIND_INFO */
+#endif     /* X64 */
 
-#define RVA_TO_VA(base, rva)    ((ptr_uint_t)(base) + (ptr_uint_t)(rva))
+#define RVA_TO_VA(base, rva) ((ptr_uint_t)(base) + (ptr_uint_t)(rva))
 
 bool
 is_readable_pe_base(app_pc base);
@@ -807,13 +808,13 @@ get_module_info_pe(const app_pc module_base, uint *checksum, uint *timestamp,
  * bypasses some safety checks in get_module_short_name to avoid 4
  * system calls.
  */
-char*
+char *
 get_dll_short_name(app_pc base_addr);
 
 /* Use get_module_short_name in general */
 const char *
-get_module_short_name_uncached(dcontext_t *dcontext, app_pc base, bool at_map
-                               HEAPACCT(which_heap_t which));
+get_module_short_name_uncached(dcontext_t *dcontext, app_pc base,
+                               bool at_map HEAPACCT(which_heap_t which));
 
 app_pc
 get_module_entry(app_pc module_base);
@@ -832,7 +833,7 @@ module_is_64bit(app_pc module_base);
 
 #ifdef DEBUG
 
-enum {SYMBOLS_LOGLEVEL = 1};
+enum { SYMBOLS_LOGLEVEL = 1 };
 
 int
 loaded_modules_exports(void);
@@ -854,19 +855,16 @@ module_info_exit(void);
 bool
 module_file_relocatable(app_pc module_base);
 
-bool module_rebase(app_pc module_base, size_t module_size,
-                   ssize_t relocation_delta,
-                   bool protect_incrementally);
-bool module_dump_pe_file(HANDLE new_file,
-                         app_pc module_base, size_t module_size);
+bool
+module_rebase(app_pc module_base, size_t module_size, ssize_t relocation_delta,
+              bool protect_incrementally);
+bool
+module_dump_pe_file(HANDLE new_file, app_pc module_base, size_t module_size);
 
 bool
-module_contents_compare(app_pc original_module_base,
-                        app_pc suspect_module_base,
-                        size_t matching_module_size,
-                        bool relocated,
-                        ssize_t relocation_delta,
-                        size_t validation_section_prefix);
+module_contents_compare(app_pc original_module_base, app_pc suspect_module_base,
+                        size_t matching_module_size, bool relocated,
+                        ssize_t relocation_delta, size_t validation_section_prefix);
 
 bool
 module_make_writable(app_pc module_base, size_t module_size);
@@ -876,8 +874,7 @@ aslr_compare_header(app_pc original_module_base, size_t original_header_len,
                     app_pc suspect_module_base);
 
 bool
-get_executable_segment(app_pc module_base,
-                       app_pc *sec_start /* OPTIONAL OUT */,
+get_executable_segment(app_pc module_base, app_pc *sec_start /* OPTIONAL OUT */,
                        app_pc *sec_end /* OPTIONAL OUT */,
                        app_pc *sec_end_nopad /* OPTIONAL OUT */);
 
@@ -893,6 +890,10 @@ section_to_file_add(HANDLE section_handle, const char *file_path);
 
 bool
 section_to_file_remove(HANDLE section_handle);
+
+bool
+module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
+                    OUT byte **data_start, OUT byte **data_end);
 
 /* in aslr.c */
 const wchar_t *
@@ -924,10 +925,16 @@ get_process_primary_SID(void);
 
 bool
 convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
-                       IN size_t buf_len/*# elements*/);
+                       IN size_t buf_len /*# elements*/);
+
+size_t
+nt_get_context_size(DWORD flags);
+
+size_t
+nt_get_max_context_size(void);
 
 CONTEXT *
-nt_initialize_context(char *buf, DWORD flags);
+nt_initialize_context(char *buf, size_t buf_len, DWORD flags);
 
 byte *
 context_ymmh_saved_area(CONTEXT *cxt);
@@ -936,17 +943,17 @@ context_ymmh_saved_area(CONTEXT *cxt);
 /* always null-terminates when it returns non-NULL */
 wchar_t *
 convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
-                             IN size_t fixedbuf_len/*# elements*/,
-                             OUT size_t *allocbuf_sz/*#bytes*/);
+                             IN size_t fixedbuf_len /*# elements*/,
+                             OUT size_t *allocbuf_sz /*#bytes*/);
 
 void
-convert_to_NT_file_path_wide_free(IN wchar_t *alloc, IN size_t alloc_buf_sz/*#bytes*/);
+convert_to_NT_file_path_wide_free(IN wchar_t *alloc, IN size_t alloc_buf_sz /*#bytes*/);
 #endif
 
 /* always null-terminates when it returns true */
 bool
 convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
-                        IN size_t buf_len/*# elements*/);
+                        IN size_t buf_len /*# elements*/);
 
 /* in loader.c */
 

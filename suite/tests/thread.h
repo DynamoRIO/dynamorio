@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,16 +39,16 @@
 /***************************************************************************/
 #ifdef UNIX
 
-#define WINAPI
+#    define WINAPI
 
-#include <pthread.h>
-#include <unistd.h>
-#include <sched.h>
+#    include <pthread.h>
+#    include <unistd.h>
+#    include <sched.h>
 
 typedef pthread_t thread_t;
 
-# define THREAD_FUNC_RETURN_TYPE void *
-# define THREAD_FUNC_RETURN_ZERO NULL
+#    define THREAD_FUNC_RETURN_TYPE void *
+#    define THREAD_FUNC_RETURN_ZERO NULL
 
 /* Create a new thread. It should be passed "run_func", a function which
  * takes one argument ("arg"), for the thread to execute.
@@ -71,7 +71,7 @@ join_thread(thread_t thread)
 void
 thread_sleep(int ms)
 {
-    usleep(1000*ms);
+    usleep(1000 * ms);
 }
 
 void
@@ -83,26 +83,24 @@ thread_yield(void)
 /***************************************************************************/
 #else /* WINDOWS */
 
-#include <windows.h>
-#include <process.h> /* for _beginthreadex */
+#    include <windows.h>
+#    include <process.h> /* for _beginthreadex */
 
 typedef HANDLE thread_t;
 
-# define THREAD_FUNC_RETURN_TYPE unsigned int __stdcall
-# define THREAD_FUNC_RETURN_ZERO 0
+#    define THREAD_FUNC_RETURN_TYPE unsigned int __stdcall
+#    define THREAD_FUNC_RETURN_ZERO 0
 
 /* Create a new thread. It should be passed "run_func", a function which
  * takes one argument ("arg"), for the thread to execute.
  * Returns a handle to the new thread.
  */
-# ifndef STATIC_LIBRARY  /* FIXME i#975: conflicts with DR's symbols. */
 thread_t
-create_thread(unsigned int (__stdcall *run_func)(void *), void *arg)
+create_thread(unsigned int(__stdcall *run_func)(void *), void *arg)
 {
-    int tid;
-    return (thread_t) _beginthreadex(NULL, 0, run_func, arg, 0, &tid);
+    unsigned int tid;
+    return (thread_t)_beginthreadex(NULL, 0, run_func, arg, 0, &tid);
 }
-# endif
 
 void
 delete_thread(thread_t thread, void *stack)
@@ -137,13 +135,13 @@ resume_thread(thread_t thread)
     ResumeThread(thread);
 }
 
-# ifndef STATIC_LIBRARY  /* FIXME i#975: conflicts with DR's symbols. */
+#    ifndef STATIC_LIBRARY /* FIXME i#975: conflicts with DR's symbols. */
 void
 thread_yield()
 {
     Sleep(0); /* stay ready */
 }
-# endif
+#    endif
 
 #endif /* WINDOWS */
 

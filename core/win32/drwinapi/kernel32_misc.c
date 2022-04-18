@@ -37,18 +37,13 @@
 
 DWORD
 WINAPI
-redirect_GetLastError(
-    VOID
-    )
+redirect_GetLastError(VOID)
 {
     return get_last_error();
 }
 
-VOID
-WINAPI
-redirect_SetLastError(
-    __in DWORD dwErrCode
-    )
+VOID WINAPI
+redirect_SetLastError(__in DWORD dwErrCode)
 {
     set_last_error(dwErrCode);
 }
@@ -56,7 +51,6 @@ redirect_SetLastError(
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Miscellaneous
  */
-
 
 /***************************************************************************
  * TESTS

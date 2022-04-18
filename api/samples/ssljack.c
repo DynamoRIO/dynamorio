@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,9 +50,12 @@
 #include <string.h>
 
 /* OpenSSL and GnuTLS - shared wrappers */
-static void wrap_pre_SSL_write(void *wrapcxt, OUT void **user_data);
-static void wrap_pre_SSL_read(void *wrapcxt, OUT void **user_data);
-static void wrap_post_SSL_read(void *wrapcxt, void *user_data);
+static void
+wrap_pre_SSL_write(void *wrapcxt, OUT void **user_data);
+static void
+wrap_pre_SSL_read(void *wrapcxt, OUT void **user_data);
+static void
+wrap_post_SSL_read(void *wrapcxt, void *user_data);
 
 struct SSL_read_data {
     unsigned char *read_buffer;
@@ -62,7 +65,7 @@ struct SSL_read_data {
 static void
 module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
-    app_pc towrap = (app_pc) dr_get_proc_address(mod->handle, "SSL_write");
+    app_pc towrap = (app_pc)dr_get_proc_address(mod->handle, "SSL_write");
     if (towrap != NULL) {
         bool ok = drwrap_wrap(towrap, wrap_pre_SSL_write, NULL);
         if (!ok) {
@@ -71,7 +74,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         }
     }
 
-    towrap = (app_pc) dr_get_proc_address(mod->handle, "SSL_read");
+    towrap = (app_pc)dr_get_proc_address(mod->handle, "SSL_read");
     if (towrap != NULL) {
         bool ok = drwrap_wrap(towrap, wrap_pre_SSL_read, wrap_post_SSL_read);
         if (!ok) {
@@ -80,7 +83,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         }
     }
 
-    towrap = (app_pc) dr_get_proc_address(mod->handle, "gnutls_record_send");
+    towrap = (app_pc)dr_get_proc_address(mod->handle, "gnutls_record_send");
     if (towrap != NULL) {
         bool ok = drwrap_wrap(towrap, wrap_pre_SSL_write, NULL);
         if (!ok) {
@@ -89,7 +92,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         }
     }
 
-    towrap = (app_pc) dr_get_proc_address(mod->handle, "gnutls_record_recv");
+    towrap = (app_pc)dr_get_proc_address(mod->handle, "gnutls_record_recv");
     if (towrap != NULL) {
         bool ok = drwrap_wrap(towrap, wrap_pre_SSL_read, wrap_post_SSL_read);
         if (!ok) {
@@ -111,7 +114,7 @@ dr_init(client_id_t id)
 {
     dr_set_client_name("DynamoRIO client 'ssljack'", "http://dynamorio.org/issues");
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client ssljack initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client ssljack initializing\n");
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
         dr_fprintf(STDERR, "Client ssljack running! See trace-* files for SSL logs!\n");
@@ -133,14 +136,14 @@ wrap_pre_SSL_write(void *wrapcxt, OUT void **user_data)
      *                            const void * data, size_t sizeofdata);
      */
 
-    void *ssl = (void*) drwrap_get_arg(wrapcxt, 0);
-    unsigned char *buf = (unsigned char *) drwrap_get_arg(wrapcxt, 1);
-    size_t sz = (size_t) drwrap_get_arg(wrapcxt, 2);
+    void *ssl = (void *)drwrap_get_arg(wrapcxt, 0);
+    unsigned char *buf = (unsigned char *)drwrap_get_arg(wrapcxt, 1);
+    size_t sz = (size_t)drwrap_get_arg(wrapcxt, 2);
 
     /* By generating unique filenames (per SSL context), we are able to
      * simplify logging of SSL traffic (no file locking is required).
      */
-    char filename[MAXIMUM_PATH] = {0};
+    char filename[MAXIMUM_PATH] = { 0 };
     dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename), "trace-%x.write", ssl);
     NULL_TERMINATE_BUFFER(filename);
     FILE *fp = fopen(filename, "ab+");
@@ -169,8 +172,8 @@ wrap_pre_SSL_read(void *wrapcxt, OUT void **user_data)
      */
 
     sd = dr_global_alloc(sizeof(struct SSL_read_data));
-    sd->read_buffer = (unsigned char *) drwrap_get_arg(wrapcxt, 1);
-    sd->ssl = (void*) drwrap_get_arg(wrapcxt, 0);
+    sd->read_buffer = (unsigned char *)drwrap_get_arg(wrapcxt, 1);
+    sd->ssl = (void *)drwrap_get_arg(wrapcxt, 0);
 
     *user_data = (void *)sd;
 }
@@ -178,11 +181,11 @@ wrap_pre_SSL_read(void *wrapcxt, OUT void **user_data)
 static void
 wrap_post_SSL_read(void *wrapcxt, void *user_data)
 {
-    struct SSL_read_data *sd  = (struct SSL_read_data*) user_data;
+    struct SSL_read_data *sd = (struct SSL_read_data *)user_data;
 
-    int actual_read = (int)(ptr_int_t) drwrap_get_retval(wrapcxt);
+    int actual_read = (int)(ptr_int_t)drwrap_get_retval(wrapcxt);
 
-    char filename[MAXIMUM_PATH] = {0};
+    char filename[MAXIMUM_PATH] = { 0 };
     dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename), "trace-%x.read", sd->ssl);
     NULL_TERMINATE_BUFFER(filename);
     FILE *fp = fopen(filename, "ab+");

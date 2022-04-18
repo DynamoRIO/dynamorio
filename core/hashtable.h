@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,95 +43,93 @@
 #ifndef _HASHTABLE_H_
 #define _HASHTABLE_H_ 1
 
-
 /* Flags stored in the table_flags bitfield that are common to
  * all hashtables
  */
 /* Is the table itself shared? */
-#define HASHTABLE_SHARED                0x00000001
+#define HASHTABLE_SHARED 0x00000001
 /* Are the entries in the table shared?
  * FIXME: right now this is never used independently from LOCKLESS_ACCESS,
  * perhaps get rid of it
  */
-#define HASHTABLE_ENTRY_SHARED          0x00000002
+#define HASHTABLE_ENTRY_SHARED 0x00000002
 /* Is the table accessed for reads concurrently without a lock? */
-#define HASHTABLE_LOCKLESS_ACCESS       0x00000004
-/* Is the table the primary, master list of its contents? */
-#define HASHTABLE_NOT_PRIMARY_STORAGE   0x00000004
+#define HASHTABLE_LOCKLESS_ACCESS 0x00000004
+/* Is the table the primary, main list of its contents? */
+#define HASHTABLE_NOT_PRIMARY_STORAGE 0x00000004
 /* Is the table allocated in persistent memory? */
-#define HASHTABLE_PERSISTENT            0x00000008
+#define HASHTABLE_PERSISTENT 0x00000008
 /* For debug builds: use per-entry statistics? */
-#define HASHTABLE_USE_ENTRY_STATS       0x00000010
+#define HASHTABLE_USE_ENTRY_STATS 0x00000010
 /* For non-performance-critical tables where we'd rather save memory */
-#define HASHTABLE_RELAX_CLUSTER_CHECKS  0x00000020
+#define HASHTABLE_RELAX_CLUSTER_CHECKS 0x00000020
 /* Disallow adding or removing from the table, and acquire no locks on lookups
  * Only used for persisted coarse units.
  */
-#define HASHTABLE_READ_ONLY             0x00000040
+#define HASHTABLE_READ_ONLY 0x00000040
 /* Align the main table to the cache line */
-#define HASHTABLE_ALIGN_TABLE           0x00000080
+#define HASHTABLE_ALIGN_TABLE 0x00000080
 
 /* Specific tables can add their own flags starting with this value
  * FIXME: any better way? how know when hit limit with <<?
  */
-#define HASHTABLE_CUSTOM_FLAGS_START    0x00010000
+#define HASHTABLE_CUSTOM_FLAGS_START 0x00010000
 
 /* Flags to NOT propagate to copies */
-#define HASHTABLE_COPY_IGNORE_FLAGS     (HASHTABLE_READ_ONLY)
-
+#define HASHTABLE_COPY_IGNORE_FLAGS (HASHTABLE_READ_ONLY)
 
 /* single_thread_in_DR does not need rw locks since we do not access shared
  * tables from ibl while holding locks (we do so in a lockless manner)
  */
-#define TABLE_NEEDS_LOCK(ptable)                          \
-    (TEST(HASHTABLE_SHARED, (ptable)->table_flags) &&     \
+#define TABLE_NEEDS_LOCK(ptable)                      \
+    (TEST(HASHTABLE_SHARED, (ptable)->table_flags) && \
      !TEST(HASHTABLE_READ_ONLY, (ptable)->table_flags))
 
 /* is_local is currently debug-only and only affects asserts */
-#define ASSERT_TABLE_SYNCHRONIZED(ptable, RW)                                \
-    ASSERT_OWN_##RW##_LOCK(TABLE_NEEDS_LOCK(ptable) &&                       \
-                           !(ptable)->is_local &&                            \
-                           !INTERNAL_OPTION(single_thread_in_DR), &(ptable)->rwlock)
+#define ASSERT_TABLE_SYNCHRONIZED(ptable, RW)                                 \
+    ASSERT_OWN_##RW##_LOCK(TABLE_NEEDS_LOCK(ptable) && !(ptable)->is_local && \
+                               !INTERNAL_OPTION(single_thread_in_DR),         \
+                           &(ptable)->rwlock)
 
-#define TABLE_RWLOCK(ptable,rw,lock) do {   \
-    if (TABLE_NEEDS_LOCK(ptable))           \
-        rw##_##lock(&(ptable)->rwlock);     \
-} while (0)
+#define TABLE_RWLOCK(ptable, rw, lock)            \
+    do {                                          \
+        if (TABLE_NEEDS_LOCK(ptable))             \
+            d_r_##rw##_##lock(&(ptable)->rwlock); \
+    } while (0)
 
 #define TABLE_MEMOP(table_flags, op) \
-    (TEST((table_flags), HASHTABLE_PERSISTENT) ? \
-     heap_##op : nonpersistent_heap_##op)
+    (TEST((table_flags), HASHTABLE_PERSISTENT) ? heap_##op : nonpersistent_heap_##op)
 
 #define TABLE_TYPE_MEMOP(table_flags, op, dc, type, which, protected) \
-    (TEST((table_flags), HASHTABLE_PERSISTENT) ? \
-     HEAP_TYPE_##op(dc, type, which, protected): \
-     NONPERSISTENT_HEAP_TYPE_##op(dc, type, which))
+    (TEST((table_flags), HASHTABLE_PERSISTENT)                        \
+         ? HEAP_TYPE_##op(dc, type, which, protected)                 \
+         : NONPERSISTENT_HEAP_TYPE_##op(dc, type, which))
 
 /* table capacity includes a sentinel so this is equivalent to
  * hash_index % (ftable->capacity - 1)
  */
-#define HASH_INDEX_WRAPAROUND(hash_index,ftable) \
+#define HASH_INDEX_WRAPAROUND(hash_index, ftable) \
     ((hash_index) & (uint)(ftable->hash_mask >> ftable->hash_mask_offset))
 
 #ifdef HASHTABLE_STATISTICS
 /* Just a typechecking memset() wrapper */
-# define INIT_HASHTABLE_STATS(lookup_stats) do {                \
-        memset(&lookup_stats, 0, sizeof(hashtable_statistics_t));  \
-        ASSERT(lookup_stats.hit_stat == 0);                     \
-} while (0)
-# define HTABLE_STAT_INC(ftable,event) ftable->drlookup_stats.event##_stat++
+#    define INIT_HASHTABLE_STATS(lookup_stats)                        \
+        do {                                                          \
+            memset(&lookup_stats, 0, sizeof(hashtable_statistics_t)); \
+            ASSERT(lookup_stats.hit_stat == 0);                       \
+        } while (0)
+#    define HTABLE_STAT_INC(ftable, event) ftable->drlookup_stats.event##_stat++
 #else
-# define HTABLE_STAT_INC(ftable,event) ((void)0)
+#    define HTABLE_STAT_INC(ftable, event) ((void)0)
 #endif
-
 
 #ifdef HASHTABLE_STATISTICS
 typedef struct _hashtable_statistics_t {
-    uint hit_stat;    /* hit count of hash table lookups */
+    uint hit_stat;           /* hit count of hash table lookups */
     uint collision_hit_stat; /* lookups which collided but were hits */
-    uint collision_stat; /* total collision lookups (including misses) */
-    uint miss_stat; /* lookups which still ended up with a context switch */
-    uint overwrap_stat; /* lookups whose collision chain crosses overwrap sentinel */
+    uint collision_stat;     /* total collision lookups (including misses) */
+    uint miss_stat;          /* lookups which still ended up with a context switch */
+    uint overwrap_stat;      /* lookups whose collision chain crosses overwrap sentinel */
     uint race_condition_stat; /* number of inilned ibl unlinking race condition cases */
     uint unlinked_count_stat; /* number of times unlinked */
 
@@ -164,9 +162,9 @@ typedef struct _hashtable_statistics_t {
 /* A table used by IBL parallel to the lookuptable to collect statistics */
 typedef struct _fragment_stat_entry_t {
     /* hits * static collision length should equal */
-    uint    hits; /* hits in IBL */
+    uint hits; /* hits in IBL */
     /* we need a filler for in-cache lookups */
-    uint    age; /* used to measure for how long an entry hasn't been used */
+    uint age; /* used to measure for how long an entry hasn't been used */
 } fragment_stat_entry_t;
 #endif /* HASHTABLE_STATISTICS */
 
@@ -196,16 +194,16 @@ typedef struct _generic_entry_t {
 #define NAME_KEY generic
 #define ENTRY_TYPE generic_entry_t *
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
-#define CUSTOM_FIELDS \
-    void (*free_payload_func)(dcontext_t*, void*);
+#define CUSTOM_FIELDS void (*free_payload_func)(dcontext_t *, void *);
 #define HASHTABLEX_HEADER 1
 #include "hashtablex.h"
 #undef HASHTABLEX_HEADER
 
 generic_table_t *
 generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
-                    uint table_flags, void (*free_payload_func)(dcontext_t*, void*)
-                    _IF_DEBUG(const char *table_name));
+                    uint table_flags,
+                    void (*free_payload_func)(dcontext_t *, void *)
+                        _IF_DEBUG(const char *table_name));
 
 void
 generic_hash_destroy(dcontext_t *dcontext, generic_table_t *htable);
@@ -225,8 +223,8 @@ generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t ke
 
 /* removes the key range [start,end) and returns the number of entries removed */
 uint
-generic_hash_range_remove(dcontext_t *dcontext, generic_table_t *htable,
-                          ptr_uint_t start, ptr_uint_t end);
+generic_hash_range_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t start,
+                          ptr_uint_t end);
 
 /* pass 0 to start.  returns -1 when there are no more entries. */
 int
@@ -255,16 +253,15 @@ typedef struct _strhash_entry_t {
 #define NAME_KEY strhash
 #define ENTRY_TYPE strhash_entry_t *
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
-#define CUSTOM_FIELDS \
-    void (*free_payload_func)(void*);
+#define CUSTOM_FIELDS void (*free_payload_func)(void *);
 #define HASHTABLEX_HEADER 1
 #include "hashtablex.h"
 #undef HASHTABLEX_HEADER
 
 strhash_table_t *
 strhash_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
-                   uint table_flags, void (*free_payload_func)(void*)
-                   _IF_DEBUG(const char *table_name));
+                    uint table_flags,
+                    void (*free_payload_func)(void *) _IF_DEBUG(const char *table_name));
 
 void
 strhash_hash_destroy(dcontext_t *dcontext, strhash_table_t *htable);
@@ -277,23 +274,19 @@ strhash_hash_lookup(dcontext_t *dcontext, strhash_table_t *htable, const char *k
 
 void
 strhash_hash_add(dcontext_t *dcontext, strhash_table_t *htable, const char *key,
-                void *payload);
+                 void *payload);
 
 bool
 strhash_hash_remove(dcontext_t *dcontext, strhash_table_t *htable, const char *key);
 
 /*******************************************************************************/
 
-
 #ifdef HASHTABLE_STATISTICS
 /* caller is responsible for any needed synchronization */
 void
-print_hashtable_stats(dcontext_t *dcontext,
-                      const char *is_final_str, const char *is_trace_str,
-                      const char *lookup_routine_str,
-                      const char *brtype_str,
-                      hashtable_statistics_t *lookup_stats);
+print_hashtable_stats(dcontext_t *dcontext, const char *is_final_str,
+                      const char *is_trace_str, const char *lookup_routine_str,
+                      const char *brtype_str, hashtable_statistics_t *lookup_stats);
 #endif
-
 
 #endif /* _HASHTABLE_H_ */

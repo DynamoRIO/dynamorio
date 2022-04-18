@@ -1,12 +1,20 @@
 #if defined(thread_private) || defined(enable_full_api)
 options = use_unlink
+kernel_xfer_event: type 9
 Flush completion id=100
+kernel_xfer_event: type 9
 Flush completion id=200
+kernel_xfer_event: type 9
 Flush completion id=300
+kernel_xfer_event: type 9
 Flush completion id=400
 #else
 options =@&
+in synch_flush_completion_callback, user_data=200
+kernel_xfer_event: type 9
 Flush completion id=200
+in synch_flush_completion_callback, user_data=400
+kernel_xfer_event: type 9
 Flush completion id=400
 #endif
 count = 402

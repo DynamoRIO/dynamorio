@@ -43,7 +43,7 @@
 
 /* undefine this for a performance test */
 #ifndef NIGHTLY_REGRESSION
-# define NIGHTLY_REGRESSION
+#    define NIGHTLY_REGRESSION
 #endif
 
 #include "tools.h"
@@ -52,48 +52,49 @@
 
 #ifdef WINDOWS
 /* and compile with user32.lib */
-#include <windows.h>
+#    include <windows.h>
 #endif
 
 #ifdef NIGHTLY_REGRESSION
-#  define ITER 400*1000
+#    define ITER 400 * 1000
 #else
-#  define ITER 400*100000 // *100
+#    define ITER 400 * 100000 // *100
 #endif
 
 //#define MORE  more fanout
 //#define TOO_MUCH or more depth and more work
 
-int compare(const void *arg1, const void *arg2)
+int
+compare(const void *arg1, const void *arg2)
 {
-   /* Compare all of both strings: */
-   return
+    /* Compare all of both strings: */
+    return
 #ifdef WINDOWS
-       _stricmp
+        _stricmp
 #else
-       strcasecmp
+        strcasecmp
 #endif
-       ( * ( char** ) arg1, * ( char** ) arg2 );
+        (*(char **)arg1, *(char **)arg2);
 }
 
 int
 sort()
 {
     int argc = 5;
-    const char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
+    const char *argv[] = { "one", "two", "three", "five", "six", "unsorted" };
 
 #ifdef TOO_MUCH
-   /* Sort remaining args using Quicksort algorithm: */
-   qsort((void *)argv, (size_t)argc, sizeof( char * ), compare);
+    /* Sort remaining args using Quicksort algorithm: */
+    qsort((void *)argv, (size_t)argc, sizeof(char *), compare);
 #endif
 
-   compare(&argv[4], &argv[2]);
-   compare(&argv[3], &argv[2]);
-   return compare(&argv[1], &argv[2]);
+    compare(&argv[4], &argv[2]);
+    compare(&argv[3], &argv[2]);
+    return compare(&argv[1], &argv[2]);
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
     int i;
 
@@ -101,7 +102,7 @@ main(int argc, char** argv)
     USE_USER32();
 
     /* now a little more realistic depths that fit in the RSB */
-    for (i=0; i<=ITER; i++) {
+    for (i = 0; i <= ITER; i++) {
         sort();
         sort();
         sort();

@@ -32,7 +32,7 @@
 
 #include "tools.h"
 #ifdef UNIX
-# include "dlfcn.h"
+#    include "dlfcn.h"
 #endif
 
 static void
@@ -47,7 +47,7 @@ load_library(const char *path)
         FreeLibrary(lib);
     }
 #else
-    void *lib = dlopen(path, RTLD_LAZY|RTLD_LOCAL);
+    void *lib = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
     if (lib == NULL) {
         print("error loading library %s: %s\n", path, dlerror());
     } else {

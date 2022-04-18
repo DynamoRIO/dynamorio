@@ -42,87 +42,30 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
-/***************************************************************************/
-/* a hopefuly portable /proc/@self/maps reader */
-
-/* these are defined in /usr/src/linux/fs/proc/array.c */
-#define MAPS_LINE_LENGTH        4096
-/* for systems with sizeof(void*) == 4: */
-#define MAPS_LINE_FORMAT4          "%08lx-%08lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX4        49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
-/* for systems with sizeof(void*) == 8: */
-#define MAPS_LINE_FORMAT8          "%016lx-%016lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX8        73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
-
-#define MAPS_LINE_MAX        MAPS_LINE_MAX8
+#include "tools.h"
 
 int
-find_dynamo_library()
-{
-    pid_t pid = getpid();
-    char         proc_pid_maps[64];        /* file name */
-
-    FILE *maps;
-    char         line[MAPS_LINE_LENGTH];
-    int         count = 0;
-
-    // open file's /proc/id/maps virtual map description
-    int n = snprintf(proc_pid_maps, sizeof(proc_pid_maps),
-                     "/proc/%d/maps", pid);
-    if (n<0 || n==sizeof(proc_pid_maps))
-        assert(0); /* paranoia */
-
-    maps=fopen(proc_pid_maps,"r");
-
-    while (!feof(maps)){
-        void * vm_start, * vm_end;
-        char perm[16];
-        char comment_buffer[MAPS_LINE_LENGTH];
-        int len;
-
-        if (NULL==fgets(line, sizeof(line), maps))
-            break;
-        len = sscanf(line,
-                     sizeof(void*) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-                     (unsigned long*)&vm_start, (unsigned long*)&vm_end, perm,
-                     comment_buffer);
-        if (len<4)
-            comment_buffer[0]='\0';
-        if (strstr(comment_buffer, "dynamorio") != 0) {
-            fclose(maps);
-            return 1;
-        }
-    }
-
-    fclose(maps);
-    return 0;
-}
-
-/***************************************************************************/
-
-int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
     pid_t child;
 
     if (find_dynamo_library())
-        printf("parent is running under DynamoRIO\n");
+        print("parent is running under DynamoRIO\n");
     else
-        printf("parent is running natively\n");
+        print("parent is running natively\n");
     child = fork();
     if (child < 0) {
         perror("ERROR on fork");
     } else if (child > 0) {
         pid_t result;
-        printf("parent waiting for child\n");
+        print("parent waiting for child\n");
         result = waitpid(child, NULL, 0);
         assert(result == child);
-        printf("child has exited\n");
+        print("child has exited\n");
     } else {
         if (find_dynamo_library())
-            printf("child is running under DynamoRIO\n");
+            print("child is running under DynamoRIO\n");
         else
-            printf("child is running natively\n");
+            print("child is running natively\n");
     }
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,19 +41,19 @@
 
 #include "../globals.h"
 #include "proc.h"
-#include "instr.h" /* for dr_insert_{save,restore}_fpstate */
-#include "instrument.h" /* for dr_insert_{save,restore}_fpstate */
-#include "instr_create.h" /* for dr_insert_{save,restore}_fpstate */
+#include "instr.h"               /* for dr_insert_{save,restore}_fpstate */
+#include "instrument.h"          /* for dr_insert_{save,restore}_fpstate */
+#include "instr_create_shared.h" /* for dr_insert_{save,restore}_fpstate */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-# undef ASSERT_TRUNCATE
-# undef ASSERT_BITFIELD_TRUNCATE
-# undef ASSERT_NOT_REACHED
-# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
 /* cache_line_size is exported for efficient access.
@@ -63,28 +63,35 @@
  */
 size_t cache_line_size = 32;
 static ptr_uint_t mask; /* bits that should be 0 to be cache-line-aligned */
-cpu_info_t cpu_info = { VENDOR_UNKNOWN, 0, 0, 0, 0,
+cpu_info_t cpu_info = { VENDOR_UNKNOWN,
+#ifdef AARCHXX
+                        0,
+#endif
+                        0,
+                        0,
+                        0,
+                        0,
                         CACHE_SIZE_UNKNOWN,
                         CACHE_SIZE_UNKNOWN,
                         CACHE_SIZE_UNKNOWN,
-                        {0, 0, 0, 0},
-                        {0x6e6b6e75, 0x006e776f} };
+                        { 0, 0, 0, 0 },
+                        { 0x6e6b6e75, 0x006e776f } };
 
 void
-set_cache_size(uint val, uint *dst)
+proc_set_cache_size(uint val, uint *dst)
 {
     CLIENT_ASSERT(dst != NULL, "invalid internal param");
     switch (val) {
-        case 8:    *dst = CACHE_SIZE_8_KB;   break;
-        case 16:   *dst = CACHE_SIZE_16_KB;  break;
-        case 32:   *dst = CACHE_SIZE_32_KB;  break;
-        case 64:   *dst = CACHE_SIZE_64_KB;  break;
-        case 128:  *dst = CACHE_SIZE_128_KB; break;
-        case 256:  *dst = CACHE_SIZE_256_KB; break;
-        case 512:  *dst = CACHE_SIZE_512_KB; break;
-        case 1024: *dst = CACHE_SIZE_1_MB;   break;
-        case 2048: *dst = CACHE_SIZE_2_MB;   break;
-        default: SYSLOG_INTERNAL_ERROR("Unknown processor cache size"); break;
+    case 8: *dst = CACHE_SIZE_8_KB; break;
+    case 16: *dst = CACHE_SIZE_16_KB; break;
+    case 32: *dst = CACHE_SIZE_32_KB; break;
+    case 64: *dst = CACHE_SIZE_64_KB; break;
+    case 128: *dst = CACHE_SIZE_128_KB; break;
+    case 256: *dst = CACHE_SIZE_256_KB; break;
+    case 512: *dst = CACHE_SIZE_512_KB; break;
+    case 1024: *dst = CACHE_SIZE_1_MB; break;
+    case 2048: *dst = CACHE_SIZE_2_MB; break;
+    default: SYSLOG_INTERNAL_ERROR("Unknown processor cache size"); break;
     }
 }
 
@@ -101,11 +108,32 @@ proc_init(void)
         proc_get_cache_size_str(proc_get_L1_icache_size()),
         proc_get_cache_size_str(proc_get_L1_dcache_size()),
         proc_get_cache_size_str(proc_get_L2_cache_size()));
-    LOG(GLOBAL, LOG_TOP, 1, "Processor brand string = %s\n",
-        cpu_info.brand_string);
+    LOG(GLOBAL, LOG_TOP, 1, "Processor brand string = %s\n", cpu_info.brand_string);
     LOG(GLOBAL, LOG_TOP, 1, "Type=0x%x, Family=0x%x, Model=0x%x, Stepping=0x%x\n",
-        cpu_info.type,  cpu_info.family,
-        cpu_info.model, cpu_info.stepping);
+        cpu_info.type, cpu_info.family, cpu_info.model, cpu_info.stepping);
+
+#ifdef AARCHXX
+    /* XXX: Should we create an arch/aarchxx/proc.c just for this code? */
+#    define PROC_CPUINFO "/proc/cpuinfo"
+#    define CPU_ARCH_LINE_FORMAT "CPU architecture: %u\n"
+    file_t cpuinfo = os_open(PROC_CPUINFO, OS_OPEN_READ);
+    /* This can happen in a chroot or if /proc is disabled. */
+    if (cpuinfo != INVALID_FILE) {
+        char *buf = global_heap_alloc(PAGE_SIZE HEAPACCT(ACCT_OTHER));
+        ssize_t nread = os_read(cpuinfo, buf, PAGE_SIZE - 1);
+        if (nread > 0) {
+            buf[nread] = '\0';
+            char *arch_line = strstr(buf, "CPU architecture");
+            if (arch_line != NULL &&
+                sscanf(arch_line, CPU_ARCH_LINE_FORMAT, &cpu_info.architecture) == 1) {
+                LOG(GLOBAL, LOG_ALL, 2, "Processor architecture: %u\n",
+                    cpu_info.architecture);
+            }
+        }
+        global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
+        os_close(cpuinfo);
+    }
+#endif
 }
 
 uint
@@ -118,8 +146,7 @@ DR_API
 int
 proc_set_vendor(uint new_vendor)
 {
-    if (new_vendor == VENDOR_INTEL ||
-        new_vendor == VENDOR_AMD ||
+    if (new_vendor == VENDOR_INTEL || new_vendor == VENDOR_AMD ||
         new_vendor == VENDOR_ARM) {
         uint old_vendor = cpu_info.vendor;
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -157,6 +184,14 @@ proc_get_stepping(void)
     return cpu_info.stepping;
 }
 
+#ifdef AARCHXX
+uint
+proc_get_architecture(void)
+{
+    return cpu_info.architecture;
+}
+#endif
+
 features_t *
 proc_get_all_feature_bits(void)
 {
@@ -190,18 +225,8 @@ proc_get_L2_cache_size(void)
 const char *
 proc_get_cache_size_str(cache_size_t size)
 {
-    static const char *strings[] = {
-        "8 KB",
-        "16 KB",
-        "32 KB",
-        "64 KB",
-        "128 KB",
-        "256 KB",
-        "512 KB",
-        "1 MB",
-        "2 MB",
-        "unknown"
-    };
+    static const char *strings[] = { "8 KB",   "16 KB",  "32 KB", "64 KB", "128 KB",
+                                     "256 KB", "512 KB", "1 MB",  "2 MB",  "unknown" };
     CLIENT_ASSERT(size <= CACHE_SIZE_UNKNOWN, "proc_get_cache_size_str: invalid size");
     return strings[size];
 }
@@ -225,7 +250,7 @@ ptr_uint_t
 proc_bump_to_end_of_cache_line(ptr_uint_t sz)
 {
     if ((sz & mask) == 0x0)
-        return sz;      /* sz already a multiple of the line size */
+        return sz; /* sz already a multiple of the line size */
 
     return ((sz + cache_line_size) & ~mask);
 }
@@ -234,5 +259,5 @@ proc_bump_to_end_of_cache_line(ptr_uint_t sz)
 void *
 proc_get_containing_page(void *addr)
 {
-    return (void *) (((ptr_uint_t)addr) & ~(PAGE_SIZE-1));
+    return (void *)(((ptr_uint_t)addr) & ~(PAGE_SIZE - 1));
 }

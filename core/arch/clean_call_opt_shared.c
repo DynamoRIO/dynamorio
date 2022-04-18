@@ -1,6 +1,6 @@
 /* **********************************************************
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2003-2007 Determina Corp.
@@ -43,47 +43,44 @@
 #include "instrument.h"
 #include "../hashtable.h"
 #include "disassemble.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "clean_call_opt.h"
-
-/* make code more readable by shortening long lines
- * we mark everything we add as a meta-instr to avoid hitting
- * client asserts on setting translation fields
- */
-#define POST instrlist_meta_postinsert
-#define PRE  instrlist_meta_preinsert
 
 /****************************************************************************
  * clean call callee info table for i#42 and i#43
  */
 
-#ifdef CLIENT_INTERFACE
 /* hashtable for storing analyzed callee info */
-static generic_table_t  *callee_info_table;
+static generic_table_t *callee_info_table;
 /* we only free callee info at exit, when callee_info_table_exit is true. */
 static bool callee_info_table_exit = false;
-# define INIT_HTABLE_SIZE_CALLEE 6 /* should remain small */
+#define INIT_HTABLE_SIZE_CALLEE 6 /* should remain small */
 
 static void
 callee_info_init(callee_info_t *ci)
 {
-    uint i;
+    int i;
     memset(ci, 0, sizeof(*ci));
     ci->bailout = true;
     /* to be conservative */
-    ci->has_locals  = true;
+    ci->has_locals = true;
     ci->write_flags = true;
-    ci->read_flags  = true;
-    ci->tls_used    = true;
+    ci->read_flags = true;
+    ci->tls_used = true;
     /* We use loop here and memset in analyze_callee_regs_usage later.
      * We could reverse the logic and use memset to set the value below,
      * but then later in analyze_callee_regs_usage, we have to use the loop.
      */
-    /* assuming all xmm registers are used */
-    ci->num_simd_used = NUM_SIMD_REGS;
-    for (i = 0; i < NUM_SIMD_REGS; i++)
+    /* assuming all [xyz]mm registers are used */
+    ci->num_simd_used = proc_num_simd_registers();
+    for (i = 0; i < proc_num_simd_registers(); i++)
         ci->simd_used[i] = true;
-    for (i = 0; i < NUM_GP_REGS; i++)
+#ifdef X86
+    ci->num_opmask_used = proc_num_opmask_registers();
+    for (i = 0; i < proc_num_opmask_registers(); i++)
+        ci->opmask_used[i] = true;
+#endif
+    for (i = 0; i < DR_NUM_GPR_REGS; i++)
         ci->reg_used[i] = true;
     ci->spill_reg = DR_REG_INVALID;
 }
@@ -95,8 +92,7 @@ callee_info_free(dcontext_t *dcontext, callee_info_t *ci)
         ASSERT(ci->opt_inline);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ci->ilist);
     }
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ci, callee_info_t,
-                   ACCT_CLEANCALL, PROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ci, callee_info_t, ACCT_CLEANCALL, PROTECTED);
 }
 
 static callee_info_t *
@@ -104,8 +100,7 @@ callee_info_create(app_pc start, uint num_args)
 {
     callee_info_t *info;
 
-    info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, callee_info_t,
-                           ACCT_CLEANCALL, PROTECTED);
+    info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, callee_info_t, ACCT_CLEANCALL, PROTECTED);
     callee_info_init(info);
     info->start = start;
     info->num_args = num_args;
@@ -123,7 +118,8 @@ callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, reg_id_t value)
     } else {
         LOG(THREAD_GET, LOG_CLEANCALL, 2,
             "CLEANCALL: unable to fulfill callee_info_reserve_slot for "
-            "kind %d value %d\n", kind, value);
+            "kind %d value %d\n",
+            kind, value);
     }
     /* We check if slots_used > CLEANCALL_NUM_INLINE_SLOTS to detect failure. */
     ci->slots_used++;
@@ -136,29 +132,25 @@ callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, reg_id_t value)
     if (kind == SLOT_REG)
         value = dr_reg_fixer[value];
     for (i = 0; i < BUFFER_SIZE_ELEMENTS(ci->scratch_slots); i++) {
-        if (ci->scratch_slots[i].kind  == kind &&
-            ci->scratch_slots[i].value == value) {
-            int disp = (int)offsetof(unprotected_context_t,
-                                     inline_spill_slots[i]);
-            return opnd_create_base_disp(ci->spill_reg, DR_REG_NULL, 0, disp,
-                                         OPSZ_PTR);
+        if (ci->scratch_slots[i].kind == kind && ci->scratch_slots[i].value == value) {
+            int disp = (int)offsetof(unprotected_context_t, inline_spill_slots[i]);
+            return opnd_create_base_disp(ci->spill_reg, DR_REG_NULL, 0, disp, OPSZ_PTR);
         }
     }
-    ASSERT_MESSAGE(CHKLVL_ASSERTS, "Tried to find scratch slot for value "
-                   "without calling callee_info_reserve_slot for it", false);
+    ASSERT_MESSAGE(CHKLVL_ASSERTS,
+                   "Tried to find scratch slot for value "
+                   "without calling callee_info_reserve_slot for it",
+                   false);
     return opnd_create_null();
 }
 
 static void
 callee_info_table_init(void)
 {
-    callee_info_table =
-        generic_hash_create(GLOBAL_DCONTEXT,
-                            INIT_HTABLE_SIZE_CALLEE,
-                            80 /* load factor: not perf-critical */,
-                            HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
-                            (void(*)(dcontext_t*, void*)) callee_info_free
-                            _IF_DEBUG("callee-info table"));
+    callee_info_table = generic_hash_create(
+        GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_CALLEE, 80 /* load factor: not perf-critical */,
+        HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+        (void (*)(dcontext_t *, void *))callee_info_free _IF_DEBUG("callee-info table"));
 }
 
 static void
@@ -173,8 +165,7 @@ callee_info_table_lookup(void *callee)
 {
     callee_info_t *ci;
     TABLE_RWLOCK(callee_info_table, read, lock);
-    ci = generic_hash_lookup(GLOBAL_DCONTEXT, callee_info_table,
-                             (ptr_uint_t)callee);
+    ci = generic_hash_lookup(GLOBAL_DCONTEXT, callee_info_table, (ptr_uint_t)callee);
     TABLE_RWLOCK(callee_info_table, read, unlock);
     /* We only delete the callee_info from the callee_info_table
      * when destroy the table on exit, so we can keep the ci
@@ -188,12 +179,11 @@ callee_info_table_add(callee_info_t *ci)
 {
     callee_info_t *info;
     TABLE_RWLOCK(callee_info_table, write, lock);
-    info = generic_hash_lookup(GLOBAL_DCONTEXT, callee_info_table,
-                               (ptr_uint_t)ci->start);
+    info = generic_hash_lookup(GLOBAL_DCONTEXT, callee_info_table, (ptr_uint_t)ci->start);
     if (info == NULL) {
         info = ci;
-        generic_hash_add(GLOBAL_DCONTEXT, callee_info_table,
-                         (ptr_uint_t)ci->start, (void *)ci);
+        generic_hash_add(GLOBAL_DCONTEXT, callee_info_table, (ptr_uint_t)ci->start,
+                         (void *)ci);
     } else {
         /* Have one in the table, free the new one and use existing one.
          * We cannot free the existing one in the table as it might be used by
@@ -211,7 +201,7 @@ callee_info_table_add(callee_info_t *ci)
 /* clean call optimization code */
 
 /* The max number of instructions the callee can have for inline. */
-# define MAX_NUM_INLINE_INSTRS 20
+#define MAX_NUM_INLINE_INSTRS 20
 
 /* Decode instruction from callee and return the next_pc to be decoded. */
 static app_pc
@@ -219,31 +209,28 @@ decode_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc instr_pc)
 {
     instrlist_t *ilist = ci->ilist;
     instr_t *instr;
-    app_pc   next_pc = NULL;
+    app_pc next_pc = NULL;
 
     instr = instr_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, instr);
     ci->num_instrs++;
-    TRY_EXCEPT(dcontext, {
-        next_pc = decode(GLOBAL_DCONTEXT, instr_pc, instr);
-    }, { /* EXCEPT */
-        LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: crash on decoding callee instruction at: "PFX"\n",
-            instr_pc);
-        ASSERT_CURIOSITY(false && "crashed while decoding clean call");
-        ci->bailout = true;
-        return NULL;
-    });
+    TRY_EXCEPT(
+        dcontext, { next_pc = decode(GLOBAL_DCONTEXT, instr_pc, instr); },
+        { /* EXCEPT */
+          LOG(THREAD, LOG_CLEANCALL, 2,
+              "CLEANCALL: crash on decoding callee instruction at: " PFX "\n", instr_pc);
+          ASSERT_CURIOSITY(false && "crashed while decoding clean call");
+          ci->bailout = true;
+          return NULL;
+        });
     if (!instr_valid(instr)) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: decoding invalid instruction at: "PFX"\n", instr_pc);
+            "CLEANCALL: decoding invalid instruction at: " PFX "\n", instr_pc);
         ci->bailout = true;
         return NULL;
     }
     instr_set_translation(instr, instr_pc);
-    DOLOG(3, LOG_CLEANCALL, {
-        disassemble_with_bytes(dcontext, instr_pc, THREAD);
-    });
+    DOLOG(3, LOG_CLEANCALL, { disassemble_with_bytes(dcontext, instr_pc, THREAD); });
     return next_pc;
 }
 
@@ -253,19 +240,18 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
 {
     instrlist_t *ilist = ci->ilist;
     instr_t *instr;
-    app_pc   cur_pc, tgt_pc;
+    app_pc cur_pc, tgt_pc;
 
     if (next_pc == NULL)
         return NULL;
-    instr  = instrlist_last(ilist);
+    instr = instrlist_last(ilist);
     cur_pc = instr_get_app_pc(instr);
     ASSERT(next_pc == cur_pc + instr_length(dcontext, instr));
     if (!instr_is_cti(instr)) {
         /* special instructions, bail out. */
         if (instr_is_syscall(instr) || instr_is_interrupt(instr)) {
             LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: bail out on syscall or interrupt at: "PFX"\n",
-                cur_pc);
+                "CLEANCALL: bail out on syscall or interrupt at: " PFX "\n", cur_pc);
             ci->bailout = true;
             return NULL;
         }
@@ -275,8 +261,7 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
             /* check if instr is return, and if return is the last instr. */
             if (!instr_is_return(instr) || ci->fwd_tgt > cur_pc) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
-                    "CLEANCALL: bail out on indirect branch at: "PFX"\n",
-                    cur_pc);
+                    "CLEANCALL: bail out on indirect branch at: " PFX "\n", cur_pc);
                 ci->bailout = true;
             }
             return NULL;
@@ -289,8 +274,7 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
             instr = NULL;
             ci->num_instrs--;
             LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: callee calls out at: "PFX" to "PFX"\n",
-                cur_pc, tgt_pc);
+                "CLEANCALL: callee calls out at: " PFX " to " PFX "\n", cur_pc, tgt_pc);
             /* check special PIC code:
              * 1. call next_pc; pop r1;
              * or
@@ -304,8 +288,9 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
             if (tgt_pc < cur_pc) { /* backward branch */
                 if (tgt_pc < ci->start) {
                     LOG(THREAD, LOG_CLEANCALL, 2,
-                        "CLEANCALL: bail out on out-of-range branch at: "PFX
-                        "to "PFX"\n", cur_pc, tgt_pc);
+                        "CLEANCALL: bail out on out-of-range branch at: " PFX "to " PFX
+                        "\n",
+                        cur_pc, tgt_pc);
                     ci->bailout = true;
                     return NULL;
                 } else if (ci->bwd_tgt == NULL || tgt_pc < ci->bwd_tgt) {
@@ -326,7 +311,7 @@ check_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
 {
     instrlist_t *ilist = ci->ilist;
     instr_t *cti, *tgt, *ret;
-    app_pc   tgt_pc;
+    app_pc tgt_pc;
     if (!ci->bailout) {
         /* no target pc of any branch is in a middle of an instruction,
          * replace target pc with target instr
@@ -334,24 +319,21 @@ check_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
         ret = instrlist_last(ilist);
         /* must be RETURN, otherwise, bugs in decode_callee_ilist */
         ASSERT(instr_is_return(ret));
-        for (cti  = instrlist_first(ilist);
-             cti != ret;
-             cti  = instr_get_next(cti)) {
+        for (cti = instrlist_first(ilist); cti != ret; cti = instr_get_next(cti)) {
             if (!instr_is_cti(cti))
                 continue;
             ASSERT(!instr_is_mbr(cti));
             tgt_pc = opnd_get_pc(instr_get_target(cti));
-            for (tgt  = instrlist_first(ilist);
-                 tgt != NULL;
-                 tgt  = instr_get_next(tgt)) {
+            for (tgt = instrlist_first(ilist); tgt != NULL; tgt = instr_get_next(tgt)) {
                 if (tgt_pc == instr_get_app_pc(tgt))
                     break;
             }
             if (tgt == NULL) {
                 /* cannot find a target instruction, bail out */
                 LOG(THREAD, LOG_CLEANCALL, 2,
-                    "CLEANCALL: bail out on strange internal branch at: "PFX
-                    "to "PFX"\n", instr_get_app_pc(cti), tgt_pc);
+                    "CLEANCALL: bail out on strange internal branch at: " PFX "to " PFX
+                    "\n",
+                    instr_get_app_pc(cti), tgt_pc);
                 ci->bailout = true;
                 break;
             }
@@ -374,8 +356,8 @@ decode_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
     ci->ilist = instrlist_create(GLOBAL_DCONTEXT);
     cur_pc = ci->start;
 
-    LOG(THREAD, LOG_CLEANCALL, 2,
-        "CLEANCALL: decoding callee starting at: "PFX"\n", ci->start);
+    LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: decoding callee starting at: " PFX "\n",
+        ci->start);
     ci->bailout = false;
     while (cur_pc != NULL) {
         cur_pc = decode_callee_instr(dcontext, ci, cur_pc);
@@ -395,16 +377,14 @@ static void
 analyze_callee_pick_spill_reg(dcontext_t *dcontext, callee_info_t *ci)
 {
     uint i;
-    for (i = 0; i < NUM_GP_REGS; i++) {
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
-        if (reg == DR_REG_XSP
-            IF_X86(|| reg == DR_REG_XAX)
-            IF_X86_64(|| reg == REGPARM_0))
+        if (reg == DR_REG_XSP IF_X86(|| reg == DR_REG_XAX) IF_X86_64(|| reg == REGPARM_0))
             continue;
         if (!ci->reg_used[i]) {
             LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: picking spill reg %s for callee "PFX"\n",
-                reg_names[reg], ci->start);
+                "CLEANCALL: picking spill reg %s for callee " PFX "\n", reg_names[reg],
+                ci->start);
             ci->spill_reg = reg;
             return;
         }
@@ -415,7 +395,7 @@ analyze_callee_pick_spill_reg(dcontext_t *dcontext, callee_info_t *ci)
      * and 3 other regs we can't touch, so one will be available.
      */
     LOG(THREAD, LOG_CLEANCALL, 2,
-        "CLEANCALL: failed to pick spill reg for callee "PFX"\n", ci->start);
+        "CLEANCALL: failed to pick spill reg for callee " PFX "\n", ci->start);
     /* Fail to inline by setting ci->spill_reg == DR_REG_INVALID. */
     ci->spill_reg = DR_REG_INVALID;
 }
@@ -428,44 +408,52 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
     /* a set of condition checks */
     if (INTERNAL_OPTION(opt_cleancall) < 2) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: opt_cleancall: %d.\n",
+            "CLEANCALL: callee " PFX " cannot be inlined: opt_cleancall: %d.\n",
             ci->start, INTERNAL_OPTION(opt_cleancall));
         opt_inline = false;
     }
     if (ci->num_instrs > MAX_NUM_INLINE_INSTRS) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: num of instrs: %d.\n",
+            "CLEANCALL: callee " PFX " cannot be inlined: num of instrs: %d.\n",
             ci->start, ci->num_instrs);
         opt_inline = false;
     }
     if (ci->bwd_tgt != NULL || ci->fwd_tgt != NULL) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: has control flow.\n",
+            "CLEANCALL: callee " PFX " cannot be inlined: has control flow.\n",
             ci->start);
         opt_inline = false;
     }
     if (ci->num_simd_used != 0) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: uses XMM.\n",
+            "CLEANCALL: callee " PFX " cannot be inlined: uses SIMD.\n", ci->start);
+        opt_inline = false;
+    }
+#ifdef X86
+    if (ci->num_opmask_used != 0) {
+        LOG(THREAD, LOG_CLEANCALL, 1,
+            "CLEANCALL: callee " PFX " cannot be inlined: uses mask register.\n",
             ci->start);
         opt_inline = false;
     }
+#endif
     if (ci->tls_used) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: accesses TLS.\n",
-            ci->start);
+            "CLEANCALL: callee " PFX " cannot be inlined: accesses TLS.\n", ci->start);
         opt_inline = false;
     }
     if (ci->spill_reg == DR_REG_INVALID) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined:"
-            " unable to pick spill reg.\n", ci->start);
+            "CLEANCALL: callee " PFX " cannot be inlined:"
+            " unable to pick spill reg.\n",
+            ci->start);
         opt_inline = false;
     }
     if (!SCRATCH_ALWAYS_TLS() || ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined:"
-            " not enough scratch slots.\n", ci->start);
+            "CLEANCALL: callee " PFX " cannot be inlined:"
+            " not enough scratch slots.\n",
+            ci->start);
         opt_inline = false;
     }
     if (!opt_inline) {
@@ -480,12 +468,12 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
 
     if (opt_inline) {
         ci->opt_inline = true;
-        LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" can be inlined.\n", ci->start);
+        LOG(THREAD, LOG_CLEANCALL, 1, "CLEANCALL: callee " PFX " can be inlined.\n",
+            ci->start);
     } else {
         /* not inline callee, so ilist is not needed. */
-        LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined.\n", ci->start);
+        LOG(THREAD, LOG_CLEANCALL, 1, "CLEANCALL: callee " PFX " cannot be inlined.\n",
+            ci->start);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ci->ilist);
         ci->ilist = NULL;
     }
@@ -513,45 +501,62 @@ analyze_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
 static void
 analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
 {
-    uint i, num_regparm;
+    int i, num_regparm;
     callee_info_t *info = cci->callee_info;
 
     /* 1. xmm registers */
-    for (i = 0; i < NUM_SIMD_REGS; i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         if (info->simd_used[i]) {
             cci->simd_skip[i] = false;
         } else {
             LOG(THREAD, LOG_CLEANCALL, 3,
-                "CLEANCALL: if inserting clean call "PFX
-                ", skip saving XMM%d.\n", info->start, i);
+                "CLEANCALL: if inserting clean call " PFX ", skip saving [XYZ]MM%d.\n",
+                info->start, i);
             cci->simd_skip[i] = true;
             cci->num_simd_skip++;
         }
     }
-    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_simd_skip != NUM_SIMD_REGS)
+#ifdef X86
+    for (i = 0; i < proc_num_opmask_registers(); i++) {
+        if (info->opmask_used[i]) {
+            cci->opmask_skip[i] = false;
+        } else {
+            LOG(THREAD, LOG_CLEANCALL, 3,
+                "CLEANCALL: if inserting clean call " PFX ", skip saving k%d.\n",
+                info->start, i);
+            cci->opmask_skip[i] = true;
+            cci->num_opmask_skip++;
+        }
+    }
+#endif
+    if (INTERNAL_OPTION(opt_cleancall) > 2 &&
+        cci->num_simd_skip != proc_num_simd_registers())
         cci->should_align = false;
     /* 2. general purpose registers */
     /* set regs not to be saved for clean call */
-    for (i = 0; i < NUM_GP_REGS; i++) {
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (info->reg_used[i]) {
             cci->reg_skip[i] = false;
         } else {
             LOG(THREAD, LOG_CLEANCALL, 3,
-                "CLEANCALL: if inserting clean call "PFX
-                ", skip saving reg %s.\n",
+                "CLEANCALL: if inserting clean call " PFX ", skip saving reg %s.\n",
                 info->start, reg_names[DR_REG_START_GPR + (reg_id_t)i]);
             cci->reg_skip[i] = true;
             cci->num_regs_skip++;
         }
     }
+
+#ifdef X86
     /* we need save/restore rax if save aflags because rax is used */
     if (!cci->skip_save_flags && cci->reg_skip[0]) {
         LOG(THREAD, LOG_CLEANCALL, 3,
-            "CLEANCALL: if inserting clean call "PFX
-            ", cannot skip saving reg xax.\n", info->start);
+            "CLEANCALL: if inserting clean call " PFX ", cannot skip saving reg xax.\n",
+            info->start);
         cci->reg_skip[0] = false;
-        cci->num_regs_skip++;
+        cci->num_regs_skip--;
     }
+#endif
+
     /* i#987: args are passed via regs in 64-bit, which will clober those regs,
      * so we should not skip any regs that are used for arg passing.
      * XXX: we do not support args passing via XMMs,
@@ -562,12 +567,12 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
      */
     num_regparm = cci->num_args < NUM_REGPARM ? cci->num_args : NUM_REGPARM;
     for (i = 0; i < num_regparm; i++) {
-        if (cci->reg_skip[regparms[i] - DR_REG_START_GPR]) {
+        if (cci->reg_skip[d_r_regparms[i] - DR_REG_START_GPR]) {
             LOG(THREAD, LOG_CLEANCALL, 3,
-                "CLEANCALL: if inserting clean call "PFX
+                "CLEANCALL: if inserting clean call " PFX
                 ", cannot skip saving reg %s due to param passing.\n",
-                info->start, reg_names[regparms[i]]);
-            cci->reg_skip[regparms[i] - DR_REG_START_GPR] = false;
+                info->start, reg_names[d_r_regparms[i]]);
+            cci->reg_skip[d_r_regparms[i] - DR_REG_START_GPR] = false;
             cci->num_regs_skip--;
             /* We cannot call callee_info_reserve_slot for reserving slot
              * on inlining the callee here, because we are in clean call
@@ -583,9 +588,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
 }
 
 static void
-analyze_clean_call_args(dcontext_t *dcontext,
-                        clean_call_info_t *cci,
-                        opnd_t *args)
+analyze_clean_call_args(dcontext_t *dcontext, clean_call_info_t *cci, opnd_t *args)
 {
     uint i, j, num_regparm;
 
@@ -599,7 +602,7 @@ analyze_clean_call_args(dcontext_t *dcontext,
         if (opnd_is_reg(args[i]))
             cci->save_all_regs = true;
         for (j = 0; j < num_regparm; j++) {
-            if (opnd_uses_reg(args[i], regparms[j]))
+            if (opnd_uses_reg(args[i], d_r_regparms[j]))
                 cci->save_all_regs = true;
         }
     }
@@ -616,38 +619,37 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
 
     if (INTERNAL_OPTION(opt_cleancall) <= 1) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: fail inlining clean call "PFX", opt_cleancall %d.\n",
+            "CLEANCALL: fail inlining clean call " PFX ", opt_cleancall %d.\n",
             info->start, INTERNAL_OPTION(opt_cleancall));
         opt_inline = false;
     }
     if (cci->num_args > 1) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: fail inlining clean call "PFX", number of args %d > 1.\n",
+            "CLEANCALL: fail inlining clean call " PFX ", number of args %d > 1.\n",
             info->start, cci->num_args);
         opt_inline = false;
     }
     if (cci->num_args > info->num_args) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: fail inlining clean call "PFX
-            ", number of args increases.\n",
+            "CLEANCALL: fail inlining clean call " PFX ", number of args increases.\n",
             info->start);
         opt_inline = false;
     }
     if (cci->save_fpstate) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: fail inlining clean call "PFX", saving fpstate.\n",
+            "CLEANCALL: fail inlining clean call " PFX ", saving fpstate.\n",
             info->start);
         opt_inline = false;
     }
     if (!info->opt_inline) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: fail inlining clean call "PFX", complex callee.\n",
+            "CLEANCALL: fail inlining clean call " PFX ", complex callee.\n",
             info->start);
         opt_inline = false;
     }
     if (info->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: fail inlining clean call "PFX", used %d slots, "
+            "CLEANCALL: fail inlining clean call " PFX ", used %d slots, "
             "> %d available slots.\n",
             info->start, info->slots_used, CLEANCALL_NUM_INLINE_SLOTS);
         opt_inline = false;
@@ -655,24 +657,30 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
     if (!opt_inline) {
         if (cci->save_all_regs) {
             LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: inserting clean call "PFX
+                "CLEANCALL: inserting clean call " PFX
                 ", save all regs in priv_mcontext_t layout.\n",
                 info->start);
             cci->num_regs_skip = 0;
-            memset(cci->reg_skip, 0, sizeof(bool) * NUM_GP_REGS);
+            memset(cci->reg_skip, 0, sizeof(bool) * DR_NUM_GPR_REGS);
             cci->should_align = true;
         } else {
             uint i;
-            for (i = 0; i < NUM_GP_REGS; i++) {
+            for (i = 0; i < DR_NUM_GPR_REGS; i++) {
                 if (!cci->reg_skip[i] && info->callee_save_regs[i]) {
                     cci->reg_skip[i] = true;
                     cci->num_regs_skip++;
                 }
             }
         }
-        if (cci->num_simd_skip == NUM_SIMD_REGS) {
+        if (cci->num_simd_skip == proc_num_simd_registers()) {
             STATS_INC(cleancall_simd_skipped);
         }
+#ifdef X86
+        if (proc_num_opmask_registers() > 0 &&
+            cci->num_opmask_skip == proc_num_opmask_registers()) {
+            STATS_INC(cleancall_opmask_skipped);
+        }
+#endif
         if (cci->skip_save_flags) {
             STATS_INC(cleancall_aflags_save_skipped);
         }
@@ -704,7 +712,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
         /* 4. this callee is not seen before */
         if (ci == NULL) {
             STATS_INC(cleancall_analyzed);
-            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: analyze callee "PFX"\n", callee);
+            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: analyze callee " PFX "\n", callee);
             /* 4.1. create func_info */
             ci = callee_info_create((app_pc)callee, num_args);
             /* 4.2. decode the callee */
@@ -731,46 +739,52 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
         }
     }
 
-/* Thresholds for out-of-line calls. The values are based on a guess. The bar
- * for generating out-of-line calls is quite low, so the code size is kept low.
- */
-# ifdef X86
-  /* Use out-of-line calls if more than 3 SIMD registers need to be saved. */
-#  define SIMD_SAVE_TRESHOLD 3
-#  ifdef X64
-   /* Use out-of-line calls if more than 3 GP registers need to be saved. */
-#   define GPR_SAVE_TRESHOLD 3
-#  else
-   /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
-    * the number of GPRs that need saving into account.
-    */
-#   define GPR_SAVE_TRESHOLD NUM_GP_REGS
-#  endif
-# elif defined(AARCH64)
-  /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
-#  define SIMD_SAVE_TRESHOLD 6
-  /* Use out-of-line calls if more than 6 GP registers need to be saved. */
-#  define GPR_SAVE_TRESHOLD 6
-# endif
+    /* Thresholds for out-of-line calls. The values are based on a guess. The bar
+     * for generating out-of-line calls is quite low, so the code size is kept low.
+     */
+#ifdef X86
+    /* Use out-of-line calls if more than 3 SIMD registers or 3 mask registers need to be
+     * saved.
+     */
+#    define SIMD_SAVE_THRESHOLD 3
+#    define OPMASK_SAVE_THRESHOLD 3
+#    ifdef X64
+    /* Use out-of-line calls if more than 3 GP registers need to be saved. */
+#        define GPR_SAVE_THRESHOLD 3
+#    else
+    /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
+     * the number of GPRs that need saving into account.
+     */
+#        define GPR_SAVE_THRESHOLD DR_NUM_GPR_REGS
+#    endif
+#elif defined(AARCH64)
+    /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
+#    define SIMD_SAVE_THRESHOLD 6
+    /* Use out-of-line calls if more than 6 GP registers need to be saved. */
+#    define GPR_SAVE_THRESHOLD 6
+#endif
 
-# if defined(X86) || defined(AARCH64)
+#if defined(X86) || defined(AARCH64)
     /* 9. derived fields */
-    /* Use out-of-line calls if more than SIMD_SAVE_TRESHOLD SIMD registers have
-     * to be saved or if more than GPR_SAVE_TRESHOLD GP registers have to be saved.
+    /* Use out-of-line calls if more than SIMD_SAVE_THRESHOLD SIMD registers have
+     * to be saved or if more than GPR_SAVE_THRESHOLD GP registers have to be saved.
+     * For AVX-512, a threshold of 3 mask registers has been added.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
-    if ((NUM_SIMD_REGS - cci->num_simd_skip) > SIMD_SAVE_TRESHOLD ||
-        (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_TRESHOLD ||
+    if ((proc_num_simd_registers() - cci->num_simd_skip) > SIMD_SAVE_THRESHOLD ||
+        IF_X86((proc_num_opmask_registers() - cci->num_opmask_skip) >
+                   OPMASK_SAVE_THRESHOLD ||)(DR_NUM_GPR_REGS - cci->num_regs_skip) >
+            GPR_SAVE_THRESHOLD ||
         always_out_of_line)
         cci->out_of_line_swap = true;
-# endif
+#endif
 
     return should_inline;
 }
 
 void
-insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                         instrlist_t *ilist, instr_t *where, opnd_t *args)
+insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
+                         instr_t *where, opnd_t *args)
 {
     instrlist_t *callee = cci->ilist;
     instr_t *instr;
@@ -792,7 +806,7 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
          * callee): and if not we assume there will be no such faults.
          * We can't have a translation with no handler.
          */
-        if (IF_CLIENT_INTERFACE_ELSE(!dr_xl8_hook_exists(), true))
+        if (!dr_xl8_hook_exists())
             instr_set_translation(instr, NULL);
         instrlist_meta_preinsert(ilist, where, instr);
         instr = instrlist_first(callee);
@@ -828,22 +842,3 @@ clean_call_opt_exit(void)
 {
     callee_info_table_destroy();
 }
-
-#else /* CLIENT_INTERFACE */
-
-/* Stub implementation ifndef CLIENT_INTERFACE.  Initializes cci and returns
- * false for no inlining.  We use dr_insert_clean_call internally, but we don't
- * need it to do inlining.
- */
-bool
-analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, bool always_out_of_line,
-                   uint num_args, opnd_t *args)
-{
-    CLIENT_ASSERT(callee != NULL, "Clean call target is NULL");
-    /* 1. init clean_call_info */
-    clean_call_info_init(cci, callee, save_fpstate, num_args);
-    return false;
-}
-
-#endif /* CLIENT_INTERFACE */

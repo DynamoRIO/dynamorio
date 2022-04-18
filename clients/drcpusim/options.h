@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,8 @@ extern droption_t<std::string> op_cpu;
 extern droption_t<bool> op_continue;
 extern droption_t<bool> op_fool_cpuid;
 extern droption_t<bool> op_allow_prefetchw;
-extern droption_t<std::string> op_blacklist;
+extern droption_t<std::string> op_blocklist;
+extern droption_t<bool> op_ignore_all_libs;
 extern droption_t<unsigned int> op_verbose;
 
 #endif /* _OPTIONS_H_ */

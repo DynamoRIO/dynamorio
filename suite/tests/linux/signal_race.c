@@ -78,24 +78,23 @@ setup(void)
 }
 
 static int
-try(uint64_t time)
-{
-    struct itimerspec spec = {
-        { 0, 0 },
-        /* overflows for 32-bit so cast to pointer-sized */
-        { (size_t)time / 1000000000, time % 1000000000 }
-    };
-    polling_started = 0;
-    signal_arrived = 0;
-    if (timer_settime(timer, 0, &spec, 0) != 0)
-        fail("timer_settime");
-    if (!signal_arrived) {
-        polling_started = 1;
-        while (!signal_arrived)
-            ;
+try
+    (uint64_t time)
+    {
+        struct itimerspec spec = { { 0, 0 },
+                                   /* overflows for 32-bit so cast to pointer-sized */
+                                   { (size_t)time / 1000000000, time % 1000000000 } };
+        polling_started = 0;
+        signal_arrived = 0;
+        if (timer_settime(timer, 0, &spec, 0) != 0)
+            fail("timer_settime");
+        if (!signal_arrived) {
+            polling_started = 1;
+            while (!signal_arrived)
+                ;
+        }
+        return polling_started;
     }
-    return polling_started;
-}
 
 int
 main()
@@ -113,7 +112,9 @@ main()
 #if VERBOSE
         print("%8d %llu\n", i, (unsigned long long)time);
 #endif
-        int r = try(time);
+        int r =
+        try
+            (time);
         ++counts[r];
 
         /* Count number of successive steps in same direction. */
@@ -137,8 +138,7 @@ main()
                 time = 1;
                 step = 1;
             }
-        }
-        else {
+        } else {
             if (time + step > time)
                 time += step;
             else {

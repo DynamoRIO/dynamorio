@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,8 +38,12 @@
 
 #include "caching_device_stats.h"
 
-class tlb_stats_t : public caching_device_stats_t
-{
+class tlb_stats_t : public caching_device_stats_t {
+public:
+    tlb_stats_t(int block_size)
+        : caching_device_stats_t("", block_size)
+    {
+    }
     // XXX: support page privilege and MMU-related exceptions
 
     // It might be necessary to report stats of exceptions

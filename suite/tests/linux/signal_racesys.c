@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -41,20 +41,22 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
-#include "configure.h"
-#include <setjmp.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-#include "tools.h"
+#    include "configure.h"
+#    include <setjmp.h>
+#    include <signal.h>
+#    include <stdint.h>
+#    include <stdio.h>
+#    include <stdlib.h>
+#    include <string.h>
+#    include <time.h>
+#    include <unistd.h>
+#    include "tools.h"
 
 /* asm routines */
-void nanosleep_wrapper(const struct timespec *req, struct timespec *rem);
-void nanosleep_interrupted(void);
+void
+nanosleep_wrapper(const struct timespec *req, struct timespec *rem);
+void
+nanosleep_interrupted(void);
 
 timer_t timer;
 sigjmp_buf env;
@@ -94,27 +96,27 @@ setup(void)
 }
 
 int
-try(uint64_t time)
-{
-    struct itimerspec spec = {
-        { 0, 0 },
-        /* overflows for 32-bit so cast to pointer-sized */
-        { (size_t)time / 1000000000, time % 1000000000 }
-    };
-    struct timespec ts = { 3155760000, 0 };
-    int result;
+try
+    (uint64_t time)
+    {
+        struct itimerspec spec = { { 0, 0 },
+                                   /* overflows for 32-bit so cast to pointer-sized */
+                                   { (size_t)time / 1000000000, time % 1000000000 } };
+        struct timespec ts = { 3155760000U, 0 };
+        int result;
 
-    result = sigsetjmp(env, 1);
-    if (result == 0) {
-        if (timer_settime(timer, 0, &spec, 0) != 0)
-            fail("timer_settime");
-        nanosleep_wrapper(&ts, 0);
-        return 0;
+        result = sigsetjmp(env, 1);
+        if (result == 0) {
+            if (timer_settime(timer, 0, &spec, 0) != 0)
+                fail("timer_settime");
+            nanosleep_wrapper(&ts, 0);
+            return 0;
+        }
+        return result - 1;
     }
-    return result - 1;
-}
 
-int main(int argc, const char *argv[])
+int
+main(int argc, const char *argv[])
 {
     int counts[2] = { 0, 0 };
     uint64_t time = 1;
@@ -126,10 +128,12 @@ int main(int argc, const char *argv[])
 
     setup();
     for (i = 0; i < 10000; i++) {
-#if VERBOSE
+#    if VERBOSE
         print("%8d %llu\n", i, (unsigned long long)time);
-#endif
-        int r = try(time);
+#    endif
+        int r =
+        try
+            (time);
         ++counts[r];
 
         /* Count number of successive steps in same direction. */
@@ -153,8 +157,7 @@ int main(int argc, const char *argv[])
                 time = 1;
                 step = 1;
             }
-        }
-        else {
+        } else {
             if (time + step > time)
                 time += step;
             else {
@@ -163,16 +166,17 @@ int main(int argc, const char *argv[])
             }
         }
     }
-#if VERBOSE
+#    if VERBOSE
     print("Summary: %d %d %d\n", counts[0], counts[1], (int)time);
-#endif
+#    endif
     print("all done\n");
     return 0;
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
-#include "../../core/unix/include/syscall.h"
+#    include "asm_defines.asm"
+#    include "../../core/unix/include/syscall.h"
+/* clang-format off */
 START_FILE
 
 DECLARE_GLOBAL(nanosleep_interrupted)
@@ -216,4 +220,5 @@ ADDRTAKEN_LABEL(nanosleep_interrupted:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

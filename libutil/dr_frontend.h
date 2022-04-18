@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,14 +33,6 @@
 #ifndef _DR_FRONTEND_LIB_H_
 #define _DR_FRONTEND_LIB_H_
 
-#include "globals_shared.h" /* For bool type */
-
-/* XXX i#1079: we may want to share the define block with DR's libutil/our_tchar.h
- * b/c we'll want something similar for drdeploy and drinject libs and tools
- */
-
-/* DR_API EXPORT TOFILE dr_frontend.h */
-/* DR_API EXPORT BEGIN */
 /****************************************************************************
  * Tool front-end API
  */
@@ -67,72 +59,77 @@
 extern "C" {
 #endif
 
-/* DR_API EXPORT VERBATIM */
 /* Support use independently from dr_api.h */
+#if !defined(WINDOWS) && (defined(_WIN32) || defined(_WIN64))
+#    define WINDOWS 1
+#endif
 #ifndef IN
-# define IN /* marks input param */
+#    define IN /* marks input param */
 #endif
 #ifndef OUT
-# define OUT /* marks output param */
+#    define OUT /* marks output param */
 #endif
 #ifndef INOUT
-# define INOUT /* marks input+output param */
+#    define INOUT /* marks input+output param */
+#endif
+#ifndef WINDOWS
+#    include <unistd.h> /* for ssize_t */
 #endif
 #if defined(WINDOWS) && !defined(_DR_API_H) && !defined(_SSIZE_T_DEFINED)
-# if defined(_WIN64)
+#    if defined(_WIN64)
 typedef __int64 ssize_t;
-# else
+#    else
 typedef int ssize_t;
-# endif
+#    endif
 #endif
-/* DR_API EXPORT END */
 
 #ifdef WINDOWS
-# include <tchar.h>
+#    include <tchar.h>
 #else
-# define TCHAR char
-# define _tmain main
-# define _tcslen strlen
-# define _tcsstr strstr
-# define _tcscmp strcmp
-# define _tcsnicmp strnicmp
-# define _tcsncpy strncpy
-# define _tcscat_s strcat
-# define _tcsrchr strrchr
-# define _snprintf snprintf
-# define _sntprintf snprintf
-# define _ftprintf fprintf
-# define _tfopen fopen
-# define _T(s) s
+/* XXX i#1079: We may want to share the define block with DR's libutil/our_tchar.h
+ * b/c we'll want something similar for drdeploy and drinject libs and tools.
+ */
+#    define TCHAR char
+#    define _tmain main
+#    define _tcslen strlen
+#    define _tcsstr strstr
+#    define _tcscmp strcmp
+#    define _tcsnicmp strnicmp
+#    define _tcsncpy strncpy
+#    define _tcscat_s strcat
+#    define _tcsrchr strrchr
+#    define _snprintf snprintf
+#    define _sntprintf snprintf
+#    define _ftprintf fprintf
+#    define _tfopen fopen
+#    define _T(s) s
 #endif
-/* DR_API EXPORT VERBATIM */
 #ifdef _UNICODE
-# define TSTR_FMT "%S"
+#    define TSTR_FMT "%S"
 #else
-# define TSTR_FMT "%s"
+#    define TSTR_FMT "%s"
 #endif
-/* DR_API EXPORT END */
 
 /** Status code for each DRFront operation */
 typedef enum {
-    DRFRONT_SUCCESS,                    /**< Operation succeeded */
-    DRFRONT_ERROR,                      /**< Operation failed */
-    DRFRONT_ERROR_INVALID_PARAMETER,    /**< Operation failed: invalid parameter */
-    DRFRONT_ERROR_INVALID_SIZE,         /**< Operation failed: invalid size */
-    DRFRONT_ERROR_FILE_EXISTS,          /**< Operation failed: dir or file already
-                                         *   exists */
-    DRFRONT_ERROR_INVALID_PATH,         /**< Operation failed: wrong path */
-    DRFRONT_ERROR_ACCESS_DENIED,        /**< Operation failed: access denied */
-    DRFRONT_ERROR_LIB_UNSUPPORTED,      /**< Operation failed: old version
-                                         *   or invalid library */
+    DRFRONT_SUCCESS,                 /**< Operation succeeded */
+    DRFRONT_ERROR,                   /**< Operation failed */
+    DRFRONT_ERROR_INVALID_PARAMETER, /**< Operation failed: invalid parameter */
+    DRFRONT_ERROR_INVALID_SIZE,      /**< Operation failed: invalid size */
+    DRFRONT_ERROR_FILE_EXISTS,       /**< Operation failed: dir or file already
+                                      *   exists */
+    DRFRONT_ERROR_INVALID_PATH,      /**< Operation failed: wrong path */
+    DRFRONT_ERROR_ACCESS_DENIED,     /**< Operation failed: access denied */
+    DRFRONT_ERROR_LIB_UNSUPPORTED,   /**< Operation failed: old version
+                                      *   or invalid library */
 } drfront_status_t;
 
 /** Permission modes for drfront_access() */
 typedef enum {
-    DRFRONT_EXIST    = 0x00,    /**< Test existence */
-    DRFRONT_EXEC     = 0x01,    /**< Test for execute access */
-    DRFRONT_WRITE    = 0x02,    /**< Test for write access */
-    DRFRONT_READ     = 0x04,    /**< Test for read access */
+    DRFRONT_EXIST = 0x00, /**< Test existence */
+    DRFRONT_EXEC = 0x01,  /**< Test for execute access */
+    DRFRONT_WRITE = 0x02, /**< Test for write access */
+    DRFRONT_READ = 0x04,  /**< Test for read access */
 } drfront_access_mode_t;
 
 /**
@@ -181,8 +178,8 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
  * @param[in]     ...      Any data needed for the format string.
  */
 drfront_status_t
-drfront_bufprint(INOUT char *buf, size_t bufsz, INOUT size_t *sofar,
-                 OUT ssize_t *len, const char *fmt, ...);
+drfront_bufprint(INOUT char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
+                 const char *fmt, ...);
 
 /**
  * Converts from UTF-16 to UTF-8.
@@ -196,7 +193,7 @@ drfront_bufprint(INOUT char *buf, size_t bufsz, INOUT size_t *sofar,
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen/*# elements*/);
+drfront_tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elements*/);
 
 /**
  * Gets the necessary size of a UTF-8 buffer to hold the content in \p wstr.
@@ -221,7 +218,7 @@ drfront_tchar_to_char_size_needed(const TCHAR *wstr, OUT size_t *needed);
  * @param[in]  wbuflen    The allocated size of \p wbuf in elements.
  */
 drfront_status_t
-drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elements*/);
+drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# elements*/);
 
 /**
  * Stores the contents of the environment variable \p name in \p buf.
@@ -231,7 +228,7 @@ drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elemen
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_get_env_var(const char *name, OUT char *buf, size_t buflen/*# elements*/);
+drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*/);
 
 /**
  * Gets the absolute path of \p src.
@@ -241,7 +238,7 @@ drfront_get_env_var(const char *name, OUT char *buf, size_t buflen/*# elements*/
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen/*# elements*/);
+drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen /*# elements*/);
 
 /**
  * Gets the full path of \p app, which is located by searching the PATH if necessary.
@@ -251,7 +248,7 @@ drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen/*# eleme
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# elements*/);
+drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elements*/);
 
 /**
  * Reads the file header to determine if \p exe is a 64-bit application.
@@ -324,9 +321,8 @@ drfront_cleanup_args(char **argv, int argc);
  * @param[in]  buflen    The maximum capacity of \p buf, in elements.
  */
 drfront_status_t
-drfront_appdata_logdir(const char *root, const char *subdir,
-                       OUT bool *use_root,
-                       OUT char *buf, size_t buflen/*# elements*/);
+drfront_appdata_logdir(const char *root, const char *subdir, OUT bool *use_root,
+                       OUT char *buf, size_t buflen /*# elements*/);
 
 /**
  * Replace occurences of \p old_char with \p new_char in \p str.  Typically used to
@@ -340,13 +336,13 @@ void
 drfront_string_replace_character(OUT char *str, char old_char, char new_char);
 
 /**
-  * Replace occurences of \p old_char with \p new_char in TCHAR \p str.
-  * Typically used to canonicalize Windows paths into using forward slashes.
-  *
-  * @param[out] str       A string whose characters should be replaced.
-  * @param[in]  old_char  Old character to be replaced.
-  * @param[in]  new_char  New character to use.
-  */
+ * Replace occurences of \p old_char with \p new_char in TCHAR \p str.
+ * Typically used to canonicalize Windows paths into using forward slashes.
+ *
+ * @param[out] str       A string whose characters should be replaced.
+ * @param[in]  old_char  Old character to be replaced.
+ * @param[in]  new_char  New character to use.
+ */
 void
 drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_char);
 
@@ -493,10 +489,18 @@ drfront_dir_exists(const char *path, OUT bool *is_dir);
 drfront_status_t
 drfront_dir_try_writable(const char *path, OUT bool *is_writable);
 
+/**
+ * Sets the verbosity level for additional diagnostics from the drfrontendlib
+ * library.  The default level is 0 which is quiet.  Diagnostics are printed
+ * to stderr.
+ *
+ * @param[in] verbosity  The new verbosity level.  Typical values are 0 through 3.
+ */
+drfront_status_t
+drfront_set_verbose(int verbosity);
+
 #ifdef __cplusplus
 }
 #endif
-
-/* DR_API EXPORT END */
 
 #endif

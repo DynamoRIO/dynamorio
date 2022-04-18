@@ -42,9 +42,7 @@
 /* unlike secalign-fixed.dll.c we don't use /fixed as a pragma comment */
 
 /* our Makefile expects a .lib */
-int
-__declspec(dllexport)
-make_a_lib(int arg)
+int __declspec(dllexport) make_a_lib(int arg)
 {
     return 1;
 }
@@ -53,9 +51,7 @@ BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        print("in fixed dll\n");
-        break;
+    case DLL_PROCESS_ATTACH: print("in fixed dll\n"); break;
     }
     return TRUE;
 }

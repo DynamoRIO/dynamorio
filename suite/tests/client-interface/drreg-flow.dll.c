@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,36 +33,31 @@
 /* Tests the combination of drreg and drutil, along with other inserted control flow */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
 #include <string.h> /* memcpy */
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "%s\n", msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
-
 static bool verbose;
 
-static void event_exit(void);
-static dr_emit_flags_t event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                                        bool for_trace, bool translating,
-                                        OUT void **user_data);
-static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         void *user_data);
-static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
-                                       instr_t *inst, bool for_trace, bool translating,
-                                       void *user_data);
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating, OUT void **user_data);
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void *user_data);
+static dr_emit_flags_t
+event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                bool for_trace, bool translating, void *user_data);
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
-    drmgr_priority_t priority = {sizeof(priority), "drutil-test", NULL, NULL, 0};
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+    drmgr_priority_t priority = { sizeof(priority), "drutil-test", NULL, NULL, 0 };
     bool ok;
     drreg_status_t res;
 
@@ -75,21 +70,16 @@ dr_init(client_id_t id)
     drutil_init();
     dr_register_exit_event(event_exit);
 
-    ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app,
-                                                    event_bb_analysis,
-                                                    event_bb_insert,
-                                                    NULL,
-                                                    &priority);
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
+                                                    event_bb_insert, NULL, &priority);
     CHECK(ok, "drmgr register bb failed");
 }
 
 static void
 event_exit(void)
 {
-    bool ok = drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
-                                                           event_bb_analysis,
-                                                           event_bb_insert,
-                                                           NULL);
+    bool ok = drmgr_unregister_bb_instrumentation_ex_event(
+        event_bb_app2app, event_bb_analysis, event_bb_insert, NULL);
     CHECK(ok, "drmgr un register bb failed");
     drutil_exit();
     drreg_exit();
@@ -98,11 +88,11 @@ event_exit(void)
 }
 
 static dr_emit_flags_t
-event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating, OUT void **user_data)
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating, OUT void **user_data)
 {
-    bool *expanded = (bool *) dr_thread_alloc(drcontext, sizeof(bool));
-    *user_data = (void *) expanded;
+    bool *expanded = (bool *)dr_thread_alloc(drcontext, sizeof(bool));
+    *user_data = (void *)expanded;
     if (!drutil_expand_rep_string_ex(drcontext, bb, expanded, NULL)) {
         CHECK(false, "drutil rep expansion failed");
     }
@@ -112,16 +102,16 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
      * crashes (thus reproducing i#1954).
      */
     if (!*expanded) {
-        drreg_status_t res = drreg_set_bb_properties(drcontext,
-                                                     DRREG_IGNORE_CONTROL_FLOW);
+        drreg_status_t res =
+            drreg_set_bb_properties(drcontext, DRREG_IGNORE_CONTROL_FLOW);
         CHECK(res == DRREG_SUCCESS, "failed to set properties");
     }
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating, void *user_data)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void *user_data)
 {
     if (*(bool *)user_data) {
         drreg_status_t res =
@@ -145,8 +135,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 CHECK(res == DRREG_SUCCESS, "failed to reserve");
                 res = drreg_reserve_register(drcontext, bb, instr, NULL, &reg2);
                 CHECK(res == DRREG_SUCCESS, "failed to reserve");
-                drutil_insert_get_mem_addr(drcontext, bb, instr,
-                                           instr_get_dst(instr, i), reg1, reg2);
+                drutil_insert_get_mem_addr(drcontext, bb, instr, instr_get_dst(instr, i),
+                                           reg1, reg2);
                 res = drreg_unreserve_register(drcontext, bb, instr, reg2);
                 CHECK(res == DRREG_SUCCESS, "failed to unreserve");
                 res = drreg_unreserve_register(drcontext, bb, instr, reg1);

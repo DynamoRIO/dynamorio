@@ -51,18 +51,18 @@ main()
     print("calling via IAT-style call\n");
     import_me1(57);
     print("calling in a thread\n");
-    join_thread(create_thread((unsigned int (__stdcall *)(void *))import_me1, NULL));
+    join_thread(create_thread((unsigned int(__stdcall *)(void *))import_me1, NULL));
 
     print("calling in a thread that dies\n");
-    join_thread(create_thread((unsigned int (__stdcall *)(void *))import_me_die, NULL));
+    join_thread(create_thread((unsigned int(__stdcall *)(void *))import_me_die, NULL));
     print("case 5455 regression passed\n");
 
     print("all done\n");
     return 0;
 }
 
-
 /*
-$ useops -loglevel 1 -dumpcore_mask 253 -stderr_mask 21 -native_exec_list nativeterminate.dll.dll; make win32/nativeterminate.runinjector
+$ useops -loglevel 1 -dumpcore_mask 253 -stderr_mask 21 -native_exec_list
+nativeterminate.dll.dll; make win32/nativeterminate.runinjector
  * make sure correctly executed
  */

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -44,11 +44,10 @@
 #include "memquery.h"
 #include "os_private.h"
 #include "module_private.h"
-#include <string.h>
 #include <sys/mman.h>
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 /* Iterator over /proc/self/maps
@@ -78,15 +77,16 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
 #define PROC_SELF_MAPS "/proc/self/maps"
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
-#define MAPS_LINE_LENGTH        4096
+#define MAPS_LINE_LENGTH 4096
 /* for systems with sizeof(void*) == 4: */
-#define MAPS_LINE_FORMAT4     "%08lx-%08lx %s %08lx %*s "UINT64_FORMAT_STRING" %4096s"
-#define MAPS_LINE_MAX4  49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
+#define MAPS_LINE_FORMAT4 "%08lx-%08lx %s %08lx %*s " UINT64_FORMAT_STRING " %4096[^\n]"
+#define MAPS_LINE_MAX4 49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
 /* for systems with sizeof(void*) == 8: */
-#define MAPS_LINE_FORMAT8     "%016lx-%016lx %s %016lx %*s "UINT64_FORMAT_STRING" %4096s"
-#define MAPS_LINE_MAX8  73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
+#define MAPS_LINE_FORMAT8 \
+    "%016lx-%016lx %s %016lx %*s " UINT64_FORMAT_STRING " %4096[^\n]"
+#define MAPS_LINE_MAX8 73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
 
-#define MAPS_LINE_MAX   MAPS_LINE_MAX8
+#define MAPS_LINE_MAX MAPS_LINE_MAX8
 
 /* can't use fopen -- strategy: read into buffer, look for newlines.
  * fail if single line too large for buffer -- so size it appropriately:
@@ -95,7 +95,7 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
  * low by using static bufs (it's over 4K after all).
  * FIXME: now we're using 16K right here: should we shrink?
  */
-#define BUFSIZE (MAPS_LINE_LENGTH+8)
+#define BUFSIZE (MAPS_LINE_LENGTH + 8)
 static char buf_scratch[BUFSIZE];
 static char comment_buf_scratch[BUFSIZE];
 /* To satisfy our two uses (inner use with memory_info_buf_lock versus
@@ -124,32 +124,48 @@ memquery_exit(void)
 }
 
 bool
+memquery_from_os_will_block(void)
+{
+#ifdef DEADLOCK_AVOIDANCE
+    return memory_info_buf_lock.owner != INVALID_THREAD_ID;
+#else
+    /* "may_alloc" is false for memquery_from_os() */
+    bool res = true;
+    if (d_r_mutex_trylock(&memory_info_buf_lock)) {
+        res = false;
+        d_r_mutex_unlock(&memory_info_buf_lock);
+    }
+    return res;
+#endif
+}
+
+bool
 memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 {
     char maps_name[24]; /* should only need 16 for 5-digit tid */
-    maps_iter_t *mi = (maps_iter_t *) &iter->internal;
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
 
     /* Don't assign the local ptrs until the lock is grabbed to make
      * their relationship clear. */
     if (may_alloc) {
-        mutex_lock(&maps_iter_buf_lock);
-        mi->buf = (char *) &buf_iter;
-        mi->comment_buffer = (char *) &comment_buf_iter;
+        d_r_mutex_lock(&maps_iter_buf_lock);
+        mi->buf = (char *)&buf_iter;
+        mi->comment_buffer = (char *)&comment_buf_iter;
     } else {
-        mutex_lock(&memory_info_buf_lock);
-        mi->buf = (char *) &buf_scratch;
-        mi->comment_buffer = (char *) &comment_buf_scratch;
+        d_r_mutex_lock(&memory_info_buf_lock);
+        mi->buf = (char *)&buf_scratch;
+        mi->comment_buffer = (char *)&comment_buf_scratch;
     }
 
     /* We need the maps for our thread id, not process id.
      * "/proc/self/maps" uses pid which fails if primary thread in group
      * has exited.
      */
-    snprintf(maps_name, BUFFER_SIZE_ELEMENTS(maps_name),
-             "/proc/%d/maps", get_thread_id());
+    snprintf(maps_name, BUFFER_SIZE_ELEMENTS(maps_name), "/proc/%d/maps",
+             d_r_get_thread_id());
     mi->maps = os_open(maps_name, OS_OPEN_READ);
     ASSERT(mi->maps != INVALID_FILE);
-    mi->buf[BUFSIZE-1] = '\0'; /* permanently */
+    mi->buf[BUFSIZE - 1] = '\0'; /* permanently */
 
     mi->newline = NULL;
     mi->bufread = 0;
@@ -170,20 +186,20 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 void
 memquery_iterator_stop(memquery_iter_t *iter)
 {
-    maps_iter_t *mi = (maps_iter_t *) &iter->internal;
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
     ASSERT((iter->may_alloc && OWN_MUTEX(&maps_iter_buf_lock)) ||
            (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
     os_close(mi->maps);
     if (iter->may_alloc)
-        mutex_unlock(&maps_iter_buf_lock);
+        d_r_mutex_unlock(&maps_iter_buf_lock);
     else
-        mutex_unlock(&memory_info_buf_lock);
+        d_r_mutex_unlock(&memory_info_buf_lock);
 }
 
 bool
 memquery_iterator_next(memquery_iter_t *iter)
 {
-    maps_iter_t *mi = (maps_iter_t *) &iter->internal;
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
     char perm[16];
     char *line;
     int len;
@@ -191,11 +207,10 @@ memquery_iterator_next(memquery_iter_t *iter)
     ASSERT((iter->may_alloc && OWN_MUTEX(&maps_iter_buf_lock)) ||
            (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
     if (mi->newline == NULL) {
-        mi->bufwant = BUFSIZE-1;
+        mi->bufwant = BUFSIZE - 1;
         mi->bufread = os_read(mi->maps, mi->buf, mi->bufwant);
         ASSERT(mi->bufread <= mi->bufwant);
-        LOG(GLOBAL, LOG_VMAREAS, 6,
-            "get_memory_info_from_os: bytes read %d/want %d\n",
+        LOG(GLOBAL, LOG_VMAREAS, 6, "get_memory_info_from_os: bytes read %d/want %d\n",
             mi->bufread, mi->bufwant);
         if (mi->bufread <= 0)
             return false;
@@ -215,7 +230,7 @@ memquery_iterator_next(memquery_iter_t *iter)
             /* since strings may overlap, should use memmove, not strncpy */
             /* FIXME corner case: if len == 0, nothing to move */
             memmove(mi->buf, line, len);
-            mi->bufread = os_read(mi->maps, mi->buf+len, mi->bufwant);
+            mi->bufread = os_read(mi->maps, mi->buf + len, mi->bufwant);
             ASSERT(mi->bufread <= mi->bufwant);
             if (mi->bufread <= 0)
                 return false;
@@ -225,9 +240,11 @@ memquery_iterator_next(memquery_iter_t *iter)
             line = mi->buf;
         }
     }
-    LOG(GLOBAL, LOG_VMAREAS, 6,
-        "\nget_memory_info_from_os: newline=[%s]\n",
-        mi->newline ? mi->newline : "(null)");
+    LOG(GLOBAL, LOG_VMAREAS, 6, "\nget_memory_info_from_os: newline=[%.*s]\n",
+        /* Limit the size to avoid crossing the log buffer threshold.
+         * We could be in a fragile place and don't want a heap alloc.
+         */
+        MAX_LOG_LENGTH - 128, mi->newline ? mi->newline : "(null)");
 
     /* Buffer is big enough to hold at least one line: if not, the file changed
      * underneath us after we hit the end.  Just bail.
@@ -235,18 +252,11 @@ memquery_iterator_next(memquery_iter_t *iter)
     if (mi->newline == NULL)
         return false;
     *mi->newline = '\0';
-    LOG(GLOBAL, LOG_VMAREAS, 6,
-        "\nget_memory_info_from_os: line=[%s]\n", line);
-    mi->comment_buffer[0]='\0';
-    len = sscanf(line,
-#ifdef IA32_ON_IA64
-                 MAPS_LINE_FORMAT8, /* cross-compiling! */
-#else
-                 sizeof(void*) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-#endif
-                 (unsigned long*)&iter->vm_start, (unsigned long*)&iter->vm_end,
-                 perm, (unsigned long*)&iter->offset, &iter->inode,
-                 mi->comment_buffer);
+    LOG(GLOBAL, LOG_VMAREAS, 6, "\nget_memory_info_from_os: line=[%s]\n", line);
+    mi->comment_buffer[0] = '\0';
+    len = sscanf(line, sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
+                 (unsigned long *)&iter->vm_start, (unsigned long *)&iter->vm_end, perm,
+                 (unsigned long *)&iter->offset, &iter->inode, mi->comment_buffer);
     if (iter->vm_start == iter->vm_end) {
         /* i#366 & i#599: Merge an empty regions caused by stack guard pages
          * into the stack region if the stack region is less than one page away.
@@ -275,8 +285,7 @@ memquery_iterator_next(memquery_iter_t *iter)
          * split into multiple maps entries, so we merge any empty region within
          * one page of the next region.
          */
-        if (empty_start <= iter->vm_start &&
-            iter->vm_start <= empty_start + PAGE_SIZE) {
+        if (empty_start <= iter->vm_start && iter->vm_start <= empty_start + PAGE_SIZE) {
             /* Merge regions if the next region was zero or one page away. */
             iter->vm_start = empty_start;
         }
@@ -290,8 +299,8 @@ memquery_iterator_next(memquery_iter_t *iter)
         iter->vm_start = prev_start;
         return memquery_iterator_next(iter);
     }
-    if (len<6)
-        mi->comment_buffer[0]='\0';
+    if (len < 6)
+        mi->comment_buffer[0] = '\0';
     iter->prot = permstr_to_memprot(perm);
 #ifdef ANDROID
     /* i#1861: the Android kernel supports custom comments which can't merge */
@@ -310,10 +319,12 @@ memquery_iterator_next(memquery_iter_t *iter)
  * module_list) since is only used for dr and client libraries which aren't on the list.
  */
 int
-memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
-                        char *fullpath/*OPTIONAL OUT*/, size_t path_size)
+memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
+                        char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
+                        char *filename /*OPTIONAL OUT*/, size_t filename_size)
 {
-    return memquery_library_bounds_by_iterator(name, start, end, fullpath, path_size);
+    return memquery_library_bounds_by_iterator(name, start, end, fulldir, fulldir_size,
+                                               filename, filename_size);
 }
 
 /***************************************************************************
@@ -325,10 +336,10 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
 {
     memquery_iter_t iter;
     app_pc last_end = NULL;
-    app_pc next_start = (app_pc) POINTER_MAX;
+    app_pc next_start = (app_pc)POINTER_MAX;
     bool found = false;
     ASSERT(info != NULL);
-    memquery_iterator_start(&iter, (app_pc) pc, false/*won't alloc*/);
+    memquery_iterator_start(&iter, (app_pc)pc, false /*won't alloc*/);
     while (memquery_iterator_next(&iter)) {
         if (pc >= iter.vm_start && pc < iter.vm_end) {
             info->base_pc = iter.vm_start;
@@ -339,20 +350,12 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
              *   ffffe000-fffff000 ---p 00000000 00:00 0
              * We return "rx" as the permissions in that case.
              */
-            if (vsyscall_page_start != NULL &&
-                pc >= vsyscall_page_start && pc < vsyscall_page_start+PAGE_SIZE) {
-                /* i#1583: recent kernels have 2-page vdso, which can be split,
-                 * but we don't expect to come here b/c they won't have zero
-                 * permissions.
+            if (vdso_page_start != NULL && pc >= vdso_page_start &&
+                pc < vdso_page_start + vdso_size) {
+                /* i#1583: recent kernels have 2-page vdso, which can be split into
+                 * pieces by our vsyscall hook, so we don't check for a precise match.
                  */
-                ASSERT(iter.vm_start == vsyscall_page_start);
-                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE ||
-                       /* i386 Ubuntu 14.04:
-                        * 0xb77bc000-0xb77be000   0x2000    0x0 [vvar]
-                        * 0xb77be000-0xb77c0000   0x2000    0x0 [vdso]
-                        */
-                       iter.vm_end - iter.vm_start == 2*PAGE_SIZE);
-                info->prot = (MEMPROT_READ|MEMPROT_EXEC|MEMPROT_VDSO);
+                info->prot = (MEMPROT_READ | MEMPROT_EXEC | MEMPROT_VDSO);
             } else if (strcmp(iter.comment, "[vvar]") == 0) {
                 /* The VVAR pages were added in kernel 3.0 but not labeled until
                  * 3.15.  We document that we do not label prior to 3.15.

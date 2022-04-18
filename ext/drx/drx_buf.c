@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,36 +41,32 @@
 #include <string.h> /* for memcpy */
 
 #ifdef UNIX
-# include <signal.h>
+#    include <signal.h>
 #endif
 
-#define TLS_SLOT(tls_base, offs) (void **)((byte *)(tls_base)+(offs))
-#define BUF_PTR(tls_base, offs) *(byte **) TLS_SLOT(tls_base, offs)
+#define TLS_SLOT(tls_base, offs) (void **)((byte *)(tls_base) + (offs))
+#define BUF_PTR(tls_base, offs) *(byte **)TLS_SLOT(tls_base, offs)
 
 #define MINSERT instrlist_meta_preinsert
 
 /* denotes the possible buffer types */
-typedef enum {
-    DRX_BUF_CIRCULAR_FAST,
-    DRX_BUF_CIRCULAR,
-    DRX_BUF_TRACE
-} drx_buf_type_t;
+typedef enum { DRX_BUF_CIRCULAR_FAST, DRX_BUF_CIRCULAR, DRX_BUF_TRACE } drx_buf_type_t;
 
 typedef struct {
-    byte  *seg_base;
-    byte  *cli_base;   /* the base of the buffer from the client's perspective */
-    byte  *buf_base;   /* the actual base of the buffer */
+    byte *seg_base;
+    byte *cli_base;    /* the base of the buffer from the client's perspective */
+    byte *buf_base;    /* the actual base of the buffer */
     size_t total_size; /* the actual size of the buffer */
 } per_thread_t;
 
 struct _drx_buf_t {
     drx_buf_type_t buf_type;
-    size_t         buf_size;
-    uint           vec_idx; /* index into the clients vector */
+    size_t buf_size;
+    uint vec_idx; /* index into the clients vector */
     drx_buf_full_cb_t full_cb;
     /* tls implementation */
-    int      tls_idx;
-    uint     tls_offs;
+    int tls_idx;
+    uint tls_offs;
     reg_id_t tls_seg;
 };
 
@@ -82,55 +78,66 @@ static drvector_t clients;
 static bool any_bufs_created;
 
 /* called by drx_init() */
-bool drx_buf_init_library(void);
-void drx_buf_exit_library(void);
+bool
+drx_buf_init_library(void);
+void
+drx_buf_exit_library(void);
 
-static drx_buf_t *drx_buf_init(drx_buf_type_t bt, size_t bsz,
-                               drx_buf_full_cb_t full_cb);
+static drx_buf_t *
+drx_buf_init(drx_buf_type_t bt, size_t bsz, drx_buf_full_cb_t full_cb);
 
-static per_thread_t *per_thread_init_2byte(void *drcontext, drx_buf_t *buf);
-static per_thread_t *per_thread_init_fault(void *drcontext, drx_buf_t *buf);
+static per_thread_t *
+per_thread_init_2byte(void *drcontext, drx_buf_t *buf);
+static per_thread_t *
+per_thread_init_fault(void *drcontext, drx_buf_t *buf);
 
-static void drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf,
-                                                instrlist_t *ilist, instr_t *where,
-                                                reg_id_t buf_ptr, reg_id_t scratch,
-                                                ushort stride);
-static void drx_buf_insert_update_buf_ptr_fault(void *drcontext, drx_buf_t *buf,
-                                                instrlist_t *ilist, instr_t *where,
-                                                reg_id_t buf_ptr, ushort stride);
+static void
+drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
+                                    instr_t *where, reg_id_t buf_ptr, reg_id_t scratch,
+                                    ushort stride);
+static void
+drx_buf_insert_update_buf_ptr_fault(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
+                                    instr_t *where, reg_id_t buf_ptr, ushort stride);
 
-static void restore_state_event(void *drcontext, void *tag, dr_mcontext_t *mcontext,
-                                bool restore_memory, bool app_code_consistent);
+static void
+restore_state_event(void *drcontext, void *tag, dr_mcontext_t *mcontext,
+                    bool restore_memory, bool app_code_consistent);
 
-static void event_thread_init(void *drcontext);
-static void event_thread_exit(void *drcontext);
+static void
+event_thread_init(void *drcontext);
+static void
+event_thread_exit(void *drcontext);
 
 #ifdef WINDOWS
-static bool exception_event(void *drcontext, dr_exception_t *excpt);
+static bool
+exception_event(void *drcontext, dr_exception_t *excpt);
 #else
-static dr_signal_action_t signal_event(void *drcontext, dr_siginfo_t *info);
+static dr_signal_action_t
+signal_event(void *drcontext, dr_siginfo_t *info);
 #endif
 
-static reg_id_t deduce_buf_ptr(instr_t *instr);
-static bool reset_buf_ptr(void *drcontext, dr_mcontext_t *raw_mcontext, byte *seg_base,
-                          byte *cli_base, drx_buf_t *buf);
-static bool fault_event_helper(void *drcontext, byte *target,
-                               dr_mcontext_t *raw_mcontext);
+static reg_id_t
+deduce_buf_ptr(instr_t *instr);
+static bool
+reset_buf_ptr(void *drcontext, dr_mcontext_t *raw_mcontext, byte *seg_base,
+              byte *cli_base, drx_buf_t *buf);
+static bool
+fault_event_helper(void *drcontext, byte *target, dr_mcontext_t *raw_mcontext);
 
 bool
 drx_buf_init_library(void)
 {
-    drmgr_priority_t exit_priority = {
-        sizeof(exit_priority), DRMGR_PRIORITY_NAME_DRX_BUF_EXIT, NULL, NULL,
-        DRMGR_PRIORITY_THREAD_EXIT_DRX_BUF};
-    drmgr_priority_t init_priority = {
-        sizeof(init_priority), DRMGR_PRIORITY_NAME_DRX_BUF_INIT, NULL, NULL,
-        DRMGR_PRIORITY_THREAD_INIT_DRX_BUF};
+    drmgr_priority_t exit_priority = { sizeof(exit_priority),
+                                       DRMGR_PRIORITY_NAME_DRX_BUF_EXIT, NULL, NULL,
+                                       DRMGR_PRIORITY_THREAD_EXIT_DRX_BUF };
+    drmgr_priority_t init_priority = { sizeof(init_priority),
+                                       DRMGR_PRIORITY_NAME_DRX_BUF_INIT, NULL, NULL,
+                                       DRMGR_PRIORITY_THREAD_INIT_DRX_BUF };
 
     /* We sync the vector manually, since we need to lock the vector ourselves
      * when adding a client.
      */
-    if (!drvector_init(&clients, 1, false/*!synch*/, NULL) ||
+    if (!drvector_init(&clients, 1, false /*!synch*/, NULL) ||
         !drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
         !drmgr_register_thread_exit_event_ex(event_thread_exit, &exit_priority) ||
         !drmgr_register_restore_state_event(restore_state_event))
@@ -172,27 +179,26 @@ drx_buf_t *
 drx_buf_create_circular_buffer(size_t buf_size)
 {
     /* We can optimize circular buffers that are this size */
-    drx_buf_type_t buf_type = (buf_size == DRX_BUF_FAST_CIRCULAR_BUFSZ) ?
-        DRX_BUF_CIRCULAR_FAST : DRX_BUF_CIRCULAR;
+    drx_buf_type_t buf_type = (buf_size == DRX_BUF_FAST_CIRCULAR_BUFSZ)
+        ? DRX_BUF_CIRCULAR_FAST
+        : DRX_BUF_CIRCULAR;
     return drx_buf_init(buf_type, buf_size, NULL);
 }
 
 DR_EXPORT
 drx_buf_t *
-drx_buf_create_trace_buffer(size_t buf_size,
-                            drx_buf_full_cb_t full_cb)
+drx_buf_create_trace_buffer(size_t buf_size, drx_buf_full_cb_t full_cb)
 {
     return drx_buf_init(DRX_BUF_TRACE, buf_size, full_cb);
 }
 
 static drx_buf_t *
-drx_buf_init(drx_buf_type_t bt, size_t bsz,
-             drx_buf_full_cb_t full_cb)
+drx_buf_init(drx_buf_type_t bt, size_t bsz, drx_buf_full_cb_t full_cb)
 {
     drx_buf_t *new_client;
-    int        tls_idx;
-    uint       tls_offs;
-    reg_id_t   tls_seg;
+    int tls_idx;
+    uint tls_offs;
+    reg_id_t tls_seg;
 
     /* allocate raw TLS so we can access it from the code cache */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, 1, 0))
@@ -240,8 +246,7 @@ drx_buf_free(drx_buf_t *buf)
     ((drx_buf_t **)clients.array)[buf->vec_idx] = NULL;
     dr_rwlock_write_unlock(global_buf_rwlock);
 
-    if (!drmgr_unregister_tls_field(buf->tls_idx) ||
-        !dr_raw_tls_cfree(buf->tls_offs, 1))
+    if (!drmgr_unregister_tls_field(buf->tls_idx) || !dr_raw_tls_cfree(buf->tls_offs, 1))
         return false;
     dr_global_free(buf, sizeof(*buf));
 
@@ -312,7 +317,7 @@ event_thread_exit(void *drcontext)
             /* buffer has not yet been deleted, call user callback(s) */
             if (buf->full_cb != NULL) {
                 (*buf->full_cb)(drcontext, data->cli_base,
-                             (size_t)(cli_ptr - data->cli_base));
+                                (size_t)(cli_ptr - data->cli_base));
             }
             dr_raw_mem_free(data->buf_base, data->total_size);
             dr_thread_free(drcontext, data, sizeof(per_thread_t));
@@ -334,11 +339,10 @@ per_thread_init_2byte(void *drcontext, drx_buf_t *buf)
      * have a buffer with a 65336-byte aligned starting address.
      */
     per_thread->total_size = 2 * buf->buf_size;
-    ret = dr_raw_mem_alloc(per_thread->total_size,
-                           DR_MEMPROT_READ | DR_MEMPROT_WRITE,
+    ret = dr_raw_mem_alloc(per_thread->total_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE,
                            NULL);
     per_thread->buf_base = ret;
-    per_thread->cli_base = (void *) ALIGN_FORWARD(ret, buf->buf_size);
+    per_thread->cli_base = (void *)ALIGN_FORWARD(ret, buf->buf_size);
     return per_thread;
 }
 
@@ -359,11 +363,10 @@ per_thread_init_fault(void *drcontext, drx_buf_t *buf)
      * buf_size bytes usable before we hit the ro page.
      */
     per_thread->total_size = ALIGN_FORWARD(buf->buf_size, page_size) + page_size;
-    ret = dr_raw_mem_alloc(per_thread->total_size,
-                           DR_MEMPROT_READ | DR_MEMPROT_WRITE,
+    ret = dr_raw_mem_alloc(per_thread->total_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE,
                            NULL);
-    ok = dr_memory_protect(ret + per_thread->total_size - page_size,
-                           page_size, DR_MEMPROT_READ);
+    ok = dr_memory_protect(ret + per_thread->total_size - page_size, page_size,
+                           DR_MEMPROT_READ);
     DR_ASSERT(ok);
     per_thread->buf_base = ret;
     per_thread->cli_base = ret + ALIGN_FORWARD(buf->buf_size, page_size) - buf->buf_size;
@@ -375,8 +378,7 @@ void
 drx_buf_insert_load_buf_ptr(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
                             instr_t *where, reg_id_t buf_ptr)
 {
-    dr_insert_read_raw_tls(drcontext, ilist, where, buf->tls_seg,
-                           buf->tls_offs, buf_ptr);
+    dr_insert_read_raw_tls(drcontext, ilist, where, buf->tls_seg, buf->tls_offs, buf_ptr);
 }
 
 DR_EXPORT
@@ -386,11 +388,11 @@ drx_buf_insert_update_buf_ptr(void *drcontext, drx_buf_t *buf, instrlist_t *ilis
                               ushort stride)
 {
     if (buf->buf_type == DRX_BUF_CIRCULAR_FAST) {
-        drx_buf_insert_update_buf_ptr_2byte(drcontext, buf, ilist, where,
-                                            buf_ptr, scratch, stride);
+        drx_buf_insert_update_buf_ptr_2byte(drcontext, buf, ilist, where, buf_ptr,
+                                            scratch, stride);
     } else {
-        drx_buf_insert_update_buf_ptr_fault(drcontext, buf, ilist, where,
-                                            buf_ptr, stride);
+        drx_buf_insert_update_buf_ptr_fault(drcontext, buf, ilist, where, buf_ptr,
+                                            stride);
     }
 }
 
@@ -403,37 +405,40 @@ drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf, instrlist_t
     /* To get the "rotating" effect, we update only the bottom bits of the register. */
     if (drx_aflags_are_dead(where)) {
         /* if aflags are dead, we use add directly */
-        MINSERT(ilist, where, INSTR_CREATE_add
-                (drcontext,
-                 opnd_create_far_base_disp(buf->tls_seg, DR_REG_NULL, DR_REG_NULL,
-                                           0, buf->tls_offs, OPSZ_2),
-                 OPND_CREATE_INT16(stride)));
+        MINSERT(ilist, where,
+                INSTR_CREATE_add(drcontext,
+                                 opnd_create_far_base_disp(buf->tls_seg, DR_REG_NULL,
+                                                           DR_REG_NULL, 0, buf->tls_offs,
+                                                           OPSZ_2),
+                                 OPND_CREATE_INT16(stride)));
     } else {
-        reg_id_t scratch = reg_resize_to_opsz(buf_ptr, OPSZ_2);
+        reg_id_t scratch2 = reg_resize_to_opsz(buf_ptr, OPSZ_2);
         /* use lea to avoid dealing with aflags */
-        MINSERT(ilist, where, INSTR_CREATE_lea
-                (drcontext,
-                 opnd_create_reg(scratch),
-                 opnd_create_base_disp(buf_ptr, DR_REG_NULL, 0,
-                                       stride, OPSZ_lea)));
-        dr_insert_write_raw_tls(drcontext, ilist, where, buf->tls_seg,
-                                buf->tls_offs, buf_ptr);
+        MINSERT(ilist, where,
+                INSTR_CREATE_lea(
+                    drcontext, opnd_create_reg(scratch2),
+                    opnd_create_base_disp(buf_ptr, DR_REG_NULL, 0, stride, OPSZ_lea)));
+        dr_insert_write_raw_tls(drcontext, ilist, where, buf->tls_seg, buf->tls_offs,
+                                buf_ptr);
     }
 #elif defined(ARM)
     if (stride > 255) {
         /* fall back to XINST_CREATE_load_int() if stride doesn't fit in 1 byte */
-        MINSERT(ilist, where, XINST_CREATE_load_int
-                (drcontext, opnd_create_reg(scratch), OPND_CREATE_INT16(stride)));
-        MINSERT(ilist, where, XINST_CREATE_add
-                (drcontext, opnd_create_reg(buf_ptr), opnd_create_reg(scratch)));
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      OPND_CREATE_INT16(stride)));
+        MINSERT(ilist, where,
+                XINST_CREATE_add(drcontext, opnd_create_reg(buf_ptr),
+                                 opnd_create_reg(scratch)));
     } else {
-        MINSERT(ilist, where, XINST_CREATE_add
-                (drcontext, opnd_create_reg(buf_ptr), OPND_CREATE_INT16(stride)));
+        MINSERT(ilist, where,
+                XINST_CREATE_add(drcontext, opnd_create_reg(buf_ptr),
+                                 OPND_CREATE_INT16(stride)));
     }
-    MINSERT(ilist, where, XINST_CREATE_store_2bytes
-            (drcontext,
-             OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
-             opnd_create_reg(buf_ptr)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store_2bytes(drcontext,
+                                      OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
+                                      opnd_create_reg(buf_ptr)));
 #elif defined(AARCH64)
     if (stride > 0xfff) {
         /* Fall back to XINST_CREATE_load_int() if stride has more than 12 bits.
@@ -441,20 +446,23 @@ drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf, instrlist_t
          * add x4, x4, #0x1, lsl #12
          * add x4, x4, #0x234
          */
-        MINSERT(ilist, where, XINST_CREATE_load_int
-                (drcontext, opnd_create_reg(scratch), OPND_CREATE_INT16(stride)));
-        MINSERT(ilist, where, XINST_CREATE_add
-                (drcontext, opnd_create_reg(buf_ptr), opnd_create_reg(scratch)));
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      OPND_CREATE_INT16(stride)));
+        MINSERT(ilist, where,
+                XINST_CREATE_add(drcontext, opnd_create_reg(buf_ptr),
+                                 opnd_create_reg(scratch)));
     } else {
-        MINSERT(ilist, where, XINST_CREATE_add
-                (drcontext, opnd_create_reg(buf_ptr), OPND_CREATE_INT16(stride)));
+        MINSERT(ilist, where,
+                XINST_CREATE_add(drcontext, opnd_create_reg(buf_ptr),
+                                 OPND_CREATE_INT16(stride)));
     }
-    MINSERT(ilist, where, XINST_CREATE_store_2bytes
-            (drcontext,
-             OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
-             opnd_create_reg(reg_64_to_32(buf_ptr))));
+    MINSERT(ilist, where,
+            XINST_CREATE_store_2bytes(drcontext,
+                                      OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
+                                      opnd_create_reg(reg_64_to_32(buf_ptr))));
 #else
-# error NYI
+#    error NYI
 #endif
 }
 
@@ -463,12 +471,11 @@ drx_buf_insert_update_buf_ptr_fault(void *drcontext, drx_buf_t *buf, instrlist_t
                                     instr_t *where, reg_id_t buf_ptr, ushort stride)
 {
     /* straightforward, just increment buf_ptr */
-    MINSERT(ilist, where, XINST_CREATE_add
-            (drcontext,
-             opnd_create_reg(buf_ptr),
-             OPND_CREATE_INT16(stride)));
-    dr_insert_write_raw_tls(drcontext, ilist, where, buf->tls_seg,
-                            buf->tls_offs, buf_ptr);
+    MINSERT(
+        ilist, where,
+        XINST_CREATE_add(drcontext, opnd_create_reg(buf_ptr), OPND_CREATE_INT16(stride)));
+    dr_insert_write_raw_tls(drcontext, ilist, where, buf->tls_seg, buf->tls_offs,
+                            buf_ptr);
 }
 
 static bool
@@ -481,26 +488,20 @@ drx_buf_insert_buf_store_1byte(void *drcontext, drx_buf_t *buf, instrlist_t *ili
         return false;
     if (opnd_is_immed(opnd)) {
 #ifdef X86
-        instr = XINST_CREATE_store_1byte
-            (drcontext,
-             OPND_CREATE_MEM8(buf_ptr, offset), opnd);
+        instr =
+            XINST_CREATE_store_1byte(drcontext, OPND_CREATE_MEM8(buf_ptr, offset), opnd);
 #elif defined(AARCHXX)
         /* this will certainly not fault, so don't set a translation */
-        MINSERT(ilist, where, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch), opnd));
-        instr = XINST_CREATE_store_1byte
-            (drcontext,
-             OPND_CREATE_MEM8(buf_ptr, offset),
-             opnd_create_reg(scratch));
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch), opnd));
+        instr = XINST_CREATE_store_1byte(drcontext, OPND_CREATE_MEM8(buf_ptr, offset),
+                                         opnd_create_reg(scratch));
 #else
-# error NYI
+#    error NYI
 #endif
     } else {
-        instr = XINST_CREATE_store_1byte
-            (drcontext,
-             OPND_CREATE_MEM8(buf_ptr, offset),
-             opnd);
+        instr =
+            XINST_CREATE_store_1byte(drcontext, OPND_CREATE_MEM8(buf_ptr, offset), opnd);
     }
     INSTR_XL8(instr, instr_get_app_pc(where));
     MINSERT(ilist, where, instr);
@@ -517,26 +518,20 @@ drx_buf_insert_buf_store_2bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
         return false;
     if (opnd_is_immed(opnd)) {
 #ifdef X86
-        instr = XINST_CREATE_store_2bytes
-            (drcontext,
-             OPND_CREATE_MEM16(buf_ptr, offset), opnd);
+        instr = XINST_CREATE_store_2bytes(drcontext, OPND_CREATE_MEM16(buf_ptr, offset),
+                                          opnd);
 #elif defined(AARCHXX)
         /* this will certainly not fault, so don't set a translation */
-        MINSERT(ilist, where, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch), opnd));
-        instr = XINST_CREATE_store_2bytes
-            (drcontext,
-             OPND_CREATE_MEM16(buf_ptr, offset),
-             opnd_create_reg(scratch));
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch), opnd));
+        instr = XINST_CREATE_store_2bytes(drcontext, OPND_CREATE_MEM16(buf_ptr, offset),
+                                          opnd_create_reg(scratch));
 #else
-# error NYI
+#    error NYI
 #endif
     } else {
-        instr = XINST_CREATE_store_2bytes
-            (drcontext,
-             OPND_CREATE_MEM16(buf_ptr, offset),
-             opnd);
+        instr = XINST_CREATE_store_2bytes(drcontext, OPND_CREATE_MEM16(buf_ptr, offset),
+                                          opnd);
     }
     INSTR_XL8(instr, instr_get_app_pc(where));
     MINSERT(ilist, where, instr);
@@ -554,25 +549,18 @@ drx_buf_insert_buf_store_4bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
     if (!opnd_is_reg(opnd) && !opnd_is_immed(opnd))
         return false;
     if (opnd_is_immed(opnd)) {
-# ifdef X86_64
-        instr = XINST_CREATE_store
-            (drcontext,
-             OPND_CREATE_MEM32(buf_ptr, offset), opnd);
-# elif defined(AARCH64)
+#    ifdef X86_64
+        instr = XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(buf_ptr, offset), opnd);
+#    elif defined(AARCH64)
         /* this will certainly not fault, so don't set a translation */
         instrlist_insert_mov_immed_ptrsz(drcontext, opnd_get_immed_int(opnd),
-                                         opnd_create_reg(scratch),
-                                         ilist, where, NULL, NULL);
-        instr = XINST_CREATE_store
-            (drcontext,
-             OPND_CREATE_MEM32(buf_ptr, offset),
-             opnd_create_reg(scratch));
-# endif
+                                         opnd_create_reg(scratch), ilist, where, NULL,
+                                         NULL);
+        instr = XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(buf_ptr, offset),
+                                   opnd_create_reg(scratch));
+#    endif
     } else {
-        instr = XINST_CREATE_store
-            (drcontext,
-             OPND_CREATE_MEM32(buf_ptr, offset),
-             opnd);
+        instr = XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(buf_ptr, offset), opnd);
     }
     INSTR_XL8(instr, instr_get_app_pc(where));
     MINSERT(ilist, where, instr);
@@ -592,8 +580,8 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
         ptr_int_t immed = opnd_get_immed_int(opnd);
 #ifdef X86
         instrlist_insert_mov_immed_ptrsz(drcontext, immed,
-                                         OPND_CREATE_MEMPTR(buf_ptr, offset),
-                                         ilist, where, &first, &last);
+                                         OPND_CREATE_MEMPTR(buf_ptr, offset), ilist,
+                                         where, &first, &last);
         for (;; first = instr_get_next(first)) {
             INSTR_XL8(first, instr_get_app_pc(where));
             if (last == NULL || first == last)
@@ -601,23 +589,18 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
         }
 #elif defined(AARCHXX)
         instr_t *instr;
-        instrlist_insert_mov_immed_ptrsz(drcontext, immed,
-                                         opnd_create_reg(scratch),
+        instrlist_insert_mov_immed_ptrsz(drcontext, immed, opnd_create_reg(scratch),
                                          ilist, where, &first, &last);
-        instr = XINST_CREATE_store
-                (drcontext,
-                 OPND_CREATE_MEMPTR(buf_ptr, offset),
-                 opnd_create_reg(scratch));
+        instr = XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(buf_ptr, offset),
+                                   opnd_create_reg(scratch));
         INSTR_XL8(instr, instr_get_app_pc(where));
         MINSERT(ilist, where, instr);
 #else
-# error NYI
+#    error NYI
 #endif
     } else {
-        instr_t *instr = XINST_CREATE_store
-            (drcontext,
-             OPND_CREATE_MEMPTR(buf_ptr, offset),
-             opnd);
+        instr_t *instr =
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(buf_ptr, offset), opnd);
         INSTR_XL8(instr, instr_get_app_pc(where));
         MINSERT(ilist, where, instr);
     }
@@ -627,8 +610,8 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
 DR_EXPORT
 bool
 drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
-                         instr_t *where, reg_id_t buf_ptr, reg_id_t scratch,
-                         opnd_t opnd, opnd_size_t opsz, short offset)
+                         instr_t *where, reg_id_t buf_ptr, reg_id_t scratch, opnd_t opnd,
+                         opnd_size_t opsz, short offset)
 {
     switch (opsz) {
     case OPSZ_1:
@@ -645,8 +628,7 @@ drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
     case OPSZ_PTR:
         return drx_buf_insert_buf_store_ptrsz(drcontext, buf, ilist, where, buf_ptr,
                                               scratch, opnd, offset);
-    default:
-        return false;
+    default: return false;
     }
 }
 
@@ -656,29 +638,27 @@ insert_load(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t dst,
 {
     switch (opsz) {
     case OPSZ_1:
-        MINSERT(ilist, where, XINST_CREATE_load_1byte
-                (drcontext,
-                 opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
-                 opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
+        MINSERT(ilist, where,
+                XINST_CREATE_load_1byte(
+                    drcontext, opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
+                    opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
         break;
     case OPSZ_2:
-        MINSERT(ilist, where, XINST_CREATE_load_2bytes
-                (drcontext,
-                 opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
-                 opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
+        MINSERT(ilist, where,
+                XINST_CREATE_load_2bytes(
+                    drcontext, opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
+                    opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
         break;
     case OPSZ_4:
 #if defined(X86_64) || defined(AARCH64)
     case OPSZ_8:
 #endif
-        MINSERT(ilist, where, XINST_CREATE_load
-                (drcontext,
-                 opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
-                 opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
+        MINSERT(ilist, where,
+                XINST_CREATE_load(drcontext,
+                                  opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
+                                  opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
         break;
-    default:
-        DR_ASSERT(false);
-        break;
+    default: DR_ASSERT(false); break;
     }
 }
 
@@ -741,10 +721,10 @@ drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
              */
             DR_ASSERT(opsz == OPSZ_1);
             opsz = OPSZ_4;
-            MINSERT(ilist, where, XINST_CREATE_load_1byte_zext4
-                    (drcontext,
-                     opnd_create_reg(reg_resize_to_opsz(src, opsz)),
-                     opnd_create_base_disp(src, DR_REG_NULL, 0, 0, OPSZ_1)));
+            MINSERT(ilist, where,
+                    XINST_CREATE_load_1byte_zext4(
+                        drcontext, opnd_create_reg(reg_resize_to_opsz(src, opsz)),
+                        opnd_create_base_disp(src, DR_REG_NULL, 0, 0, OPSZ_1)));
         } else
             insert_load(drcontext, ilist, where, src, src, opsz);
         src_opnd = opnd_create_reg(reg_resize_to_opsz(src, opsz));
@@ -763,20 +743,21 @@ deduce_buf_ptr(instr_t *instr)
     ushort opcode = (ushort)instr_get_opcode(instr);
 
     /* drx_buf will only emit these instructions to store a value */
-    if (IF_X86_ELSE(opcode == OP_mov_st, opcode == OP_str  ||
-                                         opcode == OP_strb ||
-                                         opcode == OP_strh)) {
+    if (IF_X86_ELSE(opcode == OP_mov_st,
+                    opcode == OP_str || opcode == OP_strb || opcode == OP_strh)) {
         int i;
         for (i = 0; i < instr_num_dsts(instr); ++i) {
             opnd_t dst = instr_get_dst(instr, i);
             if (opnd_is_memory_reference(dst))
                 return opnd_get_base(dst);
         }
-        DR_ASSERT_MSG(false, "fault occured, but instruction did not have "
-                             "memory reference destination operand");
+        DR_ASSERT_MSG(false,
+                      "fault occured, but instruction did not have "
+                      "memory reference destination operand");
     } else {
-        DR_ASSERT_MSG(false, "fault occured, but instruction was not compatible "
-                             "with drx_buf");
+        DR_ASSERT_MSG(false,
+                      "fault occured, but instruction was not compatible "
+                      "with drx_buf");
     }
     /* If we got here, then the write had no base reg, and there's
      * nothing for us to do.
@@ -810,15 +791,13 @@ reset_buf_ptr(void *drcontext, dr_mcontext_t *raw_mcontext, byte *seg_base,
         (*buf->full_cb)(drcontext, cli_base, (size_t)(tmp_base - cli_base));
 
     /* change contents of buf_ptr and retry the instruction */
-    reg_set_value(buf_ptr, raw_mcontext,
-                  (reg_t)BUF_PTR(seg_base, buf->tls_offs));
+    reg_set_value(buf_ptr, raw_mcontext, (reg_t)BUF_PTR(seg_base, buf->tls_offs));
     return false;
 }
 
 /* returns true if we won't intercept the fault, false otherwise */
 static bool
-fault_event_helper(void *drcontext, byte *target,
-                   dr_mcontext_t *raw_mcontext)
+fault_event_helper(void *drcontext, byte *target, dr_mcontext_t *raw_mcontext)
 {
     size_t page_size = dr_page_size();
     per_thread_t *data;
@@ -873,8 +852,9 @@ signal_event(void *drcontext, dr_siginfo_t *info)
     if (!any_bufs_created || info->sig != SIGSEGV || !info->raw_mcontext_valid)
         return DR_SIGNAL_DELIVER;
 
-    return fault_event_helper(drcontext, info->access_address, info->raw_mcontext) ?
-        DR_SIGNAL_DELIVER : DR_SIGNAL_SUPPRESS;
+    return fault_event_helper(drcontext, info->access_address, info->raw_mcontext)
+        ? DR_SIGNAL_DELIVER
+        : DR_SIGNAL_SUPPRESS;
 }
 #endif
 

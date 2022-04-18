@@ -38,9 +38,9 @@
 #define PREINJECT_NAME "drpreinject.dll"
 #define PREINJECT_BASE 0x14000000
 
-#define INJECT_ALL_HIVE    HKEY_LOCAL_MACHINE
-#define INJECT_ALL_KEY     "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
-#define INJECT_ALL_SUBKEY  "AppInit_DLLs"
+#define INJECT_ALL_HIVE HKEY_LOCAL_MACHINE
+#define INJECT_ALL_KEY "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
+#define INJECT_ALL_SUBKEY "AppInit_DLLs"
 
 /* two different checks: GetModuleFileNameA and VirtualQuery */
 BOOL
@@ -50,20 +50,20 @@ ensure_no_preinject()
     char name[MAX_PATH];
     MEMORY_BASIC_INFORMATION mbi;
 
-    len = GetModuleFileNameA((HINSTANCE) PREINJECT_BASE, name,
-                             (sizeof(name)/sizeof(name[0])));
+    len = GetModuleFileNameA((HINSTANCE)PREINJECT_BASE, name,
+                             (sizeof(name) / sizeof(name[0])));
     if (len > 0) {
-        print("ERROR: found module %s at "PFX"\n", name, PREINJECT_BASE);
+        print("ERROR: found module %s at " PFX "\n", name, PREINJECT_BASE);
         return FALSE;
     }
 
     len = VirtualQuery((void *)PREINJECT_BASE, &mbi, sizeof(mbi));
     if (len != sizeof(mbi)) {
-        print("ERROR: error querying "PFX"\n", PREINJECT_BASE);
+        print("ERROR: error querying " PFX "\n", PREINJECT_BASE);
         return FALSE;
     } else {
         if (mbi.State != MEM_FREE) {
-            print("ERROR: "PFX" is not MEM_FREE!\n", PREINJECT_BASE);
+            print("ERROR: " PFX " is not MEM_FREE!\n", PREINJECT_BASE);
             return FALSE;
         }
     }
@@ -78,13 +78,11 @@ load_preinject()
     char val[MAX_PATH];
     int res, len = MAX_PATH * sizeof(val[0]);
 
-    res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY, 0,
-                       KEY_READ, &hk);
+    res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY, 0, KEY_READ, &hk);
     if (res != ERROR_SUCCESS)
         return FALSE;
 
-    res = RegQueryValueEx(hk, INJECT_ALL_SUBKEY, 0,
-                          0, (LPBYTE) val, &len);
+    res = RegQueryValueEx(hk, INJECT_ALL_SUBKEY, 0, 0, (LPBYTE)val, &len);
     RegCloseKey(hk);
     if (res != ERROR_SUCCESS)
         return FALSE;

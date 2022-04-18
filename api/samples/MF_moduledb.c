@@ -79,28 +79,31 @@
 #define NAME "MF_moduledb"
 
 #ifdef SHOW_RESULTS
-# if defined(WINDOWS) && USE_MESSAGEBOX
-#  define DISPLAY_FUNC dr_messagebox
-# else /* no messageboxes, use dr_printf() instead */
-#  define DISPLAY_FUNC dr_printf
-# endif
+#    if defined(WINDOWS) && USE_MESSAGEBOX
+#        define DISPLAY_FUNC dr_messagebox
+#    else /* no messageboxes, use dr_printf() instead */
+#        define DISPLAY_FUNC dr_printf
+#    endif
 #else
-# define DISPLAY_FUNC dummy_func
+#    define DISPLAY_FUNC dummy_func
 #endif
 
 #if VERBOSE
-# define VDISPLAY_FUNC DISPLAY_FUNC
+#    define VDISPLAY_FUNC DISPLAY_FUNC
 #else
-# define VDISPLAY_FUNC dummy_func
+#    define VDISPLAY_FUNC dummy_func
 #endif
 #if VVERBOSE
-# define VVDISPLAY_FUNC DISPLAY_FUNC
+#    define VVDISPLAY_FUNC DISPLAY_FUNC
 #else
-# define VVDISPLAY_FUNC dummy_func
+#    define VVDISPLAY_FUNC dummy_func
 #endif
 
 /* used to avoid displaying a string */
-static void dummy_func(char *fmt, ...) {}
+static void
+dummy_func(char *fmt, ...)
+{
+}
 
 typedef struct {
     char module_name[MAXIMUM_PATH];
@@ -122,32 +125,36 @@ typedef struct _table_entry_t table_entry_t;
 struct _table_entry_t {
     table_value_t value; /* the entry we read out of the config file */
     table_entry_t *next; /* table is just a singly linked list */
-}; /* table_entry_t */
+};                       /* table_entry_t */
 
 static const char *table_def_file_name; /* name of configuration file */
-static void *table_lock; /* for multithreaded access to the table */
-static table_entry_t *table = NULL; /* table of relaxations */
+static void *table_lock;                /* for multithreaded access to the table */
+static table_entry_t *table = NULL;     /* table of relaxations */
 
-static void event_security_violation(void *drcontext, void *source_tag,
-                                     app_pc source_pc, app_pc target_pc,
-                                     dr_security_violation_type_t violation,
-                                     dr_mcontext_t *mcontext,
-                                     dr_security_violation_action_t *action);
-static void event_nudge(void *drcontext, uint64 argument);
-static void event_about_to_terminate_nudges(int total_non_app_threads,
-                                            int live_non_app_threads);
-static void event_exit(void);
+static void
+event_security_violation(void *drcontext, void *source_tag, app_pc source_pc,
+                         app_pc target_pc, dr_security_violation_type_t violation,
+                         dr_mcontext_t *mcontext, dr_security_violation_action_t *action);
+static void
+event_nudge(void *drcontext, uint64 argument);
+static void
+event_about_to_terminate_nudges(int total_non_app_threads, int live_non_app_threads);
+static void
+event_exit(void);
 
-static table_entry_t * get_entry_for_address(app_pc addr);
-static void read_table();
-static void free_table();
+static table_entry_t *
+get_entry_for_address(app_pc addr);
+static void
+read_table();
+static void
+free_table();
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'MF_moduledb'",
                        "http://dynamorio.org/issues");
-    VDISPLAY_FUNC(NAME" initializing.");
+    VDISPLAY_FUNC(NAME " initializing.");
 
     /* register the events we wish to handle */
     dr_register_security_event(event_security_violation);
@@ -156,9 +163,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     /* read the client options */
     table_def_file_name = dr_get_options(id);
-    if (table_def_file_name == NULL ||
-        table_def_file_name[0] == '\0') {
-        DISPLAY_FUNC(NAME" requires the table name as parameter\n");
+    if (table_def_file_name == NULL || table_def_file_name[0] == '\0') {
+        DISPLAY_FUNC(NAME " requires the table name as parameter\n");
         dr_abort();
     }
 
@@ -170,7 +176,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 static void
 event_exit(void)
 {
-    VDISPLAY_FUNC(NAME" exiting.");
+    VDISPLAY_FUNC(NAME " exiting.");
 
     /* free structures */
     free_table();
@@ -180,7 +186,7 @@ event_exit(void)
 static void
 event_nudge(void *drcontext, uint64 argument)
 {
-    DISPLAY_FUNC(NAME" received nudge event; re-reading config file.");
+    DISPLAY_FUNC(NAME " received nudge event; re-reading config file.");
 
     /* An external process has nudged us with dr_nudge_process() telling us
      * to re-read the configuration file. */
@@ -210,15 +216,13 @@ get_entry_for_address(app_pc addr)
 #endif
 
 static void
-event_security_violation(void *drcontext, void *source_tag,
-                         app_pc source_pc, app_pc target_pc,
-                         dr_security_violation_type_t violation,
-                         dr_mcontext_t *mcontext,
-                         dr_security_violation_action_t *action)
+event_security_violation(void *drcontext, void *source_tag, app_pc source_pc,
+                         app_pc target_pc, dr_security_violation_type_t violation,
+                         dr_mcontext_t *mcontext, dr_security_violation_action_t *action)
 {
     /* A potential security violation was detected. */
     char *violation_str = NULL; /* a name for this violation */
-    bool allow = false; /* should we let execution continue */
+    bool allow = false;         /* should we let execution continue */
 
 #ifdef WINDOWS
     /* find the module we came from */
@@ -254,24 +258,12 @@ event_security_violation(void *drcontext, void *source_tag,
 #endif
 
     switch (violation) {
-    case DR_RCO_STACK_VIOLATION:
-        violation_str = "stack execution violation";
-        break;
-    case DR_RCO_HEAP_VIOLATION:
-        violation_str = "heap execution violation";
-        break;
-    case DR_RCT_RETURN_VIOLATION:
-        violation_str = "return target violation";
-        break;
-    case DR_RCT_INDIRECT_CALL_VIOLATION:
-        violation_str = "call transfer violation";
-        break;
-    case DR_RCT_INDIRECT_JUMP_VIOLATION:
-        violation_str = "jump transfer violation";
-        break;
-    default:
-        violation_str = "unknown";
-        break;
+    case DR_RCO_STACK_VIOLATION: violation_str = "stack execution violation"; break;
+    case DR_RCO_HEAP_VIOLATION: violation_str = "heap execution violation"; break;
+    case DR_RCT_RETURN_VIOLATION: violation_str = "return target violation"; break;
+    case DR_RCT_INDIRECT_CALL_VIOLATION: violation_str = "call transfer violation"; break;
+    case DR_RCT_INDIRECT_JUMP_VIOLATION: violation_str = "jump transfer violation"; break;
+    default: violation_str = "unknown"; break;
     }
 
     if (allow)
@@ -291,11 +283,11 @@ read_table()
 
     file = dr_open_file(table_def_file_name, DR_FILE_READ);
     if (file == INVALID_FILE) {
-        DISPLAY_FUNC(NAME" error opening config file \"%s\"\n", table_def_file_name);
+        DISPLAY_FUNC(NAME " error opening config file \"%s\"\n", table_def_file_name);
         return;
     }
 
-    VVDISPLAY_FUNC(NAME" reading config file: \"%s\"\n", table_def_file_name);
+    VVDISPLAY_FUNC(NAME " reading config file: \"%s\"\n", table_def_file_name);
 
     do {
         table_entry_t *entry = (table_entry_t *)dr_global_alloc(sizeof(table_entry_t));
@@ -312,22 +304,27 @@ read_table()
                 entry->value.module_name[i] = '\0';
             }
             /* just in case */
-            entry->value.module_name[sizeof(entry->value.module_name)-1] = '\0';
+            entry->value.module_name[sizeof(entry->value.module_name) - 1] = '\0';
 
             /* add to the table */
             entry->next = table;
             table = entry;
-            VVDISPLAY_FUNC(NAME" read entry for module=\"%s\" to_stack=%s to_heap=%s "
-                           "transfer_to_here=%s\n", entry->value.module_name,
-                           (entry->value.allow_to_stack == 'y' ||
-                            entry->value.allow_to_stack == 'Y') ? "yes" : "no",
-                           (entry->value.allow_to_heap == 'y' ||
-                            entry->value.allow_to_heap == 'Y') ? "yes" : "no",
-                           (entry->value.allow_to_here == 'y' ||
-                            entry->value.allow_to_here == 'Y') ? "yes" : "no");
+            VVDISPLAY_FUNC(
+                NAME " read entry for module=\"%s\" to_stack=%s to_heap=%s "
+                     "transfer_to_here=%s\n",
+                entry->value.module_name,
+                (entry->value.allow_to_stack == 'y' || entry->value.allow_to_stack == 'Y')
+                    ? "yes"
+                    : "no",
+                (entry->value.allow_to_heap == 'y' || entry->value.allow_to_heap == 'Y')
+                    ? "yes"
+                    : "no",
+                (entry->value.allow_to_here == 'y' || entry->value.allow_to_here == 'Y')
+                    ? "yes"
+                    : "no");
         }
     } while (read_entry);
-    VVDISPLAY_FUNC(NAME" done reading config file.");
+    VVDISPLAY_FUNC(NAME " done reading config file.");
 }
 
 static void

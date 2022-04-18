@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,9 +44,9 @@
 #ifndef _OS_TLS_H_
 #define _OS_TLS_H_ 1
 
-#include "os_private.h"  /* ASM_XAX */
+#include "os_private.h" /* ASM_XAX */
 #if defined(ARM) && defined(LINUX)
-# include "include/syscall.h" /* SYS_set_tls */
+#    include "include/syscall.h" /* SYS_set_tls */
 #endif
 
 /* We support 3 different methods of creating a segment (see os_tls_init()) */
@@ -68,7 +68,7 @@ extern tls_type_t tls_global_type;
 /* XXX: more cleanly separate the code so we don't need this here */
 extern bool return_stolen_lib_tls_gdt;
 
-#define GDT_NO_SIZE_LIMIT  0xfffff
+#define GDT_NO_SIZE_LIMIT 0xfffff
 
 /* The ldt struct in Linux asm/ldt.h used to be just "struct modify_ldt_ldt_s"; then that
  * was also typdef-ed as modify_ldt_t; then it was just user_desc.
@@ -76,50 +76,73 @@ extern bool return_stolen_lib_tls_gdt;
  * We also use this as a cross-platform representation.
  */
 typedef struct _our_modify_ldt_t {
-    unsigned int  entry_number;
-    unsigned int  base_addr;
-    unsigned int  limit;
-    unsigned int  seg_32bit:1;
-    unsigned int  contents:2;
-    unsigned int  read_exec_only:1;
-    unsigned int  limit_in_pages:1;
-    unsigned int  seg_not_present:1;
-    unsigned int  useable:1;
+    unsigned int entry_number;
+    unsigned int base_addr;
+    unsigned int limit;
+    unsigned int seg_32bit : 1;
+    unsigned int contents : 2;
+    unsigned int read_exec_only : 1;
+    unsigned int limit_in_pages : 1;
+    unsigned int seg_not_present : 1;
+    unsigned int useable : 1;
 } our_modify_ldt_t;
 
 /* segment selector format:
  * 15..............3      2          1..0
  *        index      0=GDT,1=LDT  Requested Privilege Level
  */
-#define USER_PRIVILEGE  3
-#define LDT_NOT_GDT     1
-#define GDT_NOT_LDT     0
-#define SELECTOR_IS_LDT  0x4
+#define USER_PRIVILEGE 3
+#define LDT_NOT_GDT 1
+#define GDT_NOT_LDT 0
+#define SELECTOR_IS_LDT 0x4
 #define LDT_SELECTOR(idx) ((idx) << 3 | ((LDT_NOT_GDT) << 2) | (USER_PRIVILEGE))
 #define GDT_SELECTOR(idx) ((idx) << 3 | ((GDT_NOT_LDT) << 2) | (USER_PRIVILEGE))
 #define SELECTOR_INDEX(sel) ((sel) >> 3)
 
-#ifdef X86
-# define WRITE_DR_SEG(val) do {                                     \
-    ASSERT(sizeof(val) == sizeof(reg_t));                           \
-    asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"ASM_SEG";" \
-                 : : "m" ((val)) : ASM_XAX);                        \
-} while (0)
-# define WRITE_LIB_SEG(val) do {                                        \
-    ASSERT(sizeof(val) == sizeof(reg_t));                               \
-    asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
-                 : : "m" ((val)) : ASM_XAX);                            \
-} while (0)
+#ifdef MACOS64
+#    define WRITE_DR_SEG(val) ASSERT_NOT_REACHED()
+#    define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
+#    define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
+#elif defined(X86)
+#    define WRITE_DR_SEG(val)                                                     \
+        do {                                                                      \
+            ASSERT(sizeof(val) == sizeof(reg_t));                                 \
+            asm volatile("mov %0,%%" ASM_XAX "; mov %%" ASM_XAX ", %" ASM_SEG ";" \
+                         :                                                        \
+                         : "m"((val))                                             \
+                         : ASM_XAX);                                              \
+        } while (0)
+#    define WRITE_LIB_SEG(val)                                                        \
+        do {                                                                          \
+            ASSERT(sizeof(val) == sizeof(reg_t));                                     \
+            asm volatile("mov %0,%%" ASM_XAX "; mov %%" ASM_XAX ", %" LIB_ASM_SEG ";" \
+                         :                                                            \
+                         : "m"((val))                                                 \
+                         : ASM_XAX);                                                  \
+        } while (0)
 #elif defined(AARCHXX)
-# define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
-# define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
-# define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
+#    define WRITE_DR_SEG(val) ASSERT_NOT_REACHED()
+#    define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
+#    define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
 #endif /* X86/ARM */
 
 static inline ptr_uint_t
 read_thread_register(reg_id_t reg)
 {
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+    ptr_uint_t sel = 0;
+    ASSERT_NOT_REACHED();
+#elif defined(MACOS64)
+    ptr_uint_t sel;
+    if (reg == SEG_GS) {
+        asm volatile("mov %%gs:%1, %0" : "=r"(sel) : "m"(*(void **)0));
+    } else if (reg == SEG_FS) {
+        return 0;
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+#elif defined(X86)
     uint sel;
     if (reg == SEG_FS) {
         asm volatile("movl %%fs, %0" : "=r"(sel));
@@ -140,23 +163,23 @@ read_thread_register(reg_id_t reg)
 #elif defined(AARCHXX)
     ptr_uint_t sel;
     if (reg == DR_REG_TPIDRURO) {
-        IF_X64_ELSE({
-            asm volatile("mrs %0, tpidrro_el0" : "=r"(sel));
-        }, {
-            /* read thread register from CP15 (coprocessor 15)
-             * c13 (software thread ID registers) with opcode 3 (user RO)
-             */
-            asm volatile("mrc  p15, 0, %0, c13, c0, 3" : "=r"(sel));
-        });
+        IF_X64_ELSE({ asm volatile("mrs %0, tpidrro_el0"
+                                   : "=r"(sel)); },
+                    {
+                        /* read thread register from CP15 (coprocessor 15)
+                         * c13 (software thread ID registers) with opcode 3 (user RO)
+                         */
+                        asm volatile("mrc  p15, 0, %0, c13, c0, 3" : "=r"(sel));
+                    });
     } else if (reg == DR_REG_TPIDRURW) {
-        IF_X64_ELSE({
-            asm volatile("mrs %0, tpidr_el0" : "=r"(sel));
-        }, {
-            /* read thread register from CP15 (coprocessor 15)
-             * c13 (software thread ID registers) with opcode 2 (user RW)
-             */
-            asm volatile("mrc  p15, 0, %0, c13, c0, 2" : "=r"(sel));
-        });
+        IF_X64_ELSE({ asm volatile("mrs %0, tpidr_el0"
+                                   : "=r"(sel)); },
+                    {
+                        /* read thread register from CP15 (coprocessor 15)
+                         * c13 (software thread ID registers) with opcode 2 (user RW)
+                         */
+                        asm volatile("mrc  p15, 0, %0, c13, c0, 2" : "=r"(sel));
+                    });
     } else {
         ASSERT_NOT_REACHED();
         return 0;
@@ -171,24 +194,27 @@ read_thread_register(reg_id_t reg)
 static inline bool
 write_thread_register(void *val)
 {
-# ifdef AARCH64
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_REACHED();
+    return false;
+#    elif defined(AARCH64)
     asm volatile("msr tpidr_el0, %0" : : "r"(val));
     return true;
-# else
+#    else
     return (dynamorio_syscall(SYS_set_tls, 1, val) == 0);
-# endif
+#    endif
 }
 #endif
 
 #if defined(LINUX) && defined(X86) && defined(X64) && !defined(ARCH_SET_GS)
-# define ARCH_SET_GS 0x1001
-# define ARCH_SET_FS 0x1002
-# define ARCH_GET_FS 0x1003
-# define ARCH_GET_GS 0x1004
+#    define ARCH_SET_GS 0x1001
+#    define ARCH_SET_FS 0x1002
+#    define ARCH_GET_FS 0x1003
+#    define ARCH_GET_GS 0x1004
 #endif
 
 #ifdef LINUX
-# define GDT_NUM_TLS_SLOTS 3
+#    define GDT_NUM_TLS_SLOTS 3
 #elif defined(MACOS)
 /* XXX: rename to APP_SAVED_TLS_SLOTS or sthg?
  *
@@ -197,14 +223,14 @@ write_thread_register(void *val)
  * only need to save the ones the app might use which we assume will
  * be <= 3.
  */
-# define GDT_NUM_TLS_SLOTS 3 /* index=1 and index=3 are used */
+#    define GDT_NUM_TLS_SLOTS 3 /* index=1 and index=3 are used */
 #endif
 
 #define MAX_NUM_CLIENT_TLS 64
 
 /* i#107: handle segment reg usage conflicts */
 typedef struct _os_seg_info_t {
-    int   tls_type;
+    int tls_type;
     void *priv_lib_tls_base;
     void *priv_alt_tls_base;
     void *dr_tls_base;
@@ -224,9 +250,9 @@ typedef struct _os_local_state_t {
     /* Magic number for is_thread_tls_initialized() (i#2089).
      * XXX: keep the offset of this consistent with TLS_MAGIC_OFFSET_ASM in x86.asm.
      */
-# define TLS_MAGIC_VALID   0x244f4952 /* RIO$ */
+#    define TLS_MAGIC_VALID 0x244f4952 /* RIO$ */
     /* This value is used for os_thread_take_over() re-takeover. */
-# define TLS_MAGIC_INVALID 0x2d4f4952 /* RIO- */
+#    define TLS_MAGIC_INVALID 0x2d4f4952 /* RIO- */
     uint magic;
 #endif
     /* store what type of TLS this is so we can clean up properly */
@@ -236,14 +262,23 @@ typedef struct _os_local_state_t {
     int ldt_index;
     /* tid needed to ensure children are set up properly */
     thread_id_t tid;
-
 #ifdef X86
     /* i#107 application's tls value and pointed-at base */
-    ushort app_lib_tls_reg;  /* for mangling seg update/query */
-    ushort app_alt_tls_reg;  /* for mangling seg update/query */
+    ushort app_lib_tls_reg; /* for mangling seg update/query */
+    ushort app_alt_tls_reg; /* for mangling seg update/query */
 #endif
-    void  *app_lib_tls_base; /* for mangling segmented memory ref */
-    void  *app_alt_tls_base; /* for mangling segmented memory ref */
+    void *app_lib_tls_base; /* for mangling segmented memory ref */
+    void *app_alt_tls_base; /* for mangling segmented memory ref */
+
+/* FIXME i#3990: For MACOS, we use a union to save tls space. Unfortunately, this
+ * results in not initialising client tls slots which are allocated using
+ * dr_raw_tls_calloc. Figuring where to perform memset to clear os_seg_info is not
+ * apparently clear due to interleaved thread and instrum inits.
+ */
+#ifdef LINUX
+    os_seg_info_t os_seg_info;
+    void *client_tls[MAX_NUM_CLIENT_TLS];
+#else
     union {
         /* i#107: We use space in os_tls to store thread area information
          * thread init. It will not conflict with the client_tls usage,
@@ -252,6 +287,7 @@ typedef struct _os_local_state_t {
         os_seg_info_t os_seg_info;
         void *client_tls[MAX_NUM_CLIENT_TLS];
     };
+#endif
 } os_local_state_t;
 
 os_local_state_t *
@@ -260,12 +296,33 @@ get_os_tls(void);
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment);
 
+/* Sets a non-zero value for unknown threads on attach (see i#3356). */
+bool
+tls_thread_preinit();
+
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
 #ifdef AARCHXX
 byte **
 get_dr_tls_base_addr(void);
+#endif
+
+#ifdef MACOS64
+void
+tls_process_init(void);
+
+void
+tls_process_exit(void);
+
+int
+tls_get_dr_offs(void);
+
+byte *
+tls_get_dr_addr(void);
+
+byte **
+get_app_tls_swap_slot_addr(void);
 #endif
 
 #ifdef X86
@@ -312,15 +369,15 @@ tls_initialize_indices(os_local_state_t *os_tls);
 int
 tls_min_index(void);
 
-# if defined(LINUX) && defined(X64)
+#    if defined(LINUX) && defined(X64)
 void
 tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base);
-# endif
+#    endif
 
-# if defined(MACOS) && !defined(X64)
+#    if defined(MACOS) && !defined(X64)
 void
 tls_reinstate_selector(uint selector);
-# endif
+#    endif
 #endif /* X86 */
 
 #endif /* _OS_TLS_H_ */

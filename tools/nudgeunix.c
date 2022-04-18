@@ -49,8 +49,8 @@
 #include "globals_shared.h"
 
 extern bool
-create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
-                            client_id_t client_id, uint64 client_arg);
+create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask, client_id_t client_id,
+                            uint64 client_arg);
 
 static const char *usage_str =
     "usage: nudgeunix [-help] [-v] [-pid <pid>] [-type <type>] [-client <ID> <arg>]\n"
@@ -67,8 +67,7 @@ static const char *usage_str =
     "                          Send a nudge of type <type> to the process specified\n"
     "                          with -pid <pid>.  Type can be a numeric value or a\n"
     "                          symbolic name.  This argument can be repeated.\n"
-    "                          E.g., \"-type reset -type stats\".\n"
-;
+    "                          E.g., \"-type reset -type stats\".\n";
 static int
 usage(void)
 {
@@ -95,40 +94,40 @@ main(int argc, const char *argv[])
         if (strcmp(argv[arg_offs], "-help") == 0) {
             return usage();
         } else if (strcmp(argv[arg_offs], "-v") == 0) {
-            printf("nudgeunix version %s -- build %d\n",
-                   STRINGIFY(VERSION_NUMBER), BUILD_NUMBER);
+            printf("nudgeunix version %s -- build %d\n", STRINGIFY(VERSION_NUMBER),
+                   BUILD_NUMBER);
             exit(0);
         } else if (strcmp(argv[arg_offs], "-pid") == 0) {
-            if (argc <= arg_offs+1)
+            if (argc <= arg_offs + 1)
                 return usage();
-            target_pid = strtoul(argv[arg_offs+1], NULL, 10);
+            target_pid = strtoul(argv[arg_offs + 1], NULL, 10);
             arg_offs += 2;
         } else if (strcmp(argv[arg_offs], "-client") == 0) {
-            if (argc <= arg_offs+2)
+            if (argc <= arg_offs + 2)
                 return usage();
             action_mask |= NUDGE_GENERIC(client);
-            client_id = strtoul(argv[arg_offs+1], NULL, 16);
-            client_arg = strtoull(argv[arg_offs+2], NULL, 16);
+            client_id = strtoul(argv[arg_offs + 1], NULL, 16);
+            client_arg = strtoull(argv[arg_offs + 2], NULL, 16);
             arg_offs += 3;
         } else if (strcmp(argv[arg_offs], "-type") == 0) {
             int type_numeric;
-            if (argc <= arg_offs+1)
+            if (argc <= arg_offs + 1)
                 return usage();
-            type_numeric = strtoul(argv[arg_offs+1], NULL, 10);
+            type_numeric = strtoul(argv[arg_offs + 1], NULL, 10);
             action_mask |= type_numeric;
 
             /* compare against symbolic names */
             {
                 int found = 0;
-#define NUDGE_DEF(name, comment) \
-                if (strcmp(#name, argv[arg_offs+1]) == 0) { \
-                    found = 1; \
-                    action_mask |= NUDGE_GENERIC(name); \
-                }
+#define NUDGE_DEF(name, comment)                  \
+    if (strcmp(#name, argv[arg_offs + 1]) == 0) { \
+        found = 1;                                \
+        action_mask |= NUDGE_GENERIC(name);       \
+    }
                 NUDGE_DEFINITIONS();
 #undef NUDGE_DEF
                 if (!found && type_numeric == 0) {
-                    fprintf(stderr, "ERROR: unknown -nudge %s\n", argv[arg_offs+1]);
+                    fprintf(stderr, "ERROR: unknown -nudge %s\n", argv[arg_offs + 1]);
                     return usage();
                 }
             }

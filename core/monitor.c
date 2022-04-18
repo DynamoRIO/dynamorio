@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,38 +45,30 @@
 #include "emit.h"
 #include "fcache.h"
 #include "monitor.h"
-#ifdef CUSTOM_TRACES
-# include "instrument.h"
-#endif
-#include <string.h> /* for memset */
+#include "instrument.h"
 #include "instr.h"
 #include "perscache.h"
 #include "disassemble.h"
 
-#ifdef CLIENT_INTERFACE
 /* in interp.c.  not declared in arch_exports.h to avoid having to go
  * make monitor_data_t opaque in globals.h.
  */
-extern bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md);
-#endif
+extern bool
+mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md);
 
 /* SPEC2000 applu has a trace head entry fragment of size 40K! */
 /* streamit's fft had a 944KB bb (ridiculous unrolling) */
 /* no reason to have giant traces, second half will become 2ndary trace */
 /* The instrumentation easily makes trace large,
  * so we should make the buffer size bigger, if a client is used.*/
-#ifdef CLIENT_INTERFACE
-# define MAX_TRACE_BUFFER_SIZE  MAX_FRAGMENT_SIZE
-#else
-# define MAX_TRACE_BUFFER_SIZE  (16*1024) /* in bytes */
-#endif
+#define MAX_TRACE_BUFFER_SIZE MAX_FRAGMENT_SIZE
 /* most traces are under 1024 bytes.
  * for x64, the rip-rel instrs prevent a memcpy on a resize
  */
 #ifdef X64
-# define INITIAL_TRACE_BUFFER_SIZE MAX_TRACE_BUFFER_SIZE
+#    define INITIAL_TRACE_BUFFER_SIZE MAX_TRACE_BUFFER_SIZE
 #else
-# define INITIAL_TRACE_BUFFER_SIZE 1024 /* in bytes */
+#    define INITIAL_TRACE_BUFFER_SIZE 1024 /* in bytes */
 #endif
 
 #define INITIAL_NUM_BLKS 8
@@ -87,16 +79,17 @@ extern bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_
  * we don't support local unprotected so we use global
  */
 /* cannot use HEAPACCT here so we use ... */
-#define COUNTER_ALLOC(dc, ...) \
-        (TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) ?   \
-         global_unprotected_heap_alloc(__VA_ARGS__) :          \
-         heap_alloc(dc, __VA_ARGS__))
-#define COUNTER_FREE(dc, p, ...) \
-        (TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) ?   \
-         global_unprotected_heap_free(p, __VA_ARGS__) :        \
-         heap_free(dc, p, __VA_ARGS__))
+#define COUNTER_ALLOC(dc, ...)                         \
+    (TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) \
+         ? global_unprotected_heap_alloc(__VA_ARGS__)  \
+         : heap_alloc(dc, __VA_ARGS__))
+#define COUNTER_FREE(dc, p, ...)                        \
+    (TEST(SELFPROT_LOCAL, dynamo_options.protect_mask)  \
+         ? global_unprotected_heap_free(p, __VA_ARGS__) \
+         : heap_free(dc, p, __VA_ARGS__))
 
-static void reset_trace_state(dcontext_t *dcontext, bool grab_link_lock);
+static void
+reset_trace_state(dcontext_t *dcontext, bool grab_link_lock);
 
 /* synchronization of shared traces */
 DECLARE_CXTSWPROT_VAR(mutex_t trace_building_lock, INIT_LOCK_FREE(trace_building_lock));
@@ -109,10 +102,9 @@ DECLARE_CXTSWPROT_VAR(mutex_t trace_building_lock, INIT_LOCK_FREE(trace_building
 static void
 delete_private_copy(dcontext_t *dcontext)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     if (md->last_copy != NULL) {
-        LOG(THREAD, LOG_MONITOR, 4,
-            "Deleting previous private copy F%d ("PFX")\n",
+        LOG(THREAD, LOG_MONITOR, 4, "Deleting previous private copy F%d (" PFX ")\n",
             md->last_copy->id, md->last_copy->tag);
         /* cannot have monitor_remove_fragment called, since that would abort trace
          * if last_copy is last_fragment
@@ -133,22 +125,20 @@ delete_private_copy(dcontext_t *dcontext)
                 "\tprivate copy was flushed so not re-deleting\n");
             STATS_INC(num_trace_private_deletions_flushed);
         } else {
-            fragment_delete(dcontext, md->last_copy, FRAGDEL_NO_MONITOR
-                            /* private fragments are invisible */
-                            IF_CLIENT_INTERFACE(|FRAGDEL_NO_HTABLE));
+            fragment_delete(dcontext, md->last_copy,
+                            FRAGDEL_NO_MONITOR
+                                /* private fragments are invisible */
+                                | FRAGDEL_NO_HTABLE);
         }
         md->last_copy = NULL;
         STATS_INC(num_trace_private_deletions);
     }
 }
 
-/* Returns false if f has been deleted and no copy can be made. FIXME - also returns
- * false if the emitted private fragment can't be added to a trace (for pad_jmps
- * insertion reasons xref PR 215179). */
-static bool
+static void
 create_private_copy(dcontext_t *dcontext, fragment_t *f)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     /* trying to share the tail of the trace ilist is a bad idea --
      * violates instrlist_t abstraction, have to deal w/ changes for
      * bb->trace (like ibl target) and worry about encoding process
@@ -159,11 +149,13 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
 
     KSTART(temp_private_bb);
     LOG(THREAD, LOG_MONITOR, 4,
-        "Creating private copy of F%d ("PFX") for trace creation\n", f->id, f->tag);
+        "Creating private copy of F%d (" PFX ") for trace creation\n", f->id, f->tag);
 
-    ASSERT(dr_get_isa_mode(dcontext) == FRAG_ISA_MODE(f->flags)
-           IF_X86_64(|| (dr_get_isa_mode(dcontext) == DR_ISA_IA32 &&
-                         !FRAG_IS_32(f->flags) && DYNAMO_OPTION(x86_to_x64))));
+    ASSERT(dr_get_isa_mode(dcontext) ==
+           FRAG_ISA_MODE(f->flags)
+               IF_X86_64(||
+                         (dr_get_isa_mode(dcontext) == DR_ISA_IA32 &&
+                          !FRAG_IS_32(f->flags) && DYNAMO_OPTION(x86_to_x64))));
 
     /* only keep one private copy around at a time
      * we delete here, when we add a new copy, and not in internal_restore_last
@@ -181,52 +173,29 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
      * unfortunately -- need to be transactional so we finish building this guy,
      * and then just stop (will delete on next trace build)
      */
-    md->last_fragment =
-        build_basic_block_fragment(dcontext, f->tag, FRAG_TEMP_PRIVATE,
-                                   true/*link*/,
-                                   /* for clients we make temp-private even when
-                                    * thread-private versions already exist, so
-                                    * we have to make them invisible */
-                                   IF_CLIENT_INTERFACE_ELSE(false, true)
-                                   _IF_CLIENT(true/*for_trace*/)
-                                   _IF_CLIENT(md->pass_to_client ?
-                                              &md->unmangled_bb_ilist : NULL));
+    md->last_fragment = build_basic_block_fragment(
+        dcontext, f->tag, FRAG_TEMP_PRIVATE, true /*link*/,
+        /* for clients we make temp-private even when
+         * thread-private versions already exist, so
+         * we have to make them invisible */
+        false, true /*for_trace*/, md->pass_to_client ? &md->unmangled_bb_ilist : NULL);
     md->last_copy = md->last_fragment;
 
     STATS_INC(num_trace_private_copies);
     LOG(THREAD, LOG_MONITOR, 4,
-        "Created private copy F%d of original F%d ("PFX") for trace creation\n",
+        "Created private copy F%d of original F%d (" PFX ") for trace creation\n",
         md->last_fragment->id, f->id, f->tag);
-    DOLOG(2, LOG_INTERP, { disassemble_fragment(dcontext, md->last_fragment,
-                                                stats->loglevel <= 3); });
+    DOLOG(2, LOG_INTERP, {
+        disassemble_fragment(dcontext, md->last_fragment, d_r_stats->loglevel <= 3);
+    });
     KSTOP(temp_private_bb);
-    /* FIXME - PR 215179, with current hack pad_jmps sometimes marks fragments as
-     * CANNOT_BE_TRACE during emit (since we don't yet have a good way to handle
-     * inserted nops during tracing). This can happen for UNIX syscall fence exits and
-     * CLIENT_INTERFACE added exits.  However, it depends on the starting alignment of
-     * the fragment! So it's possible to have a fragment that is ok turn into a
-     * fragment that isn't when re-emitted here.  We could keep the ilist around and
-     * use that to extend the trace later (instead of decoding the TEMP bb), but better
-     * to come up with a general fix for tracing through nops.
-     */
-    /* PR 299808: this can happen even more easily now that we re-pass the bb
-     * to the client.  FRAG_MUST_END_TRACE is handled in internal_extend_trace.
-     */
-    if (TEST(FRAG_CANNOT_BE_TRACE, md->last_fragment->flags)) {
-        delete_private_copy(dcontext);
-        md->last_fragment = NULL;
-        md->last_copy = NULL;
-        STATS_INC(pad_jmps_block_trace_reemit);
-        return false;
-    }
-    return true;
+    ASSERT(!TEST(FRAG_CANNOT_BE_TRACE, md->last_fragment->flags));
 }
 
-#ifdef CLIENT_INTERFACE
 static void
 extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     if (md->pass_to_client) {
         instr_t *inst;
         /* FIXME: pass out exit_type from build_basic_block_fragment instead
@@ -236,8 +205,8 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
         linkstub_t *l;
         ASSERT(md->last_copy != NULL);
         ASSERT(!TEST(FRAG_COARSE_GRAIN, md->last_copy->flags));
-        for (l = FRAGMENT_EXIT_STUBS(md->last_copy);
-             LINKSTUB_NEXT_EXIT(l) != NULL; l = LINKSTUB_NEXT_EXIT(l))
+        for (l = FRAGMENT_EXIT_STUBS(md->last_copy); LINKSTUB_NEXT_EXIT(l) != NULL;
+             l = LINKSTUB_NEXT_EXIT(l))
             ; /* nothing */
         md->final_exit_flags = l->flags;
         LOG(THREAD, LOG_MONITOR, 2, "final exit flags: %x\n", md->final_exit_flags);
@@ -249,7 +218,7 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
                              instrlist_first(md->unmangled_bb_ilist));
         }
         DOLOG(4, LOG_INTERP, {
-            LOG(THREAD, LOG_INTERP, 4, "unmangled ilist with F%d("PFX"):\n",
+            LOG(THREAD, LOG_INTERP, 4, "unmangled ilist with F%d(" PFX "):\n",
                 md->last_copy->id, md->last_copy->tag);
             instrlist_disassemble(dcontext, md->trace_tag, &md->unmangled_ilist, THREAD);
         });
@@ -260,9 +229,8 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
 
         md->blk_info[md->num_blks].vmlist = NULL;
         if (inst != NULL) { /* PR 366232: handle empty bbs */
-            vm_area_add_to_list(dcontext, f->tag,
-                                &(md->blk_info[md->num_blks].vmlist),
-                                md->trace_flags, f, false/*have no locks*/);
+            vm_area_add_to_list(dcontext, f->tag, &(md->blk_info[md->num_blks].vmlist),
+                                md->trace_flags, f, false /*have no locks*/);
             md->blk_info[md->num_blks].final_cti =
                 instr_is_cti(instrlist_last(md->unmangled_bb_ilist));
         } else
@@ -278,7 +246,6 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
     if (md->last_copy != NULL && TEST(FRAG_HAS_TRANSLATION_INFO, md->last_copy->flags))
         md->trace_flags |= FRAG_HAS_TRANSLATION_INFO;
 }
-#endif
 
 bool
 mangle_trace_at_end(void)
@@ -287,17 +254,13 @@ mangle_trace_at_end(void)
      * unless there's a client bb or trace hook, for a for-cache trace
      * or a recreate-state trace.
      */
-#ifdef CLIENT_INTERFACE
     return (dr_bb_hook_exists() || dr_trace_hook_exists());
-#else
-    return false;
-#endif
 }
 
 /* Initialization */
 /* thread-shared init does nothing, thread-private init does it all */
 void
-monitor_init()
+d_r_monitor_init()
 {
     /* to reduce memory, we use ushorts for some offsets in fragment bodies,
      * so we have to stop a trace at that size
@@ -331,10 +294,10 @@ trace_abort_and_delete(dcontext_t *dcontext)
 }
 
 void
-monitor_exit()
+d_r_monitor_exit()
 {
-    LOG(GLOBAL, LOG_MONITOR|LOG_STATS, 1,
-        "Trace fragments generated: %d\n", GLOBAL_STAT(num_traces));
+    LOG(GLOBAL, LOG_MONITOR | LOG_STATS, 1, "Trace fragments generated: %d\n",
+        GLOBAL_STAT(num_traces));
     DELETE_LOCK(trace_building_lock);
 }
 
@@ -349,9 +312,9 @@ monitor_thread_init(dcontext_t *dcontext)
 {
     monitor_data_t *md;
 
-    md = (monitor_data_t *) heap_alloc(dcontext, sizeof(monitor_data_t)
-                                       HEAPACCT(ACCT_TRACE));
-    dcontext->monitor_field = (void *) md;
+    md = (monitor_data_t *)heap_alloc(dcontext,
+                                      sizeof(monitor_data_t) HEAPACCT(ACCT_TRACE));
+    dcontext->monitor_field = (void *)md;
     memset(md, 0, sizeof(monitor_data_t));
     reset_trace_state(dcontext, false /* link lock not needed */);
 
@@ -363,13 +326,12 @@ monitor_thread_init(dcontext_t *dcontext)
     if (RUNNING_WITHOUT_CODE_CACHE() || DYNAMO_OPTION(disable_traces))
         return;
 
-    md->thead_table = generic_hash_create(dcontext, INIT_COUNTER_TABLE_SIZE,
-                                          COUNTER_TABLE_LOAD,
-                                          /* persist the trace head counts for improved
-                                           * traces and trace-building efficiency
-                                           */
-                                          HASHTABLE_PERSISTENT,
-                                          thcounter_free _IF_DEBUG("trace heads"));
+    md->thead_table = generic_hash_create(
+        dcontext, INIT_COUNTER_TABLE_SIZE, COUNTER_TABLE_LOAD,
+        /* persist the trace head counts for improved
+         * traces and trace-building efficiency
+         */
+        HASHTABLE_PERSISTENT, thcounter_free _IF_DEBUG("trace heads"));
     md->thead_table->hash_func = HASH_FUNCTION_MULTIPLY_PHI;
 }
 
@@ -377,7 +339,7 @@ monitor_thread_init(dcontext_t *dcontext)
 void
 monitor_thread_exit(dcontext_t *dcontext)
 {
-    DEBUG_DECLARE(monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;)
+    DEBUG_DECLARE(monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;)
 
     /* For non-debug we do fast exit path and don't free local heap.
      * We call trace_abort so that in case the thread is terminated in
@@ -387,11 +349,13 @@ monitor_thread_exit(dcontext_t *dcontext)
      */
     trace_abort(dcontext);
 #ifdef DEBUG
-    if (md->trace_buf != NULL)
-        heap_free(dcontext, md->trace_buf, md->trace_buf_size HEAPACCT(ACCT_TRACE));
+    if (md->trace_buf != NULL) {
+        heap_reachable_free(dcontext, md->trace_buf,
+                            md->trace_buf_size HEAPACCT(ACCT_TRACE));
+    }
     if (md->blk_info != NULL) {
-        heap_free(dcontext, md->blk_info, md->blk_info_length*sizeof(trace_bb_build_t)
-                  HEAPACCT(ACCT_TRACE));
+        heap_free(dcontext, md->blk_info,
+                  md->blk_info_length * sizeof(trace_bb_build_t) HEAPACCT(ACCT_TRACE));
     }
     if (md->thead_table != NULL)
         generic_hash_destroy(dcontext, md->thead_table);
@@ -402,22 +366,22 @@ monitor_thread_exit(dcontext_t *dcontext)
 static trace_head_counter_t *
 thcounter_lookup(dcontext_t *dcontext, app_pc tag)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
-    return (trace_head_counter_t *) generic_hash_lookup(dcontext, md->thead_table,
-                                                        (ptr_uint_t) tag);
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
+    return (trace_head_counter_t *)generic_hash_lookup(dcontext, md->thead_table,
+                                                       (ptr_uint_t)tag);
 }
 
 static trace_head_counter_t *
 thcounter_add(dcontext_t *dcontext, app_pc tag)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     trace_head_counter_t *e = thcounter_lookup(dcontext, tag);
     if (e == NULL) {
-        e = COUNTER_ALLOC(dcontext, sizeof(trace_head_counter_t)
-                          HEAPACCT(ACCT_THCOUNTER));
+        e = COUNTER_ALLOC(dcontext,
+                          sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
         e->tag = tag;
         e->counter = 0;
-        generic_hash_add(dcontext, md->thead_table, (ptr_uint_t) tag, e);
+        generic_hash_add(dcontext, md->thead_table, (ptr_uint_t)tag, e);
     }
     return e;
 }
@@ -426,49 +390,47 @@ thcounter_add(dcontext_t *dcontext, app_pc tag)
 void
 thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     if (md->thead_table != NULL) {
-        generic_hash_range_remove(dcontext, md->thead_table,
-                                  (ptr_uint_t) start, (ptr_uint_t) end);
+        generic_hash_range_remove(dcontext, md->thead_table, (ptr_uint_t)start,
+                                  (ptr_uint_t)end);
     }
 }
 
 bool
 is_building_trace(dcontext_t *dcontext)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     return (md->trace_tag != NULL);
 }
 
 app_pc
 cur_trace_tag(dcontext_t *dcontext)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     return md->trace_tag;
 }
 
 void *
 cur_trace_vmlist(dcontext_t *dcontext)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     return md->trace_vmlist;
 }
 
 static void
 reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     uint i;
     /* reset the trace buffer */
     instrlist_init(&(md->trace));
-#ifdef CLIENT_INTERFACE
     if (instrlist_first(&md->unmangled_ilist) != NULL)
         instrlist_clear(dcontext, &md->unmangled_ilist);
     instrlist_init(&md->unmangled_ilist);
     if (md->unmangled_bb_ilist != NULL)
         instrlist_clear_and_destroy(dcontext, md->unmangled_bb_ilist);
     md->unmangled_bb_ilist = NULL;
-#endif
     md->trace_buf_top = 0;
     ASSERT(md->trace_vmlist == NULL);
     for (i = 0; i < md->num_blks; i++) {
@@ -527,13 +489,13 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
         if (grab_link_lock)
             release_recursive_lock(&change_linking_lock);
     }
-    md->trace_tag = NULL;  /* indicate return to search mode */
+    md->trace_tag = NULL; /* indicate return to search mode */
     md->trace_flags = 0;
     md->emitted_size = 0;
     /* flags may not match, e.g., if frag was marked as trace head */
     ASSERT(md->last_fragment == NULL ||
-           (md->last_fragment_flags & (FRAG_CANNOT_DELETE|FRAG_LINKED_OUTGOING)) ==
-           (md->last_fragment->flags & (FRAG_CANNOT_DELETE|FRAG_LINKED_OUTGOING)));
+           (md->last_fragment_flags & (FRAG_CANNOT_DELETE | FRAG_LINKED_OUTGOING)) ==
+               (md->last_fragment->flags & (FRAG_CANNOT_DELETE | FRAG_LINKED_OUTGOING)));
     md->last_fragment_flags = 0;
     /* we don't delete last_copy here to avoid issues w/ trace_abort deleting
      * a fragment we're examining (seg fault, etc.)
@@ -555,7 +517,7 @@ monitor_delete_would_abort_trace(dcontext_t *dcontext, fragment_t *f)
         dcontext = get_thread_private_dcontext();
     if (dcontext == NULL)
         return false;
-    md = (monitor_data_t *) dcontext->monitor_field;
+    md = (monitor_data_t *)dcontext->monitor_field;
     return ((md->last_fragment == f || dcontext->last_fragment == f) &&
             md->trace_tag != NULL);
 }
@@ -574,10 +536,10 @@ monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f)
             if (dynamo_exited)
                 return;
             ASSERT_NOT_REACHED();
-            return;             /* safe default */
+            return; /* safe default */
         }
     }
-    md = (monitor_data_t *) dcontext->monitor_field;
+    md = (monitor_data_t *)dcontext->monitor_field;
     if (md->last_copy == f) {
         md->last_copy = NULL; /* no other action required */
         STATS_INC(num_trace_private_deletions);
@@ -599,8 +561,7 @@ monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     if ((md->last_fragment == f || dcontext->last_fragment == f) &&
         !TEST(FRAG_TEMP_PRIVATE, f->flags)) {
         if (md->trace_tag != NULL) {
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Aborting current trace since F%d was deleted\n",
+            LOG(THREAD, LOG_MONITOR, 2, "Aborting current trace since F%d was deleted\n",
                 f->id);
             /* abort current trace, we've lost a link */
             trace_abort(dcontext);
@@ -622,12 +583,11 @@ unlink_ibt_trace_head(dcontext_t *dcontext, fragment_t *f)
     if (DYNAMO_OPTION(shared_bb_ibt_tables)) {
         ASSERT(TEST(FRAG_SHARED, f->flags));
         if (fragment_prepare_for_removal(GLOBAL_DCONTEXT, f)) {
-            LOG(THREAD, LOG_FRAGMENT, 3,
-                "  F%d("PFX") removed as trace head IBT\n", f->id, f->tag);
+            LOG(THREAD, LOG_FRAGMENT, 3, "  F%d(" PFX ") removed as trace head IBT\n",
+                f->id, f->tag);
             STATS_INC(num_th_bb_ibt_unlinked);
         }
-    }
-    else {
+    } else {
 
         /* To preserve the current paradigm of trace head-ness as a shared
          * property, we must unlink the fragment from every thread's IBT tables.
@@ -645,22 +605,21 @@ unlink_ibt_trace_head(dcontext_t *dcontext, fragment_t *f)
         ASSERT_NOT_IMPLEMENTED(false);
         /* fragment_prepare_for_removal will unlink from shared ibt; we cannot
          * remove completely here */
-        fragment_remove_from_ibt_tables(dcontext, f, false/*leave in shared ibt*/);
+        fragment_remove_from_ibt_tables(dcontext, f, false /*leave in shared ibt*/);
         /* Remove the fragment from other thread's tables. */
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num_threads);
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         for (i = 0; i < num_threads; i++) {
             dcontext_t *tgt_dcontext = threads[i]->dcontext;
-            LOG(THREAD, LOG_FRAGMENT, 2,
-                "  considering thread %d/%d = "TIDFMT"\n", i+1, num_threads,
-                threads[i]->id);
+            LOG(THREAD, LOG_FRAGMENT, 2, "  considering thread %d/%d = " TIDFMT "\n",
+                i + 1, num_threads, threads[i]->id);
             ASSERT(is_thread_known(tgt_dcontext->owning_thread));
-            fragment_prepare_for_removal(TEST(FRAG_SHARED, f->flags) ?
-                                         GLOBAL_DCONTEXT : tgt_dcontext, f);
+            fragment_prepare_for_removal(
+                TEST(FRAG_SHARED, f->flags) ? GLOBAL_DCONTEXT : tgt_dcontext, f);
         }
-        global_heap_free(threads, num_threads*sizeof(thread_record_t*)
-                         HEAPACCT(ACCT_THREAD_MGT));
+        global_heap_free(
+            threads, num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     }
 }
 
@@ -682,13 +641,13 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
         (dcontext_in == GLOBAL_DCONTEXT) ? get_thread_private_dcontext() : dcontext_in;
     ASSERT(dcontext != NULL);
 
-    LOG(THREAD, LOG_MONITOR, 4, "marking F%d ("PFX") as trace head\n", f->id, f->tag);
+    LOG(THREAD, LOG_MONITOR, 3, "marking F%d (" PFX ") as trace head\n", f->id, f->tag);
     ASSERT(!TEST(FRAG_IS_TRACE, f->flags));
-    ASSERT(!NEED_SHARED_LOCK(f->flags) ||
-           self_owns_recursive_lock(&change_linking_lock));
+    ASSERT(!NEED_SHARED_LOCK(f->flags) || self_owns_recursive_lock(&change_linking_lock));
 
     if (thcounter_lookup(dcontext, f->tag) == NULL) {
-        protected = local_heap_protected(dcontext);
+    protected
+        = local_heap_protected(dcontext);
         if (protected) {
             /* unprotect local heap */
             protect_local_heap(dcontext, WRITABLE);
@@ -706,7 +665,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
     f->flags |= FRAG_IS_TRACE_HEAD;
     LOG(THREAD, LOG_MONITOR, 4, "\tnow, flags 0x%08x\n", f->flags);
     /* must unlink incoming links so that the counter will increment */
-    LOG(THREAD, LOG_MONITOR, 4, "unlinking incoming for new trace head F%d ("PFX")\n",
+    LOG(THREAD, LOG_MONITOR, 4, "unlinking incoming for new trace head F%d (" PFX ")\n",
         f->id, f->tag);
 
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -721,15 +680,15 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
              */
         } else {
             /* See if there is an entrance stub for this target in the source unit */
-            fragment_coarse_lookup_in_unit(dcontext, info, f->tag,
-                                           &coarse_stub, &coarse_body);
+            fragment_coarse_lookup_in_unit(dcontext, info, f->tag, &coarse_stub,
+                                           &coarse_body);
             /* FIXME: don't allow marking for frozen units w/ no src info:
-             * shouldn't happen, except perhaps CLIENT_INTERFACE
+             * shouldn't happen, except perhaps with clients.
              */
             ASSERT(src_f != NULL || !info->frozen);
-            if (src_f != NULL && TEST(FRAG_COARSE_GRAIN, src_f->flags) &&
-                src_l != NULL && LINKSTUB_NORMAL_DIRECT(src_l->flags)) {
-                direct_linkstub_t *dl = (direct_linkstub_t *) src_l;
+            if (src_f != NULL && TEST(FRAG_COARSE_GRAIN, src_f->flags) && src_l != NULL &&
+                LINKSTUB_NORMAL_DIRECT(src_l->flags)) {
+                direct_linkstub_t *dl = (direct_linkstub_t *)src_l;
                 if (dl->stub_pc != NULL && coarse_is_entrance_stub(dl->stub_pc)) {
                     if (coarse_stub == NULL) {
                         /* Case 9708: For a new fragment whose target exists but
@@ -774,9 +733,9 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
                  */
                 STATS_INC(coarse_th_from_fine);
                 /* id comparison could have a race w/ private frag gen so a curiosity */
-                ASSERT_CURIOSITY(GLOBAL_STAT(num_fragments) == f->id ||
-                                 (src_f != NULL &&
-                                  !TEST(FRAG_COARSE_GRAIN, src_f->flags)));
+                ASSERT_CURIOSITY(
+                    GLOBAL_STAT(num_fragments) == f->id ||
+                    (src_f != NULL && !TEST(FRAG_COARSE_GRAIN, src_f->flags)));
             }
         }
     } else
@@ -795,10 +754,10 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
      * a waste of time) -- how fix it?
      * When fix it, change link_branch to assert that !already linked
      */
-    link_fragment_incoming(dcontext, f, false/*not new*/);
+    link_fragment_incoming(dcontext, f, false /*not new*/);
 #endif
     STATS_INC(num_trace_heads_marked);
-    /* caller is either dispatch or inside emit_fragment, they take care of
+    /* caller is either d_r_dispatch or inside emit_fragment, they take care of
      * re-protecting fcache
      */
     if (protected) {
@@ -818,10 +777,8 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
     app_pc from_tag;
     uint from_flags;
 
-    if (DYNAMO_OPTION(disable_traces) ||
-        TEST(FRAG_IS_TRACE, to_flags) ||
-        TEST(FRAG_IS_TRACE_HEAD, to_flags) ||
-        TEST(FRAG_CANNOT_BE_TRACE, to_flags))
+    if (DYNAMO_OPTION(disable_traces) || TEST(FRAG_IS_TRACE, to_flags) ||
+        TEST(FRAG_IS_TRACE_HEAD, to_flags) || TEST(FRAG_CANNOT_BE_TRACE, to_flags))
         return false;
 
     /* We know that the to_flags pass the test. */
@@ -837,7 +794,7 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
      * Watch out -- since we stop building traces at trace heads,
      * too many can hurt performance, especially if bbs do not follow
      * direct ctis.  We can use shadowed bbs to go through trace
-     * head and trace boundaries (CUSTOM_TRACES).
+     * head and trace boundaries for custom traces.
      */
     /* trace heads can be created across private/shared cache bounds */
     if (TEST(FRAG_IS_TRACE, from_flags) ||
@@ -845,8 +802,7 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
         return true;
 
     DOSTATS({
-        if (!DYNAMO_OPTION(disable_traces) &&
-            !TEST(FRAG_IS_TRACE, to_flags) &&
+        if (!DYNAMO_OPTION(disable_traces) && !TEST(FRAG_IS_TRACE, to_flags) &&
             !TEST(FRAG_IS_TRACE_HEAD, to_flags) &&
             !TEST(FRAG_CANNOT_BE_TRACE, to_flags)) {
             STATS_INC(num_wannabe_traces);
@@ -854,7 +810,6 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
     });
     return false;
 }
-
 
 /* Returns TRACE_HEAD_* flags indicating whether to_tag should be a
  * trace head based on fragment traits and/or control flow between the
@@ -881,9 +836,8 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
  */
 static uint
 should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f,
-                              linkstub_t *from_l,
-                              app_pc to_tag, uint to_flags, bool have_link_lock,
-                              bool trace_sysenter_exit)
+                              linkstub_t *from_l, app_pc to_tag, uint to_flags,
+                              bool have_link_lock, bool trace_sysenter_exit)
 {
     uint result = 0;
     if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
@@ -898,9 +852,8 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f,
             ASSERT(from_l == NULL || !NEED_SHARED_LOCK(from_f->flags));
             if (NEED_SHARED_LOCK(to_flags)) {
                 acquire_recursive_lock(&change_linking_lock);
-                if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l,
-                                                         to_tag, to_flags,
-                                                         trace_sysenter_exit)) {
+                if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag,
+                                                         to_flags, trace_sysenter_exit)) {
                     result |= TRACE_HEAD_OBTAINED_LOCK;
                 } else {
                     result &= ~TRACE_HEAD_YES;
@@ -987,7 +940,7 @@ monitor_is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l
 #endif
         }
     }
-    return true;        /* otherwise */
+    return true; /* otherwise */
 }
 
 /* If necessary, re-allocates the trace buffer to a larger size to
@@ -1001,7 +954,7 @@ monitor_is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l
 static bool
 make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     uint size;
     uint new_blks;
     ssize_t realloc_shift;
@@ -1017,31 +970,31 @@ make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
         while (add_size > (size - md->trace_buf_top))
             size *= 2;
         if (size > MAX_TRACE_BUFFER_SIZE) {
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Not letting trace buffer grow to %d bytes\n", size);
+            LOG(THREAD, LOG_MONITOR, 2, "Not letting trace buffer grow to %d bytes\n",
+                size);
             return false;
         }
-        /* re-allocate trace buf */
-        LOG(THREAD, LOG_MONITOR, 3,
-            "\nRe-allocating trace buffer from %d to %d bytes\n",
-            md->trace_buf_size, size);
-        new_tbuf = heap_alloc(dcontext, size HEAPACCT(ACCT_TRACE));
+        /* Re-allocate trace buf.  It must be reachable for rip-rel re-relativization. */
+        new_tbuf = heap_reachable_alloc(dcontext, size HEAPACCT(ACCT_TRACE));
         if (md->trace_buf != NULL) {
             /* copy entire thing, just in case */
             IF_X64(ASSERT_NOT_REACHED()); /* can't copy w/o re-relativizing! */
             memcpy(new_tbuf, md->trace_buf, md->trace_buf_size);
-            heap_free(dcontext, md->trace_buf, md->trace_buf_size HEAPACCT(ACCT_TRACE));
+            heap_reachable_free(dcontext, md->trace_buf,
+                                md->trace_buf_size HEAPACCT(ACCT_TRACE));
             realloc_shift = new_tbuf - md->trace_buf;
             /* need to walk through trace instr_t list and update addresses */
             instr = instrlist_first(trace);
             while (instr != NULL) {
                 byte *b = instr_get_raw_bits(instr);
-                if (b >= md->trace_buf &&
-                    b < md->trace_buf+md->trace_buf_size)
+                if (b >= md->trace_buf && b < md->trace_buf + md->trace_buf_size)
                     instr_shift_raw_bits(instr, realloc_shift);
                 instr = instr_get_next(instr);
             }
         }
+        LOG(THREAD, LOG_MONITOR, 3,
+            "\nRe-allocated trace buffer from %d @" PFX " to %d bytes @" PFX "\n",
+            md->trace_buf_size, md->trace_buf, size, new_tbuf);
         md->trace_buf = new_tbuf;
         md->trace_buf_size = size;
     }
@@ -1058,14 +1011,14 @@ make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
         do {
             new_len *= 2;
         } while (md->num_blks + new_blks >= new_len);
-        new_buf = (trace_bb_build_t *)
-            HEAP_ARRAY_ALLOC(dcontext, trace_bb_build_t, new_len, ACCT_TRACE, true);
+        new_buf = (trace_bb_build_t *)HEAP_ARRAY_ALLOC(dcontext, trace_bb_build_t,
+                                                       new_len, ACCT_TRACE, true);
         /* PR 306761 relies on being zeroed, as does reset_trace_state to free vmlists */
-        memset(new_buf, 0, sizeof(trace_bb_build_t)*new_len);
+        memset(new_buf, 0, sizeof(trace_bb_build_t) * new_len);
         LOG(THREAD, LOG_MONITOR, 3, "\nRe-allocating trace blks from %d to %d\n",
             md->blk_info_length, new_len);
         if (md->blk_info != NULL) {
-            memcpy(new_buf, md->blk_info, md->blk_info_length*sizeof(trace_bb_build_t));
+            memcpy(new_buf, md->blk_info, md->blk_info_length * sizeof(trace_bb_build_t));
             HEAP_ARRAY_FREE(dcontext, md->blk_info, trace_bb_build_t, md->blk_info_length,
                             ACCT_TRACE, true);
         }
@@ -1078,7 +1031,7 @@ make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
 static int
 trace_exit_stub_size_diff(dcontext_t *dcontext, fragment_t *f)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     int size = 0;
     linkstub_t *l;
     for (l = FRAGMENT_EXIT_STUBS(f); l != NULL; l = LINKSTUB_NEXT_EXIT(l)) {
@@ -1098,8 +1051,7 @@ trace_exit_stub_size_diff(dcontext_t *dcontext, fragment_t *f)
              */
             size += local_exit_stub_size(dcontext, EXIT_TARGET_TAG(dcontext, f, l),
                                          md->trace_flags) -
-                local_exit_stub_size(dcontext, EXIT_TARGET_TAG(dcontext, f, l),
-                                     f->flags);
+                local_exit_stub_size(dcontext, EXIT_TARGET_TAG(dcontext, f, l), f->flags);
         }
     }
     return size;
@@ -1121,7 +1073,7 @@ static bool
 get_and_check_add_size(dcontext_t *dcontext, fragment_t *f, uint *res_add_size,
                        uint *res_prev_mangle_size)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     uint add_size = f->size - fragment_prefix_size(f->flags) +
         trace_exit_stub_size_diff(dcontext, f) +
         (PAD_FRAGMENT_JMPS(md->trace_flags) ? extend_trace_pad_bytes(f) : 0);
@@ -1133,19 +1085,19 @@ get_and_check_add_size(dcontext_t *dcontext, fragment_t *f, uint *res_add_size,
     /* check whether adding f will push the trace over the edge */
     bool ok = (total_size <= MAX_FRAGMENT_SIZE);
     ASSERT(!TEST(FRAG_SELFMOD_SANDBOXED, f->flags)); /* no support for selfmod */
-    ASSERT(!TEST(FRAG_IS_TRACE, f->flags)); /* no support for traces */
-    LOG(THREAD, LOG_MONITOR, 4, "checking trace size: currently %d, add estimate %d\n"
+    ASSERT(!TEST(FRAG_IS_TRACE, f->flags));          /* no support for traces */
+    LOG(THREAD, LOG_MONITOR, 4,
+        "checking trace size: currently %d, add estimate %d\n"
         "\t(body: %d, stubs: %d, pad: %d, mangle est: %d)\n"
         "\t=> %d vs %d, %d vs %d\n",
         md->emitted_size, add_size + prev_mangle_size,
-        f->size - fragment_prefix_size(f->flags),
-        trace_exit_stub_size_diff(dcontext, f),
+        f->size - fragment_prefix_size(f->flags), trace_exit_stub_size_diff(dcontext, f),
         (PAD_FRAGMENT_JMPS(md->trace_flags) ? extend_trace_pad_bytes(f) : 0),
         prev_mangle_size, total_size, MAX_FRAGMENT_SIZE,
-        total_size*MAX_TRACE_FRACTION_OF_CACHE, DYNAMO_OPTION(cache_trace_max));
+        total_size * MAX_TRACE_FRACTION_OF_CACHE, DYNAMO_OPTION(cache_trace_max));
     /* don't create traces anywhere near max trace cache size */
     if (ok && DYNAMO_OPTION(cache_trace_max) > 0 &&
-        total_size*MAX_TRACE_FRACTION_OF_CACHE > DYNAMO_OPTION(cache_trace_max))
+        total_size * MAX_TRACE_FRACTION_OF_CACHE > DYNAMO_OPTION(cache_trace_max))
         ok = false;
     if (res_add_size != NULL)
         *res_add_size = add_size;
@@ -1184,7 +1136,7 @@ trace_flags_from_trace_head_flags(uint head_flags)
 static fragment_t *
 end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     fragment_t *trace_head_f = NULL;
     app_pc tag = md->trace_tag;
     app_pc cur_f_tag = cur_f->tag; /* grab now before potential cur_f deletion */
@@ -1194,10 +1146,8 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     bool replace_trace_head = false;
     fragment_t wrapper;
     uint i;
-#if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* was the trace passed through optimizations or the client interface? */
     bool externally_mangled = false;
-#endif
     /* we cannot simply upgrade a basic block fragment
      * to a trace b/c traces have prefixes that basic blocks don't!
      */
@@ -1220,13 +1170,12 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         }
     });
 
-#ifdef CLIENT_INTERFACE
     if (md->pass_to_client) {
         /* PR 299808: we pass the unmangled ilist we've been maintaining to the
          * client, and we have to then re-mangle and re-connect.
          */
-        dr_emit_flags_t emitflags = instrument_trace(dcontext, tag, &md->unmangled_ilist,
-                                                     false/*!recreating*/);
+        dr_emit_flags_t emitflags =
+            instrument_trace(dcontext, tag, &md->unmangled_ilist, false /*!recreating*/);
         externally_mangled = true;
         if (TEST(DR_EMIT_STORE_TRANSLATIONS, emitflags)) {
             /* PR 214962: let client request storage instead of recreation */
@@ -1244,7 +1193,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         md->trace = md->unmangled_ilist;
         instrlist_init(&md->unmangled_ilist);
     }
-#endif
 
     if (INTERNAL_OPTION(cbr_single_stub) &&
         final_exit_shares_prev_stub(dcontext, trace, md->trace_flags)) {
@@ -1258,12 +1206,15 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         md->emitted_size -= local_exit_stub_size(dcontext, target, md->trace_flags);
     }
 
+    /* XXX i#5062 In the future this call should be placed inside mangle_trace() */
+    IF_AARCH64(md->emitted_size += fixup_indirect_trace_exit(dcontext, trace));
+
     if (DYNAMO_OPTION(speculate_last_exit)
 #ifdef HASHTABLE_STATISTICS
-        || INTERNAL_OPTION(speculate_last_exit_stats)
-        || INTERNAL_OPTION(stay_on_trace_stats)
+        || INTERNAL_OPTION(speculate_last_exit_stats) ||
+        INTERNAL_OPTION(stay_on_trace_stats)
 #endif
-        ) {
+    ) {
         /* FIXME: speculation of last exit (case 4817) is currently
          * only implemented for traces.  If we have a sharable version
          * of fixup_last_cti() to pass that information based on instr
@@ -1285,8 +1236,8 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
              * is the current IBL target that we'll always speculate */
             if (LINKSTUB_INDIRECT(dcontext->last_exit->flags)) {
                 LOG(THREAD, LOG_MONITOR, 2,
-                    "Last trace IBL exit (trace "PFX", next_tag "PFX")\n",
-                    tag, dcontext->next_tag);
+                    "Last trace IBL exit (trace " PFX ", next_tag " PFX ")\n", tag,
+                    dcontext->next_tag);
                 ASSERT_CURIOSITY(dcontext->next_tag != NULL);
                 if (DYNAMO_OPTION(speculate_last_exit)) {
                     app_pc speculate_next_tag = dcontext->next_tag;
@@ -1295,19 +1246,18 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
                      * all IBLs that never hit by comparing to a 0xbad tag */
                     speculate_next_tag = 0xbad;
 #endif
-                    md->emitted_size +=
-                        append_trace_speculate_last_ibl(dcontext, trace,
-                                                        speculate_next_tag,
-                                                        false);
+                    md->emitted_size += append_trace_speculate_last_ibl(
+                        dcontext, trace, speculate_next_tag, false);
                 } else {
 #ifdef HASHTABLE_STATISTICS
                     ASSERT(INTERNAL_OPTION(stay_on_trace_stats) ||
                            INTERNAL_OPTION(speculate_last_exit_stats));
                     DOSTATS({
-                        md->emitted_size +=
-                            append_ib_trace_last_ibl_exit_stat(dcontext, trace,
-                                INTERNAL_OPTION(speculate_last_exit_stats) ?
-                                dcontext->next_tag : NULL);
+                        md->emitted_size += append_ib_trace_last_ibl_exit_stat(
+                            dcontext, trace,
+                            INTERNAL_OPTION(speculate_last_exit_stats)
+                                ? dcontext->next_tag
+                                : NULL);
                     });
 #endif
                 }
@@ -1316,16 +1266,15 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     }
 
     DOLOG(2, LOG_MONITOR, {
-        uint i;
-        LOG(THREAD, LOG_MONITOR, 2, "Ending and emitting hot trace (tag "PFX")\n", tag);
-        if (stats->loglevel >= 4) {
+        LOG(THREAD, LOG_MONITOR, 2, "Ending and emitting hot trace (tag " PFX ")\n", tag);
+        if (d_r_stats->loglevel >= 4) {
             instrlist_disassemble(dcontext, md->trace_tag, trace, THREAD);
             LOG(THREAD, LOG_MONITOR, 4, "\n");
         }
         LOG(THREAD, LOG_MONITOR, 2, "Trace blocks are:\n");
-        for (i=0; i<md->num_blks; i++) {
-            LOG(THREAD, LOG_MONITOR, 2, "\tblock %3d == "PFX" (%d exit(s))\n",
-                i, md->blk_info[i].info.tag,
+        for (i = 0; i < md->num_blks; i++) {
+            LOG(THREAD, LOG_MONITOR, 2, "\tblock %3d == " PFX " (%d exit(s))\n", i,
+                md->blk_info[i].info.tag,
                 IF_RETURN_AFTER_CALL_ELSE(md->blk_info[i].info.num_exits, 0));
         }
     });
@@ -1336,10 +1285,10 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
 #ifdef INTERNAL
     if (dynamo_options.optimize
-# ifdef SIDELINE
+#    ifdef SIDELINE
         && !dynamo_options.sideline
-# endif
-        ) {
+#    endif
+    ) {
         optimize_trace(dcontext, tag, trace);
         externally_mangled = true;
     }
@@ -1381,13 +1330,13 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
      */
     if (TEST(FRAG_SHARED, md->trace_flags)) {
         ASSERT(DYNAMO_OPTION(shared_traces));
-        mutex_lock(&trace_building_lock);
+        d_r_mutex_lock(&trace_building_lock);
         /* we left the bb there, so we rely on any shared trace shadowing it */
         trace_f = fragment_lookup_trace(dcontext, tag);
         if (trace_f != NULL) {
             /* someone beat us to it!  tough luck -- throw it all away */
             ASSERT(TEST(FRAG_IS_TRACE, trace_f->flags));
-            mutex_unlock(&trace_building_lock);
+            d_r_mutex_unlock(&trace_building_lock);
             trace_abort(dcontext);
             STATS_INC(num_aborted_traces_race);
 #ifdef DEBUG
@@ -1427,7 +1376,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     }
     /* remove private trace head fragment, if any */
     if (trace_head_f == NULL) /* from cur_f */
-        trace_head_f = fragment_lookup_same_sharing(dcontext, tag, 0/*FRAG_PRIVATE*/);
+        trace_head_f = fragment_lookup_same_sharing(dcontext, tag, 0 /*FRAG_PRIVATE*/);
     /* We do not go through other threads and delete their private trace heads,
      * presuming that they have them for a reason and don't want this shared trace
      */
@@ -1438,7 +1387,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
          */
         if (trace_head_f == dcontext->last_fragment)
             last_exit_deleted(dcontext);
-#ifdef CUSTOM_TRACES
         /* If the trace is private, don't delete the head: the trace will simply
          * shadow it.  If the trace is shared, we have to delete it.  We'll re-create
          * the head as a shared bb if we ever do build a custom trace through it.
@@ -1446,15 +1394,13 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         if (!TEST(FRAG_SHARED, md->trace_flags)) {
             replace_trace_head = true;
             /* we can't have our trace_head_f clobbered below */
-            CLIENT_ASSERT(!DYNAMO_OPTION(shared_bbs), "invalid private trace head and "
-                          "private traces but -shared_bbs for CUSTOM_TRACES");
+            CLIENT_ASSERT(!DYNAMO_OPTION(shared_bbs),
+                          "invalid private trace head and "
+                          "private traces but -shared_bbs for custom traces");
         } else {
-#endif
             fragment_delete(dcontext, trace_head_f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_MONITOR);
-#ifdef CUSTOM_TRACES
         }
-#endif
         if (!replace_trace_head) {
             trace_head_f = NULL;
             STATS_INC(num_fragments_deleted_trace_heads);
@@ -1462,9 +1408,8 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     }
     /* find shared trace head fragment, if any */
     if (DYNAMO_OPTION(shared_bbs)) {
-        trace_head_f =
-            fragment_lookup_fine_and_coarse_sharing(dcontext, tag, &wrapper,
-                                                    NULL, FRAG_SHARED);
+        trace_head_f = fragment_lookup_fine_and_coarse_sharing(dcontext, tag, &wrapper,
+                                                               NULL, FRAG_SHARED);
         if (!TEST(FRAG_SHARED, md->trace_flags)) {
             /* trace is private, so we can emit as a shadow of trace head */
         } else if (trace_head_f != NULL) {
@@ -1497,14 +1442,11 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
     /* emit trace fragment into fcache with tag value */
     if (replace_trace_head) {
-#ifndef CUSTOM_TRACES
-        ASSERT(TEST(FRAG_SHARED, md->trace_flags));
-#endif
         trace_f = emit_fragment_as_replacement(dcontext, tag, trace, md->trace_flags,
                                                md->trace_vmlist, trace_head_f);
     } else {
         trace_f = emit_fragment(dcontext, tag, trace, md->trace_flags, md->trace_vmlist,
-                                true/*link*/);
+                                true /*link*/);
     }
     ASSERT(trace_f != NULL);
     /* our estimate should be conservative
@@ -1524,24 +1466,24 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
                      PAD_FRAGMENT_JMPS(trace_f->flags));
     trace_tr = TRACE_FIELDS(trace_f);
     trace_tr->num_bbs = md->num_blks;
-    trace_tr->bbs = (trace_bb_info_t *)
-        nonpersistent_heap_alloc(FRAGMENT_ALLOC_DC(dcontext, trace_f->flags),
-                                 md->num_blks*sizeof(trace_bb_info_t)
-                                 HEAPACCT(ACCT_TRACE));
+    trace_tr->bbs = (trace_bb_info_t *)nonpersistent_heap_alloc(
+        FRAGMENT_ALLOC_DC(dcontext, trace_f->flags),
+        md->num_blks * sizeof(trace_bb_info_t) HEAPACCT(ACCT_TRACE));
     for (i = 0; i < md->num_blks; i++)
         trace_tr->bbs[i] = md->blk_info[i].info;
 
     if (TEST(FRAG_SHARED, md->trace_flags))
-        mutex_unlock(&trace_building_lock);
+        d_r_mutex_unlock(&trace_building_lock);
 
     RSTATS_INC(num_traces);
-    DOSTATS({IF_X86_64(if (FRAG_IS_32(trace_f->flags)) {STATS_INC(num_32bit_traces);})});
+    DOSTATS(
+        { IF_X86_64(if (FRAG_IS_32(trace_f->flags)) { STATS_INC(num_32bit_traces); }) });
     STATS_ADD(num_bbs_in_all_traces, md->num_blks);
     STATS_TRACK_MAX(max_bbs_in_a_trace, md->num_blks);
     DOLOG(2, LOG_MONITOR, {
-        LOG(THREAD, LOG_MONITOR, 1, "Generated trace fragment #%d for tag "PFX"\n",
+        LOG(THREAD, LOG_MONITOR, 1, "Generated trace fragment #%d for tag " PFX "\n",
             GLOBAL_STAT(num_traces), tag);
-        disassemble_fragment(dcontext, trace_f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, trace_f, d_r_stats->loglevel < 3);
     });
 
 #ifdef INTERNAL
@@ -1574,17 +1516,15 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
          */
         !TEST(FRAG_COARSE_GRAIN, trace_head_f->flags) &&
         /* if both shared only remove if option on, and no custom tracing */
-        IF_CUSTOM_TRACES(!dr_end_trace_hook_exists() &&)
-        INTERNAL_OPTION(remove_shared_trace_heads)) {
+        !dr_end_trace_hook_exists() && INTERNAL_OPTION(remove_shared_trace_heads)) {
         fragment_remove_shared_no_flush(dcontext, trace_head_f);
         trace_head_f = NULL;
     }
 
     if (DYNAMO_OPTION(remove_trace_components)) {
-        uint i;
         fragment_t *f;
         /* use private md values, don't trust trace_tr */
-        for (i = 1/*skip trace head*/; i < md->num_blks; i++) {
+        for (i = 1 /*skip trace head*/; i < md->num_blks; i++) {
             f = fragment_lookup_bb(dcontext, md->blk_info[i].info.tag);
             if (f != NULL) {
                 if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -1615,7 +1555,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         ASSERT(!TEST(FRAG_TRACE_BUILDING, trace_head_f->flags));
 #endif
 
- end_and_emit_trace_return:
+end_and_emit_trace_return:
     if (cur_f == NULL && cur_f_tag == tag)
         return trace_f;
     else {
@@ -1637,13 +1577,11 @@ static fragment_t *
 internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
                       uint add_size)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     bool have_locks = false;
     DEBUG_DECLARE(uint pre_emitted_size = md->emitted_size;)
 
-#ifdef CLIENT_INTERFACE
     extend_unmangled_ilist(dcontext, f);
-#endif
 
     /* if prev_l is fake, NULL it out */
     if (is_ibl_sourceless_linkstub((const linkstub_t *)prev_l)) {
@@ -1697,8 +1635,8 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
     LOG(THREAD, LOG_MONITOR, 3, "extending added %d to size of trace => %d total\n",
         md->emitted_size - pre_emitted_size, md->emitted_size);
 
-    vm_area_add_to_list(dcontext, md->trace_tag, &(md->trace_vmlist), md->trace_flags,
-                        f, have_locks);
+    vm_area_add_to_list(dcontext, md->trace_tag, &(md->trace_vmlist), md->trace_flags, f,
+                        have_locks);
     if (have_locks) {
         /* We must give up change_linking_lock in order to execute
          * create_private_copy (it calls emit()) but we're at a stable state
@@ -1755,21 +1693,17 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
          * dcontext->last_exit for extend_trace
          */
         f->flags |= FRAG_CANNOT_DELETE;
-        LOG(THREAD, LOG_MONITOR, 4,
-            "monitor marked F%d ("PFX") as un-deletable\n", f->id, f->tag);
+        LOG(THREAD, LOG_MONITOR, 4, "monitor marked F%d (" PFX ") as un-deletable\n",
+            f->id, f->tag);
     }
 
-#ifdef CUSTOM_TRACES
     /* may end up going through trace head, etc. that isn't linked */
     if ((f->flags & FRAG_LINKED_OUTGOING) != 0) {
-#endif
         /* unlink so monitor invoked on fragment exit */
         unlink_fragment_outgoing(dcontext, f);
-        LOG(THREAD, LOG_MONITOR|LOG_LINKS, 4,
-            "monitor unlinked F%d ("PFX")\n", f->id, f->tag);
-#ifdef CUSTOM_TRACES
+        LOG(THREAD, LOG_MONITOR | LOG_LINKS, 4, "monitor unlinked F%d (" PFX ")\n", f->id,
+            f->tag);
     }
-#endif
 
     SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
 
@@ -1782,7 +1716,7 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
 static void
 internal_restore_last(dcontext_t *dcontext)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     if (md->last_fragment == NULL)
         return;
     /* must restore fragment used to extend trace to pre-trace-building state.
@@ -1793,8 +1727,7 @@ internal_restore_last(dcontext_t *dcontext)
     SHARED_FLAGS_RECURSIVE_LOCK(md->last_fragment->flags, acquire, change_linking_lock);
     if ((md->last_fragment_flags & FRAG_LINKED_OUTGOING) != 0 &&
         (md->last_fragment->flags & FRAG_LINKED_OUTGOING) == 0) {
-        LOG(THREAD, LOG_MONITOR, 4,
-            "internal monitor: relinking last fragment F%d\n",
+        LOG(THREAD, LOG_MONITOR, 4, "internal monitor: relinking last fragment F%d\n",
             md->last_fragment->id);
         link_fragment_outgoing(dcontext, md->last_fragment, false);
     }
@@ -1806,10 +1739,8 @@ internal_restore_last(dcontext_t *dcontext)
         md->last_fragment->flags &= ~FRAG_CANNOT_DELETE;
     }
     /* flags may not match, e.g., if frag was marked as trace head */
-    ASSERT((md->last_fragment_flags &
-            (FRAG_CANNOT_DELETE|FRAG_LINKED_OUTGOING)) ==
-           (md->last_fragment->flags &
-            (FRAG_CANNOT_DELETE|FRAG_LINKED_OUTGOING)));
+    ASSERT((md->last_fragment_flags & (FRAG_CANNOT_DELETE | FRAG_LINKED_OUTGOING)) ==
+           (md->last_fragment->flags & (FRAG_CANNOT_DELETE | FRAG_LINKED_OUTGOING)));
     /* hold lock across FRAG_CANNOT_DELETE changes and all other flag checks, too */
     SHARED_FLAGS_RECURSIVE_LOCK(md->last_fragment->flags, release, change_linking_lock);
 
@@ -1828,10 +1759,10 @@ internal_restore_last(dcontext_t *dcontext)
 void
 monitor_cache_exit(dcontext_t *dcontext)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     /* where processing */
-    ASSERT(dcontext->whereami == WHERE_DISPATCH);
-    dcontext->whereami = WHERE_MONITOR;
+    ASSERT(dcontext->whereami == DR_WHERE_DISPATCH);
+    dcontext->whereami = DR_WHERE_MONITOR;
     if (md->trace_tag != NULL && md->last_fragment != NULL) {
         /* unprotect local heap */
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
@@ -1839,8 +1770,7 @@ monitor_cache_exit(dcontext_t *dcontext)
         internal_restore_last(dcontext);
         /* re-protect local heap */
         SELF_PROTECT_LOCAL(dcontext, READONLY);
-    }
-    else if (md->trace_tag == NULL) {
+    } else if (md->trace_tag == NULL) {
         /* Capture the case where the most recent cache exit was prior to a
          * non-ignorable syscall that used the SYSENTER instruction, which
          * we've seen on XP and 2003. The 'ret' after the SYSENTER executes
@@ -1863,7 +1793,7 @@ monitor_cache_exit(dcontext_t *dcontext)
             (TEST(FRAG_IS_TRACE, dcontext->last_fragment->flags) &&
              TEST(LINK_NI_SYSCALL, dcontext->last_exit->flags));
     }
-    dcontext->whereami = WHERE_DISPATCH;
+    dcontext->whereami = DR_WHERE_DISPATCH;
 }
 
 static void
@@ -1876,17 +1806,15 @@ check_fine_to_coarse_trace_head(dcontext_t *dcontext, fragment_t *f)
      * discovered at link time iff it would now be considered a trace head.
      * FIXME: any cleaner way?
      */
-    if (TEST(FRAG_COARSE_GRAIN, f->flags) &&
-        !TEST(FRAG_IS_TRACE_HEAD, f->flags) &&
+    if (TEST(FRAG_COARSE_GRAIN, f->flags) && !TEST(FRAG_IS_TRACE_HEAD, f->flags) &&
         /* FIXME: We rule out empty fragments -- but in so doing we rule out deleted
          * fragments.  Oh well.
          */
-        !TESTANY(FRAG_COARSE_GRAIN|FRAG_FAKE, dcontext->last_fragment->flags)) {
+        !TESTANY(FRAG_COARSE_GRAIN | FRAG_FAKE, dcontext->last_fragment->flags)) {
         /* we lock up front since check_for_trace_head() expects it for shared2shared */
         acquire_recursive_lock(&change_linking_lock);
-        if (check_for_trace_head(dcontext, dcontext->last_fragment,
-                                 dcontext->last_exit, f, true/*have lock*/,
-                                 false/*not sysenter exit*/)) {
+        if (check_for_trace_head(dcontext, dcontext->last_fragment, dcontext->last_exit,
+                                 f, true /*have lock*/, false /*not sysenter exit*/)) {
             STATS_INC(num_exits_fine2th_coarse);
         } else {
             /* This does happen: e.g., if we abort a trace, we came from a private fine
@@ -1905,12 +1833,10 @@ check_fine_to_coarse_trace_head(dcontext_t *dcontext, fragment_t *f)
 fragment_t *
 monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     bool start_trace = false;
     bool end_trace = false;
-#ifdef CUSTOM_TRACES
     dr_custom_trace_action_t client = CUSTOM_TRACE_DR_DECIDES;
-#endif
     trace_head_counter_t *ctr;
     uint add_size = 0, prev_mangle_size = 0; /* NOTE these aren't set if end_trace */
 
@@ -1921,8 +1847,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     }
 
     /* where processing */
-    ASSERT(dcontext->whereami == WHERE_DISPATCH);
-    dcontext->whereami = WHERE_MONITOR;
+    ASSERT(dcontext->whereami == DR_WHERE_DISPATCH);
+    dcontext->whereami = DR_WHERE_MONITOR;
 
     /* default internal routine */
 
@@ -1931,7 +1857,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
      */
     check_fine_to_coarse_trace_head(dcontext, f);
 
-    if (md->trace_tag != NULL) {      /* in trace selection mode */
+    if (md->trace_tag != NULL) { /* in trace selection mode */
+
         KSTART(trace_building);
 
         /* unprotect local heap */
@@ -1941,10 +1868,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                TEST(FRAG_TEMP_PRIVATE, md->last_fragment->flags));
 
         /* check for trace ending conditions that can be overridden by client */
-        end_trace = (end_trace ||
-                     TEST(FRAG_IS_TRACE, f->flags ) ||
+        end_trace = (end_trace || TEST(FRAG_IS_TRACE, f->flags) ||
                      TEST(FRAG_IS_TRACE_HEAD, f->flags));
-#ifdef CUSTOM_TRACES
         if (dr_end_trace_hook_exists()) {
             client = instrument_end_trace(dcontext, md->trace_tag, f->tag);
             /* Return values:
@@ -1956,8 +1881,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                 DOSTATS({
                     if (!end_trace) {
                         LOG(THREAD, LOG_MONITOR, 3,
-                            "Client ending 0x%08x trace early @0x%08x\n",
-                            md->trace_tag, f->tag);
+                            "Client ending 0x%08x trace early @0x%08x\n", md->trace_tag,
+                            f->tag);
                         STATS_INC(custom_traces_stop_early);
                     }
                 });
@@ -1976,7 +1901,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             LOG(THREAD, LOG_MONITOR, 4, "Client instrument_end_trace returned %d\n",
                 client);
         }
-#endif
         /* check for conditions signaling end of trace regardless of client */
         end_trace = end_trace || TEST(FRAG_CANNOT_BE_TRACE, f->flags);
 
@@ -1987,7 +1911,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 #endif
 
         if (!end_trace) {
-#ifdef CUSTOM_TRACES
             /* we need a regular bb here, not a trace */
             if (TEST(FRAG_IS_TRACE, f->flags)) {
                 /* We create an official, shared bb (we DO want to call the client bb
@@ -1995,13 +1918,12 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                  */
                 fragment_t *head = NULL;
                 if (USE_BB_BUILDING_LOCK())
-                    mutex_lock(&bb_building_lock);
+                    d_r_mutex_lock(&bb_building_lock);
                 if (DYNAMO_OPTION(coarse_units)) {
                     /* the existing lookup routines will shadow a coarse bb so we do
                      * a custom lookup
                      */
-                    head = fragment_coarse_lookup_wrapper(dcontext, f->tag,
-                                                          &md->wrapper);
+                    head = fragment_coarse_lookup_wrapper(dcontext, f->tag, &md->wrapper);
                 }
                 if (head == NULL)
                     head = fragment_lookup_bb(dcontext, f->tag);
@@ -2014,22 +1936,22 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                      * and asserts when adding to fragment htable and unlinking
                      * on delete.
                      */
-                    head = build_basic_block_fragment
-                        (dcontext, f->tag, FRAG_IS_TRACE_HEAD, false/*do not link*/,
-                         true/*visible*/ _IF_CLIENT(true/*for trace*/) _IF_CLIENT(NULL));
+                    head = build_basic_block_fragment(
+                        dcontext, f->tag, FRAG_IS_TRACE_HEAD, false /*do not link*/,
+                        true /*visible*/, true /*for trace*/, NULL);
                     SELF_PROTECT_LOCAL(dcontext, READONLY);
                     STATS_INC(custom_traces_bbs_built);
                     ASSERT(head != NULL);
                     /* If it's not shadowing we should have linked before htable add.
                      * We shouldn't end up w/ a bb of different sharing than the
-                     * trace: CUSTOM_TRACES rules out private traces and shared bbs,
+                     * trace: custom traces rule out private traces and shared bbs,
                      * and if circumstances changed since the original trace head bb
                      * was made then the trace should have been flushed.
                      */
                     ASSERT((head->flags & FRAG_SHARED) == (f->flags & FRAG_SHARED));
                     if (TEST(FRAG_COARSE_GRAIN, head->flags)) {
                         /* we need a local copy before releasing the lock.
-                         * FIXME: share this code sequence w/ dispatch().
+                         * FIXME: share this code sequence w/ d_r_dispatch().
                          */
                         ASSERT(USE_BB_BUILDING_LOCK());
                         fragment_coarse_wrapper(&md->wrapper, f->tag,
@@ -2039,13 +1961,12 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                     }
                 }
                 if (USE_BB_BUILDING_LOCK())
-                    mutex_unlock(&bb_building_lock);
+                    d_r_mutex_unlock(&bb_building_lock);
                 /* use the bb from here on out */
                 f = head;
             }
-#endif
-            if (TEST(FRAG_COARSE_GRAIN, f->flags) || TEST(FRAG_SHARED, f->flags)
-                IF_CLIENT_INTERFACE(|| md->pass_to_client)) {
+            if (TEST(FRAG_COARSE_GRAIN, f->flags) || TEST(FRAG_SHARED, f->flags) ||
+                md->pass_to_client) {
                 /* We need linkstub_t info for trace_exit_stub_size_diff() so we go
                  * ahead and make a private copy here.
                  * For shared fragments, we make a private copy of f to avoid
@@ -2054,28 +1975,26 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                  * determinism issues that arise when check_thread_vm_area()
                  * changes its mind over time.
                  */
-                if (create_private_copy(dcontext, f)) {
-                    /* operate on new f from here on */
-                    if (md->trace_tag == NULL) {
-                        /* trace was aborted b/c our new fragment clobbered
-                         * someone (see comments in create_private_copy) --
-                         * when emitting our private bb we can kill the
-                         * last_fragment): just exit now
-                         */
-                        LOG(THREAD, LOG_MONITOR, 4,
-                            "Private copy ended up aborting trace!\n");
-                        STATS_INC(num_trace_private_copy_abort);
-                        /* trace abort happened in emit_fragment, so we went and
-                         * undid the clearing of last_fragment by assigning it
-                         * to last_copy, must re-clear!
-                         */
-                        md->last_fragment = NULL;
-                        return f;
-                    }
-                    f = md->last_fragment;
-                } else {
-                    end_trace = true;
+                create_private_copy(dcontext, f);
+                /* operate on new f from here on */
+                if (md->trace_tag == NULL) {
+                    /* trace was aborted b/c our new fragment clobbered
+                     * someone (see comments in create_private_copy) --
+                     * when emitting our private bb we can kill the
+                     * last_fragment): just exit now
+                     */
+                    LOG(THREAD, LOG_MONITOR, 4,
+                        "Private copy ended up aborting trace!\n");
+                    STATS_INC(num_trace_private_copy_abort);
+                    /* trace abort happened in emit_fragment, so we went and
+                     * undid the clearing of last_fragment by assigning it
+                     * to last_copy, must re-clear!
+                     */
+                    md->last_fragment = NULL;
+                    KSTOP(trace_building);
+                    return f;
                 }
+                f = md->last_fragment;
             }
 
             if (!end_trace &&
@@ -2089,35 +2008,35 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             end_trace = true;
             STATS_INC(num_max_trace_bbs_enforced);
         }
-        end_trace = (end_trace ||
-                     /* mangling may never use trace buffer memory but just in case */
-                     !make_room_in_trace_buffer(dcontext,
-                                                add_size + prev_mangle_size, f));
+        end_trace =
+            (end_trace ||
+             /* mangling may never use trace buffer memory but just in case */
+             !make_room_in_trace_buffer(dcontext, add_size + prev_mangle_size, f));
 
-#ifdef CUSTOM_TRACES
         if (end_trace && client == CUSTOM_TRACE_CONTINUE) {
             /* had to overide client, log */
-            LOG(THREAD, LOG_MONITOR, 2, PRODUCT_NAME" ignoring Client's decision to "
+            LOG(THREAD, LOG_MONITOR, 2,
+                PRODUCT_NAME
+                " ignoring Client's decision to "
                 "continue trace (cannot trace through next fragment), ending trace "
                 "now\n");
         }
-#endif
 
         if (end_trace) {
             LOG(THREAD, LOG_MONITOR, 3,
-                "NOT extending hot trace (tag "PFX") with F%d ("PFX")\n",
+                "NOT extending hot trace (tag " PFX ") with F%d (" PFX ")\n",
                 md->trace_tag, f->id, f->tag);
 
             f = end_and_emit_trace(dcontext, f);
-            LOG(THREAD, LOG_MONITOR, 3, "Returning to search mode f="PFX"\n", f);
+            LOG(THREAD, LOG_MONITOR, 3, "Returning to search mode f=" PFX "\n", f);
         } else {
             LOG(THREAD, LOG_MONITOR, 3,
-                "Extending hot trace (tag "PFX") with F%d ("PFX")\n",
-                md->trace_tag, f->id, f->tag);
+                "Extending hot trace (tag " PFX ") with F%d (" PFX ")\n", md->trace_tag,
+                f->id, f->tag);
             /* add_size is set when !end_trace */
             f = internal_extend_trace(dcontext, f, dcontext->last_exit, add_size);
         }
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         /* re-protect local heap */
         SELF_PROTECT_LOCAL(dcontext, READONLY);
         KSTOP(trace_building);
@@ -2130,7 +2049,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         /* nothing to do */
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         return f;
     }
 
@@ -2149,8 +2068,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         if (LINKSTUB_INDIRECT(dcontext->last_exit->flags) ||
             dcontext->trace_sysenter_exit ||
             /* mark private secondary trace heads from shared traces */
-            (TESTALL(FRAG_SHARED|FRAG_IS_TRACE, dcontext->last_fragment->flags) &&
-             !TESTANY(FRAG_SHARED|FRAG_IS_TRACE, f->flags))) {
+            (TESTALL(FRAG_SHARED | FRAG_IS_TRACE, dcontext->last_fragment->flags) &&
+             !TESTANY(FRAG_SHARED | FRAG_IS_TRACE, f->flags))) {
 
             bool need_lock = NEED_SHARED_LOCK(dcontext->last_fragment->flags);
             if (need_lock)
@@ -2159,10 +2078,9 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             /* The exit stub is fake if trace_sysenter_exit is true, but the
              * path thru check_for_trace_head() accounts for that.
              */
-            trace_head =
-                check_for_trace_head(dcontext, dcontext->last_fragment,
-                                     dcontext->last_exit, f,
-                                     need_lock, dcontext->trace_sysenter_exit);
+            trace_head = check_for_trace_head(dcontext, dcontext->last_fragment,
+                                              dcontext->last_exit, f, need_lock,
+                                              dcontext->trace_sysenter_exit);
 
             if (need_lock)
                 release_recursive_lock(&change_linking_lock);
@@ -2171,14 +2089,13 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
              * entire fcache
              */
             SELF_PROTECT_CACHE(dcontext, NULL, READONLY);
-        }
-        else {
+        } else {
             /* whether direct or fake, not marking a trace head */
             trace_head = false;
         }
 
         if (!trace_head) {
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             return f;
         }
     }
@@ -2215,7 +2132,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
              * we need a presence table to mark that a tag is being used for trace
              * building. Generic hashtables can help with this (case 6206).
              */
-            else if (!DYNAMO_OPTION(shared_bbs) || !TEST(FRAG_SHARED,f->flags))
+            else if (!DYNAMO_OPTION(shared_bbs) || !TEST(FRAG_SHARED, f->flags))
                 start_trace = true;
             else {
                 /* Check if trace building is in progress and act accordingly. */
@@ -2224,27 +2141,22 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                 acquire_recursive_lock(&change_linking_lock);
                 if (TEST(FRAG_TRACE_BUILDING, f->flags)) {
                     /* trace_t building w/this tag is already in-progress. */
+                    LOG(THREAD, LOG_MONITOR, 3,
+                        "Not going to start trace with already-in-trace-progress F%d "
+                        "(tag " PFX ")\n",
+                        f->id, f->tag);
                     STATS_INC(num_trace_building_race);
-                }
-                else {
+                } else {
+                    LOG(THREAD, LOG_MONITOR, 3,
+                        "Going to start trace with F%d (tag " PFX ")\n", f->id, f->tag);
                     f->flags |= FRAG_TRACE_BUILDING;
                     start_trace = true;
                 }
                 release_recursive_lock(&change_linking_lock);
             }
         }
-        if (!start_trace) {
-            /* Back up the counter by one. This ensures that the
-             * counter will be == trace_threshold if this thread is later
-             * able to start building a trace w/this tag and ensures
-             * that our one-up sentinel works for lazy clearing.
-             */
-            ctr->counter--;
-            ASSERT(ctr->counter < INTERNAL_OPTION(trace_threshold));
-        }
     }
 
-#ifdef CLIENT_INTERFACE
     if (start_trace) {
         /* We need to set pass_to_client before cloning */
         /* PR 299808: cache whether we need to re-build bbs for clients up front,
@@ -2256,10 +2168,9 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* should already be initialized */
         ASSERT(instrlist_first(&md->unmangled_ilist) == NULL);
     }
-#endif
     if (start_trace &&
-        (TEST(FRAG_COARSE_GRAIN, f->flags) || TEST(FRAG_SHARED, f->flags)
-         IF_CLIENT_INTERFACE(|| md->pass_to_client))) {
+        (TEST(FRAG_COARSE_GRAIN, f->flags) || TEST(FRAG_SHARED, f->flags) ||
+         md->pass_to_client)) {
         ASSERT(TEST(FRAG_IS_TRACE_HEAD, f->flags));
         /* We need linkstub_t info for trace_exit_stub_size_diff() so we go
          * ahead and make a private copy here.
@@ -2269,12 +2180,20 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
          * determinism issues that arise when check_thread_vm_area()
          * changes its mind over time.
          */
-        if (create_private_copy(dcontext, f)) {
-            /* operate on new f from here on */
-            f = md->last_fragment;
-        } else {
-            start_trace = false;
-        }
+        create_private_copy(dcontext, f);
+        /* operate on new f from here on */
+        f = md->last_fragment;
+    }
+    if (!start_trace && ctr->counter >= INTERNAL_OPTION(trace_threshold)) {
+        /* Back up the counter by one. This ensures that the
+         * counter will be == trace_threshold if this thread is later
+         * able to start building a trace w/this tag and ensures
+         * that our one-up sentinel works for lazy clearing.
+         */
+        LOG(THREAD, LOG_MONITOR, 3, "Backing up F%d counter from %d\n", f->id,
+            ctr->counter);
+        ctr->counter--;
+        ASSERT(ctr->counter < INTERNAL_OPTION(trace_threshold));
     }
     if (start_trace) {
         KSTART(trace_building);
@@ -2303,23 +2222,21 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         if (dynamo_options.profile_times)
             md->emitted_size += profile_call_size();
 #endif
-        LOG(THREAD, LOG_MONITOR, 2,
-            "Found hot trace head F%d (tag "PFX")\n", f->id, f->tag);
+        LOG(THREAD, LOG_MONITOR, 2, "Found hot trace head F%d (tag " PFX ")\n", f->id,
+            f->tag);
         LOG(THREAD, LOG_MONITOR, 3, "Entering trace selection mode\n");
         /* allocate trace buffer space */
-#ifdef CUSTOM_TRACES
         /* we should have a bb here, since if a trace can't also be a trace head */
         ASSERT(!TEST(FRAG_IS_TRACE, f->flags));
-#endif
         if (!get_and_check_add_size(dcontext, f, &add_size, &prev_mangle_size) ||
             /* mangling may never use trace buffer memory but just in case */
-            !make_room_in_trace_buffer(dcontext, md->emitted_size + add_size +
-                                       prev_mangle_size, f)) {
-            LOG(THREAD, LOG_MONITOR, 1,
-                "bb %d ("PFX") too big (%d) %s\n",
-                f->id, f->tag, f->size,
-                get_and_check_add_size(dcontext, f, NULL, NULL) ?
-                "trace buffer" : "trace body limit / trace cache size");
+            !make_room_in_trace_buffer(
+                dcontext, md->emitted_size + add_size + prev_mangle_size, f)) {
+            LOG(THREAD, LOG_MONITOR, 1, "bb %d (" PFX ") too big (%d) %s\n", f->id,
+                f->tag, f->size,
+                get_and_check_add_size(dcontext, f, NULL, NULL)
+                    ? "trace buffer"
+                    : "trace body limit / trace cache size");
             /* turn back into a non-trace head */
             SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
             f->flags &= ~FRAG_IS_TRACE_HEAD;
@@ -2327,17 +2244,16 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             f->flags |= FRAG_CANNOT_BE_TRACE;
             STATS_INC(num_huge_fragments);
             /* have to relink incoming frags */
-            link_fragment_incoming(dcontext, f, false/*not new*/);
+            link_fragment_incoming(dcontext, f, false /*not new*/);
             /* call reset_trace_state while holding the lock since it
              * may manipulate frag flags */
-            reset_trace_state(dcontext,
-                              false /* already own change_linking_lock */);
+            reset_trace_state(dcontext, false /* already own change_linking_lock */);
             SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
             /* FIXME: set CANNOT_BE_TRACE when first create a too-big fragment?
              * export the size expansion factors considered?
              */
             /* now return */
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             /* link unprotects on demand, we then re-protect all */
             SELF_PROTECT_CACHE(dcontext, NULL, READONLY);
             /* re-protect local heap */
@@ -2356,10 +2272,9 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     }
 
     /* release rest of state */
-    dcontext->whereami = WHERE_DISPATCH;
+    dcontext->whereami = DR_WHERE_DISPATCH;
     return f;
 }
-
 
 /* This routine internally calls enter_couldbelinking, thus it is safe
  * to call from any linking state. Restores linking to previous state at exit.
@@ -2370,7 +2285,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 void
 trace_abort(dcontext_t *dcontext)
 {
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
     instrlist_t *trace;
     bool prevlinking = true;
 
@@ -2387,8 +2302,7 @@ trace_abort(dcontext_t *dcontext)
     if (!is_self_flushing()) {
         if (!is_couldbelinking(dcontext)) {
             prevlinking = false;
-            enter_couldbelinking(dcontext, NULL,
-                                 false/*not a cache transition*/);
+            enter_couldbelinking(dcontext, NULL, false /*not a cache transition*/);
         }
     }
 
@@ -2420,7 +2334,7 @@ trace_abort(dcontext_t *dcontext)
     reset_trace_state(dcontext, true /* might need change_linking_lock */);
 
     if (!prevlinking)
-        enter_nolinking(dcontext, NULL, false/*not a cache transition*/);
+        enter_nolinking(dcontext, NULL, false /*not a cache transition*/);
 }
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
@@ -2446,8 +2360,8 @@ get_trace_exit_component_tag(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(found);
     if (!found) {
         LOG(THREAD, LOG_MONITOR, 2,
-            "get_trace_exit_component_tag F%d("PFX"): can't find exit!\n",
-            f->id, f->tag);
+            "get_trace_exit_component_tag F%d(" PFX "): can't find exit!\n", f->id,
+            f->tag);
         return f->tag;
     }
     ASSERT(exitnum < t->num_bbs);
@@ -2466,7 +2380,7 @@ get_trace_exit_component_tag(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     }
     ASSERT(found);
     LOG(THREAD, LOG_MONITOR, 4,
-        "get_trace_exit_component_tag F%d("PFX") => bb #%d (exit #%d): "PFX"\n",
+        "get_trace_exit_component_tag F%d(" PFX ") => bb #%d (exit #%d): " PFX "\n",
         f->id, f->tag, i, exitnum, tag);
     return tag;
 }

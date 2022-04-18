@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,18 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         assert(0);
 }
 
+static int
+func1(int x)
+{
+    return (x > 0 ? 4 * x : x / 4);
+}
+
+static int
+func2(int x)
+{
+    return (x < 0 ? 4 * x : x / 4);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -66,11 +78,30 @@ main(int argc, char *argv[])
     rc = setitimer(ITIMER_REAL, &t, NULL);
     assert(rc == 0);
 
+    /* Do some work so we're in fragments more often.
+     * We run with -disable_traces and include a lot of indirect transfers here to
+     * hit i#4669 on translating bb prefixes.
+     */
+    double sum = 0.;
+    for (int i = 0; i < 1000; ++i) {
+        for (int j = 0; j < 1000; ++j) {
+            int (*func)(int) = i < j ? func2 : func1;
+            sum += (i % 2 == 0) ? ((double)func(j) / 43) : (func(j) - func(i * 6));
+            if (func(i) < 0)
+                func = func1;
+            else if (func(j) > 0)
+                func = func2;
+            else
+                func = func1;
+            sum *= (double)(func(i) - (func(j) + func(1)));
+        }
+    }
+
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 25*1000*1000; /* 25ms */
+    sleeptime.tv_nsec = 25 * 1000 * 1000; /* 25ms */
     /* Doing a few more syscalls makes the test more reliable than one long
-     * sleep, since we hit dispatch more often.
+     * sleep, since we hit d_r_dispatch more often.
      */
     nanosleep(&sleeptime, NULL);
     nanosleep(&sleeptime, NULL);

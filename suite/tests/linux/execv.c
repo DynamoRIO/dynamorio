@@ -47,7 +47,8 @@
 
 /***************************************************************************/
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     pid_t child;
     if (argc < 2) {

@@ -51,7 +51,7 @@ extern "C" {
 /**
  * \addtogroup drcontainers Container Data Structures
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /**
  * Flags used for drtable_create
@@ -63,7 +63,7 @@ typedef enum {
      * Allocates table entries from the addresss space that can be
      * converted to a 32-bit int.
      */
-    DRTABLE_MEM_32BIT     = 0x2,
+    DRTABLE_MEM_32BIT = 0x2,
     /**
      * Allocates table entries as compactly as possible, which may return
      * indics in a random order.
@@ -90,9 +90,7 @@ typedef enum {
  */
 void *
 drtable_create(ptr_uint_t capacity, size_t entry_size, uint flags, bool synch,
-               void (*free_entry_func)(ptr_uint_t idx,
-                                       void *entry,
-                                       void *user_data));
+               void (*free_entry_func)(ptr_uint_t idx, void *entry, void *user_data));
 
 /**
  * Allocates memory for an array of \p num_entries table entries, and returns
@@ -120,7 +118,7 @@ drtable_destroy(void *tab, void *user_data);
  */
 void
 drtable_iterate(void *tab, void *iter_data,
-                bool (*iter_func)(ptr_uint_t id, void *, void*));
+                bool (*iter_func)(ptr_uint_t id, void *, void *));
 
 /**
  * Returns a pointer to the entry at index \p idx.
@@ -157,7 +155,7 @@ drtable_num_entries(void *tab);
 ptr_uint_t
 drtable_dump_entries(void *tab, file_t log);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

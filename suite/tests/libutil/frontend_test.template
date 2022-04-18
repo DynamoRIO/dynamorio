@@ -1,1 +1,4 @@
+#ifdef WINDOWS
+drfront_sym_init: success
+#endif
 all done

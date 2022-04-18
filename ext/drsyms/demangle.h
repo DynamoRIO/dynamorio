@@ -91,17 +91,17 @@ extern "C" {
 
 // Options accepted by Demangle.
 enum {
-  DEMANGLE_DEFAULT         = 0x00,  //< Replace templates with <> and remove overloads.
-  DEMANGLE_KEEP_TEMPLATES  = 0x02,  //< Do not strip template arguments.
-  DEMANGLE_KEEP_OVERLOADS  = 0x04,  //< Do not strip function parameter types.
+    DEMANGLE_DEFAULT = 0x00,        //< Replace templates with <> and remove overloads.
+    DEMANGLE_KEEP_TEMPLATES = 0x02, //< Do not strip template arguments.
+    DEMANGLE_KEEP_OVERLOADS = 0x04, //< Do not strip function parameter types.
 };
 
 // Demangle "mangled".  On success, return the length required to store the
 // fully demangled name.  If the return value is greater than out_size, the
 // output is truncated and nul-terminated.  If the demangling fails, return
 // zero.  "out" is modified even if demangling is unsuccessful.
-int Demangle(const char *mangled, char *out, int out_size,
-             unsigned short options);
+int
+Demangle(const char *mangled, char *out, int out_size, unsigned short options);
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -109,4 +109,4 @@ int Demangle(const char *mangled, char *out, int out_size,
 
 _END_GOOGLE_NAMESPACE_
 
-#endif  // BASE_DEMANGLE_H_
+#endif // BASE_DEMANGLE_H_

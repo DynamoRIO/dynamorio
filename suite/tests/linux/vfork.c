@@ -37,7 +37,7 @@
 
 #include "tools.h"
 #ifdef LINUX
-# include "thread_clone.h"
+#    include "thread_clone.h"
 #endif
 
 #include <sys/types.h>
@@ -81,7 +81,7 @@ run_child(void *arg)
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
     pid_t child;
     void *stack;

@@ -41,14 +41,13 @@ foo_export(void)
 
 #ifdef UNIX
 
-void __attribute__((constructor))
-my_init(void)
+void __attribute__((constructor)) my_init(void)
 {
     print("appdll initialized\n");
 }
 
 #else /* WINDOWS */
-# include <windows.h>
+#    include <windows.h>
 
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)

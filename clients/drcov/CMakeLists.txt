@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -99,19 +99,15 @@ install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
 
 # On Linux we rely on the rpath
 if (WIN32)
-  get_target_property(DR_TARGET_LOCATION dynamorio LOCATION${location_suffix})
+  DynamoRIO_get_full_path(DR_TARGET_LOCATION dynamorio "${location_suffix}")
   DR_install(FILES "${DR_TARGET_LOCATION}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drcov2lcov works pre-Vista.
   if (dbghelp_path)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_CLIENTS_BIN})
   endif ()
-  # for build dir
-  add_custom_command(TARGET drcov2lcov POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-    ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
-    VERBATIM)
+  # We need a copy of DR for the build dir:
+  add_dependencies(drcov2lcov client_dr_copy)
 endif (WIN32)
 
 set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})
@@ -125,11 +121,23 @@ else (X64)
 endif (X64)
 
 function (write_config_file dst libdir)
+  # We include the alternate-bitwidth path, though it won't be there for
+  # a single build dir and such a child will have a fatal error.
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   file(WRITE  ${dst} "# drcov tool config file\n")
   file(APPEND ${dst} "# DynamoRIO options\n")
   file(APPEND ${dst} "DR_OP=-nop_initial_bblock\n")
   file(APPEND ${dst} "# client tool path\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
   file(APPEND ${dst} "# client tool options\n")
   file(APPEND ${dst} "TOOL_OP=\n")
 endfunction ()
@@ -154,7 +162,6 @@ DR_install(FILES "${PROJECT_SOURCE_DIR}/third_party/lcov/genhtml"
 # We auto-generate the list of options in the html docs by running a helper app.
 # To avoid having a separate options.h, our helper here is drcov2locv itself when
 # passed a special flag.
-get_target_property(ops_path drcov2lcov LOCATION${location_suffix})
 
 # We then have to insert it into the doxygen files at build time:
 set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcov.dox.in)
@@ -175,7 +182,8 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
-       -D prog=${ops_path}
+       -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
+       -D prog=$<TARGET_FILE:drcov2lcov>
        -D prog_arg=-help_html
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)

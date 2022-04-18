@@ -1,0 +1,132 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_download Download
+
+Official DynamoRIO packages are hosted as [GitHub releases](https://github.com/DynamoRIO/dynamorio/releases) and are available in different flavors:
+- \subpage page_releases
+- \subpage page_weekly_builds
+
+Slides from tutorial and talks are also available:
+- \subpage page_slides
+
+The source code is available:
+- \subpage page_source_code
+
+
+***************************************************************************
+\page page_releases Releases
+
+For the very latest changes since the last official release, you can download \ref page_weekly_builds.
+
+The [9.0.1 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_9.0.1):
+
+  - [DynamoRIO-Windows-9.0.1.zip](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-Windows-9.0.1.zip)
+
+  - [DynamoRIO-Linux-9.0.1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-Linux-9.0.1.tar.gz)
+
+  - [DynamoRIO-ARM-Linux-EABIHF-9.0.1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-ARM-Linux-EABIHF-9.0.1.tar.gz)
+
+  - [DynamoRIO-ARM-Android-EABI-9.0.1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-ARM-Android-EABI-9.0.1.tar.gz)
+
+  - [DynamoRIO-AArch64-Linux-9.0.1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-AArch64-Linux-9.0.1.tar.gz)
+
+The prior [8.0.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_8.0.0-1):
+
+  - [DynamoRIO-Windows-8.0.0-1.zip](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-Windows-8.0.0-1.zip)
+
+  - [DynamoRIO-Linux-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-Linux-8.0.0-1.tar.gz)
+
+  - [DynamoRIO-ARM-Linux-EABIHF-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-ARM-Linux-EABIHF-8.0.0-1.tar.gz)
+
+  - [DynamoRIO-ARM-Android-EABI-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-ARM-Android-EABI-8.0.0-1.tar.gz)
+
+  - [DynamoRIO-AArch64-Linux-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-AArch64-Linux-8.0.0-1.tar.gz)
+
+Please note that older releases than 8.0.0 do not support recent operating systems, in particular recent Windows versions from Windows 10 1809 onward.
+
+The prior [7.1.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_7.1.0):
+
+  - [DynamoRIO-Windows-7.1.0-1.zip](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-Windows-7.1.0-1.zip)
+
+  - [DynamoRIO-Linux-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-Linux-7.1.0-1.tar.gz)
+
+  - [DynamoRIO-ARM-Linux-EABIHF-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-ARM-Linux-EABIHF-7.1.0-1.tar.gz)
+
+  - [DynamoRIO-ARM-Android-EABI-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-ARM-Android-EABI-7.1.0-1.tar.gz)
+
+  - [DynamoRIO-AArch64-Linux-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-AArch64-Linux-7.1.0-1.tar.gz)
+
+
+***************************************************************************
+\page page_weekly_builds Weekly Builds
+
+For official DynamoRIO packages, see \ref page_releases.  For more recent bug fixes and features prior to the next official release, we have a weekly package built and posted as a GitHub Release with the tag prefix `cronbuild-`:
+
+- https://github.com/DynamoRIO/dynamorio/releases
+
+Please note that these weekly cronbuilds are not quite the same as an official release package: they do not include Dr. Memory, and for Linux i686 is separated from x86_64 rather than being combined in one package.
+
+
+***************************************************************************
+\page page_slides Slides from Tutorials and Talks
+
+Selected tutorials and talks:
+  - [DynamoRIO tutorial at CGO Feb 2017 (PDF)](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017.pdf)
+
+  - [DynamoRIO tutorial at CGO Feb 2017 (PPSX)](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017.ppsx)
+
+  - [DynamoRIO tutorial at CGO Feb 2017 (PDF with embedded fonts)](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017-embedded-fonts.pdf)
+
+  - [Dr. Fuzz/Dr. Memory/DynamoRIO tutorial at SecDec Nov 2016](http://dynamorio.org/tutorial-secdev16.html) ([Online slides](https://docs.google.com/presentation/d/1cpOvQ16AZZ674E5EPz0H_PHFeFII1z22xof2yCKZhjI/edit?usp=sharing))
+
+  - [DynamoRIO tutorial at CGO Mar 2016 (PDF)](https://github.com/DynamoRIO/dynamorio/releases/download/release_6_1_0/DynamoRIO-tutorial-mar2016.pdf)
+
+  - [DynamoRIO tutorial at CGO Mar 2016 (PPSX)](https://github.com/DynamoRIO/dynamorio/releases/download/release_6_1_0/DynamoRIO-tutorial-mar2016.ppsx)
+
+  - [DynamoRIO tutorial at CGO Feb 2015 (PDF)](https://www.burningcutlery.com/derek/docs/DynamoRIO-tutorial-2015.pdf)
+
+  - [DynamoRIO talk: "Building Customized Dynamic Program Inspectors" (PDF)](https://www.burningcutlery.com/derek/docs/DynamoRIO-program-inspectors-aug2014.pdf)
+
+  - [DynamoRIO talk: "Building Customized Dynamic Program Inspectors" (PPSX)](https://www.burningcutlery.com/derek/docs/DynamoRIO-program-inspectors-aug2014.ppsx)
+
+
+***************************************************************************
+\page page_source_code Source Code
+
+DynamoRIO's source code is hosted [at GitHub](https://github.com/DynamoRIO/dynamorio).
+
+
+ ****************************************************************************
+ */

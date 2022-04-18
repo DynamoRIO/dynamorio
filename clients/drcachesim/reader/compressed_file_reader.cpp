@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,67 +30,54 @@
  * DAMAGE.
  */
 
-#include <assert.h>
-#include <zlib.h>
 #include "compressed_file_reader.h"
-#include "../common/memref.h"
-#include "../common/utils.h"
 
-#ifdef VERBOSE
-# include <iostream>
-#endif
-
-compressed_file_reader_t::compressed_file_reader_t() : file(NULL)
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+file_reader_t<gzFile>::~file_reader_t<gzFile>()
 {
-    /* Empty. */
+    for (auto file : input_files_)
+        gzclose(file);
+    delete[] thread_eof_;
 }
 
-compressed_file_reader_t::compressed_file_reader_t(const char *file_name)
-{
-    file = gzopen(file_name, "rb");
-}
-
+template <>
 bool
-compressed_file_reader_t::init()
+file_reader_t<gzFile>::open_single_file(const std::string &path)
 {
-    at_eof = false;
-    if (file == NULL)
+    gzFile file = gzopen(path.c_str(), "rb");
+    if (file == nullptr)
         return false;
-    trace_entry_t *first_entry = read_next_entry();
-    if (first_entry == NULL)
-        return false;
-    if (first_entry->type != TRACE_TYPE_HEADER ||
-        first_entry->addr != TRACE_ENTRY_VERSION) {
-        ERRMSG("missing header or version mismatch\n");
-        return false;
-    }
-    ++*this;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_files_.push_back(file);
     return true;
 }
 
-compressed_file_reader_t::~compressed_file_reader_t()
-{
-    if (file != NULL)
-        gzclose(file);
-}
-
-trace_entry_t *
-compressed_file_reader_t::read_next_entry()
-{
-    int len = gzread(file, (char*)&entry_copy, sizeof(entry_copy));
-    // Returns less than asked-for for end of file, or –1 for error.
-    if (len < (int)sizeof(entry_copy))
-        return NULL;
-    return &entry_copy;
-}
-
+template <>
 bool
-compressed_file_reader_t::is_complete()
+file_reader_t<gzFile>::read_next_thread_entry(size_t thread_index,
+                                              OUT trace_entry_t *entry, OUT bool *eof)
+{
+    int len = gzread(input_files_[thread_index], (char *)entry, sizeof(*entry));
+    // Returns less than asked-for for end of file, or –1 for error.
+    if (len < (int)sizeof(*entry)) {
+        *eof = (len >= 0);
+        return false;
+    }
+    VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
+           thread_index, entry->type, entry->size, entry->addr);
+    return true;
+}
+
+template <>
+bool
+file_reader_t<gzFile>::is_complete()
 {
     // The gzip reading interface does not support seeking to SEEK_END so there
     // is no efficient way to read the footer.
     // We could have the trace file writer seek back and set a bit at the start.
-    // Or we can just not supported -indir with a gzipped file, which is what we
-    // do for now: the user must pass in -infile for a gzipped file.
+    // Currently we are forced to not use this function.
+    // XXX: Should we just remove this interface, then?
     return false;
 }

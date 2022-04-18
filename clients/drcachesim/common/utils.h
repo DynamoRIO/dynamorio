@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,19 +36,29 @@
 #define _UTILS_H_ 1
 
 #include <stdio.h>
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 // XXX: perhaps we should use a C++-ish stream approach instead
 // This cannot be named ERROR as that conflicts with Windows headers.
-#define ERRMSG(msg, ...) fprintf(stderr, msg, ## __VA_ARGS__)
+#define ERRMSG(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
 
 // XXX: can we share w/ core DR?
 #define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+#if defined(X64) || defined(ARM)
+#    define IF_REL_ADDRS(x) x
+#else
+#    define IF_REL_ADDRS(x)
+#endif
 
 #define ALIGN_FORWARD(x, alignment) \
     ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
@@ -57,29 +67,50 @@
 
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
-# if _MSC_VER <= 1200
-#  define ACTUAL_PRAGMA(p) _Pragma ( #p )
-# else
-#  define ACTUAL_PRAGMA(p) __pragma ( p )
-# endif
+#    if _MSC_VER <= 1200
+#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#    else
+#        define ACTUAL_PRAGMA(p) __pragma(p)
+#    endif
 /* Usage: if planning to typedef, that must be done separately, as MSVC will
  * not take _pragma after typedef.
  */
-# define START_PACKED_STRUCTURE ACTUAL_PRAGMA( pack(push,1) )
-# define END_PACKED_STRUCTURE ACTUAL_PRAGMA( pack(pop) )
+#    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
+#    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
 #else
-# define START_PACKED_STRUCTURE /* nothing */
-# define END_PACKED_STRUCTURE __attribute__ ((__packed__))
+#    define START_PACKED_STRUCTURE /* nothing */
+#    define END_PACKED_STRUCTURE __attribute__((__packed__))
+#endif
+
+/* TODO(i#2924): Remove this and others like it once we stop supporting VS2013. */
+#if defined(WINDOWS) && _MSC_VER < 1900
+#    define CONSTEXPR const /* 'constexpr' not supported */
+#else
+#    define CONSTEXPR constexpr
+#endif
+
+#ifndef __has_cpp_attribute
+#    define __has_cpp_attribute(x) 0 // Compatibility with non-clang compilers.
+#endif
+// We annotate to support building with -Wimplicit-fallthrough.
+#if __has_cpp_attribute(clang::fallthrough)
+#    define ANNOTATE_FALLTHROUGH [[clang::fallthrough]]
+#elif __has_cpp_attribute(gnu::fallthrough)
+#    define ANNOTATE_FALLTHROUGH [[gnu::fallthrough]]
+#else
+#    define ANNOTATE_FALLTHROUGH
 #endif
 
 #ifdef WINDOWS
-# define DIRSEP "\\"
-# define IF_WINDOWS(x) x
-# define IF_UNIX(x)
+#    define DIRSEP "\\"
+#    define ALT_DIRSEP "/"
+#    define IF_WINDOWS(x) x
+#    define IF_UNIX(x)
 #else
-# define DIRSEP "/"
-# define IF_WINDOWS(x)
-# define IF_UNIX(x) x
+#    define DIRSEP "/"
+#    define ALT_DIRSEP ""
+#    define IF_WINDOWS(x)
+#    define IF_UNIX(x) x
 #endif
 
 static inline int
@@ -92,6 +123,16 @@ compute_log2(int value)
     }
     // returns -1 if value is not a power of 2.
     return -1;
+}
+
+template <typename T>
+std::string
+to_hex_string(T integer)
+{
+    std::stringstream sstream;
+    sstream << "0x" << std::setfill('0') << std::setw(sizeof(T) * 2) << std::hex
+            << integer;
+    return sstream.str();
 }
 
 #endif /* _UTILS_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,13 +61,13 @@ read_data(void *drcontext, byte *start, size_t size)
         dr_printf("+0x%04x  ", prev_pc - start);
 #endif
         pc = disassemble_from_copy(drcontext, pc, ORIG_PC + (pc - start), STDOUT,
-                                   false/*don't show pc*/,
+                                   false /*don't show pc*/,
 #if VERBOSE
-                                   true/*show bytes*/
+                                   true /*show bytes*/
 #else
-                                   false/*do not show bytes*/
+                                   false /*do not show bytes*/
 #endif
-                                   );
+        );
 #ifdef ARM
         if (pc == NULL) /* we still know size */
             pc = decode_next_pc(drcontext, prev_pc);
@@ -95,8 +95,8 @@ main(int argc, char *argv[])
     byte *map_base;
 
     /* Test i#2499: heap alloc prior to standalone init. */
-    void *temp = dr_global_alloc(sizeof(void*));
-    dr_global_free(temp, sizeof(void*));
+    void *temp = dr_global_alloc(sizeof(void *));
+    dr_global_free(temp, sizeof(void *));
 
     void *drcontext = dr_standalone_init();
 
@@ -127,7 +127,7 @@ main(int argc, char *argv[])
         dr_close_file(f);
         return 1;
     }
-    map_size = (size_t) file_size;
+    map_size = (size_t)file_size;
     map_base = dr_map_file(f, &map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
     if (map_base == NULL || map_size < file_size) {
         dr_fprintf(STDERR, "Error mapping %s\n", argv[1]);
@@ -137,9 +137,10 @@ main(int argc, char *argv[])
 
     /* XXX: re-run 64-bit asking for 32-bit mode */
 
-    read_data(drcontext, map_base, (size_t) file_size);
+    read_data(drcontext, map_base, (size_t)file_size);
 
     dr_unmap_file(map_base, map_size);
     dr_close_file(f);
+    dr_standalone_exit();
     return 0;
 }

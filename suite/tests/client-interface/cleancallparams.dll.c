@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc. All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -57,8 +58,8 @@
  */
 static reg_id_t regs[] = {
 #if defined(AARCH64)
-    DR_REG_X0, DR_REG_X1, DR_REG_X2, DR_REG_X3,
-    DR_REG_X4, DR_REG_X5, DR_REG_X6, DR_REG_X7,
+    DR_REG_X0, DR_REG_X1, DR_REG_X2, DR_REG_X3, DR_REG_X4, DR_REG_X5, DR_REG_X6,
+    DR_REG_X7,
     /* end of parameter registers */
     DR_REG_X8, DR_REG_X30
 #elif defined(ARM)
@@ -69,17 +70,17 @@ static reg_id_t regs[] = {
     /* no parameter registers */
     DR_REG_EAX, DR_REG_ECX, DR_REG_EDX, DR_REG_EBX
 #elif defined(X86_64)
-# ifdef UNIX
+#    ifdef UNIX
     DR_REG_RDI, DR_REG_RSI, DR_REG_RDX, DR_REG_RCX, DR_REG_R8, DR_REG_R9,
     /* end of parameter registers */
     DR_REG_R10, DR_REG_R11
-# else
+#    else
     DR_REG_RCX, DR_REG_RDX, DR_REG_R8, DR_REG_R9,
     /* end of parameter registers */
     DR_REG_R10, DR_REG_R11, DR_REG_RDI, DR_REG_RSI
-# endif
+#    endif
 #else
-# error NYI
+#    error NYI
 #endif
 };
 
@@ -101,9 +102,9 @@ static const struct {
     { 1, { 2 } },
     { 2, { -1, -2 } },
     { 2, { 1, 2 } },
-    { 2, { 2, 1 } }, /* Swap two registers. */
-    { 3, { 2, 3, 1 } }, /* Rotate three registers. */
-    { 4, { 2, 3, 4, 1 } }, /* Rotate four registers. */
+    { 2, { 2, 1 } },                   /* Swap two registers. */
+    { 3, { 2, 3, 1 } },                /* Rotate three registers. */
+    { 4, { 2, 3, 4, 1 } },             /* Rotate four registers. */
     { 8, { 2, 1, 4, 3, 6, 5, 8, 7 } }, /* Rotate eight registers. */
     { 4, { 1, 1, 2, 3 } },
     { 4, { 2, 3, 4, 5 } },
@@ -188,6 +189,7 @@ callee(int num_args, ...)
     va_list ap;
     int i;
 
+    check_stack_alignment();
     if (call_count >= NUM_TESTS)
         fail("too many calls");
     if (num_args != tests[call_count].num_args) {
@@ -253,61 +255,58 @@ callee_4(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3)
 }
 
 static void
-callee_5(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4)
+callee_5(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4)
 {
     callee(5, a0, a1, a2, a3, a4);
 }
 
 static void
-callee_6(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4, ptr_uint_t a5)
+callee_6(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4,
+         ptr_uint_t a5)
 {
     callee(6, a0, a1, a2, a3, a4, a5);
 }
 
 static void
-callee_7(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6)
+callee_7(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4,
+         ptr_uint_t a5, ptr_uint_t a6)
 {
     callee(7, a0, a1, a2, a3, a4, a5, a6);
 }
 
 static void
-callee_8(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7)
+callee_8(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4,
+         ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7)
 {
     callee(8, a0, a1, a2, a3, a4, a5, a6, a7);
 }
 
 static void
-callee_9(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
-          ptr_uint_t a8)
+callee_9(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4,
+         ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7, ptr_uint_t a8)
 {
     callee(9, a0, a1, a2, a3, a4, a5, a6, a7, a8);
 }
 
 static void
-callee_10(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
-          ptr_uint_t a8, ptr_uint_t a9)
+callee_10(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4,
+          ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7, ptr_uint_t a8, ptr_uint_t a9)
 {
     callee(10, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 }
 
 static void
-callee_11(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
-          ptr_uint_t a8, ptr_uint_t a9, ptr_uint_t a10)
+callee_11(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4,
+          ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7, ptr_uint_t a8, ptr_uint_t a9,
+          ptr_uint_t a10)
 {
     callee(11, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
 }
 
 static void
-callee_12(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
-          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
-          ptr_uint_t a8, ptr_uint_t a9, ptr_uint_t a10, ptr_uint_t a11)
+callee_12(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3, ptr_uint_t a4,
+          ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7, ptr_uint_t a8, ptr_uint_t a9,
+          ptr_uint_t a10, ptr_uint_t a11)
 {
     callee(12, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
 }
@@ -339,8 +338,8 @@ callee_n(int n)
  */
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating)
 {
     instr_t *where = instrlist_first_app(bb);
     int i, j;
@@ -348,8 +347,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     /* Initialise registers. */
     for (i = 0; i < NUM_REGS; i++) {
         instrlist_insert_mov_immed_ptrsz(drcontext, REG_BASE_VAL + i + 1,
-                                         opnd_create_reg(regs[i]),
-                                         bb, where, NULL, NULL);
+                                         opnd_create_reg(regs[i]), bb, where, NULL, NULL);
     }
 
     /* Insert clean calls */

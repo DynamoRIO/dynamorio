@@ -33,7 +33,7 @@
 #include "dr_api.h"
 
 static dr_emit_flags_t
-bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool translating)
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     /* Deliberate crash */
     *(void **)42 = tag;

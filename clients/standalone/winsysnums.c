@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  * system call wrappers that are not exported.
  */
 
-/* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
+/* Uses the DR API, using DR as a standalone library, rather than
  * being a client library working with DR on a target program.
  *
  * To build, use cmake.  Build as 64-bit (no reason to build a 32-bit version
@@ -67,15 +67,15 @@
 #include <stdlib.h>
 
 #ifdef UNIX
-# define EXPORT
+#    define EXPORT
 #else
-# define EXPORT __declspec(dllexport)
+#    define EXPORT __declspec(dllexport)
 #endif
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 /* global params */
 static bool expect_int2e = false;
@@ -91,37 +91,29 @@ static bool list_usercalls = false; /* NtUserCall* */
 static bool usercall_imports = false;
 static bool ignore_Zw = false;
 
-static const char * const usercall_names[] = {
-    "NtUserCallNoParam",
-    "NtUserCallOneParam",
-    "NtUserCallHwnd",
-    "NtUserCallHwndOpt",
-    "NtUserCallHwndParam",
-    "NtUserCallHwndLock",
-    "NtUserCallHwndParamLock",
-    "NtUserCallTwoParam",
+static const char *const usercall_names[] = {
+    "NtUserCallNoParam",       "NtUserCallOneParam",  "NtUserCallHwnd",
+    "NtUserCallHwndOpt",       "NtUserCallHwndParam", "NtUserCallHwndLock",
+    "NtUserCallHwndParamLock", "NtUserCallTwoParam",
 };
 /* To handle win10-1607 we have to look for imports from win32u.dll.
  * But, for 32-bit, NoParam instead calls to a local routine that invokes yet
  * another routine that finally does the import.
  */
-static const char * const usercall_imp_names[] = {
+static const char *const usercall_imp_names[] = {
     "_imp__NtUserCallNoParam", /* For 32-bit we use ALT_NOPARAM */
     /* XXX: x64 win10-1607 is failing to find _imp__NtUserCallOneParam.
      * I bailed on further investigation as we assume the numbers are
      * the same across bitwidths.
      */
-    "_imp__NtUserCallOneParam",
-    "_imp__NtUserCallHwnd",
-    "_imp__NtUserCallHwndOpt",
-    "_imp__NtUserCallHwndParam",
-    "_imp__NtUserCallHwndLock",
+    "_imp__NtUserCallOneParam", "_imp__NtUserCallHwnd", "_imp__NtUserCallHwndOpt",
+    "_imp__NtUserCallHwndParam", "_imp__NtUserCallHwndLock",
     "_imp__NtUserCallHwndParamLock",
     "_imp__NtUserCallTwoParam", /* For 32-bit we use ALT_TWOPARAM */
 };
 #define ALT_NOPARAM "Local_NtUserCallNoParam"
 #define ALT_TWOPARAM "Local_NtUserCallTwoParam"
-#define NUM_USERCALL (sizeof(usercall_names)/sizeof(usercall_names[0]))
+#define NUM_USERCALL (sizeof(usercall_names) / sizeof(usercall_names[0]))
 static byte *usercall_addr[NUM_USERCALL];
 
 static void
@@ -156,9 +148,9 @@ print(char *fmt, ...)
  *     75caeabe 0f34        sysenter
  *     75caeac0 c3          ret
  */
-#define MAX_INSTRS_SYSENTER_CALLEE  4
+#define MAX_INSTRS_SYSENTER_CALLEE 4
 /* the max distance from call to the sysenter callee target */
-#define MAX_SYSENTER_CALLEE_OFFSET  0x50
+#define MAX_SYSENTER_CALLEE_OFFSET 0x50
 #define MAX_INSTRS_BEFORE_SYSCALL 16
 #define MAX_INSTRS_IN_FUNCTION 256
 
@@ -176,14 +168,14 @@ static byte *
 get_preferred_base(LOADED_IMAGE *img)
 {
     IMAGE_NT_HEADERS *nt;
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) img->MappedAddress;
-    nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)img->MappedAddress;
+    nt = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos) + dos->e_lfanew);
     if (nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
-        return (byte *)(ptr_uint_t)
-            ((IMAGE_OPTIONAL_HEADER32 *)&nt->OptionalHeader)->ImageBase;
+        return (byte *)(ptr_uint_t)((IMAGE_OPTIONAL_HEADER32 *)&nt->OptionalHeader)
+            ->ImageBase;
     } else {
-        return (byte *)(ptr_uint_t)
-            ((IMAGE_OPTIONAL_HEADER64 *)&nt->OptionalHeader)->ImageBase;
+        return (byte *)(ptr_uint_t)((IMAGE_OPTIONAL_HEADER64 *)&nt->OptionalHeader)
+            ->ImageBase;
     }
 }
 
@@ -258,7 +250,7 @@ process_ret(instr_t *instr, syscall_info_t *info)
 {
     assert(instr_is_return(instr));
     if (opnd_is_immed_int(instr_get_src(instr, 0)))
-        info->num_args = (int) opnd_get_immed_int(instr_get_src(instr, 0));
+        info->num_args = (int)opnd_get_immed_int(instr_get_src(instr, 0));
     else
         info->num_args = 0;
 }
@@ -282,11 +274,10 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
      * in a wow process).
      */
     if (/* int 2e or x64 or win8 sysenter */
-        (instr_is_syscall(instr) &&
-         found_eax && (expect_int2e || expect_x64 || expect_sysenter)) ||
+        (instr_is_syscall(instr) && found_eax &&
+         (expect_int2e || expect_x64 || expect_sysenter)) ||
         /* sysenter case */
-        (expect_sysenter && found_edx && found_eax &&
-         instr_is_call_indirect(instr) &&
+        (expect_sysenter && found_edx && found_eax && instr_is_call_indirect(instr) &&
          /* XP SP{0,1}, 2003 SP0: call *edx */
          ((opnd_is_reg(instr_get_target(instr)) &&
            opnd_get_reg(instr_get_target(instr)) == REG_EDX) ||
@@ -298,8 +289,7 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
         /* wow case
          * we don't require found_ecx b/c win8 does not use ecx
          */
-        (expect_wow && found_eax &&
-         instr_is_call_indirect(instr) &&
+        (expect_wow && found_eax && instr_is_call_indirect(instr) &&
          ((opnd_is_far_base_disp(instr_get_target(instr)) &&
            opnd_get_base(instr_get_target(instr)) == REG_NULL &&
            opnd_get_index(instr_get_target(instr)) == REG_NULL &&
@@ -316,8 +306,8 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
  *              xref the comment in process_syscall_instr.
  */
 static bool
-process_syscall_call(void *dcontext, byte *next_pc, instr_t *call,
-                     bool found_eax, bool found_edx)
+process_syscall_call(void *dcontext, byte *next_pc, instr_t *call, bool found_eax,
+                     bool found_edx)
 {
     int num_instr;
     byte *pc;
@@ -402,7 +392,7 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
      * this to work on 32bit machines.  Hack fix based on the wrapper pattern, we skip
      * the first instruction (mov r10, rcx) here, the rest should decode ok.
      * Xref PR 236203. */
-    if (expect_x64 && *pc == 0x4c && *(pc+1) == 0x8b && *(pc+2) == 0xd1)
+    if (expect_x64 && *pc == 0x4c && *(pc + 1) == 0x8b && *(pc + 2) == 0xd1)
         pc += 3;
     while (true) {
         instr_reset(dcontext, instr);
@@ -438,8 +428,8 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
             }
             break;
         } else if (instr_get_opcode(instr) == OP_call) {
-            found_syscall = process_syscall_call(dcontext, pc, instr,
-                                                 found_eax, found_edx);
+            found_syscall =
+                process_syscall_call(dcontext, pc, instr, found_eax, found_edx);
             /* If we see a call and it is not a sysenter callee,
              * we assume this is not a syscall wrapper.
              */
@@ -464,7 +454,7 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
              *   00007ff9`13185647 c3              ret
              */
             if (expect_x64 && instr_is_cbr(instr) &&
-                opnd_get_pc(instr_get_target(instr)) == pc + 3/*syscall;ret*/) {
+                opnd_get_pc(instr_get_target(instr)) == pc + 3 /*syscall;ret*/) {
                 /* keep going */
             } else
                 break;
@@ -472,10 +462,10 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
                    instr_get_opcode(instr) == OP_mov_imm &&
                    opnd_is_reg(instr_get_dst(instr, 0))) {
             if (!found_eax && opnd_get_reg(instr_get_dst(instr, 0)) == REG_EAX) {
-                info->sysnum = (int) opnd_get_immed_int(instr_get_src(instr, 0));
+                info->sysnum = (int)opnd_get_immed_int(instr_get_src(instr, 0));
                 found_eax = true;
             } else if (!found_edx && opnd_get_reg(instr_get_dst(instr, 0)) == REG_EDX) {
-                uint imm = (uint) opnd_get_immed_int(instr_get_src(instr, 0));
+                uint imm = (uint)opnd_get_immed_int(instr_get_src(instr, 0));
                 if (imm == 0x7ffe0300 ||
                     /* On Win10 the immed is ntdll!Wow64SystemServiceCall */
                     (expect_wow && imm > (ptr_uint_t)preferred &&
@@ -483,7 +473,7 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
                     found_edx = true;
             } else if (!found_ecx && opnd_get_reg(instr_get_dst(instr, 0)) == REG_ECX) {
                 found_ecx = true;
-                info->fixup_index = (int) opnd_get_immed_int(instr_get_src(instr, 0));
+                info->fixup_index = (int)opnd_get_immed_int(instr_get_src(instr, 0));
             }
         } else if (instr_get_opcode(instr) == OP_xor &&
                    opnd_is_reg(instr_get_src(instr, 0)) &&
@@ -503,8 +493,8 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
 }
 
 static void
-process_syscall_wrapper(void *dcontext, byte *addr, const char *string,
-                        const char *type, LOADED_IMAGE *img)
+process_syscall_wrapper(void *dcontext, byte *addr, const char *string, const char *type,
+                        LOADED_IMAGE *img)
 {
     syscall_info_t sysinfo;
     if (ignore_Zw && string[0] == 'Z' && string[1] == 'w')
@@ -520,14 +510,13 @@ process_syscall_wrapper(void *dcontext, byte *addr, const char *string,
             /* be sure to print all digits b/c win8 now uses the top 16 bits for wow64 */
             if (expect_wow) {
                 print("syscall # 0x%08x %-6s %2d args fixup 0x%02x = %s\n",
-                      sysinfo.sysnum, type, sysinfo.num_args,
-                      sysinfo.fixup_index, string);
+                      sysinfo.sysnum, type, sysinfo.num_args, sysinfo.fixup_index,
+                      string);
             } else if (expect_x64) {
-                print("syscall # 0x%08x %-6s = %s\n",
-                      sysinfo.sysnum, type, string);
+                print("syscall # 0x%08x %-6s = %s\n", sysinfo.sysnum, type, string);
             } else {
-                print("syscall # 0x%08x %-6s %2d args = %s\n",
-                      sysinfo.sysnum, type, sysinfo.num_args, string);
+                print("syscall # 0x%08x %-6s %2d args = %s\n", sysinfo.sysnum, type,
+                      sysinfo.num_args, string);
             }
         }
     }
@@ -560,7 +549,7 @@ look_for_usercall(void *dcontext, byte *entry, const char *sym, LOADED_IMAGE *im
          */
         if (!found_push_imm && instr_get_opcode(instr) == OP_push_imm) {
             found_push_imm = true;
-            imm = (int) opnd_get_immed_int(instr_get_src(instr, 0));
+            imm = (int)opnd_get_immed_int(instr_get_src(instr, 0));
         } else if (instr_is_call_direct(instr) && found_push_imm) {
             /* We don't rule out usercall_imports due to Local_NtUserCallNoParam */
             app_pc tgt = opnd_get_pc(instr_get_target(instr));
@@ -617,10 +606,11 @@ typedef struct _search_data_t {
 static bool
 search_syms_cb(const char *name, size_t modoffs, void *data)
 {
-    search_data_t *sd = (search_data_t *) data;
-    byte *addr = ImageRvaToVa(sd->img->FileHeader, sd->img->MappedAddress,
-                              (ULONG) modoffs, NULL);
-    verbose_print("Found symbol \"%s\" at offs "PIFX" => "PFX"\n", name, modoffs, addr);
+    search_data_t *sd = (search_data_t *)data;
+    byte *addr =
+        ImageRvaToVa(sd->img->FileHeader, sd->img->MappedAddress, (ULONG)modoffs, NULL);
+    verbose_print("Found symbol \"%s\" at offs " PIFX " => " PFX "\n", name, modoffs,
+                  addr);
     if (list_usercalls)
         look_for_usercall(sd->dcontext, addr, name, sd->img, sd->modpath);
     else
@@ -683,7 +673,7 @@ process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
             const char *imp_name = usercall_imp_names[i];
             if (i == 0 && !expect_x64)
                 imp_name = ALT_NOPARAM;
-            else if (i == NUM_USERCALL-1 && !expect_x64)
+            else if (i == NUM_USERCALL - 1 && !expect_x64)
                 imp_name = ALT_TWOPARAM;
             symres = drsym_lookup_symbol(fullpath, imp_name, &offs, 0);
             if (symres == DRSYM_SUCCESS) {
@@ -695,14 +685,14 @@ process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
                     usercall_addr[i] = ImageRvaToVa(img->FileHeader, img->MappedAddress,
                                                     (ULONG)offs, NULL);
                 }
-                verbose_print("%s = %d +0x%x == "PFX"\n", imp_name,
-                              symres, offs, usercall_addr[i]);
+                verbose_print("%s = %d +0x%x == " PFX "\n", imp_name, symres, offs,
+                              usercall_addr[i]);
             } else {
                 symres = drsym_lookup_symbol(fullpath, usercall_names[i], &offs, 0);
                 if (symres == DRSYM_SUCCESS) {
                     usercall_addr[i] = ImageRvaToVa(img->FileHeader, img->MappedAddress,
                                                     (ULONG)offs, NULL);
-                    verbose_print("%s = %d +0x%x == "PFX"\n", usercall_names[i], symres,
+                    verbose_print("%s = %d +0x%x == " PFX "\n", usercall_names[i], symres,
                                   offs, usercall_addr[i]);
                 } else {
                     dr_printf("Error locating usercall %s: aborting\n",
@@ -736,17 +726,16 @@ process_exports(void *dcontext, char *dllname, LOADED_IMAGE *img)
     byte *addr, *start_exports, *end_exports;
 
     verbose_print("Processing exports of \"%s\"\n", dllname);
-    dir = (IMAGE_EXPORT_DIRECTORY *)
-        ImageDirectoryEntryToData(img->MappedAddress, FALSE,
-                                  IMAGE_DIRECTORY_ENTRY_EXPORT, &size);
-    verbose_print("mapped at "PFX" (preferred "PFX"), exports 0x%08x, size 0x%x\n",
+    dir = (IMAGE_EXPORT_DIRECTORY *)ImageDirectoryEntryToData(
+        img->MappedAddress, FALSE, IMAGE_DIRECTORY_ENTRY_EXPORT, &size);
+    verbose_print("mapped at " PFX " (preferred " PFX "), exports 0x%08x, size 0x%x\n",
                   img->MappedAddress, get_preferred_base(img), dir, size);
-    start_exports = (byte *) dir;
+    start_exports = (byte *)dir;
     end_exports = start_exports + size;
-    verbose_print("name=%s, ord base=0x%08x, names=%d 0x%08x\n",
-                  (char *) ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                                        dir->Name, NULL),
-                  dir->Base, dir->NumberOfNames, dir->AddressOfNames);
+    verbose_print(
+        "name=%s, ord base=0x%08x, names=%d 0x%08x\n",
+        (char *)ImageRvaToVa(img->FileHeader, img->MappedAddress, dir->Name, NULL),
+        dir->Base, dir->NumberOfNames, dir->AddressOfNames);
 
     /* don't limit functions to lie in .text --
      * for ntdll, some exported routines have their code after .text, inside
@@ -754,43 +743,41 @@ process_exports(void *dcontext, char *dllname, LOADED_IMAGE *img)
      */
     sec = img->Sections;
     for (i = 0; i < img->NumberOfSections; i++) {
-        verbose_print("Section %d %s: 0x%x + 0x%x == 0x%08x through 0x%08x\n",
-                      i, sec->Name, sec->VirtualAddress, sec->SizeOfRawData,
-                      ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                                   sec->VirtualAddress, NULL),
-                      (ptr_uint_t) ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                                                sec->VirtualAddress, NULL) +
-                      sec->SizeOfRawData);
+        verbose_print(
+            "Section %d %s: 0x%x + 0x%x == 0x%08x through 0x%08x\n", i, sec->Name,
+            sec->VirtualAddress, sec->SizeOfRawData,
+            ImageRvaToVa(img->FileHeader, img->MappedAddress, sec->VirtualAddress, NULL),
+            (ptr_uint_t)ImageRvaToVa(img->FileHeader, img->MappedAddress,
+                                     sec->VirtualAddress, NULL) +
+                sec->SizeOfRawData);
         sec++;
     }
 
-    name = (DWORD *) ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                                  dir->AddressOfNames, NULL);
-    code = (DWORD *) ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                                  dir->AddressOfFunctions, NULL);
-    ordinal = (WORD *) ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                                    dir->AddressOfNameOrdinals, NULL);
+    name = (DWORD *)ImageRvaToVa(img->FileHeader, img->MappedAddress, dir->AddressOfNames,
+                                 NULL);
+    code = (DWORD *)ImageRvaToVa(img->FileHeader, img->MappedAddress,
+                                 dir->AddressOfFunctions, NULL);
+    ordinal = (WORD *)ImageRvaToVa(img->FileHeader, img->MappedAddress,
+                                   dir->AddressOfNameOrdinals, NULL);
     verbose_print("names: from 0x%08x to 0x%08x\n",
                   ImageRvaToVa(img->FileHeader, img->MappedAddress, name[0], NULL),
                   ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                               name[dir->NumberOfNames-1], NULL));
+                               name[dir->NumberOfNames - 1], NULL));
 
     for (i = 0; i < dir->NumberOfNames; i++) {
-        string = (char *)
-            ImageRvaToVa(img->FileHeader, img->MappedAddress, name[i], NULL);
+        string = (char *)ImageRvaToVa(img->FileHeader, img->MappedAddress, name[i], NULL);
         /* ordinal is biased (dir->Base), but don't add base when using as index */
         assert(dir->NumberOfFunctions > ordinal[i]);
         /* I don't understand why have to do RVA to VA here, when dumpbin /exports
          * seems to give the same offsets but by simply adding them to base we
          * get the appropriate code location -- but that doesn't work here...
          */
-        addr = ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                            code[ordinal[i]], NULL);
-        verbose_print("name=%s 0x%08x, ord=%d, code=0x%x -> 0x%08x\n",
-                      string, string, ordinal[i], code[ordinal[i]], addr);
+        addr = ImageRvaToVa(img->FileHeader, img->MappedAddress, code[ordinal[i]], NULL);
+        verbose_print("name=%s 0x%08x, ord=%d, code=0x%x -> 0x%08x\n", string, string,
+                      ordinal[i], code[ordinal[i]], addr);
         if (list_exports) {
-            print("ord %3d offs 0x%08x %s\n", ordinal[i],
-                  addr - img->MappedAddress, string);
+            print("ord %3d offs 0x%08x %s\n", ordinal[i], addr - img->MappedAddress,
+                  string);
         }
         if (list_Ki && string[0] == 'K' && string[1] == 'i') {
             print("\n==================================================\n");
@@ -798,7 +785,7 @@ process_exports(void *dcontext, char *dllname, LOADED_IMAGE *img)
             check_Ki(string);
             print("\ndisassembly:\n");
             decode_function(dcontext, addr);
-            print(  "==================================================\n");
+            print("==================================================\n");
         }
         /* forwarded export points inside exports section */
         if (addr >= start_exports && addr < end_exports) {
@@ -826,8 +813,8 @@ load_and_analyze(void *dcontext, char *dllname)
         print("Error loading %s\n", dllname);
         return;
     }
-    verbose_print("mapped at "PFX" (preferred "PFX")\n",
-                  img.MappedAddress, get_preferred_base(&img));
+    verbose_print("mapped at " PFX " (preferred " PFX ")\n", img.MappedAddress,
+                  get_preferred_base(&img));
     if (!list_usercalls)
         process_exports(dcontext, dllname, &img);
     if (list_syscalls || list_usercalls)
@@ -839,7 +826,8 @@ static void
 usage(char *pgm)
 {
     print("Usage: %s [-syscalls <-sysenter | -int2e | -wow | -x64> [-ignore_Zw]] | "
-          "-Ki | -exports | -forwards | -usercalls [-x64] | -v] <dll>\n", pgm);
+          "-Ki | -exports | -forwards | -usercalls [-x64] | -v] <dll>\n",
+          pgm);
     exit(-1);
 }
 
@@ -853,7 +841,7 @@ main(int argc, char *argv[])
 
     dr_set_isa_mode(dcontext, DR_ISA_IA32, NULL);
 
-    for (res=1; res < argc; res++) {
+    for (res = 1; res < argc; res++) {
         if (strcmp(argv[res], "-sysenter") == 0) {
             expect_sysenter = true;
             forced = true;
@@ -905,5 +893,6 @@ main(int argc, char *argv[])
     }
 
     load_and_analyze(dcontext, dll);
+    dr_standalone_exit();
     return 0;
 }

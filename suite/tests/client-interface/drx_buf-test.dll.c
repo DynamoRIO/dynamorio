@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,20 +35,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drx.h"
 #include "drx_buf-test-shared.h"
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
-
 #define CIRCULAR_FAST_SZ DRX_BUF_FAST_CIRCULAR_BUFSZ
 #define CIRCULAR_SLOW_SZ 256
-#define TRACE_SZ      256
+#define TRACE_SZ 256
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -146,8 +140,8 @@ verify_buffers_nulled(drx_buf_t *client)
 }
 
 static dr_emit_flags_t
-event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                   bool for_trace, bool translating, OUT void **user_data)
+event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                   bool translating, OUT void **user_data)
 {
     instr_t *inst, *label;
     bool prev_was_mov_const = false;
@@ -160,7 +154,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(inst, 0)) &&
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
-                *user_data = (void *) val1;
+                *user_data = (void *)val1;
                 label = INSTR_CREATE_label(drcontext);
                 instr_set_translation(label, instr_get_app_pc(inst));
                 instrlist_meta_postinsert(bb, inst, label);
@@ -182,7 +176,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      * requires a second scratch reg.
      */
     reg_id_t scratch = IF_X86_ELSE(reg_tmp, DR_REG_R5);
-    ptr_int_t subtest = (ptr_int_t) user_data;
+    ptr_int_t subtest = (ptr_int_t)user_data;
 
     if (!instr_is_label(inst))
         return DR_EMIT_DEFAULT;
@@ -198,15 +192,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
         /* load the buf pointer, and then write a garbage element to the buffer */
         drx_buf_insert_load_buf_ptr(drcontext, circular_fast, bb, inst, reg_ptr);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch), OPSZ_4, 0);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_4, 0);
         drx_buf_insert_update_buf_ptr(drcontext, circular_fast, bb, inst, reg_ptr,
                                       reg_tmp, sizeof(int));
 
         /* verify the buffer was written to */
         dr_insert_clean_call(drcontext, bb, inst, verify_buffers_dirty, false, 2,
-                             OPND_CREATE_INTPTR(circular_fast),
-                             opnd_create_reg(scratch));
+                             OPND_CREATE_INTPTR(circular_fast), opnd_create_reg(scratch));
 
         /* fast circular buffer: trigger an overflow */
         drx_buf_insert_load_buf_ptr(drcontext, circular_fast, bb, inst, reg_ptr);
@@ -224,23 +217,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
         /* load the buf pointer, and then write an element to the buffer */
         drx_buf_insert_load_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch), OPSZ_4, 0);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_4, 0);
         drx_buf_insert_update_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr,
                                       DR_REG_NULL, sizeof(int));
 
         /* verify the buffer was written to */
         dr_insert_clean_call(drcontext, bb, inst, verify_buffers_dirty, false, 2,
-                             OPND_CREATE_INTPTR(circular_slow),
-                             opnd_create_reg(scratch));
+                             OPND_CREATE_INTPTR(circular_slow), opnd_create_reg(scratch));
 
         /* slow circular buffer: trigger a fault */
         drx_buf_insert_load_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr);
         drx_buf_insert_update_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr,
                                       DR_REG_NULL, CIRCULAR_SLOW_SZ - sizeof(int));
         /* the "trigger" is a write, so we write whatever garbage is in reg_tmp */
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch), OPSZ_4, 0);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_4, 0);
 
         /* the buffer is now clean */
         dr_insert_clean_call(drcontext, bb, inst, verify_buffers_empty, false, 1,
@@ -253,23 +245,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
         /* load the buf pointer, and then write an element to the buffer */
         drx_buf_insert_load_buf_ptr(drcontext, trace, bb, inst, reg_ptr);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch), OPSZ_4, 0);
-        drx_buf_insert_update_buf_ptr(drcontext, trace, bb, inst, reg_ptr,
-                                      DR_REG_NULL, sizeof(int));
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_4, 0);
+        drx_buf_insert_update_buf_ptr(drcontext, trace, bb, inst, reg_ptr, DR_REG_NULL,
+                                      sizeof(int));
 
         /* verify the buffer was written to */
         dr_insert_clean_call(drcontext, bb, inst, verify_buffers_dirty, false, 2,
-                             OPND_CREATE_INTPTR(trace),
-                             opnd_create_reg(scratch));
+                             OPND_CREATE_INTPTR(trace), opnd_create_reg(scratch));
 
         /* trace buffer: trigger a fault and verify */
         drx_buf_insert_load_buf_ptr(drcontext, trace, bb, inst, reg_ptr);
-        drx_buf_insert_update_buf_ptr(drcontext, trace, bb, inst, reg_ptr,
-                                      DR_REG_NULL, TRACE_SZ - sizeof(int));
+        drx_buf_insert_update_buf_ptr(drcontext, trace, bb, inst, reg_ptr, DR_REG_NULL,
+                                      TRACE_SZ - sizeof(int));
         /* the "trigger" is a write, so we write whatever garbage is in reg_tmp */
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch), OPSZ_4, 0);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_4, 0);
 
         /* the buffer is now clean */
         dr_insert_clean_call(drcontext, bb, inst, verify_buffers_empty, false, 1,
@@ -278,30 +269,23 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* test immediate store: 8 bytes (if possible), 4 bytes, 2 bytes and 1 byte */
         /* "ABCDEFGH\x00" (x2 for x64) */
         drx_buf_insert_load_buf_ptr(drcontext, circular_fast, bb, inst, reg_ptr);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x41, OPSZ_1),
-                                 OPSZ_1, 0);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x42, OPSZ_1),
-                                 OPSZ_1, 1);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x4443, OPSZ_2),
-                                 OPSZ_2, 2);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x48474645, OPSZ_4),
-                                 OPSZ_4, 4);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x41, OPSZ_1), OPSZ_1, 0);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x42, OPSZ_1), OPSZ_1, 1);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x4443, OPSZ_2), OPSZ_2, 2);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x48474645, OPSZ_4), OPSZ_4, 4);
 #ifdef X64
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x4847464544434241,
-                                                                  OPSZ_8),
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x4847464544434241, OPSZ_8),
                                  OPSZ_8, 8);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x00, OPSZ_1),
-                                 OPSZ_1, 17);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x00, OPSZ_1), OPSZ_1, 17);
 #else
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x00, OPSZ_1),
-                                 OPSZ_1, 9);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x00, OPSZ_1), OPSZ_1, 9);
 #endif
         dr_insert_clean_call(drcontext, bb, inst, verify_store, false, 1,
                              OPND_CREATE_INTPTR(circular_fast));
@@ -310,59 +294,46 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* "ABCDEFGH\x00" (x2 for x64) */
         drx_buf_insert_load_buf_ptr(drcontext, circular_fast, bb, inst, reg_ptr);
         scratch = reg_resize_to_opsz(scratch, OPSZ_1);
-        MINSERT(bb, inst, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch),
-                 opnd_create_immed_int(0x41, OPSZ_1)));
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch),
-                                 OPSZ_1, 0);
-        MINSERT(bb, inst, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch),
-                 opnd_create_immed_int(0x42, OPSZ_1)));
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch),
-                                 OPSZ_1, 1);
+        MINSERT(bb, inst,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      opnd_create_immed_int(0x41, OPSZ_1)));
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_1, 0);
+        MINSERT(bb, inst,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      opnd_create_immed_int(0x42, OPSZ_1)));
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_1, 1);
         scratch = reg_resize_to_opsz(scratch, OPSZ_2);
-        MINSERT(bb, inst, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch),
-                 opnd_create_immed_int(0x4443, OPSZ_2)));
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch),
-                                 OPSZ_2, 2);
+        MINSERT(bb, inst,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      opnd_create_immed_int(0x4443, OPSZ_2)));
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_2, 2);
         scratch = reg_resize_to_opsz(scratch, OPSZ_4);
 #ifdef X86
-        MINSERT(bb, inst, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch),
-                 opnd_create_immed_int(0x48474645, OPSZ_4)));
+        MINSERT(bb, inst,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      opnd_create_immed_int(0x48474645, OPSZ_4)));
 #else
-        instrlist_insert_mov_immed_ptrsz(drcontext, 0x48474645,
-                                         opnd_create_reg(reg_resize_to_opsz
-                                                         (scratch, OPSZ_PTR)),
-                                         bb, inst, NULL, NULL);
+        instrlist_insert_mov_immed_ptrsz(
+            drcontext, 0x48474645, opnd_create_reg(reg_resize_to_opsz(scratch, OPSZ_PTR)),
+            bb, inst, NULL, NULL);
 #endif
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch),
-                                 OPSZ_4, 4);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_4, 4);
 #ifdef X64
         scratch = reg_resize_to_opsz(scratch, OPSZ_8);
         /* only way to reliably move a 64 bit int into a register */
         instrlist_insert_mov_immed_ptrsz(drcontext, 0x4847464544434241,
-                                         opnd_create_reg(scratch),
-                                         bb, inst, NULL, NULL);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 DR_REG_NULL, opnd_create_reg(scratch),
-                                 OPSZ_8, 8);
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x00, OPSZ_1),
-                                 OPSZ_1, 17);
+                                         opnd_create_reg(scratch), bb, inst, NULL, NULL);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, DR_REG_NULL,
+                                 opnd_create_reg(scratch), OPSZ_8, 8);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x00, OPSZ_1), OPSZ_1, 17);
 #else
-        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,
-                                 scratch, opnd_create_immed_int(0x00, OPSZ_1),
-                                 OPSZ_1, 9);
+        drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr, scratch,
+                                 opnd_create_immed_int(0x00, OPSZ_1), OPSZ_1, 9);
 #endif
         dr_insert_clean_call(drcontext, bb, inst, verify_store, false, 1,
                              OPND_CREATE_INTPTR(circular_fast));
@@ -373,21 +344,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          */
         /* verify memcpy works on the slow clrcular buffer */
         drx_buf_insert_load_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr);
-        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_copy,
-                                         opnd_create_reg(reg_resize_to_opsz
-                                                         (scratch, OPSZ_PTR)),
-                                         bb, inst, NULL, NULL);
-        drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst,
-                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+        instrlist_insert_mov_immed_ptrsz(
+            drcontext, (ptr_int_t)test_copy,
+            opnd_create_reg(reg_resize_to_opsz(scratch, OPSZ_PTR)), bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst, reg_ptr,
+                                  reg_resize_to_opsz(scratch, OPSZ_PTR),
                                   sizeof(test_copy));
         /* NULL out the buffer */
         drx_buf_insert_load_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr);
-        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_null,
-                                         opnd_create_reg(reg_resize_to_opsz
-                                                         (scratch, OPSZ_PTR)),
-                                         bb, inst, NULL, NULL);
-        drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst,
-                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+        instrlist_insert_mov_immed_ptrsz(
+            drcontext, (ptr_int_t)test_null,
+            opnd_create_reg(reg_resize_to_opsz(scratch, OPSZ_PTR)), bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst, reg_ptr,
+                                  reg_resize_to_opsz(scratch, OPSZ_PTR),
                                   sizeof(test_null));
         /* Unfortunately, we can't just use the check in verify_buffer_empty, because
          * drx_buf_insert_buf_memcpy() incrememnts the buffer pointer internally, unlike
@@ -397,21 +366,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                              OPND_CREATE_INTPTR(circular_slow));
         /* verify memcpy works on the trace buffer */
         drx_buf_insert_load_buf_ptr(drcontext, trace, bb, inst, reg_ptr);
-        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_copy,
-                                         opnd_create_reg(reg_resize_to_opsz
-                                                         (scratch, OPSZ_PTR)),
-                                         bb, inst, NULL, NULL);
-        drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst,
-                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+        instrlist_insert_mov_immed_ptrsz(
+            drcontext, (ptr_int_t)test_copy,
+            opnd_create_reg(reg_resize_to_opsz(scratch, OPSZ_PTR)), bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst, reg_ptr,
+                                  reg_resize_to_opsz(scratch, OPSZ_PTR),
                                   sizeof(test_copy));
         /* NULL out the buffer */
         drx_buf_insert_load_buf_ptr(drcontext, trace, bb, inst, reg_ptr);
-        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_null,
-                                         opnd_create_reg(reg_resize_to_opsz
-                                                         (scratch, OPSZ_PTR)),
-                                         bb, inst, NULL, NULL);
-        drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst,
-                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+        instrlist_insert_mov_immed_ptrsz(
+            drcontext, (ptr_int_t)test_null,
+            opnd_create_reg(reg_resize_to_opsz(scratch, OPSZ_PTR)), bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst, reg_ptr,
+                                  reg_resize_to_opsz(scratch, OPSZ_PTR),
                                   sizeof(test_null));
         /* verify buffer was NULLed */
         dr_insert_clean_call(drcontext, bb, inst, (void *)verify_buffers_nulled, false, 1,
@@ -428,8 +395,7 @@ event_exit(void)
      * because the callback is called on thread_exit(). Finally, two more for
      * drx_buf_insert_buf_memcpy().
      */
-    CHECK(num_faults == NUM_ITER * 2 + 2 + 2,
-            "the number of faults don't match up");
+    CHECK(num_faults == NUM_ITER * 2 + 2 + 2, "the number of faults don't match up");
     if (!drmgr_unregister_bb_insertion_event(event_app_instruction))
         CHECK(false, "exit failed");
     drx_buf_free(circular_fast);
@@ -450,7 +416,7 @@ dr_init(client_id_t id)
     drx_init();
     circular_fast = drx_buf_create_circular_buffer(DRX_BUF_FAST_CIRCULAR_BUFSZ);
     circular_slow = drx_buf_create_circular_buffer(CIRCULAR_SLOW_SZ);
-    trace         = drx_buf_create_trace_buffer(TRACE_SZ, verify_trace_buffer);
+    trace = drx_buf_create_trace_buffer(TRACE_SZ, verify_trace_buffer);
     CHECK(circular_fast != NULL, "circular fast failed");
     CHECK(circular_slow != NULL, "circular slow failed");
     CHECK(trace != NULL, "trace failed");
@@ -461,7 +427,6 @@ dr_init(client_id_t id)
     /* register events */
     dr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_app_analysis,
-                                                 event_app_instruction,
-                                                 NULL))
+                                                 event_app_instruction, NULL))
         CHECK(false, "init failed");
 }

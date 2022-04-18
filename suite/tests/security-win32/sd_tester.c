@@ -43,10 +43,9 @@
  *
  */
 
-
 #include "tools.h"
 
-typedef unsigned char * (*func_TYPE)();
+typedef unsigned char *(*func_TYPE)();
 
 #define OPC_NOP 0x90
 #define NUM_NOPS 1000
@@ -55,71 +54,76 @@ char data_section[4096]; // For .data tests
 
 unsigned char shellcode[] = "\xc3";
 
-void usage(char* prog) {
+void
+usage(char *prog)
+{
     print("%s [stack | heap | newheap | crtheap | virtual | virtual_x | .data]\n", prog);
 }
 
-int buffer_test(char* location) {
+int
+buffer_test(char *location)
+{
     char stack_buffer[4096];
-    char *ptr=NULL;
+    char *ptr = NULL;
     func_TYPE func;
 
-    if (strcmp(location,"stack")==0) {
-        ptr=stack_buffer;
+    if (strcmp(location, "stack") == 0) {
+        ptr = stack_buffer;
     }
 
-    if (strcmp(location,"heap")==0) {
-        ptr=HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,4000);
+    if (strcmp(location, "heap") == 0) {
+        ptr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 4000);
     }
 
-    if (strcmp(location,"newheap")==0) {
-        ptr=HeapAlloc(HeapCreate(0,8000,16000),HEAP_ZERO_MEMORY,4000);
+    if (strcmp(location, "newheap") == 0) {
+        ptr = HeapAlloc(HeapCreate(0, 8000, 16000), HEAP_ZERO_MEMORY, 4000);
     }
 
-    if (strcmp(location,"virtual")==0) {
-        ptr=VirtualAlloc(NULL,4096,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
+    if (strcmp(location, "virtual") == 0) {
+        ptr = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     }
 
-    if (strcmp(location,"virtual_x")==0) {
-        ptr=VirtualAlloc(NULL,4096,MEM_COMMIT|MEM_RESERVE,PAGE_EXECUTE_READWRITE);
+    if (strcmp(location, "virtual_x") == 0) {
+        ptr = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     }
 
-    if (strcmp(location,"crtheap")==0) {
-        ptr=malloc(4096);
+    if (strcmp(location, "crtheap") == 0) {
+        ptr = malloc(4096);
     }
 
-    if (strcmp(location,".data")==0) {
-        ptr=data_section;
+    if (strcmp(location, ".data") == 0) {
+        ptr = data_section;
     }
 
-    if (ptr==NULL) {
+    if (ptr == NULL) {
         usage("use");
-        return(-1);
+        return (-1);
     }
 
-    memset(ptr,OPC_NOP,NUM_NOPS);
-    memcpy(ptr+NUM_NOPS,shellcode,sizeof(shellcode));
+    memset(ptr, OPC_NOP, NUM_NOPS);
+    memcpy(ptr + NUM_NOPS, shellcode, sizeof(shellcode));
 
-    func=(func_TYPE)ptr;
+    func = (func_TYPE)ptr;
 
-    VERBOSE_PRINT("ptr: %#x\n",ptr);
+    VERBOSE_PRINT("ptr: %#x\n", ptr);
     print("Executing %s shellcode...\n", location);
     (*func)();
     print("success!\n");
 
-    return(0);
+    return (0);
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     INIT();
 
-    if (argc==2 && strcmp(argv[1],"help")==0) {
+    if (argc == 2 && strcmp(argv[1], "help") == 0) {
         usage(argv[0]);
-        return(-1);
+        return (-1);
     }
 
-    if (argc==1) {
+    if (argc == 1) {
         print("full suite run\n");
         buffer_test("stack");
         buffer_test("heap");

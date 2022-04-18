@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,119 +39,106 @@
 
 #ifndef PARAMS_IN_REGISTRY /* around whole file */
 
-#include "globals.h"
-#include "heap.h"
-#ifdef WINDOWS
-# include "ntdll.h"
-#endif
-
-#include <string.h>
+#    include "globals.h"
+#    include "heap.h"
+#    ifdef WINDOWS
+#        include "ntdll.h"
+#    endif
 
 /* DYNAMORIO_VAR_CONFIGDIR is searched first, and then these: */
-#ifdef UNIX
-# define GLOBAL_CONFIG_DIR "/etc/dynamorio"
-# define LOCAL_CONFIG_ENV "HOME"
-# define LOCAL_CONFIG_SUBDIR ".dynamorio"
-# define GLOBAL_CONFIG_SUBDIR ""
-#else
-# define LOCAL_CONFIG_ENV "USERPROFILE"
-# define LOCAL_CONFIG_SUBDIR "dynamorio"
-# define GLOBAL_CONFIG_SUBDIR "/config"
-#endif
+#    ifdef UNIX
+#        define GLOBAL_CONFIG_DIR "/etc/dynamorio"
+#        define LOCAL_CONFIG_ENV "HOME"
+#        define LOCAL_CONFIG_SUBDIR ".dynamorio"
+#        define GLOBAL_CONFIG_SUBDIR ""
+#    else
+#        define LOCAL_CONFIG_ENV "USERPROFILE"
+#        define LOCAL_CONFIG_SUBDIR "dynamorio"
+#        define GLOBAL_CONFIG_SUBDIR "/config"
+#    endif
 
 /* We use separate file names to support apps with the same name
  * that come in different arch flavors
  */
-#define CFG_SFX_64 "config64"
-#define CFG_SFX_32 "config32"
-#ifdef X64
-# define CFG_SFX CFG_SFX_64
-#else
-# define CFG_SFX CFG_SFX_32
-#endif
+#    define CFG_SFX_64 "config64"
+#    define CFG_SFX_32 "config32"
+#    ifdef X64
+#        define CFG_SFX CFG_SFX_64
+#    else
+#        define CFG_SFX CFG_SFX_32
+#    endif
 
 /* no logfile is set up yet */
-#if defined(DEBUG) && defined(INTERNAL)
-# define VERBOSE 0
-#else
-# define VERBOSE 0
-#endif
+#    if defined(DEBUG) && defined(INTERNAL)
+#        define VERBOSE 0
+#    else
+#        define VERBOSE 0
+#    endif
 
-#if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
 /* for linking into linux preload we do use libc for now (xref i#46/PR 206369) */
-# undef ASSERT
-# undef ASSERT_NOT_IMPLEMENTED
-# undef ASSERT_NOT_TESTED
-# undef ASSERT_NOT_REACHED
-# undef FATAL_USAGE_ERROR
-# undef USAGE_ERROR
-# define ASSERT(x) /* nothing */
-# define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
-# define ASSERT_NOT_TESTED(x) /* nothing */
-# define ASSERT_NOT_REACHED() /* nothing */
-# define FATAL_USAGE_ERROR(x, ...) /* nothing */
-# define USAGE_ERROR(x, ...) /* nothing */
-# ifdef WINDOWS
-#  if VERBOSE
-extern void display_verbose_message(char *format, ...);
-#   define print_file(f, ...) display_verbose_message(__VA_ARGS__)
-#  else
-#   define print_file(...) /* nothing */
-#  endif
-# else
-#  define print_file(...) fprintf(__VA_ARGS__)
-# endif
-# undef STDERR
-# define STDERR stderr
-# undef our_snprintf
-# ifdef WINDOWS
-#  define our_snprintf _snprintf
-# else
-#  define our_snprintf snprintf
-# endif
-# undef DECLARE_NEVERPROT_VAR
-# define DECLARE_NEVERPROT_VAR(var, val) var = (val)
-#endif
+#        undef ASSERT
+#        undef ASSERT_NOT_IMPLEMENTED
+#        undef ASSERT_NOT_TESTED
+#        undef ASSERT_NOT_REACHED
+#        undef FATAL_USAGE_ERROR
+#        undef USAGE_ERROR
+#        define ASSERT(x)                 /* nothing */
+#        define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
+#        define ASSERT_NOT_TESTED(x)      /* nothing */
+#        define ASSERT_NOT_REACHED()      /* nothing */
+#        define FATAL_USAGE_ERROR(x, ...) /* nothing */
+#        define USAGE_ERROR(x, ...)       /* nothing */
+#        ifdef WINDOWS
+#            if VERBOSE
+extern void
+display_verbose_message(char *format, ...);
+#                define print_file(f, ...) display_verbose_message(__VA_ARGS__)
+#            else
+#                define print_file(...) /* nothing */
+#            endif
+#        else
+#            define print_file(...) fprintf(__VA_ARGS__)
+#        endif
+#        undef STDERR
+#        define STDERR stderr
+#        undef d_r_snprintf
+#        ifdef WINDOWS
+#            define d_r_snprintf _snprintf
+#        else
+#            define d_r_snprintf snprintf
+#        endif
+#        undef DECLARE_NEVERPROT_VAR
+#        define DECLARE_NEVERPROT_VAR(var, val) var = (val)
+#    endif
 
-#ifdef DEBUG
+#    ifdef DEBUG
 DECLARE_NEVERPROT_VAR(static int infolevel, VERBOSE);
-# define INFO(level, fmt, ...) do { \
-        if (infolevel >= (level)) print_file(STDERR, "<"fmt">\n", __VA_ARGS__); \
-    } while (0);
-#else
-# define INFO(level, fmt, ...) /* nothing */
-#endif
+#        define INFO(level, fmt, ...)                               \
+            do {                                                    \
+                if (infolevel >= (level))                           \
+                    print_file(STDERR, "<" fmt ">\n", __VA_ARGS__); \
+            } while (0);
+#    else
+#        define INFO(level, fmt, ...) /* nothing */
+#    endif
 
 /* we store values for each of these vars: */
 static const char *const config_var[] = {
-    DYNAMORIO_VAR_HOME,
-    DYNAMORIO_VAR_LOGDIR,
-    DYNAMORIO_VAR_OPTIONS,
-    DYNAMORIO_VAR_AUTOINJECT,
-    DYNAMORIO_VAR_UNSUPPORTED,
-    DYNAMORIO_VAR_RUNUNDER,
-    DYNAMORIO_VAR_CMDLINE,
-    DYNAMORIO_VAR_ONCRASH,
-    DYNAMORIO_VAR_SAFEMARKER,
-    DYNAMORIO_VAR_CACHE_ROOT,
-    DYNAMORIO_VAR_CACHE_SHARED,
+    DYNAMORIO_VAR_HOME,       DYNAMORIO_VAR_LOGDIR,     DYNAMORIO_VAR_OPTIONS,
+    DYNAMORIO_VAR_AUTOINJECT, DYNAMORIO_VAR_ALTINJECT,  DYNAMORIO_VAR_UNSUPPORTED,
+    DYNAMORIO_VAR_RUNUNDER,   DYNAMORIO_VAR_CMDLINE,    DYNAMORIO_VAR_ONCRASH,
+    DYNAMORIO_VAR_SAFEMARKER, DYNAMORIO_VAR_CACHE_ROOT, DYNAMORIO_VAR_CACHE_SHARED,
 };
-#ifdef WINDOWS
+#    ifdef WINDOWS
 static const wchar_t *const w_config_var[] = {
-    L_DYNAMORIO_VAR_HOME,
-    L_DYNAMORIO_VAR_LOGDIR,
-    L_DYNAMORIO_VAR_OPTIONS,
-    L_DYNAMORIO_VAR_AUTOINJECT,
-    L_DYNAMORIO_VAR_UNSUPPORTED,
-    L_DYNAMORIO_VAR_RUNUNDER,
-    L_DYNAMORIO_VAR_CMDLINE,
-    L_DYNAMORIO_VAR_ONCRASH,
-    L_DYNAMORIO_VAR_SAFEMARKER,
-    L_DYNAMORIO_VAR_CACHE_ROOT,
-    L_DYNAMORIO_VAR_CACHE_SHARED,
+    L_DYNAMORIO_VAR_HOME,       L_DYNAMORIO_VAR_LOGDIR,     L_DYNAMORIO_VAR_OPTIONS,
+    L_DYNAMORIO_VAR_AUTOINJECT, L_DYNAMORIO_VAR_ALTINJECT,  L_DYNAMORIO_VAR_UNSUPPORTED,
+    L_DYNAMORIO_VAR_RUNUNDER,   L_DYNAMORIO_VAR_CMDLINE,    L_DYNAMORIO_VAR_ONCRASH,
+    L_DYNAMORIO_VAR_SAFEMARKER, L_DYNAMORIO_VAR_CACHE_ROOT, L_DYNAMORIO_VAR_CACHE_SHARED,
 };
-#endif
-#define NUM_CONFIG_VAR (sizeof(config_var)/sizeof(config_var[0]))
+#    endif
+#    define NUM_CONFIG_VAR (sizeof(config_var) / sizeof(config_var[0]))
 
 /* we want to read config values prior to setting up heap so all data
  * is static
@@ -193,30 +180,30 @@ static config_vals_t myvals;
 static config_info_t config;
 static bool config_initialized;
 
-#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 /* i#521: Re-reading the config takes long enough that we can't leave the data
  * section unprotected while we do it.  We initialize this pointer to a heap
  * allocated config_vals_t struct and use that for doing re-reads.
  */
 static config_info_t *config_reread_info;
 static config_vals_t *config_reread_vals;
-#endif /* !NOT_DYNAMORIO_CORE && !NOT_DYNAMORIO_CORE_PROPER */
+#    endif /* !NOT_DYNAMORIO_CORE && !NOT_DYNAMORIO_CORE_PROPER */
 
 const char *
 my_getenv(IF_WINDOWS_ELSE_NP(const wchar_t *, const char *) var, char *buf, size_t bufsz)
 {
-#ifdef UNIX
+#    ifdef UNIX
     return getenv(var);
-#else
+#    else
     wchar_t wbuf[MAX_CONFIG_VALUE];
     if (env_get_value(var, wbuf, BUFFER_SIZE_BYTES(wbuf))) {
         NULL_TERMINATE_BUFFER(wbuf);
         snprintf(buf, bufsz, "%ls", wbuf);
-        buf[bufsz - 1] ='\0';
+        buf[bufsz - 1] = '\0';
         return buf;
     }
     return NULL;
-#endif
+#    endif
 }
 
 const char *
@@ -234,7 +221,7 @@ get_config_val_ex(const char *var, bool *app_specific, bool *from_env)
                     *app_specific = cfg->u.v->vals[i].app_specific;
                 if (from_env != NULL)
                     *from_env = cfg->u.v->vals[i].from_env;
-                return (const char *) cfg->u.v->vals[i].val;
+                return (const char *)cfg->u.v->vals[i].val;
             } else
                 return NULL;
         }
@@ -339,7 +326,7 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
      * buffer needs to hold at least one full line: we assume var name plus
      * '=' plus newline chars < 128.
      */
-#   define BUFSIZE (MAX_CONFIG_VALUE+128)
+#    define BUFSIZE (MAX_CONFIG_VALUE + 128)
     char buf[BUFSIZE];
 
     char *line, *newline = NULL;
@@ -349,7 +336,7 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
     while (true) {
         /* break file into lines */
         if (newline == NULL || newline == &BUFFER_LAST_ELEMENT(buf)) {
-            bufwant = BUFSIZE-1;
+            bufwant = BUFSIZE - 1;
             bufread = os_read(f, buf, bufwant);
             ASSERT(bufread <= bufwant);
             if (bufread <= 0)
@@ -369,7 +356,7 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
                 /* using memmove since strings can overlap */
                 if (len > 0)
                     memmove(buf, line, len);
-                bufread = os_read(f, buf+len, bufwant);
+                bufread = os_read(f, buf + len, bufwant);
                 ASSERT(bufread <= bufwant);
                 if (bufread <= 0)
                     break;
@@ -388,8 +375,8 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
         }
         *newline = '\0';
         /* handle \r\n line endings */
-        if (newline > line && *(newline-1) == '\r')
-            *(newline-1) = '\0';
+        if (newline > line && *(newline - 1) == '\r')
+            *(newline - 1) = '\0';
         /* now we have one line */
         INFO(3, "config file line: \"%s\"", line);
         /* we support blank lines and comments */
@@ -409,9 +396,9 @@ config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const 
     const char *appname = appname_in;
     char buf[MAXIMUM_PATH];
     bool check_global = true;
-#ifdef WINDOWS
+#    ifdef WINDOWS
     int retval;
-#endif
+#    endif
     ASSERT(cfg->query != NULL || cfg->u.v != NULL);
     /* for now we only support config files by short name: we'll see
      * whether we need to also support full paths
@@ -437,8 +424,8 @@ config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const 
              * only makes sense for main config for this process
              */
             snprintf(cfg->fname_app, BUFFER_SIZE_ELEMENTS(cfg->fname_app),
-                     "%s/%s/%s.%d.1%s",
-                     local, LOCAL_CONFIG_SUBDIR, appname, pid_to_check, sfx);
+                     "%s/%s/%s.%d.1%s", local, LOCAL_CONFIG_SUBDIR, appname, pid_to_check,
+                     sfx);
             NULL_TERMINATE_BUFFER(cfg->fname_app);
             INFO(2, "trying config file %s", cfg->fname_app);
             f_app = os_open(cfg->fname_app, OS_OPEN_READ);
@@ -456,28 +443,26 @@ config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const 
         /* 3) <local>/default.0config */
         if (f_default == INVALID_FILE) {
             snprintf(cfg->fname_default, BUFFER_SIZE_ELEMENTS(cfg->fname_default),
-                     "%s/%s/default.0%s",
-                     local, LOCAL_CONFIG_SUBDIR, sfx);
+                     "%s/%s/default.0%s", local, LOCAL_CONFIG_SUBDIR, sfx);
             NULL_TERMINATE_BUFFER(cfg->fname_default);
             INFO(2, "trying config file %s", cfg->fname_default);
             f_default = os_open(cfg->fname_default, OS_OPEN_READ);
         }
     }
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* on Windows the global dir is <installbase>/config/ */
-    retval = get_parameter_from_registry(L_DYNAMORIO_VAR_HOME,
-                                         buf, BUFFER_SIZE_BYTES(buf));
+    retval =
+        get_parameter_from_registry(L_DYNAMORIO_VAR_HOME, buf, BUFFER_SIZE_BYTES(buf));
     NULL_TERMINATE_BUFFER(buf);
     check_global = IS_GET_PARAMETER_SUCCESS(retval);
     global = buf;
-#else
+#    else
     global = GLOBAL_CONFIG_DIR;
-#endif
+#    endif
     if (check_global) {
         /* 4) <global>/appname.config */
         if (f_app == INVALID_FILE) {
-            snprintf(cfg->fname_app, BUFFER_SIZE_ELEMENTS(cfg->fname_app),
-                     "%s%s/%s.%s",
+            snprintf(cfg->fname_app, BUFFER_SIZE_ELEMENTS(cfg->fname_app), "%s%s/%s.%s",
                      global, GLOBAL_CONFIG_SUBDIR, appname, sfx);
             NULL_TERMINATE_BUFFER(cfg->fname_app);
             INFO(2, "trying config file %s", cfg->fname_app);
@@ -514,7 +499,7 @@ config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const 
 void
 config_reread(void)
 {
-#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
     file_t f;
     config_info_t *tmp_config;
 
@@ -542,14 +527,12 @@ config_reread(void)
             DODEBUG({ infolevel += 2; });
             os_close(f);
         } else
-            INFO(1, "WARNING: unable to re-read config file %s",
-                 tmp_config->fname_app);
+            INFO(1, "WARNING: unable to re-read config file %s", tmp_config->fname_app);
     }
     if (tmp_config->fname_default[0] != '\0') {
         f = os_open(tmp_config->fname_default, OS_OPEN_READ);
         if (f != INVALID_FILE) {
-            INFO(3, "re-reading default config file %s",
-                 tmp_config->fname_default);
+            INFO(3, "re-reading default config file %s", tmp_config->fname_default);
             DODEBUG({ infolevel -= 2; });
             read_config_file(f, tmp_config, true, true);
             DODEBUG({ infolevel += 2; });
@@ -572,9 +555,9 @@ config_reread(void)
     } else {
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     }
-#else
+#    else
     ASSERT_NOT_REACHED();
-#endif
+#    endif
 }
 
 /* Since querying for other arch or other app typically asks just about
@@ -584,8 +567,8 @@ config_reread(void)
  */
 static bool
 get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
-                     const char *var, char *val, size_t valsz,
-                     bool *app_specific, bool *from_env, bool *from_1config)
+                     const char *var, char *val, size_t valsz, bool *app_specific,
+                     bool *from_env, bool *from_1config)
 {
     /* Can't use heap very easily since used by preinject, injector, and DR
      * so we use a stack var.  WARNING: this is about 1.5K, and config_read
@@ -599,7 +582,7 @@ get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
         if (valsz > BUFFER_SIZE_ELEMENTS(info.u.q.answer.val))
             valsz = BUFFER_SIZE_ELEMENTS(info.u.q.answer.val);
         strncpy(val, info.u.q.answer.val, valsz);
-        val[valsz-1] = '\0';
+        val[valsz - 1] = '\0';
         if (app_specific != NULL)
             *app_specific = info.u.q.answer.app_specific;
         if (from_env != NULL)
@@ -611,44 +594,63 @@ get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
 }
 
 bool
-get_config_val_other_app(const char *appname, process_id_t pid,
-                         dr_platform_t platform,
-                         const char *var, char *val, size_t valsz,
-                         bool *app_specific, bool *from_env, bool *from_1config)
+get_config_val_other_app(const char *appname, process_id_t pid, dr_platform_t platform,
+                         const char *var, char *val, size_t valsz, bool *app_specific,
+                         bool *from_env, bool *from_1config)
 {
-    const char *sfx;;
+    const char *sfx;
+    ;
     switch (platform) {
-    case DR_PLATFORM_DEFAULT: sfx = CFG_SFX;    break;
-    case DR_PLATFORM_32BIT:   sfx = CFG_SFX_32; break;
-    case DR_PLATFORM_64BIT:   sfx = CFG_SFX_64; break;
-    default:
-        return false;  /* invalid parms */
+    case DR_PLATFORM_DEFAULT: sfx = CFG_SFX; break;
+    case DR_PLATFORM_32BIT: sfx = CFG_SFX_32; break;
+    case DR_PLATFORM_64BIT: sfx = CFG_SFX_64; break;
+    default: return false; /* invalid parms */
     }
-    return get_config_val_other(appname, pid, sfx, var, val, valsz,
-                                app_specific, from_env, from_1config);
+    return get_config_val_other(appname, pid, sfx, var, val, valsz, app_specific,
+                                from_env, from_1config);
 }
 
 bool
-get_config_val_other_arch(const char *var, char *val, size_t valsz,
-                          bool *app_specific, bool *from_env, bool *from_1config)
+get_config_val_other_arch(const char *var, char *val, size_t valsz, bool *app_specific,
+                          bool *from_env, bool *from_1config)
 {
-    return get_config_val_other(NULL, 0, IF_X64_ELSE(CFG_SFX_32, CFG_SFX_64),
-                                var, val, valsz, app_specific, from_env, from_1config);
+    return get_config_val_other(NULL, 0, IF_X64_ELSE(CFG_SFX_32, CFG_SFX_64), var, val,
+                                valsz, app_specific, from_env, from_1config);
 }
 
 void
-config_init(void)
+d_r_config_init(void)
 {
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
     config_initialized = true;
+}
 
-#ifndef NOT_DYNAMORIO_CORE_PROPER
+bool
+d_r_config_initialized(void)
+{
+    return config_initialized;
+}
+
+#    ifndef NOT_DYNAMORIO_CORE_PROPER
+/* To support re-reading config, we need to heap allocate a config_vals_t array,
+ * which we can leave unprotected.
+ */
+void
+config_heap_init(void)
+{
+    config_reread_info = (config_info_t *)global_heap_alloc(sizeof(*config_reread_info)
+                                                                HEAPACCT(ACCT_OTHER));
+    config_reread_vals = (config_vals_t *)global_heap_alloc(sizeof(*config_reread_vals)
+                                                                HEAPACCT(ACCT_OTHER));
+
     /* i#1271: to avoid leaving a stale 1config file behind if this process
      * crashes w/o a clean exit, we give up on re-reading the file and delete
      * it now.  It's an anonymous file anyway and not meant for manual updates.
      * The user could override the dynamic_options by re-specifying in
      * the option string, if desired, and re-create the 1config manually.
+     * We do this here and not in d_r_config_init() so we can re-read it
+     * after reload_dynamorio() in privload_early_inject().
      */
     if (config.has_1config) {
         INFO(2, "deleting config file %s", config.fname_app);
@@ -656,22 +658,6 @@ config_init(void)
         dynamo_options.dynamic_options = false;
     }
     /* we ignore otherarch having 1config */
-#endif
-}
-
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-/* To support re-reading config, we need to heap allocate a config_vals_t array,
- * which we can leave unprotected.
- */
-void
-config_heap_init(void)
-{
-    config_reread_info =
-        (config_info_t *) global_heap_alloc(sizeof(*config_reread_info)
-                                            HEAPACCT(ACCT_OTHER));
-    config_reread_vals =
-        (config_vals_t *) global_heap_alloc(sizeof(*config_reread_vals)
-                                            HEAPACCT(ACCT_OTHER));
 }
 
 void
@@ -689,15 +675,18 @@ config_heap_exit(void)
         global_heap_free(tmp, sizeof(*config_reread_vals) HEAPACCT(ACCT_OTHER));
     }
 }
-#endif
+#    endif
 
 void
-config_exit(void)
+d_r_config_exit(void)
 {
-#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-    if (doing_detach)
-        memset(&config, 0, sizeof config); /* for possible re-attach */
-#endif
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+    if (doing_detach) {
+        /* Zero out globals for possible re-attach. */
+        memset(&config, 0, sizeof config);
+        memset(&myvals, 0, sizeof myvals);
+    }
+#    endif
     /* nothing -- so not called on fast exit (is called on detach) */
 }
 
@@ -718,8 +707,8 @@ get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache)
     val = get_config_val(name);
     /* env var has top priority, then registry */
     if (val != NULL) {
-        strncpy(value, val, maxlen-1);
-        value[maxlen-1]  = '\0'; /* if max no null */
+        strncpy(value, val, maxlen - 1);
+        value[maxlen - 1] = '\0'; /* if max no null */
         /* we do not return GET_PARAMETER_NOAPPSPECIFIC like PARAMS_IN_REGISTRY
          * does: caller should use get_config_val_ex instead
          */
@@ -729,7 +718,7 @@ get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache)
 }
 
 int
-get_parameter(const char *name, char *value, int maxlen)
+d_r_get_parameter(const char *name, char *value, int maxlen)
 {
     return get_parameter_ex(name, value, maxlen, false);
 }
@@ -738,10 +727,10 @@ int
 get_unqualified_parameter(const char *name, char *value, int maxlen)
 {
     /* we don't use qualified names w/ our config files yet */
-    return get_parameter(name, value, maxlen);
+    return d_r_get_parameter(name, value, maxlen);
 }
 
-# ifdef UNIX
+#    ifdef UNIX
 /* Handle rununder values (Windows does this in systemwide_should_inject() and
  * has more complex logic as it has more options).
  */
@@ -765,17 +754,17 @@ should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env
     /* Linux ignores RUNUNDER_EXPLICIT, RUNUNDER_COMMANDLINE_*, RUNUNDER_ONCE */
     return true;
 }
-# endif
+#    endif
 
 #else /* !PARAMS_IN_REGISTRY around whole file */
 
 void
-config_init(void)
+d_r_config_init(void)
 {
 }
 
 void
-config_exit(void)
+d_r_config_exit(void)
 {
 }
 

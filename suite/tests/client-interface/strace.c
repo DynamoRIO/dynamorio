@@ -33,11 +33,12 @@
 
 #include <stdio.h>
 #ifndef WINDOWS
-# include <signal.h>
-# include <errno.h>
+#    include <signal.h>
+#    include <errno.h>
 #endif
 
-int main()
+int
+main()
 {
 #ifdef WINDOWS
     /* Though stderr and stdout go to the same place, we want two

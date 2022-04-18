@@ -39,9 +39,8 @@
 static uint bb_truncation_length;
 
 /* PR 306971: test bb truncation */
-static
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
-                         bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     uint app_instruction_count = 0;
     instr_t *next, *instr = instrlist_first(bb);
@@ -63,7 +62,8 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     const char *options = dr_get_options(id);
     if (strlen(options) == 0) {

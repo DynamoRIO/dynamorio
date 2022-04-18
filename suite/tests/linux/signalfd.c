@@ -58,7 +58,7 @@ test_signalfd(int sig)
     sigset_t mask;
     struct signalfd_siginfo siginfo;
 
-    intercept_signal(sig, (handler_3_t) signal_handler, false);
+    intercept_signal(sig, (handler_3_t)signal_handler, false);
 
     sigemptyset(&mask);
     sigaddset(&mask, sig);
@@ -98,8 +98,7 @@ test_signalfd(int sig)
     if (ret <= 0)
         print("ret: %d\n", ret);
     else {
-        print("successful read: signal = %d, source is %s\n",
-              siginfo.ssi_signo,
+        print("successful read: signal = %d, source is %s\n", siginfo.ssi_signo,
               siginfo.ssi_pid == getpid() ? "this process" : "another process");
     }
 
@@ -117,8 +116,7 @@ test_signalfd(int sig)
     if (ret <= 0)
         print("ret: %d\n", ret);
     else {
-        print("successful read: signal = %d, source is %s\n",
-              siginfo.ssi_signo,
+        print("successful read: signal = %d, source is %s\n", siginfo.ssi_signo,
               siginfo.ssi_pid == getpid() ? "this process" : "another process");
     }
 
@@ -126,7 +124,7 @@ test_signalfd(int sig)
     sigemptyset(&mask);
     sigprocmask(SIG_BLOCK, &mask, NULL);
     close(sigfd);
-    intercept_signal(sig, (handler_3_t) NULL, false);
+    intercept_signal(sig, (handler_3_t)NULL, false);
 }
 
 int

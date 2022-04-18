@@ -34,7 +34,7 @@
 #include <stdio.h>
 
 #ifdef WINDOWS
-# include <windows.h>
+#    include <windows.h>
 #endif
 
 #define CPUID_INTEL_EBX /* Genu */ 0x756e6547
@@ -45,30 +45,32 @@
 #define CPUID_AMD_EDX /* enti */ 0x69746e65
 #define CPUID_AMD_ECX /* cAMD */ 0x444d4163
 
-#define FEAT_EDX_MMX    (1 << 23)
-#define FEAT_EDX_SSE    (1 << 25)
-#define FEAT_EDX_SSE2   (1 << 26)
-#define FEAT_ECX_SSE3   (1 <<  0)
-#define FEAT_ECX_SSSE3  (1 <<  9)
-#define FEAT_ECX_SSE41  (1 << 19)
-#define FEAT_ECX_SSE42  (1 << 20)
-#define FEAT_ECX_AVX    (1 << 28)
+#define FEAT_EDX_MMX (1 << 23)
+#define FEAT_EDX_SSE (1 << 25)
+#define FEAT_EDX_SSE2 (1 << 26)
+#define FEAT_ECX_SSE3 (1 << 0)
+#define FEAT_ECX_SSSE3 (1 << 9)
+#define FEAT_ECX_SSE41 (1 << 19)
+#define FEAT_ECX_SSE42 (1 << 20)
+#define FEAT_ECX_AVX (1 << 28)
 
 #ifdef UNIX
-# ifdef X64
-#  define XDI "rdi"
-# else
-#  define XDI "edi"
-# endif
+#    ifdef X64
+#        define XDI "rdi"
+#    else
+#        define XDI "edi"
+#    endif
 #endif
 
 static void
 invoke_cpuid(uint output[4], uint eax)
 {
 #ifdef UNIX
-    __asm__("mov %0, %%"XDI"; mov %1, %%eax; cpuid; mov %%eax, (%%"XDI"); "
-            "mov %%ebx, 4(%%"XDI"); mov %%ecx, 8(%%"XDI"); mov %%edx, 12(%%"XDI")" :
-            : "g"(output), "g"(eax) : "%eax", "%ebx", "%ecx", "%edx", "%"XDI"");
+    __asm__("mov %0, %%" XDI "; mov %1, %%eax; cpuid; mov %%eax, (%%" XDI "); "
+            "mov %%ebx, 4(%%" XDI "); mov %%ecx, 8(%%" XDI "); mov %%edx, 12(%%" XDI ")"
+            :
+            : "g"(output), "g"(eax)
+            : "%eax", "%ebx", "%ecx", "%edx", "%" XDI "");
 #else
     __cpuid(output, eax);
 #endif
@@ -78,16 +80,19 @@ static void
 invoke_cpuid_ecx(uint output[4], uint eax, uint ecx)
 {
 #ifdef UNIX
-    __asm__("mov %0, %%"XDI"; mov %1, %%eax; mov %2, %%ecx; cpuid; mov %%eax, (%%"XDI"); "
-            "mov %%ebx, 4(%%"XDI"); mov %%ecx, 8(%%"XDI"); mov %%edx, 12(%%"XDI")" :
-            : "g"(output), "g"(eax), "g"(ecx) : "%eax", "%ebx", "%ecx", "%edx", "%"XDI"");
+    __asm__("mov %0, %%" XDI "; mov %1, %%eax; mov %2, %%ecx; cpuid; mov %%eax, (%%" XDI
+            "); "
+            "mov %%ebx, 4(%%" XDI "); mov %%ecx, 8(%%" XDI "); mov %%edx, 12(%%" XDI ")"
+            :
+            : "g"(output), "g"(eax), "g"(ecx)
+            : "%eax", "%ebx", "%ecx", "%edx", "%" XDI "");
 #else
     __cpuidex(output, eax, ecx);
 #endif
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
     uint cpuid_val[4]; /* eax, ebx, ecx, edx */
     uint max_eax, max_ext_eax;
@@ -99,20 +104,18 @@ main(int argc, char** argv)
 
     invoke_cpuid(cpuid_val, 0);
     max_eax = cpuid_val[0];
-    if (cpuid_val[1] == CPUID_INTEL_EBX &&
-        cpuid_val[2] == CPUID_INTEL_ECX &&
+    if (cpuid_val[1] == CPUID_INTEL_EBX && cpuid_val[2] == CPUID_INTEL_ECX &&
         cpuid_val[3] == CPUID_INTEL_EDX)
         print("Running on an Intel processor\n");
-    else if (cpuid_val[1] == CPUID_AMD_EBX &&
-             cpuid_val[2] == CPUID_AMD_ECX &&
+    else if (cpuid_val[1] == CPUID_AMD_EBX && cpuid_val[2] == CPUID_AMD_ECX &&
              cpuid_val[3] == CPUID_AMD_EDX)
         print("Running on an AMD processor\n");
     else
         print("Running on an unknown processor\n");
 
     invoke_cpuid(cpuid_val, 1);
-    family = (cpuid_val[0] >>  8) & 0xf;
-    model = (cpuid_val[0] >>  4) & 0xf;
+    family = (cpuid_val[0] >> 8) & 0xf;
+    model = (cpuid_val[0] >> 4) & 0xf;
     if (family == 6 || family == 15) {
         uint ext_model = (cpuid_val[0] >> 16) & 0xf;
         model += (ext_model << 4);
@@ -122,9 +125,7 @@ main(int argc, char** argv)
         }
     }
     print("Type = %d, family = %d, model = %d, stepping = %d\n",
-          (cpuid_val[0] >> 12) & 0x3,
-          family, model,
-          cpuid_val[0] & 0xf);
+          (cpuid_val[0] >> 12) & 0x3, family, model, cpuid_val[0] & 0xf);
     feat_edx = cpuid_val[3];
     feat_ecx = cpuid_val[2];
 

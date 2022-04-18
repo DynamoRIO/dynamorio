@@ -96,7 +96,7 @@ main(int argc, char **argv)
     struct timespec sleeptime;
 
     pthread_mutex_init(&lock, NULL);
-    pthread_cond_init(&condvar,  NULL);
+    pthread_cond_init(&condvar, NULL);
 
     if (pthread_create(&thread, NULL, thread_routine, NULL) != 0) {
         perror("failed to create thread");
@@ -130,7 +130,7 @@ main(int argc, char **argv)
     pthread_kill(thread, SIGUSR1);
 
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 1000*1000*1000; /* 100ms */
+    sleeptime.tv_nsec = 1000 * 1000 * 1000; /* 100ms */
     nanosleep(&sleeptime, NULL);
 
     /* terminate */

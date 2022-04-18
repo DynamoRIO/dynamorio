@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,15 +40,21 @@
 #include "tlb_entry.h"
 #include "tlb_stats.h"
 
-class tlb_t : public caching_device_t
-{
- public:
-    virtual void request(const memref_t &memref);
- protected:
-    virtual void init_blocks();
+class tlb_t : public caching_device_t {
+public:
+    void
+    request(const memref_t &memref) override;
+
+    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
+    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
+    // propagate_eviction() by overriding them.
+
+protected:
+    void
+    init_blocks() override;
 
     // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid;
+    memref_pid_t last_pid_;
 };
 
 #endif /* _TLB_H_ */

@@ -35,11 +35,11 @@
 #include "tools.h"
 
 #ifdef UNIX
-# include <unistd.h>
-# include <sys/types.h>
-# include <sys/wait.h>
-# include <assert.h>
-# include <stdio.h>
+#    include <unistd.h>
+#    include <sys/types.h>
+#    include <sys/wait.h>
+#    include <assert.h>
+#    include <stdio.h>
 #endif
 
 #define LINE_SIZE 64
@@ -50,7 +50,7 @@ typedef struct {
     } u;
 } line_t;
 
-#define NUM_LINES 512*1024
+#define NUM_LINES 512 * 1024
 static line_t many_lines[NUM_LINES];
 
 static void
@@ -77,8 +77,7 @@ main(int argc, char **argv)
     child = fork();
     if (child < 0) {
         perror("error on fork");
-    }
-    else if (child > 0) {
+    } else if (child > 0) {
         /* parent process */
         pid_t result;
         lots_of_hits();
@@ -90,8 +89,7 @@ main(int argc, char **argv)
         /* parent process */
         STARTUPINFO si = { sizeof(STARTUPINFO) };
         PROCESS_INFORMATION pi;
-        if (!CreateProcess(argv[1], argv[1], NULL, NULL, FALSE,
-                           0, NULL, NULL, &si, &pi))
+        if (!CreateProcess(argv[1], argv[1], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
             assert(0);
         lots_of_hits();
         if (WaitForSingleObject(pi.hProcess, INFINITE) == WAIT_FAILED)

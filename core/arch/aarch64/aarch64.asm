@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019-2021 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -99,6 +100,21 @@ START_FILE
 DECL_EXTERN(dr_setjmp_sigmask)
 #endif
 
+DECL_EXTERN(d_r_internal_error)
+
+/* For debugging: report an error if the function called by call_switch_stack()
+ * unexpectedly returns.  Also used elsewhere.
+ */
+        DECLARE_FUNC(unexpected_return)
+GLOBAL_LABEL(unexpected_return:)
+        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
+        /* d_r_internal_error normally never returns */
+        /* Infinite loop is intentional.  Can we do better in release build?
+         * XXX: why not a debug instr?
+         */
+        JUMP  GLOBAL_REF(unexpected_return)
+        END_FUNC(unexpected_return)
+
 /* All CPU ID registers are accessible only in privileged modes. */
         DECLARE_FUNC(cpuid_supported)
 GLOBAL_LABEL(cpuid_supported:)
@@ -139,7 +155,6 @@ call_dispatch_alt_stack_no_free:
         ret
         END_FUNC(call_switch_stack)
 
-#ifdef CLIENT_INTERFACE
 /*
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
@@ -181,7 +196,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         ldp      x29, x30, [sp], #16
         ret
         END_FUNC(dr_call_on_clean_stack)
-#endif /* CLIENT_INTERFACE */
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
@@ -318,7 +332,7 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* switch to initstack for cleanup of dstack */
+        /* switch to d_r_initstack for cleanup of dstack */
         adrp     x26, :got:initstack_mutex
         ldr      x26, [x26, #:got_lo12:initstack_mutex]
 cat_spin:
@@ -329,15 +343,15 @@ cat_spin:
 
 cat_have_lock:
         /* switch stack */
-        adrp     x0, :got:initstack
-        ldr      x0, [x0, #:got_lo12:initstack]
+        adrp     x0, :got:d_r_initstack
+        ldr      x0, [x0, #:got_lo12:d_r_initstack]
         ldr      x0, [x0]
         mov      sp, x0
 
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
 
-        /* give up initstack mutex */
+        /* give up initstack_mutex */
         adrp     x0, :got:initstack_mutex
         ldr      x0, [x0, #:got_lo12:initstack_mutex]
         mov      x1, #0
@@ -406,49 +420,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         mov      x0, ARG2
         ret
         END_FUNC(safe_read_asm)
-
-#ifdef UNIX
-/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
- */
-
-/* Private memcpy.
- * FIXME i#1569: We should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        mov      x3, ARG1
-        cbz      ARG3, 2f
-1:      ldrb     w4, [ARG2], #1
-        strb     w4, [x3], #1
-        sub      ARG3, ARG3, #1
-        cbnz     ARG3, 1b
-2:      ret
-        END_FUNC(memcpy)
-
-/* Private memset.
- * FIXME i#1569: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        mov      x3, ARG1
-        cbz      ARG3, 2f
-1:      strb     w1, [x3], #1
-        sub      ARG3, ARG3, #1
-        cbnz     ARG3, 1b
-2:      ret
-        END_FUNC(memset)
-
-/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-#endif /* UNIX */
-
-#ifdef CLIENT_INTERFACE
 
 /* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
  *
@@ -520,8 +491,6 @@ GLOBAL_LABEL(atomic_swap:)
         ret
         END_FUNC(atomic_swap)
 
-#endif /* CLIENT_INTERFACE */
-
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)
 GLOBAL_LABEL(client_int_syscall:)
@@ -540,10 +509,21 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-
+/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                             void *ctid, void (*func)(void))
+ */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        stp      ARG6, x0, [ARG2, #-16]! /* func is now on TOS of newsp */
+        /* All args are already in syscall registers. */
+        mov      w8, #SYS_clone
+        svc      #0
+        cbnz     x0, dynamorio_clone_parent
+        ldp      x0, x1, [sp], #16
+        blr      x0
+        bl       GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+        ret
         END_FUNC(dynamorio_clone)
 
         DECLARE_FUNC(dynamorio_sigreturn)
@@ -566,11 +546,11 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #  ifndef HAVE_SIGALTSTACK
 #   error NYI
 #  endif
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
         mov      ARG4, sp /* pass as extra arg */
-        b        GLOBAL_REF(master_signal_handler_C) /* chain call */
-        END_FUNC(master_signal_handler)
+        b        GLOBAL_REF(main_signal_handler_C) /* chain call */
+        END_FUNC(main_signal_handler)
 
 # endif /* NOT_DYNAMORIO_CORE_PROPER */
 

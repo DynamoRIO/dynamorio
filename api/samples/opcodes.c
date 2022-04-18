@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -43,12 +43,12 @@
 #include <stdlib.h> /* qsort */
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
+#define NULL_TERMINATE(buf) (buf)[(sizeof((buf)) / sizeof((buf)[0])) - 1] = '\0'
 
 /* We keep a separate execution count per opcode.
  *
@@ -70,8 +70,8 @@ enum {
 #endif
     NUM_ISA_MODE,
 };
-static uint count[NUM_ISA_MODE][OP_LAST+1];
-#define NUM_COUNT sizeof(count[0])/sizeof(count[0][0])
+static uint count[NUM_ISA_MODE][OP_LAST + 1];
+#define NUM_COUNT sizeof(count[0]) / sizeof(count[0][0])
 /* We only display the top 15 counts.  This sample could be extended to
  * write all the counts to a file.
  *
@@ -82,10 +82,11 @@ static uint count[NUM_ISA_MODE][OP_LAST+1];
  */
 #define NUM_COUNT_SHOW 15
 
-static void event_exit(void);
-static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
-                                             instr_t *instr, bool for_trace,
-                                             bool translating, void *user_data);
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -102,14 +103,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* Make it easy to tell from the log file which client executed. */
-    dr_log(NULL, LOG_ALL, 1, "Client 'opcodes' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'opcodes' initializing\n");
 #ifdef SHOW_RESULTS
     /* Also give notification to stderr. */
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* Ask for best-effort printing to cmd window.  Must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client opcodes is running\n");
     }
 #endif
@@ -135,15 +136,15 @@ compare_counts(const void *a_in, const void *b_in)
 static const char *
 get_isa_mode_name(uint isa_mode)
 {
-# ifdef X86
+#    ifdef X86
     return (isa_mode == ISA_X86_32) ? "32-bit X86" : "64-bit AMD64";
-# elif defined(ARM)
+#    elif defined(ARM)
     return (isa_mode == ISA_ARM_A32) ? "32-bit ARM" : "32-bit Thumb";
-# elif defined(AARCH64)
+#    elif defined(AARCH64)
     return "64-bit AArch64";
-# else
+#    else
     return "unknown";
-# endif
+#    endif
 }
 #endif
 
@@ -151,7 +152,7 @@ static void
 event_exit(void)
 {
 #ifdef SHOW_RESULTS
-    char msg[NUM_COUNT_SHOW*80];
+    char msg[NUM_COUNT_SHOW * 80];
     int len, i;
     size_t sofar = 0;
     /* First, sort the counts */
@@ -164,14 +165,14 @@ event_exit(void)
 
         if (count[cur_isa][indices[OP_LAST]] == 0)
             continue;
-        len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                          "Top %d opcode execution counts in %s mode:\n",
-                          NUM_COUNT_SHOW, get_isa_mode_name(cur_isa));
+        len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
+                          "Top %d opcode execution counts in %s mode:\n", NUM_COUNT_SHOW,
+                          get_isa_mode_name(cur_isa));
         DR_ASSERT(len > 0);
         sofar += len;
         for (i = OP_LAST - 1 - NUM_COUNT_SHOW; i <= OP_LAST; i++) {
             if (count[cur_isa][indices[i]] != 0) {
-                len = dr_snprintf(msg + sofar, sizeof(msg)/sizeof(msg[0]) - sofar,
+                len = dr_snprintf(msg + sofar, sizeof(msg) / sizeof(msg[0]) - sofar,
                                   "  %9lu : %-15s\n", count[cur_isa][indices[i]],
                                   decode_opcode_name(indices[i]));
                 DR_ASSERT(len > 0);
@@ -193,22 +194,15 @@ get_count_isa_idx(void *drcontext)
 {
     switch (dr_get_isa_mode(drcontext)) {
 #ifdef X86
-    case DR_ISA_X86:
-        return ISA_X86_32;
-    case DR_ISA_AMD64:
-        return ISA_X86_64;
+    case DR_ISA_X86: return ISA_X86_32;
+    case DR_ISA_AMD64: return ISA_X86_64;
 #elif defined(ARM)
-    case DR_ISA_ARM_A32:
-        return ISA_ARM_A32;
-        break;
-    case DR_ISA_ARM_THUMB:
-        return ISA_ARM_THUMB;
-#elif defined (AARCH64)
-    case DR_ISA_ARM_A64:
-        return ISA_ARM_A64;
+    case DR_ISA_ARM_A32: return ISA_ARM_A32; break;
+    case DR_ISA_ARM_THUMB: return ISA_ARM_THUMB;
+#elif defined(AARCH64)
+    case DR_ISA_ARM_A64: return ISA_ARM_A64;
 #endif
-    default:
-        DR_ASSERT(false); /* NYI */
+    default: DR_ASSERT(false); /* NYI */
     }
     return 0;
 }
@@ -231,9 +225,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          * instru2instru pass that pulls the increments together to reduce
          * overhead.
          */
-        for (ins = instrlist_first_app(bb);
-             ins != NULL;
-             ins = instr_get_next_app(ins)) {
+        for (ins = instrlist_first_app(bb); ins != NULL; ins = instr_get_next_app(ins)) {
             /* We insert all increments sequentially up front so that drx can
              * optimize the spills and restores.
              */
@@ -241,8 +233,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                       /* We're using drmgr, so these slots
                                        * here won't be used: drreg's slots will be.
                                        */
-                                      SPILL_SLOT_MAX+1, IF_AARCHXX_(SPILL_SLOT_MAX+1)
-                                      &count[isa_idx][instr_get_opcode(ins)], 1,
+                                      SPILL_SLOT_MAX + 1,
+                                      IF_AARCHXX_(SPILL_SLOT_MAX + 1) &
+                                          count[isa_idx][instr_get_opcode(ins)],
+                                      1,
                                       /* DRX_COUNTER_LOCK is not yet supported on ARM */
                                       IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
         }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,36 +36,50 @@
 /* nativeexec.exe that calls routines in nativeexec.appdll.dll via
  * different call* constructions
  */
-#include "tools.h"
-#include "dr_annotations.h"
+#    include "tools.h"
+#    include "dr_annotations.h"
 
-#include <setjmp.h>
+#    include <setjmp.h>
 
 typedef void (*int_fn_t)(int);
 typedef int (*int2_fn_t)(int, int);
 typedef void (*tail_caller_t)(int_fn_t, int);
 
 /* from nativeexec.appdll.dll */
-IMPORT void import_me1(int x);
-IMPORT void import_me2(int x);
-IMPORT void import_me3(int x);
-IMPORT void import_me4(int_fn_t fn, int x);
-IMPORT int import_ret_imm(int x, int y);
-#if 0
+IMPORT void
+import_me1(int x);
+IMPORT void
+import_me2(int x);
+IMPORT void
+import_me3(int x);
+IMPORT void
+import_me4(int_fn_t fn, int x);
+IMPORT int
+import_ret_imm(int x, int y);
+#    if 0
 IMPORT void *tail_caller(int_fn_t, int);
-#endif
+#    endif
 
 /* Test unwinding across back_from_native retaddrs. */
-IMPORT void unwind_level1(int_fn_t fn, int x);
-static void unwind_setjmp(int x);
-IMPORT void unwind_level3(int_fn_t fn, int x);
-static void unwind_level4(int x);
-IMPORT void unwind_level5(int_fn_t fn, int x);
-static void unwind_longjmp(int x);
+IMPORT void
+unwind_level1(int_fn_t fn, int x);
+static void
+unwind_setjmp(int x);
+IMPORT void
+unwind_level3(int_fn_t fn, int x);
+static void
+unwind_level4(int x);
+IMPORT void
+unwind_level5(int_fn_t fn, int x);
+static void
+unwind_longjmp(int x);
 
-void call_plt(int_fn_t fn);
-void call_funky(int_fn_t fn);
-int call_ret_imm(int2_fn_t fn);
+void
+call_plt(int_fn_t fn);
+void
+call_funky(int_fn_t fn);
+int
+call_ret_imm(int2_fn_t fn);
 
 void
 print_int(int x)
@@ -99,13 +113,13 @@ unwind_longjmp(int x)
     longjmp(jump_buf, 1);
 }
 
-#define NUM_ITERS 10
-#define MALLOC_SIZE 8
+#    define NUM_ITERS 10
+#    define MALLOC_SIZE 8
 void
 loop_test(void)
 {
     int i, j;
-    void * volatile ptr;
+    void *volatile ptr;
     for (i = 0; i < NUM_ITERS; i++) {
         for (j = 0; j < NUM_ITERS; j++) {
             ptr = malloc(MALLOC_SIZE);
@@ -113,8 +127,8 @@ loop_test(void)
         }
     }
 }
-#undef NUM_ITERS
-#undef MALLOC_SIZE
+#    undef NUM_ITERS
+#    undef MALLOC_SIZE
 
 int
 main(int argc, char **argv)
@@ -129,15 +143,15 @@ main(int argc, char **argv)
         print("Not running under DR\n");
 
     if (argc > 2 && strcmp("-bind_now", argv[1])) {
-#ifdef WINDOWS
+#    ifdef WINDOWS
         print("-bind_now is Linux-only\n");
-#else
+#    else
         /* Re-exec the test with LD_BIND_NOW in the environment to force eager
          * binding.
          */
-        setenv("LD_BIND_NOW", "1", true/*overwrite*/);
+        setenv("LD_BIND_NOW", "1", true /*overwrite*/);
         execv(argv[0], argv);
-#endif
+#    endif
     }
 
     print("calling via IAT-style call\n");
@@ -178,7 +192,7 @@ main(int argc, char **argv)
     x = call_ret_imm(import_ret_imm);
     print(" -> %d\n", x);
 
-#if 0
+#    if 0
     /* i#1077: If the appdll is native, DR will lose control in tail_caller's
      * asm code "jmp $xax". DR may gain control back from the mangled retaddr,
      * but unless we can mangle the $xax, DR still loses control, so disable
@@ -186,7 +200,7 @@ main(int argc, char **argv)
      */
     print("calling tail caller\n");
     tail_caller(print_int, 35);
-#endif
+#    endif
 
     print("calling loop_test\n");
     loop_test();
@@ -203,10 +217,12 @@ main(int argc, char **argv)
 
 #else /* ASM_CODE_ONLY */
 
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
 
+/* clang-format off */
 START_FILE
 
+/* TODO i#3966: Maintain 16-byte alignment for 32-bit too in these routines. */
         DECLARE_FUNC(call_plt)
 GLOBAL_LABEL(call_plt:)
         /* XXX: Not doing SEH prologue for test code. */
@@ -254,5 +270,6 @@ GLOBAL_LABEL(call_ret_imm:)
         END_FUNC(call_ret_imm)
 
 END_FILE
+/* clang-format on */
 
 #endif

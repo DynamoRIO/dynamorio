@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -36,13 +37,12 @@
  */
 
 #ifdef __CLASS__
-# undef __CLASS__
+#    undef __CLASS__
 #endif
 #define __CLASS__ "drgui_main_window_t::"
 
 #include <QMenu>
 #include <QAction>
-#include <QSignalMapper>
 #include <QString>
 #include <QTabWidget>
 #include <QInputDialog>
@@ -67,19 +67,17 @@
  * Constructor, everything begins here
  */
 drgui_main_window_t::drgui_main_window_t(QString tool_name, QStringList tool_args)
-    : tool_to_auto_load(tool_name), tool_to_auto_load_args(tool_args)
+    : tool_to_auto_load(tool_name)
+    , tool_to_auto_load_args(tool_args)
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
-    window_mapper = new QSignalMapper(this);
     tab_area = new QTabWidget(this);
     tab_area->setTabsClosable(true);
     tab_area->setMovable(true);
-    connect(tab_area, SIGNAL(tabCloseRequested(int)),
-            this, SLOT(maybe_close(int)));
+    connect(tab_area, SIGNAL(tabCloseRequested(int)), this, SLOT(maybe_close(int)));
     setCentralWidget(tab_area);
 
-    connect(tab_area, SIGNAL(currentChanged(int)),
-            this, SLOT(update_menus()));
+    connect(tab_area, SIGNAL(currentChanged(int)), this, SLOT(update_menus()));
 
     create_actions();
     create_menus();
@@ -133,9 +131,9 @@ drgui_main_window_t::closeEvent(QCloseEvent *event)
 void
 drgui_main_window_t::about(void)
 {
-   QMessageBox::about(this, tr("About Dr. GUI"),
-                      tr("<center><b>Dr. GUI</b></center><br>"
-                         "Interface for DynamoRIO and various extensions"));
+    QMessageBox::about(this, tr("About Dr. GUI"),
+                       tr("<center><b>Dr. GUI</b></center><br>"
+                          "Interface for DynamoRIO and various extensions"));
 }
 
 /* Slot
@@ -175,20 +173,15 @@ drgui_main_window_t::update_window_menu(void)
         QString text;
         if (i < MAX_SHORTCUT_KEY) {
             /* '&' adds 'alt' shortcut to letter that follows */
-            text = tr("&%1 %2").arg(i + 1)
-                               .arg(tab_area->tabText(i));
+            text = tr("&%1 %2").arg(i + 1).arg(tab_area->tabText(i));
         } else {
-            text = tr("%1 %2").arg(i + 1)
-                              .arg(tab_area->tabText(i));
+            text = tr("%1 %2").arg(i + 1).arg(tab_area->tabText(i));
         }
-        QAction *action  = window_menu->addAction(text);
+        QAction *action = window_menu->addAction(text);
         action->setCheckable(true);
-        action ->setChecked(tool == active_tool());
-        connect(action, SIGNAL(triggered()),
-                window_mapper, SLOT(map()));
-        window_mapper->setMapping(action, i);
-        connect(window_mapper, SIGNAL(mapped(int)),
-                tab_area, SLOT(setCurrentIndex(int)));
+        action->setChecked(tool == active_tool());
+        connect(action, &QAction::triggered,
+                [=]() { emit tab_area->setCurrentIndex(i); });
     }
 }
 
@@ -205,55 +198,46 @@ drgui_main_window_t::create_actions(void)
     exit_act = new QAction(tr("E&xit"), this);
     exit_act->setShortcuts(QKeySequence::Quit);
     exit_act->setStatusTip(tr("Exit the application"));
-    connect(exit_act, SIGNAL(triggered()),
-            qApp, SLOT(closeAllWindows()));
+    connect(exit_act, SIGNAL(triggered()), qApp, SLOT(closeAllWindows()));
 
     /* Edit */
     preferences_act = new QAction(tr("&Preferences"), this);
     preferences_act->setStatusTip(tr("Edit Preferences"));
-    connect(preferences_act, SIGNAL(triggered()),
-            this, SLOT(show_preferences_dialog()));
+    connect(preferences_act, SIGNAL(triggered()), this, SLOT(show_preferences_dialog()));
 
     /* Window */
     close_act = new QAction(tr("Cl&ose"), this);
     close_act->setStatusTip(tr("Close the active tab"));
-    connect(close_act, SIGNAL(triggered()),
-            this, SLOT(maybe_close_me()));
+    connect(close_act, SIGNAL(triggered()), this, SLOT(maybe_close_me()));
 
     close_all_act = new QAction(tr("Close &All"), this);
     close_all_act->setStatusTip(tr("Close all the tabs"));
-    connect(close_all_act, SIGNAL(triggered()),
-            this, SLOT(close_all_tabs()));
+    connect(close_all_act, SIGNAL(triggered()), this, SLOT(close_all_tabs()));
 
     next_act = new QAction(tr("Ne&xt"), this);
     next_act->setShortcuts(QKeySequence::NextChild);
     next_act->setStatusTip(tr("Move the focus to the next tab"));
-    connect(next_act, SIGNAL(triggered()),
-            this, SLOT(activate_next_tab()));
+    connect(next_act, SIGNAL(triggered()), this, SLOT(activate_next_tab()));
 
     previous_act = new QAction(tr("Pre&vious"), this);
     previous_act->setShortcuts(QKeySequence::PreviousChild);
     previous_act->setStatusTip(tr("Move the focus to the previous tab"));
-    connect(previous_act, SIGNAL(triggered()),
-            this, SLOT(activate_previous_tab()));
+    connect(previous_act, SIGNAL(triggered()), this, SLOT(activate_previous_tab()));
 
     /* Tools */
     tool_action_group = new QActionGroup(this);
     load_tools_act = new QAction(tr("Load tools"), this);
     load_tools_act->setStatusTip(tr("Choose another directory to search for tools"));
-    connect(load_tools_act, SIGNAL(triggered()),
-            this, SLOT(add_tool()));
+    connect(load_tools_act, SIGNAL(triggered()), this, SLOT(add_tool()));
 
     /* Help */
     about_act = new QAction(tr("&About"), this);
     about_act->setStatusTip(tr("Show the application's About box"));
-    connect(about_act, SIGNAL(triggered()),
-            this, SLOT(about()));
+    connect(about_act, SIGNAL(triggered()), this, SLOT(about()));
 
     about_qt_act = new QAction(tr("About &Qt"), this);
     about_qt_act->setStatusTip(tr("Show the Qt library's About box"));
-    connect(about_qt_act, SIGNAL(triggered()),
-            qApp, SLOT(aboutQt()));
+    connect(about_qt_act, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
 }
 
 /* Private
@@ -265,8 +249,7 @@ drgui_main_window_t::create_menus(void)
     file_menu = menuBar()->addMenu(tr("&File"));
     file_menu->addSeparator();
     QAction *action = file_menu->addAction(tr("Switch layout direction"));
-    connect(action, SIGNAL(triggered()),
-            this, SLOT(switch_layout_direction()));
+    connect(action, SIGNAL(triggered()), this, SLOT(switch_layout_direction()));
     file_menu->addAction(exit_act);
 
     edit_menu = menuBar()->addMenu(tr("&Edit"));
@@ -274,8 +257,7 @@ drgui_main_window_t::create_menus(void)
 
     window_menu = menuBar()->addMenu(tr("&Window"));
     update_window_menu();
-    connect(window_menu, SIGNAL(aboutToShow()),
-            this, SLOT(update_window_menu()));
+    connect(window_menu, SIGNAL(aboutToShow()), this, SLOT(update_window_menu()));
 
     menuBar()->addSeparator();
 
@@ -327,9 +309,10 @@ drgui_main_window_t::read_settings(void)
     /* Check if tool_to_auto load is a library or a name and add it to the
      * list of tools to be loaded if it is a file.
      */
-     QFile tool_file(tool_to_auto_load);
-     if (tool_file.exists())
-        tool_files << tool_file.fileName();;
+    QFile tool_file(tool_to_auto_load);
+    if (tool_file.exists())
+        tool_files << tool_file.fileName();
+    ;
 }
 
 /* Private
@@ -402,11 +385,10 @@ void
 drgui_main_window_t::maybe_close(int index)
 {
     QMessageBox::StandardButton ret;
-    ret = QMessageBox::warning(this, tr("Confirm"),
-                               tr("Are you sure you want to close '%1'?")
-                               .arg(tab_area->tabText(index)),
-                               QMessageBox::Yes | QMessageBox::No |
-                               QMessageBox::Cancel);
+    ret = QMessageBox::warning(
+        this, tr("Confirm"),
+        tr("Are you sure you want to close '%1'?").arg(tab_area->tabText(index)),
+        QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
     if (ret == QMessageBox::Yes)
         hide_tab(index);
 }
@@ -488,14 +470,11 @@ drgui_main_window_t::add_tool(void)
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
     QStringList test_locs;
-    test_locs = QFileDialog::getOpenFileNames(this,
-                                              tr("Load tool"),
-                                              "",
+    test_locs = QFileDialog::getOpenFileNames(this, tr("Load tool"), "",
                                               tr("Tools (*.so *.dll)"));
     foreach (QString test_loc, test_locs) {
         QFile test_file(test_loc);
-        if (test_file.exists() &&
-            !tool_files.contains(test_loc)) {
+        if (test_file.exists() && !tool_files.contains(test_loc)) {
             tool_files << test_loc;
             load_tools();
         }
@@ -510,8 +489,7 @@ drgui_main_window_t::load_tools(void)
 {
     foreach (QString tool_loc, tool_files) {
         QFile tool_file(tool_loc);
-        QPluginLoader loader(tool_file.fileName(),
-                             this);
+        QPluginLoader loader(tool_file.fileName(), this);
         QObject *plugin = loader.instance();
         if (plugin != NULL) {
             drgui_tool_interface_t *i_tool;
@@ -527,11 +505,11 @@ drgui_main_window_t::load_tools(void)
             if (stop)
                 break;
             /* Create and load */
-            connect(i_tool, SIGNAL(new_instance_requested(QWidget *, QString)),
-                    this, SLOT(new_tool_instance(QWidget *, QString)));
+            connect(i_tool, SIGNAL(new_instance_requested(QWidget *, QString)), this,
+                    SLOT(new_tool_instance(QWidget *, QString)));
             if (i_tool != NULL) {
-                add_tool_to_menu(plugin, i_tool->tool_names(),
-                                 SLOT(add_tab()), tool_action_group);
+                add_tool_to_menu(plugin, i_tool->tool_names(), SLOT(add_tab()),
+                                 tool_action_group);
                 plugins.append(i_tool);
                 qDebug() << "INFO: Loaded Plugins" << i_tool->tool_names();
                 plugin_names << i_tool->tool_names();
@@ -556,8 +534,7 @@ drgui_main_window_t::add_tool_to_menu(QObject *plugin, const QStringList &texts,
 {
     foreach (QString text, texts) {
         QAction *action = new QAction(text, plugin);
-        connect(action, SIGNAL(triggered()),
-                this, member);
+        connect(action, SIGNAL(triggered()), this, member);
 
         /* The -2 is to insert the tool above the separator
          * and 'Load tools' actions. If this is changed then create_menus()
@@ -567,8 +544,7 @@ drgui_main_window_t::add_tool_to_menu(QObject *plugin, const QStringList &texts,
         static const unsigned int num_actions_to_skip = 2;
         const unsigned int pos = action_list.count() - num_actions_to_skip;
         assert(pos >= 0);
-        tool_menu->insertAction(action_list.at(pos),
-                                action);
+        tool_menu->insertAction(action_list.at(pos), action);
 
         if (action_group != NULL) {
             action->setCheckable(true);

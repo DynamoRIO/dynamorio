@@ -36,25 +36,8 @@
 #define _COMPRESSED_FILE_READER_H_ 1
 
 #include <zlib.h>
-#include "reader.h"
-#include "../common/memref.h"
-#include "../common/trace_entry.h"
+#include "file_reader.h"
 
-class compressed_file_reader_t : public reader_t
-{
- public:
-    compressed_file_reader_t();
-    explicit compressed_file_reader_t(const char *file_name);
-    virtual ~compressed_file_reader_t();
-    virtual bool init();
-    bool is_complete();
-
- protected:
-    virtual trace_entry_t * read_next_entry();
-
- private:
-    gzFile file;
-    trace_entry_t entry_copy;
-};
+typedef file_reader_t<gzFile> compressed_file_reader_t;
 
 #endif /* _COMPRESSED_FILE_READER_H_ */

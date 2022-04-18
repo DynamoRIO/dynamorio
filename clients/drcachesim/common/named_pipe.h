@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,55 +39,65 @@
 
 #include <string>
 #ifdef WINDOWS
-# ifdef X64
+#    ifdef X64
 typedef __int64 ssize_t;
-# else
+#    else
 typedef int ssize_t;
-# endif
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h>
+#    endif
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
 #else
-# include <unistd.h> // for ssize_t
+#    include <unistd.h> // for ssize_t
 #endif
 
 #ifndef OUT
-# define OUT // nothing
+#    define OUT // nothing
 #endif
 #ifndef IN
-# define IN // nothing
+#    define IN // nothing
 #endif
 
 // Usage is as follows:
 // + Single caller calls create() up front (and at the end destroy()).
 // + Each reader calls open_for_read() (and close() when done).
 // + Each writer calls open_for_write() (and close() when done).
-class named_pipe_t
-{
- public:
+class named_pipe_t {
+public:
     named_pipe_t();
-    bool set_name(const char *name);
+    bool
+    set_name(const char *name);
+    std::string
+    get_name() const;
     explicit named_pipe_t(const char *name);
     ~named_pipe_t();
 
-    bool create();
-    bool destroy();
+    bool
+    create();
+    bool
+    destroy();
 
     // These may block.
-    bool open_for_read();
-    bool open_for_write();
+    bool
+    open_for_read();
+    bool
+    open_for_write();
 
-    bool close();
+    bool
+    close();
 
     // Increases the pipe's internal buffer to the maximum size.
-    bool maximize_buffer();
+    bool
+    maximize_buffer();
 
     // Returns < 0 on EOF or an error.
     // On success (or partial read) returns number of bytes read.
-    ssize_t read(void *buf OUT, size_t sz);
+    ssize_t
+    read(void *buf OUT, size_t sz);
 
     // Returns < 0 on an error.
     // On success (or partial write) returns number of bytes written.
-    ssize_t write(const void *buf IN, size_t sz);
+    ssize_t
+    write(const void *buf IN, size_t sz);
 
 #ifdef UNIX
     // On UNIX, rather than calling open_for_{read,write}, The caller
@@ -95,19 +105,22 @@ class named_pipe_t
     // get_pipe_path() and setting the file descriptor in set_fd().
     // XXX i#1716: this should happen automatically in open_for_* and
     // we should not need this workaround.
-    const std::string & get_pipe_path() const;
-    bool set_fd(int fd);
+    const std::string &
+    get_pipe_path() const;
+    bool
+    set_fd(int fd);
 #endif
 
-    const ssize_t get_atomic_write_size() const;
+    const ssize_t
+    get_atomic_write_size() const;
 
- private:
+private:
 #ifdef WINDOWS
-    HANDLE fd;
+    HANDLE fd_;
 #else
-    int fd;
+    int fd_;
 #endif
-    std::string pipe_name;
+    std::string pipe_name_;
 };
 
 #endif /* _NAMED_PIPE_H_ */

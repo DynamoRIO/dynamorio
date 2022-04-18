@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 //
 // -wrapping event log ids
 // -what happens when log is cleared
@@ -42,8 +41,8 @@
 
 #ifndef UNIT_TEST
 
-#define BUFFER_SIZE 8192
-#define MAX_MSG_STRINGS 16
+#    define BUFFER_SIZE 8192
+#    define MAX_MSG_STRINGS 16
 
 int control;
 HANDLE elm_thread = NULL;
@@ -54,8 +53,7 @@ BOOL format_messages;
 DWORD WINAPI
 eventLogMonitorThreadProc(LPVOID elm_info_param);
 
-typedef
-struct eventlogmon_info_ {
+typedef struct eventlogmon_info_ {
     eventlog_formatted_callback cb_format;
     eventlog_raw_callback cb_raw;
     eventlog_error_callback cb_err;
@@ -64,7 +62,6 @@ struct eventlogmon_info_ {
      *  track of it in the registry. */
     DWORD next_record;
 } eventlogmon_info;
-
 
 void
 stop_eventlog_monitor()
@@ -86,10 +83,8 @@ get_elm_thread_handle()
 }
 
 DWORD
-start_eventlog_monitor(BOOL use_formatted_callback,
-                       eventlog_formatted_callback cb_format,
-                       eventlog_raw_callback cb_raw,
-                       eventlog_error_callback cb_err,
+start_eventlog_monitor(BOOL use_formatted_callback, eventlog_formatted_callback cb_format,
+                       eventlog_raw_callback cb_raw, eventlog_error_callback cb_err,
                        DWORD next_eventlog_record)
 {
     DWORD tid;
@@ -110,21 +105,14 @@ start_eventlog_monitor(BOOL use_formatted_callback,
     elmi->next_record = next_eventlog_record;
     format_messages = use_formatted_callback;
 
-    elm_thread = CreateThread(NULL,
-                              0,
-                              &eventLogMonitorThreadProc,
-                              elmi,
-                              0,
-                              &tid);
+    elm_thread = CreateThread(NULL, 0, &eventLogMonitorThreadProc, elmi, 0, &tid);
     if (elm_thread == NULL)
         return GetLastError();
 
     return ERROR_SUCCESS;
 }
 
-
-#define MAX_EVENTLOG_SOURCES 8
-
+#    define MAX_EVENTLOG_SOURCES 8
 
 BOOL eventsources_loaded = FALSE;
 
@@ -161,13 +149,11 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars)
             }
 
             len = MAX_PATH;
-            res = RegEnumKeyEx(hel, i++, message_file_buf, &len,
-                               0, NULL, NULL, NULL);
+            res = RegEnumKeyEx(hel, i++, message_file_buf, &len, 0, NULL, NULL, NULL);
             if (res == ERROR_NO_MORE_ITEMS) {
                 res = ERROR_SUCCESS;
                 break;
-            }
-            else if (res != ERROR_SUCCESS) {
+            } else if (res != ERROR_SUCCESS) {
                 goto formatted_msg_error;
             }
 
@@ -177,13 +163,12 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars)
             res = RegOpenKey(hel, message_file_buf, &hes);
             if (res == ERROR_SUCCESS) {
                 len = MAX_PATH;
-                res = RegQueryValueEx(hes, L"EventMessageFile", NULL,
-                                      NULL, (LPBYTE) message_file_buf, &len);
+                res = RegQueryValueEx(hes, L"EventMessageFile", NULL, NULL,
+                                      (LPBYTE)message_file_buf, &len);
                 if (res == ERROR_SUCCESS) {
                     /* load the module for the message resources */
                     hm[num_eventlog_sources++] =
-                        LoadLibraryEx(message_file_buf, NULL,
-                                      LOAD_LIBRARY_AS_DATAFILE);
+                        LoadLibraryEx(message_file_buf, NULL, LOAD_LIBRARY_AS_DATAFILE);
                 }
             }
             if (hes != NULL) {
@@ -194,17 +179,16 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars)
     }
 
     /* now, format */
-    if(pevlr->NumStrings > MAX_MSG_STRINGS) {
+    if (pevlr->NumStrings > MAX_MSG_STRINGS) {
         res = ERROR_INSUFFICIENT_BUFFER;
         goto formatted_msg_error;
     }
 
-    msgarray[0]=(LPBYTE) pevlr + pevlr->StringOffset;
+    msgarray[0] = (LPBYTE)pevlr + pevlr->StringOffset;
 
-    for(i = 1; i < pevlr->NumStrings; ++i)
+    for (i = 1; i < pevlr->NumStrings; ++i)
         msgarray[i] =
-            msgarray[i-1] +
-            sizeof(WCHAR)*(1+wcslen((LPTSTR) msgarray[i-1]));
+            msgarray[i - 1] + sizeof(WCHAR) * (1 + wcslen((LPTSTR)msgarray[i - 1]));
 
     /* try each event source, returning only when FormatMessage succeeds.
      * this is a little slutty as we could probably look up the event
@@ -212,29 +196,23 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars)
     len = 0;
     for (i = 0; i < num_eventlog_sources; i++) {
         if (hm[i] != NULL) {
-            len = FormatMessage(FORMAT_MESSAGE_FROM_HMODULE |
-                                FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                                hm[i],
-                                pevlr->EventID,
-                                0,
-                                buf,
-                                maxchars,
-                                (char **) msgarray);
+            len =
+                FormatMessage(FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                              hm[i], pevlr->EventID, 0, buf, maxchars, (char **)msgarray);
             if (len > 0)
                 break;
         }
     }
 
-    if(len == 0) {
+    if (len == 0) {
         res = ERROR_PARSE_ERROR;
         goto formatted_msg_error;
-    }
-    else {
+    } else {
         buf[maxchars - 1] = L'\0';
         res = ERROR_SUCCESS;
     }
 
- formatted_msg_error:
+formatted_msg_error:
 
     if (hes != NULL)
         RegCloseKey(hes);
@@ -243,8 +221,6 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars)
 
     return res;
 }
-
-
 
 BOOL do_once = FALSE;
 
@@ -259,7 +235,7 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
     HANDLE log = NULL, event = NULL;
     WCHAR msgbuf[BUFFER_SIZE];
 
-    eventlogmon_info *elm_info = (eventlogmon_info *) elm_info_param;
+    eventlogmon_info *elm_info = (eventlogmon_info *)elm_info_param;
 
     control = 0;
 
@@ -273,7 +249,7 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
     event = CreateEvent(NULL, FALSE, FALSE, NULL);
     NotifyChangeEventLog(log, event);
 
-    pevlr = (EVENTLOGRECORD *) &bBuffer;
+    pevlr = (EVENTLOGRECORD *)&bBuffer;
 
     if (!GetNumberOfEventLogRecords(log, &num_records) ||
         !GetOldestEventLogRecord(log, &reported_next_record)) {
@@ -289,14 +265,12 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
      *  event record at next_record. */
     if (((int)elm_info->next_record) < 0) {
         elm_info->next_record = reported_next_record;
-    }
-    else if (elm_info->next_record > (reported_next_record + num_records + 1)) {
+    } else if (elm_info->next_record > (reported_next_record + num_records + 1)) {
         /* looks like the eventlog was cleared since we last checked
          *  it. issue a warning and reset */
         elm_info->next_record = reported_next_record;
         (*elm_info->cb_err)(ELM_ERR_CLEARED, L"Eventlog was cleared!\n");
-    }
-    else {
+    } else {
         /* we need to ensure we SEEK to a valid record; but since
          * it's already been reported, don't report it again. */
         elm_info->next_record--;
@@ -308,18 +282,13 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
      *  chronological order.
      * FIXME: test to make sure that this works properly on
      *  overwrite-wrapped logs */
-    if (!ReadEventLog(log,
-                      EVENTLOG_FORWARDS_READ | EVENTLOG_SEEK_READ,
-                      elm_info->next_record,
-                      pevlr,
-                      BUFFER_SIZE,
-                      &dwRead,
-                      &dwNeeded)) {
+    if (!ReadEventLog(log, EVENTLOG_FORWARDS_READ | EVENTLOG_SEEK_READ,
+                      elm_info->next_record, pevlr, BUFFER_SIZE, &dwRead, &dwNeeded)) {
         dwRead = 0;
         dwNeeded = 0;
     }
 
-    for(;;) {
+    for (;;) {
         do {
             /* case 5813: if pevlr->Length is 0, we'll have an infinite
              * loop. this could possibly happen if drive is full?
@@ -333,17 +302,14 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
                         _snwprintf(msgbuf, BUFFER_SIZE_ELEMENTS(msgbuf),
                                    L"FormatMessage error %d\n", res);
                         (*elm_info->cb_err)(ELM_ERR_WARN, msgbuf);
-                    }
-                    else {
+                    } else {
                         /* invoke the callback */
-                        (*elm_info->cb_format)(pevlr->RecordNumber,
-                                               pevlr->EventType,
+                        (*elm_info->cb_format)(pevlr->RecordNumber, pevlr->EventType,
                                                msgbuf, pevlr->TimeGenerated);
                     }
-                } else if(!skip_first) {
+                } else if (!skip_first) {
                     /* xref case 3065: insurance */
-                    if (pevlr->RecordNumber != 0 ||
-                        pevlr->TimeGenerated != 0) {
+                    if (pevlr->RecordNumber != 0 || pevlr->TimeGenerated != 0) {
                         /* raw callback */
                         (*elm_info->cb_raw)(pevlr);
                     }
@@ -352,21 +318,15 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
                 }
 
                 dwRead -= pevlr->Length;
-                pevlr = (EVENTLOGRECORD *) ((LPBYTE) pevlr + pevlr->Length);
+                pevlr = (EVENTLOGRECORD *)((LPBYTE)pevlr + pevlr->Length);
             }
 
-            pevlr = (EVENTLOGRECORD *) &bBuffer;
-        } while (ReadEventLog(log,
-                              EVENTLOG_FORWARDS_READ |
-                              EVENTLOG_SEQUENTIAL_READ,
-                              0,
-                              pevlr,
-                              BUFFER_SIZE,
-                              &dwRead,
-                              &dwNeeded));
+            pevlr = (EVENTLOGRECORD *)&bBuffer;
+        } while (ReadEventLog(log, EVENTLOG_FORWARDS_READ | EVENTLOG_SEQUENTIAL_READ, 0,
+                              pevlr, BUFFER_SIZE, &dwRead, &dwNeeded));
 
-        if((res = GetLastError()) != ERROR_HANDLE_EOF) {
-            //FIXME: assert GetLastError() is appropriate
+        if ((res = GetLastError()) != ERROR_HANDLE_EOF) {
+            // FIXME: assert GetLastError() is appropriate
             _snwprintf(msgbuf, BUFFER_SIZE_ELEMENTS(msgbuf),
                        L"Unexpected error %d reading event log\n", res);
             (*elm_info->cb_err)(ELM_ERR_WARN, msgbuf);
@@ -379,7 +339,7 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
            timeout because NotifyChangeEventLog is not reliable. */
         WaitForSingleObject(event, MINIPULSE);
 
-        if(control)
+        if (control)
             break;
     }
 
@@ -433,8 +393,7 @@ get_event_pid(EVENTLOGRECORD *pevlr)
     DO_ASSERT(pevlr != NULL);
 
     /* PID is always the second msg string */
-    return (UINT) _wtoi(next_message_string(get_message_strings(pevlr)));
-
+    return (UINT)_wtoi(next_message_string(get_message_strings(pevlr)));
 }
 
 /* For a MSG_SEC_FORENSICS eventlog record, returns the filename of the forensics file
@@ -450,15 +409,13 @@ get_forensics_filename(EVENTLOGRECORD *pevlr)
 BOOL
 is_violation_event(DWORD eventType)
 {
-    switch(eventType) {
+    switch (eventType) {
     case MSG_HOT_PATCH_VIOLATION:
     case MSG_SEC_VIOLATION_TERMINATED:
     case MSG_SEC_VIOLATION_CONTINUE:
     case MSG_SEC_VIOLATION_THREAD:
-    case MSG_SEC_VIOLATION_EXCEPTION:
-        return TRUE;
-    default:
-        return FALSE;
+    case MSG_SEC_VIOLATION_EXCEPTION: return TRUE;
+    default: return FALSE;
     }
 }
 
@@ -470,8 +427,7 @@ get_event_threatid(EVENTLOGRECORD *pevlr)
     /* The Threat ID, if available, is always the 3rd parameter. */
     if (is_violation_event(pevlr->EventID)) {
         return next_message_string(next_message_string(get_message_strings(pevlr)));
-    }
-    else {
+    } else {
         return NULL;
     }
 }
@@ -489,18 +445,16 @@ clear_eventlog()
     return res;
 }
 
-#else //ifdef UNIT_TEST
-
+#else // ifdef UNIT_TEST
 
 int
 main()
 {
-    //DWORD res;
+    // DWORD res;
 
     printf("All Test Passed\n");
 
     return 0;
-
 }
 
 #endif

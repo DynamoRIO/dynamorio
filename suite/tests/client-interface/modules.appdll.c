@@ -36,9 +36,9 @@
  * libc.
  */
 #ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
+#    define EXPORT __declspec(dllexport)
 #else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
+#    define EXPORT __attribute__((visibility("default")))
 #endif
 
 EXPORT

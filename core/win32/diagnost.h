@@ -60,28 +60,28 @@
 #define DIAGNOSTICS_MANUFACTURER_KEY L"Mfg"
 #define DIAGNOSTICS_FRIENDLYNAME_KEY L"FriendlyName"
 
-#define DIAGNOSTICS_MAX_REG_KEYS 1000            /* Arbitrary - seems sufficient */
-#define DIAGNOSTICS_MAX_REG_VALUES 1000          /* Arbitrary - seems sufficient */
-#define DIAGNOSTICS_MAX_RECURSION_LEVEL 5        /* Arbitrary, but should keep small */
-#define DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE 500   /* Arbitrary - seems sufficient */
-#define DIAGNOSTICS_MAX_KEY_NAME_SIZE 257        /* From SDK, + 1 for a null */
+#define DIAGNOSTICS_MAX_REG_KEYS 1000          /* Arbitrary - seems sufficient */
+#define DIAGNOSTICS_MAX_REG_VALUES 1000        /* Arbitrary - seems sufficient */
+#define DIAGNOSTICS_MAX_RECURSION_LEVEL 5      /* Arbitrary, but should keep small */
+#define DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE 500 /* Arbitrary - seems sufficient */
+#define DIAGNOSTICS_MAX_KEY_NAME_SIZE 257      /* From SDK, + 1 for a null */
 #define DIAGNOSTICS_MAX_LOG_BUFFER_SIZE 1000
-#define DIAGNOSTICS_MAX_LOG_FILES 99999999       /* Supports 8.3 */
-#define DIAGNOSTICS_MINI_DUMP_SIZE 104           /* multiple of 8, so is dumped aligned */
+#define DIAGNOSTICS_MAX_LOG_FILES 99999999 /* Supports 8.3 */
+#define DIAGNOSTICS_MINI_DUMP_SIZE 104     /* multiple of 8, so is dumped aligned */
 
-#define DIAGNOSTICS_REG_NAME       0x00000001L   /* Log key name */
-#define DIAGNOSTICS_REG_DATA       0x00000002L   /* Log key data */
-#define DIAGNOSTICS_REG_HARDWARE   0x00000004L   /* Look for device keys */
-#define DIAGNOSTICS_REG_ALLKEYS    0x00000008L   /* Search all keys */
-#define DIAGNOSTICS_REG_ALLSUBKEYS 0x00000010L   /* Search all subkeys (recursive)*/
+#define DIAGNOSTICS_REG_NAME 0x00000001L       /* Log key name */
+#define DIAGNOSTICS_REG_DATA 0x00000002L       /* Log key data */
+#define DIAGNOSTICS_REG_HARDWARE 0x00000004L   /* Look for device keys */
+#define DIAGNOSTICS_REG_ALLKEYS 0x00000008L    /* Search all keys */
+#define DIAGNOSTICS_REG_ALLSUBKEYS 0x00000010L /* Search all subkeys (recursive)*/
 #define DIAGNOSTICS_INITIAL_PROCESS_TOTAL 10
 
 #define DIAGNOSTICS_BYTES_PER_LINE 32
 
- /* The DataOffset field in KEY_VALUE_FULL_INFORMATION uses the size of the structure as
-   part of the offset.  When offsetting into the NameAndData member (see below), these
-   bytes are not present, and must be decremented.  The 2 WCHARs readjusts back for the
-   null-terminated Name[1] (which IS included in NameAndData).  Confusing, no? */
+/* The DataOffset field in KEY_VALUE_FULL_INFORMATION uses the size of the structure as
+  part of the offset.  When offsetting into the NameAndData member (see below), these
+  bytes are not present, and must be decremented.  The 2 WCHARs readjusts back for the
+  null-terminated Name[1] (which IS included in NameAndData).  Confusing, no? */
 #define DECREMENT_FOR_DATA_OFFSET \
     (sizeof(KEY_VALUE_FULL_INFORMATION) - (sizeof(WCHAR) * 2))
 
@@ -104,20 +104,20 @@ typedef struct _DIAGNOSTICS_INFORMATION {
    and the variable data field in NameAndData will always begin at
    (DataOffset - DECREMENT_FOR_DATAOFFSET). */
 typedef struct _DIAGNOSTICS_KEY_VALUE_FULL_INFORMATION {
-    ULONG   TitleIndex;
-    ULONG   Type;
-    ULONG   DataOffset;
-    ULONG   DataLength;
-    ULONG   NameLength; /* in BYTES (including NULL term) */
-    BYTE    NameAndData[DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE];
+    ULONG TitleIndex;
+    ULONG Type;
+    ULONG DataOffset;
+    ULONG DataLength;
+    ULONG NameLength; /* in BYTES (including NULL term) */
+    BYTE NameAndData[DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE];
 } DIAGNOSTICS_KEY_VALUE_FULL_INFORMATION, *PDIAGNOSTICS_KEY_VALUE_FULL_INFORMATION;
 
 /* Same story as above with the key basic info here */
 typedef struct _DIAGNOSTICS_KEY_NAME_INFORMATION {
-    LARGE_INTEGER   LastWriteTime;
-    ULONG   TitleIndex;
-    ULONG   NameLength; /* in BYTES (including NULL term) */
-    WCHAR   Name[DIAGNOSTICS_MAX_KEY_NAME_SIZE];
+    LARGE_INTEGER LastWriteTime;
+    ULONG TitleIndex;
+    ULONG NameLength; /* in BYTES (including NULL term) */
+    WCHAR Name[DIAGNOSTICS_MAX_KEY_NAME_SIZE];
 } DIAGNOSTICS_KEY_NAME_INFORMATION, *PDIAGNOSTICS_KEY_NAME_INFORMATION;
 
 #endif /* #ifndef _DIAGNOST_H_ */

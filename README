@@ -1,4 +1,4 @@
-Copyright (c) 2010-2017 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
+Copyright (c) 2010-2021 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
 Copyright (c) 2000-2010 VMware, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -116,10 +116,10 @@ order to execute them.
 ************************************************************
 Instructions for building:
 
-If you are building from source, please see the DynamoRIO wiki for
+If you are building from source, please see the DynamoRIO site for
 information on the required tools on both Windows and Linux:
 
-https://github.com/DynamoRIO/dynamorio/wiki/How-To-Build
+https://dynamorio.org/page_building.html
 
 ************************************************************
 Getting help and reporting bugs:

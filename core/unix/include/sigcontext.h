@@ -15,9 +15,11 @@
 
 #include <linux/types.h>
 
-#define FP_XSTATE_MAGIC1        0x46505853U
-#define FP_XSTATE_MAGIC2        0x46505845U
-#define FP_XSTATE_MAGIC2_SIZE   sizeof(FP_XSTATE_MAGIC2)
+#define FP_XSTATE_MAGIC1 0x46505853U
+#define FP_XSTATE_MAGIC2 0x46505845U
+#ifndef FP_XSTATE_MAGIC2_SIZE
+#    define FP_XSTATE_MAGIC2_SIZE sizeof(FP_XSTATE_MAGIC2)
+#endif
 
 /*
  * bytes 464..511 in the current 512byte layout of fxsave/fxrstor frame
@@ -25,31 +27,43 @@
  * are used to extended the fpstate pointer in the sigcontext, which now
  * includes the extended state information along with fpstate information.
  *
- * Presence of FP_XSTATE_MAGIC1 at the beginning of this SW reserved
- * area and FP_XSTATE_MAGIC2 at the end of memory layout
- * (extended_size - FP_XSTATE_MAGIC2_SIZE) indicates the presence of the
- * extended state information in the memory layout pointed by the fpstate
- * pointer in sigcontext.
+ * If sw_reserved.magic1 == FP_XSTATE_MAGIC1 then there's a
+ * sw_reserved.extended_size bytes large extended context area present. (The
+ * last 32-bit word of this extended area (at the
+ * fpstate+extended_size-FP_XSTATE_MAGIC2_SIZE address) is set to
+ * FP_XSTATE_MAGIC2 so that you can sanity check your size calculations.)
+ *
+ * This extended area typically grows with newer CPUs that have larger and
+ * larger XSAVE areas.
  */
 typedef struct _kernel_fpx_sw_bytes_t {
-        __u32 magic1;           /* FP_XSTATE_MAGIC1 */
-        __u32 extended_size;    /* total size of the layout referred by
-                                 * fpstate pointer in the sigcontext.
-                                 */
-        __u64 xstate_bv;
-                                /* feature bit mask (including fp/sse/extended
-                                 * state) that is present in the memory
-                                 * layout.
-                                 */
-        __u32 xstate_size;      /* actual xsave state size, based on the
-                                 * features saved in the layout.
-                                 * 'extended_size' will be greater than
-                                 * 'xstate_size'.
-                                 */
-        __u32 padding[7];       /*  for future use. */
+    __u32 magic1; /* FP_XSTATE_MAGIC1 */
+    /* Total size of the fpstate area:
+     *
+     * - if magic1 == 0 then it's sizeof(struct _fpstate)
+     * - if magic1 == FP_XSTATE_MAGIC1 then it's sizeof(struct
+     *   _xstate) plus extensions (if any).
+     *
+     * The extensions always include FP_XSTATE_MAGIC2_SIZE.
+     * For 32-bit, they also include the FSAVE fields, but those are actually
+     * prepended: for DR they're the initial part of the 32-bit kernel_fpstate_t
+     * and thus part of kernel_xstate_t already.
+     */
+    __u32 extended_size;
+    __u64 xstate_bv;
+    /* feature bit mask (including fp/sse/extended
+     * state) that is present in the memory
+     * layout.
+     */
+    /* Actual xsave state size, based on the features saved in the layout.
+     * 'extended_size' will be greater than 'xstate_size' (because it includes
+     * FP_XSTATE_MAGIC2, plus FSAVE data for 32-bit).
+     */
+    __u32 xstate_size;
+    __u32 padding[7]; /*  for future use. */
 } kernel_fpx_sw_bytes_t;
 
-#ifdef __i386__
+#if defined(X86) && !defined(X64)
 /*
  * As documented in the iBCS2 standard..
  *
@@ -65,101 +79,115 @@ typedef struct _kernel_fpx_sw_bytes_t {
  * There is no documented standard to accomplish this at the moment.
  */
 typedef struct _kernel_fpreg_t {
-        unsigned short significand[4];
-        unsigned short exponent;
+    unsigned short significand[4];
+    unsigned short exponent;
 } kernel_fpreg_t;
 
 typedef struct _kernel_fpxreg_t {
-        unsigned short significand[4];
-        unsigned short exponent;
-        unsigned short padding[3];
+    unsigned short significand[4];
+    unsigned short exponent;
+    unsigned short padding[3];
 } kernel_fpxreg_t;
 
 typedef struct _kernel_xmmreg_t {
-        unsigned long element[4];
+    unsigned long element[4];
 } kernel_xmmreg_t;
 
 typedef struct _kernel_fpstate_t {
-        /* Regular FPU environment */
-        unsigned long   cw;
-        unsigned long   sw;
-        unsigned long   tag;
-        unsigned long   ipoff;
-        unsigned long   cssel;
-        unsigned long   dataoff;
-        unsigned long   datasel;
-        kernel_fpreg_t  _st[8];
-        unsigned short  status;
-        unsigned short  magic;          /* 0xffff = regular FPU data only */
+    /* Regular FPU environment.
+     * These initial fields are the FSAVE format.  They are followed by the
+     * FXSAVE, which matches the 64-bit kernel_fpstate_t.  Note that in the kernel
+     * code, it treats this FSAVE prefix as a separate thing and includes it in
+     * extra size in kernel_fpx_sw_bytes_t.extended_size, although it is in essence
+     * prepended instead of appended.
+     */
+    unsigned long cw;
+    unsigned long sw;
+    unsigned long tag;
+    unsigned long ipoff;
+    unsigned long cssel;
+    unsigned long dataoff;
+    unsigned long datasel;
+    kernel_fpreg_t _st[8];
+    unsigned short status;
+    unsigned short magic; /* 0xffff = regular FPU data only */
 
-        /* FXSR FPU environment */
-        unsigned long   _fxsr_env[6];   /* FXSR FPU env is ignored */
-        unsigned long   mxcsr;
-        unsigned long   reserved;
-        kernel_fpxreg_t _fxsr_st[8];    /* FXSR FPU reg data is ignored */
-        kernel_xmmreg_t _xmm[8];
-        unsigned long   padding1[44];
+    /* FXSR FPU environment.
+     * Note that this is the start of the xsave region. The kernel requires this
+     * to be 64-byte aligned. We ensure this alignment in convert_frame_to_nonrt
+     * and fixup_rtframe_pointers.
+     */
+    unsigned long _fxsr_env[6]; /* FXSR FPU env is ignored */
+    unsigned long mxcsr;
+    unsigned long reserved;
+    kernel_fpxreg_t _fxsr_st[8]; /* FXSR FPU reg data is ignored */
+    kernel_xmmreg_t _xmm[8];
+    unsigned long padding1[44];
 
-        union {
-                unsigned long           padding2[12];
-                kernel_fpx_sw_bytes_t   sw_reserved; /* represents the extended
-                                                      * state info */
-        };
+    union {
+        unsigned long padding2[12];
+        kernel_fpx_sw_bytes_t sw_reserved; /* represents the extended
+                                            * state info */
+    };
 } kernel_fpstate_t;
 
-# define X86_FXSR_MAGIC          0x0000
+#    define X86_FXSR_MAGIC 0x0000
+/* This is the size of the FSAVE fields the kernel prepends to fpstate.
+ * We have them in our kernel_fpstate_t struct.
+ */
+#    define FSAVE_FPSTATE_PREFIX_SIZE offsetof(kernel_fpstate_t, _fxsr_env)
 
 /*
  * User-space might still rely on the old definition:
  */
 typedef struct _kernel_sigcontext_t {
-        unsigned short gs, __gsh;
-        unsigned short fs, __fsh;
-        unsigned short es, __esh;
-        unsigned short ds, __dsh;
-        unsigned long edi;
-        unsigned long esi;
-        unsigned long ebp;
-        unsigned long esp;
-        unsigned long ebx;
-        unsigned long edx;
-        unsigned long ecx;
-        unsigned long eax;
-        unsigned long trapno;
-        unsigned long err;
-        unsigned long eip;
-        unsigned short cs, __csh;
-        unsigned long eflags;
-        unsigned long esp_at_signal;
-        unsigned short ss, __ssh;
-        kernel_fpstate_t *fpstate;
-        unsigned long oldmask;
-        unsigned long cr2;
+    unsigned short gs, __gsh;
+    unsigned short fs, __fsh;
+    unsigned short es, __esh;
+    unsigned short ds, __dsh;
+    unsigned long edi;
+    unsigned long esi;
+    unsigned long ebp;
+    unsigned long esp;
+    unsigned long ebx;
+    unsigned long edx;
+    unsigned long ecx;
+    unsigned long eax;
+    unsigned long trapno;
+    unsigned long err;
+    unsigned long eip;
+    unsigned short cs, __csh;
+    unsigned long eflags;
+    unsigned long esp_at_signal;
+    unsigned short ss, __ssh;
+    kernel_fpstate_t *fpstate;
+    unsigned long oldmask;
+    unsigned long cr2;
 } kernel_sigcontext_t;
 
-#elif defined(__amd64__)
+#elif defined(X86) && defined(X64)
 
 /* FXSAVE frame */
 /* Note: reserved1/2 may someday contain valuable data. Always save/restore
    them when you change signal frames. */
 typedef struct _kernel_fpstate_t {
-        __u16   cwd;
-        __u16   swd;
-        __u16   twd;            /* Note this is not the same as the
-                                   32bit/x87/FSAVE twd */
-        __u16   fop;
-        __u64   rip;
-        __u64   rdp;
-        __u32   mxcsr;
-        __u32   mxcsr_mask;
-        __u32   st_space[32];   /* 8*16 bytes for each FP-reg */
-        __u32   xmm_space[64];  /* 16*16 bytes for each XMM-reg  */
-        __u32   reserved2[12];
-        union {
-                __u32   reserved3[12];
-                kernel_fpx_sw_bytes_t sw_reserved; /* represents the extended
-                                                    * state information */
-        };
+    __u16 cwd;
+    __u16 swd;
+    __u16 twd; /* Note this is not the same as the
+                  32bit/x87/FSAVE twd */
+    __u16 fop;
+    __u64 rip;
+    __u64 rdp;
+    __u32 mxcsr;
+    __u32 mxcsr_mask;
+    __u32 st_space[32];  /* 8*16 bytes for each FP-reg */
+    __u32 xmm_space[64]; /* 16*16 bytes for each XMM-reg  */
+    __u32 reserved2[12];
+    union {
+        __u32 reserved3[12];
+        kernel_fpx_sw_bytes_t sw_reserved; /* represents the extended
+                                            * state information */
+    };
 } kernel_fpstate_t;
 
 /*
@@ -183,7 +211,7 @@ typedef struct _kernel_sigcontext_t {
     unsigned long rcx;
     unsigned long rsp;
     unsigned long rip;
-    unsigned long eflags;    /* RFLAGS */
+    unsigned long eflags; /* RFLAGS */
     unsigned short cs;
     unsigned short gs;
     unsigned short fs;
@@ -196,9 +224,9 @@ typedef struct _kernel_sigcontext_t {
     unsigned long reserved1[8];
 } kernel_sigcontext_t;
 
-#endif /* !__i386__ */
+#endif
 
-#if defined(__i386__) || defined(__amd64__)
+#ifdef X86
 typedef struct _kernel_xsave_hdr_t {
     __u64 xstate_bv;
     __u64 reserved1[2];
@@ -222,9 +250,9 @@ typedef struct _kernel_xstate_t {
     kernel_ymmh_state_t ymmh;
     /* new processor state extensions go here */
 } kernel_xstate_t;
-#endif /* __i386__ || __amd64__ */
+#endif
 
-#ifdef __arm__
+#ifdef ARM
 /*
  * Signal context structure - contains all info to do with the state
  * before the signal handler was invoked.  Note: only add new entries
@@ -266,7 +294,7 @@ typedef struct _kernel_sys_user_vfp_exc_t {
     unsigned long fpinst2;
 } kernel_sys_user_vfp_exc_t;
 
-# define VFP_MAGIC 0x56465001
+#    define VFP_MAGIC 0x56465001
 
 typedef struct _kernel_vfp_sigframe_t {
     unsigned long magic;
@@ -279,7 +307,7 @@ typedef struct _kernel_iwmmxt_struct_t {
     unsigned int save[38];
 } kernel_iwmmxt_struct_t;
 
-# define IWMMXT_MAGIC 0x12ef842a
+#    define IWMMXT_MAGIC 0x12ef842a
 
 typedef struct _kernel_iwmmxt_sigframe_t {
     unsigned long magic;
@@ -288,11 +316,11 @@ typedef struct _kernel_iwmmxt_sigframe_t {
 } __attribute__((__aligned__(8))) kernel_iwmmxt_sigframe_t;
 
 /* Dummy padding block: a block with this magic should be skipped. */
-# define DUMMY_MAGIC 0xb0d9ed01
+#    define DUMMY_MAGIC 0xb0d9ed01
 
-#endif /* __arm__ */
+#endif /* ARM */
 
-#ifdef __aarch64__
+#ifdef AARCH64
 
 typedef struct _kernel_sigcontext_t {
     unsigned long long fault_address;
@@ -304,6 +332,33 @@ typedef struct _kernel_sigcontext_t {
     unsigned char __reserved[4096] __attribute__((__aligned__(16)));
 } kernel_sigcontext_t;
 
-#endif /* __aarch64__ */
+/* XXX: These defines come from the system include files for a regular
+ * build (signal.h is included), but for DR_HOST_NOT_TARGET we need
+ * them defined here.  Probably what we should do is rename them so
+ * they can always come from here and not rely on the system header.
+ */
+#    ifndef FPSIMD_MAGIC
+/*
+ * Header to be used at the beginning of structures extending the user
+ * context. Such structures must be placed after the rt_sigframe on the stack
+ * and be 16-byte aligned. The last structure must be a dummy one with the
+ * magic and size set to 0.
+ */
+struct _aarch64_ctx {
+    __u32 magic;
+    __u32 size;
+};
+
+#        define FPSIMD_MAGIC 0x46508001
+
+struct fpsimd_context {
+    struct _aarch64_ctx head;
+    __u32 fpsr;
+    __u32 fpcr;
+    __uint128_t vregs[32];
+};
+#    endif
+
+#endif /* AARCH64 */
 
 #endif /* _SIGCONTEXT_H_ */

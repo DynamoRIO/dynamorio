@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,8 +48,8 @@
 #include <assert.h>
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    define new DEBUG_NEW
+#    undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
 
@@ -59,35 +59,34 @@ static char THIS_FILE[] = __FILE__;
 IMPLEMENT_DYNCREATE(CDynamoRIOView, CFormView)
 
 BEGIN_MESSAGE_MAP(CDynamoRIOView, CFormView)
-    //{{AFX_MSG_MAP(CDynamoRIOView)
+//{{AFX_MSG_MAP(CDynamoRIOView)
 #ifndef DRSTATS_DEMO
-    ON_BN_CLICKED(IDC_CHANGE_LOGGING, OnChangeLogging)
-    ON_BN_CLICKED(IDC_LOGDIR_EXPLORE, OnLogDirExplore)
+ON_BN_CLICKED(IDC_CHANGE_LOGGING, OnChangeLogging)
+ON_BN_CLICKED(IDC_LOGDIR_EXPLORE, OnLogDirExplore)
 #endif
-    ON_COMMAND(ID_EDIT_COPYSTATS, OnEditCopystats)
-    ON_WM_VSCROLL()
-    //}}AFX_MSG_MAP
-    // Standard printing commands
-    ON_COMMAND(ID_FILE_PRINT, CFormView::OnFilePrint)
-    ON_COMMAND(ID_FILE_PRINT_DIRECT, CFormView::OnFilePrint)
-    ON_COMMAND(ID_FILE_PRINT_PREVIEW, CFormView::OnFilePrintPreview)
-    // process list
-    ON_CBN_SELCHANGE(IDC_PROCESS_LIST, OnSelchangeList)
-    ON_CBN_DROPDOWN(IDC_PROCESS_LIST, OnDropdownList)
+ON_COMMAND(ID_EDIT_COPYSTATS, OnEditCopystats)
+ON_WM_VSCROLL()
+//}}AFX_MSG_MAP
+// Standard printing commands
+ON_COMMAND(ID_FILE_PRINT, CFormView::OnFilePrint)
+ON_COMMAND(ID_FILE_PRINT_DIRECT, CFormView::OnFilePrint)
+ON_COMMAND(ID_FILE_PRINT_PREVIEW, CFormView::OnFilePrintPreview)
+// process list
+ON_CBN_SELCHANGE(IDC_PROCESS_LIST, OnSelchangeList)
+ON_CBN_DROPDOWN(IDC_PROCESS_LIST, OnDropdownList)
 END_MESSAGE_MAP()
 
-    /////////////////////////////////////////////////////////////////////////////
-    // CDynamoRIOView construction/destruction
+/////////////////////////////////////////////////////////////////////////////
+// CDynamoRIOView construction/destruction
 
-
-VOID CALLBACK TimerProc(
-                        HWND /*hwnd*/,     // handle of window for timer messages
-                        UINT /*uMsg*/,     // WM_TIMER message
-                        UINT_PTR idEvent,  // timer identifier
-                        DWORD /*dwTime*/  // current system time
-                        )
+VOID CALLBACK
+TimerProc(HWND /*hwnd*/,    // handle of window for timer messages
+          UINT /*uMsg*/,    // WM_TIMER message
+          UINT_PTR idEvent, // timer identifier
+          DWORD /*dwTime*/  // current system time
+)
 {
-    CDynamoRIOView * view = CDynamoRIOApp::GetActiveView();
+    CDynamoRIOView *view = CDynamoRIOApp::GetActiveView();
     if (view == NULL) {
         KillTimer(NULL, idEvent);
         return;
@@ -98,7 +97,8 @@ VOID CALLBACK TimerProc(
     }
 }
 
-void CDynamoRIOView::ZeroStrings()
+void
+CDynamoRIOView::ZeroStrings()
 {
     m_Exited = _T("");
     m_ClientStats = _T("");
@@ -133,9 +133,10 @@ CDynamoRIOView::CDynamoRIOView()
         m_windows_NT = FALSE;
 }
 
-void CDynamoRIOView::ClearData()
+void
+CDynamoRIOView::ClearData()
 {
-   if (m_stats != NULL) {
+    if (m_stats != NULL) {
         free_dynamorio_stats(m_stats);
         m_stats = NULL;
     }
@@ -152,7 +153,8 @@ CDynamoRIOView::~CDynamoRIOView()
     ClearData();
 }
 
-void CDynamoRIOView::DoDataExchange(CDataExchange* pDX)
+void
+CDynamoRIOView::DoDataExchange(CDataExchange *pDX)
 {
     CFormView::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(CDynamoRIOView)
@@ -169,7 +171,8 @@ void CDynamoRIOView::DoDataExchange(CDataExchange* pDX)
     //}}AFX_DATA_MAP
 }
 
-BOOL CDynamoRIOView::PreCreateWindow(CREATESTRUCT& cs)
+BOOL
+CDynamoRIOView::PreCreateWindow(CREATESTRUCT &cs)
 {
     // TODO: Modify the Window class or styles here by modifying
     //  the CREATESTRUCT cs
@@ -177,7 +180,8 @@ BOOL CDynamoRIOView::PreCreateWindow(CREATESTRUCT& cs)
     return CFormView::PreCreateWindow(cs);
 }
 
-void CDynamoRIOView::OnInitialUpdate()
+void
+CDynamoRIOView::OnInitialUpdate()
 {
     CFormView::OnInitialUpdate();
     GetParentFrame()->RecalcLayout();
@@ -188,27 +192,30 @@ void CDynamoRIOView::OnInitialUpdate()
     ::SetTimer(NULL, NULL, 200, TimerProc);
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
 // CDynamoRIOView printing
 
-BOOL CDynamoRIOView::OnPreparePrinting(CPrintInfo* pInfo)
+BOOL
+CDynamoRIOView::OnPreparePrinting(CPrintInfo *pInfo)
 {
     // default preparation
     return DoPreparePrinting(pInfo);
 }
 
-void CDynamoRIOView::OnBeginPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
+void
+CDynamoRIOView::OnBeginPrinting(CDC * /*pDC*/, CPrintInfo * /*pInfo*/)
 {
     // TODO: add extra initialization before printing
 }
 
-void CDynamoRIOView::OnEndPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
+void
+CDynamoRIOView::OnEndPrinting(CDC * /*pDC*/, CPrintInfo * /*pInfo*/)
 {
     // TODO: add cleanup after printing
 }
 
-void CDynamoRIOView::OnPrint(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
+void
+CDynamoRIOView::OnPrint(CDC * /*pDC*/, CPrintInfo * /*pInfo*/)
 {
     // TODO: add customized printing code here
 }
@@ -217,20 +224,23 @@ void CDynamoRIOView::OnPrint(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
 // CDynamoRIOView diagnostics
 
 #ifdef _DEBUG
-void CDynamoRIOView::AssertValid() const
+void
+CDynamoRIOView::AssertValid() const
 {
     CFormView::AssertValid();
 }
 
-void CDynamoRIOView::Dump(CDumpContext& dc) const
+void
+CDynamoRIOView::Dump(CDumpContext &dc) const
 {
     CFormView::Dump(dc);
 }
 
-CDynamoRIODoc* CDynamoRIOView::GetDocument() // non-debug version is inline
+CDynamoRIODoc *
+CDynamoRIOView::GetDocument() // non-debug version is inline
 {
     ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(CDynamoRIODoc)));
-    return (CDynamoRIODoc*)m_pDocument;
+    return (CDynamoRIODoc *)m_pDocument;
 }
 #endif //_DEBUG
 
@@ -248,23 +258,38 @@ pw_callback_under_dr(process_info_t *pi, void **param)
     TCHAR buf[MAXIMUM_PATH];
     DWORD version;
     BOOL under_dr;
-    CDynamoRIOView *view = (CDynamoRIOView *) param;
+    CDynamoRIOView *view = (CDynamoRIOView *)param;
 
     version = 0;
     res = under_dynamorio_ex(pi->ProcessID, &version);
     switch (res) {
-    case DLL_PROFILE : resstr=_T("SC profile"); reschar=_T('P'); break;
-    case DLL_RELEASE : resstr=_T("SC release"); reschar=_T('R'); break;
-    case DLL_DEBUG : resstr=_T("SC debug"); reschar=_T('D'); break;
-    case DLL_CUSTOM : resstr=_T("SC custom"); reschar=_T('C'); break;
-    case DLL_NONE : resstr=_T("native"); reschar=_T('N'); break;
-    case DLL_UNKNOWN :
-    default : resstr=_T("<error>"); reschar=_T('?');
+    case DLL_PROFILE:
+        resstr = _T("SC profile");
+        reschar = _T('P');
+        break;
+    case DLL_RELEASE:
+        resstr = _T("SC release");
+        reschar = _T('R');
+        break;
+    case DLL_DEBUG:
+        resstr = _T("SC debug");
+        reschar = _T('D');
+        break;
+    case DLL_CUSTOM:
+        resstr = _T("SC custom");
+        reschar = _T('C');
+        break;
+    case DLL_NONE:
+        resstr = _T("native");
+        reschar = _T('N');
+        break;
+    case DLL_UNKNOWN:
+    default: resstr = _T("<error>"); reschar = _T('?');
     }
     under_dr = !(res == DLL_NONE || res == DLL_UNKNOWN);
     if (under_dr) {
-        _stprintf(buf, _T("%5d  %c   %") UNICODE_PRINTF,
-                  pi->ProcessID, reschar, pi->ProcessName);
+        _stprintf(buf, _T("%5d  %c   %") UNICODE_PRINTF, pi->ProcessID, reschar,
+                  pi->ProcessName);
         view->m_ProcessList.InsertString(view->m_list_pos, buf);
         view->m_ProcessList.SetItemData(view->m_list_pos, pi->ProcessID);
         view->m_list_pos++;
@@ -272,7 +297,8 @@ pw_callback_under_dr(process_info_t *pi, void **param)
     return TRUE;
 }
 
-void CDynamoRIOView::EnumerateInstances()
+void
+CDynamoRIOView::EnumerateInstances()
 {
     // clear all old data
     ClearData();
@@ -294,33 +320,33 @@ void CDynamoRIOView::EnumerateInstances()
     GetDocument()->SetTitle(pname);
 }
 
-void CDynamoRIOView::OnSelchangeList()
+void
+CDynamoRIOView::OnSelchangeList()
 {
     TCHAR buf[128];
 
     ClearData();
 
-    m_selected_pid = (DWORD) m_ProcessList.GetItemData(m_ProcessList.GetCurSel());
+    m_selected_pid = (DWORD)m_ProcessList.GetItemData(m_ProcessList.GetCurSel());
 
     // find the client stats shared memory that corresponds to this process
-    HANDLE statsCountMap =
-        OpenFileMapping(FILE_MAP_READ, FALSE,
-                        m_windows_NT ? TEXT(CLIENT_SHMEM_KEY_NT) :
-                        TEXT(CLIENT_SHMEM_KEY));
+    HANDLE statsCountMap = OpenFileMapping(FILE_MAP_READ, FALSE,
+                                           m_windows_NT ? TEXT(CLIENT_SHMEM_KEY_NT)
+                                                        : TEXT(CLIENT_SHMEM_KEY));
     if (statsCountMap != NULL) {
         PVOID statsCountView = MapViewOfFile(statsCountMap, FILE_MAP_READ, 0, 0, 0);
         assert(statsCountView != NULL);
         int statsCount = *((int *)statsCountView);
         int num = 0;
         // see flakiness comments above on main stats count: we go to +20 as workaround
-        while (num < statsCount+20) {
-            _stprintf(buf, _T("%")ASCII_PRINTF _T(".%03d"),
+        while (num < statsCount + 20) {
+            _stprintf(buf, _T("%") ASCII_PRINTF _T(".%03d"),
                       m_windows_NT ? CLIENT_SHMEM_KEY_NT : CLIENT_SHMEM_KEY, num);
             m_clientMap = OpenFileMapping(FILE_MAP_READ, FALSE, buf);
             if (m_clientMap != NULL) {
                 m_clientView = MapViewOfFile(m_clientMap, FILE_MAP_READ, 0, 0, 0);
                 assert(m_clientView != NULL);
-                m_clientStats = (client_stats *) m_clientView;
+                m_clientStats = (client_stats *)m_clientView;
                 if (m_clientStats->pid == m_selected_pid)
                     break;
                 UnmapViewOfFile(m_clientView);
@@ -338,12 +364,14 @@ void CDynamoRIOView::OnSelchangeList()
     Refresh();
 }
 
-void CDynamoRIOView::OnDropdownList()
+void
+CDynamoRIOView::OnDropdownList()
 {
     EnumerateInstances();
 }
 
-BOOL CDynamoRIOView::SelectProcess(int pid)
+BOOL
+CDynamoRIOView::SelectProcess(int pid)
 {
     EnumerateInstances();
 
@@ -358,7 +386,8 @@ BOOL CDynamoRIOView::SelectProcess(int pid)
     return TRUE;
 }
 
-BOOL CDynamoRIOView::UpdateProcessList()
+BOOL
+CDynamoRIOView::UpdateProcessList()
 {
     EnumerateInstances();
     CString first;
@@ -375,15 +404,16 @@ BOOL CDynamoRIOView::UpdateProcessList()
  * up to hundreds of billions, and we shrunk stat names by 3 to 47.
  */
 /* SZFC is 2 literals => _T only gets first, so we manually construct: */
-# define CLIENT_STAT_PFMT _T("%13")_T(INT64_FORMAT)_T("u")
-# define DR_STAT_PFMT _T("%10")_T(INT64_FORMAT)_T("u")
+#    define CLIENT_STAT_PFMT _T("%13") _T(INT64_FORMAT) _T("u")
+#    define DR_STAT_PFMT _T("%10") _T(INT64_FORMAT) _T("u")
 #else
 /* 13 is beyond 32-bit reach but this lines everything up and is consistent w/ x64 */
-# define CLIENT_STAT_PFMT _T("%13")_T(SZFC)
-# define DR_STAT_PFMT _T("%10")_T(SZFC)
+#    define CLIENT_STAT_PFMT _T("%13") _T(SZFC)
+#    define DR_STAT_PFMT _T("%10") _T(SZFC)
 #endif
 
-uint CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
+uint
+CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
 {
     if (filter) {
 #if 0
@@ -397,40 +427,42 @@ uint CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
 #endif
     }
     return _stprintf(c, _T("%*.*") ASCII_PRINTF _T(" = ") DR_STAT_PFMT _T("\r\n"),
-                     BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
-                     BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
+                     (int)BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
+                     (int)BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
                      m_stats->stats[i].name, m_stats->stats[i].value);
 }
 
-uint CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
+uint
+CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
 {
     if (m_clientStats == NULL)
         return 0;
 #define CLIENTSTAT_NAME_MAX_SHOW CLIENTSTAT_NAME_MAX_LEN
     uint i;
     TCHAR *start = c;
-    char (*names)[CLIENTSTAT_NAME_MAX_LEN] =
-        (char (*)[CLIENTSTAT_NAME_MAX_LEN]) m_clientStats->data;
-    stats_int_t *vals = (stats_int_t *)
-        ((char*)m_clientStats->data +
-         m_clientStats->num_stats*CLIENTSTAT_NAME_MAX_LEN*sizeof(char));
+    char(*names)[CLIENTSTAT_NAME_MAX_LEN] =
+        (char(*)[CLIENTSTAT_NAME_MAX_LEN])m_clientStats->data;
+    stats_int_t *vals = (stats_int_t *)((char *)m_clientStats->data +
+                                        m_clientStats->num_stats *
+                                            CLIENTSTAT_NAME_MAX_LEN * sizeof(char));
     /* account for struct alignment */
-    vals = (stats_int_t *) ALIGN_FORWARD(vals, sizeof(stats_int_t));
-    for (i=0; i<m_clientStats->num_stats; i++) {
-        if (c >= max - CLIENTSTAT_NAME_MAX_SHOW*2 - 3)
+    vals = (stats_int_t *)ALIGN_FORWARD(vals, sizeof(stats_int_t));
+    for (i = 0; i < m_clientStats->num_stats; i++) {
+        if (c >= max - CLIENTSTAT_NAME_MAX_SHOW * 2 - 3)
             break;
         c += _stprintf(c, _T("%*.*") ASCII_PRINTF _T(" = ") CLIENT_STAT_PFMT _T("\r\n"),
-                       CLIENTSTAT_NAME_MAX_SHOW, CLIENTSTAT_NAME_MAX_SHOW,
-                       names[i], vals[i]);
+                       CLIENTSTAT_NAME_MAX_SHOW, CLIENTSTAT_NAME_MAX_SHOW, names[i],
+                       vals[i]);
         assert(c < max);
     }
-    return (uint) (c - start);
+    return (uint)(c - start);
 }
 
 // FIXME: resize stats boxes w/ dialog resize:
 // http://www.codeguru.com/forum/showthread.php?t=79384
 
-BOOL CDynamoRIOView::Refresh()
+BOOL
+CDynamoRIOView::Refresh()
 {
     if (m_selected_pid <= 0) {
         ZeroStrings();
@@ -452,7 +484,9 @@ BOOL CDynamoRIOView::Refresh()
 
     uint i;
 #define MAX_VISIBLE_STATS 75
-#define STATS_BUFSZ (MAX_VISIBLE_STATS*(sizeof(single_stat_t)*2/*cover %10u, etc.*/))
+#define STATS_BUFSZ \
+    (MAX_VISIBLE_STATS * (sizeof(single_stat_t) * 2 /*cover %10u, \
+                                                                       etc.*/))
     TCHAR buf[STATS_BUFSZ];
     TCHAR *c = buf;
     buf[0] = _T('\0');
@@ -476,14 +510,15 @@ BOOL CDynamoRIOView::Refresh()
     // fit w/o putting actual text in there
     if (m_StatsViewLines == 0) {
         for (i = 0; i < m_stats->num_stats &&
-                 i < MAX_VISIBLE_STATS /* can't be more than this */; i++) {
-            if (c >= &buf[STATS_BUFSZ-STAT_NAME_MAX_LEN*2])
+             i < MAX_VISIBLE_STATS /* can't be more than this */;
+             i++) {
+            if (c >= &buf[STATS_BUFSZ - STAT_NAME_MAX_LEN * 2])
                 break;
-            c += PrintStat(c, i, FALSE/*no filter*/);
-            assert(c < &buf[STATS_BUFSZ-1]);
+            c += PrintStat(c, i, FALSE /*no filter*/);
+            assert(c < &buf[STATS_BUFSZ - 1]);
         }
         m_StatsCtl.SetWindowText(buf);
-        UpdateData(FALSE);  // write to screen
+        UpdateData(FALSE); // write to screen
         // I tried having only one screenful of string there, and
         // setting the scrollbar range to be larger, but it doesn't
         // seem to support that.
@@ -492,7 +527,7 @@ BOOL CDynamoRIOView::Refresh()
         CPoint pos(rect.right, rect.bottom);
         m_StatsViewLines = HIWORD(m_StatsCtl.CharFromPos(pos));
         assert(m_StatsViewLines > 0);
-        m_StatsSB.SetScrollRange(0, m_stats->num_stats-1, TRUE/*redraw*/);
+        m_StatsSB.SetScrollRange(0, m_stats->num_stats - 1, TRUE /*redraw*/);
         c = buf;
 
         SCROLLINFO info;
@@ -505,19 +540,18 @@ BOOL CDynamoRIOView::Refresh()
     int scroll_pos = m_StatsSB.GetScrollPos();
     DWORD shown = 0;
     uint printed;
-    for (i = scroll_pos;
-         i < m_stats->num_stats && shown < m_StatsViewLines; i++) {
-        if (c >= &buf[STATS_BUFSZ-STAT_NAME_MAX_LEN*2])
+    for (i = scroll_pos; i < m_stats->num_stats && shown < m_StatsViewLines; i++) {
+        if (c >= &buf[STATS_BUFSZ - STAT_NAME_MAX_LEN * 2])
             break;
-        printed = PrintStat(c, i, TRUE/*filter*/);
+        printed = PrintStat(c, i, TRUE /*filter*/);
         c += printed;
-        assert(c < &buf[STATS_BUFSZ-1]);
+        assert(c < &buf[STATS_BUFSZ - 1]);
         if (printed > 0)
             shown++;
     }
     m_StatsCtl.SetWindowText(buf);
     // num_stats could have changed so update
-    m_StatsSB.SetScrollRange(0, m_stats->num_stats-1, TRUE/*redraw*/);
+    m_StatsSB.SetScrollRange(0, m_stats->num_stats - 1, TRUE /*redraw*/);
 
     if (new_stats == NULL)
         m_Exited = _T("  Exited"); // line right end up with Running
@@ -531,18 +565,19 @@ BOOL CDynamoRIOView::Refresh()
 
     if (m_clientStats != NULL) {
 #define CLIENTSTATS_BUFSZ USHRT_MAX
-        TCHAR buf[CLIENTSTATS_BUFSZ];
-        PrintClientStats(buf, &buf[CLIENTSTATS_BUFSZ-1]);
-        m_ClientStats.Format(_T("%s"), buf);
+        TCHAR clientstats_buf[CLIENTSTATS_BUFSZ];
+        PrintClientStats(clientstats_buf, &clientstats_buf[CLIENTSTATS_BUFSZ - 1]);
+        m_ClientStats.Format(_T("%s"), clientstats_buf);
     } else
         m_ClientStats.Format(_T(""));
 
-    UpdateData(FALSE);  // write to screen
+    UpdateData(FALSE); // write to screen
     return TRUE;
 }
 
 #ifndef DRSTATS_DEMO
-void CDynamoRIOView::OnChangeLogging()
+void
+CDynamoRIOView::OnChangeLogging()
 {
     if (m_stats == NULL) {
         MessageBox(_T("No instance is selected"), _T("Error"), MB_OK | MYMBFLAGS);
@@ -567,10 +602,11 @@ void CDynamoRIOView::OnChangeLogging()
     m_stats->logmask = mask;
     m_LogLevel.Format(_T("%d"), m_stats->loglevel);
     m_LogMask.Format(_T("0x%04X"), m_stats->logmask);
-    UpdateData(FALSE);  // write to screen
+    UpdateData(FALSE); // write to screen
 }
 
-void CDynamoRIOView::OnLogDirExplore()
+void
+CDynamoRIOView::OnLogDirExplore()
 {
     if (m_stats == NULL) {
         MessageBox(_T("No instance is selected"), _T("Error"), MB_OK | MYMBFLAGS);
@@ -580,30 +616,31 @@ void CDynamoRIOView::OnLogDirExplore()
     UpdateData(TRUE); // get data from controls
 
     if (m_LogDir.Find(_T("<none")) == 0) {
-        MessageBox(_T("There is no log dir because the loglevel was 0 when the application started"),
+        MessageBox(_T("There is no log dir because the loglevel was 0 when the ")
+                   _T("application started"),
                    _T("Error"), MB_OK | MYMBFLAGS);
         return;
     }
 
-    HINSTANCE res = ShellExecute(m_hWnd, _T("explore"),
-                                 m_LogDir, NULL, NULL, SW_SHOWNORMAL);
+    HINSTANCE res =
+        ShellExecute(m_hWnd, _T("explore"), m_LogDir, NULL, NULL, SW_SHOWNORMAL);
     if ((int)res <= 32) {
-        TCHAR msg[MAX_PATH*2];
+        TCHAR msg[MAX_PATH * 2];
         _stprintf(msg, _T("Error exploring %s"), m_LogDir);
         MessageBox(msg, _T("Error"), MB_OK | MYMBFLAGS);
     }
 }
 #endif /* DRSTATS_DEMO */
 
-void CDynamoRIOView::OnEditCopystats()
+void
+CDynamoRIOView::OnEditCopystats()
 {
     if (m_ProcessList.GetCurSel() == 0) {
         MessageBox(_T("No instance selected"), _T("Error"), MB_OK | MYMBFLAGS);
         return;
     }
     if (!OpenClipboard()) {
-        MessageBox(_T("Error opening clipboard"), _T("Error"),
-                   MB_OK | MYMBFLAGS);
+        MessageBox(_T("Error opening clipboard"), _T("Error"), MB_OK | MYMBFLAGS);
         return;
     }
     EmptyClipboard();
@@ -614,10 +651,11 @@ void CDynamoRIOView::OnEditCopystats()
 
     if (m_selected_pid > 0) {
         if (m_stats != NULL) {
-            pos += _stprintf(pos, _T("Process id                  = %d\r\n"),
+            pos += _stprintf(pos, _T("Process id                  = " PIDFMT "\r\n"),
                              m_stats->process_id);
-            pos += _stprintf(pos, _T("Process name                = %") ASCII_PRINTF
-                             _T("\r\n"), m_stats->process_name);
+            pos += _stprintf(
+                pos, _T("Process name                = %") ASCII_PRINTF _T("\r\n"),
+                m_stats->process_name);
             pos += _stprintf(pos, _T("Status                      = %s\r\n"),
                              m_Exited.GetBuffer(0));
 #ifndef DRSTATS_DEMO
@@ -631,52 +669,52 @@ void CDynamoRIOView::OnEditCopystats()
             pos += _stprintf(pos, _T("\r\nSTATS\r\n"));
             uint i;
             for (i = 0; i < m_stats->num_stats; i++) {
-                if (pos >= &buf[STATS_BUFSZ-STAT_NAME_MAX_LEN*2])
+                if (pos >= &buf[STATS_BUFSZ - STAT_NAME_MAX_LEN * 2])
                     break;
                 // FIXME: Filter here too
-                pos += PrintStat(pos, i, TRUE/*filter*/);
-                assert(pos < &buf[STATS_BUFSZ-1]);
+                pos += PrintStat(pos, i, TRUE /*filter*/);
+                assert(pos < &buf[STATS_BUFSZ - 1]);
             }
         } else {
             CString pname;
             m_ProcessList.GetLBText(m_ProcessList.GetCurSel(), pname);
-            _stprintf(pos, _T("%s"), pname);
+            _stprintf(pos, _T("%s"), pname.GetString());
             pos += _tcslen(pos);
         }
     }
     if (m_clientStats != NULL) {
-        pos += PrintClientStats(pos, &buf[STATS_BUFSZ-1]);
+        pos += PrintClientStats(pos, &buf[STATS_BUFSZ - 1]);
     }
 
     size_t len = _tcslen(buf);
 
     // Allocate a global memory object for the text.
-    HGLOBAL hglbCopy = GlobalAlloc(GMEM_DDESHARE,
-                                   (len + 1) * sizeof(TCHAR));
+    HGLOBAL hglbCopy = GlobalAlloc(GMEM_DDESHARE, (len + 1) * sizeof(TCHAR));
     if (hglbCopy == NULL) {
         CloseClipboard();
         return;
     }
 
     // Lock the handle and copy the text to the buffer.
-    LPTSTR lptstrCopy = (LPTSTR) GlobalLock(hglbCopy);
+    LPTSTR lptstrCopy = (LPTSTR)GlobalLock(hglbCopy);
     memcpy(lptstrCopy, buf, (len + 1) * sizeof(TCHAR));
-    lptstrCopy[len] = (TCHAR) 0;    // null TCHARacter
+    lptstrCopy[len] = (TCHAR)0; // null TCHARacter
     GlobalUnlock(hglbCopy);
 
     // Place the handle on the clipboard.
     SetClipboardData(
 #ifdef UNICODE
-                     CF_UNICODETEXT,
+        CF_UNICODETEXT,
 #else
-                     CF_TEXT,
+        CF_TEXT,
 #endif
-                     hglbCopy);
+        hglbCopy);
 
     CloseClipboard();
 }
 
-void CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
+void
+CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 {
     int minpos;
     int maxpos;
@@ -688,53 +726,51 @@ void CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 
     // Determine the new position
     switch (nSBCode) {
-    case SB_TOP:         // Scroll to far top.
+    case SB_TOP: // Scroll to far top.
         curpos = minpos;
         break;
 
-    case SB_BOTTOM:      // Scroll to far bottom.
+    case SB_BOTTOM: // Scroll to far bottom.
         curpos = maxpos;
         break;
 
-    case SB_ENDSCROLL:   // End scroll.
+    case SB_ENDSCROLL: // End scroll.
         break;
 
-    case SB_LINEUP:      // Scroll up.
+    case SB_LINEUP: // Scroll up.
         if (curpos > minpos)
             curpos--;
         break;
 
-    case SB_LINEDOWN:   // Scroll down.
+    case SB_LINEDOWN: // Scroll down.
         if (curpos < maxpos)
             curpos++;
         break;
 
-    case SB_PAGEUP:    // Scroll one page up.
-        {
-            // Get the page size.
-            SCROLLINFO   info;
-            pScrollBar->GetScrollInfo(&info, SIF_ALL);
-            if (curpos > minpos)
-                curpos = max(minpos, curpos - (int) info.nPage);
-        }
-        break;
+    case SB_PAGEUP: // Scroll one page up.
+    {
+        // Get the page size.
+        SCROLLINFO info;
+        pScrollBar->GetScrollInfo(&info, SIF_ALL);
+        if (curpos > minpos)
+            curpos = max(minpos, curpos - (int)info.nPage);
+    } break;
 
-    case SB_PAGEDOWN:      // Scroll one page down.
-        {
-            // Get the page size.
-            SCROLLINFO   info;
-            pScrollBar->GetScrollInfo(&info, SIF_ALL);
-            if (curpos < maxpos)
-                curpos = min(maxpos, curpos + (int) info.nPage);
-        }
-        break;
+    case SB_PAGEDOWN: // Scroll one page down.
+    {
+        // Get the page size.
+        SCROLLINFO info;
+        pScrollBar->GetScrollInfo(&info, SIF_ALL);
+        if (curpos < maxpos)
+            curpos = min(maxpos, curpos + (int)info.nPage);
+    } break;
 
     case SB_THUMBPOSITION: // Scroll to absolute position. nPos is the position
         curpos = nPos;     // of the scroll box at the end of the drag operation.
         break;
 
-    case SB_THUMBTRACK:   // Drag scroll box to specified position. nPos is the
-        curpos = nPos;    // position that the scroll box has been dragged to.
+    case SB_THUMBTRACK: // Drag scroll box to specified position. nPos is the
+        curpos = nPos;  // position that the scroll box has been dragged to.
         break;
     }
 
@@ -747,4 +783,3 @@ void CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
     // instead of getting all new values
     Refresh();
 }
-

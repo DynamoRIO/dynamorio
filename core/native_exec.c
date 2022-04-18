@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,9 +55,9 @@
  */
 vm_area_vector_t *native_exec_areas;
 
-static const app_pc retstub_start = (app_pc) back_from_native_retstubs;
+static const app_pc retstub_start = (app_pc)back_from_native_retstubs;
 #ifdef DEBUG
-static const app_pc retstub_end = (app_pc) back_from_native_retstubs_end;
+static const app_pc retstub_end = (app_pc)back_from_native_retstubs_end;
 #endif
 
 void
@@ -71,10 +71,9 @@ native_exec_init(void)
     DOCHECK(CHKLVL_ASSERTS, {
         /* i#2124: we work around a bug in clang by using a local var. */
         app_pc local_start = retstub_start;
-        ASSERT(retstub_end == local_start +
-               MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
+        ASSERT(retstub_end ==
+               local_start + MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
     });
-    native_exec_os_init();
 }
 
 void
@@ -91,8 +90,9 @@ static bool
 is_dr_native_pc(app_pc pc)
 {
 #ifdef DR_APP_EXPORTS
-    if (pc == (app_pc) dr_app_running_under_dynamorio
-        IF_LINUX(|| pc == (app_pc) dr_app_handle_mbr_target))
+    if (pc ==
+        (app_pc)dr_app_running_under_dynamorio IF_LINUX(
+            || pc == (app_pc)dr_app_handle_mbr_target))
         return true;
 #endif /* DR_APP_EXPORTS */
     return false;
@@ -101,7 +101,7 @@ is_dr_native_pc(app_pc pc)
 bool
 is_native_pc(app_pc pc)
 {
-    return vmvector_overlap(native_exec_areas, pc, pc+1);
+    return vmvector_overlap(native_exec_areas, pc, pc + 1);
 }
 
 bool
@@ -123,19 +123,18 @@ on_native_exec_list(const char *modname)
 
     if (!IS_STRING_OPTION_EMPTY(native_exec_default_list)) {
         string_option_read_lock();
-        LOG(THREAD_GET, LOG_INTERP|LOG_VMAREAS, 4,
+        LOG(THREAD_GET, LOG_INTERP | LOG_VMAREAS, 4,
             "on_native_exec_list: module %s vs default list %s\n",
             (modname == NULL ? "null" : modname),
             DYNAMO_OPTION(native_exec_default_list));
         onlist = check_filter(DYNAMO_OPTION(native_exec_default_list), modname);
         string_option_read_unlock();
     }
-    if (!onlist &&
-        !IS_STRING_OPTION_EMPTY(native_exec_list)) {
+    if (!onlist && !IS_STRING_OPTION_EMPTY(native_exec_list)) {
         string_option_read_lock();
-        LOG(THREAD_GET, LOG_INTERP|LOG_VMAREAS, 4,
+        LOG(THREAD_GET, LOG_INTERP | LOG_VMAREAS, 4,
             "on_native_exec_list: module %s vs append list %s\n",
-            modname==NULL?"null":modname, DYNAMO_OPTION(native_exec_list));
+            modname == NULL ? "null" : modname, DYNAMO_OPTION(native_exec_list));
         onlist = check_filter(DYNAMO_OPTION(native_exec_list), modname);
         string_option_read_unlock();
     }
@@ -148,10 +147,9 @@ check_and_mark_native_exec(module_area_t *ma, bool add)
     bool is_native = false;
     const char *name = GET_MODULE_NAME(&ma->names);
     ASSERT(os_get_module_info_locked());
-    if (DYNAMO_OPTION(native_exec) && name != NULL &&
-        on_native_exec_list(name)) {
-        LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1,
-            "module %s is on native_exec list\n", name);
+    if (DYNAMO_OPTION(native_exec) && name != NULL && on_native_exec_list(name)) {
+        LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 1, "module %s is on native_exec list\n",
+            name);
         is_native = true;
     }
 
@@ -164,7 +162,7 @@ check_and_mark_native_exec(module_area_t *ma, bool add)
          * whatever is there.
          */
         DEBUG_DECLARE(bool present =)
-            vmvector_remove(native_exec_areas, ma->start, ma->end);
+        vmvector_remove(native_exec_areas, ma->start, ma->end);
         ASSERT_CURIOSITY((is_native && present) || (!is_native && !present));
     }
     return is_native;
@@ -176,7 +174,7 @@ native_exec_module_load(module_area_t *ma, bool at_map)
     bool is_native;
     if (!DYNAMO_OPTION(native_exec))
         return;
-    is_native = check_and_mark_native_exec(ma, true/*add*/);
+    is_native = check_and_mark_native_exec(ma, true /*add*/);
     if (is_native && DYNAMO_OPTION(native_exec_retakeover))
         native_module_hook(ma, at_map);
 }
@@ -187,7 +185,7 @@ native_exec_module_unload(module_area_t *ma)
     bool is_native;
     if (!DYNAMO_OPTION(native_exec))
         return;
-    is_native = check_and_mark_native_exec(ma, false/*!add*/);
+    is_native = check_and_mark_native_exec(ma, false /*!add*/);
     if (DYNAMO_OPTION(native_exec_retakeover)) {
         if (is_native)
             native_module_unhook(ma);
@@ -229,9 +227,9 @@ entering_native(dcontext_t *dcontext)
     dcontext->thread_record->under_dynamo_control = false;
 
     ASSERT(!is_building_trace(dcontext));
-    set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
+    set_last_exit(dcontext, (linkstub_t *)get_native_exec_linkstub());
     /* now we're in app! */
-    dcontext->whereami = WHERE_APP;
+    dcontext->whereami = DR_WHERE_APP;
     SYSLOG_INTERNAL_WARNING_ONCE("entered at least one module natively");
     STATS_INC(num_native_module_enter);
 }
@@ -273,10 +271,10 @@ prepare_return_from_native_via_stack(dcontext_t *dcontext, app_pc *app_sp)
     i = dcontext->native_retstack_cur;
     ASSERT(i < MAX_NATIVE_RETSTACK);
     dcontext->native_retstack[i].retaddr = *app_sp;
-    dcontext->native_retstack[i].retloc = (app_pc) app_sp;
+    dcontext->native_retstack[i].retloc = (app_pc)app_sp;
     dcontext->native_retstack_cur = i + 1;
-    LOG(THREAD, LOG_ASYNCH, 2,
-        "%s: app ra="PFX", sp="PFX", level=%d\n", *app_sp, app_sp, i);
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: app ra=" PFX ", sp=" PFX ", level=%d\n", *app_sp,
+        app_sp, i);
     /* i#978: We use a different return stub for every nested call to native
      * code.  Each stub pushes a different index into the retstack.  We could
      * use the SP at return time to try to find the app's return address, but
@@ -308,8 +306,8 @@ call_to_native(app_pc *app_sp)
         if (!prepare_return_from_native_via_stub(dcontext, app_sp))
             prepare_return_from_native_via_stack(dcontext, app_sp);
     }
-    LOG(THREAD, LOG_ASYNCH, 1,
-        "!!!! Entering module NATIVELY, retaddr="PFX"\n\n", *app_sp);
+    LOG(THREAD, LOG_ASYNCH, 1, "!!!! Entering module NATIVELY, retaddr=" PFX "\n\n",
+        *app_sp);
     entering_native(dcontext);
     EXITING_DR();
 }
@@ -337,12 +335,12 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     /* ASSUMPTION: was native entire time, don't need to initialize dcontext
      * or anything, and next_tag is still there!
      */
-    ASSERT(dcontext->whereami == WHERE_APP);
+    ASSERT(dcontext->whereami == DR_WHERE_APP);
     ASSERT(dcontext->last_exit == get_native_exec_linkstub());
     ASSERT(!is_native_pc(target));
     dcontext->next_tag = target;
-    /* tell dispatch() why we're coming there */
-    dcontext->whereami = WHERE_FCACHE;
+    /* tell d_r_dispatch() why we're coming there */
+    dcontext->whereami = DR_WHERE_FCACHE;
     /* FIXME i#2375: for -native_exec_opt on UNIX we need to update the gencode
      * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
      */
@@ -358,12 +356,13 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     DOLOG(2, LOG_TOP, {
         byte *cur_esp;
         GET_STACK_PTR(cur_esp);
-        LOG(THREAD, LOG_TOP, 2, "%s: next_tag="PFX", cur xsp="PFX", mc->xsp="PFX"\n",
-            __FUNCTION__, dcontext->next_tag, cur_esp, mc->xsp);
+        LOG(THREAD, LOG_TOP, 2,
+            "%s: next_tag=" PFX ", cur xsp=" PFX ", mc->xsp=" PFX "\n", __FUNCTION__,
+            dcontext->next_tag, cur_esp, mc->xsp);
     });
 
-    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
-                      NULL/*not on initstack*/, false/*shouldn't return*/);
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -384,7 +383,7 @@ pop_retaddr_for_index(dcontext_t *dcontext, int retidx, app_pc xsp)
          * within 256 bytes, though.
          */
         app_pc retloc = dcontext->native_retstack[retidx].retloc;
-        ASSERT(xsp >= retloc && xsp <= retloc + 256 + sizeof(void*) &&
+        ASSERT(xsp >= retloc && xsp <= retloc + 256 + sizeof(void *) &&
                "failed to find current sp in native_retstack");
     });
     /* Not zeroing out the [retidx:cur] range for performance. */
@@ -410,11 +409,10 @@ return_from_native(priv_mcontext_t *mc)
     ASSERT(dcontext != NULL);
     SYSLOG_INTERNAL_WARNING_ONCE("returned from at least one native module");
     retidx = native_get_retstack_idx(mc);
-    target = pop_retaddr_for_index(dcontext, retidx, (app_pc) mc->xsp);
+    target = pop_retaddr_for_index(dcontext, retidx, (app_pc)mc->xsp);
     ASSERT(!is_native_pc(target) &&
            "shouldn't return from native to native PC (i#1090?)");
-    LOG(THREAD, LOG_ASYNCH, 1, "\n!!!! Returned from NATIVE module to "PFX"\n",
-        target);
+    LOG(THREAD, LOG_ASYNCH, 1, "\n!!!! Returned from NATIVE module to " PFX "\n", target);
     back_from_native_common(dcontext, mc, target); /* noreturn */
     ASSERT_NOT_REACHED();
 }
@@ -434,8 +432,7 @@ native_module_callout(priv_mcontext_t *mc, app_pc target)
     }
     ASSERT(dcontext != NULL);
     ASSERT(DYNAMO_OPTION(native_exec_retakeover));
-    LOG(THREAD, LOG_ASYNCH, 4, "%s: cross-module call to %p\n",
-        __FUNCTION__, target);
+    LOG(THREAD, LOG_ASYNCH, 4, "%s: cross-module call to %p\n", __FUNCTION__, target);
     back_from_native_common(dcontext, mc, target);
     ASSERT_NOT_REACHED();
 }
@@ -447,15 +444,17 @@ native_module_callout(priv_mcontext_t *mc, app_pc target)
 void
 interpret_back_from_native(dcontext_t *dcontext)
 {
-    app_pc xsp = (app_pc) get_mcontext(dcontext)->xsp;
+    app_pc xsp = (app_pc)get_mcontext(dcontext)->xsp;
     ptr_int_t offset = dcontext->next_tag - retstub_start;
     int retidx;
     ASSERT(native_exec_is_back_from_native(dcontext->next_tag));
     ASSERT(offset % BACK_FROM_NATIVE_RETSTUB_SIZE == 0);
     retidx = (int)offset / BACK_FROM_NATIVE_RETSTUB_SIZE;
     dcontext->next_tag = pop_retaddr_for_index(dcontext, retidx, xsp);
-    LOG(THREAD, LOG_ASYNCH, 2, "%s: tried to interpret back_from_native, "
-        "interpreting retaddr "PFX" instead\n", __FUNCTION__, dcontext->next_tag);
+    LOG(THREAD, LOG_ASYNCH, 2,
+        "%s: tried to interpret back_from_native, "
+        "interpreting retaddr " PFX " instead\n",
+        __FUNCTION__, dcontext->next_tag);
     ASSERT(!is_native_pc(dcontext->next_tag));
 }
 
@@ -466,11 +465,11 @@ put_back_native_retaddrs(dcontext_t *dcontext)
     uint i;
     ASSERT(dcontext->native_retstack_cur < MAX_NATIVE_RETSTACK);
     for (i = 0; i < dcontext->native_retstack_cur; i++) {
-        app_pc *retloc = (app_pc *) retstack[i].retloc;
+        app_pc *retloc = (app_pc *)retstack[i].retloc;
         ASSERT(*retloc >= retstub_start && *retloc < retstub_end);
-        LOG(THREAD, LOG_ASYNCH, 2, "%s: writing "PFX" over "PFX" @"PFX"\n",
+        LOG(THREAD, LOG_ASYNCH, 2, "%s: writing " PFX " over " PFX " @" PFX "\n",
             __FUNCTION__, retstack[i].retaddr, *retloc, retloc);
-         *retloc = retstack[i].retaddr;
+        *retloc = retstack[i].retaddr;
     }
     dcontext->native_retstack_cur = 0;
 #ifdef HOT_PATCHING_INTERFACE

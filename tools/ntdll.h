@@ -46,22 +46,23 @@
  */
 static HANDLE ntdll_handle = NULL;
 
-#define GET_PROC_ADDR(func, type, name) do { \
-    if (ntdll_handle == NULL) \
-        ntdll_handle = GetModuleHandle((LPCTSTR)_T("ntdll.dll")); \
-    if (func == NULL) {                      \
-        assert(ntdll_handle != NULL);        \
-        func = (type) GetProcAddress(ntdll_handle, (LPCSTR)name); \
-        assert(func != NULL);                \
-    }                                        \
-} while (0)
+#define GET_PROC_ADDR(func, type, name)                                \
+    do {                                                               \
+        if (ntdll_handle == NULL)                                      \
+            ntdll_handle = GetModuleHandle((LPCTSTR) _T("ntdll.dll")); \
+        if (func == NULL) {                                            \
+            assert(ntdll_handle != NULL);                              \
+            func = (type)GetProcAddress(ntdll_handle, (LPCSTR)name);   \
+            assert(func != NULL);                                      \
+        }                                                              \
+    } while (0)
 
 /* A wrapper to define kernel entry point in a static function */
 /* In C use only at the end of a block prologue! */
-#define GET_NTDLL(NtFunction, type)                             \
-  typedef int (WINAPI *NtFunction##Type) type;                  \
-  static NtFunction##Type NtFunction;                           \
-  GET_PROC_ADDR(NtFunction, NtFunction##Type, #NtFunction);
+#define GET_NTDLL(NtFunction, type)              \
+    typedef int(WINAPI * NtFunction##Type) type; \
+    static NtFunction##Type NtFunction;          \
+    GET_PROC_ADDR(NtFunction, NtFunction##Type, #NtFunction);
 
 static LONGLONG
 get_system_time()
@@ -72,7 +73,7 @@ get_system_time()
     i = NtQuerySystemTime(&time);
     if (i != 0) /* function failed */
         return 0;
-    return (LONGLONG) time.QuadPart;
+    return (LONGLONG)time.QuadPart;
 }
 
 static unsigned long
@@ -81,15 +82,14 @@ get_uptime()
     LARGE_INTEGER counter;
     LARGE_INTEGER frequency;
     NTSTATUS res;
-    GET_NTDLL(NtQueryPerformanceCounter, (OUT PLARGE_INTEGER PerformanceCount,
-                                          OUT PLARGE_INTEGER PerformanceFrequency OPTIONAL
-                                          ));
+    GET_NTDLL(NtQueryPerformanceCounter,
+              (OUT PLARGE_INTEGER PerformanceCount,
+               OUT PLARGE_INTEGER PerformanceFrequency OPTIONAL));
     res = NtQueryPerformanceCounter(&counter, &frequency);
     if (!NT_SUCCESS(res) || frequency.QuadPart == 0)
         return 0;
-    return (unsigned long)(counter.QuadPart*1000/(frequency.QuadPart));
+    return (unsigned long)(counter.QuadPart * 1000 / (frequency.QuadPart));
 }
-
 
 static uint
 get_system_load(bool sampled)
@@ -101,8 +101,7 @@ get_system_load(bool sampled)
     int idle_load = 0;
     GET_NTDLL(NtQuerySystemInformation,
               (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
-               OUT PVOID SystemInformation,
-               IN ULONG SystemInformationLength,
+               OUT PVOID SystemInformation, IN ULONG SystemInformationLength,
                OUT PULONG ReturnLength OPTIONAL));
     i = NtQuerySystemInformation(SystemProcessorTimes, &times, sizeof(times), &len);
     if (i != 0) /* function failed */
@@ -120,7 +119,7 @@ get_system_load(bool sampled)
     if (sampled) {
         static LONGLONG prev_clock = 0, prev_idle = 0;
         if (clock1 > prev_clock) {
-            idle_load = (int) ((100 * (idle1 - prev_idle)) / (clock1 - prev_clock));
+            idle_load = (int)((100 * (idle1 - prev_idle)) / (clock1 - prev_clock));
             prev_clock = clock1;
             prev_idle = idle1;
         }
@@ -132,7 +131,7 @@ get_system_load(bool sampled)
         idle2 = times.IdleTime.QuadPart;
         clock2 = get_system_time();
         if (clock2 > clock1)
-            idle_load = (int) ((100 * (idle2 - idle1)) / (clock2 - clock1));
+            idle_load = (int)((100 * (idle2 - idle1)) / (clock2 - clock1));
     }
 
     idle_load = (idle_load >= 100) ? 100 : idle_load;
@@ -147,8 +146,7 @@ get_system_performance_info(SYSTEM_PERFORMANCE_INFORMATION *sperf_info)
     int i, len = 0;
     GET_NTDLL(NtQuerySystemInformation,
               (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
-               OUT PVOID SystemInformation,
-               IN ULONG SystemInformationLength,
+               OUT PVOID SystemInformation, IN ULONG SystemInformationLength,
                OUT PULONG ReturnLength OPTIONAL));
     i = NtQuerySystemInformation(SystemPerformanceInformation, sperf_info,
                                  sizeof(*sperf_info), &len);
@@ -165,13 +163,10 @@ get_process_load_ex(HANDLE h, int *cpu, int *user)
     int i, len = 0;
     /* could share w/ other process info routines... */
     GET_NTDLL(NtQueryInformationProcess,
-              (IN HANDLE ProcessHandle,
-               IN PROCESSINFOCLASS ProcessInformationClass,
-               OUT PVOID ProcessInformation,
-               IN ULONG ProcessInformationLength,
+              (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
+               OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
                OUT PULONG ReturnLength OPTIONAL));
-    i = NtQueryInformationProcess((HANDLE) h, ProcessTimes,
-                                  &times, sizeof(times), &len);
+    i = NtQueryInformationProcess((HANDLE)h, ProcessTimes, &times, sizeof(times), &len);
     if (i != 0) /* function failed */
         return 0;
     /* return length not trustworthy, according to Nebbett, so we don't test it */
@@ -179,17 +174,17 @@ get_process_load_ex(HANDLE h, int *cpu, int *user)
     if (cpu != NULL) {
         /* %CPU == (scheduled time) / (wall clock time) */
         wallclock_time = get_system_time() - times.CreateTime.QuadPart;
-        if (wallclock_time == (LONGLONG) 0)
+        if (wallclock_time == (LONGLONG)0)
             *cpu = 0;
         else
-            *cpu = (int) ((100 * scheduled_time) / wallclock_time);
+            *cpu = (int)((100 * scheduled_time) / wallclock_time);
     }
     if (user != NULL) {
         /* %user == (user time) / (scheduled time) */
-        if (scheduled_time == (LONGLONG) 0)
+        if (scheduled_time == (LONGLONG)0)
             *user = 0;
         else
-            *user = (int) ((100 * times.UserTime.QuadPart) / scheduled_time);
+            *user = (int)((100 * times.UserTime.QuadPart) / scheduled_time);
     }
     return 1;
 }
@@ -200,18 +195,15 @@ get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
     int i, len = 0;
     /* could share w/ other process info routines... */
     GET_NTDLL(NtQueryInformationProcess,
-              (IN HANDLE ProcessHandle,
-               IN PROCESSINFOCLASS ProcessInformationClass,
-               OUT PVOID ProcessInformation,
-               IN ULONG ProcessInformationLength,
+              (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
+               OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
                OUT PULONG ReturnLength OPTIONAL));
-    i = NtQueryInformationProcess((HANDLE) h, ProcessVmCounters,
-                                  info, sizeof(VM_COUNTERS), &len);
+    i = NtQueryInformationProcess((HANDLE)h, ProcessVmCounters, info, sizeof(VM_COUNTERS),
+                                  &len);
     if (i != 0) {
         /* function failed */
-            memset(info, 0, sizeof(VM_COUNTERS));
-    }
-    else
+        memset(info, 0, sizeof(VM_COUNTERS));
+    } else
         assert(len == sizeof(VM_COUNTERS));
     return true;
 }

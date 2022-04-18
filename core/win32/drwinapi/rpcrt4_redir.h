@@ -55,12 +55,8 @@ rpcrt4_redir_onload(privmod_t *mod);
 app_pc
 rpcrt4_redir_lookup(const char *name);
 
-
 RPC_STATUS
 RPC_ENTRY
-redirect_UuidCreate (
-    __out UUID __RPC_FAR * Uuid
-    );
-
+redirect_UuidCreate(__out UUID __RPC_FAR *Uuid);
 
 #endif /* _RPCRT4_REDIR_H_ */

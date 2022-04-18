@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,21 +42,25 @@
  * Processes and Threads
  */
 
+/* The max is 4096 on Win10-1909 (and probably earlier) but we do not try to emulate
+ * that maximum since we're using the limited FlsBitmapBits in the PEB still.
+ */
 #define FLS_MAX_COUNT 128
 
 void
 kernel32_redir_init_proc(void)
 {
     PEB *peb = get_own_peb();
+    /* i#3633: Implement FLS isolation for Win10 1903+ where FLS data is no longer
+     * in the PEB.
+     */
     ASSERT(get_os_version() < WINDOWS_VERSION_2003 ||
-           peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT);
-#ifdef CLIENT_INTERFACE
+           (peb->FlsBitmap == NULL || peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT));
     /* We rely on -private_peb for FLS isolation.  Otherwise we'd have to
      * put back in place all the code to handle mixing private and app FLS
      * callbacks, and we'd have to tweak our FLS redirection.
      */
     ASSERT(INTERNAL_OPTION(private_peb));
-#endif
 }
 
 void
@@ -72,17 +76,17 @@ kernel32_redir_onload_proc(privmod_t *mod, strhash_table_t *kernel32_table)
          * return NULL if there is no underlying FlsAlloc.
          */
         IF_DEBUG(bool found =)
-            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsAlloc");
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsAlloc");
         ASSERT(found);
         /* i#2453: VS2013 checks other Fls routines as well so we clear them all. */
         IF_DEBUG(found =)
-            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsFree");
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsFree");
         ASSERT(found);
         IF_DEBUG(found =)
-            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsGetValue");
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsGetValue");
         ASSERT(found);
         IF_DEBUG(found =)
-            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsSetValue");
+        strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsSetValue");
         ASSERT(found);
     }
 }
@@ -93,35 +97,23 @@ kernel32_redir_onload_proc(privmod_t *mod, strhash_table_t *kernel32_table)
 
 HANDLE
 WINAPI
-redirect_GetCurrentProcess(
-    VOID
-    )
+redirect_GetCurrentProcess(VOID)
 {
     return NT_CURRENT_PROCESS;
 }
 
 DWORD
 WINAPI
-redirect_GetCurrentProcessId(
-    VOID
-    )
+redirect_GetCurrentProcessId(VOID)
 {
-    return (DWORD) get_process_id();
+    return (DWORD)get_process_id();
 }
 
 DECLSPEC_NORETURN
-VOID
-WINAPI
-redirect_ExitProcess(
-    __in UINT uExitCode
-    )
+VOID WINAPI
+redirect_ExitProcess(__in UINT uExitCode)
 {
-#ifdef CLIENT_INTERFACE
     dr_exit_process(uExitCode);
-#else
-    os_terminate_with_code(get_thread_private_dcontext(), /* dcontext is required */
-                           TERMINATE_CLEANUP|TERMINATE_PROCESS, uExitCode);
-#endif
     ASSERT_NOT_REACHED();
 }
 
@@ -131,20 +123,16 @@ redirect_ExitProcess(
 
 HANDLE
 WINAPI
-redirect_GetCurrentThread(
-    VOID
-    )
+redirect_GetCurrentThread(VOID)
 {
     return NT_CURRENT_THREAD;
 }
 
 DWORD
 WINAPI
-redirect_GetCurrentThreadId(
-    VOID
-    )
+redirect_GetCurrentThreadId(VOID)
 {
-    return (DWORD) get_thread_id();
+    return (DWORD)d_r_get_thread_id();
 }
 
 /***************************************************************************

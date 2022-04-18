@@ -45,11 +45,11 @@
 char buf[32];
 
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     char *foo = buf;
     int i;
-    for (i=0; i<ITERS; i++) {
+    for (i = 0; i < ITERS; i++) {
 #ifdef UNIX
         asm("mov  %0,%%eax" : : "r"(foo));
         asm("call *%eax");
@@ -81,9 +81,9 @@ main()
     /* we're not testing security here, just consistency, so make it kosher */
     NTFlush(buf, 1);
 
-    for (i=0; i<NUM_THREADS; i++)
+    for (i = 0; i < NUM_THREADS; i++)
         hThread[i] = _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
-    for (i=0; i<NUM_THREADS; i++)
+    for (i = 0; i < NUM_THREADS; i++)
         WaitForSingleObject((HANDLE)hThread[i], INFINITE);
 
     print("all done\n");

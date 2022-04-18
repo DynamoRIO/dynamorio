@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -31,6 +31,7 @@ support.
  - \ref sec_drwrap_setup
  - \ref sec_drwrap_events
  - \ref sec_drwrap_api
+ - \ref sec_drwrap_perf
  - \ref sec_drwrap_license
 
 \section sec_drwrap_setup Setup
@@ -87,6 +88,18 @@ i.e., it executes after the \p call instruction but before any instructions
 within the body of the wrapped function. The post-function callback occurs
 after the wrapped function returns, as if inserted just after the call
 instruction.
+
+\section sec_drwrap_perf Performance
+
+For the lowest overhead, if your use case is compatible with the
+(relatively minor) limitations imposed by the two flags
+#DRWRAP_NO_FRILLS and #DRWRAP_FAST_CLEANCALLS, we recommend setting
+them both.
+
+A major cause of overhead is flushing when a post-call point is
+dynamically discovered and it is already present in the code cache.
+The drwrap_get_stats() interface can be used to measure the number of
+flushes triggered by drwrap.
 
 \section sec_drwrap_license LGPL 2.1 License
 

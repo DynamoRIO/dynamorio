@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,39 +42,30 @@ test_dr_insert_it_instrs_cbr(void *dcontext)
     byte buffer[4096];
 
     instrlist_append(ilist, where);
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_jump
-            (dcontext,
-             opnd_create_instr(where)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_jump
-            (dcontext,
-             opnd_create_instr(where)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_jump
-            (dcontext,
-             opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_jump(dcontext, opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_jump(dcontext, opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_jump(dcontext, opnd_create_instr(where)));
     /* set them all to be predicated and reinstate it instrs */
     for (where = instrlist_first(ilist); where; where = instr_get_next(where)) {
         bool ok = instr_set_isa_mode(where, DR_ISA_ARM_THUMB);
@@ -120,39 +111,30 @@ test_dr_insert_it_instrs_cti(void *dcontext)
     byte buffer[4096];
 
     instrlist_append(ilist, where);
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_call
-            (dcontext,
-             opnd_create_instr(where)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_call
-            (dcontext,
-             opnd_create_instr(where)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_move
-            (dcontext,
-             opnd_create_reg(DR_REG_R1),
-             opnd_create_reg(DR_REG_R2)));
-    instrlist_preinsert(ilist, where, XINST_CREATE_call
-            (dcontext,
-             opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_call(dcontext, opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_call(dcontext, opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
+                                          opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where,
+                        XINST_CREATE_call(dcontext, opnd_create_instr(where)));
     /* set them all to be predicated and reinstate it instrs */
     for (where = instrlist_first(ilist); where; where = instr_get_next(where)) {
         bool ok = instr_set_isa_mode(where, DR_ISA_ARM_THUMB);
@@ -199,5 +181,6 @@ main(int argc, char *argv[])
     /* i#1702: test that a cti terminates the IT-block */
     test_dr_insert_it_instrs_cti(dcontext);
 
+    dr_standalone_exit();
     return 0;
 }

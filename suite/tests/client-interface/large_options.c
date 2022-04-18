@@ -35,25 +35,26 @@
 
 #ifdef WINDOWS
 
-void create_proc(char *cmd, char *arg1)
+void
+create_proc(char *cmd, char *arg1)
 {
     PROCESS_INFORMATION pinfo;
     STARTUPINFO sinfo;
     char real_cmdline[1024];
     /* Windows wants argv[0] on cmdline. */
-    _snprintf_s(real_cmdline, sizeof(real_cmdline), sizeof(real_cmdline),
-                "%s %s", cmd, arg1);
+    _snprintf_s(real_cmdline, sizeof(real_cmdline), sizeof(real_cmdline), "%s %s", cmd,
+                arg1);
     GetStartupInfo(&sinfo);
-    if (!CreateProcess(cmd,     /* application name */
+    if (!CreateProcess(cmd,          /* application name */
                        real_cmdline, /* command line */
-                       NULL,    /* new proc cannot be inherited */
-                       NULL,    /* new thread cannot be inherited */
-                       TRUE,    /* inherit handles from this proc */
-                       0,       /* no creation flags */
-                       NULL,    /* use environment of this proc */
-                       NULL,    /* same directory of this proc */
-                       &sinfo,  /* start up info */
-                       &pinfo   /* out: process information */
+                       NULL,         /* new proc cannot be inherited */
+                       NULL,         /* new thread cannot be inherited */
+                       TRUE,         /* inherit handles from this proc */
+                       0,            /* no creation flags */
+                       NULL,         /* use environment of this proc */
+                       NULL,         /* same directory of this proc */
+                       &sinfo,       /* start up info */
+                       &pinfo        /* out: process information */
                        )) {
         print("ERROR creating new process: %s %s\n", cmd, arg1);
         exit(1);
@@ -66,11 +67,12 @@ void create_proc(char *cmd, char *arg1)
 
 #else
 
-#include <unistd.h>
-#include <sys/wait.h>
-#include <errno.h>
+#    include <unistd.h>
+#    include <sys/wait.h>
+#    include <errno.h>
 
-void create_proc(const char *cmd, const char *arg1)
+void
+create_proc(const char *cmd, const char *arg1)
 {
     const char *argv[3];
     pid_t pid;
@@ -90,7 +92,8 @@ void create_proc(const char *cmd, const char *arg1)
 }
 #endif
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     if (argc == 1) {
         print("parent\n");

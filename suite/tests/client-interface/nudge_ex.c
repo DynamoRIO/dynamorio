@@ -40,13 +40,13 @@
 #include "tools.h"
 
 #ifdef UNIX
-# include <sys/wait.h>  /* for wait */
-# include <stdlib.h>
-# include <unistd.h>
-# include <string.h>
-# include <assert.h>
+#    include <sys/wait.h> /* for wait */
+#    include <stdlib.h>
+#    include <unistd.h>
+#    include <string.h>
+#    include <assert.h>
 #else
-# include "windows.h"
+#    include "windows.h"
 #endif
 
 volatile int val;
@@ -65,7 +65,7 @@ child_is_ready(void)
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
 #ifdef UNIX
     int pipefd[2];
@@ -108,7 +108,7 @@ main(int argc, char** argv)
             left = sleep(left); /* unfortunately, nudge signal interrupts us */
     }
 #else
-# define CMDLINE_SIZE (MAX_PATH/*argv[0]*/ + 20/*" %p"*/)
+#    define CMDLINE_SIZE (MAX_PATH /*argv[0]*/ + 20 /*" %p"*/)
     STARTUPINFO si = { sizeof(STARTUPINFO) };
     PROCESS_INFORMATION pi;
     char cmdline[CMDLINE_SIZE];
@@ -117,14 +117,14 @@ main(int argc, char** argv)
         /* parent */
 
         /* for synchronization we create an inherited event */
-        SECURITY_ATTRIBUTES sa = {sizeof(sa), NULL, TRUE/*inherit*/};
-        event = CreateEvent(&sa, FALSE/*manual reset*/, FALSE/*start unset*/, NULL);
+        SECURITY_ATTRIBUTES sa = { sizeof(sa), NULL, TRUE /*inherit*/ };
+        event = CreateEvent(&sa, FALSE /*manual reset*/, FALSE /*start unset*/, NULL);
         if (event == NULL)
             print("Failed to create event");
 
         _snprintf(cmdline, BUFFER_SIZE_ELEMENTS(cmdline), "%s %p", argv[0], event);
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           0, NULL, NULL, &si, &pi))
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/, 0,
+                           NULL, NULL, &si, &pi))
             print("ERROR on CreateProcess\n");
         else {
             int status;
@@ -134,12 +134,11 @@ main(int argc, char** argv)
             child_is_ready();
             /* wait for termination */
             WaitForSingleObject(pi.hProcess, INFINITE);
-            GetExitCodeProcess(pi.hProcess, (LPDWORD) &status);
+            GetExitCodeProcess(pi.hProcess, (LPDWORD)&status);
             print("child has exited with status %d\n", status);
             CloseHandle(pi.hProcess);
         }
-    }
-    else {
+    } else {
         /* child */
         if (sscanf(argv[1], "%p", &event) != 1) {
             print("Failed to obtain event handle from %s\n", argv[1]);

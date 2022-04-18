@@ -40,25 +40,26 @@
 /* If you add any new priv invocation pointer here, update the list in
  * drwinapi_redirect_imports().
  */
-static HMODULE (WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
-static HMODULE (WINAPI *priv_kernel32_GetModuleHandleW)(const wchar_t *);
-static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
-static HMODULE (WINAPI *priv_kernel32_LoadLibraryA)(const char *);
-static HMODULE (WINAPI *priv_kernel32_LoadLibraryW)(const wchar_t *);
+static HMODULE(WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
+static HMODULE(WINAPI *priv_kernel32_GetModuleHandleW)(const wchar_t *);
+static FARPROC(WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
+static HMODULE(WINAPI *priv_kernel32_LoadLibraryA)(const char *);
+static HMODULE(WINAPI *priv_kernel32_LoadLibraryW)(const wchar_t *);
 
 void
 kernel32_redir_onload_lib(privmod_t *mod)
 {
-    priv_kernel32_GetModuleHandleA = (HMODULE (WINAPI *)(const char *))
-        get_proc_address_ex(mod->base, "GetModuleHandleA", NULL);
-    priv_kernel32_GetModuleHandleW = (HMODULE (WINAPI *)(const wchar_t *))
-        get_proc_address_ex(mod->base, "GetModuleHandleW", NULL);
-    priv_kernel32_GetProcAddress = (FARPROC (WINAPI *)(HMODULE, const char *))
-        get_proc_address_ex(mod->base, "GetProcAddress", NULL);
-    priv_kernel32_LoadLibraryA = (HMODULE (WINAPI *)(const char *))
-        get_proc_address_ex(mod->base, "LoadLibraryA", NULL);
-    priv_kernel32_LoadLibraryW = (HMODULE (WINAPI *)(const wchar_t *))
-        get_proc_address_ex(mod->base, "LoadLibraryW", NULL);
+    priv_kernel32_GetModuleHandleA = (HMODULE(WINAPI *)(const char *))get_proc_address_ex(
+        mod->base, "GetModuleHandleA", NULL);
+    priv_kernel32_GetModuleHandleW =
+        (HMODULE(WINAPI *)(const wchar_t *))get_proc_address_ex(mod->base,
+                                                                "GetModuleHandleW", NULL);
+    priv_kernel32_GetProcAddress = (FARPROC(WINAPI *)(
+        HMODULE, const char *))get_proc_address_ex(mod->base, "GetProcAddress", NULL);
+    priv_kernel32_LoadLibraryA = (HMODULE(WINAPI *)(const char *))get_proc_address_ex(
+        mod->base, "LoadLibraryA", NULL);
+    priv_kernel32_LoadLibraryW = (HMODULE(WINAPI *)(const wchar_t *))get_proc_address_ex(
+        mod->base, "LoadLibraryW", NULL);
 }
 
 /* Eventually we should intercept at the Ldr level but that takes more work
@@ -75,13 +76,13 @@ redirect_GetModuleHandleA(const char *name)
     mod = privload_lookup(name);
     if (mod != NULL) {
         res = mod->base;
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, name, res);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => " PFX "\n", __FUNCTION__, name, res);
     }
     release_recursive_lock(&privload_lock);
     if (mod == NULL)
         return (*priv_kernel32_GetModuleHandleA)(name);
     else
-        return (HMODULE) res;
+        return (HMODULE)res;
 }
 
 HMODULE WINAPI
@@ -98,13 +99,13 @@ redirect_GetModuleHandleW(const wchar_t *name)
     mod = privload_lookup(buf);
     if (mod != NULL) {
         res = mod->base;
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, buf, res);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => " PFX "\n", __FUNCTION__, buf, res);
     }
     release_recursive_lock(&privload_lock);
     if (mod == NULL)
         return (*priv_kernel32_GetModuleHandleW)(name);
     else
-        return (HMODULE) res;
+        return (HMODULE)res;
 }
 
 FARPROC WINAPI
@@ -112,11 +113,11 @@ redirect_GetProcAddress(HMODULE modbase, const char *name)
 {
     app_pc res = NULL;
     ASSERT(priv_kernel32_GetProcAddress != NULL);
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"%s\n", __FUNCTION__, modbase, name);
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: " PFX "%s\n", __FUNCTION__, modbase, name);
     if (!drwinapi_redirect_getprocaddr((app_pc)modbase, name, &res))
         return (*priv_kernel32_GetProcAddress)(modbase, name);
     else
-        return (FARPROC) convert_data_to_function(res);
+        return (FARPROC)convert_data_to_function(res);
 }
 
 static HMODULE
@@ -130,11 +131,10 @@ helper_LoadLibrary(const char *name)
          */
         size_t len = strlen(name);
         if (len > 0 &&
-            !((name[len-1] == '.' ||
-               (len > 3 &&
-                (name[len-3] == 'd' || name[len-1] == 'D') &&
-                (name[len-2] == 'l' || name[len-1] == 'L') &&
-                (name[len-1] == 'l' || name[len-1] == 'L'))))) {
+            !((name[len - 1] == '.' ||
+               (len > 3 && (name[len - 3] == 'd' || name[len - 1] == 'D') &&
+                (name[len - 2] == 'l' || name[len - 1] == 'L') &&
+                (name[len - 1] == 'l' || name[len - 1] == 'L'))))) {
             if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s.dll", name) < 0) {
                 set_last_error(ERROR_DLL_NOT_FOUND);
                 return NULL;
@@ -143,7 +143,7 @@ helper_LoadLibrary(const char *name)
             name = buf;
         }
     }
-    res = locate_and_load_private_library(name, false/*!reachable*/);
+    res = locate_and_load_private_library(name, false /*!reachable*/);
     if (res == NULL) {
         /* XXX: if private loader can't handle some feature (delay-load dll,
          * bound imports, etc.), we could have the private kernel32 call the
@@ -156,7 +156,7 @@ helper_LoadLibrary(const char *name)
         set_last_error(ERROR_DLL_NOT_FOUND);
         return NULL;
     } else
-        return (HMODULE) res;
+        return (HMODULE)res;
 }
 
 HMODULE WINAPI
@@ -200,7 +200,7 @@ redirect_LoadLibraryExW(const wchar_t *name, HANDLE reserved, DWORD flags)
 BOOL WINAPI
 redirect_FreeLibrary(HMODULE hLibModule)
 {
-    return (BOOL) unload_private_library((app_pc)hLibModule);
+    return (BOOL)unload_private_library((app_pc)hLibModule);
 }
 
 DWORD WINAPI
@@ -211,14 +211,14 @@ redirect_GetModuleFileNameA(HMODULE modbase, char *buf, DWORD bufcnt)
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup_by_base((app_pc)modbase);
     if (mod != NULL) {
-        cnt = (DWORD) strlen(mod->path);
+        cnt = (DWORD)strlen(mod->path);
         if (cnt >= bufcnt) {
             cnt = bufcnt;
             set_last_error(ERROR_INSUFFICIENT_BUFFER);
         }
         strncpy(buf, mod->path, bufcnt);
-        buf[bufcnt-1] = '\0';
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX" => %s\n", __FUNCTION__, mod, mod->path);
+        buf[bufcnt - 1] = '\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: " PFX " => %s\n", __FUNCTION__, mod, mod->path);
     }
     release_recursive_lock(&privload_lock);
     if (mod == NULL) {
@@ -237,14 +237,14 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup_by_base((app_pc)modbase);
     if (mod != NULL) {
-        cnt = (DWORD) strlen(mod->path);
+        cnt = (DWORD)strlen(mod->path);
         if (cnt >= bufcnt) {
             cnt = bufcnt;
             set_last_error(ERROR_INSUFFICIENT_BUFFER);
         }
         _snwprintf(buf, bufcnt, L"%s", mod->path);
-        buf[bufcnt-1] = L'\0';
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX" => %s\n", __FUNCTION__, mod, mod->path);
+        buf[bufcnt - 1] = L'\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: " PFX " => %s\n", __FUNCTION__, mod, mod->path);
     }
     release_recursive_lock(&privload_lock);
     if (mod == NULL) {
@@ -258,7 +258,6 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Libraries
  */
-
 
 /***************************************************************************
  * TESTS

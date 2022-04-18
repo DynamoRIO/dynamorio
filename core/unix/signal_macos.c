@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -42,7 +42,7 @@
 #include <sys/syscall.h>
 
 #ifndef MACOS
-# error Mac-only
+#    error Mac-only
 #endif
 
 /* based on xnu bsd/sys/signalvar.h */
@@ -83,38 +83,38 @@ int default_action[] = {
 };
 
 bool can_always_delay[] = {
-     true, /*  0 unused */
-     true, /*  1 SIGHUP */
-     true, /*  2 SIGINT */
-     true, /*  3 SIGQUIT */
+    true,  /*  0 unused */
+    true,  /*  1 SIGHUP */
+    true,  /*  2 SIGINT */
+    true,  /*  3 SIGQUIT */
     false, /*  4 SIGILL */
     false, /*  5 SIGTRAP */
     false, /*  6 SIGABRT/SIGIOT */
-     true, /*  7 SIGEMT/SIGPOLL */
+    true,  /*  7 SIGEMT/SIGPOLL */
     false, /*  8 SIGFPE */
-     true, /*  9 SIGKILL */
+    true,  /*  9 SIGKILL */
     false, /* 10 SIGBUS */
     false, /* 11 SIGSEGV */
     false, /* 12 SIGSYS */
     false, /* 13 SIGPIPE */
-     true, /* 14 SIGALRM */
-     true, /* 15 SIGTERM */
-     true, /* 16 SIGURG */
-     true, /* 17 SIGSTOP */
-     true, /* 18 SIGTSTP */
-     true, /* 19 SIGCONT */
-     true, /* 20 SIGCHLD */
-     true, /* 21 SIGTTIN */
-     true, /* 22 SIGTTOU */
-     true, /* 23 SIGIO */
+    true,  /* 14 SIGALRM */
+    true,  /* 15 SIGTERM */
+    true,  /* 16 SIGURG */
+    true,  /* 17 SIGSTOP */
+    true,  /* 18 SIGTSTP */
+    true,  /* 19 SIGCONT */
+    true,  /* 20 SIGCHLD */
+    true,  /* 21 SIGTTIN */
+    true,  /* 22 SIGTTOU */
+    true,  /* 23 SIGIO */
     false, /* 24 SIGXCPU */
-     true, /* 25 SIGXFSZ */
-     true, /* 26 SIGVTALRM */
-     true, /* 27 SIGPROF */
-     true, /* 28 SIGWINCH  */
-     true, /* 29 SIGINFO */
-     true, /* 30 SIGUSR1 */
-     true, /* 31 SIGUSR2 */
+    true,  /* 25 SIGXFSZ */
+    true,  /* 26 SIGVTALRM */
+    true,  /* 27 SIGPROF */
+    true,  /* 28 SIGWINCH  */
+    true,  /* 29 SIGINFO */
+    true,  /* 30 SIGUSR1 */
+    true,  /* 31 SIGUSR2 */
     /* no real-time support */
 };
 
@@ -127,16 +127,18 @@ sysnum_is_not_restartable(int sysnum)
      *  communications channel or a slow device (such as a terminal,
      *  but not a regular file) and during a wait(2) or ioctl(2).
      */
-    return (sysnum != SYS_open && sysnum != SYS_open_nocancel &&
-            sysnum != SYS_read && sysnum != SYS_read_nocancel &&
-            sysnum != SYS_write && sysnum != SYS_write_nocancel &&
-            sysnum != SYS_sendto && sysnum != SYS_sendto_nocancel &&
-            sysnum != SYS_recvfrom && sysnum != SYS_recvfrom_nocancel &&
-            sysnum != SYS_sendmsg && sysnum != SYS_sendmsg_nocancel &&
-            sysnum != SYS_recvmsg && sysnum != SYS_recvmsg_nocancel &&
-            sysnum != SYS_wait4 && sysnum != SYS_wait4_nocancel &&
-            sysnum != SYS_waitid && sysnum != SYS_waitid_nocancel &&
+    return (sysnum != SYS_open && sysnum != SYS_open_nocancel && sysnum != SYS_read &&
+            sysnum != SYS_read_nocancel && sysnum != SYS_write &&
+            sysnum != SYS_write_nocancel && sysnum != SYS_sendto &&
+            sysnum != SYS_sendto_nocancel && sysnum != SYS_recvfrom &&
+            sysnum != SYS_recvfrom_nocancel && sysnum != SYS_sendmsg &&
+            sysnum != SYS_sendmsg_nocancel && sysnum != SYS_recvmsg &&
+            sysnum != SYS_recvmsg_nocancel && sysnum != SYS_wait4 &&
+            sysnum != SYS_wait4_nocancel && sysnum != SYS_waitid &&
+            sysnum != SYS_waitid_nocancel &&
+#ifdef SYS_waitevent
             sysnum != SYS_waitevent &&
+#endif
             sysnum != SYS_ioctl);
 }
 
@@ -150,18 +152,33 @@ void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
-     * half of _STRUCT_X86_AVX_STATE*.
+     * half of _STRUCT_X86_AVX_STATE*, and similarly for AVX and AVX512.
      */
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i=0; i<NUM_SIMD_SLOTS; i++) {
-        memcpy(&mc->ymm[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
+    for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+        memcpy(&mc->simd[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i=0; i<NUM_SIMD_SLOTS; i++) {
-            memcpy(&mc->ymm[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&mc->simd[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
         }
     }
+#if DISABLED_UNTIL_AVX512_SUPPORT_ADDED
+    /* TODO i#1979/i#1312: See the comments in os_public.h: once we've resolved how
+     * to expose __darwin_mcontext_avx512_64 we'd enable the code here.
+     */
+    if (ZMM_ENABLED()) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&mc->simd[i].u32[8], &sc->__fs.__fpu_zmmh0 + i, ZMMH_REG_SIZE);
+        }
+#    ifdef X64
+        for (i = proc_num_simd_sse_avx_registers(); i < proc_num_simd_registers(); i++) {
+            memcpy(&mc->simd[i], &sc->__fs.__fpu_zmm16 + i, ZMM_REG_SIZE);
+        }
+#    endif
+    }
+#endif
 }
 
 void
@@ -169,14 +186,29 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i=0; i<NUM_SIMD_SLOTS; i++) {
-        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->ymm[i], XMM_REG_SIZE);
+    for (i = 0; i < proc_num_simd_registers(); i++) {
+        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->simd[i], XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i=0; i<NUM_SIMD_SLOTS; i++) {
-            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->ymm[i].u32[4], YMMH_REG_SIZE);
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->simd[i].u32[4], YMMH_REG_SIZE);
         }
     }
+#if DISABLED_UNTIL_AVX512_SUPPORT_ADDED
+    /* TODO i#1979/i#1312: See the comments in os_public.h: once we've resolved how
+     * to expose __darwin_mcontext_avx512_64 we'd enable the code here.
+     */
+    if (ZMM_ENABLED()) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_zmmh0 + i, &mc->simd[i].u32[8], ZMMH_REG_SIZE);
+        }
+#    ifdef X64
+        for (i = proc_num_simd_sse_avx_registers(); i < proc_num_simd_registers(); i++) {
+            memcpy(&sc->__fs.__fpu_zmm16 + i, &mc->simd[i], ZMM_REG_SIZE);
+        }
+#    endif
+    }
+#endif
 }
 
 static void
@@ -187,64 +219,66 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\tfsw=0x%04x\n", *(ushort *)&sc->__fs.__fpu_fsw);
     LOG(THREAD, LOG_ASYNCH, 1, "\tftw=0x%02x\n", sc->__fs.__fpu_ftw);
     LOG(THREAD, LOG_ASYNCH, 1, "\tfop=0x%04x\n", sc->__fs.__fpu_fop);
-    LOG(THREAD, LOG_ASYNCH, 1,  "\tip=0x%08x\n", sc->__fs.__fpu_ip);
-    LOG(THREAD, LOG_ASYNCH, 1,  "\tcs=0x%04x\n", sc->__fs.__fpu_cs);
-    LOG(THREAD, LOG_ASYNCH, 1,  "\tdp=0x%08x\n", sc->__fs.__fpu_dp);
-    LOG(THREAD, LOG_ASYNCH, 1,  "\tds=0x%04x\n", sc->__fs.__fpu_ds);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tip=0x%08x\n", sc->__fs.__fpu_ip);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tcs=0x%04x\n", sc->__fs.__fpu_cs);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tdp=0x%08x\n", sc->__fs.__fpu_dp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tds=0x%04x\n", sc->__fs.__fpu_ds);
     LOG(THREAD, LOG_ASYNCH, 1, "\tmxcsr=0x%08x\n", sc->__fs.__fpu_mxcsr);
     LOG(THREAD, LOG_ASYNCH, 1, "\tmxcsrmask=0x%08x\n", sc->__fs.__fpu_mxcsrmask);
-    for (i=0; i<8; i++) {
+    for (i = 0; i < 8; i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\tst%d = ", i);
-        for (j=0; j<5; j++) {
+        for (j = 0; j < 5; j++) {
             LOG(THREAD, LOG_ASYNCH, 1, "%04x ",
                 *((ushort *)(&sc->__fs.__fpu_stmm0 + i) + j));
         }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
-    for (i=0; i<NUM_SIMD_SLOTS; i++) {
+    /* XXX i#1312: this needs to get extended to AVX-512. */
+    for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
-        for (j=0; j<4; j++) {
+        for (j = 0; j < 4; j++) {
             LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
                 *((uint *)(&sc->__fs.__fpu_xmm0 + i) + j));
         }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
     if (YMM_ENABLED()) {
-        for (i=0; i<NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
             LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
-            for (j=0; j<4; j++) {
+            for (j = 0; j < 4; j++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
                     *((uint *)(&sc->__fs.__fpu_ymmh0 + i) + j));
             }
             LOG(THREAD, LOG_ASYNCH, 1, "\n");
         }
     }
+    /* XXX i#1312: AVX-512 extended register copies missing yet. */
 }
 
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    LOG(THREAD, LOG_ASYNCH, 1, "\txdi="PFX"\n", sc->SC_XDI);
-    LOG(THREAD, LOG_ASYNCH, 1, "\txsi="PFX"\n", sc->SC_XSI);
-    LOG(THREAD, LOG_ASYNCH, 1, "\txbp="PFX"\n", sc->SC_XBP);
-    LOG(THREAD, LOG_ASYNCH, 1, "\txsp="PFX"\n", sc->SC_XSP);
-    LOG(THREAD, LOG_ASYNCH, 1, "\txbx="PFX"\n", sc->SC_XBX);
-    LOG(THREAD, LOG_ASYNCH, 1, "\txdx="PFX"\n", sc->SC_XDX);
-    LOG(THREAD, LOG_ASYNCH, 1, "\txcx="PFX"\n", sc->SC_XCX);
-    LOG(THREAD, LOG_ASYNCH, 1, "\txax="PFX"\n", sc->SC_XAX);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txdi=" PFX "\n", sc->SC_XDI);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txsi=" PFX "\n", sc->SC_XSI);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txbp=" PFX "\n", sc->SC_XBP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txsp=" PFX "\n", sc->SC_XSP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txbx=" PFX "\n", sc->SC_XBX);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txdx=" PFX "\n", sc->SC_XDX);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txcx=" PFX "\n", sc->SC_XCX);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txax=" PFX "\n", sc->SC_XAX);
 #ifdef X64
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r8="PFX"\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r9="PFX"\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr10="PFX"\n", sc->r10);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr11="PFX"\n", sc->r11);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr12="PFX"\n", sc->r12);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr13="PFX"\n", sc->r13);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr14="PFX"\n", sc->r14);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr15="PFX"\n", sc->r15);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r8=" PFX "\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9=" PFX "\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr10=" PFX "\n", sc->SC_R10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr11=" PFX "\n", sc->SC_R11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr12=" PFX "\n", sc->SC_R12);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr13=" PFX "\n", sc->SC_R13);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr14=" PFX "\n", sc->SC_R14);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr15=" PFX "\n", sc->SC_R15);
 #endif
 
-    LOG(THREAD, LOG_ASYNCH, 1, "\txip="PFX"\n", sc->SC_XIP);
-    LOG(THREAD, LOG_ASYNCH, 1, "\teflags="PFX"\n", sc->SC_XFLAGS);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txip=" PFX "\n", sc->SC_XIP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\teflags=" PFX "\n", sc->SC_XFLAGS);
 
     LOG(THREAD, LOG_ASYNCH, 1, "\tcs=0x%04x\n", sc->__ss.__cs);
 #ifndef X64
@@ -257,15 +291,15 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\ttrapno=0x%04x\n", sc->__es.__trapno);
     LOG(THREAD, LOG_ASYNCH, 1, "\tcpu=0x%04x\n", sc->__es.__cpu);
     LOG(THREAD, LOG_ASYNCH, 1, "\terr=0x%08x\n", sc->__es.__err);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tfaultvaddr="PFX"\n", sc->__es.__faultvaddr);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfaultvaddr=" PFX "\n", sc->__es.__faultvaddr);
 
     dump_fpstate(dcontext, sc);
 }
 
 /* XXX i#1286: move to nudge_macos.c once we implement that */
 bool
-send_nudge_signal(process_id_t pid, uint action_mask,
-                  client_id_t client_id, uint64 client_arg)
+send_nudge_signal(process_id_t pid, uint action_mask, client_id_t client_id,
+                  uint64 client_arg)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1286: MacOS nudges NYI */
     return false;

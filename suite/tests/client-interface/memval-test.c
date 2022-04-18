@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,9 +31,10 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
+#    include "tools.h"
 
-void test_asm(void);
+void
+test_asm(void);
 
 int
 main(void)
@@ -45,11 +46,12 @@ main(void)
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 8
+# define FRAME_PADDING 0
 #else
 # define FRAME_PADDING 0
 #endif
@@ -57,11 +59,7 @@ START_FILE
 #define FUNCNAME test_asm
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         mov      REG_XBP, REG_XSP
         sub      REG_XSP, 256
@@ -90,9 +88,10 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XDI, REG_XBP
         sub      REG_XDI, 12
         mov      [REG_XBP - 80], REG_XBP
-        jmp      test
+        /* We can't use "test" as a label on Mac NASM. */
+        jmp      test_start
 
-     test:
+     test_start:
         mov      REG_XCX, [REG_XDI + 12]
         mov      REG_XDX, [REG_XBP - 72]
         mov      REG_XBX, [REG_XBP - 80]
@@ -106,12 +105,10 @@ GLOBAL_LABEL(FUNCNAME:)
      epilog:
         mov      REG_XSP, REG_XBP
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 END_FILE
+/* clang-format on */
 #endif

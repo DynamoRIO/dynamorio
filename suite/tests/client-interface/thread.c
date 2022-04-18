@@ -44,19 +44,19 @@ am_I_last_thread(void)
 {
     ULONG got;
     BOOL last;
-    GET_NTDLL(NtQueryInformationThread, (IN HANDLE ThreadHandle,
-                                         IN THREADINFOCLASS ThreadInformationClass,
-                                         OUT PVOID ThreadInformation,
-                                         IN ULONG ThreadInformationLength,
-                                         OUT PULONG ReturnLength OPTIONAL));
-    if (NT_SUCCESS(NtQueryInformationThread
-                   (GetCurrentThread(), ThreadAmILastThread, &last, sizeof(last), &got)))
+    GET_NTDLL(NtQueryInformationThread,
+              (IN HANDLE ThreadHandle, IN THREADINFOCLASS ThreadInformationClass,
+               OUT PVOID ThreadInformation, IN ULONG ThreadInformationLength,
+               OUT PULONG ReturnLength OPTIONAL));
+    if (NT_SUCCESS(NtQueryInformationThread(GetCurrentThread(), ThreadAmILastThread,
+                                            &last, sizeof(last), &got)))
         return last;
     return FALSE;
 }
 #endif
 
-int main()
+int
+main()
 {
 #ifdef WINDOWS
     HANDLE lib = LoadLibrary("client.thread.appdll.dll");
@@ -69,8 +69,23 @@ int main()
          * 7 nops isn't enough: win7's kernelbase!MultiByteToWideChar has 7.
          * 13 isn't either: win8.1's KERNELBASE!GetEnvironmentStringsW has 13.
          */
-        NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
-        NOP; NOP; NOP; NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        NOP;
         FreeLibrary(lib);
     }
     /* Test i#1489 by querying for last thread while client thread is active */
@@ -79,8 +94,23 @@ int main()
         print("thread transparency error\n");
 #else
     /* test creating thread here */
-    NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
-    NOP; NOP; NOP; NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
+    NOP;
 #endif
     print("thank you for testing the client interface\n");
 }

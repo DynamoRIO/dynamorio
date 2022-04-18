@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +41,7 @@
 
 /*
  * NOTE - I haven't tried running this with the dynamorio.dll in this directory so it
- * might not work. I've been using a tot VMAP=1 build of core.
+ * might not work. I've been using a tot build of core.
  *
  * ls *.dll > LIST
  * for i in $( cat LIST ) ; do ../vista_hash.exe $i; done > ../OUTPUT
@@ -48,15 +49,20 @@
 
 void
 dummy()
-{}
+{
+}
 
 static bool v = false;
 static bool vv = false;
 
-#define VVERBOSE_PRINT if (vv) printf
-#define VERBOSE_PRINT if (v) printf
+#define VVERBOSE_PRINT \
+    if (vv)            \
+    printf
+#define VERBOSE_PRINT \
+    if (v)            \
+    printf
 
-#define ASSERT(x) ((x) ? 0 : dr_messagebox("Error %d %s\n", __LINE__, #x) , 0)
+#define ASSERT(x) ((x) ? 0 : dr_messagebox("Error %d %s\n", __LINE__, #x), 0)
 
 #define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
 #define ALIGN_FORWARD(x, alignment) \
@@ -65,17 +71,17 @@ static bool vv = false;
 bool
 compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
 {
-    static byte copy_buf1_i[2*PAGE_SIZE+100];
-    static byte copy_buf2_i[2*PAGE_SIZE+100];
-    static byte buf1_i[2*PAGE_SIZE+100];
-    static byte buf2_i[2*PAGE_SIZE+100];
+    static byte copy_buf1_i[2 * PAGE_SIZE + 100];
+    static byte copy_buf2_i[2 * PAGE_SIZE + 100];
+    static byte buf1_i[2 * PAGE_SIZE + 100];
+    static byte buf2_i[2 * PAGE_SIZE + 100];
 
     byte *copy1 = (byte *)ALIGN_FORWARD(copy_buf1_i, PAGE_SIZE);
     byte *copy2 = (byte *)ALIGN_FORWARD(copy_buf2_i, PAGE_SIZE);
     byte *buf1 = (byte *)ALIGN_FORWARD(buf1_i, PAGE_SIZE);
     byte *buf2 = (byte *)ALIGN_FORWARD(buf2_i, PAGE_SIZE);
 
-    byte *p1 = copy1+start_offset, *p2 = copy2+start_offset;
+    byte *p1 = copy1 + start_offset, *p2 = copy2 + start_offset;
     byte *b1 = buf1, *c1 = buf1, *b2 = buf2, *c2 = buf2;
 
     int skipped_bytes1 = 0, skipped_identical_bytes1 = 0;
@@ -122,7 +128,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
                 num_bytes += 1;
             } else if (size <= 4) {
                 num_bytes += size; /* no 4-byte disp or imm */
-            } else if (size <= 6 ) {
+            } else if (size <= 6) {
                 num_bytes += size - 4; /* could have 4-byte disp or immed */
             } else if (size <= 7) {
                 num_bytes += size - 5; /* could have 4-byte disp and upto 1-byte immed
@@ -137,7 +143,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
                 *b1++ = *p1++;
             skipped_bytes1 += size - (num_bytes - num_prefix);
             for (i = 0; i < size - (num_bytes - num_prefix); i++) {
-                if (*p1 == *(copy2+(p1-copy1)))
+                if (*p1 == *(copy2 + (p1 - copy1)))
                     skipped_identical_bytes1++;
                 p1++;
             }
@@ -153,7 +159,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
                 num_bytes += 1;
             } else if (size <= 4) {
                 num_bytes += size;
-            } else if (size <=6 ) {
+            } else if (size <= 6) {
                 num_bytes += size - 4;
             } else if (size <= 7) {
                 num_bytes += size - 5;
@@ -166,7 +172,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
                 *b2++ = *p2++;
             skipped_bytes2 += size - (num_bytes - num_prefix);
             for (i = 0; i < size - (num_bytes - num_prefix); i++) {
-                if (*p2 == *(copy1+(p2-copy2)))
+                if (*p2 == *(copy1 + (p2 - copy2)))
                     skipped_identical_bytes2++;
                 p2++;
             }
@@ -183,11 +189,10 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
     }
     ASSERT(skipped_bytes1 == skipped_bytes2);
     ASSERT(skipped_identical_bytes1 == skipped_identical_bytes2);
-    VVERBOSE_PRINT("Match found! skipped=%d skipped_identical=%d\n",
-                   skipped_bytes1, skipped_identical_bytes1);
+    VVERBOSE_PRINT("Match found! skipped=%d skipped_identical=%d\n", skipped_bytes1,
+                   skipped_identical_bytes1);
     return true;
 }
-
 
 /* Note that we should keep an eye for potential additional qualifier
  * flags.  Alternatively we may simply mask off ~0xff to allow for any
@@ -208,11 +213,11 @@ prot_is_writable(uint prot)
 bool
 get_IAT_section_bounds(app_pc module_base, app_pc *iat_start, app_pc *iat_end)
 {
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) module_base;
-    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)module_base;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos) + dos->e_lfanew);
     IMAGE_DATA_DIRECTORY *dir;
-    if (dos->e_magic != IMAGE_DOS_SIGNATURE ||
-        nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE || nt == NULL ||
+        nt->Signature != IMAGE_NT_SIGNATURE)
         return false;
     dir = &OPT_HDR(nt, DataDirectory)[IMAGE_DIRECTORY_ENTRY_IAT];
     *iat_start = module_base + dir->VirtualAddress;
@@ -223,7 +228,9 @@ get_IAT_section_bounds(app_pc module_base, app_pc *iat_start, app_pc *iat_end)
 int
 usage(char *name)
 {
-    printf("Usage: %s [-v] [-vv] [-no_second_pass] [-second_pass_offset <val>] [-no_assume_IAT_written] [-spin_for_debugger] <dll>\n", name);
+    printf("Usage: %s [-v] [-vv] [-no_second_pass] [-second_pass_offset <val>] "
+           "[-no_assume_IAT_written] [-spin_for_debugger] <dll>\n",
+           name);
     return -1;
 }
 
@@ -237,7 +244,7 @@ main(int argc, char *argv[])
     uint writable_pages = 0, reserved_pages = 0, IAT_pages = 0;
     uint matched_pages = 0, second_matched_pages = 0, unmatched_pages = 0;
     uint exact_match_pages = 0, exact_no_match_pages = 0;
-    char reloc_file[MAX_PATH] = {0}, orig_file[MAX_PATH], *input_file;
+    char reloc_file[MAX_PATH] = { 0 }, orig_file[MAX_PATH], *input_file;
     uint old_size = 0, new_size = 0;
     uint old_base = 0, new_base = 0x69000000; /* unlikely to collide */
 
@@ -259,7 +266,7 @@ main(int argc, char *argv[])
         } else if (strcmp(argv[arg_offs], "-no_second_pass") == 0) {
             use_second_pass = false;
         } else if (strcmp(argv[arg_offs], "-second_pass_offset") == 0) {
-            if ((uint)argc <= arg_offs+1)
+            if ((uint)argc <= arg_offs + 1)
                 return usage(argv[0]);
             second_pass_offset = atoi(argv[++arg_offs]);
         } else if (strcmp(argv[arg_offs], "-no_assume_IAT_written") == 0) {
@@ -276,22 +283,22 @@ main(int argc, char *argv[])
         return usage(argv[0]);
 
     _snprintf(reloc_file, sizeof(reloc_file), "%s.reloc.dll", input_file);
-    reloc_file[sizeof(reloc_file)-1] = '\0';
+    reloc_file[sizeof(reloc_file) - 1] = '\0';
     if (!CopyFile(input_file, reloc_file, FALSE)) {
         LPSTR msg = NULL;
         uint error = GetLastError();
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ALLOCATE_BUFFER,
-                      0, GetLastError(), 0, msg, 0, NULL);
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, 0,
+                      GetLastError(), 0, msg, 0, NULL);
         VERBOSE_PRINT("Copy Error %d (0x%x) = %s\n", error, error, msg);
         return 1;
     }
     snprintf(orig_file, sizeof(orig_file), "%s.orig.dll", input_file);
-    orig_file[sizeof(orig_file)-1] = '\0';
+    orig_file[sizeof(orig_file) - 1] = '\0';
     if (!CopyFile(input_file, orig_file, FALSE)) {
         LPSTR msg = NULL;
         uint error = GetLastError();
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ALLOCATE_BUFFER,
-                      0, GetLastError(), 0, msg, 0, NULL);
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, 0,
+                      GetLastError(), 0, msg, 0, NULL);
         VERBOSE_PRINT("Copy Error %d (0x%x) = %s\n", error, error, msg);
         return 1;
     }
@@ -303,24 +310,22 @@ main(int argc, char *argv[])
     } else {
         LPSTR msg = NULL;
         uint error = GetLastError();
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ALLOCATE_BUFFER,
-                      0, GetLastError(), 0, msg, 0, NULL);
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, 0,
+                      GetLastError(), 0, msg, 0, NULL);
         VERBOSE_PRINT("Rebase Error %d (0x%x) = %s\n", error, error, msg);
         return 1;
     }
 
-    dll_1 = (byte *)ALIGN_BACKWARD(LoadLibraryExA(orig_file, NULL,
-                                                  DONT_RESOLVE_DLL_REFERENCES),
-                                   PAGE_SIZE);
+    dll_1 = (byte *)ALIGN_BACKWARD(
+        LoadLibraryExA(orig_file, NULL, DONT_RESOLVE_DLL_REFERENCES), PAGE_SIZE);
     p1 = dll_1;
-    dll_2 = (byte *)ALIGN_BACKWARD(LoadLibraryExA(reloc_file, NULL,
-                                                  DONT_RESOLVE_DLL_REFERENCES),
-                                   PAGE_SIZE);
+    dll_2 = (byte *)ALIGN_BACKWARD(
+        LoadLibraryExA(reloc_file, NULL, DONT_RESOLVE_DLL_REFERENCES), PAGE_SIZE);
     p2 = dll_2;
     VVERBOSE_PRINT("Loaded dll @ 0x%08x and 0x%08x\n", dll_1, dll_2);
 
     if (dll_1 == NULL || dll_2 == NULL) {
-        VERBOSE_PRINT( "Error loading %s\n", input_file);
+        VERBOSE_PRINT("Error loading %s\n", input_file);
         return 1;
     }
 
@@ -362,8 +367,8 @@ main(int argc, char *argv[])
             uint i;
             for (i = 0; i < info.RegionSize / PAGE_SIZE; i++) {
                 bool exact = false;
-                if (assume_IAT_written && has_iat &&
-                    iat_end1 > p1 && iat_start1 < p1 + PAGE_SIZE) {
+                if (assume_IAT_written && has_iat && iat_end1 > p1 &&
+                    iat_start1 < p1 + PAGE_SIZE) {
                     /* overlaps an IAT page */
                     IAT_pages++;
                     p1 += PAGE_SIZE;
@@ -402,48 +407,28 @@ main(int argc, char *argv[])
         }
     }
 
-    VERBOSE_PRINT("%d exact match, %d not exact match\n%d hash_match, %d second_hash_match, %d hash_mismatch\n",
-                  exact_match_pages, exact_no_match_pages, matched_pages, second_matched_pages, unmatched_pages);
+    VERBOSE_PRINT("%d exact match, %d not exact match\n%d hash_match, %d "
+                  "second_hash_match, %d hash_mismatch\n",
+                  exact_match_pages, exact_no_match_pages, matched_pages,
+                  second_matched_pages, unmatched_pages);
 
-    printf("%s : %d pages - %d w %d res %d IAT = %d same %d differ : %d hash differ %d first hash differ : %d%% found, %d%% found first hash\n",
-           input_file, writable_pages + reserved_pages + IAT_pages + exact_match_pages + exact_no_match_pages,
-           writable_pages, reserved_pages, IAT_pages,
-           exact_match_pages, exact_no_match_pages,
-           unmatched_pages, unmatched_pages + second_matched_pages,
-           (100 * (matched_pages + second_matched_pages - exact_match_pages))/exact_no_match_pages,
-           (100 * (matched_pages - exact_match_pages))/exact_no_match_pages);
+    printf("%s : %d pages - %d w %d res %d IAT = %d same %d differ : %d hash differ %d "
+           "first hash differ : %d%% found, %d%% found first hash\n",
+           input_file,
+           writable_pages + reserved_pages + IAT_pages + exact_match_pages +
+               exact_no_match_pages,
+           writable_pages, reserved_pages, IAT_pages, exact_match_pages,
+           exact_no_match_pages, unmatched_pages, unmatched_pages + second_matched_pages,
+           (100 * (matched_pages + second_matched_pages - exact_match_pages)) /
+               exact_no_match_pages,
+           (100 * (matched_pages - exact_match_pages)) / exact_no_match_pages);
 
     while (spin_for_debugger)
         Sleep(1000);
 
+    dr_standalone_exit();
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #if 0
 /* First tried something like this, but we hit too many issues in decode and encode */

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2020 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -60,8 +60,20 @@ install_target(drcpusim ${INSTALL_CLIENTS_LIB})
 set(INSTALL_DRCPUSIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
+  # We include the alternate-bitwidth path, though it won't be there for
+  # a single build dir and such a child will have a fatal error.
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   file(WRITE  ${dst} "# drcpusim tool config file\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcpusim${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drcpusim${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drcpusim${LIB_EXT}\n")
 endfunction ()
 
 if (X64)
@@ -95,8 +107,6 @@ if (WIN32)
 endif ()
 use_DynamoRIO_extension(drcpusim_ops droption)
 
-get_target_property(ops_path drcpusim_ops LOCATION${location_suffix})
-
 # We then have to insert it into the doxygen files at build time:
 set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcpusim.dox.in)
 set(gendoc ${CMAKE_CURRENT_BINARY_DIR}/drcpusim.dox)
@@ -117,6 +127,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
-       -D prog=${ops_path}
+       -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
+       -D prog=$<TARGET_FILE:drcpusim_ops>
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)

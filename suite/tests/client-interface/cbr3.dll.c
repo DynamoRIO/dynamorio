@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,11 +62,7 @@
  */
 #define HASH_TABLE_SIZE 7919
 
-typedef enum {
-    CBR_NONE      = 0x00,
-    CBR_TAKEN     = 0x01,
-    CBR_NOT_TAKEN = 0x10
-} cbr_state_t;
+typedef enum { CBR_NONE = 0x00, CBR_TAKEN = 0x01, CBR_NOT_TAKEN = 0x10 } cbr_state_t;
 
 typedef struct _elem_t {
     struct _elem_t *next;
@@ -78,46 +75,44 @@ typedef struct _list_t {
     elem_t *tail;
 } list_t;
 
-
 /* Global hash table */
 typedef list_t **hash_table_t;
 hash_table_t table = NULL;
 
-static inline
-elem_t *new_elem(app_pc addr, cbr_state_t state)
+static inline elem_t *
+new_elem(app_pc addr, cbr_state_t state)
 {
     elem_t *elem = (elem_t *)dr_global_alloc(sizeof(elem_t));
     ASSERT(elem != NULL);
 
-    elem->next  = NULL;
-    elem->addr  = addr;
+    elem->next = NULL;
+    elem->addr = addr;
     elem->state = state;
 
     return elem;
 }
 
-static inline
-void delete_elem(elem_t *elem)
+static inline void
+delete_elem(elem_t *elem)
 {
     dr_global_free(elem, sizeof(elem_t));
 }
 
-static inline
-void append(list_t *list, elem_t *elem)
+static inline void
+append(list_t *list, elem_t *elem)
 {
     if (list->head == NULL) {
         ASSERT(list->tail == NULL);
         list->head = elem;
         list->tail = elem;
-    }
-    else {
+    } else {
         list->tail->next = elem;
         list->tail = elem;
     }
 }
 
-static inline
-elem_t *find(list_t *list, app_pc addr)
+static inline elem_t *
+find(list_t *list, app_pc addr)
 {
     elem_t *elem = list->head;
     while (elem != NULL) {
@@ -129,8 +124,8 @@ elem_t *find(list_t *list, app_pc addr)
     return NULL;
 }
 
-static inline
-list_t *new_list()
+static inline list_t *
+new_list()
 {
     list_t *list = (list_t *)dr_global_alloc(sizeof(list_t));
     list->head = NULL;
@@ -138,8 +133,8 @@ list_t *new_list()
     return list;
 }
 
-static inline
-void delete_list(list_t *list)
+static inline void
+delete_list(list_t *list)
 {
     elem_t *iter = list->head;
     while (iter != NULL) {
@@ -151,23 +146,25 @@ void delete_list(list_t *list)
     dr_global_free(list, sizeof(list_t));
 }
 
-hash_table_t new_table()
+hash_table_t
+new_table()
 {
     int i;
-    hash_table_t table = (hash_table_t)dr_global_alloc
-        (sizeof(list_t *) * HASH_TABLE_SIZE);
+    hash_table_t table =
+        (hash_table_t)dr_global_alloc(sizeof(list_t *) * HASH_TABLE_SIZE);
 
-    for (i=0; i<HASH_TABLE_SIZE; i++) {
+    for (i = 0; i < HASH_TABLE_SIZE; i++) {
         table[i] = NULL;
     }
 
     return table;
 }
 
-void delete_table(hash_table_t table)
+void
+delete_table(hash_table_t table)
 {
     int i;
-    for (i=0; i<HASH_TABLE_SIZE; i++) {
+    for (i = 0; i < HASH_TABLE_SIZE; i++) {
         if (table[i] != NULL) {
             delete_list(table[i]);
         }
@@ -176,13 +173,14 @@ void delete_table(hash_table_t table)
     dr_global_free(table, sizeof(list_t *) * HASH_TABLE_SIZE);
 }
 
-static inline
-uint hash_func(app_pc addr)
+static inline uint
+hash_func(app_pc addr)
 {
-    return (uint) ((ptr_uint_t)addr % HASH_TABLE_SIZE);
+    return (uint)((ptr_uint_t)addr % HASH_TABLE_SIZE);
 }
 
-elem_t *lookup(hash_table_t table, app_pc addr)
+elem_t *
+lookup(hash_table_t table, app_pc addr)
 {
     list_t *list = table[hash_func(addr)];
     if (list != NULL)
@@ -191,7 +189,8 @@ elem_t *lookup(hash_table_t table, app_pc addr)
     return NULL;
 }
 
-void insert(hash_table_t table, app_pc addr, cbr_state_t state)
+void
+insert(hash_table_t table, app_pc addr, cbr_state_t state)
 {
     elem_t *elem = new_elem(addr, state);
 
@@ -209,9 +208,12 @@ void insert(hash_table_t table, app_pc addr, cbr_state_t state)
  * End hash table implementation
  */
 
-static void at_taken(app_pc src, app_pc targ)
+static void
+at_taken(app_pc src, app_pc targ)
 {
-    dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     void *drcontext = dr_get_current_drcontext();
 
     /*
@@ -230,14 +232,16 @@ static void at_taken(app_pc src, app_pc targ)
      */
     dr_flush_region(src, 1);
     dr_get_mcontext(drcontext, &mcontext);
-    mcontext.pc = targ;
+    mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), targ);
     dr_redirect_execution(&mcontext);
 }
 
-
-static void at_not_taken(app_pc src, app_pc fall)
+static void
+at_not_taken(app_pc src, app_pc fall)
 {
-    dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     void *drcontext = dr_get_current_drcontext();
 
     /*
@@ -260,20 +264,19 @@ static void at_not_taken(app_pc src, app_pc fall)
     dr_redirect_execution(&mcontext);
 }
 
+app_pc start_pc = NULL;  /* pc to start instrumenting */
+app_pc stop_pc = NULL;   /* pc to stop instrumenting */
+bool instrument = false; /* insert instrumentation? */
 
-app_pc start_pc = NULL;         /* pc to start instrumenting */
-app_pc stop_pc = NULL;          /* pc to stop instrumenting */
-bool instrument = false;        /* insert instrumentation? */
-
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
 
     app_pc bb_addr = dr_fragment_app_pc(tag);
     if (bb_addr == start_pc) {
         instrument = true;
-    }
-    else if (bb_addr == stop_pc) {
+    } else if (bb_addr == stop_pc) {
         instrument = false;
     }
 
@@ -307,8 +310,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
             if (elem == NULL) {
                 state = CBR_NONE;
                 insert(table, src, CBR_NONE);
-            }
-            else {
+            } else {
                 state = elem->state;
             }
 
@@ -340,21 +342,21 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                     /*
                      * Callout for the not-taken case
                      */
-                    dr_insert_clean_call(drcontext, bb, NULL,
-                                         (void*)at_not_taken,
-                                         false /* don't save fp state */,
-                                         2 /* 2 args for at_not_taken */,
-                                         OPND_CREATE_INTPTR((ptr_uint_t)src),
-                                         OPND_CREATE_INTPTR((ptr_uint_t)fall));
+                    dr_insert_clean_call_ex(drcontext, bb, NULL, (void *)at_not_taken,
+                                            DR_CLEANCALL_READS_APP_CONTEXT |
+                                                DR_CLEANCALL_MULTIPATH,
+                                            2 /* 2 args for at_not_taken */,
+                                            OPND_CREATE_INTPTR((ptr_uint_t)src),
+                                            OPND_CREATE_INTPTR((ptr_uint_t)fall));
                 }
 
                 /*
                  * Jump to the original fall-through address.
                  * (This should not be a meta-instruction).
                  */
-                instrlist_preinsert
-                    (bb, NULL, INSTR_XL8
-                     (INSTR_CREATE_jmp(drcontext, opnd_create_pc(fall)), fall));
+                instrlist_preinsert(
+                    bb, NULL,
+                    INSTR_XL8(INSTR_CREATE_jmp(drcontext, opnd_create_pc(fall)), fall));
 
                 /* label goes before the 'taken' callout */
                 MINSERT(bb, NULL, label);
@@ -363,21 +365,20 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                     /*
                      * Callout for the taken case
                      */
-                    dr_insert_clean_call(drcontext, bb, NULL,
-                                         (void*)at_taken,
-                                         false /* don't save fp state */,
-                                         2 /* 2 args for at_taken */,
-                                         OPND_CREATE_INTPTR((ptr_uint_t)src),
-                                         OPND_CREATE_INTPTR((ptr_uint_t)targ));
+                    dr_insert_clean_call_ex(
+                        drcontext, bb, NULL, (void *)at_taken,
+                        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH,
+                        2 /* 2 args for at_taken */, OPND_CREATE_INTPTR((ptr_uint_t)src),
+                        OPND_CREATE_INTPTR((ptr_uint_t)targ));
                 }
 
                 /*
                  * Jump to the original target block (this should
                  * not be a meta-instruction).
                  */
-                instrlist_preinsert
-                    (bb, NULL, INSTR_XL8
-                     (INSTR_CREATE_jmp(drcontext, opnd_create_pc(targ)), targ));
+                instrlist_preinsert(
+                    bb, NULL,
+                    INSTR_XL8(INSTR_CREATE_jmp(drcontext, opnd_create_pc(targ)), targ));
             }
         }
     }
@@ -387,15 +388,15 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
     return DR_EMIT_STORE_TRANSLATIONS;
 }
 
-
-void dr_exit(void)
+void
+dr_exit(void)
 {
     delete_table(table);
 }
 
-
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     /* Look up start_instrument() and stop_instrument() in the app.
      * These functions are markers that tell us when to start and stop

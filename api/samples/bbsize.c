@@ -41,11 +41,12 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drx.h"
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
 #define ALIGN_FORWARD(x, alignment) \
@@ -56,16 +57,16 @@ static int num_bb;
 static double ave_size;
 static int max_size;
 
-static void event_exit(void);
-static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         OUT void **user_data);
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Sample Client 'bbsize'",
-                       "http://dynamorio.org/issues");
+    dr_set_client_name("DynamoRIO Sample Client 'bbsize'", "http://dynamorio.org/issues");
     num_bb = 0;
     ave_size = 0.;
     max_size = 0;
@@ -76,10 +77,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client bbsize is running\n");
     }
 #endif
@@ -94,13 +95,13 @@ event_exit(void)
     /* Note that using %f with dr_printf or dr_fprintf on Windows will print
      * garbage as they use ntdll._vsnprintf, so we must use dr_snprintf.
      */
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Number of basic blocks seen: %d\n"
                       "               Maximum size: %d instructions\n"
                       "               Average size: %5.1f instructions\n",
                       num_bb, max_size, ave_size);
     DR_ASSERT(len > 0);
-    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    msg[sizeof(msg) / sizeof(msg[0]) - 1] = '\0';
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     dr_mutex_destroy(stats_mutex);
@@ -108,38 +109,34 @@ event_exit(void)
 }
 
 static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating, OUT void **user_data)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data)
 {
-    instr_t *instr;
     int cur_size = 0;
 
     /* we use fp ops so we have to save fp state */
     byte fp_raw[DR_FPSTATE_BUF_SIZE + DR_FPSTATE_ALIGN];
-    byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
+    byte *fp_align = (byte *)ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
 
     if (translating)
         return DR_EMIT_DEFAULT;
 
     proc_save_fpstate(fp_align);
 
-    for (instr  = instrlist_first_app(bb);
-         instr != NULL;
-         instr  = instr_get_next_app(instr))
-        cur_size++;
+    cur_size = (int)drx_instrlist_app_size(bb);
 
     dr_mutex_lock(stats_mutex);
 #ifdef VERBOSE_VERBOSE
     dr_fprintf(STDERR,
                "Average: cur=%d, old=%8.1f, num=%d, old*num=%8.1f\n"
                "\told*num+cur=%8.1f, new=%8.1f\n",
-               cur_size, ave_size, num_bb, ave_size*num_bb,
+               cur_size, ave_size, num_bb, ave_size * num_bb,
                (ave_size * num_bb) + cur_size,
-               ((ave_size * num_bb) + cur_size) / (double) (num_bb+1));
+               ((ave_size * num_bb) + cur_size) / (double)(num_bb + 1));
 #endif
     if (cur_size > max_size)
         max_size = cur_size;
-    ave_size = ((ave_size * num_bb) + cur_size) / (double) (num_bb+1);
+    ave_size = ((ave_size * num_bb) + cur_size) / (double)(num_bb + 1);
     num_bb++;
     dr_mutex_unlock(stats_mutex);
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,27 +44,23 @@
 #include "parser.h"
 #include <stdio.h>
 
-
 #ifndef UNIT_TEST
-
 
 void
 configpath_to_registry_path(WCHAR *path)
 {
-    UINT i=0;
+    UINT i = 0;
 
     if (NULL == path)
         return;
 
     for (i = 0; i < wcslen(path); i++)
-        if(CONFIG_PATH_SEPARATOR == path[i])
+        if (CONFIG_PATH_SEPARATOR == path[i])
             path[i] = L'\\';
 }
 
-
 DWORD
-get_key_handle(HKEY *key, HKEY parent, const WCHAR *path,
-               BOOL absolute, DWORD flags)
+get_key_handle(HKEY *key, HKEY parent, const WCHAR *path, BOOL absolute, DWORD flags)
 {
     WCHAR keyname[MAX_PATH];
 
@@ -72,24 +68,18 @@ get_key_handle(HKEY *key, HKEY parent, const WCHAR *path,
 
     if (path == NULL) {
         wcsncpy(keyname, CONFIGURATION_ROOT_REGISTRY_KEY, MAX_PATH);
-    }
-    else if (parent == NULL && !absolute) {
-        _snwprintf(keyname, MAX_PATH, L"%s\\%s",
-                   CONFIGURATION_ROOT_REGISTRY_KEY, path);
-    }
-    else {
+    } else if (parent == NULL && !absolute) {
+        _snwprintf(keyname, MAX_PATH, L"%s\\%s", CONFIGURATION_ROOT_REGISTRY_KEY, path);
+    } else {
         wcsncpy(keyname, path, MAX_PATH);
     }
 
-    DO_DEBUG(DL_VERB,
-             printf("get_key_handle using %S as keyname\n", keyname);
-             );
+    DO_DEBUG(DL_VERB, printf("get_key_handle using %S as keyname\n", keyname););
 
     configpath_to_registry_path(keyname);
 
-    return RegCreateKeyEx(parent == NULL ? DYNAMORIO_REGISTRY_HIVE : parent,
-                          keyname, 0, NULL, REG_OPTION_NON_VOLATILE,
-                          platform_key_flags() | flags,
+    return RegCreateKeyEx(parent == NULL ? DYNAMORIO_REGISTRY_HIVE : parent, keyname, 0,
+                          NULL, REG_OPTION_NON_VOLATILE, platform_key_flags() | flags,
                           NULL, key, NULL);
 }
 
@@ -101,7 +91,7 @@ get_child(const WCHAR *name, ConfigGroup *c)
     if (c == NULL)
         return NULL;
 
-    for(cur = c->children; NULL != cur; cur = cur->next) {
+    for (cur = c->children; NULL != cur; cur = cur->next) {
         if (0 == wcsicmp(name, cur->name))
             return cur;
     }
@@ -117,7 +107,7 @@ remove_child(const WCHAR *child, ConfigGroup *config)
     if (NULL == config)
         return;
 
-    for(cur = config->children; NULL != cur; cur = cur->next) {
+    for (cur = config->children; NULL != cur; cur = cur->next) {
         if (0 == wcsicmp(child, cur->name)) {
             if (NULL == prev)
                 config->children = cur->next;
@@ -140,7 +130,7 @@ count_params(ConfigGroup *c)
 {
     int i = 0;
     NameValuePairNode *cur;
-    for(cur = c->params; NULL != cur; cur = cur->next)
+    for (cur = c->params; NULL != cur; cur = cur->next)
         i++;
     return i;
 }
@@ -153,7 +143,7 @@ is_param(const WCHAR *name, ConfigGroup *c)
     if (c == NULL)
         return FALSE;
 
-    for(cur = c->params; NULL != cur; cur = cur->next) {
+    for (cur = c->params; NULL != cur; cur = cur->next) {
         if (0 == wcsicmp(name, cur->name))
             return TRUE;
     }
@@ -205,7 +195,7 @@ remove_children(ConfigGroup *config)
 {
     ConfigGroup *cur = config->children, *prev;
 
-    while(NULL != cur) {
+    while (NULL != cur) {
         prev = cur;
         cur = cur->next;
         free_config_group(prev);
@@ -218,8 +208,7 @@ remove_children(ConfigGroup *config)
 NameValuePairNode *
 new_nvp_node(const WCHAR *name)
 {
-    NameValuePairNode *nvp =
-        (NameValuePairNode *)malloc(sizeof(NameValuePairNode));
+    NameValuePairNode *nvp = (NameValuePairNode *)malloc(sizeof(NameValuePairNode));
     nvp->next = NULL;
     nvp->name = wcsdup(name);
     nvp->value = NULL;
@@ -246,7 +235,7 @@ free_config_group(ConfigGroup *config)
 
     remove_children(config);
 
-    while(nvpn != NULL) {
+    while (nvpn != NULL) {
         tmp = nvpn->next;
         free_nvp(nvpn);
         nvpn = tmp;
@@ -284,8 +273,7 @@ add_nvp_node(ConfigGroup *config, const WCHAR *name)
 }
 
 void
-set_config_group_parameter(ConfigGroup *config,
-                           const WCHAR *name, const WCHAR *value)
+set_config_group_parameter(ConfigGroup *config, const WCHAR *name, const WCHAR *value)
 {
     NameValuePairNode *nvpn = get_nvp_node(config, name);
 
@@ -309,7 +297,7 @@ remove_config_group_parameter(ConfigGroup *config, const WCHAR *name)
     if (NULL == config || NULL == name)
         return;
 
-    for(cur = config->params; NULL != cur; cur = cur->next) {
+    for (cur = config->params; NULL != cur; cur = cur->next) {
         if (0 == wcsicmp(cur->name, name)) {
             if (NULL == prev)
                 config->params = cur->next;
@@ -339,15 +327,13 @@ get_config_group_parameter_int(ConfigGroup *config, const WCHAR *name)
 }
 
 void
-set_config_group_parameter_bool(ConfigGroup *config, const WCHAR *name,
-                                BOOL value)
+set_config_group_parameter_bool(ConfigGroup *config, const WCHAR *name, BOOL value)
 {
     set_config_group_parameter(config, name, value ? L"TRUE" : L"FALSE");
 }
 
 void
-set_config_group_parameter_int(ConfigGroup *config, const WCHAR *name,
-                               int value)
+set_config_group_parameter_int(ConfigGroup *config, const WCHAR *name, int value)
 {
     WCHAR buf[MAX_PATH];
     _snwprintf(buf, MAX_PATH, L"%d", value);
@@ -355,12 +341,11 @@ set_config_group_parameter_int(ConfigGroup *config, const WCHAR *name,
 }
 
 void
-set_config_group_parameter_ascii(ConfigGroup *config, const WCHAR *name,
-                                 char *value)
+set_config_group_parameter_ascii(ConfigGroup *config, const WCHAR *name, char *value)
 {
     WCHAR buf[MAX_PATH];
     _snwprintf(buf, MAX_PATH, L"%S", value);
-    buf[MAX_PATH-1] = L'\0';
+    buf[MAX_PATH - 1] = L'\0';
     set_config_group_parameter(config, name, buf);
 }
 
@@ -373,8 +358,7 @@ set_config_group_parameter_scrambled(ConfigGroup *config, const WCHAR *name,
     WCHAR buf[MAX_PATH];
     UINT i = 0;
     while (value[i] != 0 && i < MAX_PATH - 1) {
-        buf[i] = (WCHAR)
-            (((value[i] & 0x00ff) << 8) + ((value[i] & 0xff00) >> 8));
+        buf[i] = (WCHAR)(((value[i] & 0x00ff) << 8) + ((value[i] & 0xff00) >> 8));
         i++;
     }
     buf[i] = L'\0';
@@ -389,26 +373,22 @@ get_config_group_parameter_scrambled(ConfigGroup *config, const WCHAR *name,
     UINT i = 0;
 
     if (value == NULL) {
-        buffer [0] = L'\0';
+        buffer[0] = L'\0';
         return;
     }
 
     while (value[i] != 0 && i < maxchars - 1) {
-        buffer[i] = (WCHAR)
-            (((value[i] & 0x00ff) << 8) + ((value[i] & 0xff00) >> 8));
+        buffer[i] = (WCHAR)(((value[i] & 0x00ff) << 8) + ((value[i] & 0xff00) >> 8));
         i++;
     }
     buffer[i] = L'\0';
 }
 
-
 void
 add_config_group(ConfigGroup *parent, ConfigGroup *new_child)
 {
     if (NULL != get_child(new_child->name, parent)) {
-        DO_DEBUG(DL_WARN,
-                 printf("adding multiple child: %S\n", new_child->name);
-                 );
+        DO_DEBUG(DL_WARN, printf("adding multiple child: %S\n", new_child->name););
     }
 
     if (parent->children == NULL)
@@ -421,17 +401,14 @@ add_config_group(ConfigGroup *parent, ConfigGroup *new_child)
     new_child->next = NULL;
 }
 
-typedef DWORD (*custom_config_read_handler)(ConfigGroup *config,
-                                            const WCHAR *name,
+typedef DWORD (*custom_config_read_handler)(ConfigGroup *config, const WCHAR *name,
                                             const WCHAR *value);
 
-#define CURRENT_MODES_VERSION 42000
-#define MAX_MODES_FILE_SIZE (64*1024)
+#    define CURRENT_MODES_VERSION 42000
+#    define MAX_MODES_FILE_SIZE (64 * 1024)
 
 DWORD
-custom_hotp_modes_read_handler(ConfigGroup *config,
-                               const WCHAR *name,
-                               const WCHAR *value)
+custom_hotp_modes_read_handler(ConfigGroup *config, const WCHAR *name, const WCHAR *value)
 {
     char modes_file[MAX_MODES_FILE_SIZE];
     WCHAR modes_path[MAX_PATH];
@@ -447,12 +424,11 @@ custom_hotp_modes_read_handler(ConfigGroup *config,
         return ERROR_SUCCESS;
 
     /* read in modes file */
-    _snwprintf(modes_path, MAX_PATH, L"%s\\%d\\%S",
-               value, CURRENT_MODES_VERSION, HOTP_MODES_FILENAME);
+    _snwprintf(modes_path, MAX_PATH, L"%s\\%d\\%S", value, CURRENT_MODES_VERSION,
+               HOTP_MODES_FILENAME);
     modes_path[MAX_PATH - 1] = L'\0';
 
-    res = read_file_contents(modes_path, modes_file,
-                             MAX_MODES_FILE_SIZE, &needed);
+    res = read_file_contents(modes_path, modes_file, MAX_MODES_FILE_SIZE, &needed);
 
     /* if the modes file isn't there, no worries; assume no modes */
     if (ERROR_FILE_NOT_FOUND == res)
@@ -468,19 +444,15 @@ custom_hotp_modes_read_handler(ConfigGroup *config,
     hotp_config = new_config_group(L_DYNAMORIO_VAR_HOT_PATCH_MODES);
 
     /* modes_file has contents, now sscanf and set all nvp. */
-    modes_line = parse_line_sep(modes_file, ':', &done,
-                                parambuf, valbuf, MAX_PATH);
-    DO_DEBUG(DL_VERB,
-             printf("hotp modes first line %S:%S\n", parambuf, valbuf);
-             );
+    modes_line = parse_line_sep(modes_file, ':', &done, parambuf, valbuf, MAX_PATH);
+    DO_DEBUG(DL_VERB, printf("hotp modes first line %S:%S\n", parambuf, valbuf););
 
     /* expect num lines first */
     if (valbuf[0] != '\0')
         return ERROR_PARSE_ERROR;
 
     while (!done) {
-        modes_line = parse_line_sep(modes_line, ':', &done,
-                                    parambuf, valbuf, MAX_PATH);
+        modes_line = parse_line_sep(modes_line, ':', &done, parambuf, valbuf, MAX_PATH);
         if (done)
             break;
         set_config_group_parameter(hotp_config, parambuf, valbuf);
@@ -505,8 +477,8 @@ get_custom_config_read_handler(const WCHAR *name)
 }
 
 static DWORD
-read_config_group_from_registry(HKEY parent, ConfigGroup **configptr,
-                                const WCHAR *name, BOOL recursive)
+read_config_group_from_registry(HKEY parent, ConfigGroup **configptr, const WCHAR *name,
+                                BOOL recursive)
 {
     HKEY config_key = NULL;
     ConfigGroup *config = NULL;
@@ -518,13 +490,11 @@ read_config_group_from_registry(HKEY parent, ConfigGroup **configptr,
 
     if (name == NULL) {
         config_key = parent;
-    }
-    else {
+    } else {
         WCHAR translated_name[MAX_PATH];
         wcsncpy(translated_name, name, MAX_PATH);
         configpath_to_registry_path(translated_name);
-        res = RegOpenKeyEx(parent, translated_name, 0,
-                           platform_key_flags() | KEY_READ,
+        res = RegOpenKeyEx(parent, translated_name, 0, platform_key_flags() | KEY_READ,
                            &config_key);
         if (res != ERROR_SUCCESS)
             goto read_config_out;
@@ -536,13 +506,12 @@ read_config_group_from_registry(HKEY parent, ConfigGroup **configptr,
     for (idx = 0; /* TRUE */; idx++) {
         keySz = MAX_PATH;
         valSz = sizeof(keyvalue);
-        res = RegEnumValue(config_key, idx, keyname, &keySz,
-                           0, NULL, (LPBYTE) keyvalue, &valSz);
+        res = RegEnumValue(config_key, idx, keyname, &keySz, 0, NULL, (LPBYTE)keyvalue,
+                           &valSz);
         if (res == ERROR_NO_MORE_ITEMS) {
             res = ERROR_SUCCESS;
             break;
-        }
-        else if (res != ERROR_SUCCESS) {
+        } else if (res != ERROR_SUCCESS) {
             goto read_config_out;
         }
 
@@ -550,8 +519,7 @@ read_config_group_from_registry(HKEY parent, ConfigGroup **configptr,
             res = handler(config, keyname, keyvalue);
             if (res != ERROR_SUCCESS)
                 goto read_config_out;
-        }
-        else {
+        } else {
             set_config_group_parameter(config, keyname, keyvalue);
         }
     }
@@ -561,18 +529,16 @@ read_config_group_from_registry(HKEY parent, ConfigGroup **configptr,
         ConfigGroup *child_config;
 
         keySz = MAX_PATH;
-        res = RegEnumKeyEx(config_key, idx, keyname, &keySz,
-                           0, NULL, NULL, &writetime);
+        res = RegEnumKeyEx(config_key, idx, keyname, &keySz, 0, NULL, NULL, &writetime);
         if (res == ERROR_NO_MORE_ITEMS) {
             res = ERROR_SUCCESS;
             break;
-        }
-        else if (res != ERROR_SUCCESS) {
+        } else if (res != ERROR_SUCCESS) {
             goto read_config_out;
         }
 
-        res = read_config_group_from_registry(config_key, &child_config,
-                                              keyname, recursive);
+        res = read_config_group_from_registry(config_key, &child_config, keyname,
+                                              recursive);
         if (res != ERROR_SUCCESS)
             return res;
 
@@ -581,7 +547,7 @@ read_config_group_from_registry(HKEY parent, ConfigGroup **configptr,
 
     *configptr = config;
 
- read_config_out:
+read_config_out:
 
     if (NULL != config_key && NULL != name)
         RegCloseKey(config_key);
@@ -610,13 +576,10 @@ read_config_group(ConfigGroup **configptr, const WCHAR *name,
     RegCloseKey(rootkey);
 
     return res;
-
 }
 
-typedef DWORD (*custom_config_write_handler)(HKEY parent,
-                                             ConfigGroup *config,
+typedef DWORD (*custom_config_write_handler)(HKEY parent, ConfigGroup *config,
                                              ConfigGroup *config_parent);
-
 
 DWORD
 custom_hotp_modes_write_handler(HKEY parent, ConfigGroup *config,
@@ -638,20 +601,17 @@ custom_hotp_modes_write_handler(HKEY parent, ConfigGroup *config,
      *  config dir. */
     if (0 == wcscmp(L_PRODUCT_NAME, config_parent->name)) {
         _snwprintf(modes_key, MAX_PATH, L"%s\\config", get_dynamorio_home());
-    }
-    else {
-        _snwprintf(modes_key, MAX_PATH, L"%s\\config\\%s",
-                   get_dynamorio_home(), config_parent->name);
+    } else {
+        _snwprintf(modes_key, MAX_PATH, L"%s\\config\\%s", get_dynamorio_home(),
+                   config_parent->name);
     }
     modes_key[MAX_PATH - 1] = L'\0';
 
     /* now write modes file content; name=patch ID, value=mode */
-    _snprintf(modes_file_contents, MAX_MODES_FILE_SIZE,
-              "%d\n", count_params(config));
+    _snprintf(modes_file_contents, MAX_MODES_FILE_SIZE, "%d\n", count_params(config));
     modes_file_contents[MAX_MODES_FILE_SIZE - 1] = '\0';
     for (nvpn = config->params; NULL != nvpn; nvpn = nvpn->next) {
-        _snprintf(modes_file_line, MAX_PATH, "%S:%S\n",
-                  nvpn->name, nvpn->value);
+        _snprintf(modes_file_line, MAX_PATH, "%S:%S\n", nvpn->name, nvpn->value);
         modes_file_line[MAX_PATH - 1] = '\0';
         strncat(modes_file_contents, modes_file_line,
                 MAX_MODES_FILE_SIZE - strlen(modes_file_contents));
@@ -663,22 +623,18 @@ custom_hotp_modes_write_handler(HKEY parent, ConfigGroup *config,
     }
 
     /* first, mkdir -p */
-    _snwprintf(modes_file, MAX_PATH, L"%s\\%d\\%S",
-               modes_key, CURRENT_MODES_VERSION, HOTP_MODES_FILENAME);
+    _snwprintf(modes_file, MAX_PATH, L"%s\\%d\\%S", modes_key, CURRENT_MODES_VERSION,
+               HOTP_MODES_FILENAME);
     modes_file[MAX_PATH - 1] = L'\0';
     ensure_directory_exists_for_file(modes_file);
 
     /* and then write file */
-    res = write_file_contents_if_different(modes_file,
-                                           modes_file_contents,
-                                           &changed);
+    res = write_file_contents_if_different(modes_file, modes_file_contents, &changed);
     if (res != ERROR_SUCCESS)
         return res;
 
     /* finally, write the filename to the modes key */
-    return write_reg_string(parent,
-                            L_DYNAMORIO_VAR_HOT_PATCH_MODES,
-                            modes_key);
+    return write_reg_string(parent, L_DYNAMORIO_VAR_HOT_PATCH_MODES, modes_key);
 }
 
 custom_config_write_handler
@@ -705,23 +661,19 @@ write_config_group_to_registry(HKEY parent, ConfigGroup *config,
 
     if (NULL == config->name) {
         config_key = parent;
-    }
-    else if (NULL != (handler = get_custom_config_write_handler(config))) {
+    } else if (NULL != (handler = get_custom_config_write_handler(config))) {
         res = handler(parent, config, parent_config);
         if (res != ERROR_SUCCESS)
             goto write_config_out;
         /* only continue down the chain if custom-handled */
         if (NULL != config->next) {
-            res = write_config_group_to_registry(parent,
-                                                 config->next,
-                                                 parent_config);
+            res = write_config_group_to_registry(parent, config->next, parent_config);
         }
         goto write_config_out;
-    }
-    else {
+    } else {
         /* open or create */
         res = get_key_handle(&config_key, parent, config->name, FALSE,
-                             KEY_WRITE|KEY_ENUMERATE_SUB_KEYS);
+                             KEY_WRITE | KEY_ENUMERATE_SUB_KEYS);
         if (res != ERROR_SUCCESS)
             goto write_config_out;
     }
@@ -732,8 +684,7 @@ write_config_group_to_registry(HKEY parent, ConfigGroup *config,
         if (0 == wcscmp(nvpn->value, L_DELETE_PARAMETER_KEY)) {
             RegDeleteValue(config_key, nvpn->name);
             res = ERROR_SUCCESS;
-        }
-        else {
+        } else {
             res = write_reg_string(config_key, nvpn->name, nvpn->value);
         }
         if (res != ERROR_SUCCESS)
@@ -742,23 +693,19 @@ write_config_group_to_registry(HKEY parent, ConfigGroup *config,
 
     /* write the children */
     if (NULL != config->children) {
-        res = write_config_group_to_registry(config_key,
-                                             config->children,
-                                             config);
+        res = write_config_group_to_registry(config_key, config->children, config);
         if (res != ERROR_SUCCESS)
             goto write_config_out;
     }
 
     /* continue down the chain */
     if (NULL != config->next) {
-        res = write_config_group_to_registry(parent,
-                                             config->next,
-                                             parent_config);
+        res = write_config_group_to_registry(parent, config->next, parent_config);
         if (res != ERROR_SUCCESS)
             goto write_config_out;
     }
 
- write_config_out:
+write_config_out:
 
     if (NULL != config_key && NULL != config->name)
         RegCloseKey(config_key);
@@ -783,7 +730,7 @@ recursive_delete_key(HKEY parent, const WCHAR *keyname, ConfigGroup *filter)
     DWORD res, keySz, idx;
     ConfigGroup *child;
 
-    res = get_key_handle(&subkey, parent, keyname, TRUE, KEY_WRITE|KEY_READ);
+    res = get_key_handle(&subkey, parent, keyname, TRUE, KEY_WRITE | KEY_READ);
     if (res != ERROR_SUCCESS)
         goto recursive_delete_out;
 
@@ -791,13 +738,11 @@ recursive_delete_key(HKEY parent, const WCHAR *keyname, ConfigGroup *filter)
     for (idx = 0;;) {
         /* note that since deleting, we always pass index 0 */
         keySz = MAX_PATH;
-        res = RegEnumKeyEx(subkey, idx, subkeyname, &keySz,
-                           0, NULL, NULL, &writetime);
+        res = RegEnumKeyEx(subkey, idx, subkeyname, &keySz, 0, NULL, NULL, &writetime);
         if (res == ERROR_NO_MORE_ITEMS) {
             res = ERROR_SUCCESS;
             break;
-        }
-        else if (res != ERROR_SUCCESS) {
+        } else if (res != ERROR_SUCCESS) {
             goto recursive_delete_out;
         }
 
@@ -818,13 +763,11 @@ recursive_delete_key(HKEY parent, const WCHAR *keyname, ConfigGroup *filter)
         /* prune values too */
         for (idx = 0;;) {
             keySz = MAX_PATH;
-            res = RegEnumValue(subkey, idx, subkeyname, &keySz,
-                               0, NULL, NULL, NULL);
+            res = RegEnumValue(subkey, idx, subkeyname, &keySz, 0, NULL, NULL, NULL);
             if (res == ERROR_NO_MORE_ITEMS) {
                 res = ERROR_SUCCESS;
                 break;
-            }
-            else if (res != ERROR_SUCCESS) {
+            } else if (res != ERROR_SUCCESS) {
                 goto recursive_delete_out;
             }
 
@@ -835,8 +778,7 @@ recursive_delete_key(HKEY parent, const WCHAR *keyname, ConfigGroup *filter)
                  get_custom_config_read_handler(subkeyname))) {
                 /* if we're not deleting, increment the index */
                 idx++;
-            }
-            else {
+            } else {
                 res = RegDeleteValue(subkey, subkeyname);
                 if (res != ERROR_SUCCESS)
                     goto recursive_delete_out;
@@ -855,7 +797,7 @@ recursive_delete_key(HKEY parent, const WCHAR *keyname, ConfigGroup *filter)
         res = delete_product_key(parent, keyname);
     }
 
- recursive_delete_out:
+recursive_delete_out:
 
     if (subkey != NULL)
         RegCloseKey(subkey);
@@ -869,8 +811,7 @@ write_config_group(ConfigGroup *config)
     HKEY rootkey;
     DWORD res;
 
-    res = get_key_handle(&rootkey, NULL, NULL, FALSE,
-                         KEY_WRITE|KEY_ENUMERATE_SUB_KEYS);
+    res = get_key_handle(&rootkey, NULL, NULL, FALSE, KEY_WRITE | KEY_ENUMERATE_SUB_KEYS);
     if (res != ERROR_SUCCESS)
         return res;
 
@@ -886,12 +827,11 @@ write_config_group(ConfigGroup *config)
     return res;
 }
 
-
 /* single parameter config functions */
 
 DWORD
-set_config_parameter(const WCHAR *path, BOOL absolute,
-                     const WCHAR *name, const WCHAR *value)
+set_config_parameter(const WCHAR *path, BOOL absolute, const WCHAR *name,
+                     const WCHAR *value)
 {
     HKEY rootkey;
     DWORD res;
@@ -908,8 +848,8 @@ set_config_parameter(const WCHAR *path, BOOL absolute,
 }
 
 DWORD
-get_config_parameter(const WCHAR *path, BOOL absolute,
-                     const WCHAR *name, WCHAR *value, int maxlen)
+get_config_parameter(const WCHAR *path, BOOL absolute, const WCHAR *name, WCHAR *value,
+                     int maxlen)
 {
     HKEY rootkey;
     DWORD res;
@@ -928,9 +868,8 @@ get_config_parameter(const WCHAR *path, BOOL absolute,
 DWORD
 read_reg_string(HKEY subkey, const WCHAR *keyname, WCHAR *value, int valchars)
 {
-    DWORD len = valchars*sizeof(WCHAR);
-    return RegQueryValueEx(subkey, keyname, 0, NULL,
-                           (LPBYTE) value, &len);
+    DWORD len = valchars * sizeof(WCHAR);
+    return RegQueryValueEx(subkey, keyname, 0, NULL, (LPBYTE)value, &len);
 }
 
 /* if value is NULL, the key will be deleted */
@@ -938,28 +877,25 @@ DWORD
 write_reg_string(HKEY subkey, const WCHAR *keyname, const WCHAR *value)
 {
     if (value)
-        return RegSetValueEx(subkey, keyname, 0, REG_SZ, (LPBYTE) value,
-                             (DWORD)(wcslen(value)+1)*sizeof(WCHAR));
+        return RegSetValueEx(subkey, keyname, 0, REG_SZ, (LPBYTE)value,
+                             (DWORD)(wcslen(value) + 1) * sizeof(WCHAR));
     else
         return RegDeleteValue(subkey, keyname);
 }
 
-
 /* process identification routines */
-
 
 /* tries both with and without no_strip */
 ConfigGroup *
-get_qualified_config_group(ConfigGroup *config,
-                           const WCHAR *exename, const WCHAR *cmdline)
+get_qualified_config_group(ConfigGroup *config, const WCHAR *exename,
+                           const WCHAR *cmdline)
 {
     WCHAR qname[MAX_PATH];
     ConfigGroup *c;
 
     /* need to try both with and without NO_STRIP! */
     _snwprintf(qname, MAX_PATH, L"%s-", exename);
-    if (get_commandline_qualifier(cmdline,
-                                  qname + wcslen(qname),
+    if (get_commandline_qualifier(cmdline, qname + wcslen(qname),
                                   (UINT)(MAX_PATH - wcslen(qname)), FALSE)) {
         c = get_child(qname, config);
         if (NULL != c)
@@ -967,8 +903,7 @@ get_qualified_config_group(ConfigGroup *config,
     }
 
     _snwprintf(qname, MAX_PATH, L"%s-", exename);
-    if (get_commandline_qualifier(cmdline,
-                                  qname + wcslen(qname),
+    if (get_commandline_qualifier(cmdline, qname + wcslen(qname),
                                   (UINT)(MAX_PATH - wcslen(qname)), TRUE)) {
         c = get_child(qname, config);
         if (NULL != c)
@@ -1019,11 +954,9 @@ get_process_config_group(ConfigGroup *config, process_id_t pid)
     return c;
 }
 
-
 /******************
  * list functions *
  ******************/
-
 
 /*
  * given a ;-separated list and a filename, return a pointer to
@@ -1047,17 +980,15 @@ get_entry_location(const WCHAR *list, const WCHAR *filename, WCHAR separator)
 
         /* make sure it's not just a substring */
         if ((last == separator || last == L'\0') &&
-            (entry == lowerlist || *(entry - 1) == separator ||
-             *(entry - 1) == L'\\' || *(entry - 1) == L'/')) {
+            (entry == lowerlist || *(entry - 1) == separator || *(entry - 1) == L'\\' ||
+             *(entry - 1) == L'/')) {
             /* everything's cool; now put the path back in and translate */
             WCHAR *cur = lowerlist;
-            while (NULL != wcschr(cur, separator) &&
-                   wcschr(cur, separator) < entry)
+            while (NULL != wcschr(cur, separator) && wcschr(cur, separator) < entry)
                 cur = wcschr(cur, separator) + 1;
-            entry = ((WCHAR *) list) + (cur - lowerlist);
+            entry = ((WCHAR *)list) + (cur - lowerlist);
             break;
-        }
-        else {
+        } else {
             entry = wcsstr(entry + 1, lowername);
         }
     }
@@ -1076,9 +1007,8 @@ is_in_file_list(const WCHAR *list, const WCHAR *filename, WCHAR separator)
 
 /* returns a new list which needs to be freed, and frees old list */
 WCHAR *
-add_to_file_list(WCHAR *list, const WCHAR *filename,
-                 BOOL check_for_duplicates, BOOL add_to_front,
-                 BOOL overwrite_existing, WCHAR separator)
+add_to_file_list(WCHAR *list, const WCHAR *filename, BOOL check_for_duplicates,
+                 BOOL add_to_front, BOOL overwrite_existing, WCHAR separator)
 {
     WCHAR *new_list;
     SIZE_T new_list_size;
@@ -1098,12 +1028,9 @@ add_to_file_list(WCHAR *list, const WCHAR *filename,
 
     if (wcslen(list) == 0) {
         wcsncpy(new_list, filename, new_list_size);
-    }
-    else {
-        _snwprintf(new_list, new_list_size, L"%s%c%s",
-                   add_to_front ? filename : list,
-                   separator,
-                   add_to_front ? list : filename);
+    } else {
+        _snwprintf(new_list, new_list_size, L"%s%c%s", add_to_front ? filename : list,
+                   separator, add_to_front ? list : filename);
     }
 
     free(list);
@@ -1115,7 +1042,7 @@ add_to_file_list(WCHAR *list, const WCHAR *filename,
 WCHAR *
 new_file_list(SIZE_T initial_chars)
 {
-    WCHAR *list = (WCHAR *)malloc(sizeof(WCHAR) * (1+initial_chars));
+    WCHAR *list = (WCHAR *)malloc(sizeof(WCHAR) * (1 + initial_chars));
     *list = L'\0';
     return list;
 }
@@ -1143,27 +1070,25 @@ remove_from_file_list(WCHAR *list, const WCHAR *filename, WCHAR separator)
             *entry = L'\0';
         else
             *(entry - 1) = L'\0';
-    }
-    else {
+    } else {
         /* note the whole wcslen(end_of_entry) to get the null
          *  terminator (since we're doing end_of_entry + 1)
          *
          * note that memmove handles appropriately the case
          *  where the src and dest regions overlap. */
-        memmove(entry, end_of_entry + 1,
-                (wcslen(end_of_entry)) * sizeof(WCHAR));
+        memmove(entry, end_of_entry + 1, (wcslen(end_of_entry)) * sizeof(WCHAR));
     }
 
     /* recurse for multiple occurrences */
     remove_from_file_list(list, filename, separator);
 }
 
-#define BLACK 0
-#define WHITE 1
+#    define BLACK 0
+#    define WHITE 1
 
 BOOL
-filter(WCHAR *list, const WCHAR *filter, DWORD black_or_white,
-       BOOL check_only, WCHAR separator)
+filter(WCHAR *list, const WCHAR *filter, DWORD black_or_white, BOOL check_only,
+       WCHAR separator)
 {
     WCHAR *working_list, *cur, *next;
     BOOL satisfied = TRUE, remove_entry;
@@ -1204,28 +1129,23 @@ filter(WCHAR *list, const WCHAR *filter, DWORD black_or_white,
 }
 
 BOOL
-blacklist_filter(WCHAR *list, const WCHAR *blacklist,
-                 BOOL check_only, WCHAR separator)
+blocklist_filter(WCHAR *list, const WCHAR *blocklist, BOOL check_only, WCHAR separator)
 {
-    return filter(list, blacklist, BLACK, check_only, separator);
+    return filter(list, blocklist, BLACK, check_only, separator);
 }
 
 BOOL
-whitelist_filter(WCHAR *list, const WCHAR *whitelist,
-                 BOOL check_only, WCHAR separator)
+allowlist_filter(WCHAR *list, const WCHAR *allowlist, BOOL check_only, WCHAR separator)
 {
-    return filter(list, whitelist, WHITE, check_only, separator);
+    return filter(list, allowlist, WHITE, check_only, separator);
 }
-
-
 
 /* appinit key */
 
 DWORD
-set_autoinjection_ex(BOOL inject, DWORD flags,
-                     const WCHAR *blacklist, const WCHAR *whitelist,
-                     /* OUT */ DWORD *list_error,
-                     const WCHAR *custom_preinject_name,
+set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
+                     const WCHAR *allowlist,
+                     /* OUT */ DWORD *list_error, const WCHAR *custom_preinject_name,
                      /* OUT */ WCHAR *current_list, SIZE_T maxchars)
 {
     WCHAR curlist[MAX_PARAM_LEN];
@@ -1235,8 +1155,8 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
     BOOL list_ok_ = TRUE;
     BOOL using_system32 = using_system32_for_preinject(custom_preinject_name);
 
-    res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L,
-                               curlist, MAX_PARAM_LEN);
+    res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, curlist,
+                               MAX_PARAM_LEN);
     if (res != ERROR_SUCCESS) {
         /* if it's not there, then we create it */
         curlist[0] = L'\0';
@@ -1248,8 +1168,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
     if (NULL != current_list)
         wcsncpy(current_list, curlist, maxchars);
 
-    if (using_system32 &&
-        TEST(APPINIT_SYS32_CLEAR_OTHERS, flags)){
+    if (using_system32 && TEST(APPINIT_SYS32_CLEAR_OTHERS, flags)) {
         /* if we're using system32, and the clear flag is set, clear it */
         curlist[0] = L'\0';
     }
@@ -1258,8 +1177,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
         res = get_preinject_name(preinject_name, MAX_PATH);
         if (res != ERROR_SUCCESS)
             return res;
-    }
-    else {
+    } else {
         wcsncpy(preinject_name, custom_preinject_name, MAX_PATH);
     }
 
@@ -1290,9 +1208,8 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
              * upgrade issues, at risk of messing up another product
              * w/ a dll of the same name.
              */
-            CopyFile(src_path, dst_path, FALSE/*don't fail if exists*/);
-        }
-        else {
+            CopyFile(src_path, dst_path, FALSE /*don't fail if exists*/);
+        } else {
             /* FIXME: do we want to use delete_file_rename_in_use?
              * this should only be called at uninstall or by
              *  tools users, so there shouldn't be any problem
@@ -1317,8 +1234,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
 
     if (inject) {
         BOOL force_overwrite;
-        WCHAR *old = get_entry_location(list, preinject_name,
-                                        APPINIT_SEPARATOR_CHAR);
+        WCHAR *old = get_entry_location(list, preinject_name, APPINIT_SEPARATOR_CHAR);
 
         /* first, if there's something there, make sure it exists. if
          *  not, remove it before proceeding (to ensure overwrite)
@@ -1335,8 +1251,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
                     *firstsep = L'\0';
                 force_overwrite = !file_exists(tmpbuf);
             }
-        }
-        else {
+        } else {
             /* force overwrite if someone cared enough to set one of these */
             force_overwrite =
                 TEST((APPINIT_FORCE_TO_FRONT | APPINIT_FORCE_TO_BACK), flags);
@@ -1348,30 +1263,27 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
          *  to the front if neither are set. */
         list = add_to_file_list(list, preinject_name, TRUE,
                                 TEST(APPINIT_FORCE_TO_FRONT, flags) ||
-                                ! TEST(APPINIT_FORCE_TO_BACK, flags),
+                                    !TEST(APPINIT_FORCE_TO_BACK, flags),
                                 force_overwrite, APPINIT_SEPARATOR_CHAR);
-    }
-    else {
+    } else {
         remove_from_file_list(list, preinject_name, APPINIT_SEPARATOR_CHAR);
     }
 
-
-    if (TEST(APPINIT_USE_WHITELIST, flags)) {
-        if (NULL == whitelist)
+    if (TEST(APPINIT_USE_ALLOWLIST, flags)) {
+        if (NULL == allowlist)
             res = ERROR_INVALID_PARAMETER;
         else
-            list_ok_ = whitelist_filter(list, whitelist,
-                                        TEST(APPINIT_CHECK_LISTS_ONLY, flags),
-                                        APPINIT_SEPARATOR_CHAR);
-    }
-    else if (TEST(APPINIT_USE_BLACKLIST, flags)) {
-        /* else if since whitelist subsumes blacklist */
-        if (NULL == blacklist)
+            list_ok_ =
+                allowlist_filter(list, allowlist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
+                                 APPINIT_SEPARATOR_CHAR);
+    } else if (TEST(APPINIT_USE_BLOCKLIST, flags)) {
+        /* else if since allowlist subsumes blocklist */
+        if (NULL == blocklist)
             res = ERROR_INVALID_PARAMETER;
         else
-            list_ok_ = blacklist_filter(list, blacklist,
-                                        TEST(APPINIT_CHECK_LISTS_ONLY, flags),
-                                        APPINIT_SEPARATOR_CHAR);
+            list_ok_ =
+                blocklist_filter(list, blocklist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
+                                 APPINIT_SEPARATOR_CHAR);
     }
 
     if (list_error != NULL && !list_ok_)
@@ -1382,7 +1294,6 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
 
     if (!list_ok_ && TEST(APPINIT_BAIL_ON_LIST_VIOLATION, flags))
         remove_from_file_list(list, preinject_name, APPINIT_SEPARATOR_CHAR);
-
 
     /* now, system32 flag checks */
     if (using_system32) {
@@ -1397,10 +1308,8 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
                 *list_error = ERROR_LENGTH_VIOLATION;
 
             if (TEST(APPINIT_SYS32_FAIL_ON_LENGTH_ERROR, flags)) {
-                remove_from_file_list(list, preinject_name,
-                                      APPINIT_SEPARATOR_CHAR);
-            }
-            else {
+                remove_from_file_list(list, preinject_name, APPINIT_SEPARATOR_CHAR);
+            } else {
                 /* truncate, if the flags specify it. */
                 if (TEST(APPINIT_SYS32_TRUNCATE, flags)) {
                     list[APPINIT_SYSTEM32_LENGTH_LIMIT] = L'\0';
@@ -1411,8 +1320,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
 
     /* only write if it's changed */
     if (0 != wcscmp(list, curlist)) {
-        res = set_config_parameter(INJECT_ALL_KEY_L, TRUE,
-                                   INJECT_ALL_SUBKEY_L, list);
+        res = set_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, list);
         if (res != ERROR_SUCCESS)
             return res;
     }
@@ -1457,8 +1365,8 @@ is_autoinjection_set()
     WCHAR list[MAX_PARAM_LEN], preinject[MAX_PATH];
     DWORD res;
 
-    res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L,
-                               list, MAX_PARAM_LEN);
+    res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, list,
+                               MAX_PARAM_LEN);
     if (res != ERROR_SUCCESS)
         return FALSE;
 
@@ -1475,8 +1383,8 @@ is_custom_autoinjection_set(const WCHAR *preinject)
     WCHAR list[MAX_PARAM_LEN];
     DWORD res;
 
-    res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L,
-                               list, MAX_PARAM_LEN);
+    res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, list,
+                               MAX_PARAM_LEN);
     if (res != ERROR_SUCCESS)
         return FALSE;
     return is_in_file_list(list, preinject, APPINIT_SEPARATOR_CHAR);
@@ -1509,13 +1417,12 @@ set_loadappinit_value(DWORD value)
     if (!is_vista())
         return ERROR_UNSUPPORTED_OS;
 
-    res = get_key_handle(&rootkey, INJECT_ALL_HIVE, INJECT_ALL_KEY_L,
-                         TRUE, KEY_WRITE);
+    res = get_key_handle(&rootkey, INJECT_ALL_HIVE, INJECT_ALL_KEY_L, TRUE, KEY_WRITE);
     if (res != ERROR_SUCCESS)
         return res;
 
-    res = RegSetValueEx(rootkey, INJECT_ALL_LOAD_SUBKEY_L, 0, REG_DWORD,
-                        (LPBYTE) &value, sizeof(value));
+    res = RegSetValueEx(rootkey, INJECT_ALL_LOAD_SUBKEY_L, 0, REG_DWORD, (LPBYTE)&value,
+                        sizeof(value));
     if (res != ERROR_SUCCESS)
         return res;
 
@@ -1526,7 +1433,7 @@ set_loadappinit_value(DWORD value)
          */
         DWORD disable = 0;
         res = RegSetValueEx(rootkey, INJECT_ALL_SIGN_SUBKEY_L, 0, REG_DWORD,
-                            (LPBYTE) &disable, sizeof(disable));
+                            (LPBYTE)&disable, sizeof(disable));
     }
     return res;
 }
@@ -1536,7 +1443,6 @@ set_loadappinit()
 {
     return set_loadappinit_value(1);
 }
-
 
 DWORD
 unset_loadappinit()
@@ -1552,13 +1458,12 @@ is_loadappinit_set()
     DWORD size = sizeof(value);
     DWORD res;
 
-    res = get_key_handle(&rootkey, INJECT_ALL_HIVE, INJECT_ALL_KEY_L,
-                         TRUE, KEY_READ);
+    res = get_key_handle(&rootkey, INJECT_ALL_HIVE, INJECT_ALL_KEY_L, TRUE, KEY_READ);
     if (res != ERROR_SUCCESS)
         return res;
 
-    res = RegQueryValueEx(rootkey, INJECT_ALL_LOAD_SUBKEY_L, NULL, NULL,
-                          (LPBYTE) &value, &size);
+    res = RegQueryValueEx(rootkey, INJECT_ALL_LOAD_SUBKEY_L, NULL, NULL, (LPBYTE)&value,
+                          &size);
 
     return (res == ERROR_SUCCESS && value != 0);
 }
@@ -1601,7 +1506,7 @@ destroy_eventlog()
                 wcsncpy(tmp_buf, type, BUFFER_SIZE_ELEMENTS(tmp_buf));
                 NULL_TERMINATE_BUFFER(tmp_buf);
                 wcsncpy(truncate_start, tmp_buf,
-                        BUFFER_SIZE_ELEMENTS(file_exp)-(truncate_start-file_exp));
+                        BUFFER_SIZE_ELEMENTS(file_exp) - (truncate_start - file_exp));
                 NULL_TERMINATE_BUFFER(file_exp);
                 /* If in use by the eventlog can't delete or re-name */
                 if (!DeleteFile(file_exp))
@@ -1621,8 +1526,8 @@ create_eventlog(const WCHAR *dll_path)
     DWORD dvalue;
     DWORD res;
 
-    res = get_key_handle(&eventlog_key, EVENTLOG_HIVE, L_EVENT_LOG_SUBKEY,
-                         TRUE, KEY_WRITE);
+    res =
+        get_key_handle(&eventlog_key, EVENTLOG_HIVE, L_EVENT_LOG_SUBKEY, TRUE, KEY_WRITE);
     if (res != ERROR_SUCCESS)
         return res;
 
@@ -1633,50 +1538,47 @@ create_eventlog(const WCHAR *dll_path)
     }
     /* REG_EXPAND_SZ since we use %systemroot% in the path which needs
      * to be expanded */
-    res = RegSetValueEx(eventlog_key, L_EVENT_FILE_VALUE_NAME, 0,
-                        REG_EXPAND_SZ, (LPBYTE) wvalue,
-                        (DWORD)(wcslen(wvalue)+1)*sizeof(WCHAR));
+    res = RegSetValueEx(eventlog_key, L_EVENT_FILE_VALUE_NAME, 0, REG_EXPAND_SZ,
+                        (LPBYTE)wvalue, (DWORD)(wcslen(wvalue) + 1) * sizeof(WCHAR));
     if (res != ERROR_SUCCESS)
         return res;
 
     dvalue = EVENT_MAX_SIZE;
     res = RegSetValueEx(eventlog_key, L_EVENT_MAX_SIZE_NAME, 0, REG_DWORD,
-                        (LPBYTE) &dvalue, sizeof(dvalue));
+                        (LPBYTE)&dvalue, sizeof(dvalue));
     if (res != ERROR_SUCCESS)
         return res;
 
     dvalue = EVENT_RETENTION;
     res = RegSetValueEx(eventlog_key, L_EVENT_RETENTION_NAME, 0, REG_DWORD,
-                        (LPBYTE) &dvalue, sizeof(dvalue));
+                        (LPBYTE)&dvalue, sizeof(dvalue));
     if (res != ERROR_SUCCESS)
         return res;
 
-    res = get_key_handle(&eventsrc_key, EVENTLOG_HIVE, L_EVENT_SOURCE_SUBKEY,
-                         TRUE, KEY_WRITE);
+    res = get_key_handle(&eventsrc_key, EVENTLOG_HIVE, L_EVENT_SOURCE_SUBKEY, TRUE,
+                         KEY_WRITE);
     if (res != ERROR_SUCCESS)
         return res;
 
     dvalue = EVENT_TYPES_SUPPORTED;
-    res = RegSetValueEx(eventsrc_key, L_EVENT_TYPES_SUPPORTED_NAME, 0,
-                        REG_DWORD, (LPBYTE) &dvalue, sizeof(dvalue));
+    res = RegSetValueEx(eventsrc_key, L_EVENT_TYPES_SUPPORTED_NAME, 0, REG_DWORD,
+                        (LPBYTE)&dvalue, sizeof(dvalue));
     if (res != ERROR_SUCCESS)
         return res;
 
     dvalue = EVENT_CATEGORY_COUNT;
-    res = RegSetValueEx(eventsrc_key, L_EVENT_CATEGORY_COUNT_NAME, 0,
-                        REG_DWORD, (LPBYTE) &dvalue, sizeof(dvalue));
+    res = RegSetValueEx(eventsrc_key, L_EVENT_CATEGORY_COUNT_NAME, 0, REG_DWORD,
+                        (LPBYTE)&dvalue, sizeof(dvalue));
     if (res != ERROR_SUCCESS)
         return res;
 
     res = RegSetValueEx(eventsrc_key, L_EVENT_CATEGORY_FILE_NAME, 0, REG_SZ,
-                        (LPBYTE) dll_path,
-                        (DWORD)(wcslen(dll_path)+1)*sizeof(WCHAR));
+                        (LPBYTE)dll_path, (DWORD)(wcslen(dll_path) + 1) * sizeof(WCHAR));
     if (res != ERROR_SUCCESS)
         return res;
 
-    res = RegSetValueEx(eventsrc_key, L_EVENT_MESSAGE_FILE, 0, REG_SZ,
-                        (LPBYTE) dll_path,
-                        (DWORD)(wcslen(dll_path)+1)*sizeof(WCHAR));
+    res = RegSetValueEx(eventsrc_key, L_EVENT_MESSAGE_FILE, 0, REG_SZ, (LPBYTE)dll_path,
+                        (DWORD)(wcslen(dll_path) + 1) * sizeof(WCHAR));
     if (res != ERROR_SUCCESS)
         return res;
 
@@ -1698,8 +1600,8 @@ copy_earlyhelper_dlls(const WCHAR *dir)
      * and number 2 doesn't the loader will raise an error (and we're pre-image
      * entry point so it becomes a "process failed to initialize" error).
      */
-    _snwprintf(src_path, BUFFER_SIZE_ELEMENTS(src_path),
-               L"%s\\%s", dir, L_EXPAND_LEVEL(INJECT_HELPER_DLL2_NAME));
+    _snwprintf(src_path, BUFFER_SIZE_ELEMENTS(src_path), L"%s\\%s", dir,
+               L_EXPAND_LEVEL(INJECT_HELPER_DLL2_NAME));
     NULL_TERMINATE_BUFFER(src_path);
 
     /* Get system32 path */
@@ -1713,11 +1615,11 @@ copy_earlyhelper_dlls(const WCHAR *dir)
      * clobber so we can upgrade nicely (at risk of clobbering
      * some other product's same-name dll)
      */
-    if (!CopyFile(src_path, dst_path, FALSE/*don't fail if exists*/))
+    if (!CopyFile(src_path, dst_path, FALSE /*don't fail if exists*/))
         return GetLastError();
 
-    _snwprintf(src_path, BUFFER_SIZE_ELEMENTS(src_path),
-               L"%s\\%s", dir, L_EXPAND_LEVEL(INJECT_HELPER_DLL1_NAME));
+    _snwprintf(src_path, BUFFER_SIZE_ELEMENTS(src_path), L"%s\\%s", dir,
+               L_EXPAND_LEVEL(INJECT_HELPER_DLL1_NAME));
     NULL_TERMINATE_BUFFER(src_path);
 
     /* Get system32 path, again: we could cache it */
@@ -1727,7 +1629,7 @@ copy_earlyhelper_dlls(const WCHAR *dir)
     wcsncat(dst_path, L"\\" L_EXPAND_LEVEL(INJECT_HELPER_DLL1_NAME),
             BUFFER_SIZE_ELEMENTS(dst_path) - wcslen(dst_path));
 
-    if (!CopyFile(src_path, dst_path, FALSE/*don't fail if exists*/))
+    if (!CopyFile(src_path, dst_path, FALSE /*don't fail if exists*/))
         return GetLastError();
 
     /* FIXME PR 232738: add a param for removing the files */
@@ -1738,8 +1640,7 @@ copy_earlyhelper_dlls(const WCHAR *dir)
 void
 dump_nvp(NameValuePairNode *nvpn)
 {
-    printf("%S=%S", nvpn->name,
-           nvpn->value == NULL ? L"<null>" : nvpn->value);
+    printf("%S=%S", nvpn->name, nvpn->value == NULL ? L"<null>" : nvpn->value);
 }
 
 void
@@ -1747,11 +1648,10 @@ dump_config_group(char *prefix, char *incr, ConfigGroup *c, BOOL traverse)
 {
     NameValuePairNode *nvpn = NULL;
 
-    printf("%sConfig Group: %S\n", prefix,
-           c->name == NULL ? L"<null>" : c->name);
+    printf("%sConfig Group: %S\n", prefix, c->name == NULL ? L"<null>" : c->name);
     printf("%sshould_clear: %d\n", prefix, c->should_clear);
     printf("%sparams:\n", prefix);
-    for(nvpn = c->params; NULL != nvpn; nvpn = nvpn->next) {
+    for (nvpn = c->params; NULL != nvpn; nvpn = nvpn->next) {
         printf("%s%s%s", prefix, incr, incr);
         dump_nvp(nvpn);
         printf("\n");
@@ -1766,10 +1666,7 @@ dump_config_group(char *prefix, char *incr, ConfigGroup *c, BOOL traverse)
     }
 }
 
-
 #else // ifdef UNIT_TEST
-
-
 
 int
 main()
@@ -1791,43 +1688,39 @@ main()
     {
         DO_ASSERT_WSTR_EQ(L"", list1);
 
-        list1 = add_to_file_list(list1, L"c:\\foo.dll",
-                                 TRUE, TRUE, FALSE, sep);
+        list1 = add_to_file_list(list1, L"c:\\foo.dll", TRUE, TRUE, FALSE, sep);
         DO_ASSERT_WSTR_EQ(L"c:\\foo.dll", list1);
 
-        list1 = add_to_file_list(list1, L"C:\\bar.dll",
-                                 TRUE, TRUE, FALSE, sep);
+        list1 = add_to_file_list(list1, L"C:\\bar.dll", TRUE, TRUE, FALSE, sep);
         DO_ASSERT_WSTR_EQ(L"C:\\bar.dll;c:\\foo.dll", list1);
 
-        list1 = add_to_file_list(list1, L"foo.dll",
-                                 TRUE, TRUE, FALSE, sep);
+        list1 = add_to_file_list(list1, L"foo.dll", TRUE, TRUE, FALSE, sep);
         DO_ASSERT_WSTR_EQ(L"C:\\bar.dll;c:\\foo.dll", list1);
 
-        list1 = add_to_file_list(list1, L"C:\\shr\\Foo.dll",
-                                 TRUE, TRUE, FALSE, sep);
+        list1 = add_to_file_list(list1, L"C:\\shr\\Foo.dll", TRUE, TRUE, FALSE, sep);
         DO_ASSERT_WSTR_EQ(L"C:\\bar.dll;c:\\foo.dll", list1);
 
-        list1 = add_to_file_list(list1, L"C:\\shr\\Foo.dll",
-                                 FALSE, TRUE, FALSE, sep);
+        list1 = add_to_file_list(list1, L"C:\\shr\\Foo.dll", FALSE, TRUE, FALSE, sep);
         DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll", list1);
 
-        list1 = add_to_file_list(list1, L"d:\\gee.dll",
-                                 TRUE, FALSE, FALSE, sep);
+        list1 = add_to_file_list(list1, L"d:\\gee.dll", TRUE, FALSE, FALSE, sep);
         DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll", list1);
 
-        list1 = add_to_file_list(list1, L"ar.dll",
-                                 TRUE, FALSE, FALSE, sep);
-        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll;ar.dll", list1);
+        list1 = add_to_file_list(list1, L"ar.dll", TRUE, FALSE, FALSE, sep);
+        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll;ar.dll",
+                          list1);
     }
 
     /* used in tests below */
-    DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll;ar.dll", list1);
+    DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll;ar.dll",
+                      list1);
 
     /* remove */
     {
         tmplist = wcsdup(list1);
         remove_from_file_list(tmplist, L"ar.dll", sep);
-        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll", tmplist);
+        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll",
+                          tmplist);
 
         remove_from_file_list(tmplist, L"foo.dll", sep);
         DO_ASSERT_WSTR_EQ(L"C:\\bar.dll;d:\\gee.dll", tmplist);
@@ -1836,7 +1729,8 @@ main()
 
         tmplist = wcsdup(list1);
         remove_from_file_list(tmplist, L"Ar.dll", sep);
-        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll", tmplist);
+        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll",
+                          tmplist);
 
         remove_from_file_list(tmplist, L"Foo.DLL", sep);
         DO_ASSERT_WSTR_EQ(L"C:\\bar.dll;d:\\gee.dll", tmplist);
@@ -1847,10 +1741,11 @@ main()
     /* path checking */
     {
         tmplist = wcsdup(list1);
-        tmplist = add_to_file_list(tmplist,
-                                   L"C:\\Program Files\\blah\\blah\\foo.dll",
+        tmplist = add_to_file_list(tmplist, L"C:\\Program Files\\blah\\blah\\foo.dll",
                                    TRUE, TRUE, TRUE, sep);
-        DO_ASSERT_WSTR_EQ(L"C:\\Program Files\\blah\\blah\\foo.dll;C:\\bar.dll;d:\\gee.dll;ar.dll", tmplist);
+        DO_ASSERT_WSTR_EQ(
+            L"C:\\Program Files\\blah\\blah\\foo.dll;C:\\bar.dll;d:\\gee.dll;ar.dll",
+            tmplist);
 
         free_file_list(tmplist);
     }
@@ -1862,20 +1757,21 @@ main()
         list2 = add_to_file_list(list2, L"gee.dll", TRUE, TRUE, FALSE, sep);
 
         tmplist = wcsdup(list1);
-        DO_ASSERT(!blacklist_filter(tmplist, list2, TRUE, sep));
-        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll;ar.dll", tmplist);
+        DO_ASSERT(!blocklist_filter(tmplist, list2, TRUE, sep));
+        DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll;ar.dll",
+                          tmplist);
 
-        DO_ASSERT(!blacklist_filter(tmplist, list2, FALSE, sep));
+        DO_ASSERT(!blocklist_filter(tmplist, list2, FALSE, sep));
         DO_ASSERT_WSTR_EQ(L"C:\\bar.dll;ar.dll", tmplist);
 
-        DO_ASSERT(blacklist_filter(tmplist, list2, TRUE, sep));
+        DO_ASSERT(blocklist_filter(tmplist, list2, TRUE, sep));
         free_file_list(tmplist);
 
         tmplist = wcsdup(list1);
-        DO_ASSERT(!whitelist_filter(tmplist, list2, FALSE, sep));
+        DO_ASSERT(!allowlist_filter(tmplist, list2, FALSE, sep));
         DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;c:\\foo.dll;d:\\gee.dll", tmplist);
 
-        DO_ASSERT(whitelist_filter(tmplist, list2, TRUE, sep));
+        DO_ASSERT(allowlist_filter(tmplist, list2, TRUE, sep));
 
         free_file_list(tmplist);
 
@@ -1886,35 +1782,35 @@ main()
 
     /* force to front */
     {
-        list1 = L"home.dll;C:\\PROGRA~1\\DETERM~1\\SECURE~1\\lib\\DRPREI~1.DLL;foo.dll;bar.dll";
+        list1 = L"home.dll;C:\\PROGRA~1\\DETERM~1\\SECURE~1\\lib\\DRPREI~1.DLL;foo.dll;"
+                L"bar.dll";
         list2 = new_file_list(wcslen(list1) + 1);
         wcsncpy(list2, list1, wcslen(list1) + 1);
-        list2 = add_to_file_list(list2, L"C:\\PROGRA~1\\DETERM~1\\SECURE~1\\lib\\DRPREI~1.DLL", TRUE, TRUE, TRUE, sep);
-        DO_ASSERT_WSTR_EQ(L"C:\\PROGRA~1\\DETERM~1\\SECURE~1\\lib\\DRPREI~1.DLL;home.dll;foo.dll;bar.dll", list2);
+        list2 = add_to_file_list(list2,
+                                 L"C:\\PROGRA~1\\DETERM~1\\SECURE~1\\lib\\DRPREI~1.DLL",
+                                 TRUE, TRUE, TRUE, sep);
+        DO_ASSERT_WSTR_EQ(L"C:\\PROGRA~1\\DETERM~1\\SECURE~1\\lib\\DRPREI~1.DLL;home.dll;"
+                          L"foo.dll;bar.dll",
+                          list2);
         DO_ASSERT(wcslen(list1) == wcslen(list2));
     }
 
-
     /* autoinject (FIXME: needs more..) */
     {
-        res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L,
-                                   buf, MAX_PARAM_LEN);
+        res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, buf,
+                                   MAX_PARAM_LEN);
         DO_ASSERT(res == ERROR_SUCCESS);
 
-        res = set_config_parameter(INJECT_ALL_KEY_L, TRUE,
-                                   INJECT_ALL_SUBKEY_L,
+        res = set_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L,
                                    L"foo.dll;bar.dll;home.dll");
         DO_ASSERT(res == ERROR_SUCCESS);
 
-
         /* FIXME: should all full automated tests of all
          *  APPINIT_FLAGS etc. */
-        //res = set_autoinjection_ex(TRUE, );
-        //DO_ASSERT(res == ERROR_SUCCESS);
+        // res = set_autoinjection_ex(TRUE, );
+        // DO_ASSERT(res == ERROR_SUCCESS);
 
-
-        res = set_config_parameter(INJECT_ALL_KEY_L, TRUE,
-                                   INJECT_ALL_SUBKEY_L, buf);
+        res = set_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, buf);
         DO_ASSERT(res == ERROR_SUCCESS);
     }
 
@@ -1936,12 +1832,10 @@ main()
 
         c4 = new_config_group(L"foo5");
         set_config_group_parameter(c4, L"bar5", L"dull");
-        add_config_group(c3,c4);
+        add_config_group(c3, c4);
         c->should_clear = TRUE;
 
-        DO_DEBUG(DL_VERB,
-                 dump_config_group("","  ",c,FALSE);
-                 );
+        DO_DEBUG(DL_VERB, dump_config_group("", "  ", c, FALSE););
 
         res = write_config_group(c);
         DO_ASSERT(res == ERROR_SUCCESS);
@@ -1992,8 +1886,7 @@ main()
     /* remove parameter */
     {
         set_config_group_parameter(c, L"testremove", L"sucks");
-        DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"testremove"),
-                          L"sucks");
+        DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"testremove"), L"sucks");
         DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"bar"), L"wise");
         remove_config_group_parameter(c, L"testremove");
         DO_ASSERT(NULL == get_config_group_parameter(c, L"testremove"));
@@ -2005,10 +1898,7 @@ main()
     /* read config */
     {
         res = read_config_group(&c, L"foo", TRUE);
-        DO_ASSERT_HANDLE(res == ERROR_SUCCESS,
-                         printf("res=%d\n", res);
-                         return -1;
-                         );
+        DO_ASSERT_HANDLE(res == ERROR_SUCCESS, printf("res=%d\n", res); return -1;);
         DO_ASSERT_WSTR_EQ(c->name, L"foo");
         DO_ASSERT(NULL != get_child(L"foo2", c));
         DO_ASSERT(NULL != get_child(L"foo4", c));
@@ -2021,9 +1911,7 @@ main()
     {
         res = read_config_group(&c, L"foo:foo2", TRUE);
         DO_ASSERT(res == ERROR_SUCCESS);
-        DO_DEBUG(DL_VERB,
-                 printf("c->name: >%S<\n", c->name);
-                 );
+        DO_DEBUG(DL_VERB, printf("c->name: >%S<\n", c->name););
         DO_ASSERT_WSTR_EQ(c->name, L"foo:foo2");
         free_config_group(c);
     }
@@ -2037,23 +1925,20 @@ main()
         free_config_group(c);
     }
 
-
     /* test write */
     {
         res = read_config_group(&c, L"foo:foo4:foo5", TRUE);
         DO_ASSERT(res == ERROR_SUCCESS);
         set_config_group_parameter(c, L"testwrite", L"rocks");
         DO_ASSERT(get_config_group_parameter(c, L"testwrite") != NULL);
-        DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"testwrite"),
-                          L"rocks");
+        DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"testwrite"), L"rocks");
         res = write_config_group(c);
         DO_ASSERT(res == ERROR_SUCCESS);
         free_config_group(c);
 
         res = read_config_group(&c, L"foo:foo4:foo5", TRUE);
         DO_ASSERT(res == ERROR_SUCCESS);
-        DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"testwrite"),
-                          L"rocks");
+        DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"testwrite"), L"rocks");
         DO_ASSERT_WSTR_EQ(get_config_group_parameter(c, L"bar5"), L"dull");
         free_config_group(c);
     }
@@ -2082,9 +1967,7 @@ main()
         DO_ASSERT(hp != NULL);
         DO_ASSERT(get_config_group_parameter(hp, L"TEST.0001") != NULL);
         DO_ASSERT_WSTR_EQ(get_config_group_parameter(hp, L"TEST.0001"), L"0");
-        DO_DEBUG(DL_VERB,
-                 dump_config_group("","  ",c,FALSE);
-                 );
+        DO_DEBUG(DL_VERB, dump_config_group("", "  ", c, FALSE););
         free_config_group(c);
     }
 
@@ -2129,29 +2012,24 @@ main()
     /* absolute config */
     {
         WCHAR buf[MAX_PATH];
-        res = set_config_parameter(L"Software\\Microsoft",
-                                   TRUE, L"foo", L"bar");
+        res = set_config_parameter(L"Software\\Microsoft", TRUE, L"foo", L"bar");
         DO_ASSERT(res == ERROR_SUCCESS);
 
-        res = get_config_parameter(L"Software\\Microsoft", TRUE, L"foo",
-                                   buf, MAX_PATH);
+        res = get_config_parameter(L"Software\\Microsoft", TRUE, L"foo", buf, MAX_PATH);
         DO_ASSERT(res == ERROR_SUCCESS);
         DO_ASSERT_WSTR_EQ(buf, L"bar");
 
-        res = set_config_parameter(L"Software\\Microsoft",
-                                   TRUE, L"foo", L"rebar");
+        res = set_config_parameter(L"Software\\Microsoft", TRUE, L"foo", L"rebar");
         DO_ASSERT(res == ERROR_SUCCESS);
 
-        res = get_config_parameter(L"Software\\Microsoft", TRUE, L"foo",
-                                   buf, MAX_PATH);
+        res = get_config_parameter(L"Software\\Microsoft", TRUE, L"foo", buf, MAX_PATH);
         DO_ASSERT(res == ERROR_SUCCESS);
         DO_ASSERT_WSTR_EQ(buf, L"rebar");
 
         res = set_config_parameter(L"Software\\Microsoft", TRUE, L"foo", NULL);
         DO_ASSERT(res == ERROR_SUCCESS);
 
-        res = get_config_parameter(L"Software\\Microsoft", TRUE, L"foo",
-                                   buf, MAX_PATH);
+        res = get_config_parameter(L"Software\\Microsoft", TRUE, L"foo", buf, MAX_PATH);
         DO_ASSERT(res != ERROR_SUCCESS);
     }
 
@@ -2172,8 +2050,7 @@ main()
         cp = get_qualified_config_group(c, L"bar.exe", L"bar.exe /bar");
         DO_ASSERT(cp != NULL);
 
-        cp = get_qualified_config_group(c, L"bar.exe",
-                                        L"bar.exe /b /a /r");
+        cp = get_qualified_config_group(c, L"bar.exe", L"bar.exe /b /a /r");
         DO_ASSERT(cp != NULL);
 
         cp = get_qualified_config_group(c, L"bar.exe", L"bar.exe /c bar");

@@ -37,13 +37,13 @@
 
 /* undefine this for a performance test */
 #ifndef NIGHTLY_REGRESSION
-# define NIGHTLY_REGRESSION
+#    define NIGHTLY_REGRESSION
 #endif
 
 #ifdef NIGHTLY_REGRESSION
-#  define DEPTH 5
+#    define DEPTH 5
 #else
-#  define DEPTH 10
+#    define DEPTH 10
 #endif
 
 static int depth = DEPTH;
@@ -57,7 +57,7 @@ main(int argc, char **argv)
     DWORD result = 0;
 
     INIT();
-    USE_USER32();               /* can't be in runall otherwise! */
+    USE_USER32(); /* can't be in runall otherwise! */
 
     if (argc == 1) {
         /* normal execution */
@@ -65,27 +65,17 @@ main(int argc, char **argv)
         _snprintf(cmdline, sizeof(cmdline), "%s %d", argv[0], depth);
 
         print("starting chain %d...\n", depth);
-
     }
 
     if (argc == 2) {
         depth = atoi(argv[1]);
         print("subprocess %d running.\n", depth);
 
-        _snprintf(cmdline, sizeof(cmdline), "%s %d", argv[0], depth-1);
+        _snprintf(cmdline, sizeof(cmdline), "%s %d", argv[0], depth - 1);
     }
 
     if (depth != 0) {
-        if (!CreateProcess(argv[0],
-                           cmdline,
-                           NULL,
-                           NULL,
-                           FALSE,
-                           0,
-                           NULL,
-                           NULL,
-                           &si,
-                           &pi))
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
             print("CreateProcess failure\n");
         else {
             DWORD exit_code = 0;

@@ -32,15 +32,16 @@
 
 #include <stdio.h>
 
-__declspec(dllexport,noinline)
-void start_instrument()
-{}
+__declspec(dllexport, noinline) void start_instrument()
+{
+}
 
-__declspec(dllexport,noinline)
-void stop_instrument()
-{}
+__declspec(dllexport, noinline) void stop_instrument()
+{
+}
 
-int main(int argc)
+int
+main(int argc)
 {
     int i, x, y;
 

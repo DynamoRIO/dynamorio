@@ -35,25 +35,27 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #if !defined(AFX_OPTIONSDLG_H__0BDD6058_E38D_4CEA_805C_DE47B633EEF9__INCLUDED_)
-#define AFX_OPTIONSDLG_H__0BDD6058_E38D_4CEA_805C_DE47B633EEF9__INCLUDED_
+#    define AFX_OPTIONSDLG_H__0BDD6058_E38D_4CEA_805C_DE47B633EEF9__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 // OptionsDlg.h : header file
 //
 
 /////////////////////////////////////////////////////////////////////////////
 // COptionsDlg dialog
 
-class COptionsDlg : public CDialog
-{
+class COptionsDlg : public CDialog {
     // Construction
 public:
-    BOOL CheckLibraryExists(TCHAR *libname, BOOL notify);
-    static BOOL CheckOptionsVersusDllType(DLL_TYPE dll_type);
-    COptionsDlg(CWnd* pParent = NULL);   // standard constructor
-    BOOL OnInitDialog();
+    BOOL
+    CheckLibraryExists(TCHAR *libname, BOOL notify);
+    static BOOL
+    CheckOptionsVersusDllType(DLL_TYPE dll_type);
+    COptionsDlg(CWnd *pParent = NULL); // standard constructor
+    BOOL
+    OnInitDialog();
 
     // Dialog Data
     //{{AFX_DATA(COptionsDlg)
@@ -68,54 +70,85 @@ public:
     CString m_LogMask;
     //}}AFX_DATA
 
-
     // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(COptionsDlg)
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
     // Implementation
 protected:
-    BOOL UpdateValue(int param);
-    void DisableCheckbox(int id);
-    BOOL CheckOpstring();
-    void RemoveOption(int param);
-    void CheckOption(int param);
+    BOOL
+    UpdateValue(int param);
+    void
+    DisableCheckbox(int id);
+    BOOL
+    CheckOpstring();
+    void
+    RemoveOption(int param);
+    void
+    CheckOption(int param);
 
     // Generated message map functions
     //{{AFX_MSG(COptionsDlg)
-    virtual void OnOK();
-    afx_msg void OnHotThreshold();
-    afx_msg void OnBrowseInstrlibname();
-    afx_msg void OnInstrlibname();
-    afx_msg void OnLoggingButton();
-    afx_msg void OnChangeOptionsEdit();
-    afx_msg void OnCacheBBMax();
-    afx_msg void OnCacheTraceMax();
-    afx_msg void OnLoglevel();
-    afx_msg void OnLogmask();
-    afx_msg void OnProfPcs();
-    afx_msg void OnProfCounts();
-    afx_msg void OnStats();
-    afx_msg void OnNotify();
-    afx_msg void OnNullcalls();
-    afx_msg void OnNolink();
-    afx_msg void OnNoasynch();
-    afx_msg void OnTraceDumpText();
-    afx_msg void OnTraceDumpBinary();
-    afx_msg void OnTraceDumpOrigins();
-    afx_msg void OnChangeEditInstrlibname();
-    afx_msg void OnSetPermanent();
-    afx_msg void OnChangeEditCacheBbMax();
-    afx_msg void OnChangeEditCacheTraceMax();
-    afx_msg void OnChangeEditHotThreshold();
+    virtual void
+    OnOK();
+    afx_msg void
+    OnHotThreshold();
+    afx_msg void
+    OnBrowseInstrlibname();
+    afx_msg void
+    OnInstrlibname();
+    afx_msg void
+    OnLoggingButton();
+    afx_msg void
+    OnChangeOptionsEdit();
+    afx_msg void
+    OnCacheBBMax();
+    afx_msg void
+    OnCacheTraceMax();
+    afx_msg void
+    OnLoglevel();
+    afx_msg void
+    OnLogmask();
+    afx_msg void
+    OnProfPcs();
+    afx_msg void
+    OnProfCounts();
+    afx_msg void
+    OnStats();
+    afx_msg void
+    OnNotify();
+    afx_msg void
+    OnNullcalls();
+    afx_msg void
+    OnNolink();
+    afx_msg void
+    OnNoasynch();
+    afx_msg void
+    OnTraceDumpText();
+    afx_msg void
+    OnTraceDumpBinary();
+    afx_msg void
+    OnTraceDumpOrigins();
+    afx_msg void
+    OnChangeEditInstrlibname();
+    afx_msg void
+    OnSetPermanent();
+    afx_msg void
+    OnChangeEditCacheBbMax();
+    afx_msg void
+    OnChangeEditCacheTraceMax();
+    afx_msg void
+    OnChangeEditHotThreshold();
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
 };
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // !defined(AFX_OPTIONSDLG_H__0BDD6058_E38D_4CEA_805C_DE47B633EEF9__INCLUDED_)

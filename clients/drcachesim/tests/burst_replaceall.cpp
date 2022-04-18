@@ -39,7 +39,7 @@
  * for us.
  */
 #include "dr_api.h"
-#include "drmemtrace.h"
+#include "drmemtrace/drmemtrace.h"
 #include "drvector.h"
 #include "../../../suite/tests/client_tools.h"
 #include <assert.h>
@@ -52,7 +52,7 @@ bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -76,8 +76,9 @@ typedef struct _buf_entry_t {
 } buf_entry_t;
 
 static void
-free_entry(void *e) {
-    buf_entry_t *entry = (buf_entry_t *) e;
+free_entry(void *e)
+{
+    buf_entry_t *entry = (buf_entry_t *)e;
     dr_global_free(entry, sizeof(*entry));
 }
 
@@ -118,7 +119,7 @@ local_write_file(file_t file, const void *data, size_t size)
         void *copy = dr_raw_mem_alloc(size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
         memcpy(copy, data, size);
         drvector_lock(&all_buffers);
-        buf_entry_t *entry = (buf_entry_t *) dr_global_alloc(sizeof(*entry));
+        buf_entry_t *entry = (buf_entry_t *)dr_global_alloc(sizeof(*entry));
         entry->id = file;
         entry->data = copy;
         entry->data_size = size;
@@ -135,7 +136,7 @@ static bool
 handoff_cb(file_t file, void *data, size_t data_size, size_t alloc_size)
 {
     drvector_lock(&all_buffers);
-    buf_entry_t *entry = (buf_entry_t *) dr_global_alloc(sizeof(*entry));
+    buf_entry_t *entry = (buf_entry_t *)dr_global_alloc(sizeof(*entry));
     entry->id = file;
     entry->data = data;
     entry->data_size = data_size;
@@ -188,8 +189,8 @@ exit_cb(void *arg)
             f = dr_open_file(modlist_path, DR_FILE_WRITE_OVERWRITE);
         } else {
             char fname[MAXIMUM_PATH];
-            len = dr_snprintf(fname, BUFFER_SIZE_ELEMENTS(fname), "%s/%d.raw",
-                              path, entry->id);
+            len = dr_snprintf(fname, BUFFER_SIZE_ELEMENTS(fname), "%s/%d.raw", path,
+                              entry->id);
             assert(len > 0);
             NULL_TERMINATE_BUFFER(fname);
             f = dr_open_file(fname, DR_FILE_WRITE_APPEND);
@@ -208,7 +209,7 @@ main(int argc, const char *argv[])
 {
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
-    static int iter_start = outer_iters/3;
+    static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))

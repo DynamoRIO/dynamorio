@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,20 +32,24 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
+#    include "tools.h"
 
-#ifdef UNIX
-# include <unistd.h>
-# include <sys/syscall.h> /* for SYS_* numbers */
-#endif
-#ifdef MACOS
-# include <mach/mach.h>
-# include <mach/semaphore.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#        include <sys/syscall.h> /* for SYS_* numbers */
+#    endif
+#    ifdef MACOS
+#        include <mach/mach.h>
+#        include <mach/semaphore.h>
+#    endif
 
-#define ASSERT_NOT_IMPLEMENTED() do { print("NYI\n"); abort();} while (0)
+#    define ASSERT_NOT_IMPLEMENTED() \
+        do {                         \
+            print("NYI\n");          \
+            abort();                 \
+        } while (0)
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
 /* returns 0 on failure */
 /* FIXME - share with core get_os_version() */
 int
@@ -53,13 +57,13 @@ get_windows_version(void)
 {
     OSVERSIONINFOW version;
     /* i#1418: GetVersionEx is just plain broken on win8.1+ so we use the Rtl version */
-    typedef NTSTATUS (NTAPI *RtlGetVersion_t)(OSVERSIONINFOW *info);
+    typedef NTSTATUS(NTAPI * RtlGetVersion_t)(OSVERSIONINFOW * info);
     RtlGetVersion_t RtlGetVersion;
     NTSTATUS res;
     HANDLE ntdll_handle = GetModuleHandleW(L"ntdll.dll");
     assert(ntdll_handle != NULL);
-    RtlGetVersion = (RtlGetVersion_t)
-        GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
+    RtlGetVersion =
+        (RtlGetVersion_t)GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
     assert(RtlGetVersion != NULL);
     version.dwOSVersionInfoSize = sizeof(version);
     res = RtlGetVersion(&version);
@@ -67,8 +71,15 @@ get_windows_version(void)
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
-            if (GetProcAddress((HMODULE)ntdll_handle,
-                               "NtCreateRegistryTransaction") != NULL)
+            if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") !=
+                NULL)
+                return WINDOWS_VERSION_10_1803;
+            else if (GetProcAddress((HMODULE)ntdll_handle, "NtCallEnclave") != NULL)
+                return WINDOWS_VERSION_10_1709;
+            else if (GetProcAddress((HMODULE)ntdll_handle, "NtLoadHotPatch") != NULL)
+                return WINDOWS_VERSION_10_1703;
+            else if (GetProcAddress((HMODULE)ntdll_handle,
+                                    "NtCreateRegistryTransaction") != NULL)
                 return WINDOWS_VERSION_10_1607;
             else if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateEnclave") != NULL)
                 return WINDOWS_VERSION_10_1511;
@@ -100,15 +111,14 @@ bool
 is_wow64(HANDLE hProcess)
 {
     /* IsWow64Pocess is only available on XP+ */
-    typedef DWORD (WINAPI *IsWow64Process_Type)(HANDLE hProcess,
-                                                PBOOL isWow64Process);
+    typedef DWORD(WINAPI * IsWow64Process_Type)(HANDLE hProcess, PBOOL isWow64Process);
     static HANDLE kernel32_handle;
     static IsWow64Process_Type IsWow64Process;
     if (kernel32_handle == NULL)
         kernel32_handle = GetModuleHandle("kernel32.dll");
     if (IsWow64Process == NULL && kernel32_handle != NULL) {
-        IsWow64Process = (IsWow64Process_Type)
-            GetProcAddress(kernel32_handle, "IsWow64Process");
+        IsWow64Process =
+            (IsWow64Process_Type)GetProcAddress(kernel32_handle, "IsWow64Process");
     }
     if (IsWow64Process == NULL) {
         /* should be NT or 2K */
@@ -122,16 +132,16 @@ is_wow64(HANDLE hProcess)
         return CAST_TO_bool(res);
     }
 }
-#endif  /* WINDOWS */
+#    endif /* WINDOWS */
 
 int
 get_os_prot_word(int prot)
 {
-#ifdef UNIX
-    return ((TEST(ALLOW_READ, prot)  ? PROT_READ  : 0) |
+#    ifdef UNIX
+    return ((TEST(ALLOW_READ, prot) ? PROT_READ : 0) |
             (TEST(ALLOW_WRITE, prot) ? PROT_WRITE : 0) |
-            (TEST(ALLOW_EXEC, prot)  ? PROT_EXEC  : 0));
-#else
+            (TEST(ALLOW_EXEC, prot) ? PROT_EXEC : 0));
+#    else
     if (TEST(ALLOW_WRITE, prot)) {
         if (TEST(ALLOW_EXEC, prot)) {
             return PAGE_EXECUTE_READWRITE;
@@ -153,45 +163,62 @@ get_os_prot_word(int prot)
             }
         }
     }
-#endif
+#    endif
 }
 
 char *
-allocate_mem(int size, int prot)
+allocate_mem(size_t size, int prot)
 {
-#ifdef UNIX
-    return (char *) mmap((void *)0, size, get_os_prot_word(prot),
-                         MAP_PRIVATE|MAP_ANON, 0, 0);
-#else
-    return (char *) VirtualAlloc(NULL, size, MEM_COMMIT, get_os_prot_word(prot));
-#endif
+#    ifdef UNIX
+    char *res = (char *)mmap((void *)0, size, get_os_prot_word(prot),
+                             MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (res == MAP_FAILED)
+        return NULL;
+    return res;
+#    else
+    return (char *)VirtualAlloc(NULL, size, MEM_COMMIT, get_os_prot_word(prot));
+#    endif
+}
+
+void
+free_mem(char *addr, size_t size)
+{
+#    ifdef UNIX
+    int res = munmap(addr, size);
+    if (res != 0)
+        print("Error on munmap: %d\n", errno);
+#    else
+    BOOL res = VirtualFree(addr, size, MEM_DECOMMIT);
+    if (!res)
+        print("Error on VirtualFree\n");
+#    endif
 }
 
 void
 protect_mem(void *start, size_t len, int prot)
 {
-#ifdef UNIX
-    void *page_start = (void *)(((ptr_int_t)start) & ~(PAGE_SIZE -1));
-    int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1)
-        & ~(PAGE_SIZE - 1);
+#    ifdef UNIX
+    void *page_start = (void *)(((ptr_int_t)start) & ~(PAGE_SIZE - 1));
+    int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1) &
+        ~(PAGE_SIZE - 1);
     if (mprotect(page_start, page_len, get_os_prot_word(prot)) != 0) {
         print("Error on mprotect: %d\n", errno);
     }
-#else
+#    else
     DWORD old;
     if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
         print("Error on VirtualProtect\n");
     }
-#endif
+#    endif
 }
 
 void
 protect_mem_check(void *start, size_t len, int prot, int expected)
 {
-#ifdef UNIX
+#    ifdef UNIX
     /* FIXME : add check */
     protect_mem(start, len, prot);
-#else
+#    else
     DWORD old;
     if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
         print("Error on VirtualProtect\n");
@@ -199,45 +226,46 @@ protect_mem_check(void *start, size_t len, int prot, int expected)
     if (old != get_os_prot_word(expected)) {
         print("Unexpected previous permissions\n");
     }
-#endif
+#    endif
 }
 
 void *
 reserve_memory(int size)
 {
-#ifdef UNIX
-    void *p = mmap(0, size, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE, -1, 0);
+#    ifdef UNIX
+    void *p =
+        mmap(0, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
     if (p == MAP_FAILED)
         return NULL;
     return p;
-#else
+#    else
     return VirtualAlloc(0, size, MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-#endif
+#    endif
 }
 
 /* Intel processors:  ebx:edx:ecx spell GenuineIntel */
-#define INTEL_EBX /* Genu */ 0x756e6547
-#define INTEL_EDX /* ineI */ 0x49656e69
-#define INTEL_ECX /* ntel */ 0x6c65746e
+#    define INTEL_EBX /* Genu */ 0x756e6547
+#    define INTEL_EDX /* ineI */ 0x49656e69
+#    define INTEL_ECX /* ntel */ 0x6c65746e
 
 /* AMD processors:  ebx:edx:ecx spell AuthenticAMD */
-#define AMD_EBX /* Auth */ 0x68747541
-#define AMD_EDX /* enti */ 0x69746e65
-#define AMD_ECX /* cAMD */ 0x444d4163
+#    define AMD_EBX /* Auth */ 0x68747541
+#    define AMD_EDX /* enti */ 0x69746e65
+#    define AMD_ECX /* cAMD */ 0x444d4163
 
-#define VENDOR_INTEL    0
-#define VENDOR_AMD      1
-#define VENDOR_UNKNOWN  2
+#    define VENDOR_INTEL 0
+#    define VENDOR_AMD 1
+#    define VENDOR_UNKNOWN 2
 
 /* Pentium IV -- FIXME: need to distinguish extended family bits? */
-#define FAMILY_PENTIUM_IV  15
+#    define FAMILY_PENTIUM_IV 15
 /* Pentium Pro, Pentium II, Pentium III, Athlon */
-#define FAMILY_PENTIUM_III  6
-#define FAMILY_PENTIUM_II   6
-#define FAMILY_PENTIUM_PRO  6
-#define FAMILY_ATHLON       6
+#    define FAMILY_PENTIUM_III 6
+#    define FAMILY_PENTIUM_II 6
+#    define FAMILY_PENTIUM_PRO 6
+#    define FAMILY_ATHLON 6
 /* Pentium (586) */
-#define FAMILY_PENTIUM      5
+#    define FAMILY_PENTIUM 5
 
 void
 print(const char *fmt, ...)
@@ -249,41 +277,40 @@ print(const char *fmt, ...)
     va_end(ap);
 }
 
-#ifdef UNIX
+#    ifdef UNIX
 
 /***************************************************************************/
 /* a hopefuly portable /proc/@self/maps reader */
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
-#define MAPS_LINE_LENGTH        4096
+#        define MAPS_LINE_LENGTH 4096
 /* for systems with sizeof(void*) == 4: */
-#define MAPS_LINE_FORMAT4         "%08lx-%08lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX4  49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
-/* for systems with sizeof(void*) == 8: */
-#define MAPS_LINE_FORMAT8         "%016lx-%016lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX8  73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
+#        define MAPS_LINE_FORMAT4 "%08lx-%08lx %s %*x %*s %*u %4096s"
+#        define MAPS_LINE_MAX4 49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
+                                  /* for systems with sizeof(void*) == 8: */
+#        define MAPS_LINE_FORMAT8 "%016lx-%016lx %s %*x %*s %*u %4096s"
+#        define MAPS_LINE_MAX8 73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
 
-#define MAPS_LINE_MAX   MAPS_LINE_MAX8
+#        define MAPS_LINE_MAX MAPS_LINE_MAX8
 
 bool
 find_dynamo_library(void)
 {
     pid_t pid = getpid();
-    char  proc_pid_maps[64];      /* file name */
+    char proc_pid_maps[64]; /* file name */
 
     FILE *maps;
-    char  line[MAPS_LINE_LENGTH];
-    int   count = 0;
+    char line[MAPS_LINE_LENGTH];
+    int count = 0;
 
     /* open file's /proc/id/maps virtual map description */
-    int n = snprintf(proc_pid_maps, sizeof(proc_pid_maps),
-                     "/proc/%d/maps", pid);
+    int n = snprintf(proc_pid_maps, sizeof(proc_pid_maps), "/proc/%d/maps", pid);
     if (n < 0 || n == sizeof(proc_pid_maps))
         assert(0); /* paranoia */
 
     maps = fopen(proc_pid_maps, "r");
 
-    while (!feof(maps)){
+    while (!feof(maps)) {
         void *vm_start;
         void *vm_end;
         char perm[16];
@@ -292,9 +319,8 @@ find_dynamo_library(void)
 
         if (NULL == fgets(line, sizeof(line), maps))
             break;
-        len = sscanf(line,
-                     sizeof(void*) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-                     (unsigned long*)&vm_start, (unsigned long*)&vm_end, perm,
+        len = sscanf(line, sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
+                     (unsigned long *)&vm_start, (unsigned long *)&vm_end, perm,
                      comment_buffer);
         if (len < 4)
             comment_buffer[0] = '\0';
@@ -330,18 +356,18 @@ void
 nolibc_print(const char *str)
 {
     dynamorio_syscall(
-#ifdef MACOS
-                      SYS_write_nocancel,
-#else
-                      SYS_write,
-#endif
-                      3,
-#if defined(MACOS) || defined(ANDROID)
-                      stderr->_file,
-#else
-                      stderr->_fileno,
-#endif
-                      str, nolibc_strlen(str));
+#        ifdef MACOS
+        SYS_write_nocancel,
+#        else
+        SYS_write,
+#        endif
+        3,
+#        if defined(MACOS) || defined(ANDROID)
+        stderr->_file,
+#        else
+        stderr->_fileno,
+#        endif
+        str, nolibc_strlen(str));
 }
 
 /* Safe print int syscall.
@@ -349,7 +375,7 @@ nolibc_print(const char *str)
 void
 nolibc_print_int(int n)
 {
-    char buf[12];  /* 2 ** 31 has 10 digits, plus sign and nul. */
+    char buf[12]; /* 2 ** 31 has 10 digits, plus sign and nul. */
     int i = 0;
     int m;
     int len;
@@ -385,21 +411,19 @@ nolibc_print_int(int n)
 void
 nolibc_nanosleep(struct timespec *req)
 {
-#ifdef MACOS
+#        ifdef MACOS
     /* XXX: share with os_thread_sleep */
     semaphore_t sem = MACH_PORT_NULL;
     int res;
     if (sem == MACH_PORT_NULL) {
-        kern_return_t res =
-            semaphore_create(mach_task_self(), &sem, SYNC_POLICY_FIFO, 0);
+        kern_return_t res = semaphore_create(mach_task_self(), &sem, SYNC_POLICY_FIFO, 0);
         assert(res == KERN_SUCCESS);
     }
-    res = dynamorio_syscall(SYS___semwait_signal_nocancel,
-                            6, sem, MACH_PORT_NULL, 1, 1,
+    res = dynamorio_syscall(SYS___semwait_signal_nocancel, 6, sem, MACH_PORT_NULL, 1, 1,
                             (int64_t)req->tv_sec, (int32_t)req->tv_nsec);
-#else
+#        else
     dynamorio_syscall(SYS_nanosleep, 2, req, NULL);
-#endif
+#        endif
 }
 
 /* Safe mmap.
@@ -407,12 +431,12 @@ nolibc_nanosleep(struct timespec *req)
 void *
 nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-#if defined(X64) || defined(MACOS)
+#        if defined(X64) || defined(MACOS)
     int sysnum = SYS_mmap;
-#else
+#        else
     int sysnum = SYS_mmap2;
-#endif
-    return (void*)dynamorio_syscall(sysnum, 6, addr, length, prot, flags, fd, offset);
+#        endif
+    return (void *)dynamorio_syscall(sysnum, 6, addr, length, prot, flags, fd, offset);
 }
 
 /* Safe munmap.
@@ -427,9 +451,9 @@ void
 nolibc_memset(void *dst, int val, size_t size)
 {
     size_t i;
-    char *buf = (char*)dst;
+    char *buf = (char *)dst;
     for (i = 0; i < size; i++) {
-        buf[i] = (char)val;
+        buf[i] = (sbyte)val;
     }
 }
 
@@ -444,7 +468,7 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
     int rc;
     struct sigaction act;
 
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) handler;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler;
     rc = sigfillset(&act.sa_mask); /* block all signals within handler */
     ASSERT_NOERR(rc);
     act.sa_flags = SA_SIGINFO;
@@ -456,15 +480,16 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
     ASSERT_NOERR(rc);
 }
 
-#endif /* UNIX */
+#    endif /* UNIX */
 
 #else /* asm code *************************************************************/
 /*
  * Assembly routines shared among multiple tests
  */
 
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
 
+/* clang-format off */
 START_FILE
 
 /* int code_self_mod(int iters)
@@ -642,5 +667,6 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
 
 END_FILE
+/* clang-format on */
 
 #endif

@@ -49,7 +49,8 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
 }

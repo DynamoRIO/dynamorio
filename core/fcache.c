@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,9 +45,8 @@
 #include "fcache.h"
 #include "monitor.h"
 #ifdef HOT_PATCHING_INTERFACE
-# include "hotpatch.h"
+#    include "hotpatch.h"
 #endif
-#include <string.h> /* for memcpy */
 #include <stddef.h> /* for offsetof */
 #include <limits.h> /* for UCHAR_MAX */
 #include "perscache.h"
@@ -115,17 +114,21 @@
  * but rather are placed in the same location in the FIFO as the deleted guy.
  * Should be the minimum common fragment size.
  */
-#define MIN_EMPTY_HOLE(cache) \
-  MAX(((cache)->is_trace ? 64U : \
-        ((!(cache)->is_shared && DYNAMO_OPTION(separate_private_stubs)) ? 20U : \
-         (((cache)->is_shared && DYNAMO_OPTION(separate_shared_stubs)) ? 20U : 64U))), \
-      MIN_FCACHE_SLOT_SIZE(cache))
+#define MIN_EMPTY_HOLE(cache)                                                       \
+    MAX(((cache)->is_trace                                                          \
+             ? 64U                                                                  \
+             : ((!(cache)->is_shared && DYNAMO_OPTION(separate_private_stubs))      \
+                    ? 20U                                                           \
+                    : (((cache)->is_shared && DYNAMO_OPTION(separate_shared_stubs)) \
+                           ? 20U                                                    \
+                           : 64U))),                                                \
+        MIN_FCACHE_SLOT_SIZE(cache))
 
 /* Minimum end-of-cache hole size -- anything smaller and the cache is "full"
  * This is 2x the smallest fragment size
  * FIXME: use larger size for trace cache?
  */
-#define MIN_UNIT_END_HOLE(cache) ((uint) 2 * MIN_EMPTY_HOLE(cache))
+#define MIN_UNIT_END_HOLE(cache) ((uint)2 * MIN_EMPTY_HOLE(cache))
 
 /* This is ignored for coarse fragments */
 #define START_PC_ALIGNMENT 4
@@ -136,28 +139,25 @@
  * (need at least that much even without the option since we back align the
  * start_pc to get the header)
  */
-#define SLOT_ALIGNMENT(cache) \
-    ( (cache)->is_trace ? DYNAMO_OPTION(cache_trace_align) : \
-      ((cache)->is_coarse ? DYNAMO_OPTION(cache_coarse_align) : \
-        DYNAMO_OPTION(cache_bb_align)) )
+#define SLOT_ALIGNMENT(cache)                                                    \
+    ((cache)->is_trace ? DYNAMO_OPTION(cache_trace_align)                        \
+                       : ((cache)->is_coarse ? DYNAMO_OPTION(cache_coarse_align) \
+                                             : DYNAMO_OPTION(cache_bb_align)))
 
 /* We use a header to have a backpointer to the fragment_t */
- /* FIXME: currently this abstraction type is unused, we rather use
-  * *(fragment_t **) when working with the backpointer.  If are to add
-  * more fields should use this.  Although fragment_t may be a better
-  * place to keep such information.  */
+/* FIXME: currently this abstraction type is unused, we rather use
+ * *(fragment_t **) when working with the backpointer.  If are to add
+ * more fields should use this.  Although fragment_t may be a better
+ * place to keep such information.  */
 typedef struct _live_header_t {
     /* FIXME: sizeof(live_header_t) should match HEADER_SIZE */
     fragment_t *f;
 } live_header_t;
 
-
 /* NOTE this must be a multiple of START_PC_ALIGNMENT bytes so that the
  * start_pc is properly aligned (for -pad_jmps_shift_{bb,trace} support) */
-#define HEADER_SIZE(f) \
-    (TEST(FRAG_COARSE_GRAIN, (f)->flags) ? 0 : (sizeof(fragment_t*)))
-#define HEADER_SIZE_FROM_CACHE(cache) \
-    ((cache)->is_coarse ? 0 : (sizeof(fragment_t*)))
+#define HEADER_SIZE(f) (TEST(FRAG_COARSE_GRAIN, (f)->flags) ? 0 : (sizeof(fragment_t *)))
+#define HEADER_SIZE_FROM_CACHE(cache) ((cache)->is_coarse ? 0 : (sizeof(fragment_t *)))
 
 /**************************************************
  * We use a FIFO replacement strategy
@@ -185,110 +185,121 @@ typedef struct _live_header_t {
  * start_pc: ...
  */
 typedef struct _empty_slot_t {
-    cache_pc  start_pc;         /* very top of location in fcache */
+    cache_pc start_pc; /* very top of location in fcache */
     /* flags MUST be at same location as fragment_t->flags
      * we use flags==FRAG_IS_EMPTY_SLOT to indicate an empty slot
      */
-    uint      flags;
-    fragment_t  *next_fcache;     /* for chaining fragments in fcache unit */
-    fragment_t  *prev_fcache;     /* for chaining fragments in fcache unit */
-    uint      fcache_size;      /* size rounded up to cache line boundaries;
-                                 * not just ushort so we can merge adjacents;
-                                 * not size_t since each unit assumed <4GB. */
+    uint flags;
+    fragment_t *next_fcache; /* for chaining fragments in fcache unit */
+    fragment_t *prev_fcache; /* for chaining fragments in fcache unit */
+    uint fcache_size;        /* size rounded up to cache line boundaries;
+                              * not just ushort so we can merge adjacents;
+                              * not size_t since each unit assumed <4GB. */
 } empty_slot_t;
-
 
 /* macros to make dealing with both fragment_t and empty_slot_t easier */
 #define FRAG_EMPTY(f) (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))
 
-#define FRAG_START(f) (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags) ? \
-    ((empty_slot_t *)(f))->start_pc : (f)->start_pc)
+#define FRAG_START(f)                                                       \
+    (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags) ? ((empty_slot_t *)(f))->start_pc \
+                                          : (f)->start_pc)
 
 /* N.B.: must hold cache lock across any set of a fragment's start_pc or size
  * once that fragment is in a cache, as contig-cache-walkers need a consistent view!
  * FIXME: we can't assert as we can't do a unit lookup at all use sites
  */
-#define FRAG_START_ASSIGN(f, val) do { \
-    if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) \
-        ((empty_slot_t *)(f))->start_pc = (val); \
-    else \
-        (f)->start_pc = (val); \
-} while (0)
+#define FRAG_START_ASSIGN(f, val)                    \
+    do {                                             \
+        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))    \
+            ((empty_slot_t *)(f))->start_pc = (val); \
+        else                                         \
+            (f)->start_pc = (val);                   \
+    } while (0)
 
 /* for -pad_jmps_shift_{bb,trace} we may have shifted the start_pc forward by up
  * to START_PC_ALIGNMENT-1 bytes, back align to get the right header pointer */
-#define FRAG_START_PADDING(f) \
-    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags) || !PAD_JMPS_SHIFT_START((f)->flags)) ?      \
-     0 : (ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)                                  \
-                 ((f)->start_pc - ALIGN_BACKWARD((f)->start_pc, START_PC_ALIGNMENT)))), \
-         (uint)((ptr_uint_t)(f)->start_pc -                                             \
-                ALIGN_BACKWARD((f)->start_pc, START_PC_ALIGNMENT))))
+#define FRAG_START_PADDING(f)                                                         \
+    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags) || !PAD_JMPS_SHIFT_START((f)->flags))      \
+         ? 0                                                                          \
+         : (ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)(                             \
+                (f)->start_pc - ALIGN_BACKWARD((f)->start_pc, START_PC_ALIGNMENT)))), \
+            (uint)((ptr_uint_t)(f)->start_pc -                                        \
+                   ALIGN_BACKWARD((f)->start_pc, START_PC_ALIGNMENT))))
 
 #define FRAG_HDR_START(f) (FRAG_START(f) - HEADER_SIZE(f) - FRAG_START_PADDING(f))
 
-#define FRAG_SIZE(f) ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? \
-    ((empty_slot_t *)(f))->fcache_size : \
-    (f)->size + (uint)(f)->fcache_extra + FRAG_START_PADDING(f))
+#define FRAG_SIZE(f)                          \
+    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))   \
+         ? ((empty_slot_t *)(f))->fcache_size \
+         : (f)->size + (uint)(f)->fcache_extra + FRAG_START_PADDING(f))
 
 /* N.B.: must hold cache lock across any set of a fragment's start_pc or size
  * once that fragment is in a cache, as contig-cache-walkers need a consistent view!
  * FIXME: we can't assert as we can't do a unit lookup at all use sites
  */
-#define FRAG_SIZE_ASSIGN(f, val) do {                                                   \
-    if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) {                                         \
-        ASSERT_TRUNCATE(((empty_slot_t *)(f))->fcache_size, uint, val);                 \
-        ((empty_slot_t *)(f))->fcache_size = (val);                                     \
-    } else {                                                                            \
-        /* cl has string limit so need temp to get ASSERT to compile */                 \
-        uint extra_tmp = ((val) - ((f)->size + FRAG_START_PADDING(f)));                 \
-        ASSERT_TRUNCATE((f)->fcache_extra, byte, extra_tmp);                            \
-        (f)->fcache_extra = (byte) extra_tmp;                                           \
-    }                                                                                   \
-} while (0)
+#define FRAG_SIZE_ASSIGN(f, val)                                            \
+    do {                                                                    \
+        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) {                         \
+            ASSERT_TRUNCATE(((empty_slot_t *)(f))->fcache_size, uint, val); \
+            ((empty_slot_t *)(f))->fcache_size = (val);                     \
+        } else {                                                            \
+            /* cl has string limit so need temp to get ASSERT to compile */ \
+            uint extra_tmp = ((val) - ((f)->size + FRAG_START_PADDING(f))); \
+            ASSERT_TRUNCATE((f)->fcache_extra, byte, extra_tmp);            \
+            (f)->fcache_extra = (byte)extra_tmp;                            \
+        }                                                                   \
+    } while (0)
 
-#define FIFO_NEXT(f) ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? \
-    ((empty_slot_t *)(f))->next_fcache : (ASSERT(!TEST(FRAG_SHARED, (f)->flags)), \
-    ((private_fragment_t *)(f))->next_fcache))
+#define FIFO_NEXT(f)                                \
+    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))         \
+         ? ((empty_slot_t *)(f))->next_fcache       \
+         : (ASSERT(!TEST(FRAG_SHARED, (f)->flags)), \
+            ((private_fragment_t *)(f))->next_fcache))
 
-#define FIFO_NEXT_ASSIGN(f, val) do { \
-    if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) \
-        ((empty_slot_t *)(f))->next_fcache = (val); \
-    else { \
-        ASSERT(!TEST(FRAG_SHARED, (f)->flags)); \
-        ((private_fragment_t *)(f))->next_fcache = (val); \
-    } \
-} while (0)
+#define FIFO_NEXT_ASSIGN(f, val)                              \
+    do {                                                      \
+        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))             \
+            ((empty_slot_t *)(f))->next_fcache = (val);       \
+        else {                                                \
+            ASSERT(!TEST(FRAG_SHARED, (f)->flags));           \
+            ((private_fragment_t *)(f))->next_fcache = (val); \
+        }                                                     \
+    } while (0)
 
-#define FIFO_PREV(f) ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? \
-    ((empty_slot_t *)(f))->prev_fcache : (ASSERT(!TEST(FRAG_SHARED, (f)->flags)), \
-    ((private_fragment_t *)(f))->prev_fcache))
+#define FIFO_PREV(f)                                \
+    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))         \
+         ? ((empty_slot_t *)(f))->prev_fcache       \
+         : (ASSERT(!TEST(FRAG_SHARED, (f)->flags)), \
+            ((private_fragment_t *)(f))->prev_fcache))
 
-#define FIFO_PREV_ASSIGN(f, val) do { \
-    if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) \
-        ((empty_slot_t *)(f))->prev_fcache = (val); \
-    else { \
-        ASSERT(!TEST(FRAG_SHARED, (f)->flags)); \
-        ((private_fragment_t *)(f))->prev_fcache = (val); \
-    } \
-} while (0)
+#define FIFO_PREV_ASSIGN(f, val)                              \
+    do {                                                      \
+        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))             \
+            ((empty_slot_t *)(f))->prev_fcache = (val);       \
+        else {                                                \
+            ASSERT(!TEST(FRAG_SHARED, (f)->flags));           \
+            ((private_fragment_t *)(f))->prev_fcache = (val); \
+        }                                                     \
+    } while (0)
 
-#define FRAG_TAG(f) ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? \
-    ((empty_slot_t *)(f))->start_pc : (f)->tag)
+#define FRAG_TAG(f) \
+    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? ((empty_slot_t *)(f))->start_pc : (f)->tag)
 
 #ifdef DEBUG
-# define FRAG_ID(f) ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? -1 : (f)->id)
+#    define FRAG_ID(f) ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? -1 : (f)->id)
 #endif
 
-#define FIFO_UNIT(f) \
-    (fcache_lookup_unit((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? \
-        (((empty_slot_t *)(f))->start_pc) : ((f)->start_pc)))
+#define FIFO_UNIT(f)                                            \
+    (fcache_lookup_unit((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))  \
+                            ? (((empty_slot_t *)(f))->start_pc) \
+                            : ((f)->start_pc)))
 
 /* Shared fragments do NOT use a FIFO as they cannot easily replace existing
  * fragments.  Instead they use a free list (below).
  */
 #define USE_FIFO(f) (!TEST(FRAG_SHARED, (f)->flags))
-#define USE_FREE_LIST(f) (TEST(FRAG_SHARED, (f)->flags) && \
-                          !TEST(FRAG_COARSE_GRAIN, (f)->flags))
+#define USE_FREE_LIST(f) \
+    (TEST(FRAG_SHARED, (f)->flags) && !TEST(FRAG_COARSE_GRAIN, (f)->flags))
 #define USE_FIFO_FOR_CACHE(c) (!(c)->is_shared)
 #define USE_FREE_LIST_FOR_CACHE(c) ((c)->is_shared && !(c)->is_coarse)
 
@@ -336,8 +347,8 @@ static const uint FREE_LIST_SIZES[] = {
  */
 typedef struct _free_list_header_t {
     struct _free_list_header_t *next;
-    /* We arrange these two so that the FRAG_FCACHE_FREE_LIST flag will be set
-     * at the proper bit as though these were a "uint flags" at the same offset
+    /* We arrange this so that the FRAG_FCACHE_FREE_LIST flag will be set
+     * at the proper bit as though this were a "uint flags" at the same offset
      * in the struct as fragment_t.flags.  Since no one else examines a free list
      * as though it might be a fragment_t, we don't care about the other flags.
      * We have an ASSERT in fcache_init() to ensure the byte ordering is right.
@@ -348,8 +359,12 @@ typedef struct _free_list_header_t {
      * the free list.  Thus to identify a free list entry we must check for
      * either NULL or for the FRAG_FCACHE_FREE_LIST flag.
      */
-    ushort flags;
-    ushort size;
+    uint flags;
+    /* Although fragments are limited to ushort sizes, free entries are coalesced
+     * and can get larger.  We thus make space for a larger size (i#4434), as the
+     * only downside is a smaller MIN_FCACHE_SLOT_SIZE, which is still small enough.
+     */
+    uint size;
     struct _free_list_header_t *prev;
 } free_list_header_t;
 
@@ -358,10 +373,10 @@ typedef struct _free_list_header_t {
  * new free list entries with existing previous entries.
  */
 typedef struct _free_list_footer_t {
-    ushort size;
+    uint size;
 } free_list_footer_t;
 
-#define MAX_FREE_ENTRY_SIZE USHRT_MAX
+#define MAX_FREE_ENTRY_SIZE UINT_MAX
 
 /* See notes above: since f is either fragment_t* or free_list_header_t.next,
  * we're checking the next free list entry's flags by dereferencing, forcing a
@@ -377,13 +392,14 @@ typedef struct _free_list_footer_t {
 /* Caller must know that the next slot is a free slot! */
 #define FRAG_NEXT_FREE(pc, size) ((free_list_header_t *)((pc) + (size)))
 
-/* FIXME: for non-free-list-using caches we could shrink this.
+/* XXX: For non-free-list-using caches we could shrink this.
  * Current smallest bb is 5 bytes (single jmp) align-4 + header is 12,
- * and we're at 16 here, so we are wasting some space, but very few
- * fragments are under 16 bytes (see request_size_histogram[])
+ * and we're at 20 here, so we are wasting some space, but few
+ * fragments are under 20: some are at 16 for 32-bit but almost none
+ * are smaller (see request_size_histogram[]).
  */
 #define MIN_FCACHE_SLOT_SIZE(cache) \
-    ((cache)->is_coarse ? 0 : (sizeof(free_list_header_t)+sizeof(free_list_footer_t)))
+    ((cache)->is_coarse ? 0 : (sizeof(free_list_header_t) + sizeof(free_list_footer_t)))
 
 /**************************************************
  * single mmapped piece of cache
@@ -393,17 +409,17 @@ struct _fcache;
 #define UNIT_RESERVED_SIZE(u) ((size_t)((u)->reserved_end_pc - (u)->start_pc))
 
 typedef struct _fcache_unit_t {
-    cache_pc start_pc;         /* start address of fcache storage */
-    cache_pc end_pc;           /* end address of committed storage, open-ended */
-    cache_pc cur_pc;           /* if not filled up yet, bottom of cache */
-    cache_pc reserved_end_pc;  /* reservation end address, open-ended */
-    size_t size;               /* committed size: equals (end_pc - start_pc) */
-    bool full;                 /* to tell whether cache is filled to end */
-    struct _fcache *cache;     /* up-pointer to parent cache */
+    cache_pc start_pc;        /* start address of fcache storage */
+    cache_pc end_pc;          /* end address of committed storage, open-ended */
+    cache_pc cur_pc;          /* if not filled up yet, bottom of cache */
+    cache_pc reserved_end_pc; /* reservation end address, open-ended */
+    size_t size;              /* committed size: equals (end_pc - start_pc) */
+    bool full;                /* to tell whether cache is filled to end */
+    struct _fcache *cache;    /* up-pointer to parent cache */
 #if defined(SIDELINE) || defined(WINDOWS_PC_SAMPLE)
     dcontext_t *dcontext;
 #endif
-    bool writable;             /* remember state of cache memory protection */
+    bool writable; /* remember state of cache memory protection */
 #ifdef WINDOWS_PC_SAMPLE
     /* We cache these values for units_to_{flush,free} units whose cache
      * field has been invalidated
@@ -412,12 +428,13 @@ typedef struct _fcache_unit_t {
     bool was_shared;
     profile_t *profile;
 #endif
-    bool pending_free;         /* was entire unit flushed and slated for free? */
+    bool per_thread;   /* Used for -per_thread_guard_pages. */
+    bool pending_free; /* was entire unit flushed and slated for free? */
 #ifdef DEBUG
-    bool pending_flush;        /* indicates in-limbo unit pre-flush is still live */
+    bool pending_flush; /* indicates in-limbo unit pre-flush is still live */
 #endif
-    uint flushtime;            /* free this unit when this flushtime is freed --
-                                * used only for units_to_free list, else 0 */
+    uint flushtime;                     /* free this unit when this flushtime is freed --
+                                         * used only for units_to_free list, else 0 */
     struct _fcache_unit_t *next_global; /* used to link all units */
     struct _fcache_unit_t *prev_global; /* used to link all units */
     struct _fcache_unit_t *next_local;  /* used to link an fcache_t's units */
@@ -437,25 +454,25 @@ enum {
  */
 typedef struct _fcache {
     /* FIXME: do we want space or perf here (bitfield vs full field)? */
-    bool is_trace:1;             /* for varying alignment, etc. */
-    bool is_shared:1;
+    bool is_trace : 1; /* for varying alignment, etc. */
+    bool is_shared : 1;
 #ifdef DEBUG
     /* A local cache's pointer has not escaped to any other thread.
      * We only use this flag to get around lock ordering issues w/
      * persistent caches and we don't bother to set it for all
      * private caches.
      */
-    bool is_local:1;           /* no lock needed since only known to this thread */
+    bool is_local : 1; /* no lock needed since only known to this thread */
 #endif
     /* Is this a dedicated coarse-grain cache unit */
-    bool is_coarse:1;
-    fragment_t *fifo;            /* the FIFO list of fragments to delete.
-                                * also includes empty slots as EmptySlots
-                                * (all empty slots are at front of FIFO) */
-    fcache_unit_t *units;         /* list of all units, also FIFO -- the front
-                                * of the list is the only potentially
-                                * non-full unit */
-    size_t size;               /* sum of sizes of all units */
+    bool is_coarse : 1;
+    fragment_t *fifo;     /* the FIFO list of fragments to delete.
+                           * also includes empty slots as EmptySlots
+                           * (all empty slots are at front of FIFO) */
+    fcache_unit_t *units; /* list of all units, also FIFO -- the front
+                           * of the list is the only potentially
+                           * non-full unit */
+    size_t size;          /* sum of sizes of all units */
 
     /* can't rely on bb_building_lock b/c shared deletion doesn't hold it,
      * and cleaner to have dedicated lock
@@ -476,37 +493,37 @@ typedef struct _fcache {
      * not much of a space hit at all since there are 2 caches per thread
      * and then 2 global caches.
      */
-    uint max_size;             /* maximum sum of sizes */
-    uint max_unit_size;
-    uint max_quadrupled_unit_size;
-    uint free_upgrade_size;
-    uint init_unit_size;
+    size_t max_size; /* maximum sum of sizes */
+    size_t max_unit_size;
+    size_t max_quadrupled_unit_size;
+    size_t free_upgrade_size;
+    size_t init_unit_size;
     bool finite_cache;
     uint regen_param;
     uint replace_param;
 
     /* for adaptive working set: */
-    uint      num_regenerated;
-    uint      num_replaced; /* for shared cache, simply number created */
+    uint num_regenerated;
+    uint num_replaced; /* for shared cache, simply number created */
     /* for fifo caches, wset_check is simply an optimization to avoid
      * too many checks when parameters are such that regen<<replace
      */
-    int      wset_check;
+    int wset_check;
     /* for non-fifo caches, this flag indicates we should start
      * recording num_regenerated and num_replaced
      */
-    bool     record_wset;
+    bool record_wset;
 
     free_list_header_t *free_list[FREE_LIST_SIZES_NUM];
 #ifdef DEBUG
-    uint free_stats_freed[FREE_LIST_SIZES_NUM]; /* occurrences */
-    uint free_stats_reused[FREE_LIST_SIZES_NUM]; /* occurrences */
+    uint free_stats_freed[FREE_LIST_SIZES_NUM];     /* occurrences */
+    uint free_stats_reused[FREE_LIST_SIZES_NUM];    /* occurrences */
     uint free_stats_coalesced[FREE_LIST_SIZES_NUM]; /* occurrences */
-    uint free_stats_split[FREE_LIST_SIZES_NUM]; /* entry split, occurrences */
-    uint free_stats_charge[FREE_LIST_SIZES_NUM]; /* bytes on free list */
+    uint free_stats_split[FREE_LIST_SIZES_NUM];     /* entry split, occurrences */
+    uint free_stats_charge[FREE_LIST_SIZES_NUM];    /* bytes on free list */
     /* sizes of real requests and frees */
-    uint request_size_histogram[HISTOGRAM_MAX_SIZE/HISTOGRAM_GRANULARITY];
-    uint free_size_histogram[HISTOGRAM_MAX_SIZE/HISTOGRAM_GRANULARITY];
+    uint request_size_histogram[HISTOGRAM_MAX_SIZE / HISTOGRAM_GRANULARITY];
+    uint free_size_histogram[HISTOGRAM_MAX_SIZE / HISTOGRAM_GRANULARITY];
 #endif
 } fcache_t;
 
@@ -529,24 +546,25 @@ typedef struct _fcache_thread_units_t {
  * the lower-ranked shared_vm_areas lock, but the allsynch makes it safe to not
  * acquire it.
  */
-#define PROTECT_CACHE(cache, op) do {                         \
-    if ((cache)->is_shared && !is_self_allsynch_flushing()) { \
-        mutex_##op(&(cache)->lock);                           \
-    }                                                         \
-} while (0);
+#define PROTECT_CACHE(cache, op)                                  \
+    do {                                                          \
+        if ((cache)->is_shared && !is_self_allsynch_flushing()) { \
+            d_r_mutex_##op(&(cache)->lock);                       \
+        }                                                         \
+    } while (0);
 
-#define CACHE_PROTECTED(cache) \
-    (!(cache)->is_shared || (cache)->is_local || \
-     OWN_MUTEX(&(cache)->lock) || dynamo_all_threads_synched)
+#define CACHE_PROTECTED(cache)                                                \
+    (!(cache)->is_shared || (cache)->is_local || OWN_MUTEX(&(cache)->lock) || \
+     dynamo_all_threads_synched)
 
 /**************************************************
  * global, unique thread-shared structure:
  */
 typedef struct _fcache_list_t {
     /* These lists are protected by allunits_lock. */
-    fcache_unit_t *units;      /* list of all allocated fcache units */
-    fcache_unit_t *dead;       /* list of deleted units ready for re-allocation */
-    /* FIXME: num_dead duplicates stats->fcache_num_free, but we want num_dead
+    fcache_unit_t *units; /* list of all allocated fcache units */
+    fcache_unit_t *dead;  /* list of deleted units ready for re-allocation */
+    /* FIXME: num_dead duplicates d_r_stats->fcache_num_free, but we want num_dead
      * for release build too, so it's separate...can we do better?
      */
     uint num_dead;
@@ -593,7 +611,7 @@ DECLARE_FREQPROT_VAR(bool reset_in_progress, false);
  * reset_at_nth_thread is wholly inside dynamo.c, e.g.
  */
 DECLARE_CXTSWPROT_VAR(mutex_t reset_pending_lock, INIT_LOCK_FREE(reset_pending_lock));
-/* indicates a call to fcache_reset_all_caches_proactively() is pending in dispatch */
+/* indicates a call to fcache_reset_all_caches_proactively() is pending in d_r_dispatch */
 DECLARE_FREQPROT_VAR(uint reset_pending, 0);
 
 /* these cannot be per-cache since caches are reset so we have them act globally.
@@ -604,48 +622,54 @@ enum {
     CACHE_TRACE,
     CACHE_NUM_TYPES,
 };
-DECLARE_FREQPROT_VAR(uint reset_at_nth_unit[CACHE_NUM_TYPES], {0,});
-DECLARE_FREQPROT_VAR(uint reset_every_nth_unit[CACHE_NUM_TYPES], {0,});
+DECLARE_FREQPROT_VAR(uint reset_at_nth_unit[CACHE_NUM_TYPES],
+                     {
+                         0,
+                     });
+DECLARE_FREQPROT_VAR(uint reset_every_nth_unit[CACHE_NUM_TYPES],
+                     {
+                         0,
+                     });
 
-#define STATS_FCACHE_ADD(cache, stat, val) DOSTATS({   \
-    if (cache->is_shared) {                            \
-        if (cache->is_trace)                           \
-            STATS_ADD(fcache_shared_trace_##stat, val);\
-        else                                           \
-            STATS_ADD(fcache_shared_bb_##stat, val);   \
-    }                                                  \
-    else if (cache->is_trace)                          \
-        STATS_ADD(fcache_trace_##stat, val);           \
-    else                                               \
-        STATS_ADD(fcache_bb_##stat, val);              \
-})
+#define STATS_FCACHE_ADD(cache, stat, val)                  \
+    DOSTATS({                                               \
+        if (cache->is_shared) {                             \
+            if (cache->is_trace)                            \
+                STATS_ADD(fcache_shared_trace_##stat, val); \
+            else                                            \
+                STATS_ADD(fcache_shared_bb_##stat, val);    \
+        } else if (cache->is_trace)                         \
+            STATS_ADD(fcache_trace_##stat, val);            \
+        else                                                \
+            STATS_ADD(fcache_bb_##stat, val);               \
+    })
 
 /* convenience routine to avoid casts to signed types everywhere */
 #define STATS_FCACHE_SUB(cache, stat, val) \
     STATS_FCACHE_ADD(cache, stat, -(stats_int_t)(val))
 
-#define STATS_FCACHE_MAX(cache, stat1, stat2) DOSTATS({          \
-    if (cache->is_shared) {                                      \
-        if (cache->is_trace)                                     \
-            STATS_MAX(fcache_shared_trace_##stat1, fcache_shared_trace_##stat2); \
-        else                                                     \
-            STATS_MAX(fcache_shared_bb_##stat1, fcache_shared_bb_##stat2); \
-    }                                                            \
-    else if (cache->is_trace)                                    \
-        STATS_MAX(fcache_trace_##stat1, fcache_trace_##stat2);   \
-    else                                                         \
-        STATS_MAX(fcache_bb_##stat1, fcache_bb_##stat2);         \
-})
+#define STATS_FCACHE_MAX(cache, stat1, stat2)                                        \
+    DOSTATS({                                                                        \
+        if (cache->is_shared) {                                                      \
+            if (cache->is_trace)                                                     \
+                STATS_MAX(fcache_shared_trace_##stat1, fcache_shared_trace_##stat2); \
+            else                                                                     \
+                STATS_MAX(fcache_shared_bb_##stat1, fcache_shared_bb_##stat2);       \
+        } else if (cache->is_trace)                                                  \
+            STATS_MAX(fcache_trace_##stat1, fcache_trace_##stat2);                   \
+        else                                                                         \
+            STATS_MAX(fcache_bb_##stat1, fcache_bb_##stat2);                         \
+    })
 
 #ifdef DEBUG
 /* forward decl */
-# ifdef INTERNAL
+#    ifdef INTERNAL
 static void
 verify_fifo(dcontext_t *dcontext, fcache_t *cache);
 
 static void
 print_fifo(dcontext_t *dcontext, fcache_t *cache);
-# endif
+#    endif
 
 static void
 fcache_cache_stats(dcontext_t *dcontext, fcache_t *cache);
@@ -664,76 +688,75 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
 static void
 fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reuse);
 
-#define CHECK_PARAMS(who, name, ret) do {                           \
-    /* make it easier to set max */                                 \
-    if (FCACHE_OPTION(cache_##who##_max) > 0 &&                     \
-        FCACHE_OPTION(cache_##who##_max) < FCACHE_OPTION(cache_##who##_unit_max)) {     \
-        FCACHE_OPTION(cache_##who##_unit_max) = FCACHE_OPTION(cache_##who##_max);       \
-        FCACHE_OPTION(cache_##who##_unit_init) = FCACHE_OPTION(cache_##who##_max);      \
-        FCACHE_OPTION(cache_##who##_unit_quadruple) = FCACHE_OPTION(cache_##who##_max); \
-        FCACHE_OPTION(cache_##who##_unit_upgrade) = FCACHE_OPTION(cache_##who##_max);   \
-    }                                                                     \
-    /* case 7626: don't short-circuit checks, as later ones may be needed */ \
-    ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_max),           \
-                             (uint)PAGE_SIZE,                             \
-                             0,                                           \
-                             name" cache max size")                       \
-        || ret;                                                           \
-    /* N.B.: we assume cache unit max fits in uint */                     \
-    ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_max),      \
-                             FCACHE_OPTION(cache_##who##_unit_init),      \
-                             FCACHE_OPTION(cache_##who##_max),            \
-                             name" cache unit max size")                  \
-        || ret;                                                           \
-    ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_quadruple),\
-                             FCACHE_OPTION(cache_##who##_unit_init),      \
-                             FCACHE_OPTION(cache_##who##_max),            \
-                             name" cache unit quadruple-to size")         \
-        || ret;                                                           \
-    ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_upgrade),  \
-                             FCACHE_OPTION(cache_##who##_unit_init),      \
-                             FCACHE_OPTION(cache_##who##_max),            \
-                             name" cache unit free upgrade size")         \
-        || ret;                                                           \
-    ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_init),     \
-                             /* x64 does not support resizing fcache units */ \
-                             IF_X64_ELSE(FCACHE_OPTION(cache_##who##_unit_max), \
-                                         (uint)PAGE_SIZE),                \
-                             FCACHE_OPTION(cache_##who##_unit_max),       \
-                             name" cache unit init size")                 \
-        || ret;                                                           \
-    ret = check_param_bounds(&FCACHE_OPTION(cache_commit_increment),      \
-                             (uint)PAGE_SIZE,                             \
-                             FCACHE_OPTION(cache_##who##_unit_init),      \
-                             name" cache_commit_increment")               \
-        || ret;                                                           \
-} while (0);
+#define CHECK_PARAMS(who, name, ret)                                                    \
+    do {                                                                                \
+        /* make it easier to set max */                                                 \
+        if (FCACHE_OPTION(cache_##who##_max) > 0 &&                                     \
+            FCACHE_OPTION(cache_##who##_max) < FCACHE_OPTION(cache_##who##_unit_max)) { \
+            FCACHE_OPTION(cache_##who##_unit_max) = FCACHE_OPTION(cache_##who##_max);   \
+            FCACHE_OPTION(cache_##who##_unit_init) = FCACHE_OPTION(cache_##who##_max);  \
+            FCACHE_OPTION(cache_##who##_unit_quadruple) =                               \
+                FCACHE_OPTION(cache_##who##_max);                                       \
+            FCACHE_OPTION(cache_##who##_unit_upgrade) =                                 \
+                FCACHE_OPTION(cache_##who##_max);                                       \
+        }                                                                               \
+        /* case 7626: don't short-circuit checks, as later ones may be needed */        \
+        ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_max), (uint)PAGE_SIZE, 0, \
+                                 name " cache max size") ||                             \
+            ret;                                                                        \
+        /* N.B.: we assume cache unit max fits in uint */                               \
+        ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_max),                \
+                                 FCACHE_OPTION(cache_##who##_unit_init),                \
+                                 FCACHE_OPTION(cache_##who##_max),                      \
+                                 name " cache unit max size") ||                        \
+            ret;                                                                        \
+        ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_quadruple),          \
+                                 FCACHE_OPTION(cache_##who##_unit_init),                \
+                                 FCACHE_OPTION(cache_##who##_max),                      \
+                                 name " cache unit quadruple-to size") ||               \
+            ret;                                                                        \
+        ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_upgrade),            \
+                                 FCACHE_OPTION(cache_##who##_unit_init),                \
+                                 FCACHE_OPTION(cache_##who##_max),                      \
+                                 name " cache unit free upgrade size") ||               \
+            ret;                                                                        \
+        ret =                                                                           \
+            check_param_bounds(                                                         \
+                &FCACHE_OPTION(cache_##who##_unit_init), /* x64 does not support        \
+                                                            resizing fcache units */    \
+                IF_X64_ELSE(FCACHE_OPTION(cache_##who##_unit_max), (uint)PAGE_SIZE),    \
+                FCACHE_OPTION(cache_##who##_unit_max), name " cache unit init size") || \
+            ret;                                                                        \
+        /* We let cache_commit_increment be any size to support raising it w/o */       \
+        /* setting a dozen unit sizes. */                                               \
+    } while (0);
 
-#define CHECK_WSET_PARAM(param, ret) do {                                     \
-        if (dynamo_options.cache_##param##_regen < 0) {                       \
-            USAGE_ERROR("-cache_"#param"_regen must be >= 0, is %d, setting to 0", \
-                        dynamo_options.cache_##param##_regen);                \
-            dynamo_options.cache_##param##_regen = 0;                         \
-            ret = true;                                                       \
-        }                                                                     \
-        if (dynamo_options.cache_##param##_replace < 0) {                     \
-            USAGE_ERROR("-cache_"#param"_replace must be >= 0, id %d, setting to 0", \
-                        dynamo_options.cache_##param##_replace);              \
-            dynamo_options.cache_##param##_replace = 0;                       \
-            ret = true;                                                       \
-        }                                                                     \
-        if (dynamo_options.cache_##param##_replace != 0 &&                    \
-            dynamo_options.cache_##param##_regen >                            \
-            dynamo_options.cache_##param##_replace) {                         \
-            USAGE_ERROR("-cache_"#param"_regen (currently %d) must be <= "    \
-                        "-cache_"#param"_replace (currently %d) (if -cache_"  \
-                        #param"_replace > 0), setting regen to equal replace",\
-                        dynamo_options.cache_##param##_regen,                 \
-                        dynamo_options.cache_##param##_replace);              \
-            dynamo_options.cache_##param##_regen =                            \
-                dynamo_options.cache_##param##_replace;                       \
-            ret = true;                                                       \
-        }                                                                     \
+#define CHECK_WSET_PARAM(param, ret)                                                   \
+    do {                                                                               \
+        if (dynamo_options.cache_##param##_regen < 0) {                                \
+            USAGE_ERROR("-cache_" #param "_regen must be >= 0, is %d, setting to 0",   \
+                        dynamo_options.cache_##param##_regen);                         \
+            dynamo_options.cache_##param##_regen = 0;                                  \
+            ret = true;                                                                \
+        }                                                                              \
+        if (dynamo_options.cache_##param##_replace < 0) {                              \
+            USAGE_ERROR("-cache_" #param "_replace must be >= 0, id %d, setting to 0", \
+                        dynamo_options.cache_##param##_replace);                       \
+            dynamo_options.cache_##param##_replace = 0;                                \
+            ret = true;                                                                \
+        }                                                                              \
+        if (dynamo_options.cache_##param##_replace != 0 &&                             \
+            dynamo_options.cache_##param##_regen >                                     \
+                dynamo_options.cache_##param##_replace) {                              \
+            USAGE_ERROR("-cache_" #param "_regen (currently %d) must be <= "           \
+                        "-cache_" #param "_replace (currently %d) (if -cache_" #param  \
+                        "_replace > 0), setting regen to equal replace",               \
+                        dynamo_options.cache_##param##_regen,                          \
+                        dynamo_options.cache_##param##_replace);                       \
+            dynamo_options.cache_##param##_regen =                                     \
+                dynamo_options.cache_##param##_replace;                                \
+            ret = true;                                                                \
+        }                                                                              \
     } while (0);
 
 /* pulled out from fcache_init, checks for compatibility among the fcache
@@ -763,8 +786,8 @@ fcache_check_option_compatibility()
                                  FCACHE_OPTION(cache_shared_bb_unit_max),
                                  FCACHE_OPTION(cache_shared_bb_unit_max),
                                  "cache_shared_bb_unit_init should equal "
-                                 "cache_shared_bb_unit_max")
-            || ret;
+                                 "cache_shared_bb_unit_max") ||
+            ret;
     }
     if (DYNAMO_OPTION(shared_traces)) {
         if (DYNAMO_OPTION(cache_shared_trace_max) > 0) {
@@ -780,8 +803,8 @@ fcache_check_option_compatibility()
                                  FCACHE_OPTION(cache_shared_trace_unit_max),
                                  FCACHE_OPTION(cache_shared_trace_unit_max),
                                  "cache_shared_trace_unit_init should equal "
-                                 "cache_shared_trace_unit_max")
-            || ret;
+                                 "cache_shared_trace_unit_max") ||
+            ret;
     }
     if (INTERNAL_OPTION(pad_jmps_shift_bb) &&
         DYNAMO_OPTION(cache_bb_align) < START_PC_ALIGNMENT) {
@@ -805,7 +828,7 @@ fcache_check_option_compatibility()
     /* yes can set both to different values -- but every won't kick in until
      * after first at
      */
-    for (i=0; i<CACHE_NUM_TYPES; i++) {
+    for (i = 0; i < CACHE_NUM_TYPES; i++) {
         if (reset_every_nth_unit[i] > 0 && reset_at_nth_unit[i] == 0)
             reset_at_nth_unit[i] = reset_every_nth_unit[i];
     }
@@ -826,14 +849,14 @@ fcache_reset_init(void)
         shared_cache_bb = fcache_cache_init(GLOBAL_DCONTEXT, FRAG_SHARED, true);
         ASSERT(shared_cache_bb != NULL);
         LOG(GLOBAL, LOG_CACHE, 1, "Initial shared bb cache is %d KB\n",
-            shared_cache_bb->init_unit_size/1024);
+            shared_cache_bb->init_unit_size / 1024);
     }
     if (DYNAMO_OPTION(shared_traces)) {
-        shared_cache_trace = fcache_cache_init(GLOBAL_DCONTEXT,
-                                               FRAG_SHARED|FRAG_IS_TRACE, true);
+        shared_cache_trace =
+            fcache_cache_init(GLOBAL_DCONTEXT, FRAG_SHARED | FRAG_IS_TRACE, true);
         ASSERT(shared_cache_trace != NULL);
         LOG(GLOBAL, LOG_CACHE, 1, "Initial shared trace cache is %d KB\n",
-            shared_cache_trace->init_unit_size/1024);
+            shared_cache_trace->init_unit_size / 1024);
     }
 }
 
@@ -843,10 +866,10 @@ fcache_init()
 {
     ASSERT(offsetof(fragment_t, flags) == offsetof(empty_slot_t, flags));
     DOCHECK(1, {
-        /* ensure flag in ushort is at same spot as in uint */
+        /* ensure flag in free list is at same spot as in fragment_t */
         static free_list_header_t free;
         free.flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
-        ASSERT(TEST(FRAG_FCACHE_FREE_LIST, ((fragment_t*)(&free))->flags));
+        ASSERT(TEST(FRAG_FCACHE_FREE_LIST, ((fragment_t *)(&free))->flags));
         /* ensure treating fragment_t* as next will work */
         ASSERT(offsetof(free_list_header_t, next) == offsetof(live_header_t, f));
     });
@@ -855,8 +878,7 @@ fcache_init()
     ASSERT(FREE_LIST_SIZES[0] == 0);
 
     VMVECTOR_ALLOC_VECTOR(fcache_unit_areas, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED | VECTOR_NEVER_MERGE,
-                          fcache_unit_areas);
+                          VECTOR_SHARED | VECTOR_NEVER_MERGE, fcache_unit_areas);
 
     allunits = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fcache_list_t, ACCT_OTHER, PROTECTED);
     allunits->units = NULL;
@@ -886,20 +908,18 @@ fcache_unit_profile_stop(fcache_unit_t *u)
             shared = u->cache->is_shared;
             trace = u->cache->is_trace;
         }
-        mutex_lock(&profile_dump_lock);
+        d_r_mutex_lock(&profile_dump_lock);
         if (shared) {
             print_file(profile_file,
                        "\nDumping fcache %s unit profile (Shared)\n%d hits\n",
-                       trace ? "trace" :  "bb",
-                       sum);
+                       trace ? "trace" : "bb", sum);
         } else {
             print_file(profile_file,
                        "\nDumping fcache %s unit profile (Thread %d)\n%d hits\n",
-                       trace ? "trace" :  "bb",
-                       u->dcontext->owning_thread, sum);
+                       trace ? "trace" : "bb", u->dcontext->owning_thread, sum);
         }
         dump_profile(profile_file, u->profile);
-        mutex_unlock(&profile_dump_lock);
+        d_r_mutex_unlock(&profile_dump_lock);
     }
 }
 #endif
@@ -928,7 +948,7 @@ static void
 fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
 {
     if (TEST(SELFPROT_CACHE, dynamo_options.protect_mask) && !u->writable) {
-        change_protection((void*)u->start_pc, u->size, WRITABLE);
+        change_protection((void *)u->start_pc, u->size, WRITABLE);
     }
 #ifdef WINDOWS_PC_SAMPLE
     if (u->profile != NULL) {
@@ -951,11 +971,13 @@ fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
      * being re-used and not showing up in in_fcache
      */
     vmvector_remove(fcache_unit_areas, u->start_pc, u->reserved_end_pc);
-    if (dealloc_unit)
-        heap_munmap((void*)u->start_pc, UNIT_RESERVED_SIZE(u), VMM_CACHE);
+    if (dealloc_unit) {
+        heap_munmap((void *)u->start_pc, UNIT_RESERVED_SIZE(u),
+                    VMM_CACHE | VMM_REACHABLE | (u->per_thread ? VMM_PER_THREAD : 0));
+    }
     /* always dealloc the metadata */
-    nonpersistent_heap_free(GLOBAL_DCONTEXT, u, sizeof(fcache_unit_t)
-                            HEAPACCT(ACCT_MEM_MGT));
+    nonpersistent_heap_free(GLOBAL_DCONTEXT, u,
+                            sizeof(fcache_unit_t) HEAPACCT(ACCT_MEM_MGT));
 }
 
 #ifdef DEBUG
@@ -1025,33 +1047,33 @@ fcache_reset_free(void)
      * we must free the units here as they are unreachable elsewhere.
      * their fragments will be freed by the fragment htable walk.
      */
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
     u = allunits->units_to_flush;
     while (u != NULL) {
         next_u = u->next_local;
         LOG(GLOBAL, LOG_CACHE, 2,
-            "@ reset-free freeing to-be-flushed unit "PFX"-"PFX"\n",
-            u->start_pc, u->end_pc);
+            "@ reset-free freeing to-be-flushed unit " PFX "-" PFX "\n", u->start_pc,
+            u->end_pc);
         fcache_free_unit(GLOBAL_DCONTEXT, u, true);
         u = next_u;
     }
     allunits->units_to_flush = NULL;
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
 
     /* should be freed via vm_area_check_shared_pending() */
     ASSERT(allunits->units_to_free == NULL);
 
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     u = allunits->dead;
     while (u != NULL) {
         next_u = u->next_global;
-        fcache_really_free_unit(u, true/*on dead list*/, true/*dealloc*/);
+        fcache_really_free_unit(u, true /*on dead list*/, true /*dealloc*/);
         u = next_u;
     }
     /* clear fields for reset_init() */
     allunits->dead = NULL;
     allunits->num_dead = 0;
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 }
 
 /* atexit cleanup -- needs no locks */
@@ -1061,27 +1083,28 @@ fcache_exit()
     fcache_unit_t *u, *next_u;
 
     DOSTATS({
-        LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
-            "fcache_exit: before fcache cleanup\n");
+        LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1, "fcache_exit: before fcache cleanup\n");
         DOLOG(1, LOG_CACHE, fcache_stats_exit(););
     });
 
     fcache_reset_free();
 
     /* free heap for all live units (reset did dead ones) */
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     u = allunits->units;
     while (u != NULL) {
         next_u = u->next_global;
-        fcache_really_free_unit(u, false/*live*/, true/*dealloc*/);
+        fcache_really_free_unit(u, false /*live*/, true /*dealloc*/);
         u = next_u;
     }
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 
     ASSERT(vmvector_empty(fcache_unit_areas));
     vmvector_delete_vector(GLOBAL_DCONTEXT, fcache_unit_areas);
 
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, allunits, fcache_list_t, ACCT_OTHER, PROTECTED);
+
+    reset_pending = 0; /* For reattach. */
 
     DELETE_LOCK(allunits_lock);
     DELETE_LOCK(reset_pending_lock);
@@ -1094,7 +1117,7 @@ void
 fcache_profile_exit()
 {
     fcache_unit_t *u;
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     for (u = allunits->units; u != NULL; u = u->next_global) {
         if (u->profile) {
             fcache_unit_profile_stop(u);
@@ -1102,7 +1125,7 @@ fcache_profile_exit()
             u->profile = NULL;
         }
     }
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 }
 #endif
 
@@ -1111,7 +1134,7 @@ fcache_lookup_unit(cache_pc pc)
 {
     /* let's see if this becomes frequent enough to be a perf hit */
     STATS_INC(fcache_unit_lookups);
-    return (fcache_unit_t *) vmvector_lookup(fcache_unit_areas, pc);
+    return (fcache_unit_t *)vmvector_lookup(fcache_unit_areas, pc);
 }
 
 /* Returns the fragment_t whose body (not cache slot) contains lookup_pc */
@@ -1123,7 +1146,7 @@ fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *w
     fcache_unit_t *unit = fcache_lookup_unit(lookup_pc);
     if (unit == NULL)
         return NULL;
-    LOG(THREAD, LOG_CACHE, 5, "fcache_fragment_pclookup "PFX" -> "PFX"-"PFX"\n",
+    LOG(THREAD, LOG_CACHE, 5, "fcache_fragment_pclookup " PFX " -> " PFX "-" PFX "\n",
         lookup_pc, unit->start_pc, unit->end_pc);
     if (unit->cache->is_coarse) {
         /* No metadata in cache so we must walk the htable.  We shouldn't need
@@ -1152,21 +1175,21 @@ fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *w
     pc = unit->start_pc;
     while (pc < unit->cur_pc && pc < lookup_pc) {
         f = *((fragment_t **)pc);
-        LOG(THREAD, LOG_CACHE, 6, "\treading "PFX" -> "PFX"\n", pc, f);
+        LOG(THREAD, LOG_CACHE, 6, "\treading " PFX " -> " PFX "\n", pc, f);
         if (!USE_FIFO_FOR_CACHE(unit->cache)) {
             if (FRAG_IS_FREE_LIST(f)) {
-                pc += ((free_list_header_t *) pc)->size;
+                pc += ((free_list_header_t *)pc)->size;
                 continue;
             }
         }
         ASSERT(f != NULL);
         ASSERT(FIFO_UNIT(f) == unit);
         ASSERT(FRAG_HDR_START(f) == pc);
-        if (!FRAG_EMPTY(f) &&
-            lookup_pc < (f->start_pc + f->size) && lookup_pc >= f->start_pc) {
+        if (!FRAG_EMPTY(f) && lookup_pc < (f->start_pc + f->size) &&
+            lookup_pc >= f->start_pc) {
             found = f;
-            LOG(THREAD, LOG_CACHE, 5, "\tfound F%d ("PFX")."PFX"\n",
-                f->id, f->tag, f->start_pc);
+            LOG(THREAD, LOG_CACHE, 5, "\tfound F%d (" PFX ")." PFX "\n", f->id, f->tag,
+                f->start_pc);
             break;
         }
         /* advance to contiguously-next fragment_t in cache */
@@ -1174,6 +1197,48 @@ fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *w
     }
     PROTECT_CACHE(unit->cache, unlock);
     return found;
+}
+
+/* This is safe to call from a signal handler. */
+dr_where_am_i_t
+fcache_refine_whereami(dcontext_t *dcontext, dr_where_am_i_t whereami, app_pc pc,
+                       OUT fragment_t **containing_fragment)
+{
+    if (whereami != DR_WHERE_FCACHE) {
+        if (containing_fragment != NULL)
+            *containing_fragment = NULL;
+        return whereami;
+    }
+    fragment_t wrapper;
+    fragment_t *fragment = fragment_pclookup(dcontext, pc, &wrapper);
+    if (fragment == NULL) {
+        /* Since we're DR_WHERE_FCACHE, our locks shouldn't be held.
+         * XXX: we could double-check fcache_unit_areas.lock before
+         * calling (case 1317) and assert on it.
+         */
+        if (in_fcache(pc)) {
+            whereami = DR_WHERE_UNKNOWN;
+        } else {
+            /* Identify parts of our assembly code now.
+             * It's all generated and post-process can't identify.
+             * Assume code order is as follows:
+             */
+            if (in_indirect_branch_lookup_code(dcontext, (cache_pc)pc)) {
+                whereami = DR_WHERE_IBL;
+            } else if (in_generated_routine(dcontext, (cache_pc)pc)) {
+                /* We consider any non-ibl generated code as "context switch":
+                 * not just private or shared fcache_{enter,return} but also
+                 * do_syscall and other common transition code.
+                 */
+                whereami = DR_WHERE_CONTEXT_SWITCH;
+            } else {
+                whereami = DR_WHERE_UNKNOWN;
+            }
+        }
+    }
+    if (containing_fragment != NULL)
+        *containing_fragment = fragment;
+    return whereami;
 }
 
 #ifdef DEBUG
@@ -1216,7 +1281,7 @@ fcache_change_fragment_protection(dcontext_t *dcontext, fragment_t *f, bool writ
         ASSERT(u != NULL);
         if (u->writable == writable)
             return;
-        change_protection((void*)u->start_pc, u->size, writable);
+        change_protection((void *)u->start_pc, u->size, writable);
         u->writable = writable;
     } else {
         /* else, do entire fcache
@@ -1227,19 +1292,18 @@ fcache_change_fragment_protection(dcontext_t *dcontext, fragment_t *f, bool writ
         /* FIXME: right now no synch here, so one thread could unprot, another prots,
          * and the first segfaults
          */
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         u = allunits->units;
         while (u != NULL) {
             if (u->writable != writable) {
-                change_protection((void*)u->start_pc, u->size, writable);
+                change_protection((void *)u->start_pc, u->size, writable);
                 u->writable = writable;
             }
             u = u->next_global;
         }
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     }
 }
-
 
 /* return true if pc is in the fcache address space */
 /* This routine can be called with a thread suspended in an unknown state.
@@ -1248,11 +1312,10 @@ fcache_change_fragment_protection(dcontext_t *dcontext, fragment_t *f, bool writ
  * to grab any other locks, or call a routine that does, then the
  * at_safe_spot() routine in os.c must be updated */
 bool
-in_fcache(void * pc)
+in_fcache(void *pc)
 {
     return fcache_lookup_unit((cache_pc)pc) != NULL;
 }
-
 
 /* Pass NULL for pc if this routine should allocate the cache space.
  * If pc is non-NULL, this routine assumes that size is fully
@@ -1274,11 +1337,12 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
 
     if (pc == NULL) {
         /* take from dead list if possible */
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         if (allunits->dead != NULL) {
             fcache_unit_t *prev_u = NULL;
             u = allunits->dead;
             while (u != NULL) {
+                /* We are ok re-using a per-thread-guarded unit in a shared cache. */
                 if (u->size >= size &&
                     (cache->max_size == 0 || cache->size + u->size <= cache->max_size)) {
                     /* remove from dead list */
@@ -1287,8 +1351,8 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
                     else
                         prev_u->next_global = u->next_global;
                     LOG(THREAD, LOG_CACHE, 1,
-                        "\tFound unit "PFX" of size %d (need %d) on dead list\n",
-                        u->start_pc, u->size/1024, size/1024);
+                        "\tFound unit " PFX " of size %d (need %d) on dead list\n",
+                        u->start_pc, u->size / 1024, size / 1024);
                     allunits->num_dead--;
                     RSTATS_DEC(fcache_num_free);
                     STATS_SUB(fcache_free_capacity, u->size);
@@ -1304,38 +1368,55 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
                 u = u->next_global;
             }
         }
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     }
 
     if (u == NULL) {
         size_t commit_size;
         /* use global heap b/c this can be re-used by later threads */
-        u = (fcache_unit_t *)
-            nonpersistent_heap_alloc(GLOBAL_DCONTEXT, sizeof(fcache_unit_t)
-                                     HEAPACCT(ACCT_MEM_MGT));
+        u = (fcache_unit_t *)nonpersistent_heap_alloc(
+            GLOBAL_DCONTEXT, sizeof(fcache_unit_t) HEAPACCT(ACCT_MEM_MGT));
+        u->per_thread = false;
         if (pc != NULL) {
             u->start_pc = pc;
             commit_size = size;
             STATS_FCACHE_ADD(cache, claimed, size);
             STATS_ADD(fcache_combined_claimed, size);
         } else {
-            /* allocate new unit */
+            /* Allocate new unit. */
             commit_size = DYNAMO_OPTION(cache_commit_increment);
-            ASSERT(commit_size <= size);
-            u->start_pc = (cache_pc) heap_mmap_reserve(size, commit_size, VMM_CACHE);
+            /* Cap the commit size at this unit's size.  Since we
+             * have a single param for the commit size, this
+             * makes it much easier to set it without having to
+             * set a dozen unrelated unit sizes too.
+             */
+            if (commit_size > size)
+                commit_size = size;
+            which_vmm_t which = VMM_CACHE | VMM_REACHABLE;
+            if (!cache->is_shared && cache->units == NULL) {
+                /* Tradeoff (i#4424): no guard pages on per-thread initial units, to
+                 * save space for many-threaded apps.  These units are rarely used.
+                 * We do not bother to mark subsequent units this way: the goal is to
+                 * reduce up-front per-thread costs in common usage, while additional
+                 * units indicate -thread_private or other settings.
+                 */
+                which |= VMM_PER_THREAD;
+                u->per_thread = true;
+            }
+            u->start_pc = (cache_pc)heap_mmap_reserve(
+                size, commit_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, which);
         }
         ASSERT(u->start_pc != NULL);
         ASSERT(proc_is_cache_aligned((void *)u->start_pc));
-        LOG(THREAD, LOG_HEAP, 3, "fcache_create_unit -> "PFX"\n", u->start_pc);
+        LOG(THREAD, LOG_HEAP, 3, "fcache_create_unit -> " PFX "\n", u->start_pc);
         u->size = commit_size;
         u->end_pc = u->start_pc + commit_size;
         u->reserved_end_pc = u->start_pc + size;
-        vmvector_add(fcache_unit_areas, u->start_pc, u->reserved_end_pc, (void *) u);
+        vmvector_add(fcache_unit_areas, u->start_pc, u->reserved_end_pc, (void *)u);
         RSTATS_ADD_PEAK(fcache_combined_capacity, u->size);
 
 #ifdef WINDOWS_PC_SAMPLE
-        if (dynamo_options.profile_pcs &&
-            dynamo_options.prof_pcs_fcache >= 2 &&
+        if (dynamo_options.profile_pcs && dynamo_options.prof_pcs_fcache >= 2 &&
             dynamo_options.prof_pcs_fcache <= 32) {
             u->profile = create_profile(u->start_pc, u->reserved_end_pc,
                                         dynamo_options.prof_pcs_fcache, NULL);
@@ -1363,7 +1444,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
     STATS_FCACHE_MAX(u->cache, capacity_peak, capacity);
 
     u->next_local = NULL; /* must be set by caller */
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
 
     if (allunits->units != NULL)
         allunits->units->prev_global = u;
@@ -1384,7 +1465,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
         }
     }
 
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 
     return u;
 }
@@ -1404,7 +1485,7 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
             ASSERT(dynamo_exited || dynamo_resetting || CACHE_PROTECTED(unit->cache));
         }
     });
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     /* remove from live list */
     if (unit->prev_global != NULL)
         unit->prev_global->next_global = unit->next_global;
@@ -1418,20 +1499,19 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
 
     if (!dealloc_or_reuse) {
         /* up to caller to dealloc */
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
         /* we do want to update cache->size and fcache_unit_areas: */
-        fcache_really_free_unit(unit, false/*live*/, false/*do not dealloc unit*/);
+        fcache_really_free_unit(unit, false /*live*/, false /*do not dealloc unit*/);
     }
     /* heuristic: don't keep around more dead units than max(5, 1/4 num threads) */
     else if (allunits->num_dead < 5 ||
-             allunits->num_dead * 4U <= (uint) get_num_threads()) {
+             allunits->num_dead * 4U <= (uint)d_r_get_num_threads()) {
         /* Keep dead list sorted small-to-large to avoid grabbing large
          * when can take small and then needing to allocate when only
          * have small left.  Helps out with lots of small threads.
          */
         fcache_unit_t *u, *prev_u;
-        for (u = allunits->dead, prev_u = NULL;
-             u != NULL && u->size < unit->size;
+        for (u = allunits->dead, prev_u = NULL; u != NULL && u->size < unit->size;
              prev_u = u, u = u->next_global)
             ;
         /* prev_global and next_local are not used in the dead list */
@@ -1453,43 +1533,33 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
 #endif
         /* this is done by fcache_really_free_unit for else path */
         remove_unit_from_cache(unit);
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     } else {
-        mutex_unlock(&allunits_lock);
-        fcache_really_free_unit(unit, false/*live*/, true/*dealloc*/);
+        d_r_mutex_unlock(&allunits_lock);
+        fcache_really_free_unit(unit, false /*live*/, true /*dealloc*/);
     }
 }
 
-/* assuming size will either be aligned at VM_ALLOCATION_BOUNDARY or
- * smaller where no adjustment is necessary
+/* We do not consider guard pages in our sizing, since the VMM no longer uses
+ * larger-than-page block sizing (i#2607, i#4424).  Guards will be added on top.
  */
-#define FCACHE_GUARDED(size)                                            \
-        ((size) -                                                       \
-         ((DYNAMO_OPTION(guard_pages) &&                                \
-           ((size) >= VM_ALLOCATION_BOUNDARY - 2 * (uint)PAGE_SIZE))    \
-          ? (2 * (uint)PAGE_SIZE) : 0))
-
-#define SET_CACHE_PARAMS(cache, which) do {                             \
-    cache->max_size =                                                   \
-        FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_max));             \
-    cache->max_unit_size =                                              \
-        FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_max));        \
-    cache->max_quadrupled_unit_size =                                   \
-        FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_quadruple));  \
-    cache->free_upgrade_size =                                          \
-        FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_upgrade));    \
-    cache->init_unit_size =                                             \
-        FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_init));       \
-    cache->finite_cache = dynamo_options.finite_##which##_cache;        \
-    cache->regen_param = dynamo_options.cache_##which##_regen;          \
-    cache->replace_param = dynamo_options.cache_##which##_replace;      \
-} while (0);
+#define SET_CACHE_PARAMS(cache, which)                                                   \
+    do {                                                                                 \
+        cache->max_size = FCACHE_OPTION(cache_##which##_max);                            \
+        cache->max_unit_size = FCACHE_OPTION(cache_##which##_unit_max);                  \
+        cache->max_quadrupled_unit_size = FCACHE_OPTION(cache_##which##_unit_quadruple); \
+        cache->free_upgrade_size = FCACHE_OPTION(cache_##which##_unit_upgrade);          \
+        cache->init_unit_size = FCACHE_OPTION(cache_##which##_unit_init);                \
+        cache->finite_cache = dynamo_options.finite_##which##_cache;                     \
+        cache->regen_param = dynamo_options.cache_##which##_regen;                       \
+        cache->replace_param = dynamo_options.cache_##which##_replace;                   \
+    } while (0);
 
 static fcache_t *
 fcache_cache_init(dcontext_t *dcontext, uint flags, bool initial_unit)
 {
-    fcache_t *cache = (fcache_t *)
-        nonpersistent_heap_alloc(dcontext, sizeof(fcache_t) HEAPACCT(ACCT_MEM_MGT));
+    fcache_t *cache = (fcache_t *)nonpersistent_heap_alloc(
+        dcontext, sizeof(fcache_t) HEAPACCT(ACCT_MEM_MGT));
     cache->fifo = NULL;
     cache->size = 0;
     cache->is_trace = TEST(FRAG_IS_TRACE, flags);
@@ -1546,8 +1616,7 @@ fcache_cache_init(dcontext_t *dcontext, uint flags, bool initial_unit)
             memset(cache->free_stats_split, 0, sizeof(cache->free_stats_split));
             memset(cache->request_size_histogram, 0,
                    sizeof(cache->request_size_histogram));
-            memset(cache->free_size_histogram, 0,
-                   sizeof(cache->free_size_histogram));
+            memset(cache->free_size_histogram, 0, sizeof(cache->free_size_histogram));
         });
     }
     return cache;
@@ -1574,8 +1643,8 @@ fcache_cache_free(dcontext_t *dcontext, fcache_t *cache, bool free_units)
              */
             nextf = FIFO_NEXT(f);
             if (FRAG_EMPTY(f)) {
-                nonpersistent_heap_free(alloc_dc, f, sizeof(empty_slot_t)
-                                        HEAPACCT(ACCT_FCACHE_EMPTY));
+                nonpersistent_heap_free(alloc_dc, f,
+                                        sizeof(empty_slot_t) HEAPACCT(ACCT_FCACHE_EMPTY));
             }
         }
         cache->fifo = NULL;
@@ -1614,12 +1683,11 @@ fcache_free_list_consistency(dcontext_t *dcontext, fcache_t *cache, int bucket)
         cache->name, bucket, FREE_LIST_SIZES[bucket]);
     /* walk list, and verify counters */
     while (header != NULL) {
-        cache_pc start_pc = (cache_pc) header;
+        cache_pc start_pc = (cache_pc)header;
         uint size = header->size;
 
-        ASSERT(size >= FREE_LIST_SIZES[bucket] &&
-               size <= MAX_FREE_ENTRY_SIZE &&
-               (bucket == FREE_LIST_SIZES_NUM-1 || size < FREE_LIST_SIZES[bucket+1]));
+        ASSERT(size >= FREE_LIST_SIZES[bucket] && size <= MAX_FREE_ENTRY_SIZE &&
+               (bucket == FREE_LIST_SIZES_NUM - 1 || size < FREE_LIST_SIZES[bucket + 1]));
 
         /* FIXME: should ASSERT entries in a bucket are all sorted
          * properly, when we start keeping them in order */
@@ -1637,10 +1705,10 @@ fcache_free_list_consistency(dcontext_t *dcontext, fcache_t *cache, int bucket)
              */
             ASSERT((!FRAG_IS_FREE_LIST(subseq) &&
                     TEST(FRAG_FOLLOWS_FREE_ENTRY, subseq->flags)) ||
-                    /* ok to have subsequent free entry if unable to coalesce due
-                     * to ushort size limits */
-                    size + FRAG_NEXT_FREE(start_pc, header->size)->size >
-                    MAX_FREE_ENTRY_SIZE);
+                   /* ok to have subsequent free entry if unable to coalesce due
+                    * to ushort size limits */
+                   size + FRAG_NEXT_FREE(start_pc, header->size)->size >
+                       MAX_FREE_ENTRY_SIZE);
         }
         /* Invariant: no free list entry at append point */
         ASSERT(unit->full || unit->cur_pc != start_pc + header->size);
@@ -1649,30 +1717,27 @@ fcache_free_list_consistency(dcontext_t *dcontext, fcache_t *cache, int bucket)
 
         /* maximum waste if this entry is used.  The scheme before
          * case 7318 was really wasting memory, for comparison here */
-        LOG(GLOBAL, LOG_CACHE, 4, "\t  @"PFX": %3d bytes, %3d max waste\n",
-            start_pc, size, size - FREE_LIST_SIZES[bucket]);
+        LOG(GLOBAL, LOG_CACHE, 4, "\t  @" PFX ": %3d bytes, %3d max waste\n", start_pc,
+            size, size - FREE_LIST_SIZES[bucket]);
         live++;
         charge += size;
         waste += size - FREE_LIST_SIZES[bucket];
     }
 
-    ASSERT(live == cache->free_stats_freed[bucket] -
-           (cache->free_stats_reused[bucket] + cache->free_stats_coalesced[bucket]));
+    ASSERT(live ==
+           cache->free_stats_freed[bucket] -
+               (cache->free_stats_reused[bucket] + cache->free_stats_coalesced[bucket]));
     ASSERT(charge == cache->free_stats_charge[bucket]);
     ASSERT(waste >= (
-                     /* waste estimate =
-                        charged bytes - live entries * bucket _minimal_ size */
-                     cache->free_stats_charge[bucket] -
-                     (cache->free_stats_freed[bucket] -
-                      (cache->free_stats_reused[bucket] +
-                       cache->free_stats_coalesced[bucket])) *
-                     FREE_LIST_SIZES[bucket]));
+                        /* waste estimate =
+                           charged bytes - live entries * bucket _minimal_ size */
+                        cache->free_stats_charge[bucket] -
+                        (cache->free_stats_freed[bucket] -
+                         (cache->free_stats_reused[bucket] +
+                          cache->free_stats_coalesced[bucket])) *
+                            FREE_LIST_SIZES[bucket]));
     LOG(GLOBAL, LOG_CACHE, 2, "\t#%2d %3d bytes == %d live, %8d charge, %8d waste\n",
-        bucket,
-        FREE_LIST_SIZES[bucket],
-        live,
-        charge,
-        waste);
+        bucket, FREE_LIST_SIZES[bucket], live, charge, waste);
 }
 
 /* FIXME: put w/ periodic stats dumps and not only at end? */
@@ -1690,36 +1755,32 @@ fcache_cache_stats(dcontext_t *dcontext, fcache_t *cache)
         used += u->cur_pc - u->start_pc;
         full &= u->full;
         LOG(THREAD, LOG_CACHE, 1,
-            "\t%s unit %d @"PFX": capacity %d KB, used %d KB, %s\n",
-            cache->name, i, u->start_pc, u->size/1024, (u->cur_pc - u->start_pc)/1024,
+            "\t%s unit %d @" PFX ": capacity %d KB, used %d KB, %s\n", cache->name, i,
+            u->start_pc, u->size / 1024, (u->cur_pc - u->start_pc) / 1024,
             u->full ? "full" : "not full");
     }
-    LOG(THREAD, LOG_CACHE, 1, "%s cache: capacity %d KB, used %d KB, %s\n",
-        cache->name, capacity/1024, used/1024, full ? "full" : "not full");
-    if (DYNAMO_OPTION(cache_shared_free_list) &&
-        cache->is_shared) { /* using free list */
+    LOG(THREAD, LOG_CACHE, 1, "%s cache: capacity %d KB, used %d KB, %s\n", cache->name,
+        capacity / 1024, used / 1024, full ? "full" : "not full");
+    if (DYNAMO_OPTION(cache_shared_free_list) && cache->is_shared) { /* using free list */
         int bucket;
         LOG(GLOBAL, LOG_CACHE, 1, "fcache %s free list stats:\n", cache->name);
         for (bucket = 0; bucket < FREE_LIST_SIZES_NUM; bucket++) {
             LOG(GLOBAL, LOG_ALL, 1,
                 "\t#%2d %3d bytes : %7d free, %7d reuse, %5d coalesce, %5d split\n"
                 "\t    %3d bytes : %5d live, %8d charge, %8d waste\n",
-                bucket,
-                FREE_LIST_SIZES[bucket],
-                cache->free_stats_freed[bucket],
-                cache->free_stats_reused[bucket],
-                cache->free_stats_coalesced[bucket],
-                cache->free_stats_split[bucket],
-                FREE_LIST_SIZES[bucket],
+                bucket, FREE_LIST_SIZES[bucket], cache->free_stats_freed[bucket],
+                cache->free_stats_reused[bucket], cache->free_stats_coalesced[bucket],
+                cache->free_stats_split[bucket], FREE_LIST_SIZES[bucket],
                 cache->free_stats_freed[bucket] -
-                (cache->free_stats_reused[bucket] + cache->free_stats_coalesced[bucket]),
+                    (cache->free_stats_reused[bucket] +
+                     cache->free_stats_coalesced[bucket]),
                 cache->free_stats_charge[bucket],
                 /* waste = charged bytes - live entries * bucket _minimal_ size */
                 cache->free_stats_charge[bucket] -
-                (cache->free_stats_freed[bucket] -
-                 (cache->free_stats_reused[bucket] +
-                  cache->free_stats_coalesced[bucket])) *
-                FREE_LIST_SIZES[bucket]);
+                    (cache->free_stats_freed[bucket] -
+                     (cache->free_stats_reused[bucket] +
+                      cache->free_stats_coalesced[bucket])) *
+                        FREE_LIST_SIZES[bucket]);
         }
 
         DOLOG(1, LOG_CACHE, {
@@ -1730,28 +1791,25 @@ fcache_cache_stats(dcontext_t *dcontext, fcache_t *cache)
         });
 
         LOG(GLOBAL, LOG_ALL, 1, "fcache %s requests and frees histogram:\n", cache->name);
-        for (bucket = 0;
-             bucket < sizeof(cache->request_size_histogram)/
+        for (bucket = 0; bucket < sizeof(cache->request_size_histogram) /
                  sizeof(cache->request_size_histogram[0]);
              bucket++) {
             if (cache->request_size_histogram[bucket] != 0 ||
                 cache->free_size_histogram[bucket] != 0) {
                 LOG(GLOBAL, LOG_ALL, 1, "\t# %3d bytes == %8d requests   %8d freed\n",
-                    bucket*HISTOGRAM_GRANULARITY,
-                    cache->request_size_histogram[bucket],
+                    bucket * HISTOGRAM_GRANULARITY, cache->request_size_histogram[bucket],
                     cache->free_size_histogram[bucket]);
             }
         }
     }
 }
 
-static inline
-int
+static inline int
 get_histogram_bucket(int size)
 {
-    uint histogram_bucket = size/HISTOGRAM_GRANULARITY;
-    if (histogram_bucket >= HISTOGRAM_MAX_SIZE/HISTOGRAM_GRANULARITY)
-        histogram_bucket = (HISTOGRAM_MAX_SIZE/HISTOGRAM_GRANULARITY) - 1;
+    uint histogram_bucket = size / HISTOGRAM_GRANULARITY;
+    if (histogram_bucket >= HISTOGRAM_MAX_SIZE / HISTOGRAM_GRANULARITY)
+        histogram_bucket = (HISTOGRAM_MAX_SIZE / HISTOGRAM_GRANULARITY) - 1;
     return histogram_bucket;
 }
 
@@ -1778,8 +1836,8 @@ fcache_shift_fragments(dcontext_t *dcontext, fcache_unit_t *unit, ssize_t shift,
      * fine to walk the old memory, we just need the fragment_t* pointers
      */
     pc = unit->start_pc;
-    LOG(THREAD, LOG_CACHE, 2, "  unit "PFX"-"PFX" [-"PFX"]\n",
-        pc, unit->end_pc, unit->reserved_end_pc);
+    LOG(THREAD, LOG_CACHE, 2, "  unit " PFX "-" PFX " [-" PFX "]\n", pc, unit->end_pc,
+        unit->reserved_end_pc);
     while (pc < unit->cur_pc) {
         f = *((fragment_t **)pc);
         ASSERT(f != NULL);
@@ -1787,13 +1845,14 @@ fcache_shift_fragments(dcontext_t *dcontext, fcache_unit_t *unit, ssize_t shift,
         if (FRAG_EMPTY(f))
             FRAG_START_ASSIGN(f, FRAG_START(f) + shift);
         else {
-            LOG(THREAD, LOG_CACHE, 5, "\treading "PFX" -> "PFX" = F%d\n", pc, f, f->id);
+            LOG(THREAD, LOG_CACHE, 5, "\treading " PFX " -> " PFX " = F%d\n", pc, f,
+                f->id);
             fragment_shift_fcache_pointers(dcontext, f, shift, start, end, old_size);
         }
         /* now that f->start_pc is updated, update the backpointer */
         new_pc = FRAG_HDR_START(f);
-        LOG(THREAD, LOG_CACHE, 4, "resize: writing "PFX" to "PFX"\n", f, new_pc);
-        *((fragment_t **)new_pc) = f;
+        LOG(THREAD, LOG_CACHE, 4, "resize: writing " PFX " to " PFX "\n", f, new_pc);
+        *((fragment_t **)vmcode_get_writable_addr(new_pc)) = f;
         /* move to contiguously-next fragment_t in cache */
         pc += FRAG_SIZE(f);
     }
@@ -1803,12 +1862,11 @@ fcache_shift_fragments(dcontext_t *dcontext, fcache_unit_t *unit, ssize_t shift,
         study_all_hashtables(dcontext);
     });
 
-
     LOG(THREAD, LOG_CACHE, 2, "fcache_shift_fragments: second pass\n");
     /* have to do a second pass to link them to each other */
     pc = unit->start_pc;
-    LOG(THREAD, LOG_CACHE, 2, "  unit "PFX"-"PFX" [-"PFX"]\n",
-        pc, unit->end_pc, unit->reserved_end_pc);
+    LOG(THREAD, LOG_CACHE, 2, "  unit " PFX "-" PFX " [-" PFX "]\n", pc, unit->end_pc,
+        unit->reserved_end_pc);
     while (pc < unit->cur_pc) {
         f = *((fragment_t **)pc);
         ASSERT(f != NULL);
@@ -1816,7 +1874,8 @@ fcache_shift_fragments(dcontext_t *dcontext, fcache_unit_t *unit, ssize_t shift,
          * f->start_pc, which is used to find the unit
          */
         if (!FRAG_EMPTY(f)) {
-            LOG(THREAD, LOG_CACHE, 5, "\treading "PFX" -> "PFX" = F%d\n", pc, f, f->id);
+            LOG(THREAD, LOG_CACHE, 5, "\treading " PFX " -> " PFX " = F%d\n", pc, f,
+                f->id);
 
             /* inter-cache links must be redone:
              * we have links from bb cache to trace cache, and sometimes links
@@ -1829,7 +1888,7 @@ fcache_shift_fragments(dcontext_t *dcontext, fcache_unit_t *unit, ssize_t shift,
              */
             if (TEST(FRAG_LINKED_INCOMING, f->flags)) {
                 unlink_fragment_incoming(dcontext, f);
-                link_fragment_incoming(dcontext, f, false/*not new*/);
+                link_fragment_incoming(dcontext, f, false /*not new*/);
             }
         }
 
@@ -1844,7 +1903,7 @@ cache_extend_commitment(fcache_unit_t *unit, size_t commit_size)
 {
     ASSERT(unit != NULL);
     ASSERT(ALIGNED(commit_size, DYNAMO_OPTION(cache_commit_increment)));
-    heap_mmap_extend_commitment(unit->end_pc, commit_size, VMM_CACHE);
+    heap_mmap_extend_commitment(unit->end_pc, commit_size, VMM_CACHE | VMM_REACHABLE);
     unit->end_pc += commit_size;
     unit->size += commit_size;
     unit->cache->size += commit_size;
@@ -1873,11 +1932,10 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     size_t new_size = unit->size;
     size_t commit_size;
     /* i#696: Incompatible with clients that use labels-as-values. */
-    IF_CLIENT_INTERFACE(ASSERT(!dr_bb_hook_exists() &&
-                               !dr_trace_hook_exists()));
+    ASSERT(!dr_bb_hook_exists() && !dr_trace_hook_exists());
     /* we shouldn't come here if we have reservation room */
     ASSERT(unit->reserved_end_pc == unit->end_pc);
-    if (new_size*4 <= cache->max_quadrupled_unit_size)
+    if (new_size * 4 <= cache->max_quadrupled_unit_size)
         new_size *= 4;
     else
         new_size *= 2;
@@ -1896,7 +1954,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
      */
     ASSERT(unit->size + slot_size <= new_size);
     LOG(THREAD, LOG_CACHE, 2, "Increasing %s unit size from %d KB to %d KB\n",
-        cache->name, unit->size/1024, new_size/1024);
+        cache->name, unit->size / 1024, new_size / 1024);
 #ifdef DISALLOW_CACHE_RESIZING
     SYSLOG_INTERNAL_ERROR("This build cannot handle cache resizing");
     ASSERT_NOT_REACHED();
@@ -1906,13 +1964,13 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     /* take from dead list if possible */
     if (allunits->dead != NULL) {
         fcache_unit_t *u, *prev_u;
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         u = allunits->dead;
         prev_u = NULL;
         while (u != NULL) {
             if (UNIT_RESERVED_SIZE(u) >= new_size) {
-                fcache_thread_units_t *tu = (fcache_thread_units_t *)
-                    dcontext->fcache_field;
+                fcache_thread_units_t *tu =
+                    (fcache_thread_units_t *)dcontext->fcache_field;
                 /* remove from dead list */
                 if (prev_u == NULL)
                     allunits->dead = u->next_global;
@@ -1922,7 +1980,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                 RSTATS_DEC(fcache_num_free);
                 STATS_SUB(fcache_free_capacity, u->size);
                 LOG(THREAD, LOG_CACHE, 1, "\tFound unit of size %d on dead list\n",
-                    u->size/1024);
+                    u->size / 1024);
                 new_memory = u->start_pc;
                 ASSERT_TRUNCATE(new_size, uint, UNIT_RESERVED_SIZE(u));
                 new_size = UNIT_RESERVED_SIZE(u);
@@ -1934,9 +1992,8 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                 STATS_FCACHE_ADD(cache, capacity, u->size);
                 STATS_FCACHE_MAX(cache, capacity_peak, capacity);
                 if (u->size < new_size) { /* case 8688: fill out to promised size */
-                    size_t new_commit =
-                        ALIGN_FORWARD(new_size - u->size,
-                                      DYNAMO_OPTION(cache_commit_increment));
+                    size_t new_commit = ALIGN_FORWARD(
+                        new_size - u->size, DYNAMO_OPTION(cache_commit_increment));
                     ASSERT(u->size + new_commit <= UNIT_RESERVED_SIZE(u));
                     cache_extend_commitment(u, new_commit);
                     /* we increase cache's size below so undo what
@@ -1961,14 +2018,14 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                  * here and re-add down below
                  */
                 vmvector_remove(fcache_unit_areas, u->start_pc, u->reserved_end_pc);
-                nonpersistent_heap_free(GLOBAL_DCONTEXT, u, sizeof(fcache_unit_t)
-                                        HEAPACCT(ACCT_MEM_MGT));
+                nonpersistent_heap_free(GLOBAL_DCONTEXT, u,
+                                        sizeof(fcache_unit_t) HEAPACCT(ACCT_MEM_MGT));
                 break;
             }
             prev_u = u;
             u = u->next_global;
         }
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     }
     if (new_memory == NULL) {
         /* allocate new memory for unit */
@@ -1981,13 +2038,15 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         ASSERT(commit_size >= slot_size);
         commit_size += unit->size;
         ASSERT(commit_size <= new_size);
-        new_memory = (cache_pc) heap_mmap_reserve(new_size, commit_size, VMM_CACHE);
+        new_memory = (cache_pc)heap_mmap_reserve(
+            new_size, commit_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+            VMM_CACHE | VMM_REACHABLE);
         STATS_FCACHE_SUB(cache, capacity, unit->size);
         STATS_FCACHE_ADD(cache, capacity, commit_size);
         STATS_FCACHE_MAX(cache, capacity_peak, capacity);
         RSTATS_SUB(fcache_combined_capacity, unit->size);
         RSTATS_ADD_PEAK(fcache_combined_capacity, commit_size);
-        LOG(THREAD, LOG_HEAP, 3, "fcache_increase_size -> "PFX"\n", new_memory);
+        LOG(THREAD, LOG_HEAP, 3, "fcache_increase_size -> " PFX "\n", new_memory);
         ASSERT(new_memory != NULL);
         ASSERT(proc_is_cache_aligned((void *)new_memory));
     }
@@ -2009,8 +2068,8 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     /* make sure we don't screw up any alignment */
     ASSERT(ALIGNED(shift, proc_get_cache_line_size()));
     ASSERT(ALIGNED(shift, PAD_JMPS_ALIGNMENT));
-    fcache_shift_fragments(dcontext, unit, shift,
-                           new_memory, new_memory + new_size, unit->size);
+    fcache_shift_fragments(dcontext, unit, shift, new_memory, new_memory + new_size,
+                           unit->size);
 
     /* now change unit fields */
     if (reallocated) {
@@ -2018,7 +2077,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
          * fcache_add_fragment, b/c the current ilist for being-added fragment
          * may reference memory in old cache
          */
-        fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
+        fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
         ASSERT(tu->pending_unmap_pc == NULL);
         tu->pending_unmap_pc = unit->start_pc;
         tu->pending_unmap_size = UNIT_RESERVED_SIZE(unit);
@@ -2034,8 +2093,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     unit->size = commit_size;
     unit->end_pc = unit->start_pc + commit_size;
     unit->reserved_end_pc = unit->start_pc + new_size;
-    vmvector_add(fcache_unit_areas, unit->start_pc,
-                 unit->reserved_end_pc, (void *) unit);
+    vmvector_add(fcache_unit_areas, unit->start_pc, unit->reserved_end_pc, (void *)unit);
     unit->full = false; /* reset */
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -2046,12 +2104,10 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         profile_t *old_prof = unit->profile;
         if (old_prof != NULL) {
             unit->profile = create_profile(unit->start_pc, unit->reserved_end_pc,
-                                           dynamo_options.prof_pcs_fcache,
-                                           NULL);
+                                           dynamo_options.prof_pcs_fcache, NULL);
             stop_profile(old_prof);
             ASSERT(unit->profile->buffer_size >= old_prof->buffer_size);
-            memcpy(unit->profile->buffer, old_prof->buffer,
-                   old_prof->buffer_size);
+            memcpy(unit->profile->buffer, old_prof->buffer, old_prof->buffer_size);
             free_profile(old_prof);
             start_profile(unit->profile);
         }
@@ -2071,9 +2127,9 @@ fcache_thread_reset_init(dcontext_t *dcontext)
 void
 fcache_thread_init(dcontext_t *dcontext)
 {
-    fcache_thread_units_t *tu = (fcache_thread_units_t *)
-        heap_alloc(dcontext, sizeof(fcache_thread_units_t) HEAPACCT(ACCT_OTHER));
-    dcontext->fcache_field = (void *) tu;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *)heap_alloc(
+        dcontext, sizeof(fcache_thread_units_t) HEAPACCT(ACCT_OTHER));
+    dcontext->fcache_field = (void *)tu;
     /* don't build trace cache until we actually build a trace
      * this saves memory for both DYNAMO_OPTION(disable_traces) and for
      * idle threads that never do much
@@ -2132,7 +2188,7 @@ void
 fcache_thread_exit_stats(dcontext_t *dcontext)
 {
     DOELOG(1, LOG_CACHE, {
-        fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
+        fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
         if (tu->bb != NULL)
             fcache_cache_stats(dcontext, tu->bb);
         if (tu->trace != NULL)
@@ -2144,15 +2200,16 @@ fcache_thread_exit_stats(dcontext_t *dcontext)
 static void
 fcache_thread_reset_free(dcontext_t *dcontext)
 {
-    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
     if (tu->pending_unmap_pc != NULL) {
         /* de-allocate old memory -- stats have already been taken care of */
         /* remove from interval data struct first to avoid races w/ it
          * being re-used and not showing up in in_fcache
          */
         vmvector_remove(fcache_unit_areas, tu->pending_unmap_pc,
-                        tu->pending_unmap_pc+tu->pending_unmap_size);
-        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size, VMM_CACHE);
+                        tu->pending_unmap_pc + tu->pending_unmap_size);
+        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size,
+                    VMM_CACHE | VMM_REACHABLE);
         tu->pending_unmap_pc = NULL;
     }
     if (tu->bb != NULL) {
@@ -2169,7 +2226,7 @@ void
 fcache_thread_exit(dcontext_t *dcontext)
 {
     DEBUG_DECLARE(fcache_thread_units_t *tu =
-                  (fcache_thread_units_t *) dcontext->fcache_field;)
+                      (fcache_thread_units_t *)dcontext->fcache_field;)
     fcache_thread_reset_free(dcontext);
     DODEBUG({
         /* for non-debug we do fast exit path and don't free local heap */
@@ -2186,8 +2243,8 @@ print_fifo(dcontext_t *dcontext, fcache_t *cache)
     ASSERT(CACHE_PROTECTED(cache));
     while (f != NULL) {
         /* caller sets loglevel */
-        LOG(THREAD, LOG_CACHE, 1, "\tF%d "PFX" = @"PFX" size %d\n",
-            FRAG_ID(f), FRAG_TAG(f), FRAG_HDR_START(f), FRAG_SIZE(f));
+        LOG(THREAD, LOG_CACHE, 1, "\tF%d " PFX " = @" PFX " size %d\n", FRAG_ID(f),
+            FRAG_TAG(f), FRAG_HDR_START(f), FRAG_SIZE(f));
         f = FIFO_NEXT(f);
     }
 }
@@ -2201,8 +2258,8 @@ verify_fifo(dcontext_t *dcontext, fcache_t *cache)
     ASSERT(USE_FIFO_FOR_CACHE(cache));
     ASSERT(CACHE_PROTECTED(cache));
     while (f != NULL) {
-        LOG(THREAD, LOG_CACHE, 6, "\t*"PFX" F%d "PFX" = @"PFX" size %d\n",
-            f, FRAG_ID(f), FRAG_TAG(f), FRAG_HDR_START(f), FRAG_SIZE(f));
+        LOG(THREAD, LOG_CACHE, 6, "\t*" PFX " F%d " PFX " = @" PFX " size %d\n", f,
+            FRAG_ID(f), FRAG_TAG(f), FRAG_HDR_START(f), FRAG_SIZE(f));
         /* check that header is intact */
         pc = FRAG_HDR_START(f);
         ASSERT(*((fragment_t **)pc) == f);
@@ -2235,8 +2292,8 @@ fifo_append(fcache_t *cache, fragment_t *f)
         FIFO_PREV_ASSIGN(cache->fifo, f);
     }
     FIFO_NEXT_ASSIGN(f, NULL);
-    LOG(THREAD_GET, LOG_CACHE, 5, "fifo_append F%d @"PFX"\n",
-        FRAG_ID(f), FRAG_HDR_START(f));
+    LOG(THREAD_GET, LOG_CACHE, 5, "fifo_append F%d @" PFX "\n", FRAG_ID(f),
+        FRAG_HDR_START(f));
     DOLOG(6, LOG_CACHE, { print_fifo(get_thread_private_dcontext(), cache); });
 }
 
@@ -2258,14 +2315,14 @@ fifo_remove(dcontext_t *dcontext, fcache_t *cache, fragment_t *f)
     } else {
         FIFO_PREV_ASSIGN(FIFO_NEXT(f), FIFO_PREV(f));
     }
-    LOG(THREAD, LOG_CACHE, 5, "fifo_remove F%d @"PFX"\n",
-        FRAG_ID(f), FRAG_HDR_START(f));
+    LOG(THREAD, LOG_CACHE, 5, "fifo_remove F%d @" PFX "\n", FRAG_ID(f),
+        FRAG_HDR_START(f));
     DOLOG(6, LOG_CACHE, { print_fifo(dcontext, cache); });
     if (FRAG_EMPTY(f)) {
         STATS_FCACHE_SUB(cache, empty, FRAG_SIZE(f));
         STATS_FCACHE_ADD(cache, used, FRAG_SIZE(f));
-        nonpersistent_heap_free(ALLOC_DC(dcontext, cache), f, sizeof(empty_slot_t)
-                                HEAPACCT(ACCT_FCACHE_EMPTY));
+        nonpersistent_heap_free(ALLOC_DC(dcontext, cache), f,
+                                sizeof(empty_slot_t) HEAPACCT(ACCT_FCACHE_EMPTY));
     }
 }
 
@@ -2294,10 +2351,10 @@ fifo_prepend_empty(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
      * for efficiency only check front of FIFO -- most common case anyway
      */
     if (cache->fifo != NULL && FRAG_EMPTY(cache->fifo)) {
-        if (FRAG_HDR_START(cache->fifo) == start_pc+size) {
+        if (FRAG_HDR_START(cache->fifo) == start_pc + size) {
             LOG(THREAD, LOG_CACHE, 5, "prepend: just enlarging next empty\n");
             FRAG_START_ASSIGN(cache->fifo, start_pc + HEADER_SIZE_FROM_CACHE(cache));
-            *((fragment_t **)start_pc) = cache->fifo;
+            *((fragment_t **)vmcode_get_writable_addr(start_pc)) = cache->fifo;
             FRAG_SIZE_ASSIGN(cache->fifo, FRAG_SIZE(cache->fifo) + size);
             return;
         } else if (FRAG_HDR_START(cache->fifo) + FRAG_SIZE(cache->fifo) == start_pc) {
@@ -2307,25 +2364,24 @@ fifo_prepend_empty(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         }
     }
 
-    slot = (empty_slot_t *)
-        nonpersistent_heap_alloc(ALLOC_DC(dcontext, cache), sizeof(empty_slot_t)
-                                 HEAPACCT(ACCT_FCACHE_EMPTY));
+    slot = (empty_slot_t *)nonpersistent_heap_alloc(
+        ALLOC_DC(dcontext, cache), sizeof(empty_slot_t) HEAPACCT(ACCT_FCACHE_EMPTY));
     slot->flags = FRAG_FAKE | FRAG_IS_EMPTY_SLOT;
-    LOG(THREAD, LOG_CACHE, 5, "prepend: writing "PFX" to "PFX"\n", slot, start_pc);
-    *((empty_slot_t **)start_pc) = slot;
+    LOG(THREAD, LOG_CACHE, 5, "prepend: writing " PFX " to " PFX "\n", slot, start_pc);
+    *((empty_slot_t **)vmcode_get_writable_addr(start_pc)) = slot;
     slot->start_pc = start_pc + HEADER_SIZE_FROM_CACHE(cache);
     slot->fcache_size = size;
     /* stick on front */
     slot->next_fcache = cache->fifo;
     if (cache->fifo == NULL)
-        slot->prev_fcache = (fragment_t *) slot;
+        slot->prev_fcache = (fragment_t *)slot;
     else {
         slot->prev_fcache = FIFO_PREV(cache->fifo);
         FIFO_PREV_ASSIGN(cache->fifo, (fragment_t *)slot);
     }
     /* start has prev to end, but end does NOT have next to start */
-    cache->fifo = (fragment_t *) slot;
-    LOG(THREAD, LOG_CACHE, 5, "fifo_prepend_empty F-1 @"PFX"\n", start_pc);
+    cache->fifo = (fragment_t *)slot;
+    LOG(THREAD, LOG_CACHE, 5, "fifo_prepend_empty F-1 @" PFX "\n", start_pc);
     DOLOG(6, LOG_CACHE, { print_fifo(dcontext, cache); });
 }
 
@@ -2404,8 +2460,8 @@ check_regen_replace_ratio(dcontext_t *dcontext, fcache_t *cache, uint add_size)
                 cache->num_regenerated -= cache->regen_param;
             }
             LOG(THREAD, LOG_CACHE, 3,
-                "Resize check: for %s unit: %d regenerated / %d replaced\n",
-                cache->name, cache->num_regenerated, cache->num_replaced);
+                "Resize check: for %s unit: %d regenerated / %d replaced\n", cache->name,
+                cache->num_regenerated, cache->num_replaced);
             if (cache->num_regenerated >= cache->regen_param) {
                 LOG(THREAD, LOG_CACHE, 1,
                     "%s unit reached ratio with %d regenerated / %d replaced\n",
@@ -2423,8 +2479,8 @@ check_regen_replace_ratio(dcontext_t *dcontext, fcache_t *cache, uint add_size)
  * If a small area is eaten and added to size, returns that amount
  */
 static size_t
-extend_unit_end(dcontext_t *dcontext, fcache_t *cache,
-                fcache_unit_t *unit, size_t size, bool rest_empty)
+extend_unit_end(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit, size_t size,
+                bool rest_empty)
 {
     size_t left, extra = 0;
     ASSERT(CACHE_PROTECTED(cache));
@@ -2452,7 +2508,7 @@ extend_unit_end(dcontext_t *dcontext, fcache_t *cache,
         STATS_ADD(fcache_combined_claimed, left);
         unit->full = true;
     }
-    LOG(THREAD, LOG_CACHE, 5, "\t\textend_unit_end: %d + %d / %d => cur_pc = "PFX"\n",
+    LOG(THREAD, LOG_CACHE, 5, "\t\textend_unit_end: %d + %d / %d => cur_pc = " PFX "\n",
         size, extra, left, unit->cur_pc);
     /* FIXME: if extended b/c need new unit (size==0), extra is empty space, but
      * we cannot add it to stats b/c will never be removed!
@@ -2470,7 +2526,7 @@ static bool
 try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                    uint slot_size)
 {
-    uint commit_size = DYNAMO_OPTION(cache_commit_increment);
+    size_t commit_size = DYNAMO_OPTION(cache_commit_increment);
     ASSERT(CACHE_PROTECTED(cache));
 
     if (unit->end_pc < unit->reserved_end_pc &&
@@ -2481,8 +2537,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         while (unit->cur_pc + slot_size > unit->end_pc + commit_size)
             commit_size *= 2;
         if (unit->end_pc + commit_size > unit->reserved_end_pc) {
-            ASSERT_TRUNCATE(commit_size, uint, unit->reserved_end_pc - unit->end_pc);
-            commit_size = (uint) (unit->reserved_end_pc - unit->end_pc);
+            commit_size = unit->reserved_end_pc - unit->end_pc;
         }
         cache_extend_commitment(unit, commit_size);
         if (unit->cur_pc + slot_size > unit->end_pc) {
@@ -2498,19 +2553,17 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     /* see if we have room to expand according to user-set maximum */
     if (cache->max_size == 0 || cache->size + slot_size <= cache->max_size) {
         LOG(THREAD, LOG_CACHE, 1, "max size = %d, cur size = %d\n",
-            cache->max_size/1024, cache->size/1024);
+            cache->max_size / 1024, cache->size / 1024);
         /* At larger sizes better to create separate units to avoid expensive
          * re-linking when resize.
          * i#696: Don't try to resize fcache units when clients are present.
          * They may use labels to insert absolute fragment PCs.
          */
-        if (unit->size >= cache->max_unit_size
-            IF_CLIENT_INTERFACE(|| dr_bb_hook_exists()
-                                || dr_trace_hook_exists())) {
+        if (unit->size >= cache->max_unit_size || dr_bb_hook_exists() ||
+            dr_trace_hook_exists()) {
             fcache_unit_t *newunit;
             size_t newsize;
-            ASSERT(!USE_FIFO_FOR_CACHE(cache) ||
-                   cache->fifo != NULL ||
+            ASSERT(!USE_FIFO_FOR_CACHE(cache) || cache->fifo != NULL ||
                    /* i#1129: we can get here for initial 4KB unit whose initial
                     * fragment is >4KB!  We'll have set wset_check though.
                     */
@@ -2528,8 +2581,8 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                 if (!check_regen_replace_ratio(dcontext, cache,
                                                0 /*not adding a fragment*/)) {
                     /* flush the oldest unit, at the end of the list */
-                    fcache_thread_units_t *tu = (fcache_thread_units_t *)
-                        dcontext->fcache_field;
+                    fcache_thread_units_t *tu =
+                        (fcache_thread_units_t *)dcontext->fcache_field;
                     fcache_unit_t *oldest = cache->units, *prev = NULL;
                     ASSERT(oldest != NULL);
 
@@ -2545,8 +2598,8 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                     DODEBUG({ oldest->pending_flush = true; });
 
                     LOG(THREAD, LOG_CACHE, 2,
-                        "marking unit "PFX"-"PFX" for flushing\n",
-                        oldest->start_pc, oldest->end_pc);
+                        "marking unit " PFX "-" PFX " for flushing\n", oldest->start_pc,
+                        oldest->end_pc);
 
                     /* move to pending-flush list and set trigger */
                     if (prev == NULL)
@@ -2557,7 +2610,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                     if (unit == oldest)
                         unit = NULL;
 
-                    mutex_lock(&unit_flush_lock);
+                    d_r_mutex_lock(&unit_flush_lock);
                     oldest->next_local = allunits->units_to_flush;
                     allunits->units_to_flush = oldest;
                     STATS_ADD_PEAK(cache_units_toflush, 1);
@@ -2569,7 +2622,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                      * This does mean that cache->size is too big from now until
                      * then, so we don't really support hardcoded cache sizes.
                      */
-                    mutex_unlock(&unit_flush_lock);
+                    d_r_mutex_unlock(&unit_flush_lock);
 
                     tu->pending_flush = true;
                     STATS_INC(cache_units_wset_flushed);
@@ -2587,17 +2640,17 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             if (cache->max_size > 0 && cache->size + newsize > cache->max_size)
                 newsize = cache->max_size - cache->size;
             newunit = fcache_create_unit(dcontext, cache, NULL, newsize);
-            LOG(THREAD, LOG_CACHE, 1, "Creating a new %s unit of %d KB @"PFX"\n",
-                cache->name, newunit->size/1024, newunit->start_pc);
+            LOG(THREAD, LOG_CACHE, 1, "Creating a new %s unit of %d KB @" PFX "\n",
+                cache->name, newunit->size / 1024, newunit->start_pc);
             newunit->next_local = cache->units;
             cache->units = newunit;
         } else {
             ASSERT(!cache->is_coarse); /* no individual support so harder to resize */
-            LOG(THREAD, LOG_CACHE, 1, "Increasing size of %s unit of %d KB @"PFX"\n",
-                cache->name, unit->size/1024, unit->start_pc);
+            LOG(THREAD, LOG_CACHE, 1, "Increasing size of %s unit of %d KB @" PFX "\n",
+                cache->name, unit->size / 1024, unit->start_pc);
             fcache_increase_size(dcontext, cache, unit, slot_size);
-            LOG(THREAD, LOG_CACHE, 1, "\tnow %d KB @"PFX"\n",
-                unit->size/1024, unit->start_pc);
+            LOG(THREAD, LOG_CACHE, 1, "\tnow %d KB @" PFX "\n", unit->size / 1024,
+                unit->start_pc);
         }
         /* reset counters, but not deleted table */
         cache->num_replaced = 0;
@@ -2625,13 +2678,13 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
          * FIXME: but if trace cache has small max size, should just
          * not build traces that big!
          */
-        if (cache->max_size > 0 && slot_size > (int) cache->max_size) {
+        if (cache->max_size > 0 && slot_size > (int)cache->max_size) {
 #ifdef INTERNAL
             const char *name = "";
             DODEBUG(name = cache->name;);
 #endif
-            USAGE_ERROR("single %s fragment (%d bytes) > max cache size (%d bytes)",
-                        name, slot_size, cache->max_size);
+            USAGE_ERROR("single %s fragment (%d bytes) > max cache size (%d bytes)", name,
+                        slot_size, cache->max_size);
         }
         return false;
     }
@@ -2643,16 +2696,17 @@ place_fragment(dcontext_t *dcontext, fragment_t *f, fcache_unit_t *unit,
 {
     fcache_t *cache = unit->cache;
     ASSERT_OWN_MUTEX(unit->cache->is_shared, &unit->cache->lock);
-    DOLOG(3, LOG_CACHE, { /* only to reduce perf hit */
-        fragment_t wrapper;
-        /* cannot call fragment_pclookup as it will grab the fcache lock */
-        ASSERT(fragment_pclookup_by_htable(dcontext, header_pc + HEADER_SIZE(f),
-                                           &wrapper) == NULL);
-    });
+    DOLOG(3, LOG_CACHE,
+          { /* only to reduce perf hit */
+            fragment_t wrapper;
+            /* cannot call fragment_pclookup as it will grab the fcache lock */
+            ASSERT(fragment_pclookup_by_htable(dcontext, header_pc + HEADER_SIZE(f),
+                                               &wrapper) == NULL);
+          });
     if (HEADER_SIZE(f) > 0) {
         /* add header */
-        LOG(THREAD, LOG_CACHE, 5, "place: writing "PFX" to "PFX"\n", f, header_pc);
-        *((fragment_t **)header_pc) = f;
+        LOG(THREAD, LOG_CACHE, 5, "place: writing " PFX " to " PFX "\n", f, header_pc);
+        *((fragment_t **)vmcode_get_writable_addr(header_pc)) = f;
     }
     /* we assume alignment padding was added at end of prev fragment, so this
      * guy needs no padding at start
@@ -2702,9 +2756,6 @@ removed_fragment_stats(dcontext_t *dcontext, fcache_t *cache, fragment_t *f)
         if (!EXIT_HAS_LOCAL_STUB(l->flags, f->flags))
             continue; /* it's kept elsewhere */
         sz = linkstub_size(dcontext, f, l);
-# ifdef CUSTOM_EXIT_STUBS
-        sz += l->fixed_stub_offset;
-# endif
         if (LINKSTUB_INDIRECT(l->flags))
             STATS_FCACHE_ADD(cache, indirect_stubs, -sz);
         else {
@@ -2781,7 +2832,7 @@ replace_fragments(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         }
         ASSERT(pc < unit->cur_pc);
         victim = *((fragment_t **)pc);
-        LOG(THREAD, LOG_CACHE, 5, "\treading "PFX" -> "PFX"\n", pc, victim);
+        LOG(THREAD, LOG_CACHE, 5, "\treading " PFX " -> " PFX "\n", pc, victim);
         ASSERT(victim != NULL);
         ASSERT(FIFO_UNIT(victim) == unit);
     }
@@ -2798,8 +2849,8 @@ replace_fragments(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     while (true) {
         slot_so_far += FRAG_SIZE(victim);
         pc += FRAG_SIZE(victim);
-        LOG(THREAD, LOG_CACHE, 4, "\t\tdeleting F%d => %d bytes\n",
-            FRAG_ID(victim), slot_so_far);
+        LOG(THREAD, LOG_CACHE, 4, "\t\tdeleting F%d => %d bytes\n", FRAG_ID(victim),
+            slot_so_far);
         force_fragment_from_cache(dcontext, cache, victim);
         if (slot_so_far >= slot_size)
             break;
@@ -2809,12 +2860,12 @@ replace_fragments(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
          */
         if (pc == unit->cur_pc) {
             /* take unallocated space */
-            size_t extra = extend_unit_end(dcontext, cache, unit,
-                                           slot_size - slot_so_far, false);
+            size_t extra =
+                extend_unit_end(dcontext, cache, unit, slot_size - slot_so_far, false);
             LOG(THREAD, LOG_CACHE, 4, "\t\textending unit by %d => %d bytes\n",
                 slot_size - slot_so_far, slot_size);
             ASSERT(CHECK_TRUNCATE_TYPE_uint(extra));
-            FRAG_SIZE_ASSIGN(f, slot_size+(uint)extra);
+            FRAG_SIZE_ASSIGN(f, slot_size + (uint)extra);
             /* no splitting will be needed */
             slot_so_far = slot_size;
             break;
@@ -2881,13 +2932,12 @@ replace_fifo(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint slot_siz
     return false;
 }
 
-static inline
-int
+static inline int
 find_free_list_bucket(uint size)
 {
     int bucket;
     /* Find maximum slot we are >= than, for size in [SIZE[bucket], SIZE[bucket+1]) */
-    for (bucket = FREE_LIST_SIZES_NUM-1; size < FREE_LIST_SIZES[bucket]; bucket--)
+    for (bucket = FREE_LIST_SIZES_NUM - 1; size < FREE_LIST_SIZES[bucket]; bucket--)
         ; /* no body */
     ASSERT(bucket >= 0);
     return bucket;
@@ -2896,30 +2946,34 @@ find_free_list_bucket(uint size)
 static inline free_list_footer_t *
 free_list_footer_from_header(free_list_header_t *h)
 {
-    return (free_list_footer_t *) (((cache_pc)h) + h->size - sizeof(free_list_footer_t));
+    return (free_list_footer_t *)(((cache_pc)h) + h->size - sizeof(free_list_footer_t));
 }
 
 static inline free_list_header_t *
 free_list_header_from_footer(free_list_footer_t *h)
 {
-    return (free_list_header_t *) (((cache_pc)h) + sizeof(free_list_footer_t) - h->size);
+    return (free_list_header_t *)(((cache_pc)h) + sizeof(free_list_footer_t) - h->size);
 }
 
 static inline void
-remove_from_free_list(fcache_t *cache, uint bucket, free_list_header_t *header
-                      _IF_DEBUG(bool coalesce))
+remove_from_free_list(fcache_t *cache, uint bucket,
+                      free_list_header_t *header _IF_DEBUG(bool coalesce))
 {
     ASSERT(CACHE_PROTECTED(cache));
     ASSERT(DYNAMO_OPTION(cache_shared_free_list) && cache->is_shared);
-    LOG(GLOBAL, LOG_CACHE, 4,
-        "remove_from_free_list: %s bucket[%d] %d bytes @"PFX"\n",
-        cache->name, bucket,header->size, header);
-    if (header->prev != NULL)
-        header->prev->next = header->next;
-    else
+    LOG(GLOBAL, LOG_CACHE, 4, "remove_from_free_list: %s bucket[%d] %d bytes @" PFX "\n",
+        cache->name, bucket, header->size, header);
+    if (header->prev != NULL) {
+        free_list_header_t *prev_writable =
+            (free_list_header_t *)vmcode_get_writable_addr((byte *)header->prev);
+        prev_writable->next = header->next;
+    } else
         cache->free_list[bucket] = header->next;
-    if (header->next != NULL)
-        header->next->prev = header->prev;
+    if (header->next != NULL) {
+        free_list_header_t *next_writable =
+            (free_list_header_t *)vmcode_get_writable_addr((byte *)header->next);
+        next_writable->prev = header->prev;
+    }
     /* it's up to the caller to adjust FRAG_FOLLOWS_FREE_ENTRY if a fragment_t
      * follows header.
      * no reason to remove FRAG_FCACHE_FREE_LIST flag here.
@@ -2940,7 +2994,6 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
 {
     int bucket;
     free_list_header_t *header = (free_list_header_t *)start_pc;
-    free_list_footer_t *footer;
 
     ASSERT(CACHE_PROTECTED(cache));
     ASSERT(DYNAMO_OPTION(cache_shared_free_list) && cache->is_shared);
@@ -2949,9 +3002,10 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         if (f != NULL)
             cache->free_size_histogram[get_histogram_bucket(size)]++;
     });
-    DOCHECK(CHKLVL_DEFAULT, {  /* expensive, makes fragment_exit() O(n^2) */
-        ASSERT(dynamo_resetting || fcache_pc_in_live_unit(cache, start_pc));
-    });
+    DOCHECK(CHKLVL_DEFAULT,
+            { /* expensive, makes fragment_exit() O(n^2) */
+              ASSERT(dynamo_resetting || fcache_pc_in_live_unit(cache, start_pc));
+            });
 
     if (size > MAX_FREE_ENTRY_SIZE) {
         /* FIXME PR 203913: fifo_prepend_empty can handle larger sizes, but
@@ -2972,12 +3026,13 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             if ((uint)next_header->size + size <= MAX_FREE_ENTRY_SIZE) {
                 uint next_bucket = find_free_list_bucket(next_header->size);
                 LOG(GLOBAL, LOG_CACHE, 4,
-                    "add_to_free_list: coalesce w/ next %s bucket[%d] %d bytes @"PFX"\n",
+                    "add_to_free_list: coalesce w/ next %s bucket[%d] %d bytes @" PFX
+                    "\n",
                     cache->name, next_bucket, next_header->size, next_header);
                 size += next_header->size;
                 /* OPTIMIZATION: if still in same bucket can eliminate some work */
-                remove_from_free_list(cache, next_bucket, next_header
-                                      _IF_DEBUG(true/*coalesce*/));
+                remove_from_free_list(cache, next_bucket,
+                                      next_header _IF_DEBUG(true /*coalesce*/));
                 /* fall-through and add to free list anew
                  * (potentially coalesce with prev as well)
                  */
@@ -2995,7 +3050,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
              * this flag).
              */
             LOG(GLOBAL, LOG_CACHE, 4,
-                "add_to_free_list: marking next F%d("PFX")."PFX" as after-free\n",
+                "add_to_free_list: marking next F%d(" PFX ")." PFX " as after-free\n",
                 subseq->id, subseq->tag, subseq->start_pc);
             ASSERT(FIFO_UNIT(subseq) == unit);
             ASSERT(FRAG_HDR_START(subseq) == start_pc + size);
@@ -3014,22 +3069,22 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
      */
     if (f != NULL && TEST(FRAG_FOLLOWS_FREE_ENTRY, f->flags)) {
         /* coalesce with prev */
-        free_list_footer_t *prev_footer = (free_list_footer_t *)
-            (start_pc - sizeof(free_list_footer_t));
+        free_list_footer_t *prev_footer =
+            (free_list_footer_t *)(start_pc - sizeof(free_list_footer_t));
         free_list_header_t *prev_header = free_list_header_from_footer(prev_footer);
         uint prev_bucket = find_free_list_bucket(prev_footer->size);
         /* only coalesce if not over size limit */
         uint new_size = (uint)prev_header->size + size;
         if (new_size <= MAX_FREE_ENTRY_SIZE) {
             LOG(GLOBAL, LOG_CACHE, 4,
-                "add_to_free_list: coalesce w/ prev %s bucket[%d] %d bytes @"PFX"\n",
+                "add_to_free_list: coalesce w/ prev %s bucket[%d] %d bytes @" PFX "\n",
                 cache->name, prev_bucket, prev_header->size, prev_header);
             size += prev_header->size;
             header = prev_header;
-            start_pc = (cache_pc) header;
+            start_pc = (cache_pc)header;
             /* OPTIMIZATION: if still in same bucket can eliminate some work */
-            remove_from_free_list(cache, prev_bucket, prev_header
-                                  _IF_DEBUG(true/*coalesce*/));
+            remove_from_free_list(cache, prev_bucket,
+                                  prev_header _IF_DEBUG(true /*coalesce*/));
             /* fall-through and add to free list anew */
             STATS_FCACHE_ADD(cache, free_coalesce_prev, 1);
         } else {
@@ -3066,17 +3121,20 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
 
     bucket = find_free_list_bucket(size);
 
-    header->next = cache->free_list[bucket];
-    header->prev = NULL;
-    ASSERT_TRUNCATE(header->size, ushort, size);
-    header->size = (ushort) size;
-    header->flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
-    footer = free_list_footer_from_header(header);
-    ASSERT_TRUNCATE(footer->size, ushort, size);
-    footer->size = (ushort) size;
+    free_list_header_t *header_writable =
+        (free_list_header_t *)vmcode_get_writable_addr((byte *)header);
+    header_writable->next = cache->free_list[bucket];
+    header_writable->prev = NULL;
+    header_writable->size = size;
+    header_writable->flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
+    free_list_footer_t *footer_writable = free_list_footer_from_header(header_writable);
+    footer_writable->size = size;
     if (cache->free_list[bucket] != NULL) {
         ASSERT(cache->free_list[bucket]->prev == NULL);
-        cache->free_list[bucket]->prev = header;
+        free_list_header_t *list_writable =
+            (free_list_header_t *)vmcode_get_writable_addr(
+                (byte *)cache->free_list[bucket]);
+        list_writable->prev = header;
     }
     cache->free_list[bucket] = header;
     /* FIXME: case 7318 we should keep sorted */
@@ -3085,8 +3143,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         /* FIXME: we could split freed into pure-freed, split-freed, and coalesce-freed */
         cache->free_stats_freed[bucket]++;
         cache->free_stats_charge[bucket] += size;
-        LOG(GLOBAL, LOG_CACHE, 4,
-            "add_to_free_list: %s bucket[%d] %d bytes @"PFX"\n",
+        LOG(GLOBAL, LOG_CACHE, 4, "add_to_free_list: %s bucket[%d] %d bytes @" PFX "\n",
             cache->name, bucket, size, start_pc);
         /* assumption: caller has already adjusted cache's empty space stats */
     });
@@ -3106,7 +3163,7 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
     ASSERT(CACHE_PROTECTED(cache));
     ASSERT(DYNAMO_OPTION(cache_shared_free_list) && cache->is_shared);
     LOG(THREAD, LOG_CACHE, 4, "find_free_list_slot: %d bytes\n", size);
-    DODEBUG({ cache->request_size_histogram[get_histogram_bucket(size)]++;});
+    DODEBUG({ cache->request_size_histogram[get_histogram_bucket(size)]++; });
 
     if (size > MAX_FREE_ENTRY_SIZE) {
         /* FIXME: we may have adjacent un-coalesced free slots we could use */
@@ -3151,9 +3208,9 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
     });
     ASSERT(header != NULL);
     /* found big enough free slot, extract from free list */
-    remove_from_free_list(cache, bucket, header _IF_DEBUG(false/*!coalesce*/));
+    remove_from_free_list(cache, bucket, header _IF_DEBUG(false /*!coalesce*/));
 
-    start_pc = (cache_pc) header;
+    start_pc = (cache_pc)header;
     free_size = header->size;
     ASSERT(free_size >= size);
     ASSERT(free_size <= MAX_FREE_ENTRY_SIZE);
@@ -3162,8 +3219,8 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
      * unit ptr/tag in the free header.*/
     unit = fcache_lookup_unit(start_pc);
     ASSERT(unit != NULL);
-    DOCHECK(CHKLVL_DEFAULT, {  /* expensive */
-        ASSERT(fcache_pc_in_live_unit(cache, start_pc));
+    DOCHECK(CHKLVL_DEFAULT, { /* expensive */
+                              ASSERT(fcache_pc_in_live_unit(cache, start_pc));
     });
 
     /* FIXME: if bucket sizes are spread apart further than
@@ -3190,7 +3247,7 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
              */
             if (!FRAG_IS_FREE_LIST(subseq)) {
                 LOG(GLOBAL, LOG_CACHE, 4,
-                    "find_free_list_slot: un-marking next F%d("PFX")."PFX
+                    "find_free_list_slot: un-marking next F%d(" PFX ")." PFX
                     " as after-free\n",
                     subseq->id, subseq->tag, subseq->start_pc);
                 ASSERT(FIFO_UNIT(subseq) == unit);
@@ -3205,8 +3262,8 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
                 /* shouldn't be free list entry following this one, unless
                  * unable to coalesce due to ushort size limits
                  */
-                ASSERT(free_size +
-                       FRAG_NEXT_FREE(start_pc, free_size)->size > MAX_FREE_ENTRY_SIZE);
+                ASSERT(free_size + FRAG_NEXT_FREE(start_pc, free_size)->size >
+                       MAX_FREE_ENTRY_SIZE);
             }
         }
     }
@@ -3215,11 +3272,11 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
     FRAG_SIZE_ASSIGN(f, free_size);
 
     DOSTATS({
-        LOG(GLOBAL, LOG_CACHE, 4, "find_free_list_slot: %s bucket[%d]%s"
-            " %d bytes @"PFX" requested %d, waste=%d\n",
-            cache->name, bucket, split_empty ? "split" : "",
-            free_size, start_pc, size, (free_size - size));
-
+        LOG(GLOBAL, LOG_CACHE, 4,
+            "find_free_list_slot: %s bucket[%d]%s"
+            " %d bytes @" PFX " requested %d, waste=%d\n",
+            cache->name, bucket, split_empty ? "split" : "", free_size, start_pc, size,
+            (free_size - size));
     });
     STATS_FCACHE_ADD(cache, align, free_size - size);
     STATS_FCACHE_SUB(cache, empty, free_size);
@@ -3276,16 +3333,15 @@ add_fragment_common(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
         if (USE_FIFO_FOR_CACHE(cache))
             fifo_append(cache, f);
         LOG(THREAD, LOG_CACHE, 4,
-            "\tadded F%d to unfilled unit @"PFX" (%d [/%d] bytes left now)\n",
-            f->id, f->start_pc, unit->end_pc - unit->cur_pc, UNIT_RESERVED_SIZE(unit));
+            "\tadded F%d to unfilled unit @" PFX " (%d [/%d] bytes left now)\n", f->id,
+            f->start_pc, unit->end_pc - unit->cur_pc, UNIT_RESERVED_SIZE(unit));
         return;
     }
 
     /* third, resize and try again.
      * for fifo caches, don't resize unless regen/replace ratio warrants it.
      */
-    if (!USE_FIFO_FOR_CACHE(cache) ||
-        cache->is_coarse ||
+    if (!USE_FIFO_FOR_CACHE(cache) || cache->is_coarse ||
         check_regen_replace_ratio(dcontext, cache, slot_size)) {
         LOG(THREAD, LOG_CACHE, 3, "\tcache is full, trying to acquire more space\n");
         if (try_for_more_space(dcontext, cache, unit, slot_size)) {
@@ -3356,16 +3412,16 @@ fcache_shift_start_pc(dcontext_t *dcontext, fragment_t *f, uint space)
     ASSERT(ALIGNED(f->start_pc, START_PC_ALIGNMENT));
 
     /* adjusting start_pc */
-    ASSERT(space <= START_PC_ALIGNMENT-1); /* most we can shift */
+    ASSERT(space <= START_PC_ALIGNMENT - 1); /* most we can shift */
     ASSERT(PAD_JMPS_SHIFT_START(f->flags));
 
     /* FIXME : no need to set this memory to anything, but is easier to debug
      * if it's valid instructions */
-    SET_TO_DEBUG(f->start_pc, space);
+    SET_TO_DEBUG(vmcode_get_writable_addr(f->start_pc), space);
 
     f->start_pc += space;
     ASSERT_TRUNCATE(f->size, ushort, (f->size - space));
-    f->size = (ushort) (f->size - space);
+    f->size = (ushort)(f->size - space);
     DODEBUG({
         if (space > 0) {
             STATS_PAD_JMPS_ADD(f->flags, num_start_pc_shifted, 1);
@@ -3391,11 +3447,10 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
 
     /* truncate up front */
     ASSERT_TRUNCATE(space, uint, space_in);
-    space = (uint) space_in;
+    space = (uint)space_in;
 
     DOSTATS({
-        if (ALIGN_FORWARD(f->size + HEADER_SIZE(f) - space,
-                          SLOT_ALIGNMENT(cache)) <
+        if (ALIGN_FORWARD(f->size + HEADER_SIZE(f) - space, SLOT_ALIGNMENT(cache)) <
             MIN_FCACHE_SLOT_SIZE(cache))
             STATS_INC(num_final_fragment_too_small);
     });
@@ -3408,13 +3463,14 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
         returnable_space = FRAG_SIZE(f) - MIN_FCACHE_SLOT_SIZE(cache);
     }
     /* now adjust for slot alignment padding */
-    end_addr = FRAG_HDR_START(f)+FRAG_SIZE(f)-returnable_space;
-    ASSERT_TRUNCATE(slot_padding, uint, ALIGN_FORWARD(end_addr, SLOT_ALIGNMENT(cache)) -
-                    (ptr_uint_t)end_addr);
-    slot_padding = (uint) (ALIGN_FORWARD(end_addr, SLOT_ALIGNMENT(cache)) -
-        (ptr_uint_t)end_addr);
+    end_addr = FRAG_HDR_START(f) + FRAG_SIZE(f) - returnable_space;
+    ASSERT_TRUNCATE(slot_padding, uint,
+                    ALIGN_FORWARD(end_addr, SLOT_ALIGNMENT(cache)) -
+                        (ptr_uint_t)end_addr);
+    slot_padding =
+        (uint)(ALIGN_FORWARD(end_addr, SLOT_ALIGNMENT(cache)) - (ptr_uint_t)end_addr);
     returnable_space -= slot_padding;
-    returnable_start = FRAG_HDR_START(f)+FRAG_SIZE(f)-returnable_space;
+    returnable_start = FRAG_HDR_START(f) + FRAG_SIZE(f) - returnable_space;
     ASSERT(FRAG_SIZE(f) - returnable_space >= MIN_FCACHE_SLOT_SIZE(cache));
     ASSERT(ALIGNED(returnable_space, SLOT_ALIGNMENT(cache)));
     ASSERT(ALIGNED(returnable_start, SLOT_ALIGNMENT(cache)));
@@ -3422,7 +3478,7 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
     if (returnable_space > 0) {
         STATS_INC(pad_jmps_fragments_overestimated);
         /* first check if f is the last fragment in the unit */
-        if (FRAG_HDR_START(f)+FRAG_SIZE(f) == unit->end_pc) {
+        if (FRAG_HDR_START(f) + FRAG_SIZE(f) == unit->end_pc) {
             /* f is the last fragment in a full unit */
             ASSERT(unit->full);
             if (returnable_space >= MIN_UNIT_END_HOLE(cache)) {
@@ -3436,12 +3492,12 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
                     released = true;
                 } else {
                     /* create a new empty slot */
-                    fifo_prepend_empty(dcontext, cache, unit, NULL,
-                                       returnable_start, returnable_space);
+                    fifo_prepend_empty(dcontext, cache, unit, NULL, returnable_start,
+                                       returnable_space);
                     released = true;
                 }
             }
-        } else if (FRAG_HDR_START(f)+FRAG_SIZE(f) == unit->cur_pc) {
+        } else if (FRAG_HDR_START(f) + FRAG_SIZE(f) == unit->cur_pc) {
             /* f is the last fragment in a non-full unit */
             ASSERT(!unit->full);
             unit->cur_pc -= returnable_space;
@@ -3458,7 +3514,7 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
                 if (FRAG_EMPTY(next_f)) {
                     STATS_FCACHE_ADD(cache, empty, returnable_space);
                     FRAG_START_ASSIGN(next_f, returnable_start + HEADER_SIZE(f));
-                    *((fragment_t **)returnable_start) = next_f;
+                    *((fragment_t **)vmcode_get_writable_addr(returnable_start)) = next_f;
                     FRAG_SIZE_ASSIGN(next_f, FRAG_SIZE(next_f) + returnable_space);
                     released = true;
                 }
@@ -3468,15 +3524,15 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
                  * if excess is large enough by itself
                  */
                 fragment_t *subseq = FRAG_NEXT_SLOT(FRAG_HDR_START(f), FRAG_SIZE(f));
-                ASSERT(FRAG_HDR_START(f)+FRAG_SIZE(f) < unit->cur_pc);
+                ASSERT(FRAG_HDR_START(f) + FRAG_SIZE(f) < unit->cur_pc);
                 if ((FRAG_IS_FREE_LIST(subseq) &&
                      /* make sure will coalesce
                       * FIXME: fragile if coalesce rules change -- perhaps have
                       * free list routine return failure?
                       */
-                     returnable_space + FRAG_NEXT_FREE(FRAG_HDR_START(f),
-                                                       FRAG_SIZE(f))->size <=
-                     MAX_FREE_ENTRY_SIZE) ||
+                     returnable_space +
+                             FRAG_NEXT_FREE(FRAG_HDR_START(f), FRAG_SIZE(f))->size <=
+                         MAX_FREE_ENTRY_SIZE) ||
                     returnable_space >= MIN_EMPTY_HOLE(cache)) {
                     fifo_prepend_empty(dcontext, cache, unit, NULL, returnable_start,
                                        returnable_space);
@@ -3488,18 +3544,19 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
                 }
             }
         }
-   }
+    }
 
     /* even if returnable_space is 0, space is not, and we need to shift it
      * from f->size to f->fcache_extra
      */
     /* update fragment values + sanity check */
-    ASSERT(f->fcache_extra + space == slot_padding + HEADER_SIZE(f) +
-           returnable_space + min_padding);
+    ASSERT(f->fcache_extra + space ==
+           slot_padding + HEADER_SIZE(f) + returnable_space + min_padding);
     ASSERT_TRUNCATE(f->size, ushort, (f->size - space));
-    f->size = (ushort) (f->size - space);
-    FRAG_SIZE_ASSIGN(f, f->size + HEADER_SIZE(f) + FRAG_START_PADDING(f) +
-                     slot_padding + (released ? 0 : returnable_space) + min_padding);
+    f->size = (ushort)(f->size - space);
+    FRAG_SIZE_ASSIGN(f,
+                     f->size + HEADER_SIZE(f) + FRAG_START_PADDING(f) + slot_padding +
+                         (released ? 0 : returnable_space) + min_padding);
     ASSERT(FRAG_SIZE(f) >= MIN_FCACHE_SLOT_SIZE(cache));
     DOSTATS({
         if (released)
@@ -3517,14 +3574,13 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
 
     PROTECT_CACHE(cache, unlock);
 
-    STATS_PAD_JMPS_ADD(f->flags, extra_space_released,
-                       released ? returnable_space : 0);
+    STATS_PAD_JMPS_ADD(f->flags, extra_space_released, released ? returnable_space : 0);
 }
 
 static fcache_t *
 get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
 {
-    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
     fcache_t *cache = NULL;
     if (TEST(FRAG_SHARED, f->flags)) {
         if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -3539,22 +3595,22 @@ get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
                  * before acquiring the info->lock
                  */
                 cache = fcache_cache_init(GLOBAL_DCONTEXT, f->flags, true);
-                mutex_lock(&info->lock);
+                d_r_mutex_lock(&info->lock);
                 if (info->cache == NULL) {
                     cache->coarse_info = info;
                     coarse_unit_init(info, cache);
                     ASSERT(cache == info->cache);
-                    mutex_unlock(&info->lock);
+                    d_r_mutex_unlock(&info->lock);
                 } else {
                     /* w/ bb_building_lock we shouldn't have a race here */
                     ASSERT_CURIOSITY(false && "race in creating coarse cache");
-                    mutex_unlock(&info->lock);
+                    d_r_mutex_unlock(&info->lock);
                     fcache_cache_free(GLOBAL_DCONTEXT, cache, true);
                 }
             }
             ASSERT(info->cache != NULL);
             ASSERT(((fcache_t *)info->cache)->coarse_info == info);
-            return (fcache_t *) info->cache;
+            return (fcache_t *)info->cache;
         } else {
             if (IN_TRACE_CACHE(f->flags))
                 return shared_cache_trace;
@@ -3568,15 +3624,15 @@ get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
                 tu->trace = fcache_cache_init(dcontext, FRAG_IS_TRACE, true);
                 ASSERT(tu->trace != NULL);
                 LOG(THREAD, LOG_CACHE, 1, "Initial trace cache is %d KB\n",
-                    tu->trace->init_unit_size/1024);
+                    tu->trace->init_unit_size / 1024);
             }
             return tu->trace;
         } else {
             if (tu->bb == NULL) {
-                tu->bb = fcache_cache_init(dcontext, 0/*private bb*/, true);
+                tu->bb = fcache_cache_init(dcontext, 0 /*private bb*/, true);
                 ASSERT(tu->bb != NULL);
                 LOG(THREAD, LOG_CACHE, 1, "Initial basic block cache is %d KB\n",
-                    tu->bb->init_unit_size/1024);
+                    tu->bb->init_unit_size / 1024);
             }
             return tu->bb;
         }
@@ -3588,7 +3644,7 @@ get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
 void
 fcache_add_fragment(dcontext_t *dcontext, fragment_t *f)
 {
-    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
     uint slot_size;
     fcache_t *cache = get_cache_for_new_fragment(dcontext, f);
     ASSERT(cache != NULL);
@@ -3603,9 +3659,10 @@ fcache_add_fragment(dcontext_t *dcontext, fragment_t *f)
          * being re-used and not showing up in in_fcache
          */
         vmvector_remove(fcache_unit_areas, tu->pending_unmap_pc,
-                        tu->pending_unmap_pc+tu->pending_unmap_size);
+                        tu->pending_unmap_pc + tu->pending_unmap_size);
         /* caller must dec stats since here we don't know type of cache */
-        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size, VMM_CACHE);
+        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size,
+                    VMM_CACHE | VMM_REACHABLE);
         tu->pending_unmap_pc = NULL;
     }
 
@@ -3618,13 +3675,13 @@ fcache_add_fragment(dcontext_t *dcontext, fragment_t *f)
         STATS_INC(num_fragment_too_small);
         slot_size = MIN_FCACHE_SLOT_SIZE(cache);
     }
-    slot_size = (uint) ALIGN_FORWARD(slot_size, SLOT_ALIGNMENT(cache));
+    slot_size = (uint)ALIGN_FORWARD(slot_size, SLOT_ALIGNMENT(cache));
     ASSERT(slot_size >= f->size + HEADER_SIZE(f));
     ASSERT_TRUNCATE(f->fcache_extra, byte, (slot_size - f->size));
-    f->fcache_extra = (byte) (slot_size - f->size);
+    f->fcache_extra = (byte)(slot_size - f->size);
     LOG(THREAD, LOG_CACHE, 4,
         "fcache_add_fragment to %s cache (size %dKB): F%d w/ size %d (=> %d)\n",
-        cache->name, cache->units->size/1024, f->id, f->size, slot_size);
+        cache->name, cache->units->size / 1024, f->id, f->size, slot_size);
 
     add_fragment_common(dcontext, cache, f, slot_size);
     ASSERT(!PAD_JMPS_SHIFT_START(f->flags) ||
@@ -3647,8 +3704,8 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f)
            TEST(FRAG_WAS_DELETED, f->flags) || is_self_allsynch_flushing());
     PROTECT_CACHE(cache, lock);
 
-    LOG(THREAD, LOG_CACHE, 4, "fcache_remove_fragment: F%d from %s unit\n",
-        f->id, cache->name);
+    LOG(THREAD, LOG_CACHE, 4, "fcache_remove_fragment: F%d from %s unit\n", f->id,
+        cache->name);
 
     DOSTATS({ removed_fragment_stats(dcontext, cache, f); });
     STATS_FCACHE_SUB(cache, used, FRAG_SIZE(f));
@@ -3661,7 +3718,7 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f)
      * FIXME: put in the rest of the patterns and checks to make this
      * parallel to heap DEBUG_MEMORY (==case 5657)
      */
-    memset(f->start_pc, DEBUGGER_INTERRUPT_BYTE, f->size);
+    memset(vmcode_get_writable_addr(f->start_pc), DEBUGGER_INTERRUPT_BYTE, f->size);
 #endif
 
     /* if the entire unit is being freed, do not place individual fragments in
@@ -3677,7 +3734,6 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     }
     PROTECT_CACHE(cache, unlock);
 }
-
 
 #ifdef SIDELINE
 dcontext_t *
@@ -3704,7 +3760,7 @@ get_dcontext_for_fragment(fragment_t *f)
 bool
 fcache_is_flush_pending(dcontext_t *dcontext)
 {
-    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
     return tu->pending_flush;
 }
 
@@ -3714,7 +3770,7 @@ fcache_is_flush_pending(dcontext_t *dcontext)
 static void
 append_units_to_free_list(fcache_unit_t *u)
 {
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
 
     /* must append to keep in increasing flushtime order */
     if (allunits->units_to_free_tail == NULL) {
@@ -3743,7 +3799,7 @@ append_units_to_free_list(fcache_unit_t *u)
     allunits->units_to_free_tail = u;
     ASSERT(allunits->units_to_free_tail->next_local == NULL);
 
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
 }
 
 /* It is up to the caller to ensure it's safe to string the fragments in
@@ -3756,7 +3812,7 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
     fragment_t *list = NULL, *f = NULL, *prev_f = NULL;
     cache_pc pc;
     ASSERT(is_self_flushing());
-    LOG(THREAD, LOG_CACHE, 4, "\tchaining fragments in unit "PFX"-"PFX"\n",
+    LOG(THREAD, LOG_CACHE, 4, "\tchaining fragments in unit " PFX "-" PFX "\n",
         unit->start_pc, unit->end_pc);
     /* FIXME: we walk all fragments here just to call
      * vm_area_remove_fragment(), and do another complete walk in
@@ -3766,25 +3822,25 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
     while (pc < unit->cur_pc) {
         bool add_to_list = false;
         f = *((fragment_t **)pc);
-        LOG(THREAD, LOG_CACHE, 5, "\treading "PFX" -> "PFX"\n", pc, f);
+        LOG(THREAD, LOG_CACHE, 5, "\treading " PFX " -> " PFX "\n", pc, f);
         if (USE_FREE_LIST_FOR_CACHE(unit->cache)) {
             if (FRAG_IS_FREE_LIST(f)) {
                 /* we're going to free the whole unit so we have to
                  * remove this entry from the free list
                  */
                 /* while flush synch is enough, cleaner to hold official lock */
-                free_list_header_t *cur_free = ((free_list_header_t *) pc);
+                free_list_header_t *cur_free = ((free_list_header_t *)pc);
                 int bucket = find_free_list_bucket(cur_free->size);
                 LOG(THREAD, LOG_CACHE, 5,
-                    "\tremoving free list entry "PFX" size %d bucket [%d]\n",
-                    cur_free, cur_free->size, bucket);
+                    "\tremoving free list entry " PFX " size %d bucket [%d]\n", cur_free,
+                    cur_free->size, bucket);
                 /* we officially grab the lock for free list manip, though
                  * flush synch is enough.  we can't hold cache lock for this
                  * entire routine b/c it has lower rank than the lazy_delete lock.
                  */
                 PROTECT_CACHE(unit->cache, lock);
-                remove_from_free_list(unit->cache, bucket, cur_free
-                                      _IF_DEBUG(false/*!coalesce*/));
+                remove_from_free_list(unit->cache, bucket,
+                                      cur_free _IF_DEBUG(false /*!coalesce*/));
                 PROTECT_CACHE(unit->cache, unlock);
                 pc += cur_free->size;
                 continue;
@@ -3815,11 +3871,11 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
              * now walks all to-be-freed entries in increasing flushtime order.
              */
             LOG(THREAD, LOG_CACHE, 5,
-                "\tlazily-deleted fragment F%d."PFX" removed from lazy list\n",
-                f->id, f->start_pc);
+                "\tlazily-deleted fragment F%d." PFX " removed from lazy list\n", f->id,
+                f->start_pc);
         } else {
-            LOG(THREAD, LOG_CACHE, 5,
-                "\tadding F%d."PFX" to to-flush list\n", f->id, f->start_pc);
+            LOG(THREAD, LOG_CACHE, 5, "\tadding F%d." PFX " to to-flush list\n", f->id,
+                f->start_pc);
             vm_area_remove_fragment(dcontext, f);
             add_to_list = true;
         }
@@ -3863,7 +3919,7 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
 bool
 fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
 {
-    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
     fcache_unit_t *unit_flushed = NULL;
     fcache_unit_t *u, *local_to_flush;
     bool not_flushed = true;
@@ -3882,10 +3938,10 @@ fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
     /* we grab a local copy to deal w/ races to flush these units up front
      * rather than getting into the flush synch and finding someone beat us
      */
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
     local_to_flush = allunits->units_to_flush;
     allunits->units_to_flush = NULL;
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
     if (local_to_flush == NULL)
         return not_flushed;
 
@@ -3903,12 +3959,11 @@ fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
      * list anymore, but the fragments are reachable.
      */
     DEBUG_DECLARE(flushed =)
-        flush_fragments_synch_unlink_priv(dcontext, EMPTY_REGION_BASE,
-                                          EMPTY_REGION_SIZE,
-                                          false/*don't have thread_initexit_lock*/,
-                                          false/*not invalidating exec areas*/,
-                                          false/*don't force synchall*/
-                                          _IF_DGCDIAG(NULL));
+    flush_fragments_synch_unlink_priv(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
+                                      false /*don't have thread_initexit_lock*/,
+                                      false /*not invalidating exec areas*/,
+                                      false /*don't force synchall*/
+                                      _IF_DGCDIAG(NULL));
     ASSERT(flushed);
 
     KSTART(cache_flush_unit_walk);
@@ -3941,8 +3996,7 @@ fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
             list_tail->next_vmarea = list_add_head;
             list_tail = list_add_tail;
         }
-        ASSERT(list_tail == NULL /*list empty so far*/ ||
-               list_tail->next_vmarea == NULL);
+        ASSERT(list_tail == NULL /*list empty so far*/ || list_tail->next_vmarea == NULL);
 
         STATS_INC(cache_units_flushed);
         STATS_DEC(cache_units_toflush);
@@ -3954,13 +4008,13 @@ fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
     flush_fragments_unlink_shared(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
                                   list_head _IF_DGCDIAG(NULL));
     flushtime = flushtime_global;
-    flush_fragments_end_synch(dcontext, false/*don't keep initexit_lock*/);
+    flush_fragments_end_synch(dcontext, false /*don't keep initexit_lock*/);
 
     for (u = local_to_flush; u != NULL; u = u->next_local) {
         u->flushtime = flushtime;
         LOG(THREAD, LOG_CACHE, 2,
-            "flushed fragments in unit "PFX"-"PFX" @flushtime %u\n",
-            u->start_pc, u->end_pc, u->flushtime);
+            "flushed fragments in unit " PFX "-" PFX " @flushtime %u\n", u->start_pc,
+            u->end_pc, u->flushtime);
     }
 
     append_units_to_free_list(local_to_flush);
@@ -3972,7 +4026,7 @@ void
 fcache_free_pending_units(dcontext_t *dcontext, uint flushtime)
 {
     fcache_unit_t *u, *nxt;
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
     for (u = allunits->units_to_free; u != NULL; u = nxt) {
         nxt = u->next_local;
         /* free list must be sorted in increasing flushtime */
@@ -3984,7 +4038,7 @@ fcache_free_pending_units(dcontext_t *dcontext, uint flushtime)
                 allunits->units_to_free_tail = NULL;
             }
             allunits->units_to_free = nxt;
-            LOG(THREAD, LOG_CACHE, 2, "freeing flushed unit "PFX"-"PFX"\n",
+            LOG(THREAD, LOG_CACHE, 2, "freeing flushed unit " PFX "-" PFX "\n",
                 u->start_pc, u->end_pc);
             ASSERT(u->pending_free);
             u->pending_free = false;
@@ -3995,7 +4049,7 @@ fcache_free_pending_units(dcontext_t *dcontext, uint flushtime)
         } else
             break; /* sorted! */
     }
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
 }
 
 /* Used to prevent shared units earmarked for freeing from being re-used.
@@ -4041,13 +4095,12 @@ fcache_flush_all_caches()
     /* FIXME: share parameters w/ invalidate_code_cache()?
      * FIXME: efficiency of region-based vs unit-based flushing
      */
-    flush_fragments_in_region_start(dcontext, UNIVERSAL_REGION_BASE,
-                                    UNIVERSAL_REGION_SIZE,
-                                    false /* don't own initexit_lock */,
-                                    true /* remove futures */,
-                                    false/*not invalidating exec areas*/,
-                                    false/*don't force synchall*/
-                                    _IF_DGCDIAG(NULL));
+    flush_fragments_in_region_start(
+        dcontext, UNIVERSAL_REGION_BASE, UNIVERSAL_REGION_SIZE,
+        false /* don't own initexit_lock */, true /* remove futures */,
+        false /*not invalidating exec areas*/,
+        false /*don't force synchall*/
+        _IF_DGCDIAG(NULL));
     /* In presence of any shared fragments, all threads are stuck here at synch point,
      * so we can mess w/ global cache units in an atomic manner wrt the flush.
      * We can't do private here since threads are let go if no shared
@@ -4101,7 +4154,14 @@ fcache_reset_all_caches_proactively(uint target)
     /* FIXME: use a cleaner model than having callers grab this lock? */
     ASSERT_OWN_MUTEX(true, &reset_pending_lock);
     if (reset_in_progress) {
-        mutex_unlock(&reset_pending_lock);
+        d_r_mutex_unlock(&reset_pending_lock);
+        return;
+    }
+    /* Extra layer of checking to avoid a reset when the user does not want it
+     * (xref i#3645).
+     */
+    if (!DYNAMO_OPTION(enable_reset)) {
+        d_r_mutex_unlock(&reset_pending_lock);
         return;
     }
     /* N.B.: we relax various synch checks if dynamo_resetting is true, since
@@ -4114,11 +4174,12 @@ fcache_reset_all_caches_proactively(uint target)
     /* this lock is only for synchronizing resets and we do not give it the
      * rank it would need to be held across the whole routine
      */
-    mutex_unlock(&reset_pending_lock);
+    d_r_mutex_unlock(&reset_pending_lock);
 
     LOG(GLOBAL, LOG_CACHE, 2,
-        "\nfcache_reset_all_caches_proactively: thread "TIDFMT" suspending all threads\n",
-        get_thread_id());
+        "\nfcache_reset_all_caches_proactively: thread " TIDFMT
+        " suspending all threads\n",
+        d_r_get_thread_id());
 
     /* Suspend all DR-controlled threads at safe locations.
      * Case 6821: other synch-all-thread uses can be ignored, as none of them carry
@@ -4133,10 +4194,10 @@ fcache_reset_all_caches_proactively(uint target)
                                 /* if we fail to suspend a thread (e.g., for privilege
                                  * reasons) just abort */
                                 THREAD_SYNCH_SUSPEND_FAILURE_ABORT
-                                /* if we get in a race with detach, or are having
-                                 * synch issues for whatever reason, bail out sooner
-                                 * rather than later */
-                                | THREAD_SYNCH_SMALL_LOOP_MAX)) {
+                                    /* if we get in a race with detach, or are having
+                                     * synch issues for whatever reason, bail out sooner
+                                     * rather than later */
+                                    | THREAD_SYNCH_SMALL_LOOP_MAX)) {
         /* just give up */
         reset_in_progress = false;
         ASSERT(!OWN_MUTEX(&all_threads_synch_lock) && !OWN_MUTEX(&thread_initexit_lock));
@@ -4167,10 +4228,12 @@ fcache_reset_all_caches_proactively(uint target)
 
     LOG(GLOBAL, LOG_CACHE, 2,
         "fcache_reset_all_caches_proactively: walking the threads\n");
-    DOSTATS({
-        SYSLOG_INTERNAL_INFO("proactive reset @ %d fragments",
-                             GLOBAL_STAT(num_fragments));
-    });
+    char buf[16];
+    snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d",
+             GLOBAL_STAT(num_bbs) + GLOBAL_STAT(num_traces));
+    NULL_TERMINATE_BUFFER(buf);
+    SYSLOG(SYSLOG_INFORMATION, INFO_RESET_IN_PROGRESS, 3, buf, get_application_name(),
+           get_application_pid());
 
     /* reset_free and reset_init may write to .data.
      * All threads are suspended so no security risk.
@@ -4180,7 +4243,7 @@ fcache_reset_all_caches_proactively(uint target)
     /* no lock needed */
     dynamo_resetting = true;
 
-    IF_ARM({
+    IF_AARCHXX({
         if (INTERNAL_OPTION(steal_reg_at_reset) != 0)
             arch_reset_stolen_reg();
     });
@@ -4195,8 +4258,8 @@ fcache_reset_all_caches_proactively(uint target)
     for (i = 0; i < num_threads; i++) {
         dcontext_t *dcontext = threads[i]->dcontext;
         if (dcontext != NULL) { /* include my_dcontext here */
-            LOG(GLOBAL, LOG_CACHE, 2,
-                "\tconsidering thread #%d "TIDFMT"\n", i, threads[i]->id);
+            LOG(GLOBAL, LOG_CACHE, 2, "\tconsidering thread #%d " TIDFMT "\n", i,
+                threads[i]->id);
             if (dcontext != my_dcontext) {
                 /* must translate BEFORE freeing any memory! */
                 if (is_thread_currently_native(threads[i])) {
@@ -4221,16 +4284,16 @@ fcache_reset_all_caches_proactively(uint target)
             last_exit_deleted(dcontext);
             if (target == RESET_PENDING_DELETION) {
                 /* case 7394: need to abort other threads' trace building
-                 * since the reset xfer to dispatch will disrupt it
+                 * since the reset xfer to d_r_dispatch will disrupt it
                  */
                 if (is_building_trace(dcontext)) {
                     LOG(THREAD, LOG_FRAGMENT, 2,
-                        "\tsquashing trace of thread "TIDFMT"\n", i);
+                        "\tsquashing trace of thread " TIDFMT "\n", i);
                     trace_abort(dcontext);
                 }
             } else {
-                LOG(GLOBAL, LOG_CACHE, 2, "\tfreeing memory in thread "TIDFMT"\n", i);
-                LOG(THREAD, LOG_CACHE, 2, "------- reset for thread "TIDFMT" -------\n",
+                LOG(GLOBAL, LOG_CACHE, 2, "\tfreeing memory in thread " TIDFMT "\n", i);
+                LOG(THREAD, LOG_CACHE, 2, "------- reset for thread " TIDFMT " -------\n",
                     threads[i]->id);
                 /* N.B.: none of these can assume the executing thread is the
                  * dcontext owner, esp. wrt tls!
@@ -4286,8 +4349,9 @@ fcache_reset_all_caches_proactively(uint target)
             dcontext_t *dcontext = threads[i]->dcontext;
             if (dcontext != NULL) { /* include my_dcontext here */
                 LOG(GLOBAL, LOG_CACHE, 2,
-                    "fcache_reset_all_caches_proactively: re-initializing thread "
-                    TIDFMT"\n", i);
+                    "fcache_reset_all_caches_proactively: re-initializing thread " TIDFMT
+                    "\n",
+                    i);
                 /* now set up private state all over again -- generally, we can do
                  * this before the global free/init since our private/global
                  * free/init are completely separate (due to the presence of
@@ -4321,7 +4385,7 @@ fcache_reset_all_caches_proactively(uint target)
 
     LOG(GLOBAL, LOG_CACHE, 2,
         "fcache_reset_all_caches_proactively: resuming all threads\n");
-    end_synch_with_all_threads(threads, num_threads, true/*resume*/);
+    end_synch_with_all_threads(threads, num_threads, true /*resume*/);
 }
 
 /* returns true if specified target wasn't already scheduled for reset */
@@ -4330,14 +4394,16 @@ schedule_reset(uint target)
 {
     bool added_target;
     ASSERT(target != 0);
-    mutex_lock(&reset_pending_lock);
+    if (!DYNAMO_OPTION(enable_reset))
+        return false;
+    d_r_mutex_lock(&reset_pending_lock);
     added_target = !TESTALL(target, reset_pending);
     reset_pending |= target;
-    mutex_unlock(&reset_pending_lock);
+    d_r_mutex_unlock(&reset_pending_lock);
     return added_target;
 }
 
-#if 0 /* currently not used see note in fcache_low_on_memory */
+#if 0  /* currently not used see note in fcache_low_on_memory */
 static void
 fcache_reset_cache(dcontext_t *dcontext, fcache_t *cache)
 {
@@ -4455,7 +4521,7 @@ fcache_low_on_memory()
 #endif
 
     /* now free the entire dead list (including thread units just moved here) */
-    LOG(GLOBAL, LOG_CACHE|LOG_STATS, 1,
+    LOG(GLOBAL, LOG_CACHE | LOG_STATS, 1,
         "fcache_low_on_memory: about to free dead list units\n");
     /* WARNING: this routine is called at arbitrary allocation failure points,
      * so we have to be careful what locks we grab.
@@ -4470,23 +4536,22 @@ fcache_low_on_memory()
      * corner cases (if the failing alloc is for a dynamo_areas vector resize
      * etc.).
      */
-    if (lockwise_safe_to_allocate_memory() &&
-        !self_owns_dynamo_vm_area_lock() &&
+    if (lockwise_safe_to_allocate_memory() && !self_owns_dynamo_vm_area_lock() &&
         !self_owns_write_lock(&fcache_unit_areas->lock)) {
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         u = allunits->dead;
         while (u != NULL) {
             next_u = u->next_global;
             freed += u->size;
-            fcache_really_free_unit(u, true/*on dead list*/, true/*dealloc*/);
+            fcache_really_free_unit(u, true /*on dead list*/, true /*dealloc*/);
             u = next_u;
         }
         allunits->dead = NULL;
-        mutex_unlock(&allunits_lock);
-        LOG(GLOBAL, LOG_CACHE|LOG_STATS, 1,
-            "fcache_low_on_memory: freed %d KB\n", freed/1024);
+        d_r_mutex_unlock(&allunits_lock);
+        LOG(GLOBAL, LOG_CACHE | LOG_STATS, 1, "fcache_low_on_memory: freed %d KB\n",
+            freed / 1024);
     } else {
-        LOG(GLOBAL, LOG_CACHE|LOG_STATS, 1,
+        LOG(GLOBAL, LOG_CACHE | LOG_STATS, 1,
             "fcache_low_on_memory: cannot walk units b/c of deadlock potential\n");
     }
 
@@ -4498,7 +4563,7 @@ fcache_low_on_memory()
     if (dynamo_options.finite_bb_cache && dynamo_options.cache_bb_replace > 0) {
         dynamo_options.cache_bb_regen *= 2;
         if (dynamo_options.cache_bb_regen > dynamo_options.cache_bb_replace)
-            dynamo_options.cache_bb_regen = 4*dynamo_options.cache_bb_replace/5;
+            dynamo_options.cache_bb_regen = 4 * dynamo_options.cache_bb_replace / 5;
     }
     if (dynamo_options.finite_shared_bb_cache &&
         dynamo_options.cache_shared_bb_replace > 0) {
@@ -4506,7 +4571,7 @@ fcache_low_on_memory()
         if (dynamo_options.cache_shared_bb_regen >
             dynamo_options.cache_shared_bb_replace) {
             dynamo_options.cache_shared_bb_regen =
-                4*dynamo_options.cache_shared_bb_replace/5;
+                4 * dynamo_options.cache_shared_bb_replace / 5;
         }
     }
     if (dynamo_options.finite_shared_trace_cache &&
@@ -4515,7 +4580,7 @@ fcache_low_on_memory()
         if (dynamo_options.cache_shared_trace_regen >
             dynamo_options.cache_shared_trace_replace) {
             dynamo_options.cache_shared_trace_regen =
-                4*dynamo_options.cache_shared_trace_replace/5;
+                4 * dynamo_options.cache_shared_trace_replace / 5;
         }
     }
     /* FIXME: be more or less aggressive about traces than bbs?
@@ -4524,11 +4589,10 @@ fcache_low_on_memory()
     if (dynamo_options.finite_trace_cache && dynamo_options.cache_trace_replace > 0) {
         dynamo_options.cache_trace_regen *= 2;
         if (dynamo_options.cache_trace_regen > dynamo_options.cache_trace_replace)
-            dynamo_options.cache_trace_regen = 4*dynamo_options.cache_trace_replace/5;
+            dynamo_options.cache_trace_regen = 4 * dynamo_options.cache_trace_replace / 5;
     }
     options_restore_readonly();
 }
-
 
 /***************************************************************************
  * COARSE-GRAIN UNITS
@@ -4552,14 +4616,14 @@ fcache_coarse_cache_delete(dcontext_t *dcontext, coarse_info_t *info)
     fcache_t *cache;
     ASSERT(info != NULL);
     ASSERT_OWN_MUTEX(!info->is_local, &info->lock);
-    cache = (fcache_t *) info->cache;
+    cache = (fcache_t *)info->cache;
     if (cache == NULL) /* lazily initialized, so common to have empty units */
         return;
     /* We don't PROTECT_CACHE(cache, lock) to avoid rank order w/ coarse info lock.
      * We assume that deletion can only happen for local cache or at reset/exit.
      */
     DODEBUG({ cache->is_local = true; });
-    fcache_cache_free(dcontext, cache, !info->frozen/*do not free frozen unit*/);
+    fcache_cache_free(dcontext, cache, !info->frozen /*do not free frozen unit*/);
     info->cache = NULL;
     /* We unlink any outgoing links by walking the stubs, not walking the units,
      * so nothing else to do here
@@ -4573,7 +4637,7 @@ coarse_frozen_cache_size(dcontext_t *dcontext, coarse_info_t *info)
     fcache_t *cache;
     ASSERT(info != NULL);
     ASSERT_OWN_MUTEX(true, &info->lock);
-    cache = (fcache_t *) info->cache;
+    cache = (fcache_t *)info->cache;
     if (cache == NULL)
         return 0;
     /* we ignore any shrinking from eliding fall-through ubrs
@@ -4589,11 +4653,11 @@ coarse_frozen_cache_size(dcontext_t *dcontext, coarse_info_t *info)
  * and unknown to all but this thread.
  */
 void
-fcache_coarse_init_frozen(dcontext_t *dcontext, coarse_info_t *info,
-                          cache_pc start_pc, size_t size)
+fcache_coarse_init_frozen(dcontext_t *dcontext, coarse_info_t *info, cache_pc start_pc,
+                          size_t size)
 {
     fcache_t *cache = fcache_cache_init(GLOBAL_DCONTEXT, FRAG_SHARED | FRAG_COARSE_GRAIN,
-                                      false/*no initial unit*/);
+                                        false /*no initial unit*/);
     /* We don't PROTECT_CACHE(cache, lock) to avoid rank order w/ coarse info lock,
      * assuming that info is newly created and unknown to all but this thread.
      * (For freezing we also have dynamo_all_threads_synched, but we don't for
@@ -4615,6 +4679,6 @@ fcache_coarse_set_info(dcontext_t *dcontext, coarse_info_t *info)
     fcache_t *cache;
     ASSERT(info != NULL);
     ASSERT_OWN_MUTEX(true, &info->lock);
-    cache = (fcache_t *) info->cache;
+    cache = (fcache_t *)info->cache;
     cache->coarse_info = info;
 }

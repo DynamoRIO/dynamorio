@@ -70,21 +70,21 @@ extern "C" {
 /**
  * \addtogroup drsyms Symbol Access Library
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each DRSyms operation */
 typedef enum {
-    DRSYM_SUCCESS,                  /**< Operation succeeded. */
-    DRSYM_ERROR,                    /**< Operation failed. */
-    DRSYM_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
-    DRSYM_ERROR_INVALID_SIZE,       /**< Operation failed: invalid size */
-    DRSYM_ERROR_LOAD_FAILED,        /**< Operation failed: unable to load symbols */
-    DRSYM_ERROR_SYMBOL_NOT_FOUND,   /**< Operation failed: symbol not found */
-    DRSYM_ERROR_LINE_NOT_AVAILABLE, /**< Operation failed: line info not available */
-    DRSYM_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not yet implemented */
+    DRSYM_SUCCESS,                     /**< Operation succeeded. */
+    DRSYM_ERROR,                       /**< Operation failed. */
+    DRSYM_ERROR_INVALID_PARAMETER,     /**< Operation failed: invalid parameter */
+    DRSYM_ERROR_INVALID_SIZE,          /**< Operation failed: invalid size */
+    DRSYM_ERROR_LOAD_FAILED,           /**< Operation failed: unable to load symbols */
+    DRSYM_ERROR_SYMBOL_NOT_FOUND,      /**< Operation failed: symbol not found */
+    DRSYM_ERROR_LINE_NOT_AVAILABLE,    /**< Operation failed: line info not available */
+    DRSYM_ERROR_NOT_IMPLEMENTED,       /**< Operation failed: not yet implemented */
     DRSYM_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
-    DRSYM_ERROR_NOMEM,              /**< Operation failed: not enough memory */
-    DRSYM_ERROR_RECURSIVE,          /**< Operation failed: unavailable when recursive */
+    DRSYM_ERROR_NOMEM,                 /**< Operation failed: not enough memory */
+    DRSYM_ERROR_RECURSIVE, /**< Operation failed: unavailable when recursive */
 } drsym_error_t;
 
 /** Bitfield of options to each DRSyms operation. */
@@ -99,7 +99,7 @@ typedef enum {
      * For all symbol types, templates are collapsed to <> while function
      * parameters are omitted entirely (without any parentheses).
      */
-    DRSYM_DEMANGLE      = 0x01,
+    DRSYM_DEMANGLE = 0x01,
     /**
      * Demangle template arguments and parameter types.  This option is not
      * available for Windows PDB symbols (except in drsym_demangle_symbol()).
@@ -112,8 +112,8 @@ typedef enum {
      * Requests a full search for all symbols and not just functions.
      * This adds overhead: see drsym_search_symbols_ex() for details.
      */
-    DRSYM_FULL_SEARCH   = 0x08,
-    DRSYM_DEFAULT_FLAGS = DRSYM_DEMANGLE,   /**< Default flags. */
+    DRSYM_FULL_SEARCH = 0x08,
+    DRSYM_DEFAULT_FLAGS = DRSYM_DEMANGLE, /**< Default flags. */
 } drsym_flags_t;
 
 /**
@@ -123,14 +123,14 @@ typedef enum {
  * which kind of debug information is present.
  */
 typedef enum {
-    DRSYM_SYMBOLS    = (1 <<  0), /**< Any symbol information beyond exports. */
-    DRSYM_LINE_NUMS  = (1 <<  1), /**< Any line number info. */
+    DRSYM_SYMBOLS = (1 << 0),   /**< Any symbol information beyond exports. */
+    DRSYM_LINE_NUMS = (1 << 1), /**< Any line number info. */
     /* Platform-dependent types. */
-    DRSYM_ELF_SYMTAB = (1 <<  8), /**< ELF .symtab symbol names. */
-    DRSYM_DWARF_LINE = (1 <<  9), /**< DWARF line info. */
-    DRSYM_PDB        = (1 << 10), /**< Windows PDB files. */
-    DRSYM_PECOFF_SYMTAB = (1 <<  11), /**< PE COFF (Cygwin or MinGW) symbol table names.*/
-    DRSYM_MACHO_SYMTAB =  (1 <<  12), /**< Mach-O symbol table names. */
+    DRSYM_ELF_SYMTAB = (1 << 8),     /**< ELF .symtab symbol names. */
+    DRSYM_DWARF_LINE = (1 << 9),     /**< DWARF line info. */
+    DRSYM_PDB = (1 << 10),           /**< Windows PDB files. */
+    DRSYM_PECOFF_SYMTAB = (1 << 11), /**< PE COFF (Cygwin or MinGW) symbol table names.*/
+    DRSYM_MACHO_SYMTAB = (1 << 12),  /**< Mach-O symbol table names. */
 } drsym_debug_kind_t;
 
 /** Data structure that holds symbol information */
@@ -195,9 +195,9 @@ typedef struct _drsym_info_t {
 } drsym_info_t;
 
 #ifdef WINDOWS
-# define IF_WINDOWS_ELSE(x,y) x
+#    define IF_WINDOWS_ELSE(x, y) x
 #else
-# define IF_WINDOWS_ELSE(x,y) y
+#    define IF_WINDOWS_ELSE(x, y) y
 #endif
 
 DR_EXPORT
@@ -211,8 +211,7 @@ DR_EXPORT
  * @param[in] shmid Identifies the symbol server for sideline operation.
  * \note Sideline operation is not yet implemented.
  */
-drsym_error_t
-drsym_init(IF_WINDOWS_ELSE(const wchar_t *, int) shmid);
+drsym_error_t drsym_init(IF_WINDOWS_ELSE(const wchar_t *, int) shmid);
 
 DR_EXPORT
 /**
@@ -241,13 +240,13 @@ drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *info /*I
                      uint flags);
 
 enum {
-    DRSYM_TYPE_OTHER,  /**< Unknown type, cannot downcast. */
-    DRSYM_TYPE_INT,    /**< Integer, cast to drsym_int_type_t. */
-    DRSYM_TYPE_PTR,    /**< Pointer, cast to drsym_ptr_type_t. */
-    DRSYM_TYPE_FUNC,   /**< Function, cast to drsym_func_type_t. */
-    DRSYM_TYPE_VOID,   /**< Void.  No further information. */
+    DRSYM_TYPE_OTHER,    /**< Unknown type, cannot downcast. */
+    DRSYM_TYPE_INT,      /**< Integer, cast to drsym_int_type_t. */
+    DRSYM_TYPE_PTR,      /**< Pointer, cast to drsym_ptr_type_t. */
+    DRSYM_TYPE_FUNC,     /**< Function, cast to drsym_func_type_t. */
+    DRSYM_TYPE_VOID,     /**< Void.  No further information. */
     DRSYM_TYPE_COMPOUND, /**< Struct, union, or class; cast to drsym_compound_type_t. */
-    DRSYM_TYPE_ARRAY,   /** <Array cast to drsym_array_type_t. */
+    DRSYM_TYPE_ARRAY,    /** <Array cast to drsym_array_type_t. */
     /* Additional type kinds will be added as needed. */
 };
 
@@ -256,9 +255,9 @@ enum {
  * Use the 'kind' member to downcast to a more specific type.
  */
 typedef struct _drsym_type_t {
-    uint kind;      /**< Type kind, i.e. DRSYM_TYPE_INT or DRSYM_TYPE_PTR. */
-    size_t size;    /**< Type size. */
-    uint id;        /**< Unique identifier to pass to drsym_expand_type(). */
+    uint kind;   /**< Type kind, i.e. DRSYM_TYPE_INT or DRSYM_TYPE_PTR. */
+    size_t size; /**< Type size. */
+    uint id;     /**< Unique identifier to pass to drsym_expand_type(). */
 } drsym_type_t;
 
 /** Type information for a function. */
@@ -273,7 +272,7 @@ typedef struct _drsym_func_type_t {
 /** Type information for a user-defined type: a struct, union, or class. */
 typedef struct _drsym_compound_type_t {
     drsym_type_t type;
-    char *name; /**< Name of the type. */
+    char *name;     /**< Name of the type. */
     int num_fields; /**< Number of fields. */
     /** Separate array of size num_fields.  May be NULL if the data was not requested. */
     drsym_type_t **field_types;
@@ -327,9 +326,8 @@ DR_EXPORT
  * @param[out] type      Pointer to the type of the function.
  */
 drsym_error_t
-drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand,
-               char *buf, size_t buf_sz,
-               drsym_type_t **type /*OUT*/);
+drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand, char *buf,
+               size_t buf_sz, drsym_type_t **type /*OUT*/);
 
 DR_EXPORT
 /**
@@ -381,8 +379,7 @@ DR_EXPORT
  * @param[out] func_type Pointer to the type of the function.
  */
 drsym_error_t
-drsym_get_func_type(const char *modpath, size_t modoffs,
-                    char *buf, size_t buf_sz,
+drsym_get_func_type(const char *modpath, size_t modoffs, char *buf, size_t buf_sz,
                     drsym_func_type_t **func_type /*OUT*/);
 
 DR_EXPORT
@@ -418,9 +415,8 @@ DR_EXPORT
  * @param[out] expanded_type Pointer to the expanded type tree for the symbol.
  */
 drsym_error_t
-drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
-                  char *buf, size_t buf_sz,
-                  drsym_type_t **expanded_type /*OUT*/);
+drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand, char *buf,
+                  size_t buf_sz, drsym_type_t **expanded_type /*OUT*/);
 
 DR_EXPORT
 /**
@@ -545,8 +541,7 @@ DR_EXPORT
  *    values.  DRSYM_DEMANGLE is implied.
  */
 size_t
-drsym_demangle_symbol(char *dst, size_t dst_sz, const char *mangled,
-                      uint flags);
+drsym_demangle_symbol(char *dst, size_t dst_sz, const char *mangled, uint flags);
 
 DR_EXPORT
 /**
@@ -557,8 +552,7 @@ DR_EXPORT
  * @param[out] kind      The kind of debug information available.
  */
 drsym_error_t
-drsym_get_module_debug_kind(const char *modpath,
-                            drsym_debug_kind_t *kind /*OUT*/);
+drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind /*OUT*/);
 
 DR_EXPORT
 /**
@@ -728,8 +722,7 @@ DR_EXPORT
 drsym_error_t
 drsym_enumerate_lines(const char *modpath, drsym_enumerate_lines_cb callback, void *data);
 
-
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

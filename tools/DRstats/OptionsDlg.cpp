@@ -42,17 +42,17 @@
 
 #ifndef DRSTATS_DEMO /* around whole file */
 
-#include "stdafx.h"
-#include "DynamoRIO.h"
-#include "OptionsDlg.h"
-#include "LoggingDlg.h"
-#include <assert.h>
+#    include "stdafx.h"
+#    include "DynamoRIO.h"
+#    include "OptionsDlg.h"
+#    include "LoggingDlg.h"
+#    include <assert.h>
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    ifdef _DEBUG
+#        define new DEBUG_NEW
+#        undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
-#endif
+#    endif
 
 enum {
     HOT_THRESHOLD = 0,
@@ -74,7 +74,7 @@ enum {
     TRACEDUMP_BINARY,
     TRACEDUMP_ORIGINS,
 };
-static const TCHAR * names[] = {
+static const TCHAR *names[] = {
     _T("-hot_threshold"),
     _T("-client_lib"),
     _T("-cache_bb_max"),
@@ -95,24 +95,13 @@ static const TCHAR * names[] = {
     _T("-tracedump_origins"),
 };
 // numeric values are always positive!  (no leading - assumed)
-enum value_type {
-    NOVALUE = 0,
-    NUM_DECIMAL,
-    NUM_HEX,
-    STRING
-};
+enum value_type { NOVALUE = 0, NUM_DECIMAL, NUM_HEX, STRING };
 static const value_type hasvalue[] = {
-    NUM_DECIMAL,
-    STRING,
-    NUM_DECIMAL,
-    NUM_DECIMAL,
-    NUM_DECIMAL,
-    NUM_HEX,  // logmask
-    NOVALUE,
-    NOVALUE,
+    NUM_DECIMAL, STRING,  NUM_DECIMAL, NUM_DECIMAL, NUM_DECIMAL,
+    NUM_HEX, // logmask
+    NOVALUE,     NOVALUE,
     NOVALUE, // noasynch
-    NOVALUE,
-    NOVALUE,
+    NOVALUE,     NOVALUE,
     NOVALUE, // stats
     NOVALUE, // notify
     NOVALUE, // tracedump_text
@@ -142,33 +131,24 @@ static const int checkboxes[] = {
     IDC_TRACEDUMP_ORIGINS,
 };
 static const BOOL ok_with_release[] = {
-    TRUE,
-    TRUE,
-    TRUE,
-    TRUE,
+    TRUE,  TRUE, TRUE, TRUE,
     FALSE, // loglevel
     FALSE, // logmask
-    TRUE,
-    TRUE,
-    TRUE,
-    TRUE,
-    TRUE,
+    TRUE,  TRUE, TRUE, TRUE, TRUE,
     FALSE, // stats
     FALSE, // notify
 
-    TRUE,
-    TRUE,
+    TRUE,  TRUE,
 
     TRUE,
 };
 static const int num_options = sizeof(checkboxes) / sizeof(int);
-static CString * values[num_options];
+static CString *values[num_options];
 
 /////////////////////////////////////////////////////////////////////////////
 // COptionsDlg dialog
 
-
-COptionsDlg::COptionsDlg(CWnd* pParent /*=NULL*/)
+COptionsDlg::COptionsDlg(CWnd *pParent /*=NULL*/)
     : CDialog(COptionsDlg::IDD, pParent)
 {
     //{{AFX_DATA_INIT(COptionsDlg)
@@ -190,7 +170,8 @@ COptionsDlg::COptionsDlg(CWnd* pParent /*=NULL*/)
     // rest of initialization goes in OnInitDialog, once controls are built
 }
 
-void COptionsDlg::DoDataExchange(CDataExchange* pDX)
+void
+COptionsDlg::DoDataExchange(CDataExchange *pDX)
 {
     CDialog::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(COptionsDlg)
@@ -205,43 +186,43 @@ void COptionsDlg::DoDataExchange(CDataExchange* pDX)
     //}}AFX_DATA_MAP
 }
 
-
 BEGIN_MESSAGE_MAP(COptionsDlg, CDialog)
-    //{{AFX_MSG_MAP(COptionsDlg)
-    ON_BN_CLICKED(IDC_HOT_THRESHOLD, OnHotThreshold)
-    ON_BN_CLICKED(IDC_BROWSE_INSTRLIBNAME, OnBrowseInstrlibname)
-    ON_BN_CLICKED(IDC_INSTRLIBNAME, OnInstrlibname)
-    ON_BN_CLICKED(IDC_LOGGING_BUTTON, OnLoggingButton)
-    ON_EN_CHANGE(IDC_OPTIONS_EDIT, OnChangeOptionsEdit)
-    ON_BN_CLICKED(IDC_CACHE_BB_MAX, OnCacheBBMax)
-    ON_BN_CLICKED(IDC_CACHE_TRACE_MAX, OnCacheTraceMax)
-    ON_BN_CLICKED(IDC_LOGLEVEL, OnLoglevel)
-    ON_BN_CLICKED(IDC_LOGMASK, OnLogmask)
-    ON_BN_CLICKED(IDC_PROF_PCS, OnProfPcs)
-    ON_BN_CLICKED(IDC_PROF_COUNTS, OnProfCounts)
-    ON_BN_CLICKED(IDC_STATS, OnStats)
-    ON_BN_CLICKED(IDC_NOTIFY, OnNotify)
+//{{AFX_MSG_MAP(COptionsDlg)
+ON_BN_CLICKED(IDC_HOT_THRESHOLD, OnHotThreshold)
+ON_BN_CLICKED(IDC_BROWSE_INSTRLIBNAME, OnBrowseInstrlibname)
+ON_BN_CLICKED(IDC_INSTRLIBNAME, OnInstrlibname)
+ON_BN_CLICKED(IDC_LOGGING_BUTTON, OnLoggingButton)
+ON_EN_CHANGE(IDC_OPTIONS_EDIT, OnChangeOptionsEdit)
+ON_BN_CLICKED(IDC_CACHE_BB_MAX, OnCacheBBMax)
+ON_BN_CLICKED(IDC_CACHE_TRACE_MAX, OnCacheTraceMax)
+ON_BN_CLICKED(IDC_LOGLEVEL, OnLoglevel)
+ON_BN_CLICKED(IDC_LOGMASK, OnLogmask)
+ON_BN_CLICKED(IDC_PROF_PCS, OnProfPcs)
+ON_BN_CLICKED(IDC_PROF_COUNTS, OnProfCounts)
+ON_BN_CLICKED(IDC_STATS, OnStats)
+ON_BN_CLICKED(IDC_NOTIFY, OnNotify)
 
-    ON_BN_CLICKED(IDC_NULLCALLS, OnNullcalls)
-    ON_BN_CLICKED(IDC_NOLINK, OnNolink)
-    ON_BN_CLICKED(IDC_NOASYNCH, OnNoasynch)
-    ON_BN_CLICKED(IDC_TRACEDUMP_TEXT, OnTraceDumpText)
-    ON_BN_CLICKED(IDC_TRACEDUMP_BINARY, OnTraceDumpBinary)
+ON_BN_CLICKED(IDC_NULLCALLS, OnNullcalls)
+ON_BN_CLICKED(IDC_NOLINK, OnNolink)
+ON_BN_CLICKED(IDC_NOASYNCH, OnNoasynch)
+ON_BN_CLICKED(IDC_TRACEDUMP_TEXT, OnTraceDumpText)
+ON_BN_CLICKED(IDC_TRACEDUMP_BINARY, OnTraceDumpBinary)
 
-    ON_BN_CLICKED(IDC_TRACEDUMP_ORIGINS, OnTraceDumpOrigins)
+ON_BN_CLICKED(IDC_TRACEDUMP_ORIGINS, OnTraceDumpOrigins)
 
-    ON_EN_CHANGE(IDC_EDIT_INSTRLIBNAME, OnChangeEditInstrlibname)
-    ON_BN_CLICKED(IDC_SET_PERMANENT, OnSetPermanent)
-    ON_EN_CHANGE(IDC_EDIT_CACHE_BB_MAX, OnChangeEditCacheBbMax)
-    ON_EN_CHANGE(IDC_EDIT_CACHE_TRACE_MAX, OnChangeEditCacheTraceMax)
-    ON_EN_CHANGE(IDC_EDIT_HOT_THRESHOLD, OnChangeEditHotThreshold)
-    //}}AFX_MSG_MAP
-    END_MESSAGE_MAP()
+ON_EN_CHANGE(IDC_EDIT_INSTRLIBNAME, OnChangeEditInstrlibname)
+ON_BN_CLICKED(IDC_SET_PERMANENT, OnSetPermanent)
+ON_EN_CHANGE(IDC_EDIT_CACHE_BB_MAX, OnChangeEditCacheBbMax)
+ON_EN_CHANGE(IDC_EDIT_CACHE_TRACE_MAX, OnChangeEditCacheTraceMax)
+ON_EN_CHANGE(IDC_EDIT_HOT_THRESHOLD, OnChangeEditHotThreshold)
+//}}AFX_MSG_MAP
+END_MESSAGE_MAP()
 
-    /////////////////////////////////////////////////////////////////////////////
-    // COptionsDlg message handlers
+/////////////////////////////////////////////////////////////////////////////
+// COptionsDlg message handlers
 
-    BOOL COptionsDlg::OnInitDialog()
+BOOL
+COptionsDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
 
@@ -251,13 +232,13 @@ BEGIN_MESSAGE_MAP(COptionsDlg, CDialog)
     assert(len <= MAX_PATH);
     if (len > 0 && len <= MAX_PATH)
         m_opstring = path; // makes new storage, right?
-    UpdateData(FALSE); // FALSE means set controls
+    UpdateData(FALSE);     // FALSE means set controls
 
     // set controls based on opstring
     if (!CheckOpstring()) {
         MessageBox(_T("Invalid DYNAMORIO_OPTIONS string!\nThis dialog ")
-                   _T("may not work properly with it."), _T("Error"),
-                   MB_OK | MYMBFLAGS);
+                   _T("may not work properly with it."),
+                   _T("Error"), MB_OK | MYMBFLAGS);
     }
 
     // now disable appropriate options
@@ -270,7 +251,7 @@ BEGIN_MESSAGE_MAP(COptionsDlg, CDialog)
     }
     if (dll_type == DLL_RELEASE) {
         int i;
-        for (i=0; i<num_options; i++) {
+        for (i = 0; i < num_options; i++) {
             if (!ok_with_release[i]) {
                 DisableCheckbox(checkboxes[i]);
             }
@@ -282,7 +263,8 @@ BEGIN_MESSAGE_MAP(COptionsDlg, CDialog)
     return TRUE;
 }
 
-void COptionsDlg::OnOK()
+void
+COptionsDlg::OnOK()
 {
     UpdateData(TRUE); // TRUE means read from controls
 
@@ -293,7 +275,8 @@ void COptionsDlg::OnOK()
     CDialog::OnOK();
 }
 
-void COptionsDlg::OnChangeOptionsEdit()
+void
+COptionsDlg::OnChangeOptionsEdit()
 {
     if (CheckOpstring()) {
         m_OKButton.EnableWindow(TRUE);
@@ -311,8 +294,7 @@ is_quote(TCHAR ch)
 static BOOL
 is_whitespace(TCHAR ch)
 {
-    return (ch == _T(' ') || ch == _T('\t') ||
-            ch == _T('\n') || ch == _T('\r'));
+    return (ch == _T(' ') || ch == _T('\t') || ch == _T('\n') || ch == _T('\r'));
 }
 
 // returns the space delimited or quote-delimited word
@@ -356,7 +338,7 @@ getword(TCHAR *str, TCHAR **strpos, TCHAR *result)
         }
         result[i++] = *pos;
         pos++;
-        assert(i < MAX_PATH*2);
+        assert(i < MAX_PATH * 2);
     }
     if (i == 0)
         return NULL; /* no more words */
@@ -377,7 +359,7 @@ find_param(TCHAR *str, int id, int &start, int &end)
 {
     TCHAR *pos = str;
     TCHAR *prev_pos = str;
-    TCHAR word[MAX_PATH*2];
+    TCHAR word[MAX_PATH * 2];
     while (true) {
         if (!getword(str, &pos, word))
             break;
@@ -392,8 +374,8 @@ find_param(TCHAR *str, int id, int &start, int &end)
                     pos = last_pos;
                 }
             }
-            start = (int) (prev_pos - str);
-            end = (int) (pos - str);
+            start = (int)(prev_pos - str);
+            end = (int)(pos - str);
             return TRUE;
         }
         prev_pos = pos;
@@ -407,11 +389,11 @@ expand_ws_quotes(CString str, int &start, int &end)
     // start is inclusive, end is exclusive
 
     // remove preceding quote, if present
-    while (start > 0 && is_quote(str.GetAt(start-1))) {
+    while (start > 0 && is_quote(str.GetAt(start - 1))) {
         start--;
     }
     // now remove preceding spaces
-    while (start > 0 && is_whitespace(str.GetAt(start-1))) {
+    while (start > 0 && is_whitespace(str.GetAt(start - 1))) {
         start--;
     }
     // remove following quote, if present
@@ -421,7 +403,7 @@ expand_ws_quotes(CString str, int &start, int &end)
     // remove following spaces beyond a single space
     while (end + 1 < str.GetLength() &&
            (is_whitespace(str.GetAt(end)) || is_quote(str.GetAt(end))) &&
-           (is_whitespace(str.GetAt(end+1)) || is_quote(str.GetAt(end+1)))) {
+           (is_whitespace(str.GetAt(end + 1)) || is_quote(str.GetAt(end + 1)))) {
         end++;
     }
     // remove following space if at start
@@ -432,7 +414,8 @@ expand_ws_quotes(CString str, int &start, int &end)
 }
 
 // FIXME: share parsing code with non-static routines?
-/*static*/ BOOL COptionsDlg::CheckOptionsVersusDllType(DLL_TYPE dll_type)
+/*static*/ BOOL
+COptionsDlg::CheckOptionsVersusDllType(DLL_TYPE dll_type)
 {
     TCHAR msg[MAX_PATH];
     // this is independent of dialog box -- so grab string separately
@@ -450,7 +433,7 @@ expand_ws_quotes(CString str, int &start, int &end)
     while (TRUE) {
         if (!getword(opstring.GetBuffer(0), &pos, param))
             break;
-        for (i=0; i<num_options; i++) {
+        for (i = 0; i < num_options; i++) {
             if (_tcscmp(param, names[i]) == 0) {
                 if (hasvalue[i] != NOVALUE) {
                     // grab next space-delimited word
@@ -459,10 +442,13 @@ expand_ws_quotes(CString str, int &start, int &end)
                     value[0] = _T('\0');
                 if ((dll_type == DLL_RELEASE && !ok_with_release[i]) ||
                     (dll_type != DLL_PROFILE && i == PROF_COUNTS)) {
-                    _stprintf(msg, _T("Option \"%s%s%s\" is incompatible with the selected library.\n")
+                    _stprintf(msg,
+                              _T("Option \"%s%s%s\" is incompatible with the selected ")
+                              _T("library.\n")
                               _T("Remove it?  Incompatible options cause failure.\n"),
                               param, (hasvalue[i] != NOVALUE) ? _T(" ") : _T(""), value);
-                    int res = ::MessageBox(NULL, msg, _T("Confirmation"), MB_YESNO | MYMBFLAGS);
+                    int res =
+                        ::MessageBox(NULL, msg, _T("Confirmation"), MB_YESNO | MYMBFLAGS);
                     if (res == IDYES) {
                         int start = (prev_pos - opstring.GetBuffer(0));
                         int end = (pos - opstring.GetBuffer(0));
@@ -486,7 +472,8 @@ expand_ws_quotes(CString str, int &start, int &end)
 
 // examines m_opstring, sets checkboxes and edit boxes from it, and returns
 // false if an error is found (doesn't finish reading string if error is found)
-BOOL COptionsDlg::CheckOpstring()
+BOOL
+COptionsDlg::CheckOpstring()
 {
     UpdateData(TRUE); // TRUE means read from controls
 
@@ -499,16 +486,16 @@ BOOL COptionsDlg::CheckOpstring()
     BOOL matched_any;
     BOOL match[num_options];
     int i;
-    for (i=0; i<num_options; i++)
+    for (i = 0; i < num_options; i++)
         match[i] = FALSE;
     DLL_TYPE dll_type = CDynamoRIOApp::GetDllType();
     while (TRUE) {
         if (!getword(m_opstring.GetBuffer(0), &pos, param))
             break;
         matched_any = FALSE;
-        for (i=0; i<num_options; i++) {
+        for (i = 0; i < num_options; i++) {
             if (_tcscmp(param, names[i]) == 0) {
-                CButton *button = (CButton *) GetDlgItem(checkboxes[i]);
+                CButton *button = (CButton *)GetDlgItem(checkboxes[i]);
                 assert(button != NULL);
                 if (button->GetCheck() == 0)
                     button->SetCheck(1);
@@ -540,11 +527,13 @@ BOOL COptionsDlg::CheckOpstring()
                             }
                             int j;
                             int len = _tcslen(value);
-                            for (j=0; j<len; j++) {
-                                if ((hasvalue[i] == NUM_DECIMAL && !_istdigit(value[j])) ||
+                            for (j = 0; j < len; j++) {
+                                if ((hasvalue[i] == NUM_DECIMAL &&
+                                     !_istdigit(value[j])) ||
                                     (hasvalue[i] == NUM_HEX &&
                                      ((j == 0 && value[j] != _T('0')) ||
-                                      (j == 1 && value[j] != _T('x') && value[j] != _T('X')) ||
+                                      (j == 1 && value[j] != _T('x') &&
+                                       value[j] != _T('X')) ||
                                       (j > 1 && !_istxdigit(value[j]))))) {
                                     match[i] = FALSE;
                                     valid = FALSE;
@@ -571,9 +560,9 @@ BOOL COptionsDlg::CheckOpstring()
         if (!matched_any)
             valid = FALSE;
     }
-    for (i=0; i<num_options; i++) {
+    for (i = 0; i < num_options; i++) {
         if (!match[i]) {
-            CButton *button = (CButton *) GetDlgItem(checkboxes[i]);
+            CButton *button = (CButton *)GetDlgItem(checkboxes[i]);
             assert(button != NULL);
             if (button->GetCheck() > 0)
                 button->SetCheck(0);
@@ -585,9 +574,10 @@ BOOL COptionsDlg::CheckOpstring()
 }
 
 // common code for all the checkboxes
-void COptionsDlg::CheckOption(int param)
+void
+COptionsDlg::CheckOption(int param)
 {
-    CButton *button = (CButton *) GetDlgItem(checkboxes[param]);
+    CButton *button = (CButton *)GetDlgItem(checkboxes[param]);
     assert(button != NULL);
     BOOL has_value = (hasvalue[param] != NOVALUE);
     CString *value = values[param];
@@ -608,7 +598,7 @@ void COptionsDlg::CheckOption(int param)
             OnChangeOptionsEdit();
         }
         if (!m_opstring.IsEmpty() &&
-            m_opstring.GetAt(m_opstring.GetLength()-1) != _T(' ')) {
+            m_opstring.GetAt(m_opstring.GetLength() - 1) != _T(' ')) {
             m_opstring += CString(_T(" "));
         }
         m_opstring += CString(names[param]);
@@ -626,20 +616,22 @@ void COptionsDlg::CheckOption(int param)
     UpdateData(FALSE); // FALSE means set controls
 }
 
-void COptionsDlg::RemoveOption(int param)
+void
+COptionsDlg::RemoveOption(int param)
 {
     UpdateData(TRUE); // TRUE means read from controls
     int start, end;
     BOOL found = find_param(m_opstring.GetBuffer(0), param, start, end);
     if (found) {
         expand_ws_quotes(m_opstring, start, end);
-        m_opstring = m_opstring.Left(start) +
-            m_opstring.Right(m_opstring.GetLength() - end);
+        m_opstring =
+            m_opstring.Left(start) + m_opstring.Right(m_opstring.GetLength() - end);
         UpdateData(FALSE); // FALSE means set controls
     }
 }
 
-BOOL COptionsDlg::UpdateValue(int param)
+BOOL
+COptionsDlg::UpdateValue(int param)
 {
     if (hasvalue[param] == NOVALUE)
         return FALSE;
@@ -670,9 +662,11 @@ BOOL COptionsDlg::UpdateValue(int param)
     return TRUE;
 }
 
-static TCHAR szFilter[] = _T("Dynamic-Linked Libraries (*.dll)|*.dll|All Files (*.*)|*.*||");
+static TCHAR szFilter[] =
+    _T("Dynamic-Linked Libraries (*.dll)|*.dll|All Files (*.*)|*.*||");
 
-void COptionsDlg::OnBrowseInstrlibname()
+void
+COptionsDlg::OnBrowseInstrlibname()
 {
     CFileDialog fileDlg(TRUE, _T(".dll"), NULL,
                         // hide the "open as read-only" checkbox
@@ -681,7 +675,7 @@ void COptionsDlg::OnBrowseInstrlibname()
     int res = fileDlg.DoModal();
     if (res == IDCANCEL)
         return;
-    CButton *button = (CButton *) GetDlgItem(checkboxes[INSTRLIBNAME]);
+    CButton *button = (CButton *)GetDlgItem(checkboxes[INSTRLIBNAME]);
     assert(button != NULL);
     if (button->GetCheck() > 0 && _tcscmp(m_InstrLibName, fileDlg.GetPathName()) != 0) {
         m_InstrLibName = fileDlg.GetPathName();
@@ -694,30 +688,33 @@ void COptionsDlg::OnBrowseInstrlibname()
     }
 }
 
-void COptionsDlg::OnInstrlibname()
+void
+COptionsDlg::OnInstrlibname()
 {
     UpdateData(TRUE); // TRUE means read from controls
     if (CheckLibraryExists(m_InstrLibName.GetBuffer(0), TRUE))
         CheckOption(INSTRLIBNAME);
     else {
-        CButton *button = (CButton *) GetDlgItem(IDC_INSTRLIBNAME);
+        CButton *button = (CButton *)GetDlgItem(IDC_INSTRLIBNAME);
         button->SetCheck(0);
     }
 }
 
-void COptionsDlg::OnChangeEditInstrlibname()
+void
+COptionsDlg::OnChangeEditInstrlibname()
 {
     if (UpdateValue(INSTRLIBNAME)) {
         OnChangeOptionsEdit();
     }
 }
 
-BOOL COptionsDlg::CheckLibraryExists(TCHAR *libname, BOOL notify)
+BOOL
+COptionsDlg::CheckLibraryExists(TCHAR *libname, BOOL notify)
 {
     // make sure file exists
-    TCHAR msg[MAX_PATH*2];
+    TCHAR msg[MAX_PATH * 2];
     CFile check;
-    if (!check.Open(libname, CFile::modeRead|CFile::shareDenyNone)) {
+    if (!check.Open(libname, CFile::modeRead | CFile::shareDenyNone)) {
         if (notify) {
             _stprintf(msg, _T("Library %s does not exist"), libname);
             MessageBox(msg, _T("Error"), MB_OK | MYMBFLAGS);
@@ -728,7 +725,8 @@ BOOL COptionsDlg::CheckLibraryExists(TCHAR *libname, BOOL notify)
     return TRUE;
 }
 
-void COptionsDlg::OnLoggingButton()
+void
+COptionsDlg::OnLoggingButton()
 {
     UpdateData(TRUE); // get values from controls
     int level = _ttoi(m_LogLevel);
@@ -748,91 +746,134 @@ void COptionsDlg::OnLoggingButton()
     m_LogMask.Format(_T("0x%04X"), dlg.GetMask());
     UpdateData(FALSE); // write to controls
 
-#if 1
+#    if 1
     UpdateValue(LOGLEVEL);
     UpdateValue(LOGMASK);
-#else
+#    else
     // FIXME: change in place...for now we just remove and re-add
-    CButton *button = (CButton *) GetDlgItem(checkboxes[LOGLEVEL]);
+    CButton *button = (CButton *)GetDlgItem(checkboxes[LOGLEVEL]);
     assert(button != NULL);
     if (button->GetCheck() > 0) {
         RemoveOption(LOGLEVEL);
         CheckOption(LOGLEVEL);
     }
-    button = (CButton *) GetDlgItem(checkboxes[LOGMASK]);
+    button = (CButton *)GetDlgItem(checkboxes[LOGMASK]);
     assert(button != NULL);
     if (button->GetCheck() > 0) {
         RemoveOption(LOGMASK);
         CheckOption(LOGMASK);
     }
-#endif
+#    endif
 }
 
-void COptionsDlg::DisableCheckbox(int id)
+void
+COptionsDlg::DisableCheckbox(int id)
 {
-    CButton *button = (CButton *) GetDlgItem(id);
+    CButton *button = (CButton *)GetDlgItem(id);
     assert(button != NULL);
     button->EnableWindow(FALSE);
 }
 
-void COptionsDlg::OnHotThreshold() { CheckOption(HOT_THRESHOLD); }
-void COptionsDlg::OnCacheBBMax() { CheckOption(CACHE_BB_MAX); }
-void COptionsDlg::OnCacheTraceMax() { CheckOption(CACHE_TRACE_MAX); }
-void COptionsDlg::OnLoglevel() { CheckOption(LOGLEVEL); }
-void COptionsDlg::OnLogmask() { CheckOption(LOGMASK); }
-void COptionsDlg::OnProfPcs() { CheckOption(PROF_PCS); }
-void COptionsDlg::OnStats() { CheckOption(STATS); }
-void COptionsDlg::OnNullcalls() { CheckOption(NULLCALLS); }
-void COptionsDlg::OnNolink() { CheckOption(NOLINK); }
-void COptionsDlg::OnNoasynch() { CheckOption(NOASYNCH); }
-void COptionsDlg::OnTraceDumpOrigins() { CheckOption(TRACEDUMP_ORIGINS); }
-
-
+void
+COptionsDlg::OnHotThreshold()
+{
+    CheckOption(HOT_THRESHOLD);
+}
+void
+COptionsDlg::OnCacheBBMax()
+{
+    CheckOption(CACHE_BB_MAX);
+}
+void
+COptionsDlg::OnCacheTraceMax()
+{
+    CheckOption(CACHE_TRACE_MAX);
+}
+void
+COptionsDlg::OnLoglevel()
+{
+    CheckOption(LOGLEVEL);
+}
+void
+COptionsDlg::OnLogmask()
+{
+    CheckOption(LOGMASK);
+}
+void
+COptionsDlg::OnProfPcs()
+{
+    CheckOption(PROF_PCS);
+}
+void
+COptionsDlg::OnStats()
+{
+    CheckOption(STATS);
+}
+void
+COptionsDlg::OnNullcalls()
+{
+    CheckOption(NULLCALLS);
+}
+void
+COptionsDlg::OnNolink()
+{
+    CheckOption(NOLINK);
+}
+void
+COptionsDlg::OnNoasynch()
+{
+    CheckOption(NOASYNCH);
+}
+void
+COptionsDlg::OnTraceDumpOrigins()
+{
+    CheckOption(TRACEDUMP_ORIGINS);
+}
 
 // remind to pick trace dump too
 
-void COptionsDlg::OnProfCounts() {
+void
+COptionsDlg::OnProfCounts()
+{
 
-    CButton *button = (CButton *) GetDlgItem(IDC_NOTIFY);
+    CButton *button = (CButton *)GetDlgItem(IDC_NOTIFY);
 
     assert(button != NULL);
 
     if (button->GetCheck() == 1) {
 
-        CButton *text = (CButton *) GetDlgItem(IDC_TRACEDUMP_TEXT);
+        CButton *text = (CButton *)GetDlgItem(IDC_TRACEDUMP_TEXT);
 
         assert(text != NULL);
 
-        CButton *binary = (CButton *) GetDlgItem(IDC_TRACEDUMP_BINARY);
+        CButton *binary = (CButton *)GetDlgItem(IDC_TRACEDUMP_BINARY);
 
         assert(binary != NULL);
 
         if (text->GetCheck() == 0 && binary->GetCheck() == 0) {
 
-            ::MessageBox(NULL, _T("Count profiling results are only visible in a trace dump.\n")
+            ::MessageBox(NULL,
+                         _T("Count profiling results are only visible in a trace dump.\n")
 
                          _T("Don't forget to select either a text or binary trace dump."),
 
                          _T("Reminder"), MB_OK | MYMBFLAGS);
-
         }
-
     }
 
     CheckOption(PROF_COUNTS);
-
 }
 
-
-
 // mutually exclusive
-void COptionsDlg::OnTraceDumpText() {
+void
+COptionsDlg::OnTraceDumpText()
+{
 
-    CButton *text = (CButton *) GetDlgItem(IDC_TRACEDUMP_TEXT);
+    CButton *text = (CButton *)GetDlgItem(IDC_TRACEDUMP_TEXT);
 
     assert(text != NULL);
 
-    CButton *binary = (CButton *) GetDlgItem(IDC_TRACEDUMP_BINARY);
+    CButton *binary = (CButton *)GetDlgItem(IDC_TRACEDUMP_BINARY);
 
     assert(binary != NULL);
 
@@ -847,18 +888,18 @@ void COptionsDlg::OnTraceDumpText() {
     } else {
 
         CheckOption(TRACEDUMP_TEXT);
-
     }
-
 }
 
-void COptionsDlg::OnTraceDumpBinary() {
+void
+COptionsDlg::OnTraceDumpBinary()
+{
 
-    CButton *text = (CButton *) GetDlgItem(IDC_TRACEDUMP_TEXT);
+    CButton *text = (CButton *)GetDlgItem(IDC_TRACEDUMP_TEXT);
 
     assert(text != NULL);
 
-    CButton *binary = (CButton *) GetDlgItem(IDC_TRACEDUMP_BINARY);
+    CButton *binary = (CButton *)GetDlgItem(IDC_TRACEDUMP_BINARY);
 
     assert(binary != NULL);
 
@@ -873,12 +914,8 @@ void COptionsDlg::OnTraceDumpBinary() {
     } else {
 
         CheckOption(TRACEDUMP_BINARY);
-
     }
-
 }
-
-
 
 // ask for confirmation since stderr sticky issue
 
@@ -886,17 +923,20 @@ void COptionsDlg::OnTraceDumpBinary() {
 
 // but would be nice if env var brought in from cmd line showed up
 
-void COptionsDlg::OnNotify() {
+void
+COptionsDlg::OnNotify()
+{
 
     TCHAR msg[MAX_PATH];
 
-    CButton *button = (CButton *) GetDlgItem(IDC_NOTIFY);
+    CButton *button = (CButton *)GetDlgItem(IDC_NOTIFY);
 
     assert(button != NULL);
 
     if (button->GetCheck() == 1) {
 
-        _stprintf(msg, _T("Printing to stderr can cause unexpected failures.\n")
+        _stprintf(msg,
+                  _T("Printing to stderr can cause unexpected failures.\n")
 
                   _T("Are you sure you want to set this option?\n"));
 
@@ -909,21 +949,17 @@ void COptionsDlg::OnNotify() {
         } else {
 
             button->SetCheck(0);
-
         }
 
     } else {
 
         CheckOption(NOTIFY);
-
     }
-
 }
 
-
-
 // set env var not just for this process but permanently for this user
-void COptionsDlg::OnSetPermanent()
+void
+COptionsDlg::OnSetPermanent()
 {
     // it takes a while to broadcast the "we've changed env vars" message,
     // so set a wait cursor
@@ -942,8 +978,8 @@ void COptionsDlg::OnSetPermanent()
 
     UpdateData(TRUE); // get values from controls
     TCHAR *val = m_opstring.GetBuffer(0);
-    res = RegSetValueEx(hk, _T("DYNAMORIO_OPTIONS"), 0, REG_SZ,
-                        (LPBYTE) val, _tcslen(val)+1);
+    res = RegSetValueEx(hk, _T("DYNAMORIO_OPTIONS"), 0, REG_SZ, (LPBYTE)val,
+                        _tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
 
     RegCloseKey(hk);
@@ -953,8 +989,8 @@ void COptionsDlg::OnSetPermanent()
     DWORD dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
     // it like that FIXME
-    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-                       (LPARAM) "Environment", SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
+    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
+                       SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 
     SetCursor(prev_cursor);
 
@@ -963,21 +999,24 @@ void COptionsDlg::OnSetPermanent()
     OnOK();
 }
 
-void COptionsDlg::OnChangeEditCacheBbMax()
+void
+COptionsDlg::OnChangeEditCacheBbMax()
 {
     if (UpdateValue(CACHE_BB_MAX)) {
         OnChangeOptionsEdit();
     }
 }
 
-void COptionsDlg::OnChangeEditCacheTraceMax()
+void
+COptionsDlg::OnChangeEditCacheTraceMax()
 {
     if (UpdateValue(CACHE_TRACE_MAX)) {
         OnChangeOptionsEdit();
     }
 }
 
-void COptionsDlg::OnChangeEditHotThreshold()
+void
+COptionsDlg::OnChangeEditHotThreshold()
 {
     if (UpdateValue(HOT_THRESHOLD)) {
         OnChangeOptionsEdit();

@@ -35,48 +35,31 @@
 #include <dbghelp.h>
 #include "dbghelp_imports.h"
 
-BOOL
-IMAGEAPI
-SymInitializeW(
-    __in HANDLE hProcess,
-    __in_opt PCWSTR UserSearchPath,
-    __in BOOL fInvadeProcess
-    )
+BOOL IMAGEAPI
+SymInitializeW(__in HANDLE hProcess, __in_opt PCWSTR UserSearchPath,
+               __in BOOL fInvadeProcess)
 {
     return FALSE;
 }
 
-BOOL
-IMAGEAPI
-SymSetSearchPathW(
-    __in HANDLE hProcess,
-    __in_opt PCWSTR SearchPath
-    )
+BOOL IMAGEAPI
+SymSetSearchPathW(__in HANDLE hProcess, __in_opt PCWSTR SearchPath)
 {
     return FALSE;
 }
 
 DWORD64
 IMAGEAPI
-SymLoadModuleExW(
-    __in HANDLE hProcess,
-    __in_opt HANDLE hFile,
-    __in_opt PCWSTR ImageName,
-    __in_opt PCWSTR ModuleName,
-    __in DWORD64 BaseOfDll,
-    __in DWORD DllSize,
-    __in_opt PMODLOAD_DATA Data,
-    __in_opt DWORD Flags
-    )
+SymLoadModuleExW(__in HANDLE hProcess, __in_opt HANDLE hFile, __in_opt PCWSTR ImageName,
+                 __in_opt PCWSTR ModuleName, __in DWORD64 BaseOfDll, __in DWORD DllSize,
+                 __in_opt PMODLOAD_DATA Data, __in_opt DWORD Flags)
 {
     return 0;
 }
 
 BOOL IMAGEAPI
-SymGetLineFromAddrW64(__in HANDLE hProcess,
-                      __in DWORD64 dwAddr,
-                      __out PDWORD pdwDisplacement,
-                      __out PIMAGEHLP_LINEW64 Line)
+SymGetLineFromAddrW64(__in HANDLE hProcess, __in DWORD64 dwAddr,
+                      __out PDWORD pdwDisplacement, __out PIMAGEHLP_LINEW64 Line)
 {
     return FALSE;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,31 +62,31 @@
  * and frozen.
  * Destruction is assumed to involve all-thread-synch and so reads of
  * fields do not require the struct lock.  Just like reset, we rely on
- * all-thread-synch plus redirection to dispatch (rather than resuming
+ * all-thread-synch plus redirection to d_r_dispatch (rather than resuming
  * at suspended location, which we only do for native threads) to
  * allow us to free these shared structures that are read w/o locks.
  * FIXME: what about where we lack setcontext permission
  */
 struct _coarse_info_t {
-    bool frozen:1;
-    bool persisted:1;
-    bool in_use:1; /* are we using this unit officially? */
+    bool frozen : 1;
+    bool persisted : 1;
+    bool in_use : 1; /* are we using this unit officially? */
     /* Flag to indicate whether we've calculated the rac/rct/hotp info that
      * we only need when persisting.
      */
-    bool has_persist_info:1;
+    bool has_persist_info : 1;
     /* Case 9653: only the 1st coarse unit in a module's +x region(s) is persisted
      * Non-in-use units inherit this from their sources, but do not
      * change the status on deletion.
      */
-    bool primary_for_module:1;
+    bool primary_for_module : 1;
     /* case 10525 where we keep the stubs read-only */
-    bool stubs_readonly:1;
+    bool stubs_readonly : 1;
 #ifdef DEBUG
     /* A local info pointer has not escaped to any other thread.
      * We only use this flag to get around lock ordering issues (case 11064).
      */
-    bool is_local:1;           /* no lock needed since only known to this thread */
+    bool is_local : 1; /* no lock needed since only known to this thread */
 #endif
 
     void *cache; /* opaque type internal to fcache.c */
@@ -95,7 +95,7 @@ struct _coarse_info_t {
      * FIXME case 8628: split these into a body table and a stub table for
      * non-frozen units.
      */
-    void *htable; /* opaque htable mapping app pc -> stub/cache entry point */
+    void *htable;    /* opaque htable mapping app pc -> stub/cache entry point */
     void *th_htable; /* opaque htable mapping trace head app pc -> cache entry point */
 
     /* cache pclookups to avoid htable walk (i#658) */
@@ -115,9 +115,9 @@ struct _coarse_info_t {
      * Since htable entries are offsets we need to expose the cache and stub pcs
      */
     cache_pc cache_start_pc;
-    cache_pc cache_end_pc; /* last instr, not end of allocation */
+    cache_pc cache_end_pc;   /* last instr, not end of allocation */
     cache_pc stubs_start_pc; /* this is post-prefixes */
-    cache_pc stubs_end_pc; /* may not fill out full mmap_size if overestimate */
+    cache_pc stubs_end_pc;   /* may not fill out full mmap_size if overestimate */
     /* if not persisted, this is the bounds of the region shared by
      * the frozen cache and stubs, assumed to start at cache_start_pc;
      * if persisted, this is the bounds of the entire mmapped file.
@@ -128,7 +128,7 @@ struct _coarse_info_t {
     /* end frozen-only fields */
 
     /* Fields for persisted units */
-    uint flags; /* corresponds to PERSCACHE_ flags for persisted files */
+    uint flags;       /* corresponds to PERSCACHE_ flags for persisted files */
     cache_pc mmap_pc; /* start of persisted mmapped file; size is mmap_size */
     /* if this is >0, we mapped the file in two different views:
      * 1) [mmap_pc,mmap_pc+mmap_ro_size)
@@ -211,9 +211,9 @@ struct _coarse_info_t {
 }; /* typedef as "coarse_info_t" is in globals.h */
 
 #if defined(X86) && defined(X64)
-# define COARSE_32_FLAG(info) (TEST(PERSCACHE_X86_32, (info)->flags) ? FRAG_32_BIT : 0)
+#    define COARSE_32_FLAG(info) (TEST(PERSCACHE_X86_32, (info)->flags) ? FRAG_32_BIT : 0)
 #else
-# define COARSE_32_FLAG(info) 0
+#    define COARSE_32_FLAG(info) 0
 #endif
 
 coarse_info_t *
@@ -225,8 +225,8 @@ coarse_unit_init(coarse_info_t *info, void *cache);
 
 /* If caller holds change_linking_lock and info->lock, have_locks should be true */
 void
-coarse_unit_reset_free(dcontext_t *dcontext, coarse_info_t *info,
-                       bool have_locks, bool unlink, bool abdicate_primary);
+coarse_unit_reset_free(dcontext_t *dcontext, coarse_info_t *info, bool have_locks,
+                       bool unlink, bool abdicate_primary);
 
 void
 coarse_unit_free(dcontext_t *dcontext, coarse_info_t *info);
@@ -246,7 +246,7 @@ typedef struct _pending_freeze_t {
     app_pc tag;
     cache_pc cur_pc;
     cache_pc link_cti_opnd; /* 4-byte pc-relative opnd to re-target */
-    bool elide_ubr; /* whether to elide the link, if that's an option */
+    bool elide_ubr;         /* whether to elide the link, if that's an option */
     struct _pending_freeze_t *next;
 } pending_freeze_t;
 
@@ -299,8 +299,7 @@ transfer_coarse_stub(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info,
                      cache_pc stub, bool trace_head, bool replace_outgoing);
 void
 transfer_coarse_stub_fix_trace_head(dcontext_t *dcontext,
-                                    coarse_freeze_info_t *freeze_info,
-                                    cache_pc stub);
+                                    coarse_freeze_info_t *freeze_info, cache_pc stub);
 void
 transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info,
                          cache_pc body);
@@ -323,8 +322,8 @@ enum {
 /* Global flags we need to process if present in a persisted cache */
 enum {
     /* Identify underlying architecture */
-    PERSCACHE_X86_32             = 0x00000001,
-    PERSCACHE_X86_64             = 0x00000002,
+    PERSCACHE_X86_32 = 0x00000001,
+    PERSCACHE_X86_64 = 0x00000002,
     /* FIXME: should we add cache line info?  Currently we have no
      * -pad_jmps for coarse bbs, coarse bbs are aligned to 1, our only
      * hotpatched jmps are in stubs which are 16-byte-aligned and 15 bytes
@@ -332,26 +331,26 @@ enum {
      * dependences.
      */
 
-    PERSCACHE_SEEN_BORLAND_SEH   = 0x00000004,
+    PERSCACHE_SEEN_BORLAND_SEH = 0x00000004,
 
     /* Does cache contain elided ubrs? */
-    PERSCACHE_ELIDED_UBR         = 0x00000008,
+    PERSCACHE_ELIDED_UBR = 0x00000008,
 
     /* Does cache contain return-after-call or RCT entries? */
-    PERSCACHE_SUPPORT_RAC        = 0x00000010,
-    PERSCACHE_SUPPORT_RCT        = 0x00000020,
+    PERSCACHE_SUPPORT_RAC = 0x00000010,
+    PERSCACHE_SUPPORT_RCT = 0x00000020,
 
     /* Does cache contain persisted RCT for entire module? */
-    PERSCACHE_ENTIRE_MODULE_RCT  = 0x00000040,
+    PERSCACHE_ENTIRE_MODULE_RCT = 0x00000040,
 
     /* Does cache support trace building? */
-    PERSCACHE_SUPPORT_TRACES     = 0x00000080,
+    PERSCACHE_SUPPORT_TRACES = 0x00000080,
 
     /* Does cache support separately mapping the writable portion? */
-    PERSCACHE_MAP_RW_SEPARATE    = 0x00000100,
+    PERSCACHE_MAP_RW_SEPARATE = 0x00000100,
 
     /* Case 9799: local exemption options are part of option string */
-    PERSCACHE_EXEMPTION_OPTIONS  = 0x00000200,
+    PERSCACHE_EXEMPTION_OPTIONS = 0x00000200,
 
     /* Used only in coarse_info_t, not in coarse_persisted_info_t.
      * We load and use persisted RCT tables prior to full code consistency checks;
@@ -359,21 +358,21 @@ enum {
      * Thus, the code being valid is separate from the pcache file being loaded.
      * Xref case 10601.
      */
-    PERSCACHE_CODE_INVALID       = 0x00000400,
+    PERSCACHE_CODE_INVALID = 0x00000400,
 };
 
 /* Consistency and security checking options */
 enum {
     /* Checks on the app module */
-    PERSCACHE_MODULE_MD5_SHORT       = 0x00000001, /* header + footer */
-    PERSCACHE_MODULE_MD5_COMPLETE    = 0x00000002, /* entire code region */
+    PERSCACHE_MODULE_MD5_SHORT = 0x00000001,    /* header + footer */
+    PERSCACHE_MODULE_MD5_COMPLETE = 0x00000002, /* entire code region */
     /* Checks on our own generated file */
-    PERSCACHE_GENFILE_MD5_SHORT      = 0x00000004, /* header */
-    PERSCACHE_GENFILE_MD5_COMPLETE   = 0x00000008, /* entire file */
+    PERSCACHE_GENFILE_MD5_SHORT = 0x00000004,    /* header */
+    PERSCACHE_GENFILE_MD5_COMPLETE = 0x00000008, /* entire file */
     /* When to calculate gen-side module md5's
      * In 4.4 this will be stored at 1st execution, not load time (case 10601)
      */
-    PERSCACHE_MODULE_MD5_AT_LOAD     = 0x00000010, /* else, at persist time */
+    PERSCACHE_MODULE_MD5_AT_LOAD = 0x00000010, /* else, at persist time */
 };
 
 /* FIXME: share with hotp_module_sig_t in hotpatch.c
@@ -484,8 +483,8 @@ typedef struct _coarse_persisted_info_t {
     /* +rx data sections */
     size_t cache_len;
     size_t post_cache_pad_len; /* included in cache_len, this lets us know the
-                              * end of actual instrs in the cache */
-    size_t pad_len; /* padding to get +rx onto new page */
+                                * end of actual instrs in the cache */
+    size_t pad_len;            /* padding to get +rx onto new page */
     size_t instrument_rx_len;
     size_t view_pad_len; /* padding to get cache|stubs on map boundary */
 
@@ -590,16 +589,15 @@ bool
 coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info);
 
 coarse_info_t *
-coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
-                 bool for_execution);
+coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execution);
 
 bool
-exists_coarse_ibl_pending_table(dcontext_t *dcontext,
-                                coarse_info_t *info, ibl_branch_type_t branch_type);
+exists_coarse_ibl_pending_table(dcontext_t *dcontext, coarse_info_t *info,
+                                ibl_branch_type_t branch_type);
 
 /* Checks for enough space on the volume where persisted caches are stored */
 bool
-coarse_unit_check_persist_space(file_t fd_in/*OPTIONAL*/, size_t size_needed);
+coarse_unit_check_persist_space(file_t fd_in /*OPTIONAL*/, size_t size_needed);
 
 /* If pc is in a module, marks that module as exempted (case 9799) */
 void

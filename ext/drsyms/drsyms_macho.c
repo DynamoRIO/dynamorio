@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,34 +54,36 @@
 #include <limits.h>
 
 #ifndef MIN
-# define MIN(x, y) ((x) <= (y) ? (x) : (y))
+#    define MIN(x, y) ((x) <= (y) ? (x) : (y))
 #endif
 #ifndef MAX
-# define MAX(x, y) ((x) >= (y) ? (x) : (y))
+#    define MAX(x, y) ((x) >= (y) ? (x) : (y))
 #endif
 
 #ifndef SIZE_T_MAX
-# ifdef X64
-#  define SIZE_T_MAX ULLONG_MAX
-# else
-#  define SIZE_T_MAX UINT_MAX
-# endif
+#    ifdef X64
+#        define SIZE_T_MAX ULLONG_MAX
+#    else
+#        define SIZE_T_MAX UINT_MAX
+#    endif
 #endif
 
 static uint verbose = 0;
 
 #undef NOTIFY
-#define NOTIFY(n, ...) do { \
-    if (verbose >= (n)) {             \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-    } \
-} while (0)
+#define NOTIFY(n, ...)                       \
+    do {                                     \
+        if (verbose >= (n)) {                \
+            dr_fprintf(STDERR, __VA_ARGS__); \
+        }                                    \
+    } while (0)
 
-#define NOTIFY_DWARF(de) do { \
-    if (verbose) { \
-        dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
-    } \
-} while (0)
+#define NOTIFY_DWARF(de)                                                       \
+    do {                                                                       \
+        if (verbose) {                                                         \
+            dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
+        }                                                                      \
+    } while (0)
 
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
  * There is no official support for that on Linux or Windows and for now we do
@@ -127,7 +129,7 @@ typedef struct _macho_info_t {
 static bool
 is_macho_header(byte *base)
 {
-    mach_header_t *hdr = (mach_header_t *) base;
+    mach_header_t *hdr = (mach_header_t *)base;
     /* We deliberately don't check hdr->filetype as we don't want to limit
      * ourselves to just MH_EXECUTE, MH_DYLIB, or MH_BUNDLE in case others
      * have symbols as well.
@@ -142,7 +144,7 @@ is_macho_header(byte *base)
 static bool
 is_fat_header(byte *base)
 {
-    struct fat_header *hdr = (struct fat_header *) base;
+    struct fat_header *hdr = (struct fat_header *)base;
     /* all fields are big-endian */
     return (hdr->magic == FAT_CIGAM);
 }
@@ -151,7 +153,7 @@ is_fat_header(byte *base)
 static byte *
 find_macho_in_fat_binary(byte *base, size_t *arch_size)
 {
-    struct fat_header *hdr = (struct fat_header *) base;
+    struct fat_header *hdr = (struct fat_header *)base;
     struct fat_arch *arch;
     uint num, i;
     /* all fields are big-endian */
@@ -192,7 +194,7 @@ find_macho_header(byte *map_base)
 static ptr_uint_t
 find_load_base(byte *map_base, size_t *load_size)
 {
-    mach_header_t *hdr = (mach_header_t *) map_base;
+    mach_header_t *hdr = (mach_header_t *)map_base;
     struct load_command *cmd, *cmd_stop;
     ptr_uint_t load_base = 0, load_end = 0;
     bool found_seg = false;
@@ -201,8 +203,8 @@ find_load_base(byte *map_base, size_t *load_size)
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
-            segment_command_t *seg = (segment_command_t *) cmd;
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
+            segment_command_t *seg = (segment_command_t *)cmd;
             if (!found_seg) {
                 found_seg = true;
                 load_base = seg->vmaddr;
@@ -251,7 +253,7 @@ drsym_macho_uuids_match(macho_info_t *mod, const char *path)
         NOTIFY(1, "%s: did not find Mach-O header in %s\n", __FUNCTION__, path);
         goto uuid_error;
     }
-    hdr = (mach_header_t *) arch_base;
+    hdr = (mach_header_t *)arch_base;
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((char *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
@@ -263,7 +265,7 @@ drsym_macho_uuids_match(macho_info_t *mod, const char *path)
             break;
         }
     }
- uuid_error:
+uuid_error:
     if (map_base != NULL)
         dr_unmap_file(map_base, map_size);
     if (fd != INVALID_FILE)
@@ -301,27 +303,38 @@ drsym_macho_sort_symbols(macho_info_t *mod)
     uint hash_bits = 1;
     for (i = mod->num_syms; i > 1; i >>= 1)
         hash_bits++;
-    hashtable_init_ex(&dup_table, hash_bits, HASH_STRING, false/*!strdup*/,
-                      false/*!synch*/, NULL, NULL, NULL);
+    hashtable_init_ex(&dup_table, hash_bits, HASH_STRING, false /*!strdup*/,
+                      false /*!synch*/, NULL, NULL, NULL);
     /* We throw out all symbols with zero value, but we don't bother
      * to do two passes or a realloc to save memory.
      */
-    mod->sorted_syms = (nlist_t **)
-        dr_global_alloc(mod->num_syms*sizeof(*mod->sorted_syms));
+    mod->sorted_syms =
+        (nlist_t **)dr_global_alloc(mod->num_syms * sizeof(*mod->sorted_syms));
     mod->sorted_count = 0;
     for (i = 0; i < mod->num_syms; i++, sym++) {
         /* Rule out value==0 and empty names */
-        if (sym->n_value > 0 && sym->n_un.n_strx > 0 &&
-            sym->n_un.n_strx < mod->strsz) {
-            const char *name = (const char *)(mod->strtab + sym->n_un.n_strx);
-            /* There are symbols with empty strings inside strtab.
-             * We could probably rule out by checking the type or sthg
-             * but this will do as well.
+        if (sym->n_value == 0)
+            continue;
+        if (sym->n_un.n_strx == 0 || sym->n_un.n_strx >= mod->strsz)
+            continue;
+        if ((sym->n_type & N_TYPE) == N_UNDF)
+            continue;
+        if ((sym->n_type & N_TYPE) == N_INDR) {
+            /* TODO i#4081: The value for an indirect symbol is the string table
+             * index for the name of the other symbol it points to.  We should
+             * add an entry for that other name with the value of the target.
+             * Until we put in a scheme to do that, we skip them.
              */
-            if (name[0] != '\0' && hashtable_lookup(&dup_table, (void *)name) == NULL) {
-                hashtable_add(&dup_table, (void *)name, (void *)name);
-                mod->sorted_syms[mod->sorted_count++] = sym;
-            }
+            continue;
+        }
+        const char *name = (const char *)(mod->strtab + sym->n_un.n_strx);
+        /* There are symbols with empty strings inside strtab.
+         * We could probably rule out by checking the type or sthg
+         * but this will do as well.
+         */
+        if (name[0] != '\0' && hashtable_lookup(&dup_table, (void *)name) == NULL) {
+            hashtable_add(&dup_table, (void *)name, (void *)name);
+            mod->sorted_syms[mod->sorted_count++] = sym;
         }
     }
     hashtable_delete(&dup_table);
@@ -334,8 +347,8 @@ drsym_macho_sort_symbols(macho_info_t *mod)
         NOTIFY(3, "%s:\n", __FUNCTION__);
         for (i = 0; i < mod->sorted_count; i++) {
             sym = mod->sorted_syms[i];
-            NOTIFY(3, "  #%d: %-20s val=0x%x\n",
-                   i, drsym_obj_symbol_name(mod, i), sym->n_value);
+            NOTIFY(3, "  #%d: %-20s val=0x%x\n", i, drsym_obj_symbol_name(mod, i),
+                   sym->n_value);
         }
     }
 }
@@ -366,12 +379,12 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
         return NULL;
     mod->map_base = arch_base;
 
-    hdr = (mach_header_t *) arch_base;
+    hdr = (mach_header_t *)arch_base;
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((char *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
-            segment_command_t *seg = (segment_command_t *) cmd;
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
+            segment_command_t *seg = (segment_command_t *)cmd;
             section_t *sec, *sec_stop;
             sec_stop = (section_t *)((char *)seg + seg->cmdsize);
             sec = (section_t *)(seg + 1);
@@ -389,26 +402,25 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
             }
         } else if (cmd->cmd == LC_SYMTAB) {
             /* even if stripped, dynamic symbols are in this table */
-            struct symtab_command *symtab = (struct symtab_command *) cmd;
+            struct symtab_command *symtab = (struct symtab_command *)cmd;
             mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_MACHO_SYMTAB;
             mod->syms = (nlist_t *)(arch_base + symtab->symoff);
             mod->num_syms = symtab->nsyms;
             mod->strtab = arch_base + symtab->stroff;
             mod->strsz = symtab->strsize;
         } else if (cmd->cmd == LC_UUID) {
-            memcpy(mod->uuid, ((struct uuid_command *)cmd)->uuid,
-                   sizeof(mod->uuid));
+            memcpy(mod->uuid, ((struct uuid_command *)cmd)->uuid, sizeof(mod->uuid));
         }
         cmd = (struct load_command *)((char *)cmd + cmd->cmdsize);
     }
 
-    return (void *) mod;
+    return (void *)mod;
 }
 
 bool
 drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     /* we ignore map_base, esp for fat binaries */
     mod->load_base = find_load_base(mod->map_base, &mod->load_size);
     drsym_macho_sort_symbols(mod);
@@ -420,7 +432,7 @@ drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 bool
 drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     Dwarf_Error de; /* expensive to init (DrM#1770) */
     if (mod == NULL)
         return false;
@@ -434,26 +446,26 @@ drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
 void
 drsym_obj_mod_exit(void *mod_in)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     if (mod == NULL)
         return;
     if (mod->sorted_syms != NULL)
-        dr_global_free(mod->sorted_syms, mod->num_syms*sizeof(*mod->sorted_syms));
+        dr_global_free(mod->sorted_syms, mod->num_syms * sizeof(*mod->sorted_syms));
     dr_global_free(mod, sizeof(*mod));
 }
 
 drsym_debug_kind_t
 drsym_obj_info_avail(void *mod_in)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     return mod->debug_kind;
 }
 
 byte *
 drsym_obj_load_base(void *mod_in)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
-    return (byte *) mod->load_base;
+    macho_info_t *mod = (macho_info_t *)mod_in;
+    return (byte *)mod->load_base;
 }
 
 const char *
@@ -465,7 +477,7 @@ drsym_obj_debuglink_section(void *mod_in, const char *modpath)
      * section in the original foo that names its corresponding dSYM.
      * There is an LC_UUID that can be used to match them up.
      */
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     const char *basename = NULL, *s;
     for (s = modpath; *s != '\0'; s++) {
         if (*s == '/')
@@ -477,12 +489,11 @@ drsym_obj_debuglink_section(void *mod_in, const char *modpath)
         basename++; /* skip slash */
 
     /* 1. Check foo.dSYM/Contents/Resources/DWARF/foo */
-    dr_snprintf(mod->dsym_path, MAXIMUM_PATH,
-                "%s.dSYM/Contents/Resources/DWARF/%s", modpath, basename);
-    mod->dsym_path[MAXIMUM_PATH-1] = '\0';
+    dr_snprintf(mod->dsym_path, MAXIMUM_PATH, "%s.dSYM/Contents/Resources/DWARF/%s",
+                modpath, basename);
+    mod->dsym_path[MAXIMUM_PATH - 1] = '\0';
     NOTIFY(2, "%s: looking for %s\n", __FUNCTION__, mod->dsym_path);
-    if (dr_file_exists(mod->dsym_path) &&
-        drsym_macho_uuids_match(mod, mod->dsym_path)) {
+    if (dr_file_exists(mod->dsym_path) && drsym_macho_uuids_match(mod, mod->dsym_path)) {
         /* There's no reason to cache this as this routine is only called
          * once, but if it ends up called multiple times we should cache.
          */
@@ -497,7 +508,7 @@ drsym_obj_debuglink_section(void *mod_in, const char *modpath)
 uint
 drsym_obj_num_symbols(void *mod_in)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     if (mod == NULL)
         return 0;
     return mod->sorted_count;
@@ -506,7 +517,7 @@ drsym_obj_num_symbols(void *mod_in)
 const char *
 drsym_obj_symbol_name(void *mod_in, uint idx)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     nlist_t *sym;
     if (mod == NULL || idx >= mod->sorted_count || mod->sorted_syms == NULL)
         return NULL;
@@ -532,7 +543,7 @@ drsym_error_t
 drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
                       size_t *offs_end OUT)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     nlist_t *sym;
     if (offs_start == NULL || mod == NULL || idx >= mod->sorted_count ||
         mod->sorted_syms == NULL)
@@ -546,8 +557,8 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
          * and we document that it isn't precise.
          */
         if (idx + 1 < mod->sorted_count) {
-            *offs_end = mod->sorted_syms[idx+1]->n_value - mod->load_base -
-                mod->offs_adjust;
+            *offs_end =
+                mod->sorted_syms[idx + 1]->n_value - mod->load_base - mod->offs_adjust;
         } else
             *offs_end = *offs_start + 1;
     }
@@ -557,7 +568,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
 drsym_error_t
 drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
 {
-    macho_info_t *mod = (macho_info_t *) mod_in;
+    macho_info_t *mod = (macho_info_t *)mod_in;
     uint min = 0;
     uint max = mod->sorted_count - 1;
     int min_lower = -1;
@@ -633,4 +644,11 @@ const char *
 drsym_obj_debug_path(void)
 {
     return "/usr/lib/debug";
+}
+
+const char *
+drsym_obj_build_id(void *mod_in)
+{
+    /* NYI.  Are build id-based dirs used on Mac? */
+    return NULL;
 }

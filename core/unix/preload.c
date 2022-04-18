@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,8 +42,8 @@
  *    behavior as calling dynamorio_app_init() in main()
  */
 
-#define START_DYNAMO 1          /* start dynamo on preload */
-#define VERBOSE_INIT_FINI 0     /* notification for _init and _fini  */
+#define START_DYNAMO 1      /* start dynamo on preload */
+#define VERBOSE_INIT_FINI 0 /* notification for _init and _fini  */
 #define VERBOSE 0
 #define INIT_BEFORE_LIBC 0
 
@@ -59,24 +59,29 @@
 #include <string.h>
 
 #if VERBOSE
-# define pf(fmt, args...) printf(fmt , ## args)
+#    define pf(fmt, args...) printf(fmt, ##args)
 #else
-# define pf(...) /* C99 requires ... to mean at least one argument */
-#endif /* VERBOSE */
+#    define pf(...) /* C99 requires ... to mean at least one argument */
+#endif              /* VERBOSE */
 
 #if START_DYNAMO
-# ifdef VMX86_SERVER
+#    ifdef VMX86_SERVER
 /* This function is not statically linked so as avoid duplicating or compiling
  * DR code into libdrpreload.so, which is messy.  As libdynamorio.so is
  * already loaded into the process and avaiable, it is cleaner to just use
  * functions from it, i.e., dynamic linking.  See PR 212034.
  */
-void vmk_init_lib(void);
-# endif
-char *get_application_short_name(void);
-void dynamorio_set_envp(char **envp);
-int dynamorio_app_init(void);
-void dynamorio_app_take_over(void);
+void
+vmk_init_lib(void);
+#    endif
+char *
+get_application_short_name(void);
+void
+dynamorio_set_envp(char **envp);
+int
+dynamorio_app_init(void);
+void
+dynamorio_app_take_over(void);
 #endif /* START_DYNAMO */
 
 #define MAX_COMMAND_LENGTH 1024
@@ -87,10 +92,10 @@ int nothing = 0;
 /* Tells whether or not to take over a process.  PR 212034.  We use env vars to
  * decide this; longer term we want to switch to config files.
  *
- * If include list exists then it acts as a white list, i.e., take over
+ * If include list exists then it acts as an allow list, i.e., take over
  * only if pname is on it, not otherwise.  If the list doesn't exist then
  * act normal, i.e., take over.  Ditto but reversed for exclude list as it is a
- * blacklist.  If both lists exist, then white list gets preference.
+ * blocklist.  If both lists exist, then the allow list gets preference.
  */
 static bool
 take_over(const char *pname)
@@ -113,7 +118,7 @@ take_over(const char *pname)
         return true;
 
     /* i#85/PR 212034: use config files */
-    config_init();
+    d_r_config_init();
     runstr = get_config_val_ex(DYNAMORIO_VAR_RUNUNDER, &app_specific, &from_env);
     if (!should_inject_from_rununder(runstr, app_specific, from_env, &rununder_on) ||
         !rununder_on)
@@ -136,7 +141,7 @@ int
 #if INIT_BEFORE_LIBC
 _init(int argc, char *arg0, ...)
 {
-  char **argv = &arg0, **envp = &argv[argc + 1];
+    char **argv = &arg0, **envp = &argv[argc + 1];
 #else
 _init(int argc, char **argv, char **envp)
 {
@@ -144,21 +149,21 @@ _init(int argc, char **argv, char **envp)
     int init;
     const char *name;
 #if VERBOSE_INIT_FINI
-    fprintf (stderr, "preload initialized\n");
+    fprintf(stderr, "preload initialized\n");
 #endif /* VERBOSE_INIT_FINI */
 #ifdef VMX86_SERVER
     vmk_init_lib();
 #endif
 
 #if VERBOSE
-  {
-      int i;
-      for (i=0; i<argc; i++)
-          fprintf(stderr, "\targ %d = %s\n", i, argv[i]);
-      fprintf(stderr, "env 0 is %s\n", envp[0]);
-      fprintf(stderr, "env 1 is %s\n", envp[1]);
-      fprintf(stderr, "env 2 is %s\n", envp[2]);
-  }
+    {
+        int i;
+        for (i = 0; i < argc; i++)
+            fprintf(stderr, "\targ %d = %s\n", i, argv[i]);
+        fprintf(stderr, "env 0 is %s\n", envp[0]);
+        fprintf(stderr, "env 1 is %s\n", envp[1]);
+        fprintf(stderr, "env 2 is %s\n", envp[2]);
+    }
 #endif
 
 #if START_DYNAMO
@@ -185,7 +190,7 @@ int
 _fini()
 {
 #if VERBOSE_INIT_FINI
-    fprintf (stderr, "preload finalized\n");
+    fprintf(stderr, "preload finalized\n");
 #endif /* VERBOSE_INIT_FINI */
 
     /* since we're using dynamorio_app_take_over we do not need to call dr_app_stop

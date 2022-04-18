@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -39,11 +39,11 @@
 #
 # To run on one opcode:
 #
-#   tools/arm_macros_gen.pl -v -o OP_add core/arch/arm/table_{a32,t32}*.[ch]
+#   tools/arm_macros_gen.pl -v -o OP_add core/ir/arm/table_{a32,t32}*.[ch]
 #
 # To run on everything:
 #
-#   tools/arm_macros_gen.pl core/arch/arm/table_{a32,t32}*.[ch]
+#   tools/arm_macros_gen.pl core/ir/arm/table_{a32,t32}*.[ch]
 #
 # XXX i#1563: should we swap src and dst for stores and for OP_cdp and
 # other instructions to more closely match the assembly order?
@@ -642,7 +642,7 @@ foreach my $args (@order) {
     $sigline =~ s/\(, /(/;
     print $sigline;
     print ' */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -679,7 +679,7 @@ foreach my $args (@order) {
     foreach my $mac (sort @{$macro{$args}}) {
         print $mac;
     }
-    print '/* @} */ /* end doxygen group */
+    print '/** @} */ /* end doxygen group */
 ';
 }
 

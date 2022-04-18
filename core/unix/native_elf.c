@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,16 +38,16 @@
 #include "module.h"
 #include "module_private.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrument.h" /* instrlist_meta_append */
 #include "decode.h"
 #include "disassemble.h"
 #include "../hashtable.h"
 
-#include <link.h>  /* for struct link_map */
+#include <link.h>   /* for struct link_map */
 #include <stddef.h> /* offsetof */
 
-#define APP  instrlist_meta_append
+#define APP instrlist_meta_append
 
 /* According to the SysV amd64 psABI docs[1], there are three reserved entries
  * in the PLTGOT:
@@ -78,9 +78,9 @@
  */
 enum { DL_RUNTIME_RESOLVE_IDX = 2 };
 
-/* The loader's _dl_fixup.  For ia32 it uses regparms. */
+/* The loader's _dl_fixup.  For ia32 it uses d_r_regparms. */
 typedef void *(*fixup_fn_t)(struct link_map *l_map, uint dynamic_index)
-    IF_X86_32(__attribute__((regparm (3), stdcall, unused)));
+    IF_X86_32(__attribute__((regparm(3), stdcall, unused)));
 
 app_pc app_dl_runtime_resolve;
 fixup_fn_t app_dl_fixup;
@@ -125,25 +125,24 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
 {
 #ifdef X86
     instr_t instr;
-    int max_decodes = 30;
+    const int max_decodes = 225;
     int i = 0;
     app_pc pc = resolver;
     app_pc fixup = NULL;
 
-    LOG(THREAD, 5, LOG_LOADER, "%s: scanning for _dl_fixup call:\n",
-        __FUNCTION__);
+    LOG(THREAD, LOG_LOADER, 5, "%s: scanning for _dl_fixup call:\n", __FUNCTION__);
     instr_init(dcontext, &instr);
-    while (pc != NULL && i < max_decodes) {
+    while (pc != NULL && i++ < max_decodes) {
         DOLOG(5, LOG_LOADER, { disassemble(dcontext, pc, THREAD); });
         pc = decode(dcontext, pc, &instr);
         if (instr_get_opcode(&instr) == OP_call) {
             opnd_t tgt = instr_get_target(&instr);
             fixup = opnd_get_pc(tgt);
-            LOG(THREAD, 1, LOG_LOADER,
-                "%s: found _dl_fixup call at "PFX", _dl_fixup is "PFX":\n",
+            LOG(THREAD, LOG_LOADER, 1,
+                "%s: found _dl_fixup call at " PFX ", _dl_fixup is " PFX ":\n",
                 __FUNCTION__, pc, fixup);
             break;
-        } else if (instr_is_cti(&instr)) {
+        } else if (instr_is_return(&instr)) {
             break;
         }
         instr_reset(dcontext, &instr);
@@ -175,21 +174,24 @@ initialize_plt_stub_template(void)
      * and push onto the stack.
      */
 #ifdef X86
-    IF_X64_ELSE({
-        instrlist_append(ilist, INSTR_CREATE_mov_imm
-                         (dc, opnd_create_reg(DR_REG_R11), OPND_CREATE_INTPTR(0)));
-        instrlist_append(ilist, INSTR_CREATE_jmp_ind
-                         (dc, opnd_create_rel_addr(0, OPSZ_PTR)));
-    }, {
-        instrlist_append(ilist, INSTR_CREATE_push_imm(dc, OPND_CREATE_INTPTR(0)));
-        instrlist_append(ilist, INSTR_CREATE_jmp(dc, opnd_create_pc(0)));
-    });
+    IF_X64_ELSE(
+        {
+            instrlist_append(ilist,
+                             INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_R11),
+                                                  OPND_CREATE_INTPTR(0)));
+            instrlist_append(ilist,
+                             INSTR_CREATE_jmp_ind(dc, opnd_create_rel_addr(0, OPSZ_PTR)));
+        },
+        {
+            instrlist_append(ilist, INSTR_CREATE_push_imm(dc, OPND_CREATE_INTPTR(0)));
+            instrlist_append(ilist, INSTR_CREATE_jmp(dc, opnd_create_pc(0)));
+        });
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
-    next_pc = instrlist_encode_to_copy(dc, ilist, plt_stub_template, NULL,
-                                       code_end, false);
+    next_pc =
+        instrlist_encode_to_copy(dc, ilist, plt_stub_template, NULL, code_end, false);
     ASSERT(next_pc != NULL);
     plt_stub_size = next_pc - plt_stub_template;
 
@@ -198,7 +200,7 @@ initialize_plt_stub_template(void)
      */
     mov_len = instr_length(dc, instrlist_first(ilist));
     jmp_len = instr_length(dc, instrlist_last(ilist));
-    plt_stub_immed_offset = mov_len - sizeof(void*);
+    plt_stub_immed_offset = mov_len - sizeof(void *);
     plt_stub_jmp_tgt_offset = mov_len + jmp_len - sizeof(uint);
     DOLOG(4, LOG_LOADER, {
         LOG(THREAD_GET, 4, LOG_LOADER, "plt_stub_template code:\n");
@@ -232,7 +234,7 @@ replace_module_resolver(module_area_t *ma, app_pc *pltgot, bool to_dr)
     /* Make this somewhat idempotent.  We shouldn't re-hook if we're already
      * hooked, and we shouldn't remove hooks if we haven't hooked already.
      */
-    if (resolver == (app_pc) _dynamorio_runtime_resolve)
+    if (resolver == (app_pc)_dynamorio_runtime_resolve)
         already_hooked = true;
     if (to_dr && already_hooked)
         return;
@@ -253,18 +255,18 @@ replace_module_resolver(module_area_t *ma, app_pc *pltgot, bool to_dr)
     }
     if (app_dl_fixup == NULL) {
         /* _dl_fixup is not exported, so we have to go find it. */
-        app_dl_fixup = (fixup_fn_t) find_dl_fixup(dcontext, resolver);
+        app_dl_fixup = (fixup_fn_t)find_dl_fixup(dcontext, resolver);
         ASSERT_CURIOSITY(app_dl_fixup != NULL && "failed to find _dl_fixup");
     } else {
-        ASSERT((app_pc) app_dl_fixup == find_dl_fixup(dcontext, resolver) &&
+        ASSERT((app_pc)app_dl_fixup == find_dl_fixup(dcontext, resolver) &&
                "_dl_fixup should be the same for all modules");
     }
 
     if (app_dl_fixup != NULL) {
         LOG(THREAD, LOG_LOADER, 3,
-            "%s: replacing _dl_runtime_resolve "PFX" with "PFX"\n",
-            __FUNCTION__, resolver, _dynamorio_runtime_resolve);
-        pltgot[DL_RUNTIME_RESOLVE_IDX] = (app_pc) _dynamorio_runtime_resolve;
+            "%s: replacing _dl_runtime_resolve " PFX " with " PFX "\n", __FUNCTION__,
+            resolver, _dynamorio_runtime_resolve);
+        pltgot[DL_RUNTIME_RESOLVE_IDX] = (app_pc)_dynamorio_runtime_resolve;
     }
 }
 
@@ -275,25 +277,24 @@ create_opt_plt_stub(app_pc plt_tgt, app_pc stub_pc)
     instr_t *instr;
     byte *pc;
     /* XXX i#1238-c#4: because we may continue in the code cache if the target
-     * is found or back to dispatch otherwise, and we use the standard ibl
+     * is found or back to d_r_dispatch otherwise, and we use the standard ibl
      * routine, we may not be able to update kstats correctly.
      */
     ASSERT_BUG_NUM(1238,
-                   !(DYNAMO_OPTION(kstats) && DYNAMO_OPTION(native_exec_opt))
-                   && "kstat is not compatible with ");
+                   !(DYNAMO_OPTION(kstats) && DYNAMO_OPTION(native_exec_opt)) &&
+                       "kstat is not compatible with ");
 
     /* mov plt_tgt => XAX */
-    instr = XINST_CREATE_load_int(dcontext,
-                                  opnd_create_reg(IF_X86_ELSE(REG_XAX, DR_REG_R0)),
-                                  OPND_CREATE_INTPTR(plt_tgt));
+    instr =
+        XINST_CREATE_load_int(dcontext, opnd_create_reg(IF_X86_ELSE(REG_XAX, DR_REG_R0)),
+                              OPND_CREATE_INTPTR(plt_tgt));
     pc = instr_encode(dcontext, instr, stub_pc);
     instr_destroy(dcontext, instr);
     if (pc == NULL)
         return false;
     /* jmp native_plt_call */
     instr = XINST_CREATE_jump(dcontext,
-                              opnd_create_pc
-                              (get_native_plt_ibl_xfer_entry(dcontext)));
+                              opnd_create_pc(get_native_plt_ibl_xfer_entry(dcontext)));
     pc = instr_encode(dcontext, instr, pc);
     instr_destroy(dcontext, instr);
     if (pc == NULL)
@@ -313,15 +314,14 @@ create_plt_stub(app_pc plt_target)
         return stub_pc;
 
     memcpy(stub_pc, plt_stub_template, plt_stub_size);
-    tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
+    tgt_immed = (app_pc *)(stub_pc + plt_stub_immed_offset);
     jmp_tgt = stub_pc + plt_stub_jmp_tgt_offset;
     *tgt_immed = plt_target;
 #ifdef X64
     /* This is a reladdr operand, which we patch in just the same way. */
-    insert_relative_target(jmp_tgt, plt_reachability_stub, false/*!hotpatch*/);
+    insert_relative_target(jmp_tgt, plt_reachability_stub, false /*!hotpatch*/);
 #else
-    insert_relative_target(jmp_tgt, (app_pc) native_plt_call,
-                           false/*!hotpatch*/);
+    insert_relative_target(jmp_tgt, (app_pc)native_plt_call, false /*!hotpatch*/);
 #endif
     return stub_pc;
 }
@@ -332,7 +332,7 @@ static app_pc
 destroy_plt_stub(app_pc stub_pc)
 {
     app_pc orig_tgt;
-    app_pc *tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
+    app_pc *tgt_immed = (app_pc *)(stub_pc + plt_stub_immed_offset);
     orig_tgt = *tgt_immed;
     special_heap_free(plt_stub_heap, stub_pc);
     return orig_tgt;
@@ -342,12 +342,9 @@ static size_t
 plt_reloc_entry_size(ELF_WORD pltrel)
 {
     switch (pltrel) {
-    case DT_REL:
-        return sizeof(ELF_REL_TYPE);
-    case DT_RELA:
-        return sizeof(ELF_RELA_TYPE);
-    default:
-        ASSERT(false);
+    case DT_REL: return sizeof(ELF_REL_TYPE);
+    case DT_RELA: return sizeof(ELF_RELA_TYPE);
+    default: ASSERT(false);
     }
     return sizeof(ELF_REL_TYPE);
 }
@@ -384,10 +381,10 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
     app_pc jmprelend = opd->jmprel + opd->pltrelsz;
     size_t entry_size = plt_reloc_entry_size(opd->pltrel);
     for (jmprel = opd->jmprel; jmprel != jmprelend; jmprel += entry_size) {
-        ELF_REL_TYPE *rel = (ELF_REL_TYPE *) jmprel;
+        ELF_REL_TYPE *rel = (ELF_REL_TYPE *)jmprel;
         app_pc *r_addr;
         app_pc gotval;
-        r_addr = (app_pc *) (opd->load_delta + rel->r_offset);
+        r_addr = (app_pc *)(opd->load_delta + rel->r_offset);
         ASSERT(module_contains_addr(ma, (app_pc)r_addr));
         gotval = *r_addr;
         if (add_hooks) {
@@ -398,8 +395,8 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
             /* We also ignore it if the PLT target is in a native module */
             if (!module_contains_addr(ma, gotval) && !is_stay_native_pc(gotval)) {
                 LOG(THREAD_GET, LOG_LOADER, 4,
-                    "%s: hooking cross-module PLT entry to "PFX"\n",
-                    __FUNCTION__, gotval);
+                    "%s: hooking cross-module PLT entry to " PFX "\n", __FUNCTION__,
+                    gotval);
                 *r_addr = create_plt_stub(gotval);
             }
         } else {
@@ -428,9 +425,9 @@ module_change_hooks(module_area_t *ma, bool add_hooks, bool at_map)
         return;
 
     memset(&opd, 0, sizeof(opd));
-    module_get_os_privmod_data(ma->start, ma->end - ma->start,
-                               !at_map/*relocated*/, &opd);
-    pltgot = (app_pc *) opd.pltgot;
+    module_get_os_privmod_data(ma->start, ma->end - ma->start, !at_map /*relocated*/,
+                               &opd);
+    pltgot = (app_pc *)opd.pltgot;
 
     /* We can't hook modules that don't have a pltgot. */
     if (pltgot == NULL)
@@ -441,12 +438,12 @@ module_change_hooks(module_area_t *ma, bool add_hooks, bool at_map)
      * typically inside the relro region, so we must unprotect it.
      */
     if (!at_map && module_get_relro(ma->start, &relro_base, &relro_size)) {
-        os_set_protection(relro_base, relro_size, MEMPROT_READ|MEMPROT_WRITE);
+        os_set_protection(relro_base, relro_size, MEMPROT_READ | MEMPROT_WRITE);
         got_unprotected = true;
     }
 
     /* Insert or remove our lazy dynamic resolver. */
-    replace_module_resolver(ma, pltgot, add_hooks/*to_dr*/);
+    replace_module_resolver(ma, pltgot, add_hooks /*to_dr*/);
     /* Insert or remove our PLT stubs. */
     update_plt_relocations(ma, &opd, add_hooks);
 
@@ -463,14 +460,14 @@ void
 native_module_hook(module_area_t *ma, bool at_map)
 {
     if (DYNAMO_OPTION(native_exec_retakeover))
-        module_change_hooks(ma, true/*add*/, at_map);
+        module_change_hooks(ma, true /*add*/, at_map);
 }
 
 void
 native_module_unhook(module_area_t *ma)
 {
     if (DYNAMO_OPTION(native_exec_retakeover))
-        module_change_hooks(ma, false/*remove*/, false/*!at_map*/);
+        module_change_hooks(ma, false /*remove*/, false /*!at_map*/);
 }
 
 static ELF_REL_TYPE *
@@ -487,12 +484,10 @@ find_plt_reloc(struct link_map *l_map, uint reloc_arg)
     while (dyn->d_tag != DT_NULL) {
         switch (dyn->d_tag) {
         case DT_JMPREL:
-            jmprel = (app_pc) dyn->d_un.d_ptr; /* relocated */
+            jmprel = (app_pc)dyn->d_un.d_ptr; /* relocated */
             break;
 #ifdef X64
-        case DT_PLTREL:
-            pltrel = dyn->d_un.d_val;
-            break;
+        case DT_PLTREL: pltrel = dyn->d_un.d_val; break;
 #endif
         }
         dyn++;
@@ -504,7 +499,7 @@ find_plt_reloc(struct link_map *l_map, uint reloc_arg)
     /* reloc_arg is an index on x64 and an offset on ia32. */
     relsz = 1;
 #endif
-    return (ELF_REL_TYPE *) (jmprel + relsz * reloc_arg);
+    return (ELF_REL_TYPE *)(jmprel + relsz * reloc_arg);
 }
 
 /* Our replacement for _dl_fixup.
@@ -524,8 +519,7 @@ dynamorio_dl_fixup(struct link_map *l_map, uint reloc_arg)
     res = app_dl_fixup(l_map, reloc_arg);
     DOLOG(4, LOG_LOADER, {
         dcontext_t *dcontext = get_thread_private_dcontext();
-        LOG(THREAD, LOG_LOADER, 4,
-            "%s: resolved reloc index %d to "PFX"\n",
+        LOG(THREAD, LOG_LOADER, 4, "%s: resolved reloc index %d to " PFX "\n",
             __FUNCTION__, reloc_arg, res);
     });
     /* the target is in a native module, so no need to change */
@@ -533,8 +527,8 @@ dynamorio_dl_fixup(struct link_map *l_map, uint reloc_arg)
         return res;
     app_pc stub = create_plt_stub(res);
     rel = find_plt_reloc(l_map, reloc_arg);
-    ASSERT(rel != NULL);  /* It has to be there if we're doing fixups. */
-    r_addr = (app_pc *) (l_map->l_addr + rel->r_offset);
+    ASSERT(rel != NULL); /* It has to be there if we're doing fixups. */
+    r_addr = (app_pc *)(l_map->l_addr + rel->r_offset);
     *r_addr = stub;
     return stub;
 }
@@ -542,14 +536,12 @@ dynamorio_dl_fixup(struct link_map *l_map, uint reloc_arg)
 static void
 native_module_htable_init(void)
 {
-    native_ret_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NERET,
-                                           50 /* load factor: perf-critical */,
-                                           HASHTABLE_SHARED,
-                                           NULL _IF_DEBUG("ne_ret table"));
-    native_mbr_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NEMBR,
-                                           50 /* load factor, perf-critical */,
-                                           HASHTABLE_SHARED,
-                                           NULL _IF_DEBUG("ne_mbr table"));
+    native_ret_table = generic_hash_create(
+        GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NERET, 50 /* load factor: perf-critical */,
+        HASHTABLE_SHARED, NULL _IF_DEBUG("ne_ret table"));
+    native_mbr_table = generic_hash_create(
+        GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NEMBR, 50 /* load factor, perf-critical */,
+        HASHTABLE_SHARED, NULL _IF_DEBUG("ne_mbr table"));
 }
 
 static void
@@ -563,13 +555,11 @@ native_module_htable_exit(generic_table_t *htable, app_pc stub_heap)
     TABLE_RWLOCK(htable, write, lock);
     iter = 0;
     do {
-        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, htable,
-                                         iter, &key, &stub_pc);
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, htable, iter, &key, &stub_pc);
         if (iter < 0)
             break;
         /* remove from hashtable */
-        iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, htable,
-                                           iter, key);
+        iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, htable, iter, key);
         /* free stub from special heap */
         special_heap_free(stub_heap, stub_pc);
     } while (true);
@@ -578,9 +568,8 @@ native_module_htable_exit(generic_table_t *htable, app_pc stub_heap)
 }
 
 static void
-native_module_htable_module_unload(module_area_t *ma,
-                                 generic_table_t *htable,
-                                 app_pc stub_heap)
+native_module_htable_module_unload(module_area_t *ma, generic_table_t *htable,
+                                   app_pc stub_heap)
 {
     int iter;
     app_pc stub_pc, pc;
@@ -590,8 +579,7 @@ native_module_htable_module_unload(module_area_t *ma,
     do {
         bool remove = false;
         os_module_data_t *os_data;
-        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, htable, iter,
-                                         (ptr_uint_t *)&pc,
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, htable, iter, (ptr_uint_t *)&pc,
                                          (void **)&stub_pc);
         if (iter < 0)
             break;
@@ -603,8 +591,7 @@ native_module_htable_module_unload(module_area_t *ma,
         else {
             int i;
             for (i = 0; i < os_data->num_segments; i++) {
-                if (pc >= os_data->segments[i].start &&
-                    pc <  os_data->segments[i].end) {
+                if (pc >= os_data->segments[i].start && pc < os_data->segments[i].end) {
                     remove = true;
                     break;
                 }
@@ -612,8 +599,8 @@ native_module_htable_module_unload(module_area_t *ma,
         }
         /* remove from hashtable */
         if (remove) {
-            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, htable,
-                                               iter, (ptr_uint_t)pc);
+            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, htable, iter,
+                                               (ptr_uint_t)pc);
             special_heap_free(stub_heap, pc);
         }
     } while (true);
@@ -621,8 +608,8 @@ native_module_htable_module_unload(module_area_t *ma,
 }
 
 static void *
-native_module_htable_add(generic_table_t *htable, app_pc stub_heap,
-                         ptr_uint_t key, void *payload)
+native_module_htable_add(generic_table_t *htable, app_pc stub_heap, ptr_uint_t key,
+                         void *payload)
 {
     void *stub_pc;
     TABLE_RWLOCK(htable, write, lock);
@@ -646,21 +633,19 @@ native_module_init(void)
         return;
     ASSERT(plt_stub_heap == NULL && "init should only happen once");
     initialize_plt_stub_template();
-    plt_stub_heap = special_heap_init(plt_stub_size, true/*locked*/,
-                                      true/*executable*/, true/*persistent*/);
+    plt_stub_heap = special_heap_init(plt_stub_size, true /*locked*/, true /*executable*/,
+                                      true /*persistent*/);
 #ifdef X64
     /* i#719: native_plt_call may not be reachable from the stub heap, so we
      * indirect through this "stub".
      */
     plt_reachability_stub = special_heap_alloc(plt_stub_heap);
-    *((app_pc*)plt_reachability_stub) = (app_pc)native_plt_call;
+    *((app_pc *)plt_reachability_stub) = (app_pc)native_plt_call;
 #endif
 
     ASSERT(ret_stub_heap == NULL && "init should only happen once");
-    ret_stub_heap = special_heap_init(ret_stub_size,
-                                      true /* locked */,
-                                      true /* exectable */,
-                                      true /* persistent */);
+    ret_stub_heap = special_heap_init(ret_stub_size, true /* locked */,
+                                      true /* exectable */, true /* persistent */);
     native_module_htable_init();
 }
 
@@ -713,8 +698,7 @@ native_module_exit(void)
 void
 native_module_nonnative_mod_unload(module_area_t *ma)
 {
-    ASSERT(DYNAMO_OPTION(native_exec_retakeover) &&
-           DYNAMO_OPTION(native_exec_opt));
+    ASSERT(DYNAMO_OPTION(native_exec_retakeover) && DYNAMO_OPTION(native_exec_opt));
     native_module_htable_module_unload(ma, native_ret_table, ret_stub_heap);
     native_module_htable_module_unload(ma, native_mbr_table, plt_stub_heap);
 }
@@ -739,20 +723,18 @@ special_ret_stub_create(dcontext_t *dcontext, app_pc tgt)
     APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     /* the rest is similar to opt_plt_stub */
     /* mov tgt => XAX */
-    APP(&ilist, XINST_CREATE_load_int(dcontext,
-                                      opnd_create_reg(SCRATCH_REG0),
-                                      OPND_CREATE_INTPTR(tgt)));
+    APP(&ilist,
+        XINST_CREATE_load_int(dcontext, opnd_create_reg(SCRATCH_REG0),
+                              OPND_CREATE_INTPTR(tgt)));
     /* jmp native_ret_ibl */
-    APP(&ilist, XINST_CREATE_jump(dcontext,
-                                  opnd_create_pc
-                                  (get_native_ret_ibl_xfer_entry(dcontext))));
+    APP(&ilist,
+        XINST_CREATE_jump(dcontext,
+                          opnd_create_pc(get_native_ret_ibl_xfer_entry(dcontext))));
     pc = instrlist_encode(dcontext, &ilist, stub_pc, false);
     instrlist_clear(dcontext, &ilist);
 
-    return (app_pc )native_module_htable_add(native_ret_table,
-                                             ret_stub_heap,
-                                             (ptr_uint_t) tgt,
-                                             (void *) stub_pc);
+    return (app_pc)native_module_htable_add(native_ret_table, ret_stub_heap,
+                                            (ptr_uint_t)tgt, (void *)stub_pc);
 }
 
 #ifdef DR_APP_EXPORTS
@@ -765,8 +747,8 @@ dr_app_handle_mbr_target(void *target)
     if (is_stay_native_pc(target))
         return target;
     stub = create_plt_stub(target);
-    return native_module_htable_add(native_mbr_table, plt_stub_heap,
-                                    (ptr_uint_t) target, stub);
+    return native_module_htable_add(native_mbr_table, plt_stub_heap, (ptr_uint_t)target,
+                                    stub);
 }
 #endif /* DR_APP_EXPORTS */
 
@@ -777,8 +759,8 @@ native_module_get_ret_stub(dcontext_t *dcontext, app_pc tgt)
     app_pc stub_pc;
 
     TABLE_RWLOCK(native_ret_table, read, lock);
-    stub_pc = (app_pc) generic_hash_lookup(GLOBAL_DCONTEXT, native_ret_table,
-                                           (ptr_uint_t)tgt);
+    stub_pc =
+        (app_pc)generic_hash_lookup(GLOBAL_DCONTEXT, native_ret_table, (ptr_uint_t)tgt);
     TABLE_RWLOCK(native_ret_table, read, unlock);
     if (stub_pc == NULL)
         stub_pc = special_ret_stub_create(dcontext, tgt);
@@ -792,8 +774,8 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
 {
     app_pc call_tgt, ret_tgt;
 
-    if (!safe_read(xsp, sizeof(app_pc), &call_tgt) ||
-        !safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
+    if (!d_r_safe_read(xsp, sizeof(app_pc), &call_tgt) ||
+        !d_r_safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
         ASSERT(false && "fail to read app stack!\n");
         return;
     }
@@ -801,12 +783,11 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
         /* replace the return target for regaining control later */
         dcontext_t *dcontext = get_thread_private_dcontext();
         app_pc stub_pc = native_module_get_ret_stub(dcontext, ret_tgt);
-        DEBUG_DECLARE(bool ok = )
-            safe_write_ex(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc),
-                          &stub_pc, NULL /* bytes written */);
+        DEBUG_DECLARE(bool ok =)
+        safe_write_ex(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &stub_pc,
+                      NULL /* bytes written */);
         ASSERT(stub_pc != NULL && ok);
-        LOG(THREAD, LOG_ALL, 3,
-            "replace return target "PFX" with "PFX" at "PFX"\n",
+        LOG(THREAD, LOG_ALL, 3, "replace return target " PFX " with " PFX " at " PFX "\n",
             ret_tgt, stub_pc, (xsp + ret_imm + sizeof(XSP_SZ)));
     }
 }
@@ -835,16 +816,16 @@ is_special_ret_stub(app_pc pc)
 
 /* i#1276: dcontext->next_tag could be special stub pc from special_ret_stub
  * for DR maintaining the control in hybrid execution, this routine is called
- * in dispatch to adjust the target if necessary.
+ * in d_r_dispatch to adjust the target if necessary.
  */
 bool
 native_exec_replace_next_tag(dcontext_t *dcontext)
 {
-    ASSERT (DYNAMO_OPTION(native_exec) && DYNAMO_OPTION(native_exec_opt));
+    ASSERT(DYNAMO_OPTION(native_exec) && DYNAMO_OPTION(native_exec_opt));
     if (is_special_ret_stub(dcontext->next_tag)) {
 #ifdef X86
         instr_t instr;
-        app_pc  pc;
+        app_pc pc;
         /* we assume the ret stub is
          *   save %xax
          *   mov tgt => %xax
@@ -860,7 +841,7 @@ native_exec_replace_next_tag(dcontext_t *dcontext)
         pc = decode(dcontext, pc, &instr);
         ASSERT(instr_get_opcode(&instr) == OP_mov_imm &&
                opnd_is_immed_int(instr_get_src(&instr, 0)));
-        dcontext->next_tag = (app_pc) opnd_get_immed_int(instr_get_src(&instr, 0));
+        dcontext->next_tag = (app_pc)opnd_get_immed_int(instr_get_src(&instr, 0));
         instr_free(dcontext, &instr);
         return true;
 #elif defined(ARM)

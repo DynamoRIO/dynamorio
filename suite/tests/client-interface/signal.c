@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,22 +47,18 @@
 #include <setjmp.h>
 
 static SIGJMP_BUF mark;
-static int bar;
 
 static void
-#ifdef UNIX
-__attribute__((used))  /* Prevents deletion as unreachable. */
-#endif
 foo(void)
-{ /* nothing: just a marker */ }
-
-static void
-redirect_target(void)
 {
-    /* use 2 NOPs + call so client can locate this spot */
-    NOP_NOP_CALL(foo);
+    print("In foo\n");
+}
 
+EXPORT void
+hook_and_long_jump(void)
+{
     print("Redirected\n");
+    foo();
     SIGLONGJMP(mark, 1);
 }
 
@@ -84,15 +80,16 @@ unintercept_signal(int sig)
 {
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) SIG_DFL;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))SIG_DFL;
     /* disarm the signal */
     rc = sigaction(sig, &act, NULL);
     assert(rc == 0);
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
+    int bar;
     intercept_signal(SIGUSR1, signal_handler, false);
     intercept_signal(SIGUSR2, signal_handler, false);
     intercept_signal(SIGURG, signal_handler, false);
@@ -119,30 +116,52 @@ main(int argc, char** argv)
 
     if (SIGSETJMP(mark) == 0) {
         /* execute so that client sees the spot */
-        redirect_target();
+        hook_and_long_jump();
     }
     if (SIGSETJMP(mark) == 0) {
         print("Sending SIGUSR2\n");
         kill(getpid(), SIGUSR2);
     }
 
-    /* generate SIGSEGV; we'll re-crash post-handler unless client
-     * modifies mcontext
+    /* Generate SIGSEGV in a manner that will re-crash post-handler unless the client
+     * modifies the mcontext register values.
      */
-#ifdef X64
-# define EAX "%rax"
-# define ECX "%rcx"
+#ifdef X86
+#    ifdef X64
+#        define EAX "%rax"
+#        define ECX "%rcx"
+#    else
+#        define EAX "%eax"
+#        define ECX "%ecx"
+#    endif
+    asm("push " EAX);
+    asm("push " ECX);
+    asm("mov %0, %" ECX "" : : "g"(&bar)); /* ok place to read from */
+    asm("mov $0, " EAX);
+    asm("mov (" EAX "), " EAX);
+    asm("pop " ECX);
+    asm("pop " EAX);
+#elif defined(AARCH64)
+    __asm__ __volatile__("stp x0, x1, [sp, #-16]!\n\t"
+                         "mov x1, %0\n\t"
+                         "mov x0, #0\n\t"
+                         "ldr x0, [x0]\n\t"
+                         "ldp x0, x1, [sp], #16\n\t"
+                         :
+                         : "r"(&bar)
+                         : "x0", "x1", "memory");
+#elif defined(ARM)
+    __asm__ __volatile__("stm sp!, {r0, r1}\n\t"
+                         "mov r1, %0\n\t"
+                         "mov r0, #0\n\t"
+                         "ldr r0, [r0]\n\t"
+                         "ldm sp!, {r0, r1}\n\t"
+                         :
+                         : "r"(&bar)
+                         : "r0", "r1", "memory");
 #else
-# define EAX "%eax"
-# define ECX "%ecx"
+#    error Unsupported arch
 #endif
-    asm("push "EAX);
-    asm("push "ECX);
-    asm("mov %0, %"ECX"" : : "g"(&bar)); /* ok place to read from */
-    asm("mov $0, "EAX);
-    asm("mov ("EAX"), "EAX);
-    asm("pop "ECX);
-    asm("pop "EAX);
 
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);

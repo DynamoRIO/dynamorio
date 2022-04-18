@@ -61,9 +61,11 @@ inscount_app(uint num_instrs)
     global_count_app += num_instrs;
 }
 
-static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating);
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -81,33 +83,29 @@ event_exit(void)
 }
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating)
 {
     instr_t *instr;
     uint num_instrs;
 
     /* first loop instruction count, using old API */
-    for (instr  = instrlist_first(bb), num_instrs = 0;
-         instr != NULL;
+    for (instr = instrlist_first(bb), num_instrs = 0; instr != NULL;
          instr = instr_get_next(instr)) {
         num_instrs++;
     }
 
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                         (void *)inscount, false /* save fpstate */, 1,
-                         OPND_CREATE_INT32(num_instrs));
+    dr_insert_clean_call(drcontext, bb, instrlist_first(bb), (void *)inscount,
+                         false /* save fpstate */, 1, OPND_CREATE_INT32(num_instrs));
 
     /* second loop instruction count, using new API */
-    for (instr  = instrlist_first_app(bb), num_instrs = 0;
-         instr != NULL;
+    for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
          instr = instr_get_next_app(instr)) {
         num_instrs++;
     }
 
-    dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb),
-                         (void *)inscount_app, false /* save fpstate */, 1,
-                         OPND_CREATE_INT32(num_instrs));
+    dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), (void *)inscount_app,
+                         false /* save fpstate */, 1, OPND_CREATE_INT32(num_instrs));
 
     return DR_EMIT_DEFAULT;
 }

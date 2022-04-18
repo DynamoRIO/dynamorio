@@ -40,7 +40,7 @@
 #include "module_private.h"
 
 #ifndef X86
-# error X86-only!
+#    error X86-only!
 #endif
 
 void

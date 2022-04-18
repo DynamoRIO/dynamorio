@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -38,19 +38,19 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
-#include "../arch/instr.h" /* SEG_GS/SEG_FS */
+#include "../ir/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
-#include "../heap.h"    /* HEAPACCT */
+#include "../heap.h" /* HEAPACCT */
 #ifdef LINUX
-# include "include/syscall.h"
+#    include "include/syscall.h"
 #else
-# include <sys/syscall.h>
+#    include <sys/syscall.h>
 #endif
 #include "tls.h"
 #include <stddef.h>
 #if defined(X86) && defined(DEBUG)
-# include "os_asm_defines.asm" /* for TLS_APP_SELF_OFFSET_ASM */
+#    include "os_asm_defines.asm" /* for TLS_APP_SELF_OFFSET_ASM */
 #endif
 
 /****************************************************************************
@@ -97,9 +97,9 @@
 #define MAX_NUM_TLS_MOD 64
 typedef struct _tls_info_t {
     uint num_mods;
-    int  offset;
-    int  max_align;
-    int  offs[MAX_NUM_TLS_MOD];
+    int offset;
+    int max_align;
+    int offs[MAX_NUM_TLS_MOD];
     privmod_t *mods[MAX_NUM_TLS_MOD];
 } tls_info_t;
 static tls_info_t tls_info;
@@ -147,9 +147,9 @@ typedef struct _tcb_head_t {
     void *dtv;
     void *self;
     int multithread;
-# ifdef X64
+#    ifdef X64
     int gscope_flag;
-# endif
+#    endif
     ptr_uint_t sysinfo;
     /* Later fields are copied verbatim. */
 
@@ -162,12 +162,12 @@ typedef struct _tcb_head_t {
 #elif defined(ARM)
     void *dtv;
     void *private;
-    byte  padding[2]; /* make it 16-byte align */
+    byte padding[2]; /* make it 16-byte align */
 #endif /* X86/ARM */
 } tcb_head_t;
 
 #ifdef X86
-# define TLS_PRE_TCB_SIZE 0
+#    define TLS_PRE_TCB_SIZE 0
 #elif defined(AARCHXX)
 /* FIXME i#1569: This may be wrong for AArch64! */
 /* Data structure to match libc pthread.
@@ -175,14 +175,14 @@ typedef struct _tcb_head_t {
  * the size and member locations match to avoid gdb crash.
  */
 typedef struct _dr_pthread_t {
-    byte data1[0x68];  /* # of bytes before tid within pthread */
+    byte data1[0x68]; /* # of bytes before tid within pthread */
     process_id_t tid;
     thread_id_t pid;
     byte data2[0x450]; /* # of bytes after pid within pthread */
 } dr_pthread_t;
-# define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
-# define LIBC_PTHREAD_SIZE 0x4c0
-# define LIBC_PTHREAD_TID_OFFSET 0x68
+#    define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
+#    define LIBC_PTHREAD_SIZE 0x4c0
+#    define LIBC_PTHREAD_TID_OFFSET 0x68
 #endif /* X86/ARM */
 
 #ifdef X86
@@ -198,17 +198,21 @@ typedef struct _dr_pthread_t {
  * more work.  The comment above should be updated as well, as we do not use
  * the app's libc inside DR.
  */
-# define APP_LIBC_TLS_SIZE 0x400
+#    define APP_LIBC_TLS_SIZE 0x400
 #elif defined(AARCHXX)
 /* FIXME i#1551, i#1569: investigate the difference between ARM and X86 on TLS.
  * On ARM, it seems that TLS variables are not put before the thread pointer
  * as they are on X86.
  */
-# define APP_LIBC_TLS_SIZE 0
+#    define APP_LIBC_TLS_SIZE 0
 #endif
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-/* FIXME: add description here to talk how TLS is setup. */
+/* XXX: add description here to talk how TLS is setup.
+ * This should be done *before* relocating the module.
+ * There are TLS-specific relocations that depend on having os_privmod_data_t
+ * tls fields set.
+ */
 void
 privload_mod_tls_init(privmod_t *mod)
 {
@@ -218,12 +222,12 @@ privload_mod_tls_init(privmod_t *mod)
 
     IF_X86(ASSERT(TLS_APP_SELF_OFFSET_ASM == offsetof(tcb_head_t, self)));
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    opd = (os_privmod_data_t *) mod->os_privmod_data;
+    opd = (os_privmod_data_t *)mod->os_privmod_data;
     ASSERT(opd != NULL && opd->tls_block_size != 0);
     if (tls_info.num_mods >= MAX_NUM_TLS_MOD) {
         CLIENT_ASSERT(false, "Max number of modules with tls variables reached");
-        FATAL_USAGE_ERROR(TOO_MANY_TLS_MODS, 2,
-                          get_application_name(), get_application_pid());
+        FATAL_USAGE_ERROR(TOO_MANY_TLS_MODS, 2, get_application_name(),
+                          get_application_pid());
     }
     tls_info.mods[tls_info.num_mods] = mod;
     opd->tls_modid = tls_info.num_mods;
@@ -242,15 +246,57 @@ privload_mod_tls_init(privmod_t *mod)
      * 2. add first_byte to make the first byte with right alighment.
      */
     offset = first_byte +
-        ALIGN_FORWARD(offset + opd->tls_block_size + first_byte,
-                      opd->tls_align);
+        ALIGN_FORWARD(offset + opd->tls_block_size + first_byte, opd->tls_align);
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
     tls_info.offset = offset;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s for #%d %s: offset %zu\n", __FUNCTION__,
+        opd->tls_modid, mod->name, offset);
+
     tls_info.num_mods++;
     if (opd->tls_align > tls_info.max_align) {
         tls_info.max_align = opd->tls_align;
     }
+}
+
+static void
+privload_copy_tls_block(app_pc priv_tls_base, uint mod_idx)
+{
+    os_privmod_data_t *opd = tls_info.mods[mod_idx]->os_privmod_data;
+    void *dest;
+    /* now copy the tls memory from the image */
+    dest = priv_tls_base - tls_info.offs[mod_idx];
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: copying ELF TLS from " PFX " to " PFX " block %zu image %zu\n", __FUNCTION__,
+        opd->tls_image, dest, opd->tls_block_size, opd->tls_image_size);
+    DOLOG(3, LOG_LOADER, {
+        dump_buffer_as_bytes(GLOBAL, opd->tls_image, opd->tls_image_size,
+                             DUMP_RAW | DUMP_ADDRESS);
+        LOG(GLOBAL, LOG_LOADER, 2, "\n");
+    });
+    memcpy(dest, opd->tls_image, opd->tls_image_size);
+    /* set all 0 to the rest of memory.
+     * tls_block_size refers to the size in memory, and
+     * tls_image_size refers to the size in file.
+     * We use the same way as libc to name them.
+     */
+    ASSERT(opd->tls_block_size >= opd->tls_image_size);
+    memset(dest + opd->tls_image_size, 0, opd->tls_block_size - opd->tls_image_size);
+}
+
+/* Called post-reloc. */
+void
+privload_mod_tls_primary_thread_init(privmod_t *mod)
+{
+    ASSERT(!dynamo_initialized);
+    /* Copy ELF block for primary thread for use in init funcs (i#2751).
+     * We do this after relocs and assume reloc ifuncs don't need this:
+     * else we'd have to assume there are no relocs in the TLS blocks.
+     */
+    os_local_state_t *os_tls = get_os_tls();
+    app_pc priv_tls_base = os_tls->os_seg_info.priv_lib_tls_base;
+    os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;
+    privload_copy_tls_block(priv_tls_base, opd->tls_modid);
 }
 #endif
 
@@ -260,13 +306,13 @@ privload_tls_init(void *app_tp)
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     app_pc dr_tp;
     tcb_head_t *dr_tcb;
-    uint i;
     size_t tls_bytes_read;
 
     /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is "PFX"\n",
-        __FUNCTION__, app_tp);
-    dr_tp = heap_mmap(client_tls_alloc_size, VMM_SPECIAL_MMAP);
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is " PFX "\n", __FUNCTION__,
+        app_tp);
+    dr_tp = heap_mmap(client_tls_alloc_size, MEMPROT_READ | MEMPROT_WRITE,
+                      VMM_SPECIAL_MMAP | VMM_PER_THREAD);
     ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= client_tls_alloc_size);
 #ifdef AARCHXX
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
@@ -275,33 +321,26 @@ privload_tls_init(void *app_tp)
     ASSERT(TLS_PRE_TCB_SIZE == LIBC_PTHREAD_SIZE);
     ASSERT(LIBC_PTHREAD_TID_OFFSET == offsetof(dr_pthread_t, tid));
 #endif
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at "PFX"\n",
-        __FUNCTION__, client_tls_alloc_size, dr_tp);
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at " PFX "\n", __FUNCTION__,
+        client_tls_alloc_size, dr_tp);
     dr_tp = dr_tp + client_tls_alloc_size - tcb_size;
-    dr_tcb = (tcb_head_t *) dr_tp;
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to "PFX"\n",
-        __FUNCTION__, dr_tp);
+    dr_tcb = (tcb_head_t *)dr_tp;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to " PFX "\n", __FUNCTION__,
+        dr_tp);
     /* We copy the whole tcb to avoid initializing it by ourselves.
      * and update some fields accordingly.
-     */
-    /* DynamoRIO shares the same libc with the application,
-     * so as the tls used by libc. Thus we need duplicate
-     * those tls with the same offset after switch the segment.
-     * This copy can be avoided if we remove the DR's dependency on
-     * libc.
      */
     if (app_tp != NULL &&
         !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
                       APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size,
-                      dr_tp  - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
-                      &tls_bytes_read)) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed, tcb was 0x%lx bytes "
-            "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
-            APP_LIBC_TLS_SIZE, tcb_size);
+                      dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE, &tls_bytes_read)) {
+        LOG(GLOBAL, LOG_LOADER, 2,
+            "%s: read failed, tcb was 0x%lx bytes "
+            "instead of 0x%lx\n",
+            __FUNCTION__, tls_bytes_read - APP_LIBC_TLS_SIZE, tcb_size);
 #ifdef AARCHXX
     } else {
-        dr_pthread_t *dp =
-            (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE);
+        dr_pthread_t *dp = (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE);
         dp->pid = get_process_id();
         dp->tid = get_sys_thread_id();
 #endif
@@ -313,7 +352,7 @@ privload_tls_init(void *app_tp)
     ASSERT(tls_info.offset <= client_tls_alloc_size - TLS_PRE_TCB_SIZE - tcb_size);
 #ifdef X86
     /* Update two self pointers. */
-    dr_tcb->tcb  = dr_tcb;
+    dr_tcb->tcb = dr_tcb;
     dr_tcb->self = dr_tcb;
     /* i#555: replace app's vsyscall with DR's int0x80 syscall */
     dr_tcb->sysinfo = (ptr_uint_t)client_int_syscall;
@@ -322,21 +361,16 @@ privload_tls_init(void *app_tp)
     dr_tcb->private = NULL;
 #endif
 
-    for (i = 0; i < tls_info.num_mods; i++) {
-        os_privmod_data_t *opd = tls_info.mods[i]->os_privmod_data;
-        void *dest;
-        /* now copy the tls memory from the image */
-        dest = dr_tp - tls_info.offs[i];
-        memcpy(dest, opd->tls_image, opd->tls_image_size);
-        /* set all 0 to the rest of memory.
-         * tls_block_size refers to the size in memory, and
-         * tls_image_size refers to the size in file.
-         * We use the same way as libc to name them.
-         */
-        ASSERT(opd->tls_block_size >= opd->tls_image_size);
-        memset(dest + opd->tls_image_size, 0,
-               opd->tls_block_size - opd->tls_image_size);
+    /* We initialize the primary thread's ELF TLS in privload_mod_tls_init()
+     * after finalizing the module load (dependent libs not loaded yet here).
+     * For subsequent threads we walk the module list here.
+     */
+    if (dynamo_initialized) {
+        uint i;
+        for (i = 0; i < tls_info.num_mods; i++)
+            privload_copy_tls_block(dr_tp, i);
     }
+
     return dr_tp;
 }
 
@@ -347,7 +381,7 @@ privload_tls_exit(void *dr_tp)
     if (dr_tp == NULL)
         return;
     dr_tp = dr_tp + tcb_size - client_tls_alloc_size;
-    heap_munmap(dr_tp, client_tls_alloc_size, VMM_SPECIAL_MMAP);
+    heap_munmap(dr_tp, client_tls_alloc_size, VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 }
 
 /****************************************************************************
@@ -356,18 +390,18 @@ privload_tls_exit(void *dr_tp)
 
 /* We did not create dtv, so we need redirect tls_get_addr */
 typedef struct _tls_index_t {
-  unsigned long int ti_module;
-  unsigned long int ti_offset;
+    unsigned long int ti_module;
+    unsigned long int ti_offset;
 } tls_index_t;
 
 void *
 redirect___tls_get_addr(tls_index_t *ti)
 {
-    LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
-        ti->ti_module, ti->ti_offset);
+    LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n", ti->ti_module,
+        ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
-            tls_info.offs[ti->ti_module] + ti->ti_offset);
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) - tls_info.offs[ti->ti_module] +
+            ti->ti_offset);
 }
 
 void *
@@ -377,8 +411,11 @@ redirect____tls_get_addr()
     /* XXX: in some version of ___tls_get_addr, ti is passed via xax
      * How can I generalize it?
      */
-#ifdef X86
-    asm("mov %%"ASM_XAX", %0" : "=m"((ti)) : : ASM_XAX);
+#ifdef DR_HOST_NOT_TARGET
+    ti = NULL;
+    ASSERT_NOT_REACHED();
+#elif defined(X86)
+    asm("mov %%" ASM_XAX ", %0" : "=m"((ti)) : : ASM_XAX);
 #elif defined(AARCH64)
     /* FIXME i#1569: NYI */
     asm("str x0, %0" : "=m"((ti)) : : "x0");
@@ -388,9 +425,9 @@ redirect____tls_get_addr()
     asm("str r0, %0" : "=m"((ti)) : : "r0");
     ASSERT_NOT_REACHED();
 #endif /* X86/ARM */
-    LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
-        ti->ti_module, ti->ti_offset);
+    LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n", ti->ti_module,
+        ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
-            tls_info.offs[ti->ti_module] + ti->ti_offset);
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) - tls_info.offs[ti->ti_module] +
+            ti->ti_offset);
 }

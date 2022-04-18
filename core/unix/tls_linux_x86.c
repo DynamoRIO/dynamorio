@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -42,15 +42,15 @@
 
 #include "../globals.h"
 #include "tls.h"
-#include "include/syscall.h"            /* our own local copy */
+#include "include/syscall.h" /* our own local copy */
 
 #ifdef X86
-# include "instr.h" /* for SEG_ constants */
-# include "os_private.h"
+#    include "instr.h" /* for SEG_ constants */
+#    include "os_private.h"
 #endif
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 #include <asm/ldt.h>
@@ -66,8 +66,8 @@
  * #define GS_TLS_SEL ((GDT_ENTRY_TLS_MIN+GS_TLS)*8 + 3)
  * #define FS_TLS_SEL ((GDT_ENTRY_TLS_MIN+FS_TLS)*8 + 3)
  */
-# define FS_TLS 0 /* used in arch_prctl handling */
-# define GS_TLS 1 /* used in arch_prctl handling */
+#    define FS_TLS 0 /* used in arch_prctl handling */
+#    define GS_TLS 1 /* used in arch_prctl handling */
 #else
 /* Linux GDT layout in x86_32
  * 6 - TLS segment #1 0x33 [ glibc's TLS segment ]
@@ -82,8 +82,7 @@
  * cannot detect the right value.
  * The actual value will be updated later in os_tls_app_seg_init.
  */
-static uint gdt_entry_tls_min = IF_X64_ELSE(GDT_ENTRY_TLS_MIN_64,
-                                            GDT_ENTRY_TLS_MIN_32);
+static uint gdt_entry_tls_min = IF_X64_ELSE(GDT_ENTRY_TLS_MIN_64, GDT_ENTRY_TLS_MIN_32);
 
 static bool tls_global_init = false;
 
@@ -108,8 +107,12 @@ static bool on_WSL;
 bool return_stolen_lib_tls_gdt;
 
 #ifdef DEBUG
-# define GDT_32BIT  8 /*  6=NPTL, 7=wine */
-# define GDT_64BIT 14 /* 12=NPTL, 13=wine */
+#    define GDT_32BIT 8  /*  6=NPTL, 7=wine */
+#    define GDT_64BIT 14 /* 12=NPTL, 13=wine */
+#endif
+
+#ifdef X64
+#    define NON_ZERO_UNINIT_GSBASE 0x1000UL
 #endif
 
 static int
@@ -120,38 +123,39 @@ modify_ldt_syscall(int func, void *ptr, unsigned long bytecount)
 
 /* reading ldt entries gives us the raw format, not struct modify_ldt_ldt_s */
 typedef struct {
-    unsigned int limit1500:16;
-    unsigned int base1500:16;
-    unsigned int base2316:8;
-    unsigned int type:4;
-    unsigned int not_system:1;
-    unsigned int privilege_level:2;
-    unsigned int seg_present:1;
-    unsigned int limit1916:4;
-    unsigned int custom:1;
-    unsigned int zero:1;
-    unsigned int seg_32bit:1;
-    unsigned int limit_in_pages:1;
-    unsigned int base3124:8;
+    unsigned int limit1500 : 16;
+    unsigned int base1500 : 16;
+    unsigned int base2316 : 8;
+    unsigned int type : 4;
+    unsigned int not_system : 1;
+    unsigned int privilege_level : 2;
+    unsigned int seg_present : 1;
+    unsigned int limit1916 : 4;
+    unsigned int custom : 1;
+    unsigned int zero : 1;
+    unsigned int seg_32bit : 1;
+    unsigned int limit_in_pages : 1;
+    unsigned int base3124 : 8;
 } raw_ldt_entry_t;
 
 enum {
-    LDT_TYPE_CODE      = 0x8,
-    LDT_TYPE_DOWN      = 0x4,
-    LDT_TYPE_WRITE     = 0x2,
-    LDT_TYPE_ACCESSED  = 0x1,
+    LDT_TYPE_CODE = 0x8,
+    LDT_TYPE_DOWN = 0x4,
+    LDT_TYPE_WRITE = 0x2,
+    LDT_TYPE_ACCESSED = 0x1,
 };
 
-#define LDT_BASE(ldt) (((ldt)->base3124<<24) | ((ldt)->base2316<<16) | (ldt)->base1500)
+#define LDT_BASE(ldt) \
+    (((ldt)->base3124 << 24) | ((ldt)->base2316 << 16) | (ldt)->base1500)
 
 #ifdef DEBUG
-# if 0 /* not used */
-#  ifdef X64
+#    if 0 /* not used */
+#        ifdef X64
     /* Intel docs confusingly say that app descriptors are 8 bytes while
      * system descriptors are 16; more likely all are 16, as linux kernel
      * docs seem to assume. */
-#   error NYI
-#  endif
+#            error NYI
+#        endif
 static void
 print_raw_ldt(raw_ldt_entry_t *ldt)
 {
@@ -204,8 +208,8 @@ print_all_ldt(void)
     }
     global_heap_free(ldt, sizeof(raw_ldt_entry_t) * LDT_ENTRIES HEAPACCT(ACCT_OTHER));
 }
-# endif /* #if 0 */
-#endif /* DEBUG */
+#    endif /* #if 0 */
+#endif     /* DEBUG */
 
 #define LDT_ENTRIES_TO_CHECK 128
 
@@ -230,8 +234,8 @@ find_unused_ldt_index()
         return 0;
     }
     ASSERT(bytes == sizeof(ldt));
-    for (i = 0; i < bytes/sizeof(raw_ldt_entry_t); i++) {
-        if (((ldt[i].base3124<<24) | (ldt[i].base2316<<16) | ldt[i].base1500) == 0) {
+    for (i = 0; i < bytes / sizeof(raw_ldt_entry_t); i++) {
+        if (((ldt[i].base3124 << 24) | (ldt[i].base2316 << 16) | ldt[i].base1500) == 0) {
             return i;
         }
     }
@@ -244,7 +248,7 @@ initialize_ldt_struct(our_modify_ldt_t *ldt, void *base, size_t size, uint index
     ASSERT(ldt != NULL);
     ldt->entry_number = index;
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)base)));
-    ldt->base_addr = (int)(ptr_int_t) base;
+    ldt->base_addr = (int)(ptr_int_t)base;
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(size)));
     ldt->limit = size;
     ldt->seg_32bit = IF_X64_ELSE(0, 1);
@@ -325,8 +329,7 @@ choose_gdt_slots(os_local_state_t *os_tls)
         /* We use a base and limit of 0 for testing what's available. */
         initialize_ldt_struct(&desc, NULL, 0, -1);
         res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-        LOG(GLOBAL, LOG_THREADS, 4,
-            "%s: set_thread_area -1 => %d res, %d index\n",
+        LOG(GLOBAL, LOG_THREADS, 4, "%s: set_thread_area -1 => %d res, %d index\n",
             __FUNCTION__, res, desc.entry_number);
         if (res >= 0) {
             /* We assume monotonic increases */
@@ -344,15 +347,14 @@ choose_gdt_slots(os_local_state_t *os_tls)
      * for TLS entries.
      */
     if (tls_gdt_index > (gdt_entry_tls_min + GDT_NUM_TLS_SLOTS))
-        gdt_entry_tls_min = GDT_ENTRY_TLS_MIN_64;  /* The kernel is x64. */
+        gdt_entry_tls_min = GDT_ENTRY_TLS_MIN_64; /* The kernel is x64. */
 #endif
 
     /* Now give up the earlier slots */
     for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
-        if (avail_index[i] > -1 &&
-            avail_index[i] != tls_gdt_index) {
-            LOG(GLOBAL, LOG_THREADS, 4,
-                "clearing set_thread_area index %d\n", avail_index[i]);
+        if (avail_index[i] > -1 && avail_index[i] != tls_gdt_index) {
+            LOG(GLOBAL, LOG_THREADS, 4, "clearing set_thread_area index %d\n",
+                avail_index[i]);
             clear_ldt_struct(&clear_desc, avail_index[i]);
             res = dynamorio_syscall(SYS_set_thread_area, 1, &clear_desc);
             ASSERT(res >= 0);
@@ -360,11 +362,9 @@ choose_gdt_slots(os_local_state_t *os_tls)
     }
 
 #ifndef VMX86_SERVER
-    ASSERT_CURIOSITY(tls_gdt_index ==
-                     (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
+    ASSERT_CURIOSITY(tls_gdt_index == (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
 #endif
 
-#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_loader) && tls_gdt_index != -1) {
         /* Use the app's selector with our own TLS base for libraries.  app_fs
          * and app_gs are initialized by the caller in os_tls_app_seg_init().
@@ -376,12 +376,12 @@ choose_gdt_slots(os_local_state_t *os_tls)
              * app asks for its first table entry with set_thread_area, we give
              * it this one and emulate its usage of the segment.
              */
-            ASSERT_CURIOSITY(DYNAMO_OPTION(early_inject) && "app has "
+            ASSERT_CURIOSITY(DYNAMO_OPTION(early_inject) &&
+                             "app has "
                              "no TLS, but we used non-early injection");
             initialize_ldt_struct(&desc, NULL, 0, -1);
             res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-            LOG(GLOBAL, LOG_THREADS, 4,
-                "%s: set_thread_area -1 => %d res, %d index\n",
+            LOG(GLOBAL, LOG_THREADS, 4, "%s: set_thread_area -1 => %d res, %d index\n",
                 __FUNCTION__, res, desc.entry_number);
             ASSERT(res >= 0);
             if (res >= 0) {
@@ -396,7 +396,6 @@ choose_gdt_slots(os_local_state_t *os_tls)
          */
         lib_tls_gdt_index = SELECTOR_INDEX(os_tls->app_lib_tls_reg);
     }
-#endif
 }
 
 void
@@ -439,16 +438,17 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     byte *cur_gs;
     res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_GET_GS, &cur_gs);
     if (res >= 0) {
-        LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: cur gs base is "PFX"\n", cur_gs);
+        LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: cur gs base is " PFX "\n", cur_gs);
         /* If we're a non-initial thread, gs will be set to the parent thread's value */
-        if (cur_gs == NULL || is_dynamo_address(cur_gs) ||
+        if (cur_gs == NULL || cur_gs == (byte *)NON_ZERO_UNINIT_GSBASE ||
+            is_dynamo_address(cur_gs) ||
             /* By resolving i#107, we can handle gs conflicts between app and dr. */
             INTERNAL_OPTION(mangle_app_seg)) {
             res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, segment);
             if (res >= 0) {
                 os_tls->tls_type = TLS_TYPE_ARCH_PRCTL;
                 LOG(GLOBAL, LOG_THREADS, 1,
-                    "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
+                    "os_tls_init: arch_prctl successful for base " PFX "\n", segment);
                 res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_GET_GS, &cur_gs);
                 if (res >= 0 && cur_gs != segment && !on_WSL) {
                     /* XXX i#1896: on WSL, ARCH_GET_GS is broken and does not return
@@ -460,10 +460,10 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                     on_WSL = true;
                     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: running on WSL\n");
                     if (INTERNAL_OPTION(safe_read_tls_init)) {
-                        SYSLOG_INTERNAL_WARNING
-                            ("Support for the Windows Subsystem for Linux is still "
-                             "preliminary, due to missing kernel features.  "
-                             "Continuing, but please report any problems encountered.");
+                        SYSLOG_INTERNAL_WARNING(
+                            "Support for the Windows Subsystem for Linux is still "
+                            "preliminary, due to missing kernel features.  "
+                            "Continuing, but please report any problems encountered.");
                     } else {
                         SYSLOG(SYSLOG_ERROR, WSL_UNSUPPORTED_FATAL, 2,
                                get_application_name(), get_application_pid());
@@ -478,7 +478,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: using MSR\n");
                     tls_using_msr = true;
                 }
-                if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+                if (INTERNAL_OPTION(private_loader)) {
                     res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS,
                                             os_tls->os_seg_info.priv_lib_tls_base);
                     /* Assuming set fs must be successful if set gs succeeded. */
@@ -487,8 +487,8 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
             } else {
                 /* we've found a kernel where ARCH_SET_GS is disabled */
                 ASSERT_CURIOSITY(false && "arch_prctl failed on set but not get");
-                LOG(GLOBAL, LOG_THREADS, 1,
-                    "os_tls_init: arch_prctl failed: error %d\n", res);
+                LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: arch_prctl failed: error %d\n",
+                    res);
             }
         } else {
             /* FIXME PR 205276: we don't currently handle it: fall back on ldt, but
@@ -518,21 +518,20 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
              * into it.
              */
             /* Base here must be 32-bit */
-            IF_X64(ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) &&
-                          segment <= (byte*)UINT_MAX));
+            IF_X64(
+                ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) && segment <= (byte *)UINT_MAX));
             initialize_ldt_struct(&desc, segment, PAGE_SIZE, tls_gdt_index);
             res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-            LOG(GLOBAL, LOG_THREADS, 3,
-                "%s: set_thread_area %d => %d res, %d index\n",
+            LOG(GLOBAL, LOG_THREADS, 3, "%s: set_thread_area %d => %d res, %d index\n",
                 __FUNCTION__, tls_gdt_index, res, desc.entry_number);
             ASSERT(res < 0 || desc.entry_number == tls_gdt_index);
         } else {
-            res = -1;  /* fall back on LDT */
+            res = -1; /* fall back on LDT */
         }
 
         if (res >= 0) {
             LOG(GLOBAL, LOG_THREADS, 1,
-                "os_tls_init: set_thread_area successful for base "PFX" @index %d\n",
+                "os_tls_init: set_thread_area successful for base " PFX " @index %d\n",
                 segment, tls_gdt_index);
             os_tls->tls_type = TLS_TYPE_GDT;
             index = tls_gdt_index;
@@ -540,21 +539,18 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
             WRITE_DR_SEG(selector); /* macro needs lvalue! */
         } else {
             IF_VMX86(ASSERT_NOT_REACHED()); /* since no modify_ldt */
-            LOG(GLOBAL, LOG_THREADS, 1,
-                "os_tls_init: set_thread_area failed: error %d\n", res);
+            LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: set_thread_area failed: error %d\n",
+                res);
         }
 
-#ifdef CLIENT_INTERFACE
         /* Install the library TLS base. */
         if (INTERNAL_OPTION(private_loader) && res >= 0) {
             app_pc base = os_tls->os_seg_info.priv_lib_tls_base;
             /* lib_tls_gdt_index is picked in choose_gdt_slots. */
             ASSERT(lib_tls_gdt_index >= gdt_entry_tls_min);
-            initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT,
-                                  lib_tls_gdt_index);
+            initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT, lib_tls_gdt_index);
             res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-            LOG(GLOBAL, LOG_THREADS, 3,
-                "%s: set_thread_area %d => %d res, %d index\n",
+            LOG(GLOBAL, LOG_THREADS, 3, "%s: set_thread_area %d => %d res, %d index\n",
                 __FUNCTION__, lib_tls_gdt_index, res, desc.entry_number);
             if (res >= 0) {
                 /* i558 update lib seg reg to enforce the segment changes */
@@ -564,13 +560,12 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 WRITE_LIB_SEG(selector);
             }
         }
-#endif
     }
 
     if (os_tls->tls_type == TLS_TYPE_NONE) {
         /* Third choice: modify_ldt, which should be available on kernel 2.3.99+ */
         /* Base here must be 32-bit */
-        IF_X64(ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) && segment <= (byte*)UINT_MAX));
+        IF_X64(ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) && segment <= (byte *)UINT_MAX));
         /* we have the thread_initexit_lock so no race here */
         index = find_unused_ldt_index();
         selector = LDT_SELECTOR(index);
@@ -579,30 +574,74 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
         os_tls->tls_type = TLS_TYPE_LDT;
         WRITE_DR_SEG(selector); /* macro needs lvalue! */
         LOG(GLOBAL, LOG_THREADS, 1,
-            "os_tls_init: modify_ldt successful for base "PFX" w/ index %d\n",
-            segment, index);
+            "os_tls_init: modify_ldt successful for base " PFX " w/ index %d\n", segment,
+            index);
     }
 
     os_tls->ldt_index = index;
+}
+
+bool
+tls_thread_preinit()
+{
+#ifdef X64
+    /* i#3356: Write a non-zero value to the gs base to work around an AMD bug
+     * present on pre-4.7 Linux kernels.  See the call to this in our signal
+     * handler for more information.
+     */
+    if (proc_get_vendor() != VENDOR_AMD)
+        return true;
+    /* First identify a temp-native thread with a real segment in
+     * place but just an invalid .magic field.  We do not want to clobber the
+     * legitimate segment base in that case.
+     */
+    if (safe_read_tls_magic() == TLS_MAGIC_INVALID) {
+        os_local_state_t *tls = (os_local_state_t *)safe_read_tls_self();
+        if (tls != NULL &&
+            tls->state.spill_space.dcontext->owning_thread == get_sys_thread_id())
+            return true;
+    }
+    /* XXX: What about Mac on AMD?  Presumably by the time anyone wants to run
+     * that combination the Mac kernel will have fixed this if they haven't already.
+     */
+    /* We just don't have time to support non-arch_prctl and test it. */
+    if (tls_global_type != TLS_TYPE_ARCH_PRCTL) {
+        ASSERT_BUG_NUM(3356, tls_global_type == TLS_TYPE_ARCH_PRCTL);
+        return false;
+    }
+    int res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NON_ZERO_UNINIT_GSBASE);
+    LOG(GLOBAL, LOG_THREADS, 1,
+        "%s: set non-zero pre-init gs base for thread " TIDFMT "\n", __FUNCTION__,
+        get_sys_thread_id());
+    return res == 0;
+#else
+    return true;
+#endif
 }
 
 /* i#2089: we skip this for non-detach */
 void
 tls_thread_free(tls_type_t tls_type, int index)
 {
+    /* XXX i#107 (and i#2088): We need to restore the segment base the
+     * app was using when we detach, instead of just clearing.
+     */
     if (tls_type == TLS_TYPE_LDT)
         clear_ldt_entry(index);
     else if (tls_type == TLS_TYPE_GDT) {
         our_modify_ldt_t desc;
         clear_ldt_struct(&desc, index);
-        DEBUG_DECLARE(int res = )
-            dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+        DEBUG_DECLARE(int res =)
+        dynamorio_syscall(SYS_set_thread_area, 1, &desc);
         ASSERT(res >= 0);
     }
 #ifdef X64
     else if (tls_type == TLS_TYPE_ARCH_PRCTL) {
-        DEBUG_DECLARE(int res = )
-            dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NULL);
+        byte *restore_base =
+            /* i#3356: We need a non-zero value for AMD */
+            (proc_get_vendor() == VENDOR_AMD) ? (byte *)NON_ZERO_UNINIT_GSBASE : NULL;
+        DEBUG_DECLARE(int res =)
+        dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, restore_base);
         ASSERT(res >= 0);
         /* syscall re-sets gs register so caller must re-clear it */
     }
@@ -618,11 +657,11 @@ tls_get_fs_gs_segment_base(uint seg)
 #ifdef X86
     uint selector = read_thread_register(seg);
     uint index = SELECTOR_INDEX(selector);
-    LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
-        __func__, selector, index, TEST(SELECTOR_IS_LDT, selector));
+    LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n", __func__,
+        selector, index, TEST(SELECTOR_IS_LDT, selector));
 
     if (seg != SEG_FS && seg != SEG_GS)
-        return (byte *) POINTER_MAX;
+        return (byte *)POINTER_MAX;
 
     if (TEST(SELECTOR_IS_LDT, selector)) {
         LOG(THREAD_GET, LOG_THREADS, 4, "selector is LDT\n");
@@ -633,17 +672,16 @@ tls_get_fs_gs_segment_base(uint seg)
         byte *base;
         memset(ldt, 0, sizeof(*ldt));
         bytes = modify_ldt_syscall(0, (void *)ldt, sz);
-        base = (byte *)(ptr_uint_t) LDT_BASE(&ldt[index]);
+        base = (byte *)(ptr_uint_t)LDT_BASE(&ldt[index]);
         global_heap_free(ldt, sz HEAPACCT(ACCT_OTHER));
         if (bytes == sz) {
-            LOG(THREAD_GET, LOG_THREADS, 4,
-                "modify_ldt %d => %x\n", index, base);
+            LOG(THREAD_GET, LOG_THREADS, 4, "modify_ldt %d => %x\n", index, base);
             return base;
         }
     } else {
         our_modify_ldt_t desc;
         int res;
-# ifdef X64
+#    ifdef X64
         byte *base;
         if (running_on_WSL()) {
             /* i#1986: arch_prctl queries fail, so we try to read from the
@@ -653,40 +691,39 @@ tls_get_fs_gs_segment_base(uint seg)
                 base = safe_read_tls_self();
             else
                 base = safe_read_tls_app_self();
-            LOG(THREAD_GET, LOG_THREADS, 4,
-                "safe read of self %s => "PFX"\n", reg_names[seg], base);
+            LOG(THREAD_GET, LOG_THREADS, 4, "safe read of self %s => " PFX "\n",
+                reg_names[seg], base);
             return base;
         }
         res = dynamorio_syscall(SYS_arch_prctl, 2,
                                 (seg == SEG_FS ? ARCH_GET_FS : ARCH_GET_GS), &base);
         if (res >= 0) {
-            LOG(THREAD_GET, LOG_THREADS, 4,
-                "arch_prctl %s => "PFX"\n", reg_names[seg], base);
+            LOG(THREAD_GET, LOG_THREADS, 4, "arch_prctl %s => " PFX "\n", reg_names[seg],
+                base);
             return base;
         }
         /* else fall back on get_thread_area */
-# endif /* X64 */
+#    endif /* X64 */
         if (selector == 0)
             return NULL;
         DOCHECKINT(1, {
-                uint max_idx =
-                    IF_VMX86_ELSE(tls_gdt_index,
-                                  (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
-                ASSERT_CURIOSITY(index <= max_idx && index >= (max_idx - 2));
-            });
+            uint max_idx =
+                IF_VMX86_ELSE(tls_gdt_index, (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
+            ASSERT_CURIOSITY(index <= max_idx && index >= (max_idx - 2));
+        });
         initialize_ldt_struct(&desc, NULL, 0, index);
         res = dynamorio_syscall(SYS_get_thread_area, 1, &desc);
         if (res >= 0) {
-            LOG(THREAD_GET, LOG_THREADS, 4,
-                "get_thread_area %d => %x\n", index, desc.base_addr);
-            return (byte *)(ptr_uint_t) desc.base_addr;
+            LOG(THREAD_GET, LOG_THREADS, 4, "get_thread_area %d => %x\n", index,
+                desc.base_addr);
+            return (byte *)(ptr_uint_t)desc.base_addr;
         }
     }
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_REACHED();
 #endif /* X86/ARM */
-    return (byte *) POINTER_MAX;
+    return (byte *)POINTER_MAX;
 }
 
 /* Assumes it's passed either SEG_FS or SEG_GS.
@@ -704,14 +741,14 @@ tls_set_fs_gs_segment_base(tls_type_t tls_type, uint seg,
     if (seg != SEG_FS && seg != SEG_GS)
         return false;
     switch (tls_type) {
-# ifdef X64
+#    ifdef X64
     case TLS_TYPE_ARCH_PRCTL: {
         int prctl_code = (seg == SEG_FS ? ARCH_SET_FS : ARCH_SET_GS);
         res = dynamorio_syscall(SYS_arch_prctl, 2, prctl_code, base);
         ASSERT(res >= 0);
         break;
     }
-# endif
+#    endif
     case TLS_TYPE_GDT: {
         res = dynamorio_syscall(SYS_set_thread_area, 1, desc);
         ASSERT(res >= 0);
@@ -827,10 +864,9 @@ os_set_dr_seg(dcontext_t *dcontext, reg_id_t seg)
 {
     int res;
     os_thread_data_t *ostd = dcontext->os_field;
-    res = dynamorio_syscall(SYS_arch_prctl, 2,
-                            seg == SEG_GS ? ARCH_SET_GS : ARCH_SET_FS,
-                            seg == SEG_GS ?
-                            ostd->priv_alt_tls_base : ostd->priv_lib_tls_base);
+    res = dynamorio_syscall(SYS_arch_prctl, 2, seg == SEG_GS ? ARCH_SET_GS : ARCH_SET_FS,
+                            seg == SEG_GS ? ostd->priv_alt_tls_base
+                                          : ostd->priv_lib_tls_base);
     ASSERT(res >= 0);
 }
 
@@ -842,16 +878,16 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     os_local_state_t *os_tls = get_os_tls();
     switch (code) {
     case ARCH_SET_FS: {
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (INTERNAL_OPTION(private_loader)) {
             os_thread_data_t *ostd;
             our_modify_ldt_t *desc;
             /* update new value set by app */
             if (TLS_REG_LIB == SEG_FS) {
                 os_tls->app_lib_tls_reg = read_thread_register(SEG_FS);
-                os_tls->app_lib_tls_base = (void *) base;
+                os_tls->app_lib_tls_base = (void *)base;
             } else {
                 os_tls->app_alt_tls_reg = read_thread_register(SEG_FS);
-                os_tls->app_alt_tls_base = (void *) base;
+                os_tls->app_alt_tls_base = (void *)base;
             }
             /* update the app_thread_areas */
             ostd = (os_thread_data_t *)dcontext->os_field;
@@ -864,9 +900,8 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         break;
     }
     case ARCH_GET_FS: {
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            safe_write_ex((void *)base, sizeof(void *),
-                          &os_tls->app_lib_tls_base, NULL);
+        if (INTERNAL_OPTION(private_loader)) {
+            safe_write_ex((void *)base, sizeof(void *), &os_tls->app_lib_tls_base, NULL);
         }
         break;
     }
@@ -876,10 +911,10 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         /* update new value set by app */
         if (TLS_REG_LIB == SEG_GS) {
             os_tls->app_lib_tls_reg = read_thread_register(SEG_GS);
-            os_tls->app_lib_tls_base = (void *) base;
+            os_tls->app_lib_tls_base = (void *)base;
         } else {
             os_tls->app_alt_tls_reg = read_thread_register(SEG_GS);
-            os_tls->app_alt_tls_base = (void *) base;
+            os_tls->app_alt_tls_base = (void *)base;
         }
         /* update the app_thread_areas */
         ostd = (os_thread_data_t *)dcontext->os_field;
@@ -891,8 +926,7 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         break;
     }
     case ARCH_GET_GS: {
-        safe_write_ex((void*)base, sizeof(void *),
-                      &os_tls->app_alt_tls_base, NULL);
+        safe_write_ex((void *)base, sizeof(void *), &os_tls->app_alt_tls_base, NULL);
         break;
     }
     default: {
@@ -901,8 +935,8 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     }
     } /* switch (dcontext->sys_param0) */
     LOG(THREAD_GET, LOG_THREADS, 2,
-        "thread "TIDFMT" segment change => app lib tls base: "PFX", "
-        "alt tls base: "PFX"\n",
-        get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
+        "thread " TIDFMT " segment change => app lib tls base: " PFX ", "
+        "alt tls base: " PFX "\n",
+        d_r_get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
 }
 #endif /* X64 */

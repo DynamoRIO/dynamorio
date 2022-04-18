@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,7 +58,7 @@
  */
 
 #ifdef WINDOWS
-# define _CRT_SECURE_NO_DEPRECATE 1
+#    define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
 /* We use the DR API's mutex and heap whether as a client utility library
@@ -70,21 +70,21 @@
 
 #include <windows.h>
 #include <dbghelp.h>
-#include <stdio.h> /* _vsnprintf */
+#include <stdio.h>  /* _vsnprintf */
 #include <stddef.h> /* offsetof */
 
 /* We use the Container Extension's hashtable */
 #include "hashtable.h"
 
 #include "drsyms.h"
-#include "wininc/dia2.h"  /* for BasicType and SymTagEnum */
+#include "wininc/dia2.h" /* for BasicType and SymTagEnum */
 
 #include "dbghelp_imports.h"
 
 #ifdef DEBUG
-# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #else
-# define ASSERT(x, msg) /* nothing */
+#    define ASSERT(x, msg) /* nothing */
 #endif
 
 #if _MSC_VER <= 1400 /* VS2005- */
@@ -92,48 +92,31 @@
  * This is present in dbghelp.dll 6.0+ which we already say we require.
  */
 DWORD64 IMAGEAPI
-SymLoadModuleExW(__in HANDLE hProcess,
-                 __in_opt HANDLE hFile,
-                 __in_opt PCWSTR ImageName,
-                 __in_opt PCWSTR ModuleName,
-                 __in DWORD64 BaseOfDll,
-                 __in DWORD DllSize,
-                 __in_opt PMODLOAD_DATA Data,
-                 __in_opt DWORD Flags);
+SymLoadModuleExW(__in HANDLE hProcess, __in_opt HANDLE hFile, __in_opt PCWSTR ImageName,
+                 __in_opt PCWSTR ModuleName, __in DWORD64 BaseOfDll, __in DWORD DllSize,
+                 __in_opt PMODLOAD_DATA Data, __in_opt DWORD Flags);
 
 BOOL IMAGEAPI
-SymGetLineFromAddrW64(__in HANDLE hProcess,
-                      __in DWORD64 dwAddr,
-                      __out PDWORD pdwDisplacement,
-                      __out PIMAGEHLP_LINEW64 Line);
+SymGetLineFromAddrW64(__in HANDLE hProcess, __in DWORD64 dwAddr,
+                      __out PDWORD pdwDisplacement, __out PIMAGEHLP_LINEW64 Line);
 #endif
 
 /* SymSearch is not present in VS2005sp1 headers */
-typedef BOOL (__stdcall *func_SymSearch_t)
-    (__in HANDLE hProcess,
-     __in ULONG64 BaseOfDll,
-     __in_opt DWORD Index,
-     __in_opt DWORD SymTag,
-     __in_opt PCSTR Mask,
-     __in_opt DWORD64 Address,
-     __in PSYM_ENUMERATESYMBOLS_CALLBACK EnumSymbolsCallback,
-     __in_opt PVOID UserContext,
-     __in DWORD Options);
+typedef BOOL(__stdcall *func_SymSearch_t)(
+    __in HANDLE hProcess, __in ULONG64 BaseOfDll, __in_opt DWORD Index,
+    __in_opt DWORD SymTag, __in_opt PCSTR Mask, __in_opt DWORD64 Address,
+    __in PSYM_ENUMERATESYMBOLS_CALLBACK EnumSymbolsCallback, __in_opt PVOID UserContext,
+    __in DWORD Options);
 /* only valid for dbghelp 6.6+ */
 #ifndef SYMSEARCH_ALLITEMS
-# define SYMSEARCH_ALLITEMS 0x08
+#    define SYMSEARCH_ALLITEMS 0x08
 #endif
 
 /* SymGetSymbolFile is not present in VS2005sp1 headers */
-typedef BOOL (__stdcall *func_SymGetSymbolFileW_t)
-    (__in_opt HANDLE hProcess,
-     __in_opt PCWSTR SymPath,
-     __in PCWSTR ImageFile,
-     __in DWORD Type,
-     __out_ecount(cSymbolFile) PWSTR SymbolFile,
-     __in size_t cSymbolFile,
-     __out_ecount(cDbgFile) PWSTR DbgFile,
-     __in size_t cDbgFile);
+typedef BOOL(__stdcall *func_SymGetSymbolFileW_t)(
+    __in_opt HANDLE hProcess, __in_opt PCWSTR SymPath, __in PCWSTR ImageFile,
+    __in DWORD Type, __out_ecount(cSymbolFile) PWSTR SymbolFile, __in size_t cSymbolFile,
+    __out_ecount(cDbgFile) PWSTR DbgFile, __in size_t cDbgFile);
 
 typedef struct _mod_entry_t {
     /* whether to use pecoff table + unix-style debug info, or use dbghelp */
@@ -142,6 +125,7 @@ typedef struct _mod_entry_t {
         void *pecoff_data;
         DWORD64 load_base; /* for dbghelp */
     } u;
+    uint64 size;
 } mod_entry_t;
 
 /* All dbghelp routines are un-synchronized so we provide our own synch.
@@ -180,7 +164,7 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags);
 static void
 modtable_entry_free(void *p)
 {
-    mod_entry_t *mod = (mod_entry_t *) p;
+    mod_entry_t *mod = (mod_entry_t *)p;
     if (mod->use_pecoff_symtable)
         drsym_unix_unload(mod->u.pecoff_data);
     else
@@ -207,7 +191,7 @@ drsym_init(const wchar_t *shmid_in)
          */
     } else {
         hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING_NOCASE,
-                          true/*strdup*/, false/*!synch: using symbol_lock*/,
+                          true /*strdup*/, false /*!synch: using symbol_lock*/,
                           modtable_entry_free, NULL, NULL);
 
         /* FIXME i#601: We'd like to honor the mangling flags passed to each
@@ -275,29 +259,19 @@ query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
     if (SymGetModuleInfoW64(proc, base, &info)) {
         kind = 0;
         switch (info.SymType) {
-        case SymNone:
-            NOTIFY("No symbols found\n");
-            break;
-        case SymExport:
-            NOTIFY("Only export symbols found\n");
-            break;
+        case SymNone: NOTIFY("No symbols found\n"); break;
+        case SymExport: NOTIFY("Only export symbols found\n"); break;
         case SymPdb:
             NOTIFY("Loaded pdb symbols from %S\n", info.LoadedPdbName);
             kind |= DRSYM_SYMBOLS | DRSYM_PDB;
             break;
-        case SymDeferred:
-            NOTIFY("Symbol load deferred\n");
-            break;
+        case SymDeferred: NOTIFY("Symbol load deferred\n"); break;
         case SymCoff:
         case SymCv:
         case SymSym:
         case SymVirtual:
-        case SymDia:
-            NOTIFY("Symbols in image file loaded\n");
-            break;
-        default:
-            NOTIFY("Symbols in unknown format.\n");
-            break;
+        case SymDia: NOTIFY("Symbols in image file loaded\n"); break;
+        default: NOTIFY("Symbols in unknown format.\n"); break;
         }
 
         if (info.LineNumbers) {
@@ -322,18 +296,18 @@ query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
 static size_t
 module_image_size(void *modbase)
 {
-    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) modbase;
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)modbase;
     IMAGE_NT_HEADERS *nt;
     if (dos->e_magic != IMAGE_DOS_SIGNATURE)
         return 0;
-    nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
+    nt = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos) + dos->e_lfanew);
     if (nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
         return 0;
     return nt->OptionalHeader.SizeOfImage;
 }
 
 static DWORD64
-load_module(HANDLE proc, const char *path)
+load_module(HANDLE proc, const char *path, OUT uint64 *size_out)
 {
     DWORD64 base, loaded_base;
     DWORD64 size;
@@ -367,7 +341,7 @@ load_module(HANDLE proc, const char *path)
         return 0;
     ok = dr_file_size(f, &map_size);
     if (ok) {
-        actual_size = (size_t) map_size;
+        actual_size = (size_t)map_size;
         if (actual_size != map_size) { /* overflow check */
             NOTIFY("Overflow on module %s size", path);
             return 0;
@@ -381,6 +355,8 @@ load_module(HANDLE proc, const char *path)
         return 0;
     }
     size = module_image_size(map);
+    if (size_out != NULL)
+        *size_out = size;
     dr_unmap_file(map, actual_size);
     dr_close_file(f);
 
@@ -393,7 +369,7 @@ load_module(HANDLE proc, const char *path)
 
     do {
         loaded_base = SymLoadModuleExW(GetCurrentProcess(), NULL, wpath, NULL, base,
-                                       (DWORD)size/*should check trunc*/, NULL, 0);
+                                       (DWORD)size /*should check trunc*/, NULL, 0);
         err = GetLastError();
         /* dbghelp will return 0 on already-loaded (documented behavior) or
          * if passed-in base is 0 and module has preferred base of 0 -- though
@@ -401,7 +377,7 @@ load_module(HANDLE proc, const char *path)
          * accept a 0 base!  Xref i#1169..
          */
         if (loaded_base == 0) {
-            if (err == ERROR_SUCCESS && base != 0/*else can't recover: see above*/) {
+            if (err == ERROR_SUCCESS && base != 0 /*else can't recover: see above*/) {
                 /* We can't unload (gives ERROR_INVALID_PARAMETER) so we load again */
 #ifdef DEBUG
                 char *ext = strrchr(path, '.');
@@ -425,7 +401,7 @@ load_module(HANDLE proc, const char *path)
         break;
     } while (true);
 
-    next_load += ALIGN_FORWARD(size, 64*1024);
+    next_load += ALIGN_FORWARD(size, 64 * 1024);
 
     if (verbose) {
         NOTIFY("loaded %s at 0x%I64x\n", path, base);
@@ -446,7 +422,7 @@ unload_module(HANDLE proc, DWORD64 base)
 static mod_entry_t *
 lookup_or_load(const char *modpath, bool use_dbghelp)
 {
-    mod_entry_t *mod = (mod_entry_t *) hashtable_lookup(&modtable, (void *)modpath);
+    mod_entry_t *mod = (mod_entry_t *)hashtable_lookup(&modtable, (void *)modpath);
     if (mod == NULL) {
         mod = dr_global_alloc(sizeof(*mod));
         memset(mod, 0, sizeof(*mod));
@@ -456,7 +432,7 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
             /* If no pecoff, use dbghelp */
             if (use_dbghelp) {
                 mod->use_pecoff_symtable = false;
-                mod->u.load_base = load_module(GetCurrentProcess(), modpath);
+                mod->u.load_base = load_module(GetCurrentProcess(), modpath, &mod->size);
             }
             if (mod->u.load_base == 0) {
                 dr_global_free(mod, sizeof(*mod));
@@ -475,11 +451,11 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
  */
 
 /* SYMBOL_INFO.Name has 1 char in the struct */
-#define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
+#define NAME_EXTRA_SZ(full_sz) ((full_sz)-1)
 
 enum {
     /* MAX_SYM_NAME comes from dbghelp.h and is equal to 2000 */
-    SYMBOL_INFO_SIZE = (sizeof(SYMBOL_INFO) + NAME_EXTRA_SZ(MAX_SYM_NAME*sizeof(TCHAR)))
+    SYMBOL_INFO_SIZE = (sizeof(SYMBOL_INFO) + NAME_EXTRA_SZ(MAX_SYM_NAME * sizeof(TCHAR)))
 };
 
 #define OPERATOR "operator"
@@ -510,13 +486,11 @@ detemplatize(char *dst OUT, size_t dst_sz, const char *src, size_t *dst_written 
             just_copy = false;
         else if (*c == '<') {
             /* Look for "operator<<" */
-            if (in_template == 0 &&
-                *(c+1) == '<' &&
+            if (in_template == 0 && *(c + 1) == '<' &&
                 /* To support in-buffer, any time we look backward we have
                  * to look at dst and not src
                  */
-                d - dst > LEN_OPERATOR &&
-                *(d-1) == 'r' && /* quick check */
+                d - dst > LEN_OPERATOR && *(d - 1) == 'r' && /* quick check */
                 strncmp(d - LEN_OPERATOR, OPERATOR, LEN_OPERATOR) == 0) {
                 /* We've hit an "operator<<" corner case.  We need two walks
                  * from here to the end.  We go with a quick walk now for code
@@ -545,14 +519,14 @@ detemplatize(char *dst OUT, size_t dst_sz, const char *src, size_t *dst_written 
                 } else if (count == 1) {
                     /* "operator<<" */
                     just_copy = true; /* just copy 2nd < */
-                } else /* malformed input */
+                } else                /* malformed input */
                     return DRSYM_ERROR;
-            } else if (*(c+1) != '=' && /* rule out "operator<=" */
+            } else if (*(c + 1) != '=' && /* rule out "operator<=" */
                        /* Rule out <> used in identifiers, such as in
                         * "<CrtImplementationDetails>::NativeDll::ProcessAttach"
                         * (constructed for MSCRT via __identifier).
                         */
-                       c != src && *(d-1) != ':')
+                       c != src && *(d - 1) != ':')
                 in_template++;
         } else if (in_template > 0 && *c == '>') {
             if (in_template == 0)
@@ -613,20 +587,18 @@ fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
                    bool set_debug_kind, uint flags)
 {
     drsym_error_t res = DRSYM_SUCCESS;
-    if (set_debug_kind &&
-        !query_available(GetCurrentProcess(), base, &out->debug_kind)) {
+    if (set_debug_kind && !query_available(GetCurrentProcess(), base, &out->debug_kind)) {
         out->debug_kind = 0;
     }
-    out->start_offs = (size_t) (info->Address - base);
-    out->end_offs = (size_t) ((info->Address + info->Size) - base);
-    out->name_available_size = info->NameLen*sizeof(char);
+    out->start_offs = (size_t)(info->Address - base);
+    out->end_offs = (size_t)((info->Address + info->Size) - base);
+    out->name_available_size = info->NameLen * sizeof(char);
     out->type_id = info->TypeIndex;
     if (out->name != NULL) {
         /* We don't check for DRSYM_DEMANGLE b/c that's always implied for PDB */
-        if (TESTANY(DRSYM_DEMANGLE_FULL|DRSYM_DEMANGLE_PDB_TEMPLATES, flags) ||
+        if (TESTANY(DRSYM_DEMANGLE_FULL | DRSYM_DEMANGLE_PDB_TEMPLATES, flags) ||
             /* On failure to detemplatize we fall back to straight copy */
-            detemplatize(out->name, out->name_size, info->Name, NULL) !=
-            DRSYM_SUCCESS)
+            detemplatize(out->name, out->name_size, info->Name, NULL) != DRSYM_SUCCESS)
             strncpy(out->name, info->Name, out->name_size);
         out->name[out->name_size - 1] = '\0';
     }
@@ -640,8 +612,8 @@ fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
 }
 
 static drsym_error_t
-drsym_lookup_address_local(const char *modpath, size_t modoffs,
-                           drsym_info_t *out INOUT, uint flags)
+drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *out INOUT,
+                           uint flags)
 {
     mod_entry_t *mod;
     DWORD64 base;
@@ -659,7 +631,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         return DRSYM_ERROR_INVALID_SIZE;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    mod = lookup_or_load(modpath, true /*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -684,7 +656,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
             dr_recurlock_unlock(symbol_lock);
             return res;
         }
-        NOTIFY("Symbol 0x%I64x => %s+0x%x (0x%I64x-0x%I64x)\n", base+modoffs, out->name,
+        NOTIFY("Symbol 0x%I64x => %s+0x%x (0x%I64x-0x%I64x)\n", base + modoffs, out->name,
                disp, info->Address, info->Address + info->Size);
     } else {
         NOTIFY("SymFromAddr error %d\n", GetLastError());
@@ -697,7 +669,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     line.SizeOfStruct = sizeof(line);
     if (SymGetLineFromAddrW64(GetCurrentProcess(), base + modoffs, &line_disp, &line)) {
         NOTIFY("%S:%u+0x%x\n", line.FileName, line.LineNumber, line_disp);
-        out->file_available_size = wcslen(line.FileName)*sizeof(wchar_t);
+        out->file_available_size = wcslen(line.FileName) * sizeof(wchar_t);
         if (out->file != NULL) {
             /* Convert the wide filename to UTF-8 (i#1085).
              * MSDN docs imply that FileName is reused on subsequent
@@ -725,8 +697,8 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
 }
 
 static drsym_error_t
-drsym_lookup_symbol_local(const char *modpath, const char *symbol,
-                          size_t *modoffs OUT, uint flags)
+drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modoffs OUT,
+                          uint flags)
 {
     mod_entry_t *mod;
     drsym_error_t r;
@@ -736,7 +708,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    mod = lookup_or_load(modpath, true /*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -753,9 +725,17 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
      */
     info = alloc_symbol_info();
     if (SymFromName(GetCurrentProcess(), (char *)symbol, info)) {
-        NOTIFY("0x%I64x\n", info->Address);
-        *modoffs = (size_t) (info->Address - mod->u.load_base);
-        r = DRSYM_SUCCESS;
+        /* i#4153: Sometimes SymFromName returns a bogus address outside the library! */
+        if (info->Address < mod->u.load_base ||
+            info->Address >= mod->u.load_base + mod->size) {
+            NOTIFY("SymFromName => 0x%I64x outside module bounds 0x%I64x-0x%I64x\n",
+                   info->Address, mod->u.load_base, mod->u.load_base + mod->size);
+            r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
+        } else {
+            NOTIFY("%s => 0x%I64x\n", __FUNCTION__, info->Address);
+            *modoffs = (size_t)(info->Address - mod->u.load_base);
+            r = DRSYM_SUCCESS;
+        }
     } else {
         NOTIFY("SymFromName error %d %s\n", GetLastError(), symbol);
         r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
@@ -778,10 +758,10 @@ typedef struct _enum_info_t {
 static BOOL CALLBACK
 enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context)
 {
-    enum_info_t *info = (enum_info_t *) Context;
+    enum_info_t *info = (enum_info_t *)Context;
     info->found_match = true;
     if (info->cb_ex != NULL) {
-        if (pSymInfo->NameLen*sizeof(char) > info->out->name_size) {
+        if (pSymInfo->NameLen * sizeof(char) > info->out->name_size) {
             /* We're using MAX_SYM_NAME so this shouldn't happen.  If it turns
              * out it can happen we should realloc here.
              */
@@ -793,22 +773,21 @@ enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context)
          * b/c none of the search/enum routines return it: it has to be looked
          * up from the addr, which is not good enough.
          */
-        return (BOOL) (*info->cb_ex)(info->out, DRSYM_ERROR_LINE_NOT_AVAILABLE,
-                                     info->data);
+        return (BOOL)(*info->cb_ex)(info->out, DRSYM_ERROR_LINE_NOT_AVAILABLE,
+                                    info->data);
     } else {
         /* XXX: we do this in place, but it's dbghelp's buffer -- we assume
          * it's dead space at this point.
          */
         /* We don't check for DRSYM_DEMANGLE b/c that's always implied for PDB */
-        if (!TESTANY(DRSYM_DEMANGLE_FULL|DRSYM_DEMANGLE_PDB_TEMPLATES, info->flags)) {
-            if (detemplatize(pSymInfo->Name, pSymInfo->MaxNameLen, pSymInfo->Name, NULL)
-                != DRSYM_SUCCESS) {
+        if (!TESTANY(DRSYM_DEMANGLE_FULL | DRSYM_DEMANGLE_PDB_TEMPLATES, info->flags)) {
+            if (detemplatize(pSymInfo->Name, pSymInfo->MaxNameLen, pSymInfo->Name,
+                             NULL) != DRSYM_SUCCESS) {
                 /* XXX: we can't do much about it so we carry on */
             }
         }
-        return (BOOL) (*info->cb)(pSymInfo->Name,
-                                  (size_t) (pSymInfo->Address - info->base),
-                                  info->data);
+        return (BOOL)(*info->cb)(pSymInfo->Name, (size_t)(pSymInfo->Address - info->base),
+                                 info->data);
     }
 }
 
@@ -825,16 +804,15 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    mod = lookup_or_load(modpath, true /*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
     }
     recursive_context = true;
     if (mod->use_pecoff_symtable) {
-        drsym_error_t symerr =
-            drsym_unix_enumerate_symbols(mod->u.pecoff_data, callback, callback_ex,
-                                         info_size, data, flags);
+        drsym_error_t symerr = drsym_unix_enumerate_symbols(
+            mod->u.pecoff_data, callback, callback_ex, info_size, data, flags);
         recursive_context = false;
         dr_recurlock_unlock(symbol_lock);
         return symerr;
@@ -845,9 +823,9 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
     if (info.cb_ex != NULL) {
         if (info_size != sizeof(drsym_info_t))
             return DRSYM_ERROR_INVALID_SIZE;
-        info.out = (drsym_info_t *) dr_global_alloc(info_size);
+        info.out = (drsym_info_t *)dr_global_alloc(info_size);
         info.out->struct_size = info_size;
-        info.out->name = (char *) dr_global_alloc(MAX_SYM_NAME);
+        info.out->name = (char *)dr_global_alloc(MAX_SYM_NAME);
         info.out->name_size = MAX_SYM_NAME;
         if (!query_available(GetCurrentProcess(), mod->u.load_base,
                              &info.out->debug_kind))
@@ -864,7 +842,7 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
     info.base = mod->u.load_base;
     info.found_match = false;
     if (!SymEnumSymbols(GetCurrentProcess(), mod->u.load_base, match, enum_cb,
-                        (PVOID) &info)) {
+                        (PVOID)&info)) {
         NOTIFY("SymEnumSymbols error %d\n", GetLastError());
     }
     if (info.out != NULL) {
@@ -884,9 +862,8 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
  */
 static drsym_error_t
 drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
-                           drsym_enumerate_cb callback,
-                           drsym_enumerate_ex_cb callback_ex, size_t info_size,
-                           void *data)
+                           drsym_enumerate_cb callback, drsym_enumerate_ex_cb callback_ex,
+                           size_t info_size, void *data)
 {
     mod_entry_t *mod;
     drsym_error_t res = DRSYM_SUCCESS;
@@ -899,7 +876,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    mod = lookup_or_load(modpath, true /*use dbghelp*/);
     if (mod == NULL)
         res = DRSYM_ERROR_LOAD_FAILED;
     else if (mod->use_pecoff_symtable) {
@@ -915,13 +892,12 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
              */
             HMODULE hmod = GetModuleHandle("dbghelp.dll");
             if (hmod != NULL)
-                func = (func_SymSearch_t) GetProcAddress(hmod, "SymSearch");
+                func = (func_SymSearch_t)GetProcAddress(hmod, "SymSearch");
             if (func == NULL) {
                 dr_recurlock_unlock(symbol_lock);
                 /* fall back to slower enum */
                 return drsym_enumerate_symbols_local(modpath, match, callback,
-                                                     callback_ex, info_size, data,
-                                                     flags);
+                                                     callback_ex, info_size, data, flags);
             }
         }
         recursive_context = true;
@@ -930,9 +906,9 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
         if (info.cb_ex != NULL) {
             if (info_size != sizeof(drsym_info_t))
                 return DRSYM_ERROR_INVALID_SIZE;
-            info.out = (drsym_info_t *) dr_global_alloc(info_size);
+            info.out = (drsym_info_t *)dr_global_alloc(info_size);
             info.out->struct_size = info_size;
-            info.out->name = (char *) dr_global_alloc(MAX_SYM_NAME);
+            info.out->name = (char *)dr_global_alloc(MAX_SYM_NAME);
             info.out->name_size = MAX_SYM_NAME;
             info.out->file = NULL;
             info.out->file_size = 0;
@@ -944,8 +920,8 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
         info.flags = flags;
         info.data = data;
         info.base = mod->u.load_base;
-        if (!(*func)(GetCurrentProcess(), mod->u.load_base, 0, 0, match, 0,
-                     enum_cb, (PVOID) &info,
+        if (!(*func)(GetCurrentProcess(), mod->u.load_base, 0, 0, match, 0, enum_cb,
+                     (PVOID)&info,
                      TEST(DRSYM_FULL_SEARCH, flags) ? SYMSEARCH_ALLITEMS : 0)) {
             NOTIFY("SymSearch error %d\n", GetLastError());
             res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
@@ -971,20 +947,16 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
          * an option to control it other than UNDNAME_NAME_ONLY, which
          * suppresses overloads, which we want.
          */
-        undec_flags = (UNDNAME_COMPLETE |
-                       UNDNAME_NO_ALLOCATION_LANGUAGE |
-                       UNDNAME_NO_ALLOCATION_MODEL |
-                       UNDNAME_NO_MEMBER_TYPE |
-                       UNDNAME_NO_FUNCTION_RETURNS |
-                       UNDNAME_NO_ACCESS_SPECIFIERS |
+        undec_flags = (UNDNAME_COMPLETE | UNDNAME_NO_ALLOCATION_LANGUAGE |
+                       UNDNAME_NO_ALLOCATION_MODEL | UNDNAME_NO_MEMBER_TYPE |
+                       UNDNAME_NO_FUNCTION_RETURNS | UNDNAME_NO_ACCESS_SPECIFIERS |
                        UNDNAME_NO_MS_KEYWORDS);
     } else {
         /* i#587: this still expands templates, but we remove those below. */
         undec_flags = UNDNAME_NAME_ONLY;
     }
 
-    len = (size_t)UnDecorateSymbolName(mangled, dst, (DWORD)dst_sz,
-                                       undec_flags);
+    len = (size_t)UnDecorateSymbolName(mangled, dst, (DWORD)dst_sz, undec_flags);
 
     /* The truncation behavior is not documented, but testing shows dbghelp
      * truncates and returns the number of characters written, not how many it
@@ -993,7 +965,7 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
      * for.
      */
     if (len != 0 && len + 2 < dst_sz) {
-        if (!TESTANY(DRSYM_DEMANGLE_FULL|DRSYM_DEMANGLE_PDB_TEMPLATES, flags)) {
+        if (!TESTANY(DRSYM_DEMANGLE_FULL | DRSYM_DEMANGLE_PDB_TEMPLATES, flags)) {
             /* We do this in place. */
             if (detemplatize(dst, dst_sz, dst, &len) != DRSYM_SUCCESS) {
                 /* Revert to a raw copy */
@@ -1001,13 +973,13 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
                 return 0;
             }
         }
-        return len;  /* Success. */
+        return len; /* Success. */
     } else if (len == 0) {
         /* The docs say the contents of dst are undetermined, so we cannot rely
          * on it being truncated.
          */
         strncpy(dst, mangled, dst_sz);
-        dst[dst_sz-1] = '\0';
+        dst[dst_sz - 1] = '\0';
         NOTIFY("UnDecorateSymbolName error %d\n", GetLastError());
     } else if (len + 2 >= dst_sz) {
         NOTIFY("UnDecorateSymbolName overflowed\n");
@@ -1031,7 +1003,7 @@ typedef struct _enum_line_info_t {
 static BOOL CALLBACK
 enum_lines_cb(PSRCCODEINFO in, void *data)
 {
-    enum_line_info_t *enum_info = (enum_line_info_t *) data;
+    enum_line_info_t *enum_info = (enum_line_info_t *)data;
     drsym_line_info_t out;
     if (in->SizeOfStruct < sizeof(*in)) {
         /* Old dbghelp or something: bail */
@@ -1041,7 +1013,7 @@ enum_lines_cb(PSRCCODEINFO in, void *data)
     out.cu_name = in->Obj;
     out.file = in->FileName;
     out.line = in->LineNumber;
-    out.line_addr = (size_t) (in->Address - enum_info->base);
+    out.line_addr = (size_t)(in->Address - enum_info->base);
     if (!(*enum_info->cb)(&out, enum_info->data))
         return FALSE;
     else
@@ -1059,7 +1031,7 @@ drsym_enumerate_lines_local(const char *modpath, drsym_enumerate_lines_cb callba
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    mod = lookup_or_load(modpath, true /*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -1080,10 +1052,10 @@ drsym_enumerate_lines_local(const char *modpath, drsym_enumerate_lines_cb callba
     /* SymEnumSourceLines does not include compiler-provided files.
      * We assume the caller wants all files, so we use SymEnumLines.
      */
-    if (!SymEnumLines(GetCurrentProcess(), mod->u.load_base, NULL/*all*/,
-                      NULL/*all*/, enum_lines_cb, &info)) {
-       NOTIFY("SymEnumLines error %d\n", GetLastError());
-       info.success = DRSYM_ERROR_LINE_NOT_AVAILABLE;
+    if (!SymEnumLines(GetCurrentProcess(), mod->u.load_base, NULL /*all*/, NULL /*all*/,
+                      enum_lines_cb, &info)) {
+        NOTIFY("SymEnumLines error %d\n", GetLastError());
+        info.success = DRSYM_ERROR_LINE_NOT_AVAILABLE;
     }
     recursive_context = false;
 
@@ -1113,14 +1085,12 @@ static drsym_error_t
 make_unknown(type_query_t *query, drsym_type_t **type_out OUT);
 
 static bool
-get_type_info(DWORD64 base, ULONG type_idx, IMAGEHLP_SYMBOL_TYPE_INFO property,
-              void *arg)
+get_type_info(DWORD64 base, ULONG type_idx, IMAGEHLP_SYMBOL_TYPE_INFO property, void *arg)
 {
-    bool r = CAST_TO_bool(SymGetTypeInfo(GetCurrentProcess(), base, type_idx,
-                                         property, arg));
+    bool r =
+        CAST_TO_bool(SymGetTypeInfo(GetCurrentProcess(), base, type_idx, property, arg));
     if (verbose && !r) {
-        dr_fprintf(STDERR,
-                   "drsyms: Error %d getting property %d of type index %d\n",
+        dr_fprintf(STDERR, "drsyms: Error %d getting property %d of type index %d\n",
                    GetLastError(), (int)property, (int)type_idx);
     }
     return r;
@@ -1160,7 +1130,7 @@ decode_func_type(type_query_t *query, ULONG type_idx, uint expand_sub,
         return DRSYM_ERROR_NOMEM;
 
     func_type->type.kind = DRSYM_TYPE_FUNC;
-    func_type->type.size = 0;  /* Not valid. */
+    func_type->type.size = 0; /* Not valid. */
     func_type->type.id = type_idx;
     func_type->num_args = arg_count;
     if (!get_type_info(query->base, type_idx, TI_GET_TYPE, &ret_type_idx))
@@ -1170,9 +1140,8 @@ decode_func_type(type_query_t *query, ULONG type_idx, uint expand_sub,
         return r;
 
     if (expand && arg_count > 0) {
-        func_type->arg_types =
-            POOL_ALLOC_SIZE(&query->pool, drsym_type_t*,
-                            arg_count * sizeof(func_type->arg_types[0]));
+        func_type->arg_types = POOL_ALLOC_SIZE(
+            &query->pool, drsym_type_t *, arg_count * sizeof(func_type->arg_types[0]));
         if (func_type->arg_types == NULL)
             return DRSYM_ERROR_NOMEM;
         for (i = 0; i < children->Count; i++) {
@@ -1215,7 +1184,7 @@ static drsym_error_t
 decode_base_type(type_query_t *query, ULONG type_idx, uint expand_sub,
                  drsym_type_t **type_out OUT)
 {
-    DWORD base_type;  /* BasicType */
+    DWORD base_type; /* BasicType */
     bool is_signed;
     ULONG64 length;
     drsym_int_type_t *int_type;
@@ -1228,13 +1197,9 @@ decode_base_type(type_query_t *query, ULONG type_idx, uint expand_sub,
     case btWChar:
     case btUInt:
     case btBool:
-    case btULong:
-        is_signed = false;
-        break;
+    case btULong: is_signed = false; break;
     case btInt:
-    case btLong:
-        is_signed = true;
-        break;
+    case btLong: is_signed = true; break;
     case btVoid: {
         drsym_type_t *vtype = POOL_ALLOC(&query->pool, drsym_type_t);
         if (vtype == NULL)
@@ -1244,8 +1209,7 @@ decode_base_type(type_query_t *query, ULONG type_idx, uint expand_sub,
         *type_out = vtype;
         return DRSYM_SUCCESS;
     }
-    default:
-        return make_unknown(query, type_out);
+    default: return make_unknown(query, type_out);
     }
     if (!get_type_info(query->base, type_idx, TI_GET_LENGTH, &length))
         return DRSYM_ERROR;
@@ -1337,8 +1301,8 @@ decode_compound_type(type_query_t *query, ULONG type_idx, uint expand_sub,
             return DRSYM_ERROR;
     }
 
-    compound_type = POOL_ALLOC_SIZE(&query->pool, drsym_compound_type_t,
-                                    sizeof(*compound_type));
+    compound_type =
+        POOL_ALLOC_SIZE(&query->pool, drsym_compound_type_t, sizeof(*compound_type));
     if (compound_type == NULL)
         return DRSYM_ERROR_NOMEM;
     /* XXX: no idea how to distinguish class from struct from union.
@@ -1347,7 +1311,7 @@ decode_compound_type(type_query_t *query, ULONG type_idx, uint expand_sub,
     compound_type->type.kind = DRSYM_TYPE_COMPOUND;
     if (!get_type_info(query->base, type_idx, TI_GET_LENGTH, &length))
         return DRSYM_ERROR;
-    compound_type->type.size = (size_t) length;
+    compound_type->type.size = (size_t)length;
     compound_type->type.id = type_idx;
     compound_type->num_fields = field_count;
 
@@ -1356,8 +1320,8 @@ decode_compound_type(type_query_t *query, ULONG type_idx, uint expand_sub,
      */
     if (!get_type_info(query->base, type_idx, TI_GET_SYMNAME, &name))
         return DRSYM_ERROR;
-    compound_type->name = POOL_ALLOC_SIZE(&query->pool, char,
-                                          (wcslen(name) + 1) * sizeof(char));
+    compound_type->name =
+        POOL_ALLOC_SIZE(&query->pool, char, (wcslen(name) + 1) * sizeof(char));
     if (compound_type->name == NULL) {
         LocalFree(name);
         return DRSYM_ERROR;
@@ -1370,7 +1334,7 @@ decode_compound_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 
     if (expand && field_count > 0) {
         compound_type->field_types =
-            POOL_ALLOC_SIZE(&query->pool, drsym_type_t*,
+            POOL_ALLOC_SIZE(&query->pool, drsym_type_t *,
                             field_count * sizeof(compound_type->field_types[0]));
         if (compound_type->field_types == NULL)
             return DRSYM_ERROR_NOMEM;
@@ -1407,7 +1371,7 @@ static drsym_error_t
 decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
             drsym_type_t **type_out OUT)
 {
-    DWORD tag;  /* SymTagEnum */
+    DWORD tag; /* SymTagEnum */
     drsym_error_t res = DRSYM_ERROR;
 
     /* Avoid recursion.
@@ -1415,8 +1379,8 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
      * that the caller holds a big lock.  Thus we can
      * reference hashtable data after the lookup
      */
-    drsym_type_t *recurse = (drsym_type_t *)
-        hashtable_lookup(&query->type_map_table, (void *)(ptr_uint_t)type_idx);
+    drsym_type_t *recurse = (drsym_type_t *)hashtable_lookup(
+        &query->type_map_table, (void *)(ptr_uint_t)type_idx);
     if (recurse != NULL) {
         *type_out = recurse;
         return DRSYM_SUCCESS;
@@ -1429,16 +1393,15 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
     }
     if (verbose) {
         switch (tag) {
-        case SymTagFunctionType:    dr_fprintf(STDERR, "SymTagFunctionType\n"); break;
-        case SymTagPointerType:     dr_fprintf(STDERR, "SymTagPointerType\n");  break;
-        case SymTagBaseType:        dr_fprintf(STDERR, "SymTagBaseType\n");     break;
-        case SymTagTypedef:         dr_fprintf(STDERR, "SymTagTypedef\n");      break;
+        case SymTagFunctionType: dr_fprintf(STDERR, "SymTagFunctionType\n"); break;
+        case SymTagPointerType: dr_fprintf(STDERR, "SymTagPointerType\n"); break;
+        case SymTagBaseType: dr_fprintf(STDERR, "SymTagBaseType\n"); break;
+        case SymTagTypedef: dr_fprintf(STDERR, "SymTagTypedef\n"); break;
         case SymTagFunctionArgType: dr_fprintf(STDERR, "SymTagFunctionArgType\n"); break;
-        case SymTagUDT:             dr_fprintf(STDERR, "SymTagUDT\n"); break;
-        case SymTagData:            dr_fprintf(STDERR, "SymTagData\n"); break;
-        case SymTagFunction:        dr_fprintf(STDERR, "SymTagFunction\n"); break;
-        default:
-            dr_fprintf(STDERR, "unknown: %d\n", tag);
+        case SymTagUDT: dr_fprintf(STDERR, "SymTagUDT\n"); break;
+        case SymTagData: dr_fprintf(STDERR, "SymTagData\n"); break;
+        case SymTagFunction: dr_fprintf(STDERR, "SymTagFunction\n"); break;
+        default: dr_fprintf(STDERR, "unknown: %d\n", tag);
         }
     }
     switch (tag) {
@@ -1467,12 +1430,8 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
     case SymTagFunction:
         res = decode_arg_type(query, type_idx, expand_sub, type_out);
         break;
-    case SymTagData:
-        res = decode_arg_type(query, type_idx, expand_sub, type_out);
-        break;
-    default:
-        res = make_unknown(query, type_out);
-        break;
+    case SymTagData: res = decode_arg_type(query, type_idx, expand_sub, type_out); break;
+    default: res = make_unknown(query, type_out); break;
     }
     if (res == DRSYM_SUCCESS)
         hashtable_add(&query->type_map_table, (void *)(ptr_uint_t)type_idx, *type_out);
@@ -1541,10 +1500,9 @@ drsym_search_symbols(const char *modpath, const char *match, bool full,
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_search_symbols_local(modpath, match,
-                                          (full ? DRSYM_FULL_SEARCH : 0) |
-                                          DRSYM_DEFAULT_FLAGS,
-                                          callback, NULL, sizeof(drsym_info_t), data);
+        return drsym_search_symbols_local(
+            modpath, match, (full ? DRSYM_FULL_SEARCH : 0) | DRSYM_DEFAULT_FLAGS,
+            callback, NULL, sizeof(drsym_info_t), data);
     }
 }
 
@@ -1562,7 +1520,7 @@ drsym_search_symbols_ex(const char *modpath, const char *match, uint flags_in,
          * flags".
          */
         if (info_size == offsetof(drsym_info_t, flags)) {
-            bool full = (bool) flags_in;
+            bool full = (bool)flags_in;
             flags = (full ? DRSYM_FULL_SEARCH : 0) | DRSYM_DEFAULT_FLAGS;
         } else
             flags = flags_in;
@@ -1573,8 +1531,7 @@ drsym_search_symbols_ex(const char *modpath, const char *match, uint flags_in,
 
 DR_EXPORT
 size_t
-drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
-                      uint flags)
+drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
 {
     size_t r;
     dr_recurlock_lock(symbol_lock);
@@ -1593,8 +1550,8 @@ drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
  * Returns DRSYM_ERROR_SUCCESS or error.
  */
 static drsym_error_t
-drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand,
-                     char *buf, size_t buf_sz, drsym_type_t **type OUT)
+drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand, char *buf,
+                     size_t buf_sz, drsym_type_t **type OUT)
 {
     type_query_t query;
     drsym_error_t r;
@@ -1607,8 +1564,7 @@ drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand,
      * it seems simpler to just use a static data structure.
      */
     hashtable_init_ex(&query.type_map_table, TYPE_MAP_HASH_BITS, HASH_INTPTR,
-                      false/*!strdup*/, false/*!synch*/,
-                      NULL, NULL, NULL);
+                      false /*!strdup*/, false /*!synch*/, NULL, NULL, NULL);
 
     pool_init(&query.pool, buf, buf_sz);
     query.base = mod->u.load_base;
@@ -1624,10 +1580,8 @@ drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand,
  * modoffs and type_id should be used.
  */
 static drsym_error_t
-drsym_get_type_common(const char *modpath,
-                      bool have_type_id, size_t modoffs, uint type_id,
-                      uint levels_to_expand,
-                      char *buf, size_t buf_sz,
+drsym_get_type_common(const char *modpath, bool have_type_id, size_t modoffs,
+                      uint type_id, uint levels_to_expand, char *buf, size_t buf_sz,
                       drsym_type_t **expanded_type OUT)
 {
     mod_entry_t *mod;
@@ -1638,15 +1592,14 @@ drsym_get_type_common(const char *modpath,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    mod = lookup_or_load(modpath, true /*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
     }
     if (mod->use_pecoff_symtable) {
-        drsym_error_t symerr =
-            drsym_unix_expand_type(mod->u.pecoff_data, type_id, levels_to_expand,
-                                   buf, buf_sz, expanded_type);
+        drsym_error_t symerr = drsym_unix_expand_type(
+            mod->u.pecoff_data, type_id, levels_to_expand, buf, buf_sz, expanded_type);
         dr_recurlock_unlock(symbol_lock);
         return symerr;
     }
@@ -1675,8 +1628,7 @@ drsym_get_type_common(const char *modpath,
         free_symbol_info(info);
     }
 
-    r = drsym_get_type_by_id(mod, type_id, levels_to_expand, buf,
-                             buf_sz, expanded_type);
+    r = drsym_get_type_by_id(mod, type_id, levels_to_expand, buf, buf_sz, expanded_type);
 
     dr_recurlock_unlock(symbol_lock);
 
@@ -1685,11 +1637,11 @@ drsym_get_type_common(const char *modpath,
 
 DR_EXPORT
 drsym_error_t
-drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand,
-               char *buf, size_t buf_sz, drsym_type_t **type OUT)
+drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand, char *buf,
+               size_t buf_sz, drsym_type_t **type OUT)
 {
-    return drsym_get_type_common(modpath, false/*need to look up type index*/,
-                                 modoffs, 0, levels_to_expand, buf, buf_sz, type);
+    return drsym_get_type_common(modpath, false /*need to look up type index*/, modoffs,
+                                 0, levels_to_expand, buf, buf_sz, type);
 }
 
 DR_EXPORT
@@ -1704,7 +1656,7 @@ drsym_get_type_by_name(const char *modpath, const char *type_name, char *buf,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    mod = lookup_or_load(modpath, true /*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -1717,10 +1669,8 @@ drsym_get_type_by_name(const char *modpath, const char *type_name, char *buf,
     }
 
     info = alloc_symbol_info();
-    if (SymGetTypeFromName(GetCurrentProcess(), mod->u.load_base,
-        type_name, info)) {
-            r = drsym_get_type_by_id(mod, info->TypeIndex, 0, buf,
-                                     buf_sz, type);
+    if (SymGetTypeFromName(GetCurrentProcess(), mod->u.load_base, type_name, info)) {
+        r = drsym_get_type_by_id(mod, info->TypeIndex, 0, buf, buf_sz, type);
     } else {
         NOTIFY("SymGetTypeFromName error %d\n", GetLastError());
         r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
@@ -1732,14 +1682,14 @@ drsym_get_type_by_name(const char *modpath, const char *type_name, char *buf,
 
 DR_EXPORT
 drsym_error_t
-drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
-                    size_t buf_sz, drsym_func_type_t **func_type OUT)
+drsym_get_func_type(const char *modpath, size_t modoffs, char *buf, size_t buf_sz,
+                    drsym_func_type_t **func_type OUT)
 {
     /* Expand the function args, but none of the child function
      * or compound types.
      */
-    drsym_error_t r = drsym_get_type(modpath, modoffs, 1, buf, buf_sz,
-                                     (drsym_type_t **)func_type);
+    drsym_error_t r =
+        drsym_get_type(modpath, modoffs, 1, buf, buf_sz, (drsym_type_t **)func_type);
     if (r == DRSYM_SUCCESS && (*func_type)->type.kind != DRSYM_TYPE_FUNC)
         return DRSYM_ERROR;
     return r;
@@ -1754,12 +1704,11 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
  */
 DR_EXPORT
 drsym_error_t
-drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
-                  char *buf, size_t buf_sz,
-                  drsym_type_t **expanded_type OUT)
+drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand, char *buf,
+                  size_t buf_sz, drsym_type_t **expanded_type OUT)
 {
-    return drsym_get_type_common(modpath, true/*have type index*/,
-                                 0, type_id, levels_to_expand, buf, buf_sz,
+    return drsym_get_type_common(modpath, true /*have type index*/, 0, type_id,
+                                 levels_to_expand, buf, buf_sz,
                                  (drsym_type_t **)expanded_type);
 }
 
@@ -1777,7 +1726,7 @@ drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
             return DRSYM_ERROR_INVALID_PARAMETER;
 
         dr_recurlock_lock(symbol_lock);
-        mod = lookup_or_load(modpath, true/*use dbghelp*/);
+        mod = lookup_or_load(modpath, true /*use dbghelp*/);
         if (mod == NULL) {
             r = DRSYM_ERROR_LOAD_FAILED;
         } else if (mod->use_pecoff_symtable) {
@@ -1817,7 +1766,7 @@ drsym_module_has_symbols(const char *modpath)
         /* Unfortunately we have to load the file and check whether it's
          * PECOFF but our load is faster than dbghelp's load
          */
-        mod = lookup_or_load(modpath, false/*!use dbghelp*/);
+        mod = lookup_or_load(modpath, false /*!use dbghelp*/);
         if (mod == NULL) {
             r = DRSYM_ERROR_LOAD_FAILED;
         } else if (!mod->use_pecoff_symtable) {
@@ -1827,8 +1776,8 @@ drsym_module_has_symbols(const char *modpath)
                  */
                 HMODULE hmod = GetModuleHandle("dbghelp.dll");
                 if (hmod != NULL) {
-                    func = (func_SymGetSymbolFileW_t)
-                        GetProcAddress(hmod, "SymGetSymbolFileW");
+                    func = (func_SymGetSymbolFileW_t)GetProcAddress(hmod,
+                                                                    "SymGetSymbolFileW");
                 }
             }
             if (func != NULL) {
@@ -1845,9 +1794,9 @@ drsym_module_has_symbols(const char *modpath)
                  * since that would break binary compatibility).
                  */
 #define sfPdb 2
-                if ((*func)(GetCurrentProcess(), NULL, wmodpath, sfPdb,
-                            pdb_name, BUFFER_SIZE_ELEMENTS(pdb_name),
-                            pdb_path, BUFFER_SIZE_ELEMENTS(pdb_path))) {
+                if ((*func)(GetCurrentProcess(), NULL, wmodpath, sfPdb, pdb_name,
+                            BUFFER_SIZE_ELEMENTS(pdb_name), pdb_path,
+                            BUFFER_SIZE_ELEMENTS(pdb_path))) {
                     /* If we ever use the name/path, note that path seems to be
                      * empty while name has the full path (the docs seem to
                      * imply the opposite).

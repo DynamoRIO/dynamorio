@@ -39,31 +39,30 @@
 #include "rpcrt4_redir.h"
 
 #ifndef WINDOWS
-# error Windows-only
+#    error Windows-only
 #endif
 
 /* We use a hashtale for faster lookups than a linear walk */
 static strhash_table_t *rpcrt4_table;
 
 static const redirect_import_t redirect_rpcrt4[] = {
-    {"UuidCreate",                     (app_pc)redirect_UuidCreate},
+    { "UuidCreate", (app_pc)redirect_UuidCreate },
 };
-#define REDIRECT_RPCRT4_NUM (sizeof(redirect_rpcrt4)/sizeof(redirect_rpcrt4[0]))
+#define REDIRECT_RPCRT4_NUM (sizeof(redirect_rpcrt4) / sizeof(redirect_rpcrt4[0]))
 
 void
 rpcrt4_redir_init(void)
 {
     uint i;
     rpcrt4_table =
-        strhash_hash_create(GLOBAL_DCONTEXT,
-                            hashtable_num_bits(REDIRECT_RPCRT4_NUM*2),
+        strhash_hash_create(GLOBAL_DCONTEXT, hashtable_num_bits(REDIRECT_RPCRT4_NUM * 2),
                             80 /* load factor: not perf-critical, plus static */,
                             HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
                             NULL _IF_DEBUG("rpcrt4 redirection table"));
     TABLE_RWLOCK(rpcrt4_table, write, lock);
     for (i = 0; i < REDIRECT_RPCRT4_NUM; i++) {
         strhash_hash_add(GLOBAL_DCONTEXT, rpcrt4_table, redirect_rpcrt4[i].name,
-                         (void *) redirect_rpcrt4[i].func);
+                         (void *)redirect_rpcrt4[i].func);
     }
     TABLE_RWLOCK(rpcrt4_table, write, unlock);
 }
@@ -90,20 +89,19 @@ rpcrt4_redir_lookup(const char *name)
     return res;
 }
 
-
 RPC_STATUS RPC_ENTRY
-redirect_UuidCreate(__out UUID __RPC_FAR * Uuid)
+redirect_UuidCreate(__out UUID __RPC_FAR *Uuid)
 {
     if (Uuid == NULL)
         return RPC_S_INVALID_ARG;
     /* This is based on RFC 4122.  We're using pseudo-random numbers, so
      * we follow Sec 4.4 of that RFC.
      */
-    Uuid->Data1 = (ulong) get_random_offset(UINT_MAX);
-    Uuid->Data2 = (ushort) get_random_offset(USHRT_MAX);
-    Uuid->Data3 = (ushort) get_random_offset(USHRT_MAX);
-    *((ulong *)&Uuid->Data4[0]) = (ulong) get_random_offset(UINT_MAX);
-    *((ulong *)&Uuid->Data4[4]) = (ulong) get_random_offset(UINT_MAX);
+    Uuid->Data1 = (ulong)get_random_offset(UINT_MAX);
+    Uuid->Data2 = (ushort)get_random_offset(USHRT_MAX);
+    Uuid->Data3 = (ushort)get_random_offset(USHRT_MAX);
+    *((ulong *)&Uuid->Data4[0]) = (ulong)get_random_offset(UINT_MAX);
+    *((ulong *)&Uuid->Data4[4]) = (ulong)get_random_offset(UINT_MAX);
 
     Uuid->Data4[0] &= 0xbf; /* clear bit 6 of clock_seq_hi_and_reserved */
     Uuid->Data4[0] |= 0x80; /* set bit 7 of clock_seq_hi_and_reserved */
@@ -122,8 +120,12 @@ unit_test_drwinapi_rpcrt4(void)
     /* Hard to test we're getting unique-looking ids.  For now we settle for
      * these simple tests.
      */
-    UUID id = {0,};
-    UUID id2 = {0,};
+    UUID id = {
+        0,
+    };
+    UUID id2 = {
+        0,
+    };
     RPC_STATUS res;
 
     print_file(STDERR, "testing drwinapi rpcrt4\n");

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,22 +41,22 @@
 #include "fragment.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "instrument.h"
 #include "hotpatch.h"
 #include "hotpatch_interface.h"
-#include "moduledb.h"   /* macros for nudge; can be moved with nudge to os.c */
+#include "probe_api.h"
+#include "moduledb.h" /* macros for nudge; can be moved with nudge to os.c */
 
 #ifndef WINDOWS
-# include <string.h>
 #endif
 
-#include <limits.h>  /* for ULLONG_MAX */
+#include <limits.h> /* for ULLONG_MAX */
 
-#include "fcache.h"  /* for fcache_reset_all_caches_proactively */
+#include "fcache.h" /* for fcache_reset_all_caches_proactively */
 #ifdef GBOP
-# include "aslr.h"
+#    include "aslr.h"
 #endif
 
 #include "perscache.h"
@@ -68,14 +68,14 @@
  *       allows for dynamically changing existing instructions, as indicated
  *       by INSTR_HOT_PATCHABLE in instr.h
  */
-#ifdef HOT_PATCHING_INTERFACE  /* Around the whole file */
+#ifdef HOT_PATCHING_INTERFACE /* Around the whole file */
 /*----------------------------------------------------------------------------*/
 /* Local typed constants. */
 
 /* Local untyped constants. */
 
 /* defined for non-GBOP as well since used for -probe_api */
-#define HOTP_ONLY_GBOP_PRECEDENCE 10
+#    define HOTP_ONLY_GBOP_PRECEDENCE 10
 
 /* Limits for vulnerability data provided by the constraint writer. */
 enum {
@@ -95,7 +95,7 @@ enum {
     MAX_NUM_MODULES = 10000,
 
     /* We don't expect PE files to be more than 1 GB in size. */
-    MAX_MODULE_SIZE = 1024*1024*1024,
+    MAX_MODULE_SIZE = 1024 * 1024 * 1024,
 
     /* Can have PEs with time stamp as zero, though fairly unlikely; zero
      * checksum is more likely, zero file version is somewhat likely and zero
@@ -118,7 +118,7 @@ enum {
     PE_IMAGE_SIZE_IGNORE = UINT_MAX,
     PE_IMAGE_SIZE_UNAVAILABLE = PE_IMAGE_SIZE_IGNORE - 1,
 
-    MIN_PE_CODE_SIZE = 0,       /* kbdus.dll has only data in it */
+    MIN_PE_CODE_SIZE = 0, /* kbdus.dll has only data in it */
     MAX_PE_CODE_SIZE = UINT_MAX,
     PE_CODE_SIZE_IGNORE = UINT_MAX,
     PE_CODE_SIZE_UNAVAILABLE = PE_CODE_SIZE_IGNORE - 1,
@@ -131,16 +131,16 @@ enum {
     MIN_NUM_PATCH_POINT_HASHES = 1,
     MAX_NUM_PATCH_POINT_HASHES = 10000,
     MIN_HASH_START_OFFSET = 1,
-    MAX_HASH_START_OFFSET = MAX_MODULE_SIZE,    /* Can't exceed module size. */
+    MAX_HASH_START_OFFSET = MAX_MODULE_SIZE, /* Can't exceed module size. */
     MIN_HASH_LENGTH = 1,
-    MAX_HASH_LENGTH = MAX_MODULE_SIZE,          /* Can't exceed module size. */
+    MAX_HASH_LENGTH = MAX_MODULE_SIZE, /* Can't exceed module size. */
     MIN_HASH_VALUE = 0,
     MAX_HASH_VALUE = UINT_MAX,
 
     MIN_NUM_PATCH_POINTS = MIN_NUM_PATCH_POINT_HASHES,
     MAX_NUM_PATCH_POINTS = MAX_NUM_PATCH_POINT_HASHES,
     MIN_PATCH_OFFSET = 1,
-    MAX_PATCH_OFFSET = MAX_MODULE_SIZE,         /* Can't exceed module size. */
+    MAX_PATCH_OFFSET = MAX_MODULE_SIZE, /* Can't exceed module size. */
     MIN_PATCH_PRECEDENCE = 1,
     MAX_PATCH_PRECEDENCE = 10000,
     MIN_DETECTOR_OFFSET = 1,
@@ -149,7 +149,7 @@ enum {
      * Today a typical hot patch is far less than 1k in size, so to hit 10 MB
      * we would need a mininum of 10000 constraints of 1k each - unlikely.
      */
-    MAX_DETECTOR_OFFSET = 10*1024*1024,
+    MAX_DETECTOR_OFFSET = 10 * 1024 * 1024,
     /* Protectors should exist for all hot patches; even if it does nothing. */
     MIN_PROTECTOR_OFFSET = 1,
     MAX_PROTECTOR_OFFSET = MAX_DETECTOR_OFFSET,
@@ -172,15 +172,15 @@ enum {
     MAX_POLICY_FILE_SIZE = 384 * 1024
 
 };
-#define PE_NAME_IGNORE  "*"         /* Can't have strings in the enum. */
-#define PE_NAME_UNAVAILABLE  '\0'
+#    define PE_NAME_IGNORE "*" /* Can't have strings in the enum. */
+#    define PE_NAME_UNAVAILABLE '\0'
 /*----------------------------------------------------------------------------*/
 /* Local type definitions. */
 
 /* Module signature is used to uniquely describe a module, in our case, a Win32
  * PE module.
  */
-typedef struct {            /* xref case 4688 */
+typedef struct { /* xref case 4688 */
     const char *pe_name;
 
     /* Don't-care values for pe_{checksum,timestamp,{image,code}_size,
@@ -232,15 +232,15 @@ typedef struct {            /* xref case 4688 */
  * type to define module offsets.
  */
 typedef struct {
-    app_rva_t offset;         /* offset relative to the base of the module where
-                             * thepatch is to be applied */
+    app_rva_t offset; /* offset relative to the base of the module where
+                       * thepatch is to be applied */
 
     /* TODO: clearly split each structure into read only and runtime data
      * because things are tending to go out of synch again; can create a
      * parallel tree later on.
      */
-    app_rva_t detector_fn;    /* Offset of the detector function from the base
-                             * of the hot patch dll */
+    app_rva_t detector_fn; /* Offset of the detector function from the base
+                            * of the hot patch dll */
     app_rva_t protector_fn;
     app_rva_t return_addr;
 
@@ -280,8 +280,8 @@ typedef struct {
 /* Experiments showed that the maximum size of a single interception
  * trampoline/hook is about 400 to 450 bytes, so 512 should be adequate.
  */
-#define HOTP_ONLY_TRAMPOLINE_SIZE 512
-#define HOTP_ONLY_NUM_THREADS_AT_INIT -1
+#    define HOTP_ONLY_TRAMPOLINE_SIZE 512
+#    define HOTP_ONLY_NUM_THREADS_AT_INIT -1
 
 /* A patch region size of 5 is used for hotp_only mode.  This is done so
  * that the same vm_area_t vector (hotp_patch_point_areas) can be used for
@@ -297,15 +297,14 @@ typedef struct {
  *
  * Use -1 as an error catching value if this macro is used without -hot_patching.
  */
-#define HOTP_ONLY_PATCH_REGION_SIZE     (5)
-#define HOTP_CACHE_PATCH_REGION_SIZE    (1)
-#define HOTP_BAD_PATCH_REGION_SIZE      (-1)
-#define HOTP_PATCH_REGION_SIZE              \
-    (DYNAMO_OPTION(hot_patching) ?          \
-        (DYNAMO_OPTION(hotp_only) ?         \
-            HOTP_ONLY_PATCH_REGION_SIZE :   \
-            HOTP_CACHE_PATCH_REGION_SIZE) : \
-        HOTP_BAD_PATCH_REGION_SIZE)
+#    define HOTP_ONLY_PATCH_REGION_SIZE (5)
+#    define HOTP_CACHE_PATCH_REGION_SIZE (1)
+#    define HOTP_BAD_PATCH_REGION_SIZE (-1)
+#    define HOTP_PATCH_REGION_SIZE                                       \
+        (DYNAMO_OPTION(hot_patching)                                     \
+             ? (DYNAMO_OPTION(hotp_only) ? HOTP_ONLY_PATCH_REGION_SIZE   \
+                                         : HOTP_CACHE_PATCH_REGION_SIZE) \
+             : HOTP_BAD_PATCH_REGION_SIZE)
 
 /* This structure is used to define a hash value for a specified region
  * around a patch point as decided by the hot patch writer.  This hash, which
@@ -317,7 +316,7 @@ typedef struct {
      * starting point of hash computation string; for the module to be patched.
      */
     app_rva_t start;
-    uint len;           /* number of bytes to be used for hash computation */
+    uint len; /* number of bytes to be used for hash computation */
     uint hash_value;
 } hotp_patch_point_hash_t;
 
@@ -329,7 +328,7 @@ typedef struct {
     hotp_patch_point_hash_t *hashes;
 
     /* Data computed at run time; should be zeroed out at read time */
-    bool matched;           /* True if current module is loaded & matched. */
+    bool matched; /* True if current module is loaded & matched. */
     app_pc base_address;
 } hotp_module_t;
 
@@ -421,7 +420,7 @@ typedef struct {
 
     /* Data computed at run time; should be zeroed out at read time */
     hotp_vul_info_t *info;
-    app_pc  hotp_dll_base;
+    app_pc hotp_dll_base;
     /* TODO: if policy data is going to be shared across multiple processes,
      *       info (i.e., runtime data) can't be part of this; a parallel runtime
      *       structure must be created;  not a big issue till hot patches reach
@@ -466,17 +465,17 @@ typedef struct hotp_vul_tab_t {
  * to be updated during loader activity and that conflicts with our data segment
  * protection.
  */
-#ifdef DEBUG
+#    ifdef DEBUG
 typedef struct hotp_globals_t {
     /* The variables below help catch removing the same patch twice and
      * injecting it twice, which is ok only for loader safety.  Technically
      * each patch point should have this variable, but given that the loader
      * loads/relocates one dll at a time, this should be ok.
      */
-    bool ldr_safe_hook_removal;     /* used only in -hotp_only mode */
-    bool ldr_safe_hook_injection;   /* used only in -hotp_only mode */
+    bool ldr_safe_hook_removal;   /* used only in -hotp_only mode */
+    bool ldr_safe_hook_injection; /* used only in -hotp_only mode */
 } hotp_globals_t;
-#endif
+#    endif
 /*----------------------------------------------------------------------------*/
 /* Macro definitions. */
 
@@ -490,22 +489,21 @@ typedef struct hotp_globals_t {
  *       them readable, which is opposite to what I thought.  Try using local
  *       variables and if that looks good, remove these macros.
  */
-#define VUL(vul_table, i)              (vul_table[i])
-#define SET(vul_table, v, i)           (VUL(vul_table, v).sets[i])
-#define MODULE(vul_table, v, s, i)     (SET(vul_table, v, s).modules[i])
-#define SIG(vul_table, v, s, m)        (MODULE(vul_table, v, s, m).sig)
-#define PPOINT(vul_table, v, s, m, i)  (MODULE(vul_table, v, s, m).patch_points[i])
-#define PPOINT_HASH(vul_table, v, s, m, i)  \
-    (MODULE(vul_table, v, s, m).hashes[i])
+#    define VUL(vul_table, i) (vul_table[i])
+#    define SET(vul_table, v, i) (VUL(vul_table, v).sets[i])
+#    define MODULE(vul_table, v, s, i) (SET(vul_table, v, s).modules[i])
+#    define SIG(vul_table, v, s, m) (MODULE(vul_table, v, s, m).sig)
+#    define PPOINT(vul_table, v, s, m, i) (MODULE(vul_table, v, s, m).patch_points[i])
+#    define PPOINT_HASH(vul_table, v, s, m, i) (MODULE(vul_table, v, s, m).hashes[i])
 
-#define NUM_GLOBAL_VULS                 (hotp_num_vuls)
-#define GLOBAL_VUL_TABLE                (hotp_vul_table)
-#define GLOBAL_VUL(i)                   VUL(GLOBAL_VUL_TABLE, i)
-#define GLOBAL_SET(v, i)                SET(GLOBAL_VUL_TABLE, v, i)
-#define GLOBAL_MODULE(v, s, i)          MODULE(GLOBAL_VUL_TABLE, v, s,i)
-#define GLOBAL_SIG(v, s, m)             SIG(GLOBAL_VUL_TABLE, v, s, m)
-#define GLOBAL_PPOINT(v, s, m, i)       PPOINT(GLOBAL_VUL_TABLE, v, s, m, i)
-#define GLOBAL_HASH(v, s, m, i)         PPOINT_HASH(GLOBAL_VUL_TABLE, v, s, m, i)
+#    define NUM_GLOBAL_VULS (hotp_num_vuls)
+#    define GLOBAL_VUL_TABLE (hotp_vul_table)
+#    define GLOBAL_VUL(i) VUL(GLOBAL_VUL_TABLE, i)
+#    define GLOBAL_SET(v, i) SET(GLOBAL_VUL_TABLE, v, i)
+#    define GLOBAL_MODULE(v, s, i) MODULE(GLOBAL_VUL_TABLE, v, s, i)
+#    define GLOBAL_SIG(v, s, m) SIG(GLOBAL_VUL_TABLE, v, s, m)
+#    define GLOBAL_PPOINT(v, s, m, i) PPOINT(GLOBAL_VUL_TABLE, v, s, m, i)
+#    define GLOBAL_HASH(v, s, m, i) PPOINT_HASH(GLOBAL_VUL_TABLE, v, s, m, i)
 
 /* TODO: change it to model ATOMIC_ADD; can't use ATOMIC_ADD directly because
  *       it wants only uint, not uint64 which is what all vulnerability stats
@@ -514,61 +512,62 @@ typedef struct hotp_globals_t {
  *       apps.  either way, make this increment non racy, the users of this
  *       macro assume atomic increments.
  */
-#define VUL_STAT_INC(x)     ((x)++);
+#    define VUL_STAT_INC(x) ((x)++);
 
-#define SET_NUM(var, type, limit_str, input_ptr)                            \
-{                                                                           \
-    char *str = hotp_get_next_str(&(input_ptr));                            \
-    const char *hex_fmt, *dec_fmt;                                          \
-    type temp;                                                              \
-                                                                            \
-    ASSERT(sizeof(type) == sizeof(uint) || sizeof(type) == sizeof(uint64)); \
-    hex_fmt = (sizeof(type) == sizeof(uint)) ? "0x%x" : "0x" HEX64_FORMAT_STRING; \
-    dec_fmt = (sizeof(type) == sizeof(uint)) ? "%d" : INT64_FORMAT_STRING;  \
-                                                                            \
-    if (sscanf(str, hex_fmt, &temp) == 1 || sscanf(str, dec_fmt, &temp) == 1) { \
-        if (temp < (type)(MIN_##limit_str) ||                               \
-            temp > (type)(MAX_##limit_str))                                 \
-            goto error_reading_policy;  /* Range error */                   \
-        (var) = temp;                                                       \
-    }                                                                       \
-    else                                                                    \
-        goto error_reading_policy;      /* Parse error. */                  \
-}
+#    define SET_NUM(var, type, limit_str, input_ptr)                                    \
+        {                                                                               \
+            char *str = hotp_get_next_str(&(input_ptr));                                \
+            const char *hex_fmt, *dec_fmt;                                              \
+            type temp;                                                                  \
+                                                                                        \
+            ASSERT(sizeof(type) == sizeof(uint) || sizeof(type) == sizeof(uint64));     \
+            hex_fmt =                                                                   \
+                (sizeof(type) == sizeof(uint)) ? "0x%x" : "0x" HEX64_FORMAT_STRING;     \
+            dec_fmt = (sizeof(type) == sizeof(uint)) ? "%d" : INT64_FORMAT_STRING;      \
+                                                                                        \
+            if (sscanf(str, hex_fmt, &temp) == 1 || sscanf(str, dec_fmt, &temp) == 1) { \
+                if (temp < (type)(MIN_##limit_str) || temp > (type)(MAX_##limit_str))   \
+                    goto error_reading_policy; /* Range error */                        \
+                (var) = temp;                                                           \
+            } else                                                                      \
+                goto error_reading_policy; /* Parse error. */                           \
+        }
 
 /* FIXME: range check strs for min & max length; null check already done. */
-#define SET_STR_DUP(var, input_ptr)                                    \
-{                                                                      \
-    char *str = hotp_get_next_str(&(input_ptr));                       \
-                                                                       \
-    if (str == NULL)                                                   \
-        goto error_reading_policy;                                     \
-    (var) = dr_strdup(str HEAPACCT(ACCT_HOT_PATCHING));                  \
-}
+#    define SET_STR_DUP(var, input_ptr)                         \
+        {                                                       \
+            char *str = hotp_get_next_str(&(input_ptr));        \
+                                                                \
+            if (str == NULL)                                    \
+                goto error_reading_policy;                      \
+            (var) = dr_strdup(str HEAPACCT(ACCT_HOT_PATCHING)); \
+        }
 
-#define SET_STR_PTR(var, input_ptr)                                    \
-{                                                                      \
-    char *str = hotp_get_next_str(&(input_ptr));                       \
-                                                                       \
-    if (str == NULL)                                                   \
-        goto error_reading_policy;                                     \
-    (var) = str;                                                       \
-}
+#    define SET_STR_PTR(var, input_ptr)                  \
+        {                                                \
+            char *str = hotp_get_next_str(&(input_ptr)); \
+                                                         \
+            if (str == NULL)                             \
+                goto error_reading_policy;               \
+            (var) = str;                                 \
+        }
 
-#define SET_STR(var, input_ptr) SET_STR_DUP(var, input_ptr)
+#    define SET_STR(var, input_ptr) SET_STR_DUP(var, input_ptr)
 
-#define HOTP_IS_IN_REGION(region_start, region_size, addr) \
-    (((addr) >= (region_start)) && ((addr) < ((region_start) + (region_size))))
+#    define HOTP_IS_IN_REGION(region_start, region_size, addr) \
+        (((addr) >= (region_start)) && ((addr) < ((region_start) + (region_size))))
 
 /* This checks addresses. */
-#define HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, addr)               \
-    (((ppoint)->trampoline == NULL || (addr) == NULL) ? false : \
-        HOTP_IS_IN_REGION((ppoint)->trampoline, HOTP_ONLY_TRAMPOLINE_SIZE, addr))
+#    define HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, addr)      \
+        (((ppoint)->trampoline == NULL || (addr) == NULL) \
+             ? false                                      \
+             : HOTP_IS_IN_REGION((ppoint)->trampoline, HOTP_ONLY_TRAMPOLINE_SIZE, addr))
 
 /* This checks offsets/RVAs. */
-#define HOTP_ONLY_IS_IN_PATCH_REGION(ppoint, addr)   \
-    (((ppoint)->offset <= 0 || (addr) <= 0) ? false : \
-        HOTP_IS_IN_REGION((ppoint)->offset, HOTP_PATCH_REGION_SIZE, addr))
+#    define HOTP_ONLY_IS_IN_PATCH_REGION(ppoint, addr) \
+        (((ppoint)->offset <= 0 || (addr) <= 0)        \
+             ? false                                   \
+             : HOTP_IS_IN_REGION((ppoint)->offset, HOTP_PATCH_REGION_SIZE, addr))
 
 /* TODO: PR 225550 - make this a better function so that each probe is
  * identified uniquely so as to prevent clients from modifying each others'
@@ -577,48 +576,47 @@ typedef struct hotp_globals_t {
  *       to load probe/callback dlls without hitting dr hooks, so updates to
  *       probe_id_counter haver to be atomic.
  */
-#define GENERATE_PROBE_ID() (atomic_add_exchange_int((int*)&probe_id_counter, 4))
+#    define GENERATE_PROBE_ID() (atomic_add_exchange_int((int *)&probe_id_counter, 4))
 /*----------------------------------------------------------------------------*/
 /* Local function prototypes. */
-static void hotp_change_control_flow(const hotp_context_t *app_reg_ptr,
-                                     const app_pc target);
+static void
+hotp_change_control_flow(const hotp_context_t *app_reg_ptr, const app_pc target);
 
-static after_intercept_action_t hotp_gateway(const hotp_vul_t *vul_tab,
-                                           const uint num_vuls,
-                                           const uint vul_index,
-                                           const uint set_index,
-                                           const uint module_index,
-                                           const uint ppoint_index,
-                                           hotp_context_t *app_reg_ptr,
-                                           const bool own_hot_patch_lock);
+static after_intercept_action_t
+hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_index,
+             const uint set_index, const uint module_index, const uint ppoint_index,
+             hotp_context_t *app_reg_ptr, const bool own_hot_patch_lock);
 
-static void hotp_free_vul_table(hotp_vul_t *tab, uint num_vuls_alloc);
-static hotp_exec_status_t hotp_execute_patch(hotp_func_t hotp_fn_ptr,
-                                             hotp_context_t *hotp_cxt,
-                                             hotp_policy_mode_t mode,
-                                             bool dump_excpt_info,
-                                             bool dump_error_info);
-static void hotp_update_vul_stats(const hotp_exec_status_t exec_status,
-                                  const uint vul_index);
-static void hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
-                              const hotp_offset_match_t *inject_point,
-                              const app_pc bad_addr,
-                              const hotp_context_t *hotp_cxt);
-#if defined(DEBUG) && defined(INTERNAL)
-static void hotp_dump_reg_state(const hotp_context_t *reg_state,
-                                const app_pc eip, const uint loglevel);
-#endif
-static void hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
-                                   const thread_record_t **all_threads,
-                                   const int num_threads);
-static void hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
-                                   hotp_patch_point_t *cur_ppoint);
-after_intercept_action_t hotp_only_gateway(app_state_at_intercept_t *state);
-static uint hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash);
-#ifdef GBOP
+static void
+hotp_free_vul_table(hotp_vul_t *tab, uint num_vuls_alloc);
+static hotp_exec_status_t
+hotp_execute_patch(hotp_func_t hotp_fn_ptr, hotp_context_t *hotp_cxt,
+                   hotp_policy_mode_t mode, bool dump_excpt_info, bool dump_error_info);
+static void
+hotp_update_vul_stats(const hotp_exec_status_t exec_status, const uint vul_index);
+static void
+hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
+                  const hotp_offset_match_t *inject_point, const app_pc bad_addr,
+                  const hotp_context_t *hotp_cxt);
+#    if defined(DEBUG) && defined(INTERNAL)
+static void
+hotp_dump_reg_state(const hotp_context_t *reg_state, const app_pc eip,
+                    const uint loglevel);
+#    endif
+static void
+hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
+                       const thread_record_t **thread_table, const int num_threads);
+static void
+hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
+                       hotp_patch_point_t *cur_ppoint);
+after_intercept_action_t
+hotp_only_gateway(app_state_at_intercept_t *state);
+static uint
+hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash);
+#    ifdef GBOP
 static void
 hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls);
-#endif
+#    endif
 
 /* TODO: add function prototypes for all functions in this file */
 /*----------------------------------------------------------------------------*/
@@ -631,13 +629,13 @@ static hotp_vul_t *hotp_vul_table;
 static uint hotp_num_vuls;
 static hotp_vul_tab_t *hotp_old_vul_tabs;
 
-DECLARE_CXTSWPROT_VAR(static read_write_lock_t hotp_vul_table_lock, {{0}});
+DECLARE_CXTSWPROT_VAR(static read_write_lock_t hotp_vul_table_lock, { { 0 } });
 /* Special heap for hotp_only trampolines; heap is executable. */
 static void *hotp_only_tramp_heap;
 /* Leak to handle case 9593.  This should go if we find a cleaner solution. */
-#if defined(DEBUG) && defined(HEAP_ACCOUNTING)
+#    if defined(DEBUG) && defined(HEAP_ACCOUNTING)
 DECLARE_NEVERPROT_VAR(int hotp_only_tramp_bytes_leaked, 0);
-#endif
+#    endif
 /* This is used to cache hotp_only_tramp_heap for handling leak asserts during
  * detach and to track whether or not any hotp_only patch was removed.  Case
  * 9593 & PR 215520. */
@@ -669,17 +667,15 @@ static vm_area_vector_t *hotp_only_tramp_areas;
  */
 static vm_area_vector_t *hotp_patch_point_areas;
 
-#ifdef DEBUG
+#    ifdef DEBUG
 static hotp_globals_t *hotp_globals;
-#endif
+#    endif
 
-#ifdef CLIENT_INTERFACE
 /* Global counter used to generate unique ids for probes.  This is updated
  * atomically and isn't guarded by any lock.  See GENERATE_PROBE_ID() for
  * details.
  */
 static unsigned int probe_id_counter;
-#endif
 /*----------------------------------------------------------------------------*/
 /* Function definitions. */
 
@@ -735,8 +731,8 @@ hotp_ppoint_areas_add(hotp_offset_match_t *ppoint_desc)
      */
     ASSERT(!vmvector_overlap(hotp_patch_point_areas, ppoint_start, ppoint_end));
 
-    copy = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_offset_match_t,
-                           ACCT_HOT_PATCHING, PROTECTED);
+    copy = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_offset_match_t, ACCT_HOT_PATCHING,
+                           PROTECTED);
     *copy = *ppoint_desc;
     vmvector_add(hotp_patch_point_areas, ppoint_start, ppoint_end, (void *)copy);
 }
@@ -751,8 +747,7 @@ hotp_ppoint_areas_remove(app_pc pc)
     ASSERT(GLOBAL_VUL_TABLE != NULL && hotp_patch_point_areas != NULL);
     ASSERT_OWN_READWRITE_LOCK(true, &hotp_vul_table_lock);
 
-    ppoint_desc = (hotp_offset_match_t *)
-                  vmvector_lookup(hotp_patch_point_areas, pc);
+    ppoint_desc = (hotp_offset_match_t *)vmvector_lookup(hotp_patch_point_areas, pc);
 
     DOCHECK(1, {
         hotp_module_t *module;
@@ -768,12 +763,11 @@ hotp_ppoint_areas_remove(app_pc pc)
         ASSERT(pc == hotp_ppoint_addr(module, ppoint));
     });
 
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ppoint_desc, hotp_offset_match_t,
-                   ACCT_HOT_PATCHING, PROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ppoint_desc, hotp_offset_match_t, ACCT_HOT_PATCHING,
+                   PROTECTED);
 
-    DEBUG_DECLARE(ok = )
-        vmvector_remove(hotp_patch_point_areas, pc,
-                        pc + HOTP_PATCH_REGION_SIZE);
+    DEBUG_DECLARE(ok =)
+    vmvector_remove(hotp_patch_point_areas, pc, pc + HOTP_PATCH_REGION_SIZE);
     ASSERT(ok);
 }
 
@@ -802,7 +796,7 @@ hotp_ppoint_areas_release(void)
 }
 
 /* Used to read in vulnerability definitions from file */
-static char*
+static char *
 hotp_get_next_str(char **start)
 {
     char *end = *start, *temp = *start;
@@ -831,10 +825,7 @@ hotp_get_next_str(char **start)
 }
 
 /* Used to read either the policy file or the modes file. */
-enum {
-    POLICY_FILE = 1,
-    MODES_FILE
-};
+enum { POLICY_FILE = 1, MODES_FILE };
 
 static char *
 hotp_read_data_file(uint type, size_t *buf_len /* OUT */)
@@ -847,10 +838,10 @@ hotp_read_data_file(uint type, size_t *buf_len /* OUT */)
 
     *buf_len = 0;
 
-    retval = get_parameter(type == POLICY_FILE ?
-                           PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_POLICIES) :
-                           PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_MODES),
-                           file, BUFFER_SIZE_ELEMENTS(file));
+    retval = d_r_get_parameter(type == POLICY_FILE
+                                   ? PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
+                                   : PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_MODES),
+                               file, BUFFER_SIZE_ELEMENTS(file));
     if (IS_GET_PARAMETER_FAILURE(retval)) {
         SYSLOG_INTERNAL_WARNING("Can't find %s definition directory name.",
                                 (type == POLICY_FILE) ? "policy" : "mode");
@@ -861,8 +852,8 @@ hotp_read_data_file(uint type, size_t *buf_len /* OUT */)
      * $DYNAMORIO_HOT_PATCH_POLICIES/<engine>/HOTP_{POLICIES,MODES}_FILENAME
      */
     CAT_AND_TERMINATE(file, "\\" STRINGIFY(HOTP_INTERFACE_VERSION) "\\");
-    CAT_AND_TERMINATE(file, type == POLICY_FILE ? HOTP_POLICIES_FILENAME :
-                                                  HOTP_MODES_FILENAME);
+    CAT_AND_TERMINATE(file,
+                      type == POLICY_FILE ? HOTP_POLICIES_FILENAME : HOTP_MODES_FILENAME);
 
     LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Hot patch %s definition file: %s\n",
         (type == POLICY_FILE) ? "policy" : "mode", file);
@@ -923,7 +914,7 @@ hotp_read_policy_defs(uint *num_vuls_read)
     uint hotp_interface_version;
     uint vul = 0, set, module, hash, ppoint;
     uint num_vuls = 0, num_vuls_alloc = 0;
-    char *buf = NULL;  /* TODO: for now only; will go after file mapping */
+    char *buf = NULL; /* TODO: for now only; will go after file mapping */
     size_t buf_len = 0;
     char *start = NULL;
     DEBUG_DECLARE(bool started_parsing = false;)
@@ -932,10 +923,10 @@ hotp_read_policy_defs(uint *num_vuls_read)
      * turned on, read gbop hooks if -gbop is specified.
      */
     if (!DYNAMO_OPTION(liveshields)) {
-#ifdef GBOP
+#    ifdef GBOP
         if (DYNAMO_OPTION(gbop))
             goto read_gbop_only;
-#endif
+#    endif
         return NULL;
     }
 
@@ -952,10 +943,10 @@ hotp_read_policy_defs(uint *num_vuls_read)
     DEBUG_DECLARE(started_parsing = true;)
     SET_NUM(hotp_interface_version, uint, HOTP_INTERFACE_VERSION, start);
     SET_NUM(num_vuls, uint, NUM_VULNERABILITIES, start);
-#ifdef GBOP
+#    ifdef GBOP
     if (DYNAMO_OPTION(gbop))
         num_vuls_alloc = gbop_get_num_hooks();
-#endif
+#    endif
     num_vuls_alloc += num_vuls;
     ASSERT(num_vuls_alloc > 0 && num_vuls_alloc <= MAX_NUM_VULNERABILITIES);
 
@@ -982,33 +973,29 @@ hotp_read_policy_defs(uint *num_vuls_read)
         SET_NUM(VUL(tab, vul).num_sets, uint, NUM_SETS, start);
 
         /* Initialize all runtime values in the structure. */
-        VUL(tab, vul).mode = HOTP_MODE_OFF;     /* Fix for case 5326. */
+        VUL(tab, vul).mode = HOTP_MODE_OFF; /* Fix for case 5326. */
         VUL(tab, vul).type = HOTP_TYPE_HOT_PATCH;
 
-        VUL(tab, vul).sets = HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT,
-                                 hotp_set_t, VUL(tab, vul).num_sets,
-                                 ACCT_HOT_PATCHING, PROTECTED, 0);
-        VUL(tab, vul).info = HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT,
-                                 hotp_vul_info_t, 1, ACCT_HOT_PATCHING,
-                                 PROTECTED, 0);
+        VUL(tab, vul).sets =
+            HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT, hotp_set_t, VUL(tab, vul).num_sets,
+                                    ACCT_HOT_PATCHING, PROTECTED, 0);
+        VUL(tab, vul).info = HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT, hotp_vul_info_t, 1,
+                                                     ACCT_HOT_PATCHING, PROTECTED, 0);
 
         for (set = 0; set < VUL(tab, vul).num_sets; set++) {
             SET_NUM(SET(tab, vul, set).num_modules, uint, NUM_MODULES, start);
-            SET(tab, vul, set).modules = HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT,
-                                             hotp_module_t,
-                                             SET(tab, vul, set).num_modules,
-                                             ACCT_HOT_PATCHING, PROTECTED, 0);
-            for (module = 0; module < SET(tab, vul, set).num_modules;
-                 module++) {
+            SET(tab, vul, set).modules = HEAP_ARRAY_ALLOC_MEMSET(
+                GLOBAL_DCONTEXT, hotp_module_t, SET(tab, vul, set).num_modules,
+                ACCT_HOT_PATCHING, PROTECTED, 0);
+            for (module = 0; module < SET(tab, vul, set).num_modules; module++) {
                 SET_STR(SIG(tab, vul, set, module).pe_name, start);
-                SET_NUM(SIG(tab, vul, set, module).pe_timestamp, uint,
-                        PE_TIMESTAMP, start);
-                SET_NUM(SIG(tab, vul, set, module).pe_checksum, uint,
-                        PE_CHECKSUM, start);
-                SET_NUM(SIG(tab, vul, set, module).pe_image_size, uint,
-                        PE_IMAGE_SIZE, start);
-                SET_NUM(SIG(tab, vul, set, module).pe_code_size, uint,
-                        PE_CODE_SIZE, start);
+                SET_NUM(SIG(tab, vul, set, module).pe_timestamp, uint, PE_TIMESTAMP,
+                        start);
+                SET_NUM(SIG(tab, vul, set, module).pe_checksum, uint, PE_CHECKSUM, start);
+                SET_NUM(SIG(tab, vul, set, module).pe_image_size, uint, PE_IMAGE_SIZE,
+                        start);
+                SET_NUM(SIG(tab, vul, set, module).pe_code_size, uint, PE_CODE_SIZE,
+                        start);
                 SET_NUM(SIG(tab, vul, set, module).pe_file_version, uint64,
                         PE_FILE_VERSION, start);
 
@@ -1016,47 +1003,45 @@ hotp_read_policy_defs(uint *num_vuls_read)
                 MODULE(tab, vul, set, module).matched = false;
                 MODULE(tab, vul, set, module).base_address = NULL;
 
-                SET_NUM(MODULE(tab, vul, set, module).num_patch_point_hashes,
-                        uint, NUM_PATCH_POINT_HASHES, start);
-                MODULE(tab, vul, set, module).hashes =
-                    HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT,
-                        hotp_patch_point_hash_t,
-                        MODULE(tab, vul, set, module).num_patch_point_hashes,
-                        ACCT_HOT_PATCHING, PROTECTED, 0);
+                SET_NUM(MODULE(tab, vul, set, module).num_patch_point_hashes, uint,
+                        NUM_PATCH_POINT_HASHES, start);
+                MODULE(tab, vul, set, module).hashes = HEAP_ARRAY_ALLOC_MEMSET(
+                    GLOBAL_DCONTEXT, hotp_patch_point_hash_t,
+                    MODULE(tab, vul, set, module).num_patch_point_hashes,
+                    ACCT_HOT_PATCHING, PROTECTED, 0);
 
                 for (hash = 0;
                      hash < MODULE(tab, vul, set, module).num_patch_point_hashes;
                      hash++) {
-                    SET_NUM(PPOINT_HASH(tab, vul, set, module, hash).start,
-                            app_rva_t, HASH_START_OFFSET, start);
-                    SET_NUM(PPOINT_HASH(tab, vul, set, module, hash).len,
-                            uint, HASH_LENGTH, start);
-                    SET_NUM(PPOINT_HASH(tab, vul, set, module, hash).hash_value,
-                            uint, HASH_VALUE, start);
+                    SET_NUM(PPOINT_HASH(tab, vul, set, module, hash).start, app_rva_t,
+                            HASH_START_OFFSET, start);
+                    SET_NUM(PPOINT_HASH(tab, vul, set, module, hash).len, uint,
+                            HASH_LENGTH, start);
+                    SET_NUM(PPOINT_HASH(tab, vul, set, module, hash).hash_value, uint,
+                            HASH_VALUE, start);
                 }
 
                 SET_NUM(MODULE(tab, vul, set, module).num_patch_points, uint,
                         NUM_PATCH_POINTS, start);
-                MODULE(tab, vul, set, module).patch_points =
-                    HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT, hotp_patch_point_t,
-                        MODULE(tab, vul, set, module).num_patch_points,
-                        ACCT_HOT_PATCHING, PROTECTED, 0);
+                MODULE(tab, vul, set, module).patch_points = HEAP_ARRAY_ALLOC_MEMSET(
+                    GLOBAL_DCONTEXT, hotp_patch_point_t,
+                    MODULE(tab, vul, set, module).num_patch_points, ACCT_HOT_PATCHING,
+                    PROTECTED, 0);
 
-                for (ppoint = 0;
-                     ppoint < MODULE(tab, vul, set, module).num_patch_points;
+                for (ppoint = 0; ppoint < MODULE(tab, vul, set, module).num_patch_points;
                      ppoint++) {
-                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).offset,
-                            app_rva_t, PATCH_OFFSET, start);
-                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).precedence,
-                            uint, PATCH_PRECEDENCE, start);
-                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).detector_fn,
-                            app_rva_t, DETECTOR_OFFSET, start);
+                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).offset, app_rva_t,
+                            PATCH_OFFSET, start);
+                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).precedence, uint,
+                            PATCH_PRECEDENCE, start);
+                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).detector_fn, app_rva_t,
+                            DETECTOR_OFFSET, start);
 
                     /* Both protector and return address can be NULL */
-                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).protector_fn,
-                            app_rva_t, PROTECTOR_OFFSET, start);
-                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).return_addr,
-                            app_rva_t, RETURN_ADDR, start);
+                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).protector_fn, app_rva_t,
+                            PROTECTOR_OFFSET, start);
+                    SET_NUM(PPOINT(tab, vul, set, module, ppoint).return_addr, app_rva_t,
+                            RETURN_ADDR, start);
                     PPOINT(tab, vul, set, module, ppoint).trampoline = NULL;
                     PPOINT(tab, vul, set, module, ppoint).app_code_copy = NULL;
                     PPOINT(tab, vul, set, module, ppoint).tramp_exit_tgt = NULL;
@@ -1065,19 +1050,18 @@ hotp_read_policy_defs(uint *num_vuls_read)
         }
     }
 
-#ifdef GBOP
+#    ifdef GBOP
     if (DYNAMO_OPTION(gbop)) {
         hotp_only_read_gbop_policy_defs(tab, &num_vuls /* IN OUT arg */);
         ASSERT(num_vuls_alloc == num_vuls);
     }
-#endif
+#    endif
     *num_vuls_read = num_vuls;
-    LOG(GLOBAL, LOG_HOT_PATCHING, 1,
-        "read %d vulnerability definitions\n", num_vuls);
-    heap_free (GLOBAL_DCONTEXT, buf, buf_len HEAPACCT(ACCT_HOT_PATCHING));
+    LOG(GLOBAL, LOG_HOT_PATCHING, 1, "read %d vulnerability definitions\n", num_vuls);
+    heap_free(GLOBAL_DCONTEXT, buf, buf_len HEAPACCT(ACCT_HOT_PATCHING));
     return tab;
 
- error_reading_policy:
+error_reading_policy:
     /* TODO: log error, free stuff, set tab to null, leave size intact & exit
      *       for now just assert to make sure that bugs don't escape.
      */
@@ -1089,8 +1073,8 @@ hotp_read_policy_defs(uint *num_vuls_read)
      * Note: Warn for missing file, but assert for parsing error; latter is
      * bug, former may just be a hotpatch-less installation - mostly coredev.
      */
-    IF_WINDOWS(ASSERT_CURIOSITY(!started_parsing &&
-                              "Error parsing hot patch definitions");)
+    IF_WINDOWS(
+        ASSERT_CURIOSITY(!started_parsing && "Error parsing hot patch definitions");)
     *num_vuls_read = 0;
     if (tab != NULL) {
         ASSERT(num_vuls_alloc > 0);
@@ -1112,15 +1096,15 @@ hotp_read_policy_defs(uint *num_vuls_read)
         ASSERT(buf_len > 0);
         heap_free(GLOBAL_DCONTEXT, buf, buf_len HEAPACCT(ACCT_HOT_PATCHING));
         LOG(GLOBAL, LOG_HOT_PATCHING, 1,
-            "error reading vulnerability file at offset "SZFMT"\n",
+            "error reading vulnerability file at offset " SZFMT "\n",
             (ptr_uint_t)(start - buf));
     }
 
-#ifdef GBOP
+#    ifdef GBOP
     /* Even if we couldn't read the hot patch policies, we should still
      * allocate a new table and read in the gbop hooks.
      */
- read_gbop_only:
+read_gbop_only:
     if (DYNAMO_OPTION(gbop)) {
         num_vuls_alloc = gbop_get_num_hooks();
         ASSERT(num_vuls_alloc > 0 && num_vuls_alloc <= MAX_NUM_VULNERABILITIES);
@@ -1133,7 +1117,7 @@ hotp_read_policy_defs(uint *num_vuls_read)
         ASSERT(num_vuls_alloc == num_vuls);
         *num_vuls_read = num_vuls;
     }
-#endif
+#    endif
 
     return tab;
 }
@@ -1160,8 +1144,8 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
          * disable all associated vuls?   We are going to assert/log if we can't
          * find the dll (below) anyway.
          */
-        retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_HOME), hotp_dll_cache,
-                               BUFFER_SIZE_ELEMENTS(hotp_dll_cache));
+        retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_HOME), hotp_dll_cache,
+                                   BUFFER_SIZE_ELEMENTS(hotp_dll_cache));
         if (IS_GET_PARAMETER_FAILURE(retval)) {
             SYSLOG_INTERNAL_WARNING("Can't read %s.  Hot patch dll loading "
                                     "failed; hot patching won't work.",
@@ -1169,9 +1153,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
             return;
         }
     } else {
-#ifdef CLIENT_INTERFACE
         ASSERT(DYNAMO_OPTION(probe_api));
-#endif
     }
 
     /* Compute dll cache path, i.e., $DYNAMORIO_HOME/lib/hotp/<engine>/ */
@@ -1183,8 +1165,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
         /* Hot patch dlls exist only for the type hot_patch and probe, not for
          * gbop hooks; well, not at least for now.
          */
-        if (!TESTANY(HOTP_TYPE_HOT_PATCH | HOTP_TYPE_PROBE,
-                     VUL(vul_tab, vul).type)) {
+        if (!TESTANY(HOTP_TYPE_HOT_PATCH | HOTP_TYPE_PROBE, VUL(vul_tab, vul).type)) {
             ASSERT(TESTALL(HOTP_TYPE_GBOP_HOOK, VUL(vul_tab, vul).type));
             /* TODO: also assert that the base is dynamorio.dll & remediator
              * offsets are what they should be - use a DODEBUG
@@ -1192,9 +1173,9 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
             continue;
         }
 
-        if (VUL(vul_tab, vul).hotp_dll_base == NULL) {    /* Not loaded yet. */
-            ASSERT(TESTANY(HOTP_TYPE_HOT_PATCH | HOTP_TYPE_PROBE,
-                           VUL(vul_tab, vul).type));
+        if (VUL(vul_tab, vul).hotp_dll_base == NULL) { /* Not loaded yet. */
+            ASSERT(
+                TESTANY(HOTP_TYPE_HOT_PATCH | HOTP_TYPE_PROBE, VUL(vul_tab, vul).type));
             ASSERT(VUL(vul_tab, vul).hotp_dll != NULL);
 
             /* Liveshields give just the base name which is used to compute
@@ -1208,8 +1189,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
                 ASSERT(strchr(VUL(vul_tab, vul).hotp_dll, '\\') == NULL &&
                        strchr(VUL(vul_tab, vul).hotp_dll, '/') == NULL);
                 strncat(hotp_dll_path, VUL(vul_tab, vul).hotp_dll,
-                        BUFFER_SIZE_ELEMENTS(hotp_dll_path) -
-                        strlen(hotp_dll_path) - 1);
+                        BUFFER_SIZE_ELEMENTS(hotp_dll_path) - strlen(hotp_dll_path) - 1);
             } else {
                 /* Probe api calls provide full path to hotp dlls. */
                 strncpy(hotp_dll_path, VUL(vul_tab, vul).hotp_dll,
@@ -1224,11 +1204,11 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
              */
 
             /* FIXME: currently our loadlibrary hits our own syscall_while_native
-             * hook and goes to dispatch, which expects protected data sections.
+             * hook and goes to d_r_dispatch, which expects protected data sections.
              * Once we have our own loader we can remove this.
              */
             VUL(vul_tab, vul).hotp_dll_base =
-                load_shared_library(hotp_dll_path, false/*!reachable*/);
+                load_shared_library(hotp_dll_path, false /*!reachable*/);
 
             /* TODO: if module base is null, raise a log event, mark vul as not
              *       usable (probably a new status) and move on; for now just
@@ -1239,11 +1219,11 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
              *       text space.
              */
             if (VUL(vul_tab, vul).hotp_dll_base == NULL) {
-                LOG(GLOBAL, LOG_HOT_PATCHING, 1,
-                    "unable to load hotp_dll: %s\n", hotp_dll_path);
+                LOG(GLOBAL, LOG_HOT_PATCHING, 1, "unable to load hotp_dll: %s\n",
+                    hotp_dll_path);
                 ASSERT(VUL(vul_tab, vul).hotp_dll_base != NULL);
             }
-            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "loaded hotp_dll: %s at "PFX"\n",
+            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "loaded hotp_dll: %s at " PFX "\n",
                 hotp_dll_path, VUL(vul_tab, vul).hotp_dll_base);
 
             /* TODO: this one must be done asap; add the hot patch dll's text
@@ -1294,7 +1274,7 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
      * hotp_only shouldn't use them.
      */
     ASSERT(!DYNAMO_OPTION(hotp_only) || old_modes == NULL);
-    if (old_modes != NULL)  /* init to NULL because there are error exits */
+    if (old_modes != NULL) /* init to NULL because there are error exits */
         *old_modes = NULL;
 
     /* Can be called only during hotp_init() or during a nudge. */
@@ -1305,7 +1285,8 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
      * policies first!  This may happen during startup.  Case 5448.
      */
     if (GLOBAL_VUL_TABLE == NULL) {
-        LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Modes can't be set without "
+        LOG(GLOBAL, LOG_HOT_PATCHING, 1,
+            "Modes can't be set without "
             "policy definitions.  Probably caused due to a nudge by the node "
             "manager to read modes when there were no policies.");
         return;
@@ -1322,7 +1303,7 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
     if (old_modes != NULL) {
         *old_modes = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, hotp_policy_mode_t,
                                       NUM_GLOBAL_VULS, ACCT_HOT_PATCHING, PROTECTED);
-        ASSERT(*old_modes != NULL);     /* make sure that space was allocated */
+        ASSERT(*old_modes != NULL); /* make sure that space was allocated */
     }
 
     /* Turn off all vulnerabilities before reading modes.  Only those for which
@@ -1349,22 +1330,22 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
      */
     for (i = 0; i < num_mode_update_entries; i++) {
         bool matched = false;
-        char *temp, *policy_id;
+        char *split, *policy_id;
 
         SET_STR_PTR(policy_id, start);
-        temp = strchr(policy_id, ':');
-        if (temp == NULL)
+        split = strchr(policy_id, ':');
+        if (split == NULL)
             goto error_reading_policy;
-        *temp++ = '\0';     /* TODO: during file mapping, this won't work */
+        *split++ = '\0'; /* TODO: during file mapping, this won't work */
 
-        SET_NUM(mode, uint, MODE, temp);
+        SET_NUM(mode, uint, MODE, split);
 
         /* Must set mode for all vulnerabilities with a matching policy_id, not
          * just the first one.
          */
         for (vul = 0; vul < NUM_GLOBAL_VULS; vul++) {
-            if (strncmp(GLOBAL_VUL(vul).policy_id, policy_id,
-                        MAX_POLICY_ID_LENGTH) == 0) {
+            if (strncmp(GLOBAL_VUL(vul).policy_id, policy_id, MAX_POLICY_ID_LENGTH) ==
+                0) {
                 GLOBAL_VUL(vul).mode = mode;
                 matched = true;
             }
@@ -1378,12 +1359,13 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
          */
         if (!matched) {
             SYSLOG_INTERNAL_WARNING("While reading modes, found a mode "
-                "definition for a policy (%s) that didn't exist", policy_id);
+                                    "definition for a policy (%s) that didn't exist",
+                                    policy_id);
         }
     }
 
-/* TODO: make the macro take this as an argument or find a neutral name */
- error_reading_policy:
+    /* TODO: make the macro take this as an argument or find a neutral name */
+error_reading_policy:
     ASSERT(buf != NULL);
     heap_free(GLOBAL_DCONTEXT, buf, buf_len HEAPACCT(ACCT_HOT_PATCHING));
     return;
@@ -1417,10 +1399,9 @@ hotp_set_policy_status(const uint vul_index, const hotp_inject_status_t status)
      *       the CRC itself.  Otherwise we would have to do the CRC computation
      *       twice; wastefully expensive.
      */
-    crc_buf_size = hotp_policy_status_table->size -
-                   sizeof(hotp_policy_status_table->crc);
-    hotp_policy_status_table->crc = crc32((char*)&hotp_policy_status_table->size,
-                                          crc_buf_size);
+    crc_buf_size = hotp_policy_status_table->size - sizeof(hotp_policy_status_table->crc);
+    hotp_policy_status_table->crc =
+        d_r_crc32((char *)&hotp_policy_status_table->size, crc_buf_size);
 }
 
 /* The status of hot patches is directly read by the node manager from the
@@ -1456,7 +1437,8 @@ hotp_init_policy_status_table(void)
      * policies first!  This may happen during startup.  Case 5448.
      */
     if (GLOBAL_VUL_TABLE == NULL) {
-        LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Policy status table can't be created "
+        LOG(GLOBAL, LOG_HOT_PATCHING, 1,
+            "Policy status table can't be created "
             "without policy definitions.  Probably caused due to a nudge by the "
             "node manager to read modes when there were no policies.  Or "
             "because all probes registered using the probe api were invalid.");
@@ -1495,12 +1477,12 @@ hotp_init_policy_status_table(void)
      * because we need to maintain status internally for vulnerabilities
      * that are turned off too.  Case 5326.
      */
-    size_in_bytes = sizeof(hotp_policy_status_table_t) +
-                    sizeof(hotp_policy_status_t) * num_policies;
+    size_in_bytes =
+        sizeof(hotp_policy_status_table_t) + sizeof(hotp_policy_status_t) * num_policies;
     temp = heap_alloc(GLOBAL_DCONTEXT, size_in_bytes HEAPACCT(ACCT_HOT_PATCHING));
     temp->size = size_in_bytes;
-    temp->policy_status_array = (hotp_policy_status_t*)((char*)temp +
-                                    sizeof(hotp_policy_status_table_t));
+    temp->policy_status_array =
+        (hotp_policy_status_t *)((char *)temp + sizeof(hotp_policy_status_table_t));
 
     /* Init status buffer elements & set up global vul table pointers */
     /* TODO: two vulnerabilities can belong to the same policy; need to check
@@ -1508,8 +1490,8 @@ hotp_init_policy_status_table(void)
      *       because we don't have such policies yet.
      */
     for (i = 0; i < NUM_GLOBAL_VULS; i++) {
-        strncpy(temp->policy_status_array[i].policy_id,
-                GLOBAL_VUL(i).policy_id, MAX_POLICY_ID_LENGTH);
+        strncpy(temp->policy_status_array[i].policy_id, GLOBAL_VUL(i).policy_id,
+                MAX_POLICY_ID_LENGTH);
         NULL_TERMINATE_BUFFER(temp->policy_status_array[i].policy_id);
         temp->policy_status_array[i].inject_status = HOTP_INJECT_NO_MATCH;
 
@@ -1521,14 +1503,13 @@ hotp_init_policy_status_table(void)
         /* The inject status in global vulnerability table should point
          * to the corresponding element in this table.
          */
-        GLOBAL_VUL(i).info->inject_status =
-            &temp->policy_status_array[i].inject_status;
+        GLOBAL_VUL(i).info->inject_status = &temp->policy_status_array[i].inject_status;
     }
     temp->num_policies = i;
 
     /* Set the table CRC now that the table has been initialized. */
     crc_buf_size = temp->size - sizeof(temp->crc);
-    temp->crc = crc32((char*)&temp->size, crc_buf_size);
+    temp->crc = d_r_crc32((char *)&temp->size, crc_buf_size);
 
     /* Make the policy status table live.  If the dr_marker_t isn't initialized
      * this won't be set.  In that case, the dr_marker_t initialization code will
@@ -1536,13 +1517,14 @@ hotp_init_policy_status_table(void)
      */
     hotp_policy_status_table = temp;
 
-    set_drmarker_hotp_policy_status_table((void*)temp);
+    set_drmarker_hotp_policy_status_table((void *)temp);
 }
 
 /* Frees all the dynamically allocated members of vul (strings, info, sets,
  * modules and patch points).  NOTE: It doesn't free the vul itself.
  */
-static void hotp_free_one_vul(hotp_vul_t *vul)
+static void
+hotp_free_one_vul(hotp_vul_t *vul)
 {
     uint set_idx, module_idx, ppoint_idx;
 
@@ -1561,8 +1543,8 @@ static void hotp_free_one_vul(hotp_vul_t *vul)
     if (vul->hotp_dll_hash != NULL)
         dr_strfree(vul->hotp_dll_hash HEAPACCT(ACCT_HOT_PATCHING));
     if (vul->info != NULL) {
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, vul->info, hotp_vul_info_t,
-                       ACCT_HOT_PATCHING, PROTECTED);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, vul->info, hotp_vul_info_t, ACCT_HOT_PATCHING,
+                       PROTECTED);
     }
 
     if (vul->sets == NULL)
@@ -1588,10 +1570,9 @@ static void hotp_free_one_vul(hotp_vul_t *vul)
 
             if (module->hashes != NULL) {
                 ASSERT(module->num_patch_point_hashes > 0);
-                HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, module->hashes,
-                                hotp_patch_point_hash_t,
-                                module->num_patch_point_hashes,
-                                ACCT_HOT_PATCHING, PROTECTED);
+                HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, module->hashes, hotp_patch_point_hash_t,
+                                module->num_patch_point_hashes, ACCT_HOT_PATCHING,
+                                PROTECTED);
             }
 
             if (module->patch_points != NULL) {
@@ -1603,19 +1584,18 @@ static void hotp_free_one_vul(hotp_vul_t *vul)
                         ASSERT(DYNAMO_OPTION(hotp_only));
                         ASSERT(ppoint->app_code_copy != NULL);
                         special_heap_free(hotp_only_tramp_heap,
-                                          (void *) ppoint->trampoline);
+                                          (void *)ppoint->trampoline);
                     }
                 }
-                HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, module->patch_points,
-                                hotp_patch_point_t, module->num_patch_points,
-                                ACCT_HOT_PATCHING, PROTECTED);
+                HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, module->patch_points, hotp_patch_point_t,
+                                module->num_patch_points, ACCT_HOT_PATCHING, PROTECTED);
             }
         }
-        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, set->modules, hotp_module_t,
-                        set->num_modules, ACCT_HOT_PATCHING, PROTECTED);
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, set->modules, hotp_module_t, set->num_modules,
+                        ACCT_HOT_PATCHING, PROTECTED);
     }
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, vul->sets, hotp_set_t,
-                    vul->num_sets, ACCT_HOT_PATCHING, PROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, vul->sets, hotp_set_t, vul->num_sets,
+                    ACCT_HOT_PATCHING, PROTECTED);
 }
 
 /* Release all memory used by the hot patch vulnerability table, tab.
@@ -1640,8 +1620,8 @@ hotp_free_vul_table(hotp_vul_t *tab, uint num_vuls_alloc)
     for (vul_idx = 0; vul_idx < num_vuls_alloc; vul_idx++) {
         hotp_free_one_vul(&tab[vul_idx]);
     }
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, tab, hotp_vul_t, num_vuls_alloc,
-                    ACCT_HOT_PATCHING, PROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, tab, hotp_vul_t, num_vuls_alloc, ACCT_HOT_PATCHING,
+                    PROTECTED);
 }
 
 /* This routine flushes all fragments in fcache that have been injected with a
@@ -1678,7 +1658,8 @@ hotp_remove_patches_from_module(const hotp_vul_t *vul_tab, const uint num_vuls,
      * provided the policies!  See case 5448.  Hence just a warning & no assert.
      */
     if (vul_tab == NULL) {
-        LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Hot patch flushing has been invoked "
+        LOG(GLOBAL, LOG_HOT_PATCHING, 1,
+            "Hot patch flushing has been invoked "
             "with a NULL table");
         return;
     }
@@ -1705,10 +1686,10 @@ hotp_remove_patches_from_module(const hotp_vul_t *vul_tab, const uint num_vuls,
                 continue;
             }
         }
-        ASSERT(vul->mode == HOTP_MODE_DETECT ||
-               vul->mode == HOTP_MODE_PROTECT ||
-               (old_modes != NULL && (old_modes[vul_idx] == HOTP_MODE_DETECT ||
-                                      old_modes[vul_idx] == HOTP_MODE_PROTECT)));
+        ASSERT(vul->mode == HOTP_MODE_DETECT || vul->mode == HOTP_MODE_PROTECT ||
+               (old_modes != NULL &&
+                (old_modes[vul_idx] == HOTP_MODE_DETECT ||
+                 old_modes[vul_idx] == HOTP_MODE_PROTECT)));
 
         for (set_idx = 0; set_idx < VUL(vul_tab, vul_idx).num_sets; set_idx++) {
             /* Only the first matching set should be used; case 10248. */
@@ -1757,13 +1738,12 @@ hotp_remove_patches_from_module(const hotp_vul_t *vul_tab, const uint num_vuls,
 
                             ASSERT_OWN_NO_LOCKS();
                             LOG(GLOBAL, LOG_HOT_PATCHING, 4,
-                                "flushing "PFX" due to a nudge\n", flush_addr);
-                            flush_fragments_in_region_start(dcontext, flush_addr,
-                                                            1, false /* no lock */,
-                                                            false /* keep futures */,
-                                                            false/*exec still valid*/,
-                                                            false/*don't force synchall*/
-                                                            _IF_DGCDIAG(NULL));
+                                "flushing " PFX " due to a nudge\n", flush_addr);
+                            flush_fragments_in_region_start(
+                                dcontext, flush_addr, 1, false /* no lock */,
+                                false /* keep futures */, false /*exec still valid*/,
+                                false /*don't force synchall*/
+                                _IF_DGCDIAG(NULL));
                             flush_fragments_in_region_finish(dcontext, false);
                             /* TODO: ASSERT (flushed fragments have really been)
                              *       flushed but how, using a vm_areas_overlap()
@@ -1782,13 +1762,11 @@ hotp_remove_patches_from_module(const hotp_vul_t *vul_tab, const uint num_vuls,
  */
 static void
 hotp_remove_hot_patches(const hotp_vul_t *vul_tab, const uint num_vuls,
-                        const bool hotp_only,
-                        const hotp_policy_mode_t *old_modes)
+                        const bool hotp_only, const hotp_policy_mode_t *old_modes)
 {
     /* Old vulnerability modes shouldn't be used with hotp_only. */
     ASSERT(!DYNAMO_OPTION(hotp_only) || old_modes == NULL);
-    hotp_remove_patches_from_module(vul_tab, num_vuls, hotp_only, NULL,
-                                    old_modes);
+    hotp_remove_patches_from_module(vul_tab, num_vuls, hotp_only, NULL, old_modes);
 }
 
 /* TODO: vlad wanted the ability to ignore some attributes during checking;
@@ -1798,9 +1776,8 @@ hotp_remove_hot_patches(const hotp_vul_t *vul_tab, const uint num_vuls,
  *       checked, no ignoring stuff.
  */
 static bool
-hotp_module_match(const hotp_module_t *module, const app_pc base,
-                  const uint checksum, const uint timestamp,
-                  const size_t image_size, const size_t code_size,
+hotp_module_match(const hotp_module_t *module, const app_pc base, const uint checksum,
+                  const uint timestamp, const size_t image_size, const size_t code_size,
                   const uint64 file_version, const char *name, hotp_type_t type)
 {
     uint hash_index, computed_hash;
@@ -1808,10 +1785,9 @@ hotp_module_match(const hotp_module_t *module, const app_pc base,
     bool matched;
 
     ASSERT(module != NULL && base != NULL);
-    ASSERT(TESTANY(HOTP_TYPE_HOT_PATCH | HOTP_TYPE_GBOP_HOOK | HOTP_TYPE_PROBE,
-                   type));
+    ASSERT(TESTANY(HOTP_TYPE_HOT_PATCH | HOTP_TYPE_GBOP_HOOK | HOTP_TYPE_PROBE, type));
 
-    LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Matching module base "PFX" %s\n", base, name);
+    LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Matching module base " PFX " %s\n", base, name);
 
     /* For library offset or export function based patch points, the probe will
      * define a library by name (if needed we expand it to include the
@@ -1819,20 +1795,19 @@ hotp_module_match(const hotp_module_t *module, const app_pc base,
     /* gbop type patches provide a symbolic name to hook, so there is nothing
      * to match it with other than the pe name.
      */
-    if (TESTALL(HOTP_TYPE_PROBE, type)
-        IF_GBOP(|| (TESTALL(HOTP_TYPE_GBOP_HOOK, type)))) {
+    if (TESTALL(HOTP_TYPE_PROBE, type) IF_GBOP(|| (TESTALL(HOTP_TYPE_GBOP_HOOK, type)))) {
         ASSERT(module->sig.pe_checksum == 0 && module->sig.pe_timestamp == 0 &&
                module->sig.pe_image_size == 0 && module->sig.pe_code_size == 0 &&
-               module->sig.pe_file_version == 0 &&
-               module->num_patch_points == 1 && module->patch_points != NULL &&
-               module->num_patch_point_hashes == 0 && module->hashes == NULL);
+               module->sig.pe_file_version == 0 && module->num_patch_points == 1 &&
+               module->patch_points != NULL && module->num_patch_point_hashes == 0 &&
+               module->hashes == NULL);
         if (name == NULL) {
             /* if the only check is the module name, then a NULL name means
              * the module wasn't matched;  otherwise this check would be bogus.
              */
             return false;
-        } else if (IF_UNIX_ELSE(strncmp,strncasecmp)
-                   (module->sig.pe_name, name, MAXIMUM_PATH) == 0) {
+        } else if (IF_UNIX_ELSE(strncmp, strncasecmp)(module->sig.pe_name, name,
+                                                      MAXIMUM_PATH) == 0) {
             /* FIXME: strcmp() is faster than the ignore case version,
              * but we shouldn't rely on the PE name case to be the
              * same in all versions of Windows.
@@ -1858,31 +1833,34 @@ hotp_module_match(const hotp_module_t *module, const app_pc base,
     ASSERT(TESTALL(HOTP_TYPE_HOT_PATCH, type));
 
     matched = module->sig.pe_timestamp == timestamp ||
-              module->sig.pe_timestamp == PE_TIMESTAMP_IGNORE ||
-              module->sig.pe_timestamp == PE_TIMESTAMP_UNAVAILABLE;
+        module->sig.pe_timestamp == PE_TIMESTAMP_IGNORE ||
+        module->sig.pe_timestamp == PE_TIMESTAMP_UNAVAILABLE;
 
-    matched = matched && (module->sig.pe_checksum == checksum ||
-                          module->sig.pe_checksum == PE_CHECKSUM_IGNORE ||
-                          module->sig.pe_checksum == PE_CHECKSUM_UNAVAILABLE);
+    matched = matched &&
+        (module->sig.pe_checksum == checksum ||
+         module->sig.pe_checksum == PE_CHECKSUM_IGNORE ||
+         module->sig.pe_checksum == PE_CHECKSUM_UNAVAILABLE);
 
-    matched = matched && (module->sig.pe_image_size == image_size ||
-                          module->sig.pe_image_size == PE_IMAGE_SIZE_IGNORE ||
-                          module->sig.pe_image_size == PE_IMAGE_SIZE_UNAVAILABLE);
+    matched = matched &&
+        (module->sig.pe_image_size == image_size ||
+         module->sig.pe_image_size == PE_IMAGE_SIZE_IGNORE ||
+         module->sig.pe_image_size == PE_IMAGE_SIZE_UNAVAILABLE);
 
-    matched = matched && (module->sig.pe_code_size == code_size ||
-                          module->sig.pe_code_size == PE_CODE_SIZE_IGNORE ||
-                          module->sig.pe_code_size == PE_CODE_SIZE_UNAVAILABLE);
+    matched = matched &&
+        (module->sig.pe_code_size == code_size ||
+         module->sig.pe_code_size == PE_CODE_SIZE_IGNORE ||
+         module->sig.pe_code_size == PE_CODE_SIZE_UNAVAILABLE);
 
-    matched = matched && (module->sig.pe_file_version == file_version ||
-                          module->sig.pe_file_version == PE_FILE_VERSION_IGNORE ||
-                          module->sig.pe_file_version == PE_FILE_VERSION_UNAVAILABLE);
+    matched = matched &&
+        (module->sig.pe_file_version == file_version ||
+         module->sig.pe_file_version == PE_FILE_VERSION_IGNORE ||
+         module->sig.pe_file_version == PE_FILE_VERSION_UNAVAILABLE);
 
-    matched = matched && ((strncmp(module->sig.pe_name, PE_NAME_IGNORE,
-                                   sizeof(PE_NAME_IGNORE)) == 0) ||
-                          (name == NULL && /* no name case */
-                           module->sig.pe_name[0] == PE_NAME_UNAVAILABLE) ||
-                          (name != NULL &&
-                           (strncmp(module->sig.pe_name, name, MAXIMUM_PATH) == 0)));
+    matched = matched &&
+        ((strncmp(module->sig.pe_name, PE_NAME_IGNORE, sizeof(PE_NAME_IGNORE)) == 0) ||
+         (name == NULL && /* no name case */
+          module->sig.pe_name[0] == PE_NAME_UNAVAILABLE) ||
+         (name != NULL && (strncmp(module->sig.pe_name, name, MAXIMUM_PATH) == 0)));
 
     if (matched) {
         LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Module signature check passed\n");
@@ -1890,10 +1868,8 @@ hotp_module_match(const hotp_module_t *module, const app_pc base,
         /* First stage check was true, now let us do the second stage check,
          * i.e., check the hashes of patch points in the module.
          */
-        ASSERT(module->num_patch_point_hashes > 0 &&
-               module->hashes != NULL);
-        for (hash_index = 0; hash_index < module->num_patch_point_hashes;
-             hash_index++) {
+        ASSERT(module->num_patch_point_hashes > 0 && module->hashes != NULL);
+        for (hash_index = 0; hash_index < module->num_patch_point_hashes; hash_index++) {
             hash = &module->hashes[hash_index];
             computed_hash = hotp_compute_hash(base, hash);
             if (computed_hash != hash->hash_value)
@@ -1908,7 +1884,7 @@ hotp_module_match(const hotp_module_t *module, const app_pc base,
 /* Used to compute the hash of a patch point hash region.  In hotp_only mode,
  * if there is an overlap between a hash region and a patch region, the
  * image bytes, stored at the top of the trampoline, are used to create copy
- * of the image on which crc32 is computed.  In regular hotp mode, crc32 is
+ * of the image on which d_r_crc32 is computed.  In regular hotp mode, d_r_crc32 is
  * called directly.
  */
 static uint
@@ -1927,7 +1903,7 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
     hash_end = hash_start + hash->len;
 
     /* If the hash region overlaps with any patch point region, then use the
-     * original image bytes to compute the crc32.  Valid for hotp_only because
+     * original image bytes to compute the d_r_crc32.  Valid for hotp_only because
      * in hotp mode, i.e., with a code cache, we don't modify the original code.
      */
     if (DYNAMO_OPTION(hotp_only) &&
@@ -1943,8 +1919,8 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
          * the overlap scenarios (4 different ones) easy.
          */
         copy_size = hash->len + (2 * HOTP_PATCH_REGION_SIZE);
-        copy = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, copy_size,
-                                ACCT_HOT_PATCHING, PROTECTED);
+        copy = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, copy_size, ACCT_HOT_PATCHING,
+                                PROTECTED);
         hash_buf = copy + HOTP_PATCH_REGION_SIZE;
         memcpy(hash_buf, hash_start, hash->len);
 
@@ -1957,10 +1933,10 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
         vmvector_iterator_start(hotp_patch_point_areas, &iterator);
         while (vmvector_iterator_hasnext(&iterator)) {
             ppoint_desc = vmvector_iterator_next(&iterator, &vm_start, &vm_end);
-            trampoline = GLOBAL_PPOINT(ppoint_desc->vul_index,
-                                       ppoint_desc->set_index,
-                                       ppoint_desc->module_index,
-                                       ppoint_desc->ppoint_index).trampoline;
+            trampoline =
+                GLOBAL_PPOINT(ppoint_desc->vul_index, ppoint_desc->set_index,
+                              ppoint_desc->module_index, ppoint_desc->ppoint_index)
+                    .trampoline;
 
             /* If the patch isn't injected, overlap doesn't matter because
              * the image hasn't been changed.  Overlap with an uninjected patch
@@ -1973,9 +1949,10 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
                 /* If hash belongs ppoint_desc, i.e., overlaps with self, then
                  * base and module's base must match.
                  */
-                ASSERT(base == GLOBAL_MODULE(ppoint_desc->vul_index,
-                                   ppoint_desc->set_index,
-                                   ppoint_desc->module_index).base_address);
+                ASSERT(base ==
+                       GLOBAL_MODULE(ppoint_desc->vul_index, ppoint_desc->set_index,
+                                     ppoint_desc->module_index)
+                           .base_address);
                 continue;
             }
 
@@ -1994,7 +1971,8 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
              * have been matched by a vul. def. (in hotp_process_image).
              */
             ASSERT(GLOBAL_MODULE(ppoint_desc->vul_index, ppoint_desc->set_index,
-                                 ppoint_desc->module_index).matched);
+                                 ppoint_desc->module_index)
+                       .matched);
 
             /* There are a few scenarios for a hash & patch point to overlap,
              * vmarea fully within the hash area, vice versa, partial below,
@@ -2008,14 +1986,13 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
              */
             if (vm_start < hash_end && vm_end > hash_start) {
                 src = trampoline;
-                dst = (app_pc) hash_buf + (vm_start - hash_start);
+                dst = (app_pc)hash_buf + (vm_start - hash_start);
 
                 /* Just make sure that we don't trash anything when copying the
                  * original image over the bytes in hash_buf.
                  */
                 ASSERT((dst >= (app_pc)copy) &&
-                       ((dst + HOTP_PATCH_REGION_SIZE) <=
-                        ((app_pc)copy + copy_size)));
+                       ((dst + HOTP_PATCH_REGION_SIZE) <= ((app_pc)copy + copy_size)));
 
                 /* If the hash overlaps with a patch point region, then the
                  * current image & the copy should be different, i.e., a patch
@@ -2035,12 +2012,12 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
              */
         }
         vmvector_iterator_stop(&iterator);
-        crc = crc32(hash_buf, hash->len);
-        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, copy, char, copy_size,
-                        ACCT_HOT_PATCHING, PROTECTED);
+        crc = d_r_crc32(hash_buf, hash->len);
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, copy, char, copy_size, ACCT_HOT_PATCHING,
+                        PROTECTED);
     } else {
-        /* No overlap; image is unmodified, so image's crc32 should be valid. */
-        crc = crc32((char *)hash_start, hash->len);
+        /* No overlap; image is unmodified, so image's d_r_crc32 should be valid. */
+        crc = d_r_crc32((char *)hash_start, hash->len);
     }
     return crc;
 }
@@ -2063,31 +2040,30 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
 static void
 hotp_process_image_helper(const app_pc base, const bool loaded,
                           const bool own_hot_patch_lock, const bool just_check,
-                          bool *needs_processing, const thread_record_t **all_threads,
+                          bool *needs_processing, const thread_record_t **thread_table,
                           const int num_threads, const bool ldr_safety,
                           vm_area_vector_t *toflush);
 void
-hotp_process_image(const app_pc base, const bool loaded,
-                   const bool own_hot_patch_lock, const bool just_check,
-                   bool *needs_processing, const thread_record_t **all_threads,
-                   const int num_threads)
+hotp_process_image(const app_pc base, const bool loaded, const bool own_hot_patch_lock,
+                   const bool just_check, bool *needs_processing,
+                   const thread_record_t **thread_table, const int num_threads)
 {
     hotp_process_image_helper(base, loaded, own_hot_patch_lock, just_check,
-                   needs_processing, all_threads, num_threads, false, NULL);
+                              needs_processing, thread_table, num_threads, false, NULL);
 }
 
 /* Helper routine for seeing if point is in hotp_ppoint_vec */
 bool
-hotp_ppoint_on_list(app_rva_t ppoint,
-                   app_rva_t *hotp_ppoint_vec, uint hotp_ppoint_vec_num)
+hotp_ppoint_on_list(app_rva_t ppoint, app_rva_t *hotp_ppoint_vec,
+                    uint hotp_ppoint_vec_num)
 {
     bool on_list = false;
     uint i;
     /* We assume there are at most a handful of these so we don't sort.
      * If we add GBOP hooks we may want to do that. */
-#ifdef GBOP
+#    ifdef GBOP
     ASSERT(DYNAMO_OPTION(gbop) == 0);
-#endif
+#    endif
     ASSERT(ppoint != 0);
     ASSERT(hotp_ppoint_vec != NULL && hotp_ppoint_vec_num > 0);
     if (hotp_ppoint_vec == NULL)
@@ -2120,9 +2096,8 @@ hotp_perscache_overlap(uint vul, uint set, uint module, app_pc base, size_t imag
      * hotp_ppoint_on_list and the pp for loop here only a few entries each;
      * so this routine shouldn't be a perf bottleneck by itself.
      */
-    while (!flush_perscache &&
-           vm_area_coarse_iter_hasnext(&vmvi, base+image_size)) {
-        info = vm_area_coarse_iter_next(&vmvi, base+image_size);
+    while (!flush_perscache && vm_area_coarse_iter_hasnext(&vmvi, base + image_size)) {
+        info = vm_area_coarse_iter_next(&vmvi, base + image_size);
         ASSERT(info != NULL);
         if (info == NULL) /* be paranoid */
             continue;
@@ -2160,7 +2135,7 @@ hotp_perscache_overlap(uint vul, uint set, uint module, app_pc base, size_t imag
 static void
 hotp_process_image_helper(const app_pc base, const bool loaded,
                           const bool own_hot_patch_lock, const bool just_check,
-                          bool *needs_processing, const thread_record_t **all_threads,
+                          bool *needs_processing, const thread_record_t **thread_table,
                           const int num_threads_arg, const bool ldr_safety,
                           vm_area_vector_t *toflush)
 {
@@ -2177,18 +2152,18 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
     bool flush_perscache = false;
     bool perscache_range_overlap = false;
 
-    ASSERT(base != NULL);   /* Is it a valid dll in loaded memory? */
+    ASSERT(base != NULL); /* Is it a valid dll in loaded memory? */
 
-    LOG(GLOBAL, LOG_HOT_PATCHING, 2, "hotp_process_image "PFX" %s w/ %d vuls\n",
-        base, loaded ? "load" : "unload", NUM_GLOBAL_VULS);
+    LOG(GLOBAL, LOG_HOT_PATCHING, 2, "hotp_process_image " PFX " %s w/ %d vuls\n", base,
+        loaded ? "load" : "unload", NUM_GLOBAL_VULS);
 
     ASSERT(dcontext != GLOBAL_DCONTEXT);
     /* note that during startup processing due to
      * find_executable_vm_areas() dcontext can in fact be NULL
      */
-    if (dcontext != NULL && dcontext->nudge_thread)     /* Fix for case 5367. */
+    if (dcontext != NULL && dcontext->nudge_thread) /* Fix for case 5367. */
         return;
-#ifdef WINDOWS
+#    ifdef WINDOWS
     if (num_threads == 0 && !just_check && DYNAMO_OPTION(hotp_only)) {
         /* FIXME PR 225578: dr_register_probes passes 0 for the thread count
          * b/c post-init probes are NYI: but to enable at-your-own risk probes
@@ -2206,14 +2181,14 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
          * Also, to be on the safe side grab the synchronization locks.
          */
         ASSERT_CURIOSITY(check_sole_thread());
-        ASSERT(!own_hot_patch_lock);    /* can't get hotp lock before sync locks */
-        mutex_lock(&all_threads_synch_lock);
-        mutex_lock(&thread_initexit_lock);
+        ASSERT(!own_hot_patch_lock); /* can't get hotp lock before sync locks */
+        d_r_mutex_lock(&all_threads_synch_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
     }
-#endif
+#    endif
 
     if (!own_hot_patch_lock)
-        write_lock(&hotp_vul_table_lock);
+        d_r_write_lock(&hotp_vul_table_lock);
     ASSERT_OWN_READWRITE_LOCK(true, &hotp_vul_table_lock);
 
     /* Caller doesn't want to process the image, but to know if it matches. */
@@ -2221,7 +2196,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
         /* Only hotp_only needs this; not regular hot patching. */
         ASSERT(DYNAMO_OPTION(hotp_only));
         ASSERT(needs_processing != NULL);
-        *needs_processing = false;  /* will be set it to true, if needed */
+        *needs_processing = false; /* will be set it to true, if needed */
     } else
         ASSERT(needs_processing == NULL);
 
@@ -2234,8 +2209,8 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
      *        predicated by the first check - and put all these into hotp_get_module_sig()
      */
     os_get_module_info_lock();
-    if (!os_get_module_info_all_names(base, &checksum, &timestamp, &image_size,
-                                      &names, &code_size, &file_version)) {
+    if (!os_get_module_info_all_names(base, &checksum, &timestamp, &image_size, &names,
+                                      &code_size, &file_version)) {
         /* FIXME: case 9778 - module info is now obtained from
          * loaded_module_areas vector, which doesn't seem to have hotp dll
          * info, so we hit this.  As a first step this is converted to a log
@@ -2243,7 +2218,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
          * try/except) if it isn't a hotp dll - if that doesn't work then be
          * curious.  Also, need to find out if it was triggered only for hotp
          * dlls. */
-        LOG(GLOBAL, LOG_HOT_PATCHING, 2, "unreadable PE base ("PFX")?\n", base);
+        LOG(GLOBAL, LOG_HOT_PATCHING, 2, "unreadable PE base (" PFX ")?\n", base);
         os_get_module_info_unlock();
         goto hotp_process_image_exit;
     } else {
@@ -2264,7 +2239,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                          checksum != PE_CHECKSUM_IGNORE &&
                          image_size != PE_IMAGE_SIZE_IGNORE);
     }
-#ifdef WINDOWS
+#    ifdef WINDOWS
     DOCHECK(1, {
         if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
             TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
@@ -2286,16 +2261,15 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
              * though it won't check, and the timestamp is bumped by one second
              */
             ASSERT(!ok || pe_checksum == checksum);
-            ASSERT_CURIOSITY(!ok ||
-                             pe_timestamp == timestamp ||
+            ASSERT_CURIOSITY(!ok || pe_timestamp == timestamp ||
                              pe_timestamp == timestamp + 1);
         }
     });
-#endif /* WINDOWS */
+#    endif /* WINDOWS */
 
     if (!DYNAMO_OPTION(hotp_only)) {
         perscache_range_overlap =
-            executable_vm_area_persisted_overlap(base, base+image_size);
+            executable_vm_area_persisted_overlap(base, base + image_size);
     }
 
     /* TODO: assert that 'base' is the module's base address,
@@ -2307,7 +2281,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
         bool set_matched = false;
 
         if (TESTALL(HOTP_TYPE_PROBE, GLOBAL_VUL(vul_idx).type)
-            IF_GBOP(|| (TESTALL(HOTP_TYPE_GBOP_HOOK, GLOBAL_VUL(vul_idx).type)))) {
+                IF_GBOP(|| (TESTALL(HOTP_TYPE_GBOP_HOOK, GLOBAL_VUL(vul_idx).type)))) {
             /* FIXME PR 533522: state in the docs/comments which name is
              * used where!  pe_name vs mod_name
              */
@@ -2328,8 +2302,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
             if (set_matched)
                 break;
 
-            for (module_idx = 0;
-                 module_idx < GLOBAL_SET(vul_idx, set_idx).num_modules;
+            for (module_idx = 0; module_idx < GLOBAL_SET(vul_idx, set_idx).num_modules;
                  module_idx++) {
                 module = &GLOBAL_MODULE(vul_idx, set_idx, module_idx);
 
@@ -2339,7 +2312,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                  * computation part due to a changed image, due to injection.
                  */
                 if (base == module->base_address && !loaded) {
-                    if (just_check) {   /* caller doesn't want processing */
+                    if (just_check) { /* caller doesn't want processing */
                         *needs_processing = true;
                         goto hotp_process_image_exit;
                     }
@@ -2381,8 +2354,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                              * in that module, i.e., module can be without a
                              * patch for a brief period till it is unloaded.
                              */
-                            hotp_ppoint_areas_remove(
-                                hotp_ppoint_addr(module, ppoint));
+                            hotp_ppoint_areas_remove(hotp_ppoint_addr(module, ppoint));
                         }
                     }
 
@@ -2394,11 +2366,9 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                      *       of the first one and the hash check for the second
                      *       one will fail.
                      */
-                    ASSERT_CURIOSITY(hotp_module_match(module, base, checksum,
-                                                       timestamp, image_size,
-                                                       code_size, file_version,
-                                                       name,
-                                                       GLOBAL_VUL(vul_idx).type));
+                    ASSERT_CURIOSITY(hotp_module_match(
+                        module, base, checksum, timestamp, image_size, code_size,
+                        file_version, name, GLOBAL_VUL(vul_idx).type));
                 }
 
                 /* FIXME: there's no reason to compute whether an OFF patch
@@ -2406,16 +2376,16 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                  * any path that later turns the patch on, and no external
                  * stats rely on knowing whether an off patch matches.
                  */
-                if (hotp_module_match(module, base, checksum, timestamp,
-                                      image_size, code_size, file_version, name,
+                if (hotp_module_match(module, base, checksum, timestamp, image_size,
+                                      code_size, file_version, name,
                                       GLOBAL_VUL(vul_idx).type)) {
                     set_matched = true;
-                    if (just_check) {   /* caller doesn't want processing */
+                    if (just_check) { /* caller doesn't want processing */
                         *needs_processing = true;
                         goto hotp_process_image_exit;
                     }
 
-                    if (loaded) {  /* loading dll */
+                    if (loaded) { /* loading dll */
                         bool patch_enabled =
                             (GLOBAL_VUL(vul_idx).mode == HOTP_MODE_DETECT ||
                              GLOBAL_VUL(vul_idx).mode == HOTP_MODE_PROTECT);
@@ -2431,12 +2401,10 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                          * We currently come here for OFF patches, so we explicitly
                          * check for that before flushing.
                          */
-                        if (patch_enabled &&
-                            perscache_range_overlap && !flush_perscache &&
-                            DYNAMO_OPTION(use_persisted_hotp)) {
-                            flush_perscache =
-                                hotp_perscache_overlap(vul_idx, set_idx, module_idx,
-                                                       base, image_size);
+                        if (patch_enabled && perscache_range_overlap &&
+                            !flush_perscache && DYNAMO_OPTION(use_persisted_hotp)) {
+                            flush_perscache = hotp_perscache_overlap(
+                                vul_idx, set_idx, module_idx, base, image_size);
                         }
 
                         /* TODO: check if all modules in the current
@@ -2475,9 +2443,9 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                             /* gbop is only in -client mode, i.e., hotp_only */
                             ASSERT(DYNAMO_OPTION(hotp_only));
 
-                            func_addr = (app_pc) get_proc_address((module_handle_t)base,
-                                                         GLOBAL_VUL(vul_idx).vul_id);
-                            if (func_addr != NULL) {    /* fix for case 7969 */
+                            func_addr = (app_pc)d_r_get_proc_address(
+                                (module_handle_t)base, GLOBAL_VUL(vul_idx).vul_id);
+                            if (func_addr != NULL) { /* fix for case 7969 */
                                 ASSERT(func_addr > base);
                                 offset = func_addr - base;
                                 module->patch_points[0].offset = offset;
@@ -2502,8 +2470,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                             ppoint_desc.vul_index = vul_idx;
                             ppoint_desc.set_index = set_idx;
                             ppoint_desc.module_index = module_idx;
-                            for (ppoint_idx = 0;
-                                 ppoint_idx < module->num_patch_points;
+                            for (ppoint_idx = 0; ppoint_idx < module->num_patch_points;
                                  ppoint_idx++) {
                                 ppoint_desc.ppoint_index = ppoint_idx;
 
@@ -2518,13 +2485,12 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                                     hotp_ppoint_areas_add(&ppoint_desc);
 
                                 if (DYNAMO_OPTION(hotp_only)) {
-                                    hotp_only_inject_patch(&ppoint_desc,
-                                                           all_threads,
+                                    hotp_only_inject_patch(&ppoint_desc, thread_table,
                                                            num_threads);
                                 }
                             }
                         }
-                    } else {    /* unloading dll */
+                    } else { /* unloading dll */
                         /* TODO: same issues as in the 'if' block above, but
                          *        reverse.
                          */
@@ -2547,19 +2513,19 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
          */
         ASSERT(dynamo_initialized);
         ASSERT(toflush != NULL);
-#ifdef WINDOWS
+#    ifdef WINDOWS
         ASSERT(dcontext->nudge_target != NULL);
-#else
+#    else
         ASSERT_NOT_REACHED(); /* No nudge on Linux, should only be here for nudge. */
-#endif
+#    endif
         if (toflush != NULL) { /* be paranoid (we fail otherwise though) */
             LOG(GLOBAL, LOG_HOT_PATCHING, 2,
-                "Hotp for "PFX"-"PFX" %s overlaps perscache, flushing\n",
-                base, base+image_size, name);
+                "Hotp for " PFX "-" PFX " %s overlaps perscache, flushing\n", base,
+                base + image_size, name);
             /* As we hold the hotp_vul_table_lock we cannot flush here;
              * instead we add to a pending-flush vmvector.
              */
-            vmvector_add(toflush, base, base+image_size, NULL);
+            vmvector_add(toflush, base, base + image_size, NULL);
             STATS_INC(hotp_persist_flush);
             /* FIXME: we could eliminate this and rely on our later flush of the
              * patch area, as we're only coming here for nudges; we technically
@@ -2569,7 +2535,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
         }
     }
 
- hotp_process_image_exit:
+hotp_process_image_exit:
     if (pe_name != NULL)
         dr_strfree(pe_name HEAPACCT(ACCT_HOT_PATCHING));
     if (mod_name != NULL)
@@ -2579,20 +2545,20 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
      */
     /* TODO: or does this go after flush? */
     if (!own_hot_patch_lock)
-        write_unlock(&hotp_vul_table_lock);
-    /* TODO: also there are some race conditions with nudging & policy lookup/
-     *       injection; sort those out; flushing before or after reading the
-     *       policy plays a role too.
-     */
-#ifdef WINDOWS
+        d_r_write_unlock(&hotp_vul_table_lock);
+        /* TODO: also there are some race conditions with nudging & policy lookup/
+         *       injection; sort those out; flushing before or after reading the
+         *       policy plays a role too.
+         */
+#    ifdef WINDOWS
     if (num_threads == HOTP_ONLY_NUM_THREADS_AT_INIT) {
         ASSERT(DYNAMO_OPTION(hotp_only));
         ASSERT(!just_check);
         ASSERT_CURIOSITY(check_sole_thread());
-        mutex_unlock(&thread_initexit_lock);
-        mutex_unlock(&all_threads_synch_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&all_threads_synch_lock);
     }
-#endif
+#    endif
 }
 
 /* If vec==NULL, returns the number of patch points for the
@@ -2603,8 +2569,8 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
  * The caller must own the hotp_vul_table_lock (as a read lock).
  */
 static int
-hotp_patch_point_persist_helper(const app_pc start, const app_pc end,
-                                app_rva_t *vec, uint vec_num)
+hotp_patch_point_persist_helper(const app_pc start, const app_pc end, app_rva_t *vec,
+                                uint vec_num)
 {
     uint num_ppoints = 0;
     uint vul, set, module, pp;
@@ -2668,8 +2634,8 @@ hotp_num_matched_patch_points(const app_pc start, const app_pc end)
  * The caller must own the hotp_vul_table_lock (as a read lock).
  */
 int
-hotp_get_matched_patch_points(const app_pc start, const app_pc end,
-                              app_rva_t *vec, uint vec_num)
+hotp_get_matched_patch_points(const app_pc start, const app_pc end, app_rva_t *vec,
+                              uint vec_num)
 {
     return hotp_patch_point_persist_helper(start, end, vec, vec_num);
 }
@@ -2693,7 +2659,7 @@ hotp_point_not_on_list(const app_pc start, const app_pc end, bool own_hot_patch_
     DEBUG_DECLARE(bool matched = false;)
     ASSERT(modbase == get_module_base(end));
     if (!own_hot_patch_lock)
-        read_lock(&hotp_vul_table_lock);
+        d_r_read_lock(&hotp_vul_table_lock);
     ASSERT_OWN_READWRITE_LOCK(true, &hotp_vul_table_lock);
     if (GLOBAL_VUL_TABLE == NULL)
         goto hotp_policy_list_exit;
@@ -2725,9 +2691,9 @@ hotp_point_not_on_list(const app_pc start, const app_pc end, bool own_hot_patch_
                 if (hotp_ppoint_vec != NULL && DYNAMO_OPTION(use_persisted_hotp)) {
                     for (pp = 0; pp < GLOBAL_MODULE(vul, set, module).num_patch_points;
                          pp++) {
-                        if (!hotp_ppoint_on_list(GLOBAL_PPOINT(vul, set, module, pp).
-                                                 offset, hotp_ppoint_vec,
-                                                 hotp_ppoint_vec_num))
+                        if (!hotp_ppoint_on_list(
+                                GLOBAL_PPOINT(vul, set, module, pp).offset,
+                                hotp_ppoint_vec, hotp_ppoint_vec_num))
                             goto hotp_policy_list_exit;
                     }
                     not_on_list = false;
@@ -2736,9 +2702,9 @@ hotp_point_not_on_list(const app_pc start, const app_pc end, bool own_hot_patch_
             }
         }
     }
- hotp_policy_list_exit:
+hotp_policy_list_exit:
     if (!own_hot_patch_lock)
-        read_unlock(&hotp_vul_table_lock);
+        d_r_read_unlock(&hotp_vul_table_lock);
     DOSTATS({
         if (matched && !not_on_list) {
             ASSERT(hotp_ppoint_vec != NULL && DYNAMO_OPTION(use_persisted_hotp));
@@ -2758,21 +2724,21 @@ hotp_point_not_on_list(const app_pc start, const app_pc end, bool own_hot_patch_
  *
  */
 static void
-hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
+hotp_walk_loader_list(thread_record_t **thread_table, const int num_threads,
                       vm_area_vector_t *toflush, bool probe_init)
 {
-/* This routine will go away; till then need to compile on linux.  Not walking
- * the module list on linux means that no vulnerability will get activated
- * for injection; that is ok as we aren't trying to build a linux version now.
- */
-#ifdef WINDOWS
+    /* This routine will go away; till then need to compile on linux.  Not walking
+     * the module list on linux means that no vulnerability will get activated
+     * for injection; that is ok as we aren't trying to build a linux version now.
+     */
+#    ifdef WINDOWS
     /* TODO: this routine uses PEB, etc, this has to be os specific */
     PEB *peb = get_own_peb();
     PEB_LDR_DATA *ldr = peb->LoaderData;
     LIST_ENTRY *e, *start;
     LDR_MODULE *mod;
 
-    /* For hotp_only, all_threads can be valid, i.e., all known threads may be
+    /* For hotp_only, thread_table can be valid, i.e., all known threads may be
      * suspended.  Even if they are not, all synch locks will be held, so that
      * module processing can happen without races.  Check for that.
      * Note: for -probe_api, this routine can be called during dr init time,
@@ -2793,28 +2759,23 @@ hotp_walk_loader_list(thread_record_t **all_threads, const int num_threads,
      * implementing pcache flushes for probe api - till then this assert is
      * relaxed.
      */
-#ifdef CLIENT_INTERFACE
     ASSERT(toflush != NULL || DYNAMO_OPTION(hotp_only) ||
            (DYNAMO_OPTION(probe_api) && !DYNAMO_OPTION(use_persisted)));
-#else
-    ASSERT(toflush != NULL || DYNAMO_OPTION(hotp_only));
-#endif
 
     start = &ldr->InLoadOrderModuleList;
     for (e = start->Flink; e != start; e = e->Flink) {
-        mod = (LDR_MODULE*) e;
+        mod = (LDR_MODULE *)e;
 
         /* TODO: ASSERT that the module is loaded? */
-        hotp_process_image_helper(mod->BaseAddress, true,
-                                  probe_init ? false : true, false, NULL,
-                                  all_threads, num_threads, false/*!ldr*/,
+        hotp_process_image_helper(mod->BaseAddress, true, probe_init ? false : true,
+                                  false, NULL, thread_table, num_threads, false /*!ldr*/,
                                   toflush);
 
         /* TODO: make hotp_process_image() emit different log messages
          *          depending upon which path it is invoked from.
          */
     }
-#endif  /* WINDOWS */
+#    endif /* WINDOWS */
 }
 
 void
@@ -2825,10 +2786,10 @@ hotp_init(void)
     /* Assuming no locks are held on while initializing hot patching. */
     ASSERT_OWN_NO_LOCKS();
     ASSERT(DYNAMO_OPTION(hot_patching));
-#ifdef GBOP
+#    ifdef GBOP
     /* gbop can't be turned on without hotp_only. */
     ASSERT(DYNAMO_OPTION(hotp_only) || !DYNAMO_OPTION(gbop));
-#endif
+#    endif
 
     if (DYNAMO_OPTION(hotp_only)) {
         VMVECTOR_ALLOC_VECTOR(hotp_only_tramp_areas, GLOBAL_DCONTEXT,
@@ -2836,14 +2797,14 @@ hotp_init(void)
                               hotp_only_tramp_areas_lock);
     }
 
-    write_lock(&hotp_vul_table_lock);
+    d_r_write_lock(&hotp_vul_table_lock);
 
-#ifdef DEBUG
-    hotp_globals = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_globals_t,
-                                    ACCT_HOT_PATCHING, PROTECTED);
+#    ifdef DEBUG
+    hotp_globals =
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_globals_t, ACCT_HOT_PATCHING, PROTECTED);
     hotp_globals->ldr_safe_hook_removal = false;
     hotp_globals->ldr_safe_hook_injection = false;
-#endif
+#    endif
     /* Currently hotp_patch_point_areas is used for hotp_only to do module
      * matching (case 7279) and offset lookup (case 8132), and offset lookup
      * only for hotp with fcache (case 10075).  Later on it will be
@@ -2857,10 +2818,10 @@ hotp_init(void)
      * code to be executed in it.
      */
     if (DYNAMO_OPTION(hotp_only)) {
-        hotp_only_tramp_heap = special_heap_init(HOTP_ONLY_TRAMPOLINE_SIZE,
-                                                 true, /* yes, use a lock */
-                                                 true, /* make it executable */
-                                                 true /* it is persistent */);
+        hotp_only_tramp_heap =
+            special_heap_init(HOTP_ONLY_TRAMPOLINE_SIZE, true, /* yes, use a lock */
+                              true,                            /* make it executable */
+                              true /* it is persistent */);
     }
     ASSERT(GLOBAL_VUL_TABLE == NULL && NUM_GLOBAL_VULS == 0);
     GLOBAL_VUL_TABLE = hotp_read_policy_defs(&NUM_GLOBAL_VULS);
@@ -2876,13 +2837,12 @@ hotp_init(void)
         /* We don't need to call hotp_walk_loader_list() here as
          * find_executable_vm_areas() will call hotp_process_image() for us.
          */
-    }
-    else {
+    } else {
         LOG(GLOBAL, LOG_HOT_PATCHING, 2, "No hot patch definitions to read\n");
     }
 
     /* Release locks. */
-    write_unlock(&hotp_vul_table_lock);
+    d_r_write_unlock(&hotp_vul_table_lock);
 
     /* Can't hold any locks at the end of hot patch initializations. */
     ASSERT_OWN_NO_LOCKS();
@@ -2908,17 +2868,17 @@ hotp_reset_free(void)
     hotp_vul_tab_t *current_tab, *temp_tab;
     if (!DYNAMO_OPTION(hot_patching))
         return;
-    write_lock(&hotp_vul_table_lock);
+    d_r_write_lock(&hotp_vul_table_lock);
     temp_tab = hotp_old_vul_tabs;
     while (temp_tab != NULL) {
         current_tab = temp_tab;
         temp_tab = temp_tab->next;
         hotp_free_vul_table(current_tab->vul_tab, current_tab->num_vuls);
-        heap_free(GLOBAL_DCONTEXT, current_tab, sizeof(hotp_vul_tab_t)
-                  HEAPACCT(ACCT_HOT_PATCHING));
+        heap_free(GLOBAL_DCONTEXT, current_tab,
+                  sizeof(hotp_vul_tab_t) HEAPACCT(ACCT_HOT_PATCHING));
     }
     hotp_old_vul_tabs = NULL;
-    write_unlock(&hotp_vul_table_lock);
+    d_r_write_unlock(&hotp_vul_table_lock);
 }
 
 /* Free up all allocated memory and delete hot patching lock. */
@@ -2931,7 +2891,7 @@ hotp_exit(void)
      */
     ASSERT(dynamo_exited);
     ASSERT(DYNAMO_OPTION(hot_patching));
-    write_lock(&hotp_vul_table_lock);
+    d_r_write_lock(&hotp_vul_table_lock);
 
     /* Release the hot patch policy status table if allocated.  This table
      * may not be allocated till the end if there were no hot patch definitions
@@ -2953,16 +2913,16 @@ hotp_exit(void)
     /* case 8118: set to NULL since referenced in hotp_print_diagnostics() */
     GLOBAL_VUL_TABLE = NULL;
 
-#ifdef DEBUG
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, hotp_globals, hotp_globals_t,
-                   ACCT_HOT_PATCHING, PROTECTED);
-#endif
-    write_unlock(&hotp_vul_table_lock);
+#    ifdef DEBUG
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, hotp_globals, hotp_globals_t, ACCT_HOT_PATCHING,
+                   PROTECTED);
+#    endif
+    d_r_write_unlock(&hotp_vul_table_lock);
 
     hotp_reset_free();
 
     if (DYNAMO_OPTION(hotp_only)) {
-#ifdef WINDOWS
+#    ifdef WINDOWS
         /* Don't free the heap upon detach - app may have hooked with our
          * trampoline code; case 9593.  Make this memory efficient, i.e., delete
          * the heap if no collisions were detected; part of bookkeepping needed
@@ -2975,13 +2935,13 @@ hotp_exit(void)
          * for detach (PR 215520). */
         if (!doing_detach || hotp_only_tramp_heap_cache == NULL)
             special_heap_exit(hotp_only_tramp_heap);
-# ifdef DEBUG
+#        ifdef DEBUG
         else
             special_heap_delete_lock(hotp_only_tramp_heap);
-# endif
-#else
+#        endif
+#    else
         special_heap_exit(hotp_only_tramp_heap);
-#endif
+#    endif
 
         hotp_only_tramp_heap = NULL;
         vmvector_delete_vector(GLOBAL_DCONTEXT, hotp_only_tramp_areas);
@@ -2998,7 +2958,7 @@ nudge_action_read_policies(void)
     hotp_vul_t *old_vul_table = NULL, *new_vul_table = NULL;
     uint num_old_vuls = 0, num_new_vuls;
     int num_threads = 0;
-    thread_record_t **all_threads = NULL;
+    thread_record_t **thread_table = NULL;
 
     STATS_INC(hotp_num_policy_nudge);
     /* Fix for case 6090;  TODO: remove when -hotp_policy_size is removed */
@@ -3007,7 +2967,7 @@ nudge_action_read_policies(void)
     if (new_vul_table != NULL) {
         bool old_value;
         hotp_vul_tab_t *temp;
-        where_am_i_t wherewasi;
+        dr_where_am_i_t wherewasi;
         dcontext_t *dcontext = get_thread_private_dcontext();
         vm_area_vector_t toflush; /* never initialized for hotp_only */
 
@@ -3019,7 +2979,7 @@ nudge_action_read_policies(void)
          */
         ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
         if (dcontext == NULL) {
-            return false;       /* skip further processing */
+            return false; /* skip further processing */
         }
 
         /* When the nudge thread starts up, the core takes control and
@@ -3039,7 +2999,7 @@ nudge_action_read_policies(void)
 
         /* Fix for case 5367.  TODO: undo fix after writing own loader. */
         wherewasi = dcontext->whereami;
-        dcontext->whereami = WHERE_APP;     /* WHERE_APP?  more like WHERE_DR */
+        dcontext->whereami = DR_WHERE_APP; /* DR_WHERE_APP?  more like DR_WHERE_DR */
         dcontext->nudge_thread = true;
 
         /* Fix for case 5376.  There can be a deadlock if a nudge happened
@@ -3066,45 +3026,44 @@ nudge_action_read_policies(void)
         /* If whereami changed, that means, the probably was a callback,
          * which can lead to other bugs.  So, let us make sure it doesn't.
          */
-        ASSERT(dcontext->whereami == WHERE_APP);
+        ASSERT(dcontext->whereami == DR_WHERE_APP);
         dcontext->whereami = wherewasi;
         dcontext->thread_record->under_dynamo_control = old_value;
 
         /* Suspend all threads (for hotp_only) and grab locks. */
         if (DYNAMO_OPTION(hotp_only)) {
-#ifdef WINDOWS
+#    ifdef WINDOWS
             DEBUG_DECLARE(bool ok =)
-                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
-                                       /* Case 6821: other synch-all-thread uses that
-                                        * only care about threads carrying fcache
-                                        * state can ignore us
-                                        */
-                                       &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
-                                       /* if we fail to suspend a thread (e.g., privilege
-                                        * problems) ignore it. FIXME: retry instead? */
-                                       THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
+                                   /* Case 6821: other synch-all-thread uses that
+                                    * only care about threads carrying fcache
+                                    * state can ignore us
+                                    */
+                                   &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                                   /* if we fail to suspend a thread (e.g., privilege
+                                    * problems) ignore it. FIXME: retry instead? */
+                                   THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
             ASSERT(ok);
-#endif
+#    endif
         }
         /* CAUTION: Setting up the global table, reading modes, setting up
          * policy status table and module list walking MUST all be
          * done in that order with the table lock held as all of them
          * update the global table.
          */
-        write_lock(&hotp_vul_table_lock);
+        d_r_write_lock(&hotp_vul_table_lock);
 
         /* For hotp_only, all patches have to be removed before doing
          * anything with new vulnerability data, and nothing after that,
          * which is unlike hotp, where removal has to be done before & after.
          */
         if (DYNAMO_OPTION(hotp_only)) {
-            hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS,
-                                    true, NULL);
+            hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, true, NULL);
         }
         /* Save the old table for flushing & launch the new table. */
         old_vul_table = GLOBAL_VUL_TABLE;
         num_old_vuls = NUM_GLOBAL_VULS;
-        hotp_ppoint_areas_release();    /* throw out the old patch points */
+        hotp_ppoint_areas_release(); /* throw out the old patch points */
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         GLOBAL_VUL_TABLE = new_vul_table;
         NUM_GLOBAL_VULS = num_new_vuls;
@@ -3120,18 +3079,18 @@ nudge_action_read_policies(void)
         hotp_init_policy_status_table();
         if (!DYNAMO_OPTION(hotp_only))
             vmvector_init_vector(&toflush, 0); /* no lock init needed since not used */
-        hotp_walk_loader_list(all_threads, num_threads,
+        hotp_walk_loader_list(thread_table, num_threads,
                               DYNAMO_OPTION(hotp_only) ? NULL : &toflush,
                               false /* !probe_init */);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
         /* Release all locks. */
-        write_unlock(&hotp_vul_table_lock);
-#ifdef WINDOWS
+        d_r_write_unlock(&hotp_vul_table_lock);
+#    ifdef WINDOWS
         if (DYNAMO_OPTION(hotp_only)) {
-            end_synch_with_all_threads(all_threads, num_threads, true/*resume*/);
+            end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
         }
-#endif
+#    endif
 
         /* If a new vulnerability table was created, then flush the bbs
          * with hot patches from the old table and then free that table.
@@ -3149,7 +3108,8 @@ nudge_action_read_policies(void)
                  * or non-persisted unit(s) (there can be multiple).
                  */
                 flush_vmvector_regions(get_thread_private_dcontext(), &toflush,
-                                       false/*keep futures*/, false/*exec still valid*/);
+                                       false /*keep futures*/,
+                                       false /*exec still valid*/);
             }
             /* FIXME: don't need to flush non-persisted coarse units since
              * patch points are fine-grained: would have to widen
@@ -3184,19 +3144,18 @@ nudge_action_read_policies(void)
          * flush going on.
          */
         if (old_vul_table != NULL) {
-            temp = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_vul_tab_t,
-                                   ACCT_HOT_PATCHING, PROTECTED);
+            temp = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_vul_tab_t, ACCT_HOT_PATCHING,
+                                   PROTECTED);
             temp->vul_tab = old_vul_table;
             temp->num_vuls = num_old_vuls;
-            write_lock(&hotp_vul_table_lock);
+            d_r_write_lock(&hotp_vul_table_lock);
             SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
             temp->next = hotp_old_vul_tabs;
             hotp_old_vul_tabs = temp;
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-            write_unlock(&hotp_vul_table_lock);
+            d_r_write_unlock(&hotp_vul_table_lock);
         }
-    }
-    else {
+    } else {
         /* Note, if the new table wasn't read in successfully, then the old
          * table isn't touched, i.e., status quo is maintained.
          */
@@ -3205,14 +3164,14 @@ nudge_action_read_policies(void)
     return true;
 }
 
-#ifdef WINDOWS /* no nudging yet on Linux */
+#    ifdef WINDOWS /* no nudging yet on Linux */
 /* This routine handles hot patch nudges. */
 void
 hotp_nudge_handler(uint nudge_action_mask)
 {
-   /* Note, multiple nudges will be synchronized by the hotp_vul_table_lock.
-    * It is irrelevant if nudge threads change order between reading and
-    * flushing. */
+    /* Note, multiple nudges will be synchronized by the hotp_vul_table_lock.
+     * It is irrelevant if nudge threads change order between reading and
+     * flushing. */
 
     ASSERT(DYNAMO_OPTION(liveshields) && DYNAMO_OPTION(hot_patching));
     ASSERT(nudge_action_mask != 0); /* else shouldn't be called */
@@ -3227,7 +3186,7 @@ hotp_nudge_handler(uint nudge_action_mask)
     }
 
     if (TEST(NUDGE_GENERIC(mode), nudge_action_mask)) {
-        thread_record_t **all_threads = NULL;
+        thread_record_t **thread_table = NULL;
         int num_threads = 0;
         hotp_policy_mode_t *old_modes = NULL;
         vm_area_vector_t toflush; /* never initialized for hotp_only */
@@ -3243,27 +3202,26 @@ hotp_nudge_handler(uint nudge_action_mask)
         /* Suspend all threads (for hotp_only) and grab locks. */
         if (DYNAMO_OPTION(hotp_only)) {
             DEBUG_DECLARE(bool ok =)
-                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
-                                       /* Case 6821: other synch-all-thread uses that
-                                        * only care about threads carrying fcache
-                                        * state can ignore us
-                                        */
-                                       &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
-                                       /* if we fail to suspend a thread (e.g., privilege
-                                        * problems) ignore it. FIXME: retry instead? */
-                                       THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+            synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
+                                   /* Case 6821: other synch-all-thread uses that
+                                    * only care about threads carrying fcache
+                                    * state can ignore us
+                                    */
+                                   &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                                   /* if we fail to suspend a thread (e.g., privilege
+                                    * problems) ignore it. FIXME: retry instead? */
+                                   THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
             ASSERT(ok);
         }
-        write_lock(&hotp_vul_table_lock);
+        d_r_write_lock(&hotp_vul_table_lock);
 
         /* For hotp_only, all patches have to be removed before doing anything
          * with new mode data; loader list walking will inject new ones.
          */
         if (DYNAMO_OPTION(hotp_only)) {
-            hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS,
-                                    true, NULL);
+            hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, true, NULL);
         }
-        hotp_ppoint_areas_release();    /* throw out the old patch points */
+        hotp_ppoint_areas_release(); /* throw out the old patch points */
         /* Old modes are for regular hot patching, not for hotp_only. */
         hotp_read_policy_modes(DYNAMO_OPTION(hotp_only) ? NULL : &old_modes);
 
@@ -3277,14 +3235,14 @@ hotp_nudge_handler(uint nudge_action_mask)
 
         if (!DYNAMO_OPTION(hotp_only))
             vmvector_init_vector(&toflush, 0); /* no lock init needed since not used */
-        hotp_walk_loader_list(all_threads, num_threads,
+        hotp_walk_loader_list(thread_table, num_threads,
                               DYNAMO_OPTION(hotp_only) ? NULL : &toflush,
                               false /* !probe_init */);
 
         /* Release all locks. */
-        write_unlock(&hotp_vul_table_lock);
+        d_r_write_unlock(&hotp_vul_table_lock);
         if (DYNAMO_OPTION(hotp_only)) {
-            end_synch_with_all_threads(all_threads, num_threads, true/*resume*/);
+            end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
         }
 
         /* If modes did change, then we need to flush out patches that were
@@ -3300,10 +3258,10 @@ hotp_nudge_handler(uint nudge_action_mask)
                  * or non-persisted unit(s) (there can be multiple).
                  */
                 flush_vmvector_regions(get_thread_private_dcontext(), &toflush,
-                                       false/*keep futures*/, false/*exec still valid*/);
+                                       false /*keep futures*/,
+                                       false /*exec still valid*/);
             }
-            hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, false,
-                                    old_modes);
+            hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, false, old_modes);
             if (old_modes != NULL) {
                 HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, old_modes, hotp_policy_mode_t,
                                 NUM_GLOBAL_VULS, ACCT_HOT_PATCHING, PROTECTED);
@@ -3339,7 +3297,7 @@ hotp_nudge_handler(uint nudge_action_mask)
             hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, false, NULL);
     }
 }
-#endif /* WINDOWS */
+#    endif /* WINDOWS */
 
 /* This is a faster lookup of hotp_vul_table, see case 8132.
  * FIXME: try to see if this can be merged with hotp_lookup_patch_addr.
@@ -3364,8 +3322,7 @@ hotp_only_lookup_patch_addr(const app_pc pc, hotp_offset_match_t *match)
 
     ASSERT_OWN_READ_LOCK(true, &hotp_vul_table_lock);
 
-    ppoint_desc = (hotp_offset_match_t *)
-                      vmvector_lookup(hotp_patch_point_areas, pc);
+    ppoint_desc = (hotp_offset_match_t *)vmvector_lookup(hotp_patch_point_areas, pc);
     if (ppoint_desc == NULL) {
         /* Custom data for this vector can't be NULL, so NULL means failure. */
         return false;
@@ -3403,7 +3360,7 @@ hotp_lookup_patch_addr(const app_pc pc, hotp_offset_match_t *match,
     hotp_offset_match_t *ppoint_desc = NULL;
 
     ASSERT(pc != NULL && match != NULL);
-    if (pc == NULL)     /* Defensively exit. */
+    if (pc == NULL) /* Defensively exit. */
         return false;
 
     /* This is called only during patch clean call injection into fcache, hence
@@ -3417,22 +3374,21 @@ hotp_lookup_patch_addr(const app_pc pc, hotp_offset_match_t *match,
      * with an empty or faulty policy config file.  So, can't assert on
      * GLOBAL_VUL_TABLE not being NULL.
      */
-    if (GLOBAL_VUL_TABLE == NULL)           /* Nothing to lookup. */
+    if (GLOBAL_VUL_TABLE == NULL) /* Nothing to lookup. */
         return res;
 
     /* This is always initialized at startup, so can't be NULL at this point. */
     ASSERT(hotp_patch_point_areas != NULL);
 
-    if (!own_hot_patch_lock)                /* Fix for case 5323. */
-        read_lock(&hotp_vul_table_lock);
+    if (!own_hot_patch_lock) /* Fix for case 5323. */
+        d_r_read_lock(&hotp_vul_table_lock);
 
     /* Can come here with either the read lock (during instruction matching) or
      * with the write lock (during injection).
      */
     ASSERT_OWN_READWRITE_LOCK(true, &hotp_vul_table_lock);
 
-    ppoint_desc = (hotp_offset_match_t *)
-                      vmvector_lookup(hotp_patch_point_areas, pc);
+    ppoint_desc = (hotp_offset_match_t *)vmvector_lookup(hotp_patch_point_areas, pc);
     if (ppoint_desc != NULL) {
 
         /* If the hot patch dll for this vulnerability wasn't loaded for any
@@ -3445,11 +3401,12 @@ hotp_lookup_patch_addr(const app_pc pc, hotp_offset_match_t *match,
         ASSERT(GLOBAL_VUL(ppoint_desc->vul_index).hotp_dll_base != NULL &&
                "hot patch dll loaded");
         if (GLOBAL_VUL(ppoint_desc->vul_index).hotp_dll_base == NULL)
-            goto hotp_lookup_patch_addr_exit;   /* lookup failed */
+            goto hotp_lookup_patch_addr_exit; /* lookup failed */
 
         /* TODO: check if vul. is ready, i.e., all modules match */
         ASSERT(GLOBAL_MODULE(ppoint_desc->vul_index, ppoint_desc->set_index,
-                             ppoint_desc->module_index).matched);
+                             ppoint_desc->module_index)
+                   .matched);
         ASSERT(GLOBAL_VUL(ppoint_desc->vul_index).mode == HOTP_MODE_DETECT ||
                GLOBAL_VUL(ppoint_desc->vul_index).mode == HOTP_MODE_PROTECT);
 
@@ -3459,18 +3416,18 @@ hotp_lookup_patch_addr(const app_pc pc, hotp_offset_match_t *match,
          * TODO: Also, need to figure out a way to return multiple matches.
          */
 
-        res = true;             /* vmvector lookup succeeded */
-        if (match != NULL)      /* match can't be NULL, but be cautious. */
+        res = true;        /* vmvector lookup succeeded */
+        if (match != NULL) /* match can't be NULL, but be cautious. */
             *match = *ppoint_desc;
 
         LOG(GLOBAL, LOG_HOT_PATCHING, 1,
-            "lookup for "PFX" succeeded with vulnerability #%s\n",
-            pc, GLOBAL_VUL(ppoint_desc->vul_index).vul_id);
+            "lookup for " PFX " succeeded with vulnerability #%s\n", pc,
+            GLOBAL_VUL(ppoint_desc->vul_index).vul_id);
     }
 
- hotp_lookup_patch_addr_exit:
+hotp_lookup_patch_addr_exit:
     if (!own_hot_patch_lock)
-        read_unlock(&hotp_vul_table_lock);
+        d_r_read_unlock(&hotp_vul_table_lock);
     return res;
 }
 
@@ -3483,8 +3440,7 @@ hotp_lookup_patch_addr(const app_pc pc, hotp_offset_match_t *match,
  * lookup failure.
  */
 bool
-hotp_does_region_need_patch(const app_pc start, const app_pc end,
-                            bool own_hot_patch_lock)
+hotp_does_region_need_patch(const app_pc start, const app_pc end, bool own_hot_patch_lock)
 {
     bool res = false;
     ASSERT(start != NULL && end != NULL);
@@ -3504,8 +3460,8 @@ hotp_does_region_need_patch(const app_pc start, const app_pc end,
     /* This is always initialized at startup, so can't be NULL at this point. */
     ASSERT(hotp_patch_point_areas != NULL);
 
-    if (!own_hot_patch_lock)                /* Fix for case 5323. */
-        read_lock(&hotp_vul_table_lock);
+    if (!own_hot_patch_lock) /* Fix for case 5323. */
+        d_r_read_lock(&hotp_vul_table_lock);
 
     /* Caller must come in with lock - that is the use today.  However, this
      * doesn't need the caller to hold the hotp_vul_table_lock; can do so by
@@ -3517,7 +3473,7 @@ hotp_does_region_need_patch(const app_pc start, const app_pc end,
     res = vmvector_overlap(hotp_patch_point_areas, start, end);
 
     if (!own_hot_patch_lock)
-        read_unlock(&hotp_vul_table_lock);
+        d_r_read_unlock(&hotp_vul_table_lock);
 
     return res;
 }
@@ -3614,8 +3570,8 @@ hotp_does_region_need_patch(const app_pc start, const app_pc end,
  *          actually aren't shared yet.
  */
 static int
-hotp_inject_gateway_call(dcontext_t *dcontext, instrlist_t *ilist,
-                         instr_t *where, const hotp_offset_match_t *match)
+hotp_inject_gateway_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                         const hotp_offset_match_t *match)
 {
     /* TODO: use a separate stack later on; don't pollute the dr stack;
      * for now use dr stack for executing the hot patch code.
@@ -3625,23 +3581,24 @@ hotp_inject_gateway_call(dcontext_t *dcontext, instrlist_t *ilist,
      * pushed on to DR stack; eax is scratch at this point.
      * TODO: Add asserts here for these.
      */
-#define HOTP_CONTEXT_OFFSET_ON_DSTACK   sizeof(hotp_context_t)
+#    define HOTP_CONTEXT_OFFSET_ON_DSTACK sizeof(hotp_context_t)
 
-/* Loads contents of dcontext at offset to reg.  For shared fragments it is
- * loaded via dc_reg; load dc into dc_reg if it isn't available (!have_dc).
- */
-#define GET_FROM_DC_OFFS_TO_REG(offset, reg, have_dc, dc_reg)                  \
-    do {                                                                       \
-        if (SHARED_FRAGMENTS_ENABLED()) {                                      \
-            if (!have_dc)                                                      \
-                insert_get_mcontext_base(dcontext, ilist, where, dc_reg);      \
-            MINSERT(ilist, where, instr_create_restore_from_dc_via_reg         \
-                    (dcontext, dc_reg, reg, offset));                          \
-        } else {                                                               \
-            MINSERT(ilist, where, instr_create_restore_from_dcontext           \
-                    (dcontext, reg, offset));                                  \
-        }                                                                      \
-    } while (0)
+    /* Loads contents of dcontext at offset to reg.  For shared fragments it is
+     * loaded via dc_reg; load dc into dc_reg if it isn't available (!have_dc).
+     */
+#    define GET_FROM_DC_OFFS_TO_REG(offset, reg, have_dc, dc_reg)                   \
+        do {                                                                        \
+            if (SHARED_FRAGMENTS_ENABLED()) {                                       \
+                if (!have_dc)                                                       \
+                    insert_get_mcontext_base(dcontext, ilist, where, dc_reg);       \
+                MINSERT(ilist, where,                                               \
+                        instr_create_restore_from_dc_via_reg(dcontext, dc_reg, reg, \
+                                                             offset));              \
+            } else {                                                                \
+                MINSERT(ilist, where,                                               \
+                        instr_create_restore_from_dcontext(dcontext, reg, offset)); \
+            }                                                                       \
+        } while (0)
 
     /* Using client api to avoid duplicating code. */
     /* FIXME PR 226036: set hotp_context_t pc field?  left as 0 by dr_prepare_for_call */
@@ -3655,28 +3612,26 @@ hotp_inject_gateway_call(dcontext_t *dcontext, instrlist_t *ilist,
     GET_FROM_DC_OFFS_TO_REG(DSTACK_OFFSET, REG_XAX, false /* !have_dc */, REG_XBX);
 
     /* app reg ptr is put in eax */
-    MINSERT(ilist, where, INSTR_CREATE_sub
-            (dcontext, opnd_create_reg(REG_XAX),
-             OPND_CREATE_INT8(HOTP_CONTEXT_OFFSET_ON_DSTACK)));
+    MINSERT(ilist, where,
+            INSTR_CREATE_sub(dcontext, opnd_create_reg(REG_XAX),
+                             OPND_CREATE_INT8(HOTP_CONTEXT_OFFSET_ON_DSTACK)));
 
     /* Get the app esp stored in dcontext.mcontext & spill it in the right
      * location for the hot patch code.
      */
     GET_FROM_DC_OFFS_TO_REG(XSP_OFFSET, REG_XCX, true /* have_dc */, REG_XBX);
-    MINSERT(ilist, where, INSTR_CREATE_mov_st
-            (dcontext, OPND_CREATE_MEM32(REG_XAX, offsetof(hotp_context_t, xsp)),
-             opnd_create_reg(REG_XCX)));
+    MINSERT(ilist, where,
+            INSTR_CREATE_mov_st(dcontext,
+                                OPND_CREATE_MEM32(REG_XAX, offsetof(hotp_context_t, xsp)),
+                                opnd_create_reg(REG_XCX)));
 
-    dr_insert_call(dcontext, ilist, where, (app_pc)&hotp_gateway, 8,
-                   OPND_CREATE_INTPTR(GLOBAL_VUL_TABLE),
-                   OPND_CREATE_INT32(NUM_GLOBAL_VULS),
-                   OPND_CREATE_INT32(match->vul_index),
-                   OPND_CREATE_INT32(match->set_index),
-                   OPND_CREATE_INT32(match->module_index),
-                   OPND_CREATE_INT32(match->ppoint_index),
-                   /* app reg ptr put in eax above */
-                   opnd_create_reg(REG_XAX),
-                   OPND_CREATE_INT32(false));
+    dr_insert_call(
+        dcontext, ilist, where, (app_pc)&hotp_gateway, 8,
+        OPND_CREATE_INTPTR(GLOBAL_VUL_TABLE), OPND_CREATE_INT32(NUM_GLOBAL_VULS),
+        OPND_CREATE_INT32(match->vul_index), OPND_CREATE_INT32(match->set_index),
+        OPND_CREATE_INT32(match->module_index), OPND_CREATE_INT32(match->ppoint_index),
+        /* app reg ptr put in eax above */
+        opnd_create_reg(REG_XAX), OPND_CREATE_INT32(false));
 
     /* TODO: also, for multiple patch points for one offset, gateway will have
      *       to take variable arguments, i.e., one set per patch.
@@ -3688,22 +3643,24 @@ hotp_inject_gateway_call(dcontext_t *dcontext, instrlist_t *ilist,
     GET_FROM_DC_OFFS_TO_REG(DSTACK_OFFSET, REG_XAX, false /* !have_dc */, REG_XBX);
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(offsetof(hotp_context_t, xsp))));
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(HOTP_CONTEXT_OFFSET_ON_DSTACK)));
-    MINSERT(ilist, where, INSTR_CREATE_mov_ld
-            (dcontext, opnd_create_reg(REG_XAX),
-             OPND_CREATE_MEM32(REG_XAX, (int)offsetof(hotp_context_t, xsp) -
-                               (int)HOTP_CONTEXT_OFFSET_ON_DSTACK)));
+    MINSERT(
+        ilist, where,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
+                            OPND_CREATE_MEM32(REG_XAX,
+                                              (int)offsetof(hotp_context_t, xsp) -
+                                                  (int)HOTP_CONTEXT_OFFSET_ON_DSTACK)));
 
     if (SHARED_FRAGMENTS_ENABLED()) {
-        MINSERT(ilist, where, instr_create_save_to_dc_via_reg
-                (dcontext, REG_XBX, REG_XAX, XSP_OFFSET));
+        MINSERT(ilist, where,
+                instr_create_save_to_dc_via_reg(dcontext, REG_XBX, REG_XAX, XSP_OFFSET));
     } else {
-        MINSERT(ilist, where, instr_create_save_to_dcontext
-                (dcontext, REG_XAX, XSP_OFFSET));
+        MINSERT(ilist, where,
+                instr_create_save_to_dcontext(dcontext, REG_XAX, XSP_OFFSET));
     }
 
     dr_cleanup_after_call(dcontext, ilist, where, 0);
 
-    return 1;   /* TODO: why return anything here? */
+    return 1; /* TODO: why return anything here? */
 }
 
 /* If the given ilist has instructions that are targeted by any vulnerabilities,
@@ -3719,8 +3676,8 @@ hotp_inject(dcontext_t *dcontext, instrlist_t *ilist)
 {
     bool injected_hot_patch = false;
     instr_t *instr, *next;
-    hotp_offset_match_t match = {-1, -1, -1, -1};
-    app_pc translation_target = NULL;           /* Fix for case 5981. */
+    hotp_offset_match_t match = { -1, -1, -1, -1 };
+    app_pc translation_target = NULL; /* Fix for case 5981. */
     bool caller_owns_hotp_lock = self_owns_write_lock(hotp_get_lock());
 
     /* This routine is for injecting hot patches into an ilist, i.e., into the
@@ -3729,7 +3686,7 @@ hotp_inject(dcontext_t *dcontext, instrlist_t *ilist)
     ASSERT(!DYNAMO_OPTION(hotp_only));
 
     if (!caller_owns_hotp_lock)
-        write_lock(&hotp_vul_table_lock);   /* Fix for case 5323. */
+        d_r_write_lock(&hotp_vul_table_lock); /* Fix for case 5323. */
 
     /* Expand the ilist corresponding to the basic block and for each
      * instruction in the ilist, check if one or more injections to
@@ -3756,13 +3713,14 @@ hotp_inject(dcontext_t *dcontext, instrlist_t *ilist)
                                    true /* own hotp_vul_table_lock */)) {
             /* The mode better be either protect or detect at this point! */
             hotp_policy_mode_t mode = GLOBAL_VUL(match.vul_index).mode;
-            ASSERT (mode == HOTP_MODE_DETECT || mode == HOTP_MODE_PROTECT);
+            ASSERT(mode == HOTP_MODE_DETECT || mode == HOTP_MODE_PROTECT);
 
-            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "injecting into %s at "PIFX"\n",
-                GLOBAL_MODULE(match.vul_index, match.set_index,
-                              match.module_index).sig.pe_name,
-                GLOBAL_PPOINT(match.vul_index, match.set_index,
-                              match.module_index, match.ppoint_index).offset);
+            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "injecting into %s at " PIFX "\n",
+                GLOBAL_MODULE(match.vul_index, match.set_index, match.module_index)
+                    .sig.pe_name,
+                GLOBAL_PPOINT(match.vul_index, match.set_index, match.module_index,
+                              match.ppoint_index)
+                    .offset);
             /* TODO: assert somewhere that a given vul can't patch the same
              * offset twice in a given module.  guess this can be done at vul
              * table creation time, i.e., during startup or nudge from nodemgr.
@@ -3796,7 +3754,7 @@ hotp_inject(dcontext_t *dcontext, instrlist_t *ilist)
         instr = next;
     }
     if (!caller_owns_hotp_lock)
-        write_unlock(&hotp_vul_table_lock);
+        d_r_write_unlock(&hotp_vul_table_lock);
     return injected_hot_patch;
 }
 
@@ -3845,9 +3803,11 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
              * patch region.
              */
             if ((start_pc + instr_length(dcontext, inst)) <
-                 (addr_to_hook + HOTP_PATCH_REGION_SIZE)) {
-                LOG(GLOBAL, LOG_HOT_PATCHING, 2, "invalid hotp_only patch point"
-                    " at "PFX"; there is cti inside it\n", start_pc);
+                (addr_to_hook + HOTP_PATCH_REGION_SIZE)) {
+                LOG(GLOBAL, LOG_HOT_PATCHING, 2,
+                    "invalid hotp_only patch point"
+                    " at " PFX "; there is cti inside it\n",
+                    start_pc);
                 res = false;
                 goto hotp_only_patch_region_valid_exit;
             } else {
@@ -3858,7 +3818,8 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                     /* FIXME: Mangling calls in patch regions hasn't been done
                      * yet.  See case 6839.
                      */
-                    LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Warning: not mangling "
+                    LOG(GLOBAL, LOG_HOT_PATCHING, 1,
+                        "Warning: not mangling "
                         "valid call in hotp_only patch region; not supported "
                         "yet, see case 6839.");
                 }
@@ -3869,7 +3830,7 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                      * when far ctis are handled, this assert can go.
                      */
                     ASSERT(!instr_is_far_abs_cti(inst));
-#ifdef WINDOWS
+#    ifdef WINDOWS
                     /* Does it overlap with any of the core's hooks?
                      * Note: native_exec_syscalls don't use the landing pad as
                      * of now, so we still have to look at the
@@ -3882,13 +3843,14 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                      * changes.
                      */
                     if (is_part_of_interception(target)) {
-                        LOG(GLOBAL, LOG_HOT_PATCHING, 2, "invalid hotp_only "
-                            "patch point at "PFX"; it collides with a core hook\n",
+                        LOG(GLOBAL, LOG_HOT_PATCHING, 2,
+                            "invalid hotp_only "
+                            "patch point at " PFX "; it collides with a core hook\n",
                             start_pc);
                         res = false;
                         goto hotp_only_patch_region_valid_exit;
                     }
-#endif /* WINDOWS */
+#    endif /* WINDOWS */
                     /* Overlaps with any injected hot patch?  Case 7998.
                      * This is not infrequent, some dlls like urlmon or rpcrt4
                      * have a .orpc section which results in an unmatched page
@@ -3899,25 +3861,26 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                      * don't have to check hotp_only_tramp_areas.
                      */
                     if (vmvector_overlap(landing_pad_areas, target, target + 1)) {
-#ifdef WINDOWS    /* WINDOWS_VERSION_2003 doesn't exist on linux. */
+#    ifdef WINDOWS /* WINDOWS_VERSION_2003 doesn't exist on linux. */
                         DODEBUG({
                             const char *reason = "unknown";
                             if (hotp_globals->ldr_safe_hook_injection) {
                                 reason = "due to loader safety";
-                            } else if (get_os_version() >= WINDOWS_VERSION_2003){
+                            } else if (get_os_version() >= WINDOWS_VERSION_2003) {
                                 /* On 2k3 loader lock isn't held during dll
                                  * loading before executing image entry, so we
                                  * can't tell for sure. */
                                 /* FIXME case 10636: what about vista? */
                                 reason = "2003; may be due to loader safety";
                             } else {
-                                ASSERT_NOT_REACHED();   /* Unknown reason. */
+                                ASSERT_NOT_REACHED(); /* Unknown reason. */
                             }
-                            LOG(GLOBAL, LOG_HOT_PATCHING, 2, "Blocking double "
-                                "injection at "PFX" in module at "PFX" - %s\n",
+                            LOG(GLOBAL, LOG_HOT_PATCHING, 2,
+                                "Blocking double "
+                                "injection at " PFX " in module at " PFX " - %s\n",
                                 start_pc, get_module_base(start_pc), reason);
                         });
-#endif
+#    endif
                         res = false;
                         goto hotp_only_patch_region_valid_exit;
                     }
@@ -3934,34 +3897,40 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                      * case 10433.
                      */
                     DODEBUG({
-                        if (!is_in_any_section(get_module_base(start_pc), target,
-                                               NULL, NULL)) {
-                            LOG(GLOBAL, LOG_HOT_PATCHING, 2, "cti in patch region "
-                                PFX"; cti target "PFX" isn't inside image "
-                                "- potential 3rd-party hooker", start_pc, target);
+                        if (!is_in_any_section(get_module_base(start_pc), target, NULL,
+                                               NULL)) {
+                            LOG(GLOBAL, LOG_HOT_PATCHING, 2,
+                                "cti in patch region " PFX "; cti target " PFX
+                                " isn't inside image "
+                                "- potential 3rd-party hooker",
+                                start_pc, target);
                             SYSLOG_INTERNAL_WARNING("Potential 3rd party hook "
-                                                    "conflict at "PFX, start_pc);
+                                                    "conflict at " PFX,
+                                                    start_pc);
                         }
                     });
 
                     /* No app jump should be targeting the core. */
                     if (is_in_dynamo_dll(target)) {
-                        LOG(GLOBAL, LOG_HOT_PATCHING, 2, "invalid hotp_only "
-                            "patch point at "PFX"; cti targets dynamorio.dll!\n",
+                        LOG(GLOBAL, LOG_HOT_PATCHING, 2,
+                            "invalid hotp_only "
+                            "patch point at " PFX "; cti targets dynamorio.dll!\n",
                             start_pc);
                         ASSERT_NOT_REACHED();
                         res = false;
                         goto hotp_only_patch_region_valid_exit;
                     }
                     SYSLOG_INTERNAL_WARNING_ONCE("cti found at hotp point, will chain");
-                    LOG(GLOBAL, LOG_HOT_PATCHING, 2, "found chainable cti at "
-                        "patch point at "PFX"\n", start_pc);
+                    LOG(GLOBAL, LOG_HOT_PATCHING, 2,
+                        "found chainable cti at "
+                        "patch point at " PFX "\n",
+                        start_pc);
                 }
             }
         }
         start_pc = pc;
     }
- hotp_only_patch_region_valid_exit:
+hotp_only_patch_region_valid_exit:
     instr_destroy(dcontext, inst);
     return res;
 }
@@ -3969,11 +3938,11 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
 static void
 patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
 {
-#ifdef X64
+#    ifdef X64
     ATOMIC_8BYTE_WRITE(tgt_loc, (int64)new_val, hot_patch);
-#else
+#    else
     insert_relative_target(tgt_loc, new_val, hot_patch);
-#endif
+#    endif
 }
 
 /* Injects one hotp_only patch, i.e., inserts trampoline to execute a hot patch.
@@ -3995,7 +3964,7 @@ patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
  */
 static void
 hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
-                       const thread_record_t **all_threads, const int num_threads)
+                       const thread_record_t **thread_table, const int num_threads)
 {
     hotp_vul_t *vul;
     hotp_set_t *set;
@@ -4008,13 +3977,13 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
 
     ASSERT(DYNAMO_OPTION(hotp_only));
 
-    /* At startup there should be no other thread than this, so all_threads
+    /* At startup there should be no other thread than this, so thread_table
      * won't be valid.
      */
     if (num_threads != HOTP_ONLY_NUM_THREADS_AT_INIT) {
-        ASSERT(ppoint_desc != NULL && all_threads != NULL);
+        ASSERT(ppoint_desc != NULL && thread_table != NULL);
     } else {
-        ASSERT(ppoint_desc != NULL && all_threads == NULL);
+        ASSERT(ppoint_desc != NULL && thread_table == NULL);
     }
 
     /* Check if it is safe to patch, i.e., no known threads should be running
@@ -4037,7 +4006,8 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
      */
     if (vul->hotp_dll_base == NULL) {
         SYSLOG_INTERNAL_WARNING("Hot patch dll (%s) hasn't been loaded; "
-                                "aborting hotp_only injection", vul->hotp_dll);
+                                "aborting hotp_only injection",
+                                vul->hotp_dll);
         ASSERT(false);
         return;
     }
@@ -4063,8 +4033,9 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
          * comprehensive hooker + loader compatibility policy that minimizes
          * these types of problems (case 7657).
          */
-        SYSLOG_INTERNAL_WARNING("patch point "PFX" in module %s being re-patched; "
-                                "old patch leaked", addr_to_hook, module->sig.pe_name);
+        SYSLOG_INTERNAL_WARNING("patch point " PFX " in module %s being re-patched; "
+                                "old patch leaked",
+                                addr_to_hook, module->sig.pe_name);
         ASSERT(cur_ppoint->app_code_copy != NULL);
     } else {
         ASSERT(cur_ppoint->app_code_copy == NULL);
@@ -4077,7 +4048,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
     /* Make sure that patch region size isn't messed up. */
     ASSERT(HOTP_PATCH_REGION_SIZE == HOTP_ONLY_PATCH_REGION_SIZE);
 
-    cur_ppoint->trampoline = (byte *) special_heap_alloc(hotp_only_tramp_heap);
+    cur_ppoint->trampoline = (byte *)special_heap_alloc(hotp_only_tramp_heap);
 
     /* The patch region has been checked for validity by now, so if there are
      * other hooks in there smash them.  Also, control flow change is
@@ -4088,15 +4059,13 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
      * see below in the hook conflict resolution code.
      */
     end = hook_text(cur_ppoint->trampoline, addr_to_hook, hotp_only_gateway,
-                    (void *) addr_to_hook,
-                    cur_ppoint->return_addr != 0 ?
-                        AFTER_INTERCEPT_DYNAMIC_DECISION :
-                        AFTER_INTERCEPT_LET_GO,
+                    (void *)addr_to_hook,
+                    cur_ppoint->return_addr != 0 ? AFTER_INTERCEPT_DYNAMIC_DECISION
+                                                 : AFTER_INTERCEPT_LET_GO,
                     false, /* don't abort if hooked, smash it */
                     true,  /* ignore ctis; they have been checked for already */
                     &cur_ppoint->app_code_copy,
-                    cur_ppoint->return_addr != 0 ? &cur_ppoint->tramp_exit_tgt :
-                                                   NULL);
+                    cur_ppoint->return_addr != 0 ? &cur_ppoint->tramp_exit_tgt : NULL);
 
     /* Did we hook it successfully? */
     ASSERT(*addr_to_hook == JMP_REL32_OPCODE);
@@ -4121,8 +4090,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
      * must be held before adding anything to the vector.
      */
     vmvector_add(hotp_only_tramp_areas, cur_ppoint->trampoline,
-                 cur_ppoint->trampoline + HOTP_ONLY_TRAMPOLINE_SIZE,
-                 (void *) cur_ppoint);
+                 cur_ppoint->trampoline + HOTP_ONLY_TRAMPOLINE_SIZE, (void *)cur_ppoint);
 
     if (cur_ppoint->return_addr != 0) {
         /* A hot patch can't change control flow to go to the point where it
@@ -4137,8 +4105,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
          * end up jumping to the copy of the app code in the trampoline as
          * opposed to jumping to the hook itself!
          */
-        for (ppoint_idx = 0; ppoint_idx < module->num_patch_points;
-             ppoint_idx++) {
+        for (ppoint_idx = 0; ppoint_idx < module->num_patch_points; ppoint_idx++) {
             ppoint = &module->patch_points[ppoint_idx];
 
             /* If a ppoint hasn't been patched yet, don't do try to a resolve
@@ -4165,19 +4132,19 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                  * app code copy stored in the target hot patch's trampoline as
                  * opposed to actual image.
                  */
-                cflow_target = ppoint->app_code_copy +
-                               (cur_ppoint->return_addr - ppoint->offset);
+                cflow_target =
+                    ppoint->app_code_copy + (cur_ppoint->return_addr - ppoint->offset);
                 ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, cflow_target));
                 patch_cti_tgt(cur_ppoint->tramp_exit_tgt, cflow_target, false);
                 patched = true;
 
-#ifndef DEBUG
+#    ifndef DEBUG
                 /* Cycle through all patches even if patched for debug builds;
                  * it helps to catch multiple ppoints in the same offset.  In
                  * release builds, this is an inefficiency, so just break.
                  */
                 break;
-#endif
+#    endif
                 STATS_INC(hotp_only_cflow_collision);
             }
         }
@@ -4197,7 +4164,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
      * current ppoint.
      */
     for (ppoint_idx = 0; ppoint_idx < module->num_patch_points; ppoint_idx++) {
-         ppoint = &module->patch_points[ppoint_idx];
+        ppoint = &module->patch_points[ppoint_idx];
         /* No point in checking the current patch point with itself; of course
          * there will be a collision.
          */
@@ -4214,7 +4181,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                 ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, ppoint->tramp_exit_tgt));
 
                 cflow_target = cur_ppoint->app_code_copy +
-                               (ppoint->return_addr - cur_ppoint->offset);
+                    (ppoint->return_addr - cur_ppoint->offset);
                 ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(cur_ppoint, cflow_target));
                 patch_cti_tgt(ppoint->tramp_exit_tgt, cflow_target, false);
                 STATS_INC(hotp_only_cflow_collision);
@@ -4222,7 +4189,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
         }
     }
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* If any suspended app thread is in the middle of the current patch point
      * then it needs to be relocated, i.e., its eip needs to be changed to point
      * to the correct offset in the app_code_copy in the trampoline.
@@ -4232,18 +4199,18 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
         bool res;
         app_pc eip;
         CONTEXT cxt;
-        thread_id_t my_tid = get_thread_id();
+        thread_id_t my_tid = d_r_get_thread_id();
 
         for (i = 0; i < num_threads; i++) {
             /* Skip the current thread; nudge thread's Eip isn't relevant. */
-            if (my_tid == all_threads[i]->id)
+            if (my_tid == thread_table[i]->id)
                 continue;
 
             /* App thread can't be in the core holding a lock when suspended. */
-            ASSERT(thread_owns_no_locks(all_threads[i]->dcontext));
+            ASSERT(thread_owns_no_locks(thread_table[i]->dcontext));
 
             cxt.ContextFlags = CONTEXT_FULL; /* PR 264138: don't need xmm regs */
-            res = thread_get_context((thread_record_t *)all_threads[i], &cxt);
+            res = thread_get_context((thread_record_t *)thread_table[i], &cxt);
             ASSERT(res);
             eip = (app_pc)cxt.CXT_XIP;
 
@@ -4267,19 +4234,19 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
              */
             if (eip > module->base_address && eip != addr_to_hook &&
                 HOTP_ONLY_IS_IN_PATCH_REGION(cur_ppoint,
-                    (app_rva_t)(eip - module->base_address))) {
+                                             (app_rva_t)(eip - module->base_address))) {
                 /* FIXME: this is one place that may need work if we mangle
                  *       cti_short in the patch region;  see case 6839.
                  */
-                cxt.CXT_XIP = (ptr_uint_t)(cur_ppoint->app_code_copy +
-                                           (eip - (module->base_address +
-                                                   cur_ppoint->offset)));
-                res = thread_set_context((thread_record_t *)all_threads[i], &cxt);
+                cxt.CXT_XIP =
+                    (ptr_uint_t)(cur_ppoint->app_code_copy +
+                                 (eip - (module->base_address + cur_ppoint->offset)));
+                res = thread_set_context((thread_record_t *)thread_table[i], &cxt);
                 ASSERT(res);
             }
         }
     }
-#endif  /* WINDOWS */
+#    endif /* WINDOWS */
 
     STATS_INC(hotp_only_num_inject);
 
@@ -4321,10 +4288,7 @@ hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
      * those bytes match after unhooking.
      */
     ASSERT(HOTP_PATCH_REGION_SIZE == HOTP_ONLY_PATCH_REGION_SIZE);
-    DODEBUG({
-        memcpy(ppoint_content, cur_ppoint->trampoline,
-               HOTP_PATCH_REGION_SIZE);
-    });
+    DODEBUG({ memcpy(ppoint_content, cur_ppoint->trampoline, HOTP_PATCH_REGION_SIZE); });
     unhook_text(cur_ppoint->trampoline, addr_to_unhook);
     ASSERT(!memcmp(ppoint_content, addr_to_unhook, HOTP_PATCH_REGION_SIZE));
     /* Don't release the trampoline, just leak it, i.e., don't call
@@ -4341,11 +4305,11 @@ hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
      *          lost for each process otherwise, case 10433.
      */
     /* The ifdef mess in the next few lines is to handle the leak for case 9593. */
-#ifdef DEBUG
-# ifdef HEAP_ACCOUNTING
+#    ifdef DEBUG
+#        ifdef HEAP_ACCOUNTING
     hotp_only_tramp_bytes_leaked += HOTP_ONLY_TRAMPOLINE_SIZE;
-# endif
-#endif
+#        endif
+#    endif
     /* Tramp heap is freed before memory leak is checked, so cache the value.
      * hotp_only_tramp_heap_cache also tracks if there was patch removal.  */
     if (hotp_only_tramp_heap_cache == NULL) {
@@ -4367,7 +4331,7 @@ hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
      * removing anything from the vector.
      */
     res = vmvector_remove(hotp_only_tramp_areas, cur_ppoint->trampoline,
-                    cur_ppoint->trampoline + HOTP_ONLY_TRAMPOLINE_SIZE);
+                          cur_ppoint->trampoline + HOTP_ONLY_TRAMPOLINE_SIZE);
     ASSERT(res);
 
     /* Today for hotp_only all patches in a module are applied and removed in
@@ -4397,9 +4361,8 @@ hotp_only_in_tramp(const app_pc pc)
     if (DYNAMO_OPTION(hotp_only)) {
         ASSERT(!WRITE_LOCK_HELD(&hotp_only_tramp_areas->lock));
         return vmvector_overlap(hotp_only_tramp_areas, pc, pc + 1);
-    }
-    else
-        return false;   /* check is moot if there is no trampoline */
+    } else
+        return false; /* check is moot if there is no trampoline */
 }
 
 /* This routine is used to remove hotp_only patches on a detach.
@@ -4422,9 +4385,9 @@ hotp_only_detach_helper(void)
     ASSERT_OWN_MUTEX(true, &all_threads_synch_lock);
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
 
-    write_lock(&hotp_vul_table_lock);
+    d_r_write_lock(&hotp_vul_table_lock);
     hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, true, NULL);
-    write_unlock(&hotp_vul_table_lock);
+    d_r_write_unlock(&hotp_vul_table_lock);
 }
 
 /* This function is used to handle loader safe injection for hotp_only mode.
@@ -4450,27 +4413,26 @@ hotp_only_detach_helper(void)
  * across two modules in with a single syscall; don't think it is allowed.
  */
 void
-hotp_only_mem_prot_change(const app_pc start, const size_t size,
-                          const bool remove, const bool inject)
+hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remove,
+                          const bool inject)
 {
     app_pc base;
     bool needs_processing = false;
     int num_threads = 0;
-    thread_record_t **all_threads = NULL;
-#ifdef WINDOWS
+    thread_record_t **thread_table = NULL;
+#    ifdef WINDOWS
     DEBUG_DECLARE(bool ok;)
-#endif
+#    endif
 
     /* For hotp_only, for regular mode, vmarea tracking will flush the
      * necessary fragments.
      */
     ASSERT(DYNAMO_OPTION(hotp_only));
     ASSERT(start != NULL && size > 0);
-    ASSERT((remove == true || remove == false) &&
-           (inject == true || inject == false));
+    ASSERT((remove == true || remove == false) && (inject == true || inject == false));
 
-    ASSERT(remove != inject);    /* One and only one must be true. */
-    if (remove == inject)       /* Defensively just ignore. */
+    ASSERT(remove != inject); /* One and only one must be true. */
+    if (remove == inject)     /* Defensively just ignore. */
         return;
 
     base = get_module_base(start);
@@ -4481,15 +4443,16 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size,
     /* The end of the region better be in the image! */
     ASSERT(base == get_module_base(base + size));
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     DODEBUG({
-        if (get_loader_lock_owner() != get_thread_id()) {
-            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Warning: Loader lock not held "
+        if (get_loader_lock_owner() != d_r_get_thread_id()) {
+            LOG(GLOBAL, LOG_HOT_PATCHING, 1,
+                "Warning: Loader lock not held "
                 "during image memory protection change; possible incompatible "
                 "hooker or w2k3 loader.");
         }
     });
-#endif
+#    endif
 
     /* Inefficient check to see if this module has been matched for hot
      * patching.  hotp_process_image() is needed only when loading or
@@ -4497,29 +4460,29 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size,
      * FIXME: Use vmvector_overlap check on loaded_module_areas after
      * integrating it with hotp.  Optimization.
      */
-    hotp_process_image(base, inject ? true : false, false, true,
-                       &needs_processing, NULL, 0);
-    if (!needs_processing) {     /* Ignore if it isn't a vulnerable module. */
+    hotp_process_image(base, inject ? true : false, false, true, &needs_processing, NULL,
+                       0);
+    if (!needs_processing) { /* Ignore if it isn't a vulnerable module. */
         LOG(THREAD_GET, LOG_HOT_PATCHING, 2,
-            "hotp_only_mem_prot_change: no work to be done for base "PFX"\n", base);
+            "hotp_only_mem_prot_change: no work to be done for base " PFX "\n", base);
         return;
     }
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* Ok, let's suspend all threads and do the injection/removal. */
     DEBUG_DECLARE(ok =)
-        synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads, &num_threads,
-                               /* Case 6821: other synch-all-thread uses that
-                                * only care about threads carrying fcache
-                                * state can ignore us
-                                */
-                               THREAD_SYNCH_NO_LOCKS_NO_XFER,
-                               /* if we fail to suspend a thread (e.g., privilege
-                                * problems) ignore it. FIXME: retry instead? */
-                               THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+    synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table, &num_threads,
+                           /* Case 6821: other synch-all-thread uses that
+                            * only care about threads carrying fcache
+                            * state can ignore us
+                            */
+                           THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                           /* if we fail to suspend a thread (e.g., privilege
+                            * problems) ignore it. FIXME: retry instead? */
+                           THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
     ASSERT(ok);
-#endif
-    write_lock(&hotp_vul_table_lock);
+#    endif
+    d_r_write_lock(&hotp_vul_table_lock);
 
     /* Using hotp_process_image to inject is inefficient because it goes
      * through the whole vul table.
@@ -4528,28 +4491,28 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size,
      */
     if (inject) {
         LOG(THREAD_GET, LOG_HOT_PATCHING, 1,
-            "hotp_only_mem_prot_change: injecting for base "PFX"\n", base);
+            "hotp_only_mem_prot_change: injecting for base " PFX "\n", base);
         DODEBUG(hotp_globals->ldr_safe_hook_injection = true;); /* Case 7998. */
         DODEBUG(hotp_globals->ldr_safe_hook_removal = false;);  /* Case 7832. */
         hotp_process_image_helper(base, true, true, false, NULL,
-                                  (const thread_record_t **)all_threads,
-                                  num_threads, true, NULL);
+                                  (const thread_record_t **)thread_table, num_threads,
+                                  true, NULL);
         DODEBUG(hotp_globals->ldr_safe_hook_injection = false;);
-    /* Similarly, hotp_remove_patches_from_module() is inefficient too.
-     * FIXME: using loaded_module_areas in that routine.
-     */
+        /* Similarly, hotp_remove_patches_from_module() is inefficient too.
+         * FIXME: using loaded_module_areas in that routine.
+         */
     } else if (remove) {
         LOG(THREAD_GET, LOG_HOT_PATCHING, 1,
-            "hotp_only_mem_prot_change: removing for base "PFX"\n", base);
-        hotp_remove_patches_from_module(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS,
-                                        true, base, NULL);
+            "hotp_only_mem_prot_change: removing for base " PFX "\n", base);
+        hotp_remove_patches_from_module(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, true, base,
+                                        NULL);
         /* Used to detect double removal while handling loader-safety. */
-        DODEBUG(hotp_globals->ldr_safe_hook_removal = true;);   /* Case 7832. */
+        DODEBUG(hotp_globals->ldr_safe_hook_removal = true;); /* Case 7832. */
     }
-    write_unlock(&hotp_vul_table_lock);
-#ifdef WINDOWS
-    end_synch_with_all_threads(all_threads, num_threads, true/*resume*/);
-#endif
+    d_r_write_unlock(&hotp_vul_table_lock);
+#    ifdef WINDOWS
+    end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
+#    endif
 }
 
 /* This is the routine that will serve as the entry point into the core for
@@ -4562,10 +4525,10 @@ hotp_only_gateway(app_state_at_intercept_t *state)
 {
     hotp_offset_match_t match;
     hotp_context_t cxt;
-    app_pc hook_addr = (app_pc) state->callee_arg;
+    app_pc hook_addr = (app_pc)state->callee_arg;
     after_intercept_action_t res = AFTER_INTERCEPT_LET_GO;
 
-    read_lock(&hotp_vul_table_lock);
+    d_r_read_lock(&hotp_vul_table_lock);
     ASSERT(DYNAMO_OPTION(hotp_only));
 
     /* Callee_arg contains the application eip to be patched.  It better be
@@ -4580,8 +4543,8 @@ hotp_only_gateway(app_state_at_intercept_t *state)
     if (hotp_only_lookup_patch_addr(hook_addr, &match)) {
         cxt = state->mc;
         res = hotp_gateway(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, match.vul_index,
-                           match.set_index, match.module_index,
-                           match.ppoint_index, &cxt, true /* have lock */);
+                           match.set_index, match.module_index, match.ppoint_index, &cxt,
+                           true /* have lock */);
         /* The hot patch could have modified app state as part of the fix, so
          * copy it back.
          */
@@ -4597,10 +4560,9 @@ hotp_only_gateway(app_state_at_intercept_t *state)
          */
         ASSERT_NOT_REACHED();
     }
-    read_unlock(&hotp_vul_table_lock);
+    d_r_read_unlock(&hotp_vul_table_lock);
     return res;
 }
-
 
 /* TODO: for multiple patch points, need to pass the number of patch points;
  *       preferably as the first argument.
@@ -4618,9 +4580,8 @@ hotp_only_gateway(app_state_at_intercept_t *state)
  *          the immediate future.
  */
 static after_intercept_action_t
-hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
-             const uint vul_index, const uint set_index,
-             const uint module_index, const uint ppoint_index,
+hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_index,
+             const uint set_index, const uint module_index, const uint ppoint_index,
              hotp_context_t *app_reg_ptr, const bool own_hot_patch_lock)
 {
     /* FIXME: racy access here; getting lock may be expensive;  even if that is
@@ -4640,7 +4601,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
     app_rva_t detector_offset, protector_offset;
     hotp_func_t detector_fn, protector_fn = NULL;
     hotp_exec_status_t exec_status, temp;
-    hotp_offset_match_t ppoint = {vul_index, set_index, module_index, ppoint_index};
+    hotp_offset_match_t ppoint = { vul_index, set_index, module_index, ppoint_index };
     bool dump_excpt_info, dump_error_info;
     after_intercept_action_t res = AFTER_INTERCEPT_LET_GO;
 
@@ -4650,14 +4611,14 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
      */
     reg_t gbop_eax_spill = 0, gbop_edx_spill = 0;
     app_pc gbop_bad_addr = NULL;
-    app_pc ppoint_addr;     /* Fix for case 6054.  Exposed for gbop. */
+    app_pc ppoint_addr; /* Fix for case 6054.  Exposed for gbop. */
 
     DOCHECK(1, {
         dcontext_t *dcontext = get_thread_private_dcontext();
-        ASSERT_CURIOSITY(dcontext != NULL && dcontext != GLOBAL_DCONTEXT
-                         && "unknown thread");
+        ASSERT_CURIOSITY(dcontext != NULL && dcontext != GLOBAL_DCONTEXT &&
+                         "unknown thread");
 
-        /* App esp should neither be on dr stack nor on initstack; see case 7058.
+        /* App esp should neither be on dr stack nor on d_r_initstack; see case 7058.
          * TODO: when the hot patch interface expands to having eip, assert that
          *       the eip isn't inside dr.
          */
@@ -4665,11 +4626,10 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
                !is_on_initstack((byte *)app_reg_ptr->xsp));
     });
     ppoint_addr = hotp_ppoint_addr(
-                    &MODULE(vul_tab, vul_index, set_index, module_index),
-                    &PPOINT(vul_tab, vul_index, set_index, module_index,
-                            ppoint_index));
+        &MODULE(vul_tab, vul_index, set_index, module_index),
+        &PPOINT(vul_tab, vul_index, set_index, module_index, ppoint_index));
 
-    /* If we change this to be invoked from dispatch, should remove this.
+    /* If we change this to be invoked from d_r_dispatch, should remove this.
      * Note that we assume that hotp_only, which is invoked from
      * interception code that has its own enter hook embedded, will
      * not call any of these hooks -- else we do a double-enter here and
@@ -4683,7 +4643,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
          * are alive, so we don't need to grab the lock here; if we do an
          * indirect access then we need it.  It is left in there for safety.
          */
-        read_lock(&hotp_vul_table_lock);        /* Part of fix for case 5521. */
+        d_r_read_lock(&hotp_vul_table_lock); /* Part of fix for case 5521. */
     } else
         ASSERT_OWN_READ_LOCK(true, &hotp_vul_table_lock);
 
@@ -4702,10 +4662,10 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
     ASSERT(module_index >= 0 &&
            module_index < SET(vul_tab, vul_index, set_index).num_modules);
     ASSERT(ppoint_index >= 0 &&
-           ppoint_index < MODULE(vul_tab, vul_index, set_index,
-                                 module_index).num_patch_points);
+           ppoint_index <
+               MODULE(vul_tab, vul_index, set_index, module_index).num_patch_points);
 
-    mode = VUL(vul_tab, vul_index).mode;  /* Racy; see assert comments above. */
+    mode = VUL(vul_tab, vul_index).mode; /* Racy; see assert comments above. */
     hotp_type = VUL(vul_tab, vul_index).type;
 
     /* For hotp_only mode control can't reach here if the mode is off because
@@ -4732,17 +4692,17 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
      */
     ASSERT(VUL(vul_tab, vul_index).hotp_dll_base != NULL);
 
-    detector_offset = PPOINT(vul_tab, vul_index, set_index, module_index,
-                             ppoint_index).detector_fn;
+    detector_offset =
+        PPOINT(vul_tab, vul_index, set_index, module_index, ppoint_index).detector_fn;
     /* TODO: make the assertion range tigher by using the actual size of the
      *       text section of the hot patch dll.
      */
     ASSERT((detector_offset >= MIN_DETECTOR_OFFSET &&
             detector_offset <= MAX_DETECTOR_OFFSET) ||
-           TESTALL(HOTP_TYPE_PROBE, hotp_type));    /* no detector for probes */
+           TESTALL(HOTP_TYPE_PROBE, hotp_type)); /* no detector for probes */
 
-    protector_offset = PPOINT(vul_tab, vul_index, set_index, module_index,
-                              ppoint_index).protector_fn;
+    protector_offset =
+        PPOINT(vul_tab, vul_index, set_index, module_index, ppoint_index).protector_fn;
     ASSERT(protector_offset >= MIN_PROTECTOR_OFFSET &&
            protector_offset <= MAX_PROTECTOR_OFFSET);
 
@@ -4752,14 +4712,12 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
 
     protector_fn = (hotp_func_t)((ptr_uint_t)VUL(vul_tab, vul_index).hotp_dll_base +
                                  protector_offset);
-    ASSERT(detector_fn != protector_fn);    /* can't be the same code! */
+    ASSERT(detector_fn != protector_fn); /* can't be the same code! */
 
     LOG(GLOBAL, LOG_HOT_PATCHING, 2, "Invoking detector for vulnerability %s\n",
         VUL(vul_tab, vul_index).vul_id);
     LOG(GLOBAL, LOG_HOT_PATCHING, 4, "Register state sent to detector\n");
-    DOLOG(4, LOG_HOT_PATCHING, {
-        hotp_dump_reg_state(app_reg_ptr, ppoint_addr, 4);
-    });
+    DOLOG(4, LOG_HOT_PATCHING, { hotp_dump_reg_state(app_reg_ptr, ppoint_addr, 4); });
 
     /* gbop hooks need to know current pc & will return the bad return address
      * if it is faulty.  As hotp_context_t doesn't have eip as of now, we pass
@@ -4768,16 +4726,15 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
      * FIXME PR 226036: hotp_context_t does have eip now, use it!
      */
     if (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)) {
-#ifdef GBOP
+#    ifdef GBOP
         ASSERT(DYNAMO_OPTION(gbop) && DYNAMO_OPTION(hotp_only));
-#endif
+#    endif
         gbop_eax_spill = APP_XAX(app_reg_ptr);
         gbop_edx_spill = APP_XDX(app_reg_ptr);
-        APP_XDX(app_reg_ptr) = (reg_t) ppoint_addr;
+        APP_XDX(app_reg_ptr) = (reg_t)ppoint_addr;
     } else {
         /* A hot patch can be only one type. */
-        ASSERT(TEST(HOTP_TYPE_HOT_PATCH, hotp_type) ^
-               TEST(HOTP_TYPE_PROBE, hotp_type));
+        ASSERT(TEST(HOTP_TYPE_HOT_PATCH, hotp_type) ^ TEST(HOTP_TYPE_PROBE, hotp_type));
     }
     /* Under the current design, a detector will always be called; a protector
      * will be called only if the mode says so.
@@ -4804,8 +4761,8 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
         ASSERT(TEST(HOTP_TYPE_HOT_PATCH, hotp_type) ^
                TEST(HOTP_TYPE_GBOP_HOOK, hotp_type));
 
-        exec_status = hotp_execute_patch(detector_fn, app_reg_ptr, mode,
-                                         dump_excpt_info, dump_error_info);
+        exec_status = hotp_execute_patch(detector_fn, app_reg_ptr, mode, dump_excpt_info,
+                                         dump_error_info);
 
         LOG(GLOBAL, LOG_HOT_PATCHING, 3, "Detector finished for vulnerability %s\n",
             VUL(vul_tab, vul_index).vul_id);
@@ -4813,20 +4770,18 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
         hotp_update_vul_stats(exec_status, vul_index);
     }
     temp = exec_status & ~HOTP_EXEC_LOG_EVENT;
-    ASSERT(temp == HOTP_EXEC_EXPLOIT_DETECTED ||
-           temp == HOTP_EXEC_EXPLOIT_NOT_DETECTED ||
-           temp == HOTP_EXEC_DETECTOR_ERROR ||
-           temp == HOTP_EXEC_ABORTED);
+    ASSERT(temp == HOTP_EXEC_EXPLOIT_DETECTED || temp == HOTP_EXEC_EXPLOIT_NOT_DETECTED ||
+           temp == HOTP_EXEC_DETECTOR_ERROR || temp == HOTP_EXEC_ABORTED);
 
     /* Restore eax & edx spilled for executing gbop remediators.
      * TODO: make this a function & move it to the gbop section
      */
     if (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)) {
-#ifdef GBOP
+#    ifdef GBOP
         ASSERT(DYNAMO_OPTION(gbop) && DYNAMO_OPTION(hotp_only));
-#endif
+#    endif
         if (temp == HOTP_EXEC_EXPLOIT_DETECTED)
-            gbop_bad_addr = (app_pc) APP_XAX(app_reg_ptr);
+            gbop_bad_addr = (app_pc)APP_XAX(app_reg_ptr);
         APP_XAX(app_reg_ptr) = gbop_eax_spill;
         APP_XDX(app_reg_ptr) = gbop_edx_spill;
     }
@@ -4845,12 +4800,11 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
     if (TEST(exec_status, HOTP_EXEC_LOG_EVENT) &&
         ((mode == HOTP_MODE_DETECT) ||
          (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)
-#ifdef PROGRAM_SHEPHERDING
+#    ifdef PROGRAM_SHEPHERDING
           && DYNAMO_OPTION(detect_mode)
-#endif
-         ))) {
-        hotp_event_notify(exec_status, false, &ppoint, gbop_bad_addr,
-                          app_reg_ptr);
+#    endif
+              ))) {
+        hotp_event_notify(exec_status, false, &ppoint, gbop_bad_addr, app_reg_ptr);
     }
 
     /* The protector should be invoked only if an exploit was detected and the
@@ -4861,29 +4815,26 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
      * patch {writer}.  There are plans to have an override, case 8095.
      */
     if (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)
-#ifdef PROGRAM_SHEPHERDING
+#    ifdef PROGRAM_SHEPHERDING
         && DYNAMO_OPTION(detect_mode)
-#endif
-       )
+#    endif
+    )
         goto hotp_gateway_ret;
 
-    if (mode == HOTP_MODE_PROTECT &&
-        temp == HOTP_EXEC_EXPLOIT_DETECTED) {
+    if (mode == HOTP_MODE_PROTECT && temp == HOTP_EXEC_EXPLOIT_DETECTED) {
 
         LOG(GLOBAL, LOG_HOT_PATCHING, 2, "Invoking protector for vulnerability %s\n",
             VUL(vul_tab, vul_index).vul_id);
         LOG(GLOBAL, LOG_HOT_PATCHING, 6, "Register state sent to protector\n");
-        DOLOG(6, LOG_HOT_PATCHING, {
-            hotp_dump_reg_state(app_reg_ptr, ppoint_addr, 6);
-        });
+        DOLOG(6, LOG_HOT_PATCHING, { hotp_dump_reg_state(app_reg_ptr, ppoint_addr, 6); });
 
         /* See detector execution comments above for details about hot patch
          * error & exception handling.
          * TODO: area to revisit when we work on information throttling.
          */
         dump_error_info = (VUL(vul_tab, vul_index).info->num_protector_error == 0);
-        exec_status = hotp_execute_patch(protector_fn, app_reg_ptr, mode,
-                                         dump_excpt_info, dump_error_info);
+        exec_status = hotp_execute_patch(protector_fn, app_reg_ptr, mode, dump_excpt_info,
+                                         dump_error_info);
 
         /* TODO: probes have no return codes defined. PR 229881. */
         if (TESTALL(HOTP_TYPE_PROBE, hotp_type)) {
@@ -4897,13 +4848,10 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
                temp == HOTP_EXEC_EXPLOIT_KILL_PROCESS ||
                temp == HOTP_EXEC_EXPLOIT_RAISE_EXCEPTION ||
                temp == HOTP_EXEC_CHANGE_CONTROL_FLOW ||
-               temp == HOTP_EXEC_PROTECTOR_ERROR ||
-               temp == HOTP_EXEC_ABORTED);
+               temp == HOTP_EXEC_PROTECTOR_ERROR || temp == HOTP_EXEC_ABORTED);
 
         LOG(GLOBAL, LOG_HOT_PATCHING, 4, "Register state after protector\n");
-        DOLOG(4, LOG_HOT_PATCHING, {
-            hotp_dump_reg_state(app_reg_ptr, ppoint_addr, 4);
-        });
+        DOLOG(4, LOG_HOT_PATCHING, { hotp_dump_reg_state(app_reg_ptr, ppoint_addr, 4); });
         LOG(GLOBAL, LOG_HOT_PATCHING, 3, "Protector finished for vulnerability %s\n",
             VUL(vul_tab, vul_index).vul_id);
         STATS_INC(hotp_num_prot_exec);
@@ -4915,15 +4863,15 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
         /* Which one comes first, esp with kill/raise & cflow change? */
         /* Raise an event only if requested by the protector. */
         if (TEST(exec_status, HOTP_EXEC_LOG_EVENT)) {
-            hotp_event_notify(exec_status, true, &ppoint, gbop_bad_addr,
-                              app_reg_ptr);
+            hotp_event_notify(exec_status, true, &ppoint, gbop_bad_addr, app_reg_ptr);
         }
         if (TEST(exec_status, HOTP_EXEC_CHANGE_CONTROL_FLOW)) {
 
-            app_rva_t return_rva = PPOINT(vul_tab, vul_index, set_index,
-                                        module_index, ppoint_index).return_addr;
-            app_pc module_base = MODULE(vul_tab, vul_index, set_index,
-                                        module_index).base_address;
+            app_rva_t return_rva =
+                PPOINT(vul_tab, vul_index, set_index, module_index, ppoint_index)
+                    .return_addr;
+            app_pc module_base =
+                MODULE(vul_tab, vul_index, set_index, module_index).base_address;
 
             /* gbop hooks shouldn't be changing control flow. */
             ASSERT(!TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type));
@@ -4941,21 +4889,23 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
              * and the dll should be in memory!
              */
             ASSERT(return_rva != 0 && module_base != NULL);
-            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Control flow change requested by "
-                "vulnerability %s\n", VUL(vul_tab, vul_index).vul_id);
+            LOG(GLOBAL, LOG_HOT_PATCHING, 1,
+                "Control flow change requested by "
+                "vulnerability %s\n",
+                VUL(vul_tab, vul_index).vul_id);
 
             /* Release the lock because control flow change won't return. */
-            read_unlock(&hotp_vul_table_lock);  /* Part of fix for case 5521. */
+            d_r_read_unlock(&hotp_vul_table_lock); /* Part of fix for case 5521. */
             hotp_change_control_flow(app_reg_ptr, module_base + return_rva);
             ASSERT_NOT_REACHED();
         }
     }
 
- hotp_gateway_ret:
+hotp_gateway_ret:
     if (!own_hot_patch_lock)
-        read_unlock(&hotp_vul_table_lock);  /* Part of fix for case 5521. */
+        d_r_read_unlock(&hotp_vul_table_lock); /* Part of fix for case 5521. */
 
-    /* if we change this to be invoked from dispatch, should remove this */
+    /* if we change this to be invoked from d_r_dispatch, should remove this */
     EXITING_DR();
     return res;
 }
@@ -4983,16 +4933,15 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
  */
 static hotp_exec_status_t
 hotp_execute_patch(hotp_func_t hotp_fn_ptr, hotp_context_t *hotp_cxt,
-                   hotp_policy_mode_t mode, bool dump_excpt_info,
-                   bool dump_error_info)
+                   hotp_policy_mode_t mode, bool dump_excpt_info, bool dump_error_info)
 {
     hotp_exec_status_t exec_status, exec_status_only;
     hotp_context_t local_cxt;
     dcontext_t *dcontext = get_thread_private_dcontext();
-    where_am_i_t wherewasi;
+    dr_where_am_i_t wherewasi;
 
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
-    if (dcontext == NULL ||     /* case 9385: unknown thread */
+    if (dcontext == NULL || /* case 9385: unknown thread */
         dcontext == GLOBAL_DCONTEXT /* just bug */) {
         SYSLOG_INTERNAL_WARNING("hotp_execute_patch: unknown thread");
         return HOTP_EXEC_ABORTED;
@@ -5000,14 +4949,14 @@ hotp_execute_patch(hotp_func_t hotp_fn_ptr, hotp_context_t *hotp_cxt,
 
     /* For hot patching with fcache, today, hot patches are executed only from
      * within the fcache.  For hotp_only, there is no fcache; hot patches are
-     * executed directly when they are WHERE_APP.
+     * executed directly when they are DR_WHERE_APP.
 
 Question for reviewer: for hotp_only, when control comes to the gateway, should
-    whereami be changed to something other than WHERE_APP because we are technically
-    in the core now; if so, would it be WHERE_TRAMPOLINE?
+    whereami be changed to something other than DR_WHERE_APP because we are technically
+    in the core now; if so, would it be DR_WHERE_TRAMPOLINE?
      */
-    ASSERT(dcontext->whereami == WHERE_FCACHE ||
-           (dcontext->whereami == WHERE_APP && DYNAMO_OPTION(hotp_only)));
+    ASSERT(dcontext->whereami == DR_WHERE_FCACHE ||
+           (dcontext->whereami == DR_WHERE_APP && DYNAMO_OPTION(hotp_only)));
     wherewasi = dcontext->whereami;
 
     /* In case the hot patch causes an exception, the context may be in an
@@ -5016,11 +4965,11 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
      * Note: nothing is done for partial memory writes.  TODO: how to fix this?
      */
     memcpy(&local_cxt, hotp_cxt, sizeof(hotp_context_t));
-    dcontext->whereami = WHERE_HOTPATCH;
+    dcontext->whereami = DR_WHERE_HOTPATCH;
 
-    if (DR_SETJMP(&dcontext->hotp_excpt_state) == 0) {  /* TRY block */
+    if (DR_SETJMP(&dcontext->hotp_excpt_state) == 0) { /* TRY block */
         exec_status = (*hotp_fn_ptr)(&local_cxt);
-        exec_status_only =  exec_status & ~HOTP_EXEC_LOG_EVENT;
+        exec_status_only = exec_status & ~HOTP_EXEC_LOG_EVENT;
 
         /* Successful execution can't return exception code. */
         ASSERT(exec_status_only != HOTP_EXEC_ABORTED);
@@ -5041,10 +4990,10 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
         }
 
         if ((TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only) ||
-            (TEST(HOTP_EXEC_PROTECTOR_ERROR, exec_status_only)))) {
-            const char *msg = TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only) ?
-                "Hot patch detector error" :
-                "Hot patch protector error";
+             (TEST(HOTP_EXEC_PROTECTOR_ERROR, exec_status_only)))) {
+            const char *msg = TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only)
+                ? "Hot patch detector error"
+                : "Hot patch protector error";
             if (dump_error_info) {
                 if (TEST(DUMPCORE_HOTP_FAILURE, DYNAMO_OPTION(dumpcore_mask)))
                     os_dump_core(msg);
@@ -5052,16 +5001,16 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
             if (TEST(HOTP_EXEC_LOG_EVENT, exec_status)) {
                 SYSLOG_CUSTOM_NOTIFY(SYSLOG_ERROR, MSG_HOT_PATCH_FAILURE, 3,
                                      "Hot patch error, continuing.",
-                                     get_application_name(),
-                                     get_application_pid(), "<none>");
+                                     get_application_name(), get_application_pid(),
+                                     "<none>");
             }
-#ifdef PROGRAM_SHEPHERDING
+#    ifdef PROGRAM_SHEPHERDING
             if (dump_error_info) {
                 report_diagnostics(msg, NULL, HOT_PATCH_FAILURE);
             }
-#endif
+#    endif
         }
-    } else {                                            /* EXCEPT block */
+    } else { /* EXCEPT block */
         /* Hot patch crashed! */
         if (dump_excpt_info) {
             /* Usually logging the event, dumping core and forensics are done
@@ -5076,9 +5025,9 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
              *       in the forensics files today;  need to do so.
              */
             /* TODO: title should say detector or protector exception. */
-#ifdef PROGRAM_SHEPHERDING
+#    ifdef PROGRAM_SHEPHERDING
             report_diagnostics("Hot patch exception", NULL, HOT_PATCH_FAILURE);
-#endif
+#    endif
         }
         exec_status = HOTP_EXEC_ABORTED;
     }
@@ -5106,17 +5055,17 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
  */
 static void
 hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
-                  const hotp_offset_match_t *inject_point,
-                  const app_pc bad_addr, const hotp_context_t *hotp_cxt)
+                  const hotp_offset_match_t *inject_point, const app_pc bad_addr,
+                  const hotp_context_t *hotp_cxt)
 {
-#ifdef PROGRAM_SHEPHERDING
+#    ifdef PROGRAM_SHEPHERDING
     const char *threat_id = NULL;
     hotp_type_t hotp_type = GLOBAL_VUL(inject_point->vul_index).type;
     action_type_t action;
     app_pc faulting_addr = NULL, inject_addr, old_next_tag;
     security_violation_t violation_type = INVALID_VIOLATION, res;
     dcontext_t *dcontext = get_thread_private_dcontext();
-    fragment_t src_frag = {0}, *old_last_frag;
+    fragment_t src_frag = { 0 }, *old_last_frag;
     priv_mcontext_t old_mc;
 
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
@@ -5124,29 +5073,21 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
 
     /* action mapping */
     switch (exec_status & ~HOTP_EXEC_LOG_EVENT) {
-    case HOTP_EXEC_EXPLOIT_KILL_THREAD:
-        action = ACTION_TERMINATE_THREAD;
-        break;
-    case HOTP_EXEC_EXPLOIT_KILL_PROCESS:
-        action = ACTION_TERMINATE_PROCESS;
-        break;
-    case HOTP_EXEC_EXPLOIT_RAISE_EXCEPTION:
-        action = ACTION_THROW_EXCEPTION;
-        break;
-    default:
-        action = ACTION_CONTINUE;
+    case HOTP_EXEC_EXPLOIT_KILL_THREAD: action = ACTION_TERMINATE_THREAD; break;
+    case HOTP_EXEC_EXPLOIT_KILL_PROCESS: action = ACTION_TERMINATE_PROCESS; break;
+    case HOTP_EXEC_EXPLOIT_RAISE_EXCEPTION: action = ACTION_THROW_EXCEPTION; break;
+    default: action = ACTION_CONTINUE;
     };
-    inject_addr = GLOBAL_MODULE(inject_point->vul_index,
-                                inject_point->set_index,
-                                inject_point->module_index).base_address +
-                  GLOBAL_PPOINT(inject_point->vul_index,
-                                inject_point->set_index,
-                                inject_point->module_index,
-                                inject_point->ppoint_index).offset;
+    inject_addr = GLOBAL_MODULE(inject_point->vul_index, inject_point->set_index,
+                                inject_point->module_index)
+                      .base_address +
+        GLOBAL_PPOINT(inject_point->vul_index, inject_point->set_index,
+                      inject_point->module_index, inject_point->ppoint_index)
+            .offset;
 
     /* Determine the faulting address, violation type and threat id. */
-    if (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)) {    /* gbop hook type */
-#ifdef GBOP
+    if (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)) { /* gbop hook type */
+#        ifdef GBOP
         /* FIXME: share reporting code with gbop_validate_and_act() - have
          *  one reporting interface for gbop.  Case 8096.  Changes here or
          *  in gbop_validate_and_act() should be kept in sync.
@@ -5154,7 +5095,7 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
         /* Even though many gbop hooks are implemented with hotp_only interface
          * gbop violations are treated separately.
          */
-        ASSERT(DYNAMO_OPTION(hotp_only));   /* no gbopping in code cache mode */
+        ASSERT(DYNAMO_OPTION(hotp_only)); /* no gbopping in code cache mode */
 
         /* NOTE: For gbop, the source is actually the hook address and the
          * target is the failing address, not vice versa.
@@ -5166,8 +5107,8 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
          * the expected default here otherwise security_violation would assert.
          */
         action = ACTION_TERMINATE_PROCESS;
-#endif
-    } else {    /* hot patch type */
+#        endif
+    } else { /* hot patch type */
         ASSERT(TESTALL(HOTP_TYPE_HOT_PATCH, hotp_type));
         ASSERT(bad_addr == NULL);
         faulting_addr = inject_addr;
@@ -5185,12 +5126,12 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
      * Note: for hotp_only, src & tgt are the same; for gbop see comment above.
      */
     hotp_spill_before_notify(dcontext, &old_last_frag, &src_frag, inject_addr,
-                             &old_next_tag, faulting_addr, &old_mc,
-                             (void *)hotp_cxt, CXT_TYPE_HOT_PATCH);
+                             &old_next_tag, faulting_addr, &old_mc, (void *)hotp_cxt,
+                             CXT_TYPE_HOT_PATCH);
 
     res = security_violation_internal(dcontext, faulting_addr, violation_type,
-                                      OPTION_REPORT|OPTION_BLOCK, threat_id,
-                                      action, &hotp_vul_table_lock);
+                                      OPTION_REPORT | OPTION_BLOCK, threat_id, action,
+                                      &hotp_vul_table_lock);
 
     /* Some sanity checks before we go on our merry way.  BTW, couldn't use
      * DODEBUG because gcc complained about using the #ifdef GBOP inside a
@@ -5208,17 +5149,17 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
         /* Can return only to continue. */
         ASSERT(action == ACTION_CONTINUE);
     } else {
-#ifdef GBOP
+#        ifdef GBOP
         ASSERT(res == GBOP_SOURCE_VIOLATION);
         ASSERT(action == ACTION_CONTINUE || DYNAMO_OPTION(detect_mode));
-#endif
+#        endif
     }
 
     hotp_restore_after_notify(dcontext, old_last_frag, old_next_tag, &old_mc);
 
     /* Can't leave this function without holding the hotp lock! */
     ASSERT_OWN_READ_LOCK(true, &hotp_vul_table_lock);
-#endif
+#    endif
 }
 
 /* This is a hack to make hotp use our existing security violation reporting
@@ -5226,13 +5167,11 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
  * forensics.  Case 8079 talks about cleaning up the reporting interface.
  */
 void
-hotp_spill_before_notify(dcontext_t *dcontext,
-                         fragment_t **frag_spill /* OUT */,
+hotp_spill_before_notify(dcontext_t *dcontext, fragment_t **frag_spill /* OUT */,
                          fragment_t *new_frag, const app_pc new_frag_tag,
-                         app_pc *new_tag_spill /* OUT */,
-                         const app_pc new_next_tag,
-                         priv_mcontext_t *cxt_spill /* OUT */,
-                         const void *new_cxt, cxt_type_t cxt_type)
+                         app_pc *new_tag_spill /* OUT */, const app_pc new_next_tag,
+                         priv_mcontext_t *cxt_spill /* OUT */, const void *new_cxt,
+                         cxt_type_t cxt_type)
 {
     priv_mcontext_t *mc;
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
@@ -5245,7 +5184,7 @@ hotp_spill_before_notify(dcontext_t *dcontext,
     *new_tag_spill = dcontext->next_tag;
 
     new_frag->tag = new_frag_tag;
-    dcontext->last_fragment = (fragment_t *) new_frag;
+    dcontext->last_fragment = (fragment_t *)new_frag;
     dcontext->next_tag = new_next_tag;
 
     /* For hotp_only the last_fragment should be linkstub_empty_fragment,
@@ -5255,8 +5194,7 @@ hotp_spill_before_notify(dcontext_t *dcontext,
      * easily assert on that.
      */
     ASSERT(!DYNAMO_OPTION(hotp_only) ||
-           ((*frag_spill)->tag == NULL &&
-            (*frag_spill)->flags == FRAG_FAKE));
+           ((*frag_spill)->tag == NULL && (*frag_spill)->flags == FRAG_FAKE));
 
     /* Saving & swapping contexts - this is needed to produce the
      * correct machine context for forensics; there can be two types, viz.,
@@ -5267,15 +5205,15 @@ hotp_spill_before_notify(dcontext_t *dcontext,
     ASSERT(mc != NULL);
     memcpy(cxt_spill, mc, sizeof(*cxt_spill));
     if (cxt_type == CXT_TYPE_HOT_PATCH) {
-        hotp_context_t *new = (hotp_context_t *) new_cxt;
+        hotp_context_t *new = (hotp_context_t *)new_cxt;
         *mc = *new;
         /* FIXME PR 226036: use hotp_context_t.xip */
-        mc->pc = NULL;      /* pc reported in source, so NULL here is ok. */
+        mc->pc = NULL; /* pc reported in source, so NULL here is ok. */
     } else if (cxt_type == CXT_TYPE_CORE_HOOK) {
-        app_state_at_intercept_t *new = (app_state_at_intercept_t *) new_cxt;
+        app_state_at_intercept_t *new = (app_state_at_intercept_t *)new_cxt;
         *mc = new->mc;
         /* FIXME PR 226036: use hotp_context_t.xip */
-        mc->pc = NULL;      /* pc reported in source, so NULL here is ok. */
+        mc->pc = NULL; /* pc reported in source, so NULL here is ok. */
     } else
         ASSERT_NOT_REACHED();
 }
@@ -5284,14 +5222,13 @@ hotp_spill_before_notify(dcontext_t *dcontext,
 /* FIXME: old_cxt is unused; see case 8099 about dumping context. */
 void
 hotp_restore_after_notify(dcontext_t *dcontext, const fragment_t *old_frag,
-                         const app_pc old_next_tag,
-                         const priv_mcontext_t *old_cxt)
+                          const app_pc old_next_tag, const priv_mcontext_t *old_cxt)
 {
     priv_mcontext_t *mc;
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
-    ASSERT (old_cxt != NULL);
+    ASSERT(old_cxt != NULL);
 
-    dcontext->last_fragment = (fragment_t *) old_frag;
+    dcontext->last_fragment = (fragment_t *)old_frag;
     dcontext->next_tag = old_next_tag;
 
     mc = get_mcontext(dcontext);
@@ -5299,40 +5236,36 @@ hotp_restore_after_notify(dcontext_t *dcontext, const fragment_t *old_frag,
     memcpy(mc, old_cxt, sizeof(*old_cxt));
 }
 
-#if defined(DEBUG) && defined(INTERNAL)
+#    if defined(DEBUG) && defined(INTERNAL)
 /* FIXME PR 226036: eip is now part of hotp_context_t */
 static void
 hotp_dump_reg_state(const hotp_context_t *reg_state, const app_pc eip,
                     const uint loglevel)
 {
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "eax: "PFX"\n", APP_XAX(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "ecx: "PFX"\n", APP_XCX(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "edx: "PFX"\n", APP_XDX(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "ebx: "PFX"\n", APP_XBX(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "esp: "PFX"\n", APP_XSP(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "ebp: "PFX"\n", APP_XBP(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "esi: "PFX"\n", APP_XSI(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "edi: "PFX"\n", APP_XDI(reg_state));
-    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "eip: "PFX"\n", eip);
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "eax: " PFX "\n", APP_XAX(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "ecx: " PFX "\n", APP_XCX(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "edx: " PFX "\n", APP_XDX(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "ebx: " PFX "\n", APP_XBX(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "esp: " PFX "\n", APP_XSP(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "ebp: " PFX "\n", APP_XBP(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "esi: " PFX "\n", APP_XSI(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "edi: " PFX "\n", APP_XDI(reg_state));
+    LOG(GLOBAL, LOG_HOT_PATCHING, loglevel, "eip: " PFX "\n", eip);
 }
-#endif
+#    endif
 
 static void
-hotp_update_vul_stats(const hotp_exec_status_t exec_status,
-                      const uint vul_index)
+hotp_update_vul_stats(const hotp_exec_status_t exec_status, const uint vul_index)
 {
     hotp_exec_status_t temp = exec_status & ~HOTP_EXEC_LOG_EVENT;
 
-    ASSERT(temp == HOTP_EXEC_EXPLOIT_DETECTED ||
-           temp == HOTP_EXEC_EXPLOIT_NOT_DETECTED ||
-           temp == HOTP_EXEC_DETECTOR_ERROR ||
-           temp == HOTP_EXEC_EXPLOIT_PROTECTED ||
+    ASSERT(temp == HOTP_EXEC_EXPLOIT_DETECTED || temp == HOTP_EXEC_EXPLOIT_NOT_DETECTED ||
+           temp == HOTP_EXEC_DETECTOR_ERROR || temp == HOTP_EXEC_EXPLOIT_PROTECTED ||
            temp == HOTP_EXEC_EXPLOIT_NOT_PROTECTED ||
            temp == HOTP_EXEC_EXPLOIT_KILL_THREAD ||
            temp == HOTP_EXEC_EXPLOIT_KILL_PROCESS ||
            temp == HOTP_EXEC_EXPLOIT_RAISE_EXCEPTION ||
-           temp == HOTP_EXEC_CHANGE_CONTROL_FLOW ||
-           temp == HOTP_EXEC_PROTECTOR_ERROR ||
+           temp == HOTP_EXEC_CHANGE_CONTROL_FLOW || temp == HOTP_EXEC_PROTECTOR_ERROR ||
            temp == HOTP_EXEC_ABORTED);
 
     /* FIXME: Grabbing the hot patch lock here to update stats will deadlock
@@ -5413,8 +5346,8 @@ hotp_update_vul_stats(const hotp_exec_status_t exec_status,
  * location of the pushed register state, i.e., esp after pusha in the clean
  * call sequence.  Any change to prepare_for_clean_call() will affect this.
  */
-#define CLEAN_CALL_XFLAGS_OFFSET    1
-#define CLEAN_CALL_ERRNO_OFFSET     2
+#    define CLEAN_CALL_XFLAGS_OFFSET 1
+#    define CLEAN_CALL_ERRNO_OFFSET 2
 static void
 hotp_change_control_flow(const hotp_context_t *app_reg_ptr, const app_pc target)
 {
@@ -5427,14 +5360,14 @@ hotp_change_control_flow(const hotp_context_t *app_reg_ptr, const app_pc target)
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
 
-    dcontext->next_tag = target;    /* Set up actual control flow change. */
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->next_tag = target; /* Set up actual control flow change. */
+    dcontext->whereami = DR_WHERE_FCACHE;
     /* FIXME: should determine the actual fragment exiting from */
-    set_last_exit(dcontext, (linkstub_t *) get_hot_patch_linkstub());
+    set_last_exit(dcontext, (linkstub_t *)get_hot_patch_linkstub());
 
     STATS_INC(hotp_num_cflow_change);
-    LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Changing control flow to "PFX"\n", target);
-    transfer_to_dispatch(dcontext, &mc, true/*full_DR_state*/);
+    LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Changing control flow to " PFX "\n", target);
+    transfer_to_dispatch(dcontext, &mc, true /*full_DR_state*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -5448,27 +5381,25 @@ hotp_print_diagnostics(file_t diagnostics_file)
 
     if (GLOBAL_VUL_TABLE == NULL) {
         print_file(diagnostics_file,
-            "<hotpatching-information>\n"
-            "Hotpatch vulnerability table is NULL\n"
-            "</hotpatching-information>\n");
+                   "<hotpatching-information>\n"
+                   "Hotpatch vulnerability table is NULL\n"
+                   "</hotpatching-information>\n");
         return;
     }
 
     print_file(diagnostics_file,
-        "<hotpatching-information>\n"
-        "<vulnerability-table num-vulnerabilities=\"%u\">\n", NUM_GLOBAL_VULS);
+               "<hotpatching-information>\n"
+               "<vulnerability-table num-vulnerabilities=\"%u\">\n",
+               NUM_GLOBAL_VULS);
     for (vul = 0; vul < NUM_GLOBAL_VULS; vul++) {
         hotp_inject_status_t inject_status;
 
+        print_file(diagnostics_file, "  <vulnerability id=\"%s\" num-sets=\"%u\">\n",
+                   GLOBAL_VUL(vul).vul_id, GLOBAL_VUL(vul).num_sets);
         print_file(diagnostics_file,
-            "  <vulnerability id=\"%s\" num-sets=\"%u\">\n",
-                GLOBAL_VUL(vul).vul_id,
-                GLOBAL_VUL(vul).num_sets);
-        print_file(diagnostics_file,
-            "    <policy id=\"%s\" mode=\"%d\" version=\"%u\"/>\n",
-                GLOBAL_VUL(vul).policy_id,
-                GLOBAL_VUL(vul).mode,
-                GLOBAL_VUL(vul).policy_version);
+                   "    <policy id=\"%s\" mode=\"%d\" version=\"%u\"/>\n",
+                   GLOBAL_VUL(vul).policy_id, GLOBAL_VUL(vul).mode,
+                   GLOBAL_VUL(vul).policy_version);
 
         /* For vulnerabilities that haven't been used, print only the
          * {vul,policy}_id and policy_version; helps to prevent clustter in the
@@ -5477,124 +5408,114 @@ hotp_print_diagnostics(file_t diagnostics_file)
          * doesn't hamper diagnosis.  Case 8549.
          */
         inject_status = *(GLOBAL_VUL(vul).info->inject_status);
-        if (inject_status == HOTP_INJECT_NO_MATCH ||
-            inject_status == HOTP_INJECT_OFF) {
+        if (inject_status == HOTP_INJECT_NO_MATCH || inject_status == HOTP_INJECT_OFF) {
             print_file(diagnostics_file, "  </vulnerability>\n");
             continue;
         }
 
         print_file(diagnostics_file,
-            "    <hotpatch-dll name=\"%s\" base=\""PFX"\" hash=\"%s\"/>\n",
-                GLOBAL_VUL(vul).hotp_dll,
-                GLOBAL_VUL(vul).hotp_dll_base,
-                GLOBAL_VUL(vul).hotp_dll_hash);
+                   "    <hotpatch-dll name=\"%s\" base=\"" PFX "\" hash=\"%s\"/>\n",
+                   GLOBAL_VUL(vul).hotp_dll, GLOBAL_VUL(vul).hotp_dll_base,
+                   GLOBAL_VUL(vul).hotp_dll_hash);
         for (set = 0; set < GLOBAL_VUL(vul).num_sets; set++) {
             bool print_sets = false;
-            for (module = 0; module < GLOBAL_SET(vul, set).num_modules;
-                 module++) {
+            for (module = 0; module < GLOBAL_SET(vul, set).num_modules; module++) {
                 /* If a module isn't matched, then it hasn't been used, don't
                  * dump it; case 8549.
                  */
                 if (!GLOBAL_MODULE(vul, set, module).matched)
                     continue;
 
-                if (!print_sets) {  /* Print set title if needed, case 8549. */
-                    print_file(diagnostics_file,
-                        "    <set num-modules=\"%u\">\n",
-                            GLOBAL_SET(vul, set).num_modules);
+                if (!print_sets) { /* Print set title if needed, case 8549. */
+                    print_file(diagnostics_file, "    <set num-modules=\"%u\">\n",
+                               GLOBAL_SET(vul, set).num_modules);
                     print_sets = true;
                 }
 
                 print_file(diagnostics_file,
-                    "      <module pe_name=\"%s\" pe_checksum=\"0x%x\" "
-                    "pe_timestamp=\"0x%x\" pe_image_size=\""PIFX"\" "
-                    "pe_code_size=\""PIFX"\" "
-                    "pe_file_version=\"0x"HEX64_FORMAT_STRING"\" "
-                    "num-hashes=\"%u\" num-patch-points=\"%u\">\n",
-                        GLOBAL_SIG(vul, set, module).pe_name,
-                        GLOBAL_SIG(vul, set, module).pe_checksum,
-                        GLOBAL_SIG(vul, set, module).pe_timestamp,
-                        GLOBAL_SIG(vul, set, module).pe_image_size,
-                        GLOBAL_SIG(vul, set, module).pe_code_size,
-                        GLOBAL_SIG(vul, set, module).pe_file_version,
-                        GLOBAL_MODULE(vul, set, module).num_patch_point_hashes,
-                        GLOBAL_MODULE(vul, set, module).num_patch_points);
+                           "      <module pe_name=\"%s\" pe_checksum=\"0x%x\" "
+                           "pe_timestamp=\"0x%x\" pe_image_size=\"" PIFX "\" "
+                           "pe_code_size=\"" PIFX "\" "
+                           "pe_file_version=\"0x" HEX64_FORMAT_STRING "\" "
+                           "num-hashes=\"%u\" num-patch-points=\"%u\">\n",
+                           GLOBAL_SIG(vul, set, module).pe_name,
+                           GLOBAL_SIG(vul, set, module).pe_checksum,
+                           GLOBAL_SIG(vul, set, module).pe_timestamp,
+                           GLOBAL_SIG(vul, set, module).pe_image_size,
+                           GLOBAL_SIG(vul, set, module).pe_code_size,
+                           GLOBAL_SIG(vul, set, module).pe_file_version,
+                           GLOBAL_MODULE(vul, set, module).num_patch_point_hashes,
+                           GLOBAL_MODULE(vul, set, module).num_patch_points);
                 for (hash = 0;
                      hash < GLOBAL_MODULE(vul, set, module).num_patch_point_hashes;
                      hash++) {
                     print_file(diagnostics_file,
-                        "        <hash start=\""PFX"\" length=\"0x%x\" "
-                        "hash=\"%u\"/>\n",
-                            GLOBAL_HASH(vul, set, module, hash).start,
-                            GLOBAL_HASH(vul, set, module, hash).len,
-                            GLOBAL_HASH(vul, set, module, hash).hash_value);
+                               "        <hash start=\"" PFX "\" length=\"0x%x\" "
+                               "hash=\"%u\"/>\n",
+                               GLOBAL_HASH(vul, set, module, hash).start,
+                               GLOBAL_HASH(vul, set, module, hash).len,
+                               GLOBAL_HASH(vul, set, module, hash).hash_value);
                 }
-                for (pp = 0;
-                     pp < GLOBAL_MODULE(vul, set, module).num_patch_points;
+                for (pp = 0; pp < GLOBAL_MODULE(vul, set, module).num_patch_points;
                      pp++) {
                     print_file(diagnostics_file,
-                        "        <hotpatch precedence=\"%u\" offset=\""PIFX"\">\n",
-                            GLOBAL_PPOINT(vul, set, module, pp).precedence,
-                            GLOBAL_PPOINT(vul, set, module, pp).offset);
+                               "        <hotpatch precedence=\"%u\" offset=\"" PIFX
+                               "\">\n",
+                               GLOBAL_PPOINT(vul, set, module, pp).precedence,
+                               GLOBAL_PPOINT(vul, set, module, pp).offset);
                     print_file(diagnostics_file,
-                        "          <function type=\"detector\" "
-                        "offset=\""PIFX"\"/>\n",
-                            GLOBAL_PPOINT(vul, set, module, pp).detector_fn);
+                               "          <function type=\"detector\" "
+                               "offset=\"" PIFX "\"/>\n",
+                               GLOBAL_PPOINT(vul, set, module, pp).detector_fn);
                     print_file(diagnostics_file,
-                        "          <function type=\"protector\" "
-                        "offset=\""PIFX"\" return=\""PFX"\"/>\n",
-                            GLOBAL_PPOINT(vul, set, module, pp).protector_fn,
-                            GLOBAL_PPOINT(vul, set, module, pp).return_addr);
-                    print_file(diagnostics_file,
-                        "        </hotpatch>\n");
+                               "          <function type=\"protector\" "
+                               "offset=\"" PIFX "\" return=\"" PFX "\"/>\n",
+                               GLOBAL_PPOINT(vul, set, module, pp).protector_fn,
+                               GLOBAL_PPOINT(vul, set, module, pp).return_addr);
+                    print_file(diagnostics_file, "        </hotpatch>\n");
                 }
-                print_file(diagnostics_file,
-                    "      </module>\n");
+                print_file(diagnostics_file, "      </module>\n");
             }
-            if (print_sets) {   /* xref case 8549 */
-                print_file(diagnostics_file,
-                    "    </set>\n");
+            if (print_sets) { /* xref case 8549 */
+                print_file(diagnostics_file, "    </set>\n");
             }
         }
-        print_file(diagnostics_file,
+        print_file(
+            diagnostics_file,
             "    <stats "
-            "num-detected=\""UINT64_FORMAT_STRING"\" "
-            "num-not-detected=\""UINT64_FORMAT_STRING"\" "
-            "num-detector-error=\""UINT64_FORMAT_STRING"\" "
-            "num-protected=\""UINT64_FORMAT_STRING"\" "
-            "num-not-protected=\""UINT64_FORMAT_STRING"\" "
-            "num-kill-thread=\""UINT64_FORMAT_STRING"\" "
-            "num-kill-process=\""UINT64_FORMAT_STRING"\" "
-            "num-raise-exception=\""UINT64_FORMAT_STRING"\" "
-            "num-change-control-flow=\""UINT64_FORMAT_STRING"\" "
-            "num-protector-error=\""UINT64_FORMAT_STRING"\" "
-            "num-aborted=\"" UINT64_FORMAT_STRING"\">\n",
-                   GLOBAL_VUL(vul).info->num_detected,
-                   GLOBAL_VUL(vul).info->num_not_detected,
-                   GLOBAL_VUL(vul).info->num_detector_error,
-                   GLOBAL_VUL(vul).info->num_protected,
-                   GLOBAL_VUL(vul).info->num_not_protected,
-                   GLOBAL_VUL(vul).info->num_kill_thread,
-                   GLOBAL_VUL(vul).info->num_kill_process,
-                   GLOBAL_VUL(vul).info->num_raise_exception,
-                   GLOBAL_VUL(vul).info->num_change_control_flow,
-                   GLOBAL_VUL(vul).info->num_protector_error,
-                   GLOBAL_VUL(vul).info->num_aborted);
+            "num-detected=\"" UINT64_FORMAT_STRING "\" "
+            "num-not-detected=\"" UINT64_FORMAT_STRING "\" "
+            "num-detector-error=\"" UINT64_FORMAT_STRING "\" "
+            "num-protected=\"" UINT64_FORMAT_STRING "\" "
+            "num-not-protected=\"" UINT64_FORMAT_STRING "\" "
+            "num-kill-thread=\"" UINT64_FORMAT_STRING "\" "
+            "num-kill-process=\"" UINT64_FORMAT_STRING "\" "
+            "num-raise-exception=\"" UINT64_FORMAT_STRING "\" "
+            "num-change-control-flow=\"" UINT64_FORMAT_STRING "\" "
+            "num-protector-error=\"" UINT64_FORMAT_STRING "\" "
+            "num-aborted=\"" UINT64_FORMAT_STRING "\">\n",
+            GLOBAL_VUL(vul).info->num_detected, GLOBAL_VUL(vul).info->num_not_detected,
+            GLOBAL_VUL(vul).info->num_detector_error, GLOBAL_VUL(vul).info->num_protected,
+            GLOBAL_VUL(vul).info->num_not_protected,
+            GLOBAL_VUL(vul).info->num_kill_thread, GLOBAL_VUL(vul).info->num_kill_process,
+            GLOBAL_VUL(vul).info->num_raise_exception,
+            GLOBAL_VUL(vul).info->num_change_control_flow,
+            GLOBAL_VUL(vul).info->num_protector_error, GLOBAL_VUL(vul).info->num_aborted);
         print_file(diagnostics_file,
-            "      <status type=\"execution\">%d</status>\n"
-            "      <status type=\"injection\">%d</status>\n",
+                   "      <status type=\"execution\">%d</status>\n"
+                   "      <status type=\"injection\">%d</status>\n",
                    GLOBAL_VUL(vul).info->exec_status,
                    *(GLOBAL_VUL(vul).info->inject_status));
         print_file(diagnostics_file,
-            "    </stats>\n"
-            "  </vulnerability>\n");
+                   "    </stats>\n"
+                   "  </vulnerability>\n");
     }
     print_file(diagnostics_file,
-        "</vulnerability-table>\n"
-        "</hotpatching-information>\n");
+               "</vulnerability-table>\n"
+               "</hotpatching-information>\n");
 }
 
-#if defined(DEBUG) && defined(DEBUG_MEMORY)
+#    if defined(DEBUG) && defined(DEBUG_MEMORY)
 /* Part of bug fix for case 9593 which required leaking trampolines. */
 bool
 hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
@@ -5602,11 +5523,11 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
     if (!DYNAMO_OPTION(hotp_only) IF_WINDOWS(|| !doing_detach))
         return false;
 
-    /* Today memory debug checks for special heap units only do heap accouting,
-     * but not memcmp, both of which are done for regular heaps.  Special heaps
-     * are where the leaked trampolines are located.  If we do implement that
-     * check then this code in #if 0 would be needed.  Case 10434. */
-#if 0
+        /* Today memory debug checks for special heap units only do heap accouting,
+         * but not memcmp, both of which are done for regular heaps.  Special heaps
+         * are where the leaked trampolines are located.  If we do implement that
+         * check then this code in #if 0 would be needed.  Case 10434. */
+#        if 0
     for (i = 0; i < hotp_only_num_tramps_leaked; i++) {
         if (hotp_only_tramps_leaked[i] >= pc &&
             hotp_only_tramps_leaked[i] < (pc + size)) {
@@ -5616,7 +5537,7 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
             return true;
         }
     }
-#endif
+#        endif
 
     /* The actual special_units_t structure (pointed to by
      * hotp_only_tramp_heap) is also leaked.
@@ -5624,15 +5545,15 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
      * patches were ever removed either because they were never injected or
      * just weren't removed.
      */
-    if ((byte *) hotp_only_tramp_heap_cache >= pc &&
-        (byte *) hotp_only_tramp_heap_cache < (pc + size))
+    if ((byte *)hotp_only_tramp_heap_cache >= pc &&
+        (byte *)hotp_only_tramp_heap_cache < (pc + size))
         return true;
 
     return false;
 }
-#endif
+#    endif
 /*----------------------------------------------------------------------------*/
-#ifdef GBOP
+#    ifdef GBOP
 
 /* This section contains most of the functionality needed to treat gbop hooks
  * as hotp_only patches, thus giving gbop hooks access to all hotp_only patch
@@ -5649,10 +5570,8 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
 static hotp_exec_status_t
 hotp_only_gbop_detector(hotp_context_t *cxt)
 {
-    if (gbop_check_valid_caller((app_pc) APP_XBP(cxt),
-                                (app_pc) APP_XSP(cxt),
-                                (app_pc) APP_XDX(cxt),
-                                (app_pc *) &APP_XAX(cxt))) {
+    if (gbop_check_valid_caller((app_pc)APP_XBP(cxt), (app_pc)APP_XSP(cxt),
+                                (app_pc)APP_XDX(cxt), (app_pc *)&APP_XAX(cxt))) {
         return HOTP_EXEC_EXPLOIT_NOT_DETECTED;
     } else {
         /* Ask for event; needed to log event if -detect_mode is specified. */
@@ -5663,9 +5582,9 @@ hotp_only_gbop_detector(hotp_context_t *cxt)
 static hotp_exec_status_t
 hotp_only_gbop_protector(hotp_context_t *cxt)
 {
-#ifdef PROGRAM_SHEPHERDING
-    ASSERT(!DYNAMO_OPTION(detect_mode));    /* No protection in detect_mode. */
-#endif
+#        ifdef PROGRAM_SHEPHERDING
+    ASSERT(!DYNAMO_OPTION(detect_mode)); /* No protection in detect_mode. */
+#        endif
 
     /* Just log the event; the remediation action for gbop is determined by
      * security_violation() using core options like -kill_thread.
@@ -5703,8 +5622,7 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
         const gbop_hook_desc_t *gbop_hook = gbop_get_hook(gbop_hook_idx);
         ASSERT(gbop_hook != NULL);
         vul = &tab[vul_idx];
-        vul->vul_id = dr_strdup(gbop_hook->func_name
-                                HEAPACCT(ACCT_HOT_PATCHING));
+        vul->vul_id = dr_strdup(gbop_hook->func_name HEAPACCT(ACCT_HOT_PATCHING));
         /* FIXME: construct this from a combination of {mod,func}_name, or
          * func_name and bad_ret_address.  For now, just hard code it.
          * strdup because hotp_free() thinks this is allocated.
@@ -5726,30 +5644,29 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
         /* gbop_execlude_filter handles any os specific gbop set removals, xref 9772 */
         if (gbop_exclude_filter(gbop_hook)) {
             vul->mode = HOTP_MODE_OFF;
-            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Excluding %s!%s\n",
-                gbop_hook->mod_name, gbop_hook->func_name);
+            LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Excluding %s!%s\n", gbop_hook->mod_name,
+                gbop_hook->func_name);
         } else {
             vul->mode = HOTP_MODE_PROTECT;
         }
 
         vul->num_sets = 1;
-        set = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, hotp_set_t, 1,
-                               ACCT_HOT_PATCHING, PROTECTED);
+        set = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, hotp_set_t, 1, ACCT_HOT_PATCHING,
+                               PROTECTED);
         vul->sets = set;
-        vul->info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_vul_info_t,
-                                    ACCT_HOT_PATCHING, PROTECTED);
-        memset(vul->info, 0, sizeof(hotp_vul_info_t));  /* Initialize stats. */
+        vul->info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_vul_info_t, ACCT_HOT_PATCHING,
+                                    PROTECTED);
+        memset(vul->info, 0, sizeof(hotp_vul_info_t)); /* Initialize stats. */
 
         vul->hotp_dll_base = dr_base;
         vul->type = HOTP_TYPE_GBOP_HOOK;
 
         set->num_modules = 1;
-        module = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, hotp_module_t, 1,
-                                  ACCT_HOT_PATCHING, PROTECTED);
+        module = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, hotp_module_t, 1, ACCT_HOT_PATCHING,
+                                  PROTECTED);
         set->modules = module;
 
-        module->sig.pe_name = dr_strdup(gbop_hook->mod_name
-                                        HEAPACCT(ACCT_HOT_PATCHING));
+        module->sig.pe_name = dr_strdup(gbop_hook->mod_name HEAPACCT(ACCT_HOT_PATCHING));
         module->sig.pe_checksum = 0;
         module->sig.pe_timestamp = 0;
         module->sig.pe_image_size = 0;
@@ -5792,272 +5709,7 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
     ASSERT(*num_vuls == vul_idx);
 }
 
-#endif  /* GBOP */
-#ifdef CLIENT_INTERFACE
-/*----------------------------------------------------------------------------*/
-/* TODO: move all probe api into a separate file - cleaner */
-/* Adding a few data types to see if doxygen works.  Will update later.
-*/
-/* DR_API EXPORT TOFILE dr_probe.h */
-/* DR_API EXPORT BEGIN */
-/**
- * @file dr_probe.h
- * @brief Support for the Probe API.
- *
- *  Describes all the data types and functions associated with the \ref
- * API_probe.
- */
-
-/** Specifies what type of computation to use when computing the address of a
- * probe insertion point or callback function.
- */
-typedef enum {
-    /** Use the raw virtual address specified. */
-    DR_PROBE_ADDR_VIRTUAL,
-
-    /** Compute address by adding the offset specified to the base of the
-     * library specified.
-     *
-     * For probe insertion, if library isn't loaded, the insertion will be
-     * aborted.  For computing callback function address if the library isn't
-     * loaded, it will be loaded and then the address computation will be done;
-     * if it can't be loaded, probe request is aborted.
-     */
-    DR_PROBE_ADDR_LIB_OFFS,
-
-    /** Compute address by getting the address of the specified exported
-     * function from the specified library.
-     *
-     * If the exported function specified isn't available either for the probe
-     * insertion point or for the callback function, the probe insertion is
-     * aborted.  For computing callback function address if the library isn't
-     * loaded, it will be loaded and then the address computation will be done;
-     * if it can't be loaded, probe request is aborted. */
-    DR_PROBE_ADDR_EXP_FUNC,
-} dr_probe_addr_t;
-
-/** Defines the location where a probe is to be inserted or callback function
- * defined as an offset within a library. */
-typedef struct {
-    /** IN - Full name of the library. */
-    /* FIXME PR 533522: explicitly specify what type of name should be used
-     * here: full path, dr_module_preferred_name(), pe (exports) name, what?
-     * seems broken since need full path to load a lib but that won't match?
-     */
-    char *library;
-
-    /** IN - Offset to use inside library.  If out of bounds of library, probe
-     * request is aborted.  Offset can point to non text location as long as it
-     * is marked executable (i.e., ..x). */
-    app_rva_t offset;
-} dr_probe_lib_offs_t;
-
-/** Defines the location where a probe is to be inserted or callback function
- * defined as an exported function within a library. */
-typedef struct {
-    /** IN - Full name of the library. */
-    /* FIXME PR 533522: explicitly specify what type of name should be used
-     * here: full path, dr_module_preferred_name(), pe (exports) name, what?
-     * seems broken since need full path to load a lib but that won't match?
-     */
-    char *library;
-
-    /** IN - Name of exported function inside library.  If the function can't
-     * be found in the library, then this probe request is aborted. */
-    char *func;
-} dr_probe_exp_func_t;
-
-
-/** Defines a memory location where a probe is to be inserted or where a
- * callback function exists.  One of three types of address computation as
- * described by dr_probe_addr_t is used to identify the location.
- */
-typedef struct {
-    /** IN - Specifies the type of address computation to use. */
-    dr_probe_addr_t type;
-
-    union {
-        /** IN - Raw virtual address in the process space. */
-        app_pc vaddr;
-
-        /** IN - Library offset in the process space. */
-        dr_probe_lib_offs_t lib_offs;
-
-        /** IN - Exported function in the process space. */
-        dr_probe_exp_func_t exp_func;
-    };
-} dr_probe_location_t;
-
-/* DR_API EXPORT END */
-/* FIXME: hotp_exec_status_t in hotpatch_interface.h is what's really used
- * in the code so once we start adding actual values here we should merge
- * the two
- */
-/* DR_API EXPORT BEGIN */
-/**
- * Specifies what action to take upon return of a probe callback function.
- * Additional options will be added in future releases.
- */
-typedef enum {
-    /** Continue execution normally after the probe. */
-    DR_PROBE_RETURN_NORMAL = 0,
-} dr_probe_return_t;
-
-/**
- * This structure describes the characteristics of a probe.  It is used to add,
- * update, and remove probes using dr_register_probes().
- */
-typedef struct {
-    /**
-     * IN - Pointer to the name of the probe.  This string does not need
-     * to be persistent beyond the call to dr_register_probes(): a copy will
-     * be made.
-     */
-    char *name;
-
-    /**
-     * IN - Location where the probe is to be inserted.  If inserting inside a
-     * library, the insertion will be done only if the library is loaded, the
-     * location falls within its bounds and the location is marked executable.
-     * If inserting outside a library the memory location should be allocated
-     * and marked executable.  If neither, the probe will be put in a pending
-     * state where its id will be NULL and its status reflecting the state.
-     */
-    dr_probe_location_t insert_loc;
-
-    /**
-     * IN - Location of the callback function.  If callback is inside a
-     * library, the library location will be used if it is within its bounds
-     * and is marked executable; if library isn't loaded, an attempt will be
-     * made to load it.  If using a raw virtual address, then that location
-     * should be mapped and marked executable.  If neither is true, the probe
-     * insertion or update will be aborted and status updated accordingly.
-     *
-     * The callback function itself should have this signature:
-     *
-     *   dr_probe_return_t probe_callback(priv_mcontext_t *mc);
-     *
-     * Note that the \p xip field of the \p priv_mcontext_t passed in will
-     * NOT be set.
-     */
-    dr_probe_location_t callback_func;
-
-    /** OUT - Upon successful probe insertion a unique id will be created. */
-    unsigned int id;
-
-    /** OUT - Specifies the current status of the probe. */
-    dr_probe_status_t status;
-} dr_probe_desc_t;
-
-/******************************************************************************/
-DR_API
-/**
- * Allows the caller to insert probes into specified executable memory
- * locations in the process address space.  Upon subsequent execution of
- * instructions at these memory locations the appropriate probes will be
- * triggered and the corresponding callback functions will be invoked.
- * Subsequent calls to dr_register_probes() will allow the caller to remove,
- * update and add more probes.
- *
- * @param       probes  Pointer to an array of probe descriptors of type
- *                      dr_probe_desc_t.  Each descriptor describes the
- *                      location of the probe, the callback function and other
- *                      data.  This is an in/out parameter, see dr_probe_desc_t
- *                      for details.  If probes isn't NULL, points to valid
- *                      memory and num_probes is greater than 0, id and status
- *                      for each probe are set in the corresponding
- *                      dr_probe_desc_t.  If probes is NULL or num_probes is 0,
- *                      nothing is set in probes.  Invalid memory may trigger
- *                      an exception.
- *
- * @param [in]  num_probes  Specifies the number of probe descriptors in
- *                          the array pointed to by probes.
- *
- * \remarks
- * If a probe definition is invalid, it will not be registered, i.e. DynamoRIO
- *  will not retain its definition.  The error code will be returned in the
- *  status field in of that probe's dr_probe_desc_t element and the
- *  corresponding id field in dr_probe_desc_t is set to NULL.
- *
- * \remarks
- * When a client calls dr_register_probes() from dr_client_main() (which is the
- *  earliest dr_register_probes() can be called), not all valid probes are
- *  guaranteed to be inserted upon retrun from dr_register_probes().  Some
- *  valid probes may not be inserted if the target module has not been loaded,
- *  the insertion point is not executable, or the memory is otherwise
- *  inaccessible.  In such cases, DynamoRIO retains all valid probe
- *  information and inserts these probes when the memory locations become
- *  available.
- *
- * \remarks
- * When dr_register_probes() is called after dr_client_main(), the behavior is
- *  identical to being called from dr_client_main() with one caveat: even valid probes
- *  aren't guaranteed to be registered when dr_register_probes() returns.
- *  However, valid probes will be registered within a few milliseconds usually.
- *  To prevent performance and potential deadlock issues, it is recommended
- *  that a client shouldn't wait in a loop till the probe status changes.
- *  Instead, clients should check probe status at a later callback.
- *
- * \remarks
- * A client can determine the status of a registered probe in one of two ways.
- *  1) Read it from the status field in the associated dr_probe_desc_t element
- *  when dr_register_probes() returns, or 2) call dr_get_probe_status() with
- *  the id of the probe.
- *
- * \remarks
- * To add, remove or update currently registered probes dr_register_probes()
- *  should be called again with a new set of probe definitions.  The new list
- *  of probes completely replaces the existing probes.  That is, existing
- *  probes not specified in the new list are removed from the process.
- *
- * \remarks
- * The probe insertion address has limitations.  5 bytes beginning at the start
- *  of a probe insertion address should have specific characteristics.  No
- *  instruction should straddle this start of this region, i.e., the probe
- *  insertion address should be the beginning of an instruction.  Also, no flow
- *  of control should jump into the middle of this 5 byte region beginning at
- *  the probe insertion address.  Further, there should be no int instructions
- *  in this region.  call and jump instructions are allowed in this region as
- *  long as they don't terminate before the end of the region, i.e., no other
- *  instruction should start after them in this region (as it will allow
- *  control flow to return to the middle of this region).  If these rules are
- *  not adhered to the results are be unspecified; may result in process crash.
- *  The above mentioned restrictions hold only when using \ref API_probe not
- *  when using API_BT or both simultaneously.
- *
- * \remarks
- * If only the \ref API_probe is used 5 bytes starting at the probe insertion
- *  address will be modified.  If the process will read this memory then the
- *  probe should be moved to another location or removed to avoid unknown
- *  changes in process behavior.  If the client will read this memory, then it
- *  has to do so before requesting probe insertion.
- *
- * \see dr_get_probe_status().
- */
-void
-dr_register_probes(
-    dr_probe_desc_t *probes,
-    unsigned int num_probes
-);
-
-DR_API
-/** Used to get the current status of a probe.
- *
- * \param[in]   id  Unique identifier of the probe for which status is desired.
- *
- * \param[out]  status  Pointer to user allocated data of type dr_probe_status_t
- *                      in which the status of the probe specified by id is
- *                      returned.  If id matches and status isn't NULL, the
- *                      status for the matching probe is returned.  If id
- *                      doesn't match or if status is NULL, nothing is
- *                      returned in status.
- *
- * \return      If id matches and status is copied successfully, 1 is returned,
- *              else 0 is returned.
- */
-int
-dr_get_probe_status(unsigned int id, dr_probe_status_t *status);
-/* DR_API EXPORT END */
+#    endif /* GBOP */
 
 /* Both dr_{insert,update}_probes() will be replaced by dr_register_probes() -
  * PR 225547.  The user will call the same routine to insert or update probes.
@@ -6077,9 +5729,7 @@ dr_get_probe_status(unsigned int id, dr_probe_status_t *status);
  * ones; also good if probes are used with LS - PR 225673.
  */
 void
-dr_register_probes(
-    dr_probe_desc_t *probes,
-    unsigned int num_probes)
+dr_register_probes(dr_probe_desc_t *probes, unsigned int num_probes)
 {
     unsigned int i, valid_probes;
     hotp_vul_t *tab, *vul;
@@ -6092,7 +5742,8 @@ dr_register_probes(
      * Also, liveshields shouldn't be on when probe api is on.
      */
     CLIENT_ASSERT(DYNAMO_OPTION(hot_patching) && DYNAMO_OPTION(probe_api) &&
-                  !DYNAMO_OPTION(liveshields), "To use Probe API, "
+                      !DYNAMO_OPTION(liveshields),
+                  "To use Probe API, "
                   "-hot_patching, -probe_api and -no_liveshields options "
                   "should be used.");
 
@@ -6103,8 +5754,8 @@ dr_register_probes(
     ASSERT(hotp_patch_point_areas != NULL);
     ASSERT(!DYNAMO_OPTION(hotp_only) || hotp_only_tramp_areas != NULL);
 
-    if (num_probes < MIN_NUM_VULNERABILITIES ||
-        num_probes > MAX_NUM_VULNERABILITIES || probes == NULL) {
+    if (num_probes < MIN_NUM_VULNERABILITIES || num_probes > MAX_NUM_VULNERABILITIES ||
+        probes == NULL) {
         /* FIXME PR 533384: return a status code! */
         return;
     }
@@ -6175,8 +5826,8 @@ dr_register_probes(
         if (probes[i].callback_func.type == DR_PROBE_ADDR_LIB_OFFS) {
             if (probes[i].callback_func.lib_offs.library != NULL) {
                 /* TODO: validate probe def PR 225663 */
-                vul->hotp_dll = dr_strdup(probes[i].callback_func.lib_offs.library
-                                          HEAPACCT(ACCT_HOT_PATCHING));
+                vul->hotp_dll = dr_strdup(
+                    probes[i].callback_func.lib_offs.library HEAPACCT(ACCT_HOT_PATCHING));
             } else {
                 probes[i].status = DR_PROBE_STATUS_INVALID_LIB;
                 goto dr_probe_parse_error;
@@ -6193,8 +5844,7 @@ dr_register_probes(
 
         vul->mode = HOTP_MODE_PROTECT;
         vul->num_sets = 1;
-        set = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_set_t, ACCT_HOT_PATCHING,
-                              PROTECTED);
+        set = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, hotp_set_t, ACCT_HOT_PATCHING, PROTECTED);
         vul->sets = set;
         vul->info = HEAP_ARRAY_ALLOC_MEMSET(GLOBAL_DCONTEXT, hotp_vul_info_t, 1,
                                             ACCT_HOT_PATCHING, PROTECTED, 0);
@@ -6217,8 +5867,8 @@ dr_register_probes(
 
         if (probes[i].insert_loc.type == DR_PROBE_ADDR_LIB_OFFS) {
             if (probes[i].insert_loc.lib_offs.library != NULL) {
-                module->sig.pe_name = dr_strdup(probes[i].insert_loc.lib_offs.library
-                                                HEAPACCT(ACCT_HOT_PATCHING));
+                module->sig.pe_name = dr_strdup(
+                    probes[i].insert_loc.lib_offs.library HEAPACCT(ACCT_HOT_PATCHING));
             } else {
                 probes[i].status = DR_PROBE_STATUS_INVALID_LIB;
                 goto dr_probe_parse_error;
@@ -6243,13 +5893,13 @@ dr_register_probes(
          */
         /* TODO: validate probe & callback addr here if possible; PR 225663 */
         ppoint->offset = probes[i].insert_loc.lib_offs.offset;
-        ppoint->detector_fn = 0;    /* No detector for probes. */
+        ppoint->detector_fn = 0; /* No detector for probes. */
         ppoint->protector_fn = probes[i].callback_func.lib_offs.offset;
 
         /* Precedence hasn't been implemented yet, however, if it had been,
          * then we don't want gbop hooks to interfere with client probes.
          */
-#define HOTP_PROBE_PRECEDENCE (HOTP_ONLY_GBOP_PRECEDENCE - 1)
+#    define HOTP_PROBE_PRECEDENCE (HOTP_ONLY_GBOP_PRECEDENCE - 1)
         ppoint->precedence = HOTP_PROBE_PRECEDENCE;
 
         /* id generation should be the last step because parsing of a
@@ -6264,7 +5914,7 @@ dr_register_probes(
         valid_probes++;
         continue;
 
- dr_probe_parse_error:
+    dr_probe_parse_error:
         /* Invalid probes are not kept inside dr, but discarded, so a 0 id
          * should be returned for them
          */
@@ -6295,7 +5945,7 @@ dr_register_probes(
      * hotp lock and setting the global hotp table.  If we have our own loader
      * (PR 209430) we won't need to do this.
      */
-    write_lock(&hotp_vul_table_lock);
+    d_r_write_lock(&hotp_vul_table_lock);
 
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     GLOBAL_VUL_TABLE = tab;
@@ -6311,7 +5961,7 @@ dr_register_probes(
     }
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-    write_unlock(&hotp_vul_table_lock);
+    d_r_write_unlock(&hotp_vul_table_lock);
 
     /* Unlike hotp_init(), client init happens after vmareas_init(), i.e.,
      * after module processing, so we have to walk the module list again.  It
@@ -6369,7 +6019,8 @@ dr_get_probe_status(unsigned int id, dr_probe_status_t *status)
      * Also, liveshields shouldn't be on when probe api is on.
      */
     CLIENT_ASSERT(DYNAMO_OPTION(hot_patching) && DYNAMO_OPTION(probe_api) &&
-                  !DYNAMO_OPTION(liveshields), "To use Probe API, "
+                      !DYNAMO_OPTION(liveshields),
+                  "To use Probe API, "
                   "-hot_patching, -probe_api and -no_liveshields options "
                   "should be used.");
 
@@ -6380,7 +6031,7 @@ dr_get_probe_status(unsigned int id, dr_probe_status_t *status)
         return res;
 
     *status = DR_PROBE_STATUS_INVALID_ID;
-    read_lock(&hotp_vul_table_lock);
+    d_r_read_lock(&hotp_vul_table_lock);
     for (i = 0; i < NUM_GLOBAL_VULS; i++) {
         if (id == GLOBAL_VUL(i).id) {
             *status = *(GLOBAL_VUL(i).info->inject_status);
@@ -6389,11 +6040,10 @@ dr_get_probe_status(unsigned int id, dr_probe_status_t *status)
         }
     }
 
-    read_unlock(&hotp_vul_table_lock);
+    d_r_read_unlock(&hotp_vul_table_lock);
     return res;
 }
-#endif  /* CLIENT_INTERFACE */
-#endif  /* HOT_PATCHING_INTERFACE */
+#endif /* HOT_PATCHING_INTERFACE */
 
 /* Got hotp_read_policy_defs() working, so this can be used for testing now. */
 #ifdef HOT_PATCHING_INTERFACE_UNIT_TESTS
@@ -6405,30 +6055,32 @@ hotp_read_policies(void)
     /* TODO: once this function starts reading from file/memory, the data below
      *       can be used as part of unit-hotpatch.c
      */
-    static hotp_patch_point_t pp1 = {(app_rva_t)0x673e, (app_rva_t) 0x1010,
-                                     (app_rva_t) 0x1010, (app_rva_t) 0x6741, 0};
-    static hotp_module_t mod1 = {{"ci_loop_test.exe", 0, 0x4241c037, 0},
-                                 1, &pp1, false, NULL};
-    static hotp_set_t set1 = {1, &mod1};
-    static hotp_vul_info_t info1 = {0}, info2 = {0};
+    static hotp_patch_point_t pp1 = { (app_rva_t)0x673e, (app_rva_t)0x1010,
+                                      (app_rva_t)0x1010, (app_rva_t)0x6741, 0 };
+    static hotp_module_t mod1 = {
+        { "ci_loop_test.exe", 0, 0x4241c037, 0 }, 1, &pp1, false, NULL
+    };
+    static hotp_set_t set1 = { 1, &mod1 };
+    static hotp_vul_info_t info1 = { 0 }, info2 = { 0 };
 
-    static hotp_patch_point_t pp2 = {(app_rva_t)0x440f, (app_rva_t) &hotp_nimda,
-                                     (app_rva_t) &hotp_nimda, (app_rva_t) 0, 0};
-    static hotp_module_t mod2 = {{"iisrtl.dll", 0x20190, 0x384399bc, 0x21000},
-                                 1, &pp2, false, NULL};
-    static hotp_set_t set2 = {1, &mod2};
+    static hotp_patch_point_t pp2 = { (app_rva_t)0x440f, (app_rva_t)&hotp_nimda,
+                                      (app_rva_t)&hotp_nimda, (app_rva_t)0, 0 };
+    static hotp_module_t mod2 = {
+        { "iisrtl.dll", 0x20190, 0x384399bc, 0x21000 }, 1, &pp2, false, NULL
+    };
+    static hotp_set_t set2 = { 1, &mod2 };
 
     NUM_GLOBAL_VULS = 2;
-    hotp_vul_table = (hotp_vul_t*) heap_alloc(GLOBAL_DCONTEXT,
-                                              sizeof(hotp_vul_t) * NUM_GLOBAL_VULS
-                                              HEAPACCT(ACCT_HOT_PATCHING));
+    hotp_vul_table = (hotp_vul_t *)heap_alloc(
+        GLOBAL_DCONTEXT,
+        sizeof(hotp_vul_t) * NUM_GLOBAL_VULS HEAPACCT(ACCT_HOT_PATCHING));
 
     /* ci_loop_text.exe vulnerability */
     GLOBAL_VUL(0).vul_id = "ci_loop_test-vul";
     GLOBAL_VUL(0).policy_id = "ci_loop_test-policy";
     GLOBAL_VUL(0).hotp_dll = "c:\\cygwin\\home\\bharath\\ci\\hotp_2.5.dll";
     GLOBAL_VUL(0).hotp_dll_hash = NULL;
-    GLOBAL_VUL(0).hotp_dll_base = NULL;     /* Runtime data! just for now */
+    GLOBAL_VUL(0).hotp_dll_base = NULL; /* Runtime data! just for now */
     GLOBAL_VUL(0).mode = HOTP_MODE_OFF;
     GLOBAL_VUL(0).num_sets = 1;
     GLOBAL_VUL(0).sets = &set1;
@@ -6439,10 +6091,10 @@ hotp_read_policies(void)
     GLOBAL_VUL(1).policy_id = "nimda-policy";
     GLOBAL_VUL(1).hotp_dll = "hotp_2_5.dll";
     GLOBAL_VUL(1).hotp_dll_hash = NULL;
-    GLOBAL_VUL(0).hotp_dll_base = NULL;     /* Runtime data! just for now */
+    GLOBAL_VUL(0).hotp_dll_base = NULL; /* Runtime data! just for now */
     GLOBAL_VUL(1).mode = HOTP_MODE_OFF;
     GLOBAL_VUL(1).num_sets = 1;
     GLOBAL_VUL(1).sets = &set2;
     GLOBAL_VUL(1).info = &info2;
 }
-#endif  /* HOT_PATCHING_INTERFACE_UNIT_TESTS */
+#endif /* HOT_PATCHING_INTERFACE_UNIT_TESTS */

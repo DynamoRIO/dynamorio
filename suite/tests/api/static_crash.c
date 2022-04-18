@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,14 +32,13 @@
 
 #include "configure.h"
 #ifndef UNIX
-# error UNIX-only
+#    error UNIX-only
 #endif
 #include "dr_api.h"
 #include "tools.h"
+#include <math.h>
 #include <unistd.h>
 #include <signal.h>
-
-#define ALT_STACK_SIZE  (SIGSTKSZ*2)
 
 static int num_bbs;
 static int num_signals;
@@ -56,8 +55,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     num_bbs++;
     return DR_EMIT_DEFAULT;
@@ -101,7 +99,7 @@ do_some_work(void)
 int
 main(int argc, const char *argv[])
 {
-    intercept_signal(SIGSEGV, signal_handler, true/*sigstack*/);
+    intercept_signal(SIGSEGV, signal_handler, true /*sigstack*/);
 
     print("pre-DR init\n");
     dr_app_setup();

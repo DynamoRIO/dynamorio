@@ -1,0 +1,358 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_test_suite Testing
+
+# Automated Test Machines
+
+## Continuous Integration (CI) via Github Actions
+
+We have [Github Actions](https://docs.github.com/en/free-pro-team@latest/actions)
+set up to run our short test suite (the same as the pre-commit suite) for every
+push to the master branch and for every pull request, for 32-bit and 64-bit
+x86 on Linux and Windows, for 64-bit Mac, and for AArch64 on Linux. ARM (32-bit) and
+Android builds are performed but no tests are run at this point. The Github Actions CI
+can also be triggered manually, for master or any other branch, on the
+[DynamoRIO Github Actions page](https://github.com/DynamoRIO/dynamorio/actions).
+
+An email is sent whenever there is a (non-flaky-test) failure.  If your commit causes a failure on a merge to master, please forward this email to the dynamorio-devs mailing list explaining the failure and whether you will be reverting your commit (which you should do unless you have a trivial fix ready immediately).  If any tests become flaky, please contribute to addressing them to keep our continuous integration testing clean and green.
+
+The Github Actions configuration is specified in the workflow files in [.github/workflows](https://github.com/DynamoRIO/dynamorio/blob/master/.github/workflows).
+
+We have a default test suite verbosity of `ctest -VV` in `suite/runsuite_wrapper.pl` (`ctest --output-on-failure -VV -S`) which shows build warnings and failing test output.  The Actions integrated output viewer is slow; it is often better to use the right-hand three-dot menu to select `View raw logs` or `Download log archive`.
+
+## CI Job Auto-Cancellation
+
+We have configured the CI such that if a new commit is pushed to a pull request before the prior CI jobs have finished running, the prior jobs will be cancelled (with an email sent for each cancellation).  This is to conserve CI resources under the assumption that the old results are no longer needed.
+
+## CI for AArch64 & AArch32
+
+We use Jenkins for pre- and postcommit testing on AArch64. [Jenkins](http://jenkins.dynamorio.org:8080/) is set up to run our short test suite (the same as the pre-commit suite) for every
+push to the master branch and for every pull request.  We also run a subset of the test suite under QEMU emulation on both AArch32 and AArch64, but not all tests are able to run that way.
+
+## CI Tree Closures
+
+If the CI on master turns red, the tree is "closed": meaning that there should be no commits to the repository unrelated to fixing the problem until it is green again.
+
+## Trybots
+
+Our CI setups provide "trybot" functionality for nearly every platform via pull request testing.  To test a change on platforms you don't have locally, or test whether your change will pass the CI, you can create a pull request.  The CI will then automatically run the test suite on your change.
+
+## Debugging Tests on Github Actions Runner
+
+Test failures that happen only on Github Actions and are not reproducible locally can be hard to debug. Fortunately, there's a way to SSH into a Github Actions runner to debug the test. This can be done using `tmate`: https://github.com/marketplace/actions/debugging-with-tmate. Follow instructions on the page to make a temporary change to the Github Actions workflow config in your branch, and use the link output by `tmate` to ssh into the runner. You can install `gdb` if needed on the runner. `tmate` also allows web shell access; note that you may need to press `q` one time if the web page doesn't show anything.
+
+# Regression Test Suite
+
+The black box test suite for DynamoRIO resides in the suite/ directory.
+The tests are applications that we execute under control of DynamoRIO to
+ensure we're covering corner cases.
+
+## Test Organization
+
+The tests in suite/tests/ are divided into different directories according
+to type of test:
+
+ - client-interface/ = tests of the regular client API
+ - api/ = tests using the IR to test decoding and encoding, and a test of the start/stop interface
+ - common/ = cross-platform basic test applications
+ - linux/ = Linux-specific tests
+ - pthreads/ = more Linux tests, using pthread
+ - win32/ = Windows-specific tests
+ - runall/ = Windows-specific tests using AppInit or follow-children injection
+
+There are also tests that are less directly focused on the API of this
+open-source project, but that are still useful as they contain some crazy
+behavior that is good to test:
+
+ - security-common/ = tests of security policies
+ - security-linux/ = Linux-specific tests of security policies
+ - security-win32/ = Windows-specific tests of security policies
+
+## Building and Running Tests
+
+CMake is used to build the tests.  They are not built by default.  To
+enable them, turn on the BUILD_TESTS CMake variable.  For example:
+```
+  cmake -DBUILD_TESTS=ON ../dynamorio
+```
+
+CTest is used to run the tests with various runtime options.  Each test is
+named to indicate the runtime options and the executable.  The options are
+first, separate by commas, with a pipe delimiting the end of the options.
+The executable has a dot instead of a slash.  Here are some examples:
+
+```
+  code_api|security-common.decode-bad-stack
+  code_api,disable_traces|client.events
+```
+
+Note that CTest versions prior to 2.8 truncate the test names to 30
+characters, so the second example above may show up as:
+
+```
+  code_api,disable_traces|client
+```
+
+From a build directory that was built with BUILD_TESTS you can run the set
+of tests for that build with the `test` Makefile target.  You need to build
+first with a plain `make` command as the `test` target does not check for
+that.
+
+```
+  make -j6
+  make test
+```
+
+You can also invoke `ctest` directly, which gives greater control over
+which subsets of the tests are run.  Use `ctest -N` to see the list of
+tests and which number is assigned to each.  Then you can use `ctest -I
+x,y` to run all tests from number x to number y, and the -V parameter to
+display the command line and the output of the test.  For example:
+
+```
+  ctest -V -I 49,49
+```
+
+You can also specify tests using inclusion and exclusion regular
+expressions.  For example:
+
+```
+  ctest -R 'strace|signal'
+```
+
+will run all tests with the string "strace" or the string "signal" in their
+names, while
+
+```
+  ctest -E security-common
+```
+
+will run all tests except those with security-common in their names.
+
+If you are using CTest version 2.8 or later, you can run tests in
+parallel by passing -jN to `ctest` on the command line:
+
+```
+  ctest -j5
+```
+
+As an alternative to using -V to display the test command line and output
+during executing, CTest stores that information (even when not run with -V)
+in the `Testing/Temporary/LastTest.log` file in the build directory.
+
+## Testing AArchXX
+
+Currently we have access to the following machines for contributors to do testing on actual AArchXX hardware (please contact `@AssadHashmi` if you want access):
+
+- one AArch64 ThunderX1, hosted on packet.net
+
+We also have support for running tests under QEMU emulation.  This is automatically set up if `qemu-user` is installed:
+
+```
+$ sudo apt-get install qemu-user qemu-user-binfmt
+```
+
+For instructions on how to manually run under QEMU, see \ref qemu_deploy.
+
+## Test Output
+
+Each test produces output to stderr and/or stdout that
+is diffed against an expected output.  There are three primary ways we calculate the
+expected output.  The first is from a literal file with an .expect
+extension: e.g., suite/tests/common/segfault.expect.
+
+The second is from a .template file that is evaluated with respect to the current build and
+runtime option parameters to produce an .expect file for literal diffing:
+e.g., suite/tests/common/decode.template.  The C preprocessor is used to
+convert the .template file to a literal string for matching.  Runtime
+options are converted to compiler definitions and added to those set for
+the build when running the preprocessor.  This allows the test output to
+be conditional on the build defines and runtime parameters.
+
+The third is a .templatex file, which is like a .template file but is also
+evaluated as a regular expression instead of a literal string after passing
+through the pre-processor.
+
+All three of those options use the CTest property PASS_REGULAR_EXPRESSION (with
+regular expression characters escaped when not using .templatex).
+That property has a size limit.  There are other methods of comparing output.
+One is to use programmatic comparisons inside the test.  Another is to use
+our script runcmp.cmake which has no size limit.
+
+## Pre-Commit Test Suite
+
+The suite/runsuite.cmake script is used to execute a series of builds and
+test runs.  Running `make test` in a single build directory is not
+sufficient to test all of the configurations that we support.
+The test suite requires a development environment that is capable of
+compiling for both 64-bit and 32-bit (see [How To Build](How-To-Build) for
+instructions on setting up Ubuntu appropriately).
+
+We have two different suites: the short suite, which is required to be run
+prior to committing code changes (see CommitCriteria), and the long suite,
+which is meant to be run as a nightly test suite on different platforms
+(see [Nightly Suite](Test-Suite#nightly-suite)).
+The suite/tests/CMakeLists.txt file controls which runs are executed for
+each build, while suite/runsuite.cmake lists the builds.  The long suite
+can be executed by using the suite/runsuite_long.cmake wrapper script.
+
+On Windows, runsuite.cmake assumes that the environment variables are
+set up for building, just like when configuring a single build
+directory.  The script will change from 32-bit to 64-bit and vice
+versa when necessary; to do so, it assumes the typical Visual Studio
+layout of 64-bit subdirectories.
+
+The runsuite.cmake script is meant to be executed from an empty directory.
+It creates a subdirectory for each build in the suite.  Use `ctest -S` to
+execute the script.  Here is an example:
+
+```
+  mkdir ../build_suite
+  cd ../build_suite
+  ctest -S ../dynamorio/suite/runsuite.cmake
+```
+
+We recommend using Ninja, in which case pass the use_ninja parameter:
+
+```
+  mkdir ../build_suite
+  cd ../build_suite
+  ctest -S ../dynamorio/suite/runsuite.cmake,use_ninja
+```
+
+You can pass -V (or -VV for more output) to ctest to see the results as the test suite runs.  Note
+that it is normal to have ctest output strings such as "No tests were
+found!!!" as we have builds for which we run no tests (particularly in the
+short suite).  It is also expected to have an error at the end of the
+suite (if run with -V):
+
+```
+CMake Error: Some required settings in the configuration file were missing:
+CTEST_SOURCE_DIRECTORY = E:/derek/dr/suite/..
+CTEST_BINARY_DIRECTORY = (Null)
+CTEST_COMMAND = c:/PROGRA~2/CMAKE2~1.6/bin/ctest.exe
+```
+
+This warning is an artifact of how CTest assumes we've set things up and
+can be ignored.
+
+At the end of the suite a file called results.txt will be created and
+displayed.  It shows configure failures, build failures, and test failures.
+It also looks for DynamoRIO crashes, asserts, and curiosities and displays
+those.
+
+For details on configure, build, or test failures, look in the Testing/Temporary/Last* log files inside the appropriate build subdirectory of the top-level suite directory.  For example:
+
+```
+  cd ~/dr/build_suite
+  less build_debug-internal-32/Testing/Temporary/LastTest_20150708-1437.log
+```
+
+Note that the build directories are quite large.  For a short suite on
+Linux they occupy about 600MB altogether.
+
+## Cross-Compilation and Android Testing
+
+The test suite includes cross-compilation tests to ensure that the ARM and Android builds are not broken.  If a cross-compiler is not found on the PATH, these builds will fail, but they are considered optional, so the whole suite will not be considered a failure.  However, we recommend installing the cross-compilers and placing them on your PATH for more thorough testing.
+
+If you have an Android device set up for access through the `adb shell` utility, the Android build is capable of automatically copying binaries to the device and running tests.  If both the Android cross-compiler and `adb` are on your PATH, and `adb status` indicates an attached device, the tests will be run.
+
+## Pre-Commit Test Suite Over Ssh
+
+The runsuite_ssh.cmake script can be used to launch the pre-commit test
+suite on a remote machine over ssh.  Remote Windows machines are supported
+when using cygwin sshd on the remote machine.  Both rsync and ssh must be
+installed on the local and remote machines, and RSA-key passwordless
+authentication is recommended.
+
+```
+  cd /my/checkout && cmake -DHOST=dr-ubuntu -P suite/runsuite_ssh.cmake
+```
+
+For a remote Windows machine, cygpath must be on the path, and the
+REMOTE_WINDOWS variable must be set to properly convert paths:
+
+```
+  cmake -DHOST=mylaptop -DUSER=derek -DREMOTE_WINDOWS=ON -P /my/checkout/suite/runsuite_ssh.cmake
+```
+
+The comments at the top of runsuite_ssh.cmake describe additional options.
+
+## Test Failures
+
+Unfortunately our test suite is not as clean as it could be.  Some tests can be flaky and while they pass on the machines of the existing developers and on our automated test machines, they may fail occasionally on a new machine.  Please search the issue tracker before filing a new issue to see if a test failure has already been seen once before.  We welcome contributions to fix flaky tests.
+
+## Missing Tests
+
+Some features that were tested in our pre-cmake infrastructure have not been ported to cmake.  We welcome contributions in this area:
+
+ - Issue 120: port runall test infrastructure to cmake.  This is needed to properly run all tests that use notepad or calc on Windows (these tests are currently disabled so they do not show up as failures):
+    - client-interface/cbr2
+    - client-interface/cbr
+    - client-interface/custom_traces
+    - client-interface/decode-bb
+    - client-interface/nudge_test
+    - client-interface/pc-check
+    - all runall/ tests
+
+ - Issue 16: tests not building or updated properly for X64.  Such tests include (these tests are currently disabled so they do not show up as failures):
+ - Issue 125: re-enable tests: linux.vfork, linux.vfork-fib, win32.debugger, security-common.selfmod-big
+ - Issue 1670: port rest of test suite to ARM
+
+Any effort put into cleaning up the test failures and moving toward zero
+expected failures is greatly appreciated.
+
+# Adding New Tests
+
+In order to add any tests to the regression suite, first choose the sub
+directory in which you are going to add your tests (see
+[Test Organization](Test-Suite#test-organization)).  Pick a test from that
+directory based on which you are going to model yours and study it well,
+especially the .template file associated with that test case, because that
+determines what the expected output will be for this particular test in
+different runs of the regression suite where the options will be different.
+
+Make sure that your test case has the statement `INIT();` in it; this is
+necessary to catch unhandled exceptions on Windows. Lack of adding this
+line can cause the regression suite to break. Also, use print() rather than
+printf() because the former flushes the output (a problem on cygwin).
+Include `tools.h` in your test.
+
+Once the basic test has been set up and tested, following the process for
+checking in code at CommitCriteria to add your test.
+
+
+ ****************************************************************************
+ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,17 +49,17 @@ extern "C" {
 /**
  * \addtogroup drcovlib Code Coverage Library
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each drcovlib operation */
 typedef enum {
-    DRCOVLIB_SUCCESS,                  /**< Operation succeeded. */
-    DRCOVLIB_ERROR,                    /**< Operation failed. */
-    DRCOVLIB_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
-    DRCOVLIB_ERROR_INVALID_SETUP,      /**< Operation failed: invalid DynamoRIO setup */
+    DRCOVLIB_SUCCESS,                 /**< Operation succeeded. */
+    DRCOVLIB_ERROR,                   /**< Operation failed. */
+    DRCOVLIB_ERROR_INVALID_PARAMETER, /**< Operation failed: invalid parameter */
+    DRCOVLIB_ERROR_INVALID_SETUP,     /**< Operation failed: invalid DynamoRIO setup */
     DRCOVLIB_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
-    DRCOVLIB_ERROR_NOT_FOUND,          /**< Operation failed: query not found. */
-    DRCOVLIB_ERROR_BUF_TOO_SMALL,      /**< Operation failed: buffer too small. */
+    DRCOVLIB_ERROR_NOT_FOUND,             /**< Operation failed: query not found. */
+    DRCOVLIB_ERROR_BUF_TOO_SMALL,         /**< Operation failed: buffer too small. */
 } drcovlib_status_t;
 
 /** Bitmask flags for use in #drcovlib_options_t.flags. */
@@ -69,7 +69,7 @@ typedef enum {
      * in binary format.  When in text format, the log file is \em not readable
      * by the post-processing tool \ref sec_drcov2lcov.
      */
-    DRCOVLIB_DUMP_AS_TEXT    = 0x0001,
+    DRCOVLIB_DUMP_AS_TEXT = 0x0001,
     /**
      * By default, coverage information is dumped in a single process-wide log
      * file.  If DynamoRIO is run with thread-private code caches (i.e.,
@@ -77,7 +77,7 @@ typedef enum {
      * then per-thread coverage information will be stored and dumped in \p
      * drcovlib's own thread exit events rather than in drcovlib_exit().
      */
-    DRCOVLIB_THREAD_PRIVATE  = 0x0002,
+    DRCOVLIB_THREAD_PRIVATE = 0x0002,
 } drcovlib_flags_t;
 
 /** Specifies the options when initializing drcovlib. */
@@ -91,6 +91,11 @@ typedef struct _drcovlib_options_t {
      * overrides that default.
      */
     const char *logdir;
+    /**
+     * By default, log file names are prefixed with "drcov".  This option overrides
+     * that default.
+     */
+    const char *logprefix;
     /**
      * This is an experimental option for running natively (i.e., not under
      * DynamoRIO control) until the nth thread, where n is the value of this
@@ -108,18 +113,23 @@ typedef struct _drcovlib_options_t {
  * make drcovlib usable in standalone mode.
  */
 
-/* file format version */
-#define DRCOV_VERSION 2
+/* File format version. */
+#define DRCOV_VERSION_MODULE_OFFSETS 2
+/* Version 3 changes module offsets to be offsets from the module segment,
+ * rather than the whole module base as in version 2.
+ */
+#define DRCOV_VERSION_SEGMENT_OFFSETS 3
+#define DRCOV_VERSION DRCOV_VERSION_SEGMENT_OFFSETS
 
 /* i#1532: drsyms can't mix arch for ELF */
 #ifdef LINUX
-# ifdef X64
-#  define DRCOV_ARCH_FLAVOR "-64"
-# else
-#  define DRCOV_ARCH_FLAVOR "-32"
-# endif
+#    ifdef X64
+#        define DRCOV_ARCH_FLAVOR "-64"
+#    else
+#        define DRCOV_ARCH_FLAVOR "-32"
+#    endif
 #else
-# define DRCOV_ARCH_FLAVOR ""
+#    define DRCOV_ARCH_FLAVOR ""
 #endif
 
 /* The bb_entry_t is used by both drcov client and post processing drcov2lcov.
@@ -132,7 +142,10 @@ typedef struct _drcovlib_options_t {
 
 /* Data structure for the coverage info itself */
 typedef struct _bb_entry_t {
-    uint   start;      /* offset of bb start from the image base */
+    /* The offset of the bb start from the containing segment base.
+     * We do not support a single module segment larger than 4GB.
+     */
+    uint start;
     ushort size;
     ushort mod_id;
 } bb_entry_t;
@@ -244,6 +257,23 @@ typedef struct _drmodtrack_info_t {
 #endif
     /** The custom field set by the \p load_cb passed to drmodtrack_add_custom_data(). */
     void *custom;
+    /**
+     * The unique index of this module segment.  This equals the \p index parameter
+     * passed to drmodtrack_offline_lookup().
+     */
+    uint index;
+    /**
+     * The offset of this segment from the beginning of this backing file.
+     * If this field is not present in an older-version offline file, it will be
+     * filled in with -1.  On Windows this field is always 0.
+     */
+    uint64 offset;
+    /**
+     * The preferred base address of this segment of the module.
+     * If this field is not present in an older-version offline file, it will be
+     * filled in with -1.
+     */
+    app_pc preferred_base;
 } drmodtrack_info_t;
 
 DR_EXPORT
@@ -262,14 +292,26 @@ DR_EXPORT
 /**
  * Returns the base address in \p mod_base and the unique index identifier in \p
  * mod_index for the module that contains \p pc.  If there is no such module,
- * returns DRCOVLIB_ERROR_NOT_FOUND.  For modules that containing multiple
+ * returns DRCOVLIB_ERROR_NOT_FOUND.  For modules that contain multiple
  * non-contiguous mapped segments, each segment has its own unique identifier, and
  * this routine returns the appropriate identifier, but \p mod_base contains the
  * lowest address of any segment in the module, not the start address of the
- * segment that contains pc.
+ * segment that contains pc: use drmodtrack_lookup_segment() to obtain the segment
+ * base address.
  */
 drcovlib_status_t
 drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base);
+
+DR_EXPORT
+/**
+ * Returns the segment base address in \p segment_base and the unique
+ * segment index identifier in \p segment_index for the module segment
+ * that contains \p pc.  If there is no such module, returns
+ * DRCOVLIB_ERROR_NOT_FOUND.
+ */
+drcovlib_status_t
+drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
+                          OUT app_pc *segment_base);
 
 DR_EXPORT
 /**
@@ -307,6 +349,8 @@ DR_EXPORT
  * are embedding a module list inside a file with further data following the
  * list in the file).  If \p next_line is NULL, this routine stops reading at
  * the final newline: thus, \p map need not be NULL-terminated.
+ * Although \p map uses a char type, it cannot be assumed to be a regular string:
+ * binary data containing zeroes may be embedded inside it.
  *
  * Returns an identifier in \p handle to use with other offline routines, along
  * with the number of modules read in \p num_mods.  Information on each module
@@ -362,20 +406,21 @@ DR_EXPORT
  * and writes the parsed data to its output parameter, which can subsequently be
  * retrieved from drmodtrack_offline_lookup()'s \p custom output parameter.
  *
- * If a module contains non-contiguous segments, \p load_cb is called
- * only once, and the resulting custom field is shared among all
- * separate entries returned by drmodtrack_offline_lookup().
+ * If a module contains multiple segments, \p load_cb is called
+ * multiple times, once for each segment, with \p seg_idx indicating the segment.
+ * Each segment stores its own custom field, and each callback is invoked separately
+ * for each segment.
  *
  * Only one value for each callback is supported.  Calling this routine again
  * with a different value will replace the existing callbacks.
  */
 drcovlib_status_t
-drmodtrack_add_custom_data(void * (*load_cb)(module_data_t *module),
+drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
-                           const char * (*parse_cb)(const char *src, OUT void **data),
+                           const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data));
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

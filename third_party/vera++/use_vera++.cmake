@@ -113,7 +113,9 @@ function(add_vera_targets_for_dynamorio)
         NOT s MATCHES "/third_party/" AND
         # Somehow on Travis vera checks build-dir files.
         NOT s MATCHES "/build_" AND
-        NOT s MATCHES "/install/")
+        NOT s MATCHES "/install/" AND
+        # We check out drmemory for package builds.
+        NOT s MATCHES "/drmemory/")
       get_filename_component(d ${s} PATH)
       if(NOT "${d}" STREQUAL "${currentDir}")
         # this is a new dir - lets generate everything needed for the previous dir
@@ -127,6 +129,11 @@ function(add_vera_targets_for_dynamorio)
           set(currentDir ".")
         endif()
         set(xmlreport ${CMAKE_CURRENT_BINARY_DIR}/vera_report_${reportNb}.xml)
+        if (VERA_ERROR)
+          set(error_or_warning --error)
+        else ()
+          set(error_or_warning --warning)
+        endif (VERA_ERROR)
         add_custom_command(
           OUTPUT ${xmlreport}
           COMMAND ${vera_program}
@@ -134,7 +141,7 @@ function(add_vera_targets_for_dynamorio)
             --profile ${profile}
             --${style}-report=-
             --show-rule
-            --error
+            ${error_or_warning}
             --xml-report=${xmlreport}
             ${exclusions}
             ${reportsrcs}
@@ -149,7 +156,7 @@ function(add_vera_targets_for_dynamorio)
             --profile ${profile}
             --${style}-report=-
             --show-rule
-            --error
+            ${error_or_warning}
             # --xml-report=${noreport}
             ${exclusions}
             ${reportsrcs}

@@ -38,49 +38,50 @@
 #define _FINAL_DLG_H_
 
 #if _MSC_VER > 1000
-#pragma once
+#    pragma once
 #endif // _MSC_VER > 1000
 
 /////////////////////////////////////////////////////////////////////////////
 // CFinalDlg dialog
 
-class CFinalDlg : public CPropertyPage
-{
+class CFinalDlg : public CPropertyPage {
     DECLARE_DYNCREATE(CFinalDlg)
 
-// Construction
+    // Construction
 public:
     CFinalDlg();
     ~CFinalDlg();
 
-// Dialog Data
+    // Dialog Data
     //{{AFX_DATA(CFinalDlg)
     enum { IDD = IDD_FINAL };
     // NOTE - ClassWizard will add data members here.
     //    DO NOT EDIT what you see in these blocks of generated code !
     //}}AFX_DATA
 
-
-// Overrides
+    // Overrides
     // ClassWizard generate virtual function overrides
     //{{AFX_VIRTUAL(CFinalDlg)
 public:
-    virtual BOOL OnSetActive();
+    virtual BOOL
+    OnSetActive();
+
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
-// Implementation
+    // Implementation
 protected:
     // Generated message map functions
     //{{AFX_MSG(CFinalDlg)
     // NOTE: the ClassWizard will add member functions here
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
-
 };
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Developer Studio will insert additional declarations immediately before the previous line.
+// Microsoft Developer Studio will insert additional declarations immediately before the
+// previous line.
 
 #endif // _FINAL_DLG_H_

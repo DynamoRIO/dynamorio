@@ -1,0 +1,186 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_profiling Profiling DynamoRIO and Clients
+
+# Linux
+
+## DynamoRIO PC self-sampling
+
+The client can use dr_set_itimer() for programmatic PC self-sampling, with dr_where_am_i() providing information on where the sample was taken.  This provides general categorization of where time is being spent in the overall instrumentation system, with potential to drill down further offline based on the PC.
+
+For PC sampling via DR's `-prof_pcs` runtime option instead, that is available internally in varying degrees on different platforms but is not polished enough and is missing some pieces (see the bottom of this page).
+
+## External sampling tools
+
+Perf and oprofile are the two prominent sampling profilers on Linux today.  Perf is newer and has a nicer interface, but it requires patching and building from source in order to get symbols for DR.  oprofile is typically available on older distros, but it's not available on Ubuntu Precise, it seems to cause system lockups, and we're not sure we trust the results.
+
+Before doing any micro-optimization based on the profile, make sure to disable CPU frequency scaling before taking measurements:
+```
+for N in /sys/devices/system/cpu/cpu[; do echo performance | sudo tee $N/cpufreq/scaling_governor ; done
+```
+
+### oprofile
+
+To install oprofile, type:
+  ```
+  # Or other distro command
+  sudo apt-get install oprofile
+  # We don't need to profile the kernel
+  sudo /usr/bin/opcontrol --no-vmlinux
+  ```
+
+To make sudo opcontrol work w/o a password, type `sudo visudo` and add one line to the `/etc/sudoers` file:
+```
+your_username ALL=NOPASSWD: /usr/bin/opcontrol
+```
+
+To run oprofile, you can use a script like the following to start and stop it around the command you wish to run:
+  ```
+  sudo opcontrol --shutdown || true  # Shutdown existing oprofile daemon, if any
+  sudo opcontrol --reset  # Throw away previously collected data
+  sudo opcontrol -c 0  # Replace 0 with N if you need callgraph
+  sudo opcontrol --start
+  your_command_here
+  sudo opcontrol --stop
+  sudo opcontrol --dump  # Dumps data into local file
+
+  # Now get the report:
+  opreport -t 1 -l object_file_to_get_stats_for
+  # or to get the callgraph (don't forget to -c N above!)
+  opreport -c -l object_file_to_get_stats_for
+  ```
+
+Example report output:
+```
+[rnk@wittenberg src](0-9])$ opreport -t 2 -l ../../dynamorio/build/install/lib64/release/libdynamorio.so.3.2
+...
+samples  %        symbol name
+4971      7.1208  insert_exit_stub_other_flags
+2107      3.0182  mutex_lock
+2082      2.9824  decode_sizeof
+1774      2.5412  build_bb_ilist
+1695      2.4280  encoding_possible_pass
+1653      2.3679  fragment_lookup_fine_and_coarse
+1647      2.3593  instr_encode_common
+1502      2.1516  dispatch
+1399      2.0040  hashtable_fragment_lookup
+```
+
+### perf
+
+Perf currently does not handle symbols in DSOs that have a preferred base, and they only recently added support for following .gnu_debuglink.    Since profiling without symbols isn't very useful, the following instructions are for building perf from source with a patch I wrote to fix the problem.
+
+The patch to get good symbols with perf is available here:
+https://github.com/rnk/linux/compare/perf-p_vaddr.diff
+
+You can clone the entire branch, or you can apply the patch to some other copy of the Linux kernel source.  Either way, cd into tools/perf and run 'make' to build just perf.  It will warn you about each library or header that it can't find, and you can install the appropriate package.
+
+Running 'make install' as a normal user will install to $HOME/bin and $HOME/libexec.
+
+To do a run and get a report, it's quite simple:
+```
+perf record your_command  # Stores result in cwd/perf.data
+perf report
+```
+
+Example output:
+  ```
+  [src](rnk@wittenberg)$ perf report | head
+  # Overhead         Command        Shared Object                                                                       Symbol
+  # ........  ..............  ...................  ...........................................................................
+  #
+      17.68%  DumpRenderTree  perf-14440.map       [0x0000000071c59213
+       5.14%  DumpRenderTree  libdynamorio.so.3.2  [.](.]) insert_exit_stub_other_flags
+       4.51%  DumpRenderTree  libdynamorio.so.3.2  [hashtable_fragment_lookup.isra.31
+       2.27%  DumpRenderTree  libdynamorio.so.3.2  [.](.]) mutex_lock
+       1.94%  DumpRenderTree  libdynamorio.so.3.2  [build_bb_ilist
+       1.92%  DumpRenderTree  libdynamorio.so.3.2  [.](.]) encoding_possible_pass
+  ```
+
+The perf-NNN.map DSO corresponds to DR's code cache.  As you can see from above, at the time of writing, stub updating is a hotspot.  You can focus in on just DR by passing "-d libdynamorio.3.2".
+
+To get a combined source and asm annotation, you can use "perf annotate -s insert_exit_stub_other_flags".  Example output:
+```
+...
+                                                                                                                                               ▒
+       │     byte *                                                                                                                                                                                         ▒
+       │     insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)                                                                                                                                ▒
+       │     {                                                                                                                                                                                              ▒
+       │         ASSERT(pc != NULL);                                                                                                                                                                        ▒
+       │         **pc = JMP_OPCODE;                                                                                                                                                                          ▒
+       │         pc++;                                                                                                                                                                                      ◆
+  0.24 │ dc:   lea    0x1(%rax),%rdx                                                                                                                                                                        ▒
+       │                                                                                                                                                                                                    ▒
+       │     byte **                                                                                                                                                                                         ▒
+       │     insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)                                                                                                                                ▒
+       │     {                                                                                                                                                                                              ▒
+       │         ASSERT(pc != NULL);                                                                                                                                                                        ▒
+       │         **pc = JMP_OPCODE;                                                                                                                                                                          ▒
+  0.16 │       movb   $0xe9,(%rax)                                                                                                                                                                          ▒
+       │     byte **                                                                                                                                                                                         ▒
+       │     insert_relative_target(byte **pc, cache_pc target, bool hot_patch)                                                                                                                              ▒
+       │     {                                                                                                                                                                                              ▒
+       │         /** insert 4-byte pc-relative offset from the beginning of the next instruction                                                                                                             ▒
+       │          **/                                                                                                                                                                                        ▒
+       │         int value = (int)(ptr_int_t)(target - pc - 4);                                                                                                                                             ▒
+  0.16 │       sub    %rdx,%r14                                                                                                                                                                             ▒
+       │       sub    $0x4,%r14d                                                                                                                                                                            ▒
+       │         IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(target - pc - 4)));                                                                                                                                  ▒
+       │         ATOMIC_4BYTE_WRITE(pc, value, hot_patch);                                                                                                                                                  ▒
+       │       xchg   %r14d,(%rdx)                                                                                                                                                                          ▒
+       │                 **((ptr_uint_t **)pc) = (ptr_uint_t)l; pc += sizeof(l);                                                                                                                              ▒
+       │     #ifdef X64                                                                                                                                                                                     ▒
+       │             }                                                                                                                                                                                      ▒
+       │     #endif                                                                                                                                                                                         ▒
+       │             /** jmp to exit target */                                                                                                                                                               ▒
+       │             pc = insert_relative_jump(pc, exit_target, NOT_HOT_PATCHABLE);                                                                                                                         ▒
+ 97.40 │       add    $0x5,%rax
+```
+
+97% of the samples in this function were on "add $0x5, %rax", which is misleading.  The expensive instruction is more likely the "xchgl %r14d, (%rdx)" before it, which instruction we use to atomically update the code cache.  In this particular case, we happen to be emitting the full exit stub, so it's unlikely that this needs to be an atomic update.
+
+# Windows
+
+We've used Code Analyst successfully.
+
+TODO, more detail.
+
+# Cross-platform -prof_pcs
+
+There are many open issues for cleaning this up, such as [issue 140](https://github.com/DynamoRIO/dynamorio/issues#issue/140), [issue 359](https://github.com/DynamoRIO/dynamorio/issues#issue/359), [issue 767](https://github.com/DynamoRIO/dynamorio/issues#issue/767).  On Linux the dr_set_itimer() solution above provides programmatic support.
+
+
+ ****************************************************************************
+ */

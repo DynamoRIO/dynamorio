@@ -32,7 +32,8 @@
 
 #include <stdio.h>
 
-int main()
+int
+main()
 {
     fprintf(stderr, "ERROR: this shouldn't print\n");
 }

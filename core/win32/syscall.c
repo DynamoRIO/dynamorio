@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,28 +73,25 @@ app_pc KiFastSystemCallRet_address = NULL;
  * is being executed).  Thus, we do them whenever we print stats and on
  * every memory operation larger than this threshold:
  */
-#define SNAPSHOT_THRESHOLD (16*PAGE_SIZE)
+#define SNAPSHOT_THRESHOLD (16 * PAGE_SIZE)
 
 /*******************************************************/
 
-#ifdef CLIENT_INTERFACE
 /* i#1230: we support a limited number of extra interceptions.
  * We add extra slots to all of the arrays.
  */
-#  define CLIENT_EXTRA_TRAMPOLINE 12
-#  define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
+#define CLIENT_EXTRA_TRAMPOLINE 12
+#define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
 /* no lock needed since only supported during dr_client_main */
 static uint syscall_extra_idx;
-#else
-#  define TRAMPOLINE_MAX SYS_MAX
-#endif
 
-const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
-    "Nt"#name,
+const char *SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    "Nt" #name,
 #include "syscallx.h"
 #undef SYSCALL
 };
@@ -102,266 +99,395 @@ const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 /* i#1598: we try to make progress on unknown versions */
 int windows_unknown_syscalls[TRAMPOLINE_MAX];
 
+/* XXX i#2713: With the frequent major win10 updates, adding new tables here is
+ * getting tedious and taking up space.  Should we stop adding the win10 updates here
+ * and give up on our table of numbers, relying on reading the wrappers (i#1598
+ * changed DR to work purely on wrapper-obtained numbers)?  We'd lose robustness vs
+ * hooks, and clients like Dr. Memory who have to distinguish win10 versions would
+ * have to do their own versioning.  I guess we could still have
+ * DR_WINDOWS_VERSION_xx and not have corresponding tables here.  Or we could go the
+ * planned Dr. Memory route (DrMi#1848) and store these numbers in a separate file
+ * that is updated via a separate standalone utility run once by the user.
+ */
+SYS_CONST int windows_10_1803_x64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w15x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1803_wow64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w15w64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1803_x86_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w15x86,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1709_x64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w14x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1709_wow64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w14w64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1709_x86_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w14x86,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1703_x64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w13x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1703_wow64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w13w64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1703_x86_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
+    w13x86,
+#include "syscallx.h"
+#undef SYSCALL
+};
 SYS_CONST int windows_10_1607_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w12x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_1607_wow64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w12w64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_1607_x86_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w12x86,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_1511_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w11x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_1511_wow64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w11w64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_1511_x86_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w11x86,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w10x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_wow64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w10w64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_10_x86_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w10x86,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_81_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w81x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_81_wow64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w81w64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_81_x86_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w81x86,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_8_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w8x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_8_wow64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w8w64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_8_x86_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w8x86,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_7_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w7x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_7_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w7x86,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_vista_sp1_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     vista1_x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_vista_sp1_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     vista1,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_vista_sp0_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     vista0_x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_vista_sp0_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     vista0,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_2003_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w2k3,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_XP_x64_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     xp64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 /* This is the index for XP through Win7. */
 SYS_CONST int windows_XP_wow64_index[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     wow64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_XP_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     xp,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_2000_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     w2k,
 #include "syscallx.h"
 #undef SYSCALL
 };
 SYS_CONST int windows_NT_sp4_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     ntsp4,
 #include "syscallx.h"
 #undef SYSCALL
 };
 /* for SP3 (and maybe SP2 or SP1 -- haven't checked those) */
 SYS_CONST int windows_NT_sp3_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     ntsp3,
 #include "syscallx.h"
 #undef SYSCALL
 };
 /* for SP0 (and maybe SP2 or SP1 -- haven't checked those) */
 SYS_CONST int windows_NT_sp0_syscalls[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     ntsp0,
 #include "syscallx.h"
 #undef SYSCALL
@@ -370,17 +496,19 @@ SYS_CONST int windows_NT_sp0_syscalls[TRAMPOLINE_MAX] = {
 /* for x64 this is the # of args */
 SYS_CONST uint syscall_argsz[TRAMPOLINE_MAX] = {
 #ifdef X64
-# define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
-    nargs,
+#    define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64, \
+                    w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,  \
+                    w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,       \
+                    w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64,     \
+                    w13x64, w14x86, w14w64, w14x64, w15x86, w15w64, w15x64)             \
+        nargs,
 #else
-# define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
-    arg32,
+#    define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64, \
+                    w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,  \
+                    w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,       \
+                    w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64,     \
+                    w13x64, w14x86, w14w64, w14x64, w15x86, w15w64, w15x64)             \
+        arg32,
 #endif
 #include "syscallx.h"
 #undef SYSCALL
@@ -390,10 +518,11 @@ SYS_CONST uint syscall_argsz[TRAMPOLINE_MAX] = {
  * dynamically changed since this flag is used early on by
  * intercept_native_syscall() */
 static SYS_CONST int syscall_requires_action[TRAMPOLINE_MAX] = {
-#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
-                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64, w8x86,      \
+                w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64, w11x86,   \
+                w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, w14x86, \
+                w14w64, w14x64, w15x86, w15w64, w15x64)                                 \
     act,
 #include "syscallx.h"
 #undef SYSCALL
@@ -462,9 +591,8 @@ NtOpenKey:
   0x77f7eb2f   c2 0c 00             ret    $0x000c %esp (%esp) -> %esp
  */
 
-
 /* the win32ksys calls are all above 0x1000, only Zw/Nt* are below */
-#define MAX_NTOSKRNL_SYSCALL_NUM  0x1000
+#define MAX_NTOSKRNL_SYSCALL_NUM 0x1000
 
 bool
 ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live)
@@ -514,7 +642,7 @@ optimizable_system_call(int num)
 after_intercept_action_t
 syscall_while_native(app_state_at_intercept_t *state)
 {
-    int sysnum = (int) (ptr_int_t) state->callee_arg;
+    int sysnum = (int)(ptr_int_t)state->callee_arg;
     /* FIXME : if dr calls through ntdll functions that are hooked by a third
      * party (say Sygate's sysfer.dll) then they could perform syscalls that
      * would get us here.  Most of the time we'll be ok, but if the current
@@ -549,26 +677,25 @@ syscall_while_native(app_state_at_intercept_t *state)
         STATS_INC(num_syscall_trampolines_retakeover);
         LOG(THREAD, LOG_SYSCALLS, 1,
             "syscall_while_native: retakeover in %s after native cb return lost "
-            "control\n", syscall_names[sysnum]);
+            "control\n",
+            syscall_names[sysnum]);
         retakeover_after_native(dcontext->thread_record, INTERCEPT_SYSCALL);
         dcontext->thread_record->retakeover = false;
         return AFTER_INTERCEPT_TAKE_OVER; /* syscall under DR */
     } else if (!dcontext->thread_record->under_dynamo_control
                /* xref PR 230836 */
-               IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(dcontext))
+               && !IS_CLIENT_THREAD(dcontext)
                /* i#1318: may get here from privlib at exit, at least until we
                 * redirect *everything*.  From privlib we need to keep
                 * the syscall native as DR locks may be held.
                 */
-               IF_CLIENT_INTERFACE(&& dcontext->whereami == WHERE_APP)) {
+               && dcontext->whereami == DR_WHERE_APP) {
         /* assumption is that any known native thread is one we control in general,
          * just not right now while in a native_exec_list dll */
         STATS_INC(num_syscall_trampolines_native);
-        LOG(THREAD, LOG_SYSCALLS, 1,
-            "NATIVE system call %s\n", syscall_names[sysnum]);
+        LOG(THREAD, LOG_SYSCALLS, 1, "NATIVE system call %s\n", syscall_names[sysnum]);
         DOLOG(IF_DGCDIAG_ELSE(1, 2), LOG_SYSCALLS, {
-            dump_callstack(*((byte **)state->mc.xsp) /*retaddr*/,
-                           (app_pc) state->mc.xbp,
+            dump_callstack(*((byte **)state->mc.xsp) /*retaddr*/, (app_pc)state->mc.xbp,
                            THREAD, DUMP_NOT_XML);
         });
 
@@ -635,7 +762,7 @@ syscall_while_native(app_state_at_intercept_t *state)
          * read-only until executed from, so in the common case we should not
          * incur any cost from cache consistency while native.
          */
-        /* Invoke normal DR syscall-handling by calling dispatch() with a
+        /* Invoke normal DR syscall-handling by calling d_r_dispatch() with a
          * linkstub_t marked just like those for fragments ending in syscalls.
          * (We cannot return to the trampoline tail for asynch_take_over() since
          * it will clobber out next_tag and last_exit and will execute the jmp
@@ -653,11 +780,11 @@ syscall_while_native(app_state_at_intercept_t *state)
          */
         ASSERT(syscall_trampoline_skip_pc[sysnum] != NULL);
         dcontext->native_exec_postsyscall = syscall_trampoline_skip_pc[sysnum];
-        ASSERT(dcontext->whereami == WHERE_APP);
-        dcontext->whereami = WHERE_TRAMPOLINE;
-        set_last_exit(dcontext, (linkstub_t *) get_native_exec_syscall_linkstub());
+        ASSERT(dcontext->whereami == DR_WHERE_APP);
+        dcontext->whereami = DR_WHERE_TRAMPOLINE;
+        set_last_exit(dcontext, (linkstub_t *)get_native_exec_syscall_linkstub());
         /* assumption: no special cleanup from tail of trampoline needed */
-        transfer_to_dispatch(dcontext, &state->mc, false/*!full_DR_state*/);
+        transfer_to_dispatch(dcontext, &state->mc, false /*!full_DR_state*/);
         ASSERT_NOT_REACHED();
     }
 
@@ -670,36 +797,19 @@ syscall_while_native(app_state_at_intercept_t *state)
      * when priv libs call routines we haven't yet redirected.  Best to disable
      * the syslog for clients (we still have the log warning).
      */
-#ifndef CLIENT_INTERFACE
-    DODEBUG({
-        /* Unfortunately we use various ntdll routines (most notably Ldr*)
-         * that may be hooked (hook code could do anything including making
-         * system calls).  Also some the of the ntdll Rtl routines we
-         * import may be similarly ill behaved (though we don't believe any
-         * of the currently used ones are problematic). Also calling
-         * through Sygate hooks may reach here.
-         */
-        SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
-                                     syscall_names[sysnum]);
-    });
-#endif
     STATS_INC(num_syscall_trampolines_DR);
-    LOG(THREAD, LOG_SYSCALLS, 1,
-        "WARNING: syscall_while_native: syscall from DR %s\n",
+    LOG(THREAD, LOG_SYSCALLS, 1, "WARNING: syscall_while_native: syscall from DR %s\n",
         syscall_names[sysnum]);
     return AFTER_INTERCEPT_LET_GO; /* do syscall natively */
 }
 
-
 static inline bool
 intercept_syscall_for_thin_client(int SYSnum)
 {
-    if (SYSnum == SYS_CreateThread ||
-        SYSnum == SYS_CreateProcess ||
-        SYSnum == SYS_CreateProcessEx ||
-        SYSnum == SYS_CreateUserProcess ||
-        SYSnum == SYS_TerminateThread ||    /* Case 9079. */
-        SYSnum == SYS_ResumeThread || /* i#1198: for env var propagation */
+    if (SYSnum == SYS_CreateThread || SYSnum == SYS_CreateProcess ||
+        SYSnum == SYS_CreateProcessEx || SYSnum == SYS_CreateUserProcess ||
+        SYSnum == SYS_TerminateThread || /* Case 9079. */
+        SYSnum == SYS_ResumeThread ||    /* i#1198: for env var propagation */
         /* case 8866: for -early_inject we must intercept NtMapViewOfSection */
         (DYNAMO_OPTION(early_inject) && SYSnum == SYS_MapViewOfSection)) {
         return true;
@@ -711,10 +821,8 @@ static inline bool
 intercept_native_syscall(int SYSnum)
 {
     ASSERT(SYSnum < TRAMPOLINE_MAX);
-#ifdef CLIENT_INTERFACE
     if ((uint)SYSnum >= SYS_MAX + syscall_extra_idx)
         return false;
-#endif
     /* Don't hook all syscalls for thin_client. */
     if (DYNAMO_OPTION(thin_client) && !intercept_syscall_for_thin_client(SYSnum))
         return false;
@@ -739,10 +847,8 @@ intercept_native_syscall(int SYSnum)
      * We do NOT ignore SetContextThread or suspension/resumption, since
      * the target could be in DR!
      */
-    if (SYSnum == SYS_CallbackReturn ||
-        SYSnum == SYS_Continue ||
-        (!DYNAMO_OPTION(native_exec_hook_create_thread) &&
-         SYSnum == SYS_CreateThread) ||
+    if (SYSnum == SYS_CallbackReturn || SYSnum == SYS_Continue ||
+        (!DYNAMO_OPTION(native_exec_hook_create_thread) && SYSnum == SYS_CreateThread) ||
         SYSnum == SYS_WriteVirtualMemory)
         return false;
     return true;
@@ -761,7 +867,8 @@ init_syscall_trampolines(void)
             fpo_adjustment = &syscall_trampoline_gbop_fpo_offset[i];
 #endif
 
-            syscall_trampoline_hook_pc[i] = (app_pc)get_proc_address(h, syscall_names[i]);
+            syscall_trampoline_hook_pc[i] =
+                (app_pc)d_r_get_proc_address(h, syscall_names[i]);
             syscall_trampoline_pc[i] =
                 /* FIXME: would like to use static references to entry points -- yet,
                  * set of those we care about varies dynamically by platform, and
@@ -769,24 +876,23 @@ init_syscall_trampolines(void)
                  * avoid a loader link error on 2000, right?
                  * For now just using get_proc_address!
                  */
-                intercept_syscall_wrapper(&syscall_trampoline_hook_pc[i],
-                                          syscall_while_native,
-                                          (void *) (ptr_int_t) i /* callee arg */,
-                                          AFTER_INTERCEPT_DYNAMIC_DECISION,
-                                          /* must store the skip_pc for the new dispatch()
-                                           * to know where to go after handling from DR --
-                                           * this is simpler than having trampoline
-                                           * pass it in as an arg to syscall_while_native
-                                           * or trying to decode it.
-                                           */
-                                          &syscall_trampoline_skip_pc[i],
-                                          /* Returns a pointer to a copy of the original
-                                           * first 5 bytes for removing the trampoline
-                                           * later. Excepting hook chaining situations
-                                           * this could just simply be the same as the
-                                           * returned syscall_trampoline_pc. */
-                                          &syscall_trampoline_copy_pc[i],
-                                          fpo_adjustment, syscall_names[i]);
+                intercept_syscall_wrapper(
+                    &syscall_trampoline_hook_pc[i], syscall_while_native,
+                    (void *)(ptr_int_t)i /* callee arg */,
+                    AFTER_INTERCEPT_DYNAMIC_DECISION,
+                    /* must store the skip_pc for the new d_r_dispatch()
+                     * to know where to go after handling from DR --
+                     * this is simpler than having trampoline
+                     * pass it in as an arg to syscall_while_native
+                     * or trying to decode it.
+                     */
+                    &syscall_trampoline_skip_pc[i],
+                    /* Returns a pointer to a copy of the original
+                     * first 5 bytes for removing the trampoline
+                     * later. Excepting hook chaining situations
+                     * this could just simply be the same as the
+                     * returned syscall_trampoline_pc. */
+                    &syscall_trampoline_copy_pc[i], fpo_adjustment, syscall_names[i]);
         }
     }
 }
@@ -836,10 +942,10 @@ check_syscall_array_sizes()
     ASSERT(sizeof(windows_NT_sp4_syscalls) == sizeof(windows_2000_syscalls));
     ASSERT(sizeof(windows_NT_sp3_syscalls) == sizeof(windows_2000_syscalls));
     ASSERT(sizeof(windows_NT_sp0_syscalls) == sizeof(windows_2000_syscalls));
-    ASSERT(sizeof(windows_2000_syscalls)/sizeof(windows_2000_syscalls[0]) ==
-           sizeof(syscall_requires_action)/sizeof(syscall_requires_action[0]));
-    ASSERT(sizeof(windows_2000_syscalls)/sizeof(windows_2000_syscalls[0]) ==
-           sizeof(syscall_names)/sizeof(syscall_names[0]));
+    ASSERT(sizeof(windows_2000_syscalls) / sizeof(windows_2000_syscalls[0]) ==
+           sizeof(syscall_requires_action) / sizeof(syscall_requires_action[0]));
+    ASSERT(sizeof(windows_2000_syscalls) / sizeof(windows_2000_syscalls[0]) ==
+           sizeof(syscall_names) / sizeof(syscall_names[0]));
 }
 
 /* verify that syscall numbers match our static lists in an attempt to catch
@@ -853,14 +959,14 @@ check_syscall_numbers(dcontext_t *dcontext)
     byte *addr;
     module_handle_t h = get_ntdll_base();
     ASSERT(h != NULL && h != INVALID_HANDLE_VALUE);
-    LOG(GLOBAL, LOG_SYSCALLS, 4, "check_syscall_numbers: ntdll @ "PFX"\n", h);
+    LOG(GLOBAL, LOG_SYSCALLS, 4, "check_syscall_numbers: ntdll @ " PFX "\n", h);
     for (i = 0; i < SYS_MAX; i++) {
         if (syscalls[i] == SYSCALL_NOT_PRESENT)
             continue;
-        addr = (byte *)get_proc_address(h, syscall_names[i]);
+        addr = (byte *)d_r_get_proc_address(h, syscall_names[i]);
         ASSERT(addr != NULL);
-        LOG(GLOBAL, LOG_SYSCALLS, 4,
-            "\tsyscall 0x%x %s: addr "PFX"\n", i, syscall_names[i], addr);
+        LOG(GLOBAL, LOG_SYSCALLS, 4, "\tsyscall 0x%x %s: addr " PFX "\n", i,
+            syscall_names[i], addr);
         sysnum = decode_syscall_num(dcontext, addr);
         /* because of Sygate hooks can't assert sysnum is valid here */
         if (sysnum >= 0 && sysnum != syscalls[i]) {
@@ -879,15 +985,15 @@ check_syscall_numbers(dcontext_t *dcontext)
  * e.g. a two byte cross-page request will result in a two page region
  */
 static inline void
-align_page_boundary(dcontext_t *dcontext,
-                    app_pc *base /* IN OUT */, size_t *size/* IN OUT */)
+align_page_boundary(dcontext_t *dcontext, app_pc *base /* IN OUT */,
+                    size_t *size /* IN OUT */)
 {
     if (!ALIGNED(*base, PAGE_SIZE) || !ALIGNED(*size, PAGE_SIZE)) {
         /* need to cover all pages overlapping the region [base, base + size) */
-        *size = ALIGN_FORWARD(*base+*size, PAGE_SIZE) - PAGE_START(*base);
-        *base = (app_pc) PAGE_START(*base);
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "\talign_page_boundary => base="PFX" size="PIFX"\n",  *base, *size);
+        *size = ALIGN_FORWARD(*base + *size, PAGE_SIZE) - PAGE_START(*base);
+        *base = (app_pc)PAGE_START(*base);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+            "\talign_page_boundary => base=" PFX " size=" PIFX "\n", *base, *size);
     }
 }
 
@@ -897,7 +1003,7 @@ align_page_boundary(dcontext_t *dcontext,
 bool
 is_newly_created_process(HANDLE process_handle)
 {
-    uint remote_ldr_data;
+    int remote_ldr_data;
     /* We check based on - trait 3) PEB.Ldr
      *    The Ldr entry is created by the running process itself later */
 
@@ -937,13 +1043,12 @@ is_newly_created_process(HANDLE process_handle)
          * of handles.
          */
         ulong remote_process_handle_count;
-        NTSTATUS res = get_process_handle_count(process_handle,
-                                                &remote_process_handle_count);
+        NTSTATUS res =
+            get_process_handle_count(process_handle, &remote_process_handle_count);
         if (NT_SUCCESS(res)) {
             LOG(GLOBAL, LOG_ALL, 2,
-                "is_newly_created_process: process "PIDFMT" has %d handles -> %s\n",
-                process_id_from_handle(process_handle),
-                remote_process_handle_count,
+                "is_newly_created_process: process " PIDFMT " has %d handles -> %s\n",
+                process_id_from_handle(process_handle), remote_process_handle_count,
                 remote_process_handle_count == 1 ? "NEW" : "maybe new");
         }
     });
@@ -951,7 +1056,7 @@ is_newly_created_process(HANDLE process_handle)
     remote_ldr_data = get_remote_process_ldr_status(process_handle);
     if (remote_ldr_data >= 0) {
         LOG(GLOBAL, LOG_ALL, 1,
-            "is_newly_created_process: process "PIDFMT" PEB->Ldr = %s\n",
+            "is_newly_created_process: process " PIDFMT " PEB->Ldr = %s\n",
             process_id_from_handle(process_handle),
             remote_ldr_data != 0 ? "initialized" : "NULL -> new process");
 
@@ -994,18 +1099,16 @@ syscall_uses_edx_param_base()
  * (which should be ntdll's), this is good enough for detach and prob. good
  * enough for app GetThreadContext (we could just use 0x7ffe0302 but it moved
  * on xp sp2) */
-#define SYSCALL_PC(dc) \
- ((get_syscall_method() == SYSCALL_METHOD_INT ||     \
-   get_syscall_method() == SYSCALL_METHOD_SYSCALL) ? \
-  (ASSERT(SYSCALL_LENGTH == INT_LENGTH),             \
-   POST_SYSCALL_PC(dc) - INT_LENGTH) : \
-  (get_syscall_method() == SYSCALL_METHOD_WOW64 ? \
-   (POST_SYSCALL_PC(dc) - CTI_FAR_ABS_LENGTH) : \
-   get_app_sysenter_addr()))
+#define SYSCALL_PC(dc)                                                              \
+    ((get_syscall_method() == SYSCALL_METHOD_INT ||                                 \
+      get_syscall_method() == SYSCALL_METHOD_SYSCALL)                               \
+         ? (ASSERT(SYSCALL_LENGTH == INT_LENGTH), POST_SYSCALL_PC(dc) - INT_LENGTH) \
+         : (get_syscall_method() == SYSCALL_METHOD_WOW64                            \
+                ? (POST_SYSCALL_PC(dc) - CTI_FAR_ABS_LENGTH)                        \
+                : get_app_sysenter_addr()))
 
-/* since always coming from dispatch now, only need to set mcontext */
-#define SET_RETURN_VAL(dc, val) \
-  get_mcontext(dc)->xax = (reg_t) (val)
+/* since always coming from d_r_dispatch now, only need to set mcontext */
+#define SET_RETURN_VAL(dc, val) get_mcontext(dc)->xax = (reg_t)(val)
 
 /****************************************************************************
  * Thread-handle-to-id table for DrMi#1884.
@@ -1023,8 +1126,8 @@ handle_to_tid_lookup(HANDLE thread_handle)
 {
     thread_id_t tid;
     TABLE_RWLOCK(handle2tid_table, read, lock);
-    tid = (thread_id_t) generic_hash_lookup(GLOBAL_DCONTEXT, handle2tid_table,
-                                            (ptr_uint_t)thread_handle);
+    tid = (thread_id_t)generic_hash_lookup(GLOBAL_DCONTEXT, handle2tid_table,
+                                           (ptr_uint_t)thread_handle);
     TABLE_RWLOCK(handle2tid_table, read, unlock);
     return tid;
 }
@@ -1033,10 +1136,10 @@ static bool
 handle_to_tid_add(HANDLE thread_handle, thread_id_t tid)
 {
     TABLE_RWLOCK(handle2tid_table, write, lock);
-    generic_hash_add(GLOBAL_DCONTEXT, handle2tid_table,
-                     (ptr_uint_t)thread_handle, (void *)tid);
-    LOG(GLOBAL, LOG_VMAREAS, 2,
-        "handle_to_tid: thread "PFX" => %d\n", thread_handle, tid);
+    generic_hash_add(GLOBAL_DCONTEXT, handle2tid_table, (ptr_uint_t)thread_handle,
+                     (void *)tid);
+    LOG(GLOBAL, LOG_VMAREAS, 2, "handle_to_tid: thread " PFX " => %d\n", thread_handle,
+        tid);
     TABLE_RWLOCK(handle2tid_table, write, unlock);
     return true;
 }
@@ -1046,8 +1149,8 @@ handle_to_tid_remove(HANDLE thread_handle)
 {
     bool found = false;
     TABLE_RWLOCK(handle2tid_table, write, lock);
-    found = generic_hash_remove(GLOBAL_DCONTEXT, handle2tid_table,
-                                (ptr_uint_t)thread_handle);
+    found =
+        generic_hash_remove(GLOBAL_DCONTEXT, handle2tid_table, (ptr_uint_t)thread_handle);
     TABLE_RWLOCK(handle2tid_table, write, unlock);
     return found;
 }
@@ -1062,13 +1165,16 @@ thread_handle_to_tid(HANDLE thread_handle)
 }
 
 static process_id_t
-thread_handle_to_pid(HANDLE thread_handle, thread_id_t tid/*optional*/)
+thread_handle_to_pid(HANDLE thread_handle, thread_id_t tid /*optional*/)
 {
     if (tid == INVALID_THREAD_ID)
         tid = handle_to_tid_lookup(thread_handle);
     if (tid != INVALID_THREAD_ID) {
         /* Get a handle with more privileges */
         thread_handle = thread_handle_from_id(tid);
+        process_id_t pid = process_id_from_thread_handle(thread_handle);
+        close_handle(thread_handle);
+        return pid;
     }
     return process_id_from_thread_handle(thread_handle);
 }
@@ -1076,10 +1182,9 @@ thread_handle_to_pid(HANDLE thread_handle, thread_id_t tid/*optional*/)
 void
 syscall_interception_init(void)
 {
-    handle2tid_table = generic_hash_create
-        (GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TID, 80 /* not perf-critical */,
-         HASHTABLE_SHARED | HASHTABLE_PERSISTENT, NULL
-         _IF_DEBUG("section-to-file table"));
+    handle2tid_table = generic_hash_create(
+        GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TID, 80 /* not perf-critical */,
+        HASHTABLE_SHARED | HASHTABLE_PERSISTENT, NULL _IF_DEBUG("section-to-file table"));
 }
 
 void
@@ -1100,13 +1205,12 @@ static reg_t *
 pre_system_call_param_base(priv_mcontext_t *mc)
 {
 #ifdef X64
-    reg_t *param_base = (reg_t *) mc->xsp;
+    reg_t *param_base = (reg_t *)mc->xsp;
 #else
     /* On Win8, wow64 syscalls do not point edx at the params and
      * instead simply use esp.
      */
-    reg_t *param_base = (reg_t *)
-        (syscall_uses_edx_param_base() ? mc->xdx : mc->xsp);
+    reg_t *param_base = (reg_t *)(syscall_uses_edx_param_base() ? mc->xdx : mc->xsp);
 #endif
     param_base += (SYSCALL_PARAM_OFFSET() / sizeof(reg_t));
     return param_base;
@@ -1117,18 +1221,18 @@ static void
 presys_CreateProcess(dcontext_t *dcontext, reg_t *param_base, bool ex)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE *process_handle = (HANDLE *) sys_param(dcontext, param_base, 0);
-    uint access_mask = (uint) sys_param(dcontext, param_base, 1);
-    uint attributes  = (uint) sys_param(dcontext, param_base, 2);
-    uint inherit_from_process = (uint) sys_param(dcontext, param_base, 3);
-    BOOLEAN inherit_handles_only = (BOOLEAN) sys_param(dcontext, param_base, 4);
-    HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 5);
-    HANDLE debug_handle = (HANDLE) sys_param(dcontext, param_base, 6);
-    HANDLE exception_handle = (HANDLE) sys_param(dcontext, param_base, 7);
+    HANDLE *process_handle = (HANDLE *)sys_param(dcontext, param_base, 0);
+    uint access_mask = (uint)sys_param(dcontext, param_base, 1);
+    uint attributes = (uint)sys_param(dcontext, param_base, 2);
+    uint inherit_from_process = (uint)sys_param(dcontext, param_base, 3);
+    BOOLEAN inherit_handles_only = (BOOLEAN)sys_param(dcontext, param_base, 4);
+    HANDLE section_handle = (HANDLE)sys_param(dcontext, param_base, 5);
+    HANDLE debug_handle = (HANDLE)sys_param(dcontext, param_base, 6);
+    HANDLE exception_handle = (HANDLE)sys_param(dcontext, param_base, 7);
 
     if (ex) {
         /* according to metasploit, others type as HANDLE unknown etc. */
-        uint job_member_level = (uint) sys_param(dcontext, param_base, 8);
+        uint job_member_level = (uint)sys_param(dcontext, param_base, 8);
     }
 
     /* Case 9173: guard against pid reuse.  Better in post after success
@@ -1142,17 +1246,17 @@ presys_CreateProcess(dcontext_t *dcontext, reg_t *param_base, bool ex)
 
     DOLOG(1, LOG_SYSCALLS, {
         if (section_handle != 0) {
-            app_pc base = (app_pc) get_section_address(section_handle);
+            app_pc base = (app_pc)get_section_address(section_handle);
             /* we will inject in post_syscall or when the first thread is about
              * to be created */
             LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
-                "syscall: NtCreateProcess section @"PFX"\n", base);
+                "syscall: NtCreateProcess section @" PFX "\n", base);
             DOLOG(1, LOG_SYSCALLS, {
                 char buf[MAXIMUM_PATH];
                 get_module_name(base, buf, sizeof(buf));
                 if (buf[0] != '\0') {
-                    LOG(THREAD, LOG_SYSCALLS, 2,
-                        "\tNtCreateProcess for module %s\n", buf);
+                    LOG(THREAD, LOG_SYSCALLS, 2, "\tNtCreateProcess for module %s\n",
+                        buf);
                 }
             });
         }
@@ -1207,12 +1311,11 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
      * }
      */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    ACCESS_MASK proc_access_mask = (uint) sys_param(dcontext, param_base, 2);
-    ACCESS_MASK thread_access_mask = (uint) sys_param(dcontext, param_base, 3);
+    ACCESS_MASK proc_access_mask = (uint)sys_param(dcontext, param_base, 2);
+    ACCESS_MASK thread_access_mask = (uint)sys_param(dcontext, param_base, 3);
     /* might be BOOLEAN instead?  though separate param should zero out rest */
-    BOOL create_suspended = (BOOL) sys_param(dcontext, param_base, 7);
-    create_proc_thread_info_t *thread_stuff = (void *)
-        sys_param(dcontext, param_base, 10);
+    BOOL create_suspended = (BOOL)sys_param(dcontext, param_base, 7);
+    create_proc_thread_info_t *thread_stuff = (void *)sys_param(dcontext, param_base, 10);
     ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
     /* might need these in post, note CreateProcess appears to hardcode them */
@@ -1245,35 +1348,33 @@ static void
 presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE *thread_handle= (HANDLE *) sys_param(dcontext, param_base, 0);
-    uint access_mask   = (uint) sys_param(dcontext, param_base, 1);
-    uint attributes    = (uint) sys_param(dcontext, param_base, 2);
-    HANDLE process_handle= (HANDLE) sys_param(dcontext, param_base, 3);
-    uint *client_id    = (uint*) sys_param(dcontext, param_base, 4);
-    CONTEXT *cxt         = (CONTEXT *) sys_param(dcontext, param_base, 5);
-    USER_STACK *stack    = (USER_STACK *) sys_param(dcontext, param_base, 6);
-    BOOLEAN suspended     = (BOOLEAN) sys_param(dcontext, param_base, 7);
+    HANDLE *thread_handle = (HANDLE *)sys_param(dcontext, param_base, 0);
+    uint access_mask = (uint)sys_param(dcontext, param_base, 1);
+    uint attributes = (uint)sys_param(dcontext, param_base, 2);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 3);
+    uint *client_id = (uint *)sys_param(dcontext, param_base, 4);
+    CONTEXT *cxt = (CONTEXT *)sys_param(dcontext, param_base, 5);
+    USER_STACK *stack = (USER_STACK *)sys_param(dcontext, param_base, 6);
+    BOOLEAN suspended = (BOOLEAN)sys_param(dcontext, param_base, 7);
     DEBUG_DECLARE(process_id_t pid = process_id_from_handle(process_handle);)
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
-        "syscall: NtCreateThread pid="PFX" suspended=%d\n",
-        pid, suspended);
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
-        "\tstack: "PFX" "PFX" "PFX" "PFX" "PFX"\n",
-        stack->FixedStackBase, stack->FixedStackLimit,
-        stack->ExpandableStackBase, stack->ExpandableStackLimit,
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+        "syscall: NtCreateThread pid=" PFX " suspended=%d\n", pid, suspended);
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
+        "\tstack: " PFX " " PFX " " PFX " " PFX " " PFX "\n", stack->FixedStackBase,
+        stack->FixedStackLimit, stack->ExpandableStackBase, stack->ExpandableStackLimit,
         stack->ExpandableStackBottom);
     /* According to Nebbett, in eax is the win32 start address
      * (stored in ThreadQuerySetWin32StartAddress slot, though that
      * is reused by the os, so might not be the same later) and eax is used
      * by the thread start kernel32 thunk.  It also appears from the thunk
      * that the argument to the thread start function is in ebx */
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
-        "\tesp="PFX", xip="PFX"\n\tstart address "PFX" with arg "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
+        "\tesp=" PFX ", xip=" PFX "\n\tstart address " PFX " with arg " PFX "\n",
         cxt->CXT_XSP, cxt->CXT_XIP, cxt->CXT_XAX, cxt->CXT_XBX);
-    DOLOG(2, LOG_SYSCALLS|LOG_THREADS, {
+    DOLOG(2, LOG_SYSCALLS | LOG_THREADS, {
         char buf[MAXIMUM_PATH];
         print_symbolic_address((app_pc)cxt->CXT_XAX, buf, sizeof(buf), false);
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
             "\tsymbol info for start address : %s\n", buf);
     });
     ASSERT(cxt != NULL);
@@ -1281,7 +1382,7 @@ presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
      * children) FIXME
      * if not injecting at all we won't change cxt.
      */
-    maybe_inject_into_process(dcontext, process_handle, cxt);
+    maybe_inject_into_process(dcontext, process_handle, thread_handle, cxt);
 
     if (is_phandle_me(process_handle))
         pre_second_thread();
@@ -1308,21 +1409,21 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
      *   INOUT create_thread_info_t *thread_info [ see ntdll.h ])
      */
     DEBUG_DECLARE(priv_mcontext_t *mc = get_mcontext(dcontext);)
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 3);
-    DEBUG_DECLARE(byte *start_addr = (byte *) sys_param(dcontext, param_base, 4);)
-    DEBUG_DECLARE(void *start_parameter = (void *) sys_param(dcontext, param_base, 5);)
-    DEBUG_DECLARE(bool create_suspended = (bool) sys_param(dcontext, param_base, 6);)
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 3);
+    DEBUG_DECLARE(byte *start_addr = (byte *)sys_param(dcontext, param_base, 4);)
+    DEBUG_DECLARE(void *start_parameter = (void *)sys_param(dcontext, param_base, 5);)
+    DEBUG_DECLARE(bool create_suspended = (bool)sys_param(dcontext, param_base, 6);)
     DEBUG_DECLARE(process_id_t pid = process_id_from_handle(process_handle);)
     ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
-        "syscall: NtCreateThread pid="PFX" suspended=%d\n"
-        "\tstart_addr="PFX" arg="PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
+        "syscall: NtCreateThread pid=" PFX " suspended=%d\n"
+        "\tstart_addr=" PFX " arg=" PFX "\n",
         pid, create_suspended, start_addr, start_parameter);
-    DOLOG(2, LOG_SYSCALLS|LOG_THREADS, {
+    DOLOG(2, LOG_SYSCALLS | LOG_THREADS, {
         char buf[MAXIMUM_PATH];
         print_symbolic_address(start_addr, buf, sizeof(buf), false);
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
             "\tsymbol info for start address : %s\n", buf);
     });
 
@@ -1347,7 +1448,7 @@ presys_CreateWorkerFactory(dcontext_t *dcontext, reg_t *param_base)
      *    __in_opt SIZE_T StackReserve,
      *    __in_opt SIZE_T StackCommit)
      */
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 4);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 4);
     ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
     if (is_phandle_me(process_handle))
@@ -1361,51 +1462,46 @@ presys_CreateWorkerFactory(dcontext_t *dcontext, reg_t *param_base)
 /* There is some overlap w/ handle_execve() in unix/os.c but not
  * quite enough to easily share this.
  */
-static const char * const env_to_propagate[] = {
-    DYNAMORIO_VAR_RUNUNDER,
-    DYNAMORIO_VAR_OPTIONS,
-    DYNAMORIO_VAR_AUTOINJECT,
-    DYNAMORIO_VAR_LOGDIR,
-    DYNAMORIO_VAR_CONFIGDIR,
+static const char *const env_to_propagate[] = {
+    DYNAMORIO_VAR_RUNUNDER, DYNAMORIO_VAR_OPTIONS,   DYNAMORIO_VAR_AUTOINJECT,
+    DYNAMORIO_VAR_LOGDIR,   DYNAMORIO_VAR_CONFIGDIR,
 };
-static const wchar_t * const wenv_to_propagate[] = {
-    L_DYNAMORIO_VAR_RUNUNDER,
-    L_DYNAMORIO_VAR_OPTIONS,
-    L_DYNAMORIO_VAR_AUTOINJECT,
-    L_DYNAMORIO_VAR_LOGDIR,
-    L_DYNAMORIO_VAR_CONFIGDIR,
+static const wchar_t *const wenv_to_propagate[] = {
+    L_DYNAMORIO_VAR_RUNUNDER, L_DYNAMORIO_VAR_OPTIONS,   L_DYNAMORIO_VAR_AUTOINJECT,
+    L_DYNAMORIO_VAR_LOGDIR,   L_DYNAMORIO_VAR_CONFIGDIR,
 };
-#define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate)/sizeof(env_to_propagate[0]))
+#define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate) / sizeof(env_to_propagate[0]))
 
-/* read env var from remote process:
+/* Read env var from remote process:
  * - return true on read successfully or until end of reading
  * - skip DR env vars
+ * Handles both 32-bit and 64-bit remote processes.
  */
-static wchar_t *
-get_process_env_var(HANDLE phandle, wchar_t *env_ptr, wchar_t *buf, size_t toread)
+static uint64
+get_process_env_var(HANDLE phandle, uint64 env_ptr, wchar_t *buf, size_t toread)
 {
     int i;
     size_t got;
     bool keep_env;
     while (true) {
-        keep_env  = true;
+        keep_env = true;
         ASSERT(toread <= (size_t)PAGE_SIZE);
         /* if an env var is too long we're ok: DR vars will fit, and if longer we'll
          * handle rest next call.
          */
-        if (!nt_read_virtual_memory(phandle, env_ptr, buf, toread, &got)) {
+        if (!read_remote_memory_maybe64(phandle, env_ptr, buf, toread, &got)) {
             /* may have crossed page boundary and the next page is inaccessible */
-            byte *start = (byte *) env_ptr;
-            if (PAGE_START(start) != PAGE_START(start + toread)) {
-                ASSERT((size_t)((byte *)ALIGN_FORWARD(start, PAGE_SIZE)-start) <= toread);
-                toread = (byte *) ALIGN_FORWARD(start, PAGE_SIZE) - start;
-                if (!nt_read_virtual_memory(phandle, env_ptr, buf, toread, &got))
-                    return NULL;
+            uint64 start = env_ptr;
+            if (PAGE_START64(start) != PAGE_START64(start + toread)) {
+                ASSERT((size_t)(ALIGN_FORWARD(start, PAGE_SIZE) - start) <= toread);
+                toread = (size_t)(ALIGN_FORWARD(start, PAGE_SIZE) - start);
+                if (!read_remote_memory_maybe64(phandle, env_ptr, buf, toread, &got))
+                    return 0;
             } else
-                return NULL;
+                return 0;
             continue;
         }
-        buf[got/sizeof(buf[0]) - 1] = '\0';
+        buf[got / sizeof(buf[0]) - 1] = '\0';
         if (buf[0] == '\0')
             return env_ptr;
         for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
@@ -1416,16 +1512,20 @@ get_process_env_var(HANDLE phandle, wchar_t *env_ptr, wchar_t *buf, size_t torea
         }
         if (keep_env)
             return env_ptr;
-        env_ptr += wcslen(buf) + 1;
+        env_ptr += (wcslen(buf) + 1) * sizeof(wchar_t);
     }
-    return false;
+    return 0;
 }
 
 /* called at presys-ResumeThread to append DR env vars in the target process PEB */
 static bool
-add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
+add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, uint64 env_ptr, bool peb_is_32)
 {
-    wchar_t *env, *cur;
+    union {
+        uint64 base64;
+        uint base32;
+    } env_base;
+    uint64 env, cur;
     size_t tot_sz = 0, app_sz, sz;
     size_t got;
     wchar_t *new_env = NULL;
@@ -1445,35 +1545,34 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
         }
     }
     if (num_propagate == 0) {
-        LOG(THREAD, LOG_SYSCALLS, 2,
-            "%s: no DR env vars to propagate\n", __FUNCTION__);
+        LOG(THREAD, LOG_SYSCALLS, 2, "%s: no DR env vars to propagate\n", __FUNCTION__);
         return true; /* nothing to do */
     }
 
-    ASSERT(env_ptr != NULL);
-    if (!nt_read_virtual_memory(phandle, env_ptr, &env, sizeof(env), NULL))
+    ASSERT(env_ptr != 0);
+    if (!read_remote_memory_maybe64(phandle, env_ptr, &env_base, sizeof(env_base), NULL))
         goto add_dr_env_failure;
-    if (env != NULL) {
+    env = peb_is_32 ? env_base.base32 : env_base.base64;
+    if (env != 0) {
         /* compute size of current env block, and check for existing DR vars */
         cur = env;
         while (true) {
             /* for simplicity we do a syscall for each var */
             cur = get_process_env_var(phandle, cur, buf, sizeof(buf));
-            if (cur == NULL)
+            if (cur == 0)
                 return false;
             if (buf[0] == '\0')
                 break;
             tot_sz += wcslen(buf) + 1;
-            cur += wcslen(buf) + 1;
+            cur += (wcslen(buf) + 1) * sizeof(wchar_t);
         }
         tot_sz++; /* final 0 marking end */
         /* from here on out, all *sz vars are total bytes, not wchar_t elements */
-        tot_sz *= sizeof(*env);
+        tot_sz *= sizeof(wchar_t);
     }
     app_sz = tot_sz;
-    LOG(THREAD, LOG_SYSCALLS, 2,
-        "%s: orig app env vars at "PFX"-"PFX"\n",
-        __FUNCTION__, env, env + app_sz/sizeof(*env));
+    LOG(THREAD, LOG_SYSCALLS, 2, "%s: orig app env vars at 0x%I64x-0x%I64x\n",
+        __FUNCTION__, env, env + app_sz / sizeof(wchar_t));
 
     /* calculate size needed for adding DR env vars.
      * for each var, we truncate if too big for buf.
@@ -1481,105 +1580,119 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
         if (need_var[i]) {
             sz_var[i] = wcslen(wenv_to_propagate[i]) +
-                strlen(get_config_val(env_to_propagate[i])) + 2/*=+0*/;
+                strlen(get_config_val(env_to_propagate[i])) + 2 /*=+0*/;
             if (sz_var[i] > BUFFER_SIZE_ELEMENTS(buf)) {
                 SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
                 sz_var[i] = BUFFER_SIZE_ELEMENTS(buf);
             }
-            sz_var[i] *= sizeof(*env);
+            sz_var[i] *= sizeof(wchar_t);
             tot_sz += sz_var[i];
         }
     }
-    /* allocate a new env block and copy over the old */
-    res = nt_remote_allocate_virtual_memory(phandle, &new_env, tot_sz,
-                                            PAGE_READWRITE, MEM_COMMIT);
+    /* Allocate a new env block and copy over the old.
+     * We're fine being limited to low addresses for parent32 child64
+     * (NtWow64AllocateVirtualMemory64 is win8+ only).
+     * That means we can also use the regular write, protect, and free calls below
+     * for the new block (but not the original PEB addresses).
+     */
+    res = nt_remote_allocate_virtual_memory(phandle, &new_env, tot_sz, PAGE_READWRITE,
+                                            MEM_COMMIT);
     if (!NT_SUCCESS(res)) {
-        LOG(THREAD, LOG_SYSCALLS, 2,
-            "%s: failed to allocate new env "PIFX"\n", __FUNCTION__, res);
+        LOG(THREAD, LOG_SYSCALLS, 2, "%s: failed to allocate new env " PIFX "\n",
+            __FUNCTION__, res);
         goto add_dr_env_failure;
     }
-    LOG(THREAD, LOG_SYSCALLS, 2,
-        "%s: new app env vars allocated at "PFX"-"PFX"\n",
-        __FUNCTION__, new_env, new_env + tot_sz/sizeof(*env));
+    LOG(THREAD, LOG_SYSCALLS, 2, "%s: new app env vars allocated at " PFX "-" PFX "\n",
+        __FUNCTION__, new_env, new_env + tot_sz / sizeof(wchar_t));
     cur = env;
     sz = 0;
     while (true) {
         /* for simplicity we do a syscall for each var */
         size_t towrite = 0;
         cur = get_process_env_var(phandle, cur, buf, sizeof(buf));
-        if (cur == NULL)
+        if (cur == 0)
             goto add_dr_env_failure;
         if (buf[0] == '\0')
             break;
         towrite = (wcslen(buf) + 1);
-        res = nt_raw_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                          buf, towrite * sizeof(*env), &got);
+        res = nt_raw_write_virtual_memory(phandle, new_env + sz / sizeof(wchar_t), buf,
+                                          towrite * sizeof(wchar_t), &got);
         if (!NT_SUCCESS(res)) {
             LOG(THREAD, LOG_SYSCALLS, 2,
-                "%s copy: got status "PFX", wrote "PIFX" vs requested "PIFX"\n",
+                "%s copy: got status " PFX ", wrote " PIFX " vs requested " PIFX "\n",
                 __FUNCTION__, res, got, towrite);
             goto add_dr_env_failure;
         }
-        sz  += towrite  * sizeof(*env);
-        cur += towrite;
+        sz += towrite * sizeof(wchar_t);
+        cur += towrite * sizeof(wchar_t);
     }
-    ASSERT(sz == app_sz - sizeof(*env) /* before final 0 */ );
+    ASSERT(sz == app_sz - sizeof(wchar_t) /* before final 0 */);
 
     /* add DR env vars at the end.
      * XXX: is alphabetical sorting relied upon?  adding to end is working.
      */
     for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
         if (need_var[i]) {
-            _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
-                       wenv_to_propagate[i], get_config_val(env_to_propagate[i]));
+            _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S", wenv_to_propagate[i],
+                       get_config_val(env_to_propagate[i]));
             NULL_TERMINATE_BUFFER(buf);
-            if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                         buf, sz_var[i], NULL))
+            if (!nt_write_virtual_memory(phandle, new_env + sz / sizeof(wchar_t), buf,
+                                         sz_var[i], NULL))
                 goto add_dr_env_failure;
+            LOG(THREAD, LOG_SYSCALLS, 2, "%s: wrote DR env var |%S| to 0x%I64x\n",
+                __FUNCTION__, buf, new_env + sz / sizeof(wchar_t));
             sz += sz_var[i];
         }
     }
-    ASSERT(sz == tot_sz - sizeof(*env) /* before final 0 */ );
+    ASSERT(sz == tot_sz - sizeof(wchar_t) /* before final 0 */);
     /* write final 0 */
     buf[0] = 0;
-    if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env), buf,
-                                 sizeof(*env), NULL))
+    if (!nt_write_virtual_memory(phandle, new_env + sz / sizeof(wchar_t), buf,
+                                 sizeof(wchar_t), NULL))
         goto add_dr_env_failure;
 
     /* install new env */
-    if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr), PAGE_SIZE,
-                                          PAGE_READWRITE, &old_prot)) {
-        LOG(THREAD, LOG_SYSCALLS, 1,
-            "%s: failed to mark "PFX" writable\n", __FUNCTION__, env_ptr);
+    if (!remote_protect_virtual_memory_maybe64(phandle, PAGE_START64(env_ptr), PAGE_SIZE,
+                                               PAGE_READWRITE, &old_prot)) {
+        LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to mark 0x%I64x writable\n",
+            __FUNCTION__, PAGE_START64(env_ptr));
         goto add_dr_env_failure;
     }
-    if (!nt_write_virtual_memory(phandle, env_ptr, &new_env, sizeof(new_env), NULL))
+    union {
+        uint64 ptr64;
+        uint ptr32;
+    } new_env_remote;
+    new_env_remote.ptr64 = (uint64)new_env;
+    new_env_remote.ptr32 = (uint)(ptr_uint_t)new_env;
+    if (!write_remote_memory_maybe64(phandle, env_ptr, &new_env_remote, peb_is_32 ? 4 : 8,
+                                     NULL))
         goto add_dr_env_failure;
-    if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr), PAGE_SIZE,
-                                          old_prot, &old_prot)) {
-        LOG(THREAD, LOG_SYSCALLS, 1,
-            "%s: failed to restore "PFX" to "PIFX"\n", __FUNCTION__, env_ptr, old_prot);
+    if (!remote_protect_virtual_memory_maybe64(phandle, PAGE_START64(env_ptr), PAGE_SIZE,
+                                               old_prot, &old_prot)) {
+        LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to restore 0x%I64x to " PIFX "\n",
+            __FUNCTION__, env_ptr, old_prot);
         /* not a fatal error */
     }
     /* XXX: free the original? on Vista+ it's part of the pp alloc and
      * is on the app heap so we can't.  we could query and see if it's
      * a separate alloc.  for now we just leave it be.
      */
-    LOG(THREAD, LOG_SYSCALLS, 2,
-        "%s: installed new env "PFX" at "PFX"\n", __FUNCTION__, new_env, env_ptr);
+    LOG(THREAD, LOG_SYSCALLS, 2, "%s: installed new env " PFX " at 0x%I64x\n",
+        __FUNCTION__, new_env, env_ptr);
     return true;
 
- add_dr_env_failure:
+add_dr_env_failure:
     if (new_env != NULL) {
         if (!NT_SUCCESS(nt_remote_free_virtual_memory(phandle, new_env))) {
-            LOG(THREAD, LOG_SYSCALLS, 2,
-                "%s: unable to free new env "PFX"\n", __FUNCTION__, new_env);
+            LOG(THREAD, LOG_SYSCALLS, 2, "%s: unable to free new env " PFX "\n",
+                __FUNCTION__, new_env);
         }
         if (old_prot != PAGE_NOACCESS) {
-            if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr),
-                                                  PAGE_SIZE, old_prot, &old_prot)) {
-                LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to restore "PFX" to "PIFX"\n",
-                    __FUNCTION__, env_ptr, old_prot);
+            if (!remote_protect_virtual_memory_maybe64(phandle, PAGE_START64(env_ptr),
+                                                       PAGE_SIZE, old_prot, &old_prot)) {
+                LOG(THREAD, LOG_SYSCALLS, 1,
+                    "%s: failed to restore 0x%I64x to " PIFX "\n", __FUNCTION__, env_ptr,
+                    old_prot);
             }
         }
     }
@@ -1590,29 +1703,120 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
  * first thread).  Retrieves context from thread handle.
  */
 static bool
-not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
+not_first_thread_in_new_process(dcontext_t *dcontext, HANDLE process_handle,
+                                HANDLE thread_handle)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+#ifndef X64
+    bool peb_is_32 = is_32bit_process(process_handle);
+    if (!peb_is_32) {
+        /* XXX: We need to use CONTEXT_64 and thread_get_context_64 for parent32,child64.
+         * We only need this for pre-Vista, so just xp64, where we are not willing
+         * to put much effort: for now we bail (we never supported cross-arch
+         * injection in the past in any case).
+         */
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "32-bit parent's 64-bit child not supported on XP");
+    }
+#endif
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
+    bool res = false;
     if (NT_SUCCESS(nt_get_context(thread_handle, cxt)))
-        return !is_first_thread_in_new_process(process_handle, cxt);
-    return false;
+        res = !is_first_thread_in_new_process(process_handle, cxt);
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    return res;
+}
+
+/* The caller should already have checked should_inject_into_process().
+ * The child thread should be suspended.
+ * This routine directly invokes REPORT_FATAL_ERROR_AND_EXIT on errors.
+ */
+static void
+propagate_options_via_env_vars(dcontext_t *dcontext, HANDLE process_handle,
+                               HANDLE thread_handle)
+{
+    /* For -follow_children we propagate env vars (current
+     * DYNAMORIO_RUNUNDER, DYNAMORIO_OPTIONS, DYNAMORIO_AUTOINJECT, and
+     * DYNAMORIO_LOGDIR) to the child to support a simple run-all-children
+     * model without requiring setting up config files for children.
+     */
+    uint64 peb;
+    bool peb_is_32 = is_32bit_process(process_handle)
+        // If x64 client targeting WOW64 we need to
+        // target x64 PEB.
+        IF_X64(&&!DYNAMO_OPTION(inject_x64));
+    size_t sz_read;
+    union {
+        uint64 ptr_64;
+        uint ptr_32;
+    } params_ptr;
+    if (process_handle == INVALID_HANDLE_VALUE) {
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Option propagation failed to acquire child handle");
+        return; /* Not reached. */
+    }
+    /* We have to write to the 32-bit env block for a 32-bit target process. */
+#ifdef X64
+    if (peb_is_32)
+        peb = get_peb32(process_handle, thread_handle);
+    else
+#endif
+        peb = get_peb_maybe64(process_handle);
+    if (peb == 0) {
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Option propagation failed to find PEB");
+        close_handle(process_handle); /* Not reached. */
+        return;                       /* Not reached. */
+    }
+    if (!read_remote_memory_maybe64(
+            process_handle,
+            peb +
+                (peb_is_32 ? X86_PROCESS_PARAM_PEB_OFFSET : X64_PROCESS_PARAM_PEB_OFFSET),
+            &params_ptr, sizeof(params_ptr), &sz_read) ||
+        sz_read != sizeof(params_ptr) ||
+        (peb_is_32 ? (params_ptr.ptr_32 == 0) : (params_ptr.ptr_64 == 0))) {
+        REPORT_FATAL_ERROR_AND_EXIT(
+            FOLLOW_CHILD_FAILED, 3, get_application_name(), get_application_pid(),
+            "Option propagation failed to find ProcessParameters");
+    }
+    uint64 params_base = peb_is_32 ? params_ptr.ptr_32 : params_ptr.ptr_64;
+    uint64 env_ptr;
+    if (IF_X64(!) peb_is_32)
+        env_ptr = params_base + offsetof(RTL_USER_PROCESS_PARAMETERS, Environment);
+    else {
+        env_ptr = params_base +
+            offsetof(IF_X64_ELSE(RTL_USER_PROCESS_PARAMETERS_32,
+                                 RTL_USER_PROCESS_PARAMETERS_64),
+                     Environment);
+    }
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "inserting DR env vars to child &pp->Environment=0x%I64x\n", env_ptr);
+    if (!add_dr_env_vars(dcontext, process_handle, env_ptr, peb_is_32)) {
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Option propagation failed to add DR env vars");
+    }
 }
 
 /* NtResumeThread */
 static void
 presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
 {
-    HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
+    HANDLE thread_handle = (HANDLE)sys_param(dcontext, param_base, 0);
     thread_id_t tid = thread_handle_to_tid(thread_handle);
     process_id_t pid = thread_handle_to_pid(thread_handle, tid);
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
         "syscall: NtResumeThread pid=%d tid=%d\n", pid, tid);
-    if (DYNAMO_OPTION(follow_children) && pid != POINTER_MAX && !is_pid_me(pid)) {
-        /* For -follow_children we propagate env vars (current
-         * DYNAMORIO_RUNUNDER, DYNAMORIO_OPTIONS, DYNAMORIO_AUTOINJECT, and
-         * DYNAMORIO_LOGDIR) to the child to support a simple run-all-children
-         * model without requiring setting up config files for children.
+    if (get_os_version() < WINDOWS_VERSION_VISTA && DYNAMO_OPTION(follow_children) &&
+        pid != POINTER_MAX && !is_pid_me(pid)) {
+        /* For Vista+ we propagate in postsys_CreateUserProcess.  Waiting until here
+         * requires not_first_thread_in_new_process() which currently does not
+         * support cross-arch, so we only propagate here for pre-Vista.
          *
          * It's possible the app is explicitly resuming a thread in another
          * process and this has nothing to do with a new process: but our env
@@ -1620,53 +1824,26 @@ presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
          *
          * For pre-Vista, the initial thread is always suspended, and is either
          * resumed inside kernel32!CreateProcessW or by the app, so we should
-         * always see a resume.  For Vista+ NtCreateUserProcess has suspend as a
-         * param and ideally we should replace the env pre-NtCreateUserProcess,
-         * but we have yet to get that to work, so for now we rely on
-         * Vista+ process creation going through the kernel32 routines,
-         * which do hardcode the thread as being suspended.
+         * always see a resume.
          */
-        PEB *peb;
         HANDLE process_handle = process_handle_from_id(pid);
-        RTL_USER_PROCESS_PARAMETERS *pp = NULL;
         if (process_handle == INVALID_HANDLE_VALUE) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: error acquiring process handle for pid="PIFX"\n", pid);
-            return;
+            REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Option propagation failed to acquire handle");
+            return; /* Not reached. */
         }
         if (!should_inject_into_process(dcontext, process_handle, NULL, NULL)) {
             LOG(THREAD, LOG_SYSCALLS, 1,
-                "Not injecting so not setting DR env vars in pid="PIFX"\n", pid);
+                "Not injecting so not setting DR env vars in pid=" PIFX "\n", pid);
             return;
         }
-        if (not_first_thread_in_new_process(process_handle, thread_handle)) {
+        if (not_first_thread_in_new_process(dcontext, process_handle, thread_handle)) {
             LOG(THREAD, LOG_SYSCALLS, 1,
-                "Not first thread so not setting DR env vars in pid="PIFX"\n", pid);
+                "Not first thread so not setting DR env vars in pid=" PIFX "\n", pid);
             return;
         }
-        peb = get_peb(process_handle);
-        if (peb == NULL) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: error acquiring PEB for pid="PIFX"\n", pid);
-            close_handle(process_handle);
-            return;
-        }
-        if (!nt_read_virtual_memory(process_handle, &peb->ProcessParameters, &pp,
-                                    sizeof(pp), NULL) || pp == NULL) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: error acquiring ProcessParameters for pid="PIFX"\n", pid);
-            close_handle(process_handle);
-            return;
-        }
-        LOG(THREAD, LOG_SYSCALLS, 2,
-            "inserting DR env vars to pid="PIFX" &pp->Environment="PFX"\n",
-            pid, &pp->Environment);
-        if (!add_dr_env_vars(dcontext, process_handle, (wchar_t**)&pp->Environment)) {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "WARNING: unable to add DR env vars for child pid="PIFX"\n", pid);
-            close_handle(process_handle);
-            return;
-        }
+        propagate_options_via_env_vars(dcontext, process_handle, thread_handle);
         close_handle(process_handle);
     }
 }
@@ -1676,13 +1853,12 @@ static bool /* returns whether to execute syscall */
 presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    NTSTATUS exit_status = (NTSTATUS) sys_param(dcontext, param_base, 1);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    NTSTATUS exit_status = (NTSTATUS)sys_param(dcontext, param_base, 1);
     LOG(THREAD, LOG_SYSCALLS, 1,
-        "syscall: NtTerminateProcess handle="PFX" pid=%d exit=%d\n",
-        process_handle,
-        process_id_from_handle((process_handle == 0) ?
-                               NT_CURRENT_PROCESS : process_handle),
+        "syscall: NtTerminateProcess handle=" PFX " pid=%d exit=%d\n", process_handle,
+        process_id_from_handle((process_handle == 0) ? NT_CURRENT_PROCESS
+                                                     : process_handle),
         exit_status);
     if (process_handle == 0) {
         NTSTATUS return_val;
@@ -1695,28 +1871,25 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         copy_mcontext(mc, &mcontext);
         mc->pc = SYSCALL_PC(dcontext);
 
-#ifdef CLIENT_INTERFACE
         /* make sure client nudges are finished */
         wait_for_outstanding_nudges();
-#endif
 
         /* FIXME : issues with cleaning up here what if syscall fails */
         DEBUG_DECLARE(ok =)
-            synch_with_all_threads(THREAD_SYNCH_SUSPENDED_AND_CLEANED,
-                                   &threads, &num_threads,
-                                   /* Case 6821: while we're ok to be detached, we're
-                                    * not ok to be reset since we won't have the
-                                    * last_exit flag set for coming back here (plus
-                                    * our kstats get off since we didn't yet enter
-                                    * the cache)
-                                    */
-                                   THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
-                                   /* if we fail to suspend a thread (e.g., privilege
-                                    * problems) ignore it. FIXME: retry instead? */
-                                   /* XXX i#2345: add THREAD_SYNCH_SKIP_CLIENT_THREAD
-                                    * to synch all application threads only.
-                                    */
-                                   THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+        synch_with_all_threads(THREAD_SYNCH_SUSPENDED_AND_CLEANED, &threads, &num_threads,
+                               /* Case 6821: while we're ok to be detached, we're
+                                * not ok to be reset since we won't have the
+                                * last_exit flag set for coming back here (plus
+                                * our kstats get off since we didn't yet enter
+                                * the cache)
+                                */
+                               THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
+                               /* if we fail to suspend a thread (e.g., privilege
+                                * problems) ignore it. FIXME: retry instead? */
+                               /* XXX i#2345: add THREAD_SYNCH_SKIP_CLIENT_THREAD
+                                * to synch all application threads only.
+                                */
+                               THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         ASSERT(ok);
         ASSERT(threads == NULL && num_threads == 0); /* We asked for CLEANED */
         copy_mcontext(&mcontext, mc);
@@ -1736,20 +1909,20 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         return_val = nt_terminate_process_for_app(process_handle, exit_status);
         SET_RETURN_VAL(dcontext, return_val);
         LOG(THREAD, LOG_SYSCALLS, 2,
-            "\tNtTerminateProcess("PFX", "PFX") => "PIFX" on behalf of app\n",
+            "\tNtTerminateProcess(" PFX ", " PFX ") => " PIFX " on behalf of app\n",
             process_handle, exit_status, return_val);
 
-        end_synch_with_all_threads(threads, num_threads, false/*no resume*/);
+        end_synch_with_all_threads(threads, num_threads, false /*no resume*/);
 
         return false; /* do not execute syscall -- we already did it */
-    } else if (is_phandle_me((process_handle == 0) ?
-                             NT_CURRENT_PROCESS : process_handle)) {
+    } else if (is_phandle_me((process_handle == 0) ? NT_CURRENT_PROCESS
+                                                   : process_handle)) {
         /* case 10338: we don't synchall here for faster shutdown, but we have
          * to try and not crash any other threads.  FIXME: if it's rare to get here
          * w/ > 1 thread perhaps we should do the synchall.
          */
         LOG(THREAD, LOG_SYSCALLS, 2, "\tterminating process w/ %d running thread(s)\n",
-            get_num_threads());
+            d_r_get_num_threads());
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
         if (is_thread_currently_native(dcontext->thread_record)) {
@@ -1759,13 +1932,13 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
             dynamo_thread_under_dynamo(dcontext);
         }
         /* FIXME: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
-        os_terminate_wow64_write_args(true/*process*/, process_handle, exit_status);
+        os_terminate_wow64_write_args(true /*process*/, process_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],
                               /* r10, which will go to rcx in cleanup_and_terminate
                                * and back to r10 in global_do_syscall_syscall (i#1901).
                                */
-                              IF_X64_ELSE(mc->r10, mc->xdx),
-                              mc->xdx, true /* entire process */, 0, 0);
+                              IF_X64_ELSE(mc->r10, mc->xdx), mc->xdx,
+                              true /* entire process */, 0, 0);
     }
     return true;
 }
@@ -1776,21 +1949,21 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
     /* NtTerminateThread(IN HANDLE ThreadHandle OPTIONAL, IN NTSTATUS ExitStatus) */
-    HANDLE thread_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    NTSTATUS exit_status = (NTSTATUS) sys_param(dcontext, param_base, 1);
+    HANDLE thread_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    NTSTATUS exit_status = (NTSTATUS)sys_param(dcontext, param_base, 1);
     /* need to determine which thread is being terminated
      * it's harder than you'd think -- we can get its handle but
      * the handle may have been duplicated, no way to test
      * equivalence, we have to get the thread id
      */
     thread_id_t tid;
-    thread_record_t *tr = thread_lookup(get_thread_id());
+    thread_record_t *tr = thread_lookup(d_r_get_thread_id());
     ASSERT(tr != NULL);
     if (thread_handle == 0)
         thread_handle = NT_CURRENT_THREAD;
     tid = thread_handle_to_tid(thread_handle);
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
-        "syscall: NtTerminateThread "PFX" => tid=%d\n", thread_handle, tid);
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
+        "syscall: NtTerminateThread " PFX " => tid=%d\n", thread_handle, tid);
 
     if (tid == 0xFFFFFFFF) {
         /* probably invalid handle, do nothing for now */
@@ -1804,11 +1977,11 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 
         /* Fixme : issues with cleaning up here, what if syscall fails */
         DEBUG_DECLARE(synch_res =)
-            synch_with_thread(tid, true, false, THREAD_SYNCH_VALID_MCONTEXT,
-                              THREAD_SYNCH_SUSPENDED_AND_CLEANED,
-                              /* if we fail to suspend a thread (e.g., privilege
-                               * problems) ignore it. FIXME: retry instead? */
-                              THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+        synch_with_thread(tid, true, false, THREAD_SYNCH_VALID_MCONTEXT,
+                          THREAD_SYNCH_SUSPENDED_AND_CLEANED,
+                          /* if we fail to suspend a thread (e.g., privilege
+                           * problems) ignore it. FIXME: retry instead? */
+                          THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         ASSERT(synch_res == THREAD_SYNCH_RESULT_SUCCESS ||
                /* App could be calling on already exited thread (xref 8125)
                 * or thread could have exited while we were synching.
@@ -1821,10 +1994,9 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
     } else {
         /* case 9347 - racy early thread, yet primary is not yet 'known' */
         /* we should evaluate dr_late_injected_primary_thread before
-         * get_num_threads()
+         * d_r_get_num_threads()
          */
-        bool secondary = dr_injected_secondary_thread &&
-            !dr_late_injected_primary_thread;
+        bool secondary = dr_injected_secondary_thread && !dr_late_injected_primary_thread;
 
         bool exitproc = !secondary && (is_last_app_thread() && !dynamo_exited);
         /* this should really be check_sole_thread() */
@@ -1841,13 +2013,12 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
-        os_terminate_wow64_write_args(false/*thread*/, thread_handle, exit_status);
+        os_terminate_wow64_write_args(false /*thread*/, thread_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateThread],
                               /* r10, which will go to rcx in cleanup_and_terminate
                                * and back to r10 in global_do_syscall_syscall (i#1901).
                                */
-                              IF_X64_ELSE(mc->r10, mc->xdx),
-                              mc->xdx, exitproc, 0, 0);
+                              IF_X64_ELSE(mc->r10, mc->xdx), mc->xdx, exitproc, 0, 0);
     }
 }
 
@@ -1856,25 +2027,26 @@ static bool
 presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE thread_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    CONTEXT *cxt = (CONTEXT *) sys_param(dcontext, param_base, 1);
+    HANDLE thread_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    CONTEXT *cxt = (CONTEXT *)sys_param(dcontext, param_base, 1);
     thread_id_t tid = thread_handle_to_tid(thread_handle);
     bool intercept = true;
     bool execute_syscall = true;
     /* FIXME : we are going to read and write to cxt, which may be unsafe */
     ASSERT(tid != 0xFFFFFFFF);
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
-        "syscall: NtSetContextThread handle="PFX" tid=%d cxt->Xip="PFX" flags="PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+        "syscall: NtSetContextThread handle=" PFX " tid=%d cxt->Xip=" PFX " flags=" PFX
+        "\n",
         thread_handle, tid, cxt->CXT_XIP, cxt->ContextFlags);
-    if (get_thread_id() == tid) {
+    if (d_r_get_thread_id() == tid) {
         /* Simple case when called on own thread. */
         /* FIXME i#2249 : we should handle these flags. */
         ASSERT_NOT_IMPLEMENTED(!TEST(CONTEXT_CONTROL, cxt->ContextFlags) &&
                                !TEST(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags));
         return execute_syscall;
     }
-    mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
-    if (intercept_asynch_for_thread(tid, false/*no unknown threads*/)) {
+    d_r_mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
+    if (intercept_asynch_for_thread(tid, false /*no unknown threads*/)) {
         priv_mcontext_t mcontext;
         thread_record_t *tr = thread_lookup(tid);
         CONTEXT *my_cxt;
@@ -1888,23 +2060,25 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         mc->pc = SYSCALL_PC(dcontext);
 
         DEBUG_DECLARE(synch_res =)
-            synch_with_thread(tid, true, true, desired_state,
-                              THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT,
-                              /* if we fail to suspend a thread (e.g., privilege
-                               * problems) ignore it. FIXME: retry instead? */
-                              THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+        synch_with_thread(tid, true, true, desired_state,
+                          THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT,
+                          /* if we fail to suspend a thread (e.g., privilege
+                           * problems) ignore it. FIXME: retry instead? */
+                          THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         ASSERT(synch_res == THREAD_SYNCH_RESULT_SUCCESS);
         copy_mcontext(&mcontext, mc);
-        if (!TESTALL(CONTEXT_CONTROL/*2 bits so ALL*/, cxt->ContextFlags)) {
+        if (!TESTALL(CONTEXT_CONTROL /*2 bits so ALL*/, cxt->ContextFlags)) {
             /* app didn't request pc so we'd better get it now.
              * FIXME: this isn't transparent as we have to clobber
              * fields in the app cxt: should restore in post-syscall.
              */
-            char buf[MAX_CONTEXT_SIZE];
-            CONTEXT *alt_cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+            DWORD cxt_flags = CONTEXT_DR_STATE;
+            size_t bufsz = nt_get_context_size(cxt_flags);
+            char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+            CONTEXT *alt_cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             STATS_INC(num_app_setcontext_no_control);
             if (thread_get_context(tr, alt_cxt) &&
-                translate_context(tr, alt_cxt, true/*set memory*/)) {
+                translate_context(tr, alt_cxt, true /*set memory*/)) {
                 LOG(THREAD, LOG_SYSCALLS, 2, "no CONTROL flag on original cxt:\n");
                 DOLOG(3, LOG_SYSCALLS, { dump_context_info(cxt, THREAD, true); });
                 cxt->ContextFlags |= CONTEXT_CONTROL;
@@ -1928,6 +2102,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
                 intercept = false;
                 ASSERT_NOT_REACHED();
             }
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
         }
         if (intercept) {
             /* modify the being-set cxt so that we retain control */
@@ -1955,19 +2130,19 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
 #endif
             my_cxt = global_heap_alloc(CONTEXT_HEAP_SIZE(*my_cxt) HEAPACCT(ACCT_OTHER));
 #ifdef X64
-            cxt_alloc = (byte *) cxt;
+            cxt_alloc = (byte *)cxt;
             if (!ALIGNED(my_cxt, 16)) {
                 ASSERT(ALIGNED(my_cxt, 8));
-                my_cxt = (CONTEXT *) ( ((app_pc)my_cxt)+8 );
+                my_cxt = (CONTEXT *)(((app_pc)my_cxt) + 8);
             }
             ASSERT(ALIGNED(my_cxt, 16));
 #endif
             *my_cxt = *cxt;
             /* my_cxt is freed by set_synched_thread_context() or target thread */
-            DEBUG_DECLARE(ok = )
-                set_synched_thread_context(tr, NULL, (void *) my_cxt,
-                                           CONTEXT_HEAP_SIZE(*my_cxt), desired_state
-                                           _IF_X64(cxt_alloc) _IF_WINDOWS(&res));
+            DEBUG_DECLARE(ok =)
+            set_synched_thread_context(
+                tr, NULL, (void *)my_cxt, CONTEXT_HEAP_SIZE(*my_cxt),
+                desired_state _IF_X64(cxt_alloc) _IF_WINDOWS(&res));
             /* We just tested permissions, but could be bad handle, etc.
              * FIXME: if so and thread was waiting we have transparency violation
              */
@@ -1982,8 +2157,66 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         }
         SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
     }
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     return execute_syscall;
+}
+
+/* NtSetInformationProcess */
+static bool
+presys_SetInformationProcess(dcontext_t *dcontext, reg_t *param_base)
+{
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    PROCESSINFOCLASS class = (PROCESSINFOCLASS)sys_param(dcontext, param_base, 1);
+    void *info = (void *)sys_param(dcontext, param_base, 2);
+    ULONG info_len = (ULONG)sys_param(dcontext, param_base, 3);
+    LOG(THREAD, LOG_SYSCALLS, 2, "NtSetInformationProcess %p %d %p %d\n", process_handle,
+        class, info, info_len);
+    if (!should_swap_teb_static_tls())
+        return true;
+    if (class != ProcessTlsInformation)
+        return true;
+    if (!is_phandle_me(process_handle)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("ProcessTlsInformation on another process");
+        return true;
+    }
+    LOG(THREAD, LOG_SYSCALLS, 2, "ProcessTlsInformation: pausing all other threads\n");
+    thread_record_t **threads;
+    int num_threads, i;
+    if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER,
+                                &threads, &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                                /* Ignore failures to suspend: best-effort. */
+                                THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("Failed to suspend for ProcessTlsInformation");
+        return true;
+    }
+    /* Ensure each thread has the app TEB.ThreadLocalStoragePointer value. */
+    bool *swapped =
+        (bool *)global_heap_alloc(num_threads * sizeof(bool) HEAPACCT(ACCT_THREAD_MGT));
+    for (i = 0; i < num_threads; i++) {
+        if (!os_using_app_state(threads[i]->dcontext)) {
+            swapped[i] = true;
+            os_swap_context(threads[i]->dcontext, true /*to app*/, DR_STATE_TEB_MISC);
+        } else
+            swapped[i] = false;
+    }
+    /* We're holding the initexit lock so we can't safely enter the fcache for
+     * a regular app syscall.  We instead emulate the syscall ourselves.
+     * We assume it's not alertable and no callback will come in.
+     */
+    NTSTATUS return_val =
+        nt_set_information_process_for_app(process_handle, class, info, info_len);
+    SET_RETURN_VAL(dcontext, return_val);
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "\tNtSetInformationProcess(%p, %d, %p, %d) => %d on behalf of app\n",
+        process_handle, class, info, info_len, return_val);
+    /* Swap the TEB fields back to DR. */
+    for (i = 0; i < num_threads; i++) {
+        if (swapped[i])
+            os_swap_context(threads[i]->dcontext, false /*to priv*/, DR_STATE_TEB_MISC);
+    }
+    global_heap_free(swapped, num_threads * sizeof(bool) HEAPACCT(ACCT_THREAD_MGT));
+    end_synch_with_all_threads(threads, num_threads, true /*resume*/);
+    return false;
 }
 
 /* Assumes mc is app state prior to system call.
@@ -1994,7 +2227,7 @@ bool
 is_cb_return_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    if (mc->xax == (reg_t) syscalls[SYS_CallbackReturn]) {
+    if (mc->xax == (reg_t)syscalls[SYS_CallbackReturn]) {
         reg_t *param_base = pre_system_call_param_base(mc);
         if ((NTSTATUS)sys_param(dcontext, param_base, 2) != STATUS_CALLBACK_POP_STACK)
             return true;
@@ -2015,11 +2248,11 @@ presys_CallbackReturn(dcontext_t *dcontext, reg_t *param_base)
      * call a routine that simply pulls first arg into eax and then does int 2b.
      */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    NTSTATUS status = (NTSTATUS) sys_param(dcontext, param_base, 2);
+    NTSTATUS status = (NTSTATUS)sys_param(dcontext, param_base, 2);
     if (status == STATUS_CALLBACK_POP_STACK) {
         /* case 10579: this status code instructs the kernel to only
          * pop the stack and not transfer control there */
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtCallbackReturn STATUS_CALLBACK_POP_STACK\n");
     } else {
         /* NtCallbackReturn returns from callback via a syscall, and it
@@ -2034,7 +2267,7 @@ presys_CallbackReturn(dcontext_t *dcontext, reg_t *param_base)
          * having the clean call to pre_system_call store and restore app's esp
          * from a special nonswapped dcontext slot.
          */
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtCallbackReturn\n");
         callback_start_return(mc);
     }
@@ -2046,21 +2279,19 @@ check_for_stack_free(dcontext_t *dcontext, byte *base, size_t size)
     /* Ref case 5518 - on some versions of windows the thread stack is freed
      * in process.  So we watch here for the free to keep from removing again
      * at thread exit. */
-    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+    os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(dcontext == get_thread_private_dcontext());
     if (base == ostd->stack_base) {
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-            "Thread's os stack is being freed\n");
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1, "Thread's os stack is being freed\n");
         ASSERT(base + size == ostd->stack_top);
         /* only seen the in process free on 2k and NT */
         ASSERT_CURIOSITY(get_os_version() <= WINDOWS_VERSION_2000);
         /* When we've seen it happen (in kernel32!ExitThread), ExitThread uses
          * a chunk of the TEB as the stack while freeing and calling
          * NtTerminate. */
-        ASSERT_CURIOSITY((byte *)get_mcontext(dcontext)->xsp >=
-                         (byte *)get_own_teb() &&
+        ASSERT_CURIOSITY((byte *)get_mcontext(dcontext)->xsp >= (byte *)get_own_teb() &&
                          (byte *)get_mcontext(dcontext)->xsp <
-                         ((byte *)get_own_teb()) + PAGE_SIZE);
+                             ((byte *)get_own_teb()) + PAGE_SIZE);
         /* FIXME - Instead of saying the teb stack is no longer valid, we could
          * instead change the bounds to be the TEB region.  Other users could
          * then always we assert we have something valid set. Is slightly
@@ -2076,16 +2307,16 @@ static bool
 presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    void **pbase = (void **) sys_param(dcontext, param_base, 1);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    void **pbase = (void **)sys_param(dcontext, param_base, 1);
     /* XXX i#899: NtWow64AllocateVirtualMemory64 has an extra arg after ZeroBits but
      * it's ignored in wow64!whNtWow64AllocateVirtualMemory64.  We should keep an eye
      * out: maybe a future service pack or win9 will use it.
      */
     int arg_shift = (sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64] ? 1 : 0);
-    size_t *psize = (size_t *) sys_param(dcontext, param_base, 3 + arg_shift);
-    uint type = (uint) sys_param(dcontext, param_base, 4 + arg_shift);
-    uint prot = (uint) sys_param(dcontext, param_base, 5 + arg_shift);
+    size_t *psize = (size_t *)sys_param(dcontext, param_base, 3 + arg_shift);
+    uint type = (uint)sys_param(dcontext, param_base, 4 + arg_shift);
+    uint prot = (uint)sys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
     if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type) &&
         /* Any overlap when asking for MEM_RESERVE (even when combined w/ MEM_COMMIT)
@@ -2094,10 +2325,10 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
         !TEST(MEM_RESERVE, type)) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         size_t size;
-        if (safe_read(pbase, sizeof(base), &base) &&
-            safe_read(psize, sizeof(size), &size) &&
-            base != NULL &&
-            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot), false)) {
+        if (d_r_safe_read(pbase, sizeof(base), &base) &&
+            d_r_safe_read(psize, sizeof(size), &size) && base != NULL &&
+            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot),
+                                  false /*!hint*/, true /*update*/, false /*!image*/)) {
             SET_RETURN_VAL(dcontext, STATUS_CONFLICTING_ADDRESSES);
             return false; /* do not execute system call */
         }
@@ -2116,17 +2347,15 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
         /* unfortunately no way to avoid syscall to check readability
          * (unless have try...except)
          */
-        if (safe_read(pbase, sizeof(base), &base)) {
+        if (d_r_safe_read(pbase, sizeof(base), &base)) {
             dcontext->alloc_no_reserve =
                 (base == NULL ||
                  (TEST(MEM_RESERVE, type) && !get_memory_info(base, NULL, NULL, NULL)));
             /* FIXME: can one MEM_RESERVE an address previously
              * MEM_RESERVEd - at least on XP that's not allowed */
         }
-    } else if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) &&
-               !is_phandle_me(process_handle) &&
-               TEST(MEM_RESERVE, type)
-               && is_newly_created_process(process_handle)) {
+    } else if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) && !is_phandle_me(process_handle) &&
+               TEST(MEM_RESERVE, type) && is_newly_created_process(process_handle)) {
         /* pre-processing of remote NtAllocateVirtualMemory reservation */
         /* Case 9173: ignore allocations with a requested base.  These may come
          * after we've inserted our pad (is_newly_created_process() isn't
@@ -2135,7 +2364,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
          * their alloc to fail, but may end up eliminating any security
          * advantage anyway.
          */
-        if (safe_read(pbase, sizeof(base), &base)) {
+        if (d_r_safe_read(pbase, sizeof(base), &base)) {
             if (base == NULL) {
                 /* FIXME: make the above check stronger */
                 ASSERT_CURIOSITY(prot == PAGE_READWRITE);
@@ -2163,23 +2392,33 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
     return true;
 }
 
+/* NtAllocateVirtualMemoryEx */
+static void
+presys_AllocateVirtualMemoryEx(dcontext_t *dcontext, reg_t *param_base)
+{
+    /*
+        FIXME i#3090: The parameters for NtAllocateVirtualMemoryEx are undocumented.
+    */
+    ASSERT_CURIOSITY("unimplemented pre handler for NtAllocateVirtualMemoryEx");
+}
+
 /* NtFreeVirtualMemory */
 static void
 presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    void **pbase = (void **) sys_param(dcontext, param_base, 1);
-    size_t *psize = (size_t *) sys_param(dcontext, param_base, 2);
-    uint type = (uint) sys_param(dcontext, param_base, 3);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    void **pbase = (void **)sys_param(dcontext, param_base, 1);
+    size_t *psize = (size_t *)sys_param(dcontext, param_base, 2);
+    uint type = (uint)sys_param(dcontext, param_base, 3);
     app_pc base;
     size_t size;
 
     /* check for common argument problems, apps tend to screw this call
      * up a lot (who cares about a memory leak, esp. at process exit) */
     /* ref case 3536, 545, 4046 */
-    if (!safe_read(pbase, sizeof(base), &base) || base == NULL ||
-        !safe_read(psize, sizeof(size), &size) ||
+    if (!d_r_safe_read(pbase, sizeof(base), &base) || base == NULL ||
+        !d_r_safe_read(psize, sizeof(size), &size) ||
         !(type == MEM_RELEASE || type == MEM_DECOMMIT)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
@@ -2187,9 +2426,8 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     }
 
     if (!is_phandle_me(process_handle)) {
-        IPC_ALERT("ERROR: FreeVirtualMemory %s "PFX" "PIFX" on another process",
-                  type == MEM_DECOMMIT ? "MEM_DECOMMIT" : "MEM_RELEASE",
-                  base, size);
+        IPC_ALERT("ERROR: FreeVirtualMemory %s " PFX " " PIFX " on another process",
+                  type == MEM_DECOMMIT ? "MEM_DECOMMIT" : "MEM_RELEASE", base, size);
         return;
     }
 
@@ -2203,15 +2441,14 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
          * and doesn't otherwise.
          * NT: base must be the actual base.
          */
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-            "syscall: NtFreeVirtualMemory type=%s region base="PFX" size="PIFX"\n",
-            type == MEM_DECOMMIT ? "MEM_DECOMMIT" : "MEM_RELEASE",
-            base, size);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "syscall: NtFreeVirtualMemory type=%s region base=" PFX " size=" PIFX "\n",
+            type == MEM_DECOMMIT ? "MEM_DECOMMIT" : "MEM_RELEASE", base, size);
 
         size = get_allocation_size(base, &real_base);
         ASSERT(ALIGNED(real_base, PAGE_SIZE));
         /* if region has been already been freed */
-        if (((app_pc) ALIGN_BACKWARD(base, PAGE_SIZE) != real_base) ||
+        if (((app_pc)ALIGN_BACKWARD(base, PAGE_SIZE) != real_base) ||
             (get_os_version() == WINDOWS_VERSION_NT && base != real_base)) {
             /* we expect the system call to fail
              * with (NTSTATUS) 0xc000009f -
@@ -2219,8 +2456,8 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
              * the base of the region and a region size of zero was
              * specified"
              */
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                "syscall: NtFreeVirtualMemory base="PFX", size="PIFX" invalid base\n",
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                "syscall: NtFreeVirtualMemory base=" PFX ", size=" PIFX " invalid base\n",
                 base, size);
             DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
             return;
@@ -2240,23 +2477,22 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                  * (NTSTATUS) 0xc000001a - "Virtual memory cannot be freed."
                  */
                 DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                    "syscall: NtFreeVirtualMemory base="PFX", size="PIFX
-                    " too large should fail \n", base, size);
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                    "syscall: NtFreeVirtualMemory base=" PFX ", size=" PIFX
+                    " too large should fail \n",
+                    base, size);
                 return;
             }
         }
     });
 
-
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-        "syscall: NtFreeVirtualMemory base="PFX" size="PIFX"\n",
-        base, size);
-    DOLOG(1, LOG_SYSCALLS|LOG_VMAREAS, {
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+        "syscall: NtFreeVirtualMemory base=" PFX " size=" PIFX "\n", base, size);
+    DOLOG(1, LOG_SYSCALLS | LOG_VMAREAS, {
         char buf[MAXIMUM_PATH];
         get_module_name(base, buf, sizeof(buf));
         if (buf[0] != '\0') {
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
                 "\tNtFreeVirtualMemory called on module %s\n", buf);
             ASSERT_CURIOSITY(false && "NtFreeVirtualMemory called on module");
             /* should switch to PE name and then can do this at loglevel 0 */
@@ -2274,8 +2510,7 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     if (type == MEM_RELEASE) {
         check_for_stack_free(dcontext, base, size);
     }
-    if (type == MEM_RELEASE &&
-        TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
+    if (type == MEM_RELEASE && TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
         /* We free our allocation before the application
          * reservation is released.  Not a critical failure if the
          * application free fails but we have freed our pad.  Also
@@ -2296,59 +2531,58 @@ static bool /* returns whether to execute syscall */
 presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    void **pbase = (void **) sys_param(dcontext, param_base, 1);
-    size_t *psize = (size_t *) sys_param(dcontext, param_base, 2);
-    uint prot = (uint) sys_param(dcontext, param_base, 3);
-    uint *oldprot = (uint *) sys_param(dcontext, param_base, 4);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    void **pbase = (void **)sys_param(dcontext, param_base, 1);
+    size_t *psize = (size_t *)sys_param(dcontext, param_base, 2);
+    uint prot = (uint)sys_param(dcontext, param_base, 3);
+    uint *oldprot = (uint *)sys_param(dcontext, param_base, 4);
     app_pc base;
     size_t size;
-    uint old_memprot = MEMPROT_NONE; /* for SUBSET_APP_MEM_PROT_CHANGE
-                                      * or PRETEND_APP_MEM_PROT_CHANGE */
+    uint old_memprot = MEMPROT_NONE;    /* for SUBSET_APP_MEM_PROT_CHANGE
+                                         * or PRETEND_APP_MEM_PROT_CHANGE */
     uint subset_memprot = MEMPROT_NONE; /* for SUBSET_APP_MEM_PROT_CHANGE */
 
-    if (!safe_read(pbase, sizeof(base), &base) ||
-        !safe_read(psize, sizeof(size), &size)) {
+    if (!d_r_safe_read(pbase, sizeof(base), &base) ||
+        !d_r_safe_read(psize, sizeof(size), &size)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
         return true;
     }
 
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-        "syscall: NtProtectVirtualMemory process="PFX" base="PFX" size="
-        PIFX" prot=%s 0x%x\n", process_handle, base, size, prot_string(prot), prot);
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+        "syscall: NtProtectVirtualMemory process=" PFX " base=" PFX " size=" PIFX
+        " prot=%s 0x%x\n",
+        process_handle, base, size, prot_string(prot), prot);
     if (is_phandle_me(process_handle)) {
         uint res;
         /* go to page boundaries, since windows lets you pass non-aligned
          * values, unlike Linux
          */
         /* FIXME: use align_page_boundary(dcontext, &base, &size) instead */
-        if (!ALIGNED(base, PAGE_SIZE) || !ALIGNED(base+size, PAGE_SIZE)) {
+        if (!ALIGNED(base, PAGE_SIZE) || !ALIGNED(base + size, PAGE_SIZE)) {
             /* need to cover all pages between base and base + size */
-            size = ALIGN_FORWARD(base+size, PAGE_SIZE) - PAGE_START(base);
-            base = (app_pc) PAGE_START(base);
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                "\tpage boundaries => base="PFX" size="PIFX"\n",  base, size);
+            size = ALIGN_FORWARD(base + size, PAGE_SIZE) - PAGE_START(base);
+            base = (app_pc)PAGE_START(base);
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                "\tpage boundaries => base=" PFX " size=" PIFX "\n", base, size);
         }
-        DOLOG(1, LOG_SYSCALLS|LOG_VMAREAS, {
+        DOLOG(1, LOG_SYSCALLS | LOG_VMAREAS, {
             char module_name[MAX_MODNAME_INTERNAL];
             if (os_get_module_name_buf(base, module_name,
                                        BUFFER_SIZE_ELEMENTS(module_name)) > 0) {
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
                     "\tNtProtectVirtualMemory called on module %s\n", module_name);
             }
         });
 #ifdef DGC_DIAGNOSTICS
         DOLOG(1, LOG_VMAREAS, {
-            dump_callstack(POST_SYSCALL_PC(dcontext),
-                           (app_pc) mc->xbp, THREAD,
+            dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc)mc->xbp, THREAD,
                            DUMP_NOT_XML);
         });
 #endif
-        res = app_memory_protection_change(dcontext, base, size,
-                                           osprot_to_memprot(prot),
-                                           &subset_memprot,
-                                           &old_memprot);
+        res =
+            app_memory_protection_change(dcontext, base, size, osprot_to_memprot(prot),
+                                         &subset_memprot, &old_memprot, false /*!image*/);
         if (res != DO_APP_MEM_PROT_CHANGE) {
             /* from experimentation it seems to return
              * STATUS_CONFLICTING_ADDRESSES
@@ -2368,18 +2602,15 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                 SET_RETURN_VAL(dcontext, STATUS_SUCCESS);
 
                 if (res == SUBSET_APP_MEM_PROT_CHANGE) {
-                    uint subset_osprot =
-                        osprot_replace_memprot(prot, subset_memprot);
+                    uint subset_osprot = osprot_replace_memprot(prot, subset_memprot);
 
                     /* we explicitly make our system call.  Although in this
                      * case we could change the application arguments as
                      * well, in general it is not nice to the application
                      * to change IN arguments.
                      */
-                    bool ok =
-                        nt_remote_protect_virtual_memory(process_handle,
-                                                         base, size,
-                                                         subset_osprot, &old_osprot);
+                    bool ok = nt_remote_protect_virtual_memory(
+                        process_handle, base, size, subset_osprot, &old_osprot);
                     /* using app's handle in case has different rights than cur thread */
                     ASSERT_CURIOSITY(process_handle == NT_CURRENT_PROCESS);
                     ASSERT_CURIOSITY(ok);
@@ -2401,16 +2632,15 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                  * original protection flags across multiple calls to
                  * NtProtectVirtualMemory.
                  */
-                pretend_oldprot = osprot_replace_memprot(old_osprot,
-                                                         old_memprot);
+                pretend_oldprot = osprot_replace_memprot(old_osprot, old_memprot);
 
                 /* have to set OUT vars properly */
                 /* size and base were already aligned up above */
                 ASSERT(ALIGNED(size, PAGE_SIZE));
                 ASSERT(ALIGNED(base, PAGE_SIZE));
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                    "skipping NtProtectVirtualMemory, returning base="PFX", size="
-                    PIFX", oldprot=%s 0x%x\n",
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                    "skipping NtProtectVirtualMemory, returning base=" PFX ", size=" PIFX
+                    ", oldprot=%s 0x%x\n",
                     base, size, prot_string(pretend_oldprot), pretend_oldprot);
 
                 /* FIXME: we really should be _probing_ these writes
@@ -2436,8 +2666,8 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     } else {
         /* FIXME: should we try to alert any dynamo running the other process?
          */
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-            "WARNING: ProtectVirtualMemory called on process "PFX" %d\n",
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "WARNING: ProtectVirtualMemory called on process " PFX " %d\n",
             process_handle, process_id_from_handle(process_handle));
         /* this actually happens (e.g., in calc.exe's winhlp popups)
          * so don't die here with IPC_ALERT
@@ -2452,7 +2682,7 @@ presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
 {
     bool execute = true;
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 0);
+    HANDLE section_handle = (HANDLE)sys_param(dcontext, param_base, 0);
     /* trying to make sure we're tracking properly all section
      * handles
      *
@@ -2484,8 +2714,7 @@ presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
             if ((!IS_STRING_OPTION_EMPTY(block_mod_load_list) &&
                  check_filter(DYNAMO_OPTION(block_mod_load_list), short_name)) ||
                 (!IS_STRING_OPTION_EMPTY(block_mod_load_list_default) &&
-                 check_filter(DYNAMO_OPTION(block_mod_load_list_default),
-                              short_name))) {
+                 check_filter(DYNAMO_OPTION(block_mod_load_list_default), short_name))) {
                 string_option_read_unlock();
                 /* Modify args so call fails, stdcall so caller shouldn't care
                  * about the args being modified. FIXME - alt. we could just
@@ -2505,14 +2734,23 @@ presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
         }
         dr_strfree(file HEAPACCT(ACCT_VMAREAS));
     } else if (section_handle != dcontext->aslr_context.randomized_section_handle) {
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS,
-            2, "syscall: NtMapViewOfSection unusual section mapping\n");
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+            "syscall: NtMapViewOfSection unusual section mapping\n");
     }
 
-    if (TESTANY(ASLR_DLL|ASLR_MAPPED, DYNAMO_OPTION(aslr))) {
+    if (TESTANY(ASLR_DLL | ASLR_MAPPED, DYNAMO_OPTION(aslr))) {
         aslr_pre_process_mapview(dcontext);
     }
     return execute;
+}
+
+static void
+presys_MapViewOfSectionEx(dcontext_t *dcontext, reg_t *param_base)
+{
+    /*
+        FIXME i#3090: The parameters for NtMapViewOfSectionEx are undocumented.
+    */
+    ASSERT_CURIOSITY("unimplemented pre handler for NtMapViewOfSectionEx");
 }
 
 /* NtUnmapViewOfSection{,Ex} */
@@ -2521,20 +2759,20 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, int sysnum)
 {
     /* This is what actually removes a dll from memory */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    app_pc base = (app_pc) sys_param(dcontext, param_base, 1);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    app_pc base = (app_pc)sys_param(dcontext, param_base, 1);
     app_pc real_base;
     size_t size = get_allocation_size(base, &real_base);
     MEMORY_BASIC_INFORMATION mbi;
     if (sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
-        ptr_int_t arg3 = (ptr_int_t) sys_param(dcontext, param_base, 2);
+        ptr_int_t arg3 = (ptr_int_t)sys_param(dcontext, param_base, 2);
         /* FIXME i#899: new Win8 syscall w/ 3rd arg that's 0 by default.
          * We want to know when we see non-zero so we have some code to study.
          */
         ASSERT_CURIOSITY(arg3 == 0 && "i#899: unknown new param");
     }
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-        "syscall: NtUnmapViewOfSection "PFX" size="PIFX"\n", base, size);
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+        "syscall: NtUnmapViewOfSection " PFX " size=" PIFX "\n", base, size);
 
     if (!is_phandle_me(process_handle)) {
         IPC_ALERT("ERROR: UnmapViewOfSection on another process");
@@ -2560,9 +2798,8 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, int sysnum)
      * the assembly).  OS doesn't seem to care as the syscall still
      * succeeds. */
     if (base != mbi.AllocationBase) {
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-            "syscall: NtUnmapViewOfSection real base is "PFX"\n",
-            mbi.AllocationBase);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "syscall: NtUnmapViewOfSection real base is " PFX "\n", mbi.AllocationBase);
         base = mbi.AllocationBase;
     }
 
@@ -2579,15 +2816,14 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, int sysnum)
      * policies may in fact allow such to be executable areas, but
      * since we can keep track of only one, focusing on MEM_IMAGE only
      */
-    if (DYNAMO_OPTION(unloaded_target_exception) &&
-        mbi.Type == MEM_IMAGE) {
+    if (DYNAMO_OPTION(unloaded_target_exception) && mbi.Type == MEM_IMAGE) {
         mark_unload_start(base, size);
     }
 
-    if (TESTANY(ASLR_DLL|ASLR_MAPPED, DYNAMO_OPTION(aslr))) {
+    if (TESTANY(ASLR_DLL | ASLR_MAPPED, DYNAMO_OPTION(aslr))) {
         aslr_pre_process_unmapview(dcontext, base, size);
     }
-    process_mmap(dcontext, base, size, false/*unmap*/, NULL);
+    process_mmap(dcontext, base, size, false /*unmap*/, NULL);
 }
 
 /* NtFlushInstructionCache */
@@ -2598,24 +2834,23 @@ presys_FlushInstructionCache(dcontext_t *dcontext, reg_t *param_base)
      * architectures, but many apps still use it
      */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-    app_pc base = (app_pc) sys_param(dcontext, param_base, 1);
-    size_t size = (size_t) sys_param(dcontext, param_base, 2);
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    app_pc base = (app_pc)sys_param(dcontext, param_base, 1);
+    size_t size = (size_t)sys_param(dcontext, param_base, 2);
 #ifdef PROGRAM_SHEPHERDING
     uint prot;
 #endif
     /* base can be NULL, in which case size is meaningless
      * loader calls w/ NULL & 0 on rebasing -- means entire icache?
      */
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-        "syscall: NtFlushInstructionCache "PFX" size="PIFX"\n", base, size);
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+        "syscall: NtFlushInstructionCache " PFX " size=" PIFX "\n", base, size);
     if (base == NULL)
         return;
     if (is_phandle_me(process_handle)) {
 #ifdef DGC_DIAGNOSTICS
         DOLOG(1, LOG_VMAREAS, {
-            dump_callstack(POST_SYSCALL_PC(dcontext),
-                           (app_pc) mc->xbp, THREAD,
+            dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc)mc->xbp, THREAD,
                            DUMP_NOT_XML);
         });
 #endif
@@ -2627,7 +2862,7 @@ presys_FlushInstructionCache(dcontext_t *dcontext, reg_t *param_base)
         /* FIXME: should we try to alert any dynamo running the other process?
          * no reason to ASSERT here, not critical like alloc/dealloc in other process
          */
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
             "WARNING: NtFlushInstructionCache on another process\n");
     }
 }
@@ -2638,15 +2873,15 @@ presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
 {
     /* a section is an object that can be mmapped */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE *section_handle = (HANDLE*) sys_param(dcontext, param_base, 0);
-    uint access_mask = (uint) sys_param(dcontext, param_base, 1);
-    POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES) sys_param(dcontext, param_base, 2);
-    void *size = (void *) sys_param(dcontext, param_base, 3);
-    uint protect = (uint) sys_param(dcontext, param_base, 4);
-    uint attributes = (uint) sys_param(dcontext, param_base, 5);
-    HANDLE file_handle = (HANDLE) sys_param(dcontext, param_base, 6);
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-        "syscall: NtCreateSection protect 0x%x, attributes 0x%x, file "PIFX"\n",
+    HANDLE *section_handle = (HANDLE *)sys_param(dcontext, param_base, 0);
+    uint access_mask = (uint)sys_param(dcontext, param_base, 1);
+    POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES)sys_param(dcontext, param_base, 2);
+    void *size = (void *)sys_param(dcontext, param_base, 3);
+    uint protect = (uint)sys_param(dcontext, param_base, 4);
+    uint attributes = (uint)sys_param(dcontext, param_base, 5);
+    HANDLE file_handle = (HANDLE)sys_param(dcontext, param_base, 6);
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+        "syscall: NtCreateSection protect 0x%x, attributes 0x%x, file " PIFX "\n",
         protect, attributes, file_handle);
 
     DODEBUG({
@@ -2656,11 +2891,10 @@ presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
             wchar_t *name = obj->ObjectName->Buffer;
             _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name);
             NULL_TERMINATE_BUFFER(buf);
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                "syscall: NtCreateSection %s\n", buf);
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2, "syscall: NtCreateSection %s\n",
+                buf);
         } else {
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                "syscall: NtCreateSection\n");
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2, "syscall: NtCreateSection\n");
         }
     });
 }
@@ -2669,16 +2903,16 @@ presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
 static void
 presys_Close(dcontext_t *dcontext, reg_t *param_base)
 {
-    HANDLE handle = (HANDLE) sys_param(dcontext, param_base, 0);
+    HANDLE handle = (HANDLE)sys_param(dcontext, param_base, 0);
     if (DYNAMO_OPTION(track_module_filenames)) {
         if (section_to_file_remove(handle)) {
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                "syscall: NtClose of section handle "PFX"\n", handle);
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                "syscall: NtClose of section handle " PFX "\n", handle);
         }
     }
     if (handle_to_tid_remove(handle)) {
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "syscall: NtClose of thread handle "PFX"\n", handle);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+            "syscall: NtClose of thread handle " PFX "\n", handle);
     }
 }
 
@@ -2688,26 +2922,25 @@ static void
 presys_OpenFile(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE *file_handle = (HANDLE*) sys_param(dcontext, param_base, 0);
-    uint access_mask = (uint) sys_param(dcontext, param_base, 1);
-    POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES) sys_param(dcontext, param_base, 2);
-    void *status = (void *) sys_param(dcontext, param_base, 3);
-    uint share = (uint) sys_param(dcontext, param_base, 4);
-    uint options = (uint) sys_param(dcontext, param_base, 5);
+    HANDLE *file_handle = (HANDLE *)sys_param(dcontext, param_base, 0);
+    uint access_mask = (uint)sys_param(dcontext, param_base, 1);
+    POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES)sys_param(dcontext, param_base, 2);
+    void *status = (void *)sys_param(dcontext, param_base, 3);
+    uint share = (uint)sys_param(dcontext, param_base, 4);
+    uint options = (uint)sys_param(dcontext, param_base, 5);
     if (obj != NULL) {
         /* convert name from unicode to ansi */
         char buf[MAXIMUM_PATH];
         wchar_t *name = obj->ObjectName->Buffer;
         /* not always null-terminated */
-        _snprintf(buf, MIN(obj->ObjectName->Length/sizeof(obj->ObjectName->Buffer[0]),
-                           BUFFER_SIZE_ELEMENTS(buf)),
+        _snprintf(buf,
+                  MIN(obj->ObjectName->Length / sizeof(obj->ObjectName->Buffer[0]),
+                      BUFFER_SIZE_ELEMENTS(buf)),
                   "%S", name);
         NULL_TERMINATE_BUFFER(buf);
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "syscall: NtOpenFile %s\n", buf);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2, "syscall: NtOpenFile %s\n", buf);
     } else {
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "syscall: NtOpenFile\n");
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2, "syscall: NtOpenFile\n");
     }
 }
 #endif
@@ -2727,49 +2960,51 @@ pre_system_call(dcontext_t *dcontext)
 {
     bool execute_syscall = true;
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    int sysnum = (int) mc->xax;
+    int sysnum = (int)mc->xax;
     reg_t *param_base = pre_system_call_param_base(mc);
-    where_am_i_t old_whereami = dcontext->whereami;
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
-    IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
+    dr_where_am_i_t old_whereami = dcontext->whereami;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
+    /* XXX i#49: mc->rax's top bits are non-zero in 32-bit mode for
+     * reasons we do not yet understand.
+     * For now we disable the assert for mixed-mode.
+     */
+    IF_X64(
+        ASSERT(is_wow64_process(NT_CURRENT_PROCESS) || CHECK_TRUNCATE_TYPE_int(mc->xax)));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
     KSTART(pre_syscall);
     RSTATS_INC(pre_syscall);
     DOSTATS({
-            if (ignorable_system_call(sysnum, NULL, dcontext))
+        if (ignorable_system_call(sysnum, NULL, dcontext))
             STATS_INC(pre_syscall_ignorable);
     });
-    LOG(THREAD, LOG_SYSCALLS, 2, "system call: sysnum = "PFX", param_base = "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 2, "system call: sysnum = " PFX ", param_base = " PFX "\n",
         sysnum, param_base);
 
 #ifdef DEBUG
-    DOLOG(2, LOG_SYSCALLS, {
-          dump_mcontext(mc, THREAD, false/*not xml*/);
-    });
+    DOLOG(2, LOG_SYSCALLS, { dump_mcontext(mc, THREAD, false /*not xml*/); });
     /* we can't pass other than a numeric literal anymore */
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 0: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 0: " PFX "\n",
         sys_param(dcontext, param_base, 0));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 1: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 1: " PFX "\n",
         sys_param(dcontext, param_base, 1));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 2: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 2: " PFX "\n",
         sys_param(dcontext, param_base, 2));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 3: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 3: " PFX "\n",
         sys_param(dcontext, param_base, 3));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 4: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 4: " PFX "\n",
         sys_param(dcontext, param_base, 4));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 5: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 5: " PFX "\n",
         sys_param(dcontext, param_base, 5));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 6: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 6: " PFX "\n",
         sys_param(dcontext, param_base, 6));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 7: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 7: " PFX "\n",
         sys_param(dcontext, param_base, 7));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 8: "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 8: " PFX "\n",
         sys_param(dcontext, param_base, 8));
     DOLOG(3, LOG_SYSCALLS, {
         /* ebp isn't in mcontext right now, so pass ebp */
-        dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc) mc->xbp, THREAD,
-                       DUMP_NOT_XML);
+        dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc)mc->xbp, THREAD, DUMP_NOT_XML);
     });
 #endif
 
@@ -2796,25 +3031,20 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 
     if (sysnum == syscalls[SYS_Continue]) {
-        CONTEXT *cxt = (CONTEXT *) sys_param(dcontext, param_base, 0);
+        CONTEXT *cxt = (CONTEXT *)sys_param(dcontext, param_base, 0);
         /* FIXME : we are going to read and write to cxt, which may be unsafe */
-        int flag = (int) sys_param(dcontext, param_base, 1);
-        LOG(THREAD, LOG_SYSCALLS|LOG_ASYNCH, IF_DGCDIAG_ELSE(1, 2),
-            "syscall: NtContinue cxt->Xip="PFX" flag="PFX"\n",
-            cxt->CXT_XIP, flag);
+        int flag = (int)sys_param(dcontext, param_base, 1);
+        LOG(THREAD, LOG_SYSCALLS | LOG_ASYNCH, IF_DGCDIAG_ELSE(1, 2),
+            "syscall: NtContinue cxt->Xip=" PFX " flag=" PFX "\n", cxt->CXT_XIP, flag);
         intercept_nt_continue(cxt, flag);
-    }
-    else if (sysnum == syscalls[SYS_CallbackReturn]) {
+    } else if (sysnum == syscalls[SYS_CallbackReturn]) {
         presys_CallbackReturn(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_SetContextThread]) {
+    } else if (sysnum == syscalls[SYS_SetContextThread]) {
         execute_syscall = presys_SetContextThread(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_CreateProcess]) {
-        presys_CreateProcess(dcontext, param_base, false/*!Ex*/);
-    }
-    else if (sysnum == syscalls[SYS_CreateProcessEx]) {
-        presys_CreateProcess(dcontext, param_base, true/*Ex*/);
+    } else if (sysnum == syscalls[SYS_CreateProcess]) {
+        presys_CreateProcess(dcontext, param_base, false /*!Ex*/);
+    } else if (sysnum == syscalls[SYS_CreateProcessEx]) {
+        presys_CreateProcess(dcontext, param_base, true /*Ex*/);
     }
 #ifdef DEBUG
     else if (sysnum == syscalls[SYS_CreateUserProcess]) {
@@ -2823,17 +3053,14 @@ pre_system_call(dcontext_t *dcontext)
 #endif
     else if (sysnum == syscalls[SYS_CreateThread]) {
         presys_CreateThread(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_CreateThreadEx]) {
+    } else if (sysnum == syscalls[SYS_CreateThreadEx]) {
         presys_CreateThreadEx(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_CreateWorkerFactory]) {
+    } else if (sysnum == syscalls[SYS_CreateWorkerFactory]) {
         presys_CreateWorkerFactory(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_SuspendThread]) {
-        HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
+    } else if (sysnum == syscalls[SYS_SuspendThread]) {
+        HANDLE thread_handle = (HANDLE)sys_param(dcontext, param_base, 0);
         thread_id_t tid = thread_handle_to_tid(thread_handle);
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtSuspendThread tid=%d\n", tid);
         if (SELF_PROTECT_ON_CXT_SWITCH) {
             /* This thread must make it back out of the cache for post-syscall
@@ -2843,60 +3070,55 @@ pre_system_call(dcontext_t *dcontext)
              */
             dcontext->ignore_enterexit = true;
         }
-    }
-    else if (sysnum == syscalls[SYS_ResumeThread]) {
+    } else if (sysnum == syscalls[SYS_ResumeThread]) {
         presys_ResumeThread(dcontext, param_base);
     }
 #ifdef DEBUG
     else if (sysnum == syscalls[SYS_AlertResumeThread]) {
-        HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
+        HANDLE thread_handle = (HANDLE)sys_param(dcontext, param_base, 0);
         thread_id_t tid = thread_handle_to_tid(thread_handle);
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtAlertResumeThread tid=%d\n", tid);
     }
 #endif
     else if (sysnum == syscalls[SYS_TerminateProcess]) {
         execute_syscall = presys_TerminateProcess(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_TerminateThread]) {
+    } else if (sysnum == syscalls[SYS_TerminateThread]) {
         presys_TerminateThread(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
-             /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
-             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
+    } else if (sysnum == syscalls[SYS_SetInformationProcess]) {
+        execute_syscall = presys_SetInformationProcess(dcontext, param_base);
+    } else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
+               /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
+               sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
         execute_syscall = presys_AllocateVirtualMemory(dcontext, param_base, sysnum);
-    }
-    else if (sysnum == syscalls[SYS_FreeVirtualMemory]) {
+    } else if (sysnum == syscalls[SYS_AllocateVirtualMemoryEx]) {
+        presys_AllocateVirtualMemoryEx(dcontext, param_base);
+    } else if (sysnum == syscalls[SYS_FreeVirtualMemory]) {
         KSTART(pre_syscall_free);
         presys_FreeVirtualMemory(dcontext, param_base);
         KSTOP(pre_syscall_free);
-    }
-    else if (sysnum == syscalls[SYS_ProtectVirtualMemory]) {
+    } else if (sysnum == syscalls[SYS_ProtectVirtualMemory]) {
         KSTART(pre_syscall_protect);
         execute_syscall = presys_ProtectVirtualMemory(dcontext, param_base);
         KSTOP(pre_syscall_protect);
-    }
-    else if (sysnum == syscalls[SYS_WriteVirtualMemory]) {
+    } else if (sysnum == syscalls[SYS_WriteVirtualMemory]) {
         /* FIXME NYI: case 8321: need to watch for cache consistency
          * FIXME case 9103: note that we don't hook this for native_exec yet
          */
-    }
-    else if (sysnum == syscalls[SYS_MapViewOfSection]) {
+    } else if (sysnum == syscalls[SYS_MapViewOfSection]) {
         execute_syscall = presys_MapViewOfSection(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
-             sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
+    } else if (sysnum == syscalls[SYS_MapViewOfSectionEx]) {
+        presys_MapViewOfSectionEx(dcontext, param_base);
+    } else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
+               sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
         KSTART(pre_syscall_unmap);
         presys_UnmapViewOfSection(dcontext, param_base, sysnum);
         KSTOP(pre_syscall_unmap);
-    }
-    else if (sysnum == syscalls[SYS_FlushInstructionCache]) {
+    } else if (sysnum == syscalls[SYS_FlushInstructionCache]) {
         presys_FlushInstructionCache(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_CreateSection]) {
+    } else if (sysnum == syscalls[SYS_CreateSection]) {
         presys_CreateSection(dcontext, param_base);
-    }
-    else if (sysnum == syscalls[SYS_Close]) {
+    } else if (sysnum == syscalls[SYS_Close]) {
         presys_Close(dcontext, param_base);
     }
 #ifdef DEBUG
@@ -2912,52 +3134,48 @@ pre_system_call(dcontext_t *dcontext)
      * => we must intercept when virtual addresses could point to something new
      */
     else if (sysnum == syscalls[SYS_FreeUserPhysicalPages]) {
-        HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-        uint *num_pages = (uint *) sys_param(dcontext, param_base, 1);
-        uint *page_frame_nums = (uint *) sys_param(dcontext, param_base, 2);
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
+        HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+        uint *num_pages = (uint *)sys_param(dcontext, param_base, 1);
+        uint *page_frame_nums = (uint *)sys_param(dcontext, param_base, 2);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtFreeUserPhysicalPages %d pages\n", num_pages);
         /* FIXME: need to know base if currently mapped, must
          * record every mapping to do so
          */
-        SYSLOG_INTERNAL_WARNING_ONCE(PRODUCT_NAME" is using un-supported "
-                                     "Address Windowing Extensions");
-    }
-    else if (sysnum == syscalls[SYS_MapUserPhysicalPages]) {
-        app_pc base = (app_pc) sys_param(dcontext, param_base, 0);
-        uint *pnum_pages = (uint *) sys_param(dcontext, param_base, 1);
-        uint *page_frame_nums = (uint *) sys_param(dcontext, param_base, 2);
+        SYSLOG_INTERNAL_WARNING_ONCE(PRODUCT_NAME " is using un-supported "
+                                                  "Address Windowing Extensions");
+    } else if (sysnum == syscalls[SYS_MapUserPhysicalPages]) {
+        app_pc base = (app_pc)sys_param(dcontext, param_base, 0);
+        uint *pnum_pages = (uint *)sys_param(dcontext, param_base, 1);
+        uint *page_frame_nums = (uint *)sys_param(dcontext, param_base, 2);
         uint num_pages;
-        if (safe_read(pnum_pages, sizeof(num_pages), &num_pages)) {
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
-                "syscall: NtMapUserPhysicalPages "PFX" pages=%d\n",
-                base, num_pages);
+        if (d_r_safe_read(pnum_pages, sizeof(num_pages), &num_pages)) {
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
+                "syscall: NtMapUserPhysicalPages " PFX " pages=%d\n", base, num_pages);
             base = proc_get_containing_page(base);
-            app_memory_deallocation(dcontext, base, num_pages*PAGE_SIZE,
+            app_memory_deallocation(dcontext, base, num_pages * PAGE_SIZE,
                                     false /* don't own thread_initexit_lock */,
                                     false /* not image */);
         } else {
             DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
             goto exit_pre_system_call;
         }
-    }
-    else if (sysnum == syscalls[SYS_SetInformationVirtualMemory]) {
+    } else if (sysnum == syscalls[SYS_SetInformationVirtualMemory]) {
         /* XXX i#899: new Win8 syscall.  So far we've observed calls from
          * KERNELBASE!PrefetchVirtualMemory and we see that
          * KERNELBASE!SetProcessValidCallTargets calls the syscall for CFG security
          * feature purposes, neither of which should concern us, so we ignore it for
          * now.
          */
-    }
-    else if (sysnum == syscalls[SYS_RaiseException]) {
-        IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
+    } else if (sysnum == syscalls[SYS_RaiseException]) {
+        check_app_stack_limit(dcontext);
         /* FIXME i#1691: detect whether we're inside SEH handling already, in which
          * case this process is about to die by this secondary exception and
          * we want to do a normal exit and give the client a chance to clean up.
          */
     }
 
- exit_pre_system_call:
+exit_pre_system_call:
     dcontext->whereami = old_whereami;
     KSTOP(pre_syscall);
     return execute_syscall;
@@ -2971,19 +3189,20 @@ pre_system_call(dcontext_t *dcontext)
 static void
 postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
-   /* See notes in presys_CreateUserProcess for information on signature
+    /* See notes in presys_CreateUserProcess for information on signature
      * of NtCreateUserProcess. */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE *proc_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 0);
-    HANDLE *thread_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 1);
-    BOOL create_suspended = (BOOL) postsys_param(dcontext, param_base, 7);
+    HANDLE *proc_handle_ptr = (HANDLE *)postsys_param(dcontext, param_base, 0);
+    HANDLE *thread_handle_ptr = (HANDLE *)postsys_param(dcontext, param_base, 1);
+    BOOL create_suspended = (BOOL)postsys_param(dcontext, param_base, 7);
     HANDLE proc_handle, thread_handle;
     /* FIXME should have type for this */
-    DEBUG_DECLARE(create_proc_thread_info_t *thread_stuff =
-                  (create_proc_thread_info_t *) postsys_param(dcontext, param_base, 10);)
+    DEBUG_DECLARE(
+        create_proc_thread_info_t *thread_stuff =
+            (create_proc_thread_info_t *)postsys_param(dcontext, param_base, 10);)
     ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
-    LOG(THREAD, LOG_SYSCALLS, 1, "syscall: NtCreateUserProcess => "PIFX"\n", mc->xax);
+    LOG(THREAD, LOG_SYSCALLS, 1, "syscall: NtCreateUserProcess => " PIFX "\n", mc->xax);
     DOLOG(1, LOG_SYSCALLS, {
         if (success) {
             PCLIENT_ID client_id;
@@ -2992,89 +3211,111 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
              * but is only for debug logging */
             client_id = (PCLIENT_ID)thread_stuff->client_id.buffer;
             LOG(THREAD, LOG_SYSCALLS, 1,
-                "syscall: NtCreateUserProcess created process "PIFX" "
-                "with main thread "PIFX"\n",
+                "syscall: NtCreateUserProcess created process " PIFX " "
+                "with main thread " PIFX "\n",
                 client_id->UniqueProcess, client_id->UniqueThread);
         }
     });
 
     /* Even though syscall succeeded we use safe_read to be sure */
-    if (success &&
-        safe_read(proc_handle_ptr, sizeof(proc_handle), &proc_handle) &&
-        safe_read(thread_handle_ptr, sizeof(thread_handle), &thread_handle)) {
-        ACCESS_MASK rights = nt_get_handle_access_rights(proc_handle);
+    if (!success || !d_r_safe_read(proc_handle_ptr, sizeof(proc_handle), &proc_handle) ||
+        !d_r_safe_read(thread_handle_ptr, sizeof(thread_handle), &thread_handle))
+        return;
 
-        if (TESTALL(PROCESS_VM_OPERATION|PROCESS_VM_READ|
-                    PROCESS_VM_WRITE|PROCESS_QUERY_INFORMATION, rights)) {
-            if (create_suspended) {
-                char buf[MAX_CONTEXT_SIZE];
-                CONTEXT *context;
-                CONTEXT *cxt = NULL;
-                int res;
-                /* Since this syscall is vista+ only, whether a wow64 process
-                 * has no bearing (xref i#381)
-                 */
-                ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
-                if (!DYNAMO_OPTION(early_inject)) {
-                    /* If no early injection we have to do thread injection, and
-                     * on Vista+ we don't see the
-                     * NtCreateThread so we do it here.  PR 215423.
-                     */
-                    context = nt_initialize_context(buf, CONTEXT_DR_STATE);
-                    res = nt_get_context(thread_handle, context);
-                    if (NT_SUCCESS(res))
-                        cxt = context;
-                    else {
-                        /* FIXME i#49: cross-arch injection can end up here w/
-                         * STATUS_INVALID_PARAMETER.  Need to use proper platform's
-                         * CONTEXT for target.
-                         */
-                        DODEBUG({
-                            if (is_wow64_process(NT_CURRENT_PROCESS) &&
-                                !is_wow64_process(proc_handle)) {
-                                SYSLOG_INTERNAL_WARNING_ONCE
-                                    ("Injecting from 32-bit into 64-bit process is not "
-                                     "yet supported.");
-                            }
-                        });
-                        LOG(THREAD, LOG_SYSCALLS, 1,
-                            "syscall: NtCreateUserProcess: WARNING: failed to get cxt of "
-                            "thread ("PIFX") so can't follow children on WOW64.\n", res);
-                    }
-                }
-                if ((cxt != NULL || DYNAMO_OPTION(early_inject)) &&
-                    maybe_inject_into_process(dcontext, proc_handle, cxt) &&
-                    cxt != NULL) {
-                    /* injection routine is assuming doesn't have to install cxt */
-                    res = nt_set_context(thread_handle, cxt);
-                    if (!NT_SUCCESS(res)) {
-                        LOG(THREAD, LOG_SYSCALLS, 1,
-                            "syscall: NtCreateUserProcess: WARNING: failed to set cxt of "
-                            "thread ("PIFX") so can't follow children on WOW64.\n", res);
-                    }
-                }
-            } else {
-                LOG(THREAD, LOG_SYSCALLS, 1,
-                    "syscall: NtCreateUserProcess first thread not suspended "
-                    "can't safely follow children.\n");
-                ASSERT_NOT_IMPLEMENTED(create_suspended);
-                /* FIXME - NYI - should change in pre and resume the thread
-                 * after we inject. */
-            }
-        } else {
-            LOG(THREAD, LOG_SYSCALLS, 1,
-                "syscall: NtCreateUserProcess unable to get sufficient rights"
-                " to follow children\n");
-            /* This happens for Vista protected processes (drm). xref 8485 */
-            /* FIXME - could check against executable file name from
-             * thread_stuff to see if this was a process we're configured to
-             * protect. */
-            SYSLOG_INTERNAL_WARNING("Insufficient permissions to examine "
-                                    "child process\n");
-        }
-        /* Case 9173: guard against pid reuse */
-        dcontext->aslr_context.last_child_padded = 0;
+    /* Case 9173: guard against pid reuse */
+    dcontext->aslr_context.last_child_padded = 0;
+
+    ACCESS_MASK rights = nt_get_handle_access_rights(proc_handle);
+    if (!TESTALL(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE |
+                     PROCESS_QUERY_INFORMATION,
+                 rights)) {
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "syscall: NtCreateUserProcess unable to get sufficient rights"
+            " to follow children\n");
+        /* This happens for Vista protected processes (drm). xref 8485 */
+        /* FIXME - could check against executable file name from
+         * thread_stuff to see if this was a process we're configured to
+         * protect. */
+        /* XXX: Should we make this a fatal release build error? */
+        SYSLOG_INTERNAL_WARNING("Insufficient permissions to examine "
+                                "child process\n");
     }
+    if (!create_suspended) {
+        /* For Vista+ NtCreateUserProcess has suspend as a
+         * param and ideally we should replace the env pre-NtCreateUserProcess,
+         * but we have yet to get that to work, so for now we rely on
+         * Vista+ process creation going through the kernel32 routines,
+         * which do hardcode the thread as being suspended.
+         * TODO: We should change the parameter to ensure the thread is suspended.
+         */
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "syscall: NtCreateUserProcess first thread not suspended "
+            "can't safely follow children.\n");
+        REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "Child thread not created suspended");
+    }
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *context;
+    CONTEXT *cxt = NULL;
+    int res;
+    /* Since this syscall is vista+ only, whether a wow64 process
+     * has no bearing (xref i#381)
+     */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
+    if (!DYNAMO_OPTION(early_inject)) {
+        /* If no early injection we have to do thread injection, and
+         * on Vista+ we don't see the NtCreateThread so we do it here.  PR 215423.
+         */
+        context = nt_initialize_context(buf, bufsz, cxt_flags);
+        res = nt_get_context(thread_handle, context);
+        if (NT_SUCCESS(res))
+            cxt = context;
+        else {
+            /* FIXME i#49: cross-arch injection can end up here w/
+             * STATUS_INVALID_PARAMETER.  Need to use proper platform's
+             * CONTEXT for target.
+             */
+            DODEBUG({
+                if (is_wow64_process(NT_CURRENT_PROCESS) &&
+                    !is_wow64_process(proc_handle)) {
+                    SYSLOG_INTERNAL_WARNING_ONCE(
+                        "Injecting from 32-bit into 64-bit "
+                        "is not supported for -no_early_inject.");
+                }
+            });
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "syscall: NtCreateUserProcess: WARNING: failed to get cxt of "
+                "thread (" PIFX ") so can't follow children on WOW64.\n",
+                res);
+            REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Failed to get context of child thread");
+        }
+    }
+    ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject)); /* Else, exited above. */
+    /* Do the actual injection. */
+    if (!maybe_inject_into_process(dcontext, proc_handle, thread_handle, cxt)) {
+        heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+        return;
+    }
+    propagate_options_via_env_vars(dcontext, proc_handle, thread_handle);
+    if (cxt != NULL) {
+        /* injection routine is assuming doesn't have to install cxt */
+        res = nt_set_context(thread_handle, cxt);
+        if (!NT_SUCCESS(res)) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "syscall: NtCreateUserProcess: WARNING: failed to set cxt of "
+                "thread (" PIFX ") so can't follow children on WOW64.\n",
+                res);
+            REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
+                                        get_application_pid(),
+                                        "Failed to set context of child thread");
+        }
+    }
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 /* NtGetContextThread */
@@ -3082,26 +3323,29 @@ static void
 postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-    CONTEXT *cxt = (CONTEXT *) postsys_param(dcontext, param_base, 1);
+    HANDLE thread_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
+    CONTEXT *cxt = (CONTEXT *)postsys_param(dcontext, param_base, 1);
     thread_record_t *trec;
     thread_id_t tid = thread_handle_to_tid(thread_handle);
-    char buf[MAX_CONTEXT_SIZE];
     CONTEXT *alt_cxt;
     CONTEXT *xlate_cxt;
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
-        "syscall: NtGetContextThread handle="PFX" (tid=%d) flags=0x%x"
-        " cxt->Xip="PFX" => "PIFX"\n",
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
+        "syscall: NtGetContextThread handle=" PFX " (tid=%d) flags=0x%x"
+        " cxt->Xip=" PFX " => " PIFX "\n",
         thread_handle, tid, cxt->ContextFlags, cxt->CXT_XIP, mc->xax);
     if (!success)
         return;
+
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
 
     /* FIXME : we are going to read/write the context argument which is
      * potentially unsafe, since success it must have been readable when
      * at the os call, but there could always be multi-thread races */
 
     /* so trec remains valid, we are !could_be_linking */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     trec = thread_lookup(tid);
     if (trec == NULL) {
         /* this can occur if the target thread hasn't been scheduled yet
@@ -3113,16 +3357,16 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             process_id_t pid = thread_handle_to_pid(thread_handle, tid);
             if (!is_pid_me(pid)) {
                 IPC_ALERT("Warning: NtGetContextThread called on thread "
-                          "tid="PFX" in different process, pid="PFX,
+                          "tid=" PFX " in different process, pid=" PFX,
                           tid, pid);
             } else {
                 SYSLOG_INTERNAL_WARNING_ONCE("Warning: NtGetContextThread "
-                                             "called on unknown thread "
-                                             PFX, tid);
+                                             "called on unknown thread " PFX,
+                                             tid);
             }
         });
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
-            "NtGetContextThread on unknown thread "TIDFMT"\n", tid);
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
+            "NtGetContextThread on unknown thread " TIDFMT "\n", tid);
     } else {
         /* FIXME : the following routine (and the routines it calls
          * namely recreate_app_state) require that trec thread be
@@ -3133,29 +3377,31 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         bool translate = true;
         xlate_cxt = cxt;
         if (!TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags)) {
-            LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
+            LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
                 "NtGetContextThread: app didn't ask for enough, querying ourselves\n");
             STATS_INC(num_app_getcontext_no_control);
             /* we need esp and eip, plus all regs + xmm, to translate the machine state.
              * no further permissions are needed to acquire them so we
              * get our own context w/ them.
              */
-            alt_cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+            alt_cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             /* if asking for own context, thread_get_context() will point at
              * dynamorio_syscall_* and we'll fail to translate so we special-case
              */
-            if (tid == get_thread_id()) {
+            if (tid == d_r_get_thread_id()) {
                 /* only fields that DR might change are propagated to cxt below,
                  * so set set_cur_seg to false.
                  */
                 mcontext_to_context(alt_cxt, mc, false /* !set_cur_seg */);
-                alt_cxt->CXT_XIP = (ptr_uint_t) dcontext->asynch_target;
+                alt_cxt->CXT_XIP = (ptr_uint_t)dcontext->asynch_target;
                 translate = false;
             } else if (!thread_get_context(trec, alt_cxt)) {
                 ASSERT_NOT_REACHED();
                 /* FIXME: just don't translate -- right now won't hurt us since
                  * we don't translate other than the pc anyway.
                  */
+                d_r_mutex_unlock(&thread_initexit_lock);
+                heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                 return;
             }
             xlate_cxt = alt_cxt;
@@ -3167,7 +3413,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
          * this thread could read the target thread's memory at any time anyway.
          */
         if (translate &&
-            !translate_context(trec, xlate_cxt, false/*leave memory alone*/)) {
+            !translate_context(trec, xlate_cxt, false /*leave memory alone*/)) {
             /* FIXME: can get here native if GetThreadContext on
              * an un-suspended thread, but then API says result is
              * undefined so just pass anything reasonable
@@ -3176,12 +3422,12 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
              */
             SYSLOG_INTERNAL_WARNING("NtGetContextThread called for thread not in "
                                     "translatable spot");
-            LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
+            LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
                 "ERROR: NtGetContextThread called for thread not in translatable spot\n");
         } else if (xlate_cxt != cxt) {
             /* copy the fields we may have changed that app requested */
             ASSERT(!TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
-            if (TESTALL(CONTEXT_CONTROL/*2 bits so ALL*/, cxt->ContextFlags)) {
+            if (TESTALL(CONTEXT_CONTROL /*2 bits so ALL*/, cxt->ContextFlags)) {
                 cxt->CXT_XIP = xlate_cxt->CXT_XIP;
                 cxt->CXT_XFLAGS = xlate_cxt->CXT_XFLAGS;
                 cxt->CXT_XSP = xlate_cxt->CXT_XSP;
@@ -3189,7 +3435,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 cxt->CXT_XBP = xlate_cxt->CXT_XBP;
 #endif
             }
-            if (TESTALL(CONTEXT_INTEGER/*2 bits so ALL*/, cxt->ContextFlags)) {
+            if (TESTALL(CONTEXT_INTEGER /*2 bits so ALL*/, cxt->ContextFlags)) {
                 cxt->CXT_XAX = xlate_cxt->CXT_XAX;
                 cxt->CXT_XBX = xlate_cxt->CXT_XBX;
                 cxt->CXT_XCX = xlate_cxt->CXT_XCX;
@@ -3198,8 +3444,8 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 cxt->CXT_XDI = xlate_cxt->CXT_XDI;
 #ifdef X64
                 cxt->CXT_XBP = xlate_cxt->CXT_XBP;
-                cxt->R8  = xlate_cxt->R8;
-                cxt->R9  = xlate_cxt->R9;
+                cxt->R8 = xlate_cxt->R8;
+                cxt->R9 = xlate_cxt->R9;
                 cxt->R10 = xlate_cxt->R10;
                 cxt->R11 = xlate_cxt->R11;
                 cxt->R12 = xlate_cxt->R12;
@@ -3211,18 +3457,21 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             if (TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
                 /* PR 264138 */
-                memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0), XMM_SAVED_SIZE);
+                memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0),
+                       MCXT_TOTAL_SIMD_SLOTS_SIZE);
             }
             if (TESTALL(CONTEXT_YMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
                 byte *ymmh_area = context_ymmh_saved_area(cxt);
                 ASSERT(ymmh_area != NULL);
-                memcpy(ymmh_area, context_ymmh_saved_area(xlate_cxt), YMMH_SAVED_SIZE);
+                memcpy(ymmh_area, context_ymmh_saved_area(xlate_cxt),
+                       MCXT_YMMH_SLOTS_SIZE);
             }
         }
         SELF_PROTECT_LOCAL(trec->dcontext, READONLY);
     }
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 /* NtSuspendThread */
@@ -3230,13 +3479,13 @@ static void
 postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE thread_handle= (HANDLE) postsys_param(dcontext, param_base, 0);
+    HANDLE thread_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
     /* ignoring 2nd argument (OUT PULONG PreviousSuspendCount OPTIONAL) */
     thread_id_t tid = thread_handle_to_tid(thread_handle);
     process_id_t pid;
 
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
-        "syscall: NtSuspendThread tid=%d => "PIFX"\n", tid, mc->xax);
+    LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
+        "syscall: NtSuspendThread tid=%d => " PIFX "\n", tid, mc->xax);
     if (SELF_PROTECT_ON_CXT_SWITCH) {
         /* No matter what, restore ignore to default value */
         dcontext->ignore_enterexit = false;
@@ -3244,28 +3493,32 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     /* if we suspended ourselves then skip synchronization,
      * already resumed, FIXME : what if someone else resumes the thread
      * while we are trying to synch with it */
-    if (!success || tid == get_thread_id())
+    if (!success || tid == d_r_get_thread_id())
         return;
 
     pid = thread_handle_to_pid(thread_handle, tid);
     if (!is_pid_me(pid)) {
         /* (FIXME : IPC) */
         IPC_ALERT("Warning: SuspendThread called on thread in "
-                  "different process, pid="PFX, pid);
+                  "different process, pid=" PFX,
+                  pid);
         return;
     }
 
     /* as optimization check if at good spot already before resuming for
      * synch, use trylocks in case suspended thread is holding any locks */
-    if (mutex_trylock(&thread_initexit_lock)) {
+    if (d_r_mutex_trylock(&thread_initexit_lock)) {
         if (!mutex_testlock(&all_threads_lock)) {
-            char buf[MAX_CONTEXT_SIZE];
-            CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+            DWORD cxt_flags = CONTEXT_DR_STATE;
+            size_t bufsz = nt_get_context_size(cxt_flags);
+            char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
+            CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             thread_record_t *tr;
             /* know thread isn't holding any of the locks we will need */
             LOG(THREAD, LOG_SYNCH, 2,
-                "SuspendThread got necessary locks to test if thread "TIDFMT
-                " suspended at good spot without resuming\n", tid);
+                "SuspendThread got necessary locks to test if thread " TIDFMT
+                " suspended at good spot without resuming\n",
+                tid);
             tr = thread_lookup(tid);
             if (tr == NULL) {
                 /* Could be unknown thread, a thread just starting up or
@@ -3273,35 +3526,36 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                  * synch_with_thread will take care of the last case at
                  * least so we fall through to that. */
             } else if (thread_get_context(tr, cxt)) {
-                priv_mcontext_t mc;
-                context_to_mcontext(&mc, cxt);
+                priv_mcontext_t mc_thread;
+                context_to_mcontext(&mc_thread, cxt);
                 SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);
-                if (at_safe_spot(tr, &mc,
-                                 THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT)) {
+                if (at_safe_spot(tr, &mc_thread, THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT)) {
                     /* suspended at good spot, skip synch */
-                    mutex_unlock(&thread_initexit_lock);
+                    d_r_mutex_unlock(&thread_initexit_lock);
                     LOG(THREAD, LOG_SYNCH, 2,
-                        "SuspendThread suspended thread "TIDFMT" at good place\n",
-                        tid);
+                        "SuspendThread suspended thread " TIDFMT " at good place\n", tid);
                     SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
+                    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                     return;
                 }
                 SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
             }
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
         } else {
             LOG(THREAD, LOG_SYNCH, 2,
-                "SuspendThread couldn't get all_threads_lock to test if thread "
-                TIDFMT" at good spot without resuming\n", tid);
+                "SuspendThread couldn't get all_threads_lock to test if thread " TIDFMT
+                " at good spot without resuming\n",
+                tid);
         }
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
     } else {
         LOG(THREAD, LOG_SYNCH, 2,
-            "SuspendThread couldn't get thread_initexit_lock to test if thread "
-            TIDFMT" at good spot without resuming\n", tid);
+            "SuspendThread couldn't get thread_initexit_lock to test if thread " TIDFMT
+            " at good spot without resuming\n",
+            tid);
     }
     LOG(THREAD, LOG_SYNCH, 2,
-        "SuspendThread resuming suspended thread "TIDFMT" for synch routine\n",
-        tid);
+        "SuspendThread resuming suspended thread " TIDFMT " for synch routine\n", tid);
 
     /* resume for synch */
     nt_thread_resume(thread_handle, NULL);
@@ -3316,16 +3570,15 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         /* we hold the initexit lock for case 9489, see comment below in failure
          * to synch path for details why */
         if (DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend))
-            mutex_lock(&thread_initexit_lock);
-        synch_res =
-            synch_with_thread(tid, true /* block */,
-                              /* initexit lock status */
-                              DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend),
-                              THREAD_SYNCH_VALID_MCONTEXT,
-                              THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT,
-                              /* if we fail to suspend a thread (e.g., privilege
-                               * problems) ignore it. FIXME: retry instead? */
-                              THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+            d_r_mutex_lock(&thread_initexit_lock);
+        synch_res = synch_with_thread(
+            tid, true /* block */,
+            /* initexit lock status */
+            DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend),
+            THREAD_SYNCH_VALID_MCONTEXT, THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT,
+            /* if we fail to suspend a thread (e.g., privilege
+             * problems) ignore it. FIXME: retry instead? */
+            THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         if (synch_res != THREAD_SYNCH_RESULT_SUCCESS) {
             /* xref case 9488 - we failed to synch, could be we exceeded our loop count
              * for some reason, we lack GetContext permission (or the apps handle has
@@ -3354,12 +3607,12 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                                   "app suspending unknown thread");
             if (DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend)) {
                 /* thread may already be exited in which case this will fail */
-                DEBUG_DECLARE(bool res = )nt_thread_suspend(thread_handle, NULL);
+                DEBUG_DECLARE(bool res =) nt_thread_suspend(thread_handle, NULL);
                 ASSERT(res || is_thread_exited(thread_handle) == THREAD_EXITED);
             }
         }
         if (DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend))
-            mutex_unlock(&thread_initexit_lock);
+            d_r_mutex_unlock(&thread_initexit_lock);
 
         /* FIXME - if the thread exited we should prob. change the return value to
          * the app to a failure value. Only an assert_curiosity for now to see if any
@@ -3371,22 +3624,21 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* NtQueryInformationThread */
 static void
 postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
-    THREADINFOCLASS class = (THREADINFOCLASS) postsys_param(dcontext, param_base, 1);
+    THREADINFOCLASS class = (THREADINFOCLASS)postsys_param(dcontext, param_base, 1);
     if (success && class == ThreadAmILastThread) {
-        HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+        HANDLE thread_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         thread_id_t tid = thread_handle_to_tid(thread_handle);
         process_id_t pid = thread_handle_to_pid(thread_handle, tid);
-        if (pid != POINTER_MAX && is_pid_me(pid) &&
-            get_num_client_threads() > 0 && is_last_app_thread()) {
-            PVOID info = (PVOID) postsys_param(dcontext, param_base, 2);
-            ULONG info_sz = (ULONG) postsys_param(dcontext, param_base, 3);
+        if (pid != POINTER_MAX && is_pid_me(pid) && get_num_client_threads() > 0 &&
+            is_last_app_thread()) {
+            PVOID info = (PVOID)postsys_param(dcontext, param_base, 2);
+            ULONG info_sz = (ULONG)postsys_param(dcontext, param_base, 3);
             BOOL pretend_val = TRUE;
-            LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+            LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
                 "syscall: NtQueryInformationThread ThreadAmILastThread fooling\n");
             ASSERT_CURIOSITY(info_sz == sizeof(BOOL));
             if (info_sz == sizeof(BOOL))
@@ -3394,18 +3646,17 @@ postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool suc
         }
     }
 }
-#endif
 
 /* NtOpenThread */
 static void
 postsys_OpenThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     if (success) {
-        HANDLE *handle = (HANDLE*) postsys_param(dcontext, param_base, 0);
-        CLIENT_ID *cid = (CLIENT_ID *) postsys_param(dcontext, param_base, 3);
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
-            "syscall: NtOpenThread "PFX"=>"PFX" "PFX"=>"TIDFMT"\n",
-            handle, *handle, cid, cid->UniqueThread);
+        HANDLE *handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
+        CLIENT_ID *cid = (CLIENT_ID *)postsys_param(dcontext, param_base, 3);
+        LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
+            "syscall: NtOpenThread " PFX "=>" PFX " " PFX "=>" TIDFMT "\n", handle,
+            *handle, cid, cid->UniqueThread);
         handle_to_tid_add(*handle, (thread_id_t)cid->UniqueThread);
     }
 }
@@ -3416,7 +3667,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
                               int sysnum)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+    HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
     /* XXX i#899: for NtWow64AllocateVirtualMemory64, the base and
      * size may be 64-bit values?  But, when allocating in wow64
      * child, the address should be in low 2GB, as only ntdll64 is up
@@ -3424,16 +3675,16 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
      * to the high bits of the base addr, like NtWow64ReadVirtualMemory64(),
      * but that doesn't seem to be the case.
      */
-    void **pbase = (void **) postsys_param(dcontext, param_base, 1);
-    uint zerobits = (uint) postsys_param(dcontext, param_base, 2);
+    void **pbase = (void **)postsys_param(dcontext, param_base, 1);
+    uint zerobits = (uint)postsys_param(dcontext, param_base, 2);
     /* XXX i#899: NtWow64AllocateVirtualMemory64 has an extra arg after ZeroBits but
      * it's ignored in wow64!whNtWow64AllocateVirtualMemory64.  We should keep an eye
      * out: maybe a future service pack or win9 will use it.
      */
     int arg_shift = (sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64] ? 1 : 0);
-    size_t *psize = (size_t *) postsys_param(dcontext, param_base, 3 + arg_shift);
-    uint type = (uint) postsys_param(dcontext, param_base, 4 + arg_shift);
-    uint prot = (uint) postsys_param(dcontext, param_base, 5 + arg_shift);
+    size_t *psize = (size_t *)postsys_param(dcontext, param_base, 3 + arg_shift);
+    uint type = (uint)postsys_param(dcontext, param_base, 4 + arg_shift);
+    uint prot = (uint)postsys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
     size_t size;
     if (!success) {
@@ -3442,27 +3693,27 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
          */
         return;
     }
-    if (!safe_read(pbase, sizeof(base), &base) ||
-        !safe_read(psize, sizeof(size), &size)) {
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-            "syscall: NtAllocateVirtualMemory: failed to read params "PFX" "PFX"\n",
+    if (!d_r_safe_read(pbase, sizeof(base), &base) ||
+        !d_r_safe_read(psize, sizeof(size), &size)) {
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "syscall: NtAllocateVirtualMemory: failed to read params " PFX " " PFX "\n",
             pbase, psize);
         return;
     }
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, prot_is_executable(prot) ? 1U : 2U,
-        "syscall: NtAllocateVirtualMemory%s%s%s@"PFX" sz="PIFX" prot=%s 0x%x => 0x%x\n",
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, prot_is_executable(prot) ? 1U : 2U,
+        "syscall: NtAllocateVirtualMemory%s%s%s@" PFX " sz=" PIFX
+        " prot=%s 0x%x => 0x%x\n",
         is_phandle_me(process_handle) ? "" : " IPC",
         TEST(MEM_RESERVE, type) ? " reserve" : "",
-        TEST(MEM_COMMIT, type) ?  " commit  " : " ",
-        base, size, prot_string(prot), prot, mc->xax);
+        TEST(MEM_COMMIT, type) ? " commit  " : " ", base, size, prot_string(prot), prot,
+        mc->xax);
     DOLOG(1, LOG_MEMSTATS, {
         /* snapshots are heavyweight, so do rarely */
         if (size > SNAPSHOT_THRESHOLD && is_phandle_me(process_handle))
             mem_stats_snapshot();
     });
 
-    if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)) &&
-        is_phandle_me(process_handle)) {
+    if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)) && is_phandle_me(process_handle)) {
         /* We allocate our padding after the application region is
          * successfully reserved.  FIXME: assuming that one cannot
          * pass MEM_RESERVE|MEM_COMMIT on an already reserved
@@ -3493,23 +3744,24 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
          * cannot be changed without writing to it!
          * the subsequent commit to the already committed region will work fine.
          */
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2, "not committing, so ignorable\n");
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2, "not committing, so ignorable\n");
         return;
     }
     if (is_phandle_me(process_handle)) {
 #ifdef DGC_DIAGNOSTICS
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, TEST(MEM_COMMIT, type) ? 1U : 2U,
-            "syscall: NtAllocateVirtualMemory%s%s@"PFX" sz="PIFX" prot=%s 0x%x => 0x%x\n",
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, TEST(MEM_COMMIT, type) ? 1U : 2U,
+            "syscall: NtAllocateVirtualMemory%s%s@" PFX " sz=" PIFX
+            " prot=%s 0x%x => 0x%x\n",
             TEST(MEM_RESERVE, type) ? " reserve" : "",
-            TEST(MEM_COMMIT, type) ?  " commit  " : " ",
-            base, size, prot_string(prot), prot, mc->xax);
+            TEST(MEM_COMMIT, type) ? " commit  " : " ", base, size, prot_string(prot),
+            prot, mc->xax);
         DOLOG(1, LOG_VMAREAS, {
-            dump_callstack(POST_SYSCALL_PC(dcontext),
-                           (app_pc) mc->xbp, THREAD, DUMP_NOT_XML);
+            dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc)mc->xbp, THREAD,
+                           DUMP_NOT_XML);
         });
 #endif
         app_memory_allocation(dcontext, base, size, osprot_to_memprot(prot),
-                              false/*not image*/
+                              false /*not image*/
                               _IF_DEBUG("NtAllocateVirtualMemory"));
 #ifdef DGC_DIAGNOSTICS
         DOLOG(3, LOG_VMAREAS, {
@@ -3523,13 +3775,12 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
                 IF_X64(ASSERT_NOT_IMPLEMENTED(false));
                 if (size == 0x2000 && ((ptr_uint_t)base & 0xf0000000) == 0x00000000 &&
                     prot == PAGE_READWRITE) {
-                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                        "Guessing "PFX"-"PFX" is thread stack\n",
-                        base, base+size);
+                    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                        "Guessing " PFX "-" PFX " is thread stack\n", base, base + size);
                 } else {
-                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                        "Making "PFX"-"PFX" 0x%x unwritable\n",
-                        base, base+size, prot);
+                    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                        "Making " PFX "-" PFX " 0x%x unwritable\n", base, base + size,
+                        prot);
                     make_unwritable(base, size);
                 }
             }
@@ -3538,12 +3789,12 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
     } else {
         /* FIXME: should we try to alert any dynamo running the other process?
          */
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "WARNING: NtAllocateVirtualMemory for process "PFX" %d\n",
-            process_handle, process_id_from_handle(process_handle));
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+            "WARNING: NtAllocateVirtualMemory for process " PFX " %d\n", process_handle,
+            process_id_from_handle(process_handle));
         DODEBUG({
             if (prot_is_executable(prot)) {
-                IPC_ALERT("NtAllocateVirtualMemory for process "PFX" %d prot=%s",
+                IPC_ALERT("NtAllocateVirtualMemory for process " PFX " %d prot=%s",
                           process_handle, process_id_from_handle(process_handle),
                           prot_string(prot));
             }
@@ -3558,6 +3809,16 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
     }
 }
 
+/* NtAllocateVirtualMemoryEx */
+static void
+postsys_AllocateVirtualMemoryEx(dcontext_t *dcontext, reg_t *param_base, bool success)
+{
+    /*
+        FIXME i#3090: The parameters for NtAllocateVirtualMemoryEx are undocumented.
+    */
+    ASSERT_CURIOSITY("unimplemented post handler for NtAllocateVirtualMemoryEx");
+}
+
 /* NtQueryVirtualMemory */
 static void
 postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success)
@@ -3566,15 +3827,15 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
      * that we mark as read-only
      */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-    app_pc base = (app_pc) postsys_param(dcontext, param_base, 1);
-    uint class = (uint) postsys_param(dcontext, param_base, 2);
+    HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
+    app_pc base = (app_pc)postsys_param(dcontext, param_base, 1);
+    uint class = (uint)postsys_param(dcontext, param_base, 2);
     MEMORY_BASIC_INFORMATION *mbi =
-        (MEMORY_BASIC_INFORMATION *) postsys_param(dcontext, param_base, 3);
-    size_t infolen = (size_t) postsys_param(dcontext, param_base, 4);
-    size_t *returnlen = (size_t *) postsys_param(dcontext, param_base, 5);
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
-        "syscall: NtQueryVirtualMemory base="PFX" => "PIFX"\n", base, mc->xax);
+        (MEMORY_BASIC_INFORMATION *)postsys_param(dcontext, param_base, 3);
+    size_t infolen = (size_t)postsys_param(dcontext, param_base, 4);
+    size_t *returnlen = (size_t *)postsys_param(dcontext, param_base, 5);
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
+        "syscall: NtQueryVirtualMemory base=" PFX " => " PIFX "\n", base, mc->xax);
     if (!success)
         return;
     /* FIXME : since success we assume that all argument dereferences are
@@ -3584,9 +3845,8 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
             /* see if asking about an executable area we made read-only */
             if (is_pretend_or_executable_writable(base)) {
                 /* pretend area is writable */
-                uint flags =
-                    mbi->Protect & ~PAGE_PROTECTION_QUALIFIERS;
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                uint flags = mbi->Protect & ~PAGE_PROTECTION_QUALIFIERS;
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
                     "WARNING: Query to now-readonly executable area, pretending "
                     "writable\n");
                 if (flags == PAGE_READONLY) {
@@ -3596,20 +3856,21 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                     mbi->Protect &= ~PAGE_EXECUTE_READ;
                     mbi->Protect |= PAGE_EXECUTE_READWRITE;
                 } else {
-                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
+                    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
                         "ERROR: Query to now-readonly executable area w/ bad flags %s\n",
                         prot_string(mbi->Protect));
                     SYSLOG_INTERNAL_INFO("ERROR: Query to now-readonly executable area "
                                          "w/ bad flags");
                 }
             } else if (is_dynamo_address(base)) {
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                    "WARNING: QueryVM to DR memory "PFX"\n", base);
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                    "WARNING: QueryVM to DR memory " PFX "\n", base);
                 if (base == dynamo_dll_start && mbi != NULL &&
                     DYNAMO_OPTION(hide_from_query) != 0) {
                     /* pretend area is un-allocated */
-                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                        "WARNING: QueryVM to DR DLL "PFX", pretending not a dll\n", base);
+                    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                        "WARNING: QueryVM to DR DLL " PFX ", pretending not a dll\n",
+                        base);
                     if (TEST(HIDE_FROM_QUERY_TYPE_PROTECT,
                              DYNAMO_OPTION(hide_from_query))) {
                         mbi->Type = MEM_PRIVATE; /* not image! */
@@ -3620,12 +3881,9 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                      * FIXME: app could still use a snapshot to get list
                      * of modules, but that is covered by -hide
                      */
-                    if (TEST(HIDE_FROM_QUERY_BASE_SIZE,
-                             DYNAMO_OPTION(hide_from_query))) {
-                        mbi->AllocationBase = ((app_pc)mbi->AllocationBase)
-                            + PAGE_SIZE;
-                        mbi->BaseAddress = ((app_pc)mbi->BaseAddress)
-                            + PAGE_SIZE;
+                    if (TEST(HIDE_FROM_QUERY_BASE_SIZE, DYNAMO_OPTION(hide_from_query))) {
+                        mbi->AllocationBase = ((app_pc)mbi->AllocationBase) + PAGE_SIZE;
+                        mbi->BaseAddress = ((app_pc)mbi->BaseAddress) + PAGE_SIZE;
                         /* skip over the other regions in our dll -- ok to
                          * be PAGE_SIZE off, better to be beyond than
                          * return too small and have caller incrementing
@@ -3659,13 +3917,12 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
 }
 
 static void
-postsys_create_or_open_section(dcontext_t *dcontext,
-                               HANDLE *unsafe_section_handle, HANDLE file_handle,
-                               bool non_image)
+postsys_create_or_open_section(dcontext_t *dcontext, HANDLE *unsafe_section_handle,
+                               HANDLE file_handle, bool non_image)
 {
     HANDLE section_handle = INVALID_HANDLE_VALUE;
     if (DYNAMO_OPTION(track_module_filenames) &&
-        safe_read(unsafe_section_handle, sizeof(section_handle), &section_handle)) {
+        d_r_safe_read(unsafe_section_handle, sizeof(section_handle), &section_handle)) {
         /* Case 1272: keep file name around to use for module identification */
         FILE_NAME_INFORMATION name_info; /* note: large struct */
         wchar_t buf[MAXIMUM_PATH];
@@ -3690,20 +3947,20 @@ postsys_create_or_open_section(dcontext_t *dcontext,
                  */
                 size_t size = 0;
                 byte *pc = os_map_file(file_handle, &size, 0, NULL, MEMPROT_READ,
-                                       0/*not cow or image*/);
+                                       0 /*not cow or image*/);
                 if (pc == NULL) {
                     /* We don't know what perms the file was opened with.  Sometimes
                      * we can only map +x so try that.
                      */
                     pc = os_map_file(file_handle, &size, 0, NULL, MEMPROT_EXEC,
-                                     0/*not cow or image*/);
+                                     0 /*not cow or image*/);
                 }
                 if (pc != NULL) {
                     NTSTATUS res = get_mapped_file_name(pc, buf, BUFFER_SIZE_BYTES(buf));
                     if (NT_SUCCESS(res)) {
-                        have_name = convert_NT_to_Dos_path
-                            (name_info.FileName, buf,
-                             BUFFER_SIZE_ELEMENTS(name_info.FileName));
+                        have_name = convert_NT_to_Dos_path(
+                            name_info.FileName, buf,
+                            BUFFER_SIZE_ELEMENTS(name_info.FileName));
                     }
                     os_unmap_file(pc, size);
                 }
@@ -3721,7 +3978,7 @@ postsys_create_or_open_section(dcontext_t *dcontext,
                         SYSLOG_INTERNAL_WARNING_ONCE("unknown mapfile Dos name");
                     }
                 });
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
                     "\t%s: pre-map, unable to convert NT to Dos path for \"%S\"\n",
                     __FUNCTION__, fname);
             }
@@ -3737,8 +3994,8 @@ postsys_create_or_open_section(dcontext_t *dcontext,
 #ifdef DEBUG
         dcontext->aslr_context.last_app_section_handle = section_handle;
 #endif
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "\tNt{Create,Open}Section: sec handle "PIFX", file "PFX" => \"%S\"\n",
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+            "\tNt{Create,Open}Section: sec handle " PIFX ", file " PFX " => \"%S\"\n",
             section_handle, file_handle, fname);
     }
 }
@@ -3748,16 +4005,15 @@ static void
 postsys_CreateSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     /* a section is an object that can be mmapped */
-    HANDLE *unsafe_section_handle = (HANDLE*) postsys_param(dcontext, param_base, 0);
-    uint access_mask = (uint) postsys_param(dcontext, param_base, 1);
-    POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES) postsys_param(dcontext, param_base, 2);
-    void *size = (void *) postsys_param(dcontext, param_base, 3);
-    uint protect = (uint) postsys_param(dcontext, param_base, 4);
-    uint attributes = (uint) postsys_param(dcontext, param_base, 5);
-    HANDLE file_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-        "syscall: NtCreateSection protect 0x%x, attributes 0x%x\n",
-        protect, attributes);
+    HANDLE *unsafe_section_handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
+    uint access_mask = (uint)postsys_param(dcontext, param_base, 1);
+    POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES)postsys_param(dcontext, param_base, 2);
+    void *size = (void *)postsys_param(dcontext, param_base, 3);
+    uint protect = (uint)postsys_param(dcontext, param_base, 4);
+    uint attributes = (uint)postsys_param(dcontext, param_base, 5);
+    HANDLE file_handle = (HANDLE)postsys_param(dcontext, param_base, 6);
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+        "syscall: NtCreateSection protect 0x%x, attributes 0x%x\n", protect, attributes);
     if (!success)
         return;
 
@@ -3766,12 +4022,11 @@ postsys_CreateSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 
     if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr))) {
         if (TEST(SEC_IMAGE, attributes)) {
-            if (aslr_post_process_create_or_open_section(dcontext,
-                                                         true, /* create */
+            if (aslr_post_process_create_or_open_section(dcontext, true, /* create */
                                                          file_handle,
                                                          unsafe_section_handle)) {
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                    "syscall: ASLR: NtCreateSection replaced with new section "PIFX"\n",
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                    "syscall: ASLR: NtCreateSection replaced with new section " PIFX "\n",
                     *unsafe_section_handle);
             } else {
                 /* leaving as is */
@@ -3788,20 +4043,19 @@ static void
 postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     /* a section is an object that can be mmapped, here opened by object name */
-    HANDLE *unsafe_section_handle = (HANDLE*) postsys_param(dcontext, param_base, 0);
-    uint access_mask = (uint) postsys_param(dcontext, param_base, 1);
-    POBJECT_ATTRIBUTES obj_attr = (POBJECT_ATTRIBUTES)
-        postsys_param(dcontext, param_base, 2);
+    HANDLE *unsafe_section_handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
+    uint access_mask = (uint)postsys_param(dcontext, param_base, 1);
+    POBJECT_ATTRIBUTES obj_attr =
+        (POBJECT_ATTRIBUTES)postsys_param(dcontext, param_base, 2);
     HANDLE new_file_handle = INVALID_HANDLE_VALUE;
     if (!success) {
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "syscall: NtOpenSection, failed, access 0x%x\n",
-            access_mask);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+            "syscall: NtOpenSection, failed, access 0x%x\n", access_mask);
         return;
     }
 
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-        "syscall: NtOpenSection opened sh "PIFX", access_mask 0x%x, obj_attr "PFX"\n",
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+        "syscall: NtOpenSection opened sh " PIFX ", access_mask 0x%x, obj_attr " PFX "\n",
         *unsafe_section_handle, access_mask, obj_attr);
 
     /* If we only wanted short names for -track_module_filenames,
@@ -3824,29 +4078,28 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
          * based on access_mask, although most users use
          * SECTION_ALL_ACCESS */
         HANDLE root_directory = NULL;
-        bool ok = safe_read(&obj_attr->RootDirectory,
-                            sizeof(root_directory), &root_directory);
-        if (ok && root_directory != NULL &&
-            aslr_is_handle_KnownDlls(root_directory)) {
+        bool ok = d_r_safe_read(&obj_attr->RootDirectory, sizeof(root_directory),
+                                &root_directory);
+        if (ok && root_directory != NULL && aslr_is_handle_KnownDlls(root_directory)) {
 
             if (aslr_recreate_known_dll_file(obj_attr, &new_file_handle)) {
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                    "syscall: NtOpenSection: recreated file handle "PIFX"\n",
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                    "syscall: NtOpenSection: recreated file handle " PIFX "\n",
                     new_file_handle);
             } else {
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
                     "syscall: NtOpenSection: unable to recreate file handle\n");
             }
 
             if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
                 TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
-                if (aslr_post_process_create_or_open_section(dcontext,
-                                                             false, /* open */
+                if (aslr_post_process_create_or_open_section(dcontext, false, /* open */
                                                              /* recreated file */
                                                              new_file_handle,
                                                              unsafe_section_handle)) {
-                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                        "syscall: ASLR: NtOpenSection replaced with new section "PIFX"\n",
+                    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                        "syscall: ASLR: NtOpenSection replaced with new section " PIFX
+                        "\n",
                         *unsafe_section_handle);
                 } else {
                     /* leaving as is */
@@ -3861,8 +4114,8 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
         }
     }
     if (DYNAMO_OPTION(track_module_filenames)) {
-        postsys_create_or_open_section(dcontext, unsafe_section_handle,
-                                       new_file_handle, false/*don't know*/);
+        postsys_create_or_open_section(dcontext, unsafe_section_handle, new_file_handle,
+                                       false /*don't know*/);
     }
     if (new_file_handle != INVALID_HANDLE_VALUE)
         close_handle(new_file_handle);
@@ -3874,18 +4127,18 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     /* This is what actually allocates a dll into memory */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE section_handle;  /* 0 */
-    HANDLE process_handle;  /* 1 */
-    void **pbase_unsafe;    /* 2 */
-    uint zerobits;          /* 3 */
-    size_t commit_size;     /* 4 */
+    HANDLE section_handle;       /* 0 */
+    HANDLE process_handle;       /* 1 */
+    void **pbase_unsafe;         /* 2 */
+    uint zerobits;               /* 3 */
+    size_t commit_size;          /* 4 */
     LARGE_INTEGER *section_offs; /* 5 */
-    size_t *view_size;      /* 6 */
-    uint inherit_disposition; /* 7 */
-    uint type;              /* 8 */
-    uint prot;              /* 9 */
+    size_t *view_size;           /* 6 */
+    uint inherit_disposition;    /* 7 */
+    uint type;                   /* 8 */
+    uint prot;                   /* 9 */
 
-    size_t size;            /* safe dereferenced values */
+    size_t size; /* safe dereferenced values */
     app_pc base;
 
     /* only process if we acted on this call in aslr_pre_process_mapview */
@@ -3903,38 +4156,38 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 
     if (!success) {
-        prot = (uint) postsys_param(dcontext, param_base, 9);
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-            "syscall: failed NtMapViewOfSection prot=%s => "PFX"\n",
-            prot_string(prot), mc->xax);
+        prot = (uint)postsys_param(dcontext, param_base, 9);
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "syscall: failed NtMapViewOfSection prot=%s => " PFX "\n", prot_string(prot),
+            mc->xax);
 
         return;
     }
 
-    section_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-    process_handle = (HANDLE) postsys_param(dcontext, param_base, 1);
-    pbase_unsafe = (void *) postsys_param(dcontext, param_base, 2);
-    zerobits = (uint) postsys_param(dcontext, param_base, 3);
-    commit_size = (size_t) postsys_param(dcontext, param_base, 4);
-    section_offs = (LARGE_INTEGER *) postsys_param(dcontext, param_base, 5);
-    view_size = (size_t *) postsys_param(dcontext, param_base, 6);
-    inherit_disposition = (uint) postsys_param(dcontext, param_base, 7);
-    type = (uint) postsys_param(dcontext, param_base, 8);
-    prot = (uint) postsys_param(dcontext, param_base, 9);
+    section_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
+    process_handle = (HANDLE)postsys_param(dcontext, param_base, 1);
+    pbase_unsafe = (void *)postsys_param(dcontext, param_base, 2);
+    zerobits = (uint)postsys_param(dcontext, param_base, 3);
+    commit_size = (size_t)postsys_param(dcontext, param_base, 4);
+    section_offs = (LARGE_INTEGER *)postsys_param(dcontext, param_base, 5);
+    view_size = (size_t *)postsys_param(dcontext, param_base, 6);
+    inherit_disposition = (uint)postsys_param(dcontext, param_base, 7);
+    type = (uint)postsys_param(dcontext, param_base, 8);
+    prot = (uint)postsys_param(dcontext, param_base, 9);
 
     /* we assume that since syscall succeeded these dereferences are safe
      * FIXME : could always be multi-thread races though */
     size = *view_size; /* ignore commit_size? */
     base = *((app_pc *)pbase_unsafe);
 
-    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-        "syscall: NtMapViewOfSection "PFX" size="PIFX" prot=%s => "PFX"\n",
-        base, size, prot_string(prot), mc->xax);
+    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+        "syscall: NtMapViewOfSection " PFX " size=" PIFX " prot=%s => " PFX "\n", base,
+        size, prot_string(prot), mc->xax);
 
     if (is_phandle_me(process_handle)) {
         /* Check if we are looking for LdrpLoadImportModule address */
         if (dcontext == early_inject_load_helper_dcontext) {
-            check_for_ldrpLoadImportModule(base, (uint *) mc->xbp);
+            check_for_ldrpLoadImportModule(base, (uint *)mc->xbp);
         }
         DOLOG(1, LOG_MEMSTATS, {
             /* snapshots are heavyweight, so do rarely */
@@ -3943,8 +4196,7 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
         });
 #ifdef DGC_DIAGNOSTICS
         DOLOG(1, LOG_VMAREAS, {
-            dump_callstack(POST_SYSCALL_PC(dcontext),
-                           (app_pc) mc->xbp, THREAD,
+            dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc)mc->xbp, THREAD,
                            DUMP_NOT_XML);
         });
 #endif
@@ -3972,9 +4224,10 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                         file = dr_wstrdup(buf HEAPACCT(ACCT_VMAREAS));
                         STATS_INC(map_unknown_Dos_name);
                         SYSLOG_INTERNAL_WARNING_ONCE("unknown mapfile Dos name");
-                        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
                             "\t%s: WARNING: unable to convert NT to Dos path for "
-                            "\"%S\"\n", __FUNCTION__, buf2);
+                            "\"%S\"\n",
+                            __FUNCTION__, buf2);
                     }
                     /* may as well update the table: if already there this is a nop */
                     section_to_file_add(section_handle, file);
@@ -3990,8 +4243,8 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                     unknown = false;
                     DODEBUG(reason = " (pagefile-backed)";);
                 } else {
-                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                        "\tget_mapped_file_name failed error="PFX"\n", res);
+                    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                        "\tget_mapped_file_name failed error=" PFX "\n", res);
                 }
                 if (file == NULL) {
                     file = section_to_file_lookup(section_handle);
@@ -4004,14 +4257,14 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                      * are passed via IPC.
                      */
                     STATS_INC(map_section_mismatch);
-                    SYSLOG_INTERNAL_WARNING_ONCE("unknown mapped section "PIFX,
+                    SYSLOG_INTERNAL_WARNING_ONCE("unknown mapped section " PIFX,
                                                  section_handle);
                 }
             }
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                "\tNtMapViewOfSection: sec handle "PIFX" == file \"%s\"%s\n",
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                "\tNtMapViewOfSection: sec handle " PIFX " == file \"%s\"%s\n",
                 section_handle, file == NULL ? "<null>" : file, reason);
-            process_mmap(dcontext, base, size, true/*map*/, file);
+            process_mmap(dcontext, base, size, true /*map*/, file);
             if (file != NULL)
                 dr_strfree(file HEAPACCT(ACCT_VMAREAS));
         }
@@ -4020,13 +4273,22 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
+/* NtMapViewOfSectionEx */
+static void
+postsys_MapViewOfSectionEx(dcontext_t *dcontext, reg_t *param_base, bool success)
+{
+    /*
+        FIXME i#3090: The parameters for NtMapViewOfSectionEx are undocumented.
+    */
+    ASSERT_CURIOSITY("unimplemented post handler for NtMapViewOfSectionEx");
+}
 
 /* NtUnmapViewOfSection{,Ex} */
 static void
 postsys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     /* This is what actually removes a dll from memory */
-    HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+    HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
 #ifdef DEBUG
     if (dcontext->expect_last_syscall_to_fail) {
         ASSERT(!success);
@@ -4039,9 +4301,8 @@ postsys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success
     /* note that if expected this to fail we wouldn't have really registered,
      * but we don't keep track in release builds
      */
-    if (DYNAMO_OPTION(unloaded_target_exception) &&
-        is_phandle_me(process_handle)) {
-        app_pc base = (app_pc) postsys_param(dcontext, param_base, 1);
+    if (DYNAMO_OPTION(unloaded_target_exception) && is_phandle_me(process_handle)) {
+        app_pc base = (app_pc)postsys_param(dcontext, param_base, 1);
         /* We always mark end of unmap no matter what the original
          * section really was.  FIXME: Note we can't get the real_base
          * of the allocation, unless we keep it in dcontext from
@@ -4060,19 +4321,19 @@ static void
 postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     if (DYNAMO_OPTION(track_module_filenames) && success) {
-        HANDLE src_process = (HANDLE) postsys_param(dcontext, param_base, 0);
-        HANDLE tgt_process = (HANDLE) postsys_param(dcontext, param_base, 2);
+        HANDLE src_process = (HANDLE)postsys_param(dcontext, param_base, 0);
+        HANDLE tgt_process = (HANDLE)postsys_param(dcontext, param_base, 2);
         if (is_phandle_me(src_process) && is_phandle_me(tgt_process)) {
-            HANDLE src = (HANDLE) postsys_param(dcontext, param_base, 1);
-            HANDLE *dst = (HANDLE*) postsys_param(dcontext, param_base, 3);
+            HANDLE src = (HANDLE)postsys_param(dcontext, param_base, 1);
+            HANDLE *dst = (HANDLE *)postsys_param(dcontext, param_base, 3);
             const char *file = section_to_file_lookup(src);
             if (file != NULL) {
                 HANDLE dup;
-                if (safe_read(dst, sizeof(dup), &dup)) {
+                if (d_r_safe_read(dst, sizeof(dup), &dup)) {
                     /* Should already be converted to Dos path */
                     section_to_file_add(dup, file);
-                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                        "syscall: NtDuplicateObject section handle "PFX" => "PFX"\n",
+                    LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
+                        "syscall: NtDuplicateObject section handle " PFX " => " PFX "\n",
                         src, dup);
                 } else /* shouldn't happen: syscall succeeded; must be race */
                     ASSERT_NOT_REACHED();
@@ -4084,7 +4345,6 @@ postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* i#537: sysenter returns to KiFastSystemCallRet from kernel, and returns to DR
  * from there. We restore the correct app return target and re-execute
  * KiFastSystemCallRet to make sure client see the code at KiFastSystemCallRet.
@@ -4095,13 +4355,11 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     reg_t adjust_esp;
     ASSERT(get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
            KiFastSystemCallRet_address != NULL);
-#ifdef CLIENT_INTERFACE
     /* We don't want to do this adjustment until after the final syscall
      * in any invoke-another sequence (i#1210)
      */
     if (instrument_invoke_another_syscall(dcontext))
         return;
-#endif
     /* If this thread is native, don't disrupt the return-to-native */
     if (!dcontext->thread_record->under_dynamo_control)
         return;
@@ -4110,10 +4368,10 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     get_mcontext(dcontext)->xsp = adjust_esp;
     dcontext->asynch_target = KiFastSystemCallRet_address;
 }
-#endif
 
 /* NOTE : no locks can be grabbed on the path to SuspendThread handling code */
-void post_system_call(dcontext_t *dcontext)
+void
+post_system_call(dcontext_t *dcontext)
 {
     /* registers have been clobbered, so grab key values that were
      * saved in pre_system_call
@@ -4122,130 +4380,118 @@ void post_system_call(dcontext_t *dcontext)
     reg_t *param_base = dcontext->sys_param_base;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     bool success = NT_SUCCESS(mc->xax);
-    where_am_i_t old_whereami = dcontext->whereami;
+    dr_where_am_i_t old_whereami = dcontext->whereami;
     KSTART(post_syscall);
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     DODEBUG({ dcontext->post_syscall = true; });
 
     LOG(THREAD, LOG_SYSCALLS, 2,
-        "post syscall: sysnum="PFX", params @"PFX", result="PFX"\n",
-        sysnum, param_base, mc->xax);
+        "post syscall: sysnum=" PFX ", params @" PFX ", result=" PFX "\n", sysnum,
+        param_base, mc->xax);
 
     if (sysnum == syscalls[SYS_GetContextThread]) {
         postsys_GetContextThread(dcontext, param_base, success);
-    }
-    else if (sysnum == syscalls[SYS_SuspendThread]) {
+    } else if (sysnum == syscalls[SYS_SuspendThread]) {
         postsys_SuspendThread(dcontext, param_base, success);
-    }
-    else if (sysnum == syscalls[SYS_SetContextThread]) {
-        HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+    } else if (sysnum == syscalls[SYS_SetContextThread]) {
+        HANDLE thread_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         thread_id_t tid = thread_handle_to_tid(thread_handle);
         ASSERT(tid != 0xFFFFFFFF);
         /* FIXME : we modified the passed in context, we should restore it
          * to app state (same for SYS_Continue though is more difficult there)
          */
-        if (tid != get_thread_id()) {
-            mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
-            if (intercept_asynch_for_thread(tid, false/*no unknown threads*/)) {
+        if (tid != d_r_get_thread_id()) {
+            d_r_mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
+            if (intercept_asynch_for_thread(tid, false /*no unknown threads*/)) {
                 /* Case 10101: we shouldn't get here since we now skip the system call,
                  * unless it should fail for permission issues */
                 ASSERT(dcontext->expect_last_syscall_to_fail);
                 /* must wake up thread so it can go to nt_continue_dynamo_start */
                 nt_thread_resume(thread_handle, NULL);
             }
-            mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
+            d_r_mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
         }
-    }
-    else if (sysnum == syscalls[SYS_OpenThread]) {
+    } else if (sysnum == syscalls[SYS_OpenThread]) {
         postsys_OpenThread(dcontext, param_base, success);
-    }
-#ifdef CLIENT_INTERFACE
-    else if (sysnum == syscalls[SYS_QueryInformationThread]) {
+    } else if (sysnum == syscalls[SYS_QueryInformationThread]) {
         postsys_QueryInformationThread(dcontext, param_base, success);
-    }
-#endif
-    else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
-             /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
-             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
+    } else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
+               /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
+               sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
         KSTART(post_syscall_alloc);
         postsys_AllocateVirtualMemory(dcontext, param_base, success, sysnum);
         KSTOP(post_syscall_alloc);
-    }
-    else if (sysnum == syscalls[SYS_QueryVirtualMemory]) {
+    } else if (sysnum == syscalls[SYS_AllocateVirtualMemoryEx]) {
+        postsys_AllocateVirtualMemoryEx(dcontext, param_base, success);
+    } else if (sysnum == syscalls[SYS_QueryVirtualMemory]) {
         postsys_QueryVirtualMemory(dcontext, param_base, success);
-    }
-    else if (sysnum == syscalls[SYS_CreateSection]) {
+    } else if (sysnum == syscalls[SYS_CreateSection]) {
         postsys_CreateSection(dcontext, param_base, success);
-    }
-    else if (sysnum == syscalls[SYS_OpenSection]) {
+    } else if (sysnum == syscalls[SYS_OpenSection]) {
         postsys_OpenSection(dcontext, param_base, success);
-    }
-    else if (sysnum == syscalls[SYS_MapViewOfSection]) {
+    } else if (sysnum == syscalls[SYS_MapViewOfSection]) {
         KSTART(post_syscall_map);
         postsys_MapViewOfSection(dcontext, param_base, success);
         KSTOP(post_syscall_map);
-    }
-    else if (sysnum == syscalls[SYS_CreateProcess]) {
-        HANDLE *process_handle = (HANDLE *) postsys_param(dcontext, param_base, 0);
-        uint access_mask = (uint) postsys_param(dcontext, param_base, 1);
-        uint attributes  = (uint) postsys_param(dcontext, param_base, 2);
-        uint inherit_from= (uint) postsys_param(dcontext, param_base, 3);
-        BOOLEAN inherit     = (BOOLEAN) postsys_param(dcontext, param_base, 4);
-        HANDLE section_handle = (HANDLE) postsys_param(dcontext, param_base, 5);
-        HANDLE debug_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
-        HANDLE exception_handle = (HANDLE) postsys_param(dcontext, param_base, 7);
+    } else if (sysnum == syscalls[SYS_MapViewOfSectionEx]) {
+        postsys_MapViewOfSectionEx(dcontext, param_base, success);
+    } else if (sysnum == syscalls[SYS_CreateProcess]) {
+        HANDLE *process_handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
+        uint access_mask = (uint)postsys_param(dcontext, param_base, 1);
+        uint attributes = (uint)postsys_param(dcontext, param_base, 2);
+        uint inherit_from = (uint)postsys_param(dcontext, param_base, 3);
+        BOOLEAN inherit = (BOOLEAN)postsys_param(dcontext, param_base, 4);
+        HANDLE section_handle = (HANDLE)postsys_param(dcontext, param_base, 5);
+        HANDLE debug_handle = (HANDLE)postsys_param(dcontext, param_base, 6);
+        HANDLE exception_handle = (HANDLE)postsys_param(dcontext, param_base, 7);
         HANDLE proc_handle;
 
         DOLOG(1, LOG_SYSCALLS, {
-            app_pc base = (app_pc) get_section_address(section_handle);
+            app_pc base = (app_pc)get_section_address(section_handle);
 
             LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
-                "syscall post: NtCreateProcess section @"PFX"\n", base);
+                "syscall post: NtCreateProcess section @" PFX "\n", base);
         });
-        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
-            maybe_inject_into_process(dcontext, proc_handle, NULL);
-    }
-    else if (sysnum == syscalls[SYS_CreateProcessEx]) {
-        HANDLE *process_handle = (HANDLE *) postsys_param(dcontext, param_base, 0);
-        uint access_mask = (uint) postsys_param(dcontext, param_base, 1);
-        uint attributes  = (uint) postsys_param(dcontext, param_base, 2);
-        uint inherit_from= (uint) postsys_param(dcontext, param_base, 3);
-        BOOLEAN inherit = (BOOLEAN) postsys_param(dcontext, param_base, 4);
-        HANDLE section_handle = (HANDLE) postsys_param(dcontext, param_base, 5);
-        HANDLE debug_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
-        HANDLE exception_handle = (HANDLE) postsys_param(dcontext, param_base, 7);
+        if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+            maybe_inject_into_process(dcontext, proc_handle, NULL, NULL);
+    } else if (sysnum == syscalls[SYS_CreateProcessEx]) {
+        HANDLE *process_handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
+        uint access_mask = (uint)postsys_param(dcontext, param_base, 1);
+        uint attributes = (uint)postsys_param(dcontext, param_base, 2);
+        uint inherit_from = (uint)postsys_param(dcontext, param_base, 3);
+        BOOLEAN inherit = (BOOLEAN)postsys_param(dcontext, param_base, 4);
+        HANDLE section_handle = (HANDLE)postsys_param(dcontext, param_base, 5);
+        HANDLE debug_handle = (HANDLE)postsys_param(dcontext, param_base, 6);
+        HANDLE exception_handle = (HANDLE)postsys_param(dcontext, param_base, 7);
         HANDLE proc_handle;
 
         /* according to metasploit, others type as HANDLE unknown etc. */
-        uint job_member_level = (uint) postsys_param(dcontext, param_base, 8);
+        uint job_member_level = (uint)postsys_param(dcontext, param_base, 8);
 
         DOLOG(1, LOG_SYSCALLS, {
             if (section_handle != 0) {
-                app_pc base = (app_pc) get_section_address(section_handle);
+                app_pc base = (app_pc)get_section_address(section_handle);
                 LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
-                    "syscall: NtCreateProcessEx section @"PFX"\n", base);
+                    "syscall: NtCreateProcessEx section @" PFX "\n", base);
             }
         });
-        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
-            maybe_inject_into_process(dcontext, proc_handle, NULL);
-    }
-    else if (sysnum == syscalls[SYS_CreateUserProcess]) {
+        if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+            maybe_inject_into_process(dcontext, proc_handle, NULL, NULL);
+    } else if (sysnum == syscalls[SYS_CreateUserProcess]) {
         postsys_CreateUserProcess(dcontext, param_base, success);
-    }
-    else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
-             sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
+    } else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
+               sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
         postsys_UnmapViewOfSection(dcontext, param_base, success);
-    }
-    else if (sysnum == syscalls[SYS_DuplicateObject]) {
+    } else if (sysnum == syscalls[SYS_DuplicateObject]) {
         postsys_DuplicateObject(dcontext, param_base, success);
 #ifdef DEBUG
-    /* Check to see if any system calls for which we did non-reversible
-     * processing in pre_system_call() failed. FIXME : handle failure
-     * cases as needed */
-    /* FIXME : because of our stateless apc handling we can't check
-     * SYS_Continue for success (all syscalls interrupted by an APC will
-     * look like a continue at post)
-     */
+        /* Check to see if any system calls for which we did non-reversible
+         * processing in pre_system_call() failed. FIXME : handle failure
+         * cases as needed */
+        /* FIXME : because of our stateless apc handling we can't check
+         * SYS_Continue for success (all syscalls interrupted by an APC will
+         * look like a continue at post)
+         */
     } else if (sysnum == syscalls[SYS_CallbackReturn]) {
         /* should never get here, also ref case 4121, except for
          * STATUS_CALLBACK_POP_STACK (case 10579) */
@@ -4254,36 +4500,34 @@ void post_system_call(dcontext_t *dcontext)
         /* FIXME: should provide a routine to swap the dcontexts back so we can
          * handle any future cases like case 10579 */
     } else if (sysnum == syscalls[SYS_TerminateProcess]) {
-        HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-        NTSTATUS exit_status = (NTSTATUS) postsys_param(dcontext, param_base, 1);
+        HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
+        NTSTATUS exit_status = (NTSTATUS)postsys_param(dcontext, param_base, 1);
         /* FIXME : no way to recover if syscall fails and handle is 0 or us */
         /* Don't allow success && handle == us since we should never get here
          * in that case */
-        ASSERT((process_handle == 0 && success) ||
-               !is_phandle_me(process_handle));
+        ASSERT((process_handle == 0 && success) || !is_phandle_me(process_handle));
     } else if (sysnum == syscalls[SYS_TerminateThread]) {
-        HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+        HANDLE thread_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         ASSERT(thread_handle != 0); /* 0 => current thread */
         if (thread_handle != 0) {
             thread_id_t tid = thread_handle_to_tid(thread_handle);
             process_id_t pid = thread_handle_to_pid(thread_handle, tid);
-            ASSERT(tid != get_thread_id()); /* not current thread */
+            ASSERT(tid != d_r_get_thread_id()); /* not current thread */
             /* FIXME : if is thread in this process and syscall fails then
              * no way to recover since we already cleaned up the thread */
             /* Don't allow success && handle == us since we should never get
              * here in that case */
-            ASSERT(success ||
-                   tid == 0xFFFFFFFF /* prob. bad/incorrect type handle */ ||
-                   is_thread_exited(thread_handle) == THREAD_EXITED ||
-                   !is_pid_me(pid));
+            ASSERT(success || tid == 0xFFFFFFFF /* prob. bad/incorrect type handle */ ||
+                   is_thread_exited(thread_handle) == THREAD_EXITED || !is_pid_me(pid));
             if (success && !is_pid_me(pid)) {
-                IPC_ALERT("Warning: NtTerminateThread on thread tid="PFX" "
-                          "in other process pid="PFX, tid, pid);
+                IPC_ALERT("Warning: NtTerminateThread on thread tid=" PFX " "
+                          "in other process pid=" PFX,
+                          tid, pid);
             }
         }
     } else if (sysnum == syscalls[SYS_CreateThread]) {
-        HANDLE process_handle= (HANDLE) postsys_param(dcontext, param_base, 3);
-        CONTEXT *cxt         = (CONTEXT *) postsys_param(dcontext, param_base, 5);
+        HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 3);
+        CONTEXT *cxt = (CONTEXT *)postsys_param(dcontext, param_base, 5);
         /* FIXME : we are going to read cxt, this is potentially unsafe */
         if (is_first_thread_in_new_process(process_handle, cxt)) {
             /* we might have tried to inject into the process with this
@@ -4291,19 +4535,20 @@ void post_system_call(dcontext_t *dcontext)
             ASSERT_CURIOSITY(success);
         }
     } else if (sysnum == syscalls[SYS_FreeVirtualMemory]) {
-        HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-        void **pbase = (void **) postsys_param(dcontext, param_base, 1);
-        size_t *psize = (size_t *) postsys_param(dcontext, param_base, 2);
-        uint type = (uint) postsys_param(dcontext, param_base, 3);
+        HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
+        void **pbase = (void **)postsys_param(dcontext, param_base, 1);
+        size_t *psize = (size_t *)postsys_param(dcontext, param_base, 2);
+        uint type = (uint)postsys_param(dcontext, param_base, 3);
         if (dcontext->expect_last_syscall_to_fail) {
             ASSERT(!success);
         } else {
             /* FIXME i#148: try to recover if the syscall fails, could re-walk this
              * region but that gets us in trouble with the stateful policies */
-            ASSERT_CURIOSITY_ONCE(success || !is_phandle_me(process_handle));;
+            ASSERT_CURIOSITY_ONCE(success || !is_phandle_me(process_handle));
+            ;
         }
     } else if (sysnum == syscalls[SYS_ProtectVirtualMemory]) {
-        HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+        HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         if (dcontext->expect_last_syscall_to_fail) {
             ASSERT(!success);
         } else {
@@ -4312,12 +4557,12 @@ void post_system_call(dcontext_t *dcontext)
             ASSERT_CURIOSITY(success || !is_phandle_me(process_handle));
         }
     } else if (sysnum == syscalls[SYS_FlushInstructionCache]) {
-        HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+        HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         /* Even if this system call fails, doesn't affect our correctness, but
          * lets see if this ever fails, slight false negative risk if it does */
         ASSERT_CURIOSITY(success || !is_phandle_me(process_handle));
     } else if (sysnum == syscalls[SYS_MapUserPhysicalPages]) {
-        HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+        HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         /* Even if this system call fails, doesn't affect our correctness, but
          * lets see if this ever fails, slight false negative risk if it does */
         if (dcontext->expect_last_syscall_to_fail) {
@@ -4328,8 +4573,6 @@ void post_system_call(dcontext_t *dcontext)
 #endif /* DEBUG */
     }
 
-
-#ifdef CLIENT_INTERFACE
     /* The instrument_post_syscall should be called after DR finishes all
      * its operations. Xref to i#1.
      */
@@ -4344,7 +4587,6 @@ void post_system_call(dcontext_t *dcontext)
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         KiFastSystemCallRet_address != NULL)
         restore_for_KiFastSystemCallRet(dcontext);
-#endif
 
     /* stats lock grabbing ok here, any synch with suspended threads taken
      * care of already */
@@ -4362,12 +4604,11 @@ void post_system_call(dcontext_t *dcontext)
  * SYSTEM CALL API
  */
 
-#ifdef CLIENT_INTERFACE
 DR_API
 reg_t
 dr_syscall_get_param(void *drcontext, int param_num)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     /* if we supported this from post-syscall we would need to
      * get dcontext->sys_param_base() and call postsys_param() -- but
@@ -4383,11 +4624,11 @@ DR_API
 void
 dr_syscall_set_param(void *drcontext, int param_num, reg_t new_value)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     reg_t *param_base;
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
-                  dcontext->client_data->in_post_syscall,
+                      dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_param() can only be called from a syscall event");
     if (dcontext->client_data->in_pre_syscall)
         param_base = pre_system_call_param_base(mc);
@@ -4400,7 +4641,7 @@ DR_API
 reg_t
 dr_syscall_get_result(void *drcontext)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
                   "dr_syscall_get_result() can only be called from post-syscall event");
     return get_mcontext(dcontext)->xax;
@@ -4410,7 +4651,7 @@ DR_API
 bool
 dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
                   "only call dr_syscall_get_result_ex() from post-syscall event");
     CLIENT_ASSERT(info != NULL, "invalid parameter");
@@ -4423,7 +4664,7 @@ dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
     if (info->use_high)
         info->high = 0;
     if (info->use_errno)
-        info->errno_value = (uint) info->value;
+        info->errno_value = (uint)info->value;
     return true;
 }
 
@@ -4431,9 +4672,9 @@ DR_API
 void
 dr_syscall_set_result(void *drcontext, reg_t value)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
-                  dcontext->client_data->in_post_syscall,
+                      dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_result() can only be called from a syscall event");
     SET_RETURN_VAL(dcontext, value);
 }
@@ -4442,9 +4683,9 @@ DR_API
 bool
 dr_syscall_set_result_ex(void *drcontext, dr_syscall_result_info_t *info)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
-                  dcontext->client_data->in_post_syscall,
+                      dcontext->client_data->in_post_syscall,
                   "only call dr_syscall_set_result_ex() from a syscall event");
     CLIENT_ASSERT(info != NULL, "invalid parameter");
     CLIENT_ASSERT(info->size == sizeof(*info), "invalid dr_syscall_result_info_t size");
@@ -4464,10 +4705,10 @@ DR_API
 void
 dr_syscall_set_sysnum(void *drcontext, int new_num)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
-                  dcontext->client_data->in_post_syscall,
+                      dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_sysnum() can only be called from a syscall event");
     mc->xax = new_num;
 }
@@ -4476,7 +4717,7 @@ DR_API
 void
 dr_syscall_invoke_another(void *drcontext)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
                   "dr_syscall_invoke_another() can only be called from post-syscall "
@@ -4498,8 +4739,7 @@ dr_syscall_invoke_another(void *drcontext)
         *((app_pc *)mc->xsp) = dcontext->asynch_target;
         dcontext->asynch_target = vsyscall_syscall_end_pc;
         mc->xdx = mc->xsp;
-    }
-    else if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
+    } else if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
         if (get_os_version() == WINDOWS_VERSION_7) {
             /* emulate win7's add 4,esp after the call* in the syscall wrapper */
             mc->xsp += XSP_SZ;
@@ -4508,24 +4748,22 @@ dr_syscall_invoke_another(void *drcontext)
             /* perform: lea edx,[esp+0x4] */
             mc->xdx = mc->xsp + XSP_SZ;
         }
-    }
-    else if (get_syscall_method() == SYSCALL_METHOD_INT) {
+    } else if (get_syscall_method() == SYSCALL_METHOD_INT) {
         if (syscall_uses_edx_param_base()) {
             /* perform: lea edx,[esp+0x4] */
             mc->xdx = mc->xsp + XSP_SZ;
         }
     }
-# ifdef X64
+#ifdef X64
     else if (get_syscall_method() == SYSCALL_METHOD_SYSCALL) {
         /* sys_param_addr() is already using r10 */
     }
-# endif
+#endif
 }
 
 DR_API
 bool
-dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
-                              int wow64_idx)
+dr_syscall_intercept_natively(const char *name, int sysnum, int num_args, int wow64_idx)
 {
     uint i, idx;
     if (syscall_extra_idx >= CLIENT_EXTRA_TRAMPOLINE)
@@ -4537,7 +4775,7 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
         if (intercept_native_syscall(i) && strcmp(syscall_names[i], name) == 0)
             return true;
     }
-    if (get_proc_address(get_ntdll_base(), name) == NULL)
+    if (d_r_get_proc_address(get_ntdll_base(), name) == NULL)
         return false;
     /* no lock needed since only supported during dr_client_main */
     idx = SYS_MAX + syscall_extra_idx;
@@ -4550,13 +4788,12 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
     syscall_extra_idx++;
     /* some syscalls we just don't support intercepting */
     if (!intercept_native_syscall(idx)) {
-        LOG(GLOBAL, LOG_SYSCALLS, 2, "%s: %s is not interceptable!\n",
-            __FUNCTION__, name);
+        LOG(GLOBAL, LOG_SYSCALLS, 2, "%s: %s is not interceptable!\n", __FUNCTION__,
+            name);
         syscall_extra_idx--;
         return false;
     }
-    LOG(GLOBAL, LOG_SYSCALLS, 2, "%s: intercepting %s as index %d\n",
-        __FUNCTION__, name, idx);
+    LOG(GLOBAL, LOG_SYSCALLS, 2, "%s: intercepting %s as index %d\n", __FUNCTION__, name,
+        idx);
     return true;
 }
-#endif /* CLIENT_INTERFACE */

@@ -31,25 +31,33 @@
  * DAMAGE.
  */
 
+#include "tools.h"
+
 /* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
+#    define EXPORT __declspec(dllexport)
 #else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
+#    define EXPORT __attribute__((visibility("default")))
 #endif
 
 /* List of instrumented functions. */
-#define FUNCTIONS() \
-        FUNCTION(empty) \
-        FUNCTION(out_of_line) \
-        FUNCTION(modify_gprs) \
-        FUNCTION(inscount) \
-        FUNCTION(compiler_inscount) \
-        FUNCTION(bbcount) \
-        LAST_FUNCTION()
+#define FUNCTIONS()             \
+    FUNCTION(empty)             \
+    FUNCTION(out_of_line)       \
+    FUNCTION(modify_gprs)       \
+    FUNCTION(inscount)          \
+    FUNCTION(compiler_inscount) \
+    FUNCTION(bbcount)           \
+    FUNCTION(aflags_clobber)    \
+    LAST_FUNCTION()
 
 /* Definitions for every function. */
-#define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
+volatile int val;
+#define FUNCTION(FUNCNAME)              \
+    EXPORT NOINLINE void FUNCNAME(void) \
+    {                                   \
+        val = 4;                        \
+    }
 #define LAST_FUNCTION()
 FUNCTIONS()
 #undef FUNCTION
@@ -58,6 +66,10 @@ FUNCTIONS()
 int
 main(void)
 {
+#ifdef __AVX512F__
+    /* For the AVX-512 version, make sure the lazy AVX-512 detection actually kicks in. */
+    __asm__ __volatile__("vmovups %zmm0, %zmm0");
+#endif
     /* Calls to every function. */
 #define FUNCTION(FUNCNAME) FUNCNAME();
 #define LAST_FUNCTION()

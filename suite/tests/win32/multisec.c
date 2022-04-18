@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,14 +40,18 @@
 typedef void (*funcptr)();
 
 #pragma code_seg(".mycode1")
-void func2() {
+void
+func2()
+{
     print("func2\n");
 }
 
 funcptr f2 = &func2;
 
-#pragma code_seg(".my_code2")   /* 2 will be truncated - up to 8 char limit */
-void func3() {
+#pragma code_seg(".my_code2") /* 2 will be truncated - up to 8 char limit */
+void
+func3()
+{
     print("exe calling f2\n");
     (*f2)();
     print("exe func3\n");
@@ -55,17 +60,19 @@ void func3() {
 #pragma code_seg(".my_code3")
 /* interesting - while the PE file will have an 8 byte section limit ".my_code"
  * this section is still going to be created as different from the .my_code2
-*/
-void func4() {
+ */
+void
+func4()
+{
     print("exe func4\n");
 }
-#pragma code_seg()                /* back in .text */
+#pragma code_seg() /* back in .text */
 
 const funcptr cf = &func3;
 funcptr f = &func2;
 
 HMODULE
-myload(char* lib)
+myload(char *lib)
 {
     HMODULE hm = LoadLibrary(lib);
     if (hm == NULL) {
@@ -73,20 +80,21 @@ myload(char* lib)
     } else {
         print("loaded %s\n", lib);
 #if VERBOSE
-        print("library is at "PFX"\n", hm);
+        print("library is at " PFX "\n", hm);
 #endif
     }
     return hm;
 }
 
-int main()
+int
+main()
 {
     HMODULE lib1;
     HMODULE lib2;
 
     /* same as rebased test */
     lib1 = myload("win32.multisec.dll.dll");
-    lib2 = myload("win32m~1.dll");
+    lib2 = myload("win32.multisec2.dll.dll");
     if (lib1 == lib2) {
         print("there is a problem - should have collided, maybe missing\n");
     }

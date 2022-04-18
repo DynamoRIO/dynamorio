@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,70 +30,82 @@
  * DAMAGE.
  */
 
-#include <assert.h>
 #include <fstream>
 #include "file_reader.h"
-#include "../common/memref.h"
-#include "../common/utils.h"
 
-#ifdef VERBOSE
-# include <iostream>
-#endif
-
-file_reader_t::file_reader_t()
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+file_reader_t<std::ifstream *>::~file_reader_t()
 {
-    /* Empty. */
-}
-
-file_reader_t::file_reader_t(const char *file_name) :
-    fstream(file_name, std::ifstream::binary)
-{
-    /* Empty. */
-}
-
-bool
-file_reader_t::init()
-{
-    at_eof = false;
-    if (!fstream)
-        return false;
-    trace_entry_t *first_entry = read_next_entry();
-    if (first_entry == NULL)
-        return false;
-    if (first_entry->type != TRACE_TYPE_HEADER ||
-        first_entry->addr != TRACE_ENTRY_VERSION) {
-        ERRMSG("missing header or version mismatch\n");
-        return false;
+    for (auto fstream : input_files_) {
+        delete fstream;
     }
-    ++*this;
+    delete[] thread_eof_;
+}
+
+template <>
+bool
+file_reader_t<std::ifstream *>::open_single_file(const std::string &path)
+{
+    auto fstream = new std::ifstream(path, std::ifstream::binary);
+    if (!*fstream)
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_files_.push_back(fstream);
     return true;
 }
 
-file_reader_t::~file_reader_t()
-{
-    fstream.close();
-}
-
-trace_entry_t *
-file_reader_t::read_next_entry()
-{
-    if (!fstream.read((char*)&entry_copy, sizeof(entry_copy)))
-        return NULL;
-    return &entry_copy;
-}
-
+template <>
 bool
-file_reader_t::is_complete()
+file_reader_t<std::ifstream *>::read_next_thread_entry(size_t thread_index,
+                                                       OUT trace_entry_t *entry,
+                                                       OUT bool *eof)
 {
-    if (!fstream)
+    if (!input_files_[thread_index]->read((char *)entry, sizeof(*entry))) {
+        *eof = input_files_[thread_index]->eof();
         return false;
+    }
+    VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
+           thread_index, entry->type, entry->size, entry->addr);
+    return true;
+}
+
+template <>
+bool
+file_reader_t<std::ifstream *>::is_complete()
+{
+    // FIXME i#3230: this code is in the middle of refactoring for split thread files.
+    // We support the is_complete() call from analyzer_multi for a single file for now,
+    // but may have to abandon this function altogether since gzFile doesn't support it.
+    bool opened_temporarily = false;
+    if (input_files_.empty()) {
+        // Supporting analyzer_multi calling before init() for a single legacy file.
+        opened_temporarily = true;
+        if (!input_path_list_.empty() || input_path_.empty() ||
+            directory_iterator_t::is_directory(input_path_))
+            return false; // Not supported.
+        if (!open_single_file(input_path_))
+            return false;
+    }
     bool res = false;
-    std::streampos pos = fstream.tellg();
-    fstream.seekg(-(int)sizeof(trace_entry_t), fstream.end);
-    // Avoid reaching eof b/c we can't seek away from it.
-    if (fstream.read((char*)&entry_copy.type, sizeof(entry_copy.type)) &&
-        entry_copy.type == TRACE_TYPE_FOOTER)
-        res = true;
-    fstream.seekg(pos);
+    for (auto fstream : input_files_) {
+        res = false;
+        std::streampos pos = fstream->tellg();
+        fstream->seekg(-(int)sizeof(trace_entry_t), fstream->end);
+        // Avoid reaching eof b/c we can't seek away from it.
+        if (fstream->read((char *)&entry_copy_.type, sizeof(entry_copy_.type)) &&
+            entry_copy_.type == TRACE_TYPE_FOOTER)
+            res = true;
+        fstream->seekg(pos);
+        if (!res)
+            break;
+    }
+    if (opened_temporarily) {
+        // Put things back for init().
+        for (auto fstream : input_files_)
+            delete fstream;
+        input_files_.clear();
+    }
     return res;
 }

@@ -23,7 +23,7 @@
  */
 
 /* allow nameless struct/union */
-#pragma warning(disable: 4201)
+#pragma warning(disable : 4201)
 
 typedef unsigned int uint;
 typedef LONG NTSTATUS;
@@ -33,18 +33,20 @@ typedef LONG NTSTATUS;
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #define STATUS_UNSUCCESSFUL ((NTSTATUS)0xC0000001L)
 
+typedef LONG KPRIORITY;
+
 typedef struct _UNICODE_STRING {
     /* Length field is size in bytes not counting final 0 */
     USHORT Length;
     USHORT MaximumLength;
-    PWSTR  Buffer;
+    PWSTR Buffer;
 } UNICODE_STRING;
 typedef UNICODE_STRING *PUNICODE_STRING;
 
 typedef struct _STRING {
-  USHORT  Length;
-  USHORT  MaximumLength;
-  PCHAR  Buffer;
+    USHORT Length;
+    USHORT MaximumLength;
+    PCHAR Buffer;
 } ANSI_STRING;
 typedef ANSI_STRING *PANSI_STRING;
 typedef ANSI_STRING OEM_STRING;
@@ -55,36 +57,34 @@ typedef struct _OBJECT_ATTRIBUTES {
     PUNICODE_STRING ObjectName;
     ULONG Attributes;
     PSECURITY_DESCRIPTOR SecurityDescriptor;
-    PVOID SecurityQualityOfService;  // Points to type SECURITY_QUALITY_OF_SERVICE
+    PVOID SecurityQualityOfService; // Points to type SECURITY_QUALITY_OF_SERVICE
 } OBJECT_ATTRIBUTES;
 typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 
-#define InitializeObjectAttributes( p, n, a, r, s ) { \
-    (p)->Length = sizeof( OBJECT_ATTRIBUTES );          \
-    (p)->RootDirectory = r;                             \
-    (p)->Attributes = a;                                \
-    (p)->ObjectName = n;                                \
-    (p)->SecurityDescriptor = s;                        \
-    (p)->SecurityQualityOfService = NULL;               \
+#define InitializeObjectAttributes(p, n, a, r, s) \
+    {                                             \
+        (p)->Length = sizeof(OBJECT_ATTRIBUTES);  \
+        (p)->RootDirectory = r;                   \
+        (p)->Attributes = a;                      \
+        (p)->ObjectName = n;                      \
+        (p)->SecurityDescriptor = s;              \
+        (p)->SecurityQualityOfService = NULL;     \
     }
 
 /* from DDK2003SP1/3790.1830/inc/wnet/ntdef.h */
-#define OBJ_INHERIT             0x00000002L
-#define OBJ_PERMANENT           0x00000010L
-#define OBJ_EXCLUSIVE           0x00000020L
-#define OBJ_CASE_INSENSITIVE    0x00000040L
-#define OBJ_OPENIF              0x00000080L
-#define OBJ_OPENLINK            0x00000100L
-#define OBJ_KERNEL_HANDLE       0x00000200L /* N.B.: invalid parameter on NT4! */
-#define OBJ_FORCE_ACCESS_CHECK  0x00000400L /* N.B.: introduced with Win2003 */
+#define OBJ_INHERIT 0x00000002L
+#define OBJ_PERMANENT 0x00000010L
+#define OBJ_EXCLUSIVE 0x00000020L
+#define OBJ_CASE_INSENSITIVE 0x00000040L
+#define OBJ_OPENIF 0x00000080L
+#define OBJ_OPENLINK 0x00000100L
+#define OBJ_KERNEL_HANDLE 0x00000200L      /* N.B.: invalid parameter on NT4! */
+#define OBJ_FORCE_ACCESS_CHECK 0x00000400L /* N.B.: introduced with Win2003 */
 
 typedef ULONG ACCESS_MASK;
 
 /* from ntddk.h */
-typedef enum _SECTION_INHERIT {
-    ViewShare = 1,
-    ViewUnmap = 2
-} SECTION_INHERIT;
+typedef enum _SECTION_INHERIT { ViewShare = 1, ViewUnmap = 2 } SECTION_INHERIT;
 
 typedef struct _CLIENT_ID {
     /* These are numeric ids */
@@ -115,7 +115,7 @@ typedef enum _PROCESSINFOCLASS {
     ProcessLdtInformation,
     ProcessLdtSize,
     ProcessDefaultHardErrorMode,
-    ProcessIoPortHandlers,          // Note: this is kernel mode only
+    ProcessIoPortHandlers, // Note: this is kernel mode only
     ProcessPooledUsageAndLimits,
     ProcessWorkingSetWatch,
     ProcessUserModeIOPL,
@@ -138,7 +138,7 @@ typedef enum _PROCESSINFOCLASS {
     ProcessHandleTracing,
     ProcessIoPriority,
     ProcessExecuteFlags,
-    ProcessTlsInformation,   /* previously "ProcessResourceManagement"? */
+    ProcessTlsInformation, /* previously "ProcessResourceManagement"? */
     ProcessCookie,
     ProcessImageInformation,
     ProcessCycleTime,
@@ -154,7 +154,7 @@ typedef enum _PROCESSINFOCLASS {
     ProcessTokenVirtualizationEnabled,
     ProcessConsoleHostProcess,
     ProcessWindowInformation,
-    MaxProcessInfoClass             // MaxProcessInfoClass should always be the last enum
+    MaxProcessInfoClass // MaxProcessInfoClass should always be the last enum
 } PROCESSINFOCLASS;
 
 /* Thread Information Classes */
@@ -223,9 +223,7 @@ typedef struct _IO_STATUS_BLOCK {
     ULONG_PTR Information;
 } IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
 
-typedef enum _KPROFILE_SOURCE {
-    ProfileTime
-} KPROFILE_SOURCE;
+typedef enum _KPROFILE_SOURCE { ProfileTime } KPROFILE_SOURCE;
 
 typedef enum _OBJECT_INFORMATION_CLASS {
     ObjectBasicInformation,
@@ -249,11 +247,10 @@ typedef struct _OBJECT_BASIC_INFORMATION {
     LARGE_INTEGER CreateTime;
 } OBJECT_BASIC_INFORMATION, *POBJECT_BASIC_INFORMATION;
 
-
 /* from DDK2003SP1/3790.1830/inc/ddk/wnet/ntddk.h */
 /* Define the file information class values */
 typedef enum _FILE_INFORMATION_CLASS {
-    FileDirectoryInformation         = 1,
+    FileDirectoryInformation = 1,
     FileFullDirectoryInformation,   // 2
     FileBothDirectoryInformation,   // 3
     FileBasicInformation,           // 4  wdm
@@ -295,7 +292,8 @@ typedef enum _FILE_INFORMATION_CLASS {
     FileValidDataLengthInformation, // 39
     FileShortNameInformation,       // 40
     FileMaximumInformation
-} FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
+} FILE_INFORMATION_CLASS,
+    *PFILE_INFORMATION_CLASS;
 
 /* Information class structures returned by NtQueryInformationFile
  * and NtQueryAttributesFile
@@ -313,8 +311,8 @@ typedef struct _FILE_BASIC_INFORMATION {
  * This version is from reactos/0.2.9/include/ndk/iotypes.h
  */
 typedef enum _FS_INFORMATION_CLASS {
-    FileFsVolumeInformation=1,
-    FileFsLabelInformation,     /* not documented in IFS */
+    FileFsVolumeInformation = 1,
+    FileFsLabelInformation, /* not documented in IFS */
     FileFsSizeInformation,
     FileFsDeviceInformation,
     FileFsAttributeInformation,
@@ -323,7 +321,8 @@ typedef enum _FS_INFORMATION_CLASS {
     FileFsObjectIdInformation,
     FileFsDriverPathInformation, /* in reactos */
     FileFsMaximumInformation
-} FS_INFORMATION_CLASS, *PFS_INFORMATION_CLASS;
+} FS_INFORMATION_CLASS,
+    *PFS_INFORMATION_CLASS;
 
 typedef struct _FILE_FS_SIZE_INFORMATION {
     LARGE_INTEGER TotalAllocationUnits;
@@ -346,11 +345,11 @@ typedef struct _FILE_FS_VOLUME_INFORMATION {
 } FILE_FS_VOLUME_INFORMATION, *PFILE_FS_VOLUME_INFORMATION;
 
 /* FILE_FS_DEVICE_INFORMATION Characteristics */
-#define FILE_REMOVABLE_MEDIA                    0x00000001
-#define FILE_READ_ONLY_DEVICE                   0x00000002
-#define FILE_FLOPPY_DISKETTE                    0x00000004
-#define FILE_WRITE_ONCE_MEDIA                   0x00000008
-#define FILE_REMOTE_DEVICE                      0x00000010
+#define FILE_REMOVABLE_MEDIA 0x00000001
+#define FILE_READ_ONLY_DEVICE 0x00000002
+#define FILE_FLOPPY_DISKETTE 0x00000004
+#define FILE_WRITE_ONCE_MEDIA 0x00000008
+#define FILE_REMOTE_DEVICE 0x00000010
 
 typedef struct _FILE_FS_FULL_SIZE_INFORMATION {
     LARGE_INTEGER TotalAllocationUnits;
@@ -367,7 +366,7 @@ typedef struct _FILE_NETWORK_OPEN_INFORMATION {
     LARGE_INTEGER ChangeTime;
     LARGE_INTEGER AllocationSize;
     LARGE_INTEGER EndOfFile;
-    ULONG   FileAttributes;
+    ULONG FileAttributes;
 } FILE_NETWORK_OPEN_INFORMATION, *PFILE_NETWORK_OPEN_INFORMATION;
 
 typedef enum _KEY_VALUE_INFORMATION_CLASS {
@@ -379,20 +378,20 @@ typedef enum _KEY_VALUE_INFORMATION_CLASS {
 } KEY_VALUE_INFORMATION_CLASS;
 
 typedef struct _KEY_VALUE_FULL_INFORMATION {
-    ULONG   TitleIndex;
-    ULONG   Type;
-    ULONG   DataOffset;
-    ULONG   DataLength;
-    ULONG   NameLength;
-    WCHAR   Name[1];            // Variable size
-//          Data[1]             // Variable size data not declared
+    ULONG TitleIndex;
+    ULONG Type;
+    ULONG DataOffset;
+    ULONG DataLength;
+    ULONG NameLength;
+    WCHAR Name[1]; // Variable size
+    //          Data[1]             // Variable size data not declared
 } KEY_VALUE_FULL_INFORMATION, *PKEY_VALUE_FULL_INFORMATION;
 
 typedef struct _KEY_VALUE_PARTIAL_INFORMATION {
-    ULONG   TitleIndex;
-    ULONG   Type;
-    ULONG   DataLength;
-    UCHAR   Data[1];            // Variable size
+    ULONG TitleIndex;
+    ULONG Type;
+    ULONG DataLength;
+    UCHAR Data[1]; // Variable size
 } KEY_VALUE_PARTIAL_INFORMATION, *PKEY_VALUE_PARTIAL_INFORMATION;
 
 typedef enum _KEY_INFORMATION_CLASS {
@@ -403,8 +402,8 @@ typedef enum _KEY_INFORMATION_CLASS {
 } KEY_INFORMATION_CLASS;
 
 typedef struct _KEY_NAME_INFORMATION {
-    ULONG   NameLength;
-    WCHAR   Name[1];            // Variable size
+    ULONG NameLength;
+    WCHAR Name[1]; // Variable size
 } KEY_NAME_INFORMATION, *PKEY_NAME_INFORMATION;
 
 typedef enum _SYSTEM_INFORMATION_CLASS {
@@ -428,19 +427,16 @@ typedef enum _EVENT_TYPE {
     NotificationEvent,
     /* automatically changes state to non-signaled after releasing a waiting thread */
     SynchronizationEvent
-} EVENT_TYPE, *PEVENT_TYPE;
+} EVENT_TYPE,
+    *PEVENT_TYPE;
 
 /* we don't actually use this but for cleanliness sake, is from ntddk.h */
-typedef
-VOID
-(NTAPI *PIO_APC_ROUTINE) (
-                          IN PVOID ApcContext,
-                          IN PIO_STATUS_BLOCK IoStatusBlock,
-                          IN ULONG Reserved
-                          );
+typedef VOID(NTAPI *PIO_APC_ROUTINE)(IN PVOID ApcContext,
+                                     IN PIO_STATUS_BLOCK IoStatusBlock,
+                                     IN ULONG Reserved);
 
-typedef VOID (NTAPI *  PKNORMAL_ROUTINE )
-    (IN PVOID NormalContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2);
+typedef VOID(NTAPI *PKNORMAL_ROUTINE)(IN PVOID NormalContext, IN PVOID SystemArgument1,
+                                      IN PVOID SystemArgument2);
 
 /* From http://undocumented.ntinternals.net/UserMode/Structures/
  * RTL_USER_PROCESS_PARAMETERS.html
@@ -479,17 +475,25 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS {
 } RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
 
 /* NtCreateNamedPipeFilePipe: TypeMessage parameter */
-#define FILE_PIPE_BYTE_STREAM_TYPE          0x00000000
-#define FILE_PIPE_MESSAGE_TYPE              0x00000001
+#define FILE_PIPE_BYTE_STREAM_TYPE 0x00000000
+#define FILE_PIPE_MESSAGE_TYPE 0x00000001
 
 /* NtCreateNamedPipeFilePipe: ReadmodeMessage parameter */
-#define FILE_PIPE_BYTE_STREAM_MODE      0x00000000
-#define FILE_PIPE_MESSAGE_MODE          0x00000001
+#define FILE_PIPE_BYTE_STREAM_MODE 0x00000000
+#define FILE_PIPE_MESSAGE_MODE 0x00000001
 
 /* NtCreateNamedPipeFilePipe: Nonblocking parameter */
-#define FILE_PIPE_QUEUE_OPERATION       0x00000000
-#define FILE_PIPE_COMPLETE_OPERATION    0x00000001
+#define FILE_PIPE_QUEUE_OPERATION 0x00000000
+#define FILE_PIPE_COMPLETE_OPERATION 0x00000001
 
 #define FILE_DEVICE_CONSOLE 0x00000050
+
+/***************************************************************************
+ * convenience enums
+ */
+typedef enum {
+    MEMORY_RESERVE_ONLY = MEM_RESERVE,
+    MEMORY_COMMIT = MEM_RESERVE | MEM_COMMIT
+} memory_commit_status_t;
 
 #endif /* _NTDLL_TYPES_H_ */
