@@ -133,8 +133,8 @@ x0101011xx0xxxxxxxxxxxxxxxxxxxxx  w   13         adds            wx0 : wx5 wx16 
 0x001110xx110001101110xxxxxxxxxx  n   14         addv            dq0 : dq5 bhsd_sz
 0xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n   15          adr            adr
 1xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n   16         adrp            adr
-0100111000101000010110xxxxxxxxxx  n   17         aesd             q0 : q5
-0100111000101000010010xxxxxxxxxx  n   18         aese             q0 : q5
+0100111000101000010110xxxxxxxxxx  n   17         aesd             q0 : q0 q5
+0100111000101000010010xxxxxxxxxx  n   18         aese             q0 : q0 q5
 0100111000101000011110xxxxxxxxxx  n   19       aesimc             q0 : q5
 0100111000101000011010xxxxxxxxxx  n   20        aesmc             q0 : q5
 x00100100xxxxxxxxxxxxxxxxxxxxxxx  n   21          and      logic_imm
