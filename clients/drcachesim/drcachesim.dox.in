@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,8 +39,8 @@
 ***************************************************************************
 \page page_drcachesim Tracing and Analysis Framework
 
-\p drcachesim is a DynamoRIO client that collects memory access traces
-using its \p drmemtrace component and
+\p drcachesim is a DynamoRIO client that collects instruction and
+memory access traces using its \p drmemtrace component and
 feeds them to either an online or offline tool for analysis.  The default
 analysis tool is a CPU cache simulator, while other provided tools compute
 metrics such as reuse distance.  The trace collector and simulator support
@@ -49,8 +49,10 @@ is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
  - \subpage sec_drcachesim
+ - \subpage sec_drcachesim_format
  - \subpage sec_drcachesim_run
  - \subpage sec_drcachesim_tools
+ - \subpage google_workload_traces
  - \subpage sec_drcachesim_config_file
  - \subpage sec_drcachesim_offline
  - \subpage sec_drcachesim_partial
@@ -80,6 +82,89 @@ caches, etc. (see \ref sec_drcachesim_extend), or to build arbitrary trace
 analysis tools (see \ref sec_drcachesim_newtool).
 The default analyzer simulates the architectural behavior of caching
 devices for a target application (or multiple applications).
+
+****************************************************************************
+\page sec_drcachesim_format Trace Format
+
+\p drmemtrace traces are records of all user mode retired instructions
+and memory accesses during the traced window.
+
+A trace is presented to analysis tools as a stream of records.  Each
+record entry is of type #memref_t and represents one instruction or
+data reference or a metadata operation such as a thread exit or
+marker.  There are built-in scheduling markers providing the timestamp
+and cpu identifier on each thread transition.  Other built-in markers
+indicate disruptions in user mode control flow such as signal handler
+entry and exit.
+
+Each entry contains the common fields \p type, \p pid, and \p tid. The
+\p type field is used to identify the kind of each entry via a value
+of type #trace_marker_type_t.  The \p pid and \p tid identify the
+process and software thread owning the entry.  By default, all traced
+software threads are interleaved together, but with offline traces
+(see \ref sec_drcachesim_offline) each thread's trace can easily be
+analyzed separately as they are stored in separate files.
+
+\section sec_drcachesim_format_instrs Instruction Records
+
+Executed instructions are stored in #_memref_instr_t.  The program
+counter and length of the encoded instruction are provided.  The
+length can be used to compute the address of the subsequent instruction.
+
+The instruction records do not contain instruction encodings.  Such
+information can be obtained by disassembling the application and
+library binaries.  The provided interfaces
+module_mapper_t::get_loaded_modules() and
+module_mapper_t::find_mapped_trace_address() facilitate loading in
+copies of the binaries and reading the raw bytes for each instruction
+in order to obtain the opcode and full operand information.
+See also \ref sec_drcachesim_core.
+
+Branch targets are also not explicitly recorded (a design
+decision). The executed target as well as branch direction can be
+obtained by examining the address of the instruction immediately
+following a branch. If the program flow is changed by the kernel such
+as by signal delivery, the branch target is explicitly recorded in the
+trace in a metadata marker entry of type
+#TRACE_MARKER_TYPE_KERNEL_EVENT.
+
+\section sec_drcachesim_format_data Memory Access Records
+
+Memory accesses (data loads and stores) are stored in #_memref_data_t.
+The program counter of the instruction performing the memory access,
+the virtual address (unless \ref sec_drcachesim_phys are enabled), and
+the size are provided.
+
+\section sec_drcachesim_format_other Other Records
+
+Besides instruction and memory records, other trace entry types
+include #_memref_marker_t, #_memref_flush_t, #_memref_thread_exit_t,
+etc. These records provide specific inforamtion about events that can
+alter the program flow or the system's states.
+
+Trace markers are particularly important to allow reconstruction of
+the program execution.  Marker records in #_memref_marker_t provide
+metadata identifying some event that occurred at this point in the
+trace.  Each marker record contains two additional fields:
+
+- \p marker_type - identifies the type of marker
+- \p marker_value - carries the value of the marker
+
+Some of the more important markers are:
+
+- #TRACE_MARKER_TYPE_KERNEL_EVENT - This identifies kernel-initiated control transfers such as signal delivery.  The next instruction record is the start of the handler for a kernel-initiated event.  The value of this type of marker contains the program counter at the kernel interruption point.  If the interruption point is just after a branch, this value is the target of that branch.
+
+- #TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return.
+
+- #TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads. It is used in the sequential analysis of a multi-threaded trace.
+
+- #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution.
+
+- #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
+
+- #TRACE_MARKER_TYPE_WINDOW_ID - The marker value contains the ordinal of the trace burst window when the subsequent entries until the next #TRACE_MARKER_TYPE_WINDOW_ID or end-of-trace were collected (see \ref sec_drcachesim_partial).
+
+The full set of markers is listed under the enum #trace_marker_type_t.
 
 ****************************************************************************
 \page sec_drcachesim_run Running the Simulator
@@ -164,6 +249,8 @@ tools can also be created, as described in \ref sec_drcachesim_newtool.
 - \ref sec_tool_opcode_mix
 - \ref sec_tool_view
 - \ref sec_tool_func_view
+- \ref sec_tool_histogram
+- \ref sec_tool_invariant_checker
 
 \section sec_tool_cache_sim Cache Simulator
 
@@ -507,86 +594,139 @@ Opcode mix tool results:
 ...
 \endcode
 
-\section sec_tool_view View Disassembly
+\section sec_tool_view Human-Readable View
 
-The view tool prints out disassembled instructions in att, intel, arm or DR
-format for offline traces. The -skip_refs and -sim_refs flags can be used to
+The view tool prints out the contents of the trace for human viewing, including
+disassembling instructions in AT&T, Intel, Arm, or DR format, for offline traces. The
+-skip_refs and -sim_refs flags can be used to
 set a start point and end point for the disassembled view. Note that these
 flags compute the number of instructions which are skipped or displayed which
 is distinct from the number of trace entries.
 
-The tool also displays metadata marker entries for timestamps, on
-which core and thread the subsequent instruction sequence was
+The tool displays loads and stores, as well as metadata marker entries for
+timestamps, on which core and thread the subsequent instruction sequence was
 executed, and kernel and system call transfers (these correspond to
 signal or event handler interruptions of the regular execution flow).
 
 \code
 $ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
-<marker: timestamp 13218166936578899>
-<marker: tid 46977 on core 7>
-  0x00007f3a5127d870  48 83 ec 48          sub    $0x48, %rsp
-  0x00007f3a5127d874  0f 31                rdtsc
-  0x00007f3a5127d876  48 c1 e2 20          shl    $0x20, %rdx
-  0x00007f3a5127d87a  89 c0                mov    %eax, %eax
-  0x00007f3a5127d87c  48 09 c2             or     %rax, %rdx
-  0x00007f3a5127d87f  48 8b 05 ea 25 22 00 mov    <rel> 0x00007f3a5149fe70, %rax
-  0x00007f3a5127d886  48 89 15 d3 23 22 00 mov    %rdx, <rel> 0x00007f3a5149fc60
-  0x00007f3a5127d88d  48 8d 15 dc 25 22 00 lea    <rel> 0x00007f3a5149fe70, %rdx
-  0x00007f3a5127d894  49 89 d6             mov    %rdx, %r14
-  0x00007f3a5127d897  4c 2b 35 62 27 22 00 sub    <rel> 0x00007f3a514a0000, %r14
-  0x00007f3a5127d89e  48 85 c0             test   %rax, %rax
-  0x00007f3a5127d8a1  48 89 15 40 31 22 00 mov    %rdx, <rel> 0x00007f3a514a09e8
-  0x00007f3a5127d8a8  4c 89 35 29 31 22 00 mov    %r14, <rel> 0x00007f3a514a09d8
-  0x00007f3a5127d8af  0f 84 9b 00 00 00    jz     $0x00007f3a5127d950
-  0x00007f3a5127d8b5  4c 8d 05 84 27 22 00 lea    <rel> 0x00007f3a514a0040, %r8
-  0x00007f3a5127d8bc  49 b9 d8 03 00 80 03 mov    $0x00000003800003d8, %r9
-                      00 00 00
-  0x00007f3a5127d8c6  48 b9 78 fb ff 7f 03 mov    $0x000000037ffffb78, %rcx
-                      00 00 00
-  0x00007f3a5127d8d0  48 8d 35 41 31 22 00 lea    <rel> 0x00007f3a514a0a18, %rsi
-  0x00007f3a5127d8d7  bf ff ff ff 6f       mov    $0x6fffffff, %edi
-  0x00007f3a5127d8dc  41 bb ff fd ff 6f    mov    $0x6ffffdff, %r11d
+T80431 <marker: version 3>
+T80431 <marker: filetype 0x40>
+T80431 <marker: cache line size 64>
+T80431 <marker: timestamp 13269546858099127>
+T80431 <marker: tid 80431 on core 1>
+T80431   0x00007f2ae335d090  48 89 e7             mov    %rsp, %rdi
+T80431   0x00007f2ae335d093  e8 48 0d 00 00       call   $0x00007f2ae335dde0
+T80431     write 8 byte(s) @ 0x7ffdf5770ac8
+T80431   0x00007f2ae335dde0  55                   push   %rbp
+T80431     write 8 byte(s) @ 0x7ffdf5770ac0
+T80431   0x00007f2ae335dde1  48 89 e5             mov    %rsp, %rbp
+T80431   0x00007f2ae335dde4  41 57                push   %r15
+T80431     write 8 byte(s) @ 0x7ffdf5770ab8
+T80431   0x00007f2ae335dde6  49 89 ff             mov    %rdi, %r15
+T80431   0x00007f2ae335dde9  41 56                push   %r14
+T80431     write 8 byte(s) @ 0x7ffdf5770ab0
+T80431   0x00007f2ae335ddeb  41 55                push   %r13
+T80431     write 8 byte(s) @ 0x7ffdf5770aa8
+T80431   0x00007f2ae335dded  41 54                push   %r12
+T80431     write 8 byte(s) @ 0x7ffdf5770aa0
+T80431   0x00007f2ae335ddef  53                   push   %rbx
+T80431     write 8 byte(s) @ 0x7ffdf5770a98
+T80431   0x00007f2ae335ddf0  48 83 ec 38          sub    $0x38, %rsp
+T80431   0x00007f2ae335ddf4  0f 31                rdtsc
+T80431   0x00007f2ae335ddf6  48 c1 e2 20          shl    $0x20, %rdx
+T80431   0x00007f2ae335ddfa  48 09 d0             or     %rdx, %rax
+T80431   0x00007f2ae335ddfd  48 8d 15 74 90 02 00 lea    <rel> 0x00007f2ae3386e78, %rdx
+T80431   0x00007f2ae335de04  48 89 05 75 87 02 00 mov    %rax, <rel> 0x00007f2ae3386580
+T80431     write 8 byte(s) @ 0x7f2ae3386580
+T80431   0x00007f2ae335de0b  48 8b 05 66 90 02 00 mov    <rel> 0x00007f2ae3386e78, %rax
+T80431     read  8 byte(s) @ 0x7f2ae3386e78
+T80431   0x00007f2ae335de12  49 89 d4             mov    %rdx, %r12
+T80431   0x00007f2ae335de15  4c 2b 25 e4 91 02 00 sub    <rel> 0x00007f2ae3387000, %r12
+T80431     read  8 byte(s) @ 0x7f2ae3387000
+T80431   0x00007f2ae335de1c  48 89 15 d5 9b 02 00 mov    %rdx, <rel> 0x00007f2ae33879f8
 View tool results:
              20 : total disassembled instructions
 \endcode
 
-Here is an example of a signal handler interrupting the regular flow:
+An example of thread switches:
 
 \code
-  0x00007fa87c6c0512  eb 5a                jmp    $0x00007fa87c6c056e
-  0x00007fa87c6c056e  80 bd 7c ff ff ff 00 cmp    -0x84(%rbp), $0x00
-  0x00007fa87c6c0575  0f 85 e5 03 00 00    jnz    $0x00007fa87c6c0960
-<marker: kernel xfer to handler>
-<marker: timestamp 13218875821472138>
-<marker: tid 159754 on core 0>
-  0x00007fa879bb88dc  55                   push   %rbp
-  0x00007fa879bb88dd  48 89 e5             mov    %rsp, %rbp
-  0x00007fa879bb88e0  48 83 ec 40          sub    $0x40, %rsp
-  0x00007fa879bb88e4  89 7d dc             mov    %edi, -0x24(%rbp)
-  0x00007fa879bb88e7  48 89 75 d0          mov    %rsi, -0x30(%rbp)
-  0x00007fa879bb88eb  48 89 55 c8          mov    %rdx, -0x38(%rbp)
-  0x00007fa879bb88ef  83 7d dc 0a          cmp    -0x24(%rbp), $0x0a
-  0x00007fa879bb88f3  74 0e                jz     $0x00007fa879bb8903
-  0x00007fa879bb8903  48 8b 45 c8          mov    -0x38(%rbp), %rax
-  0x00007fa879bb8907  48 83 c0 28          add    $0x28, %rax
-  0x00007fa879bb890b  48 89 45 f8          mov    %rax, -0x08(%rbp)
-  0x00007fa879bb890f  48 8b 45 f8          mov    -0x08(%rbp), %rax
-  0x00007fa879bb8913  48 8b 80 80 00 00 00 mov    0x80(%rax), %rax
-  0x00007fa879bb891a  48 89 45 f0          mov    %rax, -0x10(%rbp)
-  0x00007fa879bb891e  eb 6d                jmp    $0x00007fa879bb898d
-  0x00007fa879bb898d  90                   nop
-  0x00007fa879bb898e  c9                   leave
-  0x00007fa879bb898f  c3                   ret
-  0x00007fa87c6ca3a0  48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
-  0x00007fa87c6ca3a7  0f 05                syscall
-<marker: timestamp 13218875821472148>
-<marker: tid 159754 on core 0>
-<marker: syscall xfer>
-<marker: timestamp 13218875821475975>
-<marker: tid 159754 on core 4>
-  0x00007fa87c6c057b  48 8b 75 c8          mov    -0x38(%rbp), %rsi
-  0x00007fa87c6c057f  64 48 33 34 25 28 00 xor    %fs:0x28, %rsi
-                      00 00
+------------------------------------------------------------
+T342625 <marker: timestamp 13260900247983768>
+T342625 <marker: tid 342625 on core 3>
+T342625   0x0000000000402460  31 ed                xor    %ebp, %ebp
+T342625   0x0000000000402462  49 89 d1             mov    %rdx, %r9
+T342625   0x0000000000402465  5e                   pop    %rsi
+T342625     read  8 byte(s) @ 0x7ffe70dce480
+T342625   0x0000000000402466  48 89 e2             mov    %rsp, %rdx
+...
+T342625   0x0000000000467c42  4d 89 c8             mov    %r9, %r8
+T342625   0x0000000000467c45  4c 8b 54 24 08       mov    0x08(%rsp), %r10
+T342625     read  8 byte(s) @ 0x7ffe70dce100
+T342625   0x0000000000467c4a  b8 38 00 00 00       mov    $0x00000038, %eax
+T342625   0x0000000000467c4f  0f 05                syscall
+------------------------------------------------------------
+T342626 <marker: timestamp 13260900248221723>
+T342626 <marker: tid 342626 on core 0>
+T342626   0x0000000000467c51  48 85 c0             test   %rax, %rax
+T342626   0x0000000000467c54  7c 13                jl     $0x0000000000467c69
+T342626   0x0000000000467c56  74 01                jz     $0x0000000000467c59
+T342626   0x0000000000467c59  31 ed                xor    %ebp, %ebp
+T342626   0x0000000000467c5b  58                   pop    %rax
+T342626     read  8 byte(s) @ 0x7f899f928e70
+T342626   0x0000000000467c5c  5f                   pop    %rdi
+T342626     read  8 byte(s) @ 0x7f899f928e78
+T342626   0x0000000000467c5d  ff d0                call   %rax
+T342626     write 8 byte(s) @ 0x7f899f928e78
+T342626   0x0000000000404a30  41 54                push   %r12
+T342626     write 8 byte(s) @ 0x7f899f928e70
+...
+\endcode
+
+
+Here is an example of a signal handler interrupting the regular flow,
+with metadata showing that the signal was delivered just after a
+non-taken conditional branch:
+
+\code
+T585061   0x00007fdb4e95128f  41 f6 44 24 08 08    test   0x08(%r12), $0x08
+T585061     read  1 byte(s) @ 0x7ffd5af76b08
+T585061   0x00007fdb4e951295  0f 85 28 04 00 00    jnz    $0x00007fdb4e9516c3
+T585061 <marker: kernel xfer from 0x7fdb4e95129b to handler>
+T585061 <marker: timestamp 13269730052517230>
+T585061 <marker: tid 585061 on core 3>
+T585061   0x00007fdb4ace9dba  55                   push   %rbp
+T585061     write 8 byte(s) @ 0x7ffd5af763d0
+T585061   0x00007fdb4ace9dbb  48 89 e5             mov    %rsp, %rbp
+T585061   0x00007fdb4ace9dbe  89 7d fc             mov    %edi, -0x04(%rbp)
+T585061     write 4 byte(s) @ 0x7ffd5af763cc
+T585061   0x00007fdb4ace9dc1  48 89 75 f0          mov    %rsi, -0x10(%rbp)
+T585061     write 8 byte(s) @ 0x7ffd5af763c0
+T585061   0x00007fdb4ace9dc5  48 89 55 e8          mov    %rdx, -0x18(%rbp)
+T585061     write 8 byte(s) @ 0x7ffd5af763b8
+T585061   0x00007fdb4ace9dc9  83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+T585061     read  4 byte(s) @ 0x7ffd5af763cc
+T585061   0x00007fdb4ace9dcd  75 0f                jnz    $0x00007fdb4ace9dde
+T585061   0x00007fdb4ace9dcf  8b 05 7f 23 20 00    mov    <rel> 0x00007fdb4aeec154, %eax
+T585061     read  4 byte(s) @ 0x7fdb4aeec154
+T585061   0x00007fdb4ace9dd5  83 c0 01             add    $0x01, %eax
+T585061   0x00007fdb4ace9dd8  89 05 76 23 20 00    mov    %eax, <rel> 0x00007fdb4aeec154
+T585061     write 4 byte(s) @ 0x7fdb4aeec154
+T585061   0x00007fdb4ace9dde  90                   nop
+T585061   0x00007fdb4ace9ddf  5d                   pop    %rbp
+T585061     read  8 byte(s) @ 0x7ffd5af763d0
+T585061   0x00007fdb4ace9de0  c3                   ret
+T585061     read  8 byte(s) @ 0x7ffd5af763d8
+T585061   0x00007fdb4e95c140  48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+T585061   0x00007fdb4e95c147  0f 05                syscall
+T585061 <marker: timestamp 13269730052517239>
+T585061 <marker: tid 585061 on core 3>
+T585061 <marker: syscall xfer from 0x7fdb4e95c149>
+T585061 <marker: timestamp 13269730052520271>
+T585061 <marker: tid 585061 on core 3>
+T585061   0x00007fdb4e95129b  48 8b 1d 8e 40 01 00 mov    <rel> 0x00007fdb4e965330, %rbx
+T585061     read  8 byte(s) @ 0x7fdb4e965330
 \endcode
 
 \section sec_tool_func_view View Function Calls
@@ -627,6 +767,8 @@ Function id=0: common.fib!fib
        15 returns
 \endcode
 
+\section sec_tool_histogram Cache Line Histogram
+
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
@@ -659,6 +801,105 @@ dcache top 10
     0x7facdb6625c0: 2016
     0x7ffcc35e7e40: 1997
 \endcode
+
+\section sec_tool_invariant_checker Invariant Checker
+
+The invariant_checker tool performs sanity checks on a trace, focusing
+on program counter continuity and guarantees around kernel control
+transfer interruptions.  It optionally checks for restricted behavior
+that technically is legal but is not expected to happen in the target
+trace, helping to identify tracing problems and suitability for use of
+a trace for core simulation.
+
+****************************************************************************
+\page google_workload_traces Google Workload Traces
+
+With the rapid growth of internet services and cloud computing,
+workloads on warehouse-scale computers (WSCs) have become an important
+segment of today’s computing market. These workloads differ from
+others in their requirements of on-demand scalability, elasticity and
+availability. They have fundamentally different characteristics from
+traditional benchmarks and require changes to modern computer
+architecture to achieve optimal efficiency.  Google is sharing
+instruction and memory address traces from workloads running in Google
+data centers so that computer architecture researchers can study and
+develop new architecture ideas to improve the performance and
+efficiency of this important class of workloads.
+
+\section sec_google_format Trace Format
+
+The Google workload traces are captured using DynamoRIO's
+[drmemtrace](@ref page_drcachesim).  The traces are records of
+instruction and memory accesses as described at \ref
+sec_drcachesim_format.  We separate instruction and memory access
+records from each software thread into a separate file
+(.memtrace.gz). In addition, for each software thread, we also provide
+a branch_trace which contains execution data (taken/not taken, branch
+target) about each branch instruction (conditional, non-conditional,
+calls, etc.).  Finally, for each workload trace, we provide a thread
+statistics file (.threadstats.csv) which contains the thread ID (tid),
+instruction count, non-fetched instruction count (e.g. implicit
+instructions generated from microcode), load count, store count, and
+prefetch count.
+
+\section sec_google_get Getting the Traces
+
+The Google Workload Traces can be downloaded from:
+
+ - [Google workload trace folder](https://console.cloud.google.com/storage/browser/external-traces)
+
+Directory convention:
+- \verbatim
+  workload/trace-X/
+  \endverbatim
+  where X is sequential starting from 1
+
+Filename convention:
+- Memory trace file:
+  \verbatim
+  <uuid>.<tid>.memtrace.gz
+  \endverbatim
+- Branch trace file:
+  \verbatim
+  <uuid>.branch_trace.<tid>.csv.gz
+  \endverbatim
+- Thread statistics summary:
+  \verbatim
+  <uuid>.threadstats.csv
+  \endverbatim
+
+\section sec_google_help Getting Help and Reporting Bugs
+
+The Google Workload Traces are essentially inputs to drive third party
+tools (such as analyzers or simulators, including those provided here:
+\ref sec_drcachesim_tools).  If you encounter a crash in a tool
+provided by a third party, please locate the issue tracker for the
+tool you are using and report the crash there.  If you believe the
+issue is with the Google Workload Traces or with DynamoRIO or tools
+provided with DynamoRIO, you can file an issue as described at \ref
+page_bug_reporting.
+
+For general questions, or if you are not sure whether the problem you
+hit is a bug in your own code or in provided code, use the
+[DynamoRIO users group mailing list/discussion forum]
+(http://groups.google.com/group/dynamorio-users) rather than
+opening an issue in the tracker. The users list will reach a wider
+audience of people who might have an answer, and it will reach other
+users who may find the information beneficial.
+
+\section sec_google_contrib Contributing
+
+We welcome contributions to the Google workload trace project. The
+goal of providing the Google workload traces is to enable computer
+architecture researchers to develop insights and new architecture
+ideas to improve the performance and efficiency of workloads that run
+on warehouse-scale computers.
+
+You can contribute to the project in many ways:
+
+- Providing suggestions for improving trace formats.
+- Sharing and collaborating on architecture research.
+- Reporting issues: see \ref sec_google_help
 
 ****************************************************************************
 \page sec_drcachesim_config_file Configuration File
@@ -741,7 +982,7 @@ LLC {                          // LLC
   size            1M
   assoc           16
   inclusive       true
-  parent          mem
+  parent          memory
   replace_policy  LRU
   miss_file       misses.txt
 }
@@ -777,8 +1018,16 @@ subdirectory may be pointed at with \p -indir:
 $ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
-The canonical trace files may be manually compressed with gzip, as the
-trace reader supports reading gzipped files.
+If built with the zlib library, the canonical trace files are
+automatically compressed with gzip.  The trace reader supports reading
+gzip or snappy compressed files.  The raw files may also be compressed
+with the -p raw_compress option using either snappy or a version of
+snappy that omits checksums (enabled with "snappy_crc" passed to -p
+raw_compress).  However, whether compressing the raw files is a net
+reduction in overhead depends on the storage medium; for an SSD it is
+typically slower to compress, though "snappy_crc" comes close to
+matching the uncompressed performance.  For a spinning disk,
+compression should be a net win.
 
 Older versions of the simulator produced a single trace file containing all threads
 interleaved.  The \p -infile option supports reading these legacy files:
@@ -806,6 +1055,21 @@ dynamic instruction executions.  This can be used to skip initialization
 and arrive at the desired starting point.  The trace's length can be
 limited in several ways:
 
+- The \p -trace_for_instrs option stops tracing after the specified number
+  of dynamic instrutions in the current window (since the last \p
+  -retrace_every_instrs trigger, if set).
+- The \p -retrace_every_instrs option augments -p -trace_for_instrs by
+  executing its specified instruction count without tracing and then
+  re-enabling tracing for \p -trace_for_instrs again, resulting in
+  tracing windows repeated at regular intervals throughout the execution.
+  There are two options for how these windows are stored for offline traces.
+  If the \p -split_windows option is set (which is the default), each window
+  produces a separate set of output files inside a window.NNNN subdirectory.
+  Post-processing by default targets the first window; the others must be explicitly
+  passed to separate post-processing invocations.  If \p -no_split_windows is set,
+  a single trace is created with #TRACE_MARKER_TYPE_WINDOW_ID
+  markers (see \ref sec_drcachesim_format_other) identifying the trace window
+  transitions.
 - The \p -max_global_trace_refs option causes the recording of trace
   data to cease once the specified threshold is exceeded by the sum of
   all trace references across all threads.  One trace reference entry
@@ -935,7 +1199,9 @@ sec_drcachesim_extend.
 For L2 caching devices, the L1 caching devices are considered its _children_.
 Two separate miss rates are computed, one (the "Local miss rate") considering
 just requests that reach L2 while the other (the "Total miss rate")
-includes the child hits.
+includes the child hits.  This generalizes to deeper hierarchies:
+lower level caches are children and reported child hits are cumulative
+across all lower levels.
 
 For memory requests that cross blocks, each block touched is
 considered separately, resulting in separate hit and miss statistics.  This
@@ -996,19 +1262,24 @@ instruction information to go along with each load and store, while cache
 simulators can ignore these "no-fetch" entries and avoid incorrectly
 inflating instruction fetch statistics.
 
-Offline traces guarantee that a branch target instruction entry in a
-trace must immediately follow the branch instruction with no intervening
-thread switch.  This allows a core simulator to identify the target of a
-branch by looking at the subsequent trace entry.  However, this guarantee
-does not hold when a kernel event such as a signal is delivered
-immediately after a branch.
-
 Traces include scheduling markers providing the timestamp and hardware
 thread identifier on each thread transition, allowing a simulator to more
 closely match the actual hardware if so desired.
 
 Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
+
+Offline traces guarantee that a branch target instruction entry in a
+trace must immediately follow the branch instruction with no intervening
+thread switch.  This allows a core simulator to identify the target of a
+branch by looking at the subsequent trace entry.  This guarantee
+does not hold when a kernel event such as a signal is delivered
+immediately after a branch; however, each marker indicating such a kernel transfer
+includes the interrupted PC, explicitly providing the branch target.
+
+Filtered traces (filtered via -L0_filter) include the dynamic (pre-filtered)
+per-thread instruction count in a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at
+each thread buffer boundary and at thread exit.
 
 A final feature that aids core simulators is the pair of interfaces
 module_mapper_t::get_loaded_modules() and
@@ -1128,10 +1399,11 @@ the trace and calls the appropriate #analysis_tool_t functions for
 each tool.  An alternative mode is supported which exposes the
 iterator and allows a separate control infrastructure to be built.
 
-Each trace entry is of type #memref_t and represents one instruction or
-data reference or a metadata operation such as a thread exit or marker.
-There are built-in scheduling markers providing the timestamp and cpu
-identifier on each thread transition.  Other built-in markers indicate
+As explained in \ref sec_drcachesim_format, each trace entry is of
+type #memref_t and represents one instruction or data reference or a
+metadata operation such as a thread exit or marker.  There are
+built-in scheduling markers providing the timestamp and cpu identifier
+on each thread transition.  Other built-in markers indicate
 disruptions in user mode control flow such as signal handler entry and
 exit.
 
@@ -1190,6 +1462,9 @@ these areas of missing functionality:
 - Online traces may skip instructions immediately prior to
   non-load-or-store-related kernel transfer events
   (https://github.com/DynamoRIO/dynamorio/issues/3937).
+- Online traces may include the committing store in the trace when a
+  restartable sequence abort happened prior to that store
+  (https://github.com/DynamoRIO/dynamorio/issues/4041).
 - Application phase marking is not yet implemented
   (https://github.com/DynamoRIO/dynamorio/issues/2478).
 

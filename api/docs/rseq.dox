@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -50,7 +50,7 @@ Internally used inside Google for a few years [0] as well as EfficiOS [1], the c
 
 During execution, DynamoRIO rewrites the target application block by basic block, copying these fragments into a new memory space along with any instrumentation that clients add. Since the kernel identifies restartable sequences based on their instruction address, the direct application of the standard execution model of DR would be incorrect due to this changing of actual instruction addresses. In addition, the preemption detection is implemented by the kernel redirecting execution to some arbitrary application address, according to configuration from the application. Similar to signal handling, DR must handle this transparently in order to retain control of the application and execute it correctly.
 
-Since Restartable Sequences are registered using a (relatively new) syscall, we could simply blacklist the syscall and claim that the kernel does not support the feature since most libraries will be written to be backwards-compatible for slightly older kernels. Barring that, DynamoRIO will have to support Restartable Sequences explicitly.
+Since Restartable Sequences are registered using a (relatively new) syscall, we could simply blocklist the syscall and claim that the kernel does not support the feature since most libraries will be written to be backwards-compatible for slightly older kernels. Barring that, DynamoRIO will have to support Restartable Sequences explicitly.
 
 ## RSEQ API/ABI
 
@@ -186,7 +186,7 @@ Eliding stores is complex for instructions with side effects, which we want to k
 
 Once the instrumented execution reaches the final block in the sequence, we want to execute the sequence again, for the second time.  We need to execute it all in one shot, as one contiguous region, since we need to set it up for restartable semantics with the kernel.  We thus make a local copy of the sequence, described further below.
 
-An early version, operating on applications which only used rseq sequences as function bodies, had a simpler method of invoking the second execution: call the native sequence and assume it will simply return back.  This has a number of drawbacks and assumptions and has been abandoned as we have moved to support more general rseq code.  Support is still in the code base under a temporary option `-rseq_assume_call`, as a failsafe in case there are stability problems discovered with the new native execution implementation.  Once we are happy with the new scheme we will remove the option.
+An early version, operating on applications which only used rseq sequences as function bodies, had a simpler method of invoking the second execution: call the native sequence and assume it will simply return back.  This has a number of drawbacks and assumptions and has been abandoned as we have moved to support more general rseq code.  Until recently support was still in the code base under a temporary option `-rseq_assume_call`, as a failsafe in case there were stability problems discovered with the new native execution implementation.  We have since removed this code and option as we are happy with the new general scheme.
 
 ### Application State Barrier
 
@@ -268,7 +268,7 @@ We do not yet perfectly handle a midpoint exit during the instrumentation execut
 
 We do not yet handle indirect branch exits out of a sequence.
 
-We are currently ignoring the flags which indicate which triggers (out of preempt, signal, and migrate) should cause the abort handler to be called.  We blindly run a second time even the preempt and migrate bits are not set, which the application may not expect without a signal arriving or may expect to only happen in a fatal error condition.
+We are currently ignoring the flags which indicate which triggers (out of preempt, signal, and migrate) should cause the abort handler to be called.  We blindly run a second time even if the preempt and migrate bits are not set, which the application may not expect without a signal arriving or may expect to only happen in a fatal error condition.
 
 # Limitations
 
@@ -276,7 +276,7 @@ There are numerous limitations in our current “run rseq twice” solution.  As
 
 The biggest limitation is that we only support applications using toolchain support to allow us to statically identify all restartable sequences, and using static thread-local storage with consistent slots across threads.
 
-We have a detailed list of other limitations in our documentation, whose [source code is here](https://github.com/DynamoRIO/dynamorio/blob/master/api/docs/bt.dox#L1307).
+We have a [detailed list of other limitations in our documentation](@ref sec_rseq).
 
 # Citations
 

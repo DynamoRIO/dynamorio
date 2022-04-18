@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,10 +64,11 @@ typedef enum {
     DRBBDUP_ERROR_INVALID_OPND,            /**< Operation failed: invalid case opnd. */
     DRBBDUP_ERROR_CASE_ALREADY_REGISTERED, /**< Operation failed: already registered. */
     DRBBDUP_ERROR_CASE_LIMIT_REACHED,      /**< Operation failed: case limit reached. */
-    DRBBDUP_ERROR_ALREADY_INITIALISED,     /**< DRBBDUP can only be initialised once. */
-    DRBBDUP_ERROR,                         /**< Operation failed. */
-    DRBBDUP_ERROR_UNSET_FEATURE,           /**< Operation failed: feature not set. */
-    DRBBDUP_ERROR_NOT_INITIALIZED,         /**< Operation failed: not initialized. */
+    DRBBDUP_ERROR_ALREADY_INITIALISED, /**< DRBBDUP can only be initialised once. This is
+                                          a fatal error. */
+    DRBBDUP_ERROR,                     /**< Operation failed. */
+    DRBBDUP_ERROR_UNSET_FEATURE,       /**< Operation failed: feature not set. */
+    DRBBDUP_ERROR_NOT_INITIALIZED,     /**< Operation failed: not initialized. */
 } drbbdup_status_t;
 
 /***************************************************************************
@@ -157,6 +158,20 @@ typedef void (*drbbdup_analyze_case_t)(void *drcontext, void *tag, instrlist_t *
                                        IN void **case_analysis_data);
 
 /**
+ * Identical to #drbbdup_analyze_case_t except for two extra parameters, "for_trace"
+ * and "translating", and the return value.  These all match the same parameters and
+ * return values used with #drmgr_analysis_cb_t and dr_register_bb_event().
+ * The returned flags will be merged in the same manner as for #drmgr_analysis_cb_t.
+ *
+ */
+typedef dr_emit_flags_t (*drbbdup_analyze_case_ex_t)(void *drcontext, void *tag,
+                                                     instrlist_t *bb, bool for_trace,
+                                                     bool translating, uintptr_t encoding,
+                                                     void *user_data,
+                                                     void *orig_analysis_data,
+                                                     IN void **case_analysis_data);
+
+/**
  * Destroys analysis data \p case_analysis_data for the case with encoding \p encoding.
  *
  * The function is not invoked by drbbdup if \p case_analysis_data was set to NULL by the
@@ -204,14 +219,26 @@ typedef void (*drbbdup_instrument_instr_t)(void *drcontext, void *tag, instrlist
                                            void *orig_analysis_data,
                                            void *case_analysis_data);
 
+/**
+ * Identical to #drbbdup_instrument_instr_t except for two extra parameters, "for_trace"
+ * and "translating", and the return value.  These all match the same parameters and
+ * return values used with #drmgr_insertion_cb_t and dr_register_bb_event().
+ * The returned flags will be merged in the same manner as for #drmgr_insertion_cb_t.
+ *
+ */
+typedef dr_emit_flags_t (*drbbdup_instrument_instr_ex_t)(
+    void *drcontext, void *tag, instrlist_t *bb, instr_t *instr, instr_t *where,
+    bool for_trace, bool translating, uintptr_t encoding, void *user_data,
+    void *orig_analysis_data, void *case_analysis_data);
+
 /***************************************************************************
  * INIT
  */
 
 /**
  * Specifies the options when initialising drbbdup. \p set_up_bb_dups
- * and \p instrument_instr cannot be NULL, while \p non_default_case_limit must be
- * greater than zero.
+ * and \p instrument_instr cannot be NULL.  \p runtime_case_opnd must be
+ * a pointer-sized memory reference, unless \p non_default_case_limit is 0.
  */
 typedef struct {
     /** Set this to the size of this structure. */
@@ -254,7 +281,7 @@ typedef struct {
     drbbdup_destroy_case_analysis_t destroy_case_analysis;
     /**
      * A user-defined call-back function that instruments an instruction with respect to a
-     * particular case.
+     * particular case.  Either this or the instrument_instr_ex field must be set.
      */
     drbbdup_instrument_instr_t instrument_instr;
     /**
@@ -272,8 +299,8 @@ typedef struct {
      */
     opnd_t runtime_case_opnd;
     /**
-     * Instructs drbbdup whether or not the loading of the runtime case should be
-     * locked/atomic.
+     * Instructs drbbdup whether or not the loading of the runtime case should use
+     * release-acquire semantics.
      */
     bool atomic_load_encoding;
     /**
@@ -284,7 +311,9 @@ typedef struct {
     /**
      * The maximum number of alternative cases, excluding the default case, that can be
      * associated with a basic block. Once the limit is reached and an unhandled case is
-     * encountered, control is directed to the default case.
+     * encountered, control is directed to the default case.  If this is set to 0,
+     * no duplication is performed on any block, and 0 is passed as the encoding to the
+     * \p analyze_case and \p instrument_instr (and their extended version) callbacks.
      */
     ushort non_default_case_limit;
     /**
@@ -301,6 +330,28 @@ typedef struct {
      * set to true.
      */
     bool is_stat_enabled;
+    /**
+     * Gives an upper bound on the value of all case encodings.  This is used to
+     * optimize the dispatch code on AArchXX: in particular, an upper bound <256
+     * avoids an extra scratch register.  Set to 0 to indicate there is no bound.
+     */
+    uintptr_t max_case_encoding;
+    /**
+     * Identical to analyze_case but taking extra parameters and with a return value.
+     * Only one of this field or the analyze_case field can be set.
+     */
+    drbbdup_analyze_case_ex_t analyze_case_ex;
+    /**
+     * Identical to instrument_instr but taking extra parameters and with a return value.
+     * Either this or the instrument_instr field must be set.
+     */
+    drbbdup_instrument_instr_ex_t instrument_instr_ex;
+    /**
+     * If \p enable_dynamic_handling will *never* be set by \p set_up_bb_dups for
+     * *any* basic block, this field can be set to true.  This reduces memory
+     * usage by not allocating bookkeeping data needed for dynamic handling.
+     */
+    bool never_enable_dynamic_handling;
 } drbbdup_options_t;
 
 /**

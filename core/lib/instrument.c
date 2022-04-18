@@ -44,7 +44,7 @@
 
 #include "instrument.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
@@ -218,11 +218,9 @@ static callback_list_t bb_callbacks = {
 static callback_list_t trace_callbacks = {
     0,
 };
-#ifdef CUSTOM_TRACES
 static callback_list_t end_trace_callbacks = {
     0,
 };
-#endif
 static callback_list_t fragdel_callbacks = {
     0,
 };
@@ -264,6 +262,9 @@ static callback_list_t security_violation_callbacks = {
     0,
 };
 #endif
+static callback_list_t clean_call_insertion_callbacks = {
+    0,
+};
 static callback_list_t persist_ro_size_callbacks = {
     0,
 };
@@ -348,15 +349,11 @@ bool client_requested_exit;
 static bool block_client_nudge_threads = false;
 DECLARE_CXTSWPROT_VAR(static int num_client_nudge_threads, 0);
 #endif
-#ifdef CLIENT_SIDELINE
 /* # of sideline threads */
 DECLARE_CXTSWPROT_VAR(static int num_client_sideline_threads, 0);
-#endif
-#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
 /* protects block_client_nudge_threads and incrementing num_client_nudge_threads */
 DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
                       INIT_LOCK_FREE(client_thread_count_lock));
-#endif
 
 static vm_area_vector_t *client_aux_libs;
 
@@ -827,9 +824,7 @@ free_all_callback_lists()
     free_callback_list(&low_on_memory_callbacks);
     free_callback_list(&bb_callbacks);
     free_callback_list(&trace_callbacks);
-#ifdef CUSTOM_TRACES
     free_callback_list(&end_trace_callbacks);
-#endif
     free_callback_list(&fragdel_callbacks);
     free_callback_list(&restore_state_callbacks);
     free_callback_list(&restore_state_ex_callbacks);
@@ -844,6 +839,7 @@ free_all_callback_lists()
 #else
     free_callback_list(&signal_callbacks);
 #endif
+    free_callback_list(&clean_call_insertion_callbacks);
 #ifdef PROGRAM_SHEPHERDING
     free_callback_list(&security_violation_callbacks);
 #endif
@@ -896,9 +892,7 @@ instrument_exit(void)
 #ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
 #endif
-#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
     DELETE_LOCK(client_thread_count_lock);
-#endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }
 
@@ -909,14 +903,22 @@ is_in_client_lib(app_pc addr)
      * clients. If we add a callback on that event we'll have to be
      * sure to deliver it only to the right client.
      */
+    if (is_in_client_lib_ignore_aux(addr))
+        return true;
+    if (client_aux_libs != NULL && vmvector_overlap(client_aux_libs, addr, addr + 1))
+        return true;
+    return false;
+}
+
+bool
+is_in_client_lib_ignore_aux(app_pc addr)
+{
     size_t i;
     for (i = 0; i < num_client_libs; i++) {
         if ((addr >= (app_pc)client_libs[i].start) && (addr < client_libs[i].end)) {
             return true;
         }
     }
-    if (client_aux_libs != NULL && vmvector_overlap(client_aux_libs, addr, addr + 1))
-        return true;
     return false;
 }
 
@@ -1007,7 +1009,6 @@ bool dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *ta
     return remove_callback(&trace_callbacks, (void (*)(void))func, true);
 }
 
-#ifdef CUSTOM_TRACES
 void dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
                                                                   void *tag,
                                                                   void *next_tag))
@@ -1026,7 +1027,6 @@ bool dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcont
 {
     return remove_callback(&end_trace_callbacks, (void (*)(void))func, true);
 }
-#endif
 
 void
 dr_register_delete_event(void (*func)(void *drcontext, void *tag))
@@ -1262,6 +1262,22 @@ dr_unregister_security_event(void (*func)(void *drcontext, void *source_tag,
 #endif
 
 void
+dr_register_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                    instr_t *where,
+                                                    dr_cleancall_save_t call_flags))
+{
+    add_callback(&clean_call_insertion_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_unregister_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                      instr_t *where,
+                                                      dr_cleancall_save_t call_flags))
+{
+    return remove_callback(&clean_call_insertion_callbacks, (void (*)(void))func, true);
+}
+
+void
 dr_register_nudge_event(void (*func)(void *drcontext, uint64 argument), client_id_t id)
 {
     size_t i;
@@ -1351,15 +1367,12 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
             HEAP_TYPE_ALLOC(dcontext, client_data_t, ACCT_OTHER, PROTECTED);
         memset(dcontext->client_data, 0x0, sizeof(client_data_t));
 
-#ifdef CLIENT_SIDELINE
         ASSIGN_INIT_LOCK_FREE(dcontext->client_data->sideline_mutex, sideline_mutex);
-#endif
         CLIENT_ASSERT(dynamo_initialized || thread_init_callbacks.num == 0 ||
                           client_thread,
                       "1st call to instrument_thread_init should have no cbs");
     }
 
-#ifdef CLIENT_SIDELINE
     if (client_thread) {
         ATOMIC_INC(int, num_client_sideline_threads);
         /* We don't call dynamo_thread_not_under_dynamo() b/c we want itimers. */
@@ -1367,7 +1380,6 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
         dcontext->client_data->is_client_thread = true;
         dcontext->client_data->suspendable = true;
     }
-#endif /* CLIENT_SIDELINE */
 }
 
 void
@@ -1431,7 +1443,6 @@ instrument_low_on_memory()
 void
 instrument_thread_exit_event(dcontext_t *dcontext)
 {
-#ifdef CLIENT_SIDELINE
     if (IS_CLIENT_THREAD(dcontext)
         /* if nudge thread calls dr_exit_process() it will be marked as a client
          * thread: rule it out here so we properly clean it up
@@ -1441,7 +1452,6 @@ instrument_thread_exit_event(dcontext_t *dcontext)
         /* no exit event */
         return;
     }
-#endif
 
     /* i#1394: best-effort to try to avoid crashing thread exit events
      * where thread init was never called.
@@ -1466,9 +1476,7 @@ instrument_thread_exit(dcontext_t *dcontext)
 #ifdef DEBUG
     /* i#271: avoid racy crashes by not freeing in release build. */
 
-#    ifdef CLIENT_SIDELINE
     DELETE_LOCK(dcontext->client_data->sideline_mutex);
-#    endif
 
     /* could be heap space allocated for the todo list */
     todo = dcontext->client_data->to_do;
@@ -1852,7 +1860,6 @@ instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
                                                        &client_mcontext);
 }
 
-#ifdef CUSTOM_TRACES
 /* Ask whether to end trace prior to adding next_tag fragment.
  * Return values:
  *   CUSTOM_TRACE_DR_DECIDES = use standard termination criteria
@@ -1874,183 +1881,6 @@ instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag)
                  (void *)dcontext, (void *)trace_tag, (void *)next_tag);
 
     return ret;
-}
-#endif
-
-static module_data_t *
-create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
-                                  uint flags, const module_names_t *names,
-                                  const char *full_path,
-#ifdef WINDOWS
-                                  version_number_t file_version,
-                                  version_number_t product_version, uint checksum,
-                                  uint timestamp, size_t mod_size,
-#else
-                                  bool contiguous, uint num_segments,
-                                  module_segment_t *os_segments,
-                                  module_segment_data_t *segments, uint timestamp,
-#    ifdef MACOS
-                                  uint current_version, uint compatibility_version,
-                                  const byte uuid[16],
-#    endif
-#endif
-                                  app_pc preferred_base)
-{
-#ifndef WINDOWS
-    uint i;
-#endif
-    module_data_t *copy = (module_data_t *)HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_data_t,
-                                                           ACCT_CLIENT, UNPROTECTED);
-    memset(copy, 0, sizeof(module_data_t));
-
-    copy->start = start;
-    copy->end = end;
-    copy->entry_point = entry_point;
-    copy->flags = flags;
-
-    if (full_path != NULL)
-        copy->full_path = dr_strdup(full_path HEAPACCT(ACCT_CLIENT));
-    if (names->module_name != NULL)
-        copy->names.module_name = dr_strdup(names->module_name HEAPACCT(ACCT_CLIENT));
-    if (names->file_name != NULL)
-        copy->names.file_name = dr_strdup(names->file_name HEAPACCT(ACCT_CLIENT));
-#ifdef WINDOWS
-    if (names->exe_name != NULL)
-        copy->names.exe_name = dr_strdup(names->exe_name HEAPACCT(ACCT_CLIENT));
-    if (names->rsrc_name != NULL)
-        copy->names.rsrc_name = dr_strdup(names->rsrc_name HEAPACCT(ACCT_CLIENT));
-
-    copy->file_version = file_version;
-    copy->product_version = product_version;
-    copy->checksum = checksum;
-    copy->timestamp = timestamp;
-    copy->module_internal_size = mod_size;
-#else
-    copy->contiguous = contiguous;
-    copy->num_segments = num_segments;
-    copy->segments = (module_segment_data_t *)HEAP_ARRAY_ALLOC(
-        GLOBAL_DCONTEXT, module_segment_data_t, num_segments, ACCT_VMAREAS, PROTECTED);
-    if (os_segments != NULL) {
-        ASSERT(segments == NULL);
-        for (i = 0; i < num_segments; i++) {
-            copy->segments[i].start = os_segments[i].start;
-            copy->segments[i].end = os_segments[i].end;
-            copy->segments[i].prot = os_segments[i].prot;
-            copy->segments[i].offset = os_segments[i].offset;
-        }
-    } else {
-        ASSERT(segments != NULL);
-        if (segments != NULL) {
-            memcpy(copy->segments, segments,
-                   num_segments * sizeof(module_segment_data_t));
-        }
-    }
-    copy->timestamp = timestamp;
-#    ifdef MACOS
-    copy->current_version = current_version;
-    copy->compatibility_version = compatibility_version;
-    memcpy(copy->uuid, uuid, sizeof(copy->uuid));
-#    endif
-#endif
-    copy->preferred_base = preferred_base;
-    return copy;
-}
-
-module_data_t *
-copy_module_area_to_module_data(const module_area_t *area)
-{
-    if (area == NULL)
-        return NULL;
-
-    return create_and_initialize_module_data(
-        area->start, area->end, area->entry_point, 0, &area->names, area->full_path,
-#ifdef WINDOWS
-        area->os_data.file_version, area->os_data.product_version, area->os_data.checksum,
-        area->os_data.timestamp, area->os_data.module_internal_size,
-#else
-        area->os_data.contiguous, area->os_data.num_segments, area->os_data.segments,
-        NULL, area->os_data.timestamp,
-#    ifdef MACOS
-        area->os_data.current_version, area->os_data.compatibility_version,
-        area->os_data.uuid,
-#    endif
-#endif
-        IF_WINDOWS_ELSE(area->os_data.preferred_base, area->os_data.base_address));
-}
-
-DR_API
-/* Makes a copy of a module_data_t for returning to the client.  We return a copy so
- * we don't have to hold the module areas list lock while in the client (xref PR 225020).
- * Note - dr_data is allowed to be NULL. */
-module_data_t *
-dr_copy_module_data(const module_data_t *data)
-{
-    if (data == NULL)
-        return NULL;
-
-    return create_and_initialize_module_data(
-        data->start, data->end, data->entry_point, 0, &data->names, data->full_path,
-#ifdef WINDOWS
-        data->file_version, data->product_version, data->checksum, data->timestamp,
-        data->module_internal_size,
-#else
-        data->contiguous, data->num_segments, NULL, data->segments, data->timestamp,
-#    ifdef MACOS
-        data->current_version, data->compatibility_version, data->uuid,
-#    endif
-#endif
-        data->preferred_base);
-}
-
-DR_API
-/* Used to free a module_data_t created by dr_copy_module_data() */
-void
-dr_free_module_data(module_data_t *data)
-{
-    dcontext_t *dcontext = get_thread_private_dcontext();
-
-    if (data == NULL)
-        return;
-
-    if (dcontext != NULL && data == dcontext->client_data->no_delete_mod_data) {
-        CLIENT_ASSERT(false,
-                      "dr_free_module_data: don\'t free module_data passed to "
-                      "the image load or image unload event callbacks.");
-        return;
-    }
-
-#ifdef UNIX
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, data->segments, module_segment_data_t,
-                    data->num_segments, ACCT_VMAREAS, PROTECTED);
-#endif
-    if (data->full_path != NULL)
-        dr_strfree(data->full_path HEAPACCT(ACCT_CLIENT));
-    free_module_names(&data->names HEAPACCT(ACCT_CLIENT));
-
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, data, module_data_t, ACCT_CLIENT, UNPROTECTED);
-}
-
-DR_API
-bool
-dr_module_contains_addr(const module_data_t *data, app_pc addr)
-{
-    /* XXX: this duplicates module_contains_addr(), but we have two different
-     * data structures (module_area_t and module_data_t) so it's hard to share.
-     */
-#ifdef WINDOWS
-    return (addr >= data->start && addr < data->end);
-#else
-    if (data->contiguous)
-        return (addr >= data->start && addr < data->end);
-    else {
-        uint i;
-        for (i = 0; i < data->num_segments; i++) {
-            if (addr >= data->segments[i].start && addr < data->segments[i].end)
-                return true;
-        }
-    }
-    return false;
-#endif
 }
 
 /* Looks up module containing pc (assumed to be fully loaded).
@@ -2465,9 +2295,7 @@ int
 get_num_client_threads(void)
 {
     int num = IF_WINDOWS_ELSE(num_client_nudge_threads, 0);
-#ifdef CLIENT_SIDELINE
     num += num_client_sideline_threads;
-#endif
     return num;
 }
 
@@ -4034,260 +3862,6 @@ dr_atomic_store64(volatile int64 *dest, int64 val)
 }
 #endif
 
-/***************************************************************************
- * MODULES
- */
-
-DR_API
-/* Looks up the module data containing pc.  Returns NULL if not found.
- * Returned module_data_t must be freed with dr_free_module_data(). */
-module_data_t *
-dr_lookup_module(byte *pc)
-{
-    module_area_t *area;
-    module_data_t *client_data;
-    os_get_module_info_lock();
-    area = module_pc_lookup(pc);
-    client_data = copy_module_area_to_module_data(area);
-    os_get_module_info_unlock();
-    return client_data;
-}
-
-DR_API
-module_data_t *
-dr_get_main_module(void)
-{
-    return dr_lookup_module(get_image_entry());
-}
-
-DR_API
-/* Looks up the module with name matching name (ignoring case).  Returns NULL if not
- * found. Returned module_data_t must be freed with dr_free_module_data(). */
-module_data_t *
-dr_lookup_module_by_name(const char *name)
-{
-    /* We have no quick way of doing this since our module list is indexed by pc. We
-     * could use get_module_handle() but that's dangerous to call at arbitrary times,
-     * so we just walk our full list here. */
-    module_iterator_t *mi = module_iterator_start();
-    CLIENT_ASSERT((name != NULL), "dr_lookup_module_info_by_name: null name");
-    while (module_iterator_hasnext(mi)) {
-        module_area_t *area = module_iterator_next(mi);
-        module_data_t *client_data;
-        const char *modname = GET_MODULE_NAME(&area->names);
-        if (modname != NULL && strcasecmp(modname, name) == 0) {
-            client_data = copy_module_area_to_module_data(area);
-            module_iterator_stop(mi);
-            return client_data;
-        }
-    }
-    module_iterator_stop(mi);
-    return NULL;
-}
-
-typedef struct _client_mod_iterator_list_t {
-    module_data_t *info;
-    struct _client_mod_iterator_list_t *next;
-} client_mod_iterator_list_t;
-
-typedef struct {
-    client_mod_iterator_list_t *current;
-    client_mod_iterator_list_t *full_list;
-} client_mod_iterator_t;
-
-DR_API
-/* Initialize a new client module iterator. */
-dr_module_iterator_t *
-dr_module_iterator_start(void)
-{
-    client_mod_iterator_t *client_iterator = (client_mod_iterator_t *)HEAP_TYPE_ALLOC(
-        GLOBAL_DCONTEXT, client_mod_iterator_t, ACCT_CLIENT, UNPROTECTED);
-    module_iterator_t *dr_iterator = module_iterator_start();
-
-    memset(client_iterator, 0, sizeof(*client_iterator));
-    while (module_iterator_hasnext(dr_iterator)) {
-        module_area_t *area = module_iterator_next(dr_iterator);
-        client_mod_iterator_list_t *list = (client_mod_iterator_list_t *)HEAP_TYPE_ALLOC(
-            GLOBAL_DCONTEXT, client_mod_iterator_list_t, ACCT_CLIENT, UNPROTECTED);
-
-        ASSERT(area != NULL);
-        list->info = copy_module_area_to_module_data(area);
-        list->next = NULL;
-        if (client_iterator->current == NULL) {
-            client_iterator->current = list;
-            client_iterator->full_list = client_iterator->current;
-        } else {
-            client_iterator->current->next = list;
-            client_iterator->current = client_iterator->current->next;
-        }
-    }
-    module_iterator_stop(dr_iterator);
-    client_iterator->current = client_iterator->full_list;
-
-    return (dr_module_iterator_t)client_iterator;
-}
-
-DR_API
-/* Returns true if there is another loaded module in the iterator. */
-bool
-dr_module_iterator_hasnext(dr_module_iterator_t *mi)
-{
-    CLIENT_ASSERT((mi != NULL), "dr_module_iterator_hasnext: null iterator");
-    return ((client_mod_iterator_t *)mi)->current != NULL;
-}
-
-DR_API
-/* Retrieves the module_data_t for the next loaded module in the iterator. */
-module_data_t *
-dr_module_iterator_next(dr_module_iterator_t *mi)
-{
-    module_data_t *data;
-    client_mod_iterator_t *ci = (client_mod_iterator_t *)mi;
-    CLIENT_ASSERT((mi != NULL), "dr_module_iterator_next: null iterator");
-    CLIENT_ASSERT((ci->current != NULL),
-                  "dr_module_iterator_next: has no next, use "
-                  "dr_module_iterator_hasnext() first");
-    if (ci->current == NULL)
-        return NULL;
-    data = ci->current->info;
-    ci->current = ci->current->next;
-    return data;
-}
-
-DR_API
-/* Free the module iterator. */
-void
-dr_module_iterator_stop(dr_module_iterator_t *mi)
-{
-    client_mod_iterator_t *ci = (client_mod_iterator_t *)mi;
-    CLIENT_ASSERT((mi != NULL), "dr_module_iterator_stop: null iterator");
-
-    /* free module_data_t's we didn't give to the client */
-    while (ci->current != NULL) {
-        dr_free_module_data(ci->current->info);
-        ci->current = ci->current->next;
-    }
-
-    ci->current = ci->full_list;
-    while (ci->current != NULL) {
-        client_mod_iterator_list_t *next = ci->current->next;
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ci->current, client_mod_iterator_list_t,
-                       ACCT_CLIENT, UNPROTECTED);
-        ci->current = next;
-    }
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ci, client_mod_iterator_t, ACCT_CLIENT, UNPROTECTED);
-}
-
-DR_API
-/* Get the name dr uses for this module. */
-const char *
-dr_module_preferred_name(const module_data_t *data)
-{
-    if (data == NULL)
-        return NULL;
-
-    return GET_MODULE_NAME(&data->names);
-}
-
-#ifdef WINDOWS
-
-DR_API
-/* If pc is within a section of module lib returns true and (optionally) a copy of
- * the IMAGE_SECTION_HEADER in section_out.  If pc is not within a section of the
- * module mod return false. */
-bool
-dr_lookup_module_section(module_handle_t lib, byte *pc, IMAGE_SECTION_HEADER *section_out)
-{
-    CLIENT_ASSERT((lib != NULL), "dr_lookup_module_section: null module_handle_t");
-    return module_pc_section_lookup((app_pc)lib, pc, section_out);
-}
-#endif
-
-/* i#805: Instead of exposing multiple instruction levels, we expose a way for
- * clients to turn off instrumentation.  Then DR can avoid a full decode and we
- * can save some time on modules that are not interesting.
- * XXX: This breaks other clients and extensions, in particular drwrap, which
- * can miss call and return sites in the uninstrumented module.
- */
-DR_API
-bool
-dr_module_set_should_instrument(module_handle_t handle, bool should_instrument)
-{
-    module_area_t *ma;
-    DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext());
-    IF_DEBUG(executable_areas_lock());
-    os_get_module_info_write_lock();
-    ma = module_pc_lookup((byte *)handle);
-    if (ma != NULL) {
-        /* This kind of obviates the need for handle, but it makes the API more
-         * explicit.
-         */
-        CLIENT_ASSERT(dcontext->client_data->no_delete_mod_data->handle == handle,
-                      "Do not call dr_module_set_should_instrument() outside "
-                      "of the module's own load event");
-        ASSERT(!executable_vm_area_executed_from(ma->start, ma->end));
-        if (should_instrument) {
-            ma->flags &= ~MODULE_NULL_INSTRUMENT;
-        } else {
-            ma->flags |= MODULE_NULL_INSTRUMENT;
-        }
-    }
-    os_get_module_info_write_unlock();
-    IF_DEBUG(executable_areas_unlock());
-    return (ma != NULL);
-}
-
-DR_API
-bool
-dr_module_should_instrument(module_handle_t handle)
-{
-    bool should_instrument = true;
-    module_area_t *ma;
-    os_get_module_info_lock();
-    ma = module_pc_lookup((byte *)handle);
-    CLIENT_ASSERT(ma != NULL, "invalid module handle");
-    if (ma != NULL) {
-        should_instrument = !TEST(MODULE_NULL_INSTRUMENT, ma->flags);
-    }
-    os_get_module_info_unlock();
-    return should_instrument;
-}
-
-DR_API
-/* Returns the entry point of the function with the given name in the module
- * with the given handle.
- * We're not taking in module_data_t to make it simpler for the client
- * to iterate or lookup the module_data_t, store the single-field
- * handle, and then free the data right away: besides, module_data_t
- * is not an opaque type.
- */
-generic_func_t
-dr_get_proc_address(module_handle_t lib, const char *name)
-{
-#ifdef WINDOWS
-    return get_proc_address_resolve_forward(lib, name);
-#else
-    return d_r_get_proc_address(lib, name);
-#endif
-}
-
-DR_API
-bool
-dr_get_proc_address_ex(module_handle_t lib, const char *name, dr_export_info_t *info OUT,
-                       size_t info_len)
-{
-    /* If we add new fields we'll check various values of info_len */
-    if (info == NULL || info_len < sizeof(*info))
-        return false;
-#ifdef WINDOWS
-    info->address = get_proc_address_resolve_forward(lib, name);
-    info->is_indirect_code = false;
-#else
-    info->address = get_proc_address_ex(lib, name, &info->is_indirect_code);
-#endif
-    return (info->address != NULL);
-}
-
 byte *
 dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
                        size_t *size OUT)
@@ -5121,7 +4695,6 @@ dr_sleep(int time_ms)
         dcontext->client_data->at_safe_to_terminate_syscall = false;
 }
 
-#ifdef CLIENT_SIDELINE
 DR_API
 bool
 dr_client_thread_set_suspendable(bool suspendable)
@@ -5134,7 +4707,6 @@ dr_client_thread_set_suspendable(bool suspendable)
     dcontext->client_data->suspendable = suspendable;
     return true;
 }
-#endif
 
 DR_API
 bool
@@ -5561,30 +5133,50 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     byte *encode_pc;
     instr_t *label = INSTR_CREATE_label(drcontext);
     dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
+    instr_t *insert_at = where;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to " PFX "\n", callee);
+
+    if (clean_call_insertion_callbacks.num > 0) {
+        /* Some libraries need to save and restore around the call, for which we want
+         * a single instr to focus on that will put the post-call additions in the
+         * right place instead of after 'where'.
+         * This assumes the code below inserts all instructions prior to 'insert_at'
+         * and none are appended.
+         */
+        instr_t *mark = INSTR_CREATE_label(drcontext);
+        instr_set_note(mark, (void *)DR_NOTE_CLEAN_CALL_END);
+        MINSERT(ilist, where, mark);
+        insert_at = mark;
+        call_all(clean_call_insertion_callbacks,
+                 int (*)(void *, instrlist_t *, instr_t *, dr_cleancall_save_t),
+                 (void *)dcontext, ilist, mark, save_flags);
+    }
+
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 #ifdef ARM
     if (instr_predicate_is_cond(auto_pred)) {
         /* auto_predicate is set, though we handle the clean call with a cbr
          * because we require inserting instrumentation which modifies cpsr.
+         * We don't need to set DR_CLEANCALL_MULTIPATH because this jump is
+         * *after* the register restores just above here.
          */
-        MINSERT(ilist, where,
+        MINSERT(ilist, insert_at,
                 XINST_CREATE_jump_cond(drcontext, instr_invert_predicate(auto_pred),
                                        opnd_create_instr(label)));
     }
 #endif
     /* analyze the clean call, return true if clean call can be inlined. */
-    if (analyze_clean_call(dcontext, &cci, where, callee, save_fpstate,
+    if (analyze_clean_call(dcontext, &cci, insert_at, callee, save_fpstate,
                            TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags), num_args,
                            args) &&
         !TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
         /* we can perform the inline optimization and return. */
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee " PFX "\n", callee);
-        insert_inline_clean_call(dcontext, &cci, ilist, where, args);
-        MINSERT(ilist, where, label);
+        insert_inline_clean_call(dcontext, &cci, ilist, insert_at, args);
+        MINSERT(ilist, insert_at, label);
         instrlist_set_auto_predicate(ilist, auto_pred);
         return;
     }
@@ -5642,7 +5234,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         encode_pc = vmcode_unreachable_pc();
     else
         encode_pc = vmcode_get_start();
-    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where, encode_pc);
+    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, insert_at, encode_pc);
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
      * aligned, which is what insert_meta_call_vargs requires.
      */
@@ -5657,15 +5249,15 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         pad = ALIGN_FORWARD_UINT(dstack_offs, 16) - dstack_offs;
         IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(buf_sz + pad),
                              "dr_insert_clean_call: internal truncation error"));
-        MINSERT(ilist, where,
+        MINSERT(ilist, insert_at,
                 XINST_CREATE_sub(dcontext, opnd_create_reg(REG_XSP),
                                  OPND_CREATE_INT32((int)(buf_sz + pad))));
-        dr_insert_save_fpstate(drcontext, ilist, where,
+        dr_insert_save_fpstate(drcontext, ilist, insert_at,
                                opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_512));
     }
 
     /* PR 302951: restore state if clean call args reference app memory.
-     * We use a hack here: this is the only instance where we mark as our-mangling
+     * We use a hack here: this is the only instance insert_at we mark as our-mangling
      * but do not have a translation target set, which indicates to the restore
      * routines that this is a clean call.  If the client adds instrs in the middle
      * translation will fail; if the client modifies any instr, the our-mangling
@@ -5674,20 +5266,20 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     instrlist_set_our_mangling(ilist, true);
     if (TEST(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
         call_flags |= META_CALL_RETURNS_TO_NATIVE;
-    insert_meta_call_vargs(dcontext, ilist, where, call_flags, encode_pc, callee,
+    insert_meta_call_vargs(dcontext, ilist, insert_at, call_flags, encode_pc, callee,
                            num_args, args);
     instrlist_set_our_mangling(ilist, false);
 
     if (save_fpstate) {
         dr_insert_restore_fpstate(
-            drcontext, ilist, where,
+            drcontext, ilist, insert_at,
             opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_512));
-        MINSERT(ilist, where,
+        MINSERT(ilist, insert_at,
                 XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                                  OPND_CREATE_INT32(buf_sz + pad)));
     }
-    cleanup_after_call_ex(dcontext, &cci, ilist, where, 0, encode_pc);
-    MINSERT(ilist, where, label);
+    cleanup_after_call_ex(dcontext, &cci, ilist, insert_at, 0, encode_pc);
+    MINSERT(ilist, insert_at, label);
     instrlist_set_auto_predicate(ilist, auto_pred);
 }
 
@@ -5931,8 +5523,9 @@ dr_max_opnd_accessible_spill_slot()
 /* creates an opnd to access spill slot slot, slot must be <=
  * dr_max_opnd_accessible_spill_slot() */
 opnd_t
-reg_spill_slot_opnd(dcontext_t *dcontext, dr_spill_slot_t slot)
+reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         return opnd_create_tls_slot(offs);
@@ -6257,11 +5850,17 @@ dr_insert_call_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *ins
         target = 0;
     }
 
-    dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 2,
-                         /* address of call is 1st parameter */
-                         OPND_CREATE_INTPTR(address),
-                         /* call target is 2nd parameter */
-                         OPND_CREATE_INTPTR(target));
+    dr_insert_clean_call_ex(
+        drcontext, ilist, instr, callee,
+        /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+         * asking the user to pass in a flag: if they're using this they are not
+         * super concerned about overhead.
+         */
+        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 2,
+        /* address of call is 1st parameter */
+        OPND_CREATE_INTPTR(address),
+        /* call target is 2nd parameter */
+        OPND_CREATE_INTPTR(target));
 }
 
 /* NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
@@ -6376,11 +5975,17 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     MINSERT(ilist, instr,
             INSTR_CREATE_xchg(dcontext, tls_opnd, opnd_create_reg(reg_target)));
 
-    dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 2,
-                         /* address of mbr is 1st param */
-                         OPND_CREATE_INTPTR(address),
-                         /* indirect target (in tls, xchg-d from ecx) is 2nd param */
-                         tls_opnd);
+    dr_insert_clean_call_ex(
+        drcontext, ilist, instr, callee,
+        /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+         * asking the user to pass in a flag: if they're using this they are not
+         * super concerned about overhead.
+         */
+        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 2,
+        /* address of mbr is 1st param */
+        OPND_CREATE_INTPTR(address),
+        /* indirect target (in tls, xchg-d from ecx) is 2nd param */
+        tls_opnd);
 #elif defined(ARM)
     /* i#1551: NYI on ARM.
      * Also, we may want to split these out into arch/{x86,arm}/ files
@@ -6435,25 +6040,37 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
         CLIENT_ASSERT(!opnd_uses_reg(user_data, DR_REG_XBX),
                       "register ebx should not be used");
         CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
-        dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 5,
-                             /* push address of mbr onto stack as 1st parameter */
-                             OPND_CREATE_INTPTR(address),
-                             /* target is 2nd parameter */
-                             OPND_CREATE_INTPTR(target),
-                             /* fall-throug is 3rd parameter */
-                             OPND_CREATE_INTPTR(fallthrough),
-                             /* branch direction (put in ebx below) is 4th parameter */
-                             opnd_create_reg(REG_XBX),
-                             /* user defined data is 5th parameter */
-                             opnd_is_null(user_data) ? OPND_CREATE_INT32(0) : user_data);
+        dr_insert_clean_call_ex(
+            drcontext, ilist, instr, callee,
+            /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+             * asking the user to pass in a flag: if they're using this they are not
+             * super concerned about overhead.
+             */
+            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 5,
+            /* push address of mbr onto stack as 1st parameter */
+            OPND_CREATE_INTPTR(address),
+            /* target is 2nd parameter */
+            OPND_CREATE_INTPTR(target),
+            /* fall-throug is 3rd parameter */
+            OPND_CREATE_INTPTR(fallthrough),
+            /* branch direction (put in ebx below) is 4th parameter */
+            opnd_create_reg(REG_XBX),
+            /* user defined data is 5th parameter */
+            opnd_is_null(user_data) ? OPND_CREATE_INT32(0) : user_data);
     } else {
-        dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 3,
-                             /* push address of mbr onto stack as 1st parameter */
-                             OPND_CREATE_INTPTR(address),
-                             /* target is 2nd parameter */
-                             OPND_CREATE_INTPTR(target),
-                             /* branch direction (put in ebx below) is 3rd parameter */
-                             opnd_create_reg(REG_XBX));
+        dr_insert_clean_call_ex(
+            drcontext, ilist, instr, callee,
+            /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+             * asking the user to pass in a flag: if they're using this they are not
+             * super concerned about overhead.
+             */
+            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 3,
+            /* push address of mbr onto stack as 1st parameter */
+            OPND_CREATE_INTPTR(address),
+            /* target is 2nd parameter */
+            OPND_CREATE_INTPTR(target),
+            /* branch direction (put in ebx below) is 3rd parameter */
+            opnd_create_reg(REG_XBX));
     }
 
     /* calculate whether branch taken or not
@@ -6977,13 +6594,8 @@ dr_delete_fragment(void *drcontext, void *tag)
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
-#ifdef CLIENT_SIDELINE
     d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
-#else
-    CLIENT_ASSERT(drcontext == get_thread_private_dcontext(),
-                  "dr_delete_fragment(): drcontext does not belong to current thread");
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
         /* We avoid "local unprotected" as it is global, complicating thread exit. */
@@ -7010,10 +6622,8 @@ dr_delete_fragment(void *drcontext, void *tag)
             unlink_fragment_incoming(dcontext, f);
         fragment_remove_from_ibt_tables(dcontext, f, false);
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
     d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
-#endif
     if (!waslinking)
         enter_nolinking(dcontext, NULL, false);
     return deletable;
@@ -7052,13 +6662,8 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
-#ifdef CLIENT_SIDELINE
     d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
-#else
-    CLIENT_ASSERT(drcontext == get_thread_private_dcontext(),
-                  "dr_replace_fragment(): drcontext does not belong to current thread");
-#endif
     f = fragment_lookup(dcontext, tag);
     frag_found = (f != NULL);
     if (frag_found) {
@@ -7083,10 +6688,8 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
             unlink_fragment_incoming(dcontext, f);
         fragment_remove_from_ibt_tables(dcontext, f, false);
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
     d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
-#endif
     if (!waslinking)
         enter_nolinking(dcontext, NULL, false);
     return frag_found;
@@ -7316,13 +6919,9 @@ dr_fragment_exists_at(void *drcontext, void *tag)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
-#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return f != NULL;
 }
 
@@ -7352,20 +6951,16 @@ dr_fragment_size(void *drcontext, void *tag)
     int size = 0;
     CLIENT_ASSERT(drcontext != NULL, "dr_fragment_size: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_fragment_size: drcontext is invalid");
-#ifdef CLIENT_SIDELINE
     /* used to check to see if owning thread, if so don't need lock */
     /* but the check for owning thread more expensive then just getting lock */
     /* to check if owner d_r_get_thread_id() == dcontext->owning_thread */
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f == NULL)
         size = 0;
     else
         size = f->size;
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return size;
 }
 
@@ -7521,12 +7116,10 @@ dr_mark_trace_head(void *drcontext, void *tag)
      * require it.
      */
     SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, acquire, change_linking_lock);
-#ifdef CLIENT_SIDELINE
     /* used to check to see if owning thread, if so don't need lock */
     /* but the check for owning thread more expensive then just getting lock */
     /* to check if owner d_r_get_thread_id() == dcontext->owning_thread */
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup_fine_and_coarse(dcontext, tag, &coarse_f, NULL);
     if (f == NULL) {
         future_fragment_t *fut;
@@ -7538,50 +7131,19 @@ dr_mark_trace_head(void *drcontext, void *tag)
             /* don't call mark_trace_head, it will try to do some linking */
             fut->flags |= FRAG_IS_TRACE_HEAD;
         }
-#ifndef CLIENT_SIDELINE
-        LOG(THREAD, LOG_MONITOR, 2,
-            "Client mark trace head : will mark fragment as trace head when built "
-            ": address " PFX "\n",
-            tag);
-#endif
     } else {
         /* check precluding conditions */
         if (TEST(FRAG_IS_TRACE, f->flags)) {
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Client mark trace head : not marking as trace head, is already "
-                "a trace : address " PFX "\n",
-                tag);
-#endif
             success = false;
         } else if (TEST(FRAG_CANNOT_BE_TRACE, f->flags)) {
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Client mark trace head : not marking as trace head, particular "
-                "fragment cannot be trace head : address " PFX "\n",
-                tag);
-#endif
             success = false;
         } else if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Client mark trace head : fragment already marked as trace head : "
-                "address " PFX "\n",
-                tag);
-#endif
             success = true;
         } else {
             mark_trace_head(dcontext, f, NULL, NULL);
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 3,
-                "Client mark trace head : just marked as trace head : address " PFX "\n",
-                tag);
-#endif
         }
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, release, change_linking_lock);
     return success;
 }
@@ -7596,9 +7158,7 @@ dr_trace_head_at(void *drcontext, void *tag)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
     bool trace_head;
-#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL)
         trace_head = (f->flags & FRAG_IS_TRACE_HEAD) != 0;
@@ -7609,9 +7169,7 @@ dr_trace_head_at(void *drcontext, void *tag)
         else
             trace_head = false;
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return trace_head;
 }
 
@@ -7624,17 +7182,13 @@ dr_trace_exists_at(void *drcontext, void *tag)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
     bool trace;
-#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL)
         trace = (f->flags & FRAG_IS_TRACE) != 0;
     else
         trace = false;
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return trace;
 }
 
@@ -8245,4 +7799,11 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                void *user_data))
 {
     return remove_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
+}
+
+DR_API
+bool
+dr_is_detaching(void)
+{
+    return doing_detach;
 }

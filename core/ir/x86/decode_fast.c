@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@
 #include "../link.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "decode_private.h"
 #include "disassemble.h"
@@ -119,7 +119,7 @@ static const byte fixed_length[256] = {
    use this table if we've seen a operand-size prefix byte to adjust
    the fixed_length from dword to word.
  */
-static const signed char immed_adjustment[256] = {
+static const sbyte immed_adjustment[256] = {
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 0 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 1 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 2 */
@@ -143,7 +143,7 @@ static const signed char immed_adjustment[256] = {
 
 #ifdef X64
 /* for x64 Intel, Jz is always a 64-bit addr ("f64" in Intel table) */
-static const signed char immed_adjustment_intel64[256] = {
+static const sbyte immed_adjustment_intel64[256] = {
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 0 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 1 */
     0, 0,  0, 0, 0, -2, 0, 0,  0,  0,  0,  0,  0,  -2, 0,  0, /* 2 */
@@ -171,7 +171,7 @@ static const signed char immed_adjustment_intel64[256] = {
  * indexed by the 1st (primary) opcode byte.
  * The value here is doubled for x64 mode.
  */
-static const signed char disp_adjustment[256] = {
+static const sbyte disp_adjustment[256] = {
     0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0 */
     0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 1 */
     0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 2 */
@@ -199,7 +199,7 @@ static const signed char disp_adjustment[256] = {
  * default-size adjustments (positive numbers) and rex.w-prefix-based
  * adjustments (negative numbers, to be made positive when applied).
  */
-static const char x64_adjustment[256] = {
+static const sbyte x64_adjustment[256] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 0 */
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 1 */
     0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0, /* 2 */
@@ -465,9 +465,9 @@ static const byte xop_a_extra[256] = {
  * May return 0 size for certain invalid instructions
  */
 int
-decode_sizeof_ex(dcontext_t *dcontext, byte *start_pc, int *num_prefixes,
-                 uint *rip_rel_pos)
+decode_sizeof_ex(void *drcontext, byte *start_pc, int *num_prefixes, uint *rip_rel_pos)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte *pc = start_pc;
     uint opc = (uint)*pc;
     int sz = 0;
@@ -708,9 +708,10 @@ decode_sizeof_done:
 }
 
 int
-decode_sizeof(dcontext_t *dcontext, byte *start_pc,
+decode_sizeof(void *drcontext, byte *start_pc,
               int *num_prefixes _IF_X64(uint *rip_rel_pos))
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
 #ifdef X64
     return decode_sizeof_ex(dcontext, start_pc, num_prefixes, rip_rel_pos);
 #else
@@ -1311,8 +1312,9 @@ get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byt
  * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
  */
 byte *
-decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte byte0, byte1;
     byte *start_pc = pc;
 
@@ -1663,7 +1665,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         instr_set_num_opnds(dcontext, instr, 2, 2);
         instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
         instr_set_dst(instr, 1, opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_4));
-        instr_set_src(instr, 0, opnd_create_immed_int((char)byte1, OPSZ_1));
+        instr_set_src(instr, 0, opnd_create_immed_int((sbyte)byte1, OPSZ_1));
         instr_set_src(instr, 1, opnd_create_reg(REG_XSP));
         instr_set_raw_bits(instr, start_pc, sz);
         instr_set_rip_rel_pos(instr, rip_rel_pos);
@@ -1753,8 +1755,9 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
  * Returns NULL on decoding an invalid instruction.
  */
 byte *
-decode_next_pc(dcontext_t *dcontext, byte *pc)
+decode_next_pc(void *drcontext, byte *pc)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     int sz = decode_sizeof(dcontext, pc, NULL _IF_X64(NULL));
     if (sz == 0)
         return NULL;

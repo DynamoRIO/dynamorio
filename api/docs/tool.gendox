@@ -46,7 +46,6 @@ Those interested in how the -t option works should see
 the section \ref tool_frontend.
 
 REPLACE_WITH_GENDOX_SUBPAGES
-- \subpage page_drdisas
 - \subpage page_drmemory
 - \subpage page_drstrace
 - \subpage page_drltrace

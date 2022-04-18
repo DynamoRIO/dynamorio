@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,10 +48,6 @@
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
 #endif
-#ifdef HAS_ZLIB
-#    include "common/gzip_istream.h"
-#    include "common/gzip_ostream.h"
-#endif
 
 #include "dr_api.h"
 #include "dr_frontend.h"
@@ -59,6 +55,13 @@
 #include "raw2trace_directory.h"
 #include "directory_iterator.h"
 #include "utils.h"
+#ifdef HAS_ZLIB
+#    include "common/gzip_istream.h"
+#    include "common/gzip_ostream.h"
+#endif
+#ifdef HAS_SNAPPY
+#    include "common/snappy_istream.h"
+#endif
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -73,6 +76,7 @@
             FATAL_ERROR(msg, ##__VA_ARGS__); \
     } while (0)
 
+#undef VPRINT
 #define VPRINT(level, ...)                     \
     do {                                       \
         if (this->verbosity_ >= (level)) {     \
@@ -113,12 +117,21 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     if (basename_dot == nullptr)
         return "";
     const char *basename_pre_suffix = nullptr;
-    bool is_gzipped = false;
+    bool is_gzipped = false, is_snappy = false;
 #ifdef HAS_ZLIB
     basename_pre_suffix =
         strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
     if (basename_pre_suffix != nullptr) {
         is_gzipped = true;
+    }
+#endif
+#ifdef HAS_SNAPPY
+    if (basename_pre_suffix == nullptr) {
+        basename_pre_suffix =
+            strstr(basename_dot - strlen(OUTFILE_SUFFIX_SZ), OUTFILE_SUFFIX_SZ);
+        if (basename_pre_suffix != nullptr) {
+            is_snappy = true;
+        }
     }
 #endif
     if (basename_pre_suffix == nullptr)
@@ -130,13 +143,19 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
         return "Failed to get full path of file " + std::string(basename);
     }
     NULL_TERMINATE_BUFFER(path);
-    std::istream *ifile;
+    std::istream *ifile = nullptr;
 #ifdef HAS_ZLIB
     if (is_gzipped)
         ifile = new gzip_istream_t(path);
 #endif
-    if (!is_gzipped)
+#ifdef HAS_SNAPPY
+    if (is_snappy)
+        ifile = new snappy_istream_t(path);
+#endif
+    if (!is_gzipped && !is_snappy)
         ifile = new std::ifstream(path, std::ifstream::binary);
+    if (ifile == nullptr)
+        return "Failed to open thread log file " + std::string(path);
     in_files_.push_back(ifile);
     if (!(*in_files_.back()))
         return "Failed to open thread log file " + std::string(path);
@@ -186,6 +205,25 @@ raw2trace_directory_t::read_module_file(const std::string &modfilename)
     return "";
 }
 
+bool
+raw2trace_directory_t::is_window_subdir(const std::string &dir)
+{
+    return dir.rfind(WINDOW_SUBDIR_PREFIX) != std::string::npos &&
+        dir.rfind(WINDOW_SUBDIR_PREFIX) >= dir.size() - strlen(WINDOW_SUBDIR_FIRST);
+}
+
+std::string
+raw2trace_directory_t::window_subdir_if_present(const std::string &dir)
+{
+    // Support window subdirs.  If the base is passed, target the first.
+    if (is_window_subdir(dir))
+        return dir;
+    std::string windir = dir + std::string(DIRSEP) + WINDOW_SUBDIR_FIRST;
+    if (directory_iterator_t::is_directory(windir))
+        return windir;
+    return dir;
+}
+
 std::string
 raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
 {
@@ -202,10 +240,11 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
     if (rawdir.size() > trace_sub.size() &&
         rawdir.compare(rawdir.size() - trace_sub.size(), trace_sub.size(), trace_sub) ==
             0)
-        return rawdir;
-    // If it ends in "/raw", replace with "/trace".
-    if (rawdir.size() > raw_sub.size() &&
-        rawdir.compare(rawdir.size() - raw_sub.size(), raw_sub.size(), raw_sub) == 0) {
+        return window_subdir_if_present(rawdir);
+    // If it ends in "/raw" or a window subdir, replace with "/trace".
+    if ((rawdir.size() > raw_sub.size() &&
+         rawdir.compare(rawdir.size() - raw_sub.size(), raw_sub.size(), raw_sub) == 0) ||
+        is_window_subdir(rawdir)) {
         std::string tracedir = rawdir;
         size_t pos = rawdir.rfind(raw_sub);
         if (pos == std::string::npos)
@@ -217,7 +256,7 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
     // If it contains a "/raw" or "/trace" subdir, add "/trace" to it.
     if (directory_iterator_t::is_directory(rawdir + raw_sub) ||
         directory_iterator_t::is_directory(rawdir + trace_sub)) {
-        return rawdir + trace_sub;
+        return window_subdir_if_present(rawdir + trace_sub);
     }
     // Use it directly.
     return rawdir;
@@ -238,10 +277,24 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     if (!directory_iterator_t::is_directory(indir_))
         return "Directory does not exist: " + indir_;
     // Support passing both base dir and raw/ subdir.
-    if (indir_.rfind(OUTFILE_SUBDIR) == std::string::npos ||
-        indir_.rfind(OUTFILE_SUBDIR) < indir_.size() - strlen(OUTFILE_SUBDIR)) {
+    if (!is_window_subdir(indir_) &&
+        (indir_.rfind(OUTFILE_SUBDIR) == std::string::npos ||
+         indir_.rfind(OUTFILE_SUBDIR) < indir_.size() - strlen(OUTFILE_SUBDIR))) {
         indir_ += std::string(DIRSEP) + OUTFILE_SUBDIR;
     }
+    std::string modfile_dir = indir_;
+    // Support window subdirs.
+    indir_ = window_subdir_if_present(indir_);
+    if (is_window_subdir(indir_)) {
+        // If we're operating on a specific window, point at the parent for the modfile.
+        // Windows dr_open_file() doesn't like "..".
+        modfile_dir = indir_;
+        auto pos = modfile_dir.rfind(DIRSEP);
+        if (pos == std::string::npos)
+            return "Window subdir missing slash";
+        modfile_dir.erase(pos);
+    }
+
     // Support a default outdir_.
     if (outdir_.empty()) {
         outdir_ = tracedir_from_rawdir(indir_);
@@ -252,7 +305,7 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
         }
     }
     std::string modfilename =
-        indir_ + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
+        modfile_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
     std::string err = read_module_file(modfilename);
     if (!err.empty())
         return err;

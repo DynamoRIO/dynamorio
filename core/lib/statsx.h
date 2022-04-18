@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -554,11 +554,9 @@ STATS_DEF("Trace fragments extended, ibl exits updated", num_traces_ibl_extended
 STATS_DEF("Trace fragments extended w/shared syscall block",
           num_traces_shared_syscall_extended)
 #endif
-#ifdef CUSTOM_TRACES
 STATS_DEF("Custom traces extended beyond normal stop", custom_traces_stop_late)
 STATS_DEF("Custom traces stopped early", custom_traces_stop_early)
 STATS_DEF("Shadowed bbs built for custom traces", custom_traces_bbs_built)
-#endif
 STATS_DEF("Recreated fragments, total", num_recreated_fragments)
 STATS_DEF("Recreated fragments, traces", num_recreated_traces)
 STATS_DEF("Recreations via app re-decode", recreate_via_app_ilist)
@@ -679,7 +677,7 @@ STATS_DEF("Waits due to shared cache barrier", num_wait_shared_barrier)
 
 STATS_DEF("Entrance hooks to DR", num_entering_DR)
 STATS_DEF("Exit hooks from DR", num_exiting_DR)
-STATS_DEF("Fcache exits, total", num_exits)
+RSTATS_DEF("Fcache exits, total", num_exits)
 STATS_DEF("Fcache exits, coarse-grain fragments", num_exits_coarse)
 STATS_DEF("Fcache exits, coarse-grain targeting trace head", num_exits_coarse_trace_head)
 STATS_DEF("Fcache exits, fine targeting th coarse", num_exits_fine2th_coarse)

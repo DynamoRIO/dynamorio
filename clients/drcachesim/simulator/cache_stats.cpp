@@ -34,13 +34,16 @@
 #include <iomanip>
 #include "cache_stats.h"
 
-cache_stats_t::cache_stats_t(const std::string &miss_file, bool warmup_enabled,
-                             bool is_coherent)
-    : caching_device_stats_t(miss_file, warmup_enabled, is_coherent)
+cache_stats_t::cache_stats_t(int block_size, const std::string &miss_file,
+                             bool warmup_enabled, bool is_coherent)
+    : caching_device_stats_t(miss_file, block_size, warmup_enabled, is_coherent)
     , num_flushes_(0)
     , num_prefetch_hits_(0)
     , num_prefetch_misses_(0)
 {
+    stats_map_.emplace(metric_name_t::FLUSHES, num_flushes_);
+    stats_map_.emplace(metric_name_t::PREFETCH_HITS, num_prefetch_hits_);
+    stats_map_.emplace(metric_name_t::PREFETCH_MISSES, num_prefetch_misses_);
 }
 
 void
@@ -55,6 +58,8 @@ cache_stats_t::access(const memref_t &memref, bool hit,
             num_prefetch_misses_++;
             if (dump_misses_ && memref.data.type != TRACE_TYPE_HARDWARE_PREFETCH)
                 dump_miss(memref);
+
+            check_compulsory_miss(memref.data.addr);
         }
     } else { // handle regular memory accesses
         caching_device_stats_t::access(memref, hit, cache_block);

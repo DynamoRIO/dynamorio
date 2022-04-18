@@ -176,11 +176,7 @@ post_process()
 static std::string
 gather_trace()
 {
-    if (!my_setenv("DYNAMORIO_OPTIONS",
-                   // XXX i#4425: Fix debug-build stack overflow issue and
-                   // remove custom signal_stack_size below.
-                   "-stderr_mask 0xc -signal_stack_size 64K "
-                   "-client_lib ';;-offline'"))
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "pre-DR init\n";

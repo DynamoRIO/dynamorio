@@ -105,6 +105,7 @@
 
 /* features */
 #cmakedefine HAVE_FVISIBILITY
+#cmakedefine HAVE_FNOSANITIZE_NULL
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
 #cmakedefine HAVE_RSEQ
@@ -152,17 +153,10 @@
 #      after fork.
 #    $(D)HAVE_SIGALTSTACK - set if SYS_sigaltstack is available
 #    $(D)INIT_TAKE_OVER - libdynamorio.so init() takes over so no preload needed
-# not supported but still in code because may be useful later
-#    $(D)STEAL_REGISTER
-#    $(D)DCONTEXT_IN_EDI
-#    $(D)ASSUME_NORMAL_EFLAGS - (NEVER ON) (causes errors w/ Microsoft-compiled apps)
 # internal studies, not for general use
 #    $(D)SHARING_STUDY
 #    $(D)FRAGMENT_SIZES_STUDY
 #    $(D)FOOL_CPUID
-#    ($(D)NATIVE_RETURN: deprecated and now removed, along with:
-#       NATIVE_RETURN_CALLDEPTH, NATIVE_RETURN_RET_IN_TRACES,
-#       and NATIVE_RETURN_TRY_TO_PUT_APP_RETURN_PC_ON_STACK)
 #    $(D)LOAD_DYNAMO_DEBUGBREAK
 # profiling
 #    no longer supported: $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
@@ -185,31 +179,23 @@
 #    $(D)GBOP - generic buffer overflow prevention via hooking APIs
 # optimization of application
 #    $(D)SIDELINE
-#    no longer supported: $(D)SIDELINE_COUNT_STUDY
 #    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
-#    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags)
-#                      (defines ASSUME_NORMAL_EFLAGS)
 #    ($(D)RETURN_STACK: deprecated and now removed)
 #    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
-# transparency
-#    $(D)NOLIBC = doesn't link libc on windows, currently uses ntdll.dll libc
-#      functions, NOLIBC=0 causes the core to be linked against libc and kernel32.dll
 # external interface
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
-#    $(D)CUSTOM_TRACES -- optional interface
+#    Custom traces is always on, but it
 #      has some sub-features that are aggressive and not supported by default:
 #      $(D)CUSTOM_TRACES_RET_REMOVAL = support for removing inlined rets
 #        CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
 #        Only useful if custom traces are doing inlining => do not define for external
 #        release, or even by default for internal since it's always on even if
 #        not building custom traces!
-#      $(D)CLIENT_SIDELINE = allows adaptive interface methods to be called
-#                            from other threads safely, performance hit
 #    $(D)UNSUPPORTED_API -- part of 0.9.4 MIT API but not supported in current API
 #    $(D)NOT_DYNAMORIO_CORE - should be defined by non core components sharing our code
 
@@ -244,13 +230,6 @@
 
 ###################################
 */
-
-#ifdef WINDOWS
-   /* we do not support linking to libc.  we should probably remove
-    * this define from the code and eliminate it altogether.
-    */
-# define NOLIBC
-#endif
 
 #ifdef MACOS
 # define ASSEMBLE_WITH_NASM
@@ -303,10 +282,6 @@
 # define RCT_IND_BRANCH
 #endif
 
-/* standard client interface features */
-#define DYNAMORIO_IR_EXPORTS
-#define CUSTOM_TRACES
-#define CLIENT_SIDELINE
 /* TODO i#4045: Remove completely from the code base.
 #define UNSUPPORTED_API
  */
@@ -321,6 +296,7 @@
 # define PROBE_API
 #endif
 
+/* TODO i#4819: Remove this define and replace with a runtime option. */
 #ifdef APP_EXPORTS
 # define DR_APP_EXPORTS
 #endif

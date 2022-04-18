@@ -36,7 +36,7 @@
 ***************************************************************************
 ***************************************************************************
 
-\page page_license Licenses
+\page page_license License
 
 ***************************************************************************
 \section sec_bsd Primary DynamoRIO License: BSD
@@ -115,7 +115,7 @@ SUCH DAMAGE.
 \endverbatim
 
 ***************************************************************************
-\section sec_lgpl_licenses Certain Extensions are instead under the LGPL 2.1 License
+\section sec_lgpl_licenses Certain Extensions: LGPL 2.1
 
 The \p drwrap (see \ref page_drwrap) and \p drutil (see \ref page_drutil)
 Extensions are licensed under the LGPL 2.1 License and NOT the BSD license
@@ -600,7 +600,7 @@ DAMAGES.
 \endverbatim
 
 ***************************************************************************
-\section sec_gpl_licenses Code coverage genhtml script is under GPL 2
+\section sec_gpl_licenses Code Coverage genhtml: GPL 2
 
 The \p genhtml code coverage post-processing script (see \ref page_drcov)
 is licensed under the GPL 2 License and NOT the BSD license used for the

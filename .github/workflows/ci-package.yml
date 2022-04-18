@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@ jobs:
   ###########################################################################
   # Linux x86 tarball with 64-bit and 32-bit builds:
   linux-x86:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -69,12 +69,28 @@ jobs:
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
-    # Install multilib for non-cross-compiling Linux build:
+    # Install multilib for non-cross-compiling Linux build.
+    # GA CI uses packages.microsoft.com which is missing i386 packages, and
+    # attempts at using apt with us.archive-ubuntu.com hit dep issues:
+    # so we manually install the i386 packages we need.
     - name: Create Build Environment
       run: |
         sudo apt update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-multilib
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          g++-multilib libunwind-dev
+        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
+        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
 
     - name: Get Version
       id: version
@@ -84,7 +100,7 @@ jobs:
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -104,6 +120,8 @@ jobs:
         # packages built on newer Ubuntu on GA CI.
         DEPLOY_DOCS: no
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
@@ -138,7 +156,7 @@ jobs:
   ###########################################################################
   # Linux AArch64 tarball:
   linux-aarch64:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -150,19 +168,27 @@ jobs:
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
-    # Install cross-compilers for cross-compiling Linux build:
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there is no libunwind-dev or libunwind cross-compile
+    # package so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+          g++-aarch64-linux-gnu
+        sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
     - name: Get Version
       id: version
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -178,6 +204,8 @@ jobs:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload AArch64
       uses: actions/upload-artifact@v2
@@ -212,7 +240,7 @@ jobs:
   ###########################################################################
   # Linux ARM tarball (package.cmake does not support same job as AArch64):
   linux-arm:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -224,19 +252,27 @@ jobs:
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
-    # Install cross-compilers for cross-compiling Linux build:
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there is no libunwind-dev or libunwind cross-compile
+    # package so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+          g++-arm-linux-gnueabihf
+        sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Get Version
       id: version
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -252,6 +288,8 @@ jobs:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload ARM
       uses: actions/upload-artifact@v2
@@ -286,7 +324,7 @@ jobs:
   ###########################################################################
   # Android ARM tarball:
   android-arm:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -319,7 +357,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -337,6 +375,8 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
@@ -371,7 +411,7 @@ jobs:
   ###########################################################################
   # Windows .zip with 32-bit and 64-bit x86 builds:
   windows:
-    runs-on: windows-2016
+    runs-on: windows-2019
 
     steps:
     - uses: actions/checkout@v2
@@ -387,7 +427,7 @@ jobs:
       shell: powershell
       run: |
         md c:\projects\install
-        (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip", "c:\projects\install\ninja.zip")
+        (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip", "c:\projects\install\ninja.zip")
         (New-Object System.Net.WebClient).DownloadFile("https://sourceforge.net/projects/doxygen/files/rel-1.8.19/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
 
     - name: Get Version
@@ -395,7 +435,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -416,7 +456,7 @@ jobs:
         set PATH=c:\projects\install\doxygen;%PATH%
         dir "c:\Program Files (x86)\WiX Toolset"*
         set PATH=C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
-        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
@@ -424,6 +464,8 @@ jobs:
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
@@ -465,7 +507,7 @@ jobs:
 
   create_release:
     needs: [linux-x86, linux-aarch64, linux-arm, android-arm, windows]
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
       # We need a checkout to run git log for the version.
@@ -476,7 +518,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER="8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export VERSION_NUMBER="9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))"
           export PREFIX="cronbuild-"
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}

@@ -18,10 +18,12 @@ signal event 6 sig=23
 Sending SIGTERM
 signal event 7 sig=15
 Redirected
+In foo
 Sending SIGUSR2
 signal event 8 sig=12
 kernel_xfer_event: type 9, sig 12
 Redirected
+In foo
 signal event 9 sig=11
 signal event 10 sig=11
 kernel_xfer_event: type 0, sig 11

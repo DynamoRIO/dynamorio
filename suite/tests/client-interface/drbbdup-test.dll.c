@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,16 +33,9 @@
 /* Tests the drbbdup extension. */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drbbdup.h"
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 #define USER_DATA_VAL (void *)222
 #define ORIG_ANALYSIS_VAL (void *)555
@@ -64,6 +57,8 @@ static bool enable_dups_flag = false;
 /* Counters to test statistics provided by drbbdup. */
 static unsigned long no_dup_count = 0;
 static unsigned long no_dynamic_handling_count = 0;
+static unsigned long count_for_trace = 0;
+static unsigned long count_analyze_for_trace = 0;
 
 static uintptr_t
 set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
@@ -109,12 +104,16 @@ destroy_orig_analysis(void *drcontext, void *user_data, void *orig_analysis_data
     orig_analysis_destroy_called = true;
 }
 
-static void
-analyse_bb(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encoding,
-           void *user_data, void *orig_analysis_data, void **analysis_data)
+static dr_emit_flags_t
+analyse_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating,
+           uintptr_t encoding, void *user_data, void *orig_analysis_data,
+           void **analysis_data)
 {
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
+
+    if (for_trace)
+        ++count_analyze_for_trace;
 
     switch (encoding) {
     case 0:
@@ -131,6 +130,8 @@ analyse_bb(void *drcontext, void *tag, instrlist_t *bb, uintptr_t encoding,
         break;
     default: CHECK(false, "invalid encoding");
     }
+
+    return DR_EMIT_DEFAULT;
 }
 
 static void
@@ -177,16 +178,19 @@ print_case(uintptr_t case_val)
     dr_fprintf(STDERR, "case %u\n", case_val);
 }
 
-static void
+static dr_emit_flags_t
 instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                 instr_t *where, uintptr_t encoding, void *user_data,
-                 void *orig_analysis_data, void *analysis_data)
+                 instr_t *where, bool for_trace, bool translating, uintptr_t encoding,
+                 void *user_data, void *orig_analysis_data, void *analysis_data)
 {
     bool is_first, is_first_nonlabel;
     drbbdup_status_t res;
 
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
     CHECK(orig_analysis_data == ORIG_ANALYSIS_VAL, "orig analysis data does not match");
+
+    if (for_trace)
+        ++count_for_trace;
 
     switch (encoding) {
     case 0:
@@ -215,6 +219,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         dr_insert_clean_call(drcontext, bb, where, print_case, false, 1,
                              OPND_CREATE_INTPTR(encoding));
     }
+    return DR_EMIT_DEFAULT;
 }
 
 static void
@@ -246,6 +251,14 @@ event_exit(void)
 
     CHECK(instrum_called, "instrumentation was not inserted");
 
+    /* Sanity check that the _ex parameters are passed.
+     * We'd like to test the dr_emit_flags_t return value too but it's not
+     * easy to do that.
+     * XXX i#1668,i#2974: x86-only because traces are not yet implemented on aarchxx.
+     */
+    IF_X86(CHECK(count_analyze_for_trace > 0, "for_trace was never passed"));
+    IF_X86(CHECK(count_for_trace > 0, "for_trace was never passed"));
+
     drmgr_exit();
 }
 
@@ -260,13 +273,20 @@ dr_init(client_id_t id)
     opts.insert_encode = insert_encode;
     opts.analyze_orig = orig_analyse_bb;
     opts.destroy_orig_analysis = destroy_orig_analysis;
-    opts.analyze_case = analyse_bb;
+    opts.analyze_case_ex = analyse_bb;
     opts.destroy_case_analysis = destroy_analysis;
-    opts.instrument_instr = instrument_instr;
-    opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, OPSZ_PTR);
+    opts.instrument_instr_ex = instrument_instr;
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&encode_val, OPSZ_PTR);
+    /* Though single-threaded, we sanity-check the atomic load feature. */
+    opts.atomic_load_encoding = true;
     opts.user_data = USER_DATA_VAL;
     opts.non_default_case_limit = 2;
     opts.is_stat_enabled = true;
+    /* Test not triggering lazy allocation paths.
+     * Since subsequent enabling for a block results in an assert rather than a failure
+     * return code or something we can't easily test that.
+     */
+    opts.never_enable_dynamic_handling = true;
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,6 +72,26 @@ func_2(void)
 NOINLINE void
 func_3(void)
 {
+    /* A workload with indirect branches to help serve as a performance test
+     * by checking the cache exits (xref #5352).
+     */
+    double res = 0.;
+    /* Run enough iterations to distinguish good from bad exit counts. */
+    for (int i = 0; i < 10 * COMPUTE_ITERS; i++) {
+        /* Create multiple return points so a single trace doesn't capture them
+         * all, to test table lookups (as in i#5352).
+         */
+        if (i % 4 == 0)
+            res += cos(1. / (double)(i + 1));
+        else if (i % 4 == 1)
+            res += cos(1. / (double)(i + 2));
+        else if (i % 4 == 2)
+            res += cos(1. / (double)(i + 3));
+        else if (i % 4 == 3)
+            res += cos(1. / (double)(i + 4));
+    }
+    if (res == 0.)
+        print("result is 0\n");
 }
 NOINLINE void
 func_4(void)
@@ -217,6 +237,10 @@ main(void)
     dr_stats_t stats = { sizeof(dr_stats_t) };
     dr_app_stop_and_cleanup_with_stats(&stats);
     assert(stats.basic_block_count > 0);
+    /* Sanity check: we expect <10K exits but we allow some leniency to avoid flakiness.
+     * On a repeat of i#5352 we would see >500K exits.
+     */
+    assert(stats.num_cache_exits < 15000);
 
     VPRINT("signaling native\n");
     signal_cond_var(go_native);

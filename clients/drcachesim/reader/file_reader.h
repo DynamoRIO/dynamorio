@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,16 +71,19 @@ template <typename T> class file_reader_t : public reader_t {
 public:
     file_reader_t()
     {
+        online_ = false;
     }
     file_reader_t(const std::string &path, int verbosity = 0)
         : reader_t(verbosity, "[file_reader]")
         , input_path_(path)
     {
+        online_ = false;
     }
     explicit file_reader_t(const std::vector<std::string> &path_list, int verbosity = 0)
         : reader_t(verbosity, "[file_reader]")
         , input_path_list_(path_list)
     {
+        online_ = false;
     }
     virtual ~file_reader_t();
     bool
@@ -168,7 +171,8 @@ protected:
                 return false;
             }
             // We can handle the older version 1 as well which simply omits the
-            // early marker with the arch tag.
+            // early marker with the arch tag, and version 2 which only differs wrt
+            // TRACE_MARKER_TYPE_KERNEL_EVENT..
             if (header.addr > TRACE_ENTRY_VERSION) {
                 ERRMSG(
                     "Cannot handle version #%zu (expect version <= #%u) for input file "

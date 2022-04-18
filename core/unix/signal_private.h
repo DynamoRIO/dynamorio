@@ -321,8 +321,8 @@ typedef struct _sigpending_t {
     byte *access_address;
     /* use the sigcontext, not the mcontext (used to restart syscalls for i#1145) */
     bool use_sigcontext;
-    /* was this unblocked at receive time? */
-    bool unblocked;
+    /* Was this unblocked at receive time? */
+    bool unblocked_at_receipt;
     struct _sigpending_t *next;
 #if defined(LINUX) && defined(X86)
     /* fpstate is no longer kept inside the frame, and is not always present.

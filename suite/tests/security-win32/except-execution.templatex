@@ -4,36 +4,36 @@
 In RaiseException filter
 In RaiseException handler
 Inside first filter eax=badcdef0
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0x00401... tried to read address 0xbadcdef0
-	pc=0x00401... eax=0xbadcdef0
-  ContextFlags=0x000100.f 
-  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
-  Edx=0xddcdcdcd Ecx=0xcccdcdcd 
-  
-  Eax=0xbadcdef0@&
-  Ebp=0x1400ef.. Eip=0x00401... SegCs=0x000000.. 
-  EFlags & 0xFFFF=0x00000202 Esp=0x1400eb.. SegSs=0x000000.. 
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0x00401... tried to read address 0xbadcdef0
+    pc=0x00401... eax=0xbadcdef0
+  ContextFlags=0x000100.f
+  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd
+  Edx=0xddcdcdcd Ecx=0xcccdcdcd
+@@
+  Eax=0xbadcdef0
+  Ebp=0x........ Eip=0x00401... SegCs=0x000000..
+  EFlags & 0xFFFF=0x00000202 Esp=0x........ SegSs=0x000000..
   <floating point area>
-  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000.. 
+  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000..
 Inside first handler
 At statement after 1st try-except
 Inside 2nd filter
 Inside 3rd filter
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0xdeadbeef tried to read address 0xdeadbeef
-	pc=0xdeadbeef eax=0x00000000
-  ContextFlags=0x000100.f 
-  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
-  Edx=0xdeadbeef Ecx=0xcccdcdcd 
-  
-  Eax=0x00000000@&
-  Ebp=0x1400ef.. Eip=0xdeadbeef SegCs=0x000000.. 
-  EFlags & 0xFFFF=0x00000202 Esp=0x1400eb.. SegSs=0x000000.. 
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0xdeadbeef tried to read address 0xdeadbeef
+    pc=0xdeadbeef eax=0x00000000
+  ContextFlags=0x000100.f
+  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd
+  Edx=0xdeadbeef Ecx=0xcccdcdcd
+@@
+  Eax=0x00000000
+  Ebp=0x........ Eip=0xdeadbeef SegCs=0x000000..
+  EFlags & 0xFFFF=0x00000202 Esp=0x........ SegSs=0x000000..
   <floating point area>
-  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000.. 
+  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000..
 Finally!
 Expected memory access violation, ignoring it!
 After exception handler
@@ -54,19 +54,19 @@ Attempting execution of badfunc
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(throw_exception) && !defined(low) && !defined(client) && !defined(thin_client)
    SEC_VIO_EXCEPTION
 DATA VIOLATION: Inside first filter eax=0
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0x1400ec.. tried to read address 0x1400ec..
-	pc=0x1400ec.. eax=0x00000000
-  ContextFlags=0x000100.f 
-  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
-  Edx=0xddcdcdcd Ecx=0xcccdcdcd 
-  
-  Eax=0x00000000@&
-  Ebp=0x1400ef.. Eip=0x1400ec.. SegCs=0x000000.. 
-  EFlags & 0xFFFF=0x00000202 Esp=0x1400eb.. SegSs=0x000000.. 
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0x........ tried to read address 0x........
+    pc=0x........ eax=0x00000000
+  ContextFlags=0x000100.f
+  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd
+  Edx=0xddcdcdcd Ecx=0xcccdcdcd
+@@
+  Eax=0x00000000
+  Ebp=0x........ Eip=0x........ SegCs=0x000000..
+  EFlags & 0xFFFF=0x00000202 Esp=0x........ SegSs=0x000000..
   <floating point area>
-  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000.. 
+  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000..
 DATA VIOLATION: Inside first handler
 DATA: At statement after 1st try-except
 #  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception) && defined(throw_exception_max) && defined(1)
@@ -79,19 +79,19 @@ DATA: At statement after 1st try-except
      SEC_VIO_EXCEPTION
 DATA: Finally!
 DATA: Expected execution violation!
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0x1400ec.. tried to read address 0x1400ec..
-	pc=0x1400ec.. eax=0x00000000
-  ContextFlags=0x000100.f 
-  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
-  Edx=0xddcdcdcd Ecx=0xcccdcdcd 
-  
-  Eax=0x00000000@&
-  Ebp=0x1400ef.. Eip=0x1400ec.. SegCs=0x000000.. 
-  EFlags & 0xFFFF=0x00000202 Esp=0x1400eb.. SegSs=0x000000.. 
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0x........ tried to read address 0x........
+    pc=0x........ eax=0x00000000
+  ContextFlags=0x000100.f
+  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd
+  Edx=0xddcdcdcd Ecx=0xcccdcdcd
+@@
+  Eax=0x00000000
+  Ebp=0x........ Eip=0x........ SegCs=0x000000..
+  EFlags & 0xFFFF=0x00000202 Esp=0x........ SegSs=0x000000..
   <floating point area>
-  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000.. 
+  SegGs=0x000000.. SegFs=0x000000.. SegEs=0x000000.. SegDs=0x000000..
 DATA: After exception handler
 #  endif
    STOP

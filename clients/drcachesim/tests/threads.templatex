@@ -34,11 +34,13 @@ Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
   L1I stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
+    Compulsory misses:          *[0-9,\.]*
     Invalidations:              *0
 .*    Miss rate:                *[0-9,\.]*%
   L1D stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
+    Compulsory misses:          *[0-9,\.]*
     Invalidations:              *0
 .*    Miss rate:                *[0-9,\.]*%
 Core #1 \([0-9] traced CPU\(s\).*
@@ -47,6 +49,7 @@ Core #3 \([0-9] traced CPU\(s\).*
 LL stats:
     Hits:                    *[0-9,\.]*
     Misses:                  *[0-9,\.]*
+    Compulsory misses:       *[0-9,\.]*
     Invalidations:           *0
 .*    Local miss rate:        *[0-9,.]*%
     Child hits:              *[0-9,\.]*

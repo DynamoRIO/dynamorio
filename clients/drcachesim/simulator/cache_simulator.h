@@ -42,6 +42,20 @@
 #include "cache_stats.h"
 #include "cache.h"
 #include "snoop_filter.h"
+#include <limits.h>
+
+enum class cache_split_t { DATA, INSTRUCTION };
+
+// Error codes returned when passing wrong parameters to the
+// get_cache_metric function.
+typedef enum {
+    // Core number is larger then congifured number of cores.
+    STATS_ERROR_WRONG_CORE_NUMBER = INT_MIN,
+    // Cache level is larger then configured number of levels.
+    STATS_ERROR_WRONG_CACHE_LEVEL,
+    // Given cache doesn't support counting statistics.
+    STATS_ERROR_NO_CACHE_STATS,
+} stats_error_t;
 
 class cache_simulator_t : public simulator_t {
 public:
@@ -60,11 +74,18 @@ public:
     bool
     print_results() override;
 
+    int_least64_t
+    get_cache_metric(metric_name_t metric, unsigned level, unsigned core = 0,
+                     cache_split_t split = cache_split_t::DATA) const;
+
     // Exposed to make it easy to test
     bool
     check_warmed_up();
     uint64_t
     remaining_sim_refs() const;
+
+    const cache_simulator_knobs_t &
+    get_knobs() const;
 
 protected:
     // Create a cache_t object with a specific replacement policy.

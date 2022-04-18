@@ -22,13 +22,13 @@ Attempting execution of badfunc
 DATA VIOLATION: Inside first filter eax=0
 # if defined(DUMP_REGISTER_STATE)
  /* Fixme : register state non consisten across different machines */
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0x00423400 tried to read address 0x00423400
-	pc=0x00423400 eax=0x00000000
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0x00423400 tried to read address 0x00423400
+    pc=0x00423400 eax=0x00000000
   ContextFlags=0x0001003f
   Edi=0x00420220 Esi=0x7ffdf000 Ebx=0x00000000
-@&@&
+@@
   Eax=0x00000000
   Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b
   EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023
@@ -48,13 +48,13 @@ DATA: At statement after 1st try-except
 DATA: Finally!
 DATA: Expected execution violation!
 #   if defined(DUMP_REGISTER_STATE)
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0x00423400 tried to read address 0x00423400
-	pc=0x00423400 eax=0x00000000
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0x00423400 tried to read address 0x00423400
+    pc=0x00423400 eax=0x00000000
   ContextFlags=0x0001003f
   Edi=0x0041c020 Esi=0x00000002 Ebx=0x0052ffa4
-@&@&
+@@
   Eax=0x00000000
   Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b
   EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023
@@ -83,13 +83,13 @@ Attempting execution of badfunc
    SEC_VIO_EXCEPTION
 DATA VIOLATION: Inside first filter eax=0
 #  ifdef defined(DUMP_REGISTER_STATE)
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0x00423400 tried to read address 0x00423400
-	pc=0x00423400 eax=0x00000000
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0x00423400 tried to read address 0x00423400
+    pc=0x00423400 eax=0x00000000
   ContextFlags=0x0001003f
   Edi=0x0012eb0c Esi=0x00420220 Ebx=0x7ffdf000
-@&@&
+@@
   Eax=0x00000000
   Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b
   EFlags & 0xFFFF=0x00000216 Esp=0x0012fee0 SegSs=0x00000023
@@ -105,13 +105,13 @@ DATA: At statement after 1st try-except
 DATA: Finally!
 DATA: Expected execution violation!
 #  if defined(DUMP_REGISTER_STATE)
-	exception code = 0xc0000005, ExceptionFlags=0x00000000
-	record=00000000, params=2
-	PC 0x00423400 tried to read address 0x00423400
-	pc=0x00423400 eax=0x00000000
+    exception code = 0xc0000005, ExceptionFlags=0x00000000
+    record=00000000, params=2
+    PC 0x00423400 tried to read address 0x00423400
+    pc=0x00423400 eax=0x00000000
   ContextFlags=0x0001003f
   Edi=0x0041c020 Esi=0x00000002 Ebx=0x0012ff50
-
+@@
   Eax=0x00000000
   Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b
   EFlags & 0xFFFF=0x00000206 Esp=0x0012fee0 SegSs=0x00000023

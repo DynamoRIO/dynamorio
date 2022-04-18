@@ -94,8 +94,11 @@ API.  We do not recommend that a client invoke its own system calls as
 this bypasses DynamoRIO's monitoring of changes to the process address
 space and changes to threads or control flow.
 
-We provide limited support to assist in using statically linked libraries
-in a client: see \ref sec_extlibs.
+DynamoRIO does have its own loader and through it support is provided
+to clients to use external libraries while isolating them from the
+libraries used by the application: see \ref sec_extlibs.  This support
+is limited, however, and there are libraries that are not supported
+today.
 
 In addition to Library Transparency, several other types of transparency
 are of concern to a client:
@@ -110,7 +113,9 @@ Transparency: see below) or with application memory bugs (Error
 Transparency: see below).  DynamoRIO obtains its memory directly from
 system calls and parcels it out internally with a custom memory manager.
 It exports its heap allocation routines through its API to ensure that
-clients maintain Heap Transparency (see \ref sec_utils).
+clients maintain Heap Transparency (see \ref sec_utils).  Calls to malloc in
+external libraries used by clients are also redirected to DynamoRIO's internal
+heap.
 
 \par Input/Output Transparency
 

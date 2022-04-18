@@ -306,7 +306,6 @@ lookup_module_info(module_info_vector_t *v, app_pc addr)
 {
     /* BINARY SEARCH -- assumes the vector is kept sorted by add & remove! */
     module_info_t key = { addr, addr + 1 }; /* end is open */
-#    ifdef NOLIBC
     /* FIXME : copied from find_predecessor(), would be nice to share with
      * that routine and with binary range search (w/linear backsearch) in
      * vmareas.c */
@@ -325,9 +324,6 @@ lookup_module_info(module_info_vector_t *v, app_pc addr)
         }
     }
     return NULL;
-#    else
-    return bsearch(&key, v->buf, v->length, sizeof(module_info_t), module_info_compare);
-#    endif
 }
 
 #    define INITIAL_MODULE_NUMBER 4
@@ -2825,9 +2821,9 @@ add_SEH_to_rct_table(dcontext_t *dcontext, app_pc module_base)
             LOG(GLOBAL, LOG_RCT, 4, "added RCT SEH64 handler " PFX " (from " PFX ")\n",
                 handler, info);
             /* Note that I'm seeing user32 and kernel32 each having a single
-             * master handler, which calls the ntdll master handler, which uses
+             * main handler, which calls the ntdll main handler, which uses
              * the scope table to dive down into details.  Given the single
-             * master, why not provide an efficient way to have a single master
+             * main, why not provide an efficient way to have a single main
              * handler, which would allow handling misaligned stack pointers?
              */
             /* Like the chained info, the scope table is described as being

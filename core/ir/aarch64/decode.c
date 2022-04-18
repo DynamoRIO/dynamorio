@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -35,7 +35,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "codec.h"
 
 bool
@@ -65,9 +65,9 @@ dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
 }
 
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
-                    dr_opnd_query_flags_t flags)
+decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     /* XXX i#2374: Performing full decode here is inefficient. */
     instr_t instr;
     instr_init(dcontext, &instr);
@@ -86,31 +86,34 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 }
 
 byte *
-decode(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, pc, pc, instr);
 }
 
 byte *
-decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
+decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, copy_pc, orig_pc, instr);
 }
 
 byte *
-decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode(dcontext, pc, instr);
 }
 
 byte *
-decode_next_pc(dcontext_t *dcontext, byte *pc)
+decode_next_pc(void *dcontext, byte *pc)
 {
     return pc + AARCH64_INSTR_SIZE;
 }
 
 int
-decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes)
+decode_sizeof(void *drcontext, byte *pc, int *num_prefixes)
 {
     return AARCH64_INSTR_SIZE;
 }
@@ -118,8 +121,9 @@ decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes)
 byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return NULL;
+    instr_set_opcode(instr, OP_UNDECODED);
+    instr_set_raw_bits(instr, pc, AARCH64_INSTR_SIZE);
+    return (pc + AARCH64_INSTR_SIZE);
 }
 
 bool
@@ -134,6 +138,20 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
 {
     uint enc = *(uint *)pc;
     return pc + ((enc & 0x1ffffff) << 2) - ((enc & 0x2000000) << 2);
+}
+
+bool
+decode_raw_is_cond_branch_zero(dcontext_t *dcontext, byte *pc)
+{
+    uint enc = *(uint *)pc;
+    return ((enc & 0x7e000000) == 0x34000000); /* CBZ or CBNZ */
+}
+
+byte *
+decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc)
+{
+    uint enc = *(uint *)pc;
+    return pc + ((enc & 0xffffe0) >> 5 << 2);
 }
 
 const instr_info_t *
@@ -225,7 +243,7 @@ decode_debug_checks_arch(void)
 
 #ifdef DECODE_UNIT_TEST
 
-#    include "instr_create.h"
+#    include "instr_create_shared.h"
 
 int
 main()

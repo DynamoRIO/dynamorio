@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -115,8 +115,9 @@ canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
 
 #ifdef X64
 bool
-set_x86_mode(dcontext_t *dcontext, bool x86)
+set_x86_mode(void *drcontext, bool x86)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     dr_isa_mode_t old_mode;
     if (!dr_set_isa_mode(dcontext, x86 ? DR_ISA_IA32 : DR_ISA_AMD64, &old_mode))
         return false;
@@ -124,8 +125,9 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
 }
 
 bool
-get_x86_mode(dcontext_t *dcontext)
+get_x86_mode(void *drcontext)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return dr_get_isa_mode(dcontext) == DR_ISA_IA32;
 }
 #endif
@@ -418,7 +420,7 @@ read_immed(byte *pc, decode_info_t *di, opnd_size_t size, ptr_int_t *result)
      */
     switch (size) {
     case OPSZ_1:
-        *result = (ptr_int_t)(char)*pc; /* sign-extend */
+        *result = (ptr_int_t)(sbyte)*pc; /* sign-extend */
         pc++;
         break;
     case OPSZ_2:
@@ -582,7 +584,7 @@ read_modrm(byte *pc, decode_info_t *di)
         } else if (di->mod == 1) {
             /* 1-byte disp */
             di->has_disp = true;
-            di->disp = (int)(char)*pc; /* sign-extend */
+            di->disp = (int)(sbyte)*pc; /* sign-extend */
             pc++;
         } else {
             di->has_disp = false;
@@ -615,7 +617,7 @@ read_modrm(byte *pc, decode_info_t *di)
         } else if (di->mod == 1) {
             /* 1-byte disp */
             di->has_disp = true;
-            di->disp = (int)(char)*pc; /* sign-extend */
+            di->disp = (int)(sbyte)*pc; /* sign-extend */
             pc++;
         } else {
             di->has_disp = false;
@@ -1753,6 +1755,8 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
         int compressed_disp_scale = 0;
         if (di->evex_encoded) {
             compressed_disp_scale = decode_get_compressed_disp_scale(di);
+            if (compressed_disp_scale == -1)
+                return false;
             needs_full_disp = disp % compressed_disp_scale != 0;
         }
         force_full_disp = !needs_full_disp && di->has_disp && disp >= INT8_MIN &&
@@ -2092,7 +2096,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
                                            _IF_X64(false /*!extendable*/));
         opnd_size_t sz =
             resolve_variable_size(di, indir_var_reg_size(di, optype), false /*not reg*/);
-        /* NOTE - needs to match size in opnd_type_ok() and instr_create.h */
+        /* NOTE - needs to match size in opnd_type_ok() and instr_create_api.h */
         *opnd = opnd_create_base_disp(
             reg, REG_NULL, 0, indir_var_reg_offs_factor(optype) * opnd_size_in_bytes(sz),
             sz);
@@ -2191,9 +2195,14 @@ dr_pred_type_t
 decode_predicate_from_instr_info(uint opcode, const instr_info_t *info)
 {
     if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags)) {
-        if (TEST(HAS_PRED_CC, info->flags))
-            return DR_PRED_O + instr_cmovcc_to_jcc(opcode) - OP_jo;
-        else
+        if (TEST(HAS_PRED_CC, info->flags)) {
+            if (opcode >= OP_jo && opcode <= OP_jnle)
+                return DR_PRED_O + opcode - OP_jo;
+            else if (opcode >= OP_jo_short && opcode <= OP_jnle_short)
+                return DR_PRED_O + opcode - OP_jo_short;
+            else
+                return DR_PRED_O + instr_cmovcc_to_jcc(opcode) - OP_jo;
+        } else
             return DR_PRED_COMPLEX;
     }
     return DR_PRED_NONE;
@@ -2417,9 +2426,9 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
  * than not!
  */
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
-                    dr_opnd_query_flags_t flags)
+decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     const instr_info_t *info;
     decode_info_t di;
     IF_X64(di.x86_mode = get_x86_mode(dcontext));
@@ -2682,14 +2691,16 @@ decode_invalid:
 }
 
 byte *
-decode(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, pc, pc, instr);
 }
 
 byte *
-decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
+decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, copy_pc, orig_pc, instr);
 }
 
@@ -2741,7 +2752,7 @@ decode_debug_checks_arch(void)
 #endif
 
 #ifdef DECODE_UNIT_TEST
-#    include "instr_create.h"
+#    include "instr_create_shared.h"
 
 /* FIXME: Tried putting this inside a separate unit-decode.c file, but
  *        required creating a unit-decode_table.c file.  Since the

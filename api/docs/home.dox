@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -66,7 +66,9 @@ DynamoRIO is the basis for some well-known external tools:
 Tools built on DynamoRIO and available in the [release package](@ref page_download) include:
 
 - The memory debugging tool [Dr. Memory](http://drmemory.org)
-- The tracing and analysis framework [drmemtrace](@ref page_drcachesim) with multiple tools that operate on both online (with multi-process support) and offline instruction and memory address traces:
+- The tracing and analysis framework [drmemtrace](@ref page_drcachesim) which can target instruction and memory address traces such as:
+  - [Google data center workload traces](@ref google_workload_traces) for public analysis in the [drmemtrace](@ref page_drcachesim) format.
+- The [drmemtrace](@ref page_drcachesim) framework includes multiple tools that operate on both online (with multi-process support) and offline instruction and memory address traces (such as the Google data center workload traces listed above):
   - The cache simulator [drcachesim](@ref sec_tool_cache_sim)
   - [TLB simulation](@ref sec_tool_TLB_sim)
   - [Reuse distance](@ref sec_tool_reuse_distance)

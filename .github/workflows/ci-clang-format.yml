@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -54,7 +54,7 @@ jobs:
   # the CI resources: 64-bit hits most clang-only warnings and 64-bit
   # is the primary target these days.
   clang-format:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -69,15 +69,17 @@ jobs:
 
     - name: Create Build Environment
       run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          clang-format-9 libunwind-dev
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only require_format
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        CC: clang-9
-        CXX: clang++-9
+        DYNAMORIO_CLANG: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

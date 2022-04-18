@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -33,7 +33,7 @@
 #include "globals.h"
 #include "hashtable.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode_fast.h"
 #include "utils.h"
 #include "annotations.h"
@@ -352,12 +352,13 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
 #    endif
 
     instr_init(dcontext, &scratch);
-    TRY_EXCEPT(my_dcontext, { identify_annotation(dcontext, &layout, &scratch); },
-               { /* EXCEPT */
-                 LOG(THREAD, LOG_ANNOTATIONS, 2,
-                     "Failed to instrument annotation at " PFX "\n", *start_pc);
-                 /* layout.type is already ANNOTATION_TYPE_NONE */
-               });
+    TRY_EXCEPT(
+        my_dcontext, { identify_annotation(dcontext, &layout, &scratch); },
+        { /* EXCEPT */
+          LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to instrument annotation at " PFX "\n",
+              *start_pc);
+          /* layout.type is already ANNOTATION_TYPE_NONE */
+        });
     if (layout.type != ANNOTATION_TYPE_NONE) {
         LOG(GLOBAL, LOG_ANNOTATIONS, 2,
             "Decoded %s annotation %s. Next pc now " PFX ".\n",
@@ -388,6 +389,9 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
                      * The placeholder is "ok to mangle" because it (partially)
                      * implements the app's annotation. The placeholder will be
                      * removed post-client during mangling.
+                     * We only support writing the return value and no other registers
+                     * (otherwise we'd need drrg to further special-case
+                     * DR_NOTE_ANNOTATION).
                      */
                     instr_t *return_placeholder =
                         INSTR_XL8(INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
@@ -476,6 +480,8 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
     /* Append `mov $0x0,%edx` so that clients and tools recognize that %xdx will be
      * written here. The placeholder is "ok to mangle" because it (partially) implements
      * the app's annotation. The placeholder will be removed post-client during mangling.
+     * We only support writing the return value and no other registers (otherwise
+     * we'd need drreg to further special-case DR_NOTE_ANNOTATION).
      */
     return_placeholder = INSTR_XL8(
         INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XDX), OPND_CREATE_INT32(0)),

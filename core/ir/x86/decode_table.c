@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,7 +69,7 @@
  * Operand pointers into tables
  * When there are multiple encodings of an opcode, this points to the first
  * entry in a linked list.
- * This array corresponds with the enum in opcode.h
+ * This array corresponds with the enum in opcode_api.h
  * IF YOU CHANGE ONE YOU MUST CHANGE THE OTHER
  */
 const instr_info_t * const op_instr[] =
@@ -1599,6 +1599,15 @@ const instr_info_t * const op_instr[] =
    /* AMD monitor extensions */
    /* OP_monitorx      */   &rm_extensions[2][2],
    /* OP_mwaitx        */   &rm_extensions[2][3],
+
+   /* Intel MPK extensions */
+   /* OP_rdpkru       */    &rm_extensions[5][6],
+   /* OP_wrpkru       */    &rm_extensions[5][7],
+
+   /* Intel Software Guard eXtension. */
+   /* OP_encls        */    &rm_extensions[1][7],
+   /* OP_enclu        */    &rm_extensions[4][7],
+   /* OP_enclv        */    &rm_extensions[0][0],
 };
 
 
@@ -1971,6 +1980,11 @@ const instr_info_t * const op_instr[] =
 #define xbp TYPE_XREG, REG_EBP
 #define xcx TYPE_XREG, REG_ECX
 
+#ifdef X64
+#   define na_x11 TYPE_REG, DR_REG_R11
+#else
+#   define na_x11 TYPE_NONE, OPSZ_NA
+#endif
 #define cs  TYPE_REG, SEG_CS
 #define ss  TYPE_REG, SEG_SS
 #define ds  TYPE_REG, SEG_DS
@@ -2227,23 +2241,23 @@ const instr_info_t first_byte[] = {
     {REP_EXT,  0x6e0000, "((rep) outs)", i_dx, xx, Xb, xx, xx, no, fRD, 2},
     {REP_EXT,  0x6f0000, "((rep) outs)", i_dx, xx, Xz, xx, xx, no, fRD, 3},
     /* 70 */
-    {OP_jo_short,  0x700000, "jo",  xx, xx, Jb, xx, xx, no, fRO, END_LIST},
-    {OP_jno_short, 0x710000, "jno", xx, xx, Jb, xx, xx, no, fRO, END_LIST},
-    {OP_jb_short,  0x720000, "jb",  xx, xx, Jb, xx, xx, no, fRC, END_LIST},
-    {OP_jnb_short, 0x730000, "jnb", xx, xx, Jb, xx, xx, no, fRC, END_LIST},
-    {OP_jz_short,  0x740000, "jz",  xx, xx, Jb, xx, xx, no, fRZ, END_LIST},
-    {OP_jnz_short, 0x750000, "jnz", xx, xx, Jb, xx, xx, no, fRZ, END_LIST},
-    {OP_jbe_short, 0x760000, "jbe", xx, xx, Jb, xx, xx, no, (fRC|fRZ), END_LIST},
-    {OP_jnbe_short,0x770000, "jnbe",xx, xx, Jb, xx, xx, no, (fRC|fRZ), END_LIST},
+    {OP_jo_short,  0x700000, "jo",  xx, xx, Jb, xx, xx, predcc, fRO, END_LIST},
+    {OP_jno_short, 0x710000, "jno", xx, xx, Jb, xx, xx, predcc, fRO, END_LIST},
+    {OP_jb_short,  0x720000, "jb",  xx, xx, Jb, xx, xx, predcc, fRC, END_LIST},
+    {OP_jnb_short, 0x730000, "jnb", xx, xx, Jb, xx, xx, predcc, fRC, END_LIST},
+    {OP_jz_short,  0x740000, "jz",  xx, xx, Jb, xx, xx, predcc, fRZ, END_LIST},
+    {OP_jnz_short, 0x750000, "jnz", xx, xx, Jb, xx, xx, predcc, fRZ, END_LIST},
+    {OP_jbe_short, 0x760000, "jbe", xx, xx, Jb, xx, xx, predcc, (fRC|fRZ), END_LIST},
+    {OP_jnbe_short,0x770000, "jnbe",xx, xx, Jb, xx, xx, predcc, (fRC|fRZ), END_LIST},
     /* 78 */
-    {OP_js_short,  0x780000, "js",  xx, xx, Jb, xx, xx, no, fRS, END_LIST},
-    {OP_jns_short, 0x790000, "jns", xx, xx, Jb, xx, xx, no, fRS, END_LIST},
-    {OP_jp_short,  0x7a0000, "jp",  xx, xx, Jb, xx, xx, no, fRP, END_LIST},
-    {OP_jnp_short, 0x7b0000, "jnp", xx, xx, Jb, xx, xx, no, fRP, END_LIST},
-    {OP_jl_short,  0x7c0000, "jl",  xx, xx, Jb, xx, xx, no, (fRS|fRO), END_LIST},
-    {OP_jnl_short, 0x7d0000, "jnl", xx, xx, Jb, xx, xx, no, (fRS|fRO), END_LIST},
-    {OP_jle_short, 0x7e0000, "jle", xx, xx, Jb, xx, xx, no, (fRS|fRO|fRZ), END_LIST},
-    {OP_jnle_short,0x7f0000, "jnle",xx, xx, Jb, xx, xx, no, (fRS|fRO|fRZ), END_LIST},
+    {OP_js_short,  0x780000, "js",  xx, xx, Jb, xx, xx, predcc, fRS, END_LIST},
+    {OP_jns_short, 0x790000, "jns", xx, xx, Jb, xx, xx, predcc, fRS, END_LIST},
+    {OP_jp_short,  0x7a0000, "jp",  xx, xx, Jb, xx, xx, predcc, fRP, END_LIST},
+    {OP_jnp_short, 0x7b0000, "jnp", xx, xx, Jb, xx, xx, predcc, fRP, END_LIST},
+    {OP_jl_short,  0x7c0000, "jl",  xx, xx, Jb, xx, xx, predcc, (fRS|fRO), END_LIST},
+    {OP_jnl_short, 0x7d0000, "jnl", xx, xx, Jb, xx, xx, predcc, (fRS|fRO), END_LIST},
+    {OP_jle_short, 0x7e0000, "jle", xx, xx, Jb, xx, xx, predcc, (fRS|fRO|fRZ), END_LIST},
+    {OP_jnle_short,0x7f0000, "jnle",xx, xx, Jb, xx, xx, predcc, (fRS|fRO|fRZ), END_LIST},
     /* 80 */
     {EXTENSION, 0x800000, "(group 1a)", Eb, xx, Ib, xx, xx, mrm, x, 0},
     {EXTENSION, 0x810000, "(group 1b)", Ev, xx, Iz, xx, xx, mrm, x, 1},
@@ -2408,10 +2422,10 @@ const instr_info_t second_byte[] = {
   {OP_lsl, 0x0f0310, "lsl", Gv, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
   {INVALID, 0x0f0410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* XXX: writes ss and cs */
-  {OP_syscall, 0x0f0510, "syscall", xcx, xx, xx, xx, xx, no, x, NA}, /* AMD/x64 only */
+  {OP_syscall, 0x0f0510, "syscall", xcx, na_x11, xx, xx, xx, no, x, NA}, /* AMD/x64 only */
   {OP_clts, 0x0f0610, "clts", xx, xx, xx, xx, xx, no, x, END_LIST},
   /* XXX: writes ss and cs */
-  {OP_sysret, 0x0f0710, "sysret", xx, xx, xx, xx, xx, no, x, NA}, /* AMD/x64 only */
+  {OP_sysret, 0x0f0710, "sysret", xx, xx, xcx, na_x11, xx, no, x, NA}, /* AMD/x64 only */
   /* 08 */
   {OP_invd, 0x0f0810, "invd", xx, xx, xx, xx, xx, no, x, END_LIST},
   {OP_wbinvd, 0x0f0910, "wbinvd", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -2559,23 +2573,23 @@ const instr_info_t second_byte[] = {
   {PREFIX_EXT, 0x0f7e10, "(prefix ext 51)", xx, xx, xx, xx, xx, mrm, x, 51},
   {PREFIX_EXT, 0x0f7f10, "(prefix ext 113)", xx, xx, xx, xx, xx, mrm, x, 113},
   /* 80 */
-  {OP_jo,  0x0f8010, "jo",  xx, xx, Jz, xx, xx, no, fRO, END_LIST},
-  {OP_jno, 0x0f8110, "jno", xx, xx, Jz, xx, xx, no, fRO, END_LIST},
-  {OP_jb,  0x0f8210, "jb",  xx, xx, Jz, xx, xx, no, fRC, END_LIST},
-  {OP_jnb, 0x0f8310, "jnb", xx, xx, Jz, xx, xx, no, fRC, END_LIST},
-  {OP_jz,  0x0f8410, "jz",  xx, xx, Jz, xx, xx, no, fRZ, END_LIST},
-  {OP_jnz, 0x0f8510, "jnz", xx, xx, Jz, xx, xx, no, fRZ, END_LIST},
-  {OP_jbe, 0x0f8610, "jbe", xx, xx, Jz, xx, xx, no, (fRC|fRZ), END_LIST},
-  {OP_jnbe,0x0f8710, "jnbe",xx, xx, Jz, xx, xx, no, (fRC|fRZ), END_LIST},
+  {OP_jo,  0x0f8010, "jo",  xx, xx, Jz, xx, xx, predcc, fRO, END_LIST},
+  {OP_jno, 0x0f8110, "jno", xx, xx, Jz, xx, xx, predcc, fRO, END_LIST},
+  {OP_jb,  0x0f8210, "jb",  xx, xx, Jz, xx, xx, predcc, fRC, END_LIST},
+  {OP_jnb, 0x0f8310, "jnb", xx, xx, Jz, xx, xx, predcc, fRC, END_LIST},
+  {OP_jz,  0x0f8410, "jz",  xx, xx, Jz, xx, xx, predcc, fRZ, END_LIST},
+  {OP_jnz, 0x0f8510, "jnz", xx, xx, Jz, xx, xx, predcc, fRZ, END_LIST},
+  {OP_jbe, 0x0f8610, "jbe", xx, xx, Jz, xx, xx, predcc, (fRC|fRZ), END_LIST},
+  {OP_jnbe,0x0f8710, "jnbe",xx, xx, Jz, xx, xx, predcc, (fRC|fRZ), END_LIST},
   /* 88 */
-  {OP_js,  0x0f8810, "js",  xx, xx, Jz, xx, xx, no, fRS, END_LIST},
-  {OP_jns, 0x0f8910, "jns", xx, xx, Jz, xx, xx, no, fRS, END_LIST},
-  {OP_jp,  0x0f8a10, "jp",  xx, xx, Jz, xx, xx, no, fRP, END_LIST},
-  {OP_jnp, 0x0f8b10, "jnp", xx, xx, Jz, xx, xx, no, fRP, END_LIST},
-  {OP_jl,  0x0f8c10, "jl",  xx, xx, Jz, xx, xx, no, (fRS|fRO), END_LIST},
-  {OP_jnl, 0x0f8d10, "jnl", xx, xx, Jz, xx, xx, no, (fRS|fRO), END_LIST},
-  {OP_jle, 0x0f8e10, "jle", xx, xx, Jz, xx, xx, no, (fRS|fRO|fRZ), END_LIST},
-  {OP_jnle,0x0f8f10, "jnle",xx, xx, Jz, xx, xx, no, (fRS|fRO|fRZ), END_LIST},
+  {OP_js,  0x0f8810, "js",  xx, xx, Jz, xx, xx, predcc, fRS, END_LIST},
+  {OP_jns, 0x0f8910, "jns", xx, xx, Jz, xx, xx, predcc, fRS, END_LIST},
+  {OP_jp,  0x0f8a10, "jp",  xx, xx, Jz, xx, xx, predcc, fRP, END_LIST},
+  {OP_jnp, 0x0f8b10, "jnp", xx, xx, Jz, xx, xx, predcc, fRP, END_LIST},
+  {OP_jl,  0x0f8c10, "jl",  xx, xx, Jz, xx, xx, predcc, (fRS|fRO), END_LIST},
+  {OP_jnl, 0x0f8d10, "jnl", xx, xx, Jz, xx, xx, predcc, (fRS|fRO), END_LIST},
+  {OP_jle, 0x0f8e10, "jle", xx, xx, Jz, xx, xx, predcc, (fRS|fRO|fRZ), END_LIST},
+  {OP_jnle,0x0f8f10, "jnle",xx, xx, Jz, xx, xx, predcc, (fRS|fRO|fRZ), END_LIST},
   /* 90 */
   {E_VEX_EXT, 0x0f9010, "(e_vex ext 79)", xx, xx, xx, xx, xx, mrm, x, 79},
   {E_VEX_EXT, 0x0f9110, "(e_vex ext 80)", xx, xx, xx, xx, xx, mrm, x, 80},
@@ -2881,7 +2895,7 @@ const instr_info_t base_extensions[][8] = {
     {MOD_EXT, 0x0f0132, "(group 7 mod ext 5)", xx, xx, xx, xx, xx, no, x, 5},
     {MOD_EXT, 0x0f0133, "(group 7 mod ext 4)", xx, xx, xx, xx, xx, no, x, 4},
     {OP_smsw, 0x0f0134, "smsw",  Ew, xx, xx, xx, xx, mrm, x, END_LIST},
-    {INVALID, 0x0f0135, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT, 0x0f0135, "(group 7 mod ext 120)", xx, xx, xx, xx, xx, no, x, 120},
     {OP_lmsw, 0x0f0136, "lmsw",  xx, xx, Ew, xx, xx, mrm, x, END_LIST},
     {MOD_EXT, 0x0f0137, "(group 7 mod ext 2)", xx, xx, xx, xx, xx, no, x, 2},
   },
@@ -4592,10 +4606,8 @@ const instr_info_t prefix_extensions[][12] = {
   {
     {REX_B_EXT,  0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_pause,0xf3900000, "pause", xx, xx, xx, xx, xx, no, x, END_LIST},
-    /* we chain these even though encoding won't find them */
-    {OP_nop, 0x66900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
-    /* windbg displays as "repne nop" */
-    {OP_nop, 0xf2900000, "nop", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {REX_B_EXT, 0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {REX_B_EXT, 0xf2900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {INVALID,     0x900000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0xf3900000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x66900000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6913,13 +6925,16 @@ const instr_info_t mod_extensions[][2] = {
     {OP_vsqrtpd,0x660f5150, "vsqrtpd", Ved, xx, KEb, Mq, xx, mrm|evex|ttfv, x, modx[119][1]},
     {OP_vsqrtpd,0x660f5150, "vsqrtpd", Voq, xx, KEb, Uoq, xx, mrm|evex|er|ttfv, x, END_LIST},
   },
+  { /* mod extension 120 */
+    {INVALID, 0x0f0135, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {RM_EXT,  0x0f0175, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
+  },
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
 const instr_info_t rm_extensions[][8] = {
   { /* rm extension 0 */
-    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-
+    {OP_enclv,    0xc00f0171, "enclv", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0x100]},
     {OP_vmcall,   0xc10f0171, "vmcall",   xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {OP_vmlaunch, 0xc20f0171, "vmlaunch", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {OP_vmresume, 0xc30f0171, "vmresume", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
@@ -6937,7 +6952,7 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_encls,  0xcf0f0171, "encls", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0xfe]},
   },
   { /* rm extension 2 */
     {OP_swapgs, 0xf80f0177, "swapgs", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
@@ -6971,7 +6986,17 @@ const instr_info_t rm_extensions[][8] = {
      */
     {OP_xend,   0xd50f0172, "xend", eax, xx, xx, xx, xx, mrm|predcx, x, NA},
     {OP_xtest,  0xd60f0172, "xtest", xx, xx, xx, xx, xx, mrm, fW6, NA},
+    {OP_enclu,  0xd70f0172, "enclu", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0xff]},
+  },
+  { /* rm extension 5 */
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_rdpkru, 0xee0f0171, "rdpkru", eax, edx, ecx, xx, xx, mrm, x, END_LIST},
+    {OP_wrpkru, 0xef0f0171, "wrpkru", xx, xx, ecx, edx, eax, mrm, x, END_LIST},
   },
 };
 
@@ -7091,7 +7116,8 @@ const instr_info_t evex_prefix_extensions[][2] = {
  */
 const instr_info_t rex_b_extensions[][2] = {
   { /* rex.b extension 0 */
-    {OP_nop,  0x900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][2]},
+    /* We chain these even though encoding won't find them. */
+    {OP_nop,  0x900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
     /* For decoding we avoid needing new operand types by only getting
      * here if rex.b is set.  For encode, we would need either to take
      * REQUIRES_REX + OPCODE_SUFFIX or a new operand type for registers that
@@ -7100,6 +7126,7 @@ const instr_info_t rex_b_extensions[][2] = {
      * assume the registers listed here are 32-bit base): that's too
      * much effort for a corner case that we're not 100% certain works on
      * all x64 processors, so we just don't list in the encoding chain.
+     * See i#5446.
      */
     {OP_xchg, 0x900000, "xchg", eAX_x, eAX, eAX_x, eAX, xx, o64, x, END_LIST},
   },
@@ -10552,6 +10579,10 @@ const instr_info_t extra_operands[] =
     /* 252 */
     {OP_CONTD, 0x663a2548, "vpternlogq cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[188][3]},
     {OP_CONTD, 0x663a2558, "vpternlogq cont'd", xx, xx, Mq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 254 */
+    {OP_CONTD, 0xcf0f0171, "<encls cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
+    {OP_CONTD, 0xd70f0172, "<enclu cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
+    {OP_CONTD, 0xc00f0171, "<enclv cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
 };
 
 /* clang-format on */

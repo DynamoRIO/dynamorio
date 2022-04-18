@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,14 +33,6 @@
 #ifndef _DR_FRONTEND_LIB_H_
 #define _DR_FRONTEND_LIB_H_
 
-#include "globals_shared.h" /* For bool type */
-
-/* XXX i#1079: we may want to share the define block with DR's libutil/our_tchar.h
- * b/c we'll want something similar for drdeploy and drinject libs and tools
- */
-
-/* DR_API EXPORT TOFILE dr_frontend.h */
-/* DR_API EXPORT BEGIN */
 /****************************************************************************
  * Tool front-end API
  */
@@ -67,7 +59,6 @@
 extern "C" {
 #endif
 
-/* DR_API EXPORT VERBATIM */
 /* Support use independently from dr_api.h */
 #if !defined(WINDOWS) && (defined(_WIN32) || defined(_WIN64))
 #    define WINDOWS 1
@@ -91,11 +82,13 @@ typedef __int64 ssize_t;
 typedef int ssize_t;
 #    endif
 #endif
-/* DR_API EXPORT END */
 
 #ifdef WINDOWS
 #    include <tchar.h>
 #else
+/* XXX i#1079: We may want to share the define block with DR's libutil/our_tchar.h
+ * b/c we'll want something similar for drdeploy and drinject libs and tools.
+ */
 #    define TCHAR char
 #    define _tmain main
 #    define _tcslen strlen
@@ -111,13 +104,11 @@ typedef int ssize_t;
 #    define _tfopen fopen
 #    define _T(s) s
 #endif
-/* DR_API EXPORT VERBATIM */
 #ifdef _UNICODE
 #    define TSTR_FMT "%S"
 #else
 #    define TSTR_FMT "%s"
 #endif
-/* DR_API EXPORT END */
 
 /** Status code for each DRFront operation */
 typedef enum {
@@ -511,7 +502,5 @@ drfront_set_verbose(int verbosity);
 #ifdef __cplusplus
 }
 #endif
-
-/* DR_API EXPORT END */
 
 #endif

@@ -800,7 +800,6 @@ void
 restore_peb_pointer_for_thread(dcontext_t *dcontext)
 {
     PEB *tgt_peb = get_own_peb();
-    ASSERT_NOT_TESTED();
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
@@ -1637,7 +1636,6 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Comm-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Console-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-File-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Job-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-Private-L1-1") ||
@@ -1660,7 +1658,13 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Security-Appcontainer-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Base-Private-L1-1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-File-L2-1")) {
+        /* i#2658: In kernel32 on win7 but kernelbase on win8+. */
+        if (get_os_version() <= WINDOWS_VERSION_7)
+            return "kernel32.dll";
+        else
+            return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1") ||
@@ -1698,6 +1702,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-3") ||
              str_case_prefix(name, "API-MS-Win-Core-Path-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Pcw-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-PerfCounters-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Psm-Key-L1-1") ||
@@ -1716,7 +1721,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Job-L2-1"))
+             str_case_prefix(name, "API-MS-Win-Core-Job-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-DownLevel-Kernel32-L2-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";

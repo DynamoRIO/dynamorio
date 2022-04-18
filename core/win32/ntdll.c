@@ -2384,6 +2384,21 @@ nt_set_context(HANDLE hthread, CONTEXT *cxt)
 }
 
 bool
+nt_is_thread_terminating(HANDLE hthread)
+{
+    ULONG previous_suspend_count;
+    NTSTATUS res;
+    GET_RAW_SYSCALL(SuspendThread, IN HANDLE ThreadHandle,
+                    OUT PULONG PreviousSuspendCount OPTIONAL);
+    res = NT_SYSCALL(SuspendThread, hthread, &previous_suspend_count);
+    if (NT_SUCCESS(res)) {
+        nt_thread_resume(hthread, (int *)&previous_suspend_count);
+    }
+
+    return res == STATUS_THREAD_IS_TERMINATING;
+}
+
+bool
 nt_thread_suspend(HANDLE hthread, int *previous_suspend_count)
 {
     NTSTATUS res;

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
 # Copyright (c) 2004-2008 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -32,7 +32,7 @@
 # DAMAGE.
 
 ### I use this script to add the numbers in comments in the OP_
-### enum in src/ir/*/opcode.h
+### enum in src/ir/*/opcode_api.h
 ### Instructions: send the modified enum from decode_table.c
 ### or table_encode.c as stdin for this script.  Pass
 ### -arm first for ARM.  The script sends to standard out the enum

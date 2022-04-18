@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,9 +43,7 @@
 #    include "reader/compressed_file_reader.h"
 #endif
 #include "reader/ipc_reader.h"
-#ifdef DEBUG
-#    include "tests/trace_invariants.h"
-#endif
+#include "tools/invariant_checker.h"
 
 analyzer_multi_t::analyzer_multi_t()
 {
@@ -116,6 +114,7 @@ analyzer_multi_t::analyzer_multi_t()
                 error_string_ = "raw2trace failed: " + error;
             }
         }
+        tracedir = raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
         if (!init_file_reader(tracedir, op_verbose.get_value()))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
@@ -172,10 +171,10 @@ analyzer_multi_t::create_analysis_tools()
         return false;
     }
     num_tools_ = 1;
-#ifdef DEBUG
     if (op_test_mode.get_value()) {
         tools_[1] =
-            new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
+            new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
+                                    op_test_mode_name.get_value());
         if (tools_[1] == NULL)
             return false;
         if (!!*tools_[1])
@@ -188,7 +187,6 @@ analyzer_multi_t::create_analysis_tools()
         }
         num_tools_ = 2;
     }
-#endif
     return true;
 }
 

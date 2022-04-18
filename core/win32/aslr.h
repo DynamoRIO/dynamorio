@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -273,7 +273,7 @@ enum {
     ASLR_CACHE_LIST_DEFAULT,
     ASLR_CACHE_LIST_INCLUDE, /* -aslr_cache_list_include */
     ASLR_CACHE_LIST_EXCLUDE  /* -aslr_cache_list_exclude */
-    /* (note aslr_cache_list_t values match meaning of whitelist blacklist
+    /* (note aslr_cache_list_t values match meaning of allowlist blocklist
      * as in process_control)
      */
 } aslr_cache_list_t;

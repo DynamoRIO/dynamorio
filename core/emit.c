@@ -48,7 +48,7 @@
 #include "emit.h"
 #include "instrlist.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "monitor.h"
 #include "translate.h"
 

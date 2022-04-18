@@ -737,6 +737,7 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                                     "opnd_create_base_disp_aarch64: invalid index");
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
+    opnd.value.base_disp.pre_index = false;
     opnd_set_disp_helper(&opnd, disp);
     opnd.aux.flags = flags;
     if (!opnd_set_index_extend(&opnd, extend_type, scaled))
@@ -2526,14 +2527,22 @@ reg_get_size(reg_id_t reg)
         return OPSZ_8;
     if (reg == DR_REG_WZR)
         return OPSZ_4;
+    if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
+        return OPSZ_8;
     if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31)
         return OPSZ_SCALABLE;
     if (reg >= DR_REG_P0 && reg <= DR_REG_P15)
         return OPSZ_SCALABLE_PRED;
+    if (reg == DR_REG_CNTVCT_EL0)
+        return OPSZ_8;
+    if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)
+        return OPSZ_8;
 #    endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
 #endif
+    LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
+        get_register_name(reg), DR_REG_LAST_ENUM);
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
 }

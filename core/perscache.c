@@ -2435,8 +2435,13 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
          */
         module_calculate_digest(digest, modbase, view_size, false /* not full */,
                                 true /* yes short */, DYNAMO_OPTION(persist_short_digest),
-                                /* do not consider writable sections */
-                                ~((uint)OS_IMAGE_WRITE), OS_IMAGE_WRITE);
+                                /* Do not consider non-executable sections.
+                                 * We used to include read-only data sections, but
+                                 * new ld.so marks those noaccess at +rx mmap time.
+                                 * We could try to load pcaches later to solve that;
+                                 * for now it's simpler to exclude from the md5.
+                                 */
+                                OS_IMAGE_EXECUTE, OS_IMAGE_WRITE);
     }
 }
 

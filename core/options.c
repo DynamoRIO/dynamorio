@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1319,16 +1319,6 @@ check_option_compatibility_helper(int recurse_count)
      * warn of unfinished and untested self-protection options
      * FIXME: update once these features are complete
      */
-#    if defined(WINDOWS) && !defined(NOLIBC)
-    if (TEST(SELFPROT_ANY_DATA_SECTION, dynamo_options.protect_mask)) {
-        /* since libc routines are embedded in our dll and we run
-         * them from the code cache we hit write faults
-         */
-        USAGE_ERROR("Cannot protect data segment w/ a non-NOLIBC build");
-        dynamo_options.protect_mask &= ~SELFPROT_ANY_DATA_SECTION;
-        changed_options = true;
-    }
-#    endif
     if (
 #    ifdef WINDOWS
         /* FIXME: CACHE isn't multithread safe yet */
@@ -1375,16 +1365,15 @@ check_option_compatibility_helper(int recurse_count)
               SELFPROT_CACHE | SELFPROT_STACK);
         changed_options = true;
     }
-#    ifdef CUSTOM_TRACES
     if (PRIVATE_TRACES_ENABLED() && DYNAMO_OPTION(shared_bbs)) {
         /* Due to complications with shadowing, we do not support
-         * private traces and shared bbs
+         * private traces and shared bbs if we allow clients to make custom
+         * traces (which is always enabled).
          */
-        USAGE_ERROR("CUSTOM_TRACES incompatible with private traces and shared bbs");
+        USAGE_ERROR("private traces incompatible with shared bbs");
         dynamo_options.shared_bbs = false;
         changed_options = true;
     }
-#    endif
     /****************************************************************************/
 
 #    if defined(PROFILE_RDTSC) && defined(SIDELINE)
@@ -2469,11 +2458,24 @@ options_init()
     return ret;
 }
 
-/* clean up dynamo options state */
+/* Clean up dynamo option state.  We can't clear/reset actual option values here,
+ * as those are used in other exit routines called later.  We have a separate
+ * options_detach() for that.
+ */
 void
 options_exit()
 {
     DELETE_READWRITE_LOCK(options_lock);
+}
+
+/* Reset dynamo options to defaults. */
+void
+options_detach()
+{
+    /* We do not use options_make_writable() as locks are already gone at this point. */
+    SELF_UNPROTECT_OPTIONS();
+    dynamo_options = default_options;
+    /* Not worth bothering to re-protect. */
 }
 
 /* this function returns holding the options lock */

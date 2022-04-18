@@ -165,7 +165,7 @@ DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)
 DECL_EXTERN(nt_continue_setup)
 #if defined(UNIX)
-DECL_EXTERN(master_signal_handler_C)
+DECL_EXTERN(main_signal_handler_C)
 #endif
 #ifdef MACOS
 DECL_EXTERN(new_bsdthread_setup)
@@ -641,6 +641,10 @@ cat_have_lock:
         mov      REG_XDI, REG_XAX    /* esp to use */
 #endif
         mov      REG_XSI, [2*ARG_SZ + REG_XBP]  /* sysnum */
+#ifdef MACOS64
+        /* For now we assume a BSD syscall */
+        or       REG_XSI, SYSCALL_NUM_MARKER_BSD
+#endif
         pop      REG_XAX             /* syscall */
         pop      REG_XCX             /* dstack */
 #if defined(UNIX) && !defined(X64)
@@ -1138,6 +1142,12 @@ GLOBAL_LABEL(client_int_syscall:)
  */
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
+        /* i#38: Attaching while in middle of blocking syscall requires padded null bytes
+         * with number_of_nop_instr = sizeof(syscall_instr) / sizeof(nop_instr).
+         * For detailed explanation see issue page.
+         */
+        nop
+        nop
         /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address.
          * We call this here to ensure it's safe to access globals once in C code
          * (xref i#1865).
@@ -1255,7 +1265,7 @@ dynamorio_sys_exit_next:
         mov      ARG2, REG_XAX /* kernel port, which we just acquired */
         mov      ARG1, 0 /* join semaphore: SEMAPHORE_NULL */
         mov      eax, SYS_bsdthread_terminate
-        or       eax, HEX(2000000) /* 2<<24 for BSD syscall */
+        or       eax, SYSCALL_NUM_MARKER_BSD
         mov      r10, rcx
         syscall
 # else
@@ -1413,18 +1423,18 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
 /* We used to get the SP by taking the address of our args, but that doesn't
  * work on x64 nor with other compilers.  Today we use asm to pass in the
  * initial SP.  For x64, we add a 4th register param and tail call to
- * master_signal_handler_C.  Adding a param and doing a tail call on ia32 is
+ * main_signal_handler_C.  Adding a param and doing a tail call on ia32 is
  * hard, so we make a real call and pass only xsp.  The C routine uses it to
  * read the original params.
  * See also PR 305020.
  */
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
 #ifdef X64
 # ifdef LINUX
         mov      ARG4, REG_XSP /* pass as extra arg */
-        jmp      GLOBAL_REF(master_signal_handler_C)
-        /* master_signal_handler_C will do the ret */
+        jmp      GLOBAL_REF(main_signal_handler_C)
+        /* main_signal_handler_C will do the ret */
 # else /* MACOS */
         mov      rax, REG_XSP /* save for extra arg */
         push     ARG2 /* infostyle */
@@ -1432,7 +1442,7 @@ GLOBAL_LABEL(master_signal_handler:)
         push     ARG6 /* token */
         /* rsp is now aligned again */
         mov      ARG6, rax /* pass as extra arg */
-        CALLC0(GLOBAL_REF(master_signal_handler_C))
+        CALLC0(GLOBAL_REF(main_signal_handler_C))
         /* Set up args to SYS_sigreturn */
         pop      ARG3 /* token */
         pop      ARG1 /* ucxt */
@@ -1445,7 +1455,7 @@ GLOBAL_LABEL(master_signal_handler:)
          * intermediate frame.
          */
         mov      REG_XAX, REG_XSP
-        CALLC1_FRESH(GLOBAL_REF(master_signal_handler_C), REG_XAX)
+        CALLC1_FRESH(GLOBAL_REF(main_signal_handler_C), REG_XAX)
 # ifdef MACOS
         mov      eax, ARG5 /* ucxt */
         /* Set up args to SYS_sigreturn, skipping the retaddr slot */
@@ -1456,7 +1466,7 @@ GLOBAL_LABEL(master_signal_handler:)
         ret
 # endif
 #endif
-        END_FUNC(master_signal_handler)
+        END_FUNC(main_signal_handler)
 
 #else /* !HAVE_SIGALTSTACK */
 
@@ -1470,8 +1480,8 @@ GLOBAL_LABEL(master_signal_handler:)
  * of a C routine: have to fix up locals + frame ptr, or jmp to start of
  * func and clobber callee-saved regs (which messes up vmkernel sigreturn).
  */
-        DECLARE_FUNC(master_signal_handler)
-GLOBAL_LABEL(master_signal_handler:)
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
         mov      REG_XAX, ARG1
         mov      REG_XCX, ARG2
         mov      REG_XDX, ARG3
@@ -1532,7 +1542,7 @@ no_swap:
         pop      ARG2
         pop      ARG1
         mov      rcx, rsp /* pass as 4th arg */
-        jmp      GLOBAL_REF(master_signal_handler_C)
+        jmp      GLOBAL_REF(main_signal_handler_C)
         /* can't return, no retaddr */
 # else
         add      REG_XSP, 3*ARG_SZ
@@ -1540,10 +1550,10 @@ no_swap:
          * intermediate frame.
          */
         mov      REG_XAX, REG_XSP
-        CALLC1(GLOBAL_REF(master_signal_handler_C), REG_XAX)
+        CALLC1(GLOBAL_REF(main_signal_handler_C), REG_XAX)
         ret
 # endif
-        END_FUNC(master_signal_handler)
+        END_FUNC(main_signal_handler)
 #endif /* !HAVE_SIGALTSTACK */
 
 #ifdef LINUX
@@ -2665,10 +2675,17 @@ inv64_return_to_32:
  * C code.  C code takes over when it returns to use.  We restore
  * regs and return to app code.
  * Executes on app stack but we assume app stack is fine at this point.
+ *
+ * We've pushed a retaddr on the stack, but we expect all our takeover
+ * points to be at function entry where the app's retaddr was just pushed
+ * and thus stack alignment was at +ptrsz and is +2*ptrsz on entry here.
  */
         DECLARE_EXPORTED_FUNC(dynamorio_earliest_init_takeover)
 GLOBAL_LABEL(dynamorio_earliest_init_takeover:)
-        PUSHGPR
+        push     REG_XAX /* Save xax (PUSH_PRIV_MCXT clobbers it). */
+        lea      REG_XSP, [REG_XSP - ARG_SZ] /* Align stack whether 32 or 64-bit. */
+        PUSH_PRIV_MCXT(PTRSZ [REG_XSP + 2*ARG_SZ -\
+                       PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* Return address as pc. */
 # ifdef EARLIEST_INIT_DEBUGBREAK
         /* giant loop so can attach debugger, then change ebx to 1
          * to step through rest of code */
@@ -2683,16 +2700,23 @@ dynamorio_earliest_init_repeatme:
         cmp      ebx, 0
         jg       dynamorio_earliest_init_repeat_outer
 # endif
+        lea      REG_XDX, [REG_XSP] /* Pointer to priv_mcontext_t. */
+        /* Fix up app's xsp from the retaddr + push + align we did. */
+        mov      REG_XAX, PTRSZ [REG_XSP + MCONTEXT_XSP_OFFS]
+        lea      REG_XAX, [REG_XAX + 3*ARG_SZ]
+        mov      PTRSZ [REG_XSP + MCONTEXT_XSP_OFFS], REG_XAX
+        /* Load passed-in xax which points to the arg struct. */
+        mov      REG_XAX, PTRSZ [REG_XSP + PRIV_MCXT_SIZE + ARG_SZ]
         /* Load earliest_args_t.app_xax, written by our gencode. */
         mov      REG_XCX, PTRSZ [REG_XAX]
         /* Store into xax slot on stack. */
-        mov      PTRSZ [PUSHGPR_XAX_OFFS + REG_XSP], REG_XCX
-        /* Args are pointed at by xax. */
-        CALLC1(GLOBAL_REF(dynamorio_earliest_init_takeover_C), REG_XAX)
+        mov      PTRSZ [REG_XSP + MCONTEXT_XAX_OFFS], REG_XCX
+        CALLC2(GLOBAL_REF(dynamorio_earliest_init_takeover_C), REG_XAX, REG_XDX)
         /* We will either be under DR control or running natively at this point. */
 
         /* Restore. */
-        POPGPR
+        POP_PRIV_MCXT_GPRS()
+        lea      REG_XSP, [REG_XSP + 2*ARG_SZ] /* Undo align + push. */
         ret
         END_FUNC(dynamorio_earliest_init_takeover)
 #endif /* WINDOWS */

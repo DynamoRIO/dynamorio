@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -235,6 +235,18 @@ offline_instru_t::get_entry_size(byte *buf_ptr) const
     return 0;
 }
 
+int
+offline_instru_t::get_instr_count(byte *buf_ptr) const
+{
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    if (entry->addr.type != OFFLINE_TYPE_PC)
+        return 0;
+    // TODO i#3995: We should *not* count "non-fetched" instrs so we'll match
+    // hardware performance counters.
+    // Xref i#4948 and i#4915 on getting rid of "non-fetched" instrs.
+    return entry->pc.instr_count;
+}
+
 addr_t
 offline_instru_t::get_entry_addr(byte *buf_ptr) const
 {
@@ -344,13 +356,16 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
 }
 
 int
-offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
+offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window)
 {
     byte *new_buf = buf_ptr;
     offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    entry->timestamp.usec = instru_t::get_timestamp();
+    entry->timestamp.usec =
+        frozen_timestamp_ != 0 ? frozen_timestamp_ : instru_t::get_timestamp();
     new_buf += sizeof(*entry);
+    if (window >= 0)
+        new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
 }
@@ -383,10 +398,10 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
 }
 
 uint64_t
-offline_instru_t::get_modoffs(void *drcontext, app_pc pc)
+offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
 {
     app_pc modbase;
-    if (drmodtrack_lookup(drcontext, pc, NULL, &modbase) != DRCOVLIB_SUCCESS)
+    if (drmodtrack_lookup(drcontext, pc, modidx, &modbase) != DRCOVLIB_SUCCESS)
         return 0;
     return pc - modbase;
 }
@@ -543,9 +558,11 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
                                     dr_pred_type_t pred)
 {
     // Check whether we can elide this address.
-    // Be sure to start with "app" and not "where" to handle post-instr insertion
-    // such as for exclusive stores.
-    for (instr_t *prev = instr_get_prev(app); prev != nullptr && !instr_is_app(prev);
+    // We expect our labels to be at "where" due to drbbdup's handling of block-final
+    // instrs, but for exclusive store post-instr insertion we make sure we walk
+    // across that app instr.
+    for (instr_t *prev = instr_get_prev(where);
+         prev != nullptr && (!instr_is_app(prev) || instr_is_exclusive_store(prev));
          prev = instr_get_prev(prev)) {
         int elided_index;
         bool elided_is_store;
@@ -597,7 +614,7 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
             return adjust;
         pc = dr_fragment_app_pc(tag);
     } else {
-        // XXX: For repstr do we want tag insted of skipping rep prefix?
+        DR_ASSERT(instr_is_app(app));
         pc = instr_get_app_pc(app);
     }
     drreg_status_t res =
@@ -625,31 +642,7 @@ void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                               instrlist_t *ilist, bool repstr_expanded)
 {
-    instr_t *instr;
-    ptr_uint_t count = 0;
-    app_pc last_xl8 = NULL;
-    if (repstr_expanded) {
-        // The same-translation check below is not sufficient as drutil uses
-        // two different translations to deal with complexities.
-        // Thus we hardcode this.
-        count = 1;
-    } else {
-        for (instr = instrlist_first_app(ilist); instr != NULL;
-             instr = instr_get_next_app(instr)) {
-            // To deal with app2app changes, we do not double-count consecutive instrs
-            // with the same translation.
-            if (instr_get_app_pc(instr) != last_xl8) {
-                // Hooked native functions end up with an artifical jump whose translation
-                // is its target.  We do not want to count these.
-                if (!(instr_is_ubr(instr) && opnd_is_pc(instr_get_target(instr)) &&
-                      opnd_get_pc(instr_get_target(instr)) == instr_get_app_pc(instr)))
-                    ++count;
-            }
-            last_xl8 = instr_get_app_pc(instr);
-        }
-    }
-    *bb_field = (void *)count;
-
+    *bb_field = (void *)(ptr_uint_t)instru_t::count_app_instrs(ilist);
     identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
 }
 
@@ -671,7 +664,7 @@ offline_instru_t::opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version
     if (!opnd_is_near_base_disp(memop) ||
         // We're assuming displacements are all factored out, such that we can share
         // a base across all uses without subtracting the original disp.
-        // TODO(i#2001): This is blocking elision of SP bases on AArch64.  We should
+        // TODO(i#4898): This is blocking elision of SP bases on AArch64.  We should
         // add disp subtraction by storing the disp along with reg_vals in raw2trace
         // for AArch64.
         !opnd_disp_is_elidable(memop) ||
@@ -743,6 +736,24 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
     if (memref_needs_full_info_)
         return;
     reg_id_set_t saw_base;
+    for (instr_t *instr = instrlist_first(ilist); instr != NULL;
+         instr = instr_get_next(instr)) {
+        // XXX: We turn off address elision for bbs containing emulation sequences
+        // or instrs that are expanded into emulation sequences like scatter/gather
+        // and rep stringop. As instru_offline and raw2trace see different instrs in
+        // these bbs (expanded seq vs original app instr), there may be mismatches in
+        // identifying elision opportunities. We can possibly provide a consistent
+        // view by expanding the instr in raw2trace (e.g. using
+        // drx_expand_scatter_gather) when building the ilist.
+        if (drutil_instr_is_stringop_loop(instr)
+            // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
+            IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
+            return;
+        }
+        if (drmgr_is_emulation_start(instr) || drmgr_is_emulation_end(instr)) {
+            return;
+        }
+    }
     for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;
          instr = instr_get_next_app(instr)) {
         // For now we bail at predication.

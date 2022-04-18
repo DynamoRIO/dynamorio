@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -161,13 +161,14 @@ droption_t<std::string> op_LL_miss_file(
 
 droption_t<bool> op_L0_filter(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
-    "Filter out zero-level hits during tracing",
+    "Filter out first-level cache hits during tracing",
     "Filters out instruction and data hits in a 'zero-level' cache during tracing "
-    "itself, "
-    "shrinking the final trace to only contain instruction and data accesses that miss "
-    "in "
-    "this initial cache.  This cache is direct-mapped with sizes equal to -L0I_size and "
-    "-L0D_size.  It uses virtual addresses regardless of -use_physical.");
+    "itself, shrinking the final trace to only contain instruction and data accesses "
+    "that miss in this initial cache.  This cache is direct-mapped with sizes equal to "
+    "-L0I_size and -L0D_size.  It uses virtual addresses regardless of -use_physical. "
+    "The dynamic (pre-filtered) per-thread instruction count is tracked and supplied "
+    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries "
+    "and at thread exit.");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
@@ -239,9 +240,40 @@ droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
     "Do not start tracing until N instructions",
     "If non-zero, this causes tracing to be suppressed until this many dynamic "
-    "instruction "
-    "executions are observed.  At that point, regular tracing is put into place.  Use "
-    "-max_trace_size to set a limit on the subsequent trace length.");
+    "instruction executions are observed from the start of the application. "
+    "At that point, regular tracing is put into place. "
+    "The threshold should be considered approximate, especially for larger values. "
+    "Use -trace_for_instrs, -max_trace_size, or -max_global_trace_refs to set a limit "
+    "on the subsequent trace length.  Use -retrace_every_instrs to trace repeatedly.");
+
+droption_t<bytesize_t> op_trace_for_instrs(
+    DROPTION_SCOPE_CLIENT, "trace_for_instrs", 0,
+    "After tracing N instructions, stop tracing, but continue executing.",
+    "If non-zero, this stops recording a trace after the specified number of "
+    "instructions are traced.  Unlike -exit_after_tracing, which kills the "
+    "application (and counts data as well as instructions), the application "
+    "continues executing.  This can be combined with -retrace_every_instrs. "
+    "The actual trace period may vary slightly from this number due to optimizations "
+    "that reduce the overhead of instruction counting.");
+
+droption_t<bytesize_t> op_retrace_every_instrs(
+    DROPTION_SCOPE_CLIENT, "retrace_every_instrs", 0,
+    "Trace for -trace_for_instrs, execute this many, and repeat.",
+    "This option augments -trace_for_instrs.  After tracing concludes, this option "
+    "causes non-traced instructions to be counted and after the number specified by "
+    "this option, tracing will start up again for the -trace_for_instrs duration.  This "
+    "process repeats itself.  This can be combined with -trace_after_instrs for an "
+    "initial period of non-tracing.  Each tracing window is delimited by "
+    "TRACE_MARKER_TYPE_WINDOW_ID markers.  For -offline traces, each window is placed "
+    "into its own separate set of output files, unless -no_split_windows is set.");
+
+droption_t<bool> op_split_windows(
+    DROPTION_SCOPE_CLIENT, "split_windows", true,
+    "Whether -retrace_every_instrs should write separate files",
+    "By default, offline traces in separate windows from -retrace_every_instrs are "
+    "written to a different set of files for each window.  If this option is disabled, "
+    "all windows are concatenated into a single trace, separated by "
+    "TRACE_MARKER_TYPE_WINDOW_ID markers.");
 
 droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
@@ -249,6 +281,15 @@ droption_t<bytesize_t> op_exit_after_tracing(
     "If non-zero, after tracing the specified number of references, the process is "
     "exited with an exit code of 0.  The reference count is approximate. "
     "Use -max_global_trace_refs instead to avoid terminating the process.");
+
+droption_t<std::string> op_raw_compress(
+    DROPTION_SCOPE_CLIENT, "raw_compress", "none",
+    "Compression for raw offline files: \"snappy\", \"snappy_nocrc\", \"none\"",
+    "Specifies the compression type to use for raw offline files: \"snappy\", "
+    "\"snappy_nocrc\" (snappy without checksums, which is much faster), or \"none\". "
+    "Whether this reduces overhead depends on the storage type: for "
+    "an SSD this typically adds overhead and would only be used if space is at a "
+    "premium; for a spinning disk using snappy should be a performance win.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
@@ -307,13 +348,15 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string> op_simulator_type(
-    DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-    "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM ", " VIEW ", " FUNC_VIEW ", or " BASIC_COUNTS ").",
-    "Specifies the type of the simulator. "
-    "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
+droption_t<std::string>
+    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
+                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
+                      ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
+                      "Specifies the type of the simulator. "
+                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
+                      ", or " INVARIANT_CHECKER ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -324,10 +367,11 @@ droption_t<bool>
                        "Show every traced call in the func_trace tool",
                        "In the func_trace tool, this controls whether every traced call "
                        "is shown or instead only aggregate statistics are shown.");
-#ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
-#endif
+droption_t<std::string> op_test_mode_name(
+    DROPTION_SCOPE_ALL, "test_mode_name", "", "Run custom sanity tests",
+    "Run extra analyses for specific sanity checks by name on the trace.");
 droption_t<bool> op_disable_optimizations(
     DROPTION_SCOPE_ALL, "disable_optimizations", false,
     "Disable offline trace optimizations for testing",
@@ -363,6 +407,12 @@ droption_t<std::string> op_tracer_ops(
     DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE | DROPTION_FLAG_INTERNAL, "",
     "(For internal use: sweeps up tracer options)",
     "This is an internal option that sweeps up other options to pass to the tracer.");
+
+droption_t<int>
+    op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
+                   "Only analyze this thread (0 means all)",
+                   "For simulator types that support it, limits analyis to the single "
+                   "thread with the given identifier.  0 enables all threads.");
 
 droption_t<bytesize_t>
     op_skip_refs(DROPTION_SCOPE_FRONTEND, "skip_refs", 0,
@@ -554,3 +604,7 @@ droption_t<double> op_confidence_threshold(
     "results. Confidence in a discovered pattern for a load instruction is calculated "
     "as the fraction of the load's misses with the discovered pattern over all the "
     "load's misses.");
+droption_t<bool> op_enable_drstatecmp(
+    DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
+    "When true, this option enables the drstatecmp library that performs state "
+    "comparisons to detect instrumentation-induced bugs due to state clobbering.");

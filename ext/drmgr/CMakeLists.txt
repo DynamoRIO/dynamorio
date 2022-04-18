@@ -52,22 +52,31 @@ if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 endif ()
 
+macro(configure_drmgr_target target)
+  if (WIN32)
+    # Avoid link errors about missing __chkstk.
+    append_property_string(TARGET ${target} COMPILE_FLAGS "/Gs65536")
+  endif ()
+  use_DynamoRIO_extension(${target} drcontainers)
+endmacro(configure_drmgr_target)
+
+
 add_library(drmgr SHARED ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x73000000)
 configure_extension(drmgr OFF)
-use_DynamoRIO_extension(drmgr drcontainers)
+configure_drmgr_target(drmgr)
 
 # Must be shared to ensure only one copy, since can be used by
 # the client and by multiple other libraries, some of which may
-# be shared: the whole point is to have one master drmgr.
+# be shared: the whole point is to have one unique drmgr.
 # But, we do want to support projects using drmgr statically for
 # an end tool, for performance.
 # To support simultaneously exporting components for use with other clients,
 # we build drmgr both shared and static (i#1342).
 add_library(drmgr_static STATIC ${srcs_static})
 configure_extension(drmgr_static ON)
-use_DynamoRIO_extension(drmgr_static drcontainers)
+configure_drmgr_target(drmgr_static)
 
 install_ext_header(drmgr.h)

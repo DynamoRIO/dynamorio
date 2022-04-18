@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -82,7 +82,7 @@ On Linux, DR sends itself a SIGILL signal during initialization, in order to mea
 
 Additionally, DR uses various "safe read" strategies where it may raise a SIGSEGV or SIGBUS while examining application memory.  Load symbols and look for `safe_read` variants on the call stack (such as `safe_read_tls_magic`, `safe_read_asm_pre`, `safe_read_fast`) to identify these.  Just like with the init-time SIGILL, simply continue past these.
 
-One final signal used by DR is SIGUSR2, which is sent to other threads to suspend or terminate them.
+One final signal used by DR is SIGSTKFLT (SIGFPE on MacOS), which is sent to other threads to suspend or terminate them.
 
 ## Attaching
 

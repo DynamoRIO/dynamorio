@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -198,8 +198,7 @@ post_process(const std::string &out_subdir)
 static std::string
 gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 {
-    // We use the '#' prefix to overwrite and work around i#2661.
-    std::string dr_ops("-stderr_mask 0xc -client_lib '#;;-offline " + tracer_ops + "'");
+    std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline " + tracer_ops + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup();

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -36,12 +36,12 @@
 
 We have a rotating Triager who is responsible for monitoring our continuous testing infrastructure and for triaging incoming requests from users.  Specific duties include:
 
-- Ensure that our Continuous Integration testing through Github Actions, Appveyor, and Jenkins are operating smoothly.
+- Ensure that our Continuous Integration testing through Github Actions and Jenkins are operating smoothly.
   - If flaky tests are failing too often, assign someone to fix them ASAP, or mark them to be ignored in `runsuite_wrapper.pl`.
-  - If the Appveyor serialized queue is stacking up, warn new developers to commit more carefully and to cancel stale PR pushes (i.e., for multiple pushes within a short time span, cancel all but the most recent in Appveyor) to avoid wasting resources and blocking other developers.
-- Watch merges to master for new Mac or other failures not caught by PR testing.
-  - File an issue and assign to the responsible developer.  If it cannot be fixed quickly, revert.
+- Watch merges to master for failures on the longer test suite.
+  - File an issue on previously-unknown failures, or update existing issues for repeats.  Consider marking tests as flaky in `runsuite_wrapper.pl` if they are keeping the master merge red.
 - Answer (or request that someone else who is more of an expert in that area answer) incoming dynamorio-users emails.
+  - Sometimes emails to the list are marked as spam, so it is a good idea to directly watch the web interface: https://groups.google.com/g/DynamoRIO-Users
 - Triage reviewing pull requests filed by users
   - Make sure you receive notifications on such requests: see the issues item below on how to set that up.  Alternatively, proactively monitor the pull request list through the web site.
 - Triage issues filed by users in our issue tracker.
@@ -55,7 +55,7 @@ https://groups.google.com/forum/#!forum/DynamoRIO-Users for general questions, a
   - Ideally the filer will be interested in fixing it.  Encourage the filer along this path by giving debugging suggestions and helpful hints for how to diagnose, fix, and submit a PR.  We have a very small developer team which cannot scale to fixing everything.  Encouraging more users to contribute is the direction we want to move in.
   - If the filer is unlikely to be able to fix it and it is high priority, assign to a developer.  If lower, consider adding a `help wanted` label.
 - If it's a slow week and you feel ambitious:
-  - Fix a flaky test (search the tracker for the `Hotlist-Travis` label or look at the list in `runsuite_wrapper.pl`).
+  - Fix a flaky test (search the tracker for the `Hotlist-ContinuousIntegration` label or look at the list in `runsuite_wrapper.pl`).
   - Try to close an open tracker issue.
 
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -261,6 +261,9 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
             if (!hashtable_add(&pc2idplus1, (void *)f_pc, (void *)(ptr_int_t)(id + 1)))
                 DR_ASSERT(false && "Failed to maintain pc2idplus1 internal hashtable");
         }
+        // With the lock restrictions for calling drwrap_wrap_ex(), we can't hold a
+        // a lock across this entire callback.  We release our lock during our
+        // drwrap_wrap_ex() call.
         dr_mutex_unlock(funcs_wrapped_lock);
         if (existing_id != 0) {
             continue;
@@ -331,6 +334,28 @@ instru_funcs_module_unload(void *drcontext, const module_data_t *mod)
             NOTIFY(0, "Failed to remove hooks for %s!%s @%p\n", mod_name, f->name, f_pc);
         }
     }
+}
+
+dr_emit_flags_t
+func_trace_enabled_instrument_event(void *drcontext, void *tag, instrlist_t *bb,
+                                    instr_t *instr, instr_t *where, bool for_trace,
+                                    bool translating, void *user_data)
+{
+    if (funcs_str.empty())
+        return DR_EMIT_DEFAULT;
+    return drwrap_invoke_insert(drcontext, tag, bb, instr, where, for_trace, translating,
+                                user_data);
+}
+
+dr_emit_flags_t
+func_trace_disabled_instrument_event(void *drcontext, void *tag, instrlist_t *bb,
+                                     instr_t *instr, instr_t *where, bool for_trace,
+                                     bool translating, void *user_data)
+{
+    if (funcs_str.empty())
+        return DR_EMIT_DEFAULT;
+    return drwrap_invoke_insert_cleanup_only(drcontext, tag, bb, instr, where, for_trace,
+                                             translating, user_data);
 }
 
 static std::vector<std::string>
@@ -477,7 +502,10 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
             goto failed;
         }
     }
-    if (!drwrap_init()) {
+    /* For multi-instrumentation cases with drbbdup, we need the drwrap inverted
+     * control mode where we invoke its instrumentation handlers.
+     */
+    if (!drwrap_set_global_flags(DRWRAP_INVERT_CONTROL) || !drwrap_init()) {
         DR_ASSERT(false);
         goto failed;
     }
@@ -529,7 +557,8 @@ func_trace_exit()
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
         !drmgr_unregister_module_unload_event(instru_funcs_module_unload) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
-        !drmgr_unregister_thread_exit_event(event_thread_exit))
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        !drmgr_unregister_tls_field(tls_idx))
         DR_ASSERT(false);
     if (!op_record_dynsym_only.get_value()) {
         if (drsym_exit() != DRSYM_SUCCESS)

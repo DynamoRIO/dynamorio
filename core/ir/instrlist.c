@@ -57,8 +57,9 @@
 
 /* returns an empty instrlist_t object */
 instrlist_t *
-instrlist_create(dcontext_t *dcontext)
+instrlist_create(void *drcontext)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instrlist_t *ilist =
         (instrlist_t *)heap_alloc(dcontext, sizeof(instrlist_t) HEAPACCT(ACCT_IR));
     CLIENT_ASSERT(ilist != NULL, "instrlist_create: allocation error");
@@ -82,8 +83,9 @@ instrlist_init(instrlist_t *ilist)
 
 /* frees the instrlist_t object */
 void
-instrlist_destroy(dcontext_t *dcontext, instrlist_t *ilist)
+instrlist_destroy(void *drcontext, instrlist_t *ilist)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(ilist->first == NULL && ilist->last == NULL,
                   "instrlist_destroy: list not empty");
     heap_free(dcontext, ilist, sizeof(instrlist_t) HEAPACCT(ACCT_IR));
@@ -91,8 +93,9 @@ instrlist_destroy(dcontext_t *dcontext, instrlist_t *ilist)
 
 /* frees the Instrs in the instrlist_t */
 void
-instrlist_clear(dcontext_t *dcontext, instrlist_t *ilist)
+instrlist_clear(void *drcontext, instrlist_t *ilist)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
 #ifdef ARM
     /* XXX i#4680: Reset encode state to avoid dangling pointers. */
     if (instrlist_first(ilist) != NULL &&
@@ -108,8 +111,9 @@ instrlist_clear(dcontext_t *dcontext, instrlist_t *ilist)
 
 /* frees the Instrs in the instrlist_t and the instrlist_t object itself */
 void
-instrlist_clear_and_destroy(dcontext_t *dcontext, instrlist_t *ilist)
+instrlist_clear_and_destroy(void *drcontext, instrlist_t *ilist)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instrlist_clear(dcontext, ilist);
     instrlist_destroy(dcontext, ilist);
 }
@@ -439,8 +443,9 @@ instrlist_remove(instrlist_t *ilist, instr_t *inst)
 }
 
 instrlist_t *
-instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
+instrlist_clone(void *drcontext, instrlist_t *old)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *inst, *copy;
     instrlist_t *newlist = instrlist_create(dcontext);
 
@@ -522,9 +527,10 @@ instrlist_append_instrlist(dcontext_t *dcontext, instrlist_t *ilist,
  * the relative pc for an instr_t jump target
  */
 byte *
-instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc,
+instrlist_encode_to_copy(void *drcontext, instrlist_t *ilist, byte *copy_pc,
                          byte *final_pc, byte *max_pc, bool has_instr_jmp_targets)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *inst;
     int len = 0;
 #ifdef ARM
@@ -573,9 +579,10 @@ instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc
 }
 
 byte *
-instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
+instrlist_encode(void *drcontext, instrlist_t *ilist, byte *pc,
                  bool has_instr_jmp_targets)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return instrlist_encode_to_copy(dcontext, ilist, pc, pc, NULL, has_instr_jmp_targets);
 }
 

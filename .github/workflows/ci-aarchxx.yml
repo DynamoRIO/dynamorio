@@ -64,18 +64,28 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
-    # Install cross-compiler for cross-compiling Linux build:
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there is no libunwind-dev or libunwind cross-compile
+    # package so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-aarch64-linux-gnu qemu-user qemu-user-binfmt
+        sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
@@ -117,18 +127,28 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
-    # Install cross-compiler for cross-compiling Linux build:
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there is no libunwind-dev or libunwind cross-compile
+    # package so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-arm-linux-gnueabihf qemu-user qemu-user-binfmt
+        sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
@@ -156,7 +176,7 @@ jobs:
 
   # Android ARM cross-compile with gcc, no tests:
   android-arm-cross-compile:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -190,6 +210,8 @@ jobs:
       env:
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
       run: ./suite/runsuite_wrapper.pl automated_ci
 
     - name: Send failure mail to dynamorio-devs
@@ -218,7 +240,7 @@ jobs:
 
   # AArch64 drdecode and drmemtrace on x86:
   a64-on-x86:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -241,6 +263,8 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci
       env:
         DYNAMORIO_A64_ON_X86_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

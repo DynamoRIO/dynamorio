@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,12 +34,6 @@
 #ifndef _DR_CONFIG_H_
 #define _DR_CONFIG_H_ 1
 
-/* Internally we mark routines with export linkage. */
-#include "configure.h"      /* for WINDOWS/UNIX */
-#include "globals_shared.h" /* for DR_EXPORT */
-
-/* DR_API EXPORT TOFILE dr_config.h */
-/* DR_API EXPORT BEGIN */
 /****************************************************************************
  * Deployment API
  */
@@ -69,28 +63,28 @@ typedef enum {
      */
     DR_MODE_NONE = 0,
 
-/** Run DynamoRIO in Code Manipulation mode. */
-#ifdef HOT_PATCHING_INTERFACE
-/** Note that this mode also supports the Probe API. */
-#endif
+    /**
+     * Run DynamoRIO in Code Manipulation mode.
+     * This does not preclude using the Probe API.
+     */
     DR_MODE_CODE_MANIPULATION = 1,
 
-#ifdef HOT_PATCHING_INTERFACE
-    /** Run DynamoRIO in Probe mode.  This mode has no code cache. */
+    /**
+     * Run DynamoRIO in Probe mode.  This mode has no code cache.
+     * \warning This mode is not fully supported at this time.
+     */
     DR_MODE_PROBE = 2,
 
-#endif
-
-#ifdef PROGRAM_SHEPHERDING
-    /** Run DynamoRIO in Memory Firewall mode. */
+    /**
+     * Run DynamoRIO in security Memory Firewall mode.
+     * \warning This mode is not fully supported at this time.
+     */
     DR_MODE_MEMORY_FIREWALL = 3,
-
-#endif
 
     /**
      * Do not run this application under DynamoRIO control.
      * Useful for following all child processes except a handful
-     * (blacklist).
+     * (blocklist).
      */
     DR_MODE_DO_NOT_RUN = 4,
 
@@ -309,6 +303,10 @@ DR_EXPORT
  * \param[in]   dr_root_dir     A NULL-terminated string specifying the full
  *                              path to a valid DynamoRIO root directory.
  *                              The string length cannot exceed #MAXIMUM_PATH.
+ *                              The path to the DynamoRIO library to be used will
+ *                              be constructed from this path assuming a default
+ *                              layout.  To precisely specify the path, call
+ *                               dr_register_inject_paths() afterward.
  *
  * \param[in]   dr_mode         Specifies the mode under which DynamoRIO should
  *                              operate.  See dr_operation_mode_t.
@@ -381,6 +379,67 @@ DR_EXPORT
 dr_config_status_t
 dr_unregister_process(const char *process_name, process_id_t pid, bool global,
                       dr_platform_t dr_platform);
+
+DR_EXPORT
+/**
+ * Sets the paths to the DynamoRIO library and the alternate-bitwidth DynamoRIO
+ * library for a process that has already been registered via dr_register_process().
+ * If this routine is not called, default library paths will be used which assume
+ * a default path layout within the \p dr_root_dir passed to dr_register_process().
+ *
+ * \param[in]   process_name    A NULL-terminated string specifying the name
+ *                              of the target process.  The string should
+ *                              identify the base name of the process, not the
+ *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be modified.  If pid == 0, the general
+ *                              configuration for process_name will be modified.
+ *
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              configurations to check.
+ *
+ * \param[in]   dr_lib_path     A NULL-terminated string specifying the full
+ *                              path to a valid DynamoRIO library of the same
+ *                              bitwidth as \p dr_platform.
+ *                              The string length cannot exceed #MAXIMUM_PATH.
+ *
+ * \param[in]   dr_alt_lib_path A NULL-terminated string specifying the full
+ *                              path to a valid DynamoRIO library of the alternative
+ *                              bitwidth to \p dr_platform.
+ *                              The string length cannot exceed #MAXIMUM_PATH.
+ *
+ * \return      A dr_config_status_t code indicating the result of
+ *              registration.  Note that registration fails if the requested
+ *              process is already registered.  To modify a process's
+ *              registration, first call dr_unregister_process() to remove an
+ *              existing registration.
+ *
+ * \remarks
+ * After registration, a process will run under DynamoRIO when launched by the
+ * drinject tool or using drinjectlib.  Note that some processes may require a
+ * system reboot to restart.  Process registration that is not specific to one
+ * pid (i.e., if \p pid == 0) persists across reboots until explicitly
+ * unregistered.
+ */
+dr_config_status_t
+dr_register_inject_paths(const char *process_name, process_id_t pid, bool global,
+                         dr_platform_t dr_platform, const char *dr_lib_path,
+                         const char *dr_alt_lib_path);
 
 #ifdef WINDOWS
 
@@ -1191,7 +1250,5 @@ dr_get_config_dir(bool global, bool alternative_local, char *config_dir /* OUT *
 #ifdef __cplusplus
 }
 #endif
-
-/* DR_API EXPORT END */
 
 #endif /* _DR_CONFIG_H_ */

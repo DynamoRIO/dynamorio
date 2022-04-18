@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,14 +36,6 @@
 #include "drx.h"
 #include "client_tools.h"
 #include "string.h"
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 static client_id_t client_id;
 
@@ -112,7 +104,11 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                               /* DRX_COUNTER_LOCK is not yet supported on ARM */
                               IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
     drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
-                              IF_NOT_X86_(SPILL_SLOT_2) & counterB, 2,
+                              IF_NOT_X86_(SPILL_SLOT_2) & counterB, 3,
+                              IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+    /* Ensure subtraction works. */
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
+                              IF_NOT_X86_(SPILL_SLOT_2) & counterB, -1,
                               IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
     instrlist_meta_preinsert(bb, first, INSTR_CREATE_label(drcontext));
 #if defined(ARM)

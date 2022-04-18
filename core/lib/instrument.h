@@ -49,7 +49,9 @@
 #include "dr_config.h"
 
 /* The core of the public API */
-#include "instrument_api.h"
+#include "dr_events.h"
+#include "dr_tools.h"
+#include "dr_ir_utils.h"
 
 /* Xref _USES_DR_VERSION_ in dr_api.h (PR 250952) and compatibility
  * check in instrument.c (OLDEST_COMPATIBLE_VERSION, etc.).
@@ -69,6 +71,12 @@ void
 instrument_exit(void);
 bool
 is_in_client_lib(app_pc addr);
+/* Does not consider auxiliary client libraries, avoiding a lock acquisition along
+ * the way (making this more suitable for diagnostics in sensitive locations at
+ * the downside of missing aux libs).
+ */
+bool
+is_in_client_lib_ignore_aux(app_pc addr);
 bool
 get_client_bounds(client_id_t client_id, app_pc *start /*OUT*/, app_pc *end /*OUT*/);
 const char *
@@ -92,10 +100,8 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
                        bool translating, dr_emit_flags_t *emitflags);
 dr_emit_flags_t
 instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool translating);
-#ifdef CUSTOM_TRACES
 dr_custom_trace_action_t
 instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag);
-#endif
 void
 instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags);
 bool

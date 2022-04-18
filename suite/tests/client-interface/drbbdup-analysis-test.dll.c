@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,18 +36,11 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drbbdup.h"
 
 #define TEST_NOTE_VAL (void *)767LL
-
-#define CHECK(x, msg)                                                                \
-    do {                                                                             \
-        if (!(x)) {                                                                  \
-            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-            dr_abort();                                                              \
-        }                                                                            \
-    } while (0);
 
 static bool instrum_called = false;
 static bool test_label_persisted = false;
@@ -117,7 +110,7 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
             test_label_persisted = true;
         } else if (instr_is_app(instr)) {
             bool is_label = is_test_label(instr_get_prev(where));
-            CHECK(is_label, "prev instr should be test label")
+            CHECK(is_label, "prev instr should be test label");
         }
         break;
     default: CHECK(false, "invalid encoding");
@@ -152,7 +145,7 @@ dr_init(client_id_t id)
     opts.analyze_case = analyse_bb;
     opts.destroy_case_analysis = NULL;
     opts.instrument_instr = instrument_instr;
-    opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, OPSZ_PTR);
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&encode_val, OPSZ_PTR);
     opts.user_data = NULL;
     opts.non_default_case_limit = 1;
     opts.is_stat_enabled = false;

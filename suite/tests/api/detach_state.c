@@ -613,6 +613,10 @@ START_FILE
         vinserti128 ymm##num, ymm##num, xmm##num, 1 @N@ \
         SET_XMM_IMMED(num, xmm_low, xmm_high)
 #    endif
+#        define ALIGN_STACK_ON_FUNC_ENTRY \
+        lea      rsp, [rsp - ARG_SZ] @N@
+#        define UNALIGN_STACK_ON_FUNC_EXIT \
+        lea      rsp, [rsp + ARG_SZ] @N@
 #        define PUSH_CALLEE_SAVED \
         push     REG_XBP @N@ \
         push     REG_XBX @N@ \
@@ -685,6 +689,8 @@ START_FILE
         ldp      x26, x27, [sp], #16 @N@\
         ldp      x28, x29, [sp], #16 @N@\
         ldp      x30, x0, [sp], #16
+#    define ALIGN_STACK_ON_FUNC_ENTRY /* Nothing. */
+#    define UNALIGN_STACK_ON_FUNC_EXIT /* Nothing. */
 #    define POPALL \
         POP_GPRS
         /* TODO i#4698: Pop SIMD regs. */
@@ -710,6 +716,7 @@ DECL_EXTERN(safe_stack)
 #define FUNCNAME unique_values_to_registers
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
 #    ifdef __AVX512F__
 #        define Z0 XMM0_LOW_BASE()
 #        define Z1 XMM0_HIGH_BASE()
@@ -831,6 +838,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XBP, MAKE_HEX_ASM(XBP_BASE())
         mov      REG_XSI, MAKE_HEX_ASM(XSI_BASE())
         mov      REG_XDI, MAKE_HEX_ASM(XDI_BASE())
+        UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #    undef FUNCNAME
@@ -905,6 +913,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME thread_check_gprs_from_cache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Put in unique values. */
@@ -921,6 +930,7 @@ check_gprs_from_cache_spin:
         CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
         POPALL
         POP_CALLEE_SAVED
+        UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -929,6 +939,7 @@ check_gprs_from_cache_spin:
 #define FUNCNAME thread_check_gprs_from_DR
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Make code writable for selfmod below */
@@ -959,6 +970,7 @@ ADDRTAKEN_LABEL(check_gprs_immed_plus_four:)
         CALLC2(GLOBAL_REF(check_gpr_vals), REG_XAX, REG_XCX)
         POPALL
         POP_CALLEE_SAVED
+        UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -966,6 +978,7 @@ ADDRTAKEN_LABEL(check_gprs_immed_plus_four:)
 #define FUNCNAME thread_check_eflags_from_cache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Put in a unique value. */
@@ -983,6 +996,7 @@ check_eflags_from_cache_spin:
         CALLC1(GLOBAL_REF(check_eflags), REG_XAX)
         pop      REG_XAX
         POP_CALLEE_SAVED
+        UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -990,6 +1004,7 @@ check_eflags_from_cache_spin:
 #define FUNCNAME thread_check_eflags_from_DR
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Make code writable for selfmod below */
@@ -1021,6 +1036,7 @@ ADDRTAKEN_LABEL(check_eflags_immed_plus_four:)
         CALLC1(GLOBAL_REF(check_eflags), REG_XAX)
         pop      REG_XAX
         POP_CALLEE_SAVED
+        UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -1028,6 +1044,7 @@ ADDRTAKEN_LABEL(check_eflags_immed_plus_four:)
 #define FUNCNAME thread_check_xsp_from_cache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Put unique values in the redzone and in the stack pointer. */
@@ -1052,6 +1069,7 @@ check_xsp_from_cache_spin:
         CALLC1(GLOBAL_REF(check_xsp), REG_XAX)
         lea      REG_XSP, [16 + REG_XSP]
         POP_CALLEE_SAVED
+        UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -1059,6 +1077,7 @@ check_xsp_from_cache_spin:
 #define FUNCNAME thread_check_xsp_from_DR
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Make code writable for selfmod below */
@@ -1097,6 +1116,7 @@ ADDRTAKEN_LABEL(check_xsp_immed_plus_four:)
         CALLC1(GLOBAL_REF(check_xsp), REG_XAX)
         lea      REG_XSP, [16 + REG_XSP]
         POP_CALLEE_SAVED
+        UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

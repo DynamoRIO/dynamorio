@@ -34,6 +34,9 @@ include(../make/policies.cmake NO_POLICY_SCOPE)
 ###########################################################################
 # Sources and targets
 
+# Used to share exported headers with clients.
+add_definitions(-DDYNAMORIO_INTERNAL)
+
 # we have no exe's here, and we want our dll's in the lib dir
 # (could use MODULE instead of SHARED if it would let us link)
 set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
@@ -61,10 +64,20 @@ function (add_gen_events_deps target)
 endfunction (add_gen_events_deps)
 
 if (AARCH64)
-  # Required for opcode.h and codec headers, which are auto-generated on AArch64.
+  # Required for opcode_api.h and codec headers, which are auto-generated on AArch64.
   include(../make/CMake_aarch64_gen_codec.cmake)
   add_custom_target(gen_aarch64_codec DEPENDS "${AARCH64_CODEC_GEN_SRCS}")
   include_directories(BEFORE ${PROJECT_BINARY_DIR})
+  # Export the generated opcode header.  Use a custom target and command to avoid
+  # repeated re-copying (a POST_BUILD with copy_if_different doesn't seem to work how
+  # it should: it still runs the command every time, though it doesn't copy anything).
+  set(aarch64_exported_opcodes ${BUILD_INCLUDE}/dr_ir_opcodes_aarch64.h)
+  add_custom_target(gen_aarch64_opcodes DEPENDS ${aarch64_exported_opcodes})
+  add_custom_command(OUTPUT ${aarch64_exported_opcodes}
+    DEPENDS ${PROJECT_BINARY_DIR}/opcode_api.h
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${PROJECT_BINARY_DIR}/opcode_api.h
+    ${aarch64_exported_opcodes} VERBATIM)
 endif ()
 
 set(asm_deps
@@ -164,6 +177,7 @@ set(CORE_SRCS
   io.c
   native_exec.c
   lib/instrument.c
+  lib/module_api.c
   translate.c
   annotations.c
   jit_opt.c
@@ -276,7 +290,6 @@ set(ARCH_SRCS
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
-  arch/steal_reg.c
   arch/x86_code.c
   ${arch_core_asm_src}
   ${archshared_core_asm_src}
@@ -579,12 +592,7 @@ endfunction (configure_core_lib)
 
 add_library(dynamorio SHARED
   ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS}
-  # FIXME: any other way to add a dependence?  this is for export_list,
-  # where the PRE_LINK custom command doesn't support DEPENDS.
-  # Apparently just files w/ certain extensions are pulled out of here
-  # for automatic rules.
-  ${CMAKE_CURRENT_SOURCE_DIR}/lib/genapi.pl
-  # ditto: adding here for dependence
+  # Adding here for dependence.
   ${PROJECT_SOURCE_DIR}/make/ldscript.cmake
   )
 
@@ -600,18 +608,9 @@ if (UNIX)
   append_property_string(TARGET dynamorio LINK_FLAGS "-Wl,${ld_entry_flag},_start")
 
   if (NOT HAVE_FVISIBILITY)
-    set(export_list ${CMAKE_CURRENT_BINARY_DIR}/exportlist)
-    add_custom_command(TARGET dynamorio
-      PRE_LINK
-      COMMAND ${PERL_EXECUTABLE}
-      ARGS ${CMAKE_CURRENT_SOURCE_DIR}/lib/genapi.pl
-           # we assume ">" will work in all supported shells
-           -filter "${defines}" > ${export_list}
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      VERBATIM # recommended: p260
-      )
-    append_property_string(TARGET dynamorio LINK_FLAGS
-      "-Xlinker --version-script -Xlinker ${export_list}")
+    # We used to have the genapi.pl script build an linker script
+    # export list for us but we no longer support that.
+    message(FATAL_ERROR "-fvisibility is required to build")
   endif (NOT HAVE_FVISIBILITY)
 
   # This appends to LINK_FLAGS, so do it after we set them above.
@@ -662,7 +661,7 @@ if (UNIX)
         ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
              -D check_textrel=${check_textrel}
              -D check_deps=${check_deps}
-             -D check_libc=OFF
+             -D check_libc=${BUILD_PACKAGE}
              -D check_interp=ON
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
@@ -758,7 +757,7 @@ else (UNIX)
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
 
   # ensure there are no dependencies other than ntdll
-  find_program(DUMPBIN_EXECUTABLE dumpbin.exe DOC "path to dumpbin.exe")
+  find_program(DUMPBIN_EXECUTABLE dumpbin.exe HINTS "${cl_path}" DOC "path to dumpbin.exe")
   if (DUMPBIN_EXECUTABLE)
     add_custom_command(TARGET dynamorio
       POST_BUILD
@@ -932,7 +931,7 @@ if (UNIX)
       ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D check_textrel=ON
            -D check_deps=OFF
-           -D check_libc=ON
+           -D check_libc=${BUILD_PACKAGE}
            -D check_interp=ON
            -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
            -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
@@ -1153,6 +1152,36 @@ DR_export_target(dynamorio)
 if (NOT APPLE)
   install_exported_target(dynamorio_static ${INSTALL_LIB})
   DR_export_target(dynamorio_static)
+endif ()
+
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/globals_api.h dr_defines.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/mcxtx_api.h dr_mcxtx.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_events.h dr_events.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/encode_api.h dr_ir_encode.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/decode_api.h dr_ir_decode.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/disassemble_api.h dr_ir_disassemble.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/opnd_api.h dr_ir_opnd.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_api.h dr_ir_instr.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_inline_api.h dr_ir_instr_inline.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instrlist_api.h dr_ir_instrlist.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_opcodes.h dr_ir_opcodes.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/opcode_api.h dr_ir_opcodes_x86.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/opcode_api.h dr_ir_opcodes_arm.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_create_shared_api.h dr_ir_macros.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/instr_create_api.h dr_ir_macros_x86.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/instr_create_api.h dr_ir_macros_arm.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/aarch64/instr_create_api.h
+  dr_ir_macros_aarch64.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_ir_utils.h dr_ir_utils.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_tools.h dr_tools.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/annotations_api.h dr_annotation.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_inject.h dr_inject.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/module_api.h dr_modules.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/os_api.h dr_os_utils.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/fragment_api.h dr_tracedump.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/arch/proc_api.h dr_proc.h)
+if (HOT_PATCHING_INTERFACE)
+  DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_probe.h dr_probe.h)
 endif ()
 
 install_exported_target(drinjectlib ${INSTALL_LIB_BASE})

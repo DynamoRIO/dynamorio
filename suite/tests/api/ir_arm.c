@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,6 +79,7 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 
     ASSERT(instr_is_encoding_possible(instr));
     pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
     decin = instr_create(dc);
     decode(dc, buf, decin);
     ASSERT(instr_same(instr, decin));
@@ -111,28 +112,47 @@ test_pred(void *dc)
                       DR_PRED_EQ);
     ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_ARITH);
     ASSERT(instr_get_eflags(inst, 0) == (EFLAGS_READ_ARITH & (~EFLAGS_READ_GE)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
     inst = INSTR_CREATE_sel(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
                             opnd_create_reg(DR_REG_R1));
     ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_GE);
     ASSERT(instr_get_eflags(inst, 0) == EFLAGS_READ_GE);
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
     dr_set_isa_mode(dc, old_mode, NULL);
 }
 
 static void
 test_pcrel(void *dc)
 {
-    byte *pc;
     instr_t *inst;
+    const int offs = 128;
     inst = INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_R0),
-                            opnd_create_rel_addr((void *)&buf[128], OPSZ_PTR));
-    pc = instr_encode(dc, inst, buf);
-    /* (gdb) x/2i buf+1
-     *    0x120b9 <buf+1>:     ldr     r0, [pc, #124]  ; (0x12138 <buf+128>)
+                            opnd_create_rel_addr((void *)&buf[offs], OPSZ_PTR));
+    /* On decoding our rel-addr opnd turns into a base-disp:
+     *   ldr    <rel> 0x0009d314[4byte] -> %r0
+     *   ldr    +0x7c(%pc)[4byte] -> %r0
+     * Thus we have our own version of the test_instr_encoding() code.
      */
-    ASSERT(pc != NULL);
-    instr_free(dc, inst);
+    instr_t *decin;
+    byte *pc;
+    instr_disassemble(dc, inst, STDERR);
+    print("\n");
+
+    ASSERT(instr_is_encoding_possible(inst));
+    pc = instr_encode(dc, inst, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    ASSERT(instr_get_opcode(inst) == instr_get_opcode(decin));
+    /* The ISA defines the base point for PC relative as +4 from instruction start. */
+#define THUMB_CUR_PC_OFFS 4
+    instr_t *base_disp =
+        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_R0),
+                         OPND_CREATE_MEMPTR(DR_REG_PC, offs - THUMB_CUR_PC_OFFS));
+    ASSERT(instr_same(decin, base_disp));
+
+    instr_destroy(dc, inst);
+    instr_destroy(dc, decin);
+    instr_destroy(dc, base_disp);
 }
 
 static void
@@ -163,21 +183,21 @@ test_flags(void *dc)
     inst = INSTR_CREATE_lsls(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
                              OPND_CREATE_INT(4));
     ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
 
     inst = INSTR_CREATE_movs(dc, opnd_create_reg(DR_REG_R0), OPND_CREATE_INT(4));
     ASSERT(TEST(EFLAGS_READ_C, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     ASSERT(TESTALL(EFLAGS_WRITE_N | EFLAGS_WRITE_Z | EFLAGS_WRITE_C,
                    instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
 
     inst = INSTR_CREATE_movs(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1));
     ASSERT(!TESTANY(EFLAGS_WRITE_C | EFLAGS_WRITE_V,
                     instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     ASSERT(TESTALL(EFLAGS_WRITE_N | EFLAGS_WRITE_Z,
                    instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
 }
 
 static void

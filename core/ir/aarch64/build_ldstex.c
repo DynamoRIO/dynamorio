@@ -57,7 +57,7 @@
 #include "decode.h"
 #include "disassemble.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 
 #include "build_ldstex.h"
 

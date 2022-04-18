@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -215,7 +215,30 @@ external_error(const char *file, int line, const char *msg);
 #define CLIENT_ASSERT_BITFIELD_TRUNCATE(width, val, msg) \
     CLIENT_ASSERT((val) < (1 << ((width) + 1)), msg);
 
-/* thread synchronization */
+/* alignment helpers, alignment must be power of 2 */
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGN_FORWARD(x, alignment) \
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
+#define ALIGN_FORWARD_UINT(x, alignment) \
+    ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
+#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
+#define ALIGN_MOD(addr, size, alignment) \
+    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
+#define CROSSES_ALIGNMENT(addr, size, alignment) \
+    (ALIGN_MOD(addr, size, alignment) < (size)-1)
+/* number of bytes you need to shift addr forward so that it's !CROSSES_ALIGNMENT */
+#define ALIGN_SHIFT_SIZE(addr, size, alignment)          \
+    (CROSSES_ALIGNMENT(addr, size, alignment)            \
+         ? ((size)-1 - ALIGN_MOD(addr, size, alignment)) \
+         : 0)
+
+/****************************************************************************
+ * Synchronization
+ */
+
+#include "atomic_exports.h"
+
 #define LOCK_FREE_STATE -1                   /* allows a quick >=0 test for contention */
 #define LOCK_SET_STATE (LOCK_FREE_STATE + 1) /* set when requested by a single thread */
 /* any value greater than LOCK_SET_STATE means multiple threads requested the lock */
@@ -316,10 +339,10 @@ typedef struct _spin_mutex_t {
 /* perhaps for DEBUG all locks should record owner? */
 typedef struct _recursive_lock_t {
     mutex_t lock;
-    /* ASSUMPTION: reading owner field is atomic!
+    /* Requirement: reading owner field is atomic!
      * Thus must allocate this statically (compiler should 4-byte-align
      * this field, which is good enough) or align it manually!
-     * FIXME: provide creation routine that does that for non-static locks
+     * XXX: Provide creation routine that does that for non-static locks?
      */
     thread_id_t owner;
     uint count;
@@ -379,9 +402,7 @@ enum {
 
     LOCK_RANK(protect_info), /* < cache and heap traversal locks */
 
-#    ifdef CLIENT_SIDELINE
     LOCK_RANK(sideline_mutex),
-#    endif
 
     LOCK_RANK(shared_cache_flush_lock), /* < shared_cache_count_lock,
                                            < shared_delete_lock,
@@ -399,9 +420,7 @@ enum {
     LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(shared_cache_count_lock),
 
-#    ifdef CLIENT_SIDELINE
     LOCK_RANK(fragment_delete_mutex), /* > shared_vm_areas */
-#    endif
 
     LOCK_RANK(tracedump_mutex), /* > fragment_delete_mutex, > shared_vm_areas */
 
@@ -459,10 +478,10 @@ enum {
      * anymore but having it gives us flexibility so I'm leaving it)
      */
     LOCK_RANK(coarse_table_rwlock), /* < global_alloc_lock, < coarse_th_table_rwlock */
-    /* We make the pc table separate (we write it while holding master table lock) */
+    /* We make the pc table separate (we write it while holding main table lock) */
     LOCK_RANK(coarse_pclookup_table_rwlock), /* < global_alloc_lock,
                                               * < coarse_th_table_rwlock */
-    /* We make the th table separate (we look in it while holding master table lock) */
+    /* We make the th table separate (we look in it while holding main table lock) */
     LOCK_RANK(coarse_th_table_rwlock), /* < global_alloc_lock */
 
     LOCK_RANK(process_module_vector_lock), /* < snapshot_lock > all_threads_synch_lock */
@@ -716,30 +735,30 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
             0, INVALID_THREAD_ID, 0, KSYNCH_TYPE_STATIC_INIT, KSYNCH_TYPE_STATIC_INIT \
     }
 
-#define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock)                                \
-    do {                                                                          \
-        read_write_lock_t initializer_##lock = STRUCTURE_TYPE(read_write_lock_t){ \
-            INIT_LOCK_NO_TYPE(#lock "(readwrite)"                                 \
-                                    "@" __FILE__ ":" STRINGIFY(__LINE__),         \
-                              LOCK_RANK(lock)),                                   \
-            0,                                                                    \
-            INVALID_THREAD_ID,                                                    \
-            0,                                                                    \
-            KSYNCH_TYPE_STATIC_INIT,                                              \
-            KSYNCH_TYPE_STATIC_INIT                                               \
-        };                                                                        \
-        var = initializer_##lock;                                                 \
+#define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock)                                 \
+    do {                                                                           \
+        read_write_lock_t initializer_##lock = STRUCTURE_TYPE(read_write_lock_t) { \
+            INIT_LOCK_NO_TYPE(#lock "(readwrite)"                                  \
+                                    "@" __FILE__ ":" STRINGIFY(__LINE__),          \
+                              LOCK_RANK(lock)),                                    \
+            0,                                                                     \
+            INVALID_THREAD_ID,                                                     \
+            0,                                                                     \
+            KSYNCH_TYPE_STATIC_INIT,                                               \
+            KSYNCH_TYPE_STATIC_INIT                                                \
+        };                                                                         \
+        var = initializer_##lock;                                                  \
     } while (0)
 
-#define ASSIGN_INIT_RECURSIVE_LOCK_FREE(var, lock)                              \
-    do {                                                                        \
-        recursive_lock_t initializer_##lock = STRUCTURE_TYPE(recursive_lock_t){ \
-            INIT_LOCK_NO_TYPE(#lock "(recursive)"                               \
-                                    "@" __FILE__ ":" STRINGIFY(__LINE__),       \
-                              LOCK_RANK(lock)),                                 \
-            INVALID_THREAD_ID, 0                                                \
-        };                                                                      \
-        var = initializer_##lock;                                               \
+#define ASSIGN_INIT_RECURSIVE_LOCK_FREE(var, lock)                               \
+    do {                                                                         \
+        recursive_lock_t initializer_##lock = STRUCTURE_TYPE(recursive_lock_t) { \
+            INIT_LOCK_NO_TYPE(#lock "(recursive)"                                \
+                                    "@" __FILE__ ":" STRINGIFY(__LINE__),        \
+                              LOCK_RANK(lock)),                                  \
+            INVALID_THREAD_ID, 0                                                 \
+        };                                                                       \
+        var = initializer_##lock;                                                \
     } while (0)
 
 #define INIT_SPINLOCK_FREE(lock) \
@@ -803,7 +822,7 @@ spinmutex_delete(spin_mutex_t *spin_lock);
 static inline bool
 mutex_testlock(mutex_t *lock)
 {
-    return lock->lock_requests > LOCK_FREE_STATE;
+    return atomic_aligned_read_int(&lock->lock_requests) > LOCK_FREE_STATE;
 }
 
 static inline bool
@@ -843,9 +862,18 @@ d_r_write_unlock(read_write_lock_t *rw);
 bool
 self_owns_write_lock(read_write_lock_t *rw);
 
+#if defined(MACOS) || (defined(X64) && defined(WINDOWS))
+#    define ATOMIC_READ_THREAD_ID(id) \
+        ((thread_id_t)atomic_aligned_read_int64((volatile int64 *)(id)))
+#else
+#    define ATOMIC_READ_THREAD_ID(id) \
+        ((thread_id_t)atomic_aligned_read_int((volatile int *)(id)))
+#endif
+
 /* test whether locks are held at all */
-#define WRITE_LOCK_HELD(rw) (mutex_testlock(&(rw)->lock) && ((rw)->num_readers == 0))
-#define READ_LOCK_HELD(rw) ((rw)->num_readers > 0)
+#define WRITE_LOCK_HELD(rw) \
+    (mutex_testlock(&(rw)->lock) && atomic_aligned_read_int(&(rw)->num_readers) == 0)
+#define READ_LOCK_HELD(rw) (atomic_aligned_read_int(&(rw)->num_readers) > 0)
 
 /* test whether current thread owns locks
  * for non-DEADLOCK_AVOIDANCE, cannot tell who owns it, so we bundle
@@ -853,7 +881,7 @@ self_owns_write_lock(read_write_lock_t *rw);
  * knowing for sure.
  */
 #ifdef DEADLOCK_AVOIDANCE
-#    define OWN_MUTEX(m) ((m)->owner == d_r_get_thread_id())
+#    define OWN_MUTEX(m) (ATOMIC_READ_THREAD_ID(&(m)->owner) == d_r_get_thread_id())
 #    define ASSERT_OWN_MUTEX(pred, m) ASSERT(!(pred) || OWN_MUTEX(m))
 #    define ASSERT_DO_NOT_OWN_MUTEX(pred, m) ASSERT(!(pred) || !OWN_MUTEX(m))
 #    define OWN_NO_LOCKS(dc) thread_owns_no_locks(dc)
@@ -937,6 +965,8 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
         if (NEED_SHARED_LOCK((flags)))                      \
             operation##_recursive_lock(&(lock));            \
     } while (0)
+
+/****************************************************************************/
 
 /* Our parameters (option string, logdir, etc.) are configured
  * through files and secondarily environment variables.
@@ -1069,24 +1099,6 @@ hashtable_num_bits(uint size);
          : (byte *)POINTER_MAX)
 
 #define MAX_LOW_2GB ((byte *)(ptr_uint_t)INT_MAX)
-
-/* alignment helpers, alignment must be power of 2 */
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_FORWARD_UINT(x, alignment) \
-    ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
-#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
-#define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
-#define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size)-1)
-/* number of bytes you need to shift addr forward so that it's !CROSSES_ALIGNMENT */
-#define ALIGN_SHIFT_SIZE(addr, size, alignment)          \
-    (CROSSES_ALIGNMENT(addr, size, alignment)            \
-         ? ((size)-1 - ALIGN_MOD(addr, size, alignment)) \
-         : 0)
 
 #define IS_POWER_OF_2(x) ((x) == 0 || ((x) & ((x)-1)) == 0)
 
@@ -1431,7 +1443,15 @@ extern mutex_t do_threshold_mutex;
          */                                                                            \
         ASSERT(                                                                        \
             (try_pointer) == &global_try_except || (try_pointer) == NULL ||            \
-            (try_pointer) == &get_thread_private_dcontext()->try_except ||             \
+            (get_thread_private_dcontext() !=                                          \
+                 NULL && /* Note that the following statement does not dereference the \
+                          * result of get_thread_private_dcontext() (because we need   \
+                          * just the offset of a data member). Still, when the null    \
+                          * sanitizer is enabled, it performs the is-null check, which \
+                          * can fail if the returned value is NULL. So, we need this   \
+                          * is-null check of our own.                                  \
+                          */                                                           \
+             (try_pointer) == &get_thread_private_dcontext()->try_except) ||           \
             (try_pointer) == /* A currently-native thread: */                          \
                 &thread_lookup(IF_UNIX_ELSE(get_sys_thread_id(), d_r_get_thread_id())) \
                      ->dcontext->try_except);                                          \
@@ -2270,19 +2290,17 @@ utils_init(void);
 void
 utils_exit(void);
 
-#ifdef NOLIBC
-#    ifdef WINDOWS
-#        ifdef isprint
-#            undef isprint
+#ifdef WINDOWS
+#    ifdef isprint
+#        undef isprint
 bool
 isprint(int c);
-#        endif
+#    endif
 
-#        ifdef isdigit
-#            undef isdigit
+#    ifdef isdigit
+#        undef isdigit
 bool
 isdigit(int c);
-#        endif
 #    endif
 #endif
 
@@ -2320,8 +2338,9 @@ void
 divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint precision,
                     uint *top, uint *bottom);
 
-/* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
- * preserve floating point state to call this function!!
+/* For printing a float.
+ * NOTE: You must preserve x87 floating point state to call this function, unless
+ * you can prove the compiler will never use x87 state for float operations.
  * Usage : given double/float a; uint c, d and char *s tmp; dp==double_print
  *         parameterized on precision p width w
  * note that %f is eqv. to %.6f

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,18 +33,11 @@
 /* Tests drreg when the user performs end of basic block restoration. */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
 #include <string.h> /* memcpy */
-
-#define CHECK(x, msg)                        \
-    do {                                     \
-        if (!(x)) {                          \
-            dr_fprintf(STDERR, "%s\n", msg); \
-            dr_abort();                      \
-        }                                    \
-    } while (0);
 
 #ifdef X86
 #    define TEST_REG DR_REG_XDI
@@ -176,7 +169,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         res = drreg_restore_all(drcontext, bb, instr);
         CHECK(res == DRREG_SUCCESS, "failed to restore all");
 
-        dr_insert_clean_call(drcontext, bb, instr, set_reg_val, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, set_reg_val,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 
         res = drreg_reserve_aflags(drcontext, bb, instr);
         CHECK(res == DRREG_SUCCESS, "failed to reserve flags");
@@ -197,7 +191,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         res = drreg_restore_all(drcontext, bb, instr);
         CHECK(res == DRREG_SUCCESS, "failed to restore all");
 
-        dr_insert_clean_call(drcontext, bb, instr, check_reg_val, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, check_reg_val,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 
         drvector_delete(&allowed);
     }

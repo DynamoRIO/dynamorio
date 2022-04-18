@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1264,7 +1264,7 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
          * will get the Ib version: do we want to match c1?  What if they really want
          * an immed byte in the encoding?  OTOH, we do match constant registers
          * automatically w/ no control from the user.
-         * Currently, we document in instr_create.h that the user must
+         * Currently, we document in instr_create_api.h that the user must
          * specify OPSZ_0 in order to get c1.
          */
         return (opnd_is_immed_int(opnd) && opnd_get_immed_int(opnd) == 1 &&
@@ -1384,7 +1384,7 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
     case TYPE_INDIR_VAR_REG_SIZEx3x5: /* TYPE_INDIR_VAR_REG + scale */
         if (opnd_is_base_disp(opnd)) {
             reg_id_t base = opnd_get_base(opnd);
-            /* NOTE - size needs to match decode_operand() and instr_create.h. */
+            /* NOTE - size needs to match decode_operand() and instr_create_api.h. */
             bool sz_ok = size_ok(di, opnd_get_size(opnd), indir_var_reg_size(di, optype),
                                  false /*!addr*/);
             /* must be after size_ok potentially sets di flags */
@@ -2585,7 +2585,8 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
         }
         /* assumption: no 16-bit targets */
         CLIENT_ASSERT(
-            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN), instr->prefixes),
+            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN | PREFIX_PRED_MASK),
+                     instr->prefixes),
             "encode cti error: non-branch-hint prefixes not supported");
     }
 
@@ -2627,7 +2628,7 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
                           "encode_cti error: target beyond 8-bit reach");
             return NULL;
         }
-        *((char *)pc) = (char)offset;
+        *((sbyte *)pc) = (sbyte)offset;
         pc++;
     } else {
         /* 32-bit offset */
@@ -2716,7 +2717,7 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         /* We only support non-4-byte rip-rel disps for 1-byte instr-final (jcc_short). */
         if (rip_rel_pos + 1 == instr->length) {
             ASSERT(CHECK_TRUNCATE_TYPE_sbyte(new_offs));
-            *((char *)dst_pc) = (char)new_offs;
+            *((sbyte *)dst_pc) = (sbyte)new_offs;
         } else {
             ASSERT(rip_rel_pos + 4 <= instr->length);
             ASSERT(CHECK_TRUNCATE_TYPE_int(new_offs));
@@ -2778,7 +2779,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
           reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1))))) ||
         /* no indirect or far */
         opc == OP_jmp_short || opc == OP_jmp || opc == OP_call) {
-        if (!TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN), instr->prefixes)) {
+        if (!TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN | PREFIX_PRED_MASK),
+                     instr->prefixes)) {
             /* encode_cti cannot handle funny prefixes or indirect branches or rets */
             return encode_cti(instr, copy_pc, final_pc,
                               check_reachable _IF_DEBUG(assert_reachable));

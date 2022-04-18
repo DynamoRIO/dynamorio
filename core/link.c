@@ -2297,7 +2297,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
     }
 
     /* For the common case of a trace shadowing a trace head
-     * (happens w/ shared traces, and with CUSTOM_TRACES),
+     * (happens w/ shared traces, and with custom traces),
      * ensure that when we delete the trace we shift back and
      * when we delete the head we don't complain that we're
      * missing links.

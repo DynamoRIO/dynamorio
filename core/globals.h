@@ -109,20 +109,47 @@
 #    define DYNAMORIO_EXPORT
 #endif
 
-#ifdef DYNAMORIO_IR_EXPORTS
-#    define DR_API DYNAMORIO_EXPORT
-#else
-#    define DR_API
-#endif
+/* We always export nowadays. */
+#define DR_API DYNAMORIO_EXPORT
 #if (defined(DEBUG) && defined(BUILD_TESTS)) || defined(UNSUPPORTED_API)
 #    define DR_UNS_EXCEPT_TESTS_API DR_API
 #else
 #    define DR_UNS_EXCEPT_TESTS_API /* nothing */
 #endif
 #ifdef UNSUPPORTED_API
+/* TODO i#4045: Remove unsupported API support.  After i#3092's header refactoring,
+ * we can't just change a define and export these anymore anyway: they would have
+ * to be moved to the _api.h public headers.
+ */
 #    define DR_UNS_API DR_API
 #else
 #    define DR_UNS_API /* nothing */
+#endif
+
+#ifdef WINDOWS
+#    define DISABLE_NULL_SANITIZER
+#else
+/* As per https://gcc.gnu.org/onlinedocs/cpp/_005f_005fhas_005fattribute.html,
+ * we need to first check whether __has_attribute is defined, to ensure
+ * portability. We saw issues in the Android-ARM cross compile without this.
+ */
+#    if defined __has_attribute
+#        if __has_attribute(__no_sanitize__) && defined(HAVE_FNOSANITIZE_NULL)
+/* The null sanitizer adds is-null checks for pointer dereferences. As part
+ * of this, it stores and retrieves pointers from the stack frame. Each
+ * pointer dereference uses a different stack location. So, if there are too
+ * many pointer dereferences in a function (like dump_global_stats and
+ * dump_thread_stats) it will increase the size of the stack frame a lot
+ * (127KB and 147KB respectively for the mentioned examples) when the null
+ * sanitizer is enabled. The following macro lets us disable this check for
+ * methods annotated with it.
+ */
+#            define DISABLE_NULL_SANITIZER __attribute__((no_sanitize("null")))
+#        endif
+#    endif
+#    ifndef DISABLE_NULL_SANITIZER
+#        define DISABLE_NULL_SANITIZER
+#    endif
 #endif
 
 #define INLINE_ONCE inline
@@ -197,10 +224,6 @@ typedef byte *cache_pc; /* fragment cache pc */
 #    error PAPI does not work on WINDOWS
 #endif
 
-#if defined(DCONTEXT_IN_EDI) && !defined(STEAL_REGISTER)
-#    error Must steal register to keep dcontext in edi
-#endif
-
 #ifdef DGC_DIAGNOSTICS
 #    ifndef PROGRAM_SHEPHERDING
 #        error DGC_DIAGNOSTICS requires PROGRAM_SHEPHERDING
@@ -220,7 +243,7 @@ typedef byte *cache_pc; /* fragment cache pc */
 extern const char dynamorio_version_string[];
 extern const char dynamorio_buildmark[];
 
-struct _instr_list_t;
+struct _instrlist_t;
 struct _fragment_t;
 typedef struct _fragment_t fragment_t;
 struct _future_fragment_t;
@@ -238,108 +261,6 @@ typedef struct _coarse_info_t coarse_info_t;
 struct _coarse_freeze_info_t;
 typedef struct _coarse_freeze_info_t coarse_freeze_info_t;
 struct _module_data_t;
-/* DR_API EXPORT TOFILE dr_defines.h */
-/* DR_API EXPORT BEGIN */
-typedef struct _instr_list_t instrlist_t;
-typedef struct _module_data_t module_data_t;
-/* DR_API EXPORT END */
-
-/* DR_API EXPORT BEGIN */
-
-#ifdef X64
-/**
- * Upper note values are reserved for core DR.
- */
-#    define DR_NOTE_FIRST_RESERVED 0xfffffffffffffff0ULL
-#else
-/**
- * Upper note values are reserved for core DR.
- */
-#    define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
-#endif
-enum {
-    DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1,
-    DR_NOTE_RSEQ,
-    DR_NOTE_LDEX,
-};
-
-/**
- * Structure written by dr_get_time() to specify the current time.
- */
-typedef struct {
-    uint year;         /**< The current year. */
-    uint month;        /**< The current month, in the range 1 to 12. */
-    uint day_of_week;  /**< The day of the week, in the range 0 to 6. */
-    uint day;          /**< The day of the month, in the range 1 to 31. */
-    uint hour;         /**< The hour of the day, in the range 0 to 23. */
-    uint minute;       /**< The minutes past the hour. */
-    uint second;       /**< The seconds past the minute. */
-    uint milliseconds; /**< The milliseconds past the second. */
-} dr_time_t;
-
-/**
- * Used by dr_get_stats() and dr_app_stop_and_cleanup_with_stats()
- */
-typedef struct _dr_stats_t {
-    /** The size of this structure. Set this to sizeof(dr_stats_t). */
-    size_t size;
-    /** The total number of basic blocks ever built so far, globally. This
-     *  includes duplicates and blocks that were deleted for consistency
-     *  or capacity reasons or thread-private caches.
-     */
-    uint64 basic_block_count;
-    /** Peak number of simultaneous threads under DR control. */
-    uint64 peak_num_threads;
-    /** Accumulated total number of threads encountered by DR. */
-    uint64 num_threads_created;
-    /**
-     * Thread synchronization attempts retried due to the target thread being at
-     * an un-translatable spot.
-     */
-    uint64 synchs_not_at_safe_spot;
-    /** Peak number of memory blocks used for unreachable heaps. */
-    uint64 peak_vmm_blocks_unreach_heap;
-    /** Peak number of memory blocks used for (unreachable) thread stacks. */
-    uint64 peak_vmm_blocks_unreach_stack;
-    /** Peak number of memory blocks used for unreachable specialized heaps. */
-    uint64 peak_vmm_blocks_unreach_special_heap;
-    /** Peak number of memory blocks used for other unreachable mappings. */
-    uint64 peak_vmm_blocks_unreach_special_mmap;
-    /** Peak number of memory blocks used for reachable heaps. */
-    uint64 peak_vmm_blocks_reach_heap;
-    /** Peak number of memory blocks used for (reachable) code caches. */
-    uint64 peak_vmm_blocks_reach_cache;
-    /** Peak number of memory blocks used for reachable specialized heaps. */
-    uint64 peak_vmm_blocks_reach_special_heap;
-    /** Peak number of memory blocks used for other reachable mappings. */
-    uint64 peak_vmm_blocks_reach_special_mmap;
-    /** Signals delivered to native threads. */
-    uint64 num_native_signals;
-} dr_stats_t;
-
-/**
- * Error codes of DR API routines.
- */
-typedef enum {
-    /**
-     * Invalid parameter passed to the API routine.
-     */
-    DR_ERROR_INVALID_PARAMETER = 1,
-    /**
-     * Insufficient size of passed buffer.
-     */
-    DR_ERROR_INSUFFICIENT_SPACE = 2,
-    /**
-     * String encoding is unknown.
-     */
-    DR_ERROR_UNKNOWN_ENCODING = 3,
-    /**
-     * Feature of API routine not yet implemented.
-     */
-    DR_ERROR_NOT_IMPLEMENTED = 4,
-} dr_error_code_t;
-
-/* DR_API EXPORT END */
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
 struct _rct_module_table_t;
@@ -367,9 +288,7 @@ typedef struct _thread_record_t {
     struct _thread_record_t *next;
 } thread_record_t;
 
-/* we don't include dr_api.h, that's for external use, we only need _app
- * (everything in dr_defines.h is duplicated in our own header files)
- */
+/* We don't include dr_api.h, that's for external use. */
 #ifdef DR_APP_EXPORTS
 /* we only export app interface if DR_APP_EXPORTS is defined */
 #    include "dr_app.h"
@@ -379,6 +298,7 @@ typedef struct _thread_record_t {
 #endif
 
 #include "heap.h"
+#include "options_struct.h"
 #include "utils.h"
 #include "options.h"
 #include "os_exports.h"
@@ -430,9 +350,7 @@ typedef struct _client_data_t {
     void *user_field;
     client_todo_list_t *to_do;
     client_flush_req_t *flush_list;
-#ifdef CLIENT_SIDELINE
     mutex_t sideline_mutex;
-#endif
     /* fields for doing release and debug build checks against erroneous API usage */
     module_data_t *no_delete_mod_data;
 
@@ -704,31 +622,6 @@ extern mutex_t bb_building_lock;
 extern volatile bool bb_lock_start;
 extern recursive_lock_t change_linking_lock;
 
-/* DR_API EXPORT BEGIN */
-/**
- * Identifies where a thread's control is at any one point.
- * Used with client PC sampling using dr_set_itimer().
- */
-typedef enum {
-    DR_WHERE_APP = 0,         /**< Control is in native application code. */
-    DR_WHERE_INTERP,          /**< Control is in basic block building. */
-    DR_WHERE_DISPATCH,        /**< Control is in d_r_dispatch. */
-    DR_WHERE_MONITOR,         /**< Control is in trace building. */
-    DR_WHERE_SYSCALL_HANDLER, /**< Control is in system call handling. */
-    DR_WHERE_SIGNAL_HANDLER,  /**< Control is in signal handling. */
-    DR_WHERE_TRAMPOLINE,      /**< Control is in trampoline hooks. */
-    DR_WHERE_CONTEXT_SWITCH,  /**< Control is in context switching. */
-    DR_WHERE_IBL,             /**< Control is in inlined indirect branch lookup. */
-    DR_WHERE_FCACHE,          /**< Control is in the code cache. */
-    DR_WHERE_CLEAN_CALLEE,    /**< Control is in a clean call. */
-    DR_WHERE_UNKNOWN,         /**< Control is in an unknown location. */
-#ifdef HOT_PATCHING_INTERFACE
-    DR_WHERE_HOTPATCH, /**< Control is in hotpatching. */
-#endif
-    DR_WHERE_LAST /**< Equals the count of DR_WHERE_xxx locations. */
-} dr_where_am_i_t;
-/* DR_API EXPORT END */
-
 /* make args easier to read for protection change calls
  * since only two possibilities not using new type
  */
@@ -982,9 +875,6 @@ struct _dcontext_t {
 
 #ifdef WINDOWS
     /* these fields used for "stack" of contexts for callbacks */
-#    ifdef DCONTEXT_IN_EDI
-    dcontext_t *next_saved;
-#    endif
     dcontext_t *prev_unused;
     /* need to be able to tell which dcontexts in callback stack are valid */
     bool valid;

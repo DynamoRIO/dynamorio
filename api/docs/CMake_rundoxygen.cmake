@@ -181,6 +181,18 @@ if (embeddable)
       string "${string}")
     # Our images are in an images/ subdir.
     string(REGEX REPLACE "<img src=\"" "<img src=\"/images/" string "${string}")
+    string(REGEX REPLACE
+        "<object type=\"image/svg\\+xml\" data=\""
+        "<object type=\"image/svg+xml\" data=\"/images/"
+        string "${string}")
+    # Ensure that strings that look like Jekyll tags are not interpreted as such.
+    # We add the Jekyll raw-endraw tags around "{%" and "%}" separately. We use
+    # a random suffix for jekyll_raw_tag and jekyll_endraw_tag to reduce the
+    # possibility of a conflict with an actual use of these strings.
+    string(REGEX REPLACE "{%" "jekyll_raw_tag_f00d{%jekyll_endraw_tag_f00d" string "${string}")
+    string(REGEX REPLACE "%}" "jekyll_raw_tag_f00d%}jekyll_endraw_tag_f00d" string "${string}")
+    string(REGEX REPLACE "jekyll_raw_tag_f00d" "{% raw %}" string "${string}")
+    string(REGEX REPLACE "jekyll_endraw_tag_f00d" "{% endraw %}" string "${string}")
 
     # Collect type info for keyword searches with direct anchor links (else the
     # search finds the page but the user then has to manually search within the long
@@ -215,6 +227,28 @@ if (embeddable)
 \"title\":\"${name} in ${fname} header\",\
 \"url\":\"${url}\",\
 \"content\":\"${name} ${extra}\"};\n")
+      file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
+    endforeach ()
+    # Similarly, put in explicit search entries for sections so searches go
+    # straight to the anchor link.
+    string(REGEX MATCHALL "\n<h1><a class=\"anchor\" id=\"[^\"]*\"></a>\n[^\n]+</h1>"
+      sections "${nosemis}")
+    foreach (section ${sections})
+      string(REGEX REPLACE ".* id=\"([^\"]+)\".*" "\\1" id "${section}")
+      string(REGEX REPLACE ".*</a>\n([^<]+)</h1>" "\\1" name "${section}")
+      if (name STREQUAL "" OR id STREQUAL "" OR name MATCHES "<")
+        message(FATAL_ERROR "Failed to find section name or anchor: ${section}")
+      endif ()
+      set(url "/${fname}.html#${id}")
+      # Quotes cause JavaScript syntax errors.
+      string(REPLACE "\"" "" name "${name}")
+      # Spaces would be ok but it feels nicer w/o them in the key.
+      string(REPLACE " " "_" key "${name}")
+      set(keywords "window.data[\"${fname}-${key}\"]={\
+\"name\":\"${fname}-${key}\",\
+\"title\":\"${name}\",\
+\"url\":\"${url}\",\
+\"content\":\"${name}\"};\n")
       file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
     endforeach ()
 

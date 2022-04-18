@@ -235,16 +235,20 @@ pc_is_in_module(module_entry_t *entry, app_pc pc)
 }
 
 static inline void
-lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *mod_base)
+lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *seg_base,
+                         OUT app_pc *mod_base)
 {
     if (mod_index != NULL)
         *mod_index = entry->id; /* We expose the segment. */
+    if (seg_base != NULL)
+        *seg_base = entry->start;
     if (mod_base != NULL)
         *mod_base = entry->data->start; /* Yes, absolute base, not segment base. */
 }
 
-drcovlib_status_t
-drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base)
+static drcovlib_status_t
+drmodtrack_lookup_helper(void *drcontext, app_pc pc, OUT uint *mod_index,
+                         OUT app_pc *seg_base, OUT app_pc *mod_base)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     module_entry_t *entry;
@@ -260,7 +264,7 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
                 thread_module_cache_adjust(data->cache, entry, i,
                                            NUM_THREAD_MODULE_CACHE);
             }
-            lookup_helper_set_fields(entry, mod_index, mod_base);
+            lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
             return DRCOVLIB_SUCCESS;
         }
     }
@@ -269,7 +273,7 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
     for (i = 0; i < NUM_GLOBAL_MODULE_CACHE; i++) {
         entry = module_table.cache[i];
         if (pc_is_in_module(entry, pc)) {
-            lookup_helper_set_fields(entry, mod_index, mod_base);
+            lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
             return DRCOVLIB_SUCCESS;
         }
     }
@@ -287,9 +291,22 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *m
         entry = NULL;
     }
     if (entry != NULL)
-        lookup_helper_set_fields(entry, mod_index, mod_base);
+        lookup_helper_set_fields(entry, mod_index, seg_base, mod_base);
     drvector_unlock(&module_table.vector);
     return entry == NULL ? DRCOVLIB_ERROR_NOT_FOUND : DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base)
+{
+    return drmodtrack_lookup_helper(drcontext, pc, mod_index, NULL, mod_base);
+}
+
+drcovlib_status_t
+drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
+                          OUT app_pc *segment_base)
+{
+    return drmodtrack_lookup_helper(drcontext, pc, segment_index, segment_base, NULL);
 }
 
 static void

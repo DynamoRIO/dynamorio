@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1494,6 +1494,70 @@ dr_registered_process_iterator_stop(dr_registered_process_iterator_t *iter)
 }
 
 #endif /* WINDOWS */
+
+dr_config_status_t
+dr_register_inject_paths(const char *process_name, process_id_t pid, bool global,
+                         dr_platform_t dr_platform, const char *dr_lib_path,
+                         const char *dr_alt_lib_path)
+{
+#ifdef PARAMS_IN_REGISTRY
+    ConfigGroup *policy = get_policy(dr_platform);
+    ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
+#else
+    FILE *f = open_config_file(process_name, pid, global, dr_platform, true /*read*/,
+                               true /*write*/, false /*!overwrite*/);
+#endif
+    dr_config_status_t status = DR_SUCCESS;
+    TCHAR wpath[MAXIMUM_PATH];
+    if (IF_REG_ELSE(proc_policy == NULL, f == NULL)) {
+        status = DR_PROC_REG_INVALID;
+        goto exit;
+    }
+    if (dr_lib_path == NULL) {
+        status = DR_CONFIG_INVALID_PARAMETER;
+        goto exit;
+    }
+#ifndef PARAMS_IN_REGISTRY
+    /* shift rest of file up, overwriting old value, so we can append new value */
+    read_config_ex(f, DYNAMORIO_VAR_AUTOINJECT, NULL, 0, true);
+#endif
+    convert_to_tchar(wpath, dr_lib_path, MAXIMUM_PATH);
+    NULL_TERMINATE_BUFFER(wpath);
+    status = write_config_param(IF_REG_ELSE(proc_policy, f),
+                                PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), wpath);
+    if (status != DR_SUCCESS)
+        return status;
+
+    if (dr_alt_lib_path != NULL) {
+#ifndef PARAMS_IN_REGISTRY
+        /* shift rest of file up, overwriting old value, so we can append new value */
+        read_config_ex(f, DYNAMORIO_VAR_ALTINJECT, NULL, 0, true);
+#endif
+        convert_to_tchar(wpath, dr_alt_lib_path, MAXIMUM_PATH);
+        NULL_TERMINATE_BUFFER(wpath);
+        status = write_config_param(IF_REG_ELSE(proc_policy, f),
+                                    PARAM_STR(DYNAMORIO_VAR_ALTINJECT), wpath);
+        if (status != DR_SUCCESS)
+            return status;
+    }
+
+#ifdef PARAMS_IN_REGISTRY
+    /* write the registry */
+    if (write_config_group(policy) != ERROR_SUCCESS) {
+        return DR_FAILURE;
+    }
+#endif
+
+exit:
+#ifdef PARAMS_IN_REGISTRY
+    if (policy != NULL)
+        free_config_group(policy);
+#else
+    if (f != NULL)
+        fclose(f);
+#endif
+    return status;
+}
 
 bool
 dr_process_is_registered(const char *process_name, process_id_t pid, bool global,

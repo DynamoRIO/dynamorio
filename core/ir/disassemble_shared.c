@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -633,11 +633,13 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         "");
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
         print_to_buffer(buf, bufsz, sofar, "<rel> ");
         /* fall-through */
+#    ifdef X64
     case ABS_ADDR_kind:
+#    endif
         opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
         if (opnd_get_segment(opnd) != REG_NULL)
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", ":");
@@ -672,8 +674,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 void
-opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
+opnd_disassemble(void *drcontext, opnd_t opnd, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     char buf[MAX_OPND_DIS_SZ];
     size_t sofar = 0;
     internal_opnd_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, dcontext, opnd,
@@ -684,9 +687,10 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
 }
 
 size_t
-opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd, char *buf, size_t bufsz)
+opnd_disassemble_to_buffer(void *drcontext, opnd_t opnd, char *buf, size_t bufsz)
 
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     size_t sofar = 0;
     internal_opnd_disassemble(buf, bufsz, &sofar, dcontext, opnd, false /*don't know*/);
     return sofar;
@@ -801,8 +805,9 @@ internal_disassemble_to_file(dcontext_t *dcontext, byte *pc, byte *orig_pc,
  * Returns NULL if the instruction at pc is invalid.
  */
 byte *
-disassemble(dcontext_t *dcontext, byte *pc, file_t outfile)
+disassemble(void *drcontext, byte *pc, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return internal_disassemble_to_file(dcontext, pc, pc, outfile, true, false, "");
 }
 
@@ -835,9 +840,10 @@ disassemble_with_bytes(dcontext_t *dcontext, byte *pc, file_t outfile)
  * Returns NULL if the instruction at pc is invalid.
  */
 byte *
-disassemble_with_info(dcontext_t *dcontext, byte *pc, file_t outfile, bool show_pc,
+disassemble_with_info(void *drcontext, byte *pc, file_t outfile, bool show_pc,
                       bool show_bytes)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return internal_disassemble_to_file(dcontext, pc, pc, outfile, show_pc, show_bytes,
                                         "");
 }
@@ -852,17 +858,19 @@ disassemble_with_info(dcontext_t *dcontext, byte *pc, file_t outfile, bool show_
  * \p copy_pc, or NULL if the instruction at \p copy_pc is invalid.
  */
 byte *
-disassemble_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, file_t outfile,
+disassemble_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, file_t outfile,
                       bool show_pc, bool show_bytes)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return internal_disassemble_to_file(dcontext, copy_pc, orig_pc, outfile, show_pc,
                                         show_bytes, "");
 }
 
 byte *
-disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc, bool show_pc,
+disassemble_to_buffer(void *drcontext, byte *pc, byte *orig_pc, bool show_pc,
                       bool show_bytes, char *buf, size_t bufsz, int *printed OUT)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     size_t sofar = 0;
     byte *next = internal_disassemble(buf, bufsz, &sofar, dcontext, pc, orig_pc, show_pc,
                                       show_bytes, "");
@@ -1088,7 +1096,10 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;
     } else if (instr_is_label(instr)) {
-        print_to_buffer(buf, bufsz, sofar, "<label>");
+        /* Since labels with different note values are used during instrumentation
+         * to mark different regions, it is useful to display the note.
+         */
+        print_to_buffer(buf, bufsz, sofar, "<label note=%p>", instr_get_note(instr));
         return;
     } else if (instr_opcode_valid(instr)) {
 #ifdef AARCH64
@@ -1105,7 +1116,10 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     print_instr_prefixes(dcontext, instr, buf, bufsz, sofar);
 
     offs_pre_name = *sofar;
-    print_opcode_name(instr, name, buf, bufsz, sofar);
+    if (instr_opcode_valid(instr)) /* Avoid assert on level-0 bundle. */
+        print_opcode_name(instr, name, buf, bufsz, sofar);
+    else
+        print_to_buffer(buf, bufsz, sofar, "%s", name);
     offs_post_name = *sofar;
     name_width -= (int)(offs_post_name - offs_pre_name);
     print_to_buffer(buf, bufsz, sofar, " ");
@@ -1183,8 +1197,9 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
  * Prints each operand with leading zeros indicating the size.
  */
 void
-instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
+instr_disassemble(void *drcontext, instr_t *instr, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     char buf[MAX_INSTR_DIS_SZ];
     size_t sofar = 0;
     internal_instr_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, dcontext, instr);
@@ -1206,8 +1221,9 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
  * Uses DR syntax unless otherwise specified (see disassemble_set_syntax()).
  */
 size_t
-instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz)
+instr_disassemble_to_buffer(void *drcontext, instr_t *instr, char *buf, size_t bufsz)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     size_t sofar = 0;
     internal_instr_disassemble(buf, bufsz, &sofar, dcontext, instr);
     return sofar;
@@ -1473,9 +1489,9 @@ disassemble_app_bb(dcontext_t *dcontext, app_pc tag, file_t outfile)
 /* Two entry points to the disassembly routines: */
 
 void
-instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
-                      file_t outfile)
+instrlist_disassemble(void *drcontext, app_pc tag, instrlist_t *ilist, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     int len, sz;
     instr_t *instr;
     byte *addr;
@@ -1506,10 +1522,10 @@ instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
             level = 4;
             /* encode instr and then output as BINARY */
             nxt_pc = instr_encode_ignore_reachability(dcontext, instr, bytes);
-            ASSERT(nxt_pc != NULL);
+            CLIENT_ASSERT(nxt_pc != NULL, "failed to encode instr");
             len = (int)(nxt_pc - bytes);
             addr = bytes;
-            CLIENT_ASSERT(len < 64, "instrlist_disassemble: too-long instr");
+            CLIENT_ASSERT(len < sizeof(bytes), "instrlist_disassemble: too-long instr");
         } else {
             addr = instr_get_raw_bits(instr);
             len = instr_length(dcontext, instr);
@@ -1549,12 +1565,18 @@ instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
         while (len) {
             print_file(outfile, " +%-4d %c%d " IF_X64_ELSE("%20s", "%12s"), offs,
                        instr_is_app(instr) ? 'L' : 'm', level, " ");
-            next_addr = internal_disassemble_to_file(
-                dcontext, addr, addr, outfile, false, true,
-                IF_X64_ELSE("                               ",
-                            "                       "));
-            if (next_addr == NULL)
-                break;
+            /* Leave level 0 alone as it may not be code. */
+            if (level == 0) {
+                print_file(outfile, " <...%d bytes...>\n", instr->length);
+                next_addr = addr + instr->length;
+            } else {
+                next_addr = internal_disassemble_to_file(
+                    dcontext, addr, addr, outfile, false, true,
+                    IF_X64_ELSE("                               ",
+                                "                       "));
+                if (next_addr == NULL)
+                    break;
+            }
             sz = (int)(next_addr - addr);
             CLIENT_ASSERT(sz <= len, "instrlist_disassemble: invalid length");
             len -= sz;

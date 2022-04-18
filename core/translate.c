@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
 
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "../fcache.h"
@@ -161,15 +161,17 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 }
 
 static inline bool
-instr_is_rseq_load(dcontext_t *dcontext, instr_t *inst)
+instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
 {
-    /* TODO i#2350: Add non-x86 support. */
-#    if defined(LINUX) && defined(X86)
+#    ifdef LINUX
     /* This won't fault but we don't want it marked as unsupported. */
     if (!instr_is_our_mangling(inst))
         return false;
+    if (vmvector_empty(d_r_rseq_areas))
+        return false;
     /* XXX: Keep this consistent with mangle_rseq_* in mangle_shared.c. */
-    if (instr_get_opcode(inst) == OP_mov_ld && opnd_is_reg(instr_get_dst(inst, 0)) &&
+    if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_ld, OP_ldr) &&
+        opnd_is_reg(instr_get_dst(inst, 0)) &&
         opnd_is_base_disp(instr_get_src(inst, 0))) {
         reg_id_t dst = opnd_get_reg(instr_get_dst(inst, 0));
         opnd_t memref = instr_get_src(inst, 0);
@@ -180,7 +182,32 @@ instr_is_rseq_load(dcontext_t *dcontext, instr_t *inst)
                 offsetof(dcontext_t, rseq_entry_state) +
                     sizeof(reg_t) * (dst - DR_REG_START_GPR))
             return true;
+    } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_st, OP_str) &&
+               opnd_is_reg(instr_get_src(inst, 0)) &&
+               opnd_is_base_disp(instr_get_dst(inst, 0))) {
+        reg_id_t dst = opnd_get_reg(instr_get_src(inst, 0));
+        opnd_t memref = instr_get_dst(inst, 0);
+        int disp = opnd_get_disp(memref);
+        if (reg_is_gpr(dst) && reg_is_pointer_sized(dst) &&
+            opnd_get_index(memref) == DR_REG_NULL &&
+            disp ==
+                offsetof(dcontext_t, rseq_entry_state) +
+                    sizeof(reg_t) * (dst - DR_REG_START_GPR))
+            return true;
     }
+#        ifdef AARCH64
+    if (instr_get_opcode(inst) == OP_mrs &&
+        opnd_get_reg(instr_get_src(inst, 0)) == LIB_SEG_TLS)
+        return true;
+    if (instr_get_opcode(inst) == OP_movz || instr_get_opcode(inst) == OP_movk)
+        return true;
+    if (instr_get_opcode(inst) == OP_strh && opnd_is_base_disp(instr_get_dst(inst, 0)) &&
+        opnd_get_disp(instr_get_dst(inst, 0)) == EXIT_REASON_OFFSET)
+        return true;
+    if (instr_get_opcode(inst) == OP_str && opnd_is_base_disp(instr_get_dst(inst, 0)) &&
+        opnd_get_disp(instr_get_dst(inst, 0)) == rseq_get_tls_ptr_offset())
+        return true;
+#        endif
 #    endif
     return false;
 }
@@ -221,6 +248,15 @@ instr_is_mov_PC_immed(dcontext_t *dcontext, instr_t *inst)
     return (instr_get_opcode(inst) == OP_movw || instr_get_opcode(inst) == OP_movt);
 }
 #endif
+
+static bool
+instr_is_load_mcontext_base(instr_t *inst)
+{
+    if (instr_get_opcode(inst) != OP_load || !opnd_is_base_disp(instr_get_src(inst, 0)))
+        return false;
+    return opnd_get_disp(instr_get_src(inst, 0)) ==
+        os_tls_offset((ushort)TLS_DCONTEXT_SLOT);
+}
 
 #ifdef X86
 
@@ -470,13 +506,16 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
             /* We don't support restoring a fault in the middle, but we
              * identify here to avoid "unsupported mangle instr" message
              */
+        } else if (instr_is_load_mcontext_base(inst)) {
+            LOG(THREAD_GET, LOG_INTERP, 4, "\tmcontext base load\n");
+            /* nothing to do */
         }
 #ifdef UNIX
         else if (instr_is_inline_syscall_jmp(tdcontext, inst)) {
             /* nothing to do */
         } else if (instr_is_seg_ref_load(tdcontext, inst)) {
             /* nothing to do */
-        } else if (instr_is_rseq_load(tdcontext, inst)) {
+        } else if (instr_is_rseq_mangling(tdcontext, inst)) {
             /* nothing to do */
         }
 #endif
@@ -514,6 +553,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
         else {
             /* XXX: Maybe this should be a full SYSLOG since it can lead to
              * translation failure.
+             */
+            /* TODO i#5069 There are unsupported mangle instrs on AArch64
+             * that this function is yet not able to recognise.
              */
             DOLOG(2, LOG_INTERP,
                   d_r_loginst(get_thread_private_dcontext(), 2, inst,
@@ -896,12 +938,11 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
 
         /* Case 4531, 4344: raw instructions being up-decoded can have
          * their translation fields clobbered so we don't want any of those.
-         * (We used to have raw jecxz and nop instrs.)
-         * FIXME: if bb associated with this instr was hot patched, then
-         * the inserted raw instructions can trigger this assert.  Part of
-         * fix for case 5981.  In that case, this would be harmless.
+         * (We used to have raw jecxz and nop instrs.)  But we do have cases
+         * of !instr_operands_valid() (rseq signature instr-as-data; or
+         * if the bb associated with this instr was hot patched, then
+         * the inserted raw instructions can trigger this assert).
          */
-        ASSERT_CURIOSITY(instr_operands_valid(inst));
 
         /* PR 332437: skip label instrs.  Nobody should expect setting
          * a label's translation field to have any effect, and we
@@ -1005,6 +1046,11 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                     LOG(THREAD_GET, LOG_INTERP, 2,
                         "recreate_app -- found valid state pc " PFX "\n", answer);
                 } else {
+                    LOG(THREAD_GET, LOG_INTERP, 2,
+                        "recreate_app -- invalid state: unsup=%d in-mangle=%d xl8=%p "
+                        "walk=%p\n",
+                        walk.unsupported_mangle, walk.in_mangle_region, answer,
+                        walk.translation);
 #ifdef X86
                     int op = instr_get_opcode(inst);
                     if (TEST(FRAG_SELFMOD_SANDBOXED, flags) &&
@@ -1451,14 +1497,6 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         ok = dr_set_isa_mode(tdcontext, old_mode, NULL);
         ASSERT(ok);
 
-#ifdef STEAL_REGISTER
-        /* FIXME: conflicts w/ PR 263407 reg spill tracking */
-        ASSERT_NOT_IMPLEMENTED(false && "conflicts w/ reg spill tracking");
-        if (!just_pc) {
-            /* get app's value of edi */
-            mc->xdi = get_mcontext(tdcontext)->xdi;
-        }
-#endif
         if (!just_pc)
             restore_stolen_register(tdcontext, mcontext);
         if (res != RECREATE_FAILURE) {
@@ -1472,6 +1510,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             client_info.fragment_info.is_trace = TEST(FRAG_IS_TRACE, f->flags);
             client_info.fragment_info.app_code_consistent =
                 !TESTANY(FRAG_WAS_DELETED | FRAG_SELFMOD_SANDBOXED, f->flags);
+            client_info.fragment_info.ilist = ilist;
             /* i#220/PR 480565: client has option of failing the translation */
             if (!instrument_restore_state(tdcontext, restore_memory, &client_info))
                 res = RECREATE_FAILURE;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,8 +33,11 @@
 #ifndef _VIEW_H_
 #define _VIEW_H_ 1
 
+#include <iomanip>
+#include <iostream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "analysis_tool.h"
 #include "raw2trace.h"
@@ -42,11 +45,21 @@
 
 class view_t : public analysis_tool_t {
 public:
-    view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-           const std::string &syntax, unsigned int verbose,
+    view_t(const std::string &module_file_path, memref_tid_t thread, uint64_t skip_refs,
+           uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
     std::string
     initialize() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
     bool
     process_memref(const memref_t &memref) override;
     bool
@@ -63,6 +76,18 @@ protected:
         void *dcontext = nullptr;
     };
 
+    bool
+    should_skip();
+
+    inline void
+    print_prefix(const memref_t &memref, std::ostream &stream = std::cerr)
+    {
+        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
+            stream << "------------------------------------------------------------\n";
+        prev_tid_ = memref.instr.tid;
+        stream << std::setw(9) << num_refs_ << ": T" << memref.marker.tid << " ";
+    }
+
     /* We make this the first field so that dr_standalone_exit() is called after
      * destroying the other fields which may use DR heap.
      */
@@ -71,14 +96,24 @@ protected:
     std::unique_ptr<module_mapper_t> module_mapper_;
     raw2trace_directory_t directory_;
     unsigned int knob_verbose_;
-    uint64_t instr_count_;
+    int trace_version_;
     static const std::string TOOL_NAME;
+    memref_tid_t knob_thread_;
     uint64_t knob_skip_refs_;
+    uint64_t skip_refs_left_;
     uint64_t knob_sim_refs_;
+    uint64_t sim_refs_left_;
+    bool refs_limited_;
     std::string knob_syntax_;
     std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;
     std::unordered_map<app_pc, std::string> disasm_cache_;
+    memref_tid_t prev_tid_;
+    intptr_t filetype_;
+    std::unordered_set<memref_tid_t> printed_header_;
+    uint64_t num_refs_;
+    std::unordered_map<memref_tid_t, uintptr_t> last_window_;
+    uintptr_t timestamp_;
 };
 
 #endif /* _VIEW_H_ */

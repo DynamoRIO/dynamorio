@@ -135,7 +135,10 @@ sysnum_is_not_restartable(int sysnum)
             sysnum != SYS_sendmsg_nocancel && sysnum != SYS_recvmsg &&
             sysnum != SYS_recvmsg_nocancel && sysnum != SYS_wait4 &&
             sysnum != SYS_wait4_nocancel && sysnum != SYS_waitid &&
-            sysnum != SYS_waitid_nocancel && sysnum != SYS_waitevent &&
+            sysnum != SYS_waitid_nocancel &&
+#ifdef SYS_waitevent
+            sysnum != SYS_waitevent &&
+#endif
             sysnum != SYS_ioctl);
 }
 

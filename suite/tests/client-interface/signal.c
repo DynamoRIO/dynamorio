@@ -49,20 +49,16 @@
 static SIGJMP_BUF mark;
 
 static void
-#ifdef UNIX
-    __attribute__((used)) /* Prevents deletion as unreachable. */
-#endif
-    foo(void)
-{ /* nothing: just a marker */
+foo(void)
+{
+    print("In foo\n");
 }
 
-static void
-redirect_target(void)
+EXPORT void
+hook_and_long_jump(void)
 {
-    /* use 2 NOPs + call so client can locate this spot */
-    NOP_NOP_CALL(foo);
-
     print("Redirected\n");
+    foo();
     SIGLONGJMP(mark, 1);
 }
 
@@ -120,7 +116,7 @@ main(int argc, char **argv)
 
     if (SIGSETJMP(mark) == 0) {
         /* execute so that client sees the spot */
-        redirect_target();
+        hook_and_long_jump();
     }
     if (SIGSETJMP(mark) == 0) {
         print("Sending SIGUSR2\n");

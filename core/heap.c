@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -719,8 +719,10 @@ vmm_dump_map(vm_heap_t *vmh)
     bool is_used = bitmap_test(b, 0) == 0;
 
     LOG(GLOBAL, LOG_HEAP, 3, "vmm_dump_map(" PFX ")\n", vmh);
-    /* raw dump first - if you really want binary dump use windbg's dyd */
-    DOLOG(4, LOG_HEAP, {
+    /* We used to do raw dumps but with the shift to 4K blocks, this is just way
+     * too big.  We disable but leave the capability to enable one-off use.
+     */
+    DOLOG(20, LOG_HEAP, {
         dump_buffer_as_bytes(GLOBAL, b,
                              BITMAP_INDEX(bitmap_size) * sizeof(bitmap_element_t),
                              DUMP_RAW | DUMP_ADDRESS);
@@ -1496,18 +1498,32 @@ at_reset_at_vmm_limit(vm_heap_t *vmh)
 }
 
 static void
-reached_beyond_vmm(void)
+reached_beyond_vmm(which_vmm_t which)
 {
     DODEBUG(ever_beyond_vmm = true;);
-    if (DYNAMO_OPTION(satisfy_w_xor_x)) {
+    /* Stats can be very useful to diagnose why we hit OOM. */
+    if (INTERNAL_OPTION(rstats_to_stderr))
+        dump_global_rstats_to_stderr();
+    char message[256];
+    if (DYNAMO_OPTION(satisfy_w_xor_x) &&
+        (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())) {
         /* We do not bother to try to mirror separate from-OS allocs: the user
          * should set -vm_size 2G instead and take the rip-rel mangling hit
          * (see i#3570).
          */
-        REPORT_FATAL_ERROR_AND_EXIT(
-            OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(), get_application_pid(),
-            "-satisfy_w_xor_x requires VMM memory: try '-vm_size 2G'");
+        snprintf(
+            message, BUFFER_SIZE_ELEMENTS(message),
+            "Alloc type: 0x%x.  -satisfy_w_xor_x requires VMM memory: try '-vm_size 2G'",
+            which);
+        NULL_TERMINATE_BUFFER(message);
+        REPORT_FATAL_ERROR_AND_EXIT(OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(),
+                                    get_application_pid(), message);
         ASSERT_NOT_REACHED();
+    } else {
+        snprintf(message, BUFFER_SIZE_ELEMENTS(message), "Alloc type: 0x%x.", which);
+        NULL_TERMINATE_BUFFER(message);
+        SYSLOG(SYSLOG_WARNING, OUT_OF_VMM_CANNOT_USE_OS, 3, get_application_name(),
+               get_application_pid(), message);
     }
 }
 
@@ -1564,7 +1580,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
                 /* FIXME - for our testing would be nice to have some release build
                  * notification of this ... */
             });
-            reached_beyond_vmm();
+            reached_beyond_vmm(which);
 #ifdef X64
             if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
                 /* PR 215395, make sure allocation satisfies heap reachability
@@ -1650,7 +1666,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
         });
     }
     /* if we fail to allocate from our reservation we fall back to the OS */
-    reached_beyond_vmm();
+    reached_beyond_vmm(which);
 #ifdef X64
     if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
         /* PR 215395, make sure allocation satisfies heap reachability contraints */
@@ -1899,8 +1915,15 @@ vmm_heap_init()
     if (DYNAMO_OPTION(vm_reserve)) {
         vmm_heap_unit_init(&heapmgt->vmcode, DYNAMO_OPTION(vm_size), true, "vmcode");
         if (!REACHABLE_HEAP()) {
-            vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vmheap_size), false,
-                               "vmheap");
+            vmm_heap_unit_init(
+                &heapmgt->vmheap,
+                /* Use vmheap_size_wow64 if target is WoW64 windows process. */
+                IF_WINDOWS_ELSE(IF_X64_ELSE(is_wow64_process(NT_CURRENT_PROCESS)
+                                                ? DYNAMO_OPTION(vmheap_size_wow64)
+                                                : DYNAMO_OPTION(vmheap_size),
+                                            DYNAMO_OPTION(vmheap_size)),
+                                DYNAMO_OPTION(vmheap_size)),
+                false, "vmheap");
         }
     }
 }
@@ -5143,7 +5166,7 @@ special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
 
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
-        /* Add to the global master list, which requires a lock */
+        /* Add to the global main list, which requires a lock */
         d_r_mutex_lock(&special_units_list_lock);
         su->next = special_units_list;
         special_units_list = su;
@@ -5319,7 +5342,7 @@ special_heap_exit(void *special)
         total_heap_used / 1024);
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
-        /* Removed this special_units_t from the master list */
+        /* Removed this special_units_t from the main list */
         d_r_mutex_lock(&special_units_list_lock);
         if (special_units_list == su)
             special_units_list = su->next;

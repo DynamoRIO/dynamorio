@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -240,8 +240,11 @@ memquery_iterator_next(memquery_iter_t *iter)
             line = mi->buf;
         }
     }
-    LOG(GLOBAL, LOG_VMAREAS, 6, "\nget_memory_info_from_os: newline=[%s]\n",
-        mi->newline ? mi->newline : "(null)");
+    LOG(GLOBAL, LOG_VMAREAS, 6, "\nget_memory_info_from_os: newline=[%.*s]\n",
+        /* Limit the size to avoid crossing the log buffer threshold.
+         * We could be in a fragile place and don't want a heap alloc.
+         */
+        MAX_LOG_LENGTH - 128, mi->newline ? mi->newline : "(null)");
 
     /* Buffer is big enough to hold at least one line: if not, the file changed
      * underneath us after we hit the end.  Just bail.

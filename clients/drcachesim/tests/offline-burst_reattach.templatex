@@ -1,0 +1,10 @@
+pre-DR init
+pre-DR start
+pre-DR detach
+.*
+all done
+.*
+.* 2 function id markers.*
+.* 1 function return address markers.*
+.* 1 function argument markers.*
+.* 1 function return value markers.*

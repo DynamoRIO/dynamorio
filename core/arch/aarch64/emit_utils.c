@@ -34,7 +34,7 @@
 #include "../globals.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "instrument.h"
 
@@ -43,7 +43,6 @@
 #define PRE instrlist_meta_preinsert
 #define OPREG opnd_create_reg
 
-#define NOP_INST 0xd503201f
 #define BR_X1_INST (0xd61f0000 | 1 << 5) /* br x1 */
 
 /***************************************************************************/
@@ -149,12 +148,12 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
 /* Generate move (immediate) of a 64-bit value using at most 4 instructions.
  * pc must be a writable (vmcode) pc.
  */
-static uint *
+uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 {
     uint rt = dst - DR_REG_X0;
     ASSERT(rt < 31);
-    *pc++ = 0xd2800000 | rt | (val & 0xffff) << 5; /* mov  x(rt), #x */
+    *pc++ = 0xd2800000 | rt | (val & 0xffff) << 5; /* movz  x(rt), #x */
 
     if ((val >> 16 & 0xffff) != 0)
         *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
@@ -211,7 +210,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
          * lots of places expect the stub size to be fixed.
          */
         for (uint j = 0; j < num_nops_needed; j++)
-            *pc++ = NOP_INST;
+            *pc++ = RAW_NOP_INST;
         /* The final slot is a data slot, which will hold the address of either
          * the fcache-return routine or the linked fragment. We reserve 12 bytes
          * and use the 8-byte aligned region of 8 bytes within it.
@@ -248,7 +247,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
          * lots of places expect the stub size to be fixed.
          */
         for (uint j = 0; j < num_nops_needed; j++)
-            *pc++ = NOP_INST;
+            *pc++ = RAW_NOP_INST;
     }
 
     return (int)((byte *)pc - (byte *)write_stub_pc);
@@ -374,10 +373,10 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
         *pc_writable = (0x14000000 | (0x03ffffff & off >> 2));
     } else if ((enc & 0xff000010) == 0x54000000 ||
                (enc & 0x7e000000) == 0x34000000) { /* B.cond, CBNZ, CBZ */
-        ASSERT(off + 0x40000 < 0x80000);
+        ASSERT(off + 0x100000 < 0x200000);
         *pc_writable = (enc & 0xff00001f) | (0x00ffffe0 & off >> 2 << 5);
     } else if ((enc & 0x7e000000) == 0x36000000) { /* TBNZ, TBZ */
-        ASSERT(off + 0x2000 < 0x4000);
+        ASSERT(off + 0x8000 < 0x10000);
         *pc_writable = (enc & 0xfff8001f) | (0x0007ffe0 & off >> 2 << 5);
     } else
         ASSERT(false);
@@ -404,7 +403,7 @@ static uint *
 get_stub_branch(uint *pc)
 {
     /* Skip NOP instructions backwards. */
-    while (*pc == NOP_INST)
+    while (*pc == RAW_NOP_INST)
         pc--;
     /* The First non-NOP instruction must be the branch. */
     ASSERT(*pc == BR_X1_INST);
@@ -447,8 +446,14 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     cache_pc cti = EXIT_CTI_PC(f, l);
     if (!EXIT_HAS_STUB(l->flags, f->flags))
         return NULL;
-    ASSERT(decode_raw_is_jmp(dcontext, cti));
-    return decode_raw_jmp_target(dcontext, cti);
+    if (decode_raw_is_jmp(dcontext, cti))
+        return decode_raw_jmp_target(dcontext, cti);
+    /* In trace, we might have cbz/cbnz to indirect linkstubs. */
+    if (decode_raw_is_cond_branch_zero(dcontext, cti))
+        return decode_raw_cond_branch_zero_target(dcontext, cti);
+    /* There should be no other types of branch to linkstubs. */
+    ASSERT_NOT_REACHED();
+    return NULL;
 }
 
 cache_pc
@@ -529,7 +534,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     /* ldp x0, x1, [x(stolen), #(off)] */
     *(uint *)pc = (0xa9400000 | (DR_REG_X0 - DR_REG_X0) | (DR_REG_X1 - DR_REG_X0) << 10 |
                    (dr_reg_stolen - DR_REG_X0) << 5 | TLS_REG0_SLOT >> 3 << 10);
-    pc += 4;
+    pc += AARCH64_INSTR_SIZE;
     f->prefix_size = (byte)(((cache_pc)pc) - write_start);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }
@@ -1026,14 +1031,23 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 
     protect_generated_code(code, WRITABLE);
 
-    /* ldr x1, [x(stolen), #(offs)] */
-    write_pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                   get_ibl_entry_tls_offs(dcontext, ibl_tgt) >> 3 << 10);
+    /* ldr x1, [x(stolen), #(offs)]
+     * Relinking does not require the branch instruction to change, just the
+     * target load, e.g.
+     * ldr    +0x78(%x28)[8byte] -> %x1
+     * br     %x1
+     * See INSTR_CREATE_ldr() followed by XINST_CREATE_jump_reg() calls in
+     * emit_special_ibl_xfer(), where special_ibl_unlink_offs has been adjusted
+     * to point to the ldr.
+     * TODO i#1911: When modified like this, the ldr instruction is not
+     * guaranteed to be updated for all cores without synchronization. A
+     * possible fix is to use TLS to store the target so only data needs to
+     * change rather than code.
+     */
+    *write_pc = (uint)(0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+                       get_ibl_entry_tls_offs(dcontext, ibl_tgt) >> 3 << 10);
 
-    /* br x1 */
-    write_pc[1] = 0xd61f0000 | 1 << 5;
-
-    machine_cache_sync(pc, pc + 2, true);
+    machine_cache_sync(pc, pc + 1, true);
     protect_generated_code(code, READONLY);
 }
 
@@ -1047,6 +1061,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
         return false;
     }
     for (pc = addr; pc < addr + size; pc += 4)
-        *(uint *)pc = NOP_INST; /* nop */
+        *(uint *)pc = RAW_NOP_INST; /* nop */
     return true;
 }

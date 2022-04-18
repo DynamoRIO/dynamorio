@@ -111,6 +111,7 @@ static void
 event_exit(void)
 {
     /* Depending on where we detach, pre can be up to 2 larger. */
+    assert(pre_count > 0 && post_count > 0);
     assert(pre_count == post_count || pre_count - 1 == post_count ||
            pre_count - 2 == post_count);
     drwrap_exit();
@@ -153,7 +154,7 @@ main(void)
     VPRINT("Starting DR\n");
     dr_app_start();
     signal_cond_var(sideline_continue);
-    thread_sleep(1);
+    thread_sleep(1000);
     VPRINT("Detaching\n");
     dr_app_stop_and_cleanup();
     sideline_exit.store(true, std::memory_order_release);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -342,11 +342,12 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                     /*
                      * Callout for the not-taken case
                      */
-                    dr_insert_clean_call(drcontext, bb, NULL, (void *)at_not_taken,
-                                         false /* don't save fp state */,
-                                         2 /* 2 args for at_not_taken */,
-                                         OPND_CREATE_INTPTR((ptr_uint_t)src),
-                                         OPND_CREATE_INTPTR((ptr_uint_t)fall));
+                    dr_insert_clean_call_ex(drcontext, bb, NULL, (void *)at_not_taken,
+                                            DR_CLEANCALL_READS_APP_CONTEXT |
+                                                DR_CLEANCALL_MULTIPATH,
+                                            2 /* 2 args for at_not_taken */,
+                                            OPND_CREATE_INTPTR((ptr_uint_t)src),
+                                            OPND_CREATE_INTPTR((ptr_uint_t)fall));
                 }
 
                 /*
@@ -364,11 +365,11 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                     /*
                      * Callout for the taken case
                      */
-                    dr_insert_clean_call(drcontext, bb, NULL, (void *)at_taken,
-                                         false /* don't save fp state */,
-                                         2 /* 2 args for at_taken */,
-                                         OPND_CREATE_INTPTR((ptr_uint_t)src),
-                                         OPND_CREATE_INTPTR((ptr_uint_t)targ));
+                    dr_insert_clean_call_ex(
+                        drcontext, bb, NULL, (void *)at_taken,
+                        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH,
+                        2 /* 2 args for at_taken */, OPND_CREATE_INTPTR((ptr_uint_t)src),
+                        OPND_CREATE_INTPTR((ptr_uint_t)targ));
                 }
 
                 /*

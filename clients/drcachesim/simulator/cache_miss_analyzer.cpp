@@ -51,7 +51,7 @@ cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled, unsigned int line_si
                                        unsigned int miss_count_threshold,
                                        double miss_frac_threshold,
                                        double confidence_threshold)
-    : cache_stats_t("", warmup_enabled, false)
+    : cache_stats_t(line_size, "", warmup_enabled, false)
     , kLineSize(line_size)
     , kMissCountThreshold(miss_count_threshold)
     , kMissFracThreshold(miss_frac_threshold)

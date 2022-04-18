@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -135,14 +135,36 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_RETURN_REG SC_XAX
 #elif defined(AARCH64)
 #    define SC_XIP SC_FIELD(pc)
-#    define SC_FP SC_FIELD(regs[29])
 #    define SC_R0 SC_FIELD(regs[0])
 #    define SC_R1 SC_FIELD(regs[1])
 #    define SC_R2 SC_FIELD(regs[2])
 #    define SC_R3 SC_FIELD(regs[3])
 #    define SC_R4 SC_FIELD(regs[4])
 #    define SC_R5 SC_FIELD(regs[5])
+#    define SC_R6 SC_FIELD(regs[6])
+#    define SC_R7 SC_FIELD(regs[7])
+#    define SC_R8 SC_FIELD(regs[8])
+#    define SC_R9 SC_FIELD(regs[9])
+#    define SC_R10 SC_FIELD(regs[10])
+#    define SC_R11 SC_FIELD(regs[11])
+#    define SC_R12 SC_FIELD(regs[12])
+#    define SC_R13 SC_FIELD(regs[13])
+#    define SC_R14 SC_FIELD(regs[14])
+#    define SC_R15 SC_FIELD(regs[15])
+#    define SC_R16 SC_FIELD(regs[16])
+#    define SC_R17 SC_FIELD(regs[17])
+#    define SC_R18 SC_FIELD(regs[18])
+#    define SC_R19 SC_FIELD(regs[19])
+#    define SC_R20 SC_FIELD(regs[20])
+#    define SC_R21 SC_FIELD(regs[21])
+#    define SC_R22 SC_FIELD(regs[22])
+#    define SC_R23 SC_FIELD(regs[23])
+#    define SC_R24 SC_FIELD(regs[24])
+#    define SC_R25 SC_FIELD(regs[25])
+#    define SC_R26 SC_FIELD(regs[26])
+#    define SC_R27 SC_FIELD(regs[27])
 #    define SC_R28 SC_FIELD(regs[28])
+#    define SC_FP SC_FIELD(regs[29])
 #    define SC_LR SC_FIELD(regs[30])
 #    define SC_XSP SC_FIELD(sp)
 #    define SC_XFLAGS SC_FIELD(pstate)

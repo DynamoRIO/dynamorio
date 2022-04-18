@@ -196,9 +196,9 @@ static dr_isa_mode_t initexit_isa_mode = DEFAULT_ISA_MODE_STATIC;
  * mis-interpreting application code.
  */
 bool
-dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
-                dr_isa_mode_t *old_mode_out OUT)
+dr_set_isa_mode(void *drcontext, dr_isa_mode_t new_mode, dr_isa_mode_t *old_mode_out OUT)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     dr_isa_mode_t old_mode;
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT)
@@ -227,8 +227,9 @@ dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
  * that flag.
  */
 dr_isa_mode_t
-dr_get_isa_mode(dcontext_t *dcontext)
+dr_get_isa_mode(void *drcontext)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
 #if !defined(STANDALONE_DECODER) && defined(DEBUG)
     dcontext_t *orig_dcontext = dcontext;
 #endif

@@ -275,8 +275,7 @@ bool
 instr_is_icache_op(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-#define SYS_ARG_IC_IVAU 0x1ba9
-    if (opc == OP_sys && opnd_get_immed_int(instr_get_src(instr, 0)) == SYS_ARG_IC_IVAU)
+    if (opc == OP_ic_ivau)
         return true; /* ic ivau, xT */
     if (opc == OP_isb)
         return true; /* isb */
@@ -300,7 +299,20 @@ instr_is_undefined(instr_t *instr)
 void
 instr_invert_cbr(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    int opc = instr_get_opcode(instr);
+    dr_pred_type_t pred = instr_get_predicate(instr);
+    CLIENT_ASSERT(instr_is_cbr(instr), "instr_invert_cbr: instr not a cbr");
+    if (opc == OP_cbnz) {
+        instr_set_opcode(instr, OP_cbz);
+    } else if (opc == OP_cbz) {
+        instr_set_opcode(instr, OP_cbnz);
+    } else if (opc == OP_tbnz) {
+        instr_set_opcode(instr, OP_tbz);
+    } else if (opc == OP_tbz) {
+        instr_set_opcode(instr, OP_tbnz);
+    } else {
+        instr_set_predicate(instr, instr_invert_predicate(pred));
+    }
 }
 
 bool

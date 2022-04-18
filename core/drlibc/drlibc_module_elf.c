@@ -376,7 +376,8 @@ elf_loader_read_headers(elf_loader_t *elf, const char *filename)
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                      unmap_fn_t unmap_func, prot_fn_t prot_func,
-                     check_bounds_fn_t check_bounds_func, modload_flags_t flags)
+                     check_bounds_fn_t check_bounds_func, memset_fn_t memset_func,
+                     modload_flags_t flags)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -500,16 +501,11 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                     /* fill zeros at extend size */
                     file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
                     if (seg_end > file_end + delta) {
-                        if (!TEST(MODLOAD_SEPARATE_PROCESS, flags)) {
-                            memset(file_end + delta, 0, seg_end - (file_end + delta));
-                        } else {
-                            /* FIXME i#37: use a remote memset to zero out this gap or
-                             * fix it up in the child.  There is typically one RW
-                             * PT_LOAD segment for .data and .bss.  If .data ends and
-                             * .bss starts before filesz bytes, we need to zero the .bss
-                             * bytes manually.
-                             */
-                        }
+                        /* There is typically one RW PT_LOAD segment for .data and
+                         * .bss.  If .data ends and .bss starts before filesz bytes,
+                         * we need to zero the .bss bytes manually.
+                         */
+                        (*memset_func)(file_end + delta, 0, seg_end - (file_end + delta));
                     }
                 }
             }

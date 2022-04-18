@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,28 +41,56 @@
 #include <string.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <pthread.h>
+#include "condvar.h"
 
-static pthread_cond_t condvar;
-static bool child_ready;
-static pthread_mutex_t lock;
-static int num_received;
+static void *child_started;
+static void *received_nonest_signal;
+static void *received_nest_signal;
+static void *sent_nest_signal2;
+static volatile int in_handler;
+static volatile bool saw_nest;
+static volatile bool sideline_exit;
 
-#define OURSIG 42 /* a real-time signal */
+#define SIG_NONEST SIGUSR1
+#define SIG_NEST SIGUSR2
 
 static void
-handler(int sig, siginfo_t *info, void *ucxt)
+handler_nonest(int sig, siginfo_t *info, void *ucxt)
 {
-    print("in handler %d\n", sig);
-    if (sig == OURSIG) {
-        num_received++;
-        if (num_received >= 2)
-            pthread_exit(NULL);
-        else {
-            /* take up some time to try and ensure we get a nested signal */
-            sleep(1);
-        }
+    /* Increment in the 1st block so we'll go back to DR for code discovery,
+     * hitting the i#4998 issue.
+     */
+    ++in_handler;
+    if (sig != SIG_NONEST)
+        print("invalid signal for nonest handler\n");
+    if (in_handler > 1)
+        print("incorrectly nested signal!\n");
+    signal_cond_var(received_nonest_signal);
+    /* Return to DR again to further test i#4998. */
+    struct sigaction act;
+    int rc = sigaction(SIG_NEST, NULL, &act);
+    ASSERT_NOERR(rc);
+    --in_handler;
+}
+
+static void
+handler_nest(int sig, siginfo_t *info, void *ucxt)
+{
+    /* Similarly to handler_nonest: increment first to better detect nesting. */
+    ++in_handler;
+    if (sig != SIG_NEST)
+        print("invalid signal for nest handler\n");
+    if (in_handler > 1)
+        saw_nest = true;
+    else {
+        signal_cond_var(received_nest_signal);
+        wait_cond_var(sent_nest_signal2);
     }
+    /* Return to DR to check pending signals. */
+    struct sigaction act;
+    int rc = sigaction(SIG_NEST, NULL, &act);
+    ASSERT_NOERR(rc);
+    --in_handler;
 }
 
 static void *
@@ -70,21 +98,28 @@ thread_routine(void *arg)
 {
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler;
-    rc = sigemptyset(&act.sa_mask); /* do not block signals within handler */
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler_nonest;
+    rc = sigfillset(&act.sa_mask); /* Block all other signals. */
     ASSERT_NOERR(rc);
-    act.sa_flags = SA_SIGINFO;
-    rc = sigaction(OURSIG, &act, NULL);
+    act.sa_flags = SA_SIGINFO; /* *Do* block the same signal (no SA_NODEFER). */
+    rc = sigaction(SIG_NONEST, &act, NULL);
     ASSERT_NOERR(rc);
 
-    pthread_mutex_lock(&lock);
-    child_ready = true;
-    pthread_cond_signal(&condvar);
-    pthread_mutex_unlock(&lock);
+    rc = sigdelset(&act.sa_mask, SIG_NEST);
+    ASSERT_NOERR(rc);
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler_nest;
+    act.sa_flags = SA_SIGINFO | SA_NODEFER; /* Do *not* block the same signal. */
+    rc = sigaction(SIG_NEST, &act, NULL);
+    ASSERT_NOERR(rc);
 
-    /* wait for parent to send us SIGTERM */
-    while (true)
-        sleep(10);
+    signal_cond_var(child_started);
+
+    while (!sideline_exit) {
+        /* Spend as much time in DR as possible so signals will accumulate. */
+        rc = sigaction(SIG_NEST, NULL, &act);
+        ASSERT_NOERR(rc);
+    }
+    return NULL;
 }
 
 int
@@ -94,35 +129,44 @@ main(int argc, char **argv)
     void *retval;
     struct timespec sleeptime;
 
-    pthread_mutex_init(&lock, NULL);
-    pthread_cond_init(&condvar, NULL);
+    child_started = create_cond_var();
+    received_nonest_signal = create_cond_var();
+    received_nest_signal = create_cond_var();
+    sent_nest_signal2 = create_cond_var();
 
     if (pthread_create(&thread, NULL, thread_routine, NULL) != 0) {
         perror("failed to create thread");
         exit(1);
     }
 
-    pthread_mutex_lock(&lock);
-    while (!child_ready)
-        pthread_cond_wait(&condvar, &lock);
-    pthread_mutex_unlock(&lock);
+    wait_cond_var(child_started);
 
-    print("sending 2 signals\n");
-    pthread_kill(thread, OURSIG);
-    /* XXX i#1803: DR may incorrectly drop the signal if more than one are delivered
-     * together.  We delay sending the second signal until the first one is delivered
-     * as a temporary workaround.
+    /* Send multiple signals and try to get at least 2 to queue up while the thread
+     * is in DR, replicating i#4998.
      */
-    if (num_received == 0)
-        sched_yield();
-    pthread_kill(thread, OURSIG);
+    print("sending no-nest signals\n");
+    for (int i = 0; i < 5; i++)
+        pthread_kill(thread, SIG_NONEST);
 
+    wait_cond_var(received_nonest_signal);
+
+    /* Use cond vars to deliver a signal while the thread is inside its handler. */
+    print("sending nestable signals\n");
+    pthread_kill(thread, SIG_NEST);
+    wait_cond_var(received_nest_signal);
+    pthread_kill(thread, SIG_NEST);
+    signal_cond_var(sent_nest_signal2);
+
+    sideline_exit = true;
     if (pthread_join(thread, &retval) != 0)
         perror("failed to join thread");
 
-    pthread_cond_destroy(&condvar);
-    pthread_mutex_destroy(&lock);
+    destroy_cond_var(child_started);
+    destroy_cond_var(received_nonest_signal);
+    destroy_cond_var(received_nest_signal);
+    destroy_cond_var(sent_nest_signal2);
 
+    print("saw %snesting\n", saw_nest ? "" : "no ");
     print("all done\n");
 
     return 0;

@@ -112,7 +112,11 @@ typedef struct _kernel_fpstate_t {
     unsigned short status;
     unsigned short magic; /* 0xffff = regular FPU data only */
 
-    /* FXSR FPU environment */
+    /* FXSR FPU environment.
+     * Note that this is the start of the xsave region. The kernel requires this
+     * to be 64-byte aligned. We ensure this alignment in convert_frame_to_nonrt
+     * and fixup_rtframe_pointers.
+     */
     unsigned long _fxsr_env[6]; /* FXSR FPU env is ignored */
     unsigned long mxcsr;
     unsigned long reserved;

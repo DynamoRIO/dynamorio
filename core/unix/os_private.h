@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,8 +84,17 @@
 
 #define MACHINE_TLS_IS_DR_TLS IF_X86_ELSE(INTERNAL_OPTION(mangle_app_seg), true)
 
-/* PR 212090: the signal we use to suspend threads */
-#define SUSPEND_SIGNAL SIGUSR2
+/* The signal we use to suspend threads.
+ * We choose a normally-synchronous signal for a lower chance that the app has
+ * blocked it when we attach to an already-running app.
+ * SIGFPE is a good choice, but when running under QEMU, QEMU crashes
+ * when we send it, so we use SIGSTKFLT (which does not exist on Mac:
+ * there we use SIGFPE).
+ * We could conceivably make this a variable controlled by a runtime option,
+ * but it has a number of limitations, and the checks for it being user-sent
+ * would need to be flexible: it doesn't seem worth the complexity at this point.
+ */
+#define SUSPEND_SIGNAL IF_MACOS_ELSE(SIGFPE, SIGSTKFLT)
 
 #ifdef MACOS
 /* While there is no clone system call, we use the same clone flags to share
@@ -111,6 +120,10 @@
      CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID)
 
 #define SYSCALL_PARAM_CLONE_STACK 1
+
+#define SYSCALL_PARAM_CLONE3_CLONE_ARGS 0
+#define SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE 1
+#define CLONE3_FLAGS_4_BYTE_MASK 0x00000000ffffffffUL
 
 struct _os_local_state_t;
 
@@ -305,7 +318,7 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm);
 void
 signal_reinstate_alarm_handlers(dcontext_t *dcontext);
 void
-handle_clone(dcontext_t *dcontext, uint flags);
+handle_clone(dcontext_t *dcontext, uint64 flags);
 /* If returns false to skip the syscall, the result is in "result". */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
@@ -346,8 +359,8 @@ handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stac
 
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
-                   kernel_sigset_t *oset, size_t sigsetsize);
-void
+                   kernel_sigset_t *oset, size_t sigsetsize, uint *error_code);
+int
 handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                         kernel_sigset_t *oset, size_t sigsetsize);
 void

@@ -52,7 +52,7 @@ operating system (Windows, Linux, or Android) and commodity IA-32, AMD64,
 ARM, and AArch64 hardware.  See \ref sec_limit_platforms for details of
 which platform combinations are fully supported.
 
-This document describes the DynamoRIO system and the various API's that it
+This document describes the DynamoRIO system and the various APIs that it
 exports for building custom tools.  It is divided into the following
 sections:
 
@@ -89,8 +89,6 @@ sections:
 - \subpage release_notes
   <br>Release notes for this release, including changes since prior
   releases and plans for future releases.
-
-- \subpage page_license
 
 <br>
 
@@ -524,10 +522,10 @@ make it easier to reference addresses absolutely:
    two instructions depending on whether the address is in the lower 4GB or
    not.
 
- - When using an \p instr_t pointer as an immediate, use the routines
+ - When using an #instr_t pointer as an immediate, use the routines
    instrlist_insert_mov_instr_addr() or instrlist_insert_push_instr_addr()
    to conveniently insert either one or two instructions depending on
-   whether the resulting instr_t encoded address is in the lower 4GB or
+   whether the resulting #instr_t encoded address is in the lower 4GB or
    not.
 
 ***************************************************************************
@@ -574,7 +572,8 @@ on Windows (see \ref sec_alertable).  While most non-graphical
 non-alertable Windows API routines are supported, native threading libraries
 such as \p libpthread.so on Linux are known to cause problems.
 
-Currently we provide a private loader for both Windows and Linux.
+Currently we provide a private loader for both Windows and Linux which
+supplies support for client external library use.
 Clients must either link statically to all libraries or load them using
 our private loader, which will happen automatically for shared libraries
 loaded in a typical manner.

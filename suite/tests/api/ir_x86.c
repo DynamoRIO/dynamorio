@@ -914,6 +914,34 @@ test_cti_prefixes(void *dc)
 }
 
 static void
+test_cti_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
+{
+    instr_t *instr = instr_create(dc);
+    byte *end = decode(dc, data, instr);
+    ASSERT(end == data + len);
+    ASSERT(instr_get_opcode(instr) == opcode);
+    ASSERT(instr_is_predicated(instr));
+    ASSERT(instr_get_predicate(instr) == pred);
+    instr_destroy(dc, instr);
+}
+
+static void
+test_cti_predicates(void *dc)
+{
+    byte data[][16] = {
+        // 7e 10                jle    10
+        { 0x7e, 0x10 },
+        // 0f 84 99 00 00 00    je     403e08
+        { 0x0f, 0x84, 0x99, 0x00, 0x00, 0x00 },
+        // 0f 44 c2             cmovbe %edx,%eax
+        { 0x0f, 0x46, 0xc2 },
+    };
+    test_cti_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
+    test_cti_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
+    test_cti_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
+}
+
+static void
 test_modrm16_helper(void *dc, reg_id_t base, reg_id_t scale, uint disp, uint len)
 {
     instr_t *instr;
@@ -998,6 +1026,21 @@ test_modrm16(void *dc)
     test_modrm16_helper(dc, DR_REG_DI, DR_REG_NULL, 0x80, 5);
     test_modrm16_helper(dc, DR_REG_BP, DR_REG_NULL, 0x80, 5);
     test_modrm16_helper(dc, DR_REG_BX, DR_REG_NULL, 0x80, 5);
+}
+
+/* Just check that decoding fails silently on invalid data. */
+static void
+test_modrm_invalid(void *dc)
+{
+/* Decoding succeeds on 32-bits. */
+#ifdef X64
+    /* Fuzzer-generated random data (i#5320). */
+    byte data[16] = { 0x62, 0x03, 0xa5, 0x62, 0x03, 0xa5 };
+    instr_t *instr = instr_create(dc);
+    byte *end = decode(dc, data, instr);
+    ASSERT(end == NULL);
+    instr_destroy(dc, instr);
+#endif
 }
 
 /* PR 215143: auto-magically add size prefixes */
@@ -1122,6 +1165,32 @@ test_size_changes(void *dc)
         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_6));
     test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_6, 6);
     ASSERT(buf[0] == 0x66); /* check for data prefix */
+
+#ifdef X64
+    /* i#5442 */
+    byte bytes_xchg_ax_r8w[] = { 0x66, 0x41, 0x90 };
+    byte bytes_repne_xchg_eax_r8d[] = { 0xf2, 0x41, 0x90 };
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8W), opnd_create_reg(DR_REG_AX));
+    test_instr_decode(dc, instr, bytes_xchg_ax_r8w, sizeof(bytes_xchg_ax_r8w), false);
+
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8D), opnd_create_reg(DR_REG_EAX));
+    test_instr_decode(dc, instr, bytes_repne_xchg_eax_r8d,
+                      sizeof(bytes_repne_xchg_eax_r8d), false);
+
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8W), opnd_create_reg(DR_REG_AX));
+    /* This really should encode to the three bytes above (see i#5446) */
+    test_instr_encode_and_decode(dc, instr, 4, true /*src*/, 1, OPSZ_2, 2);
+    assert(buf[0] == 0x66); /* check for data prefix */
+
+    instr =
+        INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_R8D));
+    /* This really should encode to two bytes (see i#5446) */
+    test_instr_encode_and_decode(dc, instr, 3, true /*src*/, 1, OPSZ_4, 4);
+    assert(buf[0] != 0x66); /* check for no data prefix */
+#endif
 }
 
 /* PR 332254: test xchg vs nop */
@@ -1277,6 +1346,31 @@ test_x64_inc(void *dc)
 
     instr = INSTR_CREATE_inc(dc, opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 2);
+}
+
+static void
+test_x64_vmovq(void *dc)
+{
+    /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]
+     * 62 61 fe 08 7e 0c 0a vmovq  (%rdx,%rcx)[8byte] -> %xmm25
+     */
+    byte *pc;
+    const byte b1[] = { 0x62, 0x61, 0xfd, 0x08, 0xd6, 0x0c, 0x0a, 0x00 };
+    const byte b2[] = { 0x62, 0x61, 0xfe, 0x08, 0x7e, 0x0c, 0x0a, 0x00 };
+    char dbuf[512];
+    int len;
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b1[7]);
+    ASSERT(strcmp(dbuf, "vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]\n") == 0);
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b2[7]);
+    ASSERT(strcmp(dbuf, "vmovq  (%rdx,%rcx)[8byte] -> %xmm25\n") == 0);
 }
 #endif
 
@@ -2040,72 +2134,60 @@ test_predication(void *dc)
     instr_destroy(dc, instr);
 }
 
+/* Destroys instr when done.  Differs from test_instr_decode() by not having raw
+ * bytes available.
+ */
+static void
+test_encode_matches_decode(void *dc, instr_t *instr)
+{
+    byte *pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
+    instr_t *ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(instr, ins2));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, ins2);
+}
+
 static void
 test_xinst_create(void *dc)
 {
-    byte *pc;
     reg_id_t reg = DR_REG_XDX;
-    instr_t *ins1, *ins2;
     /* load 1 byte zextend */
-    ins1 = XINST_CREATE_load_1byte_zext4(
-        dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_1byte_zext4(
+            dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1)));
     /* load 1 byte */
-    ins1 = XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
-                                   MEMARG(OPSZ_1));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
+                                MEMARG(OPSZ_1)));
     /* load 2 bytes */
-    ins1 = XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
-                                    MEMARG(OPSZ_2));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
+                                 MEMARG(OPSZ_2)));
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
-                                    opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
+                                 opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1))));
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
-                                     opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
+                                  opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2))));
     /* indirect call through a register */
-    ins1 = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_XBX));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    ASSERT(instr_get_opcode(ins2) == OP_call_ind);
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(dc, XINST_CREATE_call_reg(dc, REGARG(XBX)));
+
+    /* Variations of adding. */
+    test_encode_matches_decode(dc, XINST_CREATE_add(dc, REGARG(XBX), IMMARG(OPSZ_4)));
+    test_encode_matches_decode(dc, XINST_CREATE_add(dc, REGARG(XSI), REGARG(XDI)));
+    test_encode_matches_decode(
+        dc, XINST_CREATE_add_2src(dc, REGARG(XBX), REGARG(XAX), IMMARG(OPSZ_4)));
+    test_encode_matches_decode(
+        dc, XINST_CREATE_add_2src(dc, REGARG(XSI), REGARG(XDI), REGARG(XBP)));
 }
 
 static void
@@ -2409,6 +2491,49 @@ test_opnd(void *dc)
     /* XXX: test other routines like opnd_defines_use() */
 }
 
+static void
+test_simd_zeroes_upper(void *dc)
+{
+    instr_t *instr;
+
+    instr =
+        INSTR_CREATE_pxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(!instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM0),
+                           opnd_create_reg(DR_REG_XMM0));
+    ASSERT(instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_YMM0), opnd_create_reg(DR_REG_YMM0),
+                           opnd_create_reg(DR_REG_YMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_ZMM0), opnd_create_reg(DR_REG_ZMM0),
+                           opnd_create_reg(DR_REG_ZMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(!instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroupper(dc);
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroall(dc);
+    ASSERT(instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2440,9 +2565,13 @@ main(int argc, char *argv[])
 
     test_cti_prefixes(dcontext);
 
+    test_cti_predicates(dcontext);
+
 #ifndef X64
     test_modrm16(dcontext);
 #endif
+
+    test_modrm_invalid(dcontext);
 
     test_size_changes(dcontext);
 
@@ -2456,6 +2585,8 @@ main(int argc, char *argv[])
     test_x64_abs_addr(dcontext);
 
     test_x64_inc(dcontext);
+
+    test_x64_vmovq(dcontext);
 #endif
 
     test_regs(dcontext);
@@ -2483,6 +2614,8 @@ main(int argc, char *argv[])
     test_noalloc(dcontext);
 
     test_opnd(dcontext);
+
+    test_simd_zeroes_upper(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);

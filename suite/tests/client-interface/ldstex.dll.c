@@ -39,6 +39,9 @@
 
 static int counter;
 
+/* We have two phases: one with clean calls and another without. */
+static bool phase_one = true;
+
 static void
 in_region(void)
 {
@@ -50,7 +53,19 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr;
     instr_t *insert_at = NULL;
+    int nop_count = 0;
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        if (phase_one && instr_is_nop(instr)) {
+            ++nop_count;
+            if (nop_count == 4) {
+                phase_one = false;
+                /* We want to re-instrument all the blocks.  We expect new code
+                 * before we re-execute the old blocks so a delayed flush is sufficient.
+                 */
+                dr_delay_flush_region(NULL, ~0UL, 0, NULL);
+            }
+        } else
+            nop_count = 0;
         if (instr_is_exclusive_load(instr)) {
             insert_at = instr_get_next(instr);
 #ifdef ARM
@@ -71,9 +86,11 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             break;
         }
     }
-    if (insert_at != NULL) {
+    if (insert_at != NULL && phase_one) {
         /* Insert enough memory refs in exclusive monitor regions to cause
          * monitor failure every single time.
+         * However, this often thwarts single-block optimizations for ldstex2cas,
+         * so we have a 2nd phase with no clean calls.
          */
         dr_insert_clean_call(drcontext, bb, insert_at, (void *)in_region,
                              false /*fpstate */, 0);

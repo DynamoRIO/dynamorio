@@ -41,7 +41,7 @@
 #ifndef _MONITOR_H_
 #define _MONITOR_H_ 1
 
-#include "fragment.h" /* for trace_bb_info_t, and for CUSTOM_TRACES
+#include "fragment.h" /* for trace_bb_info_t, and for custom traces
                        * the "fragment_t wrapper" struct */
 
 /* synchronization of shared traces */
@@ -190,9 +190,7 @@ typedef struct _monitor_data_t {
      */
     uint final_exit_flags;
 
-#ifdef CUSTOM_TRACES
     fragment_t wrapper; /* for creating new shadowed trace heads */
-#endif
 } monitor_data_t;
 
 /* PR 204770: use trace component bb tag for RCT source address */

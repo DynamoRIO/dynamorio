@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1005,6 +1005,7 @@ standalone_exit(void)
     dynamo_initialized = false;
     dynamo_options_initialized = false;
     dynamo_heap_initialized = false;
+    options_detach();
 }
 
 /* Perform exit tasks that require full thread data structs, which we have
@@ -1070,13 +1071,11 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
      * client trying to use api routines that depend on fragment state.
      */
     instrument_exit_event();
-#ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
     if (d_r_get_num_threads() > 1)
         synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
     /* only current thread is alive */
     dynamo_exited_all_other_threads = true;
-#endif /* CLIENT_SIDELINE */
     fragment_exit_post_sideline();
 
     /* The dynamo_exited_and_cleaned should be set after the second synch-all.
@@ -1101,21 +1100,20 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     loader_exit();
 
     if (toexit != NULL) {
-        /* free detaching thread's dcontext */
-#ifdef WINDOWS
-        /* If we use dynamo_thread_exit() when toexit is the current thread,
-         * it results in asserts in the win32.tls test, so we stick with this.
-         */
-        d_r_mutex_lock(&thread_initexit_lock);
-        dynamo_other_thread_exit(toexit, false);
-        d_r_mutex_unlock(&thread_initexit_lock);
-#else
-        /* On Linux, restoring segment registers can only be done
+        /* Free detaching thread's dcontext.
+         * Restoring the teb fields or segment registers can only be done
          * on the current thread, which must be toexit.
          */
+#ifdef WINDOWS
+        /* XXX i#5340: We used to go through dynamo_other_thread_exit() which rewinds
+         * the kstats stack as below.  To avoid a kstats assert on this new path we
+         * repeat it here but it seems like we shouldn't need it.
+         */
+        KSTOP_REWIND_DC(get_thread_private_dcontext(), thread_measured);
+        KSTART_DC(get_thread_private_dcontext(), thread_measured);
+#endif
         ASSERT(toexit->id == d_r_get_thread_id());
         dynamo_thread_exit();
-#endif
     }
 
     if (IF_WINDOWS_ELSE(!detach_stacked_callbacks, true)) {
@@ -1184,9 +1182,10 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     vmm_heap_exit();
     diagnost_exit();
     data_section_exit();
-    /* funny dependences: options exit just frees lock, not destroying
+    /* Funny dependences: options exit just frees lock, not destroying
      * any options that are needed for other exits, so do it prior to
-     * checking locks in debug build
+     * checking locks in debug build.  We have a separate options_detach()
+     * which resets options for re-attach.
      */
     options_exit();
     utils_exit();
@@ -1358,10 +1357,6 @@ dynamo_process_exit_cleanup(void)
          * the threads we know about here
          */
         synch_with_threads_at_exit(exit_synch_state(), true /*pre-exit*/);
-#    ifndef CLIENT_SIDELINE
-        /* no sideline thread, synchall done */
-        dynamo_exited_all_other_threads = true;
-#    endif
         /* now that APC interception point is unpatched and
          * dynamorio_exited is set and we've killed all the theads we know
          * about, assumption is that no other threads will be running in
@@ -1493,9 +1488,6 @@ dynamo_process_exit(void)
          * can have racy crashes at exit time (xref PR 470957).
          */
         synch_with_threads_at_exit(exit_synch_state(), true /*pre-exit*/);
-#    ifndef CLIENT_SIDELINE
-        dynamo_exited_all_other_threads = true;
-#    endif
     } else
         dynamo_exited = true;
 
@@ -1506,10 +1498,8 @@ dynamo_process_exit(void)
         get_list_of_threads(&threads, &num);
 
         for (i = 0; i < num; i++) {
-#    ifdef CLIENT_SIDELINE
             if (IS_CLIENT_THREAD(threads[i]->dcontext))
                 continue;
-#    endif
             /* FIXME: separate trace dump from rest of fragment cleanup code */
             if (TRACEDUMP_ENABLED() || true) {
                 /* We always want to call this for CI builds so we can get the
@@ -1568,12 +1558,10 @@ dynamo_process_exit(void)
          */
         instrument_exit_event();
 
-#    ifdef CLIENT_SIDELINE
         /* We only need do a second synch-all if there are sideline client threads. */
         if (d_r_get_num_threads() > 1)
             synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
         dynamo_exited_all_other_threads = true;
-#    endif
 
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
@@ -1811,7 +1799,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
 #endif
 
 #ifdef UNIX
-    dcontext->signals_pending = false;
+    dcontext->signals_pending = 0;
 #endif
 
     /* all thread-private fields are initialized in dynamo_thread_init
@@ -2586,8 +2574,16 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
      * This must be called after dynamo_thread_exit_pre_client where
      * we called event callbacks.
      */
-    if (!other_thread)
+    if (!other_thread) {
         dynamo_thread_not_under_dynamo(dcontext);
+#ifdef WINDOWS
+        /* We don't do this inside os_thread_not_under_dynamo b/c we do it in
+         * context switches.  os_loader_exit() will call this, but it has no
+         * dcontext, so it won't swap internal TEB fields.
+         */
+        swap_peb_pointer(dcontext, false /*to app*/);
+#endif
+    }
 
     /* We clean up priv libs prior to setting tls dc to NULL so we can use
      * TRY_EXCEPT when calling the priv lib entry routine
@@ -2647,15 +2643,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #ifdef WINDOWS
     /* clean up all the dcs */
     num_dcontext = 0;
-#    ifdef DCONTEXT_IN_EDI
-    /* go to one end of list */
-    while (dcontext_tmp->next_saved)
-        dcontext_tmp = dcontext_tmp->next_saved;
-#    else
-    /* already at one end of list */
-#    endif
-
-    /* delete through to other end */
+    /* Already at one end of list. Delete through to other end. */
     while (dcontext_tmp) {
         num_dcontext++;
         dcontext_next = dcontext_tmp->prev_unused;
@@ -2838,6 +2826,10 @@ dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats)
      * and we need to resolve the unbounded dr_app_stop() time.
      */
     if (dynamo_initialized && !dynamo_exited && !doing_detach) {
+#    ifdef WINDOWS
+        /* dynamo_thread_exit_common will later swap to app. */
+        swap_peb_pointer(get_thread_private_dcontext(), true /*to priv*/);
+#    endif
         detach_on_permanent_stack(true /*internal*/, true /*do cleanup*/, drstats);
     }
     /* the application regains control in here */
@@ -2901,8 +2893,6 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 #endif
 }
 
-#define MAX_TAKE_OVER_ATTEMPTS 8
-
 /* Mark this thread as under DR, and take over other threads in the current process.
  */
 void
@@ -2913,6 +2903,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
      */
     bool found_threads;
     uint attempts = 0;
+    uint max_takeover_attempts = DYNAMO_OPTION(takeover_attempts);
 
     os_process_under_dynamorio_initiate(dcontext);
     /* We can start this thread now that we've set up process-wide actions such
@@ -2933,7 +2924,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         attempts++;
         if (found_threads && !bb_lock_start)
             bb_lock_start = true;
-    } while (found_threads && attempts < MAX_TAKE_OVER_ATTEMPTS);
+        if (DYNAMO_OPTION(sleep_between_takeovers))
+            os_thread_sleep(1);
+    } while (found_threads && attempts < max_takeover_attempts);
     os_process_under_dynamorio_complete(dcontext);
     /* End the barrier to new threads. */
     signal_event(dr_attach_finished);
@@ -2982,10 +2975,12 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
         control_all_threads = automatic_startup;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-        /* Adjust the app stack to account for the return address + alignment.
-         * See dynamorio_app_take_over in x86.asm.
-         */
-        mc->xsp += DYNAMO_START_XSP_ADJUST;
+        if (IF_WINDOWS_ELSE(!dr_earliest_injected && !dr_early_injected, true)) {
+            /* Adjust the app stack to account for the return address + alignment.
+             * See dynamorio_app_take_over in x86.asm.
+             */
+            mc->xsp += DYNAMO_START_XSP_ADJUST;
+        }
 
         /* For hotp_only and thin_client, the app should run native, except
          * for our hooks.
@@ -3041,7 +3036,7 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
 /* Called with DR library mapped in but without its imports processed.
  */
 void
-dynamorio_earliest_init_takeover_C(byte *arg_ptr)
+dynamorio_earliest_init_takeover_C(byte *arg_ptr, priv_mcontext_t *mc)
 {
     int res;
     bool earliest_inject;
@@ -3064,21 +3059,7 @@ dynamorio_earliest_init_takeover_C(byte *arg_ptr)
      * confusing the exec areas scan
      */
 
-    /* Take over at retaddr
-     *
-     * XXX i#626: app_takeover sets preinjected for rct (should prob. rename)
-     * which needs to be done whenever we takeover not at the bottom of the
-     * callstack.  For earliest won't need to set this if we takeover
-     * in such a way as to handle the return back to our hook code without a
-     * violation -- though currently we will see 3 rets (return from
-     * dynamorio_app_take_over(), return from here, and return from
-     * dynamorio_earliest_init_takeover() to app hook code).
-     * Should we have dynamorio_earliest_init_takeover() set up an
-     * mcontext that we can go to directly instead of interpreting
-     * the returns in our own code?  That would make tools that shadow
-     * callstacks simpler too.
-     */
-    dynamorio_app_take_over();
+    dynamorio_app_take_over_helper(mc);
 }
 #endif /* WINDOWS */
 

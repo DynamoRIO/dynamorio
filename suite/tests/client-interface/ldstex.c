@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -110,6 +110,10 @@ typedef struct {
     int counter1, counter2;
 } __attribute__((__aligned__(IF_ARM_ELSE(8, 16)))) two_counters_t;
 
+typedef struct {
+    long counter1, counter2;
+} __attribute__((__aligned__(IF_ARM_ELSE(8, 16)))) two_counters64_t;
+
 int
 ldstex_inc_pair(two_counters_t *counters);
 int
@@ -118,6 +122,13 @@ int
 ldstex_inc_byte(char *counter);
 int
 ldstex_inc_shapes(int *counter);
+
+#    ifdef AARCH64
+int
+ldstex_inc32_with_xzr(two_counters_t *counters);
+int
+ldstex_inc64_with_xzr(two_counters64_t *counters);
+#    endif
 
 static void
 test_shapes(void)
@@ -140,6 +151,22 @@ test_shapes(void)
     added = ldstex_inc_shapes(&ctr);
     if (ctr != 42 + added)
         print("Error in ldstex_inc_shapes: %d\n", ctr);
+
+#    ifdef AARCH64
+    my_var.counter2 = 117;
+    added = ldstex_inc32_with_xzr(&my_var);
+    /* We zero both and only the 2nd's add sticks. */
+    if (my_var.counter1 != 0 || my_var.counter2 != added) {
+        print("Error in ldstex_inc32_with_xzr: %d %d\n", my_var.counter1,
+              my_var.counter2);
+    }
+    two_counters64_t my_var64 = { 42, 117 };
+    added = ldstex_inc64_with_xzr(&my_var64);
+    if (my_var64.counter1 != 0 || my_var64.counter2 != added) {
+        print("Error in ldstex_inc64_with_xzr: %ld %ld\n", my_var64.counter1,
+              my_var64.counter2);
+    }
+#    endif
 }
 
 /***************************************************************************
@@ -221,11 +248,26 @@ test_clrex(void)
 int
 main(int argc, const char *argv[])
 {
-    test_atomic_incdec();
-    test_stolen_reg();
-    test_shapes();
-    test_faults();
-    test_clrex();
+    /* Run twice: on the first run, the client will insert clean calls, which will test
+     * that we're avoiding infinite loops (from all the inserted memory operations) as
+     * well as often thwarting same-block optimizations due to register writes in the
+     * clean calls.  So we run a second time where the client avoids inserting anything
+     * (the client flushes in between to obtain new blocks) to test the same-block
+     * optimization path.
+     */
+    for (int i = 0; i < 2; i++) {
+        test_atomic_incdec();
+        test_stolen_reg();
+        test_shapes();
+        test_faults();
+        test_clrex();
+        /* Notify client to flush and change modes. */
+        NOP;
+        NOP;
+        NOP;
+        NOP;
+        count = 0; /* Reset for test_faults(). */
+    }
     print("Test finished\n");
     return 0;
 }
@@ -433,7 +475,28 @@ GLOBAL_LABEL(FUNCNAME:)
         add      w2, w2, #0x1
         stxp     w3, w1, w2, [x0]
         cbnz     w3, 4b
-        mov      w0, #4
+        /* Test store-res == load-dest (i#5247). */
+      5:
+        ldaxp    w1, w2, [x0]
+        add      w4, w1, #0x1
+        add      w5, w2, #0x1
+        stlxp    w1, w4, w5, [x0]
+        cbnz     w1, 5b
+      6:
+        ldaxp    w2, w1, [x0] /* Test the other order too. */
+        add      w4, w2, #0x1
+        add      w5, w1, #0x1
+        stlxp    w1, w4, w5, [x0]
+        cbnz     w1, 6b
+      7:
+        stp      x28, x29, [sp, #-16]!
+        ldaxp    w2, w28, [x0] /* Test stolen reg. */
+        add      w4, w2, #0x1
+        add      w5, w28, #0x1
+        stlxp    w28, w4, w5, [x0]
+        cbnz     w28, 7b
+        ldp      x28, x29, [sp], #16
+        mov      w0, #7
         ret
 #elif defined(ARM)
       1:
@@ -450,7 +513,25 @@ GLOBAL_LABEL(FUNCNAME:)
         strexd   r1, r2, r3, [r0]
         cmp      r1, #0
         bne      2b
-        mov      r0, #2
+        /* Test store-res == load-dest (i#5247). */
+        push     {r4, r5, r10, r11}
+      3:
+        ldaexd   r2, r3, [r0]
+        add      r4, r2, #0x1
+        add      r5, r3, #0x1
+        stlexd   r2, r4, r5, [r0]
+        cmp      r2, #0
+        bne      3b
+      4:
+        ldaexd   r10, r11, [r0] /* Test stolen reg. */
+        add      r4, r10, #0x1
+        add      r5, r11, #0x1
+        stlexd   r10, r4, r5, [r0]
+        cmp      r10, #0
+        bne      4b
+        /* ARM pairs must be in order so we can't re-order. */
+        pop      {r4, r5, r10, r11}
+        mov      r0, #4
         bx       lr
 #else
 #    error Unsupported arch
@@ -842,6 +923,68 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+#ifdef AARCH64
+/* int ldstex_inc32_with_xzr(two_counters_t *counter)
+ */
+#define FUNCNAME ldstex_inc32_with_xzr
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* The clean call version thwarts the single-block optimized mangling,
+         * so we do not need to make separate-block versions of these as we
+         * have tests of both the fastpath and slowpath.
+         */
+      1:
+        ldaxr    wzr, [x0]
+        stlxr    w3, wzr, [x0]
+        cbnz     w3, 1b
+        str      x0, [x0] /* Ensure we'd loop forever w/o i#5245 on next test. */
+      2:
+        ldaxrh   wzr, [x0]
+        stlxrh   w3, wzr, [x0]
+        cbnz     w3, 2b
+        str      x0, [x0] /* Ensure we'd loop forever w/o i#5245 on next test. */
+      3:
+        ldaxrb   wzr, [x0]
+        stlxrb   w3, wzr, [x0]
+        cbnz     w3, 3b
+        str      x0, [x0] /* Ensure we'd loop forever w/o i#5245 on next test. */
+        /* Test each LDAXP dest being xzr (both raises SIGILL). */
+      4:
+        ldaxp    w1, wzr, [x0]
+        add      w2, w1, #0x1
+        stlxp    w3, w2, wzr, [x0]
+        cbnz     w3, 4b
+      5:
+        ldaxp    wzr, w1, [x0]
+        add      w2, w1, #0x1
+        stlxp    w3, wzr, w2, [x0]
+        cbnz     w3, 5b
+        mov      w0, #1
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+/* int ldstex_inc64_with_xzr(two_counters64_t *counter)
+ */
+#define FUNCNAME ldstex_inc64_with_xzr
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* Test each LDAXP dest being xzr (both raises SIGILL). */
+      1:
+        ldaxp    x1, xzr, [x0]
+        add      x2, x1, #0x1
+        stlxp    w3, x2, xzr, [x0]
+        cbnz     w3, 1b
+      2:
+        ldaxp    xzr, x1, [x0]
+        add      x2, x1, #0x1
+        stlxp    w3, xzr, x2, [x0]
+        cbnz     w3, 2b
+        mov      w0, #1
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+#endif
 
 END_FILE
 

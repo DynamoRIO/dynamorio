@@ -2497,6 +2497,15 @@ static bool
 os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool suspended)
 {
     bool success = true;
+
+    if (DYNAMO_OPTION(skip_terminating_threads)) {
+        if (nt_is_thread_terminating(hthread)) {
+            // Takeover fails when attaching and trying to takeover terminating threads.
+            // Luckily, we don't really need to take over them.
+            return success;
+        }
+    }
+
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
     char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
@@ -2827,7 +2836,6 @@ thread_attach_setup(priv_mcontext_t *mc)
  * CLIENT THREADS
  */
 
-#    ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 /* i#41/PR 222812: client threads
  * * thread must have dcontext since many API routines require one and we
  *   don't expose GLOBAL_DCONTEXT (xref PR 243008, PR 216936, PR 536058)
@@ -2926,7 +2934,6 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     CLIENT_ASSERT(res, "error closing thread handle");
     return res;
 }
-#    endif CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 
 int
 get_os_version()
@@ -8429,6 +8436,9 @@ detach_helper(int detach_type)
         ASSERT_NOT_REACHED();
         return;
     }
+    /* NB: since we cleaned up during detach_on_permanent_stack, much of DR will
+     * no longer work (even options have been reset to their default values).
+     */
 
     /* FIXME : unload dll, be able to have thread continue etc. */
 
@@ -9070,10 +9080,10 @@ earliest_inject_init(byte *arg_ptr)
          * should we just silently go native?
          */
     } else {
-        /* Restore +rx to hook location before DR init scans it */
+        /* Restore the prior protections to the hook location before DR init scans it. */
         uint old_prot;
         if (!bootstrap_protect_virtual_memory((byte *)(ptr_int_t)args->hook_location,
-                                              EARLY_INJECT_HOOK_SIZE, PAGE_EXECUTE_READ,
+                                              EARLY_INJECT_HOOK_SIZE, args->hook_prot,
                                               &old_prot)) {
             /* XXX: again, how handle failure? */
         }

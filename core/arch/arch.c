@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
 
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "../fcache.h"
@@ -2321,8 +2321,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
             }
         };
 #else
-    static const char *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] =
-        {
+    static const char
+        *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
             { "shared_unlinked_bb_ibl", "shared_delete_bb_ibl", "shared_bb_far",
               "shared_bb_far_unlinked", "shared_bb_ibl", "shared_bb_ibl_template" },
             { "shared_unlinked_trace_ibl", "shared_delete_trace_ibl", "shared_trace_far",
@@ -2352,8 +2352,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
     /* ibl_type is valid and will give routine or template name, and qualifier */
 
     *ibl_brtype_name = get_branch_type_name(ibl_type.branch_type);
-    return ibl_routine_names IF_X86_64(
-        [mode])[ibl_type.source_fragment_type][ibl_type.link_state];
+    return ibl_routine_names IF_X86_64([mode])[ibl_type.source_fragment_type]
+                                              [ibl_type.link_state];
 }
 
 static inline ibl_code_t *
@@ -3005,11 +3005,22 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
         res = false;
         goto hook_vsyscall_return;
     }
-    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    byte *base_pc;
+    size_t vsyscall_size;
+    get_memory_info(vsyscall_page_start, &base_pc, &vsyscall_size, &prot);
+    if (base_pc != vsyscall_page_start) {
+        LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "vsyscall page %p is not the base of its area %p\n",
+            vsyscall_sysenter_return_pc, base_pc);
+    }
     if (!TEST(MEMPROT_WRITE, prot)) {
-        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
-        if (!res)
+        res = set_protection(vsyscall_page_start, vsyscall_size, prot | MEMPROT_WRITE);
+        if (!res) {
+            LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                "failed to mark vsyscall page %p writable\n",
+                vsyscall_sysenter_return_pc);
             goto hook_vsyscall_return;
+        }
     }
 
     LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1, "Hooking vsyscall page @ " PFX "\n",
@@ -3073,7 +3084,7 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
          * hook once its in if we failed to re-protect: we're going to have to
          * trust the app code here anyway */
         DEBUG_DECLARE(bool ok =)
-        set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        set_protection(vsyscall_page_start, vsyscall_size, prot);
         ASSERT(ok);
     }
 hook_vsyscall_return:
@@ -3101,9 +3112,17 @@ unhook_vsyscall(void)
     ASSERT(!sysenter_hook_failed);
     ASSERT(vsyscall_sysenter_return_pc != NULL);
     ASSERT(vsyscall_syscall_end_pc != NULL);
-    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    byte *base_pc;
+    size_t vsyscall_size;
+    get_memory_info(vsyscall_page_start, &base_pc, &vsyscall_size, &prot);
+    if (base_pc != vsyscall_page_start) {
+        LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "vsyscall page %p is not the base of its area %p\n",
+            vsyscall_sysenter_return_pc, base_pc);
+        return false;
+    }
     if (!TEST(MEMPROT_WRITE, prot)) {
-        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
+        res = set_protection(vsyscall_page_start, vsyscall_size, prot | MEMPROT_WRITE);
         if (!res)
             return false;
     }
@@ -3112,7 +3131,7 @@ unhook_vsyscall(void)
     if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
         memset(vmcode_get_writable_addr(vsyscall_syscall_end_pc), RAW_OPCODE_nop, len);
     if (!TEST(MEMPROT_WRITE, prot)) {
-        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        res = set_protection(vsyscall_page_start, vsyscall_size, prot);
         ASSERT(res);
     }
     return true;
@@ -3254,7 +3273,15 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         ASSERT(get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED ||
                get_syscall_method() == SYSCALL_METHOD_INT);
 #    ifdef LINUX
-        if (new_method == SYSCALL_METHOD_SYSENTER) {
+
+        /* i#4407: An OP_syscall instruction on 32-bit AMD returns to a hardcoded vsyscall
+         * PC no matter where it is. Thus we must hook the vsyscall just like we do for
+         * OP_sysenter.
+         */
+        if (new_method ==
+            SYSCALL_METHOD_SYSENTER IF_X86_32(||
+                                              (new_method == SYSCALL_METHOD_SYSCALL &&
+                                               cpu_info.vendor == VENDOR_AMD))) {
 #        ifndef HAVE_TLS
             if (DYNAMO_OPTION(hook_vsyscall)) {
                 /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */
@@ -3301,6 +3328,10 @@ get_syscall_method(void)
 bool
 does_syscall_ret_to_callsite(void)
 {
+    /* We hook vsyscall page in AMD 32-bit (LOL64) */
+    if (syscall_method == SYSCALL_METHOD_SYSCALL && cpu_info.vendor == VENDOR_AMD)
+        return IF_X86_64_ELSE(true, false);
+
     return (syscall_method == SYSCALL_METHOD_INT ||
             syscall_method == SYSCALL_METHOD_SYSCALL ||
             syscall_method ==
@@ -3699,6 +3730,10 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                 }
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
+        }
+        for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+            print_file(f, dump_xml ? "\t\tk%d= \"" PFX "\"\n" : "\tk%d= " PFX "\n", i,
+                       context->opmask[i]);
         }
         DOLOG(2, LOG_INTERP, {
             /* Not part of mcontext but useful for tracking app behavior */
