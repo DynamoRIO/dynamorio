@@ -156,9 +156,9 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // e B C D
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 0); // a B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 0); // f B C D
 }
 
 void
@@ -214,10 +214,10 @@ unit_test_cache_fifo_eight_way()
     cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_J, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_K, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 0); // i  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_J, 0); // j  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_K, 0); // k  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 0); // l  B  C  D  E  F  G  H
 }
 
 void
