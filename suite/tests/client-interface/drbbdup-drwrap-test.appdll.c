@@ -36,17 +36,9 @@
 
 #include "tools.h"
 
-int EXPORT
-wrapme(int x)
+static void
+switch_modes(void)
 {
-    print("%s: arg %d\n", __FUNCTION__, x);
-    return x;
-}
-
-void
-run_tests(void)
-{
-    print("first wrapme returned %d\n", wrapme(2));
     /* Signal the client to switch modes. */
 #ifdef WINDOWS
     __nop();
@@ -56,7 +48,33 @@ run_tests(void)
 #else
     __asm__ __volatile__("nop; nop; nop; nop");
 #endif
+}
+
+int EXPORT
+wrapme(int x)
+{
+    print("%s: arg %d\n", __FUNCTION__, x);
+    if (x % 2 == 0) {
+        /* Switch in the middle of a wrapped function. */
+        switch_modes();
+    }
+    return x;
+}
+
+void
+run_tests(void)
+{
+    /* First, a regular pre-and-post-wrapped instance. */
+    print("first wrapme returned %d\n", wrapme(1));
+    /* Now we'll have a pre but not post b/c we'll swap in the middle. */
     print("second wrapme returned %d\n", wrapme(2));
+    /* Now we swap back and will have no pre or post. */
+    print("third wrapme returned %d\n", wrapme(2));
+    /* If we did not clean up drwrap state, we would see a pre and *two* posts as drwrap
+     * tries to catch up to the interrupted state.  With the proper cleanup, we have
+     * just one pre and one post.
+     */
+    print("fourth wrapme returned %d\n", wrapme(1));
 }
 
 #ifdef WINDOWS

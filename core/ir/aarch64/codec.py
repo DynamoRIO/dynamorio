@@ -519,7 +519,7 @@ def read_opnd_defs_file(path):
                                          int(re.sub('\?', '1', re.sub('[^\?]', '0', mask)), 2),
                                          int(re.sub('\+', '1', re.sub('[^\+]', '0', mask)), 2))
     except IOError as e:
-        raise Exception('Unable to read operand definitions file, opnd_defs.txt: %s' % e.strerror)
+        raise Exception('Unable to read operand definitions file, {}: {}'.format(path, e.strerror))
 
     return opndtab
 

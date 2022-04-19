@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,7 +64,13 @@
 #ifdef HAS_ZLIB
 #    define OUTFILE_SUFFIX_GZ "raw.gz"
 #endif
+#ifdef HAS_SNAPPY
+#    define OUTFILE_SUFFIX_SZ "raw.sz"
+#endif
 #define OUTFILE_SUBDIR "raw"
+#define WINDOW_SUBDIR_PREFIX "window"
+#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
+#define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #ifdef HAS_ZLIB
 #    define TRACE_SUFFIX "trace.gz"
@@ -739,6 +745,7 @@ protected:
                 buf += sizeof(*entry);
             } else {
                 // We should see an instr entry first
+                impl()->log(3, "extra memref entry: %p\n", in_entry->addr.addr);
                 return "memref entry found outside of bb";
             }
         } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {
@@ -1665,6 +1672,7 @@ protected:
         bool prev_instr_was_rep_string;
         app_pc last_decode_block_start;
         block_summary_t *last_block_summary;
+        uint64 last_window = 0;
 
         // Statistics on the processing.
         uint64 count_elided = 0;

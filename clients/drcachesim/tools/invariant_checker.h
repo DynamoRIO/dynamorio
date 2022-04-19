@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -99,6 +99,8 @@ protected:
         // operation.
         addr_t app_handler_pc_ = 0;
         offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
+        uintptr_t last_window_ = 0;
+        bool window_transition_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom

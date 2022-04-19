@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -3033,7 +3033,6 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     decode_info_init_for_instr(&di, instr);
-    di.opcode = instr_get_opcode(instr);
     di.check_reachable = check_reachable;
     di.start_pc = copy_pc;
     di.final_pc = final_pc;
@@ -3060,6 +3059,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         return copy_and_re_relativize_raw_instr(dcontext, instr, copy_pc, final_pc);
     }
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
+
+    /* We delay this until after handling raw instrs to avoid trying to get the opcode
+     * of a data-only instr.
+     */
+    di.opcode = instr_get_opcode(instr);
 
     info = instr_get_instr_info(instr);
     if (info == NULL) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -257,6 +257,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                           TRACE_MARKER_TYPE_KERNEL_EVENT ||
                       shard->prev_xfer_marker_.marker.marker_type ==
                           TRACE_MARKER_TYPE_KERNEL_XFER)) ||
+                    // We expect a gap on a window transition.
+                    shard->window_transition_ ||
                     shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER,
                 "Non-explicit control flow has no marker");
             // XXX: If we had instr decoding we could check direct branch targets
@@ -302,6 +304,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // prior (i#3937).
         shard->prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         shard->saw_timestamp_but_no_instr_ = false;
+        // Clear window transitions on instrs.
+        shard->window_transition_ = false;
     } else if (knob_verbose_ >= 3) {
         std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                   << " type " << memref.instr.type << "\n";
@@ -315,7 +319,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        // Ignore timestamp, etc. markers which show up a signal delivery boundaries
+        // Ignore timestamp, etc. markers which show up at signal delivery boundaries
         // b/c the tracer does a buffer flush there.
         (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
          memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) {
@@ -336,6 +340,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
         shard->prev_xfer_marker_ = memref;
         shard->last_xfer_marker_ = memref;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID) {
+        if (shard->last_window_ != memref.marker.marker_value)
+            shard->window_transition_ = true;
+        shard->last_window_ = memref.marker.marker_value;
     }
 
 #ifdef UNIX

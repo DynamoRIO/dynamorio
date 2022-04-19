@@ -1,5 +1,5 @@
  /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,12 +53,17 @@ _start:
         cld
         rep      movsb
 
-        // Print end message.
+        // Print a message in a loop for testing tracing windows.
+        mov      ebx, 10          // Loop count.
+repeat:
         mov      rdi, 2           // stderr
         lea      rsi, hello_str
         mov      rdx, 13          // sizeof(hello_str)
         mov      eax, 1           // SYS_write
         syscall
+        dec      ebx
+        cmp      ebx, 0
+        jnz      repeat
 
         // Exit.
         mov      rdi, 0           // exit code

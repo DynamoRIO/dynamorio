@@ -105,6 +105,7 @@
 
 /* features */
 #cmakedefine HAVE_FVISIBILITY
+#cmakedefine HAVE_FNOSANITIZE_NULL
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
 #cmakedefine HAVE_RSEQ

@@ -126,10 +126,16 @@ clients.
 
 The changes between version \DR_VERSION and 9.0.1 include the following compatibility
 changes:
- - Nothing yet (placeholder).
+ - Eliminated the -skip_syscall option to drrun and drinject, which is now always
+   on by default.
 
 Further non-compatibility-affecting changes include:
+ - Added AArchXX support for attaching to a running process.
  - Added new fields analyze_case_ex and instrument_instr_ex to #drbbdup_options_t.
+ - Added drbbdup support to drwrap via #DRWRAP_INVERT_CONTROL, drwrap_invoke_insert(),
+   and drwrap_invoke_insert_cleanup_only().
+ - Added -trace_for_instrs and -retrace_every_instrs options to drcachesim
+   for periodic trace bustrs of an unmodified application.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
@@ -149,6 +155,9 @@ Further non-compatibility-affecting changes include:
  - Added droption_parser_t::clear_values() for re-setting accumulating option
    values on re-attach for statically linked clients.
  - Added the count of cache exits to #dr_stats_t.
+ - Added dr_register_inject_paths() and a corresponding -use_alt_dll drrun/drconfig
+   parameter for control over DynamoRIO library paths, in particular the other
+   bitwidth path, when configuring target processes.
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:
@@ -1976,7 +1985,6 @@ We hope to include the following major features in future releases:
    parent process, injection is very early (before kernel32.dll is loaded),
    but we plan to provide injection at the very first user-mode instruction
    in the future.
- - Linux externally-triggered attaching.
  - Persistent and process-shared code caches.
  - Full control over trace building.
 

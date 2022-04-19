@@ -206,6 +206,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             # FIXME i#2145: ignoring certain Windows CI test failures until
             # we get all tests passing.
             %ignore_failures_32 = (
+                # i#5195: These are failing on GA Server19.
+                'code_api|client.drsyms-test' => 1, # i#5195
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
                 'code_api|win32.earlythread' => 1, # i#4131
@@ -242,7 +244,11 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
                 );
+
             %ignore_failures_64 = (
+                # i#5195: These are failing on GA Server19.
+                'code_api|client.drsyms-test' => 1, # i#5195
+                'code_api|client.drsyms-testgcc' => 1, # i#5195
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
                 'code_api|client.cleancall' => 1, # i#4618
@@ -273,7 +279,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.nudge_ex' => 1,
                 'code_api|client.alloc-noreset' => 1, # i#4436
                 'code_api|api.detach_spawn' => 1, # i#2611
-                'code_api|api.static_noclient' => 1,
                 'code_api|api.static_noinit' => 1,
                 # These are from the long suite.
                 'code_api,opt_memory|common.nativeexec' => 1, # i#1807
@@ -326,17 +331,11 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             # FIXME i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
                                    'code_api|pthreads.pthreads_exit' => 1,
-                                   'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,
                                    'code_api|linux.fib-conflict-early' => 1,
                                    'code_api|linux.mangle_asynch' => 1,
-                                   'code_api|tool.drcachesim.phys' => 1, # i#4922
-                                   'code_api|tool.drcachesim.TLB-threads' => 1, # i#4928
-                                   'code_api|tool.drcachesim.threads' => 1, # i#4928
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
-                                   'code_api|tool.drcachesim.threads-with-config-file' => 1, # i#4954
-                                   'code_api|tool.drcachesim.coherence' => 1, # i#2417
                                    );
             if ($is_32) {
                 $issue_no = "#2416";

@@ -33,7 +33,9 @@
 // Unit tests for drcachesim
 #include <iostream>
 #include <cstdlib>
+#undef NDEBUG
 #include <assert.h>
+#include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
 
@@ -313,5 +315,6 @@ main(int argc, const char *argv[])
     unit_test_warmup_refs();
     unit_test_sim_refs();
     unit_test_child_hits();
+    unit_test_cache_replacement_policy();
     return 0;
 }

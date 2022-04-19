@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -292,6 +292,7 @@ run_limit_tests(void *drcontext)
         gen_marker(t2, TRACE_MARKER_TYPE_FILETYPE, 0),
         gen_marker(t2, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
         gen_marker(t2, TRACE_MARKER_TYPE_TIMESTAMP, 101),
+        gen_marker(t2, TRACE_MARKER_TYPE_CPU_ID, 3),
         gen_instr(t2, offs_nop1),
         gen_data(t2, true, 0x42, 4),
         gen_branch(t2, offs_jz),

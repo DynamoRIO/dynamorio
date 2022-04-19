@@ -113,7 +113,7 @@ set(main_run_list
   "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
   "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
   # XXX i#3556: NYI on Windows and Mac (and not supported on 32-bit).
-  "SHORT::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability|fork$::-code_api -satisfy_w_xor_x"
+  "SHORT::X64::LIN::ONLY::drcache.*\\.simple$|selfmod2|racesys|reachability|fork|file_io|loglevel$::-code_api -satisfy_w_xor_x"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "X86::-code_api -opt_memory"       # i#1575: ARM -coarse_units NYI
   "X86::-code_api -opt_speed"        # i#1551: ARM indcall2direct NYI
@@ -1031,9 +1031,6 @@ function(template2expect outexpect template runops key)
   elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.3")
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
   endif ()
-  if (WIN32 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 19.0)
-    set(rundefs "${rundefs} -DPRE_VS2015")
-  endif ()
   if (${key}_is_cygwin)
     # i#1478 option used to avoid cygwin messes up output issue: though
     # whether the output is messed up seems to depend on the cygwin version,
@@ -1319,6 +1316,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
+      endif ()
+      if ("${runall}" MATCHES "<block>")
+        set(exe_ops "${exe_ops};-block")
       endif ()
     else ()
       if ("${runall}" MATCHES "<attach>")
@@ -2389,9 +2389,11 @@ if (ANNOTATIONS AND NOT ARM)
 endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
-  if (X86) # TODO i#38,i#1550: Port injector.c attach gencode to AArchXX.
-    # TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
-    tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (UNIX)
+    # Test attaching during a blocking syscall.
+    torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
+      client-interface/attach_blocking.runall "" "" "")
   endif ()
 endif ()
 
@@ -2576,22 +2578,49 @@ target_include_directories(client.drx_buf-test PRIVATE
 
 tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
+
+# XXX i#1884: The thread-private option is not yet available for ARM.
+if (X86)
+  # Same drbbdup test but with thread-private code caches.
+  torunonly_ci(client.drbbdup-thread-private-test ${ci_shared_app}
+    client.drbbdup-test.dll client-interface/drbbdup-test.c "" "-thread_private" "")
+endif (X86)
+
+macro(drbbdup_bb_test test)
+  add_exe(client.${test}-exe client-interface/${test}.asm)
+  set_target_properties(client.${test}-exe PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(client.${test}-exe "-nostartfiles -nodefaultlibs -static")
+
+  add_library(client.${test}.dll SHARED  client-interface/${test}.dll.c)
+  setup_test_client_dll_basics(client.${test}.dll)
+  use_DynamoRIO_extension(client.${test}.dll drmgr)
+  use_DynamoRIO_extension(client.${test}.dll drbbdup)
+
+  torunonly_ci(client.${test} client.${test}-exe
+    client.${test}.dll client-interface/${test}.asm "" "-max_bb_instrs 0" "")
+endmacro(drbbdup_bb_test)
+
+if (X86 AND X64 AND LINUX)
+  drbbdup_bb_test(drbbdup-meta-label-bb-test)
+  drbbdup_bb_test(drbbdup-meta-nop-bb-test)
+  drbbdup_bb_test(drbbdup-empty-bb-test)
+endif (X86 AND X64 AND LINUX)
 
 tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
+
+tobuild_ci(client.drbbdup-no-dup-test client-interface/drbbdup-no-dup-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drbbdup)
 
 tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)
 
 tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
 
 tobuild_appdll(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c)
@@ -2602,6 +2631,12 @@ tobuild_ci(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c "" 
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drbbdup)
 use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drwrap)
+
+tobuild_ci(client.drbbdup-emul-test client-interface/drbbdup-emul-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drutil)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drbbdup)
+use_DynamoRIO_extension(client.drbbdup-emul-test.dll drreg)
 
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
@@ -2990,10 +3025,8 @@ endif ()
 if (NOT ANDROID AND NOT APPLE)
   tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_startstop ${libmath})
-  if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
-    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
-    target_link_libraries(api.static_noclient ${libmath})
-  endif ()
+  tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
+  target_link_libraries(api.static_noclient ${libmath})
   tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON OFF)
   target_link_libraries(api.static_noinit ${libmath})
   tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON OFF)
@@ -3316,6 +3349,9 @@ if (BUILD_CLIENTS)
       "-simulator_type basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
       "${annotation_test_args_shorter}")
 
+    torunonly_drcachesim(windows-simple ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -simulator_type basic_counts" "")
+
     # Test that "Warmup hits" and "Warmup misses" are printed out
     torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
 
@@ -3528,6 +3564,13 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
     endif ()
 
+    # Sanity check for snappy compression of raw output files.
+    torunonly_drcacheoff(raw-snappy ${ci_shared_app} "-raw_compress snappy" "" "")
+    set(tool.drcacheoff.raw-snappy_expectbase "offline-simple")
+    torunonly_drcacheoff(raw-snappy-nocrc ${ci_shared_app}
+      "-raw_compress snappy_nocrc" "" "")
+    set(tool.drcacheoff.raw-snappy-nocrc_expectbase "offline-simple")
+
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
       # with a parallel tool (basic_counts)
@@ -3569,10 +3612,40 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
       # tracing is delayed (i#4893).
+      # Update: drmemtrace now does not even create an output file if tracing
+      # never starts, so this now serves as a test of that.  It only tests
+      # delayed function tracing if enough such tracing accumulated to output
+      # on its own which would assert on not having a file.
       # This is also large enough to test the (non-triggering portion of) the
       # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
+    # There is now no data file at all: which we test by echoing the glob.
+    set(tool.drcacheoff.delay-func_nopost ON)
+    set(tool.drcacheoff.delay-func_postcmd
+      "${CMAKE_COMMAND}@-E@echo@${dir_prefix}.*.dir/raw/*raw*")
+
+    torunonly_drcacheoff(windows-simple ${ci_shared_app}
+      "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    # Ensure the invariant checker handles window transitions.
+    torunonly_drcacheoff(windows-invar ${ci_shared_app}
+      "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@invariant_checker" "")
+    if (X86 AND X64 AND UNIX)
+      torunonly_drcacheoff(windows-asm allasm_repstr
+        "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+        "@-simulator_type@basic_counts" "")
+    endif ()
+    # Test split-file windows.
+    torunonly_drcacheoff(windows-split ${ci_shared_app}
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+    set(tool.drcacheoff.windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
@@ -4021,6 +4094,8 @@ if (UNIX)
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       if (TEST_SUITE AND TEST_32BIT_PATH)
+        # XXX: Should we remove TEST_32BIT_PATH since we're not using it with
+        # our separate 32- and 64-bit jobs (replaced by our test-and-build)?
         tobuild_ops(linux.execve64 linux/execve.c ""
           "${TEST_32BIT_PATH}/linux.execve-sub32")
         torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
@@ -4028,26 +4103,99 @@ if (UNIX)
       else ()
         # If we didn't just build the entire 32-bit and so don't have an
         # install dir handy, we still perform a cross-arch test by building
-        # just the few binaries we need and faking a multi-arch install.
+        # just the few binaries we need and both faking a multi-arch install
+        # via symlinks and using -use_alt_dll to point to the other bitwidth.
         set(32dir ${CMAKE_CURRENT_BINARY_DIR}/32bit)
         set(test_bindir suite/tests/bin)
         file(MAKE_DIRECTORY ${32dir})
-        make_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}
-          ${32dir}/${INSTALL_LIB_BASE})
-        make_symlink(${32dir}/${INSTALL_LIB_X86}
-          ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
-        get_target_path_for_execution(drrun_path drrun "${location_suffix}")
         # We use a client that takes some options and prints something at
         # init and at exit to test cross-arch injection with clients.
         get_target_path_for_execution(client64_path client.large_options.dll
           "${location_suffix}")
         set(client32_path ${32dir}/${test_bindir}/libclient.large_options.dll.so)
+        # Hardcoding this path as the simplest solution:
+        if (DEBUG)
+          set(libdr_32bit_path "${32dir}/${INSTALL_LIB_X86}/debug/libdynamorio.so")
+        else ()
+          set(libdr_32bit_path "${32dir}/${INSTALL_LIB_X86}/release/libdynamorio.so")
+        endif ()
+
+        add_exe(linux.execve64 linux/execve.c)
+        # Use a relative path for the child's execve to stress i#1660, i#4892.
+        file(RELATIVE_PATH relative_sub32 "${CMAKE_CURRENT_BINARY_DIR}"
+          "${32dir}/${test_bindir}/linux.execve-sub32")
+        get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+        get_target_path_for_execution(drlib_path dynamorio "${location_suffix}")
+
+        # We have 2 tests (one each 32<->64 direction) for each of two configs:
+        # locating the other-bitwidth path via a config entry, or locating it
+        # via assumptions on side-by-side installation.
+        # To do both configs with just one build we run buth from a script which
+        # we generate here:
+        set(xarch_script "${CMAKE_CURRENT_BINARY_DIR}/linux.xarch.cmake")
+        file(WRITE "${xarch_script}"
+          "macro(make_symlink src dst)\n"
+          "  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink \${src} \${dst}\n"
+          "    RESULT_VARIABLE ln_result ERROR_VARIABLE ln_err)\n"
+          "  if (ln_result OR ln_err)\n"
+          "    message(FATAL_ERROR \"*** create symlink failed: \${ln_err} ***\")\n"
+          "  endif ()\n"
+          "endmacro()\n"
+          "macro(remove_symlink link)\n"
+          "  execute_process(COMMAND ${CMAKE_COMMAND} -E remove \${link}\n"
+          "    RESULT_VARIABLE rm_result ERROR_VARIABLE rm_err)\n"
+          "  if (rm_result OR rm_err)\n"
+          "    message(FATAL_ERROR \"*** remove symlink failed: \${rm_err} ***\")\n"
+          "  endif ()\n"
+          "endmacro()\n"
+          "# 32 to 64, assumed layout:\n"
+          "make_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}\n"
+          "  ${32dir}/${INSTALL_LIB_BASE})\n"
+          "make_symlink(${32dir}/${INSTALL_LIB_X86}\n"
+          "  ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path} -32\n"
+          "  -dr_home ${32dir} ${dr_test_ops}\n"
+          "  # We test the \"-c32 -c64\" syntax here.\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${32dir}/${test_bindir}/linux.execve32\n"
+          "  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64\")\n"
+          "# 64 to 32, assumed layout:\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path} ${dr_test_ops}\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64\n"
+          "  \"${relative_sub32}\")\n"
+          "remove_symlink(${32dir}/${INSTALL_LIB_BASE})\n"
+          "remove_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})\n"
+          "# 32 to 64, config entry (symlinks are gone so assumptions fail):\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path} -32\n"
+          "  -use_alt_dll ${drlib_path} \n"
+          "  -dr_home ${32dir} ${dr_test_ops}\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${32dir}/${test_bindir}/linux.execve32\n"
+          "  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64\")\n"
+          "# 64 to 32, config entry (symlinks are gone so assumptions fail):\n"
+          "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}\n"
+          "  COMMAND ${drrun_path}\n"
+          # Hardcoding this path as the simplest solution:
+          "  -use_alt_dll ${libdr_32bit_path}\n"
+          "  ${dr_test_ops}\n"
+          "  -c32 ${client32_path} -paramA foo -paramB bar --\n"
+          "  -c64 ${client64_path} -paramA foo -paramB bar --\n"
+          "  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64\n"
+          "  \"${relative_sub32}\")\n"
+          )
         if (DEBUG)
           set(config_type -DDEBUG=ON)
         else ()
           set(config_type "")
         endif ()
-        add_test(linux.execve32 ${CMAKE_CTEST_COMMAND} -V
+        add_test(linux.xarch ${CMAKE_CTEST_COMMAND} -V
           --build-and-test ${PROJECT_SOURCE_DIR} ${32dir}
           --build-generator ${CMAKE_GENERATOR}
           --build-target dynamorio
@@ -4058,34 +4206,16 @@ if (UNIX)
           --build-makeprogram ${CMAKE_MAKE_PROGRAM}
           --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
           -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
-          --test-command ${drrun_path} -32
-          -dr_home ${32dir} ${dr_test_ops}
-          # We test the "-c32 -c64" syntax here.
-          -c32 ${client32_path} -paramA foo -paramB bar --
-          -c64 ${client64_path} -paramA foo -paramB bar --
-          ${32dir}/${test_bindir}/linux.execve32
-          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
+          --test-command ${CMAKE_COMMAND} -P ${xarch_script})
         file(READ linux/execve-client.expect expect)
-        set_tests_properties(linux.execve32 PROPERTIES ENVIRONMENT
+        set_tests_properties(linux.xarch PROPERTIES ENVIRONMENT
           "CFLAGS=-m32;CXXFLAGS=-m32"
           # We do not try to indirect this so we have to read .expect manually.
           # We simplify and assume no regex chars.
-          # We start with .* for all the config and build stuff.
-          PASS_REGULAR_EXPRESSION ".*${expect}[ \n]*$")
-        # We can't get the depends property right b/c execve32 has no prefix,
-        # so we do this one directly too.
-        add_exe(linux.execve64 linux/execve.c)
-        # Use a relative path for the child's execve to stress i#1660, i#4892.
-        file(RELATIVE_PATH relative_sub32 "${CMAKE_CURRENT_BINARY_DIR}"
-          "${32dir}/${test_bindir}/linux.execve-sub32")
-        add_test(linux.execve64 ${drrun_path} ${dr_test_ops}
-          # We test the "-c32 -c64" syntax for the other direction.
-          -c32 ${client32_path} -paramA foo -paramB bar --
-          -c64 ${client64_path} -paramA foo -paramB bar --
-          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64
-          "${relative_sub32}")
-        set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
-          PASS_REGULAR_EXPRESSION "^${expect}$")
+          # We start with .* for all the config and build stuff and then we
+          # expect 4 straight identical test outputs.
+          PASS_REGULAR_EXPRESSION
+          ".*${expect}[ \n]*${expect}[ \n]*${expect}[ \n]*${expect}[ \n]*$")
       endif ()
     else (X64)
       add_exe(linux.execve-sub32 linux/execve-sub.c)

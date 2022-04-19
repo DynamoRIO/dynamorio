@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -1427,13 +1427,21 @@ static const redirect_import_t redirect_imports[] = {
     { "free", (app_pc)redirect_free },
     { "realloc", (app_pc)redirect_realloc },
     { "strdup", (app_pc)redirect_strdup },
-/* TODO i#4243: we should also redirect functions including:
- * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
- * + tcmalloc: tc_malloc, tc_free, etc.
- * + __libc_malloc, __libc_free, etc.
- * + OSX: malloc_zone_malloc, etc.?  Or just malloc_create_zone?
- * + C++ operators in case they don't just call libc malloc?
- */
+    /* TODO i#4243: we should also redirect functions including:
+     * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
+     * + tcmalloc: tc_malloc, tc_free, etc.
+     * + __libc_malloc, __libc_free, etc.
+     * + OSX: malloc_zone_malloc, etc.?  Or just malloc_create_zone?
+     * + C++ operators in case they don't just call libc malloc?
+     */
+    /* We redirect these for fd isolation. */
+    { "open", (app_pc)os_open_protected },
+    { "close", (app_pc)os_close_protected },
+    /* These libc routines can call pthread functions and cause hangs (i#4928) so
+     * we use our syscall wrappers instead.
+     */
+    { "read", (app_pc)os_read },
+    { "write", (app_pc)os_write },
 #if defined(LINUX) && !defined(ANDROID)
     { "__tls_get_addr", (app_pc)redirect___tls_get_addr },
     { "___tls_get_addr", (app_pc)redirect____tls_get_addr },
@@ -1811,13 +1819,18 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { { 0 } };
 
-    os_page_size_init(env, true);
+    /* We can't use PAGE_SIZE as that may require relocations to access. */
+    const int min_page_size = 4096;
 
     if (dr_map == NULL) {
+        /* We can't start with the address of relocate_dynamorio or something as that
+         * may require relocations to access!
+         */
+        GET_CUR_PC(dr_map);
         /* we do not know where dynamorio is, so check backward page by page */
-        dr_map = (app_pc)ALIGN_BACKWARD((ptr_uint_t)relocate_dynamorio, PAGE_SIZE);
+        dr_map = (app_pc)ALIGN_BACKWARD(dr_map, min_page_size);
         while (dr_map != NULL && !privload_mem_is_elf_so_header(dr_map)) {
-            dr_map -= PAGE_SIZE;
+            dr_map -= min_page_size;
         }
     }
     if (dr_map == NULL)
@@ -1826,6 +1839,8 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     /* Relocate it */
     if (privload_get_os_privmod_data(dr_map, &opd))
         privload_early_relocate_os_privmod_data(&opd, dr_map);
+
+    os_page_size_init(env, true);
 }
 
 /* i#1227: on a conflict with the app we reload ourselves.

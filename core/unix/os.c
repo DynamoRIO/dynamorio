@@ -271,12 +271,20 @@ handle_app_brk(dcontext_t *dcontext, byte *lowest_brk /*if known*/, byte *old_br
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH]; /* just dir */
 static char dynamorio_library_filepath[MAXIMUM_PATH];
+/* Shared between get_dynamo_library_bounds() and get_alt_dynamo_library_bounds(). */
+static char dynamorio_libname_buf[MAXIMUM_PATH];
+static const char *dynamorio_libname = dynamorio_libname_buf;
 /* Issue 20: path to other architecture */
-static char dynamorio_alt_arch_path[MAXIMUM_PATH];
-static char dynamorio_alt_arch_filepath[MAXIMUM_PATH]; /* just dir */
+static char dynamorio_alt_arch_path[MAXIMUM_PATH]; /* just dir */
+static char dynamorio_alt_arch_filepath[MAXIMUM_PATH];
 /* Makefile passes us LIBDIR_X{86,64} defines */
 #define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
 #define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
+
+static void
+get_dynamo_library_bounds(void);
+static void
+get_alt_dynamo_library_bounds(void);
 
 /* pc values delimiting dynamo dll image */
 static app_pc dynamo_dll_start = NULL;
@@ -325,9 +333,21 @@ static int min_dr_fd;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
-#ifdef DEBUG
+/* DR needs to open some files before the fd_table is allocated by d_r_os_init.
+ * This is due to constraints on the order of invoking various init routines in
+ * the dynamorio_app_init_part_* routines.
+ * - dynamorio_app_init_part_one_options opens the global log file when logging
+ *   is enabled in the debug build.
+ * - vmm_heap_unit_init opens the dual_map_file when -satisfy_w_xor_x is set.
+
+ * For these files, fd_table_add would not be able to really add the FD.
+ * Therefore, we have to remember them so that we can add it to fd_table later
+ * when we create it.
+ */
+#define MAX_FD_ADD_PRE_HEAP 2
+static int fd_add_pre_heap[MAX_FD_ADD_PRE_HEAP];
+static int fd_add_pre_heap_flags[MAX_FD_ADD_PRE_HEAP];
 static int num_fd_add_pre_heap;
-#endif
 
 #ifdef LINUX
 /* i#1004: brk emulation */
@@ -878,6 +898,8 @@ d_r_os_init(void)
     /* Populate global data caches. */
     get_application_name();
     get_application_base();
+    get_dynamo_library_bounds();
+    get_alt_dynamo_library_bounds();
 
     /* determine whether gettid is provided and needed for threads,
      * or whether getpid suffices.  even 2.4 kernels have gettid
@@ -928,10 +950,14 @@ d_r_os_init(void)
     fd_table = generic_hash_create(
         GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_FD, 80 /* load factor: not perf-critical */,
         HASHTABLE_SHARED | HASHTABLE_PERSISTENT, NULL _IF_DEBUG("fd table"));
-#ifdef DEBUG
-    if (GLOBAL != INVALID_FILE)
-        fd_table_add(GLOBAL, OS_OPEN_CLOSE_ON_FORK);
-#endif
+    /* Add to fd_table the entries that we could not add before as fd_table was
+     * not initialized.
+     */
+    while (num_fd_add_pre_heap > 0) {
+        num_fd_add_pre_heap--;
+        fd_table_add(fd_add_pre_heap[num_fd_add_pre_heap],
+                     fd_add_pre_heap_flags[num_fd_add_pre_heap]);
+    }
 
     /* Ensure initialization */
     get_dynamorio_dll_start();
@@ -1364,7 +1390,7 @@ os_slow_exit(void)
 
     if (doing_detach) {
         vsyscall_page_start = NULL;
-        IF_DEBUG(num_fd_add_pre_heap = 0;)
+        ASSERT(num_fd_add_pre_heap == 0);
     }
 
     DELETE_LOCK(set_thread_area_lock);
@@ -3671,7 +3697,7 @@ bool
 os_thread_terminate(thread_record_t *tr)
 {
     /* PR 297902: for NPTL sending SIGKILL will take down the whole group:
-     * so instead we send SIGUSR2 and have a flag set telling
+     * so instead we send SUSPEND_SIGNAL and have a flag set telling
      * target thread to execute SYS_exit
      */
     os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;
@@ -4138,11 +4164,29 @@ fd_table_add(file_t fd, uint flags)
                          (void *)(ptr_uint_t)(flags | OS_OPEN_RESERVED));
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
-#ifdef DEBUG
-        num_fd_add_pre_heap++;
-        /* we add main_logfile in d_r_os_init() */
-        ASSERT(num_fd_add_pre_heap == 1 && "only main_logfile should come here");
-#endif
+        /* We come here only for the main_logfile and the dual_map_file, which
+         * we add to the fd_table in d_r_os_init().
+         */
+        ASSERT(num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP &&
+               num_fd_add_pre_heap < (DYNAMO_OPTION(satisfy_w_xor_x) ? 2 : 1) &&
+               "only main_logfile and dual_map_file should come here");
+        if (num_fd_add_pre_heap < MAX_FD_ADD_PRE_HEAP) {
+            fd_add_pre_heap[num_fd_add_pre_heap] = fd;
+            fd_add_pre_heap_flags[num_fd_add_pre_heap] = flags;
+            num_fd_add_pre_heap++;
+        }
+    }
+}
+
+void
+fd_table_remove(file_t fd)
+{
+    if (fd_table != NULL) {
+        TABLE_RWLOCK(fd_table, write, lock);
+        generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)fd);
+        TABLE_RWLOCK(fd_table, write, unlock);
+    } else {
+        ASSERT(dynamo_exited);
     }
 }
 
@@ -4192,12 +4236,7 @@ os_open_protected(const char *fname, int os_open_flags)
 void
 os_close_protected(file_t f)
 {
-    ASSERT(fd_table != NULL || dynamo_exited);
-    if (fd_table != NULL) {
-        TABLE_RWLOCK(fd_table, write, lock);
-        generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)f);
-        TABLE_RWLOCK(fd_table, write, unlock);
-    }
+    fd_table_remove(f);
     os_close(f);
 }
 
@@ -4421,6 +4460,7 @@ os_create_memory_file(const char *name, size_t size)
     }
     fd = priv_fd;
     fd_mark_close_on_exec(fd); /* We could use MFD_CLOEXEC for memfd_create. */
+    fd_table_add(fd, 0 /*keep across fork*/);
     return fd;
 #else
     ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
@@ -4440,6 +4480,7 @@ os_delete_memory_file(const char *name, file_t fd)
     os_get_memory_file_shm_path(name, path, BUFFER_SIZE_ELEMENTS(path));
     NULL_TERMINATE_BUFFER(path);
     os_delete_file(path);
+    fd_table_remove(fd);
     close_syscall(fd);
 #else
     ASSERT_NOT_IMPLEMENTED(false && "i#3556 NYI for Mac");
@@ -5502,8 +5543,10 @@ static const char *const env_to_propagate[] = {
     DYNAMORIO_VAR_EXECVE_LOGDIR,
     /* i#909: needed for early injection */
     DYNAMORIO_VAR_EXE_PATH,
-    /* these will only be propagated if they exist */
+    /* These will only be propagated if they exist: */
     DYNAMORIO_VAR_CONFIGDIR,
+    DYNAMORIO_VAR_AUTOINJECT,
+    DYNAMORIO_VAR_ALTINJECT,
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate) / sizeof(env_to_propagate[0]))
 
@@ -5848,11 +5891,13 @@ handle_execve(dcontext_t *dcontext)
      * in fs/exec.c:
      *  int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs)
      */
-    /* We need to make sure we get injected into the new image:
+    /* We need to make sure we get injected into the new image.
+     *
+     * For legacy late injection:
      * we simply make sure LD_PRELOAD contains us, and that our directory
      * is on LD_LIBRARY_PATH (seems not to work to put absolute paths in
      * LD_PRELOAD).
-     * FIXME: this doesn't work for setuid programs
+     * (This doesn't work for setuid programs though.)
      *
      * For -follow_children we also pass the current DYNAMORIO_RUNUNDER and
      * DYNAMORIO_OPTIONS and logdir to the new image to support a simple
@@ -8340,7 +8385,21 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                 * read, so pass size=0 to use a safe_read.
                 */
                module_is_header(base, 0)) {
-        if (module_is_partial_map(base, size, memprot)) {
+#ifdef ANDROID
+        /* The Android loader's initial all-segment-covering mmap is anonymous */
+        dr_mem_info_t info;
+        if (query_memory_ex_from_os((byte *)ALIGN_FORWARD(base + size, PAGE_SIZE),
+                                    &info) &&
+            info.prot == MEMPROT_NONE && info.type == DR_MEMTYPE_DATA) {
+            LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": Android elf\n", base);
+            image = true;
+            DODEBUG({ map_type = "ELF SO"; });
+            os_add_new_app_module(dcontext, true /*at_map*/, base,
+                                  /* pass segment size, not whole module size */
+                                  size, memprot);
+        } else
+#endif
+            if (module_is_partial_map(base, size, memprot)) {
             /* i#1240: App might read first page of ELF header using mmap, which
              * might accidentally be treated as a module load. Heuristically
              * distinguish this by saying that if this is the first mmap for an ELF
@@ -8349,27 +8408,10 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
              */
             LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": partial\n", base);
         } else {
-#ifdef ANDROID
-            /* The Android loader's initial all-segment-covering mmap is anonymous */
-            dr_mem_info_t info;
-            if (query_memory_ex_from_os((byte *)ALIGN_FORWARD(base + size, PAGE_SIZE),
-                                        &info) &&
-                info.prot == MEMPROT_NONE && info.type == DR_MEMTYPE_DATA) {
-                LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": Android elf\n", base);
-                image = true;
-                DODEBUG({ map_type = "ELF SO"; });
-                os_add_new_app_module(dcontext, true /*at_map*/, base,
-                                      /* pass segment size, not whole module size */
-                                      size, memprot);
-            } else {
-#endif
-                LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": elf header\n", base);
-                image = true;
-                DODEBUG({ map_type = "ELF SO"; });
-                os_add_new_app_module(dcontext, true /*at_map*/, base, size, memprot);
-#ifdef ANDROID
-            }
-#endif
+            LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": elf header\n", base);
+            image = true;
+            DODEBUG({ map_type = "ELF SO"; });
+            os_add_new_app_module(dcontext, true /*at_map*/, base, size, memprot);
         }
     }
 
@@ -9200,6 +9242,8 @@ extern int dynamorio_so_start, dynamorio_so_end;
 static void
 get_dynamo_library_bounds(void)
 {
+    if (dynamorio_library_filepath[0] != '\0') /* Already cached. */
+        return;
     /* Note that we're not counting DYNAMORIO_PRELOAD_NAME as a DR area, to match
      * Windows, so we should unload it like we do there. The other reason not to
      * count it is so is_in_dynamo_dll() can be the only exception to the
@@ -9207,8 +9251,6 @@ get_dynamo_library_bounds(void)
      */
     int res;
     app_pc check_start, check_end;
-    char *libdir;
-    const char *dynamorio_libname = NULL;
     bool do_memquery = true;
 #ifdef STATIC_LIBRARY
 #    ifdef LINUX
@@ -9259,7 +9301,6 @@ get_dynamo_library_bounds(void)
 #endif /* STATIC_LIBRARY */
 
     if (do_memquery) {
-        static char dynamorio_libname_buf[MAXIMUM_PATH];
         res = memquery_library_bounds(
             NULL, &check_start, &check_end, dynamorio_library_path,
             BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
@@ -9291,29 +9332,67 @@ get_dynamo_library_bounds(void)
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
         dynamo_dll_start, dynamo_dll_end);
 
-    /* Issue 20: we need the path to the alt arch */
-    strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
-            BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
-    /* Assumption: libdir name is not repeated elsewhere in path */
-    libdir = strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
-    if (libdir != NULL) {
-        const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
-        /* do NOT place the NULL */
-        strncpy(libdir, newdir, strlen(newdir));
-    } else {
-        SYSLOG_INTERNAL_WARNING("unable to determine lib path for cross-arch execve");
-    }
-    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
-    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
-        dynamorio_alt_arch_path);
-    snprintf(dynamorio_alt_arch_filepath,
-             BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath), "%s%s",
-             dynamorio_alt_arch_path, dynamorio_libname);
-    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
-
     if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2, get_application_name(),
                                     get_application_pid());
+    }
+}
+
+/* Determines and caches the alternative-bitwidth libdynamorio path.
+ * Assumed to be called at single-threaded initialization time as it sets
+ * global buffers.
+ * get_dynamo_library_bounds() must be called first.
+ */
+static void
+get_alt_dynamo_library_bounds(void)
+{
+    if (dynamorio_alt_arch_filepath[0] != '\0') /* Already cached. */
+        return;
+    /* Set by get_dynamo_library_bounds(). */
+    ASSERT(dynamorio_library_path[0] != '\0');
+    ASSERT(d_r_config_initialized());
+
+    const char *config_alt_path = get_config_val(DYNAMORIO_VAR_ALTINJECT);
+    if (config_alt_path != NULL && config_alt_path[0] != '\0') {
+        strncpy(dynamorio_alt_arch_filepath, config_alt_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath));
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
+        /* We don't really need just the dir (used for the old LD_PRELOAD) but
+         * we compute it for the legacy code.
+         */
+        const char *sep = strrchr(dynamorio_alt_arch_filepath, '/');
+        if (sep != NULL) {
+            strncpy(dynamorio_alt_arch_path, dynamorio_alt_arch_filepath,
+                    sep - dynamorio_alt_arch_filepath);
+            NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
+        }
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch filepath: %s\n",
+            dynamorio_alt_arch_filepath);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
+            dynamorio_alt_arch_path);
+    } else {
+        /* Construct a path under assumptions of build-time path names. */
+        strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
+                BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
+        /* Assumption: libdir name is not repeated elsewhere in path */
+        char *libdir =
+            strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
+        if (libdir != NULL) {
+            const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
+            /* do NOT place the NULL */
+            strncpy(libdir, newdir, strlen(newdir));
+        } else {
+            SYSLOG_INTERNAL_WARNING("unable to determine lib path for cross-arch execve");
+        }
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch path: %s\n",
+            dynamorio_alt_arch_path);
+        snprintf(dynamorio_alt_arch_filepath,
+                 BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath), "%s%s",
+                 dynamorio_alt_arch_path, dynamorio_libname);
+        NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
+        LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " alt arch filepath: %s\n",
+            dynamorio_alt_arch_filepath);
     }
 }
 

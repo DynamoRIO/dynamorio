@@ -1,6 +1,6 @@
 #ifdef WINDOWS
-compound arg std::nothrow_t has 0 field\(s\), size 1
-(compound arg `anonymous-namespace'::HasFields has 4 field\(s\), size 12
+(compound arg std::nothrow_t has 0 field\(s\), size 1
+compound arg `anonymous-namespace'::HasFields has 4 field\(s\), size 12
   class field 0 is type 1 and size 4
   class field 1 is type 1 and size 1
   class field 2 is type 1 and size 2
@@ -9,6 +9,16 @@ compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
   class field 0 is type 3 and size 0
     func has 1 args
       arg 0 is type 1 and size 4
+|compound arg std::nothrow_t has 0 field\(s\), size 1
+compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
+  class field 0 is type 3 and size 0
+    func has 1 args
+      arg 0 is type 1 and size 4
+compound arg `anonymous-namespace'::HasFields has 4 field\(s\), size 12
+  class field 0 is type 1 and size 4
+  class field 1 is type 1 and size 1
+  class field 2 is type 1 and size 2
+  class field 3 is type 6 and size 4
 |compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
   class field 0 is type 3 and size 0
     func has 1 args
@@ -18,6 +28,17 @@ compound arg `anonymous-namespace'::HasFields has 4 field\(s\), size 12
   class field 1 is type 1 and size 1
   class field 2 is type 1 and size 2
   class field 3 is type 6 and size 4
+compound arg std::nothrow_t has 0 field\(s\), size 1
+|compound arg `anonymous-namespace'::HasFields has 4 field\(s\), size 12
+  class field 0 is type 1 and size 4
+  class field 1 is type 1 and size 1
+  class field 2 is type 1 and size 2
+  class field 3 is type 6 and size 4
+compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
+  class field 0 is type 3 and size 0
+    func has 1 args
+      arg 0 is type 1 and size 4
+compound arg std::nothrow_t has 0 field\(s\), size 1
 )found all overloads
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>

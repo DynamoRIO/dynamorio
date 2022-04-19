@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -787,10 +787,14 @@ if (UNIX)
   if (suggest_override_avail)
     set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
   endif ()
+  # Try to support users setting -m32 in CMAKE_C_FLAGS rather than the
+  # CFLAGS env var.
   if (X86)
     if (X64)
+      set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
       set(LD_FLAGS "-melf_x86_64")
     else (X64)
+      set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
       set(LD_FLAGS "-melf_i386")
     endif (X64)
   elseif (ARM)
@@ -1028,6 +1032,9 @@ if (UNIX)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=${VISIBILITY}")
     set(HAVE_FVISIBILITY ON)
   endif (VISIBILITY)
+
+  # Check for -fno-sanitize=null
+  CHECK_C_COMPILER_FLAG("-fno-sanitize=null" HAVE_FNOSANITIZE_NULL)
 
   if (APPLE OR LINKER_IS_GNU_GOLD)
     # XXX: for macos, currently assuming using xcode toolchain.
@@ -1456,36 +1463,37 @@ endmacro()
 # tests in our suite.
 # The system dbghelp pre-Vista is too old, so we copy one from VS.
 # We locate it here for use in both subdirs.
+# We just try all variants that we can to avoid the complexities of which
+# versions are in "Program Files" vs "Program Files (x86)".
+set(PROGFILES "$ENV{PROGRAMW6432}")
+set(PROGFILES32 "$ENV{ProgramFiles\(x86\)}")
+if ("${PROGFILES}" STREQUAL "")
+  set(PROGFILES "$ENV{PROGRAMFILES}")
+endif ()
 if (X64)
-  set(PROGFILES "$ENV{PROGRAMW6432}") # cmake is 32-bit
-  set(PROGFILES32 "$ENV{ProgramFiles\(x86\)}")
-  if ("${PROGFILES32}" STREQUAL "")
-    set(PROGFILES32 "$ENV{PROGRAMFILES}")
-  endif ()
   set(ARCH_SFX "x64")
 else (X64)
-  set(PROGFILES "$ENV{PROGRAMFILES}")
-  set(PROGFILES32 "$ENV{PROGRAMFILES}")
   set(ARCH_SFX "x86")
 endif (X64)
 set(dbghelp_paths
   "${PROGFILES32}/Microsoft Visual Studio/*/Professional/Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
+  "${PROGFILES}/Microsoft Visual Studio/*/Professional/Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
+  "${PROGFILES32}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
-  "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll")
+  "${PROGFILES32}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll"
+  "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll"
+  "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll"
+  "${PROGFILES}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll")
+# Older DTFW installed into its own dir:
 if (X64)
   set(dbghelp_paths ${dbghelp_paths}
-    # For Visual Studio 2010+, x64 dbghelp.dll resides in Program
-    # Files (x86) rather than Program Files.
-    "${PROGFILES32}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
-    # Older DTFW installed into its own dir:
     "${PROGFILES}/Debugging Tools for Windows (x64)/dbghelp.dll")
-else (X64)
+else ()
   set(dbghelp_paths ${dbghelp_paths}
-    "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll"
-    # Older DTFW installed into its own dir:
-    "${PROGFILES}/Debugging Tools for Windows/dbghelp.dll")
-endif (X64)
+  "${PROGFILES}/Debugging Tools for Windows/dbghelp.dll")
+endif ()
 file(GLOB dbghelp_loc ${dbghelp_paths})
+message(STATUS "For dbghelp, choosing among: ${dbghelp_loc}")
 if (dbghelp_loc)
   # i#1219: exclude VS2005 x64 dbghelp as it is buggy
   list(LENGTH dbghelp_loc dbghelp_max)
@@ -1758,6 +1766,9 @@ find_package(ZLIB)
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
 if (UNIX AND X64)
   find_library(libsnappy snappy)
+  if (libsnappy)
+    message(STATUS "Found snappy: ${libsnappy}")
+  endif ()
 
   # Locate non-standard snappy directories on macOS.
   # TODO: Write proper package for snappy lookup.

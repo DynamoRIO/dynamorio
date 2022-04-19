@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,6 +71,12 @@ public:
 
     static std::string
     tracedir_from_rawdir(const std::string &rawdir);
+
+    static std::string
+    window_subdir_if_present(const std::string &dir);
+
+    static bool
+    is_window_subdir(const std::string &dir);
 
     char *modfile_bytes_;
     std::vector<std::istream *> in_files_;
