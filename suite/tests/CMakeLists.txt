@@ -1317,6 +1317,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<block>")
+        set(exe_ops "${exe_ops};-block")
+      endif ()
     else ()
       if ("${runall}" MATCHES "<attach>")
         # For attach we use attachee, which is identical to infloop, aside for writing
@@ -2386,9 +2389,11 @@ if (ANNOTATIONS AND NOT ARM)
 endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
-  if (X86) # TODO i#38,i#1550: Port injector.c attach gencode to AArchXX.
-    # TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
-    tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (UNIX)
+    # Test attaching during a blocking syscall.
+    torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
+      client-interface/attach_blocking.runall "" "" "")
   endif ()
 endif ()
 

@@ -3697,7 +3697,7 @@ bool
 os_thread_terminate(thread_record_t *tr)
 {
     /* PR 297902: for NPTL sending SIGKILL will take down the whole group:
-     * so instead we send SIGUSR2 and have a flag set telling
+     * so instead we send SUSPEND_SIGNAL and have a flag set telling
      * target thread to execute SYS_exit
      */
     os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;

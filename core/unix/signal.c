@@ -305,8 +305,8 @@ static bool
 handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt);
 
 static bool
-handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
-                      sigframe_rt_t *frame);
+handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
+                      kernel_ucontext_t *ucxt, sigframe_rt_t *frame);
 
 static bool
 handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
@@ -5635,7 +5635,7 @@ main_signal_handler_C(byte *xsp)
 
     /* PR 212090: the signal we use to suspend threads */
     case SUSPEND_SIGNAL:
-        if (handle_suspend_signal(dcontext, ucxt, frame)) {
+        if (handle_suspend_signal(dcontext, siginfo, ucxt, frame)) {
             /* i#1921: see comment above */
             ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext));
             record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
@@ -7832,12 +7832,22 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
 
 /* Returns whether to pass on to app */
 static bool
-handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt, sigframe_rt_t *frame)
+handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
+                      kernel_ucontext_t *ucxt, sigframe_rt_t *frame)
 {
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     kernel_sigset_t prevmask;
     sig_full_cxt_t sc_full;
     ASSERT(ostd != NULL);
+
+    /* Distinguish up front from a synchronous app signal by looking for
+     * si_code where <=0 means user-sent.
+     * We distinguish further below from the rare case of an app sending
+     * SUSPEND_SIGNAL asynchronously by looking for our particular state settings
+     * that correspond to the use of this signal by DR..
+     */
+    if (siginfo->si_code > 0 || siginfo->si_signo != SUSPEND_SIGNAL)
+        return true; /* pass to app */
 
     if (ostd->terminate) {
         /* PR 297902: exit this thread, without using the dstack */
