@@ -58,6 +58,7 @@
  *   5) decode_fast tables if necessary (they are conservative)
  *   6) instr_create macros
  *   7) suite/tests/api/ir* tests
+ *   8) add binutils tests in third_party/binutils/test_decenc
  */
 /** Opcode constants for use in the instr_t data structure. */
 enum {
