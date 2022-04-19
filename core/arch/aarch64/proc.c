@@ -104,6 +104,7 @@ proc_init_arch(void)
     }
 
 #ifndef DR_HOST_NOT_TARGET
+#    if !defined(MACOS)
     get_processor_specific_info();
 
     DOLOG(1, LOG_TOP, {
@@ -135,6 +136,7 @@ proc_init_arch(void)
         /* FIXME i#5474: Log all FEATURE_s for ID_AA64PFR0_EL1. */
         LOG_FEATURE(FEATURE_FP16);
     });
+#    endif
 #endif
 }
 

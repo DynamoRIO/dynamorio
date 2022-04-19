@@ -1336,7 +1336,18 @@ new_thread_setup(priv_mcontext_t *mc);
 #    ifdef MACOS
 void
 new_bsdthread_setup(priv_mcontext_t *mc);
+// Enable writing to MAP_JIT pages.
+#        define pthread_jit_write() pthread_jit_write_protect_np(false)
+// Enable executing MAP_JIT pages.
+#        define pthread_jit_read() pthread_jit_write_protect_np(true)
+void
+pthread_jit_write_protect_np(int);
 #    endif
+#endif
+
+#ifndef pthread_jit_write
+#    define pthread_jit_write()
+#    define pthread_jit_read()
 #endif
 
 void

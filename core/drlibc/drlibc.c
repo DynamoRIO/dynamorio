@@ -101,6 +101,9 @@ kernel_is_64bit(void)
 
 /***************************************************************************/
 
+extern void
+sys_icache_invalidate(void *, size_t);
+
 #ifdef AARCH64
 void
 clear_icache(void *beg, void *end)
@@ -146,6 +149,9 @@ clear_icache(void *beg, void *end)
 
     /* Instruction Synchronization Barrier */
     __asm__ __volatile__("isb" : : : "memory");
+
+    IF_MACOS64(sys_icache_invalidate(beg, end_uint - beg_uint));
+
 #    endif
 }
 
@@ -178,8 +184,15 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
      * https://developer.arm.com/-/media/Files/pdf/
      * graphics-and-multimedia/Porting%20to%20ARM%2064-bit.pdf
      */
-    if (cache_info == 0)
+    if (cache_info == 0) {
+#        if defined(MACOS)
+        // mrs traps to illegal instruction on M1;
+        // hardwire to "sysctl -a hw machdep.cpu" info
+        cache_info = (1 << 31) | (7 << 16) | (7 << 0);
+#        else
         __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
+#        endif
+    }
     if (dcache_line_size != NULL)
         *dcache_line_size = 4 << (cache_info >> 16 & 0xf);
     if (icache_line_size != NULL)

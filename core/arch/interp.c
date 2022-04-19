@@ -1711,7 +1711,7 @@ bb_process_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb, int sysnum,
         STATS_DEC(ignorable_syscalls);
         return false;
     }
-#elif defined(MACOS)
+#elif defined(MACOS) && defined(X86)
     if (instr_get_opcode(bb->instr) == OP_sysenter) {
         /* To continue after the sysenter we need to go to the ret ibl, as user-mode
          * sysenter wrappers put the retaddr into edx as the post-kernel continuation.
@@ -1871,7 +1871,7 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb, int sysnu
 #    endif /* MACOS && X86 */
             bb->exit_type |= LINK_NI_SYSCALL_INT;
             bb->instr->flags |= INSTR_NI_SYSCALL_INT;
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
         }
 #    endif
     } else

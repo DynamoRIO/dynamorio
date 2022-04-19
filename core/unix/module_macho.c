@@ -280,9 +280,15 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
             /* There's no nice struct for this: see thread_command in loader.h. */
 #define LC_UNIXTHREAD_REGS_OFFS 16
 #ifdef X64
+#    ifdef X86
             const x86_thread_state64_t *reg =
                 (const x86_thread_state64_t *)((char *)cmd + LC_UNIXTHREAD_REGS_OFFS);
             return (app_pc)reg->__rip + load_delta;
+#    else
+            const arm_thread_state64_t *reg =
+                (const arm_thread_state64_t *)((char *)cmd + LC_UNIXTHREAD_REGS_OFFS);
+            return (app_pc)reg->__pc + load_delta;
+#    endif
 #else
             const i386_thread_state_t *reg =
                 (const i386_thread_state_t *)((byte *)cmd + LC_UNIXTHREAD_REGS_OFFS);
@@ -653,7 +659,9 @@ module_walk_dyld_list(app_pc dyld_base)
          */
         LOG(GLOBAL, LOG_VMAREAS, 2, "Module %d: " PFX " %s\n", i,
             modinfo->imageLoadAddress, modinfo->imageFilePath);
-        module_list_add((app_pc)modinfo->imageLoadAddress, PAGE_SIZE, false,
-                        modinfo->imageFilePath, 0);
+        // For aarch64, dyld will pack libraries in less than a page boundary.
+        module_list_add((app_pc)modinfo->imageLoadAddress,
+                        IF_AARCH64_ELSE(0x1000, PAGE_SIZE), false, modinfo->imageFilePath,
+                        0);
     }
 }

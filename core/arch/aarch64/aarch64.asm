@@ -37,7 +37,11 @@
 
 #include "../asm_defines.asm"
 START_FILE
+
+
+#if !(defined(MACOS) && defined(AARCH64))
 #include "include/syscall.h"
+#endif
 
 #ifndef UNIX
 # error Non-Unix is not supported
@@ -308,17 +312,22 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
 GLOBAL_LABEL(cleanup_and_terminate:)
         /* move argument registers to callee saved registers */
         mov      x19, x0  /* dcontext ptr size */
+#ifdef MACOS
+        mov      x20, x1  /* sysnr */
+        mov      x21, x2  /* arg1 */
+        mov      x22, x3  /* arg2 */
+#else
         mov      w20, w1  /* sysnum 32-bit int */
         mov      w21, w2  /* sys_arg1 32-bit int */
         mov      w22, w3  /* sys_arg2 32-bit int */
+#endif
         mov      w23, w4  /* exitproc 32-bit int */
                           /* x24 reserved for dstack ptr */
                           /* x25 reserved for syscall ptr */
 
         /* inc exiting_thread_count to avoid being killed once off all_threads list */
-        adrp     x0, :got:exiting_thread_count
-        ldr      x0, [x0, #:got_lo12:exiting_thread_count]
-        CALLC2(atomic_add, x0, #1)
+        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        CALLC2(GLOBAL_REF(atomic_add), x0, #1)
 
         /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
         mov      w1, #1
@@ -341,18 +350,16 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to d_r_initstack for cleanup of dstack */
-        adrp     x26, :got:initstack_mutex
-        ldr      x26, [x26, #:got_lo12:initstack_mutex]
+        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x26)
 cat_spin:
-        CALLC2(atomic_swap, x26, #1)
+        CALLC2(GLOBAL_REF(atomic_swap), x26, #1)
         cbz      w0, cat_have_lock
         yield
         b        cat_spin
 
 cat_have_lock:
         /* switch stack */
-        adrp     x0, :got:d_r_initstack
-        ldr      x0, [x0, #:got_lo12:d_r_initstack]
+        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(d_r_initstack), x0)
         ldr      x0, [x0]
         mov      sp, x0
 
@@ -360,20 +367,24 @@ cat_have_lock:
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
 
         /* give up initstack_mutex */
-        adrp     x0, :got:initstack_mutex
-        ldr      x0, [x0, #:got_lo12:initstack_mutex]
+        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x0)
         mov      x1, #0
         str      x1, [x0]
 
         /* dec exiting_thread_count (allows another thread to kill us) */
-        adrp     x0, :got:exiting_thread_count
-        ldr      x0, [x0, #:got_lo12:exiting_thread_count]
-        CALLC2(atomic_add, x0, #-1)
+        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        CALLC2(GLOBAL_REF(atomic_add), x0, #-1)
 
         /* put system call number in x8 */
+#ifdef MACOS
+        mov      x0, x20  /* sysnr */
+        mov      x1, x21  /* arg1 */
+        mov      x2, x22  /* arg2 */
+#else
         mov      w0, w21 /* sys_arg1 32-bit int */
         mov      w1, w22 /* sys_arg2 32-bit int */
         mov      w8, w20 /* int sys_call */
+#endif
 
         br       x25  /* go do the syscall! */
         bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
@@ -392,8 +403,13 @@ GLOBAL_LABEL(atomic_add:)
 
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
+#ifdef MACOS
+        mov      x16, #0
+        svc      #0x80
+#else
         /* FIXME i#1569: NYI on AArch64 */
         svc      #0
+#endif
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(global_do_syscall_int)
 
@@ -414,7 +430,7 @@ DECLARE_GLOBAL(safe_read_asm_recover)
         DECLARE_FUNC(safe_read_asm)
 GLOBAL_LABEL(safe_read_asm:)
         cmp      ARG3, #0
-1:      b.eq     safe_read_asm_recover
+1:      b.eq     safe_read_asm_recover_local
 ADDRTAKEN_LABEL(safe_read_asm_pre:)
         ldrb     w3, [ARG2]
 ADDRTAKEN_LABEL(safe_read_asm_mid:)
@@ -425,6 +441,7 @@ ADDRTAKEN_LABEL(safe_read_asm_post:)
         add      ARG1, ARG1, #1
         b        1b
 ADDRTAKEN_LABEL(safe_read_asm_recover:)
+safe_read_asm_recover_local:
         mov      x0, ARG2
         ret
         END_FUNC(safe_read_asm)
@@ -564,6 +581,15 @@ GLOBAL_LABEL(main_signal_handler:)
 
 #endif /* LINUX */
 
+#ifdef MACOS
+        DECLARE_FUNC(main_signal_handler)
+GLOBAL_LABEL(main_signal_handler:)
+        /* see sendsig_set_thread_state64 in unix_signal.c */
+        mov      ARG6, sp
+        b        GLOBAL_REF(main_signal_handler_C) /* chain call */
+        END_FUNC(main_signal_handler)
+#endif
+
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
         bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
@@ -621,8 +647,7 @@ GLOBAL_LABEL(icache_op_ic_ivau_asm:)
         /* Spill X1 and X2 to TLS_REG4_SLOT and TLS_REG5_SLOT. */
         stp      x1, x2, [x0, #spill_state_r4_OFFSET]
         /* Point X1 at icache_op_struct.lock. */
-        adrp     x1, (icache_op_struct + icache_op_struct_lock_OFFSET)
-        add      x1, x1, #:lo12:(icache_op_struct + icache_op_struct_lock_OFFSET)
+        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_lock_OFFSET), x1)
         /* Acquire lock. */
         prfm     pstl1keep, [x1]
 1:
@@ -720,8 +745,7 @@ ic_ivau_return:
         /* Load fcache_return into X1. */
         ldr      x1, [x0, #spill_state_fcache_return_OFFSET]
         /* Point X0 at fake linkstub. */
-        adrp     x0, linkstub_selfmod
-        add      x0, x0, #:lo12:linkstub_selfmod
+        AARCH64_ADRP_GOT(GLOBAL_REF(linkstub_selfmod), x0)
         /* Branch to fcache_return. */
         br       x1
 
@@ -753,8 +777,7 @@ GLOBAL_LABEL(icache_op_isb_asm:)
         ldr      x2, [x0, #spill_state_r2_OFFSET]
         stp      x1, x2, [x0, #spill_state_r4_OFFSET]
         /* Point X1 at icache_op_struct.lock. */
-        adrp     x1, (icache_op_struct + icache_op_struct_lock_OFFSET)
-        add      x1, x1, #:lo12:(icache_op_struct + icache_op_struct_lock_OFFSET)
+        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_lock_OFFSET), x1)
         /* Acquire lock. */
         prfm     pstl1keep, [x1]
 1:
@@ -781,10 +804,28 @@ GLOBAL_LABEL(icache_op_isb_asm:)
         /* Load fcache_return into X1. */
         ldr      x1, [x0, #spill_state_fcache_return_OFFSET]
         /* Point X0 at fake linkstub. */
-        adrp     x0, linkstub_selfmod
-        add      x0, x0, #:lo12:linkstub_selfmod
+        AARCH64_ADRP_GOT(GLOBAL_REF(linkstub_selfmod), x0)
         /* Branch to fcache_return. */
         br       x1
         END_FUNC(icache_op_isb_asm)
+
+#if defined(MACOS) && defined(AARCH64)
+        DECLARE_FUNC(dynamorio_sigreturn)
+GLOBAL_LABEL(dynamorio_sigreturn:)
+        brk 0xb001
+        END_FUNC(dynamorio_sigreturn)
+
+        DECLARE_FUNC(dynamorio_sys_exit)
+GLOBAL_LABEL(dynamorio_sys_exit:)
+        brk 0xb002
+        END_FUNC(dynamorio_sys_exit)
+#endif
+
+#ifdef MACOS
+        DECLARE_FUNC(new_bsdthread_intercept)
+GLOBAL_LABEL(new_bsdthread_intercept:)
+        brk 0xb003
+        END_FUNC(new_bsdthread_intercept)
+#endif
 
 END_FILE

@@ -329,7 +329,7 @@ get_stack_ptr(void);
 #        define GET_FRAME_PTR(var) __asm__ __volatile__("mov %0, x29" : "=r"(var))
 #        define GET_STACK_PTR(var) __asm__ __volatile__("mov %0, sp" : "=r"(var))
 #        define GET_CUR_PC(var) \
-            __asm__ __volatile__("bl 1f; 1: str x30, %0" : "=m"(var) : : "x30")
+            __asm__ __volatile__("bl 1f\n1: str x30, %0" : "=m"(var) : : "x30")
 #    elif defined(DR_HOST_ARM)
 #        define RDTSC_LL(llval) (llval) = proc_get_timestamp()
 /* FIXME i#1551: frame pointer is r7 in thumb mode */
@@ -337,7 +337,7 @@ get_stack_ptr(void);
             __asm__ __volatile__("str " IF_X64_ELSE("x29", "r11") ", %0" : "=m"(var))
 #        define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
 #        define GET_CUR_PC(var) \
-            __asm__ __volatile__("bl 1f; 1: str lr, %0" : "=m"(var) : : "lr")
+            __asm__ __volatile__("bl 1f\n1: str lr, %0" : "=m"(var) : : "lr")
 #    endif /* X86/ARM */
 #endif     /* UNIX */
 
@@ -1674,8 +1674,23 @@ _dynamorio_runtime_resolve(void);
 #    define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
 #endif /* X86/ARM */
 
-#define MCXT_SYSNUM_REG(mc) ((mc)->IF_X86_ELSE(xax, IF_ARM_ELSE(r7, r8)))
-#define MCXT_FIRST_REG_FIELD(mc) ((mc)->IF_X86_ELSE(xdi, r0))
+#if !(defined(MACOS) && defined(AARCH64))
+#    define MCXT_SYSNUM_REG(mc) ((mc)->IF_X86_ELSE(xax, IF_ARM_ELSE(r7, r8)))
+#    define MCXT_SET_SYSNUM_REG(mc, sysnr) \
+        ((mc)->IF_X86_ELSE(xax, IF_ARM_ELSE(r7, r8))) = (sysnr)
+#    define MCXT_FIRST_REG_FIELD(mc) &((mc)->IF_X86_ELSE(xdi, r0))
+#else
+// syscall() sets r16 to 0 and uses r0 for sysnr; libsystem_c uses r16
+#    define MCXT_SYSNUM_REG(mc) ((mc)->r16 ? (mc)->r16 : (mc)->r0)
+#    define MCXT_FIRST_REG_FIELD(mc) ((mc)->r16 ? &(mc)->r0 : &(mc)->r1)
+#    define MCXT_SET_SYSNUM_REG(mc, sysnr) \
+        do {                               \
+            if ((mc)->r16)                 \
+                (mc)->r16 = (sysnr);       \
+            else                           \
+                (mc)->r0 = (sysnr);        \
+        } while (0)
+#endif
 
 static inline reg_t
 get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)

@@ -216,14 +216,14 @@ endif ()
 # For cross-compilation this should still work as you're supposed to set this var.
 # X64 mean 64-bit generically, whether AMD64 or AARCH64.
 set(TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}" CACHE STRING "Target architecture")
-if (TARGET_ARCH MATCHES "^arm")
-  set(ARM 1) # This means AArch32.
-  set(X64 OFF)
-  message(STATUS "Building for ARM")
-elseif (TARGET_ARCH MATCHES "^aarch64")
+if (TARGET_ARCH MATCHES "^arm64" OR TARGET_ARCH MATCHES "^aarch64")
   set(AARCH64 1)
   set(X64 1)
   message(STATUS "Building for AArch64")
+elseif (TARGET_ARCH MATCHES "^arm")
+  set(ARM 1) # This means AArch32.
+  set(X64 OFF)
+  message(STATUS "Building for ARM")
 else ()
   set(X86 1) # This means IA-32 or AMD64
   message(STATUS "Building for x86")
@@ -263,17 +263,17 @@ endif ()
 
 # The execution architecture, which might differ from the target for building
 # an AArch64 decoder to execute on x86 machines (i#1684).
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-  set(DR_HOST_ARM 1)
-  set(DR_HOST_ARCH_NAME "arm")
-  set(DR_HOST_AARCHXX 1)
-  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "^arm64")
   set(DR_HOST_AARCH64 1)
   set(DR_HOST_ARCH_NAME "aarch64")
   set(DR_HOST_AARCHXX 1)
   set(DR_HOST_ARCH_NAME_SHARED aarchxx)
   set(DR_HOST_X64 1)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(DR_HOST_ARM 1)
+  set(DR_HOST_ARCH_NAME "arm")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
 elseif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(DR_HOST_X86 1)
   set(DR_HOST_ARCH_NAME "x86")

@@ -562,6 +562,7 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
 #endif
 
     dcontext->whereami = DR_WHERE_FCACHE;
+    pthread_jit_read();
     (*entry)(dcontext);
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
@@ -1789,7 +1790,7 @@ adjust_syscall_continuation(dcontext_t *dcontext)
     bool syscall_method_is_syscall = get_syscall_method() == SYSCALL_METHOD_SYSCALL;
 
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
         if (!dcontext->sys_was_int) {
             priv_mcontext_t *mc = get_mcontext(dcontext);
             LOG(THREAD, LOG_SYSCALLS, 3,
@@ -2014,7 +2015,7 @@ handle_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#ifdef MACOS
+#if defined(MACOS) && defined(X86)
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && !dcontext->sys_was_int) {
         /* The kernel returns control to whatever user-mode places in edx.
          * We want to put this in even if we skip the syscall as we'll still call

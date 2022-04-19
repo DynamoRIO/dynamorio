@@ -1127,7 +1127,7 @@ options_enable_code_api_dependences(options_t *options)
      * logic in heap_mmap_reserve_post_stack() to handle sharing the
      * tail end of a multi-64K-region stack.
      */
-    options->stack_size = MAX(options->stack_size, 56 * 1024);
+    options->stack_size = MAX(options->stack_size, IF_MACOSA64_ELSE(48, 56) * 1024);
 #ifdef UNIX
     /* We assume that clients avoid private library code, within reason, and
      * don't need as much space when handling signals.  We still raise the
@@ -1345,6 +1345,15 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.protect_mask &= ~SELFPROT_DCONTEXT;
         changed_options = true;
     }
+
+#    if defined(MACOS) && defined(AARCH64)
+    if (TEST(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
+        USAGE_ERROR("memory protection changes incompatible with MAP_JIT");
+        dynamo_options.protect_mask &= ~SELFPROT_GENCODE;
+        changed_options = true;
+    }
+#    endif
+
 #    ifdef TRACE_HEAD_CACHE_INCR
     if (TESTANY(SELFPROT_LOCAL | SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
         USAGE_ERROR("Cannot protect heap in a TRACE_HEAD_CACHE_INCR build");
@@ -1393,7 +1402,7 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.shared_traces = false;
         changed_options = true;
     }
-#            ifdef X64
+#            if defined(X64) && !(defined(MACOS) && defined(AARCH64))
     /* PR 361894: we do not support x64 without TLS (xref PR 244737) */
 #                error X64 requires HAVE_TLS
 #            endif

@@ -52,7 +52,7 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
      */
     PRE(ilist, where,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg_base),
-                         opnd_create_reg(DR_REG_TPIDR_EL0)));
+                         opnd_create_reg(LIB_SEG_TLS)));
 #else // ARM
     /* load TLS base from user-read-only-thread-ID register
      * mrc p15, 0, reg_base, c13, c0, 3
@@ -65,8 +65,9 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
 #endif
     /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
     PRE(ilist, where,
-        XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
-                          OPND_CREATE_MEMPTR(reg_base, DR_TLS_BASE_OFFSET)));
+        XINST_CREATE_load(
+            dcontext, opnd_create_reg(dr_reg_stolen),
+            OPND_CREATE_MEMPTR(reg_base, IF_MACOS64_ELSE(8, 1) * DR_TLS_BASE_OFFSET)));
 }
 
 /* Having only one thread register (TPIDRURO for ARM, TPIDR_EL0 for AARCH64) shared

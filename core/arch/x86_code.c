@@ -322,7 +322,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
 /* Called from new_bsdthread_intercept for targeting a bsd thread user function.
  * new_bsdthread_intercept stored the arg to the user thread func in
  * mc->xax.  We're on the app stack -- but this is a temporary solution.
