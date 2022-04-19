@@ -2109,6 +2109,12 @@ if (DEBUG)
   endif ()
 endif ()
 
+if (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_stats" "")
+else (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_rstats" "")
+endif (DEBUG)
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   # We don't want to link with DR.  We hack that for now by requesting drdecode so
   # we'll get the arch defs.  XXX: Add a better way!

@@ -2369,7 +2369,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         if (!fragment_lookup_deleted(dcontext, tag) && !TEST(FRAG_COARSE_GRAIN, flags))
             STATS_INC(num_unique_fragments);
     });
-    if (d_r_stats != NULL &&
+    if (GLOBAL_STATS_ON() &&
         /* num_fragments is debug-only so we use the two release-build stats. */
         (uint)GLOBAL_STAT(num_bbs) + GLOBAL_STAT(num_traces) ==
             INTERNAL_OPTION(reset_at_fragment_count)) {
