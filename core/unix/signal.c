@@ -150,11 +150,11 @@ sig_is_alarm_signal(int sig)
 
 /* if no app sigaction, it's RT, since that's our handler */
 #ifdef LINUX
-#    define IS_RT_FOR_APP(info, sig)                      \
-        IF_X64_ELSE(true,                                 \
-                    ((info)->app_sigaction[(sig)] == NULL \
-                         ? true                           \
-                         : (TEST(SA_SIGINFO, (info)->app_sigaction[(sig)]->flags))))
+#    define IS_RT_FOR_APP(info, sig)                        \
+        IF_X64_ELSE(true,                                   \
+                    ((info)->sighand->action[(sig)] == NULL \
+                         ? true                             \
+                         : (TEST(SA_SIGINFO, (info)->sighand->action[(sig)]->flags))))
 #elif defined(MACOS)
 #    define IS_RT_FOR_APP(info, sig) (true)
 #endif
@@ -168,9 +168,9 @@ sig_is_alarm_signal(int sig)
 #define APP_HAS_SIGSTACK(info) \
     ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
 
-/* Under normal circumstances the app_sigaction is lazily initialized when the
+/* Under normal circumstances the app's action[] entry is lazily initialized when the
  * app registers a signal handler, but during detach there are points where we
- * are still intercepting signals after app_sigaction has been set to
+ * are still intercepting signals after action[sig] has been set to
  * zeros. To be extra defensive, we do a NULL check.
  */
 #define USE_APP_SIGSTACK(info, sig)                                    \
@@ -931,7 +931,7 @@ restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record)
 #endif
 }
 
-/* Initializes info's app_sigaction, restorer_valid, and we_intercept fields */
+/* Initializes info's sighand structure. */
 static void
 signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
 {
@@ -942,7 +942,7 @@ signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
     ASSIGN_INIT_LOCK_FREE(info->sighand->lock, shared_lock);
 }
 
-/* Cleans up info's app_sigaction and we_intercept entries */
+/* Cleans up info's sighand structure. */
 static void
 signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
                            bool other_thread)
@@ -1557,7 +1557,7 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
         oldact.handler != (handler_t)main_signal_handler) {
         /* save the app's action for sig */
         if (info->sighand->is_shared) {
-            /* app_sigaction structure is shared */
+            /* sighand structure is shared */
             d_r_mutex_lock(&info->sighand->lock);
         }
         if (info->sighand->action[sig] != NULL) {
@@ -1870,7 +1870,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         info->sigaction_param = act;
     }
     if (info->sighand->is_shared) {
-        /* app_sigaction structure is shared */
+        /* sighand structure is shared */
         d_r_mutex_lock(&info->sighand->lock);
     }
     if (oact != NULL) {
@@ -1896,7 +1896,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
                 (local_act.handler == (handler_t)SIG_IGN) ? "SIG_IGN" : "SIG_DFL", sig);
             if (!info->sighand->we_intercept[sig]) {
                 /* let the SIG_IGN/SIG_DFL go through, we want to remove our
-                 * handler.  we delete the stored app_sigaction in post_
+                 * handler.  we delete the stored action in post_
                  */
                 if (info->sighand->is_shared)
                     d_r_mutex_unlock(&info->sighand->lock);
