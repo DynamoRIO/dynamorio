@@ -2398,6 +2398,14 @@
     instr_create_1dst_2src((dc), OP_vcvtusi2sd, (d), (s1), (s2))
 #define INSTR_CREATE_vpextrq(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpextrq, (d), (s1), (s2))
+#define INSTR_CREATE_vpdpbusd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpbusd, (d), (s1), (s2))
+#define INSTR_CREATE_vpdpbusds(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpbusds, (d), (s1), (s2))
+#define INSTR_CREATE_vpdpwssd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpwssd, (d), (s1), (s2))
+#define INSTR_CREATE_vpdpwssds(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpwssds, (d), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 mask, and 1 non-immediate source */
