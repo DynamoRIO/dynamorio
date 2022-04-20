@@ -279,7 +279,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.nudge_ex' => 1,
                 'code_api|client.alloc-noreset' => 1, # i#4436
                 'code_api|api.detach_spawn' => 1, # i#2611
-                'code_api|api.static_noclient' => 1,
                 'code_api|api.static_noinit' => 1,
                 # These are from the long suite.
                 'code_api,opt_memory|common.nativeexec' => 1, # i#1807

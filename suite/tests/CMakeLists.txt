@@ -2109,6 +2109,12 @@ if (DEBUG)
   endif ()
 endif ()
 
+if (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_stats" "")
+else (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_rstats" "")
+endif (DEBUG)
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   # We don't want to link with DR.  We hack that for now by requesting drdecode so
   # we'll get the arch defs.  XXX: Add a better way!
@@ -3025,10 +3031,8 @@ endif ()
 if (NOT ANDROID AND NOT APPLE)
   tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_startstop ${libmath})
-  if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
-    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
-    target_link_libraries(api.static_noclient ${libmath})
-  endif ()
+  tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
+  target_link_libraries(api.static_noclient ${libmath})
   tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON OFF)
   target_link_libraries(api.static_noinit ${libmath})
   tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON OFF)
