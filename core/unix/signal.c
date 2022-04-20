@@ -1050,11 +1050,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             LOG(THREAD, LOG_ASYNCH, 2, "inheriting signal handlers from parent\n");
             if (!atomic_read_bool(&multiple_handlers_present))
                 ATOMIC_1BYTE_WRITE(&multiple_handlers_present, true, false);
-            info->sighand = (sighand_info_t *)handler_alloc(
-                dcontext, SIGARRAY_SIZE * sizeof(*info->sighand));
-            memset(info->sighand, 0, SIGARRAY_SIZE * sizeof(*info->sighand));
+            signal_info_init_sigaction(dcontext, info);
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                info->restorer_valid[i] = -1; /* clear cache */
                 if (record->info.sighand->action[i] != NULL) {
                     info->sighand->action[i] = (kernel_sigaction_t *)handler_alloc(
                         dcontext, sizeof(kernel_sigaction_t));
