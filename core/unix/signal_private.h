@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -378,12 +378,25 @@ typedef struct _thread_itimer_info_t {
 struct _sigfd_pipe_t;
 typedef struct _sigfd_pipe_t sigfd_pipe_t;
 
-typedef struct _thread_sig_info_t {
-    /* we use kernel_sigaction_t so we don't have to translate back and forth
-     * between it and libc version.
-     * have to dynamically allocate app_sigaction array so we can share it.
+/* Data that is shared for all threads in a CLONE_SIGHAND group.
+ * Typically this is the whole thread group or "process".
+ * The thread_sig_info_t for each thread in the group points to a
+ * single copy of this structure.
+ */
+typedef struct _sighand_info_t {
+    bool is_shared;
+    int refcount;
+    mutex_t lock;
+    /* We use kernel_sigaction_t so we don't have to translate back and forth
+     * between it and the libc version.
      */
-    kernel_sigaction_t **app_sigaction;
+    kernel_sigaction_t *action[SIGARRAY_SIZE];
+    bool we_intercept[SIGARRAY_SIZE];
+} sighand_info_t;
+
+typedef struct _thread_sig_info_t {
+    /* A pointer to handler info shared in a CLONG_SIGHAND group. */
+    sighand_info_t *sighand;
 
     /* We save the old sigaction across a sigaction syscall so we can return it
      * in post-syscall handling.
@@ -401,13 +414,6 @@ typedef struct _thread_sig_info_t {
      * squash alarm or profiling signals up until this point.
      */
     bool fully_initialized;
-
-    /* with CLONE_SIGHAND we may have to share app_sigaction */
-    bool shared_app_sigaction;
-    mutex_t *shared_lock;
-    int *shared_refcount;
-    /* signals we intercept must also be sharable */
-    bool *we_intercept;
 
     /* DR and clients use itimers, so we need to emulate the app's itimer
      * usage.  This info is shared across CLONE_THREAD threads only for
