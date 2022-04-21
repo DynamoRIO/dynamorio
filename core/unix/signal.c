@@ -150,11 +150,11 @@ sig_is_alarm_signal(int sig)
 
 /* if no app sigaction, it's RT, since that's our handler */
 #ifdef LINUX
-#    define IS_RT_FOR_APP(info, sig)                      \
-        IF_X64_ELSE(true,                                 \
-                    ((info)->app_sigaction[(sig)] == NULL \
-                         ? true                           \
-                         : (TEST(SA_SIGINFO, (info)->app_sigaction[(sig)]->flags))))
+#    define IS_RT_FOR_APP(info, sig)                        \
+        IF_X64_ELSE(true,                                   \
+                    ((info)->sighand->action[(sig)] == NULL \
+                         ? true                             \
+                         : (TEST(SA_SIGINFO, (info)->sighand->action[(sig)]->flags))))
 #elif defined(MACOS)
 #    define IS_RT_FOR_APP(info, sig) (true)
 #endif
@@ -168,14 +168,14 @@ sig_is_alarm_signal(int sig)
 #define APP_HAS_SIGSTACK(info) \
     ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
 
-/* Under normal circumstances the app_sigaction is lazily initialized when the
+/* Under normal circumstances the app's action[] entry is lazily initialized when the
  * app registers a signal handler, but during detach there are points where we
- * are still intercepting signals after app_sigaction has been set to
+ * are still intercepting signals after action[sig] has been set to
  * zeros. To be extra defensive, we do a NULL check.
  */
-#define USE_APP_SIGSTACK(info, sig)                                  \
-    (APP_HAS_SIGSTACK(info) && (info)->app_sigaction[sig] != NULL && \
-     TEST(SA_ONSTACK, (info)->app_sigaction[sig]->flags))
+#define USE_APP_SIGSTACK(info, sig)                                    \
+    (APP_HAS_SIGSTACK(info) && (info)->sighand->action[sig] != NULL && \
+     TEST(SA_ONSTACK, (info)->sighand->action[sig]->flags))
 
 /* If we only intercept a few signals, we leave whether un-intercepted signals
  * are blocked unchanged and stored in the kernel.  If we intercept all (not
@@ -183,7 +183,7 @@ sig_is_alarm_signal(int sig)
  * all.
  */
 #define EMULATE_SIGMASK(info, sig) \
-    (DYNAMO_OPTION(intercept_all_signals) || (info)->we_intercept[(sig)])
+    (DYNAMO_OPTION(intercept_all_signals) || (info)->sighand->we_intercept[(sig)])
 
 /* i#27: custom data to pass to the child of a clone */
 /* PR i#149/403015: clone record now passed via a new dstack */
@@ -509,7 +509,7 @@ os_itimers_thread_shared(void)
 static void
 unset_initial_crash_handlers(dcontext_t *dcontext)
 {
-    ASSERT(init_info.app_sigaction != NULL);
+    ASSERT(init_info.sighand != NULL);
     signal_info_exit_sigaction(GLOBAL_DCONTEXT, &init_info, false /*!other_thread*/);
     /* Undo the unblock-all */
     sigprocmask_syscall(SIG_SETMASK, &init_sigmask, NULL, sizeof(init_sigmask));
@@ -555,7 +555,7 @@ d_r_signal_exit()
 {
     DELETE_READWRITE_LOCK(detached_sigact_lock);
     IF_LINUX(signalfd_exit());
-    if (init_info.app_sigaction != NULL) {
+    if (init_info.sighand != NULL) {
         /* We never took over the app (e.g., standalone mode).  Restore its state. */
         unset_initial_crash_handlers(GLOBAL_DCONTEXT);
     }
@@ -931,19 +931,18 @@ restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record)
 #endif
 }
 
-/* Initializes info's app_sigaction, restorer_valid, and we_intercept fields */
+/* Initializes info's sighand structure. */
 static void
 signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
 {
-    info->app_sigaction = (kernel_sigaction_t **)handler_alloc(
-        dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
-    memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+    info->sighand =
+        (sighand_info_t *)handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(*info->sighand));
+    memset(info->sighand, 0, SIGARRAY_SIZE * sizeof(*info->sighand));
     memset(&info->restorer_valid, -1, SIGARRAY_SIZE * sizeof(info->restorer_valid[0]));
-    info->we_intercept = (bool *)handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
-    memset(info->we_intercept, 0, SIGARRAY_SIZE * sizeof(bool));
+    ASSIGN_INIT_LOCK_FREE(info->sighand->lock, shared_lock);
 }
 
-/* Cleans up info's app_sigaction and we_intercept entries */
+/* Cleans up info's sighand structure. */
 static void
 signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
                            bool other_thread)
@@ -963,33 +962,31 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
              */
             set_ignore_signal_action(i);
         } else if (!other_thread) {
-            if (info->app_sigaction[i] != NULL) {
+            if (info->sighand->action[i] != NULL) {
                 /* Restore to old handler, but not if exiting whole process:
                  * else may get itimer during cleanup, so we set to SIG_IGN.  We
                  * do this during detach in signal_remove_alarm_handlers() (and
                  * post-detach above).
                  */
                 if (dynamo_exited && !doing_detach) {
-                    info->app_sigaction[i]->handler = (handler_t)SIG_IGN;
+                    info->sighand->action[i]->handler = (handler_t)SIG_IGN;
                 }
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring " PFX " as handler for %d\n",
-                    info->app_sigaction[i]->handler, i);
-                sigaction_syscall(i, info->app_sigaction[i], NULL);
-            } else if (info->we_intercept[i]) {
+                    info->sighand->action[i]->handler, i);
+                sigaction_syscall(i, info->sighand->action[i], NULL);
+            } else if (info->sighand->we_intercept[i]) {
                 /* restore to default */
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
                 sigaction_syscall(i, &act, NULL);
             }
         }
-        if (info->app_sigaction[i] != NULL) {
-            handler_free(dcontext, info->app_sigaction[i], sizeof(kernel_sigaction_t));
+        if (info->sighand->action[i] != NULL) {
+            handler_free(dcontext, info->sighand->action[i], sizeof(kernel_sigaction_t));
         }
     }
-    handler_free(dcontext, info->app_sigaction,
-                 SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
-    info->app_sigaction = NULL;
-    handler_free(dcontext, info->we_intercept, SIGARRAY_SIZE * sizeof(bool));
-    info->we_intercept = NULL;
+    DELETE_LOCK(info->sighand->lock);
+    handler_free(dcontext, info->sighand, SIGARRAY_SIZE * sizeof(*info->sighand));
+    info->sighand = NULL;
 }
 
 /* Called to finalize per-thread initialization.
@@ -1031,48 +1028,40 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         }
 #endif
 
-        /* handlers are either inherited or shared */
+        /* Handlers are either inherited or shared. */
         if (TEST(CLONE_SIGHAND, record->clone_flags)) {
-            /* need to share table of handlers! */
+            /* Need to share table of handlers! */
             LOG(THREAD, LOG_ASYNCH, 2, "sharing signal handlers with parent\n");
-            info->shared_app_sigaction = true;
-            info->shared_refcount = record->info.shared_refcount;
-            info->shared_lock = record->info.shared_lock;
-            info->app_sigaction = record->info.app_sigaction;
-            info->we_intercept = record->info.we_intercept;
-            d_r_mutex_lock(info->shared_lock);
-            (*info->shared_refcount)++;
+            info->sighand = record->info.sighand;
+            info->sighand->is_shared = true;
+            d_r_mutex_lock(&info->sighand->lock);
+            info->sighand->refcount++;
 #ifdef DEBUG
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (info->app_sigaction[i] != NULL) {
+                if (info->sighand->action[i] != NULL) {
                     LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is " PFX "\n", i,
-                        info->app_sigaction[i]->handler);
+                        info->sighand->action[i]->handler);
                 }
             }
 #endif
-            d_r_mutex_unlock(info->shared_lock);
+            d_r_mutex_unlock(&info->sighand->lock);
         } else {
-            /* copy handlers */
+            /* Copy handlers. */
             LOG(THREAD, LOG_ASYNCH, 2, "inheriting signal handlers from parent\n");
             if (!atomic_read_bool(&multiple_handlers_present))
                 ATOMIC_1BYTE_WRITE(&multiple_handlers_present, true, false);
-            info->app_sigaction = (kernel_sigaction_t **)handler_alloc(
-                dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
-            memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+            signal_info_init_sigaction(dcontext, info);
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                info->restorer_valid[i] = -1; /* clear cache */
-                if (record->info.app_sigaction[i] != NULL) {
-                    info->app_sigaction[i] = (kernel_sigaction_t *)handler_alloc(
+                if (record->info.sighand->action[i] != NULL) {
+                    info->sighand->action[i] = (kernel_sigaction_t *)handler_alloc(
                         dcontext, sizeof(kernel_sigaction_t));
-                    memcpy(info->app_sigaction[i], record->info.app_sigaction[i],
+                    memcpy(info->sighand->action[i], record->info.sighand->action[i],
                            sizeof(kernel_sigaction_t));
                     LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is " PFX "\n", i,
-                        info->app_sigaction[i]->handler);
+                        info->sighand->action[i]->handler);
                 }
             }
-            info->we_intercept =
-                (bool *)handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
-            memcpy(info->we_intercept, record->info.we_intercept,
+            memcpy(info->sighand->we_intercept, record->info.sighand->we_intercept,
                    SIGARRAY_SIZE * sizeof(bool));
             d_r_mutex_lock(&record->info.child_lock);
             record->info.num_unstarted_children--;
@@ -1147,7 +1136,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                      */
                     default_action[i] != DEFAULT_STOP &&
                     default_action[i] != DEFAULT_CONTINUE)
-                    info->we_intercept[i] = true;
+                    info->sighand->we_intercept[i] = true;
             }
         } else {
             /* We intercept the following signals ourselves.  If this is the first
@@ -1158,27 +1147,27 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
              * signal_reinstate_handlers() will record the app handlers.  Signals
              * received in the meantime will go through execute_native_handler().
              */
-            info->we_intercept[SIGSEGV] = true;
+            info->sighand->we_intercept[SIGSEGV] = true;
             /* PR 313665: look for DR crashes on unaligned memory or mmap bounds */
-            info->we_intercept[SIGBUS] = true;
+            info->sighand->we_intercept[SIGBUS] = true;
             /* PR 212090: the signal we use to suspend threads */
-            info->we_intercept[SUSPEND_SIGNAL] = true;
+            info->sighand->we_intercept[SUSPEND_SIGNAL] = true;
 #ifdef PAPI
             /* use SIGPROF for updating gui so it can be distinguished from SIGVTALRM */
-            info->we_intercept[SIGPROF] = true;
+            info->sighand->we_intercept[SIGPROF] = true;
 #endif
             /* vtalarm only used with pc profiling.  it interferes w/ PAPI
              * so arm this signal only if necessary
              */
             if (INTERNAL_OPTION(profile_pcs)) {
-                info->we_intercept[SIGVTALRM] = true;
+                info->sighand->we_intercept[SIGVTALRM] = true;
             }
-            info->we_intercept[SIGALRM] = true;
+            info->sighand->we_intercept[SIGALRM] = true;
 #ifdef SIDELINE
-            info->we_intercept[SIGCHLD] = true;
+            info->sighand->we_intercept[SIGCHLD] = true;
 #endif
             /* i#61/PR 211530: the signal we use for nudges */
-            info->we_intercept[NUDGESIG_SIGNUM] = true;
+            info->sighand->we_intercept[NUDGESIG_SIGNUM] = true;
         }
 
         /* should be 1st thread */
@@ -1257,16 +1246,9 @@ signal_fork_init(dcontext_t *dcontext)
     /* Child of fork is a single thread in a new process so should
      * start over w/ no sharing (xref i#190/PR 452178)
      */
-    if (info->shared_app_sigaction) {
-        info->shared_app_sigaction = false;
-        if (info->shared_lock != NULL) {
-            DELETE_LOCK(*info->shared_lock);
-            global_heap_free(info->shared_lock, sizeof(mutex_t) HEAPACCT(ACCT_OTHER));
-        }
-        if (info->shared_refcount != NULL)
-            global_heap_free(info->shared_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
-        info->shared_lock = NULL;
-        info->shared_refcount = NULL;
+    if (info->sighand->is_shared) {
+        info->sighand->is_shared = false;
+        info->sighand->refcount = 0;
     }
     if (info->shared_itimer) {
         /* itimers are not inherited across fork */
@@ -1385,20 +1367,14 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
     /* FIXME: w/ shared handlers, if parent (the owner here) dies,
      * can children keep living w/ a copy of the handlers?
      */
-    if (info->shared_app_sigaction) {
-        d_r_mutex_lock(info->shared_lock);
-        (*info->shared_refcount)--;
-        d_r_mutex_unlock(info->shared_lock);
+    if (info->sighand->is_shared) {
+        d_r_mutex_lock(&info->sighand->lock);
+        info->sighand->refcount--;
+        d_r_mutex_unlock(&info->sighand->lock);
     }
-    if (!info->shared_app_sigaction || *info->shared_refcount == 0) {
+    if (!info->sighand->is_shared || info->sighand->refcount == 0) {
         LOG(THREAD, LOG_ASYNCH, 2, "signal handler cleanup:\n");
         signal_info_exit_sigaction(dcontext, info, other_thread);
-        if (info->shared_lock != NULL) {
-            DELETE_LOCK(*info->shared_lock);
-            global_heap_free(info->shared_lock, sizeof(mutex_t) HEAPACCT(ACCT_OTHER));
-        }
-        if (info->shared_refcount != NULL)
-            global_heap_free(info->shared_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
     }
 
     if (info->shared_itimer) {
@@ -1580,23 +1556,24 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
     if (oldact.handler != (handler_t)SIG_DFL &&
         oldact.handler != (handler_t)main_signal_handler) {
         /* save the app's action for sig */
-        if (info->shared_app_sigaction) {
-            /* app_sigaction structure is shared */
-            d_r_mutex_lock(info->shared_lock);
+        if (info->sighand->is_shared) {
+            /* sighand structure is shared */
+            d_r_mutex_lock(&info->sighand->lock);
         }
-        if (info->app_sigaction[sig] != NULL) {
+        if (info->sighand->action[sig] != NULL) {
             /* go ahead and toss the old one, it's up to the app to store
              * and then restore later if it wants to
              */
-            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
+            handler_free(dcontext, info->sighand->action[sig],
+                         sizeof(kernel_sigaction_t));
         }
-        info->app_sigaction[sig] =
+        info->sighand->action[sig] =
             (kernel_sigaction_t *)handler_alloc(dcontext, sizeof(kernel_sigaction_t));
-        memcpy(info->app_sigaction[sig], &oldact, sizeof(kernel_sigaction_t));
+        memcpy(info->sighand->action[sig], &oldact, sizeof(kernel_sigaction_t));
         /* clear cache */
         info->restorer_valid[sig] = -1;
-        if (info->shared_app_sigaction)
-            d_r_mutex_unlock(info->shared_lock);
+        if (info->sighand->is_shared)
+            d_r_mutex_unlock(&info->sighand->lock);
 #ifdef DEBUG
         if (oldact.handler == (handler_t)SIG_IGN) {
             LOG(THREAD, LOG_ASYNCH, 2,
@@ -1611,20 +1588,21 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
          * XXX: Should we rename this s/detached_/native_/ or something?
          */
         d_r_write_lock(&detached_sigact_lock);
-        memcpy(&detached_sigact[sig], info->app_sigaction[sig],
+        memcpy(&detached_sigact[sig], info->sighand->action[sig],
                sizeof(detached_sigact[sig]));
         d_r_write_unlock(&detached_sigact_lock);
     } else {
         LOG(THREAD, LOG_ASYNCH, 2,
             "prior handler is " PFX " vs main " PFX " with flags=0x%x for signal %d\n",
             oldact.handler, main_signal_handler, oldact.flags, sig);
-        if (info->app_sigaction[sig] != NULL) {
-            if (info->shared_app_sigaction)
-                d_r_mutex_lock(info->shared_lock);
-            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
-            info->app_sigaction[sig] = NULL;
-            if (info->shared_app_sigaction)
-                d_r_mutex_unlock(info->shared_lock);
+        if (info->sighand->action[sig] != NULL) {
+            if (info->sighand->is_shared)
+                d_r_mutex_lock(&info->sighand->lock);
+            handler_free(dcontext, info->sighand->action[sig],
+                         sizeof(kernel_sigaction_t));
+            info->sighand->action[sig] = NULL;
+            if (info->sighand->is_shared)
+                d_r_mutex_unlock(&info->sighand->lock);
         }
     }
 
@@ -1706,11 +1684,11 @@ signal_remove_handlers(dcontext_t *dcontext)
     act.handler = (handler_t)SIG_DFL;
     kernel_sigemptyset(&act.mask);
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (info->app_sigaction[i] != NULL) {
+        if (info->sighand->action[i] != NULL) {
             LOG(THREAD, LOG_ASYNCH, 2, "\trestoring " PFX " as handler for %d\n",
-                info->app_sigaction[i]->handler, i);
-            sigaction_syscall(i, info->app_sigaction[i], NULL);
-        } else if (info->we_intercept[i]) {
+                info->sighand->action[i]->handler, i);
+            sigaction_syscall(i, info->sighand->action[i], NULL);
+        } else if (info->sighand->we_intercept[i]) {
             /* restore to default */
             LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
             sigaction_syscall(i, &act, NULL);
@@ -1725,7 +1703,7 @@ signal_remove_alarm_handlers(dcontext_t *dcontext)
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!info->we_intercept[i])
+        if (!info->sighand->we_intercept[i])
             continue;
         if (sig_is_alarm_signal(i)) {
             set_ignore_signal_action(i);
@@ -1745,7 +1723,7 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
     int i;
     for (i = 1; i <= MAX_SIGNUM; i++) {
         bool skip = false;
-        if (!info->we_intercept[i]) {
+        if (!info->sighand->we_intercept[i]) {
             skip = true;
             if (signal_is_interceptable(i)) {
                 /* We do have to intercept everything the app does.
@@ -1780,7 +1758,7 @@ signal_reinstate_alarm_handlers(dcontext_t *dcontext)
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!info->we_intercept[i] || !sig_is_alarm_signal(i))
+        if (!info->sighand->we_intercept[i] || !sig_is_alarm_signal(i))
             continue;
         LOG(THREAD, LOG_ASYNCH, 2, "\trestoring DR handler for %d\n", i);
         intercept_signal_no_longer_ignore(dcontext, info, i);
@@ -1813,20 +1791,15 @@ handle_clone(dcontext_t *dcontext, uint64 flags)
 
     pre_second_thread();
 
-    if ((flags & CLONE_SIGHAND) != 0) {
+    if (TEST(CLONE_SIGHAND, flags)) {
         /* need to share table of handlers! */
         LOG(THREAD, LOG_ASYNCH, 2, "handle_clone: CLONE_SIGHAND set!\n");
-        if (!info->shared_app_sigaction) {
-            /* this is the start of a chain of sharing
-             * no synch needed here, child not created yet
+        if (!info->sighand->is_shared) {
+            /* This is the start of a chain of sharing.
+             * No synch needed here since child not created yet.
              */
-            info->shared_app_sigaction = true;
-            info->shared_refcount =
-                (int *)global_heap_alloc(sizeof(int) HEAPACCT(ACCT_OTHER));
-            *info->shared_refcount = 1;
-            info->shared_lock =
-                (mutex_t *)global_heap_alloc(sizeof(mutex_t) HEAPACCT(ACCT_OTHER));
-            ASSIGN_INIT_LOCK_FREE(*info->shared_lock, shared_lock);
+            info->sighand->is_shared = true;
+            info->sighand->refcount = 1;
         } /* else, some ancestor is already owner */
     } else {
         /* child will inherit copy of current table -> cannot modify it
@@ -1896,15 +1869,15 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         }
         info->sigaction_param = act;
     }
-    if (info->shared_app_sigaction) {
-        /* app_sigaction structure is shared */
-        d_r_mutex_lock(info->shared_lock);
+    if (info->sighand->is_shared) {
+        /* sighand structure is shared */
+        d_r_mutex_lock(&info->sighand->lock);
     }
     if (oact != NULL) {
         /* Keep a copy of the prior one for post-syscall to hand to the app. */
         info->use_kernel_prior_sigaction = false;
-        if (info->app_sigaction[sig] == NULL) {
-            if (info->we_intercept[sig]) {
+        if (info->sighand->action[sig] == NULL) {
+            if (info->sighand->we_intercept[sig]) {
                 /* need to pretend there is no handler */
                 memset(&info->prior_app_sigaction, 0, sizeof(info->prior_app_sigaction));
                 info->prior_app_sigaction.handler = (handler_t)SIG_DFL;
@@ -1912,7 +1885,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
                 info->use_kernel_prior_sigaction = true;
             }
         } else {
-            memcpy(&info->prior_app_sigaction, info->app_sigaction[sig],
+            memcpy(&info->prior_app_sigaction, info->sighand->action[sig],
                    sizeof(info->prior_app_sigaction));
         }
     }
@@ -1921,12 +1894,12 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
             local_act.handler == (handler_t)SIG_DFL) {
             LOG(THREAD, LOG_ASYNCH, 2, "app installed %s as sigaction for signal %d\n",
                 (local_act.handler == (handler_t)SIG_IGN) ? "SIG_IGN" : "SIG_DFL", sig);
-            if (!info->we_intercept[sig]) {
+            if (!info->sighand->we_intercept[sig]) {
                 /* let the SIG_IGN/SIG_DFL go through, we want to remove our
-                 * handler.  we delete the stored app_sigaction in post_
+                 * handler.  we delete the stored action in post_
                  */
-                if (info->shared_app_sigaction)
-                    d_r_mutex_unlock(info->shared_lock);
+                if (info->sighand->is_shared)
+                    d_r_mutex_unlock(&info->sighand->lock);
                 return true;
             }
         } else {
@@ -1951,22 +1924,23 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
          */
         save->flags &= ~(SA_IA32_ABI | SA_X32_ABI);
 #endif
-        if (info->app_sigaction[sig] != NULL) {
+        if (info->sighand->action[sig] != NULL) {
             /* go ahead and toss the old one, it's up to the app to store
              * and then restore later if it wants to
              */
-            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
+            handler_free(dcontext, info->sighand->action[sig],
+                         sizeof(kernel_sigaction_t));
         }
-        info->app_sigaction[sig] = save;
+        info->sighand->action[sig] = save;
         LOG(THREAD, LOG_ASYNCH, 3, "\tflags = " PFX ", %s = " PFX "\n", local_act.flags,
             IF_MACOS_ELSE("tramp", "restorer"),
             IF_MACOS_ELSE(local_act.tramp, local_act.restorer));
         /* clear cache */
         info->restorer_valid[sig] = -1;
     }
-    if (info->shared_app_sigaction)
-        d_r_mutex_unlock(info->shared_lock);
-    if (info->we_intercept[sig]) {
+    if (info->sighand->is_shared)
+        d_r_mutex_unlock(&info->sighand->lock);
+    if (info->sighand->we_intercept[sig]) {
         /* cancel the syscall */
         *result = handle_post_sigaction(dcontext, true, sig, act, oact, sigsetsize);
         return false;
@@ -2046,15 +2020,15 @@ handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
          * bothering with safe_read.
          */
         ((act->handler == (handler_t)SIG_IGN || act->handler == (handler_t)SIG_DFL) &&
-         !info->we_intercept[sig]) &&
-        info->app_sigaction[sig] != NULL) {
-        if (info->shared_app_sigaction)
-            d_r_mutex_lock(info->shared_lock);
+         !info->sighand->we_intercept[sig]) &&
+        info->sighand->action[sig] != NULL) {
+        if (info->sighand->is_shared)
+            d_r_mutex_lock(&info->sighand->lock);
         /* remove old stored app action */
-        handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
-        info->app_sigaction[sig] = NULL;
-        if (info->shared_app_sigaction)
-            d_r_mutex_unlock(info->shared_lock);
+        handler_free(dcontext, info->sighand->action[sig], sizeof(kernel_sigaction_t));
+        info->sighand->action[sig] = NULL;
+        if (info->sighand->is_shared)
+            d_r_mutex_unlock(&info->sighand->lock);
     }
     return 0;
 }
@@ -2248,7 +2222,7 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     if (to_app) {
-        if (init_info.app_sigaction != NULL) {
+        if (init_info.sighand != NULL) {
             /* This is the first execution of the app.
              * We need to remove our own init-time handler and mask.
              */
@@ -3031,14 +3005,14 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
     /* vmkernel ignores SA_RESTORER (PR 405694) */
     return false;
 #    endif
-    if (info->app_sigaction[sig] == NULL)
+    if (info->sighand->action[sig] == NULL)
         return false;
-    if (TEST(SA_RESTORER, info->app_sigaction[sig]->flags))
+    if (TEST(SA_RESTORER, info->sighand->action[sig]->flags))
         return true;
 #    ifdef AARCH64
     /* In AArch64 either the app or the kernel defines a restorer, not glibc, contrary
      * to x86/ARM where glibc defines a restorer if the app did not define one. Thus,
-     * reading info->app_sigaction[sig]->restorer when SA_RESTORER is not specified by
+     * reading info->sighand->action[sig]->restorer when SA_RESTORER is not specified by
      * the app was never an issue for x86/ARM, but for AArch64 if the SA_RESTORER is
      * not specified DR will read garbage leading to a seg fault later when
      * safe_reading the restorer. To avoid this issue return false early for AArch64 if
@@ -3046,7 +3020,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
      */
     return false;
 #    endif
-    if (info->app_sigaction[sig]->restorer == NULL)
+    if (info->sighand->action[sig]->restorer == NULL)
         return false;
     /* we cache the result due to the safe_read cost */
     if (info->restorer_valid[sig] == -1) {
@@ -3080,14 +3054,14 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
             { 0x68, 0x11, 0x80, 0x52, 0x01, 0x00, 0x00, 0xd4 };
 #    endif
         byte buf[MAX(sizeof(SIGRET_NONRT), sizeof(SIGRET_RT))] = { 0 };
-        if (d_r_safe_read(info->app_sigaction[sig]->restorer, sizeof(buf), buf) &&
+        if (d_r_safe_read(info->sighand->action[sig]->restorer, sizeof(buf), buf) &&
             ((IS_RT_FOR_APP(info, sig) &&
               memcmp(buf, SIGRET_RT, sizeof(SIGRET_RT)) == 0) ||
              (!IS_RT_FOR_APP(info, sig) &&
               memcmp(buf, SIGRET_NONRT, sizeof(SIGRET_NONRT)) == 0))) {
             LOG(THREAD_GET, LOG_ASYNCH, 2,
                 "sig_has_restorer %d: " PFX " looks like restorer, using w/o flag\n", sig,
-                info->app_sigaction[sig]->restorer);
+                info->sighand->action[sig]->restorer);
             info->restorer_valid[sig] = 1;
         } else
             info->restorer_valid[sig] = 0;
@@ -3365,7 +3339,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
 #    endif
 
     if (has_restorer && for_app)
-        f_new->pretcode = (char *)info->app_sigaction[sig]->restorer;
+        f_new->pretcode = (char *)info->sighand->action[sig]->restorer;
     else {
 #    ifdef VMX86_SERVER
         /* PR 404712: skip kernel's restorer code */
@@ -3623,7 +3597,7 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
         sigframe_plain_t *f_old = (sigframe_plain_t *)frame;
 #        endif
         if (has_restorer)
-            f_new->pretcode = (char *)info->app_sigaction[sig]->restorer;
+            f_new->pretcode = (char *)info->sighand->action[sig]->restorer;
         else {
 #        ifdef VMX86_SERVER
             /* PR 404712: skip kernel's restorer code */
@@ -3660,8 +3634,8 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
 
 #if defined(MACOS) && !defined(X64)
     /* Update handler field, which is passed to the libc trampoline, to app */
-    ASSERT(info->app_sigaction[sig] != NULL);
-    ((sigframe_rt_t *)sp)->handler = (app_pc)info->app_sigaction[sig]->handler;
+    ASSERT(info->sighand->action[sig] != NULL);
+    ((sigframe_rt_t *)sp)->handler = (app_pc)info->sighand->action[sig]->handler;
 #endif
 }
 
@@ -3896,8 +3870,8 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
         }
         return false;
     } else if (action == DR_SIGNAL_SUPPRESS ||
-               (!blocked && info->app_sigaction[sig] != NULL &&
-                info->app_sigaction[sig]->handler == (handler_t)SIG_IGN)) {
+               (!blocked && info->sighand->action[sig] != NULL &&
+                info->sighand->action[sig]->handler == (handler_t)SIG_IGN)) {
         LOG(THREAD, LOG_ASYNCH, 2, "%s: not delivering!\n",
             (action == DR_SIGNAL_SUPPRESS) ? "client suppressing signal"
                                            : "app signal handler is SIG_IGN");
@@ -3906,8 +3880,8 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
         return false;
     } else if (!blocked && /* no BYPASS for blocked */
                (action == DR_SIGNAL_BYPASS ||
-                (info->app_sigaction[sig] == NULL ||
-                 info->app_sigaction[sig]->handler == (handler_t)SIG_DFL))) {
+                (info->sighand->action[sig] == NULL ||
+                 info->sighand->action[sig]->handler == (handler_t)SIG_DFL))) {
         LOG(THREAD, LOG_ASYNCH, 2, "%s: executing default action\n",
             (action == DR_SIGNAL_BYPASS) ? "client forcing default"
                                          : "app signal handler is SIG_DFL");
@@ -3961,9 +3935,9 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     uint orig_dumpcore_flag = dumpcore_flag;
-    if (init_info.app_sigaction != NULL)
+    if (init_info.sighand->action != NULL)
         info = &init_info; /* use init-time handler */
-    ASSERT(info->app_sigaction != NULL);
+    ASSERT(info->sighand->action != NULL);
 #endif
     const char *fmt = "%s %s at PC " PFX "\n"
                       "Received SIG%s at%s pc " PFX " in thread " TIDFMT "\n"
@@ -3990,7 +3964,7 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
 
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     /* i#2119: if we're invoking an app handler, disable a fatal coredump. */
-    if (INTERNAL_OPTION(invoke_app_on_crash) && info->app_sigaction[sig] != NULL &&
+    if (INTERNAL_OPTION(invoke_app_on_crash) && info->sighand->action[sig] != NULL &&
         IS_RT_FOR_APP(info, sig) && TEST(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
         !DYNAMO_OPTION(live_dump))
         dumpcore_flag = 0;
@@ -4028,11 +4002,11 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
      * We limit to Linux and RT for simplicity: it can be expanded later if static
      * library use expands.
      */
-    if (INTERNAL_OPTION(invoke_app_on_crash) && info->app_sigaction[sig] != NULL &&
+    if (INTERNAL_OPTION(invoke_app_on_crash) && info->sighand->action[sig] != NULL &&
         IS_RT_FOR_APP(info, sig)) {
         SYSLOG(SYSLOG_WARNING, INVOKING_APP_HANDLER, 2, get_application_name(),
                get_application_pid());
-        (*info->app_sigaction[sig]->handler)(sig, &frame->info, ucxt);
+        (*info->sighand->action[sig]->handler)(sig, &frame->info, ucxt);
         /* If the app handler didn't terminate, now get a fatal core. */
         if (TEST(orig_dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
             !DYNAMO_OPTION(live_dump))
@@ -4223,8 +4197,8 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
         return false;
     }
     /* Don't restart if the app's handler says not to */
-    if (info->app_sigaction[sig] != NULL &&
-        !TEST(SA_RESTART, info->app_sigaction[sig]->flags)) {
+    if (info->sighand->action[sig] != NULL &&
+        !TEST(SA_RESTART, info->sighand->action[sig]->flags)) {
         return false;
     }
     /* XXX i#1145: some syscalls are never restarted when interrupted by a signal.
@@ -4472,8 +4446,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     if (get_at_syscall(dcontext))
         syslen = syscall_instr_length(dr_get_isa_mode(dcontext));
 
-    if (info->app_sigaction[sig] != NULL &&
-        info->app_sigaction[sig]->handler == (handler_t)SIG_IGN
+    if (info->sighand->action[sig] != NULL &&
+        info->sighand->action[sig]->handler == (handler_t)SIG_IGN
         /* If a client registered a handler, put this in the queue.
          * Races between registering, queueing, and delivering are fine.
          */
@@ -5331,7 +5305,7 @@ main_signal_handler_C(byte *xsp)
             /* Assuming an alarm during thread exit or init (xref PR 596127,
              * i#359).  Delivering it sometimes works, but we could be mid-init
              * where it's not easy and we could crash b/c of in-between state
-             * (observed for alarm mid-signal_thread_init where info->app_sigaction
+             * (observed for alarm mid-signal_thread_init where info->sighand->action
              * is still NULL).
              */
             return;
@@ -5757,9 +5731,9 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     }
 
     /* add to set of blocked signals those in sigaction mask */
-    blocked = info->app_sigaction[sig]->mask;
+    blocked = info->sighand->action[sig]->mask;
     /* SA_NOMASK says whether to block sig itself or not */
-    if ((info->app_sigaction[sig]->flags & SA_NOMASK) == 0)
+    if ((info->sighand->action[sig]->flags & SA_NOMASK) == 0)
         kernel_sigaddset(&blocked, sig);
     set_blocked(dcontext, &blocked, false /*relative: OR these in*/);
 
@@ -5783,7 +5757,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
     if (sig_has_restorer(info, sig))
-        sc->SC_LR = (reg_t)info->app_sigaction[sig]->restorer;
+        sc->SC_LR = (reg_t)info->sighand->action[sig]->restorer;
     else
         sc->SC_LR = (reg_t)dynamorio_sigreturn;
 #endif
@@ -5795,18 +5769,18 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     transfer_from_sig_handler_to_fcache_return(
         dcontext, uc, app_sc, sig,
         /* Make sure handler is next thing we execute */
-        (app_pc)SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]),
+        (app_pc)SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]),
         (linkstub_t *)get_asynch_linkstub(), true);
 
-    if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
+    if ((info->sighand->action[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
          * others may look at sigaction struct, so we just set to default
          */
-        info->app_sigaction[sig]->handler = (handler_t)SIG_DFL;
+        info->sighand->action[sig]->handler = (handler_t)SIG_DFL;
     }
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset next_tag to handler " PFX ", xsp to " PFX "\n",
-        SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]), xsp);
+        SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]), xsp);
     return true;
 }
 
@@ -5921,15 +5895,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
         return true; /* don't try another signal */
     } else if (action == DR_SIGNAL_SUPPRESS ||
-               (info->app_sigaction[sig] != NULL &&
-                info->app_sigaction[sig]->handler == (handler_t)SIG_IGN)) {
+               (info->sighand->action[sig] != NULL &&
+                info->sighand->action[sig]->handler == (handler_t)SIG_IGN)) {
         LOG(THREAD, LOG_ASYNCH, 2, "%s: not delivering!\n",
             (action == DR_SIGNAL_SUPPRESS) ? "client suppressing signal"
                                            : "app signal handler is SIG_IGN");
         return false;
     } else if (action == DR_SIGNAL_BYPASS ||
-               (info->app_sigaction[sig] == NULL ||
-                info->app_sigaction[sig]->handler == (handler_t)SIG_DFL)) {
+               (info->sighand->action[sig] == NULL ||
+                info->sighand->action[sig]->handler == (handler_t)SIG_DFL)) {
         LOG(THREAD, LOG_ASYNCH, 2, "%s: executing default action\n",
             (action == DR_SIGNAL_BYPASS) ? "client forcing default"
                                          : "app signal handler is SIG_DFL");
@@ -5955,12 +5929,12 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* now point at the app's frame */
     sc = get_sigcontext_from_app_frame(info, sig, (void *)xsp);
 
-    ASSERT(info->app_sigaction[sig] != NULL);
+    ASSERT(info->sighand->action[sig] != NULL);
 
     /* add to set of blocked signals those in sigaction mask */
-    blocked = info->app_sigaction[sig]->mask;
+    blocked = info->sighand->action[sig]->mask;
     /* SA_NOMASK says whether to block sig itself or not */
-    if ((info->app_sigaction[sig]->flags & SA_NOMASK) == 0)
+    if ((info->sighand->action[sig]->flags & SA_NOMASK) == 0)
         kernel_sigaddset(&blocked, sig);
     set_blocked(dcontext, &blocked, false /*relative: OR these in*/);
 
@@ -5978,8 +5952,8 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      * kernel_ucontext_t *ucxt.
      */
 #ifdef MACOS64
-    mcontext->xdi = (reg_t)info->app_sigaction[sig]->handler;
-    int infostyle = TEST(SA_SIGINFO, info->app_sigaction[sig]->flags)
+    mcontext->xdi = (reg_t)info->sighand->action[sig]->handler;
+    int infostyle = TEST(SA_SIGINFO, info->sighand->action[sig]->flags)
         ? SIGHAND_STYLE_UC_FLAVOR
         : SIGHAND_STYLE_UC_TRAD;
     mcontext->xsi = infostyle;
@@ -5997,7 +5971,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         mcontext->r2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
     if (sig_has_restorer(info, sig))
-        mcontext->lr = (reg_t)info->app_sigaction[sig]->restorer;
+        mcontext->lr = (reg_t)info->sighand->action[sig]->restorer;
     else
         mcontext->lr = (reg_t)dynamorio_sigreturn;
 #endif
@@ -6006,13 +5980,13 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     mcontext->xflags &= ~EFLAGS_DF;
 #endif
     /* Make sure handler is next thing we execute */
-    mcontext->pc = (app_pc)SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]);
+    mcontext->pc = (app_pc)SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]);
 
-    if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
+    if ((info->sighand->action[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
          * others may look at sigaction struct, so we just set to default
          */
-        info->app_sigaction[sig]->handler = (handler_t)SIG_DFL;
+        info->sighand->action[sig]->handler = (handler_t)SIG_DFL;
     }
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
     /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
@@ -6036,8 +6010,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
      * info we need: the app's sigaction and sigstack settings.
      */
     thread_sig_info_t synthetic = {};
-    kernel_sigaction_t *sigact_array[SIGARRAY_SIZE] = {};
-    bool intercept_array[SIGARRAY_SIZE];
+    sighand_info_t sighand = {};
     kernel_sigaction_t sigact_struct;
     thread_sig_info_t *info;
     LOG(THREAD, LOG_ASYNCH, 2, "%s for signal %d in thread " TIDFMT "\n", __FUNCTION__,
@@ -6056,10 +6029,9 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
             ASSERT_NOT_REACHED();
         }
         info = &synthetic;
-        synthetic.we_intercept = intercept_array;
-        synthetic.we_intercept[sig] = true;
-        synthetic.app_sigaction = sigact_array;
-        synthetic.app_sigaction[sig] = &sigact_struct;
+        synthetic.sighand = &sighand;
+        synthetic.sighand->we_intercept[sig] = true;
+        synthetic.sighand->action[sig] = &sigact_struct;
         d_r_read_lock(&detached_sigact_lock);
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
@@ -6090,8 +6062,8 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
      * cannot really take any action except send it to the native handler.
      */
 
-    if (info->app_sigaction[sig] == NULL ||
-        info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
+    if (info->sighand->action[sig] == NULL ||
+        info->sighand->action[sig]->handler == (handler_t)SIG_DFL) {
         /* TODO i#1921: We want to call:
          *   execute_default_from_cache(dcontext, sig, our_frame, sc, false)
          * But we need to pass in our sythentic info.
@@ -6129,9 +6101,9 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         ASSERT_NOT_REACHED();
         return;
     }
-    ASSERT(info->app_sigaction[sig] != NULL &&
-           info->app_sigaction[sig]->handler != (handler_t)SIG_IGN &&
-           info->app_sigaction[sig]->handler != (handler_t)SIG_DFL);
+    ASSERT(info->sighand->action[sig] != NULL &&
+           info->sighand->action[sig]->handler != (handler_t)SIG_IGN &&
+           info->sighand->action[sig]->handler != (handler_t)SIG_DFL);
 
     RSTATS_INC(num_signals);
     RSTATS_INC(num_native_signals);
@@ -6140,8 +6112,8 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
 
     copy_frame_to_stack(dcontext, info, sig, our_frame, (void *)xsp, false /*!pending*/);
 
-    blocked = info->app_sigaction[sig]->mask;
-    if (!TEST(SA_NOMASK, (info->app_sigaction[sig]->flags)))
+    blocked = info->sighand->action[sig]->mask;
+    if (!TEST(SA_NOMASK, (info->sighand->action[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
     DOLOG(2, LOG_ASYNCH, {
         LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals, stored in our frame:\n");
@@ -6173,14 +6145,14 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
     if (sig_has_restorer(info, sig))
-        sc->SC_LR = (reg_t)info->app_sigaction[sig]->restorer;
+        sc->SC_LR = (reg_t)info->sighand->action[sig]->restorer;
     else
         sc->SC_LR = (reg_t)dynamorio_sigreturn;
 #endif
-    sc->SC_XIP = (reg_t)SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]);
+    sc->SC_XIP = (reg_t)SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]);
 
     LOG(THREAD, LOG_ASYNCH, 2, "%s: set pc to handler %p with xsp=%p\n", __FUNCTION__,
-        SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]), xsp);
+        SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]), xsp);
 
     if (TEST(SA_ONESHOT, detached_sigact[sig].flags)) {
         /* XXX: When we remove DR's handler from the final thread we'll ignore this
@@ -6255,10 +6227,10 @@ os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig)
             dcontext_t *my_dc = get_thread_private_dcontext();
             if (my_dc != NULL) {
                 thread_sig_info_t *info = (thread_sig_info_t *)my_dc->signal_field;
-                if (info != NULL && info->app_sigaction[sig] != NULL &&
+                if (info != NULL && info->sighand->action[sig] != NULL &&
                     IS_RT_FOR_APP(info, sig)) {
                     set_action = true;
-                    sigaction_syscall(sig, info->app_sigaction[sig], NULL);
+                    sigaction_syscall(sig, info->sighand->action[sig], NULL);
                 }
             }
         }
@@ -6312,14 +6284,15 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     /* should only come here for signals we catch, or signal with ONESHOT
      * that didn't sigreturn
      */
-    ASSERT(info->we_intercept[sig] ||
-           (info->app_sigaction[sig]->flags & SA_ONESHOT) != 0);
+    ASSERT(info->sighand->we_intercept[sig] ||
+           (info->sighand->action[sig]->flags & SA_ONESHOT) != 0);
 
-    if (info->app_sigaction[sig] != NULL &&
-        (info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
-        if (!info->we_intercept[sig]) {
-            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
-            info->app_sigaction[sig] = NULL;
+    if (info->sighand->action[sig] != NULL &&
+        (info->sighand->action[sig]->flags & SA_ONESHOT) != 0) {
+        if (!info->sighand->we_intercept[sig]) {
+            handler_free(dcontext, info->sighand->action[sig],
+                         sizeof(kernel_sigaction_t));
+            info->sighand->action[sig] = NULL;
         }
     }
 
@@ -6348,7 +6321,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
          * Perhaps worse: what if this signal arrives for another thread
          * in the meantime (and the default is not terminate)?
          */
-        if (info->shared_app_sigaction) {
+        if (info->sighand->is_shared) {
             LOG(THREAD, LOG_ASYNCH, 1,
                 "WARNING: having to install SIG_DFL for thread " TIDFMT ", but will be "
                 "shared!\n",
@@ -6361,15 +6334,15 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                                "action.\n",
                                sig);
             /* App may call sigaction to set handler SIG_DFL (unnecessary but legal),
-             * in which case DR will put a handler in info->app_sigaction[sig].
+             * in which case DR will put a handler in info->sighand->action[sig].
              * We must clear it, otherwise, signal_thread_exit may cleanup the
              * handler and set it to SIG_IGN instead.
              */
-            if (info->app_sigaction[sig] != NULL) {
-                ASSERT(info->we_intercept[sig]);
-                handler_free(dcontext, info->app_sigaction[sig],
+            if (info->sighand->action[sig] != NULL) {
+                ASSERT(info->sighand->we_intercept[sig]);
+                handler_free(dcontext, info->sighand->action[sig],
                              sizeof(kernel_sigaction_t));
-                info->app_sigaction[sig] = NULL;
+                info->sighand->action[sig] = NULL;
             }
             /* N.B.: we don't have to restore our handler because the
              * default action is for the process (entire thread group for NPTL) to die!
@@ -6759,13 +6732,14 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     /* Defensively check for NULL.
      * XXX i#3182: It did happen but it is not clear how.
      */
-    if (info->app_sigaction[sig] != NULL &&
-        TEST(SA_ONESHOT, info->app_sigaction[sig]->flags)) {
-        ASSERT(info->app_sigaction[sig]->handler == (handler_t)SIG_DFL);
-        if (!info->we_intercept[sig]) {
+    if (info->sighand->action[sig] != NULL &&
+        TEST(SA_ONESHOT, info->sighand->action[sig]->flags)) {
+        ASSERT(info->sighand->action[sig]->handler == (handler_t)SIG_DFL);
+        if (!info->sighand->we_intercept[sig]) {
             /* let kernel do default independent of us */
-            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
-            info->app_sigaction[sig] = NULL;
+            handler_free(dcontext, info->sighand->action[sig],
+                         sizeof(kernel_sigaction_t));
+            info->sighand->action[sig] = NULL;
         }
     }
 
@@ -6977,7 +6951,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     thread_set_segment_registers(sc);
 #if defined(X86) && defined(LINUX)
     if (sig_has_restorer(info, sig))
-        frame->pretcode = (char *)info->app_sigaction[sig]->restorer;
+        frame->pretcode = (char *)info->sighand->action[sig]->restorer;
     else
         frame->pretcode = (char *)dynamorio_sigreturn;
 #endif
@@ -7776,12 +7750,12 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
          */
         d_r_read_lock(&detached_sigact_lock);
         for (int i = 0; i < SIGARRAY_SIZE; ++i) {
-            if (info->app_sigaction[i] != NULL &&
+            if (info->sighand->action[i] != NULL &&
                 detached_sigact[i].handler == (handler_t)0) {
                 d_r_read_unlock(&detached_sigact_lock);
                 d_r_write_lock(&detached_sigact_lock);
                 if (detached_sigact[i].handler == (handler_t)0) {
-                    memcpy(&detached_sigact[i], info->app_sigaction[i],
+                    memcpy(&detached_sigact[i], info->sighand->action[i],
                            sizeof(detached_sigact[i]));
                 }
                 d_r_write_unlock(&detached_sigact_lock);
