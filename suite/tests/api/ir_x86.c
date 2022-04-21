@@ -2665,6 +2665,8 @@ main(int argc, char *argv[])
 
     test_x64_inc(dcontext);
 
+    test_avx512_vnni_encoding(dcontext);
+
     test_x64_vmovq(dcontext);
 #endif
 
@@ -2722,8 +2724,6 @@ main(int argc, char *argv[])
     test_all_opcodes_4_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_3_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_2_avx512_evex_scaled_disp8(dcontext);
-
-    test_avx512_vnni_encoding(dcontext);
 #endif
 
     print("all done\n");
