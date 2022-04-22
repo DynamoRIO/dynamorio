@@ -302,7 +302,7 @@ static void
 execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *frame);
 
 static bool
-reroute_to_unmasked_thread(dcontext_t *dcontext, kernel_siginfo_t *siginfo, int sig);
+reroute_to_unmasked_thread(dcontext_t *dcontext, sigframe_rt_t *frame, int sig);
 
 static bool
 handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt);
@@ -4679,7 +4679,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * can call this now.
              */
             ASSERT_NOT_TESTED();
-            handled = reroute_to_unmasked_thread(dcontext, &frame->info, sig);
+            handled = reroute_to_unmasked_thread(dcontext, frame, sig);
             if (!handled)
                 blocked = true;
         } else {
@@ -6716,8 +6716,13 @@ execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *fram
 }
 
 static bool
-reroute_to_unmasked_thread(dcontext_t *dcontext, kernel_siginfo_t *siginfo, int sig)
+reroute_to_unmasked_thread(dcontext_t *dcontext, sigframe_rt_t *frame, int sig)
 {
+    kernel_siginfo_t *siginfo = &frame->info;
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+    if (!signal_is_process_wide(dcontext, siginfo, (byte *)sc->SC_XIP,
+                                (byte *)sc->SC_XSP))
+        return false;
     bool found = false;
     thread_record_t **trecs;
     int num_threads;
@@ -6738,7 +6743,7 @@ reroute_to_unmasked_thread(dcontext_t *dcontext, kernel_siginfo_t *siginfo, int 
         d_r_mutex_lock(&tgt_info->sigblocked_lock);
         if (!kernel_sigismember(&tgt_info->app_sigblocked, sig)) {
             LOG(THREAD, LOG_ASYNCH, 2,
-                "re-routing signal %d to thread " TIDFMT " where it is unblocked\n", sig,
+                "rerouting signal %d to thread " TIDFMT " where it is unblocked\n", sig,
                 trecs[i]->id);
             /* It is simpler to send a new signal to the target thread, rather than
              * trying to copy this same signal frame over there.
@@ -6816,8 +6821,8 @@ receive_pending_signal(dcontext_t *dcontext)
              */
             if (!info->sigpending[sig]->unblocked_at_receipt &&
                 kernel_sigismember(&info->app_sigblocked, sig)) {
-                if (reroute_to_unmasked_thread(
-                        dcontext, &info->sigpending[sig]->rt_frame.info, sig)) {
+                if (reroute_to_unmasked_thread(dcontext, &info->sigpending[sig]->rt_frame,
+                                               sig)) {
                     temp = info->sigpending[sig];
                     info->sigpending[sig] = temp->next;
                     special_heap_free(info->sigheap, temp);
