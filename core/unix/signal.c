@@ -330,6 +330,8 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 static void
 dump_unmasked(dcontext_t *dcontext, const char *where)
 {
+    if (dcontext == GLOBAL_DCONTEXT || dcontext == NULL)
+        return;
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     LOG(THREAD, LOG_ASYNCH, 3, "%s: threads_unmasked: ", where);
     for (int i = 1; i <= MAX_SIGNUM; i++) {
@@ -367,6 +369,17 @@ signal_is_interceptable(int sig)
 static bool
 signal_is_process_wide(dcontext_t *dcontext, kernel_siginfo_t *info, byte *pc, byte *xsp)
 {
+#ifdef MACOS
+    if (sig_is_alarm_signal(info->si_signo))
+        return true;
+    if (is_at_do_syscall(dcontext, pc, xsp)) {
+        if (dcontext->sys_num == SYS_kill)
+            return true;
+        if (dcontext->sys_num == SYS___pthread_kill)
+            return false;
+    }
+    return true;
+#else
     switch (info->si_code) {
     case SI_KERNEL:
         /* Legacy interval timer sets SI_KERNEL instead of SI_TIMER. */
@@ -376,7 +389,6 @@ signal_is_process_wide(dcontext_t *dcontext, kernel_siginfo_t *info, byte *pc, b
         return false;
     case SI_USER:
         if (is_at_do_syscall(dcontext, pc, xsp)) {
-#ifdef LINUX
             if (dcontext->sys_num == SYS_kill || dcontext->sys_num == SYS_rt_sigqueueinfo)
                 return true;
             /* tkill and tgkill should set SI_TKILL, but just in case: */
@@ -387,28 +399,27 @@ signal_is_process_wide(dcontext_t *dcontext, kernel_siginfo_t *info, byte *pc, b
                  */
                 return false;
             }
-#elif defined(MACOS)
             if (dcontext->sys_num == SYS_kill)
                 return true;
             if (dcontext->sys_num == SYS___pthread_kill)
                 return false;
-#endif
         }
     case SI_QUEUE:
-#ifdef LINUX
         if (is_at_do_syscall(dcontext, pc, xsp) &&
             dcontext->sys_num == SYS_rt_tgsigqueueinfo)
             return false;
-#endif
         return true;
     case SI_TIMER: return true;
     case SI_MESGQ: return true;
     case SI_ASYNCIO: return true;
     case SI_SIGIO: return true;
     case SI_TKILL: return false;
+#    ifdef SI_DETHREAD
     case SI_DETHREAD: return true;
+#    endif
     default: return true;
     }
+#endif
 }
 
 static inline int
@@ -2355,6 +2366,7 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
              * We need to remove our own init-time handler and mask.
              */
             unset_initial_crash_handlers(dcontext);
+            DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
             return;
         }
         d_r_mutex_lock(&info->sigblocked_lock);
@@ -2484,7 +2496,8 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              */
             for (i = 1; i <= MAX_SIGNUM; i++) {
                 if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
-                    ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
+                    if (!kernel_sigismember(&info->app_sigblocked, i))
+                        ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
                     kernel_sigaddset(&info->app_sigblocked, i);
                     if (execute_syscall)
                         kernel_sigdelset(app_set, i);
@@ -6385,7 +6398,17 @@ terminate_via_kill(dcontext_t *dcontext)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     ASSERT(dcontext == get_thread_private_dcontext());
-    /* Enure signal_thread_exit() will not re-block */
+    /* Enure signal_thread_exit() will not re-block.
+     * Increment threads_unmasked to counteract the dec from the seemingly-unblocked
+     * signals in signal_thread_exit().
+     */
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (!EMULATE_SIGMASK(info, i))
+            continue;
+        if (kernel_sigismember(&info->app_sigblocked, i))
+            ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
+    }
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
     /* Since we're exiting we do not acquire sigblocked_mutex to ensure this works
      * from fragile locations.
      */
