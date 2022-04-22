@@ -64,7 +64,7 @@ handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #ifdef MACOS
         /* Make the output match for template simplicity. */
         siginfo->si_code = SI_QUEUE;
-        siginfo->si_value = MAGIC_VALUE;
+        siginfo->si_value.sival_ptr = (void *)MAGIC_VALUE;
 #endif
         print("in handler for signal %d from %d value %p\n", sig, siginfo->si_code,
               siginfo->si_value);
