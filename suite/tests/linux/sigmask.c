@@ -52,6 +52,8 @@
 
 static void *child_ready;
 
+#define MAGIC_VALUE 0xdeadbeef
+
 static void
 handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -59,6 +61,11 @@ handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
      * timing of our signals here.
      */
     if (sig == SIGWINCH) {
+#ifdef MACOS
+        /* Make the output match for template simplicity. */
+        siginfo->si_code = SI_QUEUE;
+        siginfo->si_value = MAGIC_VALUE;
+#endif
         print("in handler for signal %d from %d value %p\n", sig, siginfo->si_code,
               siginfo->si_value);
     } else
@@ -123,8 +130,13 @@ main(int argc, char **argv)
 
     print("sending %d with value\n", SIGWINCH);
     union sigval value;
-    value.sival_ptr = (void *)0xdeadbeef;
+    value.sival_ptr = (void *)MAGIC_VALUE;
+#ifdef MACOS
+    /* sigqueue is not available on Mac. */
+    kill(getpid(), SIGWINCH);
+#else
     sigqueue(getpid(), SIGWINCH, value);
+#endif
     wait_cond_var(child_ready);
     reset_cond_var(child_ready);
 
