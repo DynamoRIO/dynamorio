@@ -454,7 +454,11 @@ typedef struct _thread_sig_info_t {
     bool accessing_sigpending;
     bool nested_pending_ok;
 
-    /* reroute_to_unmasked_thread() needs read access to app_sigblocked from other
+    /* This thread's application signal mask: the set of blocked signals.
+     * We need to keep this in sync with the thread-group-shared
+     * sighand->threads_unmasked.
+     *
+     * reroute_to_unmasked_thread() needs read access to app_sigblocked from other
      * threads.  However, we also need lockless read access from our signal handler.
      * Since all writes are from the owning thread, we read w/o a lock from the owning
      * thread, but use the lock for writes from the owning thread and reads from

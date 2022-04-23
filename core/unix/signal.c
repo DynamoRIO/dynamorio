@@ -2372,8 +2372,9 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
     } else {
         /* Normally we get here just once at takeover, but if we have threads
          * going native we don't consider them unmasked as we can't rely on their
-         * mask not changing: so we undo their counts when the come back here and
-         * redo with the latest blocked signals.
+         * mask not changing: so we undo their counts when they come back here and
+         * redo with the latest blocked signals (unblock_all_signals() sets
+         * app_sigblocked to a new absolute set).
          */
         for (int i = 1; i <= MAX_SIGNUM; i++) {
             if (!EMULATE_SIGMASK(info, i))
@@ -4670,6 +4671,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             reroute = true;
         }
     }
+    /* The value of blocked may have changed, so we re-start the if-else chain. */
     if (blocked) {
         /* No reroute needed so no action needed. */
     } else if (dcontext->currently_stopped) {
