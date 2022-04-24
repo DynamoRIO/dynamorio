@@ -2630,7 +2630,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #endif
 
 #ifdef DEBUG
-    if (dcontext->logfile != INVALID_FILE) {
+    if (dcontext->logfile != INVALID_FILE && dcontext->logfile != STDERR) {
         os_flush(dcontext->logfile);
         close_log_file(dcontext->logfile);
     }

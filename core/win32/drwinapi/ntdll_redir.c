@@ -933,7 +933,7 @@ redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out)
     index = bitmap_find_free_sequence(peb->FlsBitmap->BitMapBuffer,
                                       peb->FlsBitmap->SizeOfBitMap, 1,
                                       false /*!top_down*/, 0, 0 /*no alignment*/);
-    if (index < 0) {
+    if (index == -1) {
         res = STATUS_NO_MEMORY; /* observed in real ntdll */
     } else {
         *index_out = index;

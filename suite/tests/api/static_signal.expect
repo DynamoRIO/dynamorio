@@ -12,6 +12,7 @@ Got SIGSEGV
 pre-DR stop
 Saw some bb events
 Saw >=2 signals
+Saw >=1 alarm signals
 Sending SIGUSR1 post-DR-stop
 Got SIGUSR1
 pre-raise SIGSEGV native
