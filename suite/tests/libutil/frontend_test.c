@@ -43,7 +43,7 @@ main()
 {
     bool dir_exists;
     int res;
-    const char *path;
+    char path_env[512];
     char path_buf[512];
     char full_path_buf[512];
     bool ret;
@@ -58,11 +58,24 @@ main()
         return -1;
     }
 
-    path = getenv("PATH");
+    if (drfront_get_env_var("PATH", path_env, sizeof(path_env)) != DRFRONT_SUCCESS) {
+        printf("failed to get env var\n");
+        return -1;
+    }
     const char *const subdir = "test_dir:";
     strncpy(path_buf, subdir, strlen(subdir));
-    strncat(path_buf, path, sizeof(full_path_buf) - strlen(subdir) - 1);
-    setenv("PATH", path_buf, 1);
+    strncat(path_buf, path_env, sizeof(path_buf) - strlen(subdir) - 1);
+#ifdef UNIX
+    if (setenv("PATH", path_buf, 1 /*override*/) != 0) {
+        printf("failed to set env var\n");
+        return -1;
+    }
+#else
+    if (!SetEnvironmentVariable("PATH", path_buf)) {
+        printf("failed to set env var\n");
+        return -1;
+    }
+#endif
     drfront_create_dir("test_dir/test_ex");
     if (drfront_searchenv("test_ex", "PATH", full_path_buf, sizeof(full_path_buf),
                           &ret) != DRFRONT_ERROR) {
