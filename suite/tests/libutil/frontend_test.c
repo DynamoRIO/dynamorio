@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,11 +59,13 @@ main()
     }
 
     path = getenv("PATH");
-    strncpy(path_buf, "test_dir:", 9);
-    strncat(path_buf, path, 512 - 10);
+    const char *const subdir = "test_dir:";
+    strncpy(path_buf, subdir, strlen(subdir));
+    strncat(path_buf, path, sizeof(full_path_buf) - strlen(subdir) - 1);
     setenv("PATH", path_buf, 1);
     drfront_create_dir("test_dir/test_ex");
-    if (drfront_searchenv("test_ex", "PATH", full_path_buf, 512, &ret) != DRFRONT_ERROR) {
+    if (drfront_searchenv("test_ex", "PATH", full_path_buf, sizeof(full_path_buf),
+                          &ret) != DRFRONT_ERROR) {
         printf("failed to ignore test_ex in PATH\n");
         return -1;
     }
