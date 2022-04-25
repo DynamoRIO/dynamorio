@@ -1411,7 +1411,10 @@ test_avx512_vnni_encoding(void *dc)
                                            MEMARG(OPSZ_16));
         for (int i = 0; i < 3; i++) {
             instr_t *instr = instrs[i];
+            ASSERT(instr);
+
             byte *stop = instr_encode(dc, instr, start);
+            ASSERT(stop);
 #    if VERBOSE
             for (byte *x = start; x != stop; x++) {
                 fprintf(stdout, "%02x ", *x);

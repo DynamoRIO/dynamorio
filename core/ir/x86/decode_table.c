@@ -6434,19 +6434,19 @@ const instr_info_t e_vex_extensions[][3] = {
     {EVEX_Wb_EXT, 0x6638cd18, "(evex_Wb ext 180)", xx, xx, xx, xx, xx, mrm|reqp, x, 180},
   }, { /* e_vex ext 149 */
     {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {VEX_W_EXT, 0x385008, "(vex_W ext 110)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 110},
+    {VEX_W_EXT, 0x385008, "(vex_W ext 110)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 110},
     {EVEX_Wb_EXT, 0x385008, "(evex_Wb ext 267)", xx, xx, xx, xx, xx, mrm|reqp, x, 267},
   }, { /* e_vex ext 150 */
     {INVALID, 0x385108, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {VEX_W_EXT, 0x385108, "(vex_W ext 111)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 111},
+    {VEX_W_EXT, 0x385108, "(vex_W ext 111)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 111},
     {EVEX_Wb_EXT, 0x385108, "(evex_Wb ext 268)", xx, xx, xx, xx, xx, mrm|reqp, x, 268},
   }, { /* e_vex ext 151 */
     {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {VEX_W_EXT, 0x385208, "(vex_W ext 112)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 112},
+    {VEX_W_EXT, 0x385208, "(vex_W ext 112)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 112},
     {EVEX_Wb_EXT, 0x385208, "(evex_Wb ext 269)", xx, xx, xx, xx, xx, mrm|reqp, x, 269},
   }, { /* e_vex ext 152 */
     {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {VEX_W_EXT, 0x385308, "(vex_W ext 113)", Ve, xx, Ve, He, We, mrm|vex|reqp|ttfvm, x, 113},
+    {VEX_W_EXT, 0x385308, "(vex_W ext 113)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 113},
     {EVEX_Wb_EXT, 0x385308, "(evex_Wb ext 270)", xx, xx, xx, xx, xx, mrm|reqp, x, 270},
   },
 };
