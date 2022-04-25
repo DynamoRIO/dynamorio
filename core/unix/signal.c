@@ -302,6 +302,9 @@ static void
 execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *frame);
 
 static bool
+reroute_to_unmasked_thread(dcontext_t *dcontext, sigframe_rt_t *frame, int sig);
+
+static bool
 handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt);
 
 static bool
@@ -324,6 +327,19 @@ alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal);
 #ifdef DEBUG
 static void
 dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
+static void
+dump_unmasked(dcontext_t *dcontext, const char *where)
+{
+    if (dcontext == GLOBAL_DCONTEXT || dcontext == NULL)
+        return;
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    LOG(THREAD, LOG_ASYNCH, 3, "%s: threads_unmasked: ", where);
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        LOG(THREAD, LOG_ASYNCH, 3, "[%d]=%d ", i, info->sighand->threads_unmasked[i]);
+        if (i % 16 == 0)
+            LOG(THREAD, LOG_ASYNCH, 3, "\n");
+    }
+}
 #endif
 
 static bool
@@ -348,6 +364,58 @@ static inline bool
 signal_is_interceptable(int sig)
 {
     return (sig != SIGKILL && sig != SIGSTOP);
+}
+
+static bool
+signal_is_process_wide(dcontext_t *dcontext, kernel_siginfo_t *info, byte *pc, byte *xsp)
+{
+#ifdef MACOS
+    if (sig_is_alarm_signal(info->si_signo))
+        return true;
+    if (is_at_do_syscall(dcontext, pc, xsp)) {
+        if (dcontext->sys_num == SYS_kill)
+            return true;
+        if (dcontext->sys_num == SYS___pthread_kill)
+            return false;
+    }
+    return true;
+#else
+    switch (info->si_code) {
+    case SI_KERNEL:
+        /* Legacy interval timer sets SI_KERNEL instead of SI_TIMER. */
+        if (sig_is_alarm_signal(info->si_signo))
+            return true;
+        /* XXX: For other signals, SI_KERNEL will always be the active thread, right? */
+        return false;
+    case SI_USER:
+        if (is_at_do_syscall(dcontext, pc, xsp)) {
+            if (dcontext->sys_num == SYS_kill || dcontext->sys_num == SYS_rt_sigqueueinfo)
+                return true;
+            /* tkill and tgkill should set SI_TKILL, but just in case: */
+            if (dcontext->sys_num == SYS_tkill || dcontext->sys_num == SYS_tgkill ||
+                dcontext->sys_num == SYS_rt_tgsigqueueinfo) {
+                /* Passing -1 as tid does not turn into process-wide:
+                 * these can only send to a specific thread.
+                 */
+                return false;
+            }
+        }
+    case SI_QUEUE:
+        if (is_at_do_syscall(dcontext, pc, xsp) &&
+            dcontext->sys_num == SYS_rt_tgsigqueueinfo)
+            return false;
+        return true;
+    case SI_TIMER: return true;
+    case SI_MESGQ: return true;
+    case SI_ASYNCIO: return true;
+    case SI_SIGIO: return true;
+    case SI_TKILL: return false;
+#    ifdef SI_DETHREAD
+    case SI_DETHREAD: return true;
+#    endif
+    default: return true;
+    }
+#endif
 }
 
 static inline int
@@ -510,9 +578,15 @@ static void
 unset_initial_crash_handlers(dcontext_t *dcontext)
 {
     ASSERT(init_info.sighand != NULL);
+    DODEBUG({
+        /* Satisfy ASSERT in signal_info_exit_sigaction(). */
+        for (int i = 1; i <= MAX_SIGNUM; i++)
+            init_info.sighand->threads_unmasked[i] = 0;
+    });
     signal_info_exit_sigaction(GLOBAL_DCONTEXT, &init_info, false /*!other_thread*/);
     /* Undo the unblock-all */
     sigprocmask_syscall(SIG_SETMASK, &init_sigmask, NULL, sizeof(init_sigmask));
+    /* app_sigblocked is filled in when signal_swap_mask() is called. */
     DOLOG(2, LOG_ASYNCH, {
         LOG(THREAD, LOG_ASYNCH, 2, "initial app signal mask:\n");
         dump_sigset(dcontext, &init_sigmask);
@@ -634,6 +708,8 @@ signal_thread_init(dcontext_t *dcontext, void *os_data)
     /* app_sigstack dealt with below, based on parentage */
 #endif
 
+    ASSIGN_INIT_LOCK_FREE(info->sigblocked_lock, sigmask_lock);
+    /* No sigblocked_lock since this is init time. */
     kernel_sigemptyset(&info->app_sigblocked);
 
     ASSIGN_INIT_LOCK_FREE(info->child_lock, child_lock);
@@ -939,7 +1015,12 @@ signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
         (sighand_info_t *)handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(*info->sighand));
     memset(info->sighand, 0, SIGARRAY_SIZE * sizeof(*info->sighand));
     memset(&info->restorer_valid, -1, SIGARRAY_SIZE * sizeof(info->restorer_valid[0]));
-    ASSIGN_INIT_LOCK_FREE(info->sighand->lock, shared_lock);
+    ASSIGN_INIT_LOCK_FREE(info->sighand->lock, sighand_lock);
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (!EMULATE_SIGMASK(info, i))
+            continue;
+        info->sighand->threads_unmasked[i] = 1;
+    }
 }
 
 /* Cleans up info's sighand structure. */
@@ -952,7 +1033,10 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     memset(&act, 0, sizeof(act));
     act.handler = (handler_t)SIG_DFL;
     kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
     for (i = 1; i <= MAX_SIGNUM; i++) {
+        /* No synch here b/c we're exiting. */
+        ASSERT(info->sighand->threads_unmasked[i] == 0);
         if (sig_is_alarm_signal(i) && doing_detach && !standalone_library &&
             alarm_signal_has_DR_only_itimer(dcontext, i)) {
             /* We ignore alarms *during* detach in signal_remove_alarm_handlers(),
@@ -1036,6 +1120,12 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             info->sighand->is_shared = true;
             d_r_mutex_lock(&info->sighand->lock);
             info->sighand->refcount++;
+            for (i = 1; i <= MAX_SIGNUM; i++) {
+                if (!EMULATE_SIGMASK(info, i))
+                    continue;
+                if (!kernel_sigismember(&info->app_sigblocked, i))
+                    ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
+            }
 #ifdef DEBUG
             for (i = 1; i <= MAX_SIGNUM; i++) {
                 if (info->sighand->action[i] != NULL) {
@@ -1059,6 +1149,13 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                            sizeof(kernel_sigaction_t));
                     LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is " PFX "\n", i,
                         info->sighand->action[i]->handler);
+                }
+                /* No sighand synch needed since only this thread owns these. */
+                if (EMULATE_SIGMASK(info, i)) {
+                    if (!kernel_sigismember(&info->app_sigblocked, i))
+                        info->sighand->threads_unmasked[i] = 1;
+                    else
+                        info->sighand->threads_unmasked[i] = 0;
                 }
             }
             memcpy(info->sighand->we_intercept, record->info.sighand->we_intercept,
@@ -1189,6 +1286,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 
     /* Assumed to be async safe. */
     info->fully_initialized = true;
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
 }
 
 /* When taking over existing app threads, we assume they're using pthreads and
@@ -1249,6 +1347,15 @@ signal_fork_init(dcontext_t *dcontext)
     if (info->sighand->is_shared) {
         info->sighand->is_shared = false;
         info->sighand->refcount = 0;
+        for (i = 1; i <= MAX_SIGNUM; i++) {
+            if (!EMULATE_SIGMASK(info, i))
+                continue;
+            /* No sighand synch needed since only this thread owns these. */
+            if (!kernel_sigismember(&info->app_sigblocked, i))
+                info->sighand->threads_unmasked[i] = 1;
+            else
+                info->sighand->threads_unmasked[i] = 0;
+        }
     }
     if (info->shared_itimer) {
         /* itimers are not inherited across fork */
@@ -1372,6 +1479,13 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         info->sighand->refcount--;
         d_r_mutex_unlock(&info->sighand->lock);
     }
+    for (i = 1; i <= MAX_SIGNUM; i++) {
+        if (!EMULATE_SIGMASK(info, i))
+            continue;
+        if (!kernel_sigismember(&info->app_sigblocked, i))
+            ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
+    }
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
     if (!info->sighand->is_shared || info->sighand->refcount == 0) {
         LOG(THREAD, LOG_ASYNCH, 2, "signal handler cleanup:\n");
         signal_info_exit_sigaction(dcontext, info, other_thread);
@@ -1455,6 +1569,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
 #endif
     IF_LINUX(signalfd_thread_exit(dcontext, info));
     special_heap_exit(info->sigheap);
+    DELETE_LOCK(info->sigblocked_lock);
     DELETE_LOCK(info->child_lock);
 #ifdef HAVE_SIGALTSTACK
     if (info->sigstack.ss_sp != NULL) {
@@ -2189,17 +2304,35 @@ handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stac
  * PR 304708: we now intercept all signals.
  */
 
+/* Caller must hold info->sigblocked_lock. */
+static void
+clear_blocked(dcontext_t *dcontext, thread_sig_info_t *info)
+{
+    ASSERT(OWN_MUTEX(&info->sigblocked_lock));
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (!EMULATE_SIGMASK(info, i))
+            continue;
+        if (kernel_sigismember(&info->app_sigblocked, i))
+            ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
+    }
+    kernel_sigemptyset(&info->app_sigblocked);
+}
+
 static void
 set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
+    d_r_mutex_lock(&info->sigblocked_lock);
     if (absolute) {
         /* discard current blocked signals, re-set from new mask */
-        kernel_sigemptyset(&info->app_sigblocked);
+        clear_blocked(dcontext, info);
     } /* else, OR in the new set */
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (EMULATE_SIGMASK(info, i) && kernel_sigismember(set, i)) {
+        if (!EMULATE_SIGMASK(info, i))
+            continue;
+        if (kernel_sigismember(set, i) && !kernel_sigismember(&info->app_sigblocked, i)) {
+            ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
             kernel_sigaddset(&info->app_sigblocked, i);
         }
     }
@@ -2209,6 +2342,8 @@ set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
         dump_sigset(dcontext, &info->app_sigblocked);
     }
 #endif
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
+    d_r_mutex_unlock(&info->sigblocked_lock);
 }
 
 void
@@ -2227,18 +2362,42 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
              * We need to remove our own init-time handler and mask.
              */
             unset_initial_crash_handlers(dcontext);
+            DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
             return;
         }
+        d_r_mutex_lock(&info->sigblocked_lock);
         sigprocmask_syscall(SIG_SETMASK, &info->app_sigblocked, NULL,
                             sizeof(info->app_sigblocked));
+        d_r_mutex_unlock(&info->sigblocked_lock);
     } else {
+        /* Normally we get here just once at takeover, but if we have threads
+         * going native we don't consider them unmasked as we can't rely on their
+         * mask not changing: so we undo their counts when they come back here and
+         * redo with the latest blocked signals (unblock_all_signals() sets
+         * app_sigblocked to a new absolute set).
+         */
+        for (int i = 1; i <= MAX_SIGNUM; i++) {
+            if (!EMULATE_SIGMASK(info, i))
+                continue;
+            if (kernel_sigismember(&info->app_sigblocked, i))
+                ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
+        }
+        d_r_mutex_lock(&info->sigblocked_lock);
         unblock_all_signals(&info->app_sigblocked);
+        d_r_mutex_unlock(&info->sigblocked_lock);
+        for (int i = 1; i <= MAX_SIGNUM; i++) {
+            if (!EMULATE_SIGMASK(info, i))
+                continue;
+            if (kernel_sigismember(&info->app_sigblocked, i))
+                ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
+        }
         DOLOG(2, LOG_ASYNCH, {
             LOG(THREAD, LOG_ASYNCH, 2, "thread %d's initial app signal mask:\n",
                 d_r_get_thread_id());
             dump_sigset(dcontext, &info->app_sigblocked);
         });
     }
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
 }
 
 /* Scans over info->sigpending to see if there are any unblocked, pending
@@ -2306,7 +2465,8 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
      */
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
-    LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
+    LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask how=%d\n", how);
+    d_r_mutex_lock(&info->sigblocked_lock);
     if (oset != NULL)
         info->pre_syscall_app_sigblocked = info->app_sigblocked;
     if (app_set != NULL) {
@@ -2333,6 +2493,8 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              */
             for (i = 1; i <= MAX_SIGNUM; i++) {
                 if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
+                    if (!kernel_sigismember(&info->app_sigblocked, i))
+                        ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
                     kernel_sigaddset(&info->app_sigblocked, i);
                     if (execute_syscall)
                         kernel_sigdelset(app_set, i);
@@ -2344,6 +2506,8 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              */
             for (i = 1; i <= MAX_SIGNUM; i++) {
                 if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
+                    if (kernel_sigismember(&info->app_sigblocked, i))
+                        ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
                     kernel_sigdelset(&info->app_sigblocked, i);
                     if (execute_syscall)
                         kernel_sigdelset(app_set, i);
@@ -2351,9 +2515,12 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             }
         } else if (how == SIG_SETMASK) {
             /* The set of blocked signals is set to the argument set. */
-            kernel_sigemptyset(&info->app_sigblocked);
+            clear_blocked(dcontext, info);
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
+                if (!EMULATE_SIGMASK(info, i))
+                    continue;
+                if (kernel_sigismember(&safe_set, i)) {
+                    ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
                     kernel_sigaddset(&info->app_sigblocked, i);
                     if (execute_syscall)
                         kernel_sigdelset(app_set, i);
@@ -2377,6 +2544,8 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
          */
         check_signals_pending(dcontext, info);
     }
+    d_r_mutex_unlock(&info->sigblocked_lock);
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
     if (!execute_syscall) {
         int status = handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
         if (status != 0 && error_code != NULL) {
@@ -2460,9 +2629,11 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set, size_t sigsetsize)
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigsuspend\n");
     info->in_sigsuspend = true;
     info->app_sigblocked_save = info->app_sigblocked;
-    kernel_sigemptyset(&info->app_sigblocked);
+    d_r_mutex_lock(&info->sigblocked_lock);
+    clear_blocked(dcontext, info);
     for (i = 1; i <= MAX_SIGNUM; i++) {
         if (EMULATE_SIGMASK(info, i) && kernel_sigismember(set, i)) {
+            ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
             kernel_sigaddset(&info->app_sigblocked, i);
             kernel_sigdelset(set, i);
         }
@@ -2473,6 +2644,8 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set, size_t sigsetsize)
         dump_sigset(dcontext, &info->app_sigblocked);
     }
 #endif
+    d_r_mutex_unlock(&info->sigblocked_lock);
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
 }
 
 static void
@@ -2483,7 +2656,14 @@ terminate_sigsuspend(dcontext_t *dcontext, thread_sig_info_t *info,
     /* Sigsuspend ends when a signal is received, so restore the
      * old blocked set.
      */
+    d_r_mutex_lock(&info->sigblocked_lock);
+    clear_blocked(dcontext, info);
     info->app_sigblocked = info->app_sigblocked_save;
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&info->app_sigblocked, i)) {
+            ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
+        }
+    }
     info->in_sigsuspend = false;
     /* Update the set to restore to post-signal-delivery. */
 #ifdef MACOS
@@ -2495,6 +2675,8 @@ terminate_sigsuspend(dcontext_t *dcontext, thread_sig_info_t *info,
         LOG(THREAD, LOG_ASYNCH, 3, "after sigsuspend, blocked signals are now:\n");
         dump_sigset(dcontext, &info->app_sigblocked);
     });
+    d_r_mutex_unlock(&info->sigblocked_lock);
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
 }
 
 /**** utility routines ***********************************************/
@@ -4400,6 +4582,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool receive_now = false;
     bool blocked = false;
     bool handled = false;
+    bool reroute = false;
     bool at_auto_restart_syscall = false;
     int syslen = 0;
     reg_t orig_retval_reg = sc->IF_X86_ELSE(SC_XAX, SC_R0);
@@ -4457,20 +4640,60 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         ostd->processing_signal--;
         return;
     } else if (blocked) {
-        /* signal is blocked by app, so just record it, don't receive now */
+        /* Signal is blocked by app, so just record it, don't receive now. */
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d at pc " PFX "): signal is currently blocked\n", sig,
             pc);
         IF_LINUX(handled = notify_signalfd(dcontext, info, sig, frame));
+
+        /* TODO i#1188: Similarly to signalfd, deliver to a sigwait-ing thread if we
+         * avoid the actual sigwait syscall for handling it.
+         */
+
+        /* Another app thread may be unmasked and the kernel delivered to us because
+         * DR had the real mask unmasked for this thread (i#2311).
+         */
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "blocked signal: process-wide=%d (code=%d), #-unmasked=%d\n",
+            signal_is_process_wide(dcontext, &frame->info, pc, xsp), frame->info.si_code,
+            atomic_aligned_read_int(&info->sighand->threads_unmasked[sig]));
+        if (signal_is_process_wide(dcontext, &frame->info, pc, xsp) &&
+            atomic_aligned_read_int(&info->sighand->threads_unmasked[sig]) > 0) {
+            /* We need to re-route this but cannot acquire the locks to search the
+             * threads here.  We thus start delivery and once we come back from
+             * dispatch we'll do the search in reroute_to_unmasked_thread().
+             * By definition as a process-wide signal this should be asynchronous
+             * and delayable.
+             */
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "will reroute process-wide signal to unblocked thread\n");
+            blocked = false;
+            reroute = true;
+        }
+    }
+    /* The value of blocked may have changed, so we re-start the if-else chain. */
+    if (blocked) {
+        /* No reroute needed so no action needed. */
     } else if (dcontext->currently_stopped) {
         /* We have no way to delay for a currently-native thread. */
-        LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
-        execute_native_handler(dcontext, sig, frame);
-        handled = true;
+        if (reroute) {
+            /* We can't delay, but we can't have interrupted any DR locks, so we
+             * can call this now.
+             */
+            ASSERT_NOT_TESTED();
+            handled = reroute_to_unmasked_thread(dcontext, frame, sig);
+            if (!handled)
+                blocked = true;
+        } else {
+            LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
+            execute_native_handler(dcontext, sig, frame);
+            handled = true;
+        }
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from cache pc " PFX "\n",
             sig, pc);
-        if (forged || can_always_delay[sig]) {
+        /* We assume a reroute can be delayed as a process-directed asynch signal. */
+        if (forged || reroute || can_always_delay[sig]) {
             /* to make translation easier, want to delay if can until d_r_dispatch
              * unlink cur frag, wait for d_r_dispatch
              */
@@ -4631,7 +4854,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         /* the signal interrupted DR itself => do not run handler now! */
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from DR at pc " PFX "\n",
             sig, pc);
-        if (!forged && !can_always_delay[sig] &&
+        if (!forged && !reroute && !can_always_delay[sig] &&
             !is_sys_kill(dcontext, pc, (byte *)sc->SC_XSP, &frame->info)) {
             /* i#195/PR 453964: don't re-execute if will just re-fault.
              * Our checks for dstack, etc. in main_signal_handler should
@@ -4703,7 +4926,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * only raise for in-cache faults.  Checking forged and no-delay
          * to avoid the in-cache check for delayable signals => safer.
          */
-        if (blocked && !forged && !can_always_delay[sig] &&
+        if (blocked && !forged && !reroute && !can_always_delay[sig] &&
             safe_is_in_fcache(dcontext, pc, xsp)) {
             /* cache the fragment since pclookup is expensive for coarse (i#658) */
             f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
@@ -4790,7 +5013,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
             pend->next = info->sigpending[sig];
             info->sigpending[sig] = pend;
-            pend->unblocked_at_receipt = !blocked;
+            pend->unblocked_at_receipt = !blocked && !reroute;
 
             /* FIXME: note that for asynchronous signals we don't need to
              *  bother to record exact machine context, even entire frame,
@@ -4863,7 +5086,8 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, kernel_siginfo_t *info)
             (dcontext->sys_num == SYS_kill ||
 #ifdef LINUX
              dcontext->sys_num == SYS_tkill || dcontext->sys_num == SYS_tgkill ||
-             dcontext->sys_num == SYS_rt_sigqueueinfo
+             dcontext->sys_num == SYS_rt_sigqueueinfo ||
+             dcontext->sys_num == SYS_rt_tgsigqueueinfo
 #elif defined(MACOS)
              dcontext->sys_num == SYS___pthread_kill
 #endif
@@ -6172,7 +6396,20 @@ terminate_via_kill(dcontext_t *dcontext)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     ASSERT(dcontext == get_thread_private_dcontext());
-    /* Enure signal_thread_exit() will not re-block */
+    /* Enure signal_thread_exit() will not re-block.
+     * Increment threads_unmasked to counteract the dec from the seemingly-unblocked
+     * signals in signal_thread_exit().
+     */
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (!EMULATE_SIGMASK(info, i))
+            continue;
+        if (kernel_sigismember(&info->app_sigblocked, i))
+            ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
+    }
+    DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
+    /* Since we're exiting we do not acquire sigblocked_mutex to ensure this works
+     * from fragile locations.
+     */
     memset(&info->app_sigblocked, 0, sizeof(info->app_sigblocked));
 
     /* FIXME PR 541760: there can be multiple thread groups and thus
@@ -6480,6 +6717,63 @@ execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *fram
     execute_default_action(dcontext, sig, frame, NULL, true, false);
 }
 
+static bool
+reroute_to_unmasked_thread(dcontext_t *dcontext, sigframe_rt_t *frame, int sig)
+{
+    kernel_siginfo_t *siginfo = &frame->info;
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+    if (!signal_is_process_wide(dcontext, siginfo, (byte *)sc->SC_XIP,
+                                (byte *)sc->SC_XSP))
+        return false;
+    bool found = false;
+    thread_record_t **trecs;
+    int num_threads;
+    bool was_linking = false;
+    if (is_couldbelinking(dcontext)) {
+        was_linking = true;
+        enter_nolinking(dcontext, NULL, false);
+    }
+    d_r_mutex_lock(&thread_initexit_lock);
+    get_list_of_threads(&trecs, &num_threads);
+    for (int i = 0; i < num_threads; i++) {
+        if (trecs[i]->dcontext == dcontext)
+            continue;
+        if (IS_CLIENT_THREAD(trecs[i]->dcontext))
+            continue;
+        thread_sig_info_t *tgt_info =
+            (thread_sig_info_t *)trecs[i]->dcontext->signal_field;
+        d_r_mutex_lock(&tgt_info->sigblocked_lock);
+        if (!kernel_sigismember(&tgt_info->app_sigblocked, sig)) {
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "rerouting signal %d to thread " TIDFMT " where it is unblocked\n", sig,
+                trecs[i]->id);
+            /* It is simpler to send a new signal to the target thread, rather than
+             * trying to copy this same signal frame over there.
+             */
+            bool sent = false;
+            if (siginfo->si_code == SI_QUEUE) {
+                /* We need SYS_rt_tgsigqueueinfo which is on kernel 2.6.31+.
+                 * If it's not available we have to fall back to SYS_tgkill.
+                 * XXX: We ignore custom values in other siginfo fields for someone
+                 * hackily using the raw syscall (like we do for nudges).
+                 */
+                sent = thread_signal_queue(get_process_id(), trecs[i]->id, sig,
+                                           siginfo->si_value.sival_ptr);
+            }
+            if (!sent)
+                thread_signal(get_process_id(), trecs[i]->id, sig);
+            found = true;
+        }
+        d_r_mutex_unlock(&tgt_info->sigblocked_lock);
+    }
+    d_r_mutex_unlock(&thread_initexit_lock);
+    if (was_linking)
+        enter_couldbelinking(dcontext, NULL, false);
+    global_heap_free(trecs,
+                     num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
+    return found;
+}
+
 void
 receive_pending_signal(dcontext_t *dcontext)
 {
@@ -6529,9 +6823,18 @@ receive_pending_signal(dcontext_t *dcontext)
              */
             if (!info->sigpending[sig]->unblocked_at_receipt &&
                 kernel_sigismember(&info->app_sigblocked, sig)) {
+                if (reroute_to_unmasked_thread(dcontext, &info->sigpending[sig]->rt_frame,
+                                               sig)) {
+                    temp = info->sigpending[sig];
+                    info->sigpending[sig] = temp->next;
+                    special_heap_free(info->sigheap, temp);
+                    info->num_pending--;
+                    continue;
+                }
                 LOG(THREAD, LOG_ASYNCH, 3, "\tsignal %d is blocked!\n", sig);
                 continue;
             }
+
             LOG(THREAD, LOG_ASYNCH, 3, "\treceiving signal %d\n", sig);
             /* execute_handler_from_dispatch()'s call to copy_frame_to_stack() is
              * allowed to remove the front entry from info->sigpending[sig] and

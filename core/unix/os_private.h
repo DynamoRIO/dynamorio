@@ -404,6 +404,9 @@ os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig);
 bool
 thread_signal(process_id_t pid, thread_id_t tid, int signum);
 
+bool
+thread_signal_queue(process_id_t pid, thread_id_t tid, int signum, void *value);
+
 void
 start_itimer(dcontext_t *dcontext);
 void

@@ -4379,6 +4379,9 @@ if (UNIX)
     tobuild(linux.signest linux/signest.c)
     link_with_pthread(linux.signest)
 
+    tobuild(linux.sigmask linux/sigmask.c)
+    link_with_pthread(linux.sigmask)
+
     if (UNIX)
       if (X64)
         # XXX i#3307: add Windows test.
