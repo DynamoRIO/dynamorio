@@ -1349,6 +1349,88 @@ test_x64_inc(void *dc)
 }
 
 static void
+test_avx512_vnni_encoding(void *dc)
+{
+    /*
+     * These tests are taken from binutils-2.37.90/gas/testsuite/gas/i386/avx-vnni.{s,d}
+     * Each pair below differs only in assembler syntax so we took only 3 out of the 6
+     * tests below (x 4 for each opcode)
+     *
+     *   \mnemonic %xmm2, %xmm4, %xmm2
+     *   {evex} \mnemonic %xmm2, %xmm4, %xmm2
+     *
+     *   {vex}  \mnemonic %xmm2, %xmm4, %xmm2
+     *   {vex3} \mnemonic %xmm2, %xmm4, %xmm2
+     *
+     *   {vex}  \mnemonic (%ecx), %xmm4, %xmm2
+     *   {vex3} \mnemonic (%ecx), %xmm4, %xmm2
+     *
+     * +[a-f0-9]+:  62 f2 5d 08 50 d2     vpdpbusd %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 50 d2        \{vex\} vpdpbusd %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 50 11        \{vex\} vpdpbusd \(%ecx\),%xmm4,%xmm2
+     * +[a-f0-9]+:  62 f2 5d 08 52 d2     vpdpwssd %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 52 d2        \{vex\} vpdpwssd %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 52 11        \{vex\} vpdpwssd \(%ecx\),%xmm4,%xmm2
+     * +[a-f0-9]+:  62 f2 5d 08 51 d2     vpdpbusds %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 51 d2        \{vex\} vpdpbusds %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 51 11        \{vex\} vpdpbusds \(%ecx\),%xmm4,%xmm2
+     * +[a-f0-9]+:  62 f2 5d 08 53 d2     vpdpwssds %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 53 d2        \{vex\} vpdpwssds %xmm2,%xmm4,%xmm2
+     * +[a-f0-9]+:  c4 e2 59 53 11        \{vex\} vpdpwssds \(%ecx\),%xmm4,%xmm2
+     */
+    byte expected_output[] = {
+        // turn off clang-format to keep one instruction per line
+        // clang-format off
+        0x62, 0xf2, 0x5d, 0x08, 0x50, 0xd2,
+        0xc4, 0xe2, 0x59, 0x50, 0xd2,
+        0xc4, 0xe2, 0x59, 0x50, 0x11,
+        0x62, 0xf2, 0x5d, 0x08, 0x52, 0xd2,
+        0xc4, 0xe2, 0x59, 0x52, 0xd2,
+        0xc4, 0xe2, 0x59, 0x52, 0x11,
+        0x62, 0xf2, 0x5d, 0x08, 0x51, 0xd2,
+        0xc4, 0xe2, 0x59, 0x51, 0xd2,
+        0xc4, 0xe2, 0x59, 0x51, 0x11,
+        0x62, 0xf2, 0x5d, 0x08, 0x53, 0xd2,
+        0xc4, 0xe2, 0x59, 0x53, 0xd2,
+        0xc4, 0xe2, 0x59, 0x53, 0x11,
+        // clang-format on
+    };
+    int opcodes[] = { OP_vpdpbusd, OP_vpdpwssd, OP_vpdpbusds, OP_vpdpwssds };
+    byte *start = buf;
+
+    for (int opcode_num = 0; opcode_num < sizeof(opcodes) / sizeof(int); opcode_num++) {
+        instr_t *instrs[3];
+        int opcode = opcodes[opcode_num];
+
+        instrs[0] = instr_create_1dst_3src(dc, opcode, REGARG(XMM2), REGARG(K0),
+                                           REGARG(XMM4), REGARG(XMM2));
+        instrs[1] =
+            instr_create_1dst_2src(dc, opcode, REGARG(XMM2), REGARG(XMM4), REGARG(XMM2));
+        memarg_disp = 0;
+        instrs[2] = instr_create_1dst_2src(dc, opcode, REGARG(XMM2), REGARG(XMM4),
+                                           MEMARG(OPSZ_16));
+        for (int i = 0; i < 3; i++) {
+            instr_t *instr = instrs[i];
+            ASSERT(instr);
+
+            byte *stop = instr_encode(dc, instr, start);
+            ASSERT(stop);
+#    if VERBOSE
+            for (byte *x = start; x != stop; x++) {
+                fprintf(stdout, "%02x ", *x);
+            }
+            fprintf(stdout, "\n");
+#    endif
+            start = stop;
+            instr_destroy(dc, instr);
+        }
+    }
+    for (int i = 0; i < sizeof(expected_output) / sizeof(byte); i++) {
+        ASSERT(expected_output[i] == buf[i]);
+    }
+}
+
+static void
 test_x64_vmovq(void *dc)
 {
     /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]
@@ -2585,6 +2667,8 @@ main(int argc, char *argv[])
     test_x64_abs_addr(dcontext);
 
     test_x64_inc(dcontext);
+
+    test_avx512_vnni_encoding(dcontext);
 
     test_x64_vmovq(dcontext);
 #endif
