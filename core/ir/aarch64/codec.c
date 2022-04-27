@@ -3116,7 +3116,7 @@ decode_opnd_x16immvr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         *opnd = opnd_create_reg(DR_REG_X0 + num);
     else {
         int bytes = memvr_regcount(enc) << extract_uint(enc, 10, 2);
-        *opnd = opnd_create_immed_int(bytes, OPSZ_1);
+        *opnd = opnd_create_immed_int(bytes, OPSZ_PTR);
     }
     return true;
 }
@@ -3150,7 +3150,7 @@ decode_opnd_x16immvs(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         *opnd = opnd_create_reg(DR_REG_X0 + num);
     else {
         int bytes = memvs_size(enc);
-        *opnd = opnd_create_immed_int(bytes, OPSZ_1);
+        *opnd = opnd_create_immed_int(bytes, OPSZ_PTR);
     }
     return true;
 }
@@ -4189,7 +4189,7 @@ decode_opnd_x16imm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         *opnd = opnd_create_reg(DR_REG_X0 + num);
     else {
         int bytes = (8 << extract_uint(enc, 30, 1)) * multistruct_regcount(enc);
-        *opnd = opnd_create_immed_int(bytes, OPSZ_1);
+        *opnd = opnd_create_immed_int(bytes, OPSZ_PTR);
     }
     return true;
 }
@@ -5055,6 +5055,25 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     return ENCFAIL;
 }
 
+/* Function(s) used by new codec. */
+
+/* Halfword and short element size. This is the same as encode_opnd_hs_sz()
+ * except that the shift of the size value to place it in the correct part of
+ * the encoding is not done here. That placement is instruction specific and so
+ * is done by each instruction's enc_*() function. In general the positioning
+ * of operand encodings in instruction encodings should be done by each
+ * instruction's encoding function, rather than an operand's encoding function.
+ */
+static inline bool
+get_el_hs_sz(OUT uint *elsz_out, opnd_t opnd)
+{
+    ptr_int_t val = opnd_get_immed_int(opnd);
+    if (val < 1 || val > 2)
+        return false;
+    *elsz_out = val;
+    return true;
+}
+
 /******************************************************************************/
 
 /* Include automatically generated decoder and encoder files. Decode and encode
@@ -5067,11 +5086,13 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 #include "opnd_encode_funcs.h"
 #include "decode_gen_sve.h"
 #include "decode_gen_v82.h"
-#include "decode_gen_v81.h"
+#include "decode_v81.h"
+#include "decode_gen_v81.h" /* Redirects decoding to decode_v81.h */
 #include "decode_gen_v80.h"
 #include "encode_gen_sve.h"
 #include "encode_gen_v82.h"
-#include "encode_gen_v81.h"
+#include "encode_v81.h"
+#include "encode_gen_v81.h" /* Redirects encoding to encode_v81.h */
 #include "encode_gen_v80.h"
 
 /******************************************************************************/

@@ -56,6 +56,10 @@
 #endif
 
 /* Memory operand sizes (with Intel's corresponding size names noted).
+ *
+ * Intel's size names are listed in 'Appendix A Opcode Map (Intel SDM Volume 2)'
+ * specifically A.2.2 Codes for Operand Type
+ *
  * For register operands, the DR_REG_ constants are used, which implicitly
  * state a size (e.g., DR_REG_CX is 2 bytes).
  * Use the type opnd_size_t for these values (we avoid typedef-ing the

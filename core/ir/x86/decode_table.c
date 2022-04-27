@@ -1608,6 +1608,12 @@ const instr_info_t * const op_instr[] =
    /* OP_encls        */    &rm_extensions[1][7],
    /* OP_enclu        */    &rm_extensions[4][7],
    /* OP_enclv        */    &rm_extensions[0][0],
+
+    /* AVX512 VNNI */
+    /* OP_vpdpbusd        */  &vex_W_extensions[110][0],
+    /* OP_vpdpbusds       */  &vex_W_extensions[111][0],
+    /* OP_vpdpwssd        */  &vex_W_extensions[112][0],
+    /* OP_vpdpwssds       */  &vex_W_extensions[113][0],
 };
 
 
@@ -6426,6 +6432,22 @@ const instr_info_t e_vex_extensions[][3] = {
     {OP_sha256msg2, 0x38cd18, "sha256msg2", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {INVALID, 0x38cd18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {EVEX_Wb_EXT, 0x6638cd18, "(evex_Wb ext 180)", xx, xx, xx, xx, xx, mrm|reqp, x, 180},
+  }, { /* e_vex ext 149 */
+    {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT, 0x385008, "(vex_W ext 110)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 110},
+    {EVEX_Wb_EXT, 0x385008, "(evex_Wb ext 267)", xx, xx, xx, xx, xx, mrm|reqp, x, 267},
+  }, { /* e_vex ext 150 */
+    {INVALID, 0x385108, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT, 0x385108, "(vex_W ext 111)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 111},
+    {EVEX_Wb_EXT, 0x385108, "(evex_Wb ext 268)", xx, xx, xx, xx, xx, mrm|reqp, x, 268},
+  }, { /* e_vex ext 151 */
+    {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT, 0x385208, "(vex_W ext 112)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 112},
+    {EVEX_Wb_EXT, 0x385208, "(evex_Wb ext 269)", xx, xx, xx, xx, xx, mrm|reqp, x, 269},
+  }, { /* e_vex ext 152 */
+    {INVALID, 0x385008, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {VEX_W_EXT, 0x385308, "(vex_W ext 113)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 113},
+    {EVEX_Wb_EXT, 0x385308, "(evex_Wb ext 270)", xx, xx, xx, xx, xx, mrm|reqp, x, 270},
   },
 };
 
@@ -7189,7 +7211,7 @@ const byte third_byte_38_index[256] = {
     20, 21, 22, 23,  24, 25,148,149,  26, 27, 28, 29,  92, 93, 94, 95,  /* 2 */
     30, 31, 32, 33,  34, 35,112, 36,  37, 38, 39, 40,  41, 42, 43, 44,  /* 3 */
     45, 46,142,143, 156,113,114,115,   0,  0,  0,  0, 129,130,150,151,  /* 4 */
-     0,  0,  0,  0,   0,  0,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
+   166,167,168,169,   0,  0,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
      0,  0,  0,  0, 145,139,144,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
      0,  0,  0,  0,   0,123,122,121, 116,117,135,136, 137,124,125,126,  /* 7 */
     49, 50,103,  0,   0,  0,  0,  0, 141,147,140,146, 109,120,110,  0,  /* 8 */
@@ -7388,6 +7410,10 @@ const instr_info_t third_byte_38[] = {
   {EXTENSION, 0x6638c618, "group 18", xx, xx, xx, xx, xx, mrm, x, 32},/*163*/
   {EXTENSION, 0x6638c718, "group 19", xx, xx, xx, xx, xx, mrm, x, 33},/*164*/
   {OP_sha1msg1, 0x38c918, "sha1msg1", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},/*165*/
+  {E_VEX_EXT, 0x66385008, "(e_vex ext 149)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 149},/*166*/
+  {E_VEX_EXT, 0x66385108, "(e_vex ext 150)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 150},/*167*/
+  {E_VEX_EXT, 0x66385208, "(e_vex ext 151)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 151},/*168*/
+  {E_VEX_EXT, 0x66385308, "(e_vex ext 152)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 152},/*169*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -7857,6 +7883,18 @@ const instr_info_t vex_W_extensions[][2] = {
   }, { /* vex_W_ext 109 */
     {OP_vmovd, 0x660f7e10, "vmovd", Ed, xx, Vd_dq, xx, xx, mrm|vex, x, tevexwb[136][0]},
     {OP_vmovq, 0x660f7e50, "vmovq", Ey, xx, Vq_dq, xx, xx, mrm|vex, x, tevexwb[136][2]},
+  }, { /* vex_W_ext 110 */
+    {OP_vpdpbusd, 0x66385008, "vpdpbusd", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[267][0]},
+    {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
+  }, { /* vex_W_ext 111 */
+    {OP_vpdpbusds, 0x66385108, "vpdpbusds", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[268][0]},
+    {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
+  }, { /* vex_W_ext 112 */
+    {OP_vpdpwssd, 0x66385208, "vpdpwssd", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[269][0]},
+    {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
+  }, { /* vex_W_ext 113 */
+    {OP_vpdpwssds, 0x66385308, "vpdpwssds", Ve, xx, He, We, xx, mrm|vex|ttfvm, x, tevexwb[270][0]},
+    {INVALID,    0x663850,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
   },
 };
 
@@ -9251,6 +9289,26 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, KE1b, Hdq, Uss, mrm|evex|er|ttt1s, x, END_LIST},
     {OP_vsqrtsd, 0xf20f5140, "vsqrtsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, tevexwb[266][3]},
     {OP_vsqrtsd, 0xf20f5150, "vsqrtsd", Vdq, xx, KE1b, Hdq, Usd, mrm|evex|er|ttt1s, x, END_LIST},
+  }, { /* evex_W_ext 267 */
+    {OP_vpdpbusd, 0x66385008, "vpdpbusd", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpdpbusd, 0x66385008, "vpdpbusd", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 268 */
+    {OP_vpdpbusds, 0x66385108, "vpdpbusds", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpdpbusds, 0x66385108, "vpdpbusds", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 269 */
+    {OP_vpdpwssd, 0x66385208, "vpdpwssd", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpdpwssd, 0x66385208, "vpdpwssd", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 270 */
+    {OP_vpdpwssds, 0x66385308, "vpdpwssds", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpdpwssds, 0x66385308, "vpdpwssds", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 
