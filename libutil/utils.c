@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,6 +32,7 @@
  */
 
 #include "share.h"
+#include "drlibc.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -394,8 +395,9 @@ file_exists(const TCHAR *fn)
         return TRUE;
     }
 #    else
-    struct stat st;
-    return stat(fn, &st) == 0;
+    struct stat64 st;
+    /* Use the raw syscall to avoid glibc 2.33 deps (i#5474). */
+    return dr_stat_syscall(fn, &st) == 0;
 #    endif
 }
 

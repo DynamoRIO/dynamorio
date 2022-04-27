@@ -40,6 +40,7 @@
 #include "dr_config.h"
 #include "our_tchar.h"
 #include "dr_frontend.h"
+#include "drlibc.h"
 
 /* We use DR's snprintf for consistent behavior when len==max.
  * TODO: Change all of libutil by changing our_tchar.h.
@@ -529,7 +530,7 @@ get_config_file_name(const char *process_name, process_id_t pid, bool global,
     }
 #    else
     {
-        struct stat st;
+        struct stat64 st;
         /* DrMi#1857: with both native and wrapped Android apps using the same
          * config dir but running as different users, we need the dir to be
          * world-writable (this is when SELinux is disabled and a common config
@@ -539,7 +540,8 @@ get_config_file_name(const char *process_name, process_id_t pid, bool global,
 #        ifdef ANDROID
         chmod(fname, 0777); /* umask probably stripped out o+w, so we chmod */
 #        endif
-        if (stat(fname, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        /* Use the raw syscall to avoid glibc 2.33 deps (i#5474). */
+        if (dr_stat_syscall(fname, &st) != 0 || !S_ISDIR(st.st_mode)) {
             DO_ASSERT(false && "failed to create subdir: check permissions");
             return false;
         }

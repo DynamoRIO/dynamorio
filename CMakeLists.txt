@@ -611,6 +611,11 @@ if (NOT UNIX)
     add_definitions(-D_X86_)
   endif (X64)
 endif (NOT UNIX)
+if (UNIX)
+  # Ensure we can export dr_stat_syscall() from drlibc and get everyone to agree
+  # that struct stat64 is the stat struct.
+  add_definitions(-D_LARGEFILE64_SOURCE)
+endif ()
 
 # Set up assembly support and CMAKE_CPP.
 # Note that in cmake < 2.6.4, I had to fix a bug in

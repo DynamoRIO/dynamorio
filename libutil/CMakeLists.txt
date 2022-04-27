@@ -51,6 +51,7 @@ include_directories(BEFORE
   ${PROJECT_SOURCE_DIR}/core/arch
   ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}
   ${PROJECT_BINARY_DIR} # for events.h
+  ${PROJECT_SOURCE_DIR}/core/drlibc # drlibc.h
   )
 
 if (WIN32)
