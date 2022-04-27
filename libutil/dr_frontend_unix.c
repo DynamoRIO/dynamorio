@@ -137,6 +137,8 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
     char realpath_buf[PATH_MAX]; /* realpath hardcodes its buffer length */
     drfront_status_t status_check = DRFRONT_ERROR;
     bool access_ret = false;
+    int r;
+    struct stat st;
 
     if (ret == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
@@ -166,15 +168,21 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
         NULL_TERMINATE_BUFFER(tmp);
         /* realpath checks for existence too. */
         if (realpath(tmp, realpath_buf) != NULL) {
-            status_check = drfront_access(realpath_buf, DRFRONT_EXIST, &access_ret);
+            status_check = drfront_access(realpath_buf, DRFRONT_EXEC, &access_ret);
             if (status_check != DRFRONT_SUCCESS) {
                 *ret = false;
                 return status_check;
             } else if (access_ret == true) {
-                *ret = true;
-                snprintf(full_path, full_path_size, "%s", realpath_buf);
-                full_path[full_path_size - 1] = '\0';
-                return DRFRONT_SUCCESS;
+                // XXX: An other option to prevent calling stat() twice
+                // could be a new variant DRFRONT_NOTDIR for drfront_access_mode_t
+                // that drfront_access() then takes into account.
+                r = stat(realpath_buf, &st);
+                if (r != -1 && !S_ISDIR(st.st_mode)) {
+                    *ret = true;
+                    snprintf(full_path, full_path_size, "%s", realpath_buf);
+                    full_path[full_path_size - 1] = '\0';
+                    return DRFRONT_SUCCESS;
+                }
             }
         }
         cur = next + 1;
