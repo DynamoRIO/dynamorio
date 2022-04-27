@@ -60,6 +60,12 @@
 #define VECTOR_ELEM_WIDTH_DOUBLE 3
 
 /**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * full size 128 bit vector width. See \ref sec_IR_AArch64.
+ */
+#define VECTOR_ELEM_WIDTH_QUAD 4
+
+/**
  * Operand denoting 8 bit vector element width for the other operands of
  * the containing instruction.
  */
