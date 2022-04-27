@@ -31,6 +31,7 @@
  * DAMAGE.
  */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include <stdio.h>
 #include <string.h>
 #include "dr_api.h"
@@ -43,9 +44,9 @@ main()
 {
     bool dir_exists;
     int res;
-    char path_env[512];
-    char path_buf[512];
-    char full_path_buf[512];
+    char path_env[4096];
+    char path_buf[4096];
+    char full_path_buf[4096];
     bool ret;
     res = drfront_create_dir("test_dir");
     if (res != DRFRONT_SUCCESS && res != DRFRONT_EXIST) {
@@ -58,8 +59,9 @@ main()
         return -1;
     }
 
-    if (drfront_get_env_var("PATH", path_env, sizeof(path_env)) != DRFRONT_SUCCESS) {
-        printf("failed to get env var\n");
+    res = drfront_get_env_var("PATH", path_env, sizeof(path_env));
+    if (res != DRFRONT_SUCCESS) {
+        printf("failed to get env var: %d\n", res);
         return -1;
     }
     const char *const subdir = "test_dir:";
