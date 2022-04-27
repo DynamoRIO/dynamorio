@@ -1959,3 +1959,20 @@ OPCODE(vsqrtsd_xhik7xhixhi, vsqrtsd, vsqrtsd_mask, X64_ONLY, REGARG(XMM16), REGA
        REGARG(XMM17), REGARG_PARTIAL(XMM18, OPSZ_8))
 OPCODE(vsqrtsd_xhik7xhimem, vsqrtsd, vsqrtsd_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
        REGARG(XMM17), MEMARG(OPSZ_8))
+/* AVX512 VNNI */
+OPCODE(vpdpbusd_zhik7zhizhi, vpdpbusd, vpdpbusd_mask, X64_ONLY, REGARG(ZMM0), REGARG(K3),
+       REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vpdpbusds_zhik7zhizhi, vpdpbusds, vpdpbusds_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K3), REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vpdpwssd_zhik7zhizhi, vpdpwssd, vpdpwssd_mask, X64_ONLY, REGARG(ZMM0), REGARG(K3),
+       REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vpdpwssds_zhik7zhizhi, vpdpwssds, vpdpwssds_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K3), REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vpdpbusd_xhixhixhi, vpdpbusd, vpdpbusd_mask, X64_ONLY, REGARG(XMM0), REGARG(K5),
+       REGARG(XMM4), REGARG(XMM3))
+OPCODE(vpdpbusds_xhixhixhi, vpdpbusds, vpdpbusds_mask, X64_ONLY, REGARG(XMM0), REGARG(K5),
+       REGARG(XMM4), REGARG(XMM3))
+OPCODE(vpdpwssd_xhixhixhi, vpdpwssd, vpdpwssd_mask, X64_ONLY, REGARG(XMM0), REGARG(K5),
+       REGARG(XMM4), REGARG(XMM3))
+OPCODE(vpdpwssds_xhixhixhi, vpdpwssds, vpdpwssds_mask, X64_ONLY, REGARG(XMM0), REGARG(K5),
+       REGARG(XMM4), REGARG(XMM3))

@@ -539,7 +539,8 @@ enum {
     LOCK_RANK(pcache_dir_check_lock),
 #    ifdef UNIX
     LOCK_RANK(suspend_lock),
-    LOCK_RANK(shared_lock),
+    LOCK_RANK(sighand_lock), /* < sigmask_lock */
+    LOCK_RANK(sigmask_lock), /* > sighand_lock */
 #    endif
     LOCK_RANK(modlist_areas), /* < dynamo_areas < global_alloc_lock */
 #    ifdef WINDOWS

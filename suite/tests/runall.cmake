@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2018-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2018-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -197,7 +197,9 @@ if ("${nudge}" MATCHES "<use-persisted>")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd run_in_bg)
-  string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000" nudge "${nudge}")
+  string(REGEX REPLACE "<attach>"
+    "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
+    nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result

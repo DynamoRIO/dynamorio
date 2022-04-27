@@ -126,9 +126,11 @@ clients.
 
 The changes between version \DR_VERSION and 9.0.1 include the following compatibility
 changes:
- - Nothing yet (placeholder).
+ - Eliminated the -skip_syscall option to drrun and drinject, which is now always
+   on by default.
 
 Further non-compatibility-affecting changes include:
+ - Added AArchXX support for attaching to a running process.
  - Added new fields analyze_case_ex and instrument_instr_ex to #drbbdup_options_t.
  - Added drbbdup support to drwrap via #DRWRAP_INVERT_CONTROL, drwrap_invoke_insert(),
    and drwrap_invoke_insert_cleanup_only().
@@ -1983,7 +1985,6 @@ We hope to include the following major features in future releases:
    parent process, injection is very early (before kernel32.dll is loaded),
    but we plan to provide injection at the very first user-mode instruction
    in the future.
- - Linux externally-triggered attaching.
  - Persistent and process-shared code caches.
  - Full control over trace building.
 

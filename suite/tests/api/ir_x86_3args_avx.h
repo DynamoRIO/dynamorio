@@ -423,3 +423,11 @@ OPCODE(vfnmsub231ps_256, vfnmsub231ps, vfnmsub231ps, 0, REGARG(YMM0), REGARG(YMM
        MEMARG(OPSZ_32))
 OPCODE(vfnmsub231pd_256, vfnmsub231pd, vfnmsub231pd, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
+OPCODE(vpdpbusd_xhixhixhi, vpdpbusd, vpdpbusd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vpdpbusds_xhixhixhi, vpdpbusds, vpdpbusds, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vpdpwssd_xhixhixhi, vpdpwssd, vpdpwssd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vpdpwssds_xhixhixhi, vpdpwssds, vpdpwssds, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))

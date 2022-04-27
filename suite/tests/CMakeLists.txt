@@ -1317,6 +1317,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<block>")
+        set(exe_ops "${exe_ops};-block")
+      endif ()
     else ()
       if ("${runall}" MATCHES "<attach>")
         # For attach we use attachee, which is identical to infloop, aside for writing
@@ -2106,6 +2109,12 @@ if (DEBUG)
   endif ()
 endif ()
 
+if (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_stats" "")
+else (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_rstats" "")
+endif (DEBUG)
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   # We don't want to link with DR.  We hack that for now by requesting drdecode so
   # we'll get the arch defs.  XXX: Add a better way!
@@ -2386,9 +2395,11 @@ if (ANNOTATIONS AND NOT ARM)
 endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
-  if (X86) # TODO i#38,i#1550: Port injector.c attach gencode to AArchXX.
-    # TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
-    tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (UNIX)
+    # Test attaching during a blocking syscall.
+    torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
+      client-interface/attach_blocking.runall "" "" "")
   endif ()
 endif ()
 
@@ -3020,10 +3031,8 @@ endif ()
 if (NOT ANDROID AND NOT APPLE)
   tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_startstop ${libmath})
-  if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
-    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
-    target_link_libraries(api.static_noclient ${libmath})
-  endif ()
+  tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
+  target_link_libraries(api.static_noclient ${libmath})
   tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON OFF)
   target_link_libraries(api.static_noinit ${libmath})
   tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON OFF)
@@ -4369,6 +4378,9 @@ if (UNIX)
 
     tobuild(linux.signest linux/signest.c)
     link_with_pthread(linux.signest)
+
+    tobuild(linux.sigmask linux/sigmask.c)
+    link_with_pthread(linux.sigmask)
 
     if (UNIX)
       if (X64)

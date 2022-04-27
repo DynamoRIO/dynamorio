@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,6 +39,11 @@
 #include <signal.h>
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/select.h>
 
 static void
 signal_handler(int sig)
@@ -54,7 +59,7 @@ main(int argc, const char *argv[])
 {
     int arg_offs = 1;
     long long counter = 0;
-    bool for_attach = false;
+    bool for_attach = false, block = false;
     while (arg_offs < argc && argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-v") == 0) {
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
@@ -66,8 +71,22 @@ main(int argc, const char *argv[])
         } else if (strcmp(argv[arg_offs], "-attach") == 0) {
             for_attach = true;
             arg_offs++;
+        } else if (strcmp(argv[arg_offs], "-block") == 0) {
+            block = true;
+            arg_offs++;
         } else
             return 1;
+    }
+
+    int pipefd[2];
+    if (block) {
+        /* Create something we can block reading.  Stdin is too risky: in the
+         * test suite it has data.
+         */
+        if (pipe(pipefd) == -1) {
+            perror("pipe");
+            return 1;
+        }
     }
 
     while (1) {
@@ -80,7 +99,7 @@ main(int argc, const char *argv[])
              */
             protect_mem((void *)signal_handler, 1, ALLOW_READ | ALLOW_EXEC);
         }
-        /* don't spin forever to avoid hosing machines if test harness somehow
+        /* Don't spin forever to avoid hosing machines if test harness somehow
          * fails to kill.  15 billion syscalls takes ~ 1 minute.
          */
         counter++;
@@ -88,6 +107,34 @@ main(int argc, const char *argv[])
             print("hit max iters\n");
             break;
         }
+        if (block) {
+            /* Make a blocking syscall, but not forever to again guard against
+             * a runaway test.
+             */
+            struct timeval timeout;
+            timeout.tv_sec = 60;
+            timeout.tv_usec = 0;
+            fd_set set;
+            FD_ZERO(&set);
+            FD_SET(pipefd[0], &set);
+            int res = select(pipefd[0] + 1, &set, NULL, NULL, &timeout);
+            /* For some kernels: our attach interrupts the syscall (which is not an
+             * auto-restart syscall) and returns EINTR.  Don't print on EINTR nor on a
+             * timeout as both can happen depending on the timing of the attach.
+             */
+            if (res == -1 && errno != EINTR)
+                perror("select error");
+
+            /* XXX i#38: We may want a test of an auto-restart syscall as well
+             * once the injector handles that.
+             */
+        }
     }
+
+    if (block) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+    }
+
     return 0;
 }

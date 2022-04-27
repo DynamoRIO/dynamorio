@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -165,7 +165,7 @@ larger.
 Pull requests are integrated into our
 [continuous integration system](@ref page_test_suite),
 providing pre-commit testing of all commits.  Both
-Travis and AppVeyor are immediately run when a pull request is created
+Github Actions and Jenkins tests are immediately run when a pull request is created
 and after each subsequent push to the pull request branch.
 The request can't be merged until the tests complete and pass.
 
@@ -176,29 +176,21 @@ sufficient.  See \ref page_test_suite for information on
 setting up and running the test suite locally via the
 `suite/runsuite.cmake` script.
 
-In addition to Travis and Appveyor, we have several machines running test
-suites at scheduled times and reporting results to our CDash dashboard.  Be
-sure to look at any emails about build or test breakages in the day or so
-after your commit and either help to fix it or consider reverting if
-something is broken that the continuous integration tests did not catch
-(e.g., currently they only build for 32-bit Linux-ARM and Android-ARM and are
-not able to actually run tests there).
-
 Unfortunately we do have some flaky tests that are not yet fixed.
-If a flaky test fails on a pull request, on CDash, or on a merge to master, the
-committer is expected to look up the failure and send an email (or add a pull
-request comment) explaining which tests failed and which issues in the tracker
-cover those flaky failures.
+These are auto-ignored via a list in the
+[runsuite_wrapper](https://github.com/DynamoRIO/dynamorio/blob/master/suite/runsuite_wrapper.pl) script.
 
 # Responding to Review Comments and Submitting Code Updates
 
 Upon receiving the email requesting a review, the reviewer will visit the
 pull request page and add comments to the code as part of a Github review,
 including comments on individual lines.  An email will be sent with these
-comments.  You should view the comments, address them in your code, and
+comments.  You should view the comments, address them in your code,
 reply to each comment on the review site (typically by saying "Done" if you
-agree with the request and have made the change in your code).  Please read
-and reply to every comment.
+agree with the request and have made the change in your code), and (if the
+topic is settled) marking as "Resolved".  Please read
+and reply to every comment.  Github will not allow a final merge unless
+every comment is resolved.
 
 Reply to comments individually at the point in the code view where they
 appear.  Do not simply reply at the top level, as such comments are more
@@ -218,27 +210,10 @@ git review
 
 Do not use a force push to change the history of the shared branch!  Use a new, separate commit.
 
-When the requested changes have been pushed, you can ask for a re-review from the reviewers.
-This can be done by clicking the re-review button next to the reviewers' name on the right sidebar on the pull request page.
+When the requested changes have been pushed, request a re-review from the reviewer so they know that the pull request is ready for another round of reviewing.
+This can be done by clicking the re-review button next to the reviewer's name at the top of the right sidebar on the pull request page.
 
 The final squash-and-merge step will squash these additional commits with the original to make a single commit that will be fast-forward-merged into master (see below for more details).
-
-# Limited Continuous Integration Resources
-
-Our Appveyor testing is globally serialized, with no parallelism, and with no
-logic to cancel a run if two pushes are made to a pull request in rapid
-succession.  This can cause Appveyor jobs to queue up and block other
-developers if many pushes are made to a pull request in a short period
-of time.  We thus recommend limiting pushes.  If each reviewer comment
-is addressed with a separate commit, wait until they are all locally
-committed before pushing them all at once with a single push and thus
-triggering a single Appveyor job.  If two or more jobs are triggered
-in a short period of time, log in to Appveyor using Github credentials
-and cancel all but one of the jobs, to avoid blocking other developers.
-
-Travis has logic to auto-cancel a job if a new push arrives quickly,
-but the above workflow still generally applies to avoid over-using
-Travis resources.
 
 # Updating from Master
 
