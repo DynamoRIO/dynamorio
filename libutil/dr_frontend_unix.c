@@ -82,7 +82,7 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
     /* Use the raw syscall to avoid glibc 2.33 deps (i#5474). */
     r = dr_stat_syscall(fname, &st);
 
-    if (r == -1) {
+    if (r < 0) {
         *ret = false;
         if (r == -EACCES || r == -ENOENT || r == -ENOTDIR)
             return DRFRONT_SUCCESS;
@@ -180,7 +180,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
                 // that drfront_access() then takes into account.
                 /* Use the raw syscall to avoid glibc 2.33 deps (i#5474). */
                 r = dr_stat_syscall(realpath_buf, &st);
-                if (r != -1 && !S_ISDIR(st.st_mode)) {
+                if (r == 0 && !S_ISDIR(st.st_mode)) {
                     *ret = true;
                     snprintf(full_path, full_path_size, "%s", realpath_buf);
                     full_path[full_path_size - 1] = '\0';
