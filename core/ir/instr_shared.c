@@ -3133,7 +3133,8 @@ instr_create_4dst_4src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, op
 
 instr_t *
 instr_create_4dst_5src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
+                       opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4,
+                       opnd_t src5)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 4, 5);

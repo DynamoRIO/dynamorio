@@ -2527,9 +2527,8 @@
  * \param offset  The immediate or GPR post-index offset.
  * \param elsz    The vector element size
  */
-#define INSTR_CREATE_ld3_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, index, offset, elsz)                    \
-    instr_create_4dst_5src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, Xnd, index, Xn, \
-                           offset, elsz)
+#define INSTR_CREATE_ld3_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, index, offset, elsz) \
+    instr_create_4dst_5src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, Xnd, index, Xn, offset, elsz)
 
 /**
  * Creates an Advanced SIMD (NEON) LD3 instruction to load and replicate a single
@@ -2554,7 +2553,8 @@
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
  * \param Xn      The stack-pointer or GPR to load into Vt1, Vt2 and Vt3.
- * \param Xnd     The disposition of Xn. \param offset  The immediate or GPR post-index offset
+ * \param Xnd     The disposition of Xn.
+ * \param offset  The immediate or GPR post-index offset
  * \param elsz    The vector element size
  */
 #define INSTR_CREATE_ld3r_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, offset, elsz) \
@@ -2621,9 +2621,9 @@
  * \param offset  The post-index offset.
  * \param elsz    The vector element size
  */
-#define INSTR_CREATE_ld4_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, offset, elsz)              \
-    instr_create_5dst_5src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, \
-                           index, Xn, offset, elsz)
+#define INSTR_CREATE_ld4_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, offset, elsz)       \
+    instr_create_5dst_5src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, Xn, offset, \
+                           elsz)
 
 /**
  * Creates an Advanced SIMD (NEON) LD4R instruction to load

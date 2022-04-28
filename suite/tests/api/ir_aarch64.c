@@ -432,7 +432,7 @@ ld2_simdfp_multiple_structures_post_index(void *dc)
     const int dst_reg_post_index_1[] = { DR_REG_Q1, DR_REG_D3 };
     const int bit_size[] = { OPSZ_32, OPSZ_16 };
     const int imm[] = { 0x20, 0x10 };
-    const opnd_t elsz[] = {OPND_CREATE_DOUBLE(), OPND_CREATE_SINGLE()};
+    const opnd_t elsz[] = { OPND_CREATE_DOUBLE(), OPND_CREATE_SINGLE() };
 
     for (int i = 0; i < 2; i++) {
         instr_t *instr = INSTR_CREATE_ld2_multi_2(
@@ -440,8 +440,7 @@ ld2_simdfp_multiple_structures_post_index(void *dc)
             opnd_create_reg(dst_reg_post_index_1[i]), opnd_create_reg(src_reg[0]),
             opnd_create_base_disp_aarch64(src_reg[0], DR_REG_NULL, 0, false, 0, 0,
                                           bit_size[i]),
-            opnd_create_immed_uint(imm[i], OPSZ_PTR),
-            elsz[i]);
+            opnd_create_immed_uint(imm[i], OPSZ_PTR), elsz[i]);
         test_instr_encoding(dc, OP_ld2, instr);
     }
     print("ld2 simdfp multiple structures post-index complete\n");
@@ -512,16 +511,17 @@ ld2_simdfp_single_structure_post_index(void *dc)
      */
 
     const int opsz[] = { OPSZ_2, OPSZ_4, OPSZ_8, OPSZ_16 };
-    const opnd_t elsz[] = {OPND_CREATE_BYTE(), OPND_CREATE_HALF(), OPND_CREATE_SINGLE(), OPND_CREATE_DOUBLE()};
+    const opnd_t elsz[] = { OPND_CREATE_BYTE(), OPND_CREATE_HALF(), OPND_CREATE_SINGLE(),
+                            OPND_CREATE_DOUBLE() };
     const int imm[] = { 2, 4, 8, 16 };
     for (int i = 0; i < 4; i++) {
-        instr_t *instr = INSTR_CREATE_ld2_2(
-            dc, opnd_create_reg(DR_REG_Q0), opnd_create_reg(DR_REG_Q1),
-            opnd_create_reg(DR_REG_X0),
-            opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0,
-                                          opsz[i]),
-            opnd_create_immed_uint(0x01, OPSZ_1), opnd_create_immed_uint(imm[i], OPSZ_PTR),
-            elsz[i]);
+        instr_t *instr =
+            INSTR_CREATE_ld2_2(dc, opnd_create_reg(DR_REG_Q0), opnd_create_reg(DR_REG_Q1),
+                               opnd_create_reg(DR_REG_X0),
+                               opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0,
+                                                             false, 0, 0, opsz[i]),
+                               opnd_create_immed_uint(0x01, OPSZ_1),
+                               opnd_create_immed_uint(imm[i], OPSZ_PTR), elsz[i]);
         test_instr_encoding(dc, OP_ld2, instr);
     }
 
