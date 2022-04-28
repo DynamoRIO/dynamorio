@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -40,11 +40,7 @@
  * os.c - Linux specific routines
  */
 
-/* See os.c comment on why we define this. */
-#define _LARGEFILE64_SOURCE
-#include <sys/types.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 
 /* Avoid pulling in deps from instr_inline.h included from globals.h */
@@ -164,8 +160,8 @@ llseek_syscall(int fd, int64 offset, int origin, int64 *result)
 #endif
 }
 
-static ptr_int_t
-dynamorio_syscall_stat(const char *fname, struct stat64 *st)
+ptr_int_t
+dr_stat_syscall(const char *fname, struct stat64 *st)
 {
 #ifdef SYSNUM_STAT
     return dynamorio_syscall(SYSNUM_STAT, 2, fname, st);
@@ -179,7 +175,7 @@ os_file_exists(const char *fname, bool is_dir)
 {
     /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
     struct stat64 st;
-    ptr_int_t res = dynamorio_syscall_stat(fname, &st);
+    ptr_int_t res = dr_stat_syscall(fname, &st);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: " PIFX "\n", __func__, res);
         return false;
@@ -193,12 +189,12 @@ bool
 os_files_same(const char *path1, const char *path2)
 {
     struct stat64 st1, st2;
-    ptr_int_t res = dynamorio_syscall_stat(path1, &st1);
+    ptr_int_t res = dr_stat_syscall(path1, &st1);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: " PIFX "\n", __func__, res);
         return false;
     }
-    res = dynamorio_syscall_stat(path2, &st2);
+    res = dr_stat_syscall(path2, &st2);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: " PIFX "\n", __func__, res);
         return false;
@@ -211,7 +207,7 @@ os_get_file_size(const char *file, uint64 *size)
 {
     /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
     struct stat64 st;
-    ptr_int_t res = dynamorio_syscall_stat(file, &st);
+    ptr_int_t res = dr_stat_syscall(file, &st);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: " PIFX "\n", __func__, res);
         return false;
@@ -421,7 +417,7 @@ os_rename_file(const char *orig_name, const char *new_name, bool replace)
         /* SYS_rename replaces so we must test beforehand => could have race */
         /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
         struct stat64 st;
-        ptr_int_t res = dynamorio_syscall_stat(new_name, &st);
+        ptr_int_t res = dr_stat_syscall(new_name, &st);
         if (res == 0)
             return false;
         else if (res != -ENOENT) {

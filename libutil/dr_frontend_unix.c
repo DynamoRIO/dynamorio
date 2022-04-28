@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,6 +53,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include "dr_frontend.h"
+#include "drlibc.h"
 
 extern bool
 module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform);
@@ -72,17 +73,18 @@ drfront_status_t
 drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
 {
     int r;
-    struct stat st;
+    struct stat64 st;
     uid_t euid;
 
     if (ret == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
 
-    r = stat(fname, &st);
+    /* Use the raw syscall to avoid glibc 2.33 deps (i#5474). */
+    r = dr_stat_syscall(fname, &st);
 
-    if (r == -1) {
+    if (r < 0) {
         *ret = false;
-        if (errno == EACCES || errno == ENOENT || errno == ENOTDIR)
+        if (r == -EACCES || r == -ENOENT || r == -ENOTDIR)
             return DRFRONT_SUCCESS;
         return DRFRONT_ERROR;
     } else if (mode == DRFRONT_EXIST) {
@@ -138,7 +140,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
     drfront_status_t status_check = DRFRONT_ERROR;
     bool access_ret = false;
     int r;
-    struct stat st;
+    struct stat64 st;
 
     if (ret == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
@@ -176,8 +178,9 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
                 // XXX: An other option to prevent calling stat() twice
                 // could be a new variant DRFRONT_NOTDIR for drfront_access_mode_t
                 // that drfront_access() then takes into account.
-                r = stat(realpath_buf, &st);
-                if (r != -1 && !S_ISDIR(st.st_mode)) {
+                /* Use the raw syscall to avoid glibc 2.33 deps (i#5474). */
+                r = dr_stat_syscall(realpath_buf, &st);
+                if (r == 0 && !S_ISDIR(st.st_mode)) {
                     *ret = true;
                     snprintf(full_path, full_path_size, "%s", realpath_buf);
                     full_path[full_path_size - 1] = '\0';
@@ -333,12 +336,13 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elem
 drfront_status_t
 drfront_dir_exists(const char *path, OUT bool *is_dir)
 {
-    struct stat st_buf;
+    struct stat64 st_buf;
     if (is_dir == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
 
     /* check if path is a file or directory */
-    if (stat(path, &st_buf) != 0) {
+    /* Use the raw syscall to avoid glibc 2.33 deps (i#5474). */
+    if (dr_stat_syscall(path, &st_buf) != 0) {
         *is_dir = false;
         return DRFRONT_ERROR_INVALID_PATH;
     } else {

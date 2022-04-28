@@ -47,7 +47,9 @@
  * There are 3 different stat syscalls (SYS_oldstat, SYS_stat, and SYS_stat64)
  * and using _LARGEFILE64_SOURCE with SYS_stat64 is the best match.
  */
-#define _LARGEFILE64_SOURCE
+#ifndef _LARGEFILE64_SOURCE
+#    define _LARGEFILE64_SOURCE
+#endif
 /* for mmap-related #defines */
 #include <sys/types.h>
 #include <sys/mman.h>
