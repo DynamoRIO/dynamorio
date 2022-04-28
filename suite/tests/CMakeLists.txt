@@ -3584,6 +3584,10 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(raw-gzip ${ci_shared_app} "-raw_compress gzip" "" "")
       set(tool.drcacheoff.raw-gzip_expectbase "offline-simple")
     endif ()
+    if (liblz4)
+      torunonly_drcacheoff(raw-lz4 ${ci_shared_app} "-raw_compress lz4" "" "")
+      set(tool.drcacheoff.raw-lz4_expectbase "offline-simple")
+    endif ()
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
@@ -3651,6 +3655,12 @@ if (BUILD_CLIENTS)
         "-raw_compress gzip -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
         "@-simulator_type@basic_counts" "")
       set(tool.drcacheoff.windows-gzip_expectbase "offline-windows-simple")
+    endif ()
+    if (liblz4)
+      torunonly_drcacheoff(windows-lz4 ${ci_shared_app}
+        "-raw_compress lz4 -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+        "@-simulator_type@basic_counts" "")
+      set(tool.drcacheoff.windows-lz4_expectbase "offline-windows-simple")
     endif ()
     # Ensure the invariant checker handles window transitions.
     torunonly_drcacheoff(windows-invar ${ci_shared_app}
