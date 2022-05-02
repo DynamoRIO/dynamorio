@@ -480,6 +480,8 @@ close_thread_file(void *drcontext)
 #ifdef HAS_SNAPPY
     if (op_offline.get_value() && snappy_enabled()) {
         data->snappy_writer->~snappy_file_writer_t();
+        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
+                       sizeof(*data->snappy_writer));
         data->snappy_writer = nullptr;
     }
 #endif
@@ -490,7 +492,7 @@ close_thread_file(void *drcontext)
         // Flush remaining data.
         data->zstream.next_in = (Bytef *)BUF_PTR(data->seg_base);
         data->zstream.avail_in = 0;
-        int res, iters;
+        int res, iters = 0;
         const int MAX_ITERS = 32; // Sanity limit to avoid hang.
         do {
             data->zstream.next_out = (Bytef *)data->buf_compressed;
@@ -2675,12 +2677,6 @@ event_thread_exit(void *drcontext)
         if (op_offline.get_value() && data->file != INVALID_FILE)
             close_thread_file(drcontext);
 
-#ifdef HAS_SNAPPY
-        if (op_offline.get_value() && snappy_enabled()) {
-            dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
-                           sizeof(*data->snappy_writer));
-        }
-#endif
 #ifdef HAS_ZLIB
         if (op_offline.get_value() &&
             (op_raw_compress.get_value() == "zlib" ||
