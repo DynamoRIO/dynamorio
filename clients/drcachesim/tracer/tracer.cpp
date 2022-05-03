@@ -68,6 +68,9 @@
 #ifdef HAS_ZLIB
 #    include <zlib.h>
 #endif
+#ifdef HAS_LZ4
+#    include <lz4frame.h>
+#endif
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
@@ -151,6 +154,11 @@ typedef struct {
 #ifdef HAS_ZLIB
     z_stream zstream;
     byte *buf_compressed;
+#endif
+#ifdef HAS_LZ4
+    LZ4F_compressionContext_t lzcxt;
+    size_t buf_lz4_size;
+    byte *buf_lz4;
 #endif
     bool has_thread_header;
 } per_thread_t;
@@ -312,6 +320,21 @@ redirect_free(void *drcontext, void *ptr)
 /***************************************************************************
  * Buffer writing to disk.
  */
+
+#ifdef HAS_LZ4
+static const LZ4F_preferences_t lz4_ops = {
+    { LZ4F_max256KB, LZ4F_blockLinked, LZ4F_noContentChecksum, LZ4F_frame,
+      /*unknown contentSize=*/0, /*dictID=*/0, LZ4F_noBlockChecksum },
+    // We may want to expose this knob as a parameter.  The fastest for my
+    // SSD is -4096, but on another machine 0 is fastest; plus, we may want
+    // to raise it to 3 for cases with higher i/o overhead, where it is
+    // slower but still outperforms zlib/gzip.
+    /*fastest compressionLevel=*/0,
+    /*autoFlush=*/0,
+    /*do not favorDecSpeed=*/0,
+    /*reserved=*/ { 0, 0, 0 },
+};
+#endif
 
 /* file operations functions */
 struct file_ops_func_t {
@@ -508,6 +531,17 @@ close_thread_file(void *drcontext)
         deflateEnd(&data->zstream);
     }
 #endif
+#ifdef HAS_LZ4
+    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        // Flush remaining data.
+        size_t res =
+            LZ4F_compressEnd(data->lzcxt, data->buf_lz4, data->buf_lz4_size, nullptr);
+        DR_ASSERT(!LZ4F_isError(res));
+        file_ops_func.write_file(data->file, data->buf_lz4, res);
+        res = LZ4F_freeCompressionContext(data->lzcxt);
+        DR_ASSERT(!LZ4F_isError(res));
+    }
+#endif
     file_ops_func.close_file(data->file);
     data->file = INVALID_FILE;
 }
@@ -553,6 +587,10 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         suffix = OUTFILE_SUFFIX_ZLIB;
     else if (op_raw_compress.get_value() == "gzip")
         suffix = OUTFILE_SUFFIX_GZ;
+#endif
+#ifdef HAS_LZ4
+    if (op_raw_compress.get_value() == "lz4")
+        suffix = OUTFILE_SUFFIX_LZ4;
 #endif
     for (i = 0; i < NUM_OF_TRIES; i++) {
         drx_open_unique_appid_file(dir, dr_get_thread_id(drcontext), subdir_prefix,
@@ -602,6 +640,18 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                                    Z_DEFAULT_STRATEGY);
             DR_ASSERT(res == Z_OK);
             /* We use the default gzip header and don't call deflateSetHeader. */
+        }
+#endif
+#ifdef HAS_LZ4
+        if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+            size_t res = LZ4F_createCompressionContext(&data->lzcxt, LZ4F_VERSION);
+            DR_ASSERT(!LZ4F_isError(res));
+            // Write out the header.
+            res = LZ4F_compressBegin(data->lzcxt, data->buf_lz4, data->buf_lz4_size,
+                                     &lz4_ops);
+            DR_ASSERT(!LZ4F_isError(res));
+            ssize_t wrote = file_ops_func.write_file(data->file, data->buf_lz4, res);
+            DR_ASSERT(static_cast<size_t>(wrote) == res);
         }
 #endif
         break;
@@ -682,6 +732,17 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                                                  max_buf_size - data->zstream.avail_out);
                 } while (data->zstream.avail_out == 0);
                 DR_ASSERT(data->zstream.avail_in == 0);
+                wrote = size;
+            } else
+#endif
+#ifdef HAS_LZ4
+                if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+                size_t res =
+                    LZ4F_compressUpdate(data->lzcxt, data->buf_lz4, data->buf_lz4_size,
+                                        towrite_start, size, nullptr);
+                DR_ASSERT(!LZ4F_isError(res));
+                wrote = file_ops_func.write_file(data->file, data->buf_lz4, res);
+                DR_ASSERT(static_cast<size_t>(wrote) == res);
                 wrote = size;
             } else
 #endif
@@ -2536,6 +2597,14 @@ init_thread_in_process(void *drcontext)
             dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
     }
 #endif
+#ifdef HAS_LZ4
+    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        data->buf_lz4_size = LZ4F_compressBound(max_buf_size, &lz4_ops);
+        DR_ASSERT(data->buf_lz4_size >= LZ4F_HEADER_SIZE_MAX);
+        data->buf_lz4 = static_cast<byte *>(dr_raw_mem_alloc(
+            data->buf_lz4_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
+    }
+#endif
 
     set_local_window(drcontext, -1);
     if (has_tracing_windows())
@@ -2682,6 +2751,11 @@ event_thread_exit(void *drcontext)
             (op_raw_compress.get_value() == "zlib" ||
              op_raw_compress.get_value() == "gzip")) {
             dr_raw_mem_free(data->buf_compressed, max_buf_size);
+        }
+#endif
+#ifdef HAS_LZ4
+        if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+            dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
         }
 #endif
 
@@ -2882,6 +2956,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef HAS_ZLIB
         || op_raw_compress.get_value() == "gzip" || op_raw_compress.get_value() == "zlib"
 #endif
+#ifdef HAS_LZ4
+        || op_raw_compress.get_value() == "lz4"
+#endif
     ) {
         // Valid option.
     } else {
@@ -3046,6 +3123,15 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         dr_allow_unsafe_static_behavior();
 #    ifdef DRMEMTRACE_STATIC
         NOTIFY(0, "-raw_compress snappy is unsafe with statically linked clients\n");
+#    endif
+    }
+#endif
+#ifdef HAS_LZ4
+    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        /* Similarly to libsnappy, lz4 doesn't parameterize its allocator. */
+        dr_allow_unsafe_static_behavior();
+#    ifdef DRMEMTRACE_STATIC
+        NOTIFY(0, "-raw_compress lz4 is unsafe with statically linked clients\n");
 #    endif
     }
 #endif

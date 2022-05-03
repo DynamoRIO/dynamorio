@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -64,8 +64,10 @@ jobs:
     - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
+      # XXX: We should install doxygen too but it's a different version and
+      # hits issues about incompatible options in the Doxyfile.
       run: |
-        brew install nasm
+        brew install nasm zlib snappy lz4
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

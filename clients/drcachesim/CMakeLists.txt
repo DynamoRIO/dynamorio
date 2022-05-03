@@ -76,6 +76,10 @@ else ()
   set(snappy_reader "")
 endif()
 
+if (liblz4)
+  add_definitions(-DHAS_LZ4)
+endif ()
+
 set(client_and_sim_srcs
   common/named_pipe_${os_name}.cpp
   common/options.cpp
@@ -143,6 +147,9 @@ use_DynamoRIO_extension(drmemtrace_raw2trace drutil_static)
 link_with_pthread(drmemtrace_raw2trace)
 if (libsnappy)
   target_link_libraries(drmemtrace_raw2trace snappy)
+endif ()
+if (liblz4)
+  target_link_libraries(drmemtrace_raw2trace lz4)
 endif ()
 
 set(drcachesim_srcs
@@ -313,6 +320,9 @@ macro(add_drmemtrace name type)
   endif ()
   if (ZLIB_FOUND)
     target_link_libraries(${name} ${ZLIB_LIBRARIES})
+  endif ()
+  if (liblz4)
+    target_link_libraries(${name} lz4)
   endif ()
   add_dependencies(${name} api_headers)
   install_target(${name} ${INSTALL_CLIENTS_LIB})

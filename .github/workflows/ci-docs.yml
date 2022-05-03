@@ -78,7 +78,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          libunwind-dev
+          liblz4-dev libunwind-dev
 
     - name: Get Version
       id: version
