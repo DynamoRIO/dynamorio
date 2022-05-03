@@ -2259,7 +2259,8 @@ DR_API
  */
 instr_t *
 instr_create_4dst_5src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5);
+                       opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4,
+                       opnd_t src5);
 
 DR_API
 /**
@@ -2272,7 +2273,6 @@ instr_t *
 instr_create_4dst_6src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
                        opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4,
                        opnd_t src5, opnd_t src6);
-
 
 DR_API
 /**
@@ -2320,7 +2320,6 @@ instr_t *
 instr_create_5dst_5src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
                        opnd_t dst4, opnd_t dst5, opnd_t src1, opnd_t src2, opnd_t src3,
                        opnd_t src4, opnd_t src5);
-
 
 DR_API
 /**
