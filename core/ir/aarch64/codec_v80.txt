@@ -498,56 +498,56 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126      fcvtzu            wx0 : d5 scale
 0x001100010000000110xxxxxxxxxxxx  n   173         ld1    vt0 vt1 vt2 : memvm vmsz
 0x001100010000000111xxxxxxxxxxxx  n   173         ld1            vt0 : memvm vmsz
 0x001100010000001010xxxxxxxxxxxx  n   173         ld1        vt0 vt1 : memvm vmsz
-0x001100110xxxxx0010xxxxxxxxxxxx  n   173         ld1  vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0110xxxxxxxxxxxx  n   173         ld1  vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0111xxxxxxxxxxxx  n   173         ld1       vt0 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx1010xxxxxxxxxxxx  n   173         ld1   vt0 vt1 x5sp : memvm vmsz x5sp x16imm
-0x00110101000000000xxxxxxxxxxxxx  n   173         ld1             q0 : memvs index0
-0x00110101000000010xx0xxxxxxxxxx  n   173         ld1             q0 : memvs index1
-0x00110101000000100x00xxxxxxxxxx  n   173         ld1             q0 : memvs index2
-0x00110101000000100001xxxxxxxxxx  n   173         ld1             q0 : memvs index3
-0x001101110xxxxx000xxxxxxxxxxxxx  n   173         ld1        q0 x5sp : q0 memvs index0 x5sp x16immvs
-0x001101110xxxxx010xx0xxxxxxxxxx  n   173         ld1        q0 x5sp : q0 memvs index1 x5sp x16immvs
-0x001101110xxxxx100x00xxxxxxxxxx  n   173         ld1        q0 x5sp : q0 memvs index2 x5sp x16immvs
-0x001101110xxxxx100001xxxxxxxxxx  n   173         ld1        q0 x5sp : q0 memvs index3 x5sp x16immvs
-0x001101010000001100xxxxxxxxxxxx  n   174        ld1r            dq0 : memvr
-0x001101110xxxxx1100xxxxxxxxxxxx  n   174        ld1r       dq0 x5sp : memvr x5sp x16immvr
+0x001100110xxxxx0010xxxxxxxxxxxx  n   173         ld1  vt0 vt1 vt2 vt3 x5sp : memvm x5sp x16imm vmsz
+0x001100110xxxxx0110xxxxxxxxxxxx  n   173         ld1  vt0 vt1 vt2 x5sp : memvm x5sp x16imm vmsz
+0x001100110xxxxx0111xxxxxxxxxxxx  n   173         ld1       vt0 x5sp : memvm x5sp x16imm vmsz
+0x001100110xxxxx1010xxxxxxxxxxxx  n   173         ld1   vt0 vt1 x5sp : memvm x5sp x16imm vmsz
+0x00110101000000000xxxxxxxxxxxxx  n   173         ld1             q0 : memvs index0 b_const_sz
+0x00110101000000010xx0xxxxxxxxxx  n   173         ld1             q0 : memvs index1 h_sz
+0x00110101000000100x00xxxxxxxxxx  n   173         ld1             q0 : memvs index2 s_const_sz
+0x00110101000000100001xxxxxxxxxx  n   173         ld1             q0 : memvs index3 d_const_sz
+0x001101110xxxxx000xxxxxxxxxxxxx  n   173         ld1        q0 x5sp : memvs index0 x5sp x16immvs b_const_sz
+0x001101110xxxxx010xx0xxxxxxxxxx  n   173         ld1        q0 x5sp : memvs index1 x5sp x16immvs h_sz
+0x001101110xxxxx100x00xxxxxxxxxx  n   173         ld1        q0 x5sp : memvs index2 x5sp x16immvs s_const_sz
+0x001101110xxxxx100001xxxxxxxxxx  n   173         ld1        q0 x5sp : memvs index3 x5sp x16immvs d_const_sz
+0x001101010000001100xxxxxxxxxxxx  n   174        ld1r            dq0 : memvr vmsz
+0x001101110xxxxx1100xxxxxxxxxxxx  n   174        ld1r       dq0 x5sp : memvr x5sp x16immvr vmsz
 0x001100010000001000xxxxxxxxxxxx  n   175         ld2        vt0 vt1 : memvm vmsz
-0x001100110xxxxx1000xxxxxxxxxxxx  n   175         ld2   vt0 vt1 x5sp : memvm vmsz x5sp x16imm
-0x00110101100000000xxxxxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index0
-0x00110101100000010xx0xxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index1
-0x00110101100000100x00xxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index2
-0x00110101100000100001xxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index3
-0x001101111xxxxx000xxxxxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index0 x5sp x16immvs
-0x001101111xxxxx010xx0xxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index1 x5sp x16immvs
-0x001101111xxxxx100x00xxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index2 x5sp x16immvs
-0x001101111xxxxx100001xxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index3 x5sp x16immvs
-0x001101011000001100xxxxxxxxxxxx  n   176        ld2r      dq0 dq0p1 : memvr
-0x001101111xxxxx1100xxxxxxxxxxxx  n   176        ld2r  dq0 dq0p1 x5sp : memvr x5sp x16immvr
+0x001100110xxxxx1000xxxxxxxxxxxx  n   175         ld2   vt0 vt1 x5sp : memvm x5sp x16imm vmsz
+0x00110101100000000xxxxxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index0 b_const_sz
+0x00110101100000010xx0xxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index1 h_sz
+0x00110101100000100x00xxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index2 s_const_sz
+0x00110101100000100001xxxxxxxxxx  n   175         ld2        q0 q0p1 : memvs index3 d_const_sz
+0x001101111xxxxx000xxxxxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : memvs index0 x5sp x16immvs b_const_sz
+0x001101111xxxxx010xx0xxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : memvs index1 x5sp x16immvs h_sz
+0x001101111xxxxx100x00xxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : memvs index2 x5sp x16immvs s_const_sz
+0x001101111xxxxx100001xxxxxxxxxx  n   175         ld2   q0 q0p1 x5sp : memvs index3 x5sp x16immvs d_const_sz
+0x001101011000001100xxxxxxxxxxxx  n   176        ld2r      dq0 dq0p1 : memvr vmsz
+0x001101111xxxxx1100xxxxxxxxxxxx  n   176        ld2r  dq0 dq0p1 x5sp : memvr x5sp x16immvr vmsz
 0x001100010000000100xxxxxxxxxxxx  n   177         ld3    vt0 vt1 vt2 : memvm vmsz
-0x001100110xxxxx0100xxxxxxxxxxxx  n   177         ld3  vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
-0x00110101000000001xxxxxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index0
-0x00110101000000011xx0xxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index1
-0x00110101000000101x00xxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index2
-0x00110101000000101001xxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index3
-0x001101110xxxxx001xxxxxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index0 x5sp x16immvs
-0x001101110xxxxx011xx0xxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index1 x5sp x16immvs
-0x001101110xxxxx101x00xxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index2 x5sp x16immvs
-0x001101110xxxxx101001xxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index3 x5sp x16immvs
-0x001101010000001110xxxxxxxxxxxx  n   178        ld3r  dq0 dq0p1 dq0p2 : memvr
-0x001101110xxxxx1110xxxxxxxxxxxx  n   178        ld3r  dq0 dq0p1 dq0p2 x5sp : memvr x5sp x16immvr
+0x001100110xxxxx0100xxxxxxxxxxxx  n   177         ld3  vt0 vt1 vt2 x5sp : memvm x5sp x16imm vmsz
+0x00110101000000001xxxxxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index0 b_const_sz
+0x00110101000000011xx0xxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index1 h_sz
+0x00110101000000101x00xxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index2 s_const_sz
+0x00110101000000101001xxxxxxxxxx  n   177         ld3   q0 q0p1 q0p2 : memvs index3 d_const_sz
+0x001101110xxxxx001xxxxxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : memvs index0 x5sp x16immvs b_const_sz
+0x001101110xxxxx011xx0xxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : memvs index1 x5sp x16immvs h_sz
+0x001101110xxxxx101x00xxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : memvs index2 x5sp x16immvs s_const_sz
+0x001101110xxxxx101001xxxxxxxxxx  n   177         ld3  q0 q0p1 q0p2 x5sp : memvs index3 x5sp x16immvs d_const_sz
+0x001101010000001110xxxxxxxxxxxx  n   178        ld3r  dq0 dq0p1 dq0p2 : memvr vmsz
+0x001101110xxxxx1110xxxxxxxxxxxx  n   178        ld3r  dq0 dq0p1 dq0p2 x5sp : memvr x5sp x16immvr vmsz
 0x001100010000000000xxxxxxxxxxxx  n   179         ld4  vt0 vt1 vt2 vt3 : memvm vmsz
-0x001100110xxxxx0000xxxxxxxxxxxx  n   179         ld4  vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
-0x00110101100000001xxxxxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index0
-0x00110101100000011xx0xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index1
-0x00110101100000101x00xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index2
-0x00110101100000101001xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index3
-0x001101111xxxxx001xxxxxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index0 x5sp x16immvs
-0x001101111xxxxx011xx0xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index1 x5sp x16immvs
-0x001101111xxxxx101x00xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index2 x5sp x16immvs
-0x001101111xxxxx101001xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index3 x5sp x16immvs
-0x001101011000001110xxxxxxxxxxxx  n   180        ld4r  dq0 dq0p1 dq0p2 dq0p3 : memvr
-0x001101111xxxxx1110xxxxxxxxxxxx  n   180        ld4r  dq0 dq0p1 dq0p2 dq0p3 x5sp : memvr x5sp x16immvr
+0x001100110xxxxx0000xxxxxxxxxxxx  n   179         ld4  vt0 vt1 vt2 vt3 x5sp : memvm x5sp x16imm vmsz
+0x00110101100000001xxxxxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index0 b_const_sz
+0x00110101100000011xx0xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index1 h_sz
+0x00110101100000101x00xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index2 s_const_sz
+0x00110101100000101001xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 : memvs index3 d_const_sz
+0x001101111xxxxx001xxxxxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : memvs index0 x5sp x16immvs b_const_sz
+0x001101111xxxxx011xx0xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : memvs index1 x5sp x16immvs h_sz
+0x001101111xxxxx101x00xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : memvs index2 x5sp x16immvs s_const_sz
+0x001101111xxxxx101001xxxxxxxxxx  n   179         ld4  q0 q0p1 q0p2 q0p3 x5sp : memvs index3 x5sp x16immvs d_const_sz
+0x001101011000001110xxxxxxxxxxxx  n   180        ld4r  dq0 dq0p1 dq0p2 dq0p3 : memvr vmsz
+0x001101111xxxxx1110xxxxxxxxxxxx  n   180        ld4r  dq0 dq0p1 dq0p2 dq0p3 x5sp : memvr x5sp x16immvr vmsz
 10111000001xxxxx000000xxxxxxxxxx  n   181       ldadd        w0 mem0 : w16 mem0
 11111000001xxxxx000000xxxxxxxxxx  n   181       ldadd        x0 mem0 : x16 mem0
 10111000101xxxxx000000xxxxxxxxxx  n   182      ldadda        w0 mem0 : w16 mem0
@@ -1074,52 +1074,52 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363        sdiv            wx0 : wx5 wx16
 01001110xx1xxxxx001000xxxxxxxxxx  n   441      ssubl2             q0 : q5 q16 bhs_sz
 00001110xx1xxxxx001100xxxxxxxxxx  n   442       ssubw             q0 : q5 d16 bhs_sz
 01001110xx1xxxxx001100xxxxxxxxxx  n   443      ssubw2             q0 : q5 q16 bhs_sz
-0x001100000000000010xxxxxxxxxxxx  n   444         st1          memvm : vmsz vt0 vt1 vt2 vt3
-0x001100000000000110xxxxxxxxxxxx  n   444         st1          memvm : vmsz vt0 vt1 vt2
+0x001100000000000010xxxxxxxxxxxx  n   444         st1          memvm : vt0 vt1 vt2 vt3 vmsz
+0x001100000000000110xxxxxxxxxxxx  n   444         st1          memvm : vt0 vt1 vt2 vmsz
 0x001100000000000111xxxxxxxxxxxx  n   444         st1          memvm : vt0 vmsz
-0x001100000000001010xxxxxxxxxxxx  n   444         st1          memvm : vmsz vt0 vt1
-0x001100100xxxxx0010xxxxxxxxxxxx  n   444         st1     memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
-0x001100100xxxxx0110xxxxxxxxxxxx  n   444         st1     memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
-0x001100100xxxxx0111xxxxxxxxxxxx  n   444         st1     memvm x5sp : vmsz vt0 x5sp x16imm
-0x001100100xxxxx1010xxxxxxxxxxxx  n   444         st1     memvm x5sp : vmsz vt0 vt1 x5sp x16imm
-0x00110100000000000xxxxxxxxxxxxx  n   444         st1          memvs : q0 index0
-0x00110100000000010xx0xxxxxxxxxx  n   444         st1          memvs : q0 index1
-0x00110100000000100x00xxxxxxxxxx  n   444         st1          memvs : q0 index2
-0x00110100000000100001xxxxxxxxxx  n   444         st1          memvs : q0 index3
-0x001101100xxxxx000xxxxxxxxxxxxx  n   444         st1     memvs x5sp : q0 index0 x5sp x16immvs
-0x001101100xxxxx010xx0xxxxxxxxxx  n   444         st1     memvs x5sp : q0 index1 x5sp x16immvs
-0x001101100xxxxx100x00xxxxxxxxxx  n   444         st1     memvs x5sp : q0 index2 x5sp x16immvs
-0x001101100xxxxx100001xxxxxxxxxx  n   444         st1     memvs x5sp : q0 index3 x5sp x16immvs
-0x001100000000001000xxxxxxxxxxxx  n   445         st2          memvm : vmsz vt0 vt1
-0x001100100xxxxx1000xxxxxxxxxxxx  n   445         st2     memvm x5sp : vmsz vt0 vt1 x5sp x16imm
-0x00110100100000000xxxxxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index0
-0x00110100100000010xx0xxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index1
-0x00110100100000100x00xxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index2
-0x00110100100000100001xxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index3
-0x001101101xxxxx000xxxxxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index0 x5sp x16immvs
-0x001101101xxxxx010xx0xxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index1 x5sp x16immvs
-0x001101101xxxxx100x00xxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index2 x5sp x16immvs
-0x001101101xxxxx100001xxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index3 x5sp x16immvs
-0x001100000000000100xxxxxxxxxxxx  n   446         st3          memvm : vmsz vt0 vt1 vt2
-0x001100100xxxxx0100xxxxxxxxxxxx  n   446         st3     memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
-0x00110100000000001xxxxxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index0
-0x00110100000000011xx0xxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index1
-0x00110100000000101x00xxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index2
-0x00110100000000101001xxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index3
-0x001101100xxxxx001xxxxxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index0 x5sp x16immvs
-0x001101100xxxxx011xx0xxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index1 x5sp x16immvs
-0x001101100xxxxx101x00xxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index2 x5sp x16immvs
-0x001101100xxxxx101001xxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index3 x5sp x16immvs
-0x001100000000000000xxxxxxxxxxxx  n   447         st4          memvm : vmsz vt0 vt1 vt2 vt3
-0x001100100xxxxx0000xxxxxxxxxxxx  n   447         st4     memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
-0x00110100100000001xxxxxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index0
-0x00110100100000011xx0xxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index1
-0x00110100100000101x00xxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index2
-0x00110100100000101001xxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index3
-0x001101101xxxxx001xxxxxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index0 x5sp x16immvs
-0x001101101xxxxx011xx0xxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index1 x5sp x16immvs
-0x001101101xxxxx101x00xxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index2 x5sp x16immvs
-0x001101101xxxxx101001xxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index3 x5sp x16immvs
+0x001100000000001010xxxxxxxxxxxx  n   444         st1          memvm : vt0 vt1 vmsz
+0x001100100xxxxx0010xxxxxxxxxxxx  n   444         st1     memvm x5sp : vt0 vt1 vt2 vt3 x5sp x16imm vmsz
+0x001100100xxxxx0110xxxxxxxxxxxx  n   444         st1     memvm x5sp : vt0 vt1 vt2 x5sp x16imm vmsz
+0x001100100xxxxx0111xxxxxxxxxxxx  n   444         st1     memvm x5sp : vt0 x5sp x16imm vmsz
+0x001100100xxxxx1010xxxxxxxxxxxx  n   444         st1     memvm x5sp : vt0 vt1 x5sp x16imm vmsz
+0x00110100000000000xxxxxxxxxxxxx  n   444         st1          memvs : q0 index0 b_const_sz
+0x00110100000000010xx0xxxxxxxxxx  n   444         st1          memvs : q0 index1 h_sz
+0x00110100000000100x00xxxxxxxxxx  n   444         st1          memvs : q0 index2 s_const_sz
+0x00110100000000100001xxxxxxxxxx  n   444         st1          memvs : q0 index3 d_const_sz
+0x001101100xxxxx000xxxxxxxxxxxxx  n   444         st1     memvs x5sp : q0 index0 x5sp x16immvs b_const_sz
+0x001101100xxxxx010xx0xxxxxxxxxx  n   444         st1     memvs x5sp : q0 index1 x5sp x16immvs h_sz
+0x001101100xxxxx100x00xxxxxxxxxx  n   444         st1     memvs x5sp : q0 index2 x5sp x16immvs s_const_sz
+0x001101100xxxxx100001xxxxxxxxxx  n   444         st1     memvs x5sp : q0 index3 x5sp x16immvs d_const_sz
+0x001100000000001000xxxxxxxxxxxx  n   445         st2          memvm : vt0 vt1 vmsz
+0x001100100xxxxx1000xxxxxxxxxxxx  n   445         st2     memvm x5sp : vt0 vt1 x5sp x16imm vmsz
+0x00110100100000000xxxxxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index0 b_const_sz
+0x00110100100000010xx0xxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index1 h_sz
+0x00110100100000100x00xxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index2 s_const_sz
+0x00110100100000100001xxxxxxxxxx  n   445         st2          memvs : q0 q0p1 index3 d_const_sz
+0x001101101xxxxx000xxxxxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index0 x5sp x16immvs b_const_sz
+0x001101101xxxxx010xx0xxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index1 x5sp x16immvs h_sz
+0x001101101xxxxx100x00xxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index2 x5sp x16immvs s_const_sz
+0x001101101xxxxx100001xxxxxxxxxx  n   445         st2     memvs x5sp : q0 q0p1 index3 x5sp x16immvs d_const_sz
+0x001100000000000100xxxxxxxxxxxx  n   446         st3          memvm : vt0 vt1 vt2 vmsz
+0x001100100xxxxx0100xxxxxxxxxxxx  n   446         st3     memvm x5sp : vt0 vt1 vt2 x5sp x16imm vmsz
+0x00110100000000001xxxxxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index0 b_const_sz
+0x00110100000000011xx0xxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index1 h_sz
+0x00110100000000101x00xxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index2 s_const_sz
+0x00110100000000101001xxxxxxxxxx  n   446         st3          memvs : q0 q0p1 q0p2 index3 d_const_sz
+0x001101100xxxxx001xxxxxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index0 x5sp x16immvs b_const_sz
+0x001101100xxxxx011xx0xxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index1 x5sp x16immvs h_sz
+0x001101100xxxxx101x00xxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index2 x5sp x16immvs s_const_sz
+0x001101100xxxxx101001xxxxxxxxxx  n   446         st3     memvs x5sp : q0 q0p1 q0p2 index3 x5sp x16immvs d_const_sz
+0x001100000000000000xxxxxxxxxxxx  n   447         st4          memvm : vt0 vt1 vt2 vt3 vmsz
+0x001100100xxxxx0000xxxxxxxxxxxx  n   447         st4     memvm x5sp : vt0 vt1 vt2 vt3 x5sp x16imm vmsz
+0x00110100100000001xxxxxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index0 b_const_sz
+0x00110100100000011xx0xxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index1 h_sz
+0x00110100100000101x00xxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index2 s_const_sz
+0x00110100100000101001xxxxxxxxxx  n   447         st4          memvs : q0 q0p1 q0p2 q0p3 index3 d_const_sz
+0x001101101xxxxx001xxxxxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index0 x5sp x16immvs b_const_sz
+0x001101101xxxxx011xx0xxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index1 x5sp x16immvs h_sz
+0x001101101xxxxx101x00xxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index2 x5sp x16immvs s_const_sz
+0x001101101xxxxx101001xxxxxxxxxx  n   447         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index3 x5sp x16immvs d_const_sz
 10001000100^^^^^1^^^^^xxxxxxxxxx  n   448        stlr           mem0 : w0
 11001000100^^^^^1^^^^^xxxxxxxxxx  n   448        stlr           mem0 : x0
 00001000100^^^^^1^^^^^xxxxxxxxxx  n   449       stlrb           mem0 : w0
@@ -1165,7 +1165,7 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363        sdiv            wx0 : wx5 wx16
 11111000000xxxxxxxxx11xxxxxxxxxx  n   457         str      mem9 x5sp : x0 x5sp mem9off
 11111100000xxxxxxxxx11xxxxxxxxxx  n   457         str      mem9 x5sp : d0 x5sp mem9off
 00111100001xxxxxxxxx10xxxxxxxxxx  n   457         str         memreg : b0
-00111100101xxxxxxxxx10xxxxxxxxxx  n   457         str        memregq : b0
+00111100101xxxxxxxxx10xxxxxxxxxx  n   457         str        memregq : q0
 01111100001xxxxxxxxx10xxxxxxxxxx  n   457         str         memreg : h0
 10111000001xxxxxxxxx10xxxxxxxxxx  n   457         str         memreg : w0
 10111100001xxxxxxxxx10xxxxxxxxxx  n   457         str         memreg : s0
