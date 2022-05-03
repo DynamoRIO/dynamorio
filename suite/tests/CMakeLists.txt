@@ -4409,6 +4409,9 @@ if (UNIX)
 
     tobuild(linux.sigmask linux/sigmask.c)
     link_with_pthread(linux.sigmask)
+    # Sanity check that this option works.
+    torunonly(linux.sigmask-noalarm linux.sigmask linux/sigmask.c
+      "-no_reroute_alarm_signals" "")
 
     if (UNIX)
       if (X64)
