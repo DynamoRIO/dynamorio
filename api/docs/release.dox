@@ -136,6 +136,8 @@ Further non-compatibility-affecting changes include:
    and drwrap_invoke_insert_cleanup_only().
  - Added -trace_for_instrs and -retrace_every_instrs options to drcachesim
    for periodic trace bustrs of an unmodified application.
+ - Added compression of drmemtrace raw offline files with various compression
+   choices under the -raw_compress option.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:

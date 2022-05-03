@@ -65,6 +65,9 @@
 #    include <snappy.h>
 #    include "snappy_file_writer.h"
 #endif
+#ifdef HAS_ZLIB
+#    include <zlib.h>
+#endif
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
@@ -144,6 +147,10 @@ typedef struct {
     bool scatter_gather;
 #ifdef HAS_SNAPPY
     snappy_file_writer_t *snappy_writer;
+#endif
+#ifdef HAS_ZLIB
+    z_stream zstream;
+    byte *buf_compressed;
 #endif
     bool has_thread_header;
 } per_thread_t;
@@ -273,6 +280,32 @@ snappy_enabled()
 {
     return op_raw_compress.get_value() == "snappy" ||
         op_raw_compress.get_value() == "snappy_nocrc";
+}
+#endif
+
+#ifdef HAS_ZLIB
+static void *
+redirect_malloc(void *drcontext, uint items, uint per_size)
+{
+    void *mem;
+    size_t size = items * per_size; /* XXX: ignoring overflow */
+    size += sizeof(size_t);
+    mem = dr_custom_alloc(nullptr, static_cast<dr_alloc_flags_t>(0), size,
+                          DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
+    if (mem == NULL)
+        return Z_NULL;
+    *((size_t *)mem) = size;
+    return (byte *)mem + sizeof(size_t);
+}
+
+static void
+redirect_free(void *drcontext, void *ptr)
+{
+    if (ptr != NULL) {
+        byte *mem = (byte *)ptr;
+        mem -= sizeof(size_t);
+        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), mem, *((size_t *)mem));
+    }
 }
 #endif
 
@@ -440,6 +473,45 @@ open_new_window_dir(ptr_int_t window_num)
     NOTIFY(2, "Created new window dir %s\n", windir);
 }
 
+static void
+close_thread_file(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+#ifdef HAS_SNAPPY
+    if (op_offline.get_value() && snappy_enabled()) {
+        data->snappy_writer->~snappy_file_writer_t();
+        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
+                       sizeof(*data->snappy_writer));
+        data->snappy_writer = nullptr;
+    }
+#endif
+#ifdef HAS_ZLIB
+    if (op_offline.get_value() &&
+        (op_raw_compress.get_value() == "zlib" ||
+         op_raw_compress.get_value() == "gzip")) {
+        // Flush remaining data.
+        data->zstream.next_in = (Bytef *)BUF_PTR(data->seg_base);
+        data->zstream.avail_in = 0;
+        int res, iters = 0;
+        const int MAX_ITERS = 32; // Sanity limit to avoid hang.
+        do {
+            data->zstream.next_out = (Bytef *)data->buf_compressed;
+            data->zstream.avail_out = max_buf_size;
+            res = deflate(&data->zstream, Z_FINISH);
+            NOTIFY(3, "final deflate => %d in=%d out=%d => in=%d, out=%d, wrote=%d\n",
+                   res, 0, max_buf_size, data->zstream.avail_in, data->zstream.avail_out,
+                   max_buf_size - data->zstream.avail_out);
+            file_ops_func.write_file(data->file, data->buf_compressed,
+                                     max_buf_size - data->zstream.avail_out);
+        } while ((res == Z_OK || res == Z_BUF_ERROR) && ++iters < MAX_ITERS);
+        DR_ASSERT(res == Z_STREAM_END);
+        deflateEnd(&data->zstream);
+    }
+#endif
+    file_ops_func.close_file(data->file);
+    data->file = INVALID_FILE;
+}
+
 // Returns whether a new file was opened (it won't be for -no_split_windows).
 static bool
 open_new_thread_file(void *drcontext, ptr_int_t window_num)
@@ -476,6 +548,12 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     if (snappy_enabled())
         suffix = OUTFILE_SUFFIX_SZ;
 #endif
+#ifdef HAS_ZLIB
+    if (op_raw_compress.get_value() == "zlib")
+        suffix = OUTFILE_SUFFIX_ZLIB;
+    else if (op_raw_compress.get_value() == "gzip")
+        suffix = OUTFILE_SUFFIX_GZ;
+#endif
     for (i = 0; i < NUM_OF_TRIES; i++) {
         drx_open_unique_appid_file(dir, dr_get_thread_id(drcontext), subdir_prefix,
                                    suffix, DRX_FILE_SKIP_OPEN, buf,
@@ -489,7 +567,7 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         NOTIFY(2, "Created thread trace file %s\n", buf);
         opened_new_file = true;
         if (data->file != INVALID_FILE)
-            file_ops_func.close_file(data->file);
+            close_thread_file(drcontext);
         data->file = new_file;
 #ifdef HAS_SNAPPY
         if (snappy_enabled()) {
@@ -501,6 +579,29 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                 snappy_file_writer_t(data->file, file_ops_func.write_file,
                                      op_raw_compress.get_value() != "snappy_nocrc");
             data->snappy_writer->write_file_header();
+        }
+#endif
+#ifdef HAS_ZLIB
+        if (op_offline.get_value() && op_raw_compress.get_value() == "zlib") {
+            memset(&data->zstream, 0, sizeof(data->zstream));
+            data->zstream.zalloc = redirect_malloc;
+            data->zstream.zfree = redirect_free;
+            data->zstream.opaque = drcontext;
+            int res = deflateInit(&data->zstream, Z_BEST_SPEED);
+            DR_ASSERT(res == Z_OK);
+        } else if (op_offline.get_value() && op_raw_compress.get_value() == "gzip") {
+            memset(&data->zstream, 0, sizeof(data->zstream));
+            data->zstream.zalloc = redirect_malloc;
+            data->zstream.zfree = redirect_free;
+            data->zstream.opaque = drcontext;
+            const int ZLIB_WINDOW_SIZE = 15;
+            const int ZLIB_REQUEST_GZIP = 16; /* Added to size to trigger gz headers. */
+            const int ZLIB_MAX_MEM = 9;       /* For optimal speed. */
+            int res = deflateInit2(&data->zstream, Z_BEST_SPEED, Z_DEFLATED,
+                                   ZLIB_WINDOW_SIZE + ZLIB_REQUEST_GZIP, ZLIB_MAX_MEM,
+                                   Z_DEFAULT_STRATEGY);
+            DR_ASSERT(res == Z_OK);
+            /* We use the default gzip header and don't call deflateSetHeader. */
         }
 #endif
         break;
@@ -560,6 +661,30 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                 wrote = data->snappy_writer->compress_and_write(towrite_start, size);
             else
 #endif
+#ifdef HAS_ZLIB
+                if (op_offline.get_value() &&
+                    (op_raw_compress.get_value() == "zlib" ||
+                     op_raw_compress.get_value() == "gzip")) {
+                data->zstream.next_in = (Bytef *)towrite_start;
+                data->zstream.avail_in = size;
+                int res;
+                do {
+                    data->zstream.next_out = (Bytef *)data->buf_compressed;
+                    data->zstream.avail_out = max_buf_size;
+                    res = deflate(&data->zstream, Z_NO_FLUSH);
+                    NOTIFY(3, "deflate => %d in=%d out=%d => in=%d, out=%d, write=%d\n",
+                           res, size, size, data->zstream.avail_in,
+                           data->zstream.avail_out,
+                           max_buf_size - data->zstream.avail_out);
+                    DR_ASSERT(res != Z_STREAM_ERROR);
+                    wrote =
+                        file_ops_func.write_file(data->file, data->buf_compressed,
+                                                 max_buf_size - data->zstream.avail_out);
+                } while (data->zstream.avail_out == 0);
+                DR_ASSERT(data->zstream.avail_in == 0);
+                wrote = size;
+            } else
+#endif
                 wrote = file_ops_func.write_file(data->file, towrite_start, size);
             if (wrote < size) {
                 FATAL("Fatal error: failed to write trace for T%d window %zd: wrote %zd "
@@ -618,10 +743,8 @@ set_local_window(void *drcontext, ptr_int_t value)
             }
             // We delay opening the next window's file to avoid an empty final file.
             // The initial file is opened at thread init.
-            if (data->file != INVALID_FILE && op_split_windows.get_value()) {
-                file_ops_func.close_file(data->file);
-                data->file = INVALID_FILE;
-            }
+            if (data->file != INVALID_FILE && op_split_windows.get_value())
+                close_thread_file(drcontext);
         }
     }
     *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
@@ -2405,6 +2528,15 @@ init_thread_in_process(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *proc_info;
 
+#ifdef HAS_ZLIB
+    if (op_offline.get_value() &&
+        (op_raw_compress.get_value() == "zlib" ||
+         op_raw_compress.get_value() == "gzip")) {
+        data->buf_compressed = static_cast<byte *>(
+            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
+    }
+#endif
+
     set_local_window(drcontext, -1);
     if (has_tracing_windows())
         set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
@@ -2529,9 +2661,6 @@ event_thread_exit(void *drcontext)
             }
         }
 
-        if (op_offline.get_value())
-            file_ops_func.close_file(data->file);
-
         if (op_L0_filter.get_value()) {
             if (op_L0D_size.get_value() > 0) {
                 dr_raw_mem_free(data->l0_dcache,
@@ -2545,11 +2674,14 @@ event_thread_exit(void *drcontext)
             }
         }
 
-#ifdef HAS_SNAPPY
-        if (op_offline.get_value() && snappy_enabled()) {
-            data->snappy_writer->~snappy_file_writer_t();
-            dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
-                           sizeof(*data->snappy_writer));
+        if (op_offline.get_value() && data->file != INVALID_FILE)
+            close_thread_file(drcontext);
+
+#ifdef HAS_ZLIB
+        if (op_offline.get_value() &&
+            (op_raw_compress.get_value() == "zlib" ||
+             op_raw_compress.get_value() == "gzip")) {
+            dr_raw_mem_free(data->buf_compressed, max_buf_size);
         }
 #endif
 
@@ -2741,6 +2873,20 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         ((!IS_POWER_OF_2(op_L0I_size.get_value()) && op_L0I_size.get_value() != 0) ||
          (!IS_POWER_OF_2(op_L0D_size.get_value()) && op_L0D_size.get_value() != 0))) {
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
+    }
+    if (op_raw_compress.get_value() == "none"
+#ifdef HAS_SNAPPY
+        || op_raw_compress.get_value() == "snappy" ||
+        op_raw_compress.get_value() == "snappy_nocrc"
+#endif
+#ifdef HAS_ZLIB
+        || op_raw_compress.get_value() == "gzip" || op_raw_compress.get_value() == "zlib"
+#endif
+    ) {
+        // Valid option.
+    } else {
+        FATAL("Usage error: unknown -raw_compress type %s.",
+              op_raw_compress.get_value().c_str());
     }
 
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
