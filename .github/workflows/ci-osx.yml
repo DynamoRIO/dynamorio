@@ -65,7 +65,7 @@ jobs:
 
     - name: Create Build Environment
       run: |
-        brew install nasm doxygen zlib snappy liblz4
+        brew install nasm doxygen zlib snappy lz4
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
