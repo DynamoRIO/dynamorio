@@ -182,6 +182,7 @@ jobs:
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/aarch64-linux-gnu/include/
         sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
     - name: Get Version
@@ -267,6 +268,7 @@ jobs:
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/arm-linux-gnueabihf/include/
         sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Get Version

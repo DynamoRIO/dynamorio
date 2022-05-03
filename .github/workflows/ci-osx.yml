@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -65,7 +65,7 @@ jobs:
 
     - name: Create Build Environment
       run: |
-        brew install nasm
+        brew install nasm doxygen zlib snappy liblz4
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
