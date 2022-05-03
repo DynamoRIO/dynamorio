@@ -74,8 +74,8 @@ jobs:
           qemu-user qemu-user-binfmt
         sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64 \
-          zlib1g:arm64 zlib1g-dev:arm64 libsnappy:arm64 libsnappy-dev:arm64 \
-          liblz4:arm64 liblz4-dev:arm64
+          zlib1g:arm64 zlib1g-dev:arm64 libsnappy1v5:arm64 libsnappy-dev:arm64 \
+          liblz4-1:arm64 liblz4-dev:arm64
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
@@ -139,8 +139,8 @@ jobs:
           qemu-user qemu-user-binfmt
         sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf \
-          zlib1g:armhf zlib1g-dev:armhf libsnappy:armhf libsnappy-dev:armhf \
-          liblz4:armhf liblz4-dev:armhf
+          zlib1g:armhf zlib1g-dev:armhf libsnappy1v5:armhf libsnappy-dev:armhf \
+          liblz4-1:armhf liblz4-dev:armhf
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
