@@ -101,13 +101,16 @@ alarm_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     if (pthread_self() == unblocked_thread) {
         if (sig != SIGALRM)
             print("Unexpected signal %d\n", sig);
+#ifdef LINUX
         /* We take advantage of DR's lack of transparency where its reroute uses tkill
          * but the original was process-wide so we can detect a rerouted signal.
          * Without the logic in DR to not reroute a signal when blocked due to
-         * being inside a handler, this code is triggered and the print fails the test.
+         * being inside a handler, this code is triggered and the print fails the
+         * test. Unfortunately we have no simple way of checking this on Mac.
          */
         if (siginfo->si_code == SI_TKILL)
             print("signal from tkill (rerouted?) not expected\n");
+#endif
     } else {
         if (sig == SIGALRM && !should_exit) {
             signal_cond_var(child_ready);
