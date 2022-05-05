@@ -1020,13 +1020,16 @@ $ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
 
 If built with the zlib library, the canonical trace files are
 automatically compressed with gzip.  The trace reader supports reading
-gzip or snappy compressed files.  The raw files may also be compressed
-with the -p raw_compress option using a variety of compression options.
-Whether compressing the raw files is a net
-reduction in overhead depends on the storage medium; for an SSD it is
-typically slower to compress, though "lz4" and "snappy_crc" can exceed the
-uncompressed performance for some cases.  For a spinning disk,
-compression should always be a net win.
+gzip or snappy compressed files.
+
+The raw files are also compressed, controlled by the -p raw_compress
+option.  If built with lz4 support and not statically linked with the
+application, lz4 is used by default.  Whether compressing the raw
+files is a net reduction in overhead depends on the storage medium and
+compression scheme.  The "lz4" and "snappy_nocrc" schemes are
+generally performnce wins even for an SSD, while "gzip" or "zlib" slow
+things down.  For a spinning disk, any compression should be a net
+win.
 
 Older versions of the simulator produced a single trace file containing all threads
 interleaved.  The \p -infile option supports reading these legacy files:

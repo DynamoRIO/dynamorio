@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -61,6 +61,8 @@ $ od -t x8 -A x drmemtrace.simple_app.09291.0000.dir/raw/drmemtrace.simple_app.0
 06ed90 c100000000000000
 06ed98
 ```
+
+Of course, if the raw file is compressed, it must first be uncompressed.  Use `unlz4` for lz4-compressed raw files.
 
 Cheat sheet:
 
