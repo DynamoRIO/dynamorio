@@ -366,6 +366,21 @@ signal_is_interceptable(int sig)
     return (sig != SIGKILL && sig != SIGSTOP);
 }
 
+/* Checks for a for-certain-synchronous-fault signal. */
+static bool
+signal_is_fault(dcontext_t *dcontext, int sig, byte *pc, byte *xsp,
+                kernel_siginfo_t *info)
+{
+    switch (sig) {
+    case SIGSEGV:
+    case SIGBUS:
+    case SIGILL:
+    case SIGFPE:
+    case SIGTRAP: return !is_sys_kill(dcontext, pc, xsp, info);
+    default: return false;
+    }
+}
+
 static bool
 signal_is_process_wide(dcontext_t *dcontext, kernel_siginfo_t *info, byte *pc, byte *xsp)
 {
@@ -2434,6 +2449,13 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
     kernel_sigset_t safe_set;
+
+    /* We assume any change to the mask ends a handler: e.g., sigprocmask from
+     * siglongjmp.  It seems unusual to call sigprocmask in the middle; this
+     * in_app_handler is best-effort in any case.
+     */
+    info->in_app_handler = false;
+
     /* Some code uses this syscall to check whether the given address is
      * readable. E.g.
      * github.com/abseil/abseil-cpp/blob/master/absl/debugging/internal/
@@ -4658,7 +4680,10 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             signal_is_process_wide(dcontext, &frame->info, pc, xsp), frame->info.si_code,
             atomic_aligned_read_int(&info->sighand->threads_unmasked[sig]));
         if (signal_is_process_wide(dcontext, &frame->info, pc, xsp) &&
-            atomic_aligned_read_int(&info->sighand->threads_unmasked[sig]) > 0) {
+            !signal_is_fault(dcontext, sig, pc, (byte *)sc->SC_XSP, &frame->info) &&
+            atomic_aligned_read_int(&info->sighand->threads_unmasked[sig]) > 0 &&
+            (!sig_is_alarm_signal(sig) ||
+             (!info->in_app_handler && DYNAMO_OPTION(reroute_alarm_signals)))) {
             /* We need to re-route this but cannot acquire the locks to search the
              * threads here.  We thus start delivery and once we come back from
              * dispatch we'll do the search in reroute_to_unmasked_thread().
@@ -4871,6 +4896,17 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = " PFX "\n",
         frame->pretcode); /* pretcode has same offs for plain */
 #endif
+
+    if (receive_now && reroute) {
+        /* We can't delay, but we can't have interrupted any DR locks, so we
+         * can call this now.
+         */
+        handled = reroute_to_unmasked_thread(dcontext, frame, sig);
+        if (handled)
+            receive_now = false;
+        else
+            blocked = true;
+    }
 
     if (receive_now) {
         /* we need to translate sc before we know whether client wants to
@@ -6002,6 +6038,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
          */
         info->sighand->action[sig]->handler = (handler_t)SIG_DFL;
     }
+    info->in_app_handler = true;
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset next_tag to handler " PFX ", xsp to " PFX "\n",
         SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]), xsp);
@@ -6221,6 +6258,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
                            mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     sc->SC_XIP = official_xl8;
+    info->in_app_handler = true;
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to " PFX "\n", xsp);
     return true;
@@ -6756,6 +6794,9 @@ reroute_to_unmasked_thread(dcontext_t *dcontext, sigframe_rt_t *frame, int sig)
                  * If it's not available we have to fall back to SYS_tgkill.
                  * XXX: We ignore custom values in other siginfo fields for someone
                  * hackily using the raw syscall (like we do for nudges).
+                 * XXX: This reroute will have different si_code values than the
+                 * original process-wide signal.  We live with the loss of
+                 * transparency.
                  */
                 sent = thread_signal_queue(get_process_id(), trecs[i]->id, sig,
                                            siginfo->si_value.sival_ptr);
@@ -6763,6 +6804,7 @@ reroute_to_unmasked_thread(dcontext_t *dcontext, sigframe_rt_t *frame, int sig)
             if (!sent)
                 thread_signal(get_process_id(), trecs[i]->id, sig);
             found = true;
+            RSTATS_INC(num_signals_rerouted);
         }
         d_r_mutex_unlock(&tgt_info->sigblocked_lock);
     }
@@ -7125,6 +7167,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 
     LOG(THREAD, LOG_ASYNCH, 3, "set next tag to " PFX ", sc->SC_XIP to " PFX "\n",
         next_pc, sc->SC_XIP);
+    info->in_app_handler = false;
 
     return IF_VMX86_ELSE(false, true);
 }
@@ -7702,6 +7745,13 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
             } else
                 reset_timer_manually = true;
         }
+    } else if ((*info->itimer)[which].dr.value == 0) {
+        /* This is an explicitly-sent signal, rather than generated by an itimer.
+         * XXX i#5017: We need to also identify such a signal when the app has no
+         * itimer and DR has one as today we'll swallow it and assume it was part of
+         * the DR itimer.
+         */
+        pass_to_app = true;
     }
     if ((*info->itimer)[which].dr.value > 0) {
         /* Alarm could have been on its way when DR value changed */

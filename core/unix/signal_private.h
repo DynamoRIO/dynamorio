@@ -467,6 +467,11 @@ typedef struct _thread_sig_info_t {
      */
     kernel_sigset_t app_sigblocked;
     mutex_t sigblocked_lock;
+    /* This is a not-guaranteed-accurate indicator of whether we're inside an
+     * app signal handler.  We can't know for sure when a handler ends if the
+     * app exits with a longjmp instead of siglongjmp.
+     */
+    bool in_app_handler;
 
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
