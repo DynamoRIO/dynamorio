@@ -190,6 +190,8 @@ main(int argc, char **argv)
     /* Send a signal to the whole process.  This often is delivered to the
      * main (current) thread under DR where it's not blocked, causing a hang without
      * the rerouting of i#2311.
+     * It would be nice to have a guarantee that the signal will come here but
+     * that doesn't seem possible.
      */
     print("sending %d\n", SIGUSR1);
     kill(getpid(), SIGUSR1);
@@ -213,11 +215,13 @@ main(int argc, char **argv)
     if (pthread_join(thread, &retval) != 0)
         perror("failed to join thread");
 
-    /* Test alarm signal rerouting.  Since process-wide signals are overwhelimingly
-     * delivered to the initial thread (I can't get them to go anywhere else), we
+    /* Test alarm signal rerouting.  Since process-wide signals are overwhelmingly
+     * delivered to the initial thread (I can't get them to go anywhere else!), we
      * need this thread to be the one sitting in a SIGALRM handler while we test whether
      * signals are rerouted from there.  We create a thread to put us in the handler
      * and drive the test.
+     * It would be nice to have a guarantee that the signal will come here but
+     * that doesn't seem possible.
      */
     if (pthread_create(&thread, NULL, test_alarm_signals, (void *)pthread_self()) != 0) {
         perror("failed to create thread");
@@ -225,6 +229,7 @@ main(int argc, char **argv)
     }
     sigemptyset(&set);
     while (!should_exit) {
+        /* We expect just one signal but best practice is to always loop. */
         sigsuspend(&set);
     }
     if (pthread_join(thread, &retval) != 0)

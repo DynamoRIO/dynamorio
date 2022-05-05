@@ -2450,7 +2450,10 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
     int i;
     kernel_sigset_t safe_set;
 
-    /* We assume any change to the mask ends a handler: e.g., sigprocmask. */
+    /* We assume any change to the mask ends a handler: e.g., sigprocmask from
+     * siglongjmp.  It seems unusual to call sigprocmask in the middle; this
+     * in_app_handler is best-effort in any case.
+     */
     info->in_app_handler = false;
 
     /* Some code uses this syscall to check whether the given address is
