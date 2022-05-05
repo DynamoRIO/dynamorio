@@ -3584,11 +3584,9 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(raw-gzip ${ci_shared_app} "-raw_compress gzip" "" "")
       set(tool.drcacheoff.raw-gzip_expectbase "offline-simple")
     endif ()
-    if (liblz4)
-      # lz4 is on by default so we test no compression here.
-      torunonly_drcacheoff(raw-none ${ci_shared_app} "-raw_compress none" "" "")
-      set(tool.drcacheoff.raw-none_expectbase "offline-simple")
-    endif ()
+    # lz4 is on by default so we test no compression here.
+    torunonly_drcacheoff(raw-none ${ci_shared_app} "-raw_compress none" "" "")
+    set(tool.drcacheoff.raw-none_expectbase "offline-simple")
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
@@ -3657,13 +3655,11 @@ if (BUILD_CLIENTS)
         "@-simulator_type@basic_counts" "")
       set(tool.drcacheoff.windows-gzip_expectbase "offline-windows-simple")
     endif ()
-    if (liblz4)
-      # lz4 is on by default so we test no compression here.
-      torunonly_drcacheoff(windows-none ${ci_shared_app}
-        "-raw_compress none -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
-        "@-simulator_type@basic_counts" "")
-      set(tool.drcacheoff.windows-none_expectbase "offline-windows-simple")
-    endif ()
+    # lz4 is on by default so we test no compression here.
+    torunonly_drcacheoff(windows-none ${ci_shared_app}
+      "-raw_compress none -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    set(tool.drcacheoff.windows-none_expectbase "offline-windows-simple")
     # Ensure the invariant checker handles window transitions.
     torunonly_drcacheoff(windows-invar ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
