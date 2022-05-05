@@ -3825,7 +3825,10 @@ if (BUILD_CLIENTS)
             set(testname_full "tool.raw2trace.${testname}")
             torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
               "raw2trace-${testname}.c" # for templatex basename
-              "-offline -subdir_prefix ${testname_full} ${extra_ops}" "" "${app_args}")
+              # Disable compression, since we need to seek and our compression
+              # readers do not support seeking.
+              "-offline -raw_compress none -subdir_prefix ${testname_full} ${extra_ops}"
+              "" "${app_args}")
             set(${testname_full}_toolname "drcachesim")
             set(${testname_full}_basedir
               "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
