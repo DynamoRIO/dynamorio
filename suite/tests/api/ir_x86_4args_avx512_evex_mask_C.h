@@ -1976,3 +1976,12 @@ OPCODE(vpdpwssd_xhixhixhi, vpdpwssd, vpdpwssd_mask, X64_ONLY, REGARG(XMM0), REGA
        REGARG(XMM4), REGARG(XMM3))
 OPCODE(vpdpwssds_xhixhixhi, vpdpwssds, vpdpwssds_mask, X64_ONLY, REGARG(XMM0), REGARG(K5),
        REGARG(XMM4), REGARG(XMM3))
+/* AVX512 BF16 */
+OPCODE(vcvtne2ps2bf16_zhik7zhizhi, vcvtne2ps2bf16, vcvtne2ps2bf16_mask, X64_ONLY,
+       REGARG(ZMM0), REGARG(K3), REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vdpbf16ps_zhik7zhizhi, vdpbf16ps, vdpbf16ps_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K3), REGARG(ZMM24), REGARG(ZMM31))
+OPCODE(vcvtne2ps2bf16_zhik7zhild, vcvtne2ps2bf16, vcvtne2ps2bf16_mask, X64_ONLY,
+       REGARG(ZMM0), REGARG(K3), REGARG(ZMM24), MEMARG(OPSZ_64))
+OPCODE(vdpbf16ps_zhik7zhild, vdpbf16ps, vdpbf16ps_mask, X64_ONLY, REGARG(ZMM0),
+       REGARG(K3), REGARG(ZMM24), MEMARG(OPSZ_64))
