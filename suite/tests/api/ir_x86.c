@@ -1484,12 +1484,10 @@ test_avx512_bf16_encoding(void *dc)
     };
     // clang-format on
 
-    // temporary until the issues are fixed
-    int skipped_tests[] = {
-        0, 0, 1, 0, 1, // broadcast tests disabled
-        0, 0, 1, 0, 1, // vcvtneps2bf16 tests failing due to dest operand size
-        0, 0, 1, 0, 1  // broadcast tests disabled
-    };
+    // TODO: remove once these are available in some header
+#    define PREFIX_EVEX_z 0x000800000
+#    define PREFIX_EVEX_b 0x001000000
+    uint prefixes[] = { 0, 0, PREFIX_EVEX_b, 0, PREFIX_EVEX_b | PREFIX_EVEX_z };
 
     int expected_sizes[] = {
         sizeof(out00), sizeof(out01), sizeof(out02), sizeof(out03), sizeof(out04),
@@ -1503,8 +1501,6 @@ test_avx512_bf16_encoding(void *dc)
     };
 
     for (int i = 0; i < 15; i++) {
-        if (skipped_tests[i])
-            continue;
         instr_t *instr;
         int set = i / 5;
         int idx = i % 5;
@@ -1518,6 +1514,7 @@ test_avx512_bf16_encoding(void *dc)
             instr = INSTR_CREATE_vdpbf16ps_mask(dc, test0[idx][0], test0[idx][1],
                                                 test0[idx][2], test0[idx][3]);
         }
+        instr_set_prefix_flag(instr, prefixes[idx]);
         test_instr_encode(dc, instr, expected_sizes[i]);
         for (int b = 0; b < expected_sizes[i]; b++) {
             ASSERT(expected_output[i][b] == buf[b]);
