@@ -9345,17 +9345,17 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },{ /* evex_W_ext 271 */
     {OP_vcvtne2ps2bf16, 0xf2387208, "vcvtne2ps2bf16", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vcvtne2ps2bf16, 0xf2387218, "vcvtne2ps2bf16", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtne2ps2bf16, 0xf2387218, "vcvtne2ps2bf16", Ve, xx, KEd, He, Wqq, mrm|evex|ttfv, x, END_LIST},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },{ /* evex_W_ext 272 */
     {OP_vcvtneps2bf16, 0xf3387208, "vcvtneps2bf16", Vh_e, xx, KEd, We, xx, mrm|evex|ttfv, x, END_LIST},
-    {OP_vcvtneps2bf16, 0xf3387218, "vcvtneps2bf16", Vh_e, xx, KEd, We, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtneps2bf16, 0xf3387218, "vcvtneps2bf16", Vh_e, xx, KEd, Wqq, xx, mrm|evex|ttfv, x, END_LIST},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },{ /* evex_W_ext 273 */
     {OP_vdpbf16ps, 0xf3385208, "vdpbf16ps", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vdpbf16ps, 0xf3385218, "vdpbf16ps", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vdpbf16ps, 0xf3385218, "vdpbf16ps", Ve, xx, KEd, He, Wqq, mrm|evex|ttfv, x, END_LIST},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },

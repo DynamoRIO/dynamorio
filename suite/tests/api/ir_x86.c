@@ -1470,9 +1470,9 @@ test_avx512_bf16_encoding(void *dc)
     opnd_t test0[][4] = {
         { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29), REGARG(ZMM28) },
         { REGARG(ZMM30), REGARG(K7), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RBP, DR_REG_R14 , 8, 0x10000000, OPSZ_64) },
-        { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29), opnd_create_base_disp(DR_REG_R9 , DR_REG_NULL, 0,          0, OPSZ_64) },
+        { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29), opnd_create_base_disp(DR_REG_R9 , DR_REG_NULL, 0,          0, OPSZ_4) },
         { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RCX, DR_REG_NULL, 0,     0x1fc0, OPSZ_64) },
-        { REGARG(ZMM30), REGARG(K7), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0,    -0x2000, OPSZ_64) },
+        { REGARG(ZMM30), REGARG(K7), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0,    -0x2000, OPSZ_4) },
     };
     opnd_t test1[][3] = {
         // TODO: these should ideally be using YMM30 as destination but there
@@ -1481,16 +1481,15 @@ test_avx512_bf16_encoding(void *dc)
         // ZMM30 here and set opnd size to OPSZ_32.
         { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29) },
         { REGARG(ZMM30), REGARG(K7), opnd_create_base_disp(DR_REG_RBP, DR_REG_R14,  8,  0x10000000, OPSZ_64) },
-        { REGARG(ZMM30), REGARG(K0), opnd_create_base_disp(DR_REG_R9,  DR_REG_NULL, 0,  0,          OPSZ_64) },
+        { REGARG(ZMM30), REGARG(K0), opnd_create_base_disp(DR_REG_R9,  DR_REG_NULL, 0,  0,          OPSZ_4) },
         { REGARG(ZMM30), REGARG(K0), opnd_create_base_disp(DR_REG_RCX, DR_REG_NULL, 0,  0x1fc0,     OPSZ_64) },
-        { REGARG(ZMM30), REGARG(K7), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0, -0x2000,     OPSZ_64) },
+        { REGARG(ZMM30), REGARG(K7), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0, -0x2000,     OPSZ_4) },
     };
     // clang-format on
 
     // TODO: remove once these are available in some header
 #    define PREFIX_EVEX_z 0x000800000
-#    define PREFIX_EVEX_b 0x001000000
-    uint prefixes[] = { 0, 0, PREFIX_EVEX_b, 0, PREFIX_EVEX_b | PREFIX_EVEX_z };
+    uint prefixes[] = { 0, 0, 0, 0, PREFIX_EVEX_z };
 
     int expected_sizes[] = {
         sizeof(out00), sizeof(out01), sizeof(out02), sizeof(out03), sizeof(out04),
@@ -1529,6 +1528,7 @@ test_avx512_bf16_encoding(void *dc)
         // instr_destroy called by test_instr_encode
     }
 }
+
 static void
 test_x64_vmovq(void *dc)
 {
