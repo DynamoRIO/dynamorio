@@ -1,8 +1,10 @@
 Hit delay threshold: enabling tracing.
 Hit tracing window #0 limit: disabling tracing.
 Hit retrace threshold: enabling tracing for window #1.
-.*
+[^W]*
 Basic counts tool results:
+.*
+           1 total threads
 .*
 Basic counts tool results:
 .*

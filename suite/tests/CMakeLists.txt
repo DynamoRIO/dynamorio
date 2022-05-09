@@ -3671,7 +3671,7 @@ if (BUILD_CLIENTS)
     endif ()
     # Test split-file windows.
     torunonly_drcacheoff(windows-split ${ci_shared_app}
-      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K"
       "@-simulator_type@basic_counts" "")
     # The first postcmd did window #0.  There should be at least 2 more windows.
     set(tool.drcacheoff.windows-split_postcmd2

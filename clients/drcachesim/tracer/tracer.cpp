@@ -794,17 +794,19 @@ set_local_window(void *drcontext, ptr_int_t value)
                 entry += instru->append_thread_exit(entry, dr_get_thread_id(drcontext));
                 DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(entry - buf));
                 write_trace_data(drcontext, (byte *)buf, entry, old_val);
+                close_thread_file(drcontext);
             }
-            if (op_split_windows.get_value() || data->init_header_size == 0) {
+            if ((value > 0 && op_split_windows.get_value()) ||
+                data->init_header_size == 0) {
                 size_t header_size = prepend_offline_thread_header(drcontext);
                 if (data->init_header_size == 0)
-                    data->init_header_size = prepend_offline_thread_header(drcontext);
+                    data->init_header_size = header_size;
                 else
                     DR_ASSERT(header_size == data->init_header_size);
             }
             // We delay opening the next window's file to avoid an empty final file.
             // The initial file is opened at thread init.
-            if (data->file != INVALID_FILE && op_split_windows.get_value())
+            if (data->file != INVALID_FILE && value > 0 && op_split_windows.get_value())
                 close_thread_file(drcontext);
         }
     }
