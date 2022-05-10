@@ -1476,7 +1476,7 @@ test_avx512_bf16_encoding(void *dc)
     };
     opnd_t test1[][3] = {
         // TODO: these should ideally be using YMM30 as destination but there
-        // is a mismatch when we encode and re-decode the instr. This is 
+        // is a mismatch when we encode and re-decode the instr. This is
         // because the re-decoded dst is (ZMM30, OPSZ_32). So we keep it as
         // ZMM30 here and set opnd size to OPSZ_32.
         { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29) },
