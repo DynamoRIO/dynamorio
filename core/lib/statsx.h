@@ -99,6 +99,7 @@ STATS_DEF("Re-takeovers after native", num_retakeover_after_native)
 #else
 RSTATS_DEF("Total signals delivered", num_signals)
 RSTATS_DEF("Total signals delivered to native threads", num_native_signals)
+RSTATS_DEF("Signals rerouted", num_signals_rerouted)
 RSTATS_DEF("Signals dropped", num_signals_dropped)
 RSTATS_DEF("Signals in coarse units delayed", num_signals_coarse_delayed)
 #endif

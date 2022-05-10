@@ -3,4 +3,6 @@ in handler for signal 10
 sending 28 with value
 in handler for signal 28 from -1 value 0xdeadbeef
 in handler for signal 12
+init thread now inside handler: setting up itimer
+done with itimer; exiting
 all done

@@ -51,6 +51,9 @@
 #include <sys/time.h> /* itimer */
 
 static void *child_ready;
+static void *child_exit;
+static volatile bool should_exit;
+static pthread_t unblocked_thread;
 
 #define MAGIC_VALUE 0xdeadbeef
 
@@ -92,6 +95,70 @@ thread_routine(void *arg)
     return NULL;
 }
 
+static void
+alarm_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (pthread_self() == unblocked_thread) {
+        if (sig != SIGALRM)
+            print("Unexpected signal %d\n", sig);
+#ifdef LINUX
+        /* We take advantage of DR's lack of transparency where its reroute uses tkill
+         * but the original was process-wide so we can detect a rerouted signal.
+         * Without the logic in DR to not reroute a signal when blocked due to
+         * being inside a handler, this code is triggered and the print fails the
+         * test. Unfortunately we have no simple way of checking this on Mac.
+         */
+        if (siginfo->si_code == SI_TKILL)
+            print("signal from tkill (rerouted?) not expected\n");
+#endif
+    } else {
+        if (sig == SIGALRM && !should_exit) {
+            signal_cond_var(child_ready);
+            /* Sit in the handler with SIGALRM blocked. */
+            wait_cond_var(child_exit);
+        }
+    }
+}
+
+static void *
+test_alarm_signals(void *arg)
+{
+    /* Test alarm signals not being rerouted from handlers. */
+    pthread_t init_thread = (pthread_t)arg;
+    unblocked_thread = pthread_self();
+    intercept_signal(SIGALRM, alarm_handler, false);
+
+    /* Get init thread inside its handler. */
+    pthread_kill(init_thread, SIGALRM);
+    wait_cond_var(child_ready);
+    reset_cond_var(child_ready);
+
+    print("init thread now inside handler: setting up itimer\n");
+    struct itimerval t;
+    t.it_interval.tv_sec = 0;
+    t.it_interval.tv_usec = 10000;
+    t.it_value.tv_sec = 0;
+    t.it_value.tv_usec = 10000;
+    int res = setitimer(ITIMER_REAL, &t, NULL);
+    if (res != 0)
+        perror("setitimer failed");
+    /* Let a bunch of real-time signals arrive. */
+    for (int i = 0; i < 10; i++)
+        thread_sleep(25);
+    /* Turn off the itimer. */
+    memset(&t, 0, sizeof(t));
+    res = setitimer(ITIMER_REAL, &t, NULL);
+    if (res != 0)
+        perror("setitimer failed");
+
+    /* Exit. */
+    print("done with itimer; exiting\n");
+    should_exit = true;
+    signal_cond_var(child_exit);
+
+    return NULL;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -99,6 +166,7 @@ main(int argc, char **argv)
     void *retval;
 
     child_ready = create_cond_var();
+    child_exit = create_cond_var();
 
     if (pthread_create(&thread, NULL, thread_routine, NULL) != 0) {
         perror("failed to create thread");
@@ -122,6 +190,8 @@ main(int argc, char **argv)
     /* Send a signal to the whole process.  This often is delivered to the
      * main (current) thread under DR where it's not blocked, causing a hang without
      * the rerouting of i#2311.
+     * It would be nice to have a guarantee that the signal will come here but
+     * that doesn't seem possible.
      */
     print("sending %d\n", SIGUSR1);
     kill(getpid(), SIGUSR1);
@@ -145,7 +215,28 @@ main(int argc, char **argv)
     if (pthread_join(thread, &retval) != 0)
         perror("failed to join thread");
 
+    /* Test alarm signal rerouting.  Since process-wide signals are overwhelmingly
+     * delivered to the initial thread (I can't get them to go anywhere else!), we
+     * need this thread to be the one sitting in a SIGALRM handler while we test whether
+     * signals are rerouted from there.  We create a thread to put us in the handler
+     * and drive the test.
+     * It would be nice to have a guarantee that the signal will come here but
+     * that doesn't seem possible.
+     */
+    if (pthread_create(&thread, NULL, test_alarm_signals, (void *)pthread_self()) != 0) {
+        perror("failed to create thread");
+        exit(1);
+    }
+    sigemptyset(&set);
+    while (!should_exit) {
+        /* We expect just one signal but best practice is to always loop. */
+        sigsuspend(&set);
+    }
+    if (pthread_join(thread, &retval) != 0)
+        perror("failed to join thread");
+
     destroy_cond_var(child_ready);
+    destroy_cond_var(child_exit);
 
     print("all done\n");
 

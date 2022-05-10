@@ -283,7 +283,17 @@ droption_t<bytesize_t> op_exit_after_tracing(
     "Use -max_global_trace_refs instead to avoid terminating the process.");
 
 droption_t<std::string> op_raw_compress(
-    DROPTION_SCOPE_CLIENT, "raw_compress", "none",
+    DROPTION_SCOPE_CLIENT, "raw_compress",
+#if defined(HAS_LZ4) && !defined(DRMEMTRACE_STATIC)
+    // lz4 performs best but has no allocator parameterization so cannot be static.
+    "lz4",
+#elif defined(HAS_SNAPPY) && !defined(DRMEMTRACE_STATIC)
+    // snappy_nocrc also has no allocator parameterization so cannot be static.
+    "snappy_nocrc",
+#else
+    // All other choices are slowdowns for an SSD so we turn them off by default.
+    "none",
+#endif
     "Raw compression: \"snappy\",\"snappy_nocrc\",\"gzip\",\"zlib\",\"lz4\",\"none\"",
     "Specifies the compression type to use for raw offline files: \"snappy\", "
     "\"snappy_nocrc\" (snappy without checksums, which is much faster), \"gzip\", "
