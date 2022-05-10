@@ -76,11 +76,55 @@ test_s(byte *subtest_asm)
     instr_destroy(GD, instr);
 }
 
+#    define PREFIX_EVEX_z 0x000800000
+#    define REGARG(reg) opnd_create_reg(DR_REG_##reg)
+#    include <string.h>
+#    include "encode_test.h"
+
+static byte buf[32768];
+
+/* emits the instruction to buf (for tests that wish to do additional checks on
+ * the output) */
+static void
+test_instr_encode(void *dc, instr_t *instr, uint len_expect)
+{
+    instr_t *decin;
+    uint len;
+    byte *pc = instr_encode(dc, instr, buf);
+    len = (int)(pc - (byte *)buf);
+#    if VERBOSE
+    disassemble_with_info(dc, buf, STDOUT, true, true);
+#    endif
+    ASSERT(len == len_expect);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    ASSERT(instr_same(instr, decin));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
+static void
+test_avx512_bf16_encoding(void *dc)
+{
+// from binutils-2.37.90/gas/testsuite/gas/i386
+#    include "x86-64-avx512_bf16.h"
+#    include "x86-64-avx512_bf16_vl.h"
+}
+
+static void
+test_encode_decode()
+{
+    void *dcontext = dr_standalone_init();
+
+    test_avx512_bf16_encoding(dcontext);
+}
+
 int
 main()
 {
     dr_printf("test_x86_64_s:\n");
     test_s((byte *)test_x86_64_s_asm);
+    test_encode_decode();
     dr_printf("done\n");
     return 0;
 }
