@@ -765,6 +765,8 @@ OPTION_DEFAULT(bool, avoid_dlclose, true, "Avoid calling dlclose from DynamoRIO.
 
 /* PR 304708: we intercept all signals for a better client interface */
 OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
+OPTION_DEFAULT(bool, reroute_alarm_signals, true,
+               "reroute alarm signals arriving in a blocked-for-app thread")
 OPTION_DEFAULT(uint, max_pending_signals, 8,
                "maximum count of pending signals per thread")
 
