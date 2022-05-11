@@ -42,12 +42,12 @@ static int num_opmask_registers;
 
 const static int num_feature_registers = sizeof(features_t) / sizeof(uint64);
 
-#define MRS(REG, IDX)                                                            \
-    do {                                                                         \
-        if (IDX > (num_feature_registers - 1))                                   \
-            CLIENT_ASSERT(false, "Reading undefined AArch64 feature register!"); \
-        asm("mrs %0, " #REG : "=r"(isa_features[IDX]));                          \
-    } while (0);
+#    define MRS(REG, IDX)                                                            \
+        do {                                                                         \
+            if (IDX > (num_feature_registers - 1))                                   \
+                CLIENT_ASSERT(false, "Reading undefined AArch64 feature register!"); \
+            asm("mrs %0, " #REG : "=r"(isa_features[IDX]));                          \
+        } while (0);
 
 void
 read_feature_regs(uint64 isa_features[])
@@ -81,9 +81,9 @@ get_processor_specific_info(void)
     cpu_info.features.flags_aa64pfr0 = isa_features[AA64PFR0];
 }
 
-#define LOG_FEATURE(feature)       \
-    if (proc_has_feature(feature)) \
-        LOG(GLOBAL, LOG_TOP, 1, "   Processor has " #feature "\n");
+#    define LOG_FEATURE(feature)       \
+        if (proc_has_feature(feature)) \
+            LOG(GLOBAL, LOG_TOP, 1, "   Processor has " #feature "\n");
 
 #endif
 
@@ -102,7 +102,7 @@ proc_init_arch(void)
         LOG(GLOBAL, LOG_TOP, 1, "Unable to obtain cache line size");
     }
 
-#    ifndef DR_HOST_NOT_TARGET
+#ifndef DR_HOST_NOT_TARGET
     get_processor_specific_info();
 
     if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
@@ -134,13 +134,13 @@ proc_init_arch(void)
         /* FIXME i#5474: Log all FEATURE_s for ID_AA64PFR0_EL1. */
         LOG_FEATURE(FEATURE_FP16);
     }
-#    endif
+#endif
 }
 
 bool
 proc_has_feature(feature_bit_t f)
 {
-#    ifndef DR_HOST_NOT_TARGET
+#ifndef DR_HOST_NOT_TARGET
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
     uint64 freg_val = 0;
 
@@ -180,8 +180,9 @@ proc_has_feature(feature_bit_t f)
 
     feat_val = GET_FEAT_VAL(f);
     return (freg_nibble >= feat_val) ? true : false;
-#    endif
+#else
     return false;
+#endif
 }
 
 void
