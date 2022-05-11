@@ -38,6 +38,8 @@ static int num_simd_saved;
 static int num_simd_registers;
 static int num_opmask_registers;
 
+#ifndef DR_HOST_NOT_TARGET
+
 const static int num_feature_registers = sizeof(features_t) / sizeof(uint64);
 
 #define MRS(REG, IDX)                                                            \
@@ -83,14 +85,14 @@ get_processor_specific_info(void)
     if (proc_has_feature(feature)) \
         LOG(GLOBAL, LOG_TOP, 1, "   Processor has " #feature "\n");
 
+#endif
+
 void
 proc_init_arch(void)
 {
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
-
-    get_processor_specific_info();
 
     /* When DR_HOST_NOT_TARGET, get_cache_line_size returns false and does
      * not set any value in given args.
@@ -99,6 +101,9 @@ proc_init_arch(void)
                              /* icache_line_size= */ NULL)) {
         LOG(GLOBAL, LOG_TOP, 1, "Unable to obtain cache line size");
     }
+
+#    ifndef DR_HOST_NOT_TARGET
+    get_processor_specific_info();
 
     if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR0_EL1 = 0x%016lx\n",
@@ -129,11 +134,13 @@ proc_init_arch(void)
         /* FIXME i#5474: Log all FEATURE_s for ID_AA64PFR0_EL1. */
         LOG_FEATURE(FEATURE_FP16);
     }
+#    endif
 }
 
 bool
 proc_has_feature(feature_bit_t f)
 {
+#    ifndef DR_HOST_NOT_TARGET
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
     uint64 freg_val = 0;
 
@@ -173,6 +180,8 @@ proc_has_feature(feature_bit_t f)
 
     feat_val = GET_FEAT_VAL(f);
     return (freg_nibble >= feat_val) ? true : false;
+#    endif
+    return false;
 }
 
 void
