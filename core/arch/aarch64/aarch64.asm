@@ -115,12 +115,17 @@ GLOBAL_LABEL(unexpected_return:)
         JUMP  GLOBAL_REF(unexpected_return)
         END_FUNC(unexpected_return)
 
-/* All CPU ID registers are accessible only in privileged modes. */
-        DECLARE_FUNC(cpuid_supported)
-GLOBAL_LABEL(cpuid_supported:)
-        mov      w0, #0
+/* bool mrs_id_reg_supported(void)
+ * Checks for support of the MRS instr by attempting to read Instruction Set
+ * Attribute Register 0. Some older kernels on v8.0 systems do not support
+ * this, raising a SIGILL.
+ */
+        DECLARE_FUNC(mrs_id_reg_supported)
+GLOBAL_LABEL(mrs_id_reg_supported:)
+        mrs     x0, ID_AA64ISAR0_EL1
+        mov     w0, #1
         ret
-        END_FUNC(cpuid_supported)
+        END_FUNC(mrs_id_reg_supported)
 
 /* void call_switch_stack(void *func_arg,             // REG_X0
  *                        byte *stack,                // REG_X1

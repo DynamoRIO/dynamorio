@@ -147,6 +147,7 @@ enum {
 #define MODEL_PENTIUM_M 13      /**< proc_get_model(): Pentium M 2MB L2 */
 #define MODEL_PENTIUM_M_1MB 9   /**< proc_get_model(): Pentium M 1MB L2 */
 
+#ifdef X86
 /**
  * Struct to hold all 4 32-bit feature values returned by cpuid.
  * Used by proc_get_all_feature_bits().
@@ -158,7 +159,16 @@ typedef struct {
     uint ext_flags_ecx;  /**< extended feature flags stored in ecx */
     uint sext_flags_ebx; /**< structured extended feature flags stored in ebx */
 } features_t;
+#elif defined(AARCHXX)
+typedef struct {
+    uint64 flags_aa64isar0; /**< feature flags stored in ID_AA64ISAR0_EL1 */
+    uint64 flags_aa64isar1; /**< feature flags stored in ID_AA64ISAR1_EL1 */
+    uint64 flags_aa64pfr0;  /**< feature flags stored in ID_AA64PFR0_EL1 */
+} features_t;
+typedef enum { AA64ISAR0 = 0, AA64ISAR1 = 1, AA64PFR0 = 2 } feature_reg_idx_t;
+#endif
 
+#ifdef X86
 /**
  * Feature bits returned by cpuid.  Pass one of these values to proc_has_feature() to
  * determine whether the underlying processor has the feature.
@@ -255,6 +265,48 @@ typedef enum {
     FEATURE_AVX512F = 16 + 128,  /**< AVX-512F instructions supported */
     FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported */
 } feature_bit_t;
+#elif defined(AARCHXX)
+/* On Arm, architectural features are defined and stored very differently from
+ * X86. Specifically:
+ * - There are multiple 64 bit system registers for features storage only, FREG.
+ * - Each register is divided into nibbles representing a feature, NIBPOS.
+ * - The value of a nibble represents a certain level of support for that feature, FVAL.
+ * - The values can range from 0 to 15. In most cases 0 means a feature is not
+ *   supported at all but in some cases 15 means a feature is not supported at
+ *   all, NSFLAG.
+ */
+#    define DEF_FEAT(FREG, NIBPOS, FVAL, NSFLAG) \
+        ((ushort)((NSFLAG << 15) | (FREG << 8) | (NIBPOS << 4) | FVAL))
+#    define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x7F00) >> 8)
+#    define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
+#    define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
+#    define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
+typedef enum {
+    /* Feature values returned in ID_AA64ISAR0_EL1 Instruction Set Attribute
+     * Register 0
+     */
+    FEATURE_AES = DEF_FEAT(AA64ISAR0, 1, 1, 0),      /**< AESE<x> */
+    FEATURE_PMULL = DEF_FEAT(AA64ISAR0, 1, 2, 0),    /**< PMULL/PMULL2 */
+    FEATURE_SHA1 = DEF_FEAT(AA64ISAR0, 2, 1, 0),     /**< SHA1<x> */
+    FEATURE_SHA256 = DEF_FEAT(AA64ISAR0, 3, 1, 0),   /**< SHA256<x> */
+    FEATURE_SHA512 = DEF_FEAT(AA64ISAR0, 3, 2, 0),   /**< SHA512<x> */
+    FEATURE_CRC32 = DEF_FEAT(AA64ISAR0, 4, 1, 0),    /**< CRC32<x> */
+    FEATURE_LSE = DEF_FEAT(AA64ISAR0, 5, 2, 0),      /**< Atomic instructions */
+    FEATURE_RDM = DEF_FEAT(AA64ISAR0, 7, 1, 0),      /**< SQRDMLAH and SQRDMLSH */
+    FEATURE_SHA3 = DEF_FEAT(AA64ISAR0, 8, 1, 0),     /**< EOR3, RAX1, XAR, BCAX */
+    FEATURE_SM3 = DEF_FEAT(AA64ISAR0, 9, 1, 0),      /**< SM3<x> */
+    FEATURE_SM4 = DEF_FEAT(AA64ISAR0, 10, 1, 0),     /**< SM4E, SM4EKEY */
+    FEATURE_DotProd = DEF_FEAT(AA64ISAR0, 11, 1, 0), /**< UDOT, SDOT */
+    FEATURE_FHM = DEF_FEAT(AA64ISAR0, 12, 1, 0),     /**< FMLAL, FMLSL */
+    FEATURE_FlagM = DEF_FEAT(AA64ISAR0, 13, 1, 0),   /**< CFINV, RMIF, SETF16, SETF8 */
+    FEATURE_FlagM2 = DEF_FEAT(AA64ISAR0, 13, 2, 0),  /**< AXFLAG, XAFLAG */
+    FEATURE_RNG = DEF_FEAT(AA64ISAR0, 15, 1, 0),     /**< RNDR, RNDRRS */
+    /* FIXME i#5474: Define all FEATURE_s for ID_AA64ISAR1_EL1 and ID_AA64PFR0_EL1. */
+    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),  /**< DC CVAP */
+    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0), /**< DC CVAP, DC CVADP */
+    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 3, 1, 1),  /**< Half-precision FP support */
+} feature_bit_t;
+#endif
 
 /* Make sure to keep this in sync with proc_get_cache_size_str() in proc.c. */
 /**
@@ -347,8 +399,9 @@ proc_has_feature(feature_bit_t feature);
 
 DR_API
 /**
- * Returns all 4 32-bit feature values.  Use proc_has_feature to test
- * for specific features.
+ * Returns all 4 32-bit feature values on X86 and architectural feature
+ * registers' values on AArch64. Use proc_has_feature to test for specific
+ * features.
  */
 features_t *
 proc_get_all_feature_bits(void);

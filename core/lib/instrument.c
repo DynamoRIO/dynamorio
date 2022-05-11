@@ -6287,7 +6287,11 @@ dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *inst
 DR_API bool
 dr_mcontext_xmm_fields_valid(void)
 {
+#ifdef X86
     return preserve_xmm_caller_saved();
+#else
+    return false;
+#endif
 }
 
 DR_API bool
