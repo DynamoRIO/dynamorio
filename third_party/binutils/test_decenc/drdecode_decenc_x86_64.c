@@ -80,6 +80,7 @@ test_s(byte *subtest_asm)
 #    define REGARG(reg) opnd_create_reg(DR_REG_##reg)
 #    include <string.h>
 #    include "encode_test.h"
+#    define VERBOSE 0
 
 static byte buf[32768];
 
@@ -95,10 +96,14 @@ test_instr_encode(void *dc, instr_t *instr, uint len_expect)
 #    if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
 #    endif
-    ASSERT(len == len_expect);
+    if (len != len_expect) {
+        dr_printf("length mismatch\n");
+    }
     decin = instr_create(dc);
     decode(dc, buf, decin);
-    ASSERT(instr_same(instr, decin));
+    if (!instr_same(instr, decin)) {
+        dr_printf("instr mismatch");
+    }
     instr_destroy(dc, instr);
     instr_destroy(dc, decin);
 }

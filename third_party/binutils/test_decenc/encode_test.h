@@ -5,12 +5,6 @@ enum {
     ENCODE_FLAG_Z = 2,
 };
 
-#    define ASSERT(x)                                                                 \
-        ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, \
-                                     __LINE__, #x),                                   \
-                          dr_abort(), 0)                                              \
-                       : 0))
-
 #    define HANDLE_FLAGS(instr, flags)                       \
         do {                                                 \
             if (flags & ENCODE_FLAG_Z) {                     \
@@ -41,7 +35,9 @@ enum {
             PRINT_TEST_NAME(name);                                     \
             HANDLE_FLAGS(instr, flags);                                \
             test_instr_encode(dc, instr, sizeof(name));                \
-            ASSERT(!memcmp(buf, name, sizeof(name)));                  \
+            if (memcmp(buf, name, sizeof(name))) {                     \
+                dr_printf("memcmp mismatch\n");                        \
+            }                                                          \
         } while (0)
 
 #    define ENCODE_TEST_4args(name, opc, flags, arg1, arg2, arg3, arg4)      \
@@ -50,7 +46,9 @@ enum {
             PRINT_TEST_NAME(name);                                           \
             HANDLE_FLAGS(instr, flags);                                      \
             test_instr_encode(dc, instr, sizeof(name));                      \
-            ASSERT(!memcmp(buf, name, sizeof(name)));                        \
+            if (memcmp(buf, name, sizeof(name))) {                           \
+                dr_printf("memcmp mismatch\n");                              \
+            }                                                                \
         } while (0)
 
 #endif
