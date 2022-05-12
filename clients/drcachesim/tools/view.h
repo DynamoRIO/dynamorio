@@ -114,6 +114,7 @@ protected:
     uint64_t num_refs_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
+    bool has_modules_;
 };
 
 #endif /* _VIEW_H_ */
