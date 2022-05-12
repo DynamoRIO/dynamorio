@@ -646,7 +646,7 @@ T80431   0x00007f2ae335de15  4c 2b 25 e4 91 02 00 sub    <rel> 0x00007f2ae338700
 T80431     read  8 byte(s) @ 0x7f2ae3387000
 T80431   0x00007f2ae335de1c  48 89 15 d5 9b 02 00 mov    %rdx, <rel> 0x00007f2ae33879f8
 View tool results:
-             20 : total disassembled instructions
+             20 : total instructions
 \endcode
 
 An example of thread switches:
