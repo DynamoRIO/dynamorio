@@ -76,8 +76,6 @@ test_s(byte *subtest_asm)
     instr_destroy(GD, instr);
 }
 
-#    define PREFIX_EVEX_z 0x000800000 // see i#5488
-#    define REGARG(reg) opnd_create_reg(DR_REG_##reg)
 #    include <string.h>
 #    include "encode_test.h"
 #    define VERBOSE 0
