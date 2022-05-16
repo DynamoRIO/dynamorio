@@ -107,8 +107,17 @@ public:
     }
 };
 
+class view_nomod_test_t : public view_t {
+public:
+    view_nomod_test_t(void *drcontext, instrlist_t &instrs, memref_tid_t thread,
+                      uint64_t skip_refs, uint64_t sim_refs)
+        : view_t("", thread, skip_refs, sim_refs, "", 0)
+    {
+    }
+};
+
 std::string
-run_test_helper(view_test_t &view, const std::vector<memref_t> &memrefs)
+run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
 {
     view.initialize();
     // Capture cerr.
@@ -241,6 +250,25 @@ test_thread_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
 }
 
 bool
+test_no_modules(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &memrefs)
+{
+    view_nomod_test_t view(drcontext, ilist, 0, 0, 0);
+    std::string res = run_test_helper(view, memrefs);
+    if (std::count(res.begin(), res.end(), '\n') != static_cast<int>(memrefs.size())) {
+        std::cerr << "Incorrect line count\n";
+        return false;
+    }
+    std::stringstream ss(res);
+    int prefix;
+    ss >> prefix;
+    if (prefix != 1) {
+        std::cerr << "Expect 1-based line prefixes\n";
+        return false;
+    }
+    return true;
+}
+
+bool
 run_limit_tests(void *drcontext)
 {
     bool res = true;
@@ -277,6 +305,9 @@ run_limit_tests(void *drcontext)
     for (int i = 1; i < 6; ++i) {
         res = test_skip_memrefs(drcontext, *ilist, memrefs, i) && res;
     }
+
+    // Ensure missing modules are fine.
+    res = test_no_modules(drcontext, *ilist, memrefs) && res;
 
     const memref_tid_t t2 = 21;
     std::vector<memref_t> thread_memrefs = {
