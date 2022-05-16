@@ -45,9 +45,11 @@
 /* These features are supported by almost all base v8.0 h/w, i.e. at least one
  * of them will appear in /proc/cpuinfo's 'Features' string.
  */
-const char *test_features[] = {"aes", "pmull", "sha1", "sha2", "crc32", ""};
+const char *test_features[] = { "aes", "pmull", "sha1", "sha2", "crc32", "" };
 
-int read_hw_features(char *feat_str) {
+int
+read_hw_features(char *feat_str)
+{
     FILE *cmd;
     size_t n;
     char feat_str_buff[MAX_FEATURES_LEN];
@@ -56,7 +58,7 @@ int read_hw_features(char *feat_str) {
     if (cmd == NULL)
         return -1;
 
-    if ((n = fread(feat_str_buff, 1, sizeof(feat_str_buff)-1, cmd)) <= 0)
+    if ((n = fread(feat_str_buff, 1, sizeof(feat_str_buff) - 1, cmd)) <= 0)
         return -1;
 
     feat_str_buff[n] = '\0';
@@ -77,7 +79,7 @@ dr_init(client_id_t client_id)
     if (read_hw_features(feat_str) == -1)
         dr_fprintf(STDERR, "Error retrieving 'Features' string from /proc/cpuinfo\n");
 
-    feat = strtok (feat_str, " ");
+    feat = strtok(feat_str, " ");
     while (feat != NULL) {
         int i = 0;
         while (strcmp(test_features[i++], "") != 0) {
@@ -92,6 +94,6 @@ dr_init(client_id_t client_id)
             if (strcmp(feat, "crc32") == 0)
                 ASSERT(proc_has_feature(FEATURE_CRC32));
         }
-        feat = strtok (NULL, " ");
+        feat = strtok(NULL, " ");
     }
 }
