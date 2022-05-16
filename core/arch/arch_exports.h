@@ -609,10 +609,6 @@ cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg1,
 
 bool
 cpuid_supported(void);
-#ifdef AARCHXX
-bool
-mrs_id_reg_supported(void);
-#endif
 void
 our_cpuid(int res[4], int eax, int ecx);
 #ifdef WINDOWS

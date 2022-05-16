@@ -116,9 +116,12 @@ GLOBAL_LABEL(unexpected_return:)
         END_FUNC(unexpected_return)
 
 /* bool mrs_id_reg_supported(void)
- * Checks for support of the MRS instr by attempting to read Instruction Set
- * Attribute Register 0. Some older kernels on v8.0 systems do not support
- * this, raising a SIGILL.
+ * Checks for kernel support of the MRS instr when reading system registers
+ * above exception level EL0, by attempting to read Instruction Set Attribute
+ * Register 0. Some older Linux kernels do not support reading system registers
+ * above exception level 0 (EL0), raising a SIGILL. This is rare now as later
+ * versions have all implemented a trap-and-emulate mechanism for a set of
+ * system registers above EL0, of which ID_AA64ISAR0_EL1 is one.
  */
         DECLARE_FUNC(mrs_id_reg_supported)
 GLOBAL_LABEL(mrs_id_reg_supported:)

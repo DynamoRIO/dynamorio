@@ -160,6 +160,10 @@ typedef struct {
     uint sext_flags_ebx; /**< structured extended feature flags stored in ebx */
 } features_t;
 #elif defined(AARCHXX)
+/**
+ * Struct to hold AArch64 features registers' values read by MRS instructions.
+ * Used by proc_get_all_feature_bits().
+ */
 typedef struct {
     uint64 flags_aa64isar0; /**< feature flags stored in ID_AA64ISAR0_EL1 */
     uint64 flags_aa64isar1; /**< feature flags stored in ID_AA64ISAR1_EL1 */
@@ -274,13 +278,15 @@ typedef enum {
  * - The values can range from 0 to 15. In most cases 0 means a feature is not
  *   supported at all but in some cases 15 means a feature is not supported at
  *   all, NSFLAG.
+ * The helper macro below packs feature data into 16 bits (ushort).
  */
 #    define DEF_FEAT(FREG, NIBPOS, FVAL, NSFLAG) \
         ((ushort)((NSFLAG << 15) | (FREG << 8) | (NIBPOS << 4) | FVAL))
-#    define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x7F00) >> 8)
-#    define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
-#    define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
-#    define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
+/**
+ * Feature bits interpreted by MRS. Pass one of these values to
+ * proc_has_feature() to determine whether the underlying processor has the
+ * feature.
+ */
 typedef enum {
     /* Feature values returned in ID_AA64ISAR0_EL1 Instruction Set Attribute
      * Register 0
@@ -400,7 +406,7 @@ proc_has_feature(feature_bit_t feature);
 DR_API
 /**
  * Returns all 4 32-bit feature values on X86 and architectural feature
- * registers' values on AArch64. Use proc_has_feature to test for specific
+ * registers' values on AArch64. Use proc_has_feature() to test for specific
  * features.
  */
 features_t *

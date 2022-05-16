@@ -32,6 +32,7 @@
 
 #include "../globals.h"
 #include "proc.h"
+#include "arch.h"
 #include "instr.h"
 
 static int num_simd_saved;
@@ -42,19 +43,19 @@ static int num_opmask_registers;
 
 const static int num_feature_registers = sizeof(features_t) / sizeof(uint64);
 
-#    define MRS(REG, IDX)                                                            \
+#    define MRS(REG, IDX, FEATS)                                                     \
         do {                                                                         \
             if (IDX > (num_feature_registers - 1))                                   \
                 CLIENT_ASSERT(false, "Reading undefined AArch64 feature register!"); \
-            asm("mrs %0, " #REG : "=r"(isa_features[IDX]));                          \
+            asm("mrs %0, " #REG : "=r"(FEATS[IDX]));                                 \
         } while (0);
 
 void
 read_feature_regs(uint64 isa_features[])
 {
-    MRS(ID_AA64ISAR0_EL1, AA64ISAR0);
-    MRS(ID_AA64ISAR1_EL1, AA64ISAR1);
-    MRS(ID_AA64PFR0_EL1, AA64PFR0);
+    MRS(ID_AA64ISAR0_EL1, AA64ISAR0, isa_features);
+    MRS(ID_AA64ISAR1_EL1, AA64ISAR1, isa_features);
+    MRS(ID_AA64PFR0_EL1, AA64PFR0, isa_features);
 }
 
 static void
@@ -105,7 +106,7 @@ proc_init_arch(void)
 #ifndef DR_HOST_NOT_TARGET
     get_processor_specific_info();
 
-    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
+    DOLOG(1, LOG_TOP, {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64isar0);
         LOG_FEATURE(FEATURE_AES);
@@ -133,9 +134,14 @@ proc_init_arch(void)
             cpu_info.features.flags_aa64pfr0);
         /* FIXME i#5474: Log all FEATURE_s for ID_AA64PFR0_EL1. */
         LOG_FEATURE(FEATURE_FP16);
-    }
+    });
 #endif
 }
+
+#define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x7F00) >> 8)
+#define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
+#define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
+#define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
 
 bool
 proc_has_feature(feature_bit_t f)

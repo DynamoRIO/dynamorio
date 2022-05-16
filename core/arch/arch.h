@@ -1770,5 +1770,8 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
 void
 instrlist_convert_to_x86(instrlist_t *ilist);
 #endif
-
+#ifdef AARCHXX
+bool
+mrs_id_reg_supported(void);
+#endif
 #endif /* ARCH_H */
