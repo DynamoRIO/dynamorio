@@ -33,6 +33,7 @@
 /* Test AArch64 ISA features from a client. Reads 'Features' string from
  * /proc/cpuinfo then checks to see if proc_has_feature() correctly identifies
  * the FEATURE_<x> as supported.
+ * TODO: Add similar tests for X86.
  */
 
 #include "dr_api.h"
@@ -84,7 +85,7 @@ dr_init(client_id_t client_id)
         int i = 0;
         while (strcmp(test_features[i++], "") != 0) {
             if (strcmp(feat, "aes") == 0)
-                ASSERT(proc_has_feature(FEATURE_AES));
+                ASSERT(proc_has_feature(FEATURE_AESX));
             if (strcmp(feat, "pmull") == 0)
                 ASSERT(proc_has_feature(FEATURE_PMULL));
             if (strcmp(feat, "sha1") == 0)

@@ -109,7 +109,7 @@ proc_init_arch(void)
     DOLOG(1, LOG_TOP, {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64isar0);
-        LOG_FEATURE(FEATURE_AES);
+        LOG_FEATURE(FEATURE_AESX);
         LOG_FEATURE(FEATURE_PMULL);
         LOG_FEATURE(FEATURE_SHA1);
         LOG_FEATURE(FEATURE_SHA256);
