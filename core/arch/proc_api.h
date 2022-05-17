@@ -300,7 +300,7 @@ typedef enum {
     /* Feature values returned in ID_AA64ISAR0_EL1 Instruction Set Attribute
      * Register 0
      */
-    FEATURE_AESX = DEF_FEAT(AA64ISAR0, 1, 1, 0),      /**< AES<x> (AArch64) */
+    FEATURE_AESX = DEF_FEAT(AA64ISAR0, 1, 1, 0),     /**< AES<x> (AArch64) */
     FEATURE_PMULL = DEF_FEAT(AA64ISAR0, 1, 2, 0),    /**< PMULL/PMULL2 (AArch64) */
     FEATURE_SHA1 = DEF_FEAT(AA64ISAR0, 2, 1, 0),     /**< SHA1<x> (AArch64) */
     FEATURE_SHA256 = DEF_FEAT(AA64ISAR0, 3, 1, 0),   /**< SHA256<x> (AArch64) */
