@@ -1475,15 +1475,11 @@ test_avx512_bf16_encoding(void *dc)
         { REGARG(ZMM30), REGARG(K7), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0,    -0x2000, OPSZ_4) },
     };
     opnd_t test1[][3] = {
-        // TODO: these should ideally be using YMM30 as destination but there
-        // is a mismatch when we encode and re-decode the instr. This is
-        // because the re-decoded dst is (ZMM30, OPSZ_32). So we keep it as
-        // ZMM30 here and set opnd size to OPSZ_32.
-        { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29) },
-        { REGARG(ZMM30), REGARG(K7), opnd_create_base_disp(DR_REG_RBP, DR_REG_R14,  8,  0x10000000, OPSZ_64) },
-        { REGARG(ZMM30), REGARG(K0), opnd_create_base_disp(DR_REG_R9,  DR_REG_NULL, 0,  0,          OPSZ_4) },
-        { REGARG(ZMM30), REGARG(K0), opnd_create_base_disp(DR_REG_RCX, DR_REG_NULL, 0,  0x1fc0,     OPSZ_64) },
-        { REGARG(ZMM30), REGARG(K7), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0, -0x2000,     OPSZ_4) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K0), REGARG(ZMM29) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K7), opnd_create_base_disp(DR_REG_RBP, DR_REG_R14,  8,  0x10000000, OPSZ_64) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K0), opnd_create_base_disp(DR_REG_R9,  DR_REG_NULL, 0,  0,          OPSZ_4) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K0), opnd_create_base_disp(DR_REG_RCX, DR_REG_NULL, 0,  0x1fc0,     OPSZ_64) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K7), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0, -0x2000,     OPSZ_4) },
     };
     // clang-format on
 
@@ -1512,10 +1508,6 @@ test_avx512_bf16_encoding(void *dc)
         } else if (set == 1) {
             instr = INSTR_CREATE_vcvtneps2bf16_mask(dc, test1[idx][0], test1[idx][1],
                                                     test1[idx][2]);
-            // encode dst as 'ZMM_x, OPSZ_32' (see comment above)
-            opnd_t dst = instr_get_dst(instr, 0);
-            opnd_set_size(&dst, OPSZ_32);
-            instr_set_dst(instr, 0, dst);
         } else if (set == 2) {
             instr = INSTR_CREATE_vdpbf16ps_mask(dc, test0[idx][0], test0[idx][1],
                                                 test0[idx][2], test0[idx][3]);
