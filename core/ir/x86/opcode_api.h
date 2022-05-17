@@ -1605,6 +1605,11 @@ enum {
     /* 1428 */ OP_vpdpwssd,  /**< IA-32/AMD64 vpdpwssd opcode. */
     /* 1429 */ OP_vpdpwssds, /**< IA-32/AMD64 vpdpwssds opcode. */
 
+    /* AVX512 BF16 */
+    /* 1430 */ OP_vcvtne2ps2bf16, /**< IA-32/AMD64 vcvtne2ps2bf16 opcode. */
+    /* 1431 */ OP_vcvtneps2bf16,  /**< IA-32/AMD64 vcvtneps2bf16 opcode. */
+    /* 1432 */ OP_vdpbf16ps,      /**< IA-32/AMD64 vdpbf16ps opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */

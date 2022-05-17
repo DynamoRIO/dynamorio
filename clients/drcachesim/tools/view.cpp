@@ -72,23 +72,34 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
     , filetype_(-1)
     , num_refs_(0)
     , timestamp_(0)
+    , has_modules_(true)
 {
 }
 
 std::string
 view_t::initialize()
 {
-    if (module_file_path_.empty())
-        return "Module file path is missing";
+    std::cerr << std::setw(9) << "Output format:\n<record#>"
+              << ": T<tid> <record details>\n"
+              << "------------------------------------------------------------\n";
     dcontext_.dcontext = dr_standalone_init();
-    std::string error = directory_.initialize_module_file(module_file_path_);
-    if (!error.empty())
-        return "Failed to initialize directory: " + error;
+    if (module_file_path_.empty()) {
+        has_modules_ = false;
+    } else {
+        std::string error = directory_.initialize_module_file(module_file_path_);
+        if (!error.empty())
+            has_modules_ = false;
+    }
+    if (!has_modules_) {
+        // Continue but omit disassembly to support cases where binaries are
+        // not available.
+        return "";
+    }
     module_mapper_ =
         module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
                                 nullptr, knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
-    error = module_mapper_->get_last_error();
+    std::string error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
     dr_disasm_flags_t flags =
@@ -314,19 +325,50 @@ view_t::process_memref(const memref_t &memref)
 
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
+        // XXX: Print prefetch info.
         switch (memref.data.type) {
         case TRACE_TYPE_READ:
-            std::cerr << "    read  " << memref.data.size << " byte(s) @ 0x" << std::hex
-                      << memref.data.addr << std::dec << "\n";
+            std::cerr << "read   " << memref.data.size << " byte(s) @ 0x" << std::hex
+                      << std::setfill('0') << std::setw(sizeof(void *) * 2)
+                      << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
+                      << memref.data.pc << std::dec << std::setfill(' ') << "\n";
             break;
         case TRACE_TYPE_WRITE:
-            std::cerr << "    write " << memref.data.size << " byte(s) @ 0x" << std::hex
-                      << memref.data.addr << std::dec << "\n";
+            std::cerr << "write  " << memref.data.size << " byte(s) @ 0x" << std::hex
+                      << std::setfill('0') << std::setw(sizeof(void *) * 2)
+                      << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
+                      << memref.data.pc << std::dec << std::setfill(' ') << "\n";
             break;
         case TRACE_TYPE_THREAD_EXIT:
             std::cerr << "<thread " << memref.data.tid << " exited>\n";
             break;
         default: std::cerr << "<entry type " << memref.data.type << ">\n"; break;
+        }
+        return true;
+    }
+
+    std::cerr << "ifetch " << memref.instr.size << " byte(s) @ 0x" << std::hex
+              << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
+              << std::dec << std::setfill(' ');
+    if (!has_modules_) {
+        // We can't disassemble so we provide what info the trace itself contains.
+        // XXX i#5486: We may want to store the taken target for conditional
+        // branches; if added, we can print it here.
+        // XXX: It may avoid initial confusion over the record-oriented output
+        // to indicate whether an instruction accesses memory, but that requires
+        // delayed printing.
+        std::cerr << " ";
+        switch (memref.instr.type) {
+        case TRACE_TYPE_INSTR: std::cerr << "non-branch\n"; break;
+        case TRACE_TYPE_INSTR_DIRECT_JUMP: std::cerr << "jump\n"; break;
+        case TRACE_TYPE_INSTR_INDIRECT_JUMP: std::cerr << "indirect jump\n"; break;
+        case TRACE_TYPE_INSTR_CONDITIONAL_JUMP: std::cerr << "conditional jump\n"; break;
+        case TRACE_TYPE_INSTR_DIRECT_CALL: std::cerr << "call\n"; break;
+        case TRACE_TYPE_INSTR_INDIRECT_CALL: std::cerr << "indirect call\n"; break;
+        case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
+        case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
+        case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
+        default: error_string_ = "Uknown instruction type\n"; return false;
         }
         return true;
     }
@@ -349,7 +391,7 @@ view_t::process_memref(const memref_t &memref)
         // exported so we just use the same value here.
         char buf[196];
         byte *next_pc = disassemble_to_buffer(
-            dcontext_.dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
+            dcontext_.dcontext, mapped_pc, orig_pc, /*show_pc=*/false,
             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
             /*printed=*/nullptr);
         if (next_pc == nullptr) {
@@ -375,7 +417,6 @@ bool
 view_t::print_results()
 {
     std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << std::setw(15) << num_disasm_instrs_
-              << " : total disassembled instructions\n";
+    std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;
 }

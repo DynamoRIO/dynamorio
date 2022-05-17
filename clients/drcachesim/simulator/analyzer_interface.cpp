@@ -190,10 +190,7 @@ drmemtrace_analysis_tool_create()
                                       op_alt_module_dir.get_value());
     } else if (op_simulator_type.get_value() == VIEW) {
         std::string module_file_path = get_module_file_path();
-        if (module_file_path.empty()) {
-            ERRMSG("Usage error: the view tool requires offline traces.\n");
-            return nullptr;
-        }
+        // The module file is optional so we don't check for emptiness.
         return view_tool_create(module_file_path, op_only_thread.get_value(),
                                 op_skip_refs.get_value(), op_sim_refs.get_value(),
                                 op_view_syntax.get_value(), op_verbose.get_value(),
