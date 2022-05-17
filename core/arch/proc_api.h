@@ -147,114 +147,181 @@ enum {
 #define MODEL_PENTIUM_M 13      /**< proc_get_model(): Pentium M 2MB L2 */
 #define MODEL_PENTIUM_M_1MB 9   /**< proc_get_model(): Pentium M 1MB L2 */
 
+#ifdef X86
 /**
- * Struct to hold all 4 32-bit feature values returned by cpuid.
+ * For X86 this struct holds all 4 32-bit feature values returned by cpuid.
  * Used by proc_get_all_feature_bits().
  */
 typedef struct {
-    uint flags_edx;      /**< feature flags stored in edx */
-    uint flags_ecx;      /**< feature flags stored in ecx */
-    uint ext_flags_edx;  /**< extended feature flags stored in edx */
-    uint ext_flags_ecx;  /**< extended feature flags stored in ecx */
-    uint sext_flags_ebx; /**< structured extended feature flags stored in ebx */
+    uint flags_edx;      /**< X86 feature flags stored in edx */
+    uint flags_ecx;      /**< X86 feature flags stored in ecx */
+    uint ext_flags_edx;  /**< X86 extended feature flags stored in edx */
+    uint ext_flags_ecx;  /**< X86 extended feature flags stored in ecx */
+    uint sext_flags_ebx; /**< structured X86 extended feature flags stored in ebx */
 } features_t;
-
+#endif
+/* We avoid using #elif here because otherwise doxygen will be unable to
+ * document both defines, for X86 and for AARCHXX. See also i#5496.
+ */
+#ifdef AARCHXX
 /**
- * Feature bits returned by cpuid.  Pass one of these values to proc_has_feature() to
- * determine whether the underlying processor has the feature.
+ * For AArch64 this struct holds features registers' values read by MRS instructions.
+ * Used by proc_get_all_feature_bits().
+ */
+typedef struct {
+    uint64 flags_aa64isar0; /**< AArch64 feature flags stored in ID_AA64ISAR0_EL1 */
+    uint64 flags_aa64isar1; /**< AArch64 feature flags stored in ID_AA64ISAR1_EL1 */
+    uint64 flags_aa64pfr0;  /**< AArch64 feature flags stored in ID_AA64PFR0_EL1 */
+} features_t;
+typedef enum { AA64ISAR0 = 0, AA64ISAR1 = 1, AA64PFR0 = 2 } feature_reg_idx_t;
+#endif
+
+#ifdef X86
+/**
+ * Feature bits returned by cpuid for X86 and mrs for AArch64. Pass one of
+ * these values to proc_has_feature() to determine whether the underlying
+ * processor has the feature.
  */
 typedef enum {
     /* features returned in edx */
-    FEATURE_FPU = 0,     /**< Floating-point unit on chip */
-    FEATURE_VME = 1,     /**< Virtual Mode Extension */
-    FEATURE_DE = 2,      /**< Debugging Extension */
-    FEATURE_PSE = 3,     /**< Page Size Extension */
-    FEATURE_TSC = 4,     /**< Time-Stamp Counter */
-    FEATURE_MSR = 5,     /**< Model Specific Registers */
-    FEATURE_PAE = 6,     /**< Physical Address Extension */
-    FEATURE_MCE = 7,     /**< Machine Check Exception */
-    FEATURE_CX8 = 8,     /**< #OP_cmpxchg8b supported */
-    FEATURE_APIC = 9,    /**< On-chip APIC Hardware supported */
-    FEATURE_SEP = 11,    /**< Fast System Call */
-    FEATURE_MTRR = 12,   /**< Memory Type Range Registers */
-    FEATURE_PGE = 13,    /**< Page Global Enable */
-    FEATURE_MCA = 14,    /**< Machine Check Architecture */
-    FEATURE_CMOV = 15,   /**< Conditional Move Instruction */
-    FEATURE_PAT = 16,    /**< Page Attribute Table */
-    FEATURE_PSE_36 = 17, /**< 36-bit Page Size Extension */
-    FEATURE_PSN = 18,    /**< Processor serial # present & enabled */
-    FEATURE_CLFSH = 19,  /**< #OP_clflush supported */
-    FEATURE_DS = 21,     /**< Debug Store */
-    FEATURE_ACPI = 22,   /**< Thermal monitor & SCC supported */
-    FEATURE_MMX = 23,    /**< MMX technology supported */
-    FEATURE_FXSR = 24,   /**< Fast FP save and restore */
-    FEATURE_SSE = 25,    /**< SSE Extensions supported */
-    FEATURE_SSE2 = 26,   /**< SSE2 Extensions supported */
-    FEATURE_SS = 27,     /**< Self-snoop */
-    FEATURE_HTT = 28,    /**< Hyper-threading Technology */
-    FEATURE_TM = 29,     /**< Thermal Monitor supported */
-    FEATURE_IA64 = 30,   /**< IA64 Capabilities */
-    FEATURE_PBE = 31,    /**< Pending Break Enable */
+    FEATURE_FPU = 0,     /**< Floating-point unit on chip (X86) */
+    FEATURE_VME = 1,     /**< Virtual Mode Extension (X86) */
+    FEATURE_DE = 2,      /**< Debugging Extension (X86) */
+    FEATURE_PSE = 3,     /**< Page Size Extension (X86) */
+    FEATURE_TSC = 4,     /**< Time-Stamp Counter (X86) */
+    FEATURE_MSR = 5,     /**< Model Specific Registers (X86) */
+    FEATURE_PAE = 6,     /**< Physical Address Extension (X86) */
+    FEATURE_MCE = 7,     /**< Machine Check Exception (X86) */
+    FEATURE_CX8 = 8,     /**< #OP_cmpxchg8b supported (X86) */
+    FEATURE_APIC = 9,    /**< On-chip APIC Hardware supported (X86) */
+    FEATURE_SEP = 11,    /**< Fast System Call (X86) */
+    FEATURE_MTRR = 12,   /**< Memory Type Range Registers (X86) */
+    FEATURE_PGE = 13,    /**< Page Global Enable (X86) */
+    FEATURE_MCA = 14,    /**< Machine Check Architecture (X86) */
+    FEATURE_CMOV = 15,   /**< Conditional Move Instruction (X86) */
+    FEATURE_PAT = 16,    /**< Page Attribute Table (X86) */
+    FEATURE_PSE_36 = 17, /**< 36-bit Page Size Extension (X86) */
+    FEATURE_PSN = 18,    /**< Processor serial # present & enabled (X86) */
+    FEATURE_CLFSH = 19,  /**< #OP_clflush supported (X86) */
+    FEATURE_DS = 21,     /**< Debug Store (X86) */
+    FEATURE_ACPI = 22,   /**< Thermal monitor & SCC supported (X86) */
+    FEATURE_MMX = 23,    /**< MMX technology supported (X86) */
+    FEATURE_FXSR = 24,   /**< Fast FP save and restore (X86) */
+    FEATURE_SSE = 25,    /**< SSE Extensions supported (X86) */
+    FEATURE_SSE2 = 26,   /**< SSE2 Extensions supported (X86) */
+    FEATURE_SS = 27,     /**< Self-snoop (X86) */
+    FEATURE_HTT = 28,    /**< Hyper-threading Technology (X86) */
+    FEATURE_TM = 29,     /**< Thermal Monitor supported (X86) */
+    FEATURE_IA64 = 30,   /**< IA64 Capabilities (X86) */
+    FEATURE_PBE = 31,    /**< Pending Break Enable (X86) */
     /* features returned in ecx */
-    FEATURE_SSE3 = 0 + 32,      /**< SSE3 Extensions supported */
-    FEATURE_PCLMULQDQ = 1 + 32, /**< #OP_pclmulqdq supported */
-    FEATURE_DTES64 = 2 + 32,    /**< 64-bit debug store supported */
-    FEATURE_MONITOR = 3 + 32,   /**< #OP_monitor/#OP_mwait supported */
-    FEATURE_DS_CPL = 4 + 32,    /**< CPL Qualified Debug Store */
-    FEATURE_VMX = 5 + 32,       /**< Virtual Machine Extensions */
-    FEATURE_SMX = 6 + 32,       /**< Safer Mode Extensions */
-    FEATURE_EST = 7 + 32,       /**< Enhanced Speedstep Technology */
-    FEATURE_TM2 = 8 + 32,       /**< Thermal Monitor 2 */
-    FEATURE_SSSE3 = 9 + 32,     /**< SSSE3 Extensions supported */
-    FEATURE_CID = 10 + 32,      /**< Context ID */
-    FEATURE_FMA = 12 + 32,      /**< FMA instructions supported */
-    FEATURE_CX16 = 13 + 32,     /**< #OP_cmpxchg16b supported */
-    FEATURE_xTPR = 14 + 32,     /**< Send Task Priority Messages */
-    FEATURE_PDCM = 15 + 32,     /**< Perfmon and Debug Capability */
-    FEATURE_PCID = 17 + 32,     /**< Process-context identifiers */
-    FEATURE_DCA = 18 + 32,      /**< Prefetch from memory-mapped devices */
-    FEATURE_SSE41 = 19 + 32,    /**< SSE4.1 Extensions supported */
-    FEATURE_SSE42 = 20 + 32,    /**< SSE4.2 Extensions supported */
-    FEATURE_x2APIC = 21 + 32,   /**< x2APIC supported */
-    FEATURE_MOVBE = 22 + 32,    /**< #OP_movbe supported */
-    FEATURE_POPCNT = 23 + 32,   /**< #OP_popcnt supported */
-    FEATURE_AES = 25 + 32,      /**< AES instructions supported */
-    FEATURE_XSAVE = 26 + 32,    /**< OP_xsave* supported */
-    FEATURE_OSXSAVE = 27 + 32,  /**< #OP_xgetbv supported in user mode */
-    FEATURE_AVX = 28 + 32,      /**< AVX instructions supported */
-    FEATURE_F16C = 29 + 32,     /**< 16-bit floating-point conversion supported */
-    FEATURE_RDRAND = 30 + 32,   /**< #OP_rdrand supported */
+    FEATURE_SSE3 = 0 + 32,      /**< SSE3 Extensions supported (X86) */
+    FEATURE_PCLMULQDQ = 1 + 32, /**< #OP_pclmulqdq supported (X86) */
+    FEATURE_DTES64 = 2 + 32,    /**< 64-bit debug store supported (X86) */
+    FEATURE_MONITOR = 3 + 32,   /**< #OP_monitor/#OP_mwait supported (X86) */
+    FEATURE_DS_CPL = 4 + 32,    /**< CPL Qualified Debug Store (X86) */
+    FEATURE_VMX = 5 + 32,       /**< Virtual Machine Extensions (X86) */
+    FEATURE_SMX = 6 + 32,       /**< Safer Mode Extensions (X86) */
+    FEATURE_EST = 7 + 32,       /**< Enhanced Speedstep Technology (X86) */
+    FEATURE_TM2 = 8 + 32,       /**< Thermal Monitor 2 (X86) */
+    FEATURE_SSSE3 = 9 + 32,     /**< SSSE3 Extensions supported (X86) */
+    FEATURE_CID = 10 + 32,      /**< Context ID (X86) */
+    FEATURE_FMA = 12 + 32,      /**< FMA instructions supported (X86) */
+    FEATURE_CX16 = 13 + 32,     /**< #OP_cmpxchg16b supported (X86) */
+    FEATURE_xTPR = 14 + 32,     /**< Send Task Priority Messages (X86) */
+    FEATURE_PDCM = 15 + 32,     /**< Perfmon and Debug Capability (X86) */
+    FEATURE_PCID = 17 + 32,     /**< Process-context identifiers (X86) */
+    FEATURE_DCA = 18 + 32,      /**< Prefetch from memory-mapped devices (X86) */
+    FEATURE_SSE41 = 19 + 32,    /**< SSE4.1 Extensions supported (X86) */
+    FEATURE_SSE42 = 20 + 32,    /**< SSE4.2 Extensions supported (X86) */
+    FEATURE_x2APIC = 21 + 32,   /**< x2APIC supported (X86) */
+    FEATURE_MOVBE = 22 + 32,    /**< #OP_movbe supported (X86) */
+    FEATURE_POPCNT = 23 + 32,   /**< #OP_popcnt supported (X86) */
+    FEATURE_AES = 25 + 32,      /**< AES instructions supported (X86) */
+    FEATURE_XSAVE = 26 + 32,    /**< OP_xsave* supported (X86) */
+    FEATURE_OSXSAVE = 27 + 32,  /**< #OP_xgetbv supported in user mode (X86) */
+    FEATURE_AVX = 28 + 32,      /**< AVX instructions supported (X86) */
+    FEATURE_F16C = 29 + 32,     /**< 16-bit floating-point conversion supported (X86) */
+    FEATURE_RDRAND = 30 + 32,   /**< #OP_rdrand supported (X86) */
     /* extended features returned in edx */
-    FEATURE_SYSCALL = 11 + 64,   /**< #OP_syscall/#OP_sysret supported */
-    FEATURE_XD_Bit = 20 + 64,    /**< Execution Disable bit */
-    FEATURE_MMX_EXT = 22 + 64,   /**< AMD MMX Extensions */
-    FEATURE_PDPE1GB = 26 + 64,   /**< Gigabyte pages */
-    FEATURE_RDTSCP = 27 + 64,    /**< #OP_rdtscp supported */
-    FEATURE_EM64T = 29 + 64,     /**< Extended Memory 64 Technology */
-    FEATURE_3DNOW_EXT = 30 + 64, /**< AMD 3DNow! Extensions */
-    FEATURE_3DNOW = 31 + 64,     /**< AMD 3DNow! instructions supported */
+    FEATURE_SYSCALL = 11 + 64,   /**< #OP_syscall/#OP_sysret supported (X86) */
+    FEATURE_XD_Bit = 20 + 64,    /**< Execution Disable bit (X86) */
+    FEATURE_MMX_EXT = 22 + 64,   /**< AMD MMX Extensions (X86) */
+    FEATURE_PDPE1GB = 26 + 64,   /**< Gigabyte pages (X86) */
+    FEATURE_RDTSCP = 27 + 64,    /**< #OP_rdtscp supported (X86) */
+    FEATURE_EM64T = 29 + 64,     /**< Extended Memory 64 Technology (X86) */
+    FEATURE_3DNOW_EXT = 30 + 64, /**< AMD 3DNow! Extensions (X86) */
+    FEATURE_3DNOW = 31 + 64,     /**< AMD 3DNow! instructions supported (X86) */
     /* extended features returned in ecx */
-    FEATURE_LAHF = 0 + 96,    /**< #OP_lahf/#OP_sahf available in 64-bit mode */
-    FEATURE_SVM = 2 + 96,     /**< AMD Secure Virtual Machine */
-    FEATURE_LZCNT = 5 + 96,   /**< #OP_lzcnt supported */
-    FEATURE_SSE4A = 6 + 96,   /**< AMD SSE4A Extensions supported */
-    FEATURE_PRFCHW = 8 + 96,  /**< #OP_prefetchw supported */
-    FEATURE_XOP = 11 + 96,    /**< AMD XOP supported */
-    FEATURE_SKINIT = 12 + 96, /**< AMD #OP_skinit/#OP_stgi supported */
-    FEATURE_FMA4 = 16 + 96,   /**< AMD FMA4 supported */
-    FEATURE_TBM = 21 + 96,    /**< AMD Trailing Bit Manipulation supported */
+    FEATURE_LAHF = 0 + 96,    /**< #OP_lahf/#OP_sahf available in 64-bit mode (X86) */
+    FEATURE_SVM = 2 + 96,     /**< AMD Secure Virtual Machine (X86) */
+    FEATURE_LZCNT = 5 + 96,   /**< #OP_lzcnt supported (X86) */
+    FEATURE_SSE4A = 6 + 96,   /**< AMD SSE4A Extensions supported (X86) */
+    FEATURE_PRFCHW = 8 + 96,  /**< #OP_prefetchw supported (X86) */
+    FEATURE_XOP = 11 + 96,    /**< AMD XOP supported (X86) */
+    FEATURE_SKINIT = 12 + 96, /**< AMD #OP_skinit/#OP_stgi supported (X86) */
+    FEATURE_FMA4 = 16 + 96,   /**< AMD FMA4 supported (X86) */
+    FEATURE_TBM = 21 + 96,    /**< AMD Trailing Bit Manipulation supported (X86) */
     /* structured extended features returned in ebx */
-    FEATURE_FSGSBASE = 0 + 128,  /**< #OP_rdfsbase, etc. supported */
-    FEATURE_BMI1 = 3 + 128,      /**< BMI1 instructions supported */
-    FEATURE_HLE = 4 + 128,       /**< Hardware Lock Elision supported */
-    FEATURE_AVX2 = 5 + 128,      /**< AVX2 instructions supported */
-    FEATURE_BMI2 = 8 + 128,      /**< BMI2 instructions supported */
-    FEATURE_ERMSB = 9 + 128,     /**< Enhanced rep movsb/stosb supported */
-    FEATURE_INVPCID = 10 + 128,  /**< #OP_invpcid supported */
-    FEATURE_RTM = 11 + 128,      /**< Restricted Transactional Memory supported */
-    FEATURE_AVX512F = 16 + 128,  /**< AVX-512F instructions supported */
-    FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported */
+    FEATURE_FSGSBASE = 0 + 128,  /**< #OP_rdfsbase, etc. supported (X86) */
+    FEATURE_BMI1 = 3 + 128,      /**< BMI1 instructions supported (X86) */
+    FEATURE_HLE = 4 + 128,       /**< Hardware Lock Elision supported (X86) */
+    FEATURE_AVX2 = 5 + 128,      /**< AVX2 instructions supported (X86) */
+    FEATURE_BMI2 = 8 + 128,      /**< BMI2 instructions supported (X86) */
+    FEATURE_ERMSB = 9 + 128,     /**< Enhanced rep movsb/stosb supported (X86) */
+    FEATURE_INVPCID = 10 + 128,  /**< #OP_invpcid supported (X86) */
+    FEATURE_RTM = 11 + 128,      /**< Restricted Transactional Memory supported (X86) */
+    FEATURE_AVX512F = 16 + 128,  /**< AVX-512F instructions supported (X86) */
+    FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported (X86) */
 } feature_bit_t;
+#endif
+/* We avoid using #elif here because otherwise doxygen will be unable to
+ * document both defines, for X86 and for AARCHXX. See also i#5496.
+ */
+#ifdef AARCHXX
+/* On Arm, architectural features are defined and stored very differently from
+ * X86. Specifically:
+ * - There are multiple 64 bit system registers for features storage only, FREG.
+ * - Each register is divided into nibbles representing a feature, NIBPOS.
+ * - The value of a nibble represents a certain level of support for that feature, FVAL.
+ * - The values can range from 0 to 15. In most cases 0 means a feature is not
+ *   supported at all but in some cases 15 means a feature is not supported at
+ *   all, NSFLAG.
+ * The helper macro below packs feature data into 16 bits (ushort).
+ */
+#    define DEF_FEAT(FREG, NIBPOS, FVAL, NSFLAG) \
+        ((ushort)((NSFLAG << 15) | (FREG << 8) | (NIBPOS << 4) | FVAL))
+/**
+ * Feature bits returned by cpuid for X86 and mrs for AArch64. Pass one of
+ * these values to proc_has_feature() to determine whether the underlying
+ * processor has the feature.
+ */
+typedef enum {
+    /* Feature values returned in ID_AA64ISAR0_EL1 Instruction Set Attribute
+     * Register 0
+     */
+    FEATURE_AESX = DEF_FEAT(AA64ISAR0, 1, 1, 0),     /**< AES<x> (AArch64) */
+    FEATURE_PMULL = DEF_FEAT(AA64ISAR0, 1, 2, 0),    /**< PMULL/PMULL2 (AArch64) */
+    FEATURE_SHA1 = DEF_FEAT(AA64ISAR0, 2, 1, 0),     /**< SHA1<x> (AArch64) */
+    FEATURE_SHA256 = DEF_FEAT(AA64ISAR0, 3, 1, 0),   /**< SHA256<x> (AArch64) */
+    FEATURE_SHA512 = DEF_FEAT(AA64ISAR0, 3, 2, 0),   /**< SHA512<x> (AArch64) */
+    FEATURE_CRC32 = DEF_FEAT(AA64ISAR0, 4, 1, 0),    /**< CRC32<x> (AArch64) */
+    FEATURE_LSE = DEF_FEAT(AA64ISAR0, 5, 2, 0),      /**< Atomic instructions (AArch64) */
+    FEATURE_RDM = DEF_FEAT(AA64ISAR0, 7, 1, 0),      /**< SQRDMLAH,SQRDMLSH (AArch64) */
+    FEATURE_SHA3 = DEF_FEAT(AA64ISAR0, 8, 1, 0),     /**< EOR3,RAX1,XAR,BCAX (AArch64) */
+    FEATURE_SM3 = DEF_FEAT(AA64ISAR0, 9, 1, 0),      /**< SM3<x> (AArch64) */
+    FEATURE_SM4 = DEF_FEAT(AA64ISAR0, 10, 1, 0),     /**< SM4E, SM4EKEY (AArch64) */
+    FEATURE_DotProd = DEF_FEAT(AA64ISAR0, 11, 1, 0), /**< UDOT, SDOT (AArch64) */
+    FEATURE_FHM = DEF_FEAT(AA64ISAR0, 12, 1, 0),     /**< FMLAL, FMLSL (AArch64) */
+    FEATURE_FlagM = DEF_FEAT(AA64ISAR0, 13, 1, 0),   /**< CFINV,RMIF,SETF<x> (AArch64) */
+    FEATURE_FlagM2 = DEF_FEAT(AA64ISAR0, 13, 2, 0),  /**< AXFLAG, XAFLAG (AArch64) */
+    FEATURE_RNG = DEF_FEAT(AA64ISAR0, 15, 1, 0),     /**< RNDR, RNDRRS (AArch64) */
+    /* FIXME i#5474: Define all FEATURE_s for ID_AA64ISAR1_EL1 and ID_AA64PFR0_EL1. */
+    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),  /**< DC CVAP (AArch64) */
+    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0), /**< DC CVAP, DC CVADP (AArch64) */
+    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 3, 1, 1),  /**< Half-precision FP (AArch64) */
+} feature_bit_t;
+#endif
 
 /* Make sure to keep this in sync with proc_get_cache_size_str() in proc.c. */
 /**
@@ -347,8 +414,9 @@ proc_has_feature(feature_bit_t feature);
 
 DR_API
 /**
- * Returns all 4 32-bit feature values.  Use proc_has_feature to test
- * for specific features.
+ * Returns all 4 32-bit feature values on X86 and architectural feature
+ * registers' values on AArch64. Use proc_has_feature() to test for specific
+ * features.
  */
 features_t *
 proc_get_all_feature_bits(void);

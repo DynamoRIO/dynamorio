@@ -32,11 +32,61 @@
 
 #include "../globals.h"
 #include "proc.h"
+#include "arch.h"
 #include "instr.h"
 
 static int num_simd_saved;
 static int num_simd_registers;
 static int num_opmask_registers;
+
+#ifndef DR_HOST_NOT_TARGET
+
+const static int num_feature_registers = sizeof(features_t) / sizeof(uint64);
+
+#    define MRS(REG, IDX, FEATS)                                                     \
+        do {                                                                         \
+            if (IDX > (num_feature_registers - 1))                                   \
+                CLIENT_ASSERT(false, "Reading undefined AArch64 feature register!"); \
+            asm("mrs %0, " #REG : "=r"(FEATS[IDX]));                                 \
+        } while (0);
+
+void
+read_feature_regs(uint64 isa_features[])
+{
+    MRS(ID_AA64ISAR0_EL1, AA64ISAR0, isa_features);
+    MRS(ID_AA64ISAR1_EL1, AA64ISAR1, isa_features);
+    MRS(ID_AA64PFR0_EL1, AA64PFR0, isa_features);
+}
+
+static void
+get_processor_specific_info(void)
+{
+    uint64 isa_features[num_feature_registers];
+
+    /* FIXME i#5474: Catch and handle SIGILL if MRS not supported.
+     * Placeholder for some older kernels on v8.0 systems which do not support
+     * this, raising a SIGILL.
+     */
+    if (!mrs_id_reg_supported()) {
+        ASSERT_CURIOSITY(false && "MRS instruction unsupported");
+        SYSLOG_INTERNAL_WARNING("MRS instruction unsupported");
+        return;
+    }
+
+    /* Reads instruction attribute and preocessor feature registers
+     * ID_AA64ISAR0_EL1, ID_AA64ISAR1_EL1 and ID_AA64PFR0_EL1.
+     */
+    read_feature_regs(isa_features);
+    cpu_info.features.flags_aa64isar0 = isa_features[AA64ISAR0];
+    cpu_info.features.flags_aa64isar1 = isa_features[AA64ISAR1];
+    cpu_info.features.flags_aa64pfr0 = isa_features[AA64PFR0];
+}
+
+#    define LOG_FEATURE(feature)       \
+        if (proc_has_feature(feature)) \
+            LOG(GLOBAL, LOG_TOP, 1, "   Processor has " #feature "\n");
+
+#endif
 
 void
 proc_init_arch(void)
@@ -53,14 +103,92 @@ proc_init_arch(void)
         LOG(GLOBAL, LOG_TOP, 1, "Unable to obtain cache line size");
     }
 
-    /* FIXME i#1569: NYI */
+#ifndef DR_HOST_NOT_TARGET
+    get_processor_specific_info();
+
+    DOLOG(1, LOG_TOP, {
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR0_EL1 = 0x%016lx\n",
+            cpu_info.features.flags_aa64isar0);
+        LOG_FEATURE(FEATURE_AESX);
+        LOG_FEATURE(FEATURE_PMULL);
+        LOG_FEATURE(FEATURE_SHA1);
+        LOG_FEATURE(FEATURE_SHA256);
+        LOG_FEATURE(FEATURE_SHA512);
+        LOG_FEATURE(FEATURE_CRC32);
+        LOG_FEATURE(FEATURE_LSE);
+        LOG_FEATURE(FEATURE_RDM);
+        LOG_FEATURE(FEATURE_SHA3);
+        LOG_FEATURE(FEATURE_SM3);
+        LOG_FEATURE(FEATURE_SM4);
+        LOG_FEATURE(FEATURE_DotProd);
+        LOG_FEATURE(FEATURE_FHM);
+        LOG_FEATURE(FEATURE_FlagM);
+        LOG_FEATURE(FEATURE_FlagM2);
+        LOG_FEATURE(FEATURE_RNG);
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR1_EL1 = 0x%016lx\n",
+            cpu_info.features.flags_aa64isar1);
+        /* FIXME i#5474: Log all FEATURE_s for ID_AA64ISAR1_EL1. */
+        LOG_FEATURE(FEATURE_DPB);
+        LOG_FEATURE(FEATURE_DPB2);
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR0_EL1 = 0x%016lx\n",
+            cpu_info.features.flags_aa64pfr0);
+        /* FIXME i#5474: Log all FEATURE_s for ID_AA64PFR0_EL1. */
+        LOG_FEATURE(FEATURE_FP16);
+    });
+#endif
 }
+
+#define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x7F00) >> 8)
+#define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
+#define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
+#define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
 
 bool
 proc_has_feature(feature_bit_t f)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#ifndef DR_HOST_NOT_TARGET
+    ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
+    uint64 freg_val = 0;
+
+    feature_reg_idx_t feat_reg = GET_FEAT_REG(f);
+    if (feat_reg >= AA64ISAR0 && feat_reg <= AA64PFR0) {
+        switch (feat_reg) {
+        case AA64ISAR0: {
+            freg_val = cpu_info.features.flags_aa64isar0;
+            break;
+        }
+        case AA64ISAR1: {
+            freg_val = cpu_info.features.flags_aa64isar1;
+            break;
+        }
+        case AA64PFR0: {
+            freg_val = cpu_info.features.flags_aa64pfr0;
+            break;
+        }
+        default: CLIENT_ASSERT(false, "proc_has_feature: feature register index error");
+        }
+    } else {
+        CLIENT_ASSERT(false, "proc_has_feature: invalid feature register");
+    }
+
+    /* Compare the nibble value in the feature register with the input
+     * feature nibble value to establish if the feature set represented by the
+     * nibble is supported. If the nibble value in the feature register is
+     * 0 or 0xF, the feature is not supported at all
+     */
+    feat_nibble = GET_FEAT_NIBPOS(f);
+    freg_nibble = (freg_val >> (feat_nibble * 4)) & 0xFULL;
+    feat_nsflag = GET_FEAT_NSFLAG(f);
+    if (feat_nsflag == 0 && freg_nibble == 0)
+        return false;
+    if (feat_nsflag == 1 && freg_nibble == 0xF)
+        return false;
+
+    feat_val = GET_FEAT_VAL(f);
+    return (freg_nibble >= feat_val) ? true : false;
+#else
     return false;
+#endif
 }
 
 void

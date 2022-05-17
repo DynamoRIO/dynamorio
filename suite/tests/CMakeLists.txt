@@ -2555,6 +2555,10 @@ tobuild_ci(client.option_parse client-interface/option_parse.cpp
 use_DynamoRIO_extension(client.option_parse.dll droption)
 set(client.option_parse_client_ops_islist ON)
 
+if (AARCH64)
+  tobuild_ci(client.features client-interface/features.c "" "" "")
+endif ()
+
 tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
 
 tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
