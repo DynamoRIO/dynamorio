@@ -1447,7 +1447,8 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
 #ifdef AARCH64
-    ASSERT(instr_get_opcode(instr) == OP_blr);
+    int opc = instr_get_opcode(instr);
+    ASSERT(opc == OP_blr || opc == OP_blraaz);
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
     ASSERT(opnd_is_reg(instr_get_target(instr)));
@@ -1459,6 +1460,9 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
                               instr_get_target(instr)));
+    }
+    if (opc == OP_blraaz) {
+        PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
     }
     insert_mov_immed_ptrsz(dcontext, get_call_return_address(dcontext, ilist, instr),
                            opnd_create_reg(DR_REG_X30), ilist, next_instr, NULL, NULL);
@@ -1521,26 +1525,33 @@ instr_t *
 mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags)
 {
+    int opc = instr_get_opcode(instr);
 #ifdef AARCH64
-    ASSERT(instr_get_opcode(instr) == OP_br || instr_get_opcode(instr) == OP_ret);
+    ASSERT(opc == OP_br || opc == OP_ret || opc == OP_reta || opc == OP_braa);
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
-    ASSERT(opnd_is_reg(instr_get_target(instr)));
-    if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
+    opnd_t target =
+        opc == OP_reta ? opnd_create_reg(DR_REG_X30) : instr_get_target(instr);
+    ASSERT(opnd_is_reg(target));
+
+    if (opnd_same(target, opnd_create_reg(dr_reg_stolen))) {
         /* if the target reg is dr_reg_stolen, the app value is in TLS */
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, IBL_TARGET_REG, TLS_REG_STOLEN_SLOT));
     } else {
         PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
-                              instr_get_target(instr)));
+            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG), target));
     }
+
+    if (opc == OP_reta || opc == OP_braa) {
+        PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
+    }
+
     instrlist_remove(ilist, instr); /* remove OP_br or OP_ret */
     instr_destroy(dcontext, instr);
     return next_instr;
 #else
     bool remove_instr = false;
-    int opc = instr_get_opcode(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);

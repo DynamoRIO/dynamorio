@@ -1648,6 +1648,30 @@ encode_opnd_op2(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(5, 3, false, 0, 0, opnd, enc_out);
 }
 
+/* x5p8 : X register, add 8 */
+
+static inline bool
+decode_opnd_x5p8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(decode_reg(8 + ((enc >> 5) & 7), true, false));
+    return true;
+}
+
+static inline bool
+encode_opnd_x5p8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    reg_id_t reg;
+    uint n;
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg = opnd_get_reg(opnd);
+    n = reg - DR_REG_X0;
+    if (n < 8 || n > (8 + 7))
+        return false;
+    *enc_out = (n - 8) << 5;
+    return true;
+}
+
 /* w5: W register or WZR at bit position 5 */
 
 static inline bool
@@ -5085,11 +5109,13 @@ get_el_hs_sz(OUT uint *elsz_out, opnd_t opnd)
 #include "opnd_decode_funcs.h"
 #include "opnd_encode_funcs.h"
 #include "decode_gen_sve.h"
+#include "decode_gen_v83.h"
 #include "decode_gen_v82.h"
 #include "decode_v81.h"
 #include "decode_gen_v81.h" /* Redirects decoding to decode_v81.h */
 #include "decode_gen_v80.h"
 #include "encode_gen_sve.h"
+#include "encode_gen_v83.h"
 #include "encode_gen_v82.h"
 #include "encode_v81.h"
 #include "encode_gen_v81.h" /* Redirects encoding to encode_v81.h */

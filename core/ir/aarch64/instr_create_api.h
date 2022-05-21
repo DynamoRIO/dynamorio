@@ -3376,4 +3376,11 @@
  */
 #define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
+/**
+ * Creates a XPACI instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      Register with PAC bits to remove.
+ */
+#define INSTR_CREATE_xpaci(dc, Rd) instr_create_0dst_1src((dc), OP_xpaci, (Rd))
+
 #endif /* DR_IR_MACROS_AARCH64_H */
