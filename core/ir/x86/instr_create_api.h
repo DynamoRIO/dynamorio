@@ -2398,6 +2398,15 @@
     instr_create_1dst_2src((dc), OP_vcvtusi2sd, (d), (s1), (s2))
 #define INSTR_CREATE_vpextrq(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpextrq, (d), (s1), (s2))
+/* AVX VNNI */
+#define INSTR_CREATE_vpdpbusd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpbusd, (d), (s1), (s2))
+#define INSTR_CREATE_vpdpbusds(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpbusds, (d), (s1), (s2))
+#define INSTR_CREATE_vpdpwssd(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpwssd, (d), (s1), (s2))
+#define INSTR_CREATE_vpdpwssds(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vpdpwssds, (d), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 mask, and 1 non-immediate source */
@@ -2657,6 +2666,9 @@
     instr_create_1dst_2src((dc), OP_vsqrtps, (d), (k), (s))
 #define INSTR_CREATE_vsqrtpd_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vsqrtpd, (d), (k), (s))
+/* AVX512 BF16 */
+#define INSTR_CREATE_vcvtneps2bf16_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vcvtneps2bf16, (d), (k), (s))
 
 /** @} */ /* end doxygen group */
 
@@ -4161,6 +4173,11 @@
     instr_create_1dst_4src((dc), OP_vfnmsub231ss, (d), (k), (s1), (s2), (d))
 #define INSTR_CREATE_vfnmsub231sd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_4src((dc), OP_vfnmsub231sd, (d), (k), (s1), (s2), (d))
+/* AVX512 BF16*/
+#define INSTR_CREATE_vcvtne2ps2bf16_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vcvtne2ps2bf16, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vdpbf16ps_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vdpbf16ps, (d), (k), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 explicit destination, 3 explicit sources */
@@ -4248,6 +4265,15 @@
     instr_create_1dst_3src((dc), OP_vpermil2pd, (d), (s1), (s2), (s3))
 #define INSTR_CREATE_vpermil2ps(dc, d, s1, s2, s3) \
     instr_create_1dst_3src((dc), OP_vpermil2ps, (d), (s1), (s2), (s3))
+/* AVX512 VNNI */
+#define INSTR_CREATE_vpdpbusd_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpbusd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpdpbusds_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpbusds, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpdpwssd_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpwssd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpdpwssds_mask(dc, d, s1, s2, s3) \
+    instr_create_1dst_3src((dc), OP_vpdpwssds, (d), (s1), (s2), (s3))
 /** @} */ /* end doxygen group */
 /** @name 1 destination, 3 sources where the final is an immediate */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */

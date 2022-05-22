@@ -1522,10 +1522,10 @@ instrlist_disassemble(void *drcontext, app_pc tag, instrlist_t *ilist, file_t ou
             level = 4;
             /* encode instr and then output as BINARY */
             nxt_pc = instr_encode_ignore_reachability(dcontext, instr, bytes);
-            ASSERT(nxt_pc != NULL);
+            CLIENT_ASSERT(nxt_pc != NULL, "failed to encode instr");
             len = (int)(nxt_pc - bytes);
             addr = bytes;
-            CLIENT_ASSERT(len < 64, "instrlist_disassemble: too-long instr");
+            CLIENT_ASSERT(len < sizeof(bytes), "instrlist_disassemble: too-long instr");
         } else {
             addr = instr_get_raw_bits(instr);
             len = instr_length(dcontext, instr);
@@ -1565,12 +1565,18 @@ instrlist_disassemble(void *drcontext, app_pc tag, instrlist_t *ilist, file_t ou
         while (len) {
             print_file(outfile, " +%-4d %c%d " IF_X64_ELSE("%20s", "%12s"), offs,
                        instr_is_app(instr) ? 'L' : 'm', level, " ");
-            next_addr = internal_disassemble_to_file(
-                dcontext, addr, addr, outfile, false, true,
-                IF_X64_ELSE("                               ",
-                            "                       "));
-            if (next_addr == NULL)
-                break;
+            /* Leave level 0 alone as it may not be code. */
+            if (level == 0) {
+                print_file(outfile, " <...%d bytes...>\n", instr->length);
+                next_addr = addr + instr->length;
+            } else {
+                next_addr = internal_disassemble_to_file(
+                    dcontext, addr, addr, outfile, false, true,
+                    IF_X64_ELSE("                               ",
+                                "                       "));
+                if (next_addr == NULL)
+                    break;
+            }
             sz = (int)(next_addr - addr);
             CLIENT_ASSERT(sz <= len, "instrlist_disassemble: invalid length");
             len -= sz;

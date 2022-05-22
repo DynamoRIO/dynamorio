@@ -302,9 +302,19 @@ get_stack_ptr(void);
                     __asm__ __volatile__("rdtsc" : "=a"(low), "=d"(high)); \
                     (llval) = ((uint64)high << 32) | low;                  \
                 } while (0)
+#            define GET_CUR_PC(var)                                         \
+                __asm__ __volatile__("call 1f; 1: pop %%rax; mov %%rax, %0" \
+                                     : "=m"(var)                            \
+                                     :                                      \
+                                     : "rax", "memory")
 #        else
 /* We define RDTSC_LL differently on 32-bit for better performance */
 #            define RDTSC_LL(llval) __asm__ __volatile__("rdtsc" : "=A"(llval))
+#            define GET_CUR_PC(var)                                         \
+                __asm__ __volatile__("call 1f; 1: pop %%eax; mov %%eax, %0" \
+                                     : "=m"(var)                            \
+                                     :                                      \
+                                     : "eax", "memory")
 #        endif /* 64/32 */
 #        define GET_FRAME_PTR(var) \
             asm("mov %%" IF_X64_ELSE("rbp", "ebp") ", %0" : "=m"(var))
@@ -318,12 +328,16 @@ get_stack_ptr(void);
 
 #        define GET_FRAME_PTR(var) __asm__ __volatile__("mov %0, x29" : "=r"(var))
 #        define GET_STACK_PTR(var) __asm__ __volatile__("mov %0, sp" : "=r"(var))
+#        define GET_CUR_PC(var) \
+            __asm__ __volatile__("bl 1f; 1: str x30, %0" : "=m"(var) : : "x30")
 #    elif defined(DR_HOST_ARM)
 #        define RDTSC_LL(llval) (llval) = proc_get_timestamp()
 /* FIXME i#1551: frame pointer is r7 in thumb mode */
 #        define GET_FRAME_PTR(var) \
             __asm__ __volatile__("str " IF_X64_ELSE("x29", "r11") ", %0" : "=m"(var))
 #        define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
+#        define GET_CUR_PC(var) \
+            __asm__ __volatile__("bl 1f; 1: str lr, %0" : "=m"(var) : : "lr")
 #    endif /* X86/ARM */
 #endif     /* UNIX */
 

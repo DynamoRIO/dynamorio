@@ -63,9 +63,13 @@
 #define OUTFILE_SUFFIX "raw"
 #ifdef HAS_ZLIB
 #    define OUTFILE_SUFFIX_GZ "raw.gz"
+#    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
 #endif
 #ifdef HAS_SNAPPY
 #    define OUTFILE_SUFFIX_SZ "raw.sz"
+#endif
+#ifdef HAS_LZ4
+#    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
 #endif
 #define OUTFILE_SUBDIR "raw"
 #define WINDOW_SUBDIR_PREFIX "window"

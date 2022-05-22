@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -222,6 +222,7 @@ opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {
 #ifdef X86
+    DR_SYSNUM_REG = DR_REG_EAX,
 #    ifdef X64
 #        ifdef UNIX
     /* SysV ABI calling convention */
@@ -266,12 +267,14 @@ enum {
     REGPARM_2 = DR_REG_R2,
     REGPARM_3 = DR_REG_R3,
 #    ifdef X64
+    DR_SYSNUM_REG = DR_REG_R8,
     REGPARM_4 = DR_REG_R4,
     REGPARM_5 = DR_REG_R5,
     REGPARM_6 = DR_REG_R6,
     REGPARM_7 = DR_REG_R7,
     NUM_REGPARM = 8,
 #    else
+    DR_SYSNUM_REG = DR_REG_R7,
     NUM_REGPARM = 4,
 #    endif /* 64/32 */
     REDZONE_SIZE = 0,

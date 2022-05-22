@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,10 +49,12 @@
 
 static int num_bbs;
 static int num_signals;
+static int num_alarm_signals;
 
 static void *thread_ready;
 static void *thread_exit;
 static void *got_signal;
+static void *got_alarm_signal;
 
 SIGJMP_BUF mark;
 
@@ -68,8 +70,9 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     } else if (sig == SIGSEGV) {
         print("Got SIGSEGV\n");
         SIGLONGJMP(mark, 1);
-    } else if (sig == SIGPROF) {
-        /* Do nothing. */
+    } else if (sig == SIGALRM) {
+        ++num_alarm_signals;
+        signal_cond_var(got_alarm_signal);
     } else {
         print("Got unexpected signal %d\n", sig);
     }
@@ -133,14 +136,8 @@ event_exit(void)
     DR_ASSERT(total > 0);
 
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
-    /* Unfortunately we have no synch to guarantee we see some alarm
-     * signals.
-     * FIXME: once we have i#2311 and can ensure alarms only arrive in
-     * the 2nd thread, we can use a cond var from the signal handler and
-     * ensure we see some.  For now we just hope to occasionally test some
-     * races with alarms.
-     */
     dr_fprintf(STDERR, "Saw %s signals\n", num_signals >= 2 ? ">=2" : "<2");
+    dr_fprintf(STDERR, "Saw %s alarm signals\n", num_alarm_signals >= 1 ? ">=1" : "<1");
 }
 
 DR_EXPORT void
@@ -191,24 +188,17 @@ main(int argc, const char *argv[])
     thread_ready = create_cond_var();
     thread_exit = create_cond_var();
     got_signal = create_cond_var();
-
-    intercept_signal(SIGPROF, signal_handler, true /*sigstack*/);
-    timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = 1000;
-    timer.it_value.tv_sec = 0;
-    timer.it_value.tv_usec = 1000;
-    rc = setitimer(ITIMER_PROF, &timer, NULL);
-    assert(rc == 0);
+    got_alarm_signal = create_cond_var();
 
     pthread_create(&thread, NULL, thread_func, NULL);
     wait_cond_var(thread_ready);
 
-#if 0 /* FIXME i#2311: once fixed in DR we can enable this. */
-    /* Block SIGPROF in the main thread to better test races. */
+    /* Block SIGALRM in the main thread to better test races (and to test
+     * i#2311 where DR needs to reroute signals to an unmasked thread).
+     */
     sigemptyset(&mask);
-    sigaddset(&mask, SIGPROF);
+    sigaddset(&mask, SIGALRM);
     sigprocmask(SIG_BLOCK, &mask, NULL);
-#endif
 
     print("Sending SIGUSR1 pre-DR-init\n");
     pthread_kill(thread, SIGUSR1);
@@ -227,6 +217,18 @@ main(int argc, const char *argv[])
     print("pre-DR start\n");
     dr_app_start();
     assert(dr_app_running_under_dynamorio());
+
+    /* Create an itimer that will fire while we're not scheduled: ITIMER_REAL. */
+    intercept_signal(SIGALRM, signal_handler, true /*sigstack*/);
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 1000;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 1000;
+    rc = setitimer(ITIMER_REAL, &timer, NULL);
+    assert(rc == 0);
+    /* Ensure we get an alarm signal in the other thread under DR. */
+    wait_cond_var(got_alarm_signal);
+    reset_cond_var(got_alarm_signal);
 
     if (do_some_work() < 0)
         print("error in computation\n");
@@ -260,10 +262,15 @@ main(int argc, const char *argv[])
     pthread_join(thread, NULL);
 
     // i#2871: ensure our itimer is still there.
-    rc = getitimer(ITIMER_PROF, &timer);
+    rc = getitimer(ITIMER_REAL, &timer);
     assert(rc == 0);
     // We don't compare to 1000 b/c the min may be larger.
     assert(timer.it_interval.tv_usec > 0);
+
+    destroy_cond_var(thread_ready);
+    destroy_cond_var(thread_exit);
+    destroy_cond_var(got_signal);
+    destroy_cond_var(got_alarm_signal);
 
     print("all done\n");
     return 0;

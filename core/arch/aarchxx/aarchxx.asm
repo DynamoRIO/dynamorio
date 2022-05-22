@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc. All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,8 @@ START_FILE
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
+        /* i#38: Attaching in middle of blocking syscall requires padded null bytes. */
+        nop
         mov      FP, #0   /* clear frame ptr for stack trace bottom */
         /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address.
          * We call this here to ensure it's safe to access globals once in C code

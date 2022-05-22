@@ -47,7 +47,9 @@
  * There are 3 different stat syscalls (SYS_oldstat, SYS_stat, and SYS_stat64)
  * and using _LARGEFILE64_SOURCE with SYS_stat64 is the best match.
  */
-#define _LARGEFILE64_SOURCE
+#ifndef _LARGEFILE64_SOURCE
+#    define _LARGEFILE64_SOURCE
+#endif
 /* for mmap-related #defines */
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -3529,6 +3531,23 @@ thread_signal(process_id_t pid, thread_id_t tid, int signum)
 #endif
 }
 
+/* This is not available on all platforms/kernels and so may fail. */
+bool
+thread_signal_queue(process_id_t pid, thread_id_t tid, int signum, void *value)
+{
+#ifdef MACOS
+    return false;
+#else
+    kernel_siginfo_t info;
+    memset(&info, 0, sizeof(info));
+    info.si_signo = signum;
+    info.si_code = SI_QUEUE;
+    info.si_value.sival_ptr = value;
+    /* SYS_rt_sigqueueinfo is on 2.6.31+ so we expect failure on older kernels. */
+    return dynamorio_syscall(SYS_rt_tgsigqueueinfo, 4, pid, tid, signum, &info) == 0;
+#endif
+}
+
 static bool
 known_thread_signal(thread_record_t *tr, int signum)
 {
@@ -3697,7 +3716,7 @@ bool
 os_thread_terminate(thread_record_t *tr)
 {
     /* PR 297902: for NPTL sending SIGKILL will take down the whole group:
-     * so instead we send SIGUSR2 and have a flag set telling
+     * so instead we send SUSPEND_SIGNAL and have a flag set telling
      * target thread to execute SYS_exit
      */
     os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;
@@ -5018,6 +5037,7 @@ ignorable_system_call_normalized(int num)
 #    endif
     case SYS_rt_sigtimedwait:
     case SYS_rt_sigqueueinfo:
+    case SYS_rt_tgsigqueueinfo:
     case SYS_rt_sigsuspend:
 #    ifdef SYS_signalfd
     case SYS_signalfd:
@@ -7564,6 +7584,7 @@ pre_system_call(dcontext_t *dcontext)
 #    endif
     case SYS_rt_sigtimedwait: /* 177 */
     case SYS_rt_sigqueueinfo: /* 178 */
+    case SYS_rt_tgsigqueueinfo:
 #endif
     case IF_MACOS_ELSE(SYS_sigpending, SYS_rt_sigpending): { /* 176 */
         /* FIXME i#92: handle all of these syscalls! */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -378,12 +378,33 @@ typedef struct _thread_itimer_info_t {
 struct _sigfd_pipe_t;
 typedef struct _sigfd_pipe_t sigfd_pipe_t;
 
-typedef struct _thread_sig_info_t {
-    /* we use kernel_sigaction_t so we don't have to translate back and forth
-     * between it and libc version.
-     * have to dynamically allocate app_sigaction array so we can share it.
+/* Data that is shared for all threads in a CLONE_SIGHAND group.
+ * Typically this is the whole thread group or "process".
+ * The thread_sig_info_t for each thread in the group points to a
+ * single copy of this structure.
+ */
+typedef struct _sighand_info_t {
+    bool is_shared;
+    int refcount;
+    mutex_t lock;
+    /* We use kernel_sigaction_t so we don't have to translate back and forth
+     * between it and the libc version.
      */
-    kernel_sigaction_t **app_sigaction;
+    kernel_sigaction_t *action[SIGARRAY_SIZE];
+    bool we_intercept[SIGARRAY_SIZE];
+    /* For handling masked-for-app-but-not-for-DR signals.  Any time we receive
+     * a signal in a thread for which it is blocked, we need to know whether it was
+     * a "process"-wide signal and whether some other thread has it unblocked.
+     * To avoid heavyweight locks every time, we keep an atomic-access counter of
+     * unmasked threads for each signal, for the CLONE_SIGHAND group (typically
+     * whole process).
+     */
+    int threads_unmasked[SIGARRAY_SIZE];
+} sighand_info_t;
+
+typedef struct _thread_sig_info_t {
+    /* A pointer to handler info shared in a CLONG_SIGHAND group. */
+    sighand_info_t *sighand;
 
     /* We save the old sigaction across a sigaction syscall so we can return it
      * in post-syscall handling.
@@ -401,13 +422,6 @@ typedef struct _thread_sig_info_t {
      * squash alarm or profiling signals up until this point.
      */
     bool fully_initialized;
-
-    /* with CLONE_SIGHAND we may have to share app_sigaction */
-    bool shared_app_sigaction;
-    mutex_t *shared_lock;
-    int *shared_refcount;
-    /* signals we intercept must also be sharable */
-    bool *we_intercept;
 
     /* DR and clients use itimers, so we need to emulate the app's itimer
      * usage.  This info is shared across CLONE_THREAD threads only for
@@ -439,7 +453,26 @@ typedef struct _thread_sig_info_t {
     /* "lock" to prevent interrupting signal from messing up sigpending array */
     bool accessing_sigpending;
     bool nested_pending_ok;
+
+    /* This thread's application signal mask: the set of blocked signals.
+     * We need to keep this in sync with the thread-group-shared
+     * sighand->threads_unmasked.
+     *
+     * reroute_to_unmasked_thread() needs read access to app_sigblocked from other
+     * threads.  However, we also need lockless read access from our signal handler.
+     * Since all writes are from the owning thread, we read w/o a lock from the owning
+     * thread, but use the lock for writes from the owning thread and reads from
+     * other threads.  (The bitwise operations make it difficult to use atomic
+     * updates instead of a mutex.)
+     */
     kernel_sigset_t app_sigblocked;
+    mutex_t sigblocked_lock;
+    /* This is a not-guaranteed-accurate indicator of whether we're inside an
+     * app signal handler.  We can't know for sure when a handler ends if the
+     * app exits with a longjmp instead of siglongjmp.
+     */
+    bool in_app_handler;
+
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
     /* for preserving the app memory (xref i#1187), and for preserving app

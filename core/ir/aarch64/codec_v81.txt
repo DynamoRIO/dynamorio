@@ -28,16 +28,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# See header comments in codec_v80.txt and opnd_defs.txt to understand how
-# instructions are defined for the purposes of decode and encode code
-# generation.
+# The new codec will no longer use the instruction specification format of
+# codec_v80.txt and opnd_defs.txt to generate the decoder and encoder. This
+# file is a temporary placeholder using dummy definitions to enable codec.py to
+# ignore instructions handled by the new generator while it is in development.
 
 # Instruction definitions:
 
-0x1011111xxxxxxx1101x0xxxxxxxxxx  n   412  sqrdmlah  dq0 : dq5 dq16 vindex_SD sd_sz
-0x10111101xxxxxx1101x0xxxxxxxxxx  n   412  sqrdmlah  dq0 : dq5 dq16_h_sz vindex_H h_sz
-0111111101xxxxxx1101x0xxxxxxxxxx  n   412  sqrdmlah   h0 : h5 dq16_h_sz vindex_H h_sz
-0111111110xxxxxx1101x0xxxxxxxxxx  n   412  sqrdmlah   s0 : s5 dq16 vindex_SD sd_sz
-0x101110xx0xxxxx100001xxxxxxxxxx  n   412  sqrdmlah  dq0 : dq5 dq16 hs_sz
-01111110010xxxxx100001xxxxxxxxxx  n   412  sqrdmlah   h0 : h5 h16
-01111110100xxxxx100001xxxxxxxxxx  n   412  sqrdmlah   s0 : s5 s16
+00000000000000000000000000000000  n   412  sqrdmlah   :

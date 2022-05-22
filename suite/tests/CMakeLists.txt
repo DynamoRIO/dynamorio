@@ -1317,6 +1317,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<block>")
+        set(exe_ops "${exe_ops};-block")
+      endif ()
     else ()
       if ("${runall}" MATCHES "<attach>")
         # For attach we use attachee, which is identical to infloop, aside for writing
@@ -2106,6 +2109,12 @@ if (DEBUG)
   endif ()
 endif ()
 
+if (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_stats" "")
+else (DEBUG)
+  torunonly(common.no_global_stats_LONG ${ci_shared_app} ${ci_shared_app_src} "-no_global_rstats" "")
+endif (DEBUG)
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   # We don't want to link with DR.  We hack that for now by requesting drdecode so
   # we'll get the arch defs.  XXX: Add a better way!
@@ -2386,9 +2395,11 @@ if (ANNOTATIONS AND NOT ARM)
 endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
-  if (X86) # TODO i#38,i#1550: Port injector.c attach gencode to AArchXX.
-    # TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
-    tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (UNIX)
+    # Test attaching during a blocking syscall.
+    torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
+      client-interface/attach_blocking.runall "" "" "")
   endif ()
 endif ()
 
@@ -2543,6 +2554,10 @@ tobuild_ci(client.option_parse client-interface/option_parse.cpp
   "" "")
 use_DynamoRIO_extension(client.option_parse.dll droption)
 set(client.option_parse_client_ops_islist ON)
+
+if (AARCH64)
+  tobuild_ci(client.features client-interface/features.c "" "" "")
+endif ()
 
 tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
 
@@ -3020,10 +3035,8 @@ endif ()
 if (NOT ANDROID AND NOT APPLE)
   tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_startstop ${libmath})
-  if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
-    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
-    target_link_libraries(api.static_noclient ${libmath})
-  endif ()
+  tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
+  target_link_libraries(api.static_noclient ${libmath})
   tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON OFF)
   target_link_libraries(api.static_noinit ${libmath})
   tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON OFF)
@@ -3561,12 +3574,23 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
     endif ()
 
-    # Sanity check for snappy compression of raw output files.
-    torunonly_drcacheoff(raw-snappy ${ci_shared_app} "-raw_compress snappy" "" "")
-    set(tool.drcacheoff.raw-snappy_expectbase "offline-simple")
-    torunonly_drcacheoff(raw-snappy-nocrc ${ci_shared_app}
-      "-raw_compress snappy_nocrc" "" "")
-    set(tool.drcacheoff.raw-snappy-nocrc_expectbase "offline-simple")
+    # Sanity tests for compression of raw output files.
+    if (libsnappy)
+      torunonly_drcacheoff(raw-snappy ${ci_shared_app} "-raw_compress snappy" "" "")
+      set(tool.drcacheoff.raw-snappy_expectbase "offline-simple")
+      torunonly_drcacheoff(raw-snappy-nocrc ${ci_shared_app}
+        "-raw_compress snappy_nocrc" "" "")
+      set(tool.drcacheoff.raw-snappy-nocrc_expectbase "offline-simple")
+    endif ()
+    if (ZLIB_FOUND)
+      torunonly_drcacheoff(raw-zlib ${ci_shared_app} "-raw_compress zlib" "" "")
+      set(tool.drcacheoff.raw-zlib_expectbase "offline-simple")
+      torunonly_drcacheoff(raw-gzip ${ci_shared_app} "-raw_compress gzip" "" "")
+      set(tool.drcacheoff.raw-gzip_expectbase "offline-simple")
+    endif ()
+    # lz4 is on by default so we test no compression here.
+    torunonly_drcacheoff(raw-none ${ci_shared_app} "-raw_compress none" "" "")
+    set(tool.drcacheoff.raw-none_expectbase "offline-simple")
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
@@ -3625,6 +3649,21 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(windows-simple ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-simulator_type@basic_counts" "")
+    if (ZLIB_FOUND)
+      torunonly_drcacheoff(windows-zlib ${ci_shared_app}
+        "-raw_compress zlib -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+        "@-simulator_type@basic_counts" "")
+      set(tool.drcacheoff.windows-zlib_expectbase "offline-windows-simple")
+      torunonly_drcacheoff(windows-gzip ${ci_shared_app}
+        "-raw_compress gzip -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+        "@-simulator_type@basic_counts" "")
+      set(tool.drcacheoff.windows-gzip_expectbase "offline-windows-simple")
+    endif ()
+    # lz4 is on by default so we test no compression here.
+    torunonly_drcacheoff(windows-none ${ci_shared_app}
+      "-raw_compress none -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "@-simulator_type@basic_counts" "")
+    set(tool.drcacheoff.windows-none_expectbase "offline-windows-simple")
     # Ensure the invariant checker handles window transitions.
     torunonly_drcacheoff(windows-invar ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
@@ -3636,7 +3675,7 @@ if (BUILD_CLIENTS)
     endif ()
     # Test split-file windows.
     torunonly_drcacheoff(windows-split ${ci_shared_app}
-      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
+      "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K"
       "@-simulator_type@basic_counts" "")
     # The first postcmd did window #0.  There should be at least 2 more windows.
     set(tool.drcacheoff.windows-split_postcmd2
@@ -3786,7 +3825,10 @@ if (BUILD_CLIENTS)
             set(testname_full "tool.raw2trace.${testname}")
             torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
               "raw2trace-${testname}.c" # for templatex basename
-              "-offline -subdir_prefix ${testname_full} ${extra_ops}" "" "${app_args}")
+              # Disable compression, since we need to seek and our compression
+              # readers do not support seeking.
+              "-offline -raw_compress none -subdir_prefix ${testname_full} ${extra_ops}"
+              "" "${app_args}")
             set(${testname_full}_toolname "drcachesim")
             set(${testname_full}_basedir
               "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4369,6 +4411,12 @@ if (UNIX)
 
     tobuild(linux.signest linux/signest.c)
     link_with_pthread(linux.signest)
+
+    tobuild(linux.sigmask linux/sigmask.c)
+    link_with_pthread(linux.sigmask)
+    # Sanity check that this option works.
+    torunonly(linux.sigmask-noalarm linux.sigmask linux/sigmask.c
+      "-no_reroute_alarm_signals" "")
 
     if (UNIX)
       if (X64)

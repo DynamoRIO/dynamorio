@@ -58,9 +58,13 @@
 #ifdef HAS_ZLIB
 #    include "common/gzip_istream.h"
 #    include "common/gzip_ostream.h"
+#    include "common/zlib_istream.h"
 #endif
 #ifdef HAS_SNAPPY
 #    include "common/snappy_istream.h"
+#endif
+#ifdef HAS_LZ4
+#    include "common/lz4_istream.h"
 #endif
 
 #define FATAL_ERROR(msg, ...)                               \
@@ -117,20 +121,37 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     if (basename_dot == nullptr)
         return "";
     const char *basename_pre_suffix = nullptr;
-    bool is_gzipped = false, is_snappy = false;
 #ifdef HAS_ZLIB
+    bool is_gzipped = false, is_zlib = false;
     basename_pre_suffix =
         strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
     if (basename_pre_suffix != nullptr) {
         is_gzipped = true;
+    } else {
+        basename_pre_suffix =
+            strstr(basename_dot - strlen(OUTFILE_SUFFIX_ZLIB), OUTFILE_SUFFIX_ZLIB);
+        if (basename_pre_suffix != nullptr) {
+            is_zlib = true;
+        }
     }
 #endif
 #ifdef HAS_SNAPPY
+    bool is_snappy = false;
     if (basename_pre_suffix == nullptr) {
         basename_pre_suffix =
             strstr(basename_dot - strlen(OUTFILE_SUFFIX_SZ), OUTFILE_SUFFIX_SZ);
         if (basename_pre_suffix != nullptr) {
             is_snappy = true;
+        }
+    }
+#endif
+#ifdef HAS_LZ4
+    bool is_lz4 = false;
+    if (basename_pre_suffix == nullptr) {
+        basename_pre_suffix =
+            strstr(basename_dot - strlen(OUTFILE_SUFFIX_LZ4), OUTFILE_SUFFIX_LZ4);
+        if (basename_pre_suffix != nullptr) {
+            is_lz4 = true;
         }
     }
 #endif
@@ -147,15 +168,25 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
 #ifdef HAS_ZLIB
     if (is_gzipped)
         ifile = new gzip_istream_t(path);
+    else if (is_zlib)
+        ifile = new zlib_istream_t(path);
 #endif
 #ifdef HAS_SNAPPY
-    if (is_snappy)
+    if (is_snappy) {
+        if (ifile != nullptr)
+            return "Internal Error in determining input file type.";
         ifile = new snappy_istream_t(path);
+    }
 #endif
-    if (!is_gzipped && !is_snappy)
-        ifile = new std::ifstream(path, std::ifstream::binary);
+#ifdef HAS_LZ4
+    if (is_lz4) {
+        if (ifile != nullptr)
+            return "Internal Error in determining input file type.";
+        ifile = new lz4_istream_t(path);
+    }
+#endif
     if (ifile == nullptr)
-        return "Failed to open thread log file " + std::string(path);
+        ifile = new std::ifstream(path, std::ifstream::binary);
     in_files_.push_back(ifile);
     if (!(*in_files_.back()))
         return "Failed to open thread log file " + std::string(path);

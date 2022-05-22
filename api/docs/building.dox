@@ -45,7 +45,7 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
   ```
   # Install dependencies for Ubuntu 15+.  Adjust this command as appropriate for
   # other distributions (in particular, use "cmake3" for Ubuntu Trusty).
-  $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev libsnappy-dev
+  $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev libsnappy-dev liblz4-dev
   # Get sources.
   $ git clone https://github.com/DynamoRIO/dynamorio.git
   # Make a separate build directory.  Building in the source directory is not
@@ -165,7 +165,7 @@ In order to build both 32-bit and 64-bit on the same platform you'll need
 compiler support for targeting both architectures.  Then install these packages:
 
 ```
-sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev libunwind-dev:i386 libsnappy-dev
+sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev libunwind-dev:i386 libsnappy-dev liblz4-dev
 ```
 
 For older distributions, the `ia32-libs` package is needed.

@@ -611,6 +611,11 @@ if (NOT UNIX)
     add_definitions(-D_X86_)
   endif (X64)
 endif (NOT UNIX)
+if (UNIX)
+  # Ensure we can export dr_stat_syscall() from drlibc and get everyone to agree
+  # that struct stat64 is the stat struct.
+  add_definitions(-D_LARGEFILE64_SOURCE)
+endif ()
 
 # Set up assembly support and CMAKE_CPP.
 # Note that in cmake < 2.6.4, I had to fix a bug in
@@ -1761,7 +1766,7 @@ function (link_with_pthread target)
   endif ()
 endfunction ()
 
-# zlib and snappy are used for some clients/ and tests.
+# zlib, snappy, and lz4 are used for some clients/ and tests.
 find_package(ZLIB)
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
 if (UNIX AND X64)
@@ -1769,7 +1774,6 @@ if (UNIX AND X64)
   if (libsnappy)
     message(STATUS "Found snappy: ${libsnappy}")
   endif ()
-
   # Locate non-standard snappy directories on macOS.
   # TODO: Write proper package for snappy lookup.
   if (libsnappy AND APPLE)
@@ -1777,6 +1781,11 @@ if (UNIX AND X64)
     find_path(SNAPPY_LIB_DIR libsnappy.a HINTS /usr/local/lib)
     include_directories(${SNAPPY_INCLUDE_DIR})
     link_directories(${SNAPPY_LIB_DIR})
+  endif ()
+
+  find_library(liblz4 lz4)
+  if (liblz4)
+    message(STATUS "Found liblz4: ${liblz4}")
   endif ()
 endif ()
 

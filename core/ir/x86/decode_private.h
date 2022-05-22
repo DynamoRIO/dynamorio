@@ -370,6 +370,9 @@ struct _decode_info_t {
 
 /* N.B.: if you change the type enum, change the string names for
  * them, kept in encode.c
+ *
+ * The TYPE_x enums are listed in 'Appendix A Opcode Map (Intel SDM Volume 2)'
+ * specifically A.2.1 Codes for Addressing Method
  */
 
 /* operand types have 2 parts, type and size */

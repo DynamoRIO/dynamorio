@@ -77,7 +77,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          g++-multilib libunwind-dev
+          liblz4-dev g++-multilib libunwind-dev
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386
         mkdir ../extract
@@ -169,18 +169,20 @@ jobs:
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
     # Install cross-compiler for cross-compiling Linux build.
-    # Unfortunately there is no libunwind-dev or libunwind cross-compile
-    # package so we unpack the native versions and copy their files.
+    # Unfortunately there are no libunwind or compression cross-compile
+    # packages so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-aarch64-linux-gnu
+        sudo apt-get -y install doxygen vera++ cmake g++-aarch64-linux-gnu
         sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
-        apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64
+        apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64 \
+          zlib1g:arm64 zlib1g-dev:arm64 libsnappy1v5:arm64 libsnappy-dev:arm64 \
+          liblz4-1:arm64 liblz4-dev:arm64
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/aarch64-linux-gnu/include/
         sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
     - name: Get Version
@@ -253,18 +255,20 @@ jobs:
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
     # Install cross-compiler for cross-compiling Linux build.
-    # Unfortunately there is no libunwind-dev or libunwind cross-compile
-    # package so we unpack the native versions and copy their files.
+    # Unfortunately there are no libunwind or compression cross-compile
+    # packages so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf
+        sudo apt-get -y install doxygen vera++ cmake g++-arm-linux-gnueabihf
         sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
-        apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf
+        apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf \
+          zlib1g:armhf zlib1g-dev:armhf libsnappy1v5:armhf libsnappy-dev:armhf \
+          liblz4-1:armhf liblz4-dev:armhf
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/arm-linux-gnueabihf/include/
         sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Get Version
@@ -340,7 +344,7 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        sudo apt-get -y install doxygen vera++ cmake
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
         unzip -q android-ndk-r10e-linux-x86_64.zip

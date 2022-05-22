@@ -216,6 +216,7 @@ reg_spill_tls_offs(reg_id_t reg);
 #define REG_SAVED_XMM0 (YMM_ENABLED() ? REG_YMM0 : REG_XMM0)
 #define OPSZ_SAVED_OPMASK (proc_has_feature(FEATURE_AVX512BW) ? OPSZ_8 : OPSZ_2)
 
+#ifdef X86
 /* Xref the partially overlapping CONTEXT_PRESERVE_XMM */
 /* This routine also determines whether ymm registers should be saved. */
 static inline bool
@@ -232,7 +233,6 @@ preserve_xmm_caller_saved(void)
     return proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
 }
 
-#ifdef X86
 /* This is used for AVX-512 context switching and indicates whether AVX-512 has been seen
  * during decode. The variable is allocated on reachable heap during initialization.
  */
@@ -1770,5 +1770,8 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
 void
 instrlist_convert_to_x86(instrlist_t *ilist);
 #endif
-
+#ifdef AARCHXX
+bool
+mrs_id_reg_supported(void);
+#endif
 #endif /* ARCH_H */

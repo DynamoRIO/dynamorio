@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,6 +61,12 @@
 /* SIGSTKSZ*2 results in a fatal error from DR on fitting the copied frame. */
 #define ALT_STACK_SIZE (SIGSTKSZ * 4)
 
+#ifdef MACOS
+#    define DR_SUSPEND_SIGNAL SIGFPE /* DR's takeover signal. */
+#else
+#    define DR_SUSPEND_SIGNAL SIGSTKFLT /* DR's takeover signal. */
+#endif
+
 static volatile bool sideline_exit = false;
 static void *sideline_continue;
 static void *sideline_ready[NUM_THREADS];
@@ -88,7 +94,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     sigset_t expect_mask2;
     memcpy(&expect_mask2, &handler_mask, sizeof(expect_mask2));
     sigaddset(&expect_mask2, signal);
-    sigaddset(&expect_mask2, SIGUSR2);
+    sigaddset(&expect_mask2, DR_SUSPEND_SIGNAL);
     assert(memcmp(&expect_mask1, &actual_mask, sizeof(expect_mask1)) == 0 ||
            memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
 
@@ -109,7 +115,7 @@ sideline_spinner(void *arg)
          */
         sigset_t delay_attach_mask;
         sigemptyset(&delay_attach_mask);
-        sigaddset(&delay_attach_mask, SIGUSR2); /* DR's takeover signal. */
+        sigaddset(&delay_attach_mask, DR_SUSPEND_SIGNAL);
         int res = sigprocmask(SIG_SETMASK, &delay_attach_mask, NULL);
         assert(res == 0);
     }
@@ -118,8 +124,8 @@ sideline_spinner(void *arg)
     signal_cond_var(sideline_ready[idx]);
 
     if (idx == 0) {
-        /* Spend some time generating signals while SIGUSR2 is blocked to try and
-         * generate some after DR starts takeover and puts its own handler in place,
+        /* Spend some time generating signals while DR_SUSPEND_SIGNAL is blocked to try
+         * and generate some after DR starts takeover and puts its own handler in place,
          * but before it can take us over.
          */
         for (int i = 0; i < 10000; i++) {
@@ -217,7 +223,7 @@ main(void)
 
     sigset_t prior_mask;
     sigemptyset(&handler_mask);
-    sigaddset(&handler_mask, SIGUSR2);
+    sigaddset(&handler_mask, DR_SUSPEND_SIGNAL);
     int res = sigprocmask(SIG_SETMASK, &handler_mask, &prior_mask);
     assert(res == 0);
     res = sigprocmask(SIG_SETMASK, &prior_mask, NULL);

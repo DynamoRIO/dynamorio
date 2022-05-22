@@ -283,13 +283,24 @@ droption_t<bytesize_t> op_exit_after_tracing(
     "Use -max_global_trace_refs instead to avoid terminating the process.");
 
 droption_t<std::string> op_raw_compress(
-    DROPTION_SCOPE_CLIENT, "raw_compress", "none",
-    "Compression for raw offline files: \"snappy\", \"snappy_nocrc\", \"none\"",
+    DROPTION_SCOPE_CLIENT, "raw_compress",
+#if defined(HAS_LZ4) && !defined(DRMEMTRACE_STATIC)
+    // lz4 performs best but has no allocator parameterization so cannot be static.
+    "lz4",
+#elif defined(HAS_SNAPPY) && !defined(DRMEMTRACE_STATIC)
+    // snappy_nocrc also has no allocator parameterization so cannot be static.
+    "snappy_nocrc",
+#else
+    // All other choices are slowdowns for an SSD so we turn them off by default.
+    "none",
+#endif
+    "Raw compression: \"snappy\",\"snappy_nocrc\",\"gzip\",\"zlib\",\"lz4\",\"none\"",
     "Specifies the compression type to use for raw offline files: \"snappy\", "
-    "\"snappy_nocrc\" (snappy without checksums, which is much faster), or \"none\". "
-    "Whether this reduces overhead depends on the storage type: for "
-    "an SSD this typically adds overhead and would only be used if space is at a "
-    "premium; for a spinning disk using snappy should be a performance win.");
+    "\"snappy_nocrc\" (snappy without checksums, which is much faster), \"gzip\", "
+    "\"zlib\", \"lz4\", or \"none\".  Whether this reduces overhead depends on the "
+    "storage type: "
+    "for an SSD, zlib and gzip typically add overhead and would only be used if space is "
+    "at a premium; snappy_nocrc and lz4 are nearly always performance wins.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
