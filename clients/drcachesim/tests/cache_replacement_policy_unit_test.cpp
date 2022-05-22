@@ -133,9 +133,11 @@ unit_test_cache_fifo_four_way()
     const addr_t ADDRESS_A = 0;
     const addr_t ADDRESS_B = 64;
     const addr_t ADDRESS_C = 128;
-    const addr_t ADDRESS_D = 192;
-    const addr_t ADDRESS_E = 72;
-    const addr_t ADDRESS_F = 130;
+    const addr_t ADDRESS_D = 256;
+    const addr_t ADDRESS_E = 320;
+    const addr_t ADDRESS_F = 384;
+    const addr_t ADDRESS_G = 448;
+    const addr_t ADDRESS_H = 512;
 
     assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
            cache_fifo_test.get_block_index(ADDRESS_B));
@@ -147,6 +149,10 @@ unit_test_cache_fifo_four_way()
            cache_fifo_test.get_block_index(ADDRESS_E));
     assert(cache_fifo_test.get_block_index(ADDRESS_E) ==
            cache_fifo_test.get_block_index(ADDRESS_F));
+    assert(cache_fifo_test.get_block_index(ADDRESS_F) ==
+           cache_fifo_test.get_block_index(ADDRESS_G));
+    assert(cache_fifo_test.get_block_index(ADDRESS_G) ==
+           cache_fifo_test.get_block_index(ADDRESS_H));
 
     // Lower-case letter shows the way that is to be replaced after the access.
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A x X X
@@ -156,16 +162,20 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // e B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 0); // f B C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 1); // E b C D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 2); // E F c D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 2); // E F c D
+    cache_fifo_test.access_and_check_fifo(ADDRESS_G, 3); // E F G d
+    cache_fifo_test.access_and_check_fifo(ADDRESS_G, 3); // E F G d
+    cache_fifo_test.access_and_check_fifo(ADDRESS_H, 0); // e F G H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // E f G H
 }
 
 void
 unit_test_cache_fifo_eight_way()
 {
     cache_fifo_test_t cache_fifo_test;
-    cache_fifo_test.initialize_cache(/*associativity=*/8, /*line_size=*/32,
+    cache_fifo_test.initialize_cache(/*associativity=*/8, /*line_size=*/64,
                                      /*total_size=*/1024);
     const addr_t ADDRESS_A = 0;
     const addr_t ADDRESS_B = 128;
@@ -175,10 +185,10 @@ unit_test_cache_fifo_eight_way()
     const addr_t ADDRESS_F = 640;
     const addr_t ADDRESS_G = 768;
     const addr_t ADDRESS_H = 896;
-    const addr_t ADDRESS_I = 144;
-    const addr_t ADDRESS_J = 150;
-    const addr_t ADDRESS_K = 900;
-    const addr_t ADDRESS_L = 780;
+    const addr_t ADDRESS_I = 1024;
+    const addr_t ADDRESS_J = 1152;
+    const addr_t ADDRESS_K = 1280;
+    const addr_t ADDRESS_L = 1408;
 
     assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
            cache_fifo_test.get_block_index(ADDRESS_B));
@@ -210,14 +220,13 @@ unit_test_cache_fifo_eight_way()
     cache_fifo_test.access_and_check_fifo(ADDRESS_G, 7); // A  B  C  D  F  F  G  x
     cache_fifo_test.access_and_check_fifo(ADDRESS_H, 0); // a  B  C  D  E  F  G  H
     cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
     cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 0); // i  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_J, 0); // j  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_K, 0); // k  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 0); // l  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 1); // I  b  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_J, 2); // I  J  c  D  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_K, 3); // I  J  K  d  E  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
+    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
 }
 
 void
