@@ -99,6 +99,17 @@ public:
         assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
                expected_replacement_way_after_access);
     }
+
+    bool
+    tags_are_different(const std::vector<int> &addresses)
+    {
+        for (int i = 1; i < addresses.size(); ++i) {
+            if (this->compute_tag(addresses[i - 1]) == this->compute_tag(addresses[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 class cache_fifo_test_t : public cache_fifo_t {
@@ -193,6 +204,10 @@ unit_test_cache_fifo_four_way()
     assert(cache_fifo_test.get_block_index(ADDRESS_G) ==
            cache_fifo_test.get_block_index(ADDRESS_H));
 
+    assert(cache_fifo_test.tags_are_different(
+        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E,
+                           ADDRESS_F, ADDRESS_G, ADDRESS_H }));
+
     // Lower-case letter shows the way that is to be replaced after the access.
     cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A x X X
     cache_fifo_test.access_and_check_cache(ADDRESS_B, 2); // A B x X
@@ -249,6 +264,10 @@ unit_test_cache_fifo_eight_way()
            cache_fifo_test.get_block_index(ADDRESS_K));
     assert(cache_fifo_test.get_block_index(ADDRESS_K) ==
            cache_fifo_test.get_block_index(ADDRESS_L));
+
+    assert(cache_fifo_test.tags_are_different(std::vector<int> {
+        ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E, ADDRESS_F, ADDRESS_G,
+        ADDRESS_H, ADDRESS_I, ADDRESS_J, ADDRESS_K, ADDRESS_L }));
 
     // Lower-case letter shows the way that is to be replaced after the access
     // (aka 'first way').
