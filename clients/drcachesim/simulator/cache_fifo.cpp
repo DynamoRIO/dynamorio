@@ -78,13 +78,13 @@ int
 cache_fifo_t::replace_which_way(int block_idx)
 {
     int victim_way = get_next_way_to_replace(block_idx);
-    if (victim_way != -1) {
-        // clear the counter of the victim block
-        get_caching_device_block(block_idx, victim_way).counter_ = 0;
-        // set the next block as victim
-        get_caching_device_block(block_idx, (victim_way + 1) & (associativity_ - 1))
-            .counter_ = 1;
-    }
+    if (victim_way == -1)
+        return -1;
+    // clear the counter of the victim block
+    get_caching_device_block(block_idx, victim_way).counter_ = 0;
+    // set the next block as victim
+    get_caching_device_block(block_idx, (victim_way + 1) & (associativity_ - 1))
+        .counter_ = 1;
     return victim_way;
 }
 

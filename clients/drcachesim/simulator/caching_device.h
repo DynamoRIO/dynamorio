@@ -116,7 +116,7 @@ public:
         use_tag2block_table_ = use_hashtable;
     }
     int
-    get_block_index(const addr_t addr)
+    get_block_index(const addr_t addr) const
     {
         addr_t tag = compute_tag(addr);
         int block_idx = compute_block_idx(tag);
@@ -135,12 +135,12 @@ protected:
                         caching_device_block_t *cache_block);
 
     inline addr_t
-    compute_tag(addr_t addr)
+    compute_tag(addr_t addr) const
     {
         return addr >> block_size_bits_;
     }
     inline int
-    compute_block_idx(addr_t tag)
+    compute_block_idx(addr_t tag) const
     {
         return (tag & blocks_per_set_mask_) << assoc_bits_;
     }

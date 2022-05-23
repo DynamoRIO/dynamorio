@@ -38,32 +38,6 @@
 #include "simulator/cache_fifo.h"
 #include "simulator/cache_lru.h"
 
-class cache_lru_test_t : public cache_lru_t {
-public:
-    void
-    initialize_cache(int associativity, int line_size, int total_size)
-    {
-        caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
-        if (!init(associativity, line_size, total_size, nullptr, stats, nullptr)) {
-            std::cerr << "LRU cache failed to initialize\n";
-            exit(1);
-        }
-    }
-
-    void
-    access_and_check_lru(const addr_t addr,
-                         const int expected_replacement_way_after_access)
-    {
-        memref_t ref;
-        ref.data.type = TRACE_TYPE_READ;
-        ref.data.size = 1;
-        ref.data.addr = addr;
-        request(ref);
-        assert(get_next_way_to_replace(get_block_index(addr)) ==
-               expected_replacement_way_after_access);
-    }
-};
-
 template <class T> class cache_policy_test_t : public T {
     int associativity_;
     int line_size_;
@@ -103,73 +77,65 @@ public:
     bool
     tags_are_different(const std::vector<int> &addresses)
     {
-        for (int i = 1; i < addresses.size(); ++i) {
-            if (this->compute_tag(addresses[i - 1]) == this->compute_tag(addresses[i])) {
-                return false;
+        for (int i = 0; i < addresses.size(); ++i) {
+            for (int j = 0; j < addresses.size(); ++j) {
+                if (i != j) { // Skip comparison if same element.
+                    if (this->compute_tag(addresses[i]) ==
+                        this->compute_tag(addresses[j])) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    bool
+    block_indices_are_identical(const std::vector<int> &addresses)
+    {
+        for (int i = 0; i < addresses.size(); ++i) {
+            for (int j = 0; j < addresses.size(); ++j) {
+                if (this->get_block_index(addresses[i]) !=
+                    this->get_block_index(addresses[j])) {
+                    return false;
+                }
             }
         }
         return true;
     }
 };
 
-class cache_fifo_test_t : public cache_fifo_t {
-public:
-    void
-    initialize_cache(int associativity, int line_size, int total_size)
-    {
-        caching_device_stats_t *stats = new cache_stats_t(line_size, "", true);
-        if (!init(associativity, line_size, total_size, nullptr, stats, nullptr)) {
-            std::cerr << "FIFO cache failed to initialize\n";
-            exit(1);
-        }
-    }
-
-    void
-    access_and_check_fifo(const addr_t addr,
-                          const int expected_replacement_way_after_access)
-    {
-        memref_t ref;
-        ref.data.type = TRACE_TYPE_READ;
-        ref.data.size = 1;
-        ref.data.addr = addr;
-        request(ref);
-        assert(get_next_way_to_replace(get_block_index(addr)) ==
-               expected_replacement_way_after_access);
-    }
-};
-
 void
 unit_test_cache_lru_four_way()
 {
-    cache_lru_test_t cache_lru_test;
-    cache_lru_test.initialize_cache(/*associativity=*/4, /*line_size=*/32,
-                                    /*total_size=*/256);
+    cache_policy_test_t<cache_lru_t> cache_lru_test(/*associativity=*/4,
+                                                    /*line_size=*/32,
+                                                    /*total_size=*/256);
+    cache_lru_test.initialize_cache();
+
     const addr_t ADDRESS_A = 0;
     const addr_t ADDRESS_B = 64;
     const addr_t ADDRESS_C = 128;
     const addr_t ADDRESS_D = 192;
-    const addr_t ADDRESS_E = 72;
+    const addr_t ADDRESS_E = 320;
 
-    assert(cache_lru_test.get_block_index(ADDRESS_A) ==
-           cache_lru_test.get_block_index(ADDRESS_B));
-    assert(cache_lru_test.get_block_index(ADDRESS_B) ==
-           cache_lru_test.get_block_index(ADDRESS_C));
-    assert(cache_lru_test.get_block_index(ADDRESS_C) ==
-           cache_lru_test.get_block_index(ADDRESS_D));
-    assert(cache_lru_test.get_block_index(ADDRESS_D) ==
-           cache_lru_test.get_block_index(ADDRESS_E));
+    assert(cache_lru_test.block_indices_are_identical(
+        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E }));
+
+    assert(cache_lru_test.tags_are_different(
+        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E }));
 
     // Access the cache line in the following fashion. This sequence follows the
     // sequence shown in i#4881.
     // Lower-case letter shows the least recently used way.
-    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A x X X
-    cache_lru_test.access_and_check_lru(ADDRESS_B, 2); // A B x X
-    cache_lru_test.access_and_check_lru(ADDRESS_C, 3); // A B C x
-    cache_lru_test.access_and_check_lru(ADDRESS_D, 0); // a B C D
-    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A b C D
-    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A b C D
-    cache_lru_test.access_and_check_lru(ADDRESS_A, 1); // A b C D
-    cache_lru_test.access_and_check_lru(ADDRESS_E, 2); // A E c D
+    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A x X X
+    cache_lru_test.access_and_check_cache(ADDRESS_B, 2); // A B x X
+    cache_lru_test.access_and_check_cache(ADDRESS_C, 3); // A B C x
+    cache_lru_test.access_and_check_cache(ADDRESS_D, 0); // a B C D
+    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A b C D
+    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A b C D
+    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A b C D
+    cache_lru_test.access_and_check_cache(ADDRESS_E, 2); // A E c D
 }
 
 void
@@ -189,20 +155,9 @@ unit_test_cache_fifo_four_way()
     const addr_t ADDRESS_G = 448;
     const addr_t ADDRESS_H = 512;
 
-    assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
-           cache_fifo_test.get_block_index(ADDRESS_B));
-    assert(cache_fifo_test.get_block_index(ADDRESS_B) ==
-           cache_fifo_test.get_block_index(ADDRESS_C));
-    assert(cache_fifo_test.get_block_index(ADDRESS_C) ==
-           cache_fifo_test.get_block_index(ADDRESS_D));
-    assert(cache_fifo_test.get_block_index(ADDRESS_D) ==
-           cache_fifo_test.get_block_index(ADDRESS_E));
-    assert(cache_fifo_test.get_block_index(ADDRESS_E) ==
-           cache_fifo_test.get_block_index(ADDRESS_F));
-    assert(cache_fifo_test.get_block_index(ADDRESS_F) ==
-           cache_fifo_test.get_block_index(ADDRESS_G));
-    assert(cache_fifo_test.get_block_index(ADDRESS_G) ==
-           cache_fifo_test.get_block_index(ADDRESS_H));
+    assert(cache_fifo_test.block_indices_are_identical(
+        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E,
+                           ADDRESS_F, ADDRESS_G, ADDRESS_H }));
 
     assert(cache_fifo_test.tags_are_different(
         std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E,
@@ -222,7 +177,7 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check_cache(ADDRESS_G, 3); // E F G d
     cache_fifo_test.access_and_check_cache(ADDRESS_G, 3); // E F G d
     cache_fifo_test.access_and_check_cache(ADDRESS_H, 0); // e F G H
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // E f G H
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A f G H
 }
 
 void
@@ -246,24 +201,9 @@ unit_test_cache_fifo_eight_way()
     const addr_t ADDRESS_K = 1280;
     const addr_t ADDRESS_L = 1408;
 
-    assert(cache_fifo_test.get_block_index(ADDRESS_A) ==
-           cache_fifo_test.get_block_index(ADDRESS_B));
-    assert(cache_fifo_test.get_block_index(ADDRESS_B) ==
-           cache_fifo_test.get_block_index(ADDRESS_C));
-    assert(cache_fifo_test.get_block_index(ADDRESS_C) ==
-           cache_fifo_test.get_block_index(ADDRESS_D));
-    assert(cache_fifo_test.get_block_index(ADDRESS_D) ==
-           cache_fifo_test.get_block_index(ADDRESS_E));
-    assert(cache_fifo_test.get_block_index(ADDRESS_F) ==
-           cache_fifo_test.get_block_index(ADDRESS_G));
-    assert(cache_fifo_test.get_block_index(ADDRESS_H) ==
-           cache_fifo_test.get_block_index(ADDRESS_I));
-    assert(cache_fifo_test.get_block_index(ADDRESS_I) ==
-           cache_fifo_test.get_block_index(ADDRESS_J));
-    assert(cache_fifo_test.get_block_index(ADDRESS_J) ==
-           cache_fifo_test.get_block_index(ADDRESS_K));
-    assert(cache_fifo_test.get_block_index(ADDRESS_K) ==
-           cache_fifo_test.get_block_index(ADDRESS_L));
+    assert(cache_fifo_test.block_indices_are_identical(std::vector<int> {
+        ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E, ADDRESS_F, ADDRESS_G,
+        ADDRESS_H, ADDRESS_I, ADDRESS_J, ADDRESS_K, ADDRESS_L }));
 
     assert(cache_fifo_test.tags_are_different(std::vector<int> {
         ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E, ADDRESS_F, ADDRESS_G,

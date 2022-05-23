@@ -269,9 +269,6 @@ caching_device_t::get_next_way_to_replace(const int block_idx) const
     // The base caching device class only implements LFU.
     // A subclass can override this and access_update() to implement
     // some other scheme.
-    // Return the victim 'way' for the default LFU cache which the base class
-    // implements. Subclasses override this and return victim 'way' specific to
-    // their own implementation.
     int min_counter = 0; /* avoid "may be used uninitialized" with GCC 4.4.7 */
     int min_way = 0;
     for (int way = 0; way < associativity_; ++way) {
