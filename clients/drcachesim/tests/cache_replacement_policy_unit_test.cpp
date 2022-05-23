@@ -64,6 +64,43 @@ public:
     }
 };
 
+template <class T> class cache_policy_test_t : public T {
+    int associativity_;
+    int line_size_;
+    int total_size_;
+
+public:
+    cache_policy_test_t(int associativity, int line_size, int total_size)
+    {
+        associativity_ = associativity;
+        line_size_ = line_size;
+        total_size_ = total_size;
+    }
+    void
+    initialize_cache()
+    {
+        caching_device_stats_t *stats = new cache_stats_t(line_size_, "", true);
+        if (!this->init(associativity_, line_size_, total_size_, nullptr, stats,
+                        nullptr)) {
+            std::cerr << "FIFO cache failed to initialize\n";
+            exit(1);
+        }
+    }
+
+    void
+    access_and_check_cache(const addr_t addr,
+                           const int expected_replacement_way_after_access)
+    {
+        memref_t ref;
+        ref.data.type = TRACE_TYPE_READ;
+        ref.data.size = 1;
+        ref.data.addr = addr;
+        this->request(ref);
+        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
+               expected_replacement_way_after_access);
+    }
+};
+
 class cache_fifo_test_t : public cache_fifo_t {
 public:
     void
@@ -127,9 +164,11 @@ unit_test_cache_lru_four_way()
 void
 unit_test_cache_fifo_four_way()
 {
-    cache_fifo_test_t cache_fifo_test;
-    cache_fifo_test.initialize_cache(/*associativity=*/4, /*line_size=*/32,
-                                     /*total_size=*/256);
+    cache_policy_test_t<cache_fifo_t> cache_fifo_test(/*associativity=*/4,
+                                                      /*line_size=*/32,
+                                                      /*total_size=*/256);
+    cache_fifo_test.initialize_cache();
+
     const addr_t ADDRESS_A = 0;
     const addr_t ADDRESS_B = 64;
     const addr_t ADDRESS_C = 128;
@@ -155,28 +194,30 @@ unit_test_cache_fifo_four_way()
            cache_fifo_test.get_block_index(ADDRESS_H));
 
     // Lower-case letter shows the way that is to be replaced after the access.
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A x X X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_B, 2); // A B x X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_C, 3); // A B C x
-    cache_fifo_test.access_and_check_fifo(ADDRESS_D, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 1); // E b C D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 2); // E F c D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 2); // E F c D
-    cache_fifo_test.access_and_check_fifo(ADDRESS_G, 3); // E F G d
-    cache_fifo_test.access_and_check_fifo(ADDRESS_G, 3); // E F G d
-    cache_fifo_test.access_and_check_fifo(ADDRESS_H, 0); // e F G H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // E f G H
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A x X X
+    cache_fifo_test.access_and_check_cache(ADDRESS_B, 2); // A B x X
+    cache_fifo_test.access_and_check_cache(ADDRESS_C, 3); // A B C x
+    cache_fifo_test.access_and_check_cache(ADDRESS_D, 0); // a B C D
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a B C D
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a B C D
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a B C D
+    cache_fifo_test.access_and_check_cache(ADDRESS_E, 1); // E b C D
+    cache_fifo_test.access_and_check_cache(ADDRESS_F, 2); // E F c D
+    cache_fifo_test.access_and_check_cache(ADDRESS_F, 2); // E F c D
+    cache_fifo_test.access_and_check_cache(ADDRESS_G, 3); // E F G d
+    cache_fifo_test.access_and_check_cache(ADDRESS_G, 3); // E F G d
+    cache_fifo_test.access_and_check_cache(ADDRESS_H, 0); // e F G H
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // E f G H
 }
 
 void
 unit_test_cache_fifo_eight_way()
 {
-    cache_fifo_test_t cache_fifo_test;
-    cache_fifo_test.initialize_cache(/*associativity=*/8, /*line_size=*/64,
-                                     /*total_size=*/1024);
+    cache_policy_test_t<cache_fifo_t> cache_fifo_test(/*associativity=*/8,
+                                                      /*line_size=*/64,
+                                                      /*total_size=*/1024);
+    cache_fifo_test.initialize_cache();
+
     const addr_t ADDRESS_A = 0;
     const addr_t ADDRESS_B = 128;
     const addr_t ADDRESS_C = 256;
@@ -211,22 +252,22 @@ unit_test_cache_fifo_eight_way()
 
     // Lower-case letter shows the way that is to be replaced after the access
     // (aka 'first way').
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 1); // A  x  X  X  X  X  X  X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_B, 2); // A  B  x  X  X  X  X  X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_C, 3); // A  B  C  x  X  X  X  X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_D, 4); // A  B  C  D  x  X  X  X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 5); // A  B  C  D  E  x  X  X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_F, 6); // A  B  C  D  E  F  x  X
-    cache_fifo_test.access_and_check_fifo(ADDRESS_G, 7); // A  B  C  D  F  F  G  x
-    cache_fifo_test.access_and_check_fifo(ADDRESS_H, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_I, 1); // I  b  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_J, 2); // I  J  c  D  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_K, 3); // I  J  K  d  E  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
-    cache_fifo_test.access_and_check_fifo(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A  x  X  X  X  X  X  X
+    cache_fifo_test.access_and_check_cache(ADDRESS_B, 2); // A  B  x  X  X  X  X  X
+    cache_fifo_test.access_and_check_cache(ADDRESS_C, 3); // A  B  C  x  X  X  X  X
+    cache_fifo_test.access_and_check_cache(ADDRESS_D, 4); // A  B  C  D  x  X  X  X
+    cache_fifo_test.access_and_check_cache(ADDRESS_E, 5); // A  B  C  D  E  x  X  X
+    cache_fifo_test.access_and_check_cache(ADDRESS_F, 6); // A  B  C  D  E  F  x  X
+    cache_fifo_test.access_and_check_cache(ADDRESS_G, 7); // A  B  C  D  F  F  G  x
+    cache_fifo_test.access_and_check_cache(ADDRESS_H, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_I, 1); // I  b  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_J, 2); // I  J  c  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_K, 3); // I  J  K  d  E  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
+    cache_fifo_test.access_and_check_cache(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
 }
 
 void
