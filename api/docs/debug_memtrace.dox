@@ -66,7 +66,7 @@ Of course, if the raw file is compressed, it must first be uncompressed.  Use `u
 
 Cheat sheet:
 
-- c000000000000001 is a header (ver 1)
+- c040000000000004 is a header (offline version 4; type 0x40==OFFLINE_FILE_TYPE_ARCH_X86_64)
 - c100000000000000 is a footer
 - 8* is a timestamp
 - 6* is a pid
