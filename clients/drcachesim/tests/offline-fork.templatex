@@ -1,4 +1,7 @@
-Hello, world!
+parent is running under DynamoRIO
+parent waiting for child
+child is running under DynamoRIO
+child has exited
 Cache simulation results:
 Core #0 \(1 thread\(s\)\)
   L1I stats:
