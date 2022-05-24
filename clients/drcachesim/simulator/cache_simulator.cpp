@@ -108,9 +108,9 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
                    new cache_stats_t((int)knobs_.line_size, knobs_.LL_miss_file,
                                      warmup_enabled_))) {
         error_string_ =
-            "Usage error: failed to initialize LL cache.  Ensure sizes and "
-            "associativity are powers of 2, that the total size is a multiple "
-            "of the line size, and that any miss file path is writable.";
+            "Usage error: failed to initialize LL cache.  Ensure line size is "
+            "a multiple of 2, that the total size is a multiple of line size "
+            "and associativity, and that any miss file path is writable.";
         success_ = false;
         return;
     }

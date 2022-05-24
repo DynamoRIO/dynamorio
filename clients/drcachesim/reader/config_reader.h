@@ -71,7 +71,7 @@ struct cache_params_t {
     int core;
     // Cache size in bytes.
     uint64_t size;
-    // Cache associativity. Must be a power of 2.
+    // Cache associativity.
     unsigned int assoc;
     // Is the cache inclusive of its children.
     bool inclusive;

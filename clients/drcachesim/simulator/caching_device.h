@@ -133,12 +133,17 @@ protected:
     inline int
     compute_block_idx(addr_t tag)
     {
-        return (tag & blocks_per_set_mask_) << assoc_bits_;
+        return (tag & blocks_per_way_mask_) * associativity_;
     }
     inline caching_device_block_t &
     get_caching_device_block(int block_idx, int way)
     {
         return *(blocks_[block_idx + way]);
+    }
+    inline caching_device_block_t &
+    get_caching_device_block_scaled(int block_num, int way)
+    {
+        return get_caching_device_block(block_num * associativity_, way);
     }
 
     inline void
@@ -194,10 +199,9 @@ protected:
     // an extended block class which has its own member variables cannot be indexed
     // correctly by base class pointers.
     caching_device_block_t **blocks_;
-    int blocks_per_set_;
+    int blocks_per_way_;
     // Optimization fields for fast bit operations
-    int blocks_per_set_mask_;
-    int assoc_bits_;
+    int blocks_per_way_mask_;
     int block_size_bits_;
 
     caching_device_stats_t *stats_;
