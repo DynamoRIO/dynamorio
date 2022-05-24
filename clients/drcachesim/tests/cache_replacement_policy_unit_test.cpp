@@ -75,8 +75,9 @@ public:
     }
 
     bool
-    tags_are_different(const std::vector<int> &addresses)
+    tags_are_different(const std::vector<addr_t> &addresses)
     {
+        // Quadratic solution is ok here since we expect only very short vectors.
         for (int i = 0; i < addresses.size(); ++i) {
             for (int j = 0; j < addresses.size(); ++j) {
                 if (i != j) { // Skip comparison if same element.
@@ -91,14 +92,12 @@ public:
     }
 
     bool
-    block_indices_are_identical(const std::vector<int> &addresses)
+    block_indices_are_identical(const std::vector<addr_t> &addresses)
     {
-        for (int i = 0; i < addresses.size(); ++i) {
-            for (int j = 0; j < addresses.size(); ++j) {
-                if (this->get_block_index(addresses[i]) !=
-                    this->get_block_index(addresses[j])) {
-                    return false;
-                }
+        for (int i = 1; i < addresses.size(); ++i) {
+            if (this->get_block_index(addresses[i - 1]) !=
+                this->get_block_index(addresses[i])) {
+                return false;
             }
         }
         return true;
@@ -119,11 +118,10 @@ unit_test_cache_lru_four_way()
     const addr_t ADDRESS_D = 192;
     const addr_t ADDRESS_E = 320;
 
-    assert(cache_lru_test.block_indices_are_identical(
-        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E }));
-
-    assert(cache_lru_test.tags_are_different(
-        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E }));
+    const std::vector<addr_t> address_vector = { ADDRESS_A, ADDRESS_B, ADDRESS_C,
+                                                 ADDRESS_D, ADDRESS_E };
+    assert(cache_lru_test.block_indices_are_identical(address_vector));
+    assert(cache_lru_test.tags_are_different(address_vector));
 
     // Access the cache line in the following fashion. This sequence follows the
     // sequence shown in i#4881.
@@ -155,13 +153,11 @@ unit_test_cache_fifo_four_way()
     const addr_t ADDRESS_G = 448;
     const addr_t ADDRESS_H = 512;
 
-    assert(cache_fifo_test.block_indices_are_identical(
-        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E,
-                           ADDRESS_F, ADDRESS_G, ADDRESS_H }));
-
-    assert(cache_fifo_test.tags_are_different(
-        std::vector<int> { ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E,
-                           ADDRESS_F, ADDRESS_G, ADDRESS_H }));
+    const std::vector<addr_t> address_vector = { ADDRESS_A, ADDRESS_B, ADDRESS_C,
+                                                 ADDRESS_D, ADDRESS_E, ADDRESS_F,
+                                                 ADDRESS_G, ADDRESS_H };
+    assert(cache_fifo_test.block_indices_are_identical(address_vector));
+    assert(cache_fifo_test.tags_are_different(address_vector));
 
     // Lower-case letter shows the way that is to be replaced after the access.
     cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A x X X
@@ -201,13 +197,12 @@ unit_test_cache_fifo_eight_way()
     const addr_t ADDRESS_K = 1280;
     const addr_t ADDRESS_L = 1408;
 
-    assert(cache_fifo_test.block_indices_are_identical(std::vector<int> {
-        ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E, ADDRESS_F, ADDRESS_G,
-        ADDRESS_H, ADDRESS_I, ADDRESS_J, ADDRESS_K, ADDRESS_L }));
-
-    assert(cache_fifo_test.tags_are_different(std::vector<int> {
-        ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_D, ADDRESS_E, ADDRESS_F, ADDRESS_G,
-        ADDRESS_H, ADDRESS_I, ADDRESS_J, ADDRESS_K, ADDRESS_L }));
+    const std::vector<addr_t> address_vector = { ADDRESS_A, ADDRESS_B, ADDRESS_C,
+                                                 ADDRESS_D, ADDRESS_E, ADDRESS_F,
+                                                 ADDRESS_G, ADDRESS_H, ADDRESS_I,
+                                                 ADDRESS_J, ADDRESS_K, ADDRESS_L };
+    assert(cache_fifo_test.block_indices_are_identical(address_vector));
+    assert(cache_fifo_test.tags_are_different(address_vector));
 
     // Lower-case letter shows the way that is to be replaced after the access
     // (aka 'first way').
