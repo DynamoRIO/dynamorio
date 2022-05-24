@@ -2897,6 +2897,15 @@ init_offline_dir(void)
 static void
 fork_init(void *drcontext)
 {
+    if (op_offline.get_value()) {
+        /* XXX i#4660: droption references at fork init time use malloc.
+         * We do not fully support static link with fork at this time.
+         */
+        dr_allow_unsafe_static_behavior();
+#    ifdef DRMEMTRACE_STATIC
+        NOTIFY(0, "-offline across a fork is unsafe with statically linked clients\n");
+#    endif
+    }
     /* We use DR_FILE_CLOSE_ON_FORK, and we dumped outstanding data prior to the
      * fork syscall, so we just need to create a new subdir, new module log, and
      * a new initial thread file for offline, or register the new process for
