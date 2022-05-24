@@ -2908,6 +2908,7 @@ fork_init(void *drcontext)
      */
     data->num_refs = 0;
     if (op_offline.get_value()) {
+        data->file = INVALID_FILE;
         if (!init_offline_dir()) {
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
