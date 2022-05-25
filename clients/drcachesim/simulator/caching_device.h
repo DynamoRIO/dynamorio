@@ -115,28 +115,37 @@ public:
         }
         use_tag2block_table_ = use_hashtable;
     }
+    int
+    get_block_index(const addr_t addr) const
+    {
+        addr_t tag = compute_tag(addr);
+        int block_idx = compute_block_idx(tag);
+        return block_idx;
+    }
 
 protected:
     virtual void
     access_update(int block_idx, int way);
     virtual int
     replace_which_way(int block_idx);
+    virtual int
+    get_next_way_to_replace(const int block_idx) const;
     virtual void
     record_access_stats(const memref_t &memref, bool hit,
                         caching_device_block_t *cache_block);
 
     inline addr_t
-    compute_tag(addr_t addr)
+    compute_tag(addr_t addr) const
     {
         return addr >> block_size_bits_;
     }
     inline int
-    compute_block_idx(addr_t tag)
+    compute_block_idx(addr_t tag) const
     {
         return (tag & blocks_per_set_mask_) << assoc_bits_;
     }
     inline caching_device_block_t &
-    get_caching_device_block(int block_idx, int way)
+    get_caching_device_block(int block_idx, int way) const
     {
         return *(blocks_[block_idx + way]);
     }

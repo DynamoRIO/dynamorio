@@ -63,34 +63,40 @@ cache_lru_t::init(int associativity, int block_size, int total_size,
 }
 
 void
-cache_lru_t::access_update(int line_idx, int way)
+cache_lru_t::access_update(int block_idx, int way)
 {
-    int cnt = get_caching_device_block(line_idx, way).counter_;
+    int cnt = get_caching_device_block(block_idx, way).counter_;
     // Optimization: return early if it is a repeated access.
     if (cnt == 0)
         return;
     // We inc all the counters that are not larger than cnt for LRU.
     for (int i = 0; i < associativity_; ++i) {
-        if (i != way && get_caching_device_block(line_idx, i).counter_ <= cnt)
-            get_caching_device_block(line_idx, i).counter_++;
+        if (i != way && get_caching_device_block(block_idx, i).counter_ <= cnt)
+            get_caching_device_block(block_idx, i).counter_++;
     }
     // Clear the counter for LRU.
-    get_caching_device_block(line_idx, way).counter_ = 0;
+    get_caching_device_block(block_idx, way).counter_ = 0;
 }
 
 int
-cache_lru_t::replace_which_way(int line_idx)
+cache_lru_t::replace_which_way(int block_idx)
+{
+    return get_next_way_to_replace(block_idx);
+}
+
+int
+cache_lru_t::get_next_way_to_replace(int block_idx) const
 {
     // We implement LRU by picking the slot with the largest counter value.
     int max_counter = 0;
     int max_way = 0;
     for (int way = 0; way < associativity_; ++way) {
-        if (get_caching_device_block(line_idx, way).tag_ == TAG_INVALID) {
+        if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID) {
             max_way = way;
             break;
         }
-        if (get_caching_device_block(line_idx, way).counter_ > max_counter) {
-            max_counter = get_caching_device_block(line_idx, way).counter_;
+        if (get_caching_device_block(block_idx, way).counter_ > max_counter) {
+            max_counter = get_caching_device_block(block_idx, way).counter_;
             max_way = way;
         }
     }
