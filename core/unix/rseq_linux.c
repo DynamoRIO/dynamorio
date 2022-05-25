@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -48,9 +48,16 @@
 #include "decode.h"
 #include "instrument.h"
 #include <stddef.h>
-#ifdef HAVE_RSEQ
-#    include <linux/rseq.h>
-#else
+#include "include/syscall.h"
+#include <errno.h>
+
+/* The linux/rseq.h header made a source-breaking change in torvalds/linux@bfdf4e6
+ * which broke our build.  To avoid future issues we use our own definitions.
+ * Binary breakage is unlikely without long periods of deprecation so this is
+ * not adding undue risk.
+ * If these structures were used in other files we would put a header in
+ * core/unix/include alongside similar headers.
+ */
 struct rseq_cs {
     uint version;
     uint flags;
@@ -61,15 +68,10 @@ struct rseq_cs {
 struct rseq {
     uint cpu_id_start;
     uint cpu_id;
-    union {
-        uint64 ptr64;
-    } rseq_cs;
+    uint64 rseq_cs;
     uint flags;
 } __attribute__((aligned(4 * sizeof(uint64))));
-#    define RSEQ_FLAG_UNREGISTER 1
-#endif
-#include "include/syscall.h"
-#include <errno.h>
+#define RSEQ_FLAG_UNREGISTER 1
 
 vm_area_vector_t *d_r_rseq_areas;
 DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
@@ -218,8 +220,8 @@ rseq_clear_tls_ptr(dcontext_t *dcontext)
     /* We're directly writing this in the cache, so we do not bother with safe_read
      * or safe_write here either.  We already cannot handle rseq adversarial cases.
      */
-    if (is_dynamo_address((byte *)(ptr_uint_t)app_rseq->rseq_cs.ptr64))
-        app_rseq->rseq_cs.ptr64 = 0;
+    if (is_dynamo_address((byte *)(ptr_uint_t)app_rseq->rseq_cs))
+        app_rseq->rseq_cs = 0;
 }
 
 int
