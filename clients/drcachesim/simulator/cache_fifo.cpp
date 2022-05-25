@@ -70,17 +70,32 @@ cache_fifo_t::access_update(int block_idx, int way)
     return;
 }
 
+// This method replaces the current victim way and returns the next victim way
+// to be replaced. As opposed to get_next_way_to_replace() which just returns the
+// next way to be replaced without updating the cache state, replace_which_way()
+// updates the cache state.
 int
 cache_fifo_t::replace_which_way(int block_idx)
 {
-    // We replace the block whose counter is 1.
+    int victim_way = get_next_way_to_replace(block_idx);
+    if (victim_way == -1)
+        return -1;
+    // clear the counter of the victim block
+    get_caching_device_block(block_idx, victim_way).counter_ = 0;
+    // set the next block as victim
+    get_caching_device_block(block_idx, (victim_way + 1) & (associativity_ - 1))
+        .counter_ = 1;
+    return victim_way;
+}
+
+// This method just returns the next way to be replaced without actually
+// replacing it, hence doesn't have a side-effect.
+int
+cache_fifo_t::get_next_way_to_replace(const int block_idx) const
+{
     for (int i = 0; i < associativity_; i++) {
+        // We return the block whose counter is 1.
         if (get_caching_device_block(block_idx, i).counter_ == 1) {
-            // clear the counter of the victim block
-            get_caching_device_block(block_idx, i).counter_ = 0;
-            // set the next block as victim
-            get_caching_device_block(block_idx, (i + 1) & (associativity_ - 1)).counter_ =
-                1;
             return i;
         }
     }

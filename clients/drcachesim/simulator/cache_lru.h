@@ -49,9 +49,11 @@ public:
 
 protected:
     void
-    access_update(int line_idx, int way) override;
+    access_update(int block_idx, int way) override;
     int
-    replace_which_way(int line_idx) override;
+    replace_which_way(int block_idx) override;
+    int
+    get_next_way_to_replace(const int block_idx) const override;
 };
 
 #endif /* _CACHE_LRU_H_ */

@@ -257,6 +257,15 @@ caching_device_t::access_update(int block_idx, int way)
 int
 caching_device_t::replace_which_way(int block_idx)
 {
+    int min_way = get_next_way_to_replace(block_idx);
+    // Clear the counter for LFU.
+    get_caching_device_block(block_idx, min_way).counter_ = 0;
+    return min_way;
+}
+
+int
+caching_device_t::get_next_way_to_replace(const int block_idx) const
+{
     // The base caching device class only implements LFU.
     // A subclass can override this and access_update() to implement
     // some other scheme.
@@ -272,8 +281,6 @@ caching_device_t::replace_which_way(int block_idx)
             min_way = way;
         }
     }
-    // Clear the counter for LFU.
-    get_caching_device_block(block_idx, min_way).counter_ = 0;
     return min_way;
 }
 
