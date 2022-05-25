@@ -2172,7 +2172,7 @@ vmm_heap_fork_init(dcontext_t *dcontext)
      * os_delete_memory_file(). This may not work on Windows if that function needs to do
      * more.
      */
-    os_close(old_fd);
+    os_close_protected(old_fd);
     return;
 
 vmm_heap_fork_init_failed:
