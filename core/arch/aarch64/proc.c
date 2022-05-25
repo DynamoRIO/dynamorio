@@ -41,11 +41,11 @@ static int num_opmask_registers;
 
 #ifndef DR_HOST_NOT_TARGET
 
-const static int num_feature_registers = sizeof(features_t) / sizeof(uint64);
+#    define NUM_FEATURE_REGISTERS (sizeof(features_t) / sizeof(uint64))
 
 #    define MRS(REG, IDX, FEATS)                                                     \
         do {                                                                         \
-            if (IDX > (num_feature_registers - 1))                                   \
+            if (IDX > (NUM_FEATURE_REGISTERS - 1))                                   \
                 CLIENT_ASSERT(false, "Reading undefined AArch64 feature register!"); \
             asm("mrs %0, " #REG : "=r"(FEATS[IDX]));                                 \
         } while (0);
@@ -61,7 +61,7 @@ read_feature_regs(uint64 isa_features[])
 static void
 get_processor_specific_info(void)
 {
-    uint64 isa_features[num_feature_registers];
+    uint64 isa_features[NUM_FEATURE_REGISTERS];
 
     /* FIXME i#5474: Catch and handle SIGILL if MRS not supported.
      * Placeholder for some older kernels on v8.0 systems which do not support
