@@ -135,7 +135,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
     const char *cur;
     const char *next;
     const char *end;
-    char tmp[full_path_size];
+    char tmp[PATH_MAX];
     char realpath_buf[PATH_MAX]; /* realpath hardcodes its buffer length */
     drfront_status_t status_check = DRFRONT_ERROR;
     bool access_ret = false;
