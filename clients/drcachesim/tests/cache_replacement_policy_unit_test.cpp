@@ -137,6 +137,54 @@ unit_test_cache_lru_four_way()
 }
 
 void
+unit_test_cache_lru_eight_way()
+{
+    cache_policy_test_t<cache_lru_t> cache_lru_test(/*associativity=*/8,
+                                                    /*line_size=*/64,
+                                                    /*total_size=*/1024);
+    cache_lru_test.initialize_cache();
+
+    const addr_t ADDRESS_A = 0;
+    const addr_t ADDRESS_B = 128;
+    const addr_t ADDRESS_C = 256;
+    const addr_t ADDRESS_D = 384;
+    const addr_t ADDRESS_E = 512;
+    const addr_t ADDRESS_F = 640;
+    const addr_t ADDRESS_G = 768;
+    const addr_t ADDRESS_H = 896;
+    const addr_t ADDRESS_I = 1024;
+    const addr_t ADDRESS_J = 1152;
+    const addr_t ADDRESS_K = 1280;
+    const addr_t ADDRESS_L = 1408;
+
+    const std::vector<addr_t> address_vector = { ADDRESS_A, ADDRESS_B, ADDRESS_C,
+                                                 ADDRESS_D, ADDRESS_E, ADDRESS_F,
+                                                 ADDRESS_G, ADDRESS_H, ADDRESS_I,
+                                                 ADDRESS_J, ADDRESS_K, ADDRESS_L };
+    assert(cache_lru_test.block_indices_are_identical(address_vector));
+    assert(cache_lru_test.tags_are_different(address_vector));
+
+    // Lower-case letter shows the way that is to be replaced after the access
+    // (aka 'first way').
+    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A  x  X  X  X  X  X  X
+    cache_lru_test.access_and_check_cache(ADDRESS_B, 2); // A  B  x  X  X  X  X  X
+    cache_lru_test.access_and_check_cache(ADDRESS_C, 3); // A  B  C  x  X  X  X  X
+    cache_lru_test.access_and_check_cache(ADDRESS_D, 4); // A  B  C  D  x  X  X  X
+    cache_lru_test.access_and_check_cache(ADDRESS_E, 5); // A  B  C  D  E  x  X  X
+    cache_lru_test.access_and_check_cache(ADDRESS_F, 6); // A  B  C  D  E  F  x  X
+    cache_lru_test.access_and_check_cache(ADDRESS_G, 7); // A  B  C  D  F  F  G  x
+    cache_lru_test.access_and_check_cache(ADDRESS_H, 0); // a  B  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A  b  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A  b  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(ADDRESS_I, 2); // A  I  c  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(ADDRESS_J, 3); // A  I  J  d  E  F  G  H
+    cache_lru_test.access_and_check_cache(ADDRESS_K, 5); // I  J  C  K  E  f  G  H
+    cache_lru_test.access_and_check_cache(ADDRESS_L, 6); // I  J  C  K  E  L  g  H
+    cache_lru_test.access_and_check_cache(ADDRESS_L, 6); // I  J  C  K  E  L  g  H
+}
+
+void
 unit_test_cache_fifo_four_way()
 {
     cache_policy_test_t<cache_fifo_t> cache_fifo_test(/*associativity=*/4,
@@ -228,6 +276,7 @@ void
 unit_test_cache_replacement_policy()
 {
     unit_test_cache_lru_four_way();
+    unit_test_cache_lru_eight_way();
     unit_test_cache_fifo_four_way();
     unit_test_cache_fifo_eight_way();
     // XXX i#4842: Add more test sequences.
