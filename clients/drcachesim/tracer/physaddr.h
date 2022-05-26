@@ -42,6 +42,8 @@
 #include "hashtable.h"
 #include "../common/trace_entry.h"
 
+// This class is not thread-safe: the caller should create a separate instance
+// per thread.
 class physaddr_t {
 public:
     physaddr_t();
@@ -52,10 +54,11 @@ public:
     virtual2physical(addr_t virt);
 
 private:
-    // Assumed to be single-threaded
 #ifdef LINUX
     addr_t last_vpage_;
     addr_t last_ppage_;
+    // XXX: An app with thousands of threads might hit open file limits.
+    // Sharing the descriptor would require locks, however.
     int fd_;
     // We would use std::unordered_map, but that is not compatible with
     // statically linking drmemtrace into an app.
