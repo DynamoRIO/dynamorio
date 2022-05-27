@@ -69,13 +69,17 @@ physaddr_t::physaddr_t()
     , count_(0)
 #endif
 {
-    // Nothing else.
-    // No destructor needed either: ifstream closes when destroyed.
+#ifdef LINUX
+    v2p_.table = nullptr;
+#endif
 }
 
 physaddr_t::~physaddr_t()
 {
-    hashtable_delete(&v2p_);
+#ifdef LINUX
+    if (v2p_.table != nullptr)
+        hashtable_delete(&v2p_);
+#endif
 }
 
 bool
