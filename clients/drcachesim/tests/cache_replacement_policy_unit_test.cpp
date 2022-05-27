@@ -38,6 +38,28 @@
 #include "simulator/cache_fifo.h"
 #include "simulator/cache_lru.h"
 
+// Indices for test address vector.
+enum {
+    ADDR_A,
+    ADDR_B,
+    ADDR_C,
+    ADDR_D,
+    ADDR_E,
+    ADDR_F,
+    ADDR_G,
+    ADDR_H,
+    ADDR_I,
+    ADDR_J,
+    ADDR_K,
+    ADDR_L,
+};
+
+// Test address vector where all the addresses with the same block index and
+// different tag for a 32 byte cache line.
+static const std::vector<addr_t> addr_vec = { 128 * 0, 128 * 1, 128 * 2,  128 * 3,
+                                              128 * 4, 128 * 5, 128 * 6,  128 * 7,
+                                              128 * 8, 128 * 9, 128 * 10, 128 * 11 };
+
 template <class T> class cache_policy_test_t : public T {
     int associativity_;
     int line_size_;
@@ -112,28 +134,51 @@ unit_test_cache_lru_four_way()
                                                     /*total_size=*/256);
     cache_lru_test.initialize_cache();
 
-    const addr_t ADDRESS_A = 0;
-    const addr_t ADDRESS_B = 64;
-    const addr_t ADDRESS_C = 128;
-    const addr_t ADDRESS_D = 192;
-    const addr_t ADDRESS_E = 320;
-
-    const std::vector<addr_t> address_vector = { ADDRESS_A, ADDRESS_B, ADDRESS_C,
-                                                 ADDRESS_D, ADDRESS_E };
-    assert(cache_lru_test.block_indices_are_identical(address_vector));
-    assert(cache_lru_test.tags_are_different(address_vector));
+    assert(cache_lru_test.block_indices_are_identical(addr_vec));
+    assert(cache_lru_test.tags_are_different(addr_vec));
 
     // Access the cache line in the following fashion. This sequence follows the
     // sequence shown in i#4881.
     // Lower-case letter shows the least recently used way.
-    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A x X X
-    cache_lru_test.access_and_check_cache(ADDRESS_B, 2); // A B x X
-    cache_lru_test.access_and_check_cache(ADDRESS_C, 3); // A B C x
-    cache_lru_test.access_and_check_cache(ADDRESS_D, 0); // a B C D
-    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A b C D
-    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A b C D
-    cache_lru_test.access_and_check_cache(ADDRESS_A, 1); // A b C D
-    cache_lru_test.access_and_check_cache(ADDRESS_E, 2); // A E c D
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A x X X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_B], 2); // A B x X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_C], 3); // A B C x
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_D], 0); // a B C D
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A b C D
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A b C D
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A b C D
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_E], 2); // A E c D
+}
+
+void
+unit_test_cache_lru_eight_way()
+{
+    cache_policy_test_t<cache_lru_t> cache_lru_test(/*associativity=*/8,
+                                                    /*line_size=*/64,
+                                                    /*total_size=*/1024);
+    cache_lru_test.initialize_cache();
+
+    assert(cache_lru_test.block_indices_are_identical(addr_vec));
+    assert(cache_lru_test.tags_are_different(addr_vec));
+
+    // Lower-case letter shows the way that is to be replaced after the access
+    // (aka 'first way').
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A  x  X  X  X  X  X  X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_B], 2); // A  B  x  X  X  X  X  X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_C], 3); // A  B  C  x  X  X  X  X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_D], 4); // A  B  C  D  x  X  X  X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_E], 5); // A  B  C  D  E  x  X  X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_F], 6); // A  B  C  D  E  F  x  X
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_G], 7); // A  B  C  D  F  F  G  x
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_H], 0); // a  B  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_E], 0); // a  B  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A  b  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A  b  C  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_I], 2); // A  I  c  D  E  F  G  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_J], 3); // A  I  J  d  E  F  G  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_K], 5); // A  I  J  K  E  f  G  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_L], 6); // A  I  J  K  E  L  g  H
+    cache_lru_test.access_and_check_cache(addr_vec[ADDR_L], 6); // A  I  J  K  E  L  g  H
 }
 
 void
@@ -144,36 +189,24 @@ unit_test_cache_fifo_four_way()
                                                       /*total_size=*/256);
     cache_fifo_test.initialize_cache();
 
-    const addr_t ADDRESS_A = 0;
-    const addr_t ADDRESS_B = 64;
-    const addr_t ADDRESS_C = 128;
-    const addr_t ADDRESS_D = 256;
-    const addr_t ADDRESS_E = 320;
-    const addr_t ADDRESS_F = 384;
-    const addr_t ADDRESS_G = 448;
-    const addr_t ADDRESS_H = 512;
-
-    const std::vector<addr_t> address_vector = { ADDRESS_A, ADDRESS_B, ADDRESS_C,
-                                                 ADDRESS_D, ADDRESS_E, ADDRESS_F,
-                                                 ADDRESS_G, ADDRESS_H };
-    assert(cache_fifo_test.block_indices_are_identical(address_vector));
-    assert(cache_fifo_test.tags_are_different(address_vector));
+    assert(cache_fifo_test.block_indices_are_identical(addr_vec));
+    assert(cache_fifo_test.tags_are_different(addr_vec));
 
     // Lower-case letter shows the way that is to be replaced after the access.
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A x X X
-    cache_fifo_test.access_and_check_cache(ADDRESS_B, 2); // A B x X
-    cache_fifo_test.access_and_check_cache(ADDRESS_C, 3); // A B C x
-    cache_fifo_test.access_and_check_cache(ADDRESS_D, 0); // a B C D
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a B C D
-    cache_fifo_test.access_and_check_cache(ADDRESS_E, 1); // E b C D
-    cache_fifo_test.access_and_check_cache(ADDRESS_F, 2); // E F c D
-    cache_fifo_test.access_and_check_cache(ADDRESS_F, 2); // E F c D
-    cache_fifo_test.access_and_check_cache(ADDRESS_G, 3); // E F G d
-    cache_fifo_test.access_and_check_cache(ADDRESS_G, 3); // E F G d
-    cache_fifo_test.access_and_check_cache(ADDRESS_H, 0); // e F G H
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A f G H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A x X X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_B], 2); // A B x X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_C], 3); // A B C x
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_D], 0); // a B C D
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 0); // a B C D
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 0); // a B C D
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 0); // a B C D
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_E], 1); // E b C D
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_F], 2); // E F c D
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_F], 2); // E F c D
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_G], 3); // E F G d
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_G], 3); // E F G d
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_H], 0); // e F G H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A f G H
 }
 
 void
@@ -184,50 +217,34 @@ unit_test_cache_fifo_eight_way()
                                                       /*total_size=*/1024);
     cache_fifo_test.initialize_cache();
 
-    const addr_t ADDRESS_A = 0;
-    const addr_t ADDRESS_B = 128;
-    const addr_t ADDRESS_C = 256;
-    const addr_t ADDRESS_D = 384;
-    const addr_t ADDRESS_E = 512;
-    const addr_t ADDRESS_F = 640;
-    const addr_t ADDRESS_G = 768;
-    const addr_t ADDRESS_H = 896;
-    const addr_t ADDRESS_I = 1024;
-    const addr_t ADDRESS_J = 1152;
-    const addr_t ADDRESS_K = 1280;
-    const addr_t ADDRESS_L = 1408;
-
-    const std::vector<addr_t> address_vector = { ADDRESS_A, ADDRESS_B, ADDRESS_C,
-                                                 ADDRESS_D, ADDRESS_E, ADDRESS_F,
-                                                 ADDRESS_G, ADDRESS_H, ADDRESS_I,
-                                                 ADDRESS_J, ADDRESS_K, ADDRESS_L };
-    assert(cache_fifo_test.block_indices_are_identical(address_vector));
-    assert(cache_fifo_test.tags_are_different(address_vector));
+    assert(cache_fifo_test.block_indices_are_identical(addr_vec));
+    assert(cache_fifo_test.tags_are_different(addr_vec));
 
     // Lower-case letter shows the way that is to be replaced after the access
     // (aka 'first way').
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 1); // A  x  X  X  X  X  X  X
-    cache_fifo_test.access_and_check_cache(ADDRESS_B, 2); // A  B  x  X  X  X  X  X
-    cache_fifo_test.access_and_check_cache(ADDRESS_C, 3); // A  B  C  x  X  X  X  X
-    cache_fifo_test.access_and_check_cache(ADDRESS_D, 4); // A  B  C  D  x  X  X  X
-    cache_fifo_test.access_and_check_cache(ADDRESS_E, 5); // A  B  C  D  E  x  X  X
-    cache_fifo_test.access_and_check_cache(ADDRESS_F, 6); // A  B  C  D  E  F  x  X
-    cache_fifo_test.access_and_check_cache(ADDRESS_G, 7); // A  B  C  D  F  F  G  x
-    cache_fifo_test.access_and_check_cache(ADDRESS_H, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_E, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_A, 0); // a  B  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_I, 1); // I  b  C  D  E  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_J, 2); // I  J  c  D  E  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_K, 3); // I  J  K  d  E  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
-    cache_fifo_test.access_and_check_cache(ADDRESS_L, 4); // I  J  K  L  e  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 1); // A  x  X  X  X  X  X  X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_B], 2); // A  B  x  X  X  X  X  X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_C], 3); // A  B  C  x  X  X  X  X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_D], 4); // A  B  C  D  x  X  X  X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_E], 5); // A  B  C  D  E  x  X  X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_F], 6); // A  B  C  D  E  F  x  X
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_G], 7); // A  B  C  D  F  F  G  x
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_H], 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_E], 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_A], 0); // a  B  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_I], 1); // I  b  C  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_J], 2); // I  J  c  D  E  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_K], 3); // I  J  K  d  E  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_L], 4); // I  J  K  L  e  F  G  H
+    cache_fifo_test.access_and_check_cache(addr_vec[ADDR_L], 4); // I  J  K  L  e  F  G  H
 }
 
 void
 unit_test_cache_replacement_policy()
 {
     unit_test_cache_lru_four_way();
+    unit_test_cache_lru_eight_way();
     unit_test_cache_fifo_four_way();
     unit_test_cache_fifo_eight_way();
     // XXX i#4842: Add more test sequences.
