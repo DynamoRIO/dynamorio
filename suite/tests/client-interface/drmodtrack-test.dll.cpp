@@ -33,6 +33,7 @@
 /* Tests the drmodtrack extension. */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drcovlib.h"
 #include "drx.h"
 #include "client_tools.h"
@@ -133,6 +134,23 @@ static void
 free_alloc_cb(void *data)
 {
     my_free(data);
+}
+
+dr_emit_flags_t
+bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating,
+            OUT void **user_data)
+{
+    app_pc pc = dr_fragment_app_pc(tag);
+    app_pc modbase;
+    uint modidx;
+    drcovlib_status_t res = drmodtrack_lookup(drcontext, pc, &modidx, &modbase);
+    // We expect no gencode.
+    CHECK(res == DRCOVLIB_SUCCESS, "drmodtrack_lookup failed");
+    app_pc reverse_base;
+    res = drmodtrack_lookup_pc_from_index(drcontext, modidx, &reverse_base);
+    CHECK(res == DRCOVLIB_SUCCESS, "drmodtrack_lookup_pc_from_index failed");
+    CHECK(reverse_base == modbase, "drmodtrack reverse lookup mismatch");
+    return DR_EMIT_DEFAULT;
 }
 
 static void
@@ -261,12 +279,17 @@ event_exit(void)
     CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
     res = drmodtrack_exit();
     CHECK(res == DRCOVLIB_SUCCESS, "module exit failed");
+    drmgr_exit();
 }
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
     client_id = id;
+    bool ok = drmgr_init();
+    CHECK(ok, "drmgr_init failed");
+    ok = drmgr_register_bb_instrumentation_event(bb_analysis, nullptr, nullptr);
+    CHECK(ok, "drmgr_register_bb_instrumentation_event failed");
     drcovlib_status_t res = drmodtrack_init();
     CHECK(res == DRCOVLIB_SUCCESS, "init failed");
     res = drmodtrack_add_custom_data(load_cb, print_cb, parse_cb, free_cb);

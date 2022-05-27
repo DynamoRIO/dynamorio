@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -312,6 +312,14 @@ DR_EXPORT
 drcovlib_status_t
 drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
                           OUT app_pc *segment_base);
+
+DR_EXPORT
+/**
+ * Returns the base address in \p mod_base for the index identifier \p
+ * mod_index that was previously returned by drmodtrack_lookup().
+ */
+drcovlib_status_t
+drmodtrack_lookup_pc_from_index(void *drcontext, uint mod_index, OUT app_pc *mod_base);
 
 DR_EXPORT
 /**

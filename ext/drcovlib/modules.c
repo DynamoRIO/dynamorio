@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -307,6 +307,40 @@ drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
                           OUT app_pc *segment_base)
 {
     return drmodtrack_lookup_helper(drcontext, pc, segment_index, segment_base, NULL);
+}
+
+drcovlib_status_t
+drmodtrack_lookup_pc_from_index(void *drcontext, uint mod_index, OUT app_pc *mod_base)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    module_entry_t *entry;
+    /* Look in the thread-private cache. */
+    for (int i = 0; i < NUM_THREAD_MODULE_CACHE; i++) {
+        /* As for drmodtrack_lookup(), it is ok to look at entry fields with no lock. */
+        entry = data->cache[i];
+        if (entry != NULL && entry->id == mod_index) {
+            if (i > 0) {
+                thread_module_cache_adjust(data->cache, entry, i,
+                                           NUM_THREAD_MODULE_CACHE);
+            }
+            if (mod_base != NULL)
+                *mod_base = entry->data->start;
+            return DRCOVLIB_SUCCESS;
+        }
+    }
+    /* Look in the global module table. */
+    drvector_lock(&module_table.vector);
+    entry = drvector_get_entry(&module_table.vector, mod_index);
+    if (entry == NULL) {
+        drvector_unlock(&module_table.vector);
+        return DRCOVLIB_ERROR_NOT_FOUND;
+    }
+    ASSERT(entry->id == mod_index, "index inconsistency");
+    if (mod_base != NULL)
+        *mod_base = entry->data->start;
+    thread_module_cache_add(data->cache, NUM_THREAD_MODULE_CACHE, entry);
+    drvector_unlock(&module_table.vector);
+    return DRCOVLIB_SUCCESS;
 }
 
 static void

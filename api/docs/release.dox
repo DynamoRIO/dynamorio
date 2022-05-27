@@ -139,6 +139,7 @@ Further non-compatibility-affecting changes include:
  - Added compression of drmemtrace raw offline files with various compression
    choices under the -raw_compress option.  Compressing with lz4 is now the
    default (if built with lz4 support).
+ - Added drmodtrack_lookup_pc_from_index().
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:

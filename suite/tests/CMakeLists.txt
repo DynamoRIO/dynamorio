@@ -2844,6 +2844,7 @@ link_with_pthread(client.drutil-test)
 tobuild_ci(client.drmodtrack-test client-interface/drmodtrack-test.cpp "" "" "")
 use_DynamoRIO_extension(client.drmodtrack-test.dll drcovlib)
 use_DynamoRIO_extension(client.drmodtrack-test.dll drx)
+use_DynamoRIO_extension(client.drmodtrack-test.dll drmgr)
 
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   # We need to load w/ the same base so the test passes
