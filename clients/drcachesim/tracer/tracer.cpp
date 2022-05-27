@@ -2991,6 +2991,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_disabled));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_window));
+    DR_ASSERT(std::atomic_is_lock_free(&have_phys));
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86

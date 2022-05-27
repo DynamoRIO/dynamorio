@@ -3324,7 +3324,7 @@ if (BUILD_CLIENTS)
       "")
 
     if (LINUX) # Physaddr access limited to Linux.
-      # XXX: We should verify that we're actually getting physical addresses:
+      # XXX i#4014: We should verify that we're actually getting physical addresses:
       # but A) there may not be pagemap access for automated tests and B) we
       # would need an analyzer to go examine addresses, or to use the view tool.
       # For now these are just sanity tests that flipping on the option doesn't
