@@ -38,21 +38,27 @@
 #include "simulator/cache_fifo.h"
 #include "simulator/cache_lru.h"
 
-constexpr int ADDR_A = 0;
-constexpr int ADDR_B = 1;
-constexpr int ADDR_C = 2;
-constexpr int ADDR_D = 3;
-constexpr int ADDR_E = 4;
-constexpr int ADDR_F = 5;
-constexpr int ADDR_G = 6;
-constexpr int ADDR_H = 7;
-constexpr int ADDR_I = 8;
-constexpr int ADDR_J = 9;
-constexpr int ADDR_K = 10;
-constexpr int ADDR_L = 11;
+// Indices for test address vector.
+enum {
+    ADDR_A,
+    ADDR_B,
+    ADDR_C,
+    ADDR_D,
+    ADDR_E,
+    ADDR_F,
+    ADDR_G,
+    ADDR_H,
+    ADDR_I,
+    ADDR_J,
+    ADDR_K,
+    ADDR_L,
+};
 
-static const std::vector<addr_t> addr_vec = { 0,   128, 256,  384,  512,  640,
-                                              768, 896, 1024, 1152, 1280, 1408 };
+// Test address vector where all the addresses with the same block index and
+// different tag for a 32 byte cache line.
+static const std::vector<addr_t> addr_vec = { 128 * 0, 128 * 1, 128 * 2,  128 * 3,
+                                              128 * 4, 128 * 5, 128 * 6,  128 * 7,
+                                              128 * 8, 128 * 9, 128 * 10, 128 * 11 };
 
 template <class T> class cache_policy_test_t : public T {
     int associativity_;
