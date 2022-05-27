@@ -30,7 +30,7 @@
     ...................................................................
 ---- <application exited with code 0> ----
 Cache simulation results:
-Core #0 \(4 thread\(s\)\)
+Core #0 \([0-9]+ thread\(s\)\)
   L1I stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
@@ -43,9 +43,9 @@ Core #0 \(4 thread\(s\)\)
     Compulsory misses:          *[0-9,\.]*
     Invalidations:              *0
 .*    Miss rate:                *[0-9,\.]*%
-Core #1 \(3 thread\(s\).*
-Core #2 \(3 thread\(s\).*
-Core #3 \(3 thread\(s\).*
+Core #1 \([0-9]+ thread\(s\).*
+Core #2 \([0-9]+ thread\(s\).*
+Core #3 \([0-9]+ thread\(s\).*
 LL stats:
     Hits:                    *[0-9,\.]*
     Misses:                  *[0-9,\.]*
