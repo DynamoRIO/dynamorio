@@ -40,6 +40,7 @@
 #endif
 #include "physaddr.h"
 #include "../common/options.h"
+#include "../common/utils.h"
 
 #if defined(X86_32) || defined(ARM_32)
 #    define IF_X64_ELSE(x, y) y
@@ -94,8 +95,8 @@ physaddr_t::init()
     // We avoid std::ostringstream to avoid malloc use for static linking.
     constexpr int MAX_PAGEMAP_FNAME = 64;
     char fname[MAX_PAGEMAP_FNAME];
-    dr_snprintf(fname, sizeof(fname), "/proc/%d/pagemap", getpid());
-    fname[MAX_PAGEMAP_FNAME - 1] = '\0';
+    dr_snprintf(fname, BUFFER_SIZE_ELEMENTS(fname), "/proc/%d/pagemap", getpid());
+    NULL_TERMINATE_BUFFER(fname);
     // We can't read pagemap with any buffered i/o, like ifstream, as we'll
     // get EINVAL on any non-8-aligned size, and ifstream at least likes to
     // read buffers of non-aligned sizes.
@@ -134,7 +135,7 @@ physaddr_t::virtual2physical(addr_t virt)
         if (lookup != nullptr) {
             addr_t ppage = reinterpret_cast<addr_t>(lookup);
             // Restore a 0 payload.
-            if (ppage == 1)
+            if (ppage == ZERO_ADDR_PAYLOAD)
                 ppage = 0;
             last_vpage_ = vpage;
             last_ppage_ = ppage;
@@ -161,9 +162,10 @@ physaddr_t::virtual2physical(addr_t virt)
         std::cerr << "virtual " << virt << " => physical "
                   << (last_ppage_ + PAGE_OFFS(virt)) << std::endl;
     }
-    // Store 0 as 1 since 0 means no entry.
-    hashtable_add(&v2p_, reinterpret_cast<void *>(vpage),
-                  reinterpret_cast<void *>(last_ppage_ == 0 ? 1 : last_ppage_));
+    // Store 0 as a sentinel since 0 means no entry.
+    hashtable_add(
+        &v2p_, reinterpret_cast<void *>(vpage),
+        reinterpret_cast<void *>(last_ppage_ == 0 ? ZERO_ADDR_PAYLOAD : last_ppage_));
     last_vpage_ = vpage;
     return last_ppage_ + PAGE_OFFS(virt);
 #else

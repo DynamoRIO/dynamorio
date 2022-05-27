@@ -60,6 +60,9 @@ private:
     // We would use std::unordered_map, but that is not compatible with
     // statically linking drmemtrace into an app.
     hashtable_t v2p_;
+    // With hashtable_t nullptr is how non-existence is shown, so we store
+    // an actual 0 address (can happen for physical) as this sentinel.
+    static constexpr addr_t ZERO_ADDR_PAYLOAD = 1;
     unsigned int count_;
 #endif
 };
