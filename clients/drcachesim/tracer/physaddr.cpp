@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,7 @@
 #endif
 #include "physaddr.h"
 #include "../common/options.h"
+#include "../common/utils.h"
 
 #if defined(X86_32) || defined(ARM_32)
 #    define IF_X64_ELSE(x, y) y
@@ -69,22 +70,37 @@ physaddr_t::physaddr_t()
     , count_(0)
 #endif
 {
-    // Nothing else.
-    // No destructor needed either: ifstream closes when destroyed.
+#ifdef LINUX
+    v2p_.table = nullptr;
+#endif
+}
+
+physaddr_t::~physaddr_t()
+{
+#ifdef LINUX
+    if (v2p_.table != nullptr)
+        hashtable_delete(&v2p_);
+#endif
 }
 
 bool
 physaddr_t::init()
 {
 #ifdef LINUX
-    std::ostringstream oss;
-    std::string pagemap =
-        dynamic_cast<std::ostringstream &>(oss << "/proc/" << getpid() << "/pagemap")
-            .str();
+    // Some threads may not do much, so start out small.
+    constexpr int V2P_INITIAL_BITS = 9;
+    hashtable_init_ex(&v2p_, V2P_INITIAL_BITS, HASH_INTPTR, /*strdup=*/false,
+                      /*synch=*/false, nullptr, nullptr, nullptr);
+
+    // We avoid std::ostringstream to avoid malloc use for static linking.
+    constexpr int MAX_PAGEMAP_FNAME = 64;
+    char fname[MAX_PAGEMAP_FNAME];
+    dr_snprintf(fname, BUFFER_SIZE_ELEMENTS(fname), "/proc/%d/pagemap", getpid());
+    NULL_TERMINATE_BUFFER(fname);
     // We can't read pagemap with any buffered i/o, like ifstream, as we'll
     // get EINVAL on any non-8-aligned size, and ifstream at least likes to
     // read buffers of non-aligned sizes.
-    fd_ = open(pagemap.c_str(), O_RDONLY);
+    fd_ = open(fname, O_RDONLY);
     // Accessing /proc/pid/pagemap requires privileges on some distributions,
     // such as Fedora with recent kernels.  We have no choice but to fail there.
     return (fd_ != -1);
@@ -105,7 +121,7 @@ physaddr_t::virtual2physical(addr_t virt)
         // Flush the cache and re-sync with the kernel
         use_cache = false;
         last_vpage_ = PAGE_INVALID;
-        v2p_.clear();
+        hashtable_clear(&v2p_);
         count_ = 0;
     }
     if (use_cache) {
@@ -115,10 +131,14 @@ physaddr_t::virtual2physical(addr_t virt)
             return last_ppage_ + PAGE_OFFS(virt);
         // XXX i#1703: add (debug-build-only) internal stats here and
         // on cache_t::request() fastpath.
-        std::unordered_map<addr_t, addr_t>::iterator exists = v2p_.find(vpage);
-        if (exists != v2p_.end()) {
+        void *lookup = hashtable_lookup(&v2p_, reinterpret_cast<void *>(vpage));
+        if (lookup != nullptr) {
+            addr_t ppage = reinterpret_cast<addr_t>(lookup);
+            // Restore a 0 payload.
+            if (ppage == ZERO_ADDR_PAYLOAD)
+                ppage = 0;
             last_vpage_ = vpage;
-            last_ppage_ = exists->second;
+            last_ppage_ = ppage;
             return last_ppage_ + PAGE_OFFS(virt);
         }
     }
@@ -142,7 +162,10 @@ physaddr_t::virtual2physical(addr_t virt)
         std::cerr << "virtual " << virt << " => physical "
                   << (last_ppage_ + PAGE_OFFS(virt)) << std::endl;
     }
-    v2p_[vpage] = last_ppage_;
+    // Store 0 as a sentinel since 0 means no entry.
+    hashtable_add(
+        &v2p_, reinterpret_cast<void *>(vpage),
+        reinterpret_cast<void *>(last_ppage_ == 0 ? ZERO_ADDR_PAYLOAD : last_ppage_));
     last_vpage_ = vpage;
     return last_ppage_ + PAGE_OFFS(virt);
 #else

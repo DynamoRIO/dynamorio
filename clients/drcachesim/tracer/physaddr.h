@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,11 +38,14 @@
 
 #include <fstream>
 #include <unordered_map>
+#include "dr_api.h"
+#include "hashtable.h"
 #include "../common/trace_entry.h"
 
 class physaddr_t {
 public:
     physaddr_t();
+    ~physaddr_t();
     bool
     init();
     addr_t
@@ -54,7 +57,12 @@ private:
     addr_t last_vpage_;
     addr_t last_ppage_;
     int fd_;
-    std::unordered_map<addr_t, addr_t> v2p_;
+    // We would use std::unordered_map, but that is not compatible with
+    // statically linking drmemtrace into an app.
+    hashtable_t v2p_;
+    // With hashtable_t nullptr is how non-existence is shown, so we store
+    // an actual 0 address (can happen for physical) as this sentinel.
+    static constexpr addr_t ZERO_ADDR_PAYLOAD = 1;
     unsigned int count_;
 #endif
 };
