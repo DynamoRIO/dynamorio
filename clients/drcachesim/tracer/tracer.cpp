@@ -161,6 +161,8 @@ typedef struct {
     byte *buf_lz4;
 #endif
     bool has_thread_header;
+    // The physaddr_t class is designed to be per-thread.
+    physaddr_t physaddr;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -193,8 +195,7 @@ static uint64 num_refs_racy; /* racy global memory reference count */
 static volatile bool exited_process;
 
 /* virtual to physical translation */
-static bool have_phys;
-static physaddr_t physaddr;
+static std::atomic<bool> have_phys;
 
 static drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
                                           DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL,
@@ -974,7 +975,7 @@ memtrace(void *drcontext, bool skip_size_cap)
                     type != TRACE_TYPE_THREAD && type != TRACE_TYPE_THREAD_EXIT &&
                     type != TRACE_TYPE_PID) {
                     addr_t virt = instru->get_entry_addr(mem_ref);
-                    addr_t phys = physaddr.virtual2physical(virt);
+                    addr_t phys = data->physaddr.virtual2physical(virt);
                     DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
                     if (phys != 0)
                         instru->set_entry_addr(mem_ref, phys);
@@ -2608,6 +2609,14 @@ init_thread_in_process(void *drcontext)
     }
 #endif
 
+    if (op_use_physical.get_value()) {
+        if (!data->physaddr.init()) {
+            have_phys = false;
+            NOTIFY(0, "Unable to open pagemap: using virtual addresses for thread T%d.\n",
+                   dr_get_thread_id(drcontext));
+        }
+    }
+
     set_local_window(drcontext, -1);
     if (has_tracing_windows())
         set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
@@ -2662,7 +2671,7 @@ event_thread_init(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
-    memset(data, 0, sizeof(*data));
+    *data = {}; // We must safely zero due to the C++ class member.
     data->file = INVALID_FILE;
     drmgr_set_tls_field(drcontext, tls_idx, data);
 
@@ -2768,6 +2777,7 @@ event_thread_exit(void *drcontext)
         if (data->reserve_buf != NULL)
             dr_raw_mem_free(data->reserve_buf, max_buf_size);
     }
+    data->~per_thread_t();
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
@@ -2981,6 +2991,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_disabled));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_window));
+    DR_ASSERT(std::atomic_is_lock_free(&have_phys));
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
@@ -2989,6 +3000,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         drreg_set_vector_entry(&scratch_reserve_vec, DR_REG_XAX, false);
     }
 #endif
+
+    if (op_use_physical.get_value()) {
+        // This will be set to false if any thread fails.
+        have_phys = true;
+    }
 
     if (op_offline.get_value()) {
         void *placement;
@@ -3112,11 +3128,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, DR_LOG_ALL, 1, "drcachesim client initializing\n");
 
-    if (op_use_physical.get_value()) {
-        have_phys = physaddr.init();
-        if (!have_phys)
-            NOTIFY(0, "Unable to open pagemap: using virtual addresses.\n");
-    }
 #ifdef HAS_SNAPPY
     if (op_offline.get_value() && snappy_enabled()) {
         /* Unfortunately libsnappy allocates memory but does not parameterize its

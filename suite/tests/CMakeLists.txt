@@ -3323,8 +3323,15 @@ if (BUILD_CLIENTS)
       "-config_file ${config_files_dir}/cores-1-levels-3-with-missfile.conf"
       "")
 
-    if (NOT WIN32) # No physaddr access on Windows.
+    if (LINUX) # Physaddr access limited to Linux.
+      # XXX i#4014: We should verify that we're actually getting physical addresses:
+      # but A) there may not be pagemap access for automated tests and B) we
+      # would need an analyzer to go examine addresses, or to use the view tool.
+      # For now these are just sanity tests that flipping on the option doesn't
+      # cause outright failure.
       torunonly_drcachesim(phys ${ci_shared_app} "-use_physical" "")
+      torunonly_drcachesim(phys-threads client.annotation-concurrency "-use_physical"
+        "${annotation_test_args_shorter}")
     endif ()
 
     set(test_mode_flag "-test_mode")
