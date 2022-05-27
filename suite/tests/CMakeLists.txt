@@ -606,6 +606,13 @@ set(ci_shared_app simple_app)
 set(ci_shared_app_src client-interface/${ci_shared_app}.c)
 add_exe(${ci_shared_app} ${ci_shared_app_src})
 
+# A shared tiny app.
+if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+  add_exe(allasm_x86_64 common/allasm_x86_64.asm)
+  set_target_properties(allasm_x86_64 PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(allasm_x86_64 "-nostartfiles -nodefaultlibs -static")
+endif ()
+
 function(setup_test_client_dll_basics test)
   configure_DynamoRIO_client(${test})
   append_property_string(TARGET ${test} LINK_FLAGS "${ARCH_DEBUG}")
@@ -1304,6 +1311,10 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # invoking bin64/drrun.  Ideally drrun would detect which ELF class we're
     # about to exec, but until then we have to add -32 for 32-bit apps.
     string(REGEX REPLACE "/drrun;" "/drrun;-32;" rundr "${rundr}")
+  endif ()
+
+  if (DEFINED ${key}_sudo)
+    set(rundr "sudo;${rundr}")
   endif ()
 
   if (is_runall)
@@ -2095,10 +2106,7 @@ if (DEBUG)
     # at -loglevel 19 produces 11GB of data and takes >17 minutes to run (vs <10MB and
     # <1s for Linux).  We live w/o a regression test on Windows for high loglevels.
     if (LINUX)
-      tobuild_ops(common.loglevel common/allasm_x86_64.asm
-        "-loglevel 19" "")
-      set_target_properties(common.loglevel PROPERTIES LINKER_LANGUAGE C)
-      append_link_flags(common.loglevel "-nostartfiles -nodefaultlibs -static")
+      torunonly(common.loglevel allasm_x86_64 common/allasm_x86_64.asm "-loglevel 19" "")
     endif ()
   elseif (DR_HOST_AARCH64)
     torunonly(common.loglevel common.allasm_aarch64_cache
@@ -3557,13 +3565,20 @@ if (BUILD_CLIENTS)
       set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(${testname_full}_rawtemp ON) # no preprocessor
       set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      # Support for running under sudo for -use_physical.
+      # Each command is assumed to need sudo.
+      if (DEFINED ${testname_full}_sudo)
+        set(cmd_pfx "sudo@")
+      else ()
+        set(cmd_pfx "")
+      endif ()
       set(${testname_full}_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
+        "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
       if (${testname_full}_nopost)
         # No post needed.
       else ()
         set(${testname_full}_postcmd
-          "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
       endif ()
       set(${testname_full}_self_serial ON)
     endmacro()
@@ -3721,6 +3736,15 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
     torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
       "@-simulator_type@func_view" "only_5")
+
+    if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+      # Requires sudo to access pagemap.
+      # XXX: Should we not enable this outside of the Github suite where we know
+      # we have passwordless sudo?  The pause for a password may cause problems
+      # for local interactive test running.
+      set(tool.drcacheoff.phys_sudo ON)
+      torunonly_drcacheoff(phys allasm_x86_64 "-use_physical" "@-simulator_type@view" "")
+    endif ()
 
     if (UNIX AND ZLIB_FOUND)
       add_exe(tool.fib_plus

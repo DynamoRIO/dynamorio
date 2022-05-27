@@ -56,7 +56,7 @@ public:
     // 0 is a possible valid physical address, as are large values beyond
     // the amount of RAM due to holes in the physical address space.
     bool
-    virtual2physical(addr_t virt, OUT addr_t *phys);
+    virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache = nullptr);
 
 private:
 #ifdef LINUX

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,13 @@
 
 // XXX: can we share w/ core DR?
 #define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
+
+// XXX i#4399: DR should define a DEBUG-only assert.
+#ifdef DEBUG
+#    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#else
+#    define ASSERT(x, msg) /* Nothing. */
+#endif
 
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))

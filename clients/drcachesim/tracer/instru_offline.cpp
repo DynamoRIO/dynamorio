@@ -248,12 +248,16 @@ offline_instru_t::get_instr_count(byte *buf_ptr) const
 }
 
 addr_t
-offline_instru_t::get_entry_addr(byte *buf_ptr) const
+offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
 {
-    // TODO i#4014: To support -use_physical we would need to handle a PC
-    // entry here.
-    DR_ASSERT(!type_is_instr(get_entry_type(buf_ptr)));
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    if (entry->addr.type == OFFLINE_TYPE_PC) {
+        app_pc modbase;
+        if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
+            DRCOVLIB_SUCCESS)
+            return 0;
+        return reinterpret_cast<addr_t>(modbase) + entry->pc.modoffs;
+    }
     return entry->addr.addr;
 }
 

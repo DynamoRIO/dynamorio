@@ -334,6 +334,20 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_WINDOW_ID,
 
+    /**
+     * The marker value contains the physical address corresponding to the subsequent
+     * entry's instruction fetch PC or data address.  If translation failed, a
+     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be present instead.
+     */
+    TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+
+    /**
+     * Indicates a failure to obtain the physical address corresponding to the
+     * subsequent entry's instruction fetch PC or data address.  The marker value is
+     * undefined.
+     */
+    TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
