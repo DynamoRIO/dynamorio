@@ -57,8 +57,12 @@ private:
 #ifdef LINUX
     addr_t last_vpage_;
     addr_t last_ppage_;
-    // XXX: An app with thousands of threads might hit open file limits.
-    // Sharing the descriptor would require locks, however.
+    // TODO i#4014: An app with thousands of threads might hit open file limits,
+    // and even a hundred threads will use up DR's private FD limit and push
+    // other files into potential app conflicts.
+    // Sharing the descriptor would require locks, however.  Evaluating
+    // how best to do that (maybe the caching will reduce the contention enough)
+    // is future work.
     int fd_;
     // We would use std::unordered_map, but that is not compatible with
     // statically linking drmemtrace into an app.

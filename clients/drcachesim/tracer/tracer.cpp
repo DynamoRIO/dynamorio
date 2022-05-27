@@ -2671,7 +2671,7 @@ event_thread_init(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
-    *data = {};
+    *data = {}; // We must safely zero due to the C++ class member.
     data->file = INVALID_FILE;
     drmgr_set_tls_field(drcontext, tls_idx, data);
 
