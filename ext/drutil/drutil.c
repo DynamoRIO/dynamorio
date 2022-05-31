@@ -422,6 +422,9 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             disp = -disp;
             negated = !negated;
         }
+        /* FIXME i#5498 */
+        if (index == DR_REG_W28)
+            return false;
         if (dst == stolen || scratch == stolen)
             return false;
         if (base == stolen) {
