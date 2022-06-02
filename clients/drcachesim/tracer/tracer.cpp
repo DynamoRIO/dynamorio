@@ -89,12 +89,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
  */
 DR_DISALLOW_UNSAFE_STATIC
 
-#define NOTIFY(level, ...)                     \
-    do {                                       \
-        if (op_verbose.get_value() >= (level)) \
-            dr_fprintf(STDERR, __VA_ARGS__);   \
-    } while (0)
-
 // A clean exit via dr_exit_process() is not supported from init code, but
 // we do want to at least close the pipe file.
 #define FATAL(...)                       \
@@ -974,12 +968,11 @@ memtrace(void *drcontext, bool skip_size_cap)
                 if (have_phys && op_use_physical.get_value() &&
                     type != TRACE_TYPE_THREAD && type != TRACE_TYPE_THREAD_EXIT &&
                     type != TRACE_TYPE_PID) {
-                    addr_t virt = instru->get_entry_addr(mem_ref);
-                    addr_t phys = data->physaddr.virtual2physical(virt);
                     DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
-                    if (phys != 0)
-                        instru->set_entry_addr(mem_ref, phys);
-                    else {
+                    addr_t virt = instru->get_entry_addr(mem_ref);
+                    addr_t phys;
+                    bool success = data->physaddr.virtual2physical(virt, &phys);
+                    if (!success) {
                         // XXX i#1735: use virtual address and continue?
                         // There are cases the xl8 fail, e.g.,:
                         // - vsyscall/kernel page,
@@ -988,6 +981,8 @@ memtrace(void *drcontext, bool skip_size_cap)
                                "virtual2physical translation failure for "
                                "<%2d, %2d, " PFX ">\n",
                                type, instru->get_entry_size(mem_ref), virt);
+                    } else {
+                        instru->set_entry_addr(mem_ref, phys);
                     }
                 }
             }

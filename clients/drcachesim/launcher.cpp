@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,6 +67,7 @@
         exit(1);                                            \
     } while (0)
 
+#undef NOTIFY
 #define NOTIFY(level, prefix, msg, ...)                              \
     do {                                                             \
         if (op_verbose.get_value() >= level) {                       \
