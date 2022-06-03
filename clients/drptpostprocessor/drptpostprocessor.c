@@ -135,8 +135,10 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
          * instructions. If there is no PSB packet, the decoder will be synced to the end
          * of the trace. If error occurs, we will call diagnose_error to print the error
          * information.
-         * https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/doc/man/pt_insn_sync_forward.3.md?plain=1#L51-L58
          */
+        /* clang-format off */
+        /* https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/doc/man/pt_insn_sync_forward.3.md?plain=1#L51-L58 */
+        /* clang-format on */
         status = pt_insn_sync_forward(decoder->ptdecoder);
         if (status < 0) {
             if (status == -pte_eos)
@@ -149,8 +151,10 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
         for (;;) {
             /* Handle next status and all pending perf events.
              * Why we need to handle pending perf events?
-             * https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/doc/man/pt_insn_next.3.md?plain=1#L207-L234
              */
+            /* clang-format off */
+            /* https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/doc/man/pt_insn_next.3.md?plain=1#L207-L234 */
+            /* clang-format on */
             int nextstatus = status;
             int errcode = 0;
             while (nextstatus & pts_event_pending) {
@@ -359,9 +363,10 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
             }
             if (config->cpu.vendor) {
                 int errcode = pt_cpu_errata(&config->errata, &config->cpu);
-                if (errcode < 0)
+                if (errcode < 0) {
                     fprintf(stderr, "%s: --pt: [0, 0: config error: %s]\n", prog,
                             pt_errstr(pt_errcode(errcode)));
+                }
             }
             char *ptfile = argv[argidx];
             int errcode = load_pt_file(config, ptfile, prog);
@@ -561,9 +566,11 @@ main(int argc, char **argv)
      * being initialized.
      *
      * What is sideband session?
-     * https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/sideband/include/libipt-sb.h.in#L85-L117
      */
-    errcode = pt_sb_init_decoders(decoder.sbsession);
+    /* clang-format off */
+    /* https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/sideband/include/libipt-sb.h.in#L85-L117 */
+    /* clang-format on */
+    errcode = pt_sb_incit_decoders(decoder.sbsession);
     if (errcode < 0) {
         fprintf(stderr, "%s: error initializing sideband decoders: %s.\n", prog,
                 pt_errstr(pt_errcode(errcode)));
