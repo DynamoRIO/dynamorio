@@ -557,7 +557,7 @@ main(int argc, char **argv)
     /* Initialize the sideband session. It needs be called after all sideband decoders are
      * being initialized.
      */
-    errcode = pt_sb_incit_decoders(decoder.sbsession);
+    errcode = pt_sb_init_decoders(decoder.sbsession);
     if (errcode < 0) {
         fprintf(stderr, "%s: error initializing sideband decoders: %s.\n", prog,
                 pt_errstr(pt_errcode(errcode)));
