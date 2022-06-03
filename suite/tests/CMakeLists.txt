@@ -4119,6 +4119,17 @@ if (BUILD_CLIENTS)
 
 endif (BUILD_CLIENTS)
 
+
+  ###########################################################################
+  # drptpostprocessor tests
+if (BUILD_CLIENTS)
+  if (HAVE_LIBIPT)
+    message(STATUS "Adding drptpostprocessor tests")
+    set(drptpostprocessor_args "--stats" "--cpu" "6/85/4" "--pevent:sample-type" "0x10086" "--pevent:primary" "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/sideband.pevent" "--pt" "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/pt.bin")
+    torunonly_api(tool.drptpostprocessor drptpostprocessor "../../clients/drptpostprocessor/test_simple.template" "" "${drptpostprocessor_args}" ON OFF)
+  endif (HAVE_LIBIPT)
+endif (BUILD_CLIENTS)
+
 if (UNIX)
   macro(make_symlink src dst)
     execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${src} ${dst}
