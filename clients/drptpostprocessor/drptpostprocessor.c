@@ -136,9 +136,6 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
          * of the trace. If error occurs, we will call diagnose_error to print the error
          * information.
          */
-        /* clang-format off */
-        /* https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/doc/man/pt_insn_sync_forward.3.md?plain=1#L51-L58 */
-        /* clang-format on */
         status = pt_insn_sync_forward(decoder->ptdecoder);
         if (status < 0) {
             if (status == -pte_eos)
@@ -149,13 +146,8 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
 
         /* Decode instructions. */
         for (;;) {
-            /* Handle next status and all pending perf events.
-             * Why we need to handle pending perf events?
-             */
-            /* clang-format off */
-            /* https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/doc/man/pt_insn_next.3.md?plain=1#L207-L234 */
+            /* Handle next status and all pending perf events. */
             int nextstatus = status;
-            /* clang-format on */
             int errcode = 0;
             while (nextstatus & pts_event_pending) {
                 struct pt_event event;
@@ -564,12 +556,7 @@ main(int argc, char **argv)
 
     /* Initialize the sideband session. It needs be called after all sideband decoders are
      * being initialized.
-     *
-     * What is sideband session?
      */
-    /* clang-format off */
-    /* https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/sideband/include/libipt-sb.h.in#L85-L117 */
-    /* clang-format on */
     errcode = pt_sb_incit_decoders(decoder.sbsession);
     if (errcode < 0) {
         fprintf(stderr, "%s: error initializing sideband decoders: %s.\n", prog,
