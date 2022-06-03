@@ -154,8 +154,8 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
              */
             /* clang-format off */
             /* https://github.com/intel/libipt/blob/c848a85c3104e2f5780741f85de5c9e65476ece2/doc/man/pt_insn_next.3.md?plain=1#L207-L234 */
-            /* clang-format on */
             int nextstatus = status;
+            /* clang-format on */
             int errcode = 0;
             while (nextstatus & pts_event_pending) {
                 struct pt_event event;
