@@ -50,6 +50,11 @@ public:
     ~physaddr_t();
     bool
     init();
+
+    // If translation from "virt" to its corresponding physicall address is
+    // successful, returns true and stores the physical address in "phys".
+    // 0 is a possible valid physical address, as are large values beyond
+    // the amount of RAM due to holes in the physical address space.
     bool
     virtual2physical(addr_t virt, OUT addr_t *phys);
 
