@@ -295,8 +295,8 @@ err_file:
 }
 
 static int
-alloc_decoder(dript_decoder_t *decoder OUT, struct pt_config *conf IN, struct pt_image *image INOUT,
-              const char *prog IN)
+alloc_decoder(dript_decoder_t *decoder OUT, struct pt_config *conf IN,
+              struct pt_image *image INOUT, const char *prog IN)
 {
     struct pt_config config;
     int errcode;
@@ -318,7 +318,8 @@ alloc_decoder(dript_decoder_t *decoder OUT, struct pt_config *conf IN, struct pt
 }
 
 static int
-alloc_sb_pevent_decoder(dript_decoder_t *decoder INOUT, char *filename IN, const char *prog IN)
+alloc_sb_pevent_decoder(dript_decoder_t *decoder INOUT, char *filename IN,
+                        const char *prog IN)
 {
     struct pt_sb_pevent_config config;
     int errcode;
@@ -339,8 +340,9 @@ alloc_sb_pevent_decoder(dript_decoder_t *decoder INOUT, char *filename IN, const
 }
 
 static int
-process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT, struct pt_config *config OUT,
-             struct pt_image *image INOUT, dript_options_t *options OUT)
+process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
+             struct pt_config *config OUT, struct pt_image *image INOUT,
+             dript_options_t *options OUT)
 {
     int argidx = 1;
     char *prog = argv[0];
