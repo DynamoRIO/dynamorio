@@ -256,7 +256,7 @@ offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
         if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
             DRCOVLIB_SUCCESS)
             return 0;
-        return reinterpret_cast<addr_t>(modbase) + entry->pc.modoffs;
+        return reinterpret_cast<addr_t>(modbase) + static_cast<addr_t>(entry->pc.modoffs);
     }
     return entry->addr.addr;
 }
