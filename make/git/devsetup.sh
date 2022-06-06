@@ -52,6 +52,9 @@ git config alias.pullall "!myf() { make/git/git_pullall.sh \"\$@\"; }; myf"
 # Commit template
 git config commit.template make/git/commit-template.txt
 
+# Update and initialize submodules
+git submodule update --init --recursive
+
 # Set up hooks
 cp make/git/hook-pre-commit-launch.sh .git/hooks/pre-commit
 cp make/git/hook-commit-msg-launch.sh .git/hooks/commit-msg

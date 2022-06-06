@@ -44,6 +44,8 @@ if test -z "${has_remote}"; then
 else
     echo "First, updating with rebase from remote ${branch}."
     git pull --rebase origin ${branch}
+    echo "\nSecond, updating submodules."
+    git submodule update --init --recursive
     echo -e "\nNow, merging changes from master."
     git pull --no-rebase --prune
 fi
