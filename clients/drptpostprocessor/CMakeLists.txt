@@ -32,50 +32,98 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
+set(BUILD_DRPTPOSTPROCESSOR_IN_DR OFF)
 # currently drptpostprocessor only works on Linux x86_64
 if (LINUX AND X64)
+  # building drptpostprocessor in dr requires initializing the libipt submodule
   if (HAVE_LIBIPT)
-    # set include directories to find intel-pt.h and libipt-sb.h
-    include_directories(SYSTEM
-      ${PROJECT_BINARY_DIR}/third_party/libipt/libipt/include
-      ${PROJECT_BINARY_DIR}/third_party/libipt/sideband/include
-    )
+    set(BUILD_DRPTPOSTPROCESSOR_IN_DR ON)
+  endif (HAVE_LIBIPT)
+endif (LINUX AND X64)
 
-    # set include directories to find load_elf.h
-    include_directories(
-      ${PROJECT_SOURCE_DIR}/third_party/libipt/libipt/internal/include
-      ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/include
-    )
 
-    # set library directories to find libipt.so and libipt-sb.so
-    link_directories(
-      ${CMAKE_BINARY_DIR}/lib
-    )
+if (BUILD_DRPTPOSTPROCESSOR_IN_DR)
+  # set include directories to find intel-pt.h and libipt-sb.h
+  include_directories(SYSTEM
+    ${PROJECT_BINARY_DIR}/third_party/libipt/libipt/include
+    ${PROJECT_BINARY_DIR}/third_party/libipt/sideband/include
+  )
 
-    set (drptpostprocessor_srcs
-      ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
-      ${PROJECT_SOURCE_DIR}/third_party/libipt/libipt/src/pt_cpu.c
-      drptpostprocessor.c
-    )
+  # set include directories to find load_elf.h
+  include_directories(
+    ${PROJECT_SOURCE_DIR}/third_party/libipt/libipt/internal/include
+    ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/include
+  )
 
-    add_executable(drptpostprocessor
-      ${drptpostprocessor_srcs}
-    )
-    add_dependencies(drptpostprocessor libipt)
-    add_dependencies(drptpostprocessor libipt-sb)
+  # set library directories to find libipt.so and libipt-sb.so
+  link_directories(
+    ${CMAKE_BINARY_DIR}/lib
+  )
 
-    target_link_libraries(drptpostprocessor ipt)
-    target_link_libraries(drptpostprocessor ipt-sb)
+  set (drptpostprocessor_srcs
+    ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
+    ${PROJECT_SOURCE_DIR}/third_party/libipt/libipt/src/pt_cpu.c
+    drptpostprocessor.c
+  )
 
-    ## Todo: Fix the unfind library error when add the following lines.
-    # target_link_libraries(drptpostprocessor drdecode)
-    # configure_DynamoRIO_standalone(drptpostprocessor)
+  add_executable(drptpostprocessor
+    ${drptpostprocessor_srcs}
+  )
+  add_dependencies(drptpostprocessor libipt)
+  add_dependencies(drptpostprocessor libipt-sb)
 
-    if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)
-      set(dst ${DR_INSTALL_DEPLOY_BIN_DEST})
-    else ()
-      set(dst "${INSTALL_BIN}")
-    endif ()
-    DR_target_install(TARGETS drptpostprocessor DESTINATION ${dst})
-  endif()
-endif ()
+  target_link_libraries(drptpostprocessor ipt)
+  target_link_libraries(drptpostprocessor ipt-sb)
+
+  ## Todo: Fix the unfind library error when add the following lines.
+  # target_link_libraries(drptpostprocessor drdecode)
+  # configure_DynamoRIO_standalone(drptpostprocessor)
+
+  if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)
+    set(dst ${DR_INSTALL_DEPLOY_BIN_DEST})
+  else ()
+    set(dst "${INSTALL_BIN}")
+  endif ()
+  DR_target_install(TARGETS drptpostprocessor DESTINATION ${dst})
+endif()
+
+# BUILD_DRPTPOSTPROCESSOR_LOCAL is used to build drptpostprocessor in local directory
+set(BUILD_DRPTPOSTPROCESSOR_LOCAL ON)
+if (BUILD_DRPTPOSTPROCESSOR_IN_DR)
+  set(BUILD_DRPTPOSTPROCESSOR_LOCAL OFF)
+endif()
+if (BUILD_DRPTPOSTPROCESSOR_LOCAL)
+  project(drptpostprocessor)
+
+  set(LIBIPT_INCLUDE "" CACHE PATH "")
+  set(LIBIPT_SIDEBAND_INCLUDE "" CACHE PATH "")
+  set(LIBIPT_LIBDIR "" CACHE PATH "")
+
+  include_directories(SYSTEM
+    ${LIBIPT_INCLUDE}
+    ${LIBIPT_SIDEBAND_INCLUDE}
+  )
+
+  # set include directories to find load_elf.h
+  include_directories(
+    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/libipt/internal/include
+    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/ptxed/include
+  )
+
+  # set library directories to find libipt.so and libipt-sb.so
+  link_directories(
+    ${LIBIPT_LIBDIR}
+  )
+
+  set (drptpostprocessor_srcs
+    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/ptxed/src/load_elf.c
+    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/libipt/src/pt_cpu.c
+    drptpostprocessor.c
+  )
+
+  add_executable(drptpostprocessor
+    ${drptpostprocessor_srcs}
+  )
+  target_link_libraries(drptpostprocessor ipt)
+  target_link_libraries(drptpostprocessor ipt-sb)
+endif(BUILD_DRPTPOSTPROCESSOR_LOCAL)

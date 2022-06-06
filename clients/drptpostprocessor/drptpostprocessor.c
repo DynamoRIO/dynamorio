@@ -43,6 +43,9 @@
 
 #include "load_elf.h"
 #include "pt_cpu.h"
+// #include "pt_image.h"
+// #include "pt_insn_decoder.h"
+// #include "pt_mapped_section.h"
 #include "intel-pt.h"
 #include "libipt-sb.h"
 
@@ -78,6 +81,26 @@ typedef struct _dript_stats_t {
     uint64_t insn;
 } dript_stats_t;
 
+// static void
+// pt_image_merge(struct pt_image *ptimage INOUT, struct pt_image *image IN)
+// {
+//     if (ptimage->sections == NULL) {
+//         ptimage->sections = image->sections;
+//         return;
+//     }
+//     struct pt_section_list *cursection = ptimage->sections;
+//     while(cursection->next != NULL) {
+//         cursection = cursection->next;
+//     }
+//     cursection->next = image->sections;
+//     cursection = ptimage->sections;
+//     while(cursection != NULL) {
+//         printf("%lx\n", cursection->section.vaddr);
+//         printf("%d\n", cursection->isid);
+//         cursection = cursection->next;
+//     }
+// }
+
 static int
 sb_event(dript_decoder_t *decoder INOUT, const struct pt_event *event IN,
          const dript_options_t *options IN)
@@ -92,7 +115,17 @@ sb_event(dript_decoder_t *decoder INOUT, const struct pt_event *event IN,
         return errcode;
     if (image == NULL)
         return 0;
+    // pt_image_merge(decoder->ptdecoder->image, image);
+    // return 0;
 
+    // pt_insn_set_image(decoder->ptdecoder, image);
+    // struct pt_section_list *cursection = decoder->ptdecoder->image->sections;
+    // while(cursection != NULL) {
+    //     printf("%lx\n", cursection->section.vaddr);
+    //     printf("%d\n", cursection->isid);
+    //     cursection = cursection->next;
+    // }
+    // return 0;
     return pt_insn_set_image(decoder->ptdecoder, image);
 }
 
@@ -135,6 +168,14 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
          * instructions. If there is no PSB packet, the decoder will be synced to the end
          * of the trace. If error occurs, we will call diagnose_error to print the error
          * information.
+         * What is PSB packets?
+         * Below answer is quoted from Intel® 64 and IA-32 Architectures Software
+         * Developer’s Manual 32.1.1.1 Packet Summary
+         * “Packet Stream Boundary (PSB) packets: PSB packets act as ‘heartbeats’ that are
+         * generated at regular intervals (e.g., every 4K trace packet bytes). These
+         * packets allow the packet decoder to find the packet boundaries within the
+         * output data stream; a PSB packet should be the first packet that a decoder
+         * looks for when beginning to decode a trace.”
          */
         status = pt_insn_sync_forward(decoder->ptdecoder);
         if (status < 0) {
@@ -220,14 +261,181 @@ usage(const char *name IN)
     printf("                               load a perf_event sideband stream from "
            "<file>.\n");
     printf("                               an optional offset or range can be given.\n");
+    printf("  --img <file>:<base>          load a image binary from <file> at address "
+           "<base>.\n");
     printf("  --pevent:kernel-start <val>  the start address of the kernel.\n");
     printf("  --pevent:kcore <file>        load the kernel from a core dump.\n");
     printf("  --cpu none|f/m[/s]           set cpu to the given value and decode "
            "according to:\n");
     printf("                               none     spec (default)\n");
     printf("                               f/m[/s]  family/model[/stepping]\n");
+    printf("\n");
+    printf("You must specify at least one binary file (--img).\n");
+    printf("You must specify exactly one processor trace file (--pt).\n");
 
     return 1;
+}
+
+static int
+extract_base(char *arg IN, uint64_t *base OUT)
+{
+    char *sep, *rest;
+
+    sep = strrchr(arg, ':');
+    if (sep) {
+        uint64_t num;
+
+        if (!sep[1])
+            return 0;
+
+        errno = 0;
+        num = strtoull(sep + 1, &rest, 0);
+        if (errno || *rest)
+            return 0;
+
+        *base = num;
+        *sep = 0;
+        return 1;
+    }
+
+    return 0;
+}
+
+static int
+parse_range(const char *arg, uint64_t *begin, uint64_t *end)
+{
+    char *rest;
+
+    if (!arg || !*arg)
+        return 0;
+
+    errno = 0;
+    *begin = strtoull(arg, &rest, 0);
+    if (errno)
+        return -1;
+
+    if (!*rest)
+        return 1;
+
+    if (*rest != '-')
+        return -1;
+
+    *end = strtoull(rest + 1, &rest, 0);
+    if (errno || *rest)
+        return -1;
+
+    return 2;
+}
+
+/* Preprocess a filename argument.
+ *
+ * A filename may optionally be followed by a file offset or a file range
+ * argument separated by ':'.  Split the original argument into the filename
+ * part and the offset/range part.
+ *
+ * If no end address is specified, set @size to zero.
+ * If no offset is specified, set @offset to zero.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int
+preprocess_filename(char *filename, uint64_t *offset, uint64_t *size)
+{
+    uint64_t begin, end;
+    char *range;
+    int parts;
+
+    if (!filename || !offset || !size)
+        return -pte_internal;
+
+    /* Search from the end as the filename may also contain ':'. */
+    range = strrchr(filename, ':');
+    if (!range) {
+        *offset = 0ull;
+        *size = 0ull;
+
+        return 0;
+    }
+
+    /* Let's try to parse an optional range suffix.
+     *
+     * If we can, remove it from the filename argument.
+     * If we can not, assume that the ':' is part of the filename, e.g. a
+     * drive letter on Windows.
+     */
+    parts = parse_range(range + 1, &begin, &end);
+    if (parts <= 0) {
+        *offset = 0ull;
+        *size = 0ull;
+
+        return 0;
+    }
+
+    if (parts == 1) {
+        *offset = begin;
+        *size = 0ull;
+
+        *range = 0;
+
+        return 0;
+    }
+
+    if (parts == 2) {
+        if (end <= begin)
+            return -pte_invalid;
+
+        *offset = begin;
+        *size = end - begin;
+
+        *range = 0;
+
+        return 0;
+    }
+
+    return -pte_internal;
+}
+
+static int
+load_image(struct pt_image_section_cache *iscache INOUT, struct pt_image *image INOUT,
+           char *arg IN, const char *prog IN)
+{
+    uint64_t base, foffset, fsize;
+    int isid, errcode, has_base;
+
+    has_base = extract_base(arg, &base);
+    if (has_base <= 0) {
+        fprintf(stderr,
+                "%s: failed to parse base address"
+                "from '%s'.\n",
+                prog, arg);
+        return -1;
+    }
+
+    errcode = preprocess_filename(arg, &foffset, &fsize);
+    if (errcode < 0) {
+        fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
+                pt_errstr(pt_errcode(errcode)));
+        return -1;
+    }
+
+    if (!fsize)
+        fsize = UINT64_MAX;
+
+    isid = pt_iscache_add_file(iscache, arg, foffset, fsize, base);
+    if (isid < 0) {
+        fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 " to iscache: %s.\n", prog,
+                arg, base, pt_errstr(pt_errcode(isid)));
+        return -1;
+    }
+
+    errcode = pt_image_add_cached(image, iscache, isid, NULL);
+    if (errcode < 0) {
+        fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 " to image: %s.\n", prog,
+                arg, base, pt_errstr(pt_errcode(errcode)));
+        return -1;
+    }
+
+    return 0;
 }
 
 static int
@@ -367,6 +575,16 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
             }
 
             errcode = alloc_decoder(decoder, config, image, prog);
+            if (errcode < 0) {
+                return errcode;
+            }
+        } else if (strcmp(argv[argidx], "--img") == 0) {
+            if (argc <= (++argidx)) {
+                fprintf(stderr, "%s: --img: missing argument.\n", prog);
+                return -1;
+            }
+            char *imgfile = argv[argidx];
+            int errcode = load_image(decoder->iscache, image, imgfile, prog);
             if (errcode < 0) {
                 return errcode;
             }
