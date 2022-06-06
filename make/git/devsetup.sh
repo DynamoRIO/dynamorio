@@ -33,6 +33,9 @@
 # Developers should run this script once in each repository
 # immediately after cloning.
 
+# Set up submodules
+git submodule update --init --recursive
+
 # Convert CRLF to LF on commit but not checkout:
 git config core.autocrlf input
 
@@ -51,9 +54,6 @@ git config alias.pullall "!myf() { make/git/git_pullall.sh \"\$@\"; }; myf"
 
 # Commit template
 git config commit.template make/git/commit-template.txt
-
-# Update and initialize submodules
-git submodule update --init --recursive
 
 # Set up hooks
 cp make/git/hook-pre-commit-launch.sh .git/hooks/pre-commit
