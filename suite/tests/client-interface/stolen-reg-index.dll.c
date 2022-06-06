@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
- * Copyright (c) 2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2022 Arm Limited   All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,7 +63,13 @@ insert_get_addr(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t mref
         DR_ASSERT(false);
     }
 
-    if (!drutil_insert_get_mem_addr(drcontext, ilist, instr, mref, reg_tmp, reg_ptr)) {
+    /* XXX i#5498: We should check the address in reg_ptr for correctness. A
+     * constant reference address in this client to check for correctness based
+     * on the test binary stolen-reg-index is not a viable approach because
+     * different versions of compiler, linker/loader and OS will produce
+     * different addresses at runtime.
+     */
+    if (!drutil_insert_get_mem_addr(drcontext, ilist, instr, mref, reg_ptr, reg_tmp)) {
         dr_printf("drutil_insert_get_mem_addr() failed!\n");
         return false;
     }
@@ -88,7 +93,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     DR_ASSERT(stolen == DR_REG_X28);
 
     /* Selects store insruction, str x1, [x0, w28, uxtw #0] from test subject,
-     * stolen-reg-index.appdll.c.
+     * stolen-reg-index.c.
      */
     if (instr_writes_memory(inst)) {
         opnd = instr_get_dst(inst, 0);
@@ -105,7 +110,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     }
 
     /* Selects load instruction, ldr x1, [x0, x28, lsl #0] from test subject,
-     * stolen-reg-index.appdll.c.
+     * stolen-reg-index.c.
      */
     if (instr_reads_memory(inst)) {
         opnd = instr_get_src(inst, 0);

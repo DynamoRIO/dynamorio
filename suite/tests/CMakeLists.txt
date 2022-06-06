@@ -1,7 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
-# Copyright (c) 2016      ARM Limited.    All rights reserved.
+# Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -2559,8 +2559,6 @@ if (AARCH64)
   tobuild_ci(client.features client-interface/features.c "" "" "")
 
   tobuild_appdll(client.stolen-reg-index client-interface/stolen-reg-index.c)
-  get_target_path_for_execution(stolen_reg_index_libpath client.stolen-reg-index.appdll
-  "${location_suffix}")
   tobuild_ci(client.stolen-reg-index client-interface/stolen-reg-index.c "" ""
     "${stolen_reg_index_libpath}")
   use_DynamoRIO_extension(client.stolen-reg-index.dll drmgr)

@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2022      Arm Limited   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -423,9 +424,16 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             negated = !negated;
         }
 #    ifdef AARCH64
-        /* FIXME i#5498 */
-        if (index == DR_REG_W28)
-            return false;
+	/* In cases where only the lower 32 bits of the index register are
+	 * used, we need to widen to 64 bits in order to handle stolen register
+	 * X28's replacement. See replace_stolen_reg() below, where index is
+	 * narrowed after replacement.
+	 */
+        bool is_index_w28 = false;
+        if (index == DR_REG_W28) {
+            index = DR_REG_X28;
+            is_index_w28 = true;
+        }
 #    endif
         if (dst == stolen || scratch == stolen)
             return false;
@@ -435,6 +443,15 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         } else if (index == stolen) {
             index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch,
                                        scratch_used);
+#    ifdef AARCH64
+	    /* Narrow replaced index register if it was W28 before
+             * replace_stolen_reg() call.
+             */
+            if (is_index_w28) {
+                index = DR_REG_START_32 + (index - DR_REG_START_64);
+                ASSERT(reg_is_32bit(index), "replacement of W28 failed");
+            }
+#    endif
         }
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
             /* first try "add dst, base, #disp" */

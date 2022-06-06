@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Arm Limited   All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,41 +30,63 @@
  * DAMAGE.
  */
 
-/* Loader for test client stolen-reg-index.dll.c and its test app
- * stolen-reg-index.appdll.c.
+/* Executes two indexed memory instructions, one using X28 for index register,
+ * the other W28. Intention is for DR to call drutil_insert_get_mem_addr() in
+ * order to test the 'if (index == stolen)' clause in
+ * drutil_insert_get_mem_addr_arm() in the case of W28.
  */
 
-#include "tools.h"
-#ifdef UNIX
-#    include "dlfcn.h"
-#endif
+#ifndef ASM_CODE_ONLY /* C code */
 
-static void
-load_library(const char *path)
-{
-    void *lib = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-    if (lib == NULL) {
-        fprintf(stderr, "Error loading library %s: %s.\n", path, dlerror());
-        fflush(stderr);
-    } else {
-        fprintf(stdout, "Loaded library.\n");
-        fflush(stdout);
-        dlclose(lib);
-    }
-}
+#include "tools.h"
+
+/* In asm code. */
+void
+indexed_mem_test(int *val);
 
 int
 main(int argc, char *argv[])
 {
-    /* Assume LD_LIBRARY_PATH does not have "." so we require absolute path. */
-    if (argc < 2) {
-        fprintf(stderr, "Need to pass in absolute/full library path.\n");
+    int value = 41;
+    indexed_mem_test(&value);
+    if (value != 42) {
+        fprintf(stderr, "indexed_mem_test() failed with %d, expected 42.\n", value);
         fflush(stderr);
-        return 1;
+    } else {
+        fprintf(stdout, "indexed_mem_test() passed.\n");
+        fflush(stdout);
     }
-    load_library(argv[1]);
 
     fprintf(stdout, "Tested the use of stolen register as memory index register.\n");
     fflush(stdout);
     return 0;
 }
+
+#else /* asm code *************************************************************/
+#    include "asm_defines.asm"
+/* clang-format off */
+START_FILE
+#define FUNCNAME indexed_mem_test
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+
+        stp      x0, x1, [sp, #-16]!
+
+        /* Load passed in value using index register X28, then increment. */
+        mov      x28, #0
+        ldr      x1, [x0, x28, lsl #0]
+        add      x1, x1, #1
+
+        /* Store incremented value using index register W28. */
+        mov      w28, #0
+        str      x1, [x0, w28, uxtw #0]
+
+        ldp      x0, x1, [sp], #16
+        ret
+
+        END_FUNC(FUNCNAME)
+#  undef FUNCNAME
+
+END_FILE
+/* clang-format on */
+#endif /* ASM_CODE_ONLY */
