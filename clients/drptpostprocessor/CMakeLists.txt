@@ -32,17 +32,17 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-set(BUILD_DRPTPOSTPROCESSOR_IN_DR OFF)
+set(BUILD_DRPTPOSTPROCESSOR OFF)
 # currently drptpostprocessor only works on Linux x86_64
 if (LINUX AND X64)
   # building drptpostprocessor in dr requires initializing the libipt submodule
   if (HAVE_LIBIPT)
-    set(BUILD_DRPTPOSTPROCESSOR_IN_DR ON)
+    set(BUILD_DRPTPOSTPROCESSOR ON)
   endif (HAVE_LIBIPT)
 endif (LINUX AND X64)
 
 
-if (BUILD_DRPTPOSTPROCESSOR_IN_DR)
+if (BUILD_DRPTPOSTPROCESSOR)
   # set include directories to find intel-pt.h and libipt-sb.h
   include_directories(SYSTEM
     ${PROJECT_BINARY_DIR}/third_party/libipt/libipt/include
@@ -86,44 +86,3 @@ if (BUILD_DRPTPOSTPROCESSOR_IN_DR)
   endif ()
   DR_target_install(TARGETS drptpostprocessor DESTINATION ${dst})
 endif()
-
-# BUILD_DRPTPOSTPROCESSOR_LOCAL is used to build drptpostprocessor in local directory
-set(BUILD_DRPTPOSTPROCESSOR_LOCAL ON)
-if (BUILD_DRPTPOSTPROCESSOR_IN_DR)
-  set(BUILD_DRPTPOSTPROCESSOR_LOCAL OFF)
-endif()
-if (BUILD_DRPTPOSTPROCESSOR_LOCAL)
-  project(drptpostprocessor)
-
-  set(LIBIPT_INCLUDE "" CACHE PATH "")
-  set(LIBIPT_SIDEBAND_INCLUDE "" CACHE PATH "")
-  set(LIBIPT_LIBDIR "" CACHE PATH "")
-
-  include_directories(SYSTEM
-    ${LIBIPT_INCLUDE}
-    ${LIBIPT_SIDEBAND_INCLUDE}
-  )
-
-  # set include directories to find load_elf.h
-  include_directories(
-    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/libipt/internal/include
-    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/ptxed/include
-  )
-
-  # set library directories to find libipt.so and libipt-sb.so
-  link_directories(
-    ${LIBIPT_LIBDIR}
-  )
-
-  set (drptpostprocessor_srcs
-    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/ptxed/src/load_elf.c
-    ${PROJECT_SOURCE_DIR}/../../third_party/libipt/libipt/src/pt_cpu.c
-    drptpostprocessor.c
-  )
-
-  add_executable(drptpostprocessor
-    ${drptpostprocessor_srcs}
-  )
-  target_link_libraries(drptpostprocessor ipt)
-  target_link_libraries(drptpostprocessor ipt-sb)
-endif(BUILD_DRPTPOSTPROCESSOR_LOCAL)

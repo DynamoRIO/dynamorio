@@ -43,9 +43,6 @@
 
 #include "load_elf.h"
 #include "pt_cpu.h"
-// #include "pt_image.h"
-// #include "pt_insn_decoder.h"
-// #include "pt_mapped_section.h"
 #include "intel-pt.h"
 #include "libipt-sb.h"
 
@@ -81,26 +78,6 @@ typedef struct _dript_stats_t {
     uint64_t insn;
 } dript_stats_t;
 
-// static void
-// pt_image_merge(struct pt_image *ptimage INOUT, struct pt_image *image IN)
-// {
-//     if (ptimage->sections == NULL) {
-//         ptimage->sections = image->sections;
-//         return;
-//     }
-//     struct pt_section_list *cursection = ptimage->sections;
-//     while(cursection->next != NULL) {
-//         cursection = cursection->next;
-//     }
-//     cursection->next = image->sections;
-//     cursection = ptimage->sections;
-//     while(cursection != NULL) {
-//         printf("%lx\n", cursection->section.vaddr);
-//         printf("%d\n", cursection->isid);
-//         cursection = cursection->next;
-//     }
-// }
-
 static int
 sb_event(dript_decoder_t *decoder INOUT, const struct pt_event *event IN,
          const dript_options_t *options IN)
@@ -115,17 +92,6 @@ sb_event(dript_decoder_t *decoder INOUT, const struct pt_event *event IN,
         return errcode;
     if (image == NULL)
         return 0;
-    // pt_image_merge(decoder->ptdecoder->image, image);
-    // return 0;
-
-    // pt_insn_set_image(decoder->ptdecoder, image);
-    // struct pt_section_list *cursection = decoder->ptdecoder->image->sections;
-    // while(cursection != NULL) {
-    //     printf("%lx\n", cursection->section.vaddr);
-    //     printf("%d\n", cursection->isid);
-    //     cursection = cursection->next;
-    // }
-    // return 0;
     return pt_insn_set_image(decoder->ptdecoder, image);
 }
 
@@ -261,8 +227,10 @@ usage(const char *name IN)
     printf("                               load a perf_event sideband stream from "
            "<file>.\n");
     printf("                               an optional offset or range can be given.\n");
-    printf("  --img <file>:<base>          load a image binary from <file> at address "
+    printf("  --img <file>[:begin[:end]]:<base>\n");
+    printf("                               load a image binary from <file> at address "
            "<base>.\n");
+    printf("                               an optional offset or range can be given.\n");
     printf("  --pevent:kernel-start <val>  the start address of the kernel.\n");
     printf("  --pevent:kcore <file>        load the kernel from a core dump.\n");
     printf("  --cpu none|f/m[/s]           set cpu to the given value and decode "
@@ -276,13 +244,17 @@ usage(const char *name IN)
     return 1;
 }
 
+/* Preprocess a filename argument.
+ *
+ * Split the argument into a filename and the load base addr.
+ */
 static int
-extract_base(char *arg IN, uint64_t *base OUT)
+extract_base(char *arg INOUT, uint64_t *base OUT)
 {
     char *sep, *rest;
 
     sep = strrchr(arg, ':');
-    if (sep) {
+    if (sep != NULL) {
         uint64_t num;
 
         if (!sep[1])
@@ -301,8 +273,13 @@ extract_base(char *arg IN, uint64_t *base OUT)
     return 0;
 }
 
+/* Split a string of the format like begin[-end] into start or start/end parts.
+ *
+ * Return the number of parts. 0 means error. 1 means only have begin part. 2 means have
+ * both part.
+ */
 static int
-parse_range(const char *arg, uint64_t *begin, uint64_t *end)
+parse_range(const char *arg IN, uint64_t *begin OUT, uint64_t *end OUT)
 {
     char *rest;
 
@@ -311,17 +288,17 @@ parse_range(const char *arg, uint64_t *begin, uint64_t *end)
 
     errno = 0;
     *begin = strtoull(arg, &rest, 0);
-    if (errno)
+    if (errno != 0)
         return -1;
 
-    if (!*rest)
+    if (*rest == 0)
         return 1;
 
     if (*rest != '-')
         return -1;
 
     *end = strtoull(rest + 1, &rest, 0);
-    if (errno || *rest)
+    if (errno != 0 || *rest != 0)
         return -1;
 
     return 2;
@@ -329,9 +306,10 @@ parse_range(const char *arg, uint64_t *begin, uint64_t *end)
 
 /* Preprocess a filename argument.
  *
- * A filename may optionally be followed by a file offset or a file range
- * argument separated by ':'.  Split the original argument into the filename
- * part and the offset/range part.
+ * The image file may optionally be followed by a file offset or a file range.
+ * eg: file[:offset] or file[:begin-end]
+ * preprocess_filename will split the original argument into the filename part and the
+ * offset/range part.
  *
  * If no end address is specified, set @size to zero.
  * If no offset is specified, set @offset to zero.
@@ -339,62 +317,49 @@ parse_range(const char *arg, uint64_t *begin, uint64_t *end)
  * Returns zero on success, a negative error code otherwise.
  */
 static int
-preprocess_filename(char *filename, uint64_t *offset, uint64_t *size)
+preprocess_filename(char *filename INOUT, uint64_t *offset OUT, uint64_t *size OUT)
 {
     uint64_t begin, end;
     char *range;
     int parts;
 
-    if (!filename || !offset || !size)
-        return -pte_internal;
-
-    /* Search from the end as the filename may also contain ':'. */
     range = strrchr(filename, ':');
     if (!range) {
         *offset = 0ull;
         *size = 0ull;
-
         return 0;
     }
 
-    /* Let's try to parse an optional range suffix.
-     *
-     * If we can, remove it from the filename argument.
-     * If we can not, assume that the ':' is part of the filename, e.g. a
-     * drive letter on Windows.
-     */
     parts = parse_range(range + 1, &begin, &end);
     if (parts <= 0) {
         *offset = 0ull;
         *size = 0ull;
-
         return 0;
     }
 
     if (parts == 1) {
         *offset = begin;
         *size = 0ull;
-
         *range = 0;
-
         return 0;
     }
 
     if (parts == 2) {
         if (end <= begin)
             return -pte_invalid;
-
         *offset = begin;
         *size = end - begin;
-
         *range = 0;
-
         return 0;
     }
 
     return -pte_internal;
 }
 
+/* Load an image file into pt decoder.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
 static int
 load_image(struct pt_image_section_cache *iscache INOUT, struct pt_image *image INOUT,
            char *arg IN, const char *prog IN)
@@ -418,9 +383,17 @@ load_image(struct pt_image_section_cache *iscache INOUT, struct pt_image *image 
         return -1;
     }
 
-    if (!fsize)
+    if (fsize == 0)
         fsize = UINT64_MAX;
 
+    /* In libipt use iscache to store the image sections and use image to store the image
+     * identifier. So to initialize the cache, we need call pt_iscache_add_file() first to
+     * load the image to cache. Then we call pt_image_add_cached() to add the image
+     * section identifier to the image.
+     */
+    /* pt_iscache_add_file():  add a file section to an image section cache returns an
+     * image section identifier(ISID) that uniquely identifies the *section in this cache
+     */
     isid = pt_iscache_add_file(iscache, arg, foffset, fsize, base);
     if (isid < 0) {
         fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 " to iscache: %s.\n", prog,
@@ -428,6 +401,9 @@ load_image(struct pt_image_section_cache *iscache INOUT, struct pt_image *image 
         return -1;
     }
 
+    /* pt_image_add_cached():  add a file section from an *image section cache to an
+     * image.
+     */
     errcode = pt_image_add_cached(image, iscache, isid, NULL);
     if (errcode < 0) {
         fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 " to image: %s.\n", prog,

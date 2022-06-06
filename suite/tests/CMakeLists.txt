@@ -4124,13 +4124,18 @@ endif (BUILD_CLIENTS)
   # drptpostprocessor tests
 if (BUILD_CLIENTS)
   if (HAVE_LIBIPT)
-    message(STATUS "Adding drptpostprocessor tests")
     set(drptpostprocessor_args "--stats" "--cpu" "6/85/4"
-      "--img" "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/hello:0x1000-0x2000:0x563f851fb000"
-      "--img" "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/ld-2.33.so:0x1000-0x25000:0x7f68d5f4b000"
-      "--img" "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/libc-2.33.so:0x22000-0x17a000:0x7f68d5d79000"
-      "--pt" "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/pt.bin")
-    torunonly_api(tool.drptpostprocessor drptpostprocessor "../../clients/drptpostprocessor/test_simple.template" "" "${drptpostprocessor_args}" ON OFF)
+      "--img"
+      "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/hello:0x1000-0x2000:0x563f851fb000"
+      "--img"
+      "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/ld-2.33.so:0x1000-0x25000:0x7f68d5f4b000"
+      "--img"
+      "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/libc-2.33.so:0x22000-0x17a000:0x7f68d5d79000"
+      "--pt"
+      "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/pt.bin")
+    torunonly_api(tool.drptpostprocessor drptpostprocessor
+      "../../clients/drptpostprocessor/test_simple.template"
+      "" "${drptpostprocessor_args}" ON OFF)
   endif (HAVE_LIBIPT)
 endif (BUILD_CLIENTS)
 
