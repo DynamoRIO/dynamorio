@@ -336,7 +336,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|linux.fib-conflict-early' => 1,
                                    'code_api|linux.mangle_asynch' => 1,
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
-                                   'code_api|client.stolen-reg-index' => 1, # i#5498
                                    );
             if ($is_32) {
                 $issue_no = "#2416";
