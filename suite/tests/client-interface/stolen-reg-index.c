@@ -38,7 +38,7 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
-#include "tools.h"
+#    include "tools.h"
 
 /* In asm code. */
 void
