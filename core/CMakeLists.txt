@@ -953,12 +953,22 @@ endif (UNIX)
 # Decoding library
 
 # static decoding library
-add_library(drdecode STATIC
-  ${DECODER_SRCS}
-  ir/decodelib.c
-  string.c
-  io.c
-  )
+if (HAVE_LIBIPT)
+  add_library(drdecode STATIC
+    ${DECODER_SRCS}
+    ir/decodelib.c
+    string.c
+    io.c
+    )
+else (HAVE_LIBIPT)
+  add_library(drdecode
+    ${DECODER_SRCS}
+    ir/decodelib.c
+    string.c
+    io.c
+    )
+endif(HAVE_LIBIPT)
+
 set_target_properties(drdecode PROPERTIES
   COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;STANDALONE_DECODER")
 if (UNIX)
