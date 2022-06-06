@@ -424,11 +424,11 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             negated = !negated;
         }
 #    ifdef AARCH64
-	/* In cases where only the lower 32 bits of the index register are
-	 * used, we need to widen to 64 bits in order to handle stolen register
-	 * X28's replacement. See replace_stolen_reg() below, where index is
-	 * narrowed after replacement.
-	 */
+        /* In cases where only the lower 32 bits of the index register are
+         * used, we need to widen to 64 bits in order to handle stolen register
+         * X28's replacement. See replace_stolen_reg() below, where index is
+         * narrowed after replacement.
+         */
         bool is_index_w28 = false;
         if (index == DR_REG_W28) {
             index = DR_REG_X28;
@@ -444,7 +444,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch,
                                        scratch_used);
 #    ifdef AARCH64
-	    /* Narrow replaced index register if it was W28 before
+            /* Narrow replaced index register if it was W28 before
              * replace_stolen_reg() call.
              */
             if (is_index_w28) {
