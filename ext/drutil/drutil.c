@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2022      Arm Limited   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -422,6 +423,18 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             disp = -disp;
             negated = !negated;
         }
+#    ifdef AARCH64
+        /* In cases where only the lower 32 bits of the index register are
+         * used, we need to widen to 64 bits in order to handle stolen
+         * register's replacement. See replace_stolen_reg() below, where index
+         * is narrowed after replacement.
+         */
+        bool is_index_32bit_stolen = false;
+        if (index == reg_64_to_32(stolen)) {
+            index = stolen;
+            is_index_32bit_stolen = true;
+        }
+#    endif
         if (dst == stolen || scratch == stolen)
             return false;
         if (base == stolen) {
@@ -430,6 +443,13 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         } else if (index == stolen) {
             index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch,
                                        scratch_used);
+#    ifdef AARCH64
+            /* Narrow replaced index register if it was 32 bit stolen register
+             * before replace_stolen_reg() call.
+             */
+            if (is_index_32bit_stolen)
+                index = reg_64_to_32(stolen);
+#    endif
         }
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
             /* first try "add dst, base, #disp" */

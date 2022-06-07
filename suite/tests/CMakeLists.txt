@@ -1,7 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
-# Copyright (c) 2016      ARM Limited.    All rights reserved.
+# Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -2557,6 +2557,11 @@ set(client.option_parse_client_ops_islist ON)
 
 if (AARCH64)
   tobuild_ci(client.features client-interface/features.c "" "" "")
+
+  tobuild_ci(client.stolen-reg-index client-interface/stolen-reg-index.c "" "" "")
+  use_DynamoRIO_extension(client.stolen-reg-index.dll drmgr)
+  use_DynamoRIO_extension(client.stolen-reg-index.dll drreg)
+  use_DynamoRIO_extension(client.stolen-reg-index.dll drutil)
 endif ()
 
 tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
