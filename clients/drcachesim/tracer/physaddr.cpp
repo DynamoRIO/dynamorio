@@ -188,7 +188,7 @@ physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache
     }
     // TODO i#4014: On recent kernels unprivileged reads succeed but are passed
     // a 0 PFN.  Since that could be valid, we need to check our capabilities
-    // to decide.  Until then, we're currently returning 0 for every query.
+    // to decide.  Until then, we're currently returning 0 for every unprivileged query.
     // Store 0 as a sentinel since 0 means no entry.
     last_ppage_ = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
     hashtable_add(

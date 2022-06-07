@@ -309,7 +309,7 @@ view_t::process_memref(const memref_t &memref)
             last_window_[memref.marker.tid] = memref.marker.marker_value;
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
-            std::cerr << "<marker: physical address 0x" << std::hex
+            std::cerr << "<marker: physical address for following entry: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:

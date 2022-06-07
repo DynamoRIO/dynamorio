@@ -22,5 +22,5 @@ Output format:
         3: T[0-9]+ <marker: cache line size [0-9]+>
         4: T[0-9]+ <marker: tid [0-9]+ on core [0-9]+>
         5: T[0-9]+ <marker: timestamp [0-9]+>
-        6: T[0-9]+ <marker: physical address 0x[0-9a-f][0-9a-f]+>
+        6: T[0-9]+ <marker: physical address for following entry: 0x[0-9a-f][0-9a-f]+>
         7: T[0-9]+ ifetch .*

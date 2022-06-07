@@ -109,6 +109,8 @@ static int notify_beyond_global_max_once;
  * to hold all entries between clean calls.
  */
 // XXX i#1703: use an option instead.
+// If we increase this, we may need to increase MAX_V2P_ENTRIES -- until we
+// implement buffer splitting for i#4014 in any case.
 #define MAX_NUM_ENTRIES 4096
 /* The buffer size for holding trace entries. */
 static size_t trace_buf_size;
@@ -123,7 +125,7 @@ static drvector_t scratch_reserve_vec;
 
 // For virtual-to-physical markers, we need extra space to insert them after
 // filling up a buffer.  We do not expect many per trace buffer as we only emit
-// them for never-before-seen pages..
+// them for never-before-seen pages.
 // TODO i#4014: Split the buffer if we hit this limit.  For now, our markers are
 // best-effort and we just drop them if this limit is exceeded.
 static constexpr int MAX_V2P_ENTRIES = 128;
@@ -881,25 +883,20 @@ static size_t
 process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_size,
                             byte *buf_ptr)
 {
-    ASSERT(have_phys && op_use_physical.get_value(),
-           "Caller must check for phys being enabled");
+    ASSERT(have_phys, "Caller must check for use_physical being enabled");
     uint64 start_count = data->num_phys_markers;
     byte *orig_buf_ptr = buf_ptr;
     for (byte *mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
          mem_ref += instru->sizeof_entry()) {
         trace_type_t type = instru->get_entry_type(mem_ref);
-        if (!(type_is_instr(type) || type == TRACE_TYPE_INSTR_NO_FETCH ||
-              type == TRACE_TYPE_INSTR_MAYBE_FETCH || type_is_prefetch(type) ||
-              type == TRACE_TYPE_READ || type == TRACE_TYPE_WRITE ||
-              type == TRACE_TYPE_INSTR_FLUSH || type == TRACE_TYPE_INSTR_FLUSH_END ||
-              type == TRACE_TYPE_DATA_FLUSH || type == TRACE_TYPE_DATA_FLUSH_END)) {
-            continue;
-        }
         DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE); // Bundles disabled up front.
+        if (!type_has_address(type))
+            continue;
         // TODO i#4014: For -offline we have just one PC entry for the
-        // whole block: but the block could span 2 pages.
+        // whole block: but the block could span 2 pages, and we want a physical
+        // entry to appear before any virtual entries.
         // To solve for fixed-length instrs we could emit a 2nd PC entry
-        // at the page transition: but for x86 a single instr could span.
+        // at the page transition: but for x86 a single instr could span 2 pages.
         // Currently this is unsolved and the 2nd page is ignored.
         addr_t virt = instru->get_entry_addr(drcontext, mem_ref);
         bool from_cache = false;
@@ -907,8 +904,9 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
         bool success = data->physaddr.virtual2physical(virt, &phys, &from_cache);
         NOTIFY(4, "%s: type=%2d virt=%p phys=%p\n", __FUNCTION__, type, virt, phys);
         if (!success) {
-            // XXX i#1735: use virtual address and continue?
-            // There are cases where xl8 fails, e.g.,:
+            // XXX i#1735: Unfortunately this happens; currently we use the virtual
+            // address and continue.
+            // Cases where xl8 fails include:
             // - vsyscall/kernel page,
             // - wild access (NULL or very large bogus address) by app
             // - page is swapped out (unlikely since we're querying *after* the
@@ -952,6 +950,9 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
             ++data->num_phys_markers;
         } else {
             // For online we replace the virtual with physical.
+            // XXX i#4014: For consistency we should break compatibility, *not* replace,
+            // and insert the markers instead, updating dr$sim to use the markers
+            // to compute the physical addresses.
             if (success)
                 instru->set_entry_addr(mem_ref, phys);
         }
