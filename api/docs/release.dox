@@ -141,7 +141,7 @@ Further non-compatibility-affecting changes include:
    default (if built with lz4 support).
  - Added drmodtrack_lookup_pc_from_index().
  - Added an open-address hashtable implementation for cases where third-party
-   library must be avoided and open addressing is best: dr_hashtable_create(),
+   libraries must be avoided and open addressing is best: dr_hashtable_create(),
    dr_hashtable_destroy(), dr_hashtable_clear(), dr_hashtable_lookup(),
    dr_hashtable_add(), dr_hashtable_remove().
 
