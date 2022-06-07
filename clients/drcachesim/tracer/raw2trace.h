@@ -82,8 +82,6 @@
 #    define TRACE_SUFFIX "trace"
 #endif
 
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
-
 typedef enum {
     RAW2TRACE_STAT_COUNT_ELIDED,
 } raw2trace_statistic_t;

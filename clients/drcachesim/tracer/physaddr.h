@@ -50,11 +50,29 @@ public:
     ~physaddr_t();
     bool
     init();
-    addr_t
-    virtual2physical(addr_t virt);
+
+    // If translation from "virt" to its corresponding physicall address is
+    // successful, returns true and stores the physical address in "phys".
+    // 0 is a possible valid physical address, as are large values beyond
+    // the amount of RAM due to holes in the physical address space.
+    bool
+    virtual2physical(addr_t virt, OUT addr_t *phys);
 
 private:
 #ifdef LINUX
+    inline addr_t
+    page_start(addr_t addr)
+    {
+        return ALIGN_BACKWARD(addr, page_size_);
+    }
+    inline uint64_t
+    page_offs(addr_t addr)
+    {
+        return addr & ((1 << page_bits_) - 1);
+    }
+
+    size_t page_size_;
+    int page_bits_;
     addr_t last_vpage_;
     addr_t last_ppage_;
     // TODO i#4014: An app with thousands of threads might hit open file limits,
