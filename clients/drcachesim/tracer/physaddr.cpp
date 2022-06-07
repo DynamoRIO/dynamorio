@@ -116,15 +116,19 @@ physaddr_t::init()
 }
 
 bool
-physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys)
+physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache)
 {
 #ifdef LINUX
     if (phys == nullptr)
         return false;
     addr_t vpage = page_start(virt);
     bool use_cache = true;
+    if (from_cache != nullptr)
+        *from_cache = false;
     if (op_virt2phys_freq.get_value() > 0 && ++count_ >= op_virt2phys_freq.get_value()) {
-        // Flush the cache and re-sync with the kernel
+        // Flush the cache and re-sync with the kernel.
+        // XXX i#4014: Provide a similar option that doesn't flush and just checks
+        // whether mappings have changed?
         use_cache = false;
         last_vpage_ = PAGE_INVALID;
         hashtable_clear(&v2p_);
@@ -134,6 +138,8 @@ physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys)
         // Use cached values on the assumption that the kernel hasn't re-mapped
         // this virtual page.
         if (vpage == last_vpage_) {
+            if (from_cache != nullptr)
+                *from_cache = true;
             *phys = last_ppage_ + page_offs(virt);
             return true;
         }
@@ -147,6 +153,8 @@ physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys)
                 ppage = 0;
             last_vpage_ = vpage;
             last_ppage_ = ppage;
+            if (from_cache != nullptr)
+                *from_cache = true;
             *phys = last_ppage_ + page_offs(virt);
             return true;
         }
@@ -178,8 +186,11 @@ physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys)
         NOTIFY(1, "v2p failure: entry is invalid for %p\n", vpage);
         return false;
     }
-    last_ppage_ = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
+    // TODO i#4014: On recent kernels unprivileged reads succeed but are passed
+    // a 0 PFN.  Since that could be valid, we need to check our capabilities
+    // to decide.  Until then, we're currently returning 0 for every unprivileged query.
     // Store 0 as a sentinel since 0 means no entry.
+    last_ppage_ = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
     hashtable_add(
         &v2p_, reinterpret_cast<void *>(vpage),
         reinterpret_cast<void *>(last_ppage_ == 0 ? ZERO_ADDR_PAYLOAD : last_ppage_));

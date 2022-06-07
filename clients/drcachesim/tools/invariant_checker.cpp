@@ -200,6 +200,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Incorrect instr count marker value");
         }
     }
+    if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+        (shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+         shard->prev_entry_.marker.marker_type ==
+             TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE)) {
+        // Physical address markers must be immediately prior to the virtual entry.
+        report_if_false(shard, type_has_address(memref.data.type),
+                        "Physical addr marker not immediately prior to virtual addr");
+    }
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
@@ -350,8 +358,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
 #ifdef UNIX
     shard->prev_prev_entry_ = shard->prev_entry_;
-    shard->prev_entry_ = memref;
 #endif
+    shard->prev_entry_ = memref;
 
     return true;
 }

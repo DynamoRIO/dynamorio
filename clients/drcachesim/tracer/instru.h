@@ -199,7 +199,7 @@ public:
     virtual int
     get_instr_count(byte *buf_ptr) const = 0;
     virtual addr_t
-    get_entry_addr(byte *buf_ptr) const = 0;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const = 0;
     virtual void
     set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
 
@@ -312,7 +312,7 @@ public:
     int
     get_instr_count(byte *buf_ptr) const override;
     addr_t
-    get_entry_addr(byte *buf_ptr) const override;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const override;
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
@@ -382,7 +382,7 @@ public:
     int
     get_instr_count(byte *buf_ptr) const override;
     addr_t
-    get_entry_addr(byte *buf_ptr) const override;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const override;
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
