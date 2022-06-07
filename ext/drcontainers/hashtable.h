@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -153,6 +153,9 @@ hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str
  * @param[in]  cmp_key_func        A callback for comparing two keys.
  *   Leave it NULL if no callback is needed and the default is to be used.
  *   For HASH_CUSTOM, a callback must be provided.
+ *
+ * This hashtable uses closed addressing.
+ * For an open-address hashtable, consider dr_hashtable_create().
  */
 void
 hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,

@@ -308,6 +308,13 @@ view_t::process_memref(const memref_t &memref)
             std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
             last_window_[memref.marker.tid] = memref.marker.marker_value;
             break;
+        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
+            std::cerr << "<marker: physical address for following entry: 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
+            std::cerr << "<marker: physical address not available>\n";
+            break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";
@@ -370,6 +377,7 @@ view_t::process_memref(const memref_t &memref)
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
         default: error_string_ = "Uknown instruction type\n"; return false;
         }
+        ++num_disasm_instrs_;
         return true;
     }
 

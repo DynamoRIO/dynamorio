@@ -182,12 +182,42 @@ test_hashtable_apply_all_user_data(void)
     hashtable_delete(&hash_table);
 }
 
+#define KEY 42
+#define PAYLOAD ((void *)12)
+static bool free_func_called;
+
+static void
+free_payload_func(void *drcontext, void *payload)
+{
+    CHECK(drcontext == dr_get_current_drcontext(), "context should be mine");
+    CHECK(payload == PAYLOAD, "free payload arg incorrect");
+    free_func_called = true;
+}
+
+static void
+test_dr_hashtable(void)
+{
+    void *dcxt = dr_get_current_drcontext();
+    void *table = dr_hashtable_create(dcxt, 8, 50, /*synch=*/false, free_payload_func);
+    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == NULL, "table should be empty");
+    dr_hashtable_add(dcxt, table, KEY, PAYLOAD);
+    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == PAYLOAD, "should find if just-added");
+    CHECK(dr_hashtable_remove(dcxt, table, KEY), "should find if just-added");
+    CHECK(free_func_called, "free_payload_func sanity check");
+    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == NULL, "just removed");
+    dr_hashtable_add(dcxt, table, KEY, PAYLOAD);
+    dr_hashtable_clear(dcxt, table);
+    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == NULL, "table should be empty");
+    dr_hashtable_destroy(dcxt, table);
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
     test_vector();
     test_hashtable_apply_all();
     test_hashtable_apply_all_user_data();
+    test_dr_hashtable();
 
     /* XXX: test other data structures */
 }

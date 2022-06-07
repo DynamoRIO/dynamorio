@@ -51,12 +51,14 @@ public:
     bool
     init();
 
-    // If translation from "virt" to its corresponding physicall address is
+    // If translation from "virt" to its corresponding physical address is
     // successful, returns true and stores the physical address in "phys".
     // 0 is a possible valid physical address, as are large values beyond
     // the amount of RAM due to holes in the physical address space.
+    // Returns in "from_cache" whether the physical address had been queried before
+    // and was available in a local cache (which is cleared at -virt2phys_freq).
     bool
-    virtual2physical(addr_t virt, OUT addr_t *phys);
+    virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache = nullptr);
 
 private:
 #ifdef LINUX
