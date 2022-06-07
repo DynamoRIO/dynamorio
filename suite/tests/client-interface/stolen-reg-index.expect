@@ -1,0 +1,4 @@
+load memref with index reg X28
+store memref with index reg W28
+indexed_mem_test() passed.
+Tested the use of stolen register as memory index register.
