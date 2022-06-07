@@ -3353,7 +3353,7 @@ if (BUILD_CLIENTS)
       "-L0_filter ${test_mode_flag}" "")
     if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
       # If we have a pure-asm app with a constant instr count, check that count.
-      torunonly_drcachesim(filter-asm common.loglevel
+      torunonly_drcachesim(filter-asm allasm_x86_64
         "-L0_filter -test_mode -test_mode_name filter_asm_instr_count" "")
     endif ()
     torunonly_drcachesim(filter-no-i ${ci_shared_app}
