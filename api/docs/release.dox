@@ -143,6 +143,10 @@ Further non-compatibility-affecting changes include:
  - Added -use_physical support to drcachesim offline traces using two new
    marker types: #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and
    #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE.
+ - Added an open-address hashtable implementation for cases where third-party
+   libraries must be avoided and open addressing is best: dr_hashtable_create(),
+   dr_hashtable_destroy(), dr_hashtable_clear(), dr_hashtable_lookup(),
+   dr_hashtable_add(), dr_hashtable_remove().
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
