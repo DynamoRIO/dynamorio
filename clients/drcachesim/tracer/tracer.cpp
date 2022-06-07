@@ -109,6 +109,8 @@ static int notify_beyond_global_max_once;
  * to hold all entries between clean calls.
  */
 // XXX i#1703: use an option instead.
+// If we increase this, we may need to increase MAX_V2P_ENTRIES -- until we
+// implement buffer splitting for i#4014 in any case.
 #define MAX_NUM_ENTRIES 4096
 /* The buffer size for holding trace entries. */
 static size_t trace_buf_size;
@@ -121,11 +123,19 @@ static size_t max_buf_size;
 
 static drvector_t scratch_reserve_vec;
 
+// For virtual-to-physical markers, we need extra space to insert them after
+// filling up a buffer.  We do not expect many per trace buffer as we only emit
+// them for never-before-seen pages.
+// TODO i#4014: Split the buffer if we hit this limit.  For now, our markers are
+// best-effort and we just drop them if this limit is exceeded.
+static constexpr int MAX_V2P_ENTRIES = 128;
+
 /* Thread private data.  This is all set to 0 at thread init. */
 typedef struct {
     byte *seg_base;
     byte *buf_base;
     uint64 num_refs;
+    uint64 num_writeouts; /* Buffer writeout instances. */
     uint64 bytes_written;
     uint64 cur_window_instr_count;
     /* For offline traces */
@@ -157,6 +167,7 @@ typedef struct {
     bool has_thread_header;
     // The physaddr_t class is designed to be per-thread.
     physaddr_t physaddr;
+    uint64 num_phys_markers;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -186,6 +197,8 @@ static client_id_t client_id;
 static void *mutex;          /* for multithread support */
 static uint64 num_refs;      /* keep a global memory reference count */
 static uint64 num_refs_racy; /* racy global memory reference count */
+static uint64 num_writeouts;
+static uint64 num_phys_markers;
 static volatile bool exited_process;
 
 /* virtual to physical translation */
@@ -864,6 +877,89 @@ is_bytes_written_beyond_trace_max(per_thread_t *data)
         data->bytes_written > op_max_trace_size.get_value();
 }
 
+// Should be called only for have_phys and -use_physical.
+// Returns the byte count added to the buffer.
+static size_t
+process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_size,
+                            byte *buf_ptr)
+{
+    ASSERT(have_phys, "Caller must check for use_physical being enabled");
+    uint64 start_count = data->num_phys_markers;
+    byte *orig_buf_ptr = buf_ptr;
+    for (byte *mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
+         mem_ref += instru->sizeof_entry()) {
+        trace_type_t type = instru->get_entry_type(mem_ref);
+        DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE); // Bundles disabled up front.
+        if (!type_has_address(type))
+            continue;
+        // TODO i#4014: For -offline we have just one PC entry for the
+        // whole block: but the block could span 2 pages, and we want a physical
+        // entry to appear before any virtual entries.
+        // To solve for fixed-length instrs we could emit a 2nd PC entry
+        // at the page transition: but for x86 a single instr could span 2 pages.
+        // Currently this is unsolved and the 2nd page is ignored.
+        addr_t virt = instru->get_entry_addr(drcontext, mem_ref);
+        bool from_cache = false;
+        addr_t phys = 0;
+        bool success = data->physaddr.virtual2physical(virt, &phys, &from_cache);
+        NOTIFY(4, "%s: type=%2d virt=%p phys=%p\n", __FUNCTION__, type, virt, phys);
+        if (!success) {
+            // XXX i#1735: Unfortunately this happens; currently we use the virtual
+            // address and continue.
+            // Cases where xl8 fails include:
+            // - vsyscall/kernel page,
+            // - wild access (NULL or very large bogus address) by app
+            // - page is swapped out (unlikely since we're querying *after* the
+            //   the app just accessed, but could happen)
+            NOTIFY(1,
+                   "virtual2physical translation failure for "
+                   "<%2d, %2d, " PFX ">\n",
+                   type, instru->get_entry_size(mem_ref), virt);
+            phys = virt;
+        }
+        if (op_offline.get_value()) {
+            // For offline we keep the main entries as virtual but add markers showing
+            // the corresponding physical.  We assume the mappings are static, allowing
+            // us to only emit one marker per new page seen (per thread to avoid locks).
+            // XXX: Add spot-checks of mapping changes via a separate option from
+            // -virt2phys_freq?
+            if (from_cache)
+                continue;
+            // While inserting inside the buffer is expensive, it is rare, and using a
+            // separate buffer complicates the buffer handoff interface, requires a
+            // corresponding virtual marker, requires work in raw2trace to insert in the
+            // right place, and requires special handling with the very first buffer to
+            // be after its header but before its data.
+            // We made room for MAX_V2P_ENTRIES ahead of time.
+            if (data->num_phys_markers - start_count >= MAX_V2P_ENTRIES) {
+                // TODO i#4014: Split the buffer if we hit this limit.  For now, our
+                // markers are best-effort and we just drop them if this limit is
+                // exceeded.
+                NOTIFY(0, "Hit physical address marker limit; omitting markers\n");
+                continue;
+            }
+            memmove(mem_ref + instru->sizeof_entry(), mem_ref, buf_ptr - mem_ref);
+            // For translation failure, we insert a distinct marker type, so analyzers
+            // know for sure and don't have to infer based on a missing marker.
+            mem_ref += instru->append_marker(
+                mem_ref,
+                success ? TRACE_MARKER_TYPE_PHYSICAL_ADDRESS
+                        : TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
+                phys);
+            buf_ptr += instru->sizeof_entry();
+            ++data->num_phys_markers;
+        } else {
+            // For online we replace the virtual with physical.
+            // XXX i#4014: For consistency we should break compatibility, *not* replace,
+            // and insert the markers instead, updating dr$sim to use the markers
+            // to compute the physical addresses.
+            if (success)
+                instru->set_entry_addr(mem_ref, phys);
+        }
+    }
+    return buf_ptr - orig_buf_ptr;
+}
+
 // Should be invoked only in the middle of an active tracing window.
 static void
 memtrace(void *drcontext, bool skip_size_cap)
@@ -949,8 +1045,7 @@ memtrace(void *drcontext, bool skip_size_cap)
 
     if (do_write) {
         bool hit_window_end = false;
-        if ((have_phys && op_use_physical.get_value()) ||
-            op_trace_for_instrs.get_value() > 0) {
+        if (op_trace_for_instrs.get_value() > 0) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
                 if (!window_changed && !hit_window_end &&
@@ -964,27 +1059,6 @@ memtrace(void *drcontext, bool skip_size_cap)
                     // Should we discard the rest of the entries in such a case, at
                     // a block boundary, even though we already collected them?
                 }
-                trace_type_t type = instru->get_entry_type(mem_ref);
-                if (have_phys && op_use_physical.get_value() &&
-                    type != TRACE_TYPE_THREAD && type != TRACE_TYPE_THREAD_EXIT &&
-                    type != TRACE_TYPE_PID) {
-                    DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
-                    addr_t virt = instru->get_entry_addr(mem_ref);
-                    addr_t phys;
-                    bool success = data->physaddr.virtual2physical(virt, &phys);
-                    if (!success) {
-                        // XXX i#1735: use virtual address and continue?
-                        // There are cases the xl8 fail, e.g.,:
-                        // - vsyscall/kernel page,
-                        // - wild access (NULL or very large bogus address) by app
-                        NOTIFY(1,
-                               "virtual2physical translation failure for "
-                               "<%2d, %2d, " PFX ">\n",
-                               type, instru->get_entry_size(mem_ref), virt);
-                    } else {
-                        instru->set_entry_addr(mem_ref, phys);
-                    }
-                }
             }
             if (hit_window_end) {
                 if (op_offline.get_value() && op_split_windows.get_value()) {
@@ -997,6 +1071,12 @@ memtrace(void *drcontext, bool skip_size_cap)
                 // of this buffer into the same local window.
                 reached_traced_instrs_threshold(drcontext);
             }
+        }
+        if (have_phys && op_use_physical.get_value()) {
+            size_t add =
+                process_buffer_for_physaddr(drcontext, data, header_size, buf_ptr);
+            data->bytes_written += add;
+            buf_ptr += add;
         }
         if (!op_offline.get_value()) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
@@ -1045,6 +1125,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         DR_ASSERT(span % instru->sizeof_entry() == 0);
         current_num_refs = (uint)(span / instru->sizeof_entry());
         data->num_refs += current_num_refs;
+        ++data->num_writeouts;
     }
 
     if (do_write && file_ops_func.handoff_buf != NULL) {
@@ -2767,6 +2848,8 @@ event_thread_exit(void *drcontext)
 
         dr_mutex_lock(mutex);
         num_refs += data->num_refs;
+        num_writeouts += data->num_writeouts;
+        num_phys_markers += data->num_phys_markers;
         dr_mutex_unlock(mutex);
         dr_raw_mem_free(data->buf_base, max_buf_size);
         if (data->reserve_buf != NULL)
@@ -2783,8 +2866,17 @@ event_exit(void)
            num_refs);
     NOTIFY(1,
            "drmemtrace exiting process " PIDFMT "; traced " UINT64_FORMAT_STRING
-           " references.\n",
-           dr_get_process_id(), num_refs);
+           " references in " UINT64_FORMAT_STRING " writeouts.\n",
+           dr_get_process_id(), num_refs, num_writeouts);
+    if (op_use_physical.get_value()) {
+        dr_log(NULL, DR_LOG_ALL, 1,
+               "drcachesim num physical address markers inserted: " UINT64_FORMAT_STRING
+               "\n",
+               num_phys_markers);
+        NOTIFY(1,
+               "drmemtrace inserted " UINT64_FORMAT_STRING " physical address markers.\n",
+               num_phys_markers);
+    }
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -3012,10 +3104,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         instru = new (placement) offline_instru_t(
             insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
             file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
-        if (op_use_physical.get_value()) {
-            /* TODO i#4014: Add support for this combination. */
-            FATAL("Usage error: -offline does not currently support -use_physical.");
-        }
     } else {
         void *placement;
         /* we use placement new for better isolation */
@@ -3099,6 +3187,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         max_bb_instrs = 256; /* current default */
     DR_ASSERT(max_bb_instrs < uint64(1) << PC_INSTR_COUNT_BITS);
     redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
+    if (op_use_physical.get_value() && op_offline.get_value()) {
+        // We need extra space for v2p markers.
+        redzone_size += instru->sizeof_entry() * MAX_V2P_ENTRIES;
+    }
 
     max_buf_size = ALIGN_FORWARD(trace_buf_size + redzone_size, dr_page_size());
     /* Mark any padding as redzone as well */

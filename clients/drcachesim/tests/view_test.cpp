@@ -41,6 +41,7 @@
 #include "../tracer/raw2trace.h"
 #include "memref_gen.h"
 
+#undef ASSERT
 #define ASSERT(cond, msg, ...)        \
     do {                              \
         if (!(cond)) {                \
