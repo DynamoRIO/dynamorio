@@ -53,6 +53,9 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
 
 option(RUN_LONG_SUITE "run long set of tests")
+# We have some tests that need sudo, which is problematic if it requires
+# an interactive password.  Thus, we disable unless explicitly turned on.
+option(RUN_SUDO_TESTS "run tests that require sudo")
 option(SKIP_FLAKY_TESTS "do not run tests named *_FLAKY")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
@@ -605,6 +608,13 @@ endfunction(get_client_path)
 set(ci_shared_app simple_app)
 set(ci_shared_app_src client-interface/${ci_shared_app}.c)
 add_exe(${ci_shared_app} ${ci_shared_app_src})
+
+# A shared tiny app.
+if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+  add_exe(allasm_x86_64 common/allasm_x86_64.asm)
+  set_target_properties(allasm_x86_64 PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(allasm_x86_64 "-nostartfiles -nodefaultlibs -static")
+endif ()
 
 function(setup_test_client_dll_basics test)
   configure_DynamoRIO_client(${test})
@@ -1306,6 +1316,10 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     string(REGEX REPLACE "/drrun;" "/drrun;-32;" rundr "${rundr}")
   endif ()
 
+  if (DEFINED ${key}_sudo)
+    set(rundr "sudo;${rundr}")
+  endif ()
+
   if (is_runall)
     # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
@@ -1693,23 +1707,25 @@ function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
     if (TEST_LONG OR NOT "${name}" MATCHES "_LONG")
-      if (NOT regex OR "${name}" MATCHES "${regex}")
-        if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
-            # See above: for particular builds we skip some of the similar tests from
-            # some of the test groups.
-            (("${name}" MATCHES "tool.drcache" AND
-              NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
-            ("${name}" MATCHES "tool.drcpusim" AND
-              NOT "${name}" MATCHES "Pentium3") OR
-            ("${name}" MATCHES "tool.[^d]" AND
-              NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
-            # instrcalls is the slowest of the samples.
-            "${name}" MATCHES "sample.instrcalls" OR
-            ("${name}" MATCHES "client.annotation-" AND
-              NOT "${name}" MATCHES "(-opt|tiny-bb)")))
-          set(enabled OFF)
-        else ()
-          set(enabled ON)
+      if (RUN_SUDO_TESTS OR NOT "${name}" MATCHES "_SUDO")
+        if (NOT regex OR "${name}" MATCHES "${regex}")
+          if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+              # See above: for particular builds we skip some of the similar tests from
+              # some of the test groups.
+              (("${name}" MATCHES "tool.drcache" AND
+                  NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+                ("${name}" MATCHES "tool.drcpusim" AND
+                  NOT "${name}" MATCHES "Pentium3") OR
+                ("${name}" MATCHES "tool.[^d]" AND
+                  NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+                # instrcalls is the slowest of the samples.
+                "${name}" MATCHES "sample.instrcalls" OR
+                ("${name}" MATCHES "client.annotation-" AND
+                  NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+            set(enabled OFF)
+          else ()
+            set(enabled ON)
+          endif ()
         endif ()
       endif ()
     endif ()
@@ -2095,10 +2111,7 @@ if (DEBUG)
     # at -loglevel 19 produces 11GB of data and takes >17 minutes to run (vs <10MB and
     # <1s for Linux).  We live w/o a regression test on Windows for high loglevels.
     if (LINUX)
-      tobuild_ops(common.loglevel common/allasm_x86_64.asm
-        "-loglevel 19" "")
-      set_target_properties(common.loglevel PROPERTIES LINKER_LANGUAGE C)
-      append_link_flags(common.loglevel "-nostartfiles -nodefaultlibs -static")
+      torunonly(common.loglevel allasm_x86_64 common/allasm_x86_64.asm "-loglevel 19" "")
     endif ()
   elseif (DR_HOST_AARCH64)
     torunonly(common.loglevel common.allasm_aarch64_cache
@@ -3345,7 +3358,7 @@ if (BUILD_CLIENTS)
       "-L0_filter ${test_mode_flag}" "")
     if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
       # If we have a pure-asm app with a constant instr count, check that count.
-      torunonly_drcachesim(filter-asm common.loglevel
+      torunonly_drcachesim(filter-asm allasm_x86_64
         "-L0_filter -test_mode -test_mode_name filter_asm_instr_count" "")
     endif ()
     torunonly_drcachesim(filter-no-i ${ci_shared_app}
@@ -3562,13 +3575,20 @@ if (BUILD_CLIENTS)
       set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(${testname_full}_rawtemp ON) # no preprocessor
       set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      # Support for running under sudo for -use_physical.
+      # Each command is assumed to need sudo.
+      if (DEFINED ${testname_full}_sudo)
+        set(cmd_pfx "sudo@")
+      else ()
+        set(cmd_pfx "")
+      endif ()
       set(${testname_full}_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
+        "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
       if (${testname_full}_nopost)
         # No post needed.
       else ()
         set(${testname_full}_postcmd
-          "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
       endif ()
       set(${testname_full}_self_serial ON)
     endmacro()
@@ -3726,6 +3746,17 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
     torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
       "@-simulator_type@func_view" "only_5")
+
+    if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+      # Requires sudo to access pagemap.
+      # XXX: Should we not enable this outside of the Github suite where we know
+      # we have passwordless sudo?  The pause for a password may cause problems
+      # for local interactive test running.
+      set(tool.drcacheoff.phys_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
+      torunonly_drcacheoff(phys_SUDO allasm_x86_64
+        "-use_physical" "@-simulator_type@view" "")
+    endif ()
 
     if (UNIX AND ZLIB_FOUND)
       add_exe(tool.fib_plus

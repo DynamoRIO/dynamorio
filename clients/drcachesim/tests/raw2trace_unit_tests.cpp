@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,7 @@
 #include <iostream>
 #include <sstream>
 
+#undef ASSERT
 #define ASSERT(cond, msg, ...)        \
     do {                              \
         if (!(cond)) {                \
