@@ -38,6 +38,8 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "client_tools.h"
+#include "drreg-test-shared.h"
 
 static void
 event_exit(void)
@@ -135,6 +137,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drreg_options_t ops = { sizeof(ops), 4 /*max slots needed*/, false };
     if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
+    CHECK(dr_get_stolen_reg() == TEST_REG_STOLEN, "stolen reg doesn't match");
 
     dr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))

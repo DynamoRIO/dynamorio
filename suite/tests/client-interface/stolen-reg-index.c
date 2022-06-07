@@ -49,16 +49,12 @@ main(int argc, char *argv[])
 {
     int value = 41;
     indexed_mem_test(&value);
-    if (value != 42) {
-        fprintf(stderr, "indexed_mem_test() failed with %d, expected 42.\n", value);
-        fflush(stderr);
-    } else {
-        fprintf(stdout, "indexed_mem_test() passed.\n");
-        fflush(stdout);
-    }
+    if (value != 42)
+        print("indexed_mem_test() failed with %d, expected 42.\n", value);
+    else
+        print("indexed_mem_test() passed.\n");
 
-    fprintf(stdout, "Tested the use of stolen register as memory index register.\n");
-    fflush(stdout);
+    print("Tested the use of stolen register as memory index register.\n");
     return 0;
 }
 

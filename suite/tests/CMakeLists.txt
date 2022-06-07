@@ -2558,9 +2558,7 @@ set(client.option_parse_client_ops_islist ON)
 if (AARCH64)
   tobuild_ci(client.features client-interface/features.c "" "" "")
 
-  tobuild_appdll(client.stolen-reg-index client-interface/stolen-reg-index.c)
-  tobuild_ci(client.stolen-reg-index client-interface/stolen-reg-index.c "" ""
-    "${stolen_reg_index_libpath}")
+  tobuild_ci(client.stolen-reg-index client-interface/stolen-reg-index.c "" "" "")
   use_DynamoRIO_extension(client.stolen-reg-index.dll drmgr)
   use_DynamoRIO_extension(client.stolen-reg-index.dll drreg)
   use_DynamoRIO_extension(client.stolen-reg-index.dll drutil)
