@@ -53,6 +53,9 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
 
 option(RUN_LONG_SUITE "run long set of tests")
+# We have some tests that need sudo, which is problematic if it requires
+# an interactive password.  Thus, we disable unless explicitly turned on.
+option(RUN_SUDO_TESTS "run tests that require sudo")
 option(SKIP_FLAKY_TESTS "do not run tests named *_FLAKY")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
@@ -1704,23 +1707,25 @@ function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
     if (TEST_LONG OR NOT "${name}" MATCHES "_LONG")
-      if (NOT regex OR "${name}" MATCHES "${regex}")
-        if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
-            # See above: for particular builds we skip some of the similar tests from
-            # some of the test groups.
-            (("${name}" MATCHES "tool.drcache" AND
-              NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
-            ("${name}" MATCHES "tool.drcpusim" AND
-              NOT "${name}" MATCHES "Pentium3") OR
-            ("${name}" MATCHES "tool.[^d]" AND
-              NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
-            # instrcalls is the slowest of the samples.
-            "${name}" MATCHES "sample.instrcalls" OR
-            ("${name}" MATCHES "client.annotation-" AND
-              NOT "${name}" MATCHES "(-opt|tiny-bb)")))
-          set(enabled OFF)
-        else ()
-          set(enabled ON)
+      if (RUN_SUDO_TESTS OR NOT "${name}" MATCHES "_SUDO")
+        if (NOT regex OR "${name}" MATCHES "${regex}")
+          if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+              # See above: for particular builds we skip some of the similar tests from
+              # some of the test groups.
+              (("${name}" MATCHES "tool.drcache" AND
+                  NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+                ("${name}" MATCHES "tool.drcpusim" AND
+                  NOT "${name}" MATCHES "Pentium3") OR
+                ("${name}" MATCHES "tool.[^d]" AND
+                  NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+                # instrcalls is the slowest of the samples.
+                "${name}" MATCHES "sample.instrcalls" OR
+                ("${name}" MATCHES "client.annotation-" AND
+                  NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+            set(enabled OFF)
+          else ()
+            set(enabled ON)
+          endif ()
         endif ()
       endif ()
     endif ()
@@ -3742,8 +3747,10 @@ if (BUILD_CLIENTS)
       # XXX: Should we not enable this outside of the Github suite where we know
       # we have passwordless sudo?  The pause for a password may cause problems
       # for local interactive test running.
-      set(tool.drcacheoff.phys_sudo ON)
-      torunonly_drcacheoff(phys allasm_x86_64 "-use_physical" "@-simulator_type@view" "")
+      set(tool.drcacheoff.phys_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
+      torunonly_drcacheoff(phys_SUDO allasm_x86_64
+        "-use_physical" "@-simulator_type@view" "")
     endif ()
 
     if (UNIX AND ZLIB_FOUND)
