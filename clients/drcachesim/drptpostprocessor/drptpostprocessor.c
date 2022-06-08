@@ -439,14 +439,13 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                 fprintf(stderr, "%s: --pevent:sample-type: missing argument.\n", prog);
                 return -1;
             }
-            char *rest;
-            errno = 0;
-            decoder->sbpevent.sample_type = strtoull(argv[argidx], &rest, 0);
-            if (errno != 0 || *rest != 0) {
+            uint64_t sample_type;
+            if (sscanf(argv[argidx], "%x", &sample_type) != 1) {
                 fprintf(stderr, "%s: --pevent:sample-type: bad argument: %s.\n", prog,
                         argv[argidx]);
                 return -1;
             }
+            decoder->sbpevent.sample_type = sample_type;
         } else if (strcmp(argv[argidx], "--pevent:primary") == 0) {
             if (argc <= ++argidx) {
                 fprintf(stderr,
@@ -480,14 +479,13 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                 fprintf(stderr, "%s: --pevent:kernel-start: missing argument.\n", prog);
                 return -1;
             }
-            char *rest;
-            errno = 0;
-            decoder->sbpevent.kernel_start = strtoull(argv[argidx], &rest, 0);
-            if (errno != 0 || *rest != 0) {
+            uint64_t kernel_start;
+            if (sscanf(argv[argidx], "%x", &kernel_start) != 1) {
                 fprintf(stderr, "%s: --pevent:kernel-start: bad argument: %s.\n", prog,
                         argv[argidx]);
                 return -1;
             }
+            decoder->sbpevent.kernel_start = kernel_start;
         } else if (strcmp(argv[argidx], "--pevent:kcore") == 0) {
             if (argc <= ++argidx) {
                 fprintf(stderr,
