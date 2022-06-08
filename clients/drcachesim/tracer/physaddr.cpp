@@ -99,8 +99,9 @@ physaddr_t::init()
     // Some threads may not do much, so start out small.
     constexpr int V2P_INITIAL_BITS = 9;
     // The hashtable lookup performance is important.
-    // A non-open-address hashtable is about 3x slower due to the extra
-    // loads, and higher resize thresholds are also slower.
+    // A closed-address hashtable is about 3x slower due to the extra
+    // loads compared to the data inlined into the array here, and higher
+    // resize thresholds are also slower.
     // With the setup here, the hashtable lookup is no longer the bottleneck.
     v2p_ = dr_hashtable_create(dr_get_current_drcontext(), V2P_INITIAL_BITS, 20,
                                /*synch=*/false, nullptr);
@@ -141,6 +142,8 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
         // whether mappings have changed?
         use_cache = false;
         memset(last_vpage_, static_cast<char>(PAGE_INVALID), sizeof(last_vpage_));
+        // We do not bother to clear last_ppage_ as it is only used when
+        // last_vpage_ holds legitimate values.
         dr_hashtable_clear(drcontext, v2p_);
         count_ = 0;
     }
