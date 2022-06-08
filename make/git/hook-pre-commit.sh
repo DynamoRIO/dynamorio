@@ -57,4 +57,34 @@ if [ -z "${existing}" ]; then
     printf "Please double-check that it is configured properly.\n"
 fi
 
+# XXX: The following lines are a verbatim copy from
+# drmemory/make/git/hook-pre-commit.sh. In the future, we may need to
+# create a separate dedicated repository, a submodule in both that provides
+# shared config files.
+# Prevent mistaken submodule commits by checking whether committing
+# submodule + other stuff and if so bail if the submodule version is older.
+# We want to allow a submodule-only rollback.
+# XXX: this relies on several unix utilities which we assume are available
+# on Windows.
+libipt_diff=`git diff --cached third_party/libipt`
+if ! test -z "$libipt_diff" ; then
+    # third_party/libipt submodule is changed in the diff
+    others=`git diff --cached --name-only | grep -v third_party/libipt`
+    if ! test -z "$libipt_diff" ; then
+        # There's at least one other change.  Let's run git log on
+        # oldhash..newhash to see which is newer.
+        range=`git diff --cached third_party/libipt | grep Subproject | awk '{print $NF}' | xargs | sed 's/ /../'`
+        between=`cd third_party/libipt && git log --pretty=oneline $range`
+        if test -z "$between" ; then
+            exec 1>&2
+            cat <<\EOF
+Error: the third_party/libipt submodule is being rolled back.
+This is likely a mistake: did you pull but not run git submodule update?
+Aborting commit.
+EOF
+            exit 1
+        fi
+    fi
+fi
+
 # XXX: move code style checks here from runsuite.cmake?

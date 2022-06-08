@@ -63,6 +63,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
