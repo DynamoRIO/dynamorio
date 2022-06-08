@@ -58,7 +58,8 @@ public:
     // Returns in "from_cache" whether the physical address had been queried before
     // and was available in a local cache (which is cleared at -virt2phys_freq).
     bool
-    virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache = nullptr);
+    virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
+                     OUT bool *from_cache = nullptr);
 
 private:
 #ifdef LINUX
@@ -75,8 +76,11 @@ private:
 
     size_t page_size_;
     int page_bits_;
-    addr_t last_vpage_;
-    addr_t last_ppage_;
+    static constexpr int NUM_CACHE = 8;
+    addr_t last_vpage_[NUM_CACHE];
+    addr_t last_ppage_[NUM_CACHE];
+    // FIFO replacement.
+    int cache_idx_;
     // TODO i#4014: An app with thousands of threads might hit open file limits,
     // and even a hundred threads will use up DR's private FD limit and push
     // other files into potential app conflicts.
@@ -86,11 +90,16 @@ private:
     int fd_;
     // We would use std::unordered_map, but that is not compatible with
     // statically linking drmemtrace into an app.
-    hashtable_t v2p_;
+    // The drcontainers hashtable is too slow due to the extra dereferences:
+    // we need an open-addressed table.
+    void *v2p_;
     // With hashtable_t nullptr is how non-existence is shown, so we store
     // an actual 0 address (can happen for physical) as this sentinel.
     static constexpr addr_t ZERO_ADDR_PAYLOAD = 1;
     unsigned int count_;
+    uint64_t num_hit_cache_;
+    uint64_t num_hit_table_;
+    uint64_t num_miss_;
 #endif
 };
 
