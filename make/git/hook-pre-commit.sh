@@ -57,6 +57,9 @@ if [ -z "${existing}" ]; then
     printf "Please double-check that it is configured properly.\n"
 fi
 
+# XXX: L63-L87 are a verbatim copy from drmemory/make/git/hook-pre-commit.sh.
+# In the future, we may need to create a separate dedicated repository,
+# a submodule in both that provides shared config files.
 # Prevent mistaken submodule commits by checking whether committing
 # submodule + other stuff and if so bail if the submodule version is older.
 # We want to allow a submodule-only rollback.
