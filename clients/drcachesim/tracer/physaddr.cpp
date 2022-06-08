@@ -60,14 +60,15 @@ static const addr_t PAGE_INVALID = (addr_t)-1;
 physaddr_t::physaddr_t()
 #ifdef LINUX
     : page_size_(dr_page_size())
-    , last_vpage_(PAGE_INVALID)
-    , last_ppage_(PAGE_INVALID)
+    , cache_idx_(0)
     , fd_(-1)
+    , v2p_(nullptr)
     , count_(0)
 #endif
 {
 #ifdef LINUX
-    v2p_.table = nullptr;
+    memset(last_vpage_, static_cast<char>(PAGE_INVALID), sizeof(last_vpage_));
+    memset(last_ppage_, static_cast<char>(PAGE_INVALID), sizeof(last_ppage_));
 
     page_bits_ = 0;
     size_t temp = page_size_;
@@ -82,8 +83,12 @@ physaddr_t::physaddr_t()
 physaddr_t::~physaddr_t()
 {
 #ifdef LINUX
-    if (v2p_.table != nullptr)
-        hashtable_delete(&v2p_);
+    NOTIFY(1,
+           "physaddr: hit cache: " UINT64_FORMAT_STRING
+           ", hit table " UINT64_FORMAT_STRING ", miss " UINT64_FORMAT_STRING "\n",
+           num_hit_cache_, num_hit_table_, num_miss_);
+    if (v2p_ != nullptr)
+        dr_hashtable_destroy(dr_get_current_drcontext(), v2p_);
 #endif
 }
 
@@ -93,8 +98,13 @@ physaddr_t::init()
 #ifdef LINUX
     // Some threads may not do much, so start out small.
     constexpr int V2P_INITIAL_BITS = 9;
-    hashtable_init_ex(&v2p_, V2P_INITIAL_BITS, HASH_INTPTR, /*strdup=*/false,
-                      /*synch=*/false, nullptr, nullptr, nullptr);
+    // The hashtable lookup performance is important.
+    // A closed-address hashtable is about 3x slower due to the extra
+    // loads compared to the data inlined into the array here, and higher
+    // resize thresholds are also slower.
+    // With the setup here, the hashtable lookup is no longer the bottleneck.
+    v2p_ = dr_hashtable_create(dr_get_current_drcontext(), V2P_INITIAL_BITS, 20,
+                               /*synch=*/false, nullptr);
 
     // We avoid std::ostringstream to avoid malloc use for static linking.
     constexpr int MAX_PAGEMAP_FNAME = 64;
@@ -116,7 +126,8 @@ physaddr_t::init()
 }
 
 bool
-physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache)
+physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
+                             OUT bool *from_cache)
 {
 #ifdef LINUX
     if (phys == nullptr)
@@ -130,35 +141,43 @@ physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache
         // XXX i#4014: Provide a similar option that doesn't flush and just checks
         // whether mappings have changed?
         use_cache = false;
-        last_vpage_ = PAGE_INVALID;
-        hashtable_clear(&v2p_);
+        memset(last_vpage_, static_cast<char>(PAGE_INVALID), sizeof(last_vpage_));
+        // We do not bother to clear last_ppage_ as it is only used when
+        // last_vpage_ holds legitimate values.
+        dr_hashtable_clear(drcontext, v2p_);
         count_ = 0;
     }
     if (use_cache) {
         // Use cached values on the assumption that the kernel hasn't re-mapped
         // this virtual page.
-        if (vpage == last_vpage_) {
-            if (from_cache != nullptr)
-                *from_cache = true;
-            *phys = last_ppage_ + page_offs(virt);
-            return true;
+        for (int i = 0; i < NUM_CACHE; ++i) {
+            if (vpage == last_vpage_[i]) {
+                if (from_cache != nullptr)
+                    *from_cache = true;
+                *phys = last_ppage_[i] + page_offs(virt);
+                ++num_hit_cache_;
+                return true;
+            }
         }
         // XXX i#1703: add (debug-build-only) internal stats here and
         // on cache_t::request() fastpath.
-        void *lookup = hashtable_lookup(&v2p_, reinterpret_cast<void *>(vpage));
+        void *lookup = dr_hashtable_lookup(drcontext, v2p_, vpage);
         if (lookup != nullptr) {
             addr_t ppage = reinterpret_cast<addr_t>(lookup);
             // Restore a 0 payload.
             if (ppage == ZERO_ADDR_PAYLOAD)
                 ppage = 0;
-            last_vpage_ = vpage;
-            last_ppage_ = ppage;
             if (from_cache != nullptr)
                 *from_cache = true;
-            *phys = last_ppage_ + page_offs(virt);
+            *phys = ppage + page_offs(virt);
+            last_vpage_[cache_idx_] = vpage;
+            last_ppage_[cache_idx_] = ppage;
+            cache_idx_ = (cache_idx_ + 1) % NUM_CACHE;
+            ++num_hit_table_;
             return true;
         }
     }
+    ++num_miss_;
     // Not cached, or forced to re-sync, so we have to read from the file.
     if (fd_ == -1) {
         NOTIFY(1, "v2p failure: file descriptor is invalid\n");
@@ -190,12 +209,14 @@ physaddr_t::virtual2physical(addr_t virt, OUT addr_t *phys, OUT bool *from_cache
     // a 0 PFN.  Since that could be valid, we need to check our capabilities
     // to decide.  Until then, we're currently returning 0 for every unprivileged query.
     // Store 0 as a sentinel since 0 means no entry.
-    last_ppage_ = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
-    hashtable_add(
-        &v2p_, reinterpret_cast<void *>(vpage),
-        reinterpret_cast<void *>(last_ppage_ == 0 ? ZERO_ADDR_PAYLOAD : last_ppage_));
-    last_vpage_ = vpage;
-    *phys = last_ppage_ + page_offs(virt);
+    addr_t ppage = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
+    // Store 0 as a sentinel since 0 means no entry.
+    dr_hashtable_add(drcontext, v2p_, vpage,
+                     reinterpret_cast<void *>(ppage == 0 ? ZERO_ADDR_PAYLOAD : ppage));
+    *phys = ppage + page_offs(virt);
+    last_ppage_[cache_idx_] = ppage;
+    last_vpage_[cache_idx_] = vpage;
+    cache_idx_ = (cache_idx_ + 1) % NUM_CACHE;
     NOTIFY(2, "virtual %p => physical %p\n", virt, *phys);
     return true;
 #else
