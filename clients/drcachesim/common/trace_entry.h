@@ -247,7 +247,9 @@ typedef enum {
     /**
      * The marker value contains the cpu identifier of the cpu this thread was running
      * on at this point in the trace.  A value of (uintptr_t)-1 indicates that the
-     * cpu could not be determined.
+     * cpu could not be determined.  This value contains what the operating system
+     * set up.  For Linux, the bottom 12 bits hold the cpu identifier and the upper
+     * bits hold the socket/node number.
      */
     TRACE_MARKER_TYPE_CPU_ID,
 
