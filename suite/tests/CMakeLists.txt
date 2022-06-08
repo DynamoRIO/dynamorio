@@ -4123,16 +4123,18 @@ endif (BUILD_CLIENTS)
   ###########################################################################
   # drptpostprocessor tests
 if (BUILD_CLIENTS)
-  if (HAVE_LIBIPT)
-    set(drptpostprocessor_args "--stats"
-      "--img"
-      "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/hello:0x1000-0x88000:0x401000"
-      "--pt"
-      "${PROJECT_SOURCE_DIR}/clients/drptpostprocessor/test_simple.tracedir/pt.bin")
-    torunonly_api(tool.drptpostprocessor drptpostprocessor
-      "../../clients/drptpostprocessor/test_simple.template"
-      "" "${drptpostprocessor_args}" ON OFF)
-  endif (HAVE_LIBIPT)
+  if (LINUX AND X64)
+    if (HAVE_LIBIPT)
+      set(drptpostprocessor_args "--stats"
+        "--img"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drptpostprocessor/test_simple.tracedir/hello:0x1000-0x88000:0x401000"
+        "--pt"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drptpostprocessor/test_simple.tracedir/pt.bin")
+      torunonly_api(tool.drptpostprocessor drptpostprocessor
+        "../../clients/drcachesim/drptpostprocessor/test_simple.template"
+        "" "${drptpostprocessor_args}" ON OFF)
+    endif (HAVE_LIBIPT)
+  endif (LINUX AND X64)
 endif (BUILD_CLIENTS)
 
 if (UNIX)

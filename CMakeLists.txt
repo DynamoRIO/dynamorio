@@ -1217,33 +1217,28 @@ else ()
   set(HAVE_HALF_FLOAT OFF)
 endif ()
 
-# Define an macro to check if we have include and initialized libipt.
-set (HAVE_LIBIPT OFF)
-# Initialize libipt and active the macro HAVE_LIBIPT
-if (LINUX AND X64)
-  find_package(Git QUIET)
-  if (GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+# Define a macro to check if we have included and initialized libipt.
+set(HAVE_LIBIPT OFF)
+# Initialize libipt and activate the macro HAVE_LIBIPT.
+find_package(Git QUIET)
+if (GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
   # Update submodules as needed
-    option(GIT_SUBMODULE "Check submodules during build" ON)
-    if (GIT_SUBMODULE)
-      message(STATUS "Submodule update")
-      execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
-                        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-                        RESULT_VARIABLE GIT_SUBMOD_RESULT)
-      if(NOT GIT_SUBMOD_RESULT EQUAL "0")
-          message(STATUS
-          "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
-      else()
-        # Add libipt to build system. For kernel traces decode, we need to active SIDEBAND, PEVENT and FEATURE_ELF
-        set(SIDEBAND ON CACHE BOOL "Enable libipt-sb, a sideband correlation library" FORCE)
-        set(PEVENT ON CACHE BOOL "Enable perf_event sideband support." FORCE)
-        set(FEATURE_ELF ON CACHE BOOL "Support ELF files." FORCE)
-        add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt)
-        set (HAVE_LIBIPT ON)
-      endif()
-    endif()
-  endif ()
-endif ()
+  option(UPDATE_SUBMODULE "Update submodules during build" ON)
+  if (UPDATE_SUBMODULE)
+    message(STATUS "Update submodules")
+    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+                      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+                      RESULT_VARIABLE UPDATE_SUBMODULE_RESULT)
+    if (NOT UPDATE_SUBMODULE_RESULT EQUAL "0")
+      message(STATUS "Update submodules - failed")
+      message(STATUS
+      "git submodule update --init --recursive failed with ${UPDATE_SUBMODULE_RESULT}, please checkout submodules")
+    else (NOT UPDATE_SUBMODULE_RESULT EQUAL "0")
+      message(STATUS "Update submodules - done")
+      set(HAVE_LIBIPT ON)
+    endif (NOT UPDATE_SUBMODULE_RESULT EQUAL "0")
+  endif (UPDATE_SUBMODULE)
+endif (GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 
 ###########################################################################
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,7 @@
 /* DrPTPostprocessor.c
  * command-line tool for decoding a PT trace, and converting it into an instruction-only
  * memtrace composed of 'memref_t's
+ * XXX: Currently, it only counts and prints the instruction count in the trace data.
  */
 
 #include <stdlib.h>
@@ -40,6 +41,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <errno.h>
+#include <linux/limits.h>
 
 #include "load_elf.h"
 #include "pt_cpu.h"
@@ -69,39 +71,21 @@ typedef struct _dript_decoder_t {
 typedef struct _dript_options_t {
     /* Print statistics. */
     uint32_t print_stats : 1;
-
 } dript_options_t;
 
-/* A collection of statistics. */
-typedef struct _dript_stats_t {
+/* A collection of output. */
+typedef struct _dript_output_t {
     /* The number of instructions. */
-    uint64_t insn;
-} dript_stats_t;
-
-static int
-sb_event(dript_decoder_t *decoder INOUT, const struct pt_event *event IN,
-         const dript_options_t *options IN)
-{
-    struct pt_image *image;
-    int errcode;
-
-    image = NULL;
-    errcode = pt_sb_event(decoder->sbsession, &image, event, sizeof(*event), stdout, 0);
-
-    if (errcode < 0)
-        return errcode;
-    if (image == NULL)
-        return 0;
-    return pt_insn_set_image(decoder->ptdecoder, image);
-}
+    uint64_t instr_count;
+} dript_output_t;
 
 /* Diagnostic output for error event.
  * It will be called when 'pt_insn_sync_forward' return error status or decoder end before
  * reach pte_eos.
  */
 static void
-diagnose_error(struct pt_insn_decoder *decoder IN, uint64_t ip IN, const char *errtype IN,
-               int errcode IN)
+diagnose_error(struct pt_insn_decoder *decoder IN, int errcode IN, const char *errtype IN,
+               uint64_t ip IN)
 {
     int err;
     uint64_t pos;
@@ -122,7 +106,7 @@ diagnose_error(struct pt_insn_decoder *decoder IN, uint64_t ip IN, const char *e
 
 static void
 process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
-               dript_stats_t *stats OUT)
+               dript_output_t *output OUT)
 {
     for (;;) {
         struct pt_insn insn;
@@ -147,7 +131,7 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
         if (status < 0) {
             if (status == -pte_eos)
                 break;
-            diagnose_error(decoder->ptdecoder, insn.ip, "sync error", status);
+            diagnose_error(decoder->ptdecoder, status, "sync error", insn.ip);
             break;
         }
 
@@ -156,31 +140,37 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
             /* Handle next status and all pending perf events. */
             int nextstatus = status;
             int errcode = 0;
+            struct pt_image *image;
             while (nextstatus & pts_event_pending) {
                 struct pt_event event;
 
                 nextstatus = pt_insn_event(decoder->ptdecoder, &event, sizeof(event));
-                if (nextstatus < 0) {
+                if (nextstatus < 0)
                     break;
-                }
-                /* Ensure the sideband session is synced with the pt insn decode and
-                 * handle sideband events. eg. If there is a context switch sideband
-                 * event, the sideband session will change the Intel PT decoder's memory
-                 * image.
-                 */
-                errcode = sb_event(decoder, &event, options);
+
+                /* Use a sideband session to check if pt_event is an image switch event.
+                 * If so, change the image in pt_insn_deocer to the target image. */
+                image = NULL;
+                errcode = pt_sb_event(decoder->sbsession, &image, &event, sizeof(event),
+                                      stdout, 0);
+                if (errcode < 0)
+                    break;
+                if (image == NULL)
+                    continue;
+
+                errcode = pt_insn_set_image(decoder->ptdecoder, image);
                 if (errcode < 0) {
                     break;
                 }
             }
             if (nextstatus < 0) {
-                diagnose_error(decoder->ptdecoder, insn.ip, "handle insn event error",
-                               nextstatus);
+                diagnose_error(decoder->ptdecoder, nextstatus, "handle insn event error",
+                               insn.ip);
                 break;
             }
             if (errcode < 0) {
-                diagnose_error(decoder->ptdecoder, insn.ip, "handle sideband event error",
-                               errcode);
+                diagnose_error(decoder->ptdecoder, errcode, "handle sideband event error",
+                               insn.ip);
                 break;
             }
 
@@ -191,169 +181,58 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
             /* Decode instructions. */
             status = pt_insn_next(decoder->ptdecoder, &insn, sizeof(insn));
             if (status < 0) {
-                diagnose_error(decoder->ptdecoder, insn.ip, "decode error", status);
+                diagnose_error(decoder->ptdecoder, status, "decode error", insn.ip);
                 break;
             }
 
-            /*// Todo: converting insn into an instruction-only memref_t
-             * memref_t memref;
-             * convert_to_memref(&insn, &memref);
-             * handle_memref(&memref);
-             */
-
-            if (stats != NULL)
-                stats->insn += 1;
+            output->instr_count += 1;
+            /* TODO i#5505: Converting insn into an instruction-only memref_t */
         }
     }
 }
 
 static void
-print_stats(dript_stats_t *stats IN)
+print_stats(dript_output_t *output IN)
 {
-    printf("Number of Instructions: %" PRIu64 ".\n", stats->insn);
+    printf("Number of Instructions: %" PRIu64 ".\n", output->instr_count);
 }
 
 static int
-usage(const char *name IN)
+usage(const char *prog IN)
 {
-    printf("usage: %s [<options>]\n\n", name);
-    printf("options:\n");
+    printf("Usage: %s [<options>]", prog);
+    printf("Command-line tool for decoding a PT trace, and converting it into an "
+           "instruction-only memtrace composed of 'memref_t's.\n");
+    printf("This version only counts and prints the instruction count in the trace "
+           "data.\n\n");
+    printf("Options:\n");
     printf("  --help|-h                    this text.\n");
-    printf("  --stats                      print instrunction statistics.\n");
+    printf("  --stats                      print trace statistics.\n");
     printf("  --pt <file>                  load the processor trace data from <file>.\n");
+    printf("  --img <file>:begin-end:<base>\n");
+    printf("                               load a image binary from <file> at address "
+           "<base>.\n");
+    printf("\n");
+    printf("Below is sideband mode\n");
+    printf("  --cpu none|f/m[/s]           set cpu to the given value and decode "
+           "according to:\n");
+    printf("                               none     spec (default)\n");
+    printf("                               f/m[/s]  family/model[/stepping]\n");
     printf("  --pevent:sample-type <val>   set perf_event_attr.sample_type to <val> "
            "(default: 0).\n");
     printf("  --pevent:primary/secondary <file>\n");
     printf("                               load a perf_event sideband stream from "
            "<file>.\n");
-    printf("                               an optional offset or range can be given.\n");
-    printf("  --img <file>[:begin[:end]]:<base>\n");
-    printf("                               load a image binary from <file> at address "
-           "<base>.\n");
-    printf("                               an optional offset or range can be given.\n");
+    printf("                               the offset range begin and range end must be "
+           "given.\n");
     printf("  --pevent:kernel-start <val>  the start address of the kernel.\n");
     printf("  --pevent:kcore <file>        load the kernel from a core dump.\n");
-    printf("  --cpu none|f/m[/s]           set cpu to the given value and decode "
-           "according to:\n");
-    printf("                               none     spec (default)\n");
-    printf("                               f/m[/s]  family/model[/stepping]\n");
     printf("\n");
-    printf("You must specify at least one binary file (--img).\n");
+    printf("If the trace data is recoder from other machine,  you must specify at least "
+           "one binary file (--img).\n");
     printf("You must specify exactly one processor trace file (--pt).\n");
 
     return 1;
-}
-
-/* Preprocess a filename argument.
- *
- * Split the argument into a filename and the load base addr.
- */
-static int
-extract_base(char *arg INOUT, uint64_t *base OUT)
-{
-    char *sep, *rest;
-
-    sep = strrchr(arg, ':');
-    if (sep != NULL) {
-        uint64_t num;
-
-        if (!sep[1])
-            return 0;
-
-        errno = 0;
-        num = strtoull(sep + 1, &rest, 0);
-        if (errno || *rest)
-            return 0;
-
-        *base = num;
-        *sep = 0;
-        return 1;
-    }
-
-    return 0;
-}
-
-/* Split a string of the format like begin[-end] into start or start/end parts.
- *
- * Return the number of parts. 0 means error. 1 means only have begin part. 2 means have
- * both part.
- */
-static int
-parse_range(const char *arg IN, uint64_t *begin OUT, uint64_t *end OUT)
-{
-    char *rest;
-
-    if (!arg || !*arg)
-        return 0;
-
-    errno = 0;
-    *begin = strtoull(arg, &rest, 0);
-    if (errno != 0)
-        return -1;
-
-    if (*rest == 0)
-        return 1;
-
-    if (*rest != '-')
-        return -1;
-
-    *end = strtoull(rest + 1, &rest, 0);
-    if (errno != 0 || *rest != 0)
-        return -1;
-
-    return 2;
-}
-
-/* Preprocess a filename argument.
- *
- * The image file may optionally be followed by a file offset or a file range.
- * eg: file[:offset] or file[:begin-end]
- * preprocess_filename will split the original argument into the filename part and the
- * offset/range part.
- *
- * If no end address is specified, set @size to zero.
- * If no offset is specified, set @offset to zero.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int
-preprocess_filename(char *filename INOUT, uint64_t *offset OUT, uint64_t *size OUT)
-{
-    uint64_t begin, end;
-    char *range;
-    int parts;
-
-    range = strrchr(filename, ':');
-    if (!range) {
-        *offset = 0ull;
-        *size = 0ull;
-        return 0;
-    }
-
-    parts = parse_range(range + 1, &begin, &end);
-    if (parts <= 0) {
-        *offset = 0ull;
-        *size = 0ull;
-        return 0;
-    }
-
-    if (parts == 1) {
-        *offset = begin;
-        *size = 0ull;
-        *range = 0;
-        return 0;
-    }
-
-    if (parts == 2) {
-        if (end <= begin)
-            return -pte_invalid;
-        *offset = begin;
-        *size = end - begin;
-        *range = 0;
-        return 0;
-    }
-
-    return -pte_internal;
 }
 
 /* Load an image file into pt decoder.
@@ -361,47 +240,39 @@ preprocess_filename(char *filename INOUT, uint64_t *offset OUT, uint64_t *size O
  * Returns zero on success, a negative error code otherwise.
  */
 static int
-load_image(struct pt_image_section_cache *iscache INOUT, struct pt_image *image INOUT,
-           char *arg IN, const char *prog IN)
+load_image(char *arg IN, const char *prog IN, struct pt_image *image INOUT,
+           struct pt_image_section_cache *iscache INOUT)
 {
-    uint64_t base, foffset, fsize;
-    int isid, errcode, has_base;
+    uint64_t base, foffset, fend, fsize;
+    char filepath[PATH_MAX];
+    int isid, errcode;
 
-    has_base = extract_base(arg, &base);
-    if (has_base <= 0) {
-        fprintf(stderr,
-                "%s: failed to parse base address"
-                "from '%s'.\n",
-                prog, arg);
+    /* Preprocess a filename argument. The image file is followed by a file range and the
+     * load base addr.*/
+    if (sscanf(arg, "%[^:]:%x-%x:%x", filepath, &foffset, &fend, &base) != 4) {
         return -1;
     }
-
-    errcode = preprocess_filename(arg, &foffset, &fsize);
-    if (errcode < 0) {
-        fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
-                pt_errstr(pt_errcode(errcode)));
+    if (fend <= foffset) {
         return -1;
     }
+    fsize = fend - foffset;
 
-    if (fsize == 0)
-        fsize = UINT64_MAX;
-
-    /* In libipt use iscache to store the image sections and use image to store the image
-     * identifier. So to initialize the cache, we need call pt_iscache_add_file() first to
-     * load the image to cache. Then we call pt_image_add_cached() to add the image
-     * section identifier to the image.
+    /* libipt uses 'iscache' to store the image sections and use 'image' to store the
+     * image identifier. So to initialize the cache, we need call pt_iscache_add_file()
+     * first to load the image to cache. Then we call pt_image_add_cached() to add the
+     * image section identifier to the image.
      */
     /* pt_iscache_add_file():  add a file section to an image section cache returns an
      * image section identifier(ISID) that uniquely identifies the *section in this cache
      */
-    isid = pt_iscache_add_file(iscache, arg, foffset, fsize, base);
+    isid = pt_iscache_add_file(iscache, filepath, foffset, fsize, base);
     if (isid < 0) {
         fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 " to iscache: %s.\n", prog,
-                arg, base, pt_errstr(pt_errcode(isid)));
+                filepath, base, pt_errstr(pt_errcode(isid)));
         return -1;
     }
 
-    /* pt_image_add_cached():  add a file section from an *image section cache to an
+    /* pt_image_add_cached(): add a file section from an *image section cache to an
      * image.
      */
     errcode = pt_image_add_cached(image, iscache, isid, NULL);
@@ -415,7 +286,7 @@ load_image(struct pt_image_section_cache *iscache INOUT, struct pt_image *image 
 }
 
 static int
-load_pt_file(struct pt_config *config OUT, char *ptfile IN, const char *prog IN)
+load_pt_file(const char *prog IN, char *ptfile IN, struct pt_config *config OUT)
 {
     FILE *file;
     uint8_t *buffer;
@@ -475,8 +346,8 @@ err_file:
 }
 
 static int
-alloc_decoder(dript_decoder_t *decoder OUT, struct pt_config *conf IN,
-              struct pt_image *image INOUT, const char *prog IN)
+alloc_decoder(struct pt_config *conf IN, const char *prog IN,
+              dript_decoder_t *decoder INOUT, struct pt_image *image INOUT)
 {
     struct pt_config config;
     int errcode;
@@ -498,8 +369,8 @@ alloc_decoder(dript_decoder_t *decoder OUT, struct pt_config *conf IN,
 }
 
 static int
-alloc_sb_pevent_decoder(dript_decoder_t *decoder INOUT, char *filename IN,
-                        const char *prog IN)
+alloc_sb_pevent_decoder(char *filename IN, const char *prog IN,
+                        dript_decoder_t *decoder INOUT)
 {
     struct pt_sb_pevent_config config;
     int errcode;
@@ -520,8 +391,8 @@ alloc_sb_pevent_decoder(dript_decoder_t *decoder INOUT, char *filename IN,
 }
 
 static int
-process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
-             struct pt_config *config OUT, struct pt_image *image INOUT,
+process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
+             dript_decoder_t *decoder OUT, struct pt_image *image OUT,
              dript_options_t *options OUT)
 {
     int argidx = 1;
@@ -533,7 +404,7 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
         } else if (strcmp(argv[argidx], "--stats") == 0) {
             options->print_stats = 1;
         } else if (strcmp(argv[argidx], "--pt") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr, "%s: --pt: missing argument.\n", prog);
                 return -1;
             }
@@ -545,27 +416,26 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
                 }
             }
             char *ptfile = argv[argidx];
-            int errcode = load_pt_file(config, ptfile, prog);
+            int errcode = load_pt_file(prog, ptfile, config);
             if (errcode < 0) {
                 return errcode;
             }
 
-            errcode = alloc_decoder(decoder, config, image, prog);
+            errcode = alloc_decoder(config, prog, decoder, image);
             if (errcode < 0) {
                 return errcode;
             }
         } else if (strcmp(argv[argidx], "--img") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr, "%s: --img: missing argument.\n", prog);
                 return -1;
             }
-            char *imgfile = argv[argidx];
-            int errcode = load_image(decoder->iscache, image, imgfile, prog);
+            int errcode = load_image(argv[argidx], prog, image, decoder->iscache);
             if (errcode < 0) {
                 return errcode;
             }
         } else if (strcmp(argv[argidx], "--pevent:sample-type") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr, "%s: --pevent:sample-type: missing argument.\n", prog);
                 return -1;
             }
@@ -578,7 +448,7 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
                 return -1;
             }
         } else if (strcmp(argv[argidx], "--pevent:primary") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr,
                         "%s: --pevent:primary: "
                         "missing argument.\n",
@@ -587,12 +457,12 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
             }
             char *primary_file = argv[argidx];
             decoder->sbpevent.primary = 1;
-            int errcode = alloc_sb_pevent_decoder(decoder, primary_file, prog);
+            int errcode = alloc_sb_pevent_decoder(primary_file, prog, decoder);
             if (errcode < 0) {
                 return -1;
             }
         } else if (strcmp(argv[argidx], "--pevent:secondary") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr,
                         "%s: --pevent:secondary: "
                         "missing argument.\n",
@@ -601,12 +471,12 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
             }
             char *secondary_file = argv[argidx];
             decoder->sbpevent.primary = 0;
-            int errcode = alloc_sb_pevent_decoder(decoder, secondary_file, prog);
+            int errcode = alloc_sb_pevent_decoder(secondary_file, prog, decoder);
             if (errcode < 0) {
                 return -1;
             }
         } else if (strcmp(argv[argidx], "--pevent:kernel-start") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr, "%s: --pevent:kernel-start: missing argument.\n", prog);
                 return -1;
             }
@@ -619,7 +489,7 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
                 return -1;
             }
         } else if (strcmp(argv[argidx], "--pevent:kcore") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr,
                         "%s: --pevent:kcore: "
                         "missing argument.\n",
@@ -633,7 +503,7 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
             if (errcode < 0)
                 return -1;
         } else if (strcmp(argv[argidx], "--cpu") == 0) {
-            if (argc <= (++argidx)) {
+            if (argc <= ++argidx) {
                 fprintf(stderr,
                         "%s: --cpu: "
                         "missing argument.\n",
@@ -700,11 +570,11 @@ free_dript_decoder(dript_decoder_t *decoder INOUT)
 }
 
 int
-main(int argc, char **argv)
+main(int argc IN, char **argv IN)
 {
     dript_options_t options;
     dript_decoder_t decoder;
-    dript_stats_t stats;
+    dript_output_t output;
 
     struct pt_config config;
     struct pt_image *image = NULL;
@@ -715,7 +585,7 @@ main(int argc, char **argv)
     prog = argv[0];
 
     memset(&options, 0, sizeof(options));
-    memset(&stats, 0, sizeof(stats));
+    memset(&output, 0, sizeof(output));
 
     /* Initialize the pt_config, dript_decoder, and pt_image structures. */
     pt_config_init(&config);
@@ -734,7 +604,7 @@ main(int argc, char **argv)
     }
 
     /* Parse the command line.*/
-    errcode = process_args(argc, argv, &decoder, &config, image, &options);
+    errcode = process_args(argc, argv, &config, &decoder, image, &options);
     if (errcode != 0) {
         if (errcode > 0)
             errcode = 0;
@@ -758,10 +628,10 @@ main(int argc, char **argv)
         goto out;
     }
 
-    process_decode(&decoder, &options, options.print_stats ? &stats : NULL);
+    process_decode(&decoder, &options, &output);
 
     if (options.print_stats == 1)
-        print_stats(&stats);
+        print_stats(&output);
 
 out:
     free_dript_decoder(&decoder);
