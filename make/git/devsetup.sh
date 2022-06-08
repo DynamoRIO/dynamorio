@@ -33,6 +33,9 @@
 # Developers should run this script once in each repository
 # immediately after cloning.
 
+# Set up submodules
+git submodule update --init --recursive
+
 # Convert CRLF to LF on commit but not checkout:
 git config core.autocrlf input
 

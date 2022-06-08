@@ -59,6 +59,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -160,6 +162,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -246,6 +250,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -332,6 +338,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -419,6 +427,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -516,6 +526,8 @@ jobs:
     steps:
       # We need a checkout to run git log for the version.
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Get Version
       id: version
