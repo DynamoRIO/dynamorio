@@ -959,7 +959,6 @@ add_library(drdecode
   string.c
   io.c
   )
-
 set_target_properties(drdecode PROPERTIES
   COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;STANDALONE_DECODER")
 if (UNIX)
