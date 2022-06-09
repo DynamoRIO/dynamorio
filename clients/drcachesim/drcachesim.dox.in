@@ -158,7 +158,7 @@ Some of the more important markers are:
 
 - #TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads. It is used in the sequential analysis of a multi-threaded trace.
 
-- #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution.
+- #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution. This marker is written to the header of each trace buffer when the buffer is flushed. Note that if the thread migrates to a different CPU due to preemption by the kernel before a buffer is full, we do not output a separate #TRACE_MARKER_TYPE_CPU_ID marker to capture the previous CPU identifier. However, we expect such cases to be rare.
 
 - #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
 
