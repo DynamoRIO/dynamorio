@@ -34,6 +34,10 @@ include(../../../make/policies.cmake NO_POLICY_SCOPE)
 
 # Add libipt to build system. For kernel traces decoding,
 # we need to activate SIDEBAND, PEVENT and FEATURE_ELF.
+# XXX: libipt does not use the CMake export mechanism for modular separation.
+# It puts us at risk of CMake name collisions. Since libipt's build system is
+# not complicated, we can rewrite a new CMakeList.txt for it and make it modular
+# using the cmake export mechanism.
 set(SIDEBAND ON CACHE BOOL "Enable libipt-sb, a sideband correlation library" FORCE)
 set(PEVENT ON CACHE BOOL "Enable perf_event sideband support." FORCE)
 set(FEATURE_ELF ON CACHE BOOL "Support ELF files." FORCE)
