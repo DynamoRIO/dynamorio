@@ -266,7 +266,7 @@ preload_image_add_cached(char *arg IN, const char *prog IN,
 
     /* Preprocess a filename argument. The image file is followed by a file range and the
      * load base addr.*/
-    if (sscanf(arg, "%[^:]:%x-%x:%x", filepath, &foffset, &fend, &base) != 4) {
+    if (sscanf(arg, "%[^:]:%lx-%lx:%lx", filepath, &foffset, &fend, &base) != 4) {
         return -1;
     }
     if (fend <= foffset) {
@@ -452,7 +452,7 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
                 return -1;
             }
             uint64_t sample_type;
-            if (sscanf(argv[argidx], "%x", &sample_type) != 1) {
+            if (sscanf(argv[argidx], "%lx", &sample_type) != 1) {
                 fprintf(stderr, "%s: --pevent:sample-type: bad argument: %s.\n", prog,
                         argv[argidx]);
                 return -1;
@@ -492,7 +492,7 @@ process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
                 return -1;
             }
             uint64_t kernel_start;
-            if (sscanf(argv[argidx], "%x", &kernel_start) != 1) {
+            if (sscanf(argv[argidx], "%lx", &kernel_start) != 1) {
                 fprintf(stderr, "%s: --pevent:kernel-start: bad argument: %s.\n", prog,
                         argv[argidx]);
                 return -1;
