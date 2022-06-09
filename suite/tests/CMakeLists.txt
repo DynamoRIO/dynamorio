@@ -4156,8 +4156,8 @@ if (BUILD_CLIENTS)
 endif (BUILD_CLIENTS)
 
 
-  ###########################################################################
-  # drptpostprocessor tests
+###########################################################################
+# drptpostprocessor tests
 if (BUILD_CLIENTS)
   if (LINUX AND X64)
     if (HAVE_LIBIPT)
