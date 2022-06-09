@@ -54,17 +54,23 @@
 
 /* DR IntelPT decoder*/
 typedef struct _dript_decoder_t {
+    /* libipt configuration */
+    struct pt_config config;
+
     /* libipt instruction decoder*/
-    struct pt_insn_decoder *ptdecoder;
+    struct pt_insn_decoder *instr_decoder;
 
     /* The image section cache. */
     struct pt_image_section_cache *iscache;
 
-    /* The sideband session. */
-    struct pt_sb_session *sbsession;
+    /* The preload image. */
+    struct pt_image *preload_image;
 
     /* The perf event sideband decoder configuration. */
-    struct pt_sb_pevent_config sbpevent;
+    struct pt_sb_pevent_config sb_pevent_conf;
+
+    /* The sideband session. */
+    struct pt_sb_session *sb_session;
 } dript_decoder_t;
 
 /* A collection of options. */
@@ -127,11 +133,11 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
          * output data stream; a PSB packet should be the first packet that a decoder
          * looks for when beginning to decode a trace.”
          */
-        status = pt_insn_sync_forward(decoder->ptdecoder);
+        status = pt_insn_sync_forward(decoder->instr_decoder);
         if (status < 0) {
             if (status == -pte_eos)
                 break;
-            diagnose_error(decoder->ptdecoder, status, "sync error", insn.ip);
+            diagnose_error(decoder->instr_decoder, status, "sync error", insn.ip);
             break;
         }
 
@@ -144,33 +150,46 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
             while (nextstatus & pts_event_pending) {
                 struct pt_event event;
 
-                nextstatus = pt_insn_event(decoder->ptdecoder, &event, sizeof(event));
+                nextstatus = pt_insn_event(decoder->instr_decoder, &event, sizeof(event));
                 if (nextstatus < 0)
                     break;
 
                 /* Use a sideband session to check if pt_event is an image switch event.
                  * If so, change the image in pt_insn_deocer to the target image. */
                 image = NULL;
-                errcode = pt_sb_event(decoder->sbsession, &image, &event, sizeof(event),
+                errcode = pt_sb_event(decoder->sb_session, &image, &event, sizeof(event),
                                       stdout, 0);
                 if (errcode < 0)
                     break;
                 if (image == NULL)
                     continue;
+                /* pt_sb_event() use absolute path to load image. When we run this client
+                 * on a different machine than the trace recorded, the sideband session
+                 * may not be able to find the image. Then pt_sb_event() will return a not
+                 * NULL image, but the image is empty. So we need to add the required
+                 * image sections to preload the cache and copy them when the image switch
+                 * event happens.
+                 * XXX: This is a temporary solution. But it has one bug
+                 * for some applications that load images dynamically. If two images share
+                 * the same address, we can not decide which one is the target image. The
+                 * best solution is to use the relative path to remap the image. But this
+                 * needs to modify the code of the libipt sideband.
+                 */
+                pt_image_copy(image, decoder->preload_image);
 
-                errcode = pt_insn_set_image(decoder->ptdecoder, image);
+                errcode = pt_insn_set_image(decoder->instr_decoder, image);
                 if (errcode < 0) {
                     break;
                 }
             }
             if (nextstatus < 0) {
-                diagnose_error(decoder->ptdecoder, nextstatus, "handle insn event error",
-                               insn.ip);
+                diagnose_error(decoder->instr_decoder, nextstatus,
+                               "handle insn event error", insn.ip);
                 break;
             }
             if (errcode < 0) {
-                diagnose_error(decoder->ptdecoder, errcode, "handle sideband event error",
-                               insn.ip);
+                diagnose_error(decoder->instr_decoder, errcode,
+                               "handle sideband event error", insn.ip);
                 break;
             }
 
@@ -179,9 +198,9 @@ process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,
             }
 
             /* Decode instructions. */
-            status = pt_insn_next(decoder->ptdecoder, &insn, sizeof(insn));
+            status = pt_insn_next(decoder->instr_decoder, &insn, sizeof(insn));
             if (status < 0) {
-                diagnose_error(decoder->ptdecoder, status, "decode error", insn.ip);
+                diagnose_error(decoder->instr_decoder, status, "decode error", insn.ip);
                 break;
             }
 
@@ -210,10 +229,8 @@ usage(const char *prog IN)
     printf("  --stats                      print trace statistics.\n");
     printf("  --pt <file>                  load the processor trace data from <file>.\n");
     printf("  --img <file>:begin-end:<base>\n");
-    printf("                               load a image binary from <file> at address "
-           "<base>.\n");
-    printf("\n");
-    printf("Below is sideband mode\n");
+    printf("                               preload a image binary from <file> at address "
+           "<base> to image cache.\n");
     printf("  --cpu none|f/m[/s]           set cpu to the given value and decode "
            "according to:\n");
     printf("                               none     spec (default)\n");
@@ -229,19 +246,19 @@ usage(const char *prog IN)
     printf("  --pevent:kcore <file>        load the kernel from a core dump.\n");
     printf("\n");
     printf("If the trace data is recoder from other machine,  you must specify at least "
-           "one binary file (--img).\n");
+           "one preload image (--img).\n");
     printf("You must specify exactly one processor trace file (--pt).\n");
 
     return 1;
 }
 
-/* Load an image file into pt decoder.
+/* Preload an image file into memory cache.
  *
  * Returns zero on success, a negative error code otherwise.
  */
 static int
-load_image(char *arg IN, const char *prog IN, struct pt_image *image INOUT,
-           struct pt_image_section_cache *iscache INOUT)
+preload_image_add_cached(char *arg IN, const char *prog IN,
+                         dript_decoder_t *decoder INOUT)
 {
     uint64_t base, foffset, fend, fsize;
     char filepath[PATH_MAX];
@@ -257,25 +274,24 @@ load_image(char *arg IN, const char *prog IN, struct pt_image *image INOUT,
     }
     fsize = fend - foffset;
 
-    /* libipt uses 'iscache' to store the image sections and use 'image' to store the
-     * image identifier. So to initialize the cache, we need call pt_iscache_add_file()
-     * first to load the image to cache. Then we call pt_image_add_cached() to add the
-     * image section identifier to the image.
+    /* libipt uses 'iscache' to store the image sections and use 'image' to store
+     * the image identifier. So to initialize the cache, we need call
+     * pt_iscache_add_file() first to load the image to cache. Then we call
+     * pt_image_add_cached() to add the image section identifier to the image struct.
      */
     /* pt_iscache_add_file():  add a file section to an image section cache returns an
-     * image section identifier(ISID) that uniquely identifies the *section in this cache
+     * image section identifier(ISID) that uniquely identifies the section in this cache
      */
-    isid = pt_iscache_add_file(iscache, filepath, foffset, fsize, base);
+    isid = pt_iscache_add_file(decoder->iscache, filepath, foffset, fsize, base);
     if (isid < 0) {
         fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 " to iscache: %s.\n", prog,
                 filepath, base, pt_errstr(pt_errcode(isid)));
         return -1;
     }
 
-    /* pt_image_add_cached(): add a file section from an *image section cache to an
-     * image.
+    /* pt_image_add_cached(): add the section with isid to default image struct.
      */
-    errcode = pt_image_add_cached(image, iscache, isid, NULL);
+    errcode = pt_image_add_cached(decoder->preload_image, decoder->iscache, isid, NULL);
     if (errcode < 0) {
         fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 " to image: %s.\n", prog,
                 arg, base, pt_errstr(pt_errcode(errcode)));
@@ -346,20 +362,16 @@ err_file:
 }
 
 static int
-alloc_decoder(struct pt_config *conf IN, const char *prog IN,
-              dript_decoder_t *decoder INOUT, struct pt_image *image INOUT)
+alloc_decoder(const char *prog IN, dript_decoder_t *decoder INOUT)
 {
-    struct pt_config config;
     int errcode;
-
-    config = *conf;
-    decoder->ptdecoder = pt_insn_alloc_decoder(&config);
-    if (decoder->ptdecoder == NULL) {
-        fprintf(stderr, "%s: failed to create libipt decoder.\n", prog);
+    decoder->instr_decoder = pt_insn_alloc_decoder(&decoder->config);
+    if (decoder->instr_decoder == NULL) {
+        fprintf(stderr, "%s: failed to create libipt instruction decoder.\n", prog);
         return -pte_nomem;
     }
 
-    errcode = pt_insn_set_image(decoder->ptdecoder, image);
+    errcode = pt_insn_set_image(decoder->instr_decoder, decoder->preload_image);
     if (errcode < 0) {
         fprintf(stderr, "%s: failed to set image.\n", prog);
         return errcode;
@@ -375,12 +387,12 @@ alloc_sb_pevent_decoder(char *filename IN, const char *prog IN,
     struct pt_sb_pevent_config config;
     int errcode;
 
-    config = decoder->sbpevent;
+    config = decoder->sb_pevent_conf;
     config.filename = filename;
     config.begin = (size_t)0;
     config.end = 0;
 
-    errcode = pt_sb_alloc_pevent_decoder(decoder->sbsession, &config);
+    errcode = pt_sb_alloc_pevent_decoder(decoder->sb_session, &config);
     if (errcode < 0) {
         fprintf(stderr, "%s: error loading %s: %s.\n", prog, filename,
                 pt_errstr(pt_errcode(errcode)));
@@ -391,8 +403,7 @@ alloc_sb_pevent_decoder(char *filename IN, const char *prog IN,
 }
 
 static int
-process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
-             dript_decoder_t *decoder OUT, struct pt_image *image OUT,
+process_args(int argc IN, char *argv[] IN, dript_decoder_t *decoder OUT,
              dript_options_t *options OUT)
 {
     int argidx = 1;
@@ -408,20 +419,21 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                 fprintf(stderr, "%s: --pt: missing argument.\n", prog);
                 return -1;
             }
-            if (config->cpu.vendor) {
-                int errcode = pt_cpu_errata(&config->errata, &config->cpu);
+            if (decoder->config.cpu.vendor) {
+                int errcode =
+                    pt_cpu_errata(&decoder->config.errata, &decoder->config.cpu);
                 if (errcode < 0) {
                     fprintf(stderr, "%s: --pt: [0, 0: config error: %s]\n", prog,
                             pt_errstr(pt_errcode(errcode)));
                 }
             }
             char *ptfile = argv[argidx];
-            int errcode = load_pt_file(prog, ptfile, config);
+            int errcode = load_pt_file(prog, ptfile, &decoder->config);
             if (errcode < 0) {
                 return errcode;
             }
 
-            errcode = alloc_decoder(config, prog, decoder, image);
+            errcode = alloc_decoder(prog, decoder);
             if (errcode < 0) {
                 return errcode;
             }
@@ -430,7 +442,7 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                 fprintf(stderr, "%s: --img: missing argument.\n", prog);
                 return -1;
             }
-            int errcode = load_image(argv[argidx], prog, image, decoder->iscache);
+            int errcode = preload_image_add_cached(argv[argidx], prog, decoder);
             if (errcode < 0) {
                 return errcode;
             }
@@ -445,7 +457,7 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                         argv[argidx]);
                 return -1;
             }
-            decoder->sbpevent.sample_type = sample_type;
+            decoder->sb_pevent_conf.sample_type = sample_type;
         } else if (strcmp(argv[argidx], "--pevent:primary") == 0) {
             if (argc <= ++argidx) {
                 fprintf(stderr,
@@ -455,7 +467,7 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                 return -1;
             }
             char *primary_file = argv[argidx];
-            decoder->sbpevent.primary = 1;
+            decoder->sb_pevent_conf.primary = 1;
             int errcode = alloc_sb_pevent_decoder(primary_file, prog, decoder);
             if (errcode < 0) {
                 return -1;
@@ -469,7 +481,7 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                 return -1;
             }
             char *secondary_file = argv[argidx];
-            decoder->sbpevent.primary = 0;
+            decoder->sb_pevent_conf.primary = 0;
             int errcode = alloc_sb_pevent_decoder(secondary_file, prog, decoder);
             if (errcode < 0) {
                 return -1;
@@ -485,7 +497,7 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                         argv[argidx]);
                 return -1;
             }
-            decoder->sbpevent.kernel_start = kernel_start;
+            decoder->sb_pevent_conf.kernel_start = kernel_start;
         } else if (strcmp(argv[argidx], "--pevent:kcore") == 0) {
             if (argc <= ++argidx) {
                 fprintf(stderr,
@@ -496,7 +508,7 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
             }
             struct pt_image *kernel;
             int errcode;
-            kernel = pt_sb_kernel_image(decoder->sbsession);
+            kernel = pt_sb_kernel_image(decoder->sb_session);
             errcode = load_elf(decoder->iscache, kernel, argv[argidx], 0, prog, 0);
             if (errcode < 0)
                 return -1;
@@ -508,16 +520,16 @@ process_args(int argc IN, char *argv[] IN, struct pt_config *config OUT,
                         prog);
                 return -1;
             }
-            if (decoder->ptdecoder != NULL) {
+            if (decoder->instr_decoder != NULL) {
                 fprintf(stderr, "%s: please specify cpu before the pt source file.\n",
                         prog);
                 return -1;
             }
 
             if (strcmp(argv[argidx], "none") == 0) {
-                memset(&(config->cpu), 0, sizeof(config->cpu));
+                memset(&decoder->config.cpu, 0, sizeof(decoder->config.cpu));
             } else {
-                int errcode = pt_cpu_parse(&(config->cpu), argv[argidx]);
+                int errcode = pt_cpu_parse(&decoder->config.cpu, argv[argidx]);
                 if (errcode < 0) {
                     fprintf(stderr, "%s: cpu must be specified as f/m[/s]\n", prog);
                     return -1;
@@ -538,20 +550,29 @@ init_dript_decoder(dript_decoder_t *decoder INOUT)
 {
     memset(decoder, 0, sizeof(*decoder));
 
+    pt_config_init(&decoder->config);
+
     decoder->iscache = pt_iscache_alloc(NULL);
     if (decoder->iscache == NULL)
         return -pte_nomem;
 
-    decoder->sbsession = pt_sb_alloc(decoder->iscache);
-    if (decoder->sbsession == NULL) {
+    decoder->sb_session = pt_sb_alloc(decoder->iscache);
+    if (decoder->sb_session == NULL) {
         pt_iscache_free(decoder->iscache);
         return -pte_nomem;
     }
 
-    memset(&decoder->sbpevent, 0, sizeof(decoder->sbpevent));
-    decoder->sbpevent.size = sizeof(decoder->sbpevent);
-    decoder->sbpevent.kernel_start = UINT64_MAX;
-    decoder->sbpevent.time_mult = 1;
+    memset(&decoder->sb_pevent_conf, 0, sizeof(decoder->sb_pevent_conf));
+    decoder->sb_pevent_conf.size = sizeof(decoder->sb_pevent_conf);
+    decoder->sb_pevent_conf.kernel_start = UINT64_MAX;
+    decoder->sb_pevent_conf.time_mult = 1;
+
+    decoder->preload_image = pt_image_alloc(NULL);
+    if (decoder->preload_image == NULL) {
+        pt_iscache_free(decoder->iscache);
+        pt_sb_free(decoder->sb_session);
+        return -pte_nomem;
+    }
 
     return 0;
 }
@@ -562,31 +583,28 @@ free_dript_decoder(dript_decoder_t *decoder INOUT)
     if (decoder == NULL)
         return;
 
-    pt_insn_free_decoder(decoder->ptdecoder);
-    pt_sb_free(decoder->sbsession);
+    pt_insn_free_decoder(decoder->instr_decoder);
+    pt_sb_free(decoder->sb_session);
     pt_iscache_free(decoder->iscache);
+    pt_image_free(decoder->preload_image);
+    free(decoder->config.begin);
 }
 
 int
 main(int argc IN, char **argv IN)
 {
     dript_options_t options;
-    dript_decoder_t decoder;
     dript_output_t output;
-
-    struct pt_config config;
-    struct pt_image *image = NULL;
+    dript_decoder_t decoder;
 
     const char *prog;
     int errcode;
 
     prog = argv[0];
 
+    /* Initialize options, ouput and decoder */
     memset(&options, 0, sizeof(options));
     memset(&output, 0, sizeof(output));
-
-    /* Initialize the pt_config, dript_decoder, and pt_image structures. */
-    pt_config_init(&config);
     errcode = init_dript_decoder(&decoder);
     if (errcode < 0) {
         fprintf(stderr, "%s: error initializing decoder: %s.\n", prog,
@@ -594,15 +612,9 @@ main(int argc IN, char **argv IN)
         errcode = -1;
         goto out;
     }
-    image = pt_image_alloc(NULL);
-    if (image == NULL) {
-        fprintf(stderr, "%s: failed to allocate image.\n", prog);
-        errcode = -1;
-        goto out;
-    }
 
     /* Parse the command line.*/
-    errcode = process_args(argc, argv, &config, &decoder, image, &options);
+    errcode = process_args(argc, argv, &decoder, &options);
     if (errcode != 0) {
         if (errcode > 0)
             errcode = 0;
@@ -610,16 +622,16 @@ main(int argc IN, char **argv IN)
     }
 
     /* Ensure that the libipt instruction decoder is initialized. */
-    if (decoder.ptdecoder == NULL) {
+    if (decoder.instr_decoder == NULL) {
         fprintf(stderr, "%s: no pt file.\n", prog);
         errcode = -1;
         goto out;
     }
 
-    /* Initialize the sideband session. It needs be called after all sideband decoders are
-     * being initialized.
+    /* Initialize the sideband session. It needs be called after all sideband decoders
+     * are being initialized.
      */
-    errcode = pt_sb_init_decoders(decoder.sbsession);
+    errcode = pt_sb_init_decoders(decoder.sb_session);
     if (errcode < 0) {
         fprintf(stderr, "%s: error initializing sideband decoders: %s.\n", prog,
                 pt_errstr(pt_errcode(errcode)));
@@ -633,7 +645,5 @@ main(int argc IN, char **argv IN)
 
 out:
     free_dript_decoder(&decoder);
-    pt_image_free(image);
-    free(config.begin);
     return -errcode;
 }
