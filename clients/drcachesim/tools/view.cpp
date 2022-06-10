@@ -150,7 +150,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 }
 
 bool
-view_t::should_skip()
+view_t::should_skip(const memref_t &memref)
 {
     num_refs_++;
     if (skip_refs_left_ > 0) {
@@ -164,6 +164,11 @@ view_t::should_skip()
         if (sim_refs_left_ == 0)
             return true;
         sim_refs_left_--;
+        if (sim_refs_left_ == 0 && timestamp_ > 0) {
+            print_prefix(memref, -1); // Already incremented for timestamp.
+            std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+            timestamp_ = 0;
+        }
     }
     return false;
 }
@@ -208,6 +213,8 @@ view_t::process_memref(const memref_t &memref)
             // We can't easily reorder and place window markers before timestamps
             // since memref iterators use the timestamps to order buffer units.
             timestamp_ = memref.marker.marker_value;
+            if (should_skip(memref))
+                timestamp_ = 0;
             return true;
         default: break;
         }
@@ -220,13 +227,13 @@ view_t::process_memref(const memref_t &memref)
         printed_header_.find(memref.marker.tid) == printed_header_.end()) {
         printed_header_.insert(memref.marker.tid);
         if (trace_version_ != -1) { // Old versions may not have a version marker.
-            if (!should_skip()) {
+            if (!should_skip(memref)) {
                 print_prefix(memref);
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
-            if (!should_skip()) {
+            if (!should_skip(memref)) {
                 print_prefix(memref);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                           << ">\n";
@@ -234,8 +241,31 @@ view_t::process_memref(const memref_t &memref)
         }
     }
 
-    if (should_skip())
+    if (should_skip(memref))
         return true;
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID) {
+            // Needs special handling to get the horizontal line before the timestamp.
+            if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
+                std::cerr
+                    << "------------------------------------------------------------\n";
+                print_prefix(memref, -1); // Already incremented for timestamp above.
+            }
+            if (timestamp_ > 0) {
+                std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+                timestamp_ = 0;
+                print_prefix(memref);
+            }
+            std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
+            last_window_[memref.marker.tid] = memref.marker.marker_value;
+        }
+        if (timestamp_ > 0) {
+            print_prefix(memref, -1); // Already incremented for timestamp above.
+            std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+            timestamp_ = 0;
+        }
+    }
 
     if (memref.instr.tid != 0) {
         print_prefix(memref);
@@ -292,22 +322,6 @@ view_t::process_memref(const memref_t &memref)
             std::cerr << "<marker: cache line size " << memref.marker.marker_value
                       << ">\n";
             break;
-        case TRACE_MARKER_TYPE_WINDOW_ID:
-            if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
-                std::cerr
-                    << "------------------------------------------------------------\n";
-                print_prefix(memref);
-            }
-            if (timestamp_ > 0) {
-                if (!should_skip()) {
-                    std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
-                    timestamp_ = 0;
-                    print_prefix(memref);
-                }
-            }
-            std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
-            last_window_[memref.marker.tid] = memref.marker.marker_value;
-            break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following entry: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
@@ -319,13 +333,6 @@ view_t::process_memref(const memref_t &memref)
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";
             break;
-        }
-        if (timestamp_ > 0) {
-            if (!should_skip()) {
-                print_prefix(memref);
-                std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
-                timestamp_ = 0;
-            }
         }
         return true;
     }
@@ -413,7 +420,7 @@ view_t::process_memref(const memref_t &memref)
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
-        print_prefix(memref, prefix);
+        print_prefix(memref, 0, prefix);
         disasm.insert(newline + 1, prefix.str());
     }
     std::cerr << disasm;
