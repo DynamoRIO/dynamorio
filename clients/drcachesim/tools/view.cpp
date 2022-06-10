@@ -323,7 +323,11 @@ view_t::process_memref(const memref_t &memref)
                       << ">\n";
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
-            std::cerr << "<marker: physical address for following entry: 0x" << std::hex
+            std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
+            std::cerr << "<marker: virtual address for prior physical: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
