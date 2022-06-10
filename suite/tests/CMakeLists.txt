@@ -3755,7 +3755,7 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_SUDO_sudo ON)
       set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
       torunonly_drcacheoff(phys_SUDO allasm_x86_64
-        "-use_physical" "@-simulator_type@view" "")
+        "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
     endif ()
 
     if (UNIX AND ZLIB_FOUND)
