@@ -39,27 +39,28 @@
 #include <fstream>
 
 #include "load_elf.h"
-#include "dript_decoder.h"
+#include "pt_decoder.h"
 
-drpt_decoder_t::drpt_decoder_t()
+#define LIBNAME "DRIPT Decoder"
+
+pt_decoder_t::pt_decoder_t()
 {
-    pt_config_init(&config_);
+    trace_file_buf_ = NULL;
+
+    instr_decoder_ = NULL;
 
     iscache_ = pt_iscache_alloc(NULL);
-    if (iscache_ == NULL)
-        return -pte_nomem;
+    if (iscache_ == NULL) {
+        fprintf(stderr, "[PT Decoder Initilase] Failed to allocate iscache\n");
+        exit(1);
+    }
 
     preload_image_ = pt_image_alloc(NULL);
     if (preload_image_ == NULL) {
         pt_iscache_free(iscache_);
-        pt_sb_free(sb_session_);
-        return -pte_nomem;
+        fprintf(stderr, "Failed to allocate preload image\n");
+        exit(1);
     }
-
-    memset(&sb_pevent_config_, 0, sizeof(sb_pevent_config_));
-    sb_pevent_config_.size = sizeof(sb_pevent_config_);
-    sb_pevent_config_.kernel_start = UINT64_MAX;
-    sb_pevent_config_.time_mult = 1;
 
     sb_session_ = pt_sb_alloc(iscache_);
     if (sb_session_ == NULL) {
@@ -68,23 +69,25 @@ drpt_decoder_t::drpt_decoder_t()
     }
 }
 
-drpt_decoder_t::~drpt_decoder_t()
+pt_decoder_t::~pt_decoder_t()
 {
-    free(this->config.begin);
-    pt_insn_free_decoder(this->instr_decoder);
-    pt_iscache_free(this->iscache);
-    pt_image_free(this->preload_image);
-    pt_sb_free(this->sb_session);
+    free(trace_file_buf_);
+    pt_insn_free_decoder(instr_decoder_);
+    pt_iscache_free(iscache_);
+    pt_image_free(preload_image_);
+    pt_sb_free(sb_session_);
 }
 
 bool
-drpt_decoder_t::init(const drpt_decoder_config_t &config)
+pt_decoder_t::init(const pt_decoder_config_t &config)
 {
+    struct pt_config pt_config;
+    pt_config_init(&pt_config);
     /* Parse the cpu type. */
     if (config.cpu == "none") {
-        config_.cpu = { 0, 0, 0, 0 };
+        pt_config.cpu = { 0, 0, 0, 0 };
     } else {
-        config_.cpu.vendor = pcv_intel;
+        pt_config.cpu.vendor = pcv_intel;
         int num = sscanf(config.cpu.c_str(), "%d/%d/%d", &config_.cpu.family,
                          &config_.cpu.model, &config_.cpu.stepping);
         if (num < 2) {
@@ -92,7 +95,7 @@ drpt_decoder_t::init(const drpt_decoder_config_t &config)
                     config.cpu.c_str());
             return false;
         } else if (num == 2) {
-            config_.cpu.stepping = 0;
+            pt_config.cpu.stepping = 0;
         } else {
             /* Nothing */
         }
@@ -112,7 +115,7 @@ drpt_decoder_t::init(const drpt_decoder_config_t &config)
             return false;
         }
         /* Loading a preload image. */
-        if (load_preload_image_file(filepath, foffset, fsize, base) != 0) {
+        if (load_preload_image(filepath, foffset, fsize, base) != 0) {
             fprintf(stderr,
                     "[Configuration parsing error] - Failed to load preload image: %s\n",
                     filepath);
@@ -134,7 +137,7 @@ drpt_decoder_t::init(const drpt_decoder_config_t &config)
         return false;
     }
 
-    /* Parse sideband perf event sample*/
+    /* Parse the sideband perf event sample type*/
     uint64_t sample_type = 0;
     if (config.sb_sample_type.size() > 0) {
         if (sscanf(config.sb_pevent_config, "%lx", &sample_type) != 1) {
@@ -146,12 +149,51 @@ drpt_decoder_t::init(const drpt_decoder_config_t &config)
     }
     sb_pevent_config_.sample_type = sample_type;
 
-    /* */
-    /* Parse the cpu type. */
+    /* Parse the start address of the kernel image  */
+    uint64_t kernel_start = 0;
+    if (config.kernel_start.size() > 0) {
+        if (sscanf(config.kernel_start.c_str(), "%lx", &kernel_start) != 1) {
+            fprintf(stderr,
+                    "[Configuration parsing error] - Failed to parse kernel start address.\n");
+            return false;
+        }
+    }
+    sb_pevent_config_.kernel_start = kernel_start;
+
+    /* load kcore to sideband kernel image cache */
+    if (config.kcore_file.size() > 0) {
+        if (load_kernel_image(config.kcore_file)) {
+            fprintf(stderr,
+                    "[Configuration parsing error] - Failed to load kernel image: %s\n",
+                    config.kcore_file.c_str());
+            return false;
+        }
+    }
+
+    /* allocate the primary sideband decoder */
+    if (config.sb_primary_file.size() > 0) {
+        if (alloc_sb_pevent_decoder(config.sb_primary_file)) {
+            fprintf(stderr,
+                    "[Configuration parsing error] - Failed to allocate primary sideband "
+                    "perf event decoder.\n");
+            return false;
+        }
+    }
+
+    /* allocate the secondary sideband decoders */
+    for (auto sb_secondary_file : config.sb_secondary_files) {
+        if (alloc_sb_pevent_decoder(sb_secondary_file)) {
+            fprintf(stderr,
+                    "[Configuration parsing error] - Failed to allocate secondary sideband "
+                    "perf event decoder.\n");
+            return false;
+        }
+    }
+
 }
 
 bool
-drpt_decoder_t::load_preload_image_file(std::string &filepath, uint64_t foffset,
+pt_decoder_t::load_preload_image(std::string &filepath, uint64_t foffset,
                                         uint64_t fsize, uint64_t base)
 {
     /* libipt uses 'iscache' to store the image sections and use 'image' to store
@@ -185,8 +227,8 @@ drpt_decoder_t::load_preload_image_file(std::string &filepath, uint64_t foffset,
     return true;
 }
 
-static bool
-drpt_decoder_t::load_trace_file(std::string &filepath)
+bool
+pt_decoder_t::load_trace_file(std::string &filepath)
 {
     errno = 0;
     std::ifstream trace_file(filepath, std::ios::binary | std::ios::ate);
@@ -221,7 +263,21 @@ drpt_decoder_t::load_trace_file(std::string &filepath)
 }
 
 bool
-drpt_decoder_t::alloc_sb_decoder(char *filename)
+pt_decoder_t::load_kernel_image(std::string &filepath)
+{
+    struct pt_image *kimage = pt_sb_kernel_image(sb_session_);
+    int errcode = load_elf(iscache_, kimage, filepath, 0, LIBNAME, 0);
+    if (errcode < 0) {
+        fprintf(stderr,
+                "[Load kernel image error] - Failed to load kernel image %s: %s.\n",
+                filepath.c_str(), pt_errstr(pt_errcode(errcode)));
+        return false;
+    }
+    return true;
+}
+
+bool
+pt_decoder_t::alloc_sb_pevent_decoder(char *filename)
 {
     struct pt_sb_pevent_config config = sb_pevent_config_;
     config.filename = filename;
@@ -230,16 +286,17 @@ drpt_decoder_t::alloc_sb_decoder(char *filename)
 
     int errcode = pt_sb_alloc_pevent_decoder(sb_session_, &config);
     if (errcode < 0) {
-        fprintf(stderr, "Error loading sideband file %s: %s.\n", filename,
+        fprintf(stderr,
+                "[Allocate sideband perf event decoder error] - Failed to allocate "
+                "sideband perf event decoder: %s.\n",
                 pt_errstr(pt_errcode(errcode)));
         return false;
     }
-
     return true;
 }
 
 bool
-drpt_decoder_t::update_image(struct pt_image *image)
+pt_decoder_t::update_image(struct pt_image *image)
 {
     int errcode = pt_insn_set_image(instr_decoder_, image);
     if (errcode < 0) {

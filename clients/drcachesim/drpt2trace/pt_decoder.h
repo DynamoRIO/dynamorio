@@ -32,8 +32,8 @@
 
 /**/
 
-#ifndef _DRIPT_DECODER_H_
-#define _DRIPT_DECODER_H_ 1
+#ifndef _PT_DECODER_H_
+#define _PT_DECODER_H_ 1
 
 #include <string>
 #include <vector>
@@ -41,7 +41,7 @@
 #include "intel-pt.h"
 #include "libipt-sb.h"
 
-struct drpt_decoder_config_t {
+struct pt_decoder_config_t {
     std::string cpu;
     std::string trace_file;
     std::vector<std::string> preload_image_config;
@@ -54,37 +54,34 @@ struct drpt_decoder_config_t {
     std::vector<std::string> sb_secondary_files;
 };
 
-class drpt_decoder_t {
+class pt_decoder_t {
 public:
-    drpt_decoder_t();
-    ~drpt_decoder_t();
+    pt_decoder_t();
+    ~pt_decoder_t();
 
     bool
-    init(const drpt_decoder_config_t &config);
+    init(const pt_decoder_config_t &config);
 
     bool
     decode();
 
 private:
     bool
-    load_preload_image_file(std::string &filepath, uint64_t foffset, uint64_t fsize,
+    load_preload_image(std::string &filepath, uint64_t foffset, uint64_t fsize,
                             uint64_t base);
     bool
     load_trace_file(std::string &filepath);
 
     bool
-    alloc_instr_decoder();
-
-    bool
-    alloc_sb_decoder(char *filename);
+    alloc_sb_pevent_decoder(char *filename);
 
     bool
     update_image(struct pt_image *image);
 
-    /* libipt configuration */
-    struct pt_config config_;
+    /* Trace file Buffer. */
+    uint8_t *trace_file_buf_;
 
-    /* libipt instruction decoder*/
+    /* libipt instruction decoder. */
     struct pt_insn_decoder *instr_decoder_;
 
     /* The image section cache. */
@@ -100,4 +97,4 @@ private:
     struct pt_sb_session *sb_session_;
 }
 
-#endif /* _DRIPT_DECODER_H_ */
+#endif /* _PT_DECODER_H_ */
