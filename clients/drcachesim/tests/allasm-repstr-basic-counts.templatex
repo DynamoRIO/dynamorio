@@ -26,7 +26,7 @@ Total counts:
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
-           3 total other markers
+           4 total other markers
 Thread [0-9]* counts:
           95 \(fetched\) instructions
           23 unique \(fetched\) instructions
@@ -42,4 +42,4 @@ Thread [0-9]* counts:
            0 function return address markers
            0 function argument markers
            0 function return value markers
-           3 other markers
+           4 other markers
