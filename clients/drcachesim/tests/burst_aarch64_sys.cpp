@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -223,6 +223,7 @@ main(int argc, const char *argv[])
                   << "\n";
     }
     bool found_cache_line_size_marker = false;
+    bool found_page_size_marker = false;
     int dc_zva_instr_count = 0;
     int dc_zva_memref_count = 0;
     addr_t last_dc_zva_pc = 0;
@@ -232,6 +233,11 @@ main(int argc, const char *argv[])
             memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
             found_cache_line_size_marker = true;
             assert(memref.marker.marker_value == proc_get_cache_line_size());
+        }
+        if (memref.marker.type == TRACE_TYPE_MARKER &&
+            memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
+            found_page_size_marker = true;
+            assert(memref.marker.marker_value == dr_page_size());
         }
         if (is_dc_zva_instr(dr_context, memref)) {
             dc_zva_instr_count++;
@@ -255,6 +261,7 @@ main(int argc, const char *argv[])
     assert(dc_zva_memref_count != 0);
     assert(dc_zva_instr_count == dc_zva_memref_count);
     assert(found_cache_line_size_marker);
+    assert(found_page_size_marker);
     dr_standalone_exit();
 
     return 0;

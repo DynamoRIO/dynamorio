@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -165,6 +165,7 @@ check_branch_target_after_branch()
     {
         std::vector<memref_t> memrefs = {
             gen_marker(3, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(3, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_branch(3, 2),
             gen_exit(3),
             gen_instr(1, 1),

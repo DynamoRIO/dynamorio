@@ -1254,7 +1254,7 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     if (trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
                                                  nullptr) &&
         error.empty()) {
-        if (size < 4)
+        if (size < 5)
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
 
         // XXX: Make it easier to add more markers. Iterate over the entries until
@@ -1264,7 +1264,11 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
             (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
              offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
              offline_entries[timestamp_pos].extended.valueB !=
-                 TRACE_MARKER_TYPE_CACHE_LINE_SIZE))
+                 TRACE_MARKER_TYPE_CACHE_LINE_SIZE) ||
+            (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
+             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
+             offline_entries[timestamp_pos].extended.valueB !=
+                 TRACE_MARKER_TYPE_PAGE_SIZE))
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
         ++timestamp_pos;
     }
