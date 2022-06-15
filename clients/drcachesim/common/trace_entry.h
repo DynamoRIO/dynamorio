@@ -338,17 +338,31 @@ typedef enum {
 
     /**
      * The marker value contains the physical address corresponding to the subsequent
-     * entry's instruction fetch PC or data address.  If translation failed, a
-     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be present instead.
+     * #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS's virtual address.  A pair of such markers
+     * will appear somewhere prior to a regular instruction fetch or data load or store
+     * whose page's physical address has not yet been reported, or when a physical
+     * mapping change is detected.  If translation failed, a
+     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be present instead,
+     * without a corresponding #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS.
      */
     TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
 
     /**
      * Indicates a failure to obtain the physical address corresponding to the
-     * subsequent entry's instruction fetch PC or data address.  The marker value is
-     * undefined.
+     * virtual address contained in the marker value.
      */
     TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
+
+    /**
+     * The marker value contains the virtual address corresponding to the prior
+     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS's physical address.  A pair of such markers
+     * will appear somewhere prior to a regular instruction fetch or data load or store
+     * whose page's physical address has not yet been reported, or when a physical
+     * mapping change is detected.  If translation failed, a
+     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be present instead,
+     * without a corresponding #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS.
+     */
+    TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
 
     // ...
     // These values are reserved for future built-in marker types.
