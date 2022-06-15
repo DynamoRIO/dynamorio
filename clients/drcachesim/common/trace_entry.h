@@ -350,6 +350,11 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
 
+    /**
+     * The marker value contains the traced process's page size in bytes.
+     */
+    TRACE_MARKER_TYPE_PAGE_SIZE,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
