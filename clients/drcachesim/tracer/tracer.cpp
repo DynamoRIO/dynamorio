@@ -850,21 +850,31 @@ create_buffer(per_thread_t *data)
 static size_t
 get_v2p_buffer_size()
 {
-    // The handoff interface requites we use dr_raw_mem_alloc and thus page alignment.
-    // We use one page which is 256 entries for 4K pages which is enough for
+    // The handoff interface requires we use dr_raw_mem_alloc and thus page alignment.
+    // The v2p buffer needs to hold at most enough physical,virtual marker pairs for one
+    // regular MAX_NUM_ENTRIES trace buffer; if it's smaller, we'll handle that by
+    // emitting multiple times.
+    //
+    // Currently we use one page which is 256 entries for 4K pages (assuming zero upper
+    // bits: so no vsyscall or >48-bit addresses; the upper 16 bits being set would
+    // require extra markers for each address) which is enough for a single buffer for
     // most cases.
+    //
+    // XXX: For many-thread apps, and esp on machines with larger pages, this could
+    // use a lot of additional memory we don't need: consider for 64K pages and 10K
+    // threads that's 640MB!  We could use a smaller buffer when the handoff interface
+    // is not in effect, or change the interface to use a different free function.
     return dr_page_size();
 }
 
 static void
 create_v2p_buffer(per_thread_t *data)
 {
-    // The handoff interface requites we use dr_raw_mem_alloc and thus page alignment.
     data->v2p_buf = (byte *)dr_raw_mem_alloc(get_v2p_buffer_size(),
                                              DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     /* For file_ops_func.handoff_buf we have to handle failure as OOM is not unlikely. */
     if (data->v2p_buf == NULL) {
-        FATAL("Out of memory for virtual-to-physical buffers.\n");
+        FATAL("Failed to allocate virtual-to-physical buffer.\n");
     }
 }
 
@@ -977,7 +987,7 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     return current_num_refs;
 }
 
-// Should be called only -use_physical.
+// Should be called only for -use_physical.
 // Returns the byte count to skip in the trace buffer (due to shifting some headers
 // to the v2p buffer).
 static size_t
@@ -1073,13 +1083,14 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
                 // For translation failure, we insert a distinct marker type, so analyzers
                 // know for sure and don't have to infer based on a missing marker.
                 v2p_ptr += instru->append_marker(
-                    v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, phys);
+                    v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, virt);
             }
         } else {
             // For online we replace the virtual with physical.
             // XXX i#4014: For consistency we should break compatibility, *not* replace,
             // and insert the markers instead, updating dr$sim to use the markers
-            // to compute the physical addresses.
+            // to compute the physical addresses.  We should then update
+            // https://dynamorio.org/sec_drcachesim_phys.html.
             if (success)
                 instru->set_entry_addr(mem_ref, phys);
         }
@@ -3157,6 +3168,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: unknown -raw_compress type %s.",
               op_raw_compress.get_value().c_str());
     }
+    // We cannot elide addresses or ignore offsets when we need to translate
+    // all addresses during tracing.
+    if (op_use_physical.get_value())
+        op_disable_optimizations.set_value(true);
 
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_disabled));

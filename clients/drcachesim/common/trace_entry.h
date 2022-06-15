@@ -348,9 +348,8 @@ typedef enum {
     TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
 
     /**
-     * Indicates a failure to obtain the physical address corresponding to some
-     * subsequent entry's instruction fetch PC or data virtual address.  The marker
-     * value is undefined.
+     * Indicates a failure to obtain the physical address corresponding to the
+     * virtual address contained in the marker value.
      */
     TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
 
