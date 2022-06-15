@@ -140,8 +140,9 @@ Further non-compatibility-affecting changes include:
    choices under the -raw_compress option.  Compressing with lz4 is now the
    default (if built with lz4 support).
  - Added drmodtrack_lookup_pc_from_index().
- - Added -use_physical support to drcachesim offline traces using two new
-   marker types: #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and
+ - Added -use_physical support to drcachesim offline traces using three new
+   marker types: #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+   #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, and
    #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE.
  - Added an open-address hashtable implementation for cases where third-party
    libraries must be avoided and open addressing is best: dr_hashtable_create(),
