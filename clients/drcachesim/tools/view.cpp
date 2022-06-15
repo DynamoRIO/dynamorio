@@ -420,12 +420,13 @@ view_t::process_memref(const memref_t &memref)
         disasm = buf;
         disasm_cache_.insert({ mapped_pc, disasm });
     }
-    // Put our prefix on raw byte spillover.
+    // Put our prefix on raw byte spillover, and skip the other columns.
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
         print_prefix(memref, 0, prefix);
-        disasm.insert(newline + 1, prefix.str());
+        disasm.insert(newline + 1,
+                      prefix.str() + "                                     ");
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;
