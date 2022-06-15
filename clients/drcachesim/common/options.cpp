@@ -199,7 +199,7 @@ droption_t<bool> op_use_physical(
     "If available, the default virtual addresses will be translated to physical.  "
     "This is not possible from user mode on all platforms.  "
     "For -offline, the regular trace entries remain virtual, with a pair of markers of "
-    "types #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS "
+    "types #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
     "inserted at some prior point for each new or changed page mapping to show the "
     "corresponding physical addresses.  This option may incur significant overhead "
     "both for the physical translation and as it requires disabling optimizations.");

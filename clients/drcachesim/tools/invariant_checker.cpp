@@ -207,7 +207,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         memref.marker.type == TRACE_TYPE_MARKER &&
                             memref.marker.marker_type ==
                                 TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
-                        "Physical addr marker not immediately prior to virtual addr");
+                        "Physical addr marker not immediately prior to virtual marker");
         // We don't have the actual page size, but it is always at least 4K, so
         // make sure the bottom 12 bits are the same.
         report_if_false(shard,
