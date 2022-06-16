@@ -106,9 +106,12 @@ if (arg_automated_ci)
     # prior to option parsing.
     set(build_tests "${build_tests}
 AUTOMATED_TESTING:BOOL=ON")
-    # We assume our automated CI has password-less sudo.
-    set(build_tests "${build_tests}
+    # We assume our GitHub Actions automated CI has password-less sudo.
+    # Our Jenkins tester does not.
+    if (NOT "$ENV{CI_TARGET}" STREQUAL "")
+      set(build_tests "${build_tests}
 RUN_SUDO_TESTS:BOOL=ON")
+    endif ()
   endif()
 endif()
 
