@@ -1439,6 +1439,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D postcmd=${${key}_postcmd}
       -D postcmd2=${${key}_postcmd2}
       -D postcmd3=${${key}_postcmd3}
+      -D failok=${${key}_failok}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
       -D capture=${${key}_runcmp_capture}
@@ -3348,8 +3349,12 @@ if (BUILD_CLIENTS)
       # would need an analyzer to go examine addresses, or to use the view tool.
       # For now these are just sanity tests that flipping on the option doesn't
       # cause outright failure.
-      torunonly_drcachesim(phys ${ci_shared_app} "-use_physical" "")
-      torunonly_drcachesim(phys-threads client.annotation-concurrency "-use_physical"
+      set(tool.drcachesim.phys_SUDO_sudo ON)
+      set(tool.drcachesim.phys_SUDO_expectbase "phys")
+      torunonly_drcachesim(phys_SUDO ${ci_shared_app} "-use_physical" "")
+      set(tool.drcachesim.phys-threads_SUDO_sudo ON)
+      set(tool.drcachesim.phys-threads_SUDO_expectbase "phys-threads")
+      torunonly_drcachesim(phys-threads_SUDO client.annotation-concurrency "-use_physical"
         "${annotation_test_args_shorter}")
     endif ()
 
@@ -3755,6 +3760,10 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_SUDO_sudo ON)
       set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
       torunonly_drcacheoff(phys_SUDO allasm_x86_64
+        "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
+      set(tool.drcacheoff.phys_nopriv_failok ON)
+      set(tool.drcacheoff.phys_nopriv_nopost ON)
+      torunonly_drcacheoff(phys_nopriv allasm_x86_64
         "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
     endif ()
 

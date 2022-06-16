@@ -35,6 +35,8 @@
 #    include <unistd.h>
 #    include <sys/stat.h>
 #    include <fcntl.h>
+#    include <linux/capability.h>
+#    include <fstream>
 #endif
 #include "physaddr.h"
 #include "../common/options.h"
@@ -54,7 +56,7 @@
 #    define PAGEMAP_VALID 0x8000000000000000
 #    define PAGEMAP_SWAP 0x4000000000000000
 #    define PAGEMAP_PFN 0x007fffffffffffff
-static const addr_t PAGE_INVALID = (addr_t)-1;
+std::atomic<bool> physaddr_t::has_privileges_;
 #endif
 
 physaddr_t::physaddr_t()
@@ -83,12 +85,51 @@ physaddr_t::physaddr_t()
 physaddr_t::~physaddr_t()
 {
 #ifdef LINUX
-    NOTIFY(1,
-           "physaddr: hit cache: " UINT64_FORMAT_STRING
-           ", hit table " UINT64_FORMAT_STRING ", miss " UINT64_FORMAT_STRING "\n",
-           num_hit_cache_, num_hit_table_, num_miss_);
+    if (num_miss_ > 0) {
+        NOTIFY(1,
+               "physaddr: hit cache: " UINT64_FORMAT_STRING
+               ", hit table " UINT64_FORMAT_STRING ", miss " UINT64_FORMAT_STRING "\n",
+               num_hit_cache_, num_hit_table_, num_miss_);
+    }
     if (v2p_ != nullptr)
         dr_hashtable_destroy(dr_get_current_drcontext(), v2p_);
+#endif
+}
+
+bool
+physaddr_t::global_init()
+{
+#ifdef LINUX
+    // This is invoked at process init time, so we can use heap in C++ classes
+    // without affecting statically-linked dr$sim.
+
+    // We need CAP_SYS_ADMIN to get valid data out of /proc/self/pagemap
+    // (the kernel lets us read but just feeds us zeroes otherwise).
+    constexpr int MAX_STATUS_FNAME = 64;
+    char statf[MAX_STATUS_FNAME];
+    dr_snprintf(statf, BUFFER_SIZE_ELEMENTS(statf), "/proc/%d/status", getpid());
+    NULL_TERMINATE_BUFFER(statf);
+    std::ifstream file(statf);
+    std::string line;
+    const std::string want("CapEff");
+    while (std::getline(file, line)) {
+        if (line.compare(0, want.size(), want) != 0)
+            continue;
+        std::istringstream ss(line);
+        std::string unused;
+        uint64_t bits;
+        if (ss >> unused >> std::hex >> bits) {
+            if (TESTALL(1 << CAP_SYS_ADMIN, bits)) {
+                has_privileges_ = true;
+                NOTIFY(1, "Has CAP_SYS_ADMIN\n");
+            } else
+                NOTIFY(1, "Does NOT have CAP_SYS_ADMIN\n");
+        }
+    }
+    DR_ASSERT(std::atomic_is_lock_free(&has_privileges_));
+    return has_privileges_;
+#else
+    return false;
 #endif
 }
 
@@ -96,6 +137,9 @@ bool
 physaddr_t::init()
 {
 #ifdef LINUX
+    if (!has_privileges_)
+        return false;
+
     // Some threads may not do much, so start out small.
     constexpr int V2P_INITIAL_BITS = 9;
     // The hashtable lookup performance is important.
@@ -205,11 +249,9 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
         NOTIFY(1, "v2p failure: entry is invalid for %p\n", vpage);
         return false;
     }
-    // TODO i#4014: On recent kernels unprivileged reads succeed but are passed
-    // a 0 PFN.  Since that could be valid, we need to check our capabilities
-    // to decide.  Until then, we're currently returning 0 for every unprivileged query.
-    // Store 0 as a sentinel since 0 means no entry.
     addr_t ppage = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
+    // Despite the kernel handing out a 0 PFN for unprivileged reads, 0 is a valid
+    // possible PFN.
     // Store 0 as a sentinel since 0 means no entry.
     dr_hashtable_add(drcontext, v2p_, vpage,
                      reinterpret_cast<void *>(ppage == 0 ? ZERO_ADDR_PAYLOAD : ppage));

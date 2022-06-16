@@ -195,9 +195,6 @@ static uint64 num_v2p_writeouts;
 static uint64 num_phys_markers;
 static volatile bool exited_process;
 
-/* virtual to physical translation */
-static std::atomic<bool> have_phys;
-
 static drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
                                           DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL,
                                           DRMGR_PRIORITY_APP2APP_DRBBDUP - 1 };
@@ -990,14 +987,15 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     return current_num_refs;
 }
 
-// Should be called only for have_phys and -use_physical.
+// Should be called only for -use_physical.
 // Returns the byte count to skip in the trace buffer (due to shifting some headers
 // to the v2p buffer).
 static size_t
 process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_size,
                             byte *buf_ptr)
 {
-    ASSERT(have_phys, "Caller must check for use_physical being enabled");
+    ASSERT(op_use_physical.get_value(),
+           "Caller must check for use_physical being enabled");
     byte *v2p_ptr = data->v2p_buf;
     size_t skip = 0;
     bool emitted = false;
@@ -1207,7 +1205,7 @@ memtrace(void *drcontext, bool skip_size_cap)
             }
         }
         size_t skip = 0;
-        if (have_phys && op_use_physical.get_value()) {
+        if (op_use_physical.get_value()) {
             skip = process_buffer_for_physaddr(drcontext, data, header_size, buf_ptr);
         }
         current_num_refs +=
@@ -1566,7 +1564,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
     // Instrument to add a full instr entry for the first instr.
     adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
                                       reg_ptr, adjust, ud->delay_instrs[0]);
-    if (have_phys && op_use_physical.get_value()) {
+    if (op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary.
         int i;
@@ -2770,9 +2768,9 @@ init_thread_in_process(void *drcontext)
 
     if (op_use_physical.get_value()) {
         if (!data->physaddr.init()) {
-            have_phys = false;
-            NOTIFY(0, "Unable to open pagemap: using virtual addresses for thread T%d.\n",
-                   dr_get_thread_id(drcontext));
+            FATAL("Unable to open pagemap for physical addresses in thread T%d: check "
+                  "privileges.\n",
+                  dr_get_thread_id(drcontext));
         }
     }
 
@@ -3170,7 +3168,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_disabled));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_window));
-    DR_ASSERT(std::atomic_is_lock_free(&have_phys));
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
@@ -3179,11 +3176,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         drreg_set_vector_entry(&scratch_reserve_vec, DR_REG_XAX, false);
     }
 #endif
-
-    if (op_use_physical.get_value()) {
-        // This will be set to false if any thread fails.
-        have_phys = true;
-    }
 
     if (op_offline.get_value()) {
         void *placement;
@@ -3330,6 +3322,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* We need the same is-buffer-zero checks in the instrumentation. */
         thread_filtering_enabled = true;
     }
+
+    if (op_use_physical.get_value() && !physaddr_t::global_init())
+        FATAL("Unable to open pagemap for physical addresses: check privileges.\n");
 }
 
 /* To support statically linked multiple clients, we add drmemtrace_client_main
