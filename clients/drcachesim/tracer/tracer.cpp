@@ -2717,20 +2717,12 @@ event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
  * Top level.
  */
 
-static bool
-optimizations_disabled()
-{
-    // We cannot elide addresses or ignore offsets when we need to translate
-    // all addresses during tracing.
-    return op_disable_optimizations.get_value() || op_use_physical.get_value();
-}
-
 static offline_file_type_t
 get_file_type()
 {
     offline_file_type_t file_type =
         op_L0_filter.get_value() ? OFFLINE_FILE_TYPE_FILTERED : OFFLINE_FILE_TYPE_DEFAULT;
-    if (optimizations_disabled()) {
+    if (op_disable_optimizations.get_value()) {
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
     }
@@ -3195,7 +3187,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new (placement) offline_instru_t(
             insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
-            file_ops_func.write_file, module_file, optimizations_disabled());
+            file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
     } else {
         void *placement;
         /* we use placement new for better isolation */
