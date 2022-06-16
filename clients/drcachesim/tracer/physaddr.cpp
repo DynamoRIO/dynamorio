@@ -56,9 +56,8 @@
 #    define PAGEMAP_VALID 0x8000000000000000
 #    define PAGEMAP_SWAP 0x4000000000000000
 #    define PAGEMAP_PFN 0x007fffffffffffff
-#endif
-
 std::atomic<bool> physaddr_t::has_privileges_;
+#endif
 
 physaddr_t::physaddr_t()
 #ifdef LINUX
@@ -100,6 +99,7 @@ physaddr_t::~physaddr_t()
 bool
 physaddr_t::global_init()
 {
+#ifdef LINUX
     // This is invoked at process init time, so we can use heap in C++ classes
     // without affecting statically-linked dr$sim.
 
@@ -128,6 +128,9 @@ physaddr_t::global_init()
     }
     DR_ASSERT(std::atomic_is_lock_free(&has_privileges_));
     return has_privileges_;
+#else
+    return false;
+#endif
 }
 
 bool
