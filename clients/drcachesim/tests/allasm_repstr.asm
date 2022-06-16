@@ -53,6 +53,13 @@ _start:
         cld
         rep      movsb
 
+        // Test page-spanning accesses.
+        lea      rcx, page_str
+        // Somehow the assembler is adding 4 to the displacements here
+        // (!!!), so these end up as -3 and -1 and both cross the page:
+        mov      eax, DWORD [-7+rcx]
+        mov      eax, DWORD [-5+rcx]
+
         // Print a message in a loop for testing tracing windows.
         mov      ebx, 10          // Loop count.
 repeat:
@@ -76,3 +83,6 @@ hello_str:
         .string  "Hello world!\n"
 bye_str:
         .string  "Adios\n"
+        .align   4096
+page_str:
+        .word    0

@@ -16,6 +16,10 @@ Format: <data address>: <data size>, <\(r\)ead/\(w\)rite/opcode>
 0x[0-9a-f]*:  2, rep movs
 0x[0-9a-f]*:  1, r
 0x[0-9a-f]*:  1, w
+0x[0-9a-f]*:  3, mov
+0x[0-9a-f]*:  4, r
+0x[0-9a-f]*:  3, mov
+0x[0-9a-f]*:  4, r
 Adios world!
 Adios world!
 Adios world!
