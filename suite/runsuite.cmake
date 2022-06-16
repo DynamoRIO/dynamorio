@@ -107,8 +107,8 @@ if (arg_automated_ci)
     set(build_tests "${build_tests}
 AUTOMATED_TESTING:BOOL=ON")
     # We assume our GitHub Actions automated CI has password-less sudo.
-    # Our Jenkins tester does not.
-    if (NOT "$ENV{CI_TARGET}" STREQUAL "")
+    # Our Jenkins tester does not.  CI_TRIGGER is only set for Actions.
+    if (NOT "$ENV{CI_TRIGGER}" STREQUAL "")
       set(build_tests "${build_tests}
 RUN_SUDO_TESTS:BOOL=ON")
     endif ()
