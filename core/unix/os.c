@@ -7748,7 +7748,8 @@ pre_system_call(dcontext_t *dcontext)
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             break;
         }
-        uint cur_range_first_fd, cur_range_last_fd;
+        uint cur_range_first_fd = 0;
+        uint cur_range_last_fd = 0;
         bool cur_range_valid = false;
         int ret = 0;
         for (int i = first_fd; i <= last_fd; i++) {
