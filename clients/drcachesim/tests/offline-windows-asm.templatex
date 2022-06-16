@@ -37,7 +37,7 @@ Total counts:
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
-          10 total other markers
+          11 total other markers
 Total windows: 7
 Window #0:
           12 window \(fetched\) instructions
@@ -54,7 +54,7 @@ Window #0:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
-           4 window other markers
+           5 window other markers
 Window #1:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -166,4 +166,4 @@ Thread [0-9]* counts:
            0 function return address markers
            0 function argument markers
            0 function return value markers
-           4 other markers
+           5 other markers

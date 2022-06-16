@@ -186,6 +186,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
         shard->found_cache_line_size_marker_ = true;
     }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
+        shard->found_page_size_marker_ = true;
+    }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         report_if_false(shard,
@@ -194,6 +198,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Missing instr count markers");
         report_if_false(shard, shard->found_cache_line_size_marker_,
                         "Missing cache line marker");
+        report_if_false(shard, shard->found_page_size_marker_,
+                        "Missing page size marker");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,

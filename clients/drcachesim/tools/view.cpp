@@ -322,6 +322,9 @@ view_t::process_memref(const memref_t &memref)
             std::cerr << "<marker: cache line size " << memref.marker.marker_value
                       << ">\n";
             break;
+        case TRACE_MARKER_TYPE_PAGE_SIZE:
+            std::cerr << "<marker: page size " << memref.marker.marker_value << ">\n";
+            break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
@@ -420,12 +423,13 @@ view_t::process_memref(const memref_t &memref)
         disasm = buf;
         disasm_cache_.insert({ mapped_pc, disasm });
     }
-    // Put our prefix on raw byte spillover.
+    // Put our prefix on raw byte spillover, and skip the other columns.
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
         print_prefix(memref, 0, prefix);
-        disasm.insert(newline + 1, prefix.str());
+        disasm.insert(newline + 1,
+                      prefix.str() + "                                     ");
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;

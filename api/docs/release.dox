@@ -148,6 +148,7 @@ Further non-compatibility-affecting changes include:
    libraries must be avoided and open addressing is best: dr_hashtable_create(),
    dr_hashtable_destroy(), dr_hashtable_clear(), dr_hashtable_lookup(),
    dr_hashtable_add(), dr_hashtable_remove().
+ - Added a new #TRACE_MARKER_TYPE_PAGE_SIZE record to drcachesim offline traces.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
