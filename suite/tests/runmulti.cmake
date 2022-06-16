@@ -35,7 +35,8 @@
 # * postcmd = post processing command to run
 # * postcmdN (for N=2+) = additional post processing commands to run
 # * cmp = the file containing the expected output
-# * failok = if ON then non-zero exit codes are ignored for cmd
+# * failok = if ON then non-zero exit codes are ignored for cmd (and
+#   postcmd* are still executed)
 #
 # A "*" in any command line will be glob-expanded right before running.
 # If the command starts with "foreach@", instead of passing the glob-expansion

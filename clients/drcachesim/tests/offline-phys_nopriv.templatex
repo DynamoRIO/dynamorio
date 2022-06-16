@@ -1,5 +1,1 @@
 Unable to open pagemap for physical addresses: check privileges.
-Output format:
-<record#>: T<tid> <record details>
-------------------------------------------------------------
-ERROR: failed to initialize analyzer: Failed to create analysis tool: Tool failed to initialize: Failed to load binaries: Failed to parse module file

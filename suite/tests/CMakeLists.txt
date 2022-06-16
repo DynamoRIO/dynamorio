@@ -3762,6 +3762,7 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(phys_SUDO allasm_x86_64
         "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
       set(tool.drcacheoff.phys_nopriv_failok ON)
+      set(tool.drcacheoff.phys_nopriv_nopost ON)
       torunonly_drcacheoff(phys_nopriv allasm_x86_64
         "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
     endif ()
