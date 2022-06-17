@@ -85,30 +85,6 @@ typedef struct _dript_output_t {
     uint64_t instr_count;
 } dript_output_t;
 
-/* Diagnostic output for error event.
- * It will be called when 'pt_insn_sync_forward' return error status or decoder end before
- * reach pte_eos.
- */
-static void
-diagnose_error(struct pt_insn_decoder *decoder IN, int errcode IN, const char *errtype IN,
-               uint64_t ip IN)
-{
-    int err;
-    uint64_t pos;
-
-    err = -pte_internal;
-    pos = 0ull;
-
-    err = pt_insn_get_offset(decoder, &pos);
-
-    if (err < 0) {
-        fprintf(stderr, "could not determine offset: %s\n", pt_errstr(pt_errcode(err)));
-        fprintf(stderr, "[?, %" PRIx64 ": %s: %s]\n", ip, errtype,
-                pt_errstr(pt_errcode(errcode)));
-    } else
-        fprintf(stderr, "[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos, ip, errtype,
-                pt_errstr(pt_errcode(errcode)));
-}
 
 static void
 process_decode(dript_decoder_t *decoder IN, const dript_options_t *options IN,

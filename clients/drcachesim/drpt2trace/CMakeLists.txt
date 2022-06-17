@@ -44,7 +44,7 @@ set(FEATURE_ELF ON CACHE BOOL "Support ELF files." FORCE)
 add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt
   ${PROJECT_BINARY_DIR}/third_party/libipt)
 
-# drptpostprocessor depends on libipt and libipt-sb. Also, the head files
+# drpt2trace depends on libipt and libipt-sb. Also, the head files
 # intel-pt.h and libipt-sb.h are generated into the project binary directory.
 # So we need to add the subdirectories that contain them to the include path.
 include_directories(SYSTEM
@@ -53,12 +53,12 @@ include_directories(SYSTEM
 )
 
 # libipt.so and libipt-sb.so will be built in the project binary directory.
-# Add link directories for libipt-ext and drptpostprocessor to find them.
+# Add link directories for libipt-ext and drpt2trace to find them.
 link_directories(
   ${PROJECT_BINARY_DIR}/lib
 )
 
-# The library libipt-ext and drptpostprocessor need to find headers from
+# The library libipt-ext and drpt2trace need to find headers from
 # the following directories.
 include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/libipt/libipt/internal/include
@@ -66,9 +66,9 @@ include_directories(
 )
 
 # XXX: The library lipipt contains some functions that are useful for
-# drptpostprocessor. But they are not built in libipt.so or libipt-sb.so.
+# drpt2trace. But they are not built in libipt.so or libipt-sb.so.
 # So we build them as an external library of libipt and link the external
-# library to drptpostprocessor. In the future we may need to implement
+# library to drpt2trace. In the future we may need to implement
 # these functions in our library.
 set(libipt-ext_srcs
   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
@@ -78,16 +78,16 @@ add_library(libipt-ext STATIC ${libipt-ext_srcs})
 add_dependencies(libipt-ext libipt)
 target_link_libraries(libipt-ext ipt)
 
-# TODO i#5505: Currently, drptpostprocessor is built as an exe.
+# TODO i#5505: Currently, drpt2trace is built as an exe.
 # In the future, we need to build a pt decoder library first.
-# Then we link it to drptpostprocessor and drraw2trace.
-set(drptpostprocessor_srcs
-  drptpostprocessor.c
+# Then we link it to drpt2trace and drraw2trace.
+set(drpt2trace_srcs
+  pt2trace.c
 )
-add_executable(drptpostprocessor ${drptpostprocessor_srcs})
-add_dependencies(drptpostprocessor libipt libipt-sb libipt-ext)
-target_link_libraries(drptpostprocessor ipt ipt-sb libipt-ext)
+add_executable(drpt2trace ${drpt2trace_srcs})
+add_dependencies(drpt2trace libipt libipt-sb libipt-ext)
+target_link_libraries(drpt2trace ipt ipt-sb libipt-ext)
 
-# TODO i#5505: Currently, drptpostprocessor only counts instructions.
+# TODO i#5505: Currently, drpt2trace only counts instructions.
 # In the future, we will add support for converting pt trace to memref_t.
-# So we may need to link drdecode to drptpostprocessor or pt decoder library.
+# So we may need to link drdecode to drpt2trace or pt decoder library.

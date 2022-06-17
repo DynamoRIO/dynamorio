@@ -32,8 +32,8 @@
 
 /**/
 
-#ifndef _PT_DECODER_H_
-#define _PT_DECODER_H_ 1
+#ifndef _PT2IR_H_
+#define _PT2IR_H_ 1
 
 #include <string>
 #include <vector>
@@ -41,60 +41,77 @@
 #include "intel-pt.h"
 #include "libipt-sb.h"
 
-struct pt_decoder_config_t {
-    std::string cpu;
-    std::string trace_file;
-    std::vector<std::string> preload_image_config;
+#ifndef IN
+#    define IN // nothing
+#endif
+#ifndef OUT
+#    define OUT // nothing
+#endif
+#ifndef INOUT
+#    define INOUT // nothing
+#endif
 
-    std::string sb_sample_type;
-    std::string kcore_file;
+typedef struct _pt2ir_config_t {
+    std::string cpu;
+    std::string sample_type;
+    std::string sysroot;
     uint64_t kernel_start;
 
+    std::string raw_file_path;
+    std::string kcore_path;
     std::string sb_primary_file;
     std::vector<std::string> sb_secondary_files;
-};
+} pt2ir_config_t;
 
-class pt_decoder_t {
+class pt2ir_t {
 public:
-    pt_decoder_t();
-    ~pt_decoder_t();
+    pt2ir_t(IN const pt2ir_config_t &config, IN unsigned int verbosity);
+    ~pt2ir_t();
 
-    bool
-    init(const pt_decoder_config_t &config);
-
-    bool
-    decode();
+    void
+    process_decode();
 
 private:
     bool
-    load_preload_image(std::string &filepath, uint64_t foffset, uint64_t fsize,
-                            uint64_t base);
-    bool
-    load_trace_file(std::string &filepath);
+    parse_config();
 
     bool
-    alloc_sb_pevent_decoder(char *filename);
+    load_pt_raw_file(IN std::string &raw_file_path);
+
+    /* Load the elf section in kcore to sideband session iscache and store the section
+     * index to sideband kimage.
+     * XXX: Could we not use kcore? We can store all kernel modules and the mapping
+     * information.
+     */
+    bool
+    load_kernel_image(IN const char* kcore_path);
 
     bool
-    update_image(struct pt_image *image);
+    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config);
 
-    /* Trace file Buffer. */
-    uint8_t *trace_file_buf_;
+    /* Diagnose decoding errors and output diagnostic results.
+     * It will used to generate the error message during the decoding process.
+     */
+    void
+    dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
 
-    /* libipt instruction decoder. */
-    struct pt_insn_decoder *instr_decoder_;
+private:
+    /* The config of pt2ir_t. */
+    pt2ir_config_t config_;
 
-    /* The image section cache. */
-    struct pt_image_section_cache *iscache_;
+    /* Buffer for caching the pt raw file. */
+    uint8_t *pt_raw_buffer_;
 
-    /* The preload image. */
-    struct pt_image *preload_image_;
+    size_t pt_raw_buffer_size_;
 
-    /* The perf event sideband decoder configuration. */
-    struct pt_sb_pevent_config sb_pevent_config_;
+    /* The libipt instruction decoder. */
+    struct pt_insn_decoder *pt_instr_decoder_;
 
-    /* The sideband session. */
-    struct pt_sb_session *sb_session_;
+    /* The libipt image section cache. */
+    struct pt_image_section_cache *pt_iscache_;
+
+    /* The libipt sideband session. */
+    struct pt_sb_session *pt_sb_session_;
 }
 
-#endif /* _PT_DECODER_H_ */
+#endif /* _PT2IR_H_ */
