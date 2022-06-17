@@ -995,6 +995,7 @@ process_entry_for_physaddr(void *drcontext, per_thread_t *data, size_t header_si
     bool from_cache = false;
     addr_t phys = 0;
     bool success = data->physaddr.virtual2physical(drcontext, virt, &phys, &from_cache);
+    ASSERT(emitted != NULL && skip != NULL, "invalid input parameters");
     NOTIFY(4, "%s: type=%2d virt=%p phys=%p\n", __FUNCTION__, type, virt, phys);
     if (!success) {
         // XXX i#1735: Unfortunately this happens; currently we use the virtual
