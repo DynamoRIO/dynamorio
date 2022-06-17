@@ -1110,7 +1110,7 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
                 static constexpr size_t PREDICT_INSTR_SIZE_BOUND = IF_X86_ELSE(8, 4);
                 mem_ref_size = instr_count * PREDICT_INSTR_SIZE_BOUND;
             } else
-                ASSERT(instr_count == 1, "bundles are disabled");
+                ASSERT(instr_count <= 1, "bundles are disabled");
         } else if (op_offline.get_value()) {
             // For data, we again do not have the size.
             static constexpr size_t PREDICT_DATA_SIZE_BOUND = sizeof(void *);
