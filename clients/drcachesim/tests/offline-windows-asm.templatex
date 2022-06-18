@@ -22,11 +22,11 @@ Adios world!
 Hit tracing window #5 limit: disabling tracing.
 Basic counts tool results:
 Total counts:
-          50 total \(fetched\) instructions
-          18 total unique \(fetched\) instructions
+          53 total \(fetched\) instructions
+          21 total unique \(fetched\) instructions
            4 total non-fetched instructions
            0 total prefetches
-           5 total data loads
+           7 total data loads
            5 total data stores
            0 total icache flushes
            0 total dcache flushes
@@ -40,11 +40,11 @@ Total counts:
           11 total other markers
 Total windows: 7
 Window #0:
-          12 window \(fetched\) instructions
-          12 window unique \(fetched\) instructions
+          15 window \(fetched\) instructions
+          15 window unique \(fetched\) instructions
            4 window non-fetched instructions
            0 window prefetches
-           5 window data loads
+           7 window data loads
            5 window data stores
            0 window icache flushes
            0 window dcache flushes
@@ -152,11 +152,11 @@ Window #6:
            0 window function return value markers
            1 window other markers
 Thread [0-9]* counts:
-          12 \(fetched\) instructions
-          12 unique \(fetched\) instructions
+          15 \(fetched\) instructions
+          15 unique \(fetched\) instructions
            4 non-fetched instructions
            0 prefetches
-           5 data loads
+           7 data loads
            5 data stores
            0 icache flushes
            0 dcache flushes

@@ -987,6 +987,92 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     return current_num_refs;
 }
 
+static byte *
+process_entry_for_physaddr(void *drcontext, per_thread_t *data, size_t header_size,
+                           byte *v2p_ptr, byte *mem_ref, addr_t virt, trace_type_t type,
+                           bool *emitted, size_t *skip)
+{
+    bool from_cache = false;
+    addr_t phys = 0;
+    bool success = data->physaddr.virtual2physical(drcontext, virt, &phys, &from_cache);
+    ASSERT(emitted != NULL && skip != NULL, "invalid input parameters");
+    NOTIFY(4, "%s: type=%2d virt=%p phys=%p\n", __FUNCTION__, type, virt, phys);
+    if (!success) {
+        // XXX i#1735: Unfortunately this happens; currently we use the virtual
+        // address and continue.
+        // Cases where xl8 fails include:
+        // - vsyscall/kernel page,
+        // - wild access (NULL or very large bogus address) by app
+        // - page is swapped out (unlikely since we're querying *after* the
+        //   the app just accessed, but could happen)
+        NOTIFY(1, "virtual2physical translation failure for type=%2d addr=%p\n", type,
+               virt);
+        phys = virt;
+    }
+    if (op_offline.get_value()) {
+        // For offline we keep the main entries as virtual but add markers showing
+        // the corresponding physical.  We assume the mappings are static, allowing
+        // us to only emit one marker pair per new page seen (per thread to avoid
+        // locks).
+        // XXX: Add spot-checks of mapping changes via a separate option from
+        // -virt2phys_freq?
+        if (from_cache)
+            return v2p_ptr;
+        // We have something to emit.  Rather than a memmove to insert inside the
+        // main buffer, we have a separate buffer, as our pair of markers means we
+        // do not need precise placement next to the corresponding regular entry
+        // (which also avoids extra work in raw2trace, esp for delayed branches and
+        // other cases).
+        // The downside is that we might have many buffers with a small number
+        // of markers on which we waste buffer output overhead.
+        // XXX: We could count them up and do a memmove if the count is small
+        // and we have space in the redzone?
+        if (!*emitted) {
+            // We need to be sure to emit the initial thread header if this is before
+            // the first regular buffer and skip it in the regular buffer.
+            if (header_size > buf_hdr_slots_size) {
+                size_t size =
+                    reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
+                        data->v2p_buf, dr_get_thread_id(drcontext), get_file_type());
+                ASSERT(size == data->init_header_size, "inconsistent header");
+                *skip = data->init_header_size;
+                v2p_ptr += size;
+                header_size += size;
+            }
+            v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
+            *emitted = true;
+        }
+        if (v2p_ptr + 2 * instru->sizeof_entry() - data->v2p_buf >=
+            static_cast<ssize_t>(get_v2p_buffer_size())) {
+            NOTIFY(1, "Reached v2p buffer limit: emitting multiple times\n");
+            data->num_phys_markers +=
+                output_buffer(drcontext, data, data->v2p_buf, v2p_ptr, header_size);
+            v2p_ptr = data->v2p_buf;
+            v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
+        }
+        if (success) {
+            v2p_ptr +=
+                instru->append_marker(v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, phys);
+            v2p_ptr +=
+                instru->append_marker(v2p_ptr, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, virt);
+        } else {
+            // For translation failure, we insert a distinct marker type, so analyzers
+            // know for sure and don't have to infer based on a missing marker.
+            v2p_ptr += instru->append_marker(
+                v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, virt);
+        }
+    } else {
+        // For online we replace the virtual with physical.
+        // XXX i#4014: For consistency we should break compatibility, *not* replace,
+        // and insert the markers instead, updating dr$sim to use the markers
+        // to compute the physical addresses.  We should then update
+        // https://dynamorio.org/sec_drcachesim_phys.html.
+        if (success)
+            instru->set_entry_addr(mem_ref, phys);
+    }
+    return v2p_ptr;
+}
+
 // Should be called only for -use_physical.
 // Returns the byte count to skip in the trace buffer (due to shifting some headers
 // to the v2p buffer).
@@ -1005,94 +1091,39 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
         DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE); // Bundles disabled up front.
         if (!type_has_address(type))
             continue;
-        // TODO i#4014: For -offline we have just one PC entry for the
-        // whole block: but the block could span 2 pages, and we want a physical
-        // entry to appear before any virtual entries.
-        // To solve for fixed-length instrs we could emit a 2nd PC entry
-        // at the page transition: but for x86 we don't know whether the block
-        // crosses as we have only the instruction count.
-        // Currently this is unsolved and the 2nd page is ignored.
         addr_t virt = instru->get_entry_addr(drcontext, mem_ref);
-        bool from_cache = false;
-        addr_t phys = 0;
-        bool success =
-            data->physaddr.virtual2physical(drcontext, virt, &phys, &from_cache);
-        NOTIFY(4, "%s: type=%2d virt=%p phys=%p\n", __FUNCTION__, type, virt, phys);
-        if (!success) {
-            // XXX i#1735: Unfortunately this happens; currently we use the virtual
-            // address and continue.
-            // Cases where xl8 fails include:
-            // - vsyscall/kernel page,
-            // - wild access (NULL or very large bogus address) by app
-            // - page is swapped out (unlikely since we're querying *after* the
-            //   the app just accessed, but could happen)
-            NOTIFY(1,
-                   "virtual2physical translation failure for "
-                   "<%2d, %2d, " PFX ">\n",
-                   type, instru->get_entry_size(mem_ref), virt);
-            phys = virt;
+        v2p_ptr = process_entry_for_physaddr(drcontext, data, header_size, v2p_ptr,
+                                             mem_ref, virt, type, &emitted, &skip);
+        // Handle the memory reference crossing onto a second page.
+        size_t page_size = dr_page_size();
+        addr_t virt_page = ALIGN_BACKWARD(virt, page_size);
+        size_t mem_ref_size = instru->get_entry_size(mem_ref);
+        if (type_is_instr(type) || type == TRACE_TYPE_INSTR_NO_FETCH ||
+            type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
+            int instr_count = instru->get_instr_count(mem_ref);
+            if (op_offline.get_value()) {
+                // We do not have the size so we have to guess.  It is ok to emit an
+                // unused translation so we err on the side of caution.  We do not use
+                // the maximum possible instruction sizes since for x86 that's 17 * 256
+                // (max_bb_instrs) that's >4096.  The average x86 instr length is <4 but
+                // we use 8 to be conservative while not as extreme as 17 which will
+                // lead to too many unused markers.
+                static constexpr size_t PREDICT_INSTR_SIZE_BOUND = IF_X86_ELSE(8, 4);
+                mem_ref_size = instr_count * PREDICT_INSTR_SIZE_BOUND;
+            } else
+                ASSERT(instr_count <= 1, "bundles are disabled");
+        } else if (op_offline.get_value()) {
+            // For data, we again do not have the size.
+            static constexpr size_t PREDICT_DATA_SIZE_BOUND = sizeof(void *);
+            mem_ref_size = PREDICT_DATA_SIZE_BOUND;
         }
-        if (op_offline.get_value()) {
-            // For offline we keep the main entries as virtual but add markers showing
-            // the corresponding physical.  We assume the mappings are static, allowing
-            // us to only emit one marker pair per new page seen (per thread to avoid
-            // locks).
-            // XXX: Add spot-checks of mapping changes via a separate option from
-            // -virt2phys_freq?
-            if (from_cache)
-                continue;
-            // We have something to emit.  Rather than a memmove to insert inside the
-            // main buffer, we have a separate buffer, as our pair of markers means we
-            // do not need precise placement next to the corresponding regular entry
-            // (which also avoids extra work in raw2trace, esp for delayed branches and
-            // other cases).
-            // The downside is that we might have many buffers with a small number
-            // of markers on which we waste buffer output overhead.
-            // XXX: We could count them up and do a memmove if the count is small
-            // and we have space in the redzone?
-            if (!emitted) {
-                // We need to be sure to emit the initial thread header if this is before
-                // the first regular buffer and skip it in the regular buffer.
-                if (header_size > buf_hdr_slots_size) {
-                    size_t size = reinterpret_cast<offline_instru_t *>(instru)
-                                      ->append_thread_header(data->v2p_buf,
-                                                             dr_get_thread_id(drcontext),
-                                                             get_file_type());
-                    ASSERT(size == data->init_header_size, "inconsistent header");
-                    skip = data->init_header_size;
-                    v2p_ptr += size;
-                    header_size += size;
-                }
-                v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
-                emitted = true;
-            }
-            if (v2p_ptr + 2 * instru->sizeof_entry() - data->v2p_buf >=
-                static_cast<ssize_t>(get_v2p_buffer_size())) {
-                NOTIFY(1, "Reached v2p buffer limit: emitting multiple times\n");
-                data->num_phys_markers +=
-                    output_buffer(drcontext, data, data->v2p_buf, v2p_ptr, header_size);
-                v2p_ptr = data->v2p_buf;
-                v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
-            }
-            if (success) {
-                v2p_ptr += instru->append_marker(
-                    v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, phys);
-                v2p_ptr += instru->append_marker(v2p_ptr,
-                                                 TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, virt);
-            } else {
-                // For translation failure, we insert a distinct marker type, so analyzers
-                // know for sure and don't have to infer based on a missing marker.
-                v2p_ptr += instru->append_marker(
-                    v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, virt);
-            }
-        } else {
-            // For online we replace the virtual with physical.
-            // XXX i#4014: For consistency we should break compatibility, *not* replace,
-            // and insert the markers instead, updating dr$sim to use the markers
-            // to compute the physical addresses.  We should then update
-            // https://dynamorio.org/sec_drcachesim_phys.html.
-            if (success)
-                instru->set_entry_addr(mem_ref, phys);
+        if (ALIGN_BACKWARD(virt + mem_ref_size - 1 /*open-ended*/, page_size) !=
+            virt_page) {
+            NOTIFY(2, "Emitting physaddr for next page %p for type=%2d, addr=%p\n",
+                   virt_page + page_size, type, virt);
+            v2p_ptr =
+                process_entry_for_physaddr(drcontext, data, header_size, v2p_ptr, mem_ref,
+                                           virt_page + page_size, type, &emitted, &skip);
         }
     }
     if (emitted) {

@@ -53,6 +53,13 @@ _start:
         cld
         rep      movsb
 
+        // Test page-spanning accesses.
+        lea      rcx, page_str
+        // Somehow the GNU assembler 2.38 is adding the load size (4 here) to
+        // whatever displacement is listed (!!!), so these end up as -3 and -1.
+        mov      eax, DWORD [-7+rcx]
+        mov      eax, DWORD [-5+rcx]
+
         // Print a message in a loop for testing tracing windows.
         mov      ebx, 10          // Loop count.
 repeat:
@@ -76,3 +83,8 @@ hello_str:
         .string  "Hello world!\n"
 bye_str:
         .string  "Adios\n"
+        // Push .data onto a 2nd page to test page-spanning accesses.
+        // We assume 4K pages here.
+        .align   4096
+page_str:
+        .word    0

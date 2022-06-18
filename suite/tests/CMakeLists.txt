@@ -3759,7 +3759,7 @@ if (BUILD_CLIENTS)
       # for local interactive test running.
       set(tool.drcacheoff.phys_SUDO_sudo ON)
       set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
-      torunonly_drcacheoff(phys_SUDO allasm_x86_64
+      torunonly_drcacheoff(phys_SUDO allasm_repstr
         "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
       set(tool.drcacheoff.phys_nopriv_failok ON)
       set(tool.drcacheoff.phys_nopriv_nopost ON)
