@@ -30,7 +30,10 @@
  * DAMAGE.
  */
 
-#include <linux/limits.h>
+#define DR_FAST_IR 1
+extern "C" {
+#include "dr_api.h"
+}
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <iostream>
@@ -168,6 +171,10 @@ pt2ir_t::convert()
             instr_count_++;
 
             /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t */
+            void *dcontext = GLOBAL_DCONTEXT;
+            instr_t *instr = instr_create(dcontext);
+            instr_set_raw_bits(instr, insn.raw, insn.size);
+            std::cout<<"instr type:"<<instr_get_opcode(instr)<<std::endl;
         }
     }
 }

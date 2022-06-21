@@ -82,12 +82,13 @@ set(drpt2ir_srcs
   pt2ir.cpp
 )
 add_library(drpt2ir STATIC ${drpt2ir_srcs})
-add_dependencies(drpt2ir libipt libipt-sb ipt-ext)
+add_dependencies(drpt2ir libipt libipt-sb ipt-ext api_headers)
+configure_DynamoRIO_decoder(drpt2ir)
 target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
 
 # TODO i#5505: Currently, drpt2trace only counts instructions.
 # In the future, we will add support for converting pt trace to memref_t.
-# So we may need to link drdecode to drpt2trace or pt decoder library.
+# So we may need to link drdecode to drpt2ir library.
 set(drpt2trace_srcs
   drpt2trace.cpp
 )
