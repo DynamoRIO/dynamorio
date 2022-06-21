@@ -79,9 +79,7 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
 std::string
 view_t::initialize()
 {
-    std::cerr << std::setw(9) << "Output format:\n<record#>"
-              << ": T<tid> <record details>\n"
-              << "------------------------------------------------------------\n";
+    print_header();
     dcontext_.dcontext = dr_standalone_init();
     if (module_file_path_.empty()) {
         has_modules_ = false;
@@ -349,14 +347,14 @@ view_t::process_memref(const memref_t &memref)
         // XXX: Print prefetch info.
         switch (memref.data.type) {
         case TRACE_TYPE_READ:
-            std::cerr << "read   " << memref.data.size << " byte(s) @ 0x" << std::hex
-                      << std::setfill('0') << std::setw(sizeof(void *) * 2)
+            std::cerr << "read   " << std::setw(2) << memref.data.size << " byte(s) @ 0x"
+                      << std::hex << std::setfill('0') << std::setw(sizeof(void *) * 2)
                       << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
                       << memref.data.pc << std::dec << std::setfill(' ') << "\n";
             break;
         case TRACE_TYPE_WRITE:
-            std::cerr << "write  " << memref.data.size << " byte(s) @ 0x" << std::hex
-                      << std::setfill('0') << std::setw(sizeof(void *) * 2)
+            std::cerr << "write  " << std::setw(2) << memref.data.size << " byte(s) @ 0x"
+                      << std::hex << std::setfill('0') << std::setw(sizeof(void *) * 2)
                       << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
                       << memref.data.pc << std::dec << std::setfill(' ') << "\n";
             break;
@@ -368,9 +366,9 @@ view_t::process_memref(const memref_t &memref)
         return true;
     }
 
-    std::cerr << "ifetch " << memref.instr.size << " byte(s) @ 0x" << std::hex
-              << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
-              << std::dec << std::setfill(' ');
+    std::cerr << "ifetch " << std::setw(2) << memref.instr.size << " byte(s) @ 0x"
+              << std::hex << std::setfill('0') << std::setw(sizeof(void *) * 2)
+              << memref.instr.addr << std::dec << std::setfill(' ');
     if (!has_modules_) {
         // We can't disassemble so we provide what info the trace itself contains.
         // XXX i#5486: We may want to store the taken target for conditional
