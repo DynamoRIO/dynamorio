@@ -65,6 +65,7 @@ physaddr_t::physaddr_t()
     , cache_idx_(0)
     , fd_(-1)
     , v2p_(nullptr)
+    , drcontext_(nullptr)
     , count_(0)
     , num_hit_cache_(0)
     , num_hit_table_(0)
@@ -95,7 +96,7 @@ physaddr_t::~physaddr_t()
                num_hit_cache_, num_hit_table_, num_miss_);
     }
     if (v2p_ != nullptr)
-        dr_hashtable_destroy(dr_get_current_drcontext(), v2p_);
+        dr_hashtable_destroy(drcontext_, v2p_);
 #endif
 }
 
@@ -150,7 +151,10 @@ physaddr_t::init()
     // loads compared to the data inlined into the array here, and higher
     // resize thresholds are also slower.
     // With the setup here, the hashtable lookup is no longer the bottleneck.
-    v2p_ = dr_hashtable_create(dr_get_current_drcontext(), V2P_INITIAL_BITS, 20,
+    // We record the context so we can pass the same one in our destructor, which
+    // might be called from a different thread.
+    drcontext_ = dr_get_current_drcontext();
+    v2p_ = dr_hashtable_create(drcontext_, V2P_INITIAL_BITS, 20,
                                /*synch=*/false, nullptr);
 
     // We avoid std::ostringstream to avoid malloc use for static linking.
@@ -249,7 +253,7 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
     NOTIFY(3, "v2p: %p => entry " HEX64_FORMAT_STRING " @ offs " INT64_FORMAT_STRING "\n",
            vpage, entry, offs);
     if (!TESTALL(PAGEMAP_VALID, entry) || TESTANY(PAGEMAP_SWAP, entry)) {
-        NOTIFY(1, "v2p failure: entry %p is invalid for %p\n", vpage);
+        NOTIFY(1, "v2p failure: entry %p is invalid for %p\n", entry, vpage);
         return false;
     }
     addr_t ppage = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
