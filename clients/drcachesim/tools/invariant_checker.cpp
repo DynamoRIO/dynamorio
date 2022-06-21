@@ -186,6 +186,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
         shard->found_cache_line_size_marker_ = true;
     }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
+        shard->found_page_size_marker_ = true;
+    }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         report_if_false(shard,
@@ -194,6 +198,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Missing instr count markers");
         report_if_false(shard, shard->found_cache_line_size_marker_,
                         "Missing cache line marker");
+        report_if_false(shard, shard->found_page_size_marker_,
+                        "Missing page size marker");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
@@ -201,12 +207,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
     }
     if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
-        (shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
-         shard->prev_entry_.marker.marker_type ==
-             TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE)) {
-        // Physical address markers must be immediately prior to the virtual entry.
-        report_if_false(shard, type_has_address(memref.data.type),
-                        "Physical addr marker not immediately prior to virtual addr");
+        shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
+        // A physical address marker must be immediately prior to its virtual marker.
+        report_if_false(shard,
+                        memref.marker.type == TRACE_TYPE_MARKER &&
+                            memref.marker.marker_type ==
+                                TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                        "Physical addr marker not immediately prior to virtual marker");
+        // We don't have the actual page size, but it is always at least 4K, so
+        // make sure the bottom 12 bits are the same.
+        report_if_false(shard,
+                        (memref.marker.marker_value & 0xfff) ==
+                            (shard->prev_entry_.marker.marker_value & 0xfff),
+                        "Physical addr bottom 12 bits do not match virtual");
     }
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||

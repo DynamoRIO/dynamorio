@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2022 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,8 @@
 # * postcmd = post processing command to run
 # * postcmdN (for N=2+) = additional post processing commands to run
 # * cmp = the file containing the expected output
+# * failok = if ON then non-zero exit codes are ignored for cmd (and
+#   postcmd* are still executed)
 #
 # A "*" in any command line will be glob-expanded right before running.
 # If the command starts with "foreach@", instead of passing the glob-expansion
@@ -102,9 +104,9 @@ macro(process_cmdline line skip_empty err_and_out)
         RESULT_VARIABLE cmd_result
         ERROR_VARIABLE cmd_err
         OUTPUT_VARIABLE cmd_out)
-      if (cmd_result)
+      if (cmd_result AND NOT failok)
         message(FATAL_ERROR "*** ${line} failed (${cmd_result}): ${cmd_err}***\n")
-      endif (cmd_result)
+      endif ()
     endif ()
   endif ()
   set(${err_and_out} "${${err_and_out}}${cmd_err}${cmd_out}")

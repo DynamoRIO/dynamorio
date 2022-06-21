@@ -198,7 +198,11 @@ droption_t<bool> op_use_physical(
     DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
     "If available, the default virtual addresses will be translated to physical.  "
     "This is not possible from user mode on all platforms.  "
-    "This is not supported with -offline at this time.");
+    "For -offline, the regular trace entries remain virtual, with a pair of markers of "
+    "types #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
+    "inserted at some prior point for each new or changed page mapping to show the "
+    "corresponding physical addresses.  This option may incur significant overhead "
+    "both for the physical translation and as it requires disabling optimizations.");
 
 droption_t<unsigned int> op_virt2phys_freq(
     DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",

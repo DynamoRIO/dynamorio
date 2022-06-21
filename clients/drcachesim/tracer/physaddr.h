@@ -36,8 +36,7 @@
 #ifndef _PHYSADDR_H_
 #define _PHYSADDR_H_ 1
 
-#include <fstream>
-#include <unordered_map>
+#include <atomic>
 #include "dr_api.h"
 #include "hashtable.h"
 #include "../common/trace_entry.h"
@@ -60,6 +59,12 @@ public:
     bool
     virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
                      OUT bool *from_cache = nullptr);
+
+    // This must be called once prior to any instance variables.
+    // (If this class weren't used in a DR client context we could use a C++
+    // mutex or pthread do-once but those are not safe here.)
+    static bool
+    global_init();
 
 private:
 #ifdef LINUX
@@ -93,13 +98,15 @@ private:
     // The drcontainers hashtable is too slow due to the extra dereferences:
     // we need an open-addressed table.
     void *v2p_;
+    static constexpr addr_t PAGE_INVALID = (addr_t)-1;
     // With hashtable_t nullptr is how non-existence is shown, so we store
     // an actual 0 address (can happen for physical) as this sentinel.
-    static constexpr addr_t ZERO_ADDR_PAYLOAD = 1;
+    static constexpr addr_t ZERO_ADDR_PAYLOAD = PAGE_INVALID;
     unsigned int count_;
     uint64_t num_hit_cache_;
     uint64_t num_hit_table_;
     uint64_t num_miss_;
+    static std::atomic<bool> has_privileges_;
 #endif
 };
 
