@@ -161,20 +161,16 @@ pt2ir_t::convert()
                 break;
             }
 
-            /* Decode pt data to pt_insn. */
+            /* Decode PT raw data to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             if (status < 0) {
                 dx_decoding_error(status, "get next instruction error", insn.ip);
                 exit(1);
             }
 
-            instr_count_++;
+            pt_instr_list_.push_back(insn);
 
             /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t */
-            void *dcontext = GLOBAL_DCONTEXT;
-            instr_t *instr = instr_create(dcontext);
-            instr_set_raw_bits(instr, insn.raw, insn.size);
-            std::cout<<"instr type:"<<instr_get_opcode(instr)<<std::endl;
         }
     }
 }
@@ -182,11 +178,20 @@ pt2ir_t::convert()
 uint64_t
 pt2ir_t::get_instr_count()
 {
-    return instr_count_;
+    return pt_instr_list_.size();
+}
+
+void
+pt2ir_t::print_instrs(IN file_t outfile)
+{
+    void *dcontext = GLOBAL_DCONTEXT;
+    for(auto it = pt_instr_list_.begin(); it != pt_instr_list_.end(); it++) {
+        disassemble_with_info(dcontext, it->raw, outfile, false, false);
+    }
 }
 
 bool
-pt2ir_t::parse_config()
+pt2ir_t::init()
 {
     struct pt_config pt_config;
     pt_config.nom_freq = 30;
@@ -221,7 +226,7 @@ pt2ir_t::parse_config()
 
     /* Load kcore to sideband kernel image cache. */
     if (config_.kcore_path.size() > 0) {
-        if (load_kernel_image(config_.kcore_path)) {
+        if (!load_kernel_image(config_.kcore_path)) {
             ERRMSG("Failed to load kernel image: %s\n", config_.kcore_path.c_str());
             return false;
         }
@@ -329,9 +334,9 @@ pt2ir_t::parse_config()
         return false;
     }
 
-    /* Load the pt trace file and allocate the instruction decoder.*/
+    /* Load the PT raw data file and allocate the instruction decoder.*/
     if (config_.raw_file_path.size() == 0) {
-        ERRMSG("No pt raw file specified.\n");
+        ERRMSG("No PT raw data file specified.\n");
         return false;
     }
     if (pt_config.cpu.vendor) {
@@ -360,9 +365,9 @@ bool
 pt2ir_t::load_pt_raw_file(IN std::string &path)
 {
     /* Under C++11, there is no good solution to get the file size after using ifstream to
-     * open a file. Because we will not change the pt raw trace file during converting, we
+     * open a file. Because we will not change the PT raw data file during converting, we
      * don't need to think about write-after-read. We get the file size from file stat
-     * first and then use ifstream to open and read the pt raw trace file.
+     * first and then use ifstream to open and read the PT raw data file.
      */
     errno = 0;
     struct stat fstat;
@@ -424,8 +429,8 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
     int err = -pte_internal;
     uint64_t pos = 0;
 
-    /* Get the current pt inst decoder's position. It will fill pt_instr_decoder_'s
-     * position into pos. pt_insn_get_offset mainly used to report error. */
+    /* Get the current position of 'pt_instr_decoder_'. It will fill the position into
+     * pos. The 'pt_insn_get_offset' function mainly used to report error. */
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
         ERRMSG("Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));

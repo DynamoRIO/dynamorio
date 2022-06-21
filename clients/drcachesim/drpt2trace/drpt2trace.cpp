@@ -63,6 +63,7 @@ struct options_t {
 static void
 print_stats(pt2ir_t *pt_converter IN)
 {
+    pt_converter->print_instrs(stdout);
     std::cout << "Number of Instructions: " << pt_converter->get_instr_count()
               << std::endl;
 }
@@ -83,8 +84,8 @@ usage(const char *prog IN)
            "according to:\n");
     printf("                               none     spec (default)\n");
     printf("                               f/m[/s]  family/model[/stepping]\n");
-    printf("  --sysroot <path>             prepend <path> to sideband filenames.\n");
-    printf("  --sample-type <val>          set perf_event_attr.sample_type to <val> "
+    printf("  --sb:sysroot <path>          prepend <path> to sideband filenames.\n");
+    printf("  --sb:sample-type <val>       set perf_event_attr.sample_type to <val> "
            "(default: 0).\n");
     printf("  --sb:time-zero <val>         set perf_event_mmap_page.time_zero to <val> "
            "(default: 0).\n");
@@ -121,15 +122,15 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
                 return false;
             }
             config.raw_file_path = std::string(argv[argidx]);
-        } else if (strcmp(argv[argidx], "--sysroot") == 0) {
+        } else if (strcmp(argv[argidx], "--sb:sysroot") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sysroot: missing argument." << std::endl;
+                std::cerr << CLIENT_NAME << ": --sb:sysroot: missing argument." << std::endl;
                 return false;
             }
             config.sysroot = std::string(argv[argidx]);
-        } else if (strcmp(argv[argidx], "--sample-type") == 0) {
+        } else if (strcmp(argv[argidx], "--sb:sample-type") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sample-type: missing argument."
+                std::cerr << CLIENT_NAME << ": --sb:sample-type: missing argument."
                           << std::endl;
                 return false;
             }
@@ -221,8 +222,9 @@ main(int argc, const char *argv[])
     pt2ir_t *ptconverter = new pt2ir_t(config);
     ptconverter->convert();
 
-    if (options.print_stats == 1)
+    if (options.print_stats == 1) {
         print_stats(ptconverter);
+    }
 
     delete ptconverter;
     return 0;
