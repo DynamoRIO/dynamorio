@@ -4157,18 +4157,21 @@ endif (BUILD_CLIENTS)
 
 
 ###########################################################################
-# drptpostprocessor tests
+# drpt2trace tests
 if (BUILD_CLIENTS)
   if (LINUX AND X64)
     if (HAVE_LIBIPT)
-      set(drptpostprocessor_args "--stats"
-        "--img"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drptpostprocessor/test_simple.tracedir/hello:0x1000-0x88000:0x401000"
+      set(drpt2trace_args "--stats" "--cpu" "6/85/7" "--sample-type" "0x10086"
+        "--sb:tsc-offset" "0x113e7f50e209ae4"
+        "--sysroot"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir"
+        "--sb:primary"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent"
         "--pt"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drptpostprocessor/test_simple.tracedir/pt.bin")
-      torunonly_api(tool.drptpostprocessor drptpostprocessor
-        "../../clients/drcachesim/drptpostprocessor/test_simple.template"
-        "" "${drptpostprocessor_args}" ON OFF)
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin")
+      torunonly_api(tool.drpt2trace drpt2trace
+        "../../clients/drcachesim/drpt2trace/test_simple.template"
+        "" "${drpt2trace_args}" ON OFF)
     endif (HAVE_LIBIPT)
   endif (LINUX AND X64)
 endif (BUILD_CLIENTS)

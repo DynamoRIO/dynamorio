@@ -126,11 +126,11 @@ add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
 target_link_libraries(directory_iterator drfrontendlib)
 
-# Right now drptpostprocessor only works on Linux x86_64.
+# Right now drpt2trace only works on Linux x86_64.
 if (LINUX AND X64)
-  # Building drptpostprocessor in dr requires initializing the libipt submodule first.
+  # Building drpt2trace in dr requires initializing the libipt submodule first.
   if (HAVE_LIBIPT)
-    add_subdirectory(drptpostprocessor)
+    add_subdirectory(drpt2trace)
   endif (HAVE_LIBIPT)
 endif (LINUX AND X64)
 

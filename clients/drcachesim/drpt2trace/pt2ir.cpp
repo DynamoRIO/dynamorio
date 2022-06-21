@@ -30,16 +30,19 @@
  * DAMAGE.
  */
 
+#include <linux/limits.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <iostream>
 #include <string.h>
 #include <inttypes.h>
 #include <errno.h>
-#include <linux/limits.h>
 #include <fstream>
 
-#include "load_elf.h"
 #include "pt2ir.h"
+extern "C" {
+#include "load_elf.h"
+}
 
 #define ERRMSG_HEADER()                       \
     do {                                      \
@@ -53,7 +56,7 @@
         fflush(stderr);               \
     } while (0)
 
-pt2ir_t::pt2ir_t(IN const pt2ir_config_t &config, IN unsigned int verbosity)
+pt2ir_t::pt2ir_t(IN const pt2ir_config_t config)
     : config_(config)
     , pt_raw_buffer_(nullptr)
     , pt_raw_buffer_size_(0)
@@ -72,7 +75,7 @@ pt2ir_t::pt2ir_t(IN const pt2ir_config_t &config, IN unsigned int verbosity)
         pt_iscache_free(pt_iscache_);
         exit(1);
     }
-    if (parse_config()) {
+    if (!parse_config()) {
         ERRMSG("Failed to parse config\n");
         pt_iscache_free(pt_iscache_);
         pt_sb_free(pt_sb_session_);
@@ -91,7 +94,7 @@ pt2ir_t::~pt2ir_t()
 }
 
 void
-pt2ir_t::process_decode()
+pt2ir_t::convert()
 {
     for (;;) {
         struct pt_insn insn;
@@ -117,7 +120,6 @@ pt2ir_t::process_decode()
             exit(1);
         }
 
-        /* Decode instructions. */
         for (;;) {
             int nextstatus = status;
             int errcode = 0;
@@ -163,27 +165,43 @@ pt2ir_t::process_decode()
                 exit(1);
             }
 
-            /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t */
+            instr_count_++;
 
+            /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t */
         }
     }
+}
+
+uint64_t
+pt2ir_t::get_instr_count()
+{
+    return instr_count_;
 }
 
 bool
 pt2ir_t::parse_config()
 {
     struct pt_config pt_config;
+    pt_config.nom_freq = 30;
+    pt_config.mtc_freq = 0x3;
+    pt_config.cpuid_0x15_ebx = 250;
+    pt_config.cpuid_0x15_eax = 2;
     pt_config_init(&pt_config);
     struct pt_sb_pevent_config sb_pevent_config;
     memset(&sb_pevent_config, 0, sizeof(sb_pevent_config));
+    sb_pevent_config.size = sizeof(sb_pevent_config);
+    sb_pevent_config.time_mult = 1;
 
     /* Parse the cpu type. */
     if (config_.cpu == "none") {
-        pt_config.cpu = { 0, 0, 0, 0 };
+        /* Do nothing. */
     } else {
         pt_config.cpu.vendor = pcv_intel;
-        int num = sscanf(config_.cpu.c_str(), "%d/%d/%d", &pt_config.cpu.family,
-                         &pt_config.cpu.model, &pt_config.cpu.stepping);
+        int family = 0, model = 0, stepping = 0;
+        int num = sscanf(config_.cpu.c_str(), "%d/%d/%d", &family, &model, &stepping);
+        pt_config.cpu.family = family;
+        pt_config.cpu.model = model;
+        pt_config.cpu.stepping = stepping;
         if (num < 2) {
             ERRMSG("Invalid cpu type: %s.\n", config_.cpu.c_str());
             return false;
@@ -205,7 +223,7 @@ pt2ir_t::parse_config()
     /* Parse the sideband perf event sample type*/
     uint64_t sample_type = 0;
     if (config_.sample_type.size() > 0) {
-        if (sscanf(config_.sample_type, "%lx", &sample_type) != 1) {
+        if (sscanf(config_.sample_type.c_str(), "%" PRIx64, &sample_type) != 1) {
             ERRMSG("Failed to parse sideband perf event config.\n");
             return false;
         }
@@ -213,16 +231,53 @@ pt2ir_t::parse_config()
     sb_pevent_config.sample_type = sample_type;
 
     /* Parse the sideband images sysroot.*/
-    char *sysroot = NULL;
     if (config_.sysroot.size() > 0) {
-        sysroot = config_.sysroot.c_str();
+        sb_pevent_config.sysroot = config_.sysroot.c_str();
+    } else {
+        sb_pevent_config.sysroot = "";
     }
-    sb_pevent_config.sysroot = sysroot;
+
+    /* Parse time synchronization related configuration. */
+    if (config_.tsc_offset.size() > 0) {
+        uint64_t tsc_offset = 0;
+        if (sscanf(config_.tsc_offset.c_str(), "%" PRIx64, &tsc_offset) != 1) {
+            ERRMSG("Failed to parse tsc_offset.\n");
+            return false;
+        }
+        sb_pevent_config.tsc_offset = tsc_offset;
+    }
+
+    if (config_.time_shift.size() > 0) {
+        uint32_t time_shift = 0;
+        if (sscanf(config_.time_shift.c_str(), "%" PRIu32, &time_shift) != 1) {
+            ERRMSG("Failed to parse time_shift.\n");
+            return false;
+        }
+        sb_pevent_config.time_shift = time_shift;
+    }
+
+    if (config_.time_mult.size() > 0) {
+        uint32_t time_mult = 0;
+        if (sscanf(config_.time_mult.c_str(), "%" PRIu32, &time_mult) != 1) {
+            ERRMSG("Failed to parse time_mult.\n");
+            return false;
+        }
+        sb_pevent_config.time_mult = time_mult;
+    }
+
+    if (config_.time_zero.size() > 0) {
+        uint64_t time_zero = 0;
+        if (sscanf(config_.time_zero.c_str(), "%" PRIu64, &time_zero) != 1) {
+            ERRMSG("Failed to parse time_zero.\n");
+            return false;
+        }
+        sb_pevent_config.time_zero = time_zero;
+    }
 
     /* Parse the start address of the kernel image  */
-    uint64_t kernel_start = 0;
+    uint64_t kernel_start = UINT64_MAX;
     if (config_.kernel_start.size() > 0) {
-        if (sscanf(config_.kernel_start.c_str(), "%lx", &kernel_start) != 1) {
+        if (sscanf(config_.kernel_start.c_str(), "%" PRIx64, &kernel_start) != 1) {
             ERRMSG("Failed to parse kernel start address.\n");
             return false;
         }
@@ -236,7 +291,7 @@ pt2ir_t::parse_config()
         sb_primary_config.primary = 1;
         sb_primary_config.begin = (size_t)0;
         sb_primary_config.end = (size_t)0;
-        if (alloc_sb_pevent_decoder(sb_primary_config)) {
+        if (!alloc_sb_pevent_decoder(sb_primary_config)) {
             ERRMSG("Failed to allocate primary sideband perf event decoder.\n");
             return false;
         }
@@ -245,29 +300,49 @@ pt2ir_t::parse_config()
     /* Allocate the secondary sideband decoders */
     for (auto sb_secondary_file : config_.sb_secondary_files) {
         if (sb_secondary_file.size() > 0) {
-            struct pt_sb_pevent_config sb_primary_config = sb_pevent_config;
-            sb_primary_config.filename = sb_secondary_file.c_str();
-            sb_primary_config.primary = 0;
-            sb_primary_config.begin = (size_t)0;
-            sb_primary_config.end = (size_t)0;
-            if (alloc_sb_pevent_decoder(sb_secondary_file)) {
+            struct pt_sb_pevent_config sb_secondary_config = sb_pevent_config;
+            sb_secondary_config.filename = sb_secondary_file.c_str();
+            sb_secondary_config.primary = 0;
+            sb_secondary_config.begin = (size_t)0;
+            sb_secondary_config.end = (size_t)0;
+            if (!alloc_sb_pevent_decoder(sb_secondary_config)) {
                 ERRMSG("Failed to allocate secondary sideband perf event decoder.\n");
                 return false;
             }
         }
     }
 
+    /* Initialize all sideband decoders. It needs to be called after all sideband decoders
+     * have been allocated.
+     */
+    int errcode = pt_sb_init_decoders(pt_sb_session_);
+    if (errcode < 0) {
+        ERRMSG("Failed to initialize sideband session: %s.\n",
+               pt_errstr(pt_errcode(errcode)));
+        return false;
+    }
+
     /* Load the pt trace file and allocate the instruction decoder.*/
-    if (load_pt_raw_file(config_.raw_file_path)) {
+    if (config_.raw_file_path.size() == 0) {
+        ERRMSG("No pt raw file specified.\n");
+        return false;
+    }
+    if (pt_config.cpu.vendor) {
+        int errcode = pt_cpu_errata(&pt_config.errata, &pt_config.cpu);
+        if (errcode < 0) {
+            ERRMSG("Failed to get cpu errata: %s.\n", pt_errstr(pt_errcode(errcode)));
+            return false;
+        }
+    }
+    if (!load_pt_raw_file(config_.raw_file_path)) {
         ERRMSG("Failed to load trace file: %s.\n", config_.raw_file_path.c_str());
         return false;
     }
-    pt_config.begin = pt_raw_buffer_;
-    pt_config.end = pt_raw_buffer_ + pt_raw_buf_size_;
+    pt_config.begin = static_cast<uint8_t *>(pt_raw_buffer_);
+    pt_config.end = static_cast<uint8_t *>(pt_raw_buffer_) + pt_raw_buffer_size_;
     pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
     if (pt_instr_decoder_ == NULL) {
-        ERRMSG("Failed to create libipt instruction "
-               "decoder.\n", );
+        ERRMSG("Failed to create libipt instruction decoder.\n");
         return false;
     }
 
@@ -275,32 +350,49 @@ pt2ir_t::parse_config()
 }
 
 bool
-pt2ir_t::load_pt_raw_file(IN std::string &raw_file_path)
+pt2ir_t::load_pt_raw_file(IN std::string &path)
 {
-    std::ifstream raw_file;
-    try {
-        raw_file.open(raw_file_path, std::ios::binary);
-        pt_raw_buffer_size_ = raw_file.tellg();
-
-        raw_file.seekg(0, std::ios::beg);
-        pt_raw_buffer_ = new uint8_t[pt_raw_buffer_size_];
-        raw_file.read(pt_raw_buffer_, pt_raw_buffer_size_);
-
-        raw_file.close();
-    } catch (std::exception &e) {
-        ERRMSG("Failed to load pt raw file %s: cache an exception [%s].\n", raw_file_path.c_str(), e.what());
+    /* Under C++11, there is no good solution to get the file size after using ifstream to
+     * open a file. Because we will not change the pt raw trace file during converting, we
+     * don't need to think about write-after-read. We get the file size from file stat
+     * first and then use ifstream to open and read the pt raw trace file.
+     */
+    errno = 0;
+    struct stat fstat;
+    if (stat(path.c_str(), &fstat) == -1) {
+        ERRMSG("Failed to get file size of trace file: %s: %d.\n", path.c_str(), errno);
         return false;
     }
+    pt_raw_buffer_size_ = static_cast<size_t>(fstat.st_size);
+
+    pt_raw_buffer_ = new uint8_t[pt_raw_buffer_size_];
+    std::ifstream f(path, std::ios::binary | std::ios::in);
+    if (!f.is_open()) {
+        ERRMSG("Failed to open trace file: %s.\n", path.c_str());
+        return false;
+    }
+    f.read(static_cast<char *>(pt_raw_buffer_), pt_raw_buffer_size_);
+    if (f.fail()) {
+        ERRMSG("Failed to read trace file: %s.\n", path.c_str());
+        return false;
+    }
+
+    f.close();
     return true;
 }
 
 bool
-pt2ir_t::load_kernel_image(IN const char* kcore_path)
+pt2ir_t::load_kernel_image(IN std::string &path)
 {
     struct pt_image *kimage = pt_sb_kernel_image(pt_sb_session_);
-    int errcode = load_elf(pt_iscache_, kimage, kcore_path, 0, LIBNAME, 0);
+    /* Load all ELF sections in kcore to the shared image cache.
+     * XXX: load_elf() is implemented in libipt's client ptxed. Currently we directly use
+     * it. We may need to implement a c++ version in our client.
+     */
+    int errcode =
+        load_elf(pt_iscache_, pt_sb_kernel_image(pt_sb_session_), path.c_str(), 0, "", 0);
     if (errcode < 0) {
-        ERRMSG("Failed to load kernel image %s: %s.\n", kcore_path,
+        ERRMSG("Failed to load kernel image %s: %s.\n", path.c_str(),
                pt_errstr(pt_errcode(errcode)));
         return false;
     }
@@ -330,35 +422,8 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
         ERRMSG("Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));
-        ERRMSG("[?, %" PRIx64 ": %s: %s]\n", ip, errtype, pt_errstr(pt_errcode(errcode)));
+        ERRMSG("[?, %" PRIx64 "] %s: %s\n", ip, errtype, pt_errstr(pt_errcode(errcode)));
     } else
-        ERRMSG("[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos, ip, errtype,
+        ERRMSG("[%" PRIx64 ", IP:%" PRIx64 "] %s: %s\n", pos, ip, errtype,
                pt_errstr(pt_errcode(errcode)));
-}
-
-
-bool
-pt2ir_t::load_kernel_image(IN std::string kcore_path)
-{
-    struct pt_image *kimage = pt_sb_kernel_image(pt_sb_session_);
-    std::ifstream kcore;
-    try
-    {
-        kcore.open(kcore_path, std::ios::binary | std::ios::in);
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-
-    std::ifstream kcore(kcore_path, std::ios::binary | std::ios::in);
-    if (errno != 0) {
-        ERRMSG("Failed to open %s: %s.\n", kcore_path.c_str(), strerror(errno));
-        return false;
-    }
-    uint8_t e_ident[EI_NIDENT];
-    coukcore.read(reinterpret_cast<char*>(e_ident), EI_NIDENT);
-
-
-    return true;
 }

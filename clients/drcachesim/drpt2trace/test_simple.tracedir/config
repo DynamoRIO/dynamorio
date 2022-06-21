@@ -1,0 +1,11 @@
+${PROJECT_BINARY_DIR}/clients/bin64/drpt2trace \
+--pt ${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin \
+--stats \
+--cpu 6/85/7 \
+--sample-type 0x10086 \
+--sysroot ${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir \
+--sb:time-shift 31 \
+--sb:time-mult 715828121 \
+--sb:time-zero 18432465230457941137 \
+--sb:tsc-offset 0x113e7f50e209ae4 \
+--sb:primary ${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent

@@ -51,32 +51,43 @@
 #    define INOUT // nothing
 #endif
 
-typedef struct _pt2ir_config_t {
+struct pt2ir_config_t {
     std::string cpu;
     std::string sample_type;
+    std::string time_shift;
+    std::string time_mult;
+    std::string time_zero;
+    std::string tsc_offset;
     std::string sysroot;
-    uint64_t kernel_start;
+    std::string kernel_start;
 
     std::string raw_file_path;
     std::string kcore_path;
     std::string sb_primary_file;
     std::vector<std::string> sb_secondary_files;
-} pt2ir_config_t;
+};
 
 class pt2ir_t {
 public:
-    pt2ir_t(IN const pt2ir_config_t &config, IN unsigned int verbosity);
+    pt2ir_t(IN const pt2ir_config_t config);
     ~pt2ir_t();
 
+    /* The convert function performs two processes: (1) decode the pt raw data into
+     * libipt's IR format pt_insn; (2) convert pt_insn into the doctor's IR format
+     * instr_t. */
     void
-    process_decode();
+    convert();
+
+    /* Get the count number of instructions in the converted IR. */
+    uint64_t
+    get_instr_count();
 
 private:
     bool
     parse_config();
 
     bool
-    load_pt_raw_file(IN std::string &raw_file_path);
+    load_pt_raw_file(IN std::string &path);
 
     /* Load the elf section in kcore to sideband session iscache and store the section
      * index to sideband kimage.
@@ -84,12 +95,12 @@ private:
      * information.
      */
     bool
-    load_kernel_image(IN const char* kcore_path);
+    load_kernel_image(IN std::string &path);
 
     bool
     alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config);
 
-    /* Diagnose decoding errors and output diagnostic results.
+    /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.
      */
     void
@@ -100,8 +111,7 @@ private:
     pt2ir_config_t config_;
 
     /* Buffer for caching the pt raw file. */
-    uint8_t *pt_raw_buffer_;
-
+    void *pt_raw_buffer_;
     size_t pt_raw_buffer_size_;
 
     /* The libipt instruction decoder. */
@@ -112,6 +122,8 @@ private:
 
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
-}
+
+    uint64_t instr_count_;
+};
 
 #endif /* _PT2IR_H_ */

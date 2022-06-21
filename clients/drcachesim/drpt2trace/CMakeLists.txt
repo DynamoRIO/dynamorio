@@ -44,7 +44,7 @@ set(FEATURE_ELF ON CACHE BOOL "Support ELF files." FORCE)
 add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt
   ${PROJECT_BINARY_DIR}/third_party/libipt)
 
-# drpt2trace depends on libipt and libipt-sb. Also, the head files
+# drpt2ir depends on libipt and libipt-sb. Also, the head files
 # intel-pt.h and libipt-sb.h are generated into the project binary directory.
 # So we need to add the subdirectories that contain them to the include path.
 include_directories(SYSTEM
@@ -53,41 +53,43 @@ include_directories(SYSTEM
 )
 
 # libipt.so and libipt-sb.so will be built in the project binary directory.
-# Add link directories for libipt-ext and drpt2trace to find them.
+# Add link directories for libipt-ext and drpt2ir to find them.
 link_directories(
   ${PROJECT_BINARY_DIR}/lib
 )
 
-# The library libipt-ext and drpt2trace need to find headers from
+# The library libipt-ext and drpt2ir need to find headers from
 # the following directories.
 include_directories(
-  ${PROJECT_SOURCE_DIR}/third_party/libipt/libipt/internal/include
   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/include
 )
 
-# XXX: The library lipipt contains some functions that are useful for
-# drpt2trace. But they are not built in libipt.so or libipt-sb.so.
+# XXX: The repository of lipipt contains some functions that are useful
+# for drpt2ir. But they are not built in libipt.so or libipt-sb.so.
 # So we build them as an external library of libipt and link the external
-# library to drpt2trace. In the future we may need to implement
+# library to drpt2ir. In the future we may need to implement
 # these functions in our library.
-set(libipt-ext_srcs
+set(ipt-ext_srcs
   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
-  ${PROJECT_SOURCE_DIR}/third_party/libipt/libipt/src/pt_cpu.c
 )
-add_library(libipt-ext STATIC ${libipt-ext_srcs})
-add_dependencies(libipt-ext libipt)
-target_link_libraries(libipt-ext ipt)
+add_library(ipt-ext STATIC ${ipt-ext_srcs})
+add_dependencies(ipt-ext libipt)
+target_link_libraries(ipt-ext ipt)
 
-# TODO i#5505: Currently, drpt2trace is built as an exe.
-# In the future, we need to build a pt decoder library first.
-# Then we link it to drpt2trace and drraw2trace.
-set(drpt2trace_srcs
-  pt2trace.c
+# We build drpt2ir to a static library. So we can link it in the independent
+# clients drpt2trace and drraw2trace.
+set(drpt2ir_srcs
+  pt2ir.cpp
 )
-add_executable(drpt2trace ${drpt2trace_srcs})
-add_dependencies(drpt2trace libipt libipt-sb libipt-ext)
-target_link_libraries(drpt2trace ipt ipt-sb libipt-ext)
+add_library(drpt2ir STATIC ${drpt2ir_srcs})
+add_dependencies(drpt2ir libipt libipt-sb ipt-ext)
+target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
 
 # TODO i#5505: Currently, drpt2trace only counts instructions.
 # In the future, we will add support for converting pt trace to memref_t.
 # So we may need to link drdecode to drpt2trace or pt decoder library.
+set(drpt2trace_srcs
+  drpt2trace.cpp
+)
+add_executable(drpt2trace ${drpt2trace_srcs})
+target_link_libraries(drpt2trace drpt2ir)
