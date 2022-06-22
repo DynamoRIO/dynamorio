@@ -72,22 +72,28 @@ static void
 usage(const char *prog IN)
 {
     printf("Usage: %s [<options>]", prog);
-    printf("Command-line tool for decoding a PT trace, and converting it into an "
-           "instruction-only memtrace composed of 'memref_t's.\n");
-    printf("This version only counts and prints the instruction count in the trace "
-           "data.\n\n");
+    printf("Command-line tool that decodes the given PT raw trace and returns the "
+           "outputs as specified by given flags.\n");
     printf("Options:\n");
     printf("  --help|-h                    this text.\n");
     printf("  --stats                      print trace statistics.\n");
-    printf("  --pt <file>                  load the processor trace data from <file>.\n");
-    printf("  --cpu none|f/m[/s]        set cpu to the given value and decode "
+    printf("  --raw-pt <file>              load the PT raw trace from <file>.\n");
+    printf("  --primary-sb <file>          load a primary perf_event sideband stream "
+           "from <file>.\n");
+    printf("  --secondary-sb <file>        (optional) load a secondary perf_event "
+           "sideband stream from <file>.\n");
+    printf("  --kcore <file>               (optional) load the kernel from a core "
+           "dump.\n");
+    printf("\n\n");
+    printf("Below options are needed by the libipt and libipt-sb:\n");
+    printf("  --pt:cpu none|f/m[/s]        set cpu to the given value and decode "
            "according to:\n");
     printf("                               none     spec (default)\n");
     printf("                               f/m[/s]  family/model[/stepping]\n");
-    printf("  --mtc-freq <val>             set the MTC frequency to <val>.");
-    printf("  --nom-freq <val>             set the nominal frequency to <val>.\n");
-    printf("  --cpuid-0x15.eax <val>       set the value of cpuid[0x15].eax.\n");
-    printf("  --cpuid-0x15.ebx <val>       set the value of cpuid[0x15].ebx.\n");
+    printf("  --pt:mtc-freq <val>          set the MTC frequency to <val>.");
+    printf("  --pt:nom-freq <val>          set the nominal frequency to <val>.\n");
+    printf("  --pt:cpuid-0x15.eax <val>    set the value of cpuid[0x15].eax.\n");
+    printf("  --pt:cpuid-0x15.ebx <val>    set the value of cpuid[0x15].ebx.\n");
     printf("  --sb:sysroot <path>          prepend <path> to sideband filenames.\n");
     printf("  --sb:sample-type <val>       set perf_event_attr.sample_type to <val> "
            "(default: 0).\n");
@@ -97,17 +103,11 @@ usage(const char *prog IN)
            "(default: 0).\n");
     printf("  --sb:time-mult <val>         set perf_event_mmap_page.time_mult to <val> "
            "(default: 1).\n");
-    printf("  --sb:tsc-offset <val>        show perf events <val> ticks earlier"
-           "(<val> must be a hexadecimal integer and default: 0x0).\n");
-    printf("  --sb:primary/secondary <file>\n");
-    printf("                               load a perf_event sideband stream from "
-           "<file>.\n");
-    printf("                               the offset range begin and range end must be "
-           "given.\n");
-    printf("  --kernel-start <val>         the start address of the kernel.\n");
-    printf("  --kcore <file>               load the kernel from a core dump.\n");
+    printf("  --sb:tsc-offset <val>        (optional) show perf events <val> ticks "
+           "earlier(<val> must be a hexadecimal integer and default: 0x0).\n");
+    printf("  --sb:kernel-start <val>      (optional) the start address of the "
+           "kernel.\n");
     printf("\n");
-    printf("You must specify exactly one processor trace file (--pt).\n");
 }
 
 static bool
@@ -121,15 +121,15 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
             return false;
         } else if (strcmp(argv[argidx], "--stats") == 0) {
             options.print_stats = 1;
-        } else if (strcmp(argv[argidx], "--pt") == 0) {
+        } else if (strcmp(argv[argidx], "--raw-pt") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --pt: missing argument." << std::endl;
+                std::cerr << CLIENT_NAME << ": --raw-pt: missing argument." << std::endl;
                 return false;
             }
             config.raw_file_path = std::string(argv[argidx]);
-        } else if (strcmp(argv[argidx], "--cpu") == 0) {
+        } else if (strcmp(argv[argidx], "--pt:cpu") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --cpu: missing argument." << std::endl;
+                std::cerr << CLIENT_NAME << ": --pt:cpu: missing argument." << std::endl;
                 return false;
             }
             if (strcmp(argv[argidx], "none") != 0) {
@@ -149,9 +149,9 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
                     /* Nothing */
                 }
             }
-        } else if (strcmp(argv[argidx], "--mtc-freq") == 0) {
+        } else if (strcmp(argv[argidx], "--pt:mtc-freq") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --mtc-freq: missing argument."
+                std::cerr << CLIENT_NAME << ": --pt:mtc-freq: missing argument."
                           << std::endl;
                 return false;
             }
@@ -163,9 +163,9 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
                           << "." << std::endl;
                 return false;
             }
-        } else if (strcmp(argv[argidx], "--nom-freq") == 0) {
+        } else if (strcmp(argv[argidx], "--pt:nom-freq") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --nom-freq: missing argument."
+                std::cerr << CLIENT_NAME << ": --pt:nom-freq: missing argument."
                           << std::endl;
                 return false;
             }
@@ -178,9 +178,9 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
                           << std::endl;
                 return false;
             }
-        } else if (strcmp(argv[argidx], "--cpuid-0x15.eax") == 0) {
+        } else if (strcmp(argv[argidx], "--pt:cpuid-0x15.eax") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --cpuid-0x15.eax: missing argument."
+                std::cerr << CLIENT_NAME << ": --pt:cpuid-0x15.eax: missing argument."
                           << std::endl;
                 return false;
             }
@@ -192,9 +192,9 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
                           << "." << std::endl;
                 return false;
             }
-        } else if (strcmp(argv[argidx], "--cpuid-0x15.ebx") == 0) {
+        } else if (strcmp(argv[argidx], "--pt:cpuid-0x15.ebx") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --cpuid-0x15.ebx: missing argument."
+                std::cerr << CLIENT_NAME << ": --pt:cpuid-0x15.ebx: missing argument."
                           << std::endl;
                 return false;
             }
@@ -287,23 +287,9 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
                           << "." << std::endl;
                 return false;
             }
-        } else if (strcmp(argv[argidx], "--sb:primary") == 0) {
+        } else if (strcmp(argv[argidx], "--sb:kernel-start") == 0) {
             if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:primary: missing argument."
-                          << std::endl;
-                return false;
-            }
-            config.sb_primary_file_path = std::string(argv[argidx]);
-        } else if (strcmp(argv[argidx], "--sb:secondary") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:secondary: missing argument."
-                          << std::endl;
-                return false;
-            }
-            config.sb_secondary_file_path_list.push_back(std::string(argv[argidx]));
-        } else if (strcmp(argv[argidx], "--kernel-start") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --kernel-start: missing argument."
+                std::cerr << CLIENT_NAME << ": --sb:kernel-start: missing argument."
                           << std::endl;
                 return false;
             }
@@ -315,12 +301,26 @@ process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
                           << "." << std::endl;
                 return false;
             }
+        } else if (strcmp(argv[argidx], "--primary-sb") == 0) {
+            if (argc <= ++argidx) {
+                std::cerr << CLIENT_NAME << ": --primary-sb: missing argument."
+                          << std::endl;
+                return false;
+            }
+            config.sb_primary_file_path = std::string(argv[argidx]);
+        } else if (strcmp(argv[argidx], "--secondary-sb") == 0) {
+            if (argc <= ++argidx) {
+                std::cerr << CLIENT_NAME << ": --secondary-sb: missing argument."
+                          << std::endl;
+                return false;
+            }
+            config.sb_secondary_file_path_list.push_back(std::string(argv[argidx]));
         } else if (strcmp(argv[argidx], "--kcore") == 0) {
             if (argc <= ++argidx) {
                 std::cerr << CLIENT_NAME << ": --kcore: missing argument." << std::endl;
                 return false;
             }
-            config.sb_config.kcore_path = std::string(argv[argidx]);
+            config.kcore_path = std::string(argv[argidx]);
         } else {
             std::cerr << CLIENT_NAME << ": unknown option:" << argv[argidx] << "."
                       << std::endl;
@@ -345,7 +345,11 @@ main(int argc, const char *argv[])
 
     /* Convert the pt raw data to DR ir */
     pt2ir_t *ptconverter = new pt2ir_t(config);
-    ptconverter->convert();
+    if (ptconverter->convert() != PT2IR_CONV_SUCCESS) {
+        delete ptconverter;
+        std::cerr << "Convert pt raw data to DR ir failed." << std::endl;
+        return 1;
+    }
 
     if (options.print_stats == 1) {
         print_stats(ptconverter);

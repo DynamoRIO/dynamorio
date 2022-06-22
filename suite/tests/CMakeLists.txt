@@ -4170,19 +4170,20 @@ endif (BUILD_CLIENTS)
 if (BUILD_CLIENTS)
   if (LINUX AND X64)
     if (HAVE_LIBIPT)
-      set(drpt2trace_args "--stats" "--cpu" "6/85/4"
-        "--mtc-freq" "3" "--nom-freq" "37"
-        "--cpuid-0x15.eax" "2" "--cpuid-0x15.ebx" "308"
-        "--pt"
+      set(drpt2trace_args "--stats"
+        "--raw-pt"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin"
+        "--primary-sb"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent"
+        "--pt:cpu" "6/85/4"
+        "--pt:mtc-freq" "3" "--pt:nom-freq" "37"
+        "--pt:cpuid-0x15.eax" "2" "--pt:cpuid-0x15.ebx" "308"
         "--sb:sample-type" "0x10086"
         "--sb:time-shift" "31"
         "--sb:time-mult" "581029125"
         "--sb:time-zero" "18444502336406842448"
         "--sb:sysroot"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir"
-        "--sb:primary"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent")
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir")
       torunonly_api(tool.drpt2trace drpt2trace
         "../../clients/drcachesim/drpt2trace/test_simple.template"
         "" "${drpt2trace_args}" ON OFF)

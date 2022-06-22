@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* pt2ir: convert an PT raw trace to DynamoRIO's IR format. */
+/* pt2ir: convert a PT raw trace to DynamoRIO's IR format. */
 
 #ifndef _PT2IR_H_
 #define _PT2IR_H_ 1
@@ -52,6 +52,28 @@
 #ifndef INOUT
 #    define INOUT // nothing
 #endif
+
+/**
+ * The type of pt2ir_t::convert() return value.
+ */
+enum pt2ir_convert_status_t {
+    PT2IR_CONV_SUCCESS = 0,
+
+    /* The conversion process ends with a failure to sync to the PSB packet. */
+    PT2IR_CONV_SYNC_PACKET_ERROR = 1,
+
+    /* The conversion process ends with a failure to handle a perf event. */
+    PT2IR_CONV_HANDLE_SIDEBAND_EVENT_ERROR,
+
+    /* The conversion process ends with a failure to get the pending event. */
+    PT2IR_CONV_GET_PENDING_EVENT_ERROR,
+
+    /* The conversion process ends with a failure to set the new image. */
+    PT2IR_CONV_SET_IMAGE_ERROR,
+
+    /* The conversion process ends with a failure to decode the next intruction. */
+    PT2IR_CONV_DECODE_NEXT_INSTR_ERROR
+};
 
 /**
  * The struct pt2ir_config_t is a collection of one PT trace's configurations. drpt2trace
@@ -103,9 +125,6 @@ struct pt2ir_config_t {
          */
         uint64_t kernel_start;
 
-        /* The path of the kernel dump file. */
-        std::string kcore_path;
-
         /* The sysroot is used for remote trace decoding. If the image locates at
          * /path/to/image in remote machine, it will load it from ${sysroot}/path/to/image
          * in local machine.
@@ -141,6 +160,9 @@ struct pt2ir_config_t {
      */
     std::string sb_primary_file_path;
     std::vector<std::string> sb_secondary_file_path_list;
+
+    /* The path of the kernel dump file. */
+    std::string kcore_path;
 };
 
 struct pt_image_section_cache;
@@ -161,8 +183,10 @@ public:
 
     /* The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the doctor's IR format
-     * instr_t. */
-    void
+     * instr_t. If the convertion is successful, the function returns PT2IR_CONV_SUCCESS.
+     * Otherwise, the function returns the corresponding error code.
+     */
+    pt2ir_convert_status_t
     convert();
 
     /* Get the count number of instructions in the converted IR. */

@@ -96,18 +96,21 @@ pt2ir_t::~pt2ir_t()
     }
 }
 
-void
+pt2ir_convert_status_t
 pt2ir_t::convert()
 {
+    /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
+     * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
+     * it decodes the trace data. */
     for (;;) {
         struct pt_insn insn;
         memset(&insn, 0, sizeof(insn));
         int status = 0;
 
-        /* Sync decoder to first Packet Stream Boundary (PSB) packet, and then decode
+        /* Sync decoder to the first Packet Stream Boundary (PSB) packet, and then decode
          * instructions. If there is no PSB packet, the decoder will be synced to the end
-         * of the trace. If error occurs, we will call dx_decoding_error to print the
-         * error information. What is PSB packets? Below answer is quoted from Intel® 64
+         * of the trace. If an error occurs, we will call dx_decoding_error to print the
+         * error information. What are PSB packets? Below answer is quoted from Intel 64
          * and IA-32 Architectures Software Developer’s Manual 32.1.1.1 Packet Summary
          * “Packet Stream Boundary (PSB) packets: PSB packets act as ‘heartbeats’ that are
          * generated at regular intervals (e.g., every 4K trace packet bytes). These
@@ -120,22 +123,26 @@ pt2ir_t::convert()
             if (status == -pte_eos)
                 break;
             dx_decoding_error(status, "sync error", insn.ip);
-            exit(1);
+            return PT2IR_CONV_SYNC_PACKET_ERROR;
         }
 
+        /* Decode the raw trace data surround by PSB. */
         for (;;) {
             int nextstatus = status;
             int errcode = 0;
             struct pt_image *image;
 
-            /* Handle next status and all pending perf events. */
+            /* Before starting to decode instructions, we need to handle the event before
+             * the instruction trace. For example, if a mmap2 event happens, we need to
+             * switch the cached image. */
             while (nextstatus & pts_event_pending) {
                 struct pt_event event;
 
                 nextstatus = pt_insn_event(pt_instr_decoder_, &event, sizeof(event));
                 if (nextstatus < 0) {
                     errcode = nextstatus;
-                    break;
+                    dx_decoding_error(errcode, "get pending event error", insn.ip);
+                    return PT2IR_CONV_GET_PENDING_EVENT_ERROR;
                 }
 
                 /* Use a sideband session to check if pt_event is an image switch event.
@@ -143,19 +150,21 @@ pt2ir_t::convert()
                 image = NULL;
                 errcode =
                     pt_sb_event(pt_sb_session_, &image, &event, sizeof(event), stdout, 0);
-                if (errcode < 0)
-                    break;
+                if (errcode < 0) {
+                    dx_decoding_error(errcode, "handle sideband event error", insn.ip);
+                    return PT2IR_CONV_HANDLE_SIDEBAND_EVENT_ERROR;
+                }
+
+                /* If it is not an image switch event, the PT instruction decoder
+                 * will not switch their cached image.*/
                 if (image == NULL)
                     continue;
 
                 errcode = pt_insn_set_image(pt_instr_decoder_, image);
                 if (errcode < 0) {
-                    break;
+                    dx_decoding_error(errcode, "set image error", insn.ip);
+                    return PT2IR_CONV_SET_IMAGE_ERROR;
                 }
-            }
-            if (errcode < 0) {
-                dx_decoding_error(errcode, "handle sideband event error", insn.ip);
-                exit(1);
             }
             if ((nextstatus & pts_eos) != 0) {
                 break;
@@ -165,7 +174,7 @@ pt2ir_t::convert()
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             if (status < 0) {
                 dx_decoding_error(status, "get next instruction error", insn.ip);
-                exit(1);
+                return PT2IR_CONV_DECODE_NEXT_INSTR_ERROR;
             }
 
             pt_instr_list_.push_back(insn);
@@ -173,6 +182,7 @@ pt2ir_t::convert()
             /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t. */
         }
     }
+    return PT2IR_CONV_SUCCESS;
 }
 
 uint64_t
@@ -220,15 +230,6 @@ pt2ir_t::init()
         sb_pevent_config.sysroot = "";
     }
 
-    /* Load kcore to sideband kernel image cache. */
-    if (config_.sb_config.kcore_path.size() > 0) {
-        if (!load_kernel_image(config_.sb_config.kcore_path)) {
-            ERRMSG("Failed to load kernel image: %s\n",
-                   config_.sb_config.kcore_path.c_str());
-            return false;
-        }
-    }
-
     /* Parse time synchronization related configuration. */
     sb_pevent_config.tsc_offset = config_.sb_config.tsc_offset;
     sb_pevent_config.time_shift = config_.sb_config.time_shift;
@@ -264,6 +265,14 @@ pt2ir_t::init()
                 ERRMSG("Failed to allocate secondary sideband perf event decoder.\n");
                 return false;
             }
+        }
+    }
+
+    /* Load kcore to sideband kernel image cache. */
+    if (config_.kcore_path.size() > 0) {
+        if (!load_kernel_image(config_.kcore_path)) {
+            ERRMSG("Failed to load kernel image: %s\n", config_.kcore_path.c_str());
+            return false;
         }
     }
 
@@ -311,6 +320,8 @@ pt2ir_t::load_pt_raw_file(IN std::string &path)
      * open a file. Because we will not change the PT raw trace file during converting, we
      * don't need to think about write-after-read. We get the file size from file stat
      * first and then use ifstream to open and read the PT raw trace file.
+     * XXX: We may need to update Dynamorio to support C++17+. Then we can implement the
+     * following logic without opening the file twice.
      */
     errno = 0;
     struct stat fstat;
