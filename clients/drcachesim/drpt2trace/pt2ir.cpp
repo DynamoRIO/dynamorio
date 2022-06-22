@@ -161,7 +161,7 @@ pt2ir_t::convert()
                 break;
             }
 
-            /* Decode PT raw data to pt_insn. */
+            /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             if (status < 0) {
                 dx_decoding_error(status, "get next instruction error", insn.ip);
@@ -277,9 +277,9 @@ pt2ir_t::init()
         return false;
     }
 
-    /* Load the PT raw data file and allocate the instruction decoder.*/
+    /* Load the PT raw trace file and allocate the instruction decoder.*/
     if (config_.raw_file_path.size() == 0) {
-        ERRMSG("No PT raw data file specified.\n");
+        ERRMSG("No PT raw trace file specified.\n");
         return false;
     }
     if (pt_config.cpu.vendor) {
@@ -308,9 +308,9 @@ bool
 pt2ir_t::load_pt_raw_file(IN std::string &path)
 {
     /* Under C++11, there is no good solution to get the file size after using ifstream to
-     * open a file. Because we will not change the PT raw data file during converting, we
+     * open a file. Because we will not change the PT raw trace file during converting, we
      * don't need to think about write-after-read. We get the file size from file stat
-     * first and then use ifstream to open and read the PT raw data file.
+     * first and then use ifstream to open and read the PT raw trace file.
      */
     errno = 0;
     struct stat fstat;
