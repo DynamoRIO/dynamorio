@@ -252,7 +252,7 @@ offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
 {
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     if (entry->addr.type == OFFLINE_TYPE_PC) {
-        // XXX i#4014: Use caching to avoid looup for last queried modbase.
+        // XXX i#4014: Use caching to avoid lookup for last queried modbase.
         app_pc modbase;
         if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
             DRCOVLIB_SUCCESS)

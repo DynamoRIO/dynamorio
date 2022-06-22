@@ -3280,8 +3280,13 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif
+    /* We need our thread exit event to run *before* drmodtrack's as we may
+     * need to translate physical addresses for the thread's final buffer.
+     */
+    drmgr_priority_t pri_thread_exit = { sizeof(drmgr_priority_t), "", nullptr, nullptr,
+                                         -100 };
     if (!drmgr_register_thread_init_event(event_thread_init) ||
-        !drmgr_register_thread_exit_event(event_thread_exit))
+        !drmgr_register_thread_exit_event_ex(event_thread_exit, &pri_thread_exit))
         DR_ASSERT(false);
 
     instrumentation_init();

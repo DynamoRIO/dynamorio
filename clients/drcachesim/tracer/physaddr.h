@@ -98,6 +98,8 @@ private:
     // The drcontainers hashtable is too slow due to the extra dereferences:
     // we need an open-addressed table.
     void *v2p_;
+    // We must pass the same context to free as we used to allocate.
+    void *drcontext_;
     static constexpr addr_t PAGE_INVALID = (addr_t)-1;
     // With hashtable_t nullptr is how non-existence is shown, so we store
     // an actual 0 address (can happen for physical) as this sentinel.
