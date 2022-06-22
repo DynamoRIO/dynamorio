@@ -80,6 +80,14 @@ protected:
     should_skip(const memref_t &memref);
 
     inline void
+    print_header()
+    {
+        std::cerr << std::setw(9) << "Output format:\n<record#>"
+                  << ": T<tid> <record details>\n"
+                  << "------------------------------------------------------------\n";
+    }
+
+    inline void
     print_prefix(const memref_t &memref, int ref_adjust = 0,
                  std::ostream &stream = std::cerr)
     {
