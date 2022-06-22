@@ -30,10 +30,6 @@
  * DAMAGE.
  */
 
-#define DR_FAST_IR 1
-extern "C" {
-#include "dr_api.h"
-}
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <iostream>
@@ -42,10 +38,14 @@ extern "C" {
 #include <errno.h>
 #include <fstream>
 
+#include "intel-pt.h"
+#include "libipt-sb.h"
 #include "pt2ir.h"
 extern "C" {
 #include "load_elf.h"
 }
+#define DR_FAST_IR 1
+#include "dr_api.h"
 
 #define ERRMSG_HEADER()                       \
     do {                                      \
@@ -69,17 +69,17 @@ pt2ir_t::pt2ir_t(IN const pt2ir_config_t config)
 {
     pt_iscache_ = pt_iscache_alloc(NULL);
     if (pt_iscache_ == NULL) {
-        ERRMSG("Failed to allocate iscache\n");
+        ERRMSG("Failed to allocate iscache.\n");
         exit(1);
     }
     pt_sb_session_ = pt_sb_alloc(pt_iscache_);
     if (pt_sb_session_ == NULL) {
-        ERRMSG("Failed to allocate sb session\n");
+        ERRMSG("Failed to allocate sb session.\n");
         pt_iscache_free(pt_iscache_);
         exit(1);
     }
-    if (!parse_config()) {
-        ERRMSG("Failed to parse config\n");
+    if (!init()) {
+        ERRMSG("Failed to initialize.\n");
         pt_iscache_free(pt_iscache_);
         pt_sb_free(pt_sb_session_);
         exit(1);
@@ -170,7 +170,7 @@ pt2ir_t::convert()
 
             pt_instr_list_.push_back(insn);
 
-            /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t */
+            /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t. */
         }
     }
 }
@@ -182,11 +182,11 @@ pt2ir_t::get_instr_count()
 }
 
 void
-pt2ir_t::print_instrs(IN file_t outfile)
+pt2ir_t::print_instrs_to_stdout()
 {
     void *dcontext = GLOBAL_DCONTEXT;
-    for(auto it = pt_instr_list_.begin(); it != pt_instr_list_.end(); it++) {
-        disassemble_with_info(dcontext, it->raw, outfile, false, false);
+    for (auto it = pt_instr_list_.begin(); it != pt_instr_list_.end(); it++) {
+        disassemble_with_info(dcontext, it->raw, STDOUT, false, false);
     }
 }
 
@@ -194,112 +194,55 @@ bool
 pt2ir_t::init()
 {
     struct pt_config pt_config;
-    pt_config.nom_freq = 30;
-    pt_config.mtc_freq = 0x3;
-    pt_config.cpuid_0x15_ebx = 250;
-    pt_config.cpuid_0x15_eax = 2;
     pt_config_init(&pt_config);
+
     struct pt_sb_pevent_config sb_pevent_config;
     memset(&sb_pevent_config, 0, sizeof(sb_pevent_config));
     sb_pevent_config.size = sizeof(sb_pevent_config);
-    sb_pevent_config.time_mult = 1;
 
-    /* Parse the cpu type. */
-    if (config_.cpu == "none") {
-        /* Do nothing. */
-    } else {
-        pt_config.cpu.vendor = pcv_intel;
-        int family = 0, model = 0, stepping = 0;
-        int num = sscanf(config_.cpu.c_str(), "%d/%d/%d", &family, &model, &stepping);
-        pt_config.cpu.family = family;
-        pt_config.cpu.model = model;
-        pt_config.cpu.stepping = stepping;
-        if (num < 2) {
-            ERRMSG("Invalid cpu type: %s.\n", config_.cpu.c_str());
-            return false;
-        } else if (num == 2) {
-            pt_config.cpu.stepping = 0;
-        } else {
-            /* Nothing */
-        }
-    }
-
-    /* Load kcore to sideband kernel image cache. */
-    if (config_.kcore_path.size() > 0) {
-        if (!load_kernel_image(config_.kcore_path)) {
-            ERRMSG("Failed to load kernel image: %s\n", config_.kcore_path.c_str());
-            return false;
-        }
-    }
+    /* Set configurations for libipt instruction decoder. */
+    pt_config.cpu.vendor = config_.pt_config.cpu.vendor == 1? pcv_intel : pcv_unknown;
+    pt_config.cpu.family = config_.pt_config.cpu.family;
+    pt_config.cpu.model = config_.pt_config.cpu.model;
+    pt_config.cpu.stepping = config_.pt_config.cpu.stepping;
+    pt_config.cpuid_0x15_eax = config_.pt_config.cpuid_0x15_eax;
+    pt_config.cpuid_0x15_ebx = config_.pt_config.cpuid_0x15_ebx;
+    pt_config.nom_freq = config_.pt_config.nom_freq;
+    pt_config.mtc_freq = config_.pt_config.mtc_freq;
 
     /* Parse the sideband perf event sample type*/
-    uint64_t sample_type = 0;
-    if (config_.sample_type.size() > 0) {
-        if (sscanf(config_.sample_type.c_str(), "%" PRIx64, &sample_type) != 1) {
-            ERRMSG("Failed to parse sideband perf event config.\n");
-            return false;
-        }
-    }
-    sb_pevent_config.sample_type = sample_type;
+    sb_pevent_config.sample_type = config_.sb_config.sample_type;
 
     /* Parse the sideband images sysroot.*/
-    if (config_.sysroot.size() > 0) {
-        sb_pevent_config.sysroot = config_.sysroot.c_str();
+    if (config_.sb_config.sysroot.size() > 0) {
+        sb_pevent_config.sysroot = config_.sb_config.sysroot.c_str();
     } else {
         sb_pevent_config.sysroot = "";
     }
 
+    /* Load kcore to sideband kernel image cache. */
+    if (config_.sb_config.kcore_path.size() > 0) {
+        if (!load_kernel_image(config_.sb_config.kcore_path)) {
+            ERRMSG("Failed to load kernel image: %s\n",
+                   config_.sb_config.kcore_path.c_str());
+            return false;
+        }
+    }
+
     /* Parse time synchronization related configuration. */
-    if (config_.tsc_offset.size() > 0) {
-        uint64_t tsc_offset = 0;
-        if (sscanf(config_.tsc_offset.c_str(), "%" PRIx64, &tsc_offset) != 1) {
-            ERRMSG("Failed to parse tsc_offset.\n");
-            return false;
-        }
-        sb_pevent_config.tsc_offset = tsc_offset;
-    }
-
-    if (config_.time_shift.size() > 0) {
-        uint32_t time_shift = 0;
-        if (sscanf(config_.time_shift.c_str(), "%" PRIu32, &time_shift) != 1) {
-            ERRMSG("Failed to parse time_shift.\n");
-            return false;
-        }
-        sb_pevent_config.time_shift = time_shift;
-    }
-
-    if (config_.time_mult.size() > 0) {
-        uint32_t time_mult = 0;
-        if (sscanf(config_.time_mult.c_str(), "%" PRIu32, &time_mult) != 1) {
-            ERRMSG("Failed to parse time_mult.\n");
-            return false;
-        }
-        sb_pevent_config.time_mult = time_mult;
-    }
-
-    if (config_.time_zero.size() > 0) {
-        uint64_t time_zero = 0;
-        if (sscanf(config_.time_zero.c_str(), "%" PRIu64, &time_zero) != 1) {
-            ERRMSG("Failed to parse time_zero.\n");
-            return false;
-        }
-        sb_pevent_config.time_zero = time_zero;
-    }
+    sb_pevent_config.tsc_offset = config_.sb_config.tsc_offset;
+    sb_pevent_config.time_shift = config_.sb_config.time_shift;
+    sb_pevent_config.time_mult =
+        config_.sb_config.time_mult > 0 ? config_.sb_config.time_mult : 1;
+    sb_pevent_config.time_zero = config_.sb_config.time_zero;
 
     /* Parse the start address of the kernel image  */
-    uint64_t kernel_start = UINT64_MAX;
-    if (config_.kernel_start.size() > 0) {
-        if (sscanf(config_.kernel_start.c_str(), "%" PRIx64, &kernel_start) != 1) {
-            ERRMSG("Failed to parse kernel start address.\n");
-            return false;
-        }
-    }
-    sb_pevent_config.kernel_start = kernel_start;
+    sb_pevent_config.kernel_start = config_.sb_config.kernel_start;
 
     /* Allocate the primary sideband decoder */
-    if (config_.sb_primary_file.size() > 0) {
+    if (config_.sb_primary_file_path.size() > 0) {
         struct pt_sb_pevent_config sb_primary_config = sb_pevent_config;
-        sb_primary_config.filename = config_.sb_primary_file.c_str();
+        sb_primary_config.filename = config_.sb_primary_file_path.c_str();
         sb_primary_config.primary = 1;
         sb_primary_config.begin = (size_t)0;
         sb_primary_config.end = (size_t)0;
@@ -310,7 +253,7 @@ pt2ir_t::init()
     }
 
     /* Allocate the secondary sideband decoders */
-    for (auto sb_secondary_file : config_.sb_secondary_files) {
+    for (auto sb_secondary_file : config_.sb_secondary_file_path_list) {
         if (sb_secondary_file.size() > 0) {
             struct pt_sb_pevent_config sb_secondary_config = sb_pevent_config;
             sb_secondary_config.filename = sb_secondary_file.c_str();
