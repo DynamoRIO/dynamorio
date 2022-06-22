@@ -201,7 +201,7 @@ pt2ir_t::init()
     sb_pevent_config.size = sizeof(sb_pevent_config);
 
     /* Set configurations for libipt instruction decoder. */
-    pt_config.cpu.vendor = config_.pt_config.cpu.vendor == 1? pcv_intel : pcv_unknown;
+    pt_config.cpu.vendor = config_.pt_config.cpu.vendor == 1 ? pcv_intel : pcv_unknown;
     pt_config.cpu.family = config_.pt_config.cpu.family;
     pt_config.cpu.model = config_.pt_config.cpu.model;
     pt_config.cpu.stepping = config_.pt_config.cpu.stepping;
