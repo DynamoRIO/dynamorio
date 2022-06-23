@@ -665,7 +665,11 @@ inline bool
 droption_t<int>::convert_from_string(const std::string s)
 {
     errno = 0;
-    long input = strtol(s.c_str(), NULL, 10);
+    /* If we set 0 as the base, strtol() will automatically identify the base of the
+     * number to convert. By default, it will assume the number to be converted is
+     * decimal, and number starting with 0or 0x is assumed to be octal or hexadecimal.
+     */
+    long input = strtol(s.c_str(), NULL, 0);
 
     // strtol returns a long, but this may not always fit into an integer.
     if (input >= (long)INT_MIN && input <= (long)INT_MAX)
@@ -680,7 +684,7 @@ inline bool
 droption_t<long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    value_ = strtol(s.c_str(), NULL, 10);
+    value_ = strtol(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>
@@ -688,7 +692,9 @@ inline bool
 droption_t<long long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    value_ = strtoll(s.c_str(), NULL, 10);
+    /* If we set 0 as the base, strtoll() will automatically identify the base like
+     * strtol(). */
+    value_ = strtoll(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>
@@ -696,7 +702,7 @@ inline bool
 droption_t<unsigned int>::convert_from_string(const std::string s)
 {
     errno = 0;
-    long input = strtol(s.c_str(), NULL, 10);
+    long input = strtol(s.c_str(), NULL, 0);
 
     // Is the value positive and fits into an unsigned integer?
     if (input >= 0 && (unsigned long)input <= (unsigned long)UINT_MAX)
@@ -711,7 +717,7 @@ inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    long input = strtol(s.c_str(), NULL, 10);
+    long input = strtol(s.c_str(), NULL, 0);
     if (input >= 0)
         value_ = (unsigned long)input;
     else
@@ -723,7 +729,7 @@ template <>
 inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
-    long long input = strtoll(s.c_str(), NULL, 10);
+    long long input = strtoll(s.c_str(), NULL, 0);
     if (input >= 0)
         value_ = (unsigned long long)input;
     else

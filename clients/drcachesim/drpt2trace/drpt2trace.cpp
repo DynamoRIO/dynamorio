@@ -33,33 +33,110 @@
 /* DrPT2Trace.c
  * command-line tool for decoding a PT trace, and converting it into an memtrace composed
  * of 'trace_entry_t's
- * XXX: Currently, it only counts and prints the instruction count in the trace data.
+ * TODO i#5505: Currently, it only counts and prints the instruction count in the trace
+ * data.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
 #include <iostream>
+#include <string>
+#include <sstream>
+#include <algorithm>
+#include <iterator>
 
+#include "droption.h"
 #include "pt2ir.h"
-
-#ifndef IN
-#    define IN // nothing
-#endif
-#ifndef OUT
-#    define OUT // nothing
-#endif
-#ifndef INOUT
-#    define INOUT // nothing
-#endif
 
 #define CLIENT_NAME "drpt2trace"
 
+/***************************************************************************
+ * Options
+ */
+
 /* A collection of options. */
-struct options_t {
-    /* Print statistics. */
-    uint32_t print_stats : 1;
-};
+static droption_t<bool> op_help(DROPTION_SCOPE_FRONTEND, "help", false,
+                                "Print this message", "Prints the usage message.");
+static droption_t<bool> opt_stats(DROPTION_SCOPE_FRONTEND, "stats", false,
+                                  "Print trace statistics",
+                                  "Print statistics about the trace.");
+
+static droption_t<std::string> opt_raw_pt(DROPTION_SCOPE_FRONTEND, "raw_pt", "",
+                                          "[Required] Path of PT raw trace file",
+                                          "Specifies the file path of the PT raw trace.");
+static droption_t<std::string>
+    opt_primary_sb(DROPTION_SCOPE_FRONTEND, "primary_sb", "",
+                   "[Required] Path of primary sideband stream file",
+                   "Specifies the file path of the primary sideband stream.");
+static droption_t<std::string>
+    opt_secondary_sb(DROPTION_SCOPE_FRONTEND, "secondary_sb", DROPTION_FLAG_ACCUMULATE,
+                     "", "[Optional] Path of secondary sideband stream file",
+                     "Specifies the file path of the secondary sideband stream.");
+static droption_t<std::string>
+    opt_kcore(DROPTION_SCOPE_FRONTEND, "kcore", "", "[Optional] Path of kcore file",
+              "Specifies the file path of kernel's core dump file.");
+
+/* Below options are required by the libipt and libipt-sb.
+ * XXX: We should use an config file to specify these options and parse the file in pt2ir.
+ */
+static droption_t<int> opt_pt_cpu_f(DROPTION_SCOPE_FRONTEND, "pt_cpu_f", 0,
+                                    "[libipt Required] set cpu family for PT raw trace",
+                                    "Set cpu family to the given value.");
+static droption_t<int> opt_pt_cpu_m(DROPTION_SCOPE_FRONTEND, "pt_cpu_m", 0,
+                                    "[libipt Required] set cpu model for PT raw trace",
+                                    "Set cpu model to the given value.");
+static droption_t<int> opt_pt_cpu_s(DROPTION_SCOPE_FRONTEND, "pt_cpu_s", 0,
+                                    "[libipt Required] set cpu stepping for PT raw trace",
+                                    "Set cpu stepping to the given value.");
+static droption_t<int>
+    opt_pt_mtc_freq(DROPTION_SCOPE_FRONTEND, "pt_mtc_freq", 0,
+                    "[libipt Required] set mtc frequency for PT raw trace",
+                    "Set mtc frequency to the given value .");
+static droption_t<int>
+    opt_pt_nom_freq(DROPTION_SCOPE_FRONTEND, "pt_nom_freq", 0,
+                    "[libipt Required] set nom frequency for PT raw trace",
+                    "Set nom frequency to the given value.");
+static droption_t<int> opt_pt_cpuid_0x15_eax(
+    DROPTION_SCOPE_FRONTEND, "pt_cpuid_0x15_eax", 0,
+    "[libipt Required] set the value of cpuid[0x15].eax for PT raw trace",
+    "Set the value of cpuid[0x15].eax to the given value.");
+static droption_t<int> opt_pt_cpuid_0x15_ebx(
+    DROPTION_SCOPE_FRONTEND, "pt_cpuid_0x15_ebx", 0,
+    "[libipt Required] set the value of cpuid[0x15].ebx for PT raw trace",
+    "Set the value of cpuid[0x15].ebx to the given value.");
+static droption_t<std::string>
+    opt_sb_sysroot(DROPTION_SCOPE_FRONTEND, "sb_sysroot", "",
+                   "[libipt-sb Optional] set sysroot for sideband stream",
+                   "Set sysroot to the given value.");
+static droption_t<unsigned long long>
+    opt_sb_sample_type(DROPTION_SCOPE_FRONTEND, "sb_sample_type", 0x0,
+                       "[libipt-sb Required] set sample type for sideband stream",
+                       "Set sample type to the given value(the given value must be a "
+                       "hexadecimal integer and default: 0x0)");
+static droption_t<unsigned long long>
+    opt_sb_time_zero(DROPTION_SCOPE_FRONTEND, "sb_time_zero", 0,
+                     "[libipt-sb Required] set time zero for sideband stream",
+                     "Set perf_event_mmap_page.time_zero to the given value.");
+static droption_t<unsigned int>
+    opt_sb_time_shift(DROPTION_SCOPE_FRONTEND, "sb_time_shift", 0,
+                      "[libipt-sb Required] set time shift for sideband stream",
+                      "Set perf_event_mmap_page.time_shift to the given value.");
+static droption_t<unsigned int>
+    opt_sb_time_mult(DROPTION_SCOPE_FRONTEND, "sb_time_mult", 1,
+                     "[libipt-sb Required] set time mult for sideband stream",
+                     "Set perf_event_mmap_page.time_mult to the given value.");
+static droption_t<unsigned long long>
+    opt_sb_tsc_offset(DROPTION_SCOPE_FRONTEND, "sb_tsc_offset", 0x0,
+                      "[libipt-sb Optional] set tsc offset for sideband stream",
+                      "Set perf events <val> ticks earlier(<val> must be a hexadecimal "
+                      "integer and default: 0x0).");
+static droption_t<unsigned long long>
+    opt_sb_kernel_start(DROPTION_SCOPE_FRONTEND, "sb_kernel_start", 0x0,
+                        "[libipt-sb Optional] set kernel start for sideband stream",
+                        "Set the start address of the kernel to the given value(the "
+                        "given value must be a hexadecimal integer and default: 0x0).");
+
+/****************************************************************************
+ * Output
+ */
 
 static void
 print_stats(pt2ir_t *pt_converter IN)
@@ -68,280 +145,97 @@ print_stats(pt2ir_t *pt_converter IN)
               << std::endl;
 }
 
+/****************************************************************************
+ * Options Handling
+ */
+
 static void
-usage(const char *prog IN)
+print_usage()
 {
-    printf("Usage: %s [<options>]", prog);
-    printf("Command-line tool that decodes the given PT raw trace and returns the "
-           "outputs as specified by given flags.\n");
-    printf("Options:\n");
-    printf("  --help|-h                    this text.\n");
-    printf("  --stats                      print trace statistics.\n");
-    printf("  --raw-pt <file>              load the PT raw trace from <file>.\n");
-    printf("  --primary-sb <file>          load a primary perf_event sideband stream "
-           "from <file>.\n");
-    printf("  --secondary-sb <file>        (optional) load a secondary perf_event "
-           "sideband stream from <file>.\n");
-    printf("  --kcore <file>               (optional) load the kernel from a core "
-           "dump.\n");
-    printf("\n\n");
-    printf("Below options are needed by the libipt and libipt-sb:\n");
-    printf("  --pt:cpu none|f/m[/s]        set cpu to the given value and decode "
-           "according to:\n");
-    printf("                               none     spec (default)\n");
-    printf("                               f/m[/s]  family/model[/stepping]\n");
-    printf("  --pt:mtc-freq <val>          set the MTC frequency to <val>.");
-    printf("  --pt:nom-freq <val>          set the nominal frequency to <val>.\n");
-    printf("  --pt:cpuid-0x15.eax <val>    set the value of cpuid[0x15].eax.\n");
-    printf("  --pt:cpuid-0x15.ebx <val>    set the value of cpuid[0x15].ebx.\n");
-    printf("  --sb:sysroot <path>          prepend <path> to sideband filenames.\n");
-    printf("  --sb:sample-type <val>       set perf_event_attr.sample_type to <val> "
-           "(default: 0).\n");
-    printf("  --sb:time-zero <val>         set perf_event_mmap_page.time_zero to <val> "
-           "(default: 0).\n");
-    printf("  --sb:time-shift <val>        set perf_event_mmap_page.time_shift to <val> "
-           "(default: 0).\n");
-    printf("  --sb:time-mult <val>         set perf_event_mmap_page.time_mult to <val> "
-           "(default: 1).\n");
-    printf("  --sb:tsc-offset <val>        (optional) show perf events <val> ticks "
-           "earlier(<val> must be a hexadecimal integer and default: 0x0).\n");
-    printf("  --sb:kernel-start <val>      (optional) the start address of the "
-           "kernel.\n");
-    printf("\n");
+    std::cerr
+        << CLIENT_NAME
+        << ": Command-line tool that decodes the given PT raw trace and returns the "
+           "outputs as specified by given flags."
+        << std::endl;
+    std::cerr << "Usage: " << CLIENT_NAME << " [options]" << std::endl;
+    std::cerr << droption_parser_t::usage_short(DROPTION_SCOPE_FRONTEND) << std::endl;
 }
 
 static bool
-process_args(int argc IN, const char *argv[] IN, pt2ir_config_t &config OUT,
-             options_t &options OUT)
+option_init(int argc, const char *argv[])
 {
-    int argidx = 1;
-    while (argidx < argc) {
-        if (strcmp(argv[argidx], "--help") == 0 || strcmp(argv[argidx], "-h") == 0) {
-            usage(CLIENT_NAME);
-            return false;
-        } else if (strcmp(argv[argidx], "--stats") == 0) {
-            options.print_stats = 1;
-        } else if (strcmp(argv[argidx], "--raw-pt") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --raw-pt: missing argument." << std::endl;
-                return false;
-            }
-            config.raw_file_path = std::string(argv[argidx]);
-        } else if (strcmp(argv[argidx], "--pt:cpu") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --pt:cpu: missing argument." << std::endl;
-                return false;
-            }
-            if (strcmp(argv[argidx], "none") != 0) {
-                config.pt_config.cpu.vendor = 1;
-                int family = 0, model = 0, stepping = 0;
-                int num = sscanf(argv[argidx], "%d/%d/%d", &family, &model, &stepping);
-                config.pt_config.cpu.family = family;
-                config.pt_config.cpu.model = model;
-                config.pt_config.cpu.stepping = stepping;
-                if (num < 2) {
-                    std::cerr << CLIENT_NAME << ": Invalid cpu type: " << argv[argidx]
-                              << "." << std::endl;
-                    return false;
-                } else if (num == 2) {
-                    config.pt_config.cpu.stepping = 0;
-                } else {
-                    /* Nothing */
-                }
-            }
-        } else if (strcmp(argv[argidx], "--pt:mtc-freq") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --pt:mtc-freq: missing argument."
-                          << std::endl;
-                return false;
-            }
-            int val = 0;
-            if (sscanf(argv[argidx], "%d", &val) > 0) {
-                config.pt_config.mtc_freq = val;
-            } else {
-                std::cerr << CLIENT_NAME << ": Invalid MTC frequency: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--pt:nom-freq") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --pt:nom-freq: missing argument."
-                          << std::endl;
-                return false;
-            }
-            int val = 0;
-            if (sscanf(argv[argidx], "%d", &val) > 0) {
-                config.pt_config.nom_freq = val;
-            } else {
-                std::cerr << CLIENT_NAME
-                          << ": Invalid nominal frequency: " << argv[argidx] << "."
-                          << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--pt:cpuid-0x15.eax") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --pt:cpuid-0x15.eax: missing argument."
-                          << std::endl;
-                return false;
-            }
-            int val = 0;
-            if (sscanf(argv[argidx], "%d", &val) > 0) {
-                config.pt_config.cpuid_0x15_eax = val;
-            } else {
-                std::cerr << CLIENT_NAME << ": Invalid cpuid[0x15].eax: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--pt:cpuid-0x15.ebx") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --pt:cpuid-0x15.ebx: missing argument."
-                          << std::endl;
-                return false;
-            }
-            int val = 0;
-            if (sscanf(argv[argidx], "%d", &val) > 0) {
-                config.pt_config.cpuid_0x15_ebx = val;
-            } else {
-                std::cerr << CLIENT_NAME << ": Invalid cpuid[0x15].ebx: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--sb:sysroot") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:sysroot: missing argument."
-                          << std::endl;
-                return false;
-            }
-            config.sb_config.sysroot = std::string(argv[argidx]);
-        } else if (strcmp(argv[argidx], "--sb:sample-type") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:sample-type: missing argument."
-                          << std::endl;
-                return false;
-            }
-            uint64_t val = 0;
-            if (sscanf(argv[argidx], "%" PRIx64, &val) > 0) {
-                config.sb_config.sample_type = val;
-            } else {
-                std::cerr << CLIENT_NAME << ": Invalid sample type: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--sb:time-zero") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:time-zero: missing argument."
-                          << std::endl;
-                return false;
-            }
-            uint64_t val = 0;
-            if (sscanf(argv[argidx], "%" PRIu64, &val) > 0) {
-                config.sb_config.time_zero = val;
-            } else {
-                std::cerr << CLIENT_NAME
-                          << ": Invalid perf_event_mmap_page.time_zero: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--sb:time-shift") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:time-shift: missing argument."
-                          << std::endl;
-                return false;
-            }
-            uint32_t val = 0;
-            if (sscanf(argv[argidx], "%" PRIu32, &val) > 0) {
-                config.sb_config.time_shift = val;
-            } else {
-                std::cerr << CLIENT_NAME
-                          << ": Invalid perf_event_mmap_page.time_shift: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--sb:time-mult") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:time-mult: missing argument."
-                          << std::endl;
-                return false;
-            }
-            uint32_t val = 0;
-            if (sscanf(argv[argidx], "%" PRIu32, &val) > 0) {
-                config.sb_config.time_mult = val;
-            } else {
-                std::cerr << CLIENT_NAME
-                          << ": Invalid perf_event_mmap_page.time_mult: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--sb:tsc-offset") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:tsc-offset: missing argument."
-                          << std::endl;
-                return false;
-            }
-            uint64_t val = 0;
-            if (sscanf(argv[argidx], "%" PRIx64, &val) > 0) {
-                config.sb_config.tsc_offset = val;
-            } else {
-                std::cerr << CLIENT_NAME
-                          << ": Invalid perf_event_mmap_page.tsc_offset: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--sb:kernel-start") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --sb:kernel-start: missing argument."
-                          << std::endl;
-                return false;
-            }
-            uint64_t val = 0;
-            if (sscanf(argv[argidx], "%" PRIx64, &val) > 0) {
-                config.sb_config.kernel_start = val;
-            } else {
-                std::cerr << CLIENT_NAME << ": Invalid kernel start: " << argv[argidx]
-                          << "." << std::endl;
-                return false;
-            }
-        } else if (strcmp(argv[argidx], "--primary-sb") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --primary-sb: missing argument."
-                          << std::endl;
-                return false;
-            }
-            config.sb_primary_file_path = std::string(argv[argidx]);
-        } else if (strcmp(argv[argidx], "--secondary-sb") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --secondary-sb: missing argument."
-                          << std::endl;
-                return false;
-            }
-            config.sb_secondary_file_path_list.push_back(std::string(argv[argidx]));
-        } else if (strcmp(argv[argidx], "--kcore") == 0) {
-            if (argc <= ++argidx) {
-                std::cerr << CLIENT_NAME << ": --kcore: missing argument." << std::endl;
-                return false;
-            }
-            config.kcore_path = std::string(argv[argidx]);
-        } else {
-            std::cerr << CLIENT_NAME << ": unknown option:" << argv[argidx] << "."
-                      << std::endl;
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv, &parse_err,
+                                       NULL)) {
+        std::cerr << CLIENT_NAME << "Usage error: " << parse_err << std::endl;
+        print_usage();
+        return false;
+    }
+    if (op_help.specified()) {
+        print_usage();
+        return false;
+    }
+    std::vector<droption_parser_t *> requires_opt_list;
+    requires_opt_list.push_back(&opt_raw_pt);
+    requires_opt_list.push_back(&opt_primary_sb);
+
+    requires_opt_list.push_back(&opt_pt_cpu_f);
+    requires_opt_list.push_back(&opt_pt_cpu_m);
+    requires_opt_list.push_back(&opt_pt_cpu_s);
+    requires_opt_list.push_back(&opt_pt_mtc_freq);
+    requires_opt_list.push_back(&opt_pt_nom_freq);
+    requires_opt_list.push_back(&opt_pt_cpuid_0x15_eax);
+    requires_opt_list.push_back(&opt_pt_cpuid_0x15_ebx);
+    requires_opt_list.push_back(&opt_sb_sample_type);
+    requires_opt_list.push_back(&opt_sb_time_zero);
+    requires_opt_list.push_back(&opt_sb_time_shift);
+    requires_opt_list.push_back(&opt_sb_time_mult);
+
+    for (auto it = requires_opt_list.begin(); it != requires_opt_list.end(); it++) {
+        if (!(*it)->specified()) {
+            std::cerr << CLIENT_NAME << ": option " << (*it)->get_name()
+                      << " is required." << std::endl;
+            print_usage();
             return false;
         }
-        argidx++;
     }
-
     return true;
 }
+/****************************************************************************
+ * Main Function
+ */
 
 int
 main(int argc, const char *argv[])
 {
-    options_t options = {};
-    pt2ir_config_t config = {};
-
     /* Parse the command line.*/
-    if (!process_args(argc, argv, config, options)) {
+    if (!option_init(argc, argv)) {
         return 1;
     }
+
+    pt2ir_config_t config = {};
+    config.raw_file_path = opt_raw_pt.get_value();
+    config.sb_primary_file_path = opt_primary_sb.get_value();
+    std::istringstream opt_secondary_sb_stream(opt_secondary_sb.get_value());
+    copy(std::istream_iterator<std::string>(opt_secondary_sb_stream),
+         std::istream_iterator<std::string>(),
+         std::back_inserter(config.sb_secondary_file_path_list));
+    config.kcore_path = opt_kcore.get_value();
+
+    config.pt_config.cpu.family = opt_pt_cpu_f.get_value();
+    config.pt_config.cpu.model = opt_pt_cpu_m.get_value();
+    config.pt_config.cpu.stepping = opt_pt_cpu_s.get_value();
+    config.pt_config.cpuid_0x15_eax = opt_pt_cpuid_0x15_eax.get_value();
+    config.pt_config.cpuid_0x15_ebx = opt_pt_cpuid_0x15_ebx.get_value();
+    config.pt_config.mtc_freq = opt_pt_mtc_freq.get_value();
+    config.pt_config.nom_freq = opt_pt_nom_freq.get_value();
+    config.sb_config.sample_type = opt_sb_sample_type.get_value();
+    config.sb_config.sysroot = opt_sb_sysroot.get_value();
+    config.sb_config.time_zero = opt_sb_time_zero.get_value();
+    config.sb_config.time_shift = opt_sb_time_shift.get_value();
+    config.sb_config.time_mult = opt_sb_time_mult.get_value();
+    config.sb_config.tsc_offset = opt_sb_tsc_offset.get_value();
+    config.sb_config.kernel_start = opt_sb_kernel_start.get_value();
 
     /* Convert the pt raw data to DR ir */
     pt2ir_t *ptconverter = new pt2ir_t(config);
@@ -351,7 +245,7 @@ main(int argc, const char *argv[])
         return 1;
     }
 
-    if (options.print_stats == 1) {
+    if (opt_stats.specified()) {
         print_stats(ptconverter);
     }
 
