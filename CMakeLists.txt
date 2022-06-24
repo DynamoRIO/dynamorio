@@ -1219,7 +1219,7 @@ endif ()
 
 # Right now we only build libipt on Linux x86_64.
 # We define a variable to indicate whether DR will build libipt.
-if (LINUX AND X64)
+if (LINUX AND X86 AND X64)
   set(HAVE_LIBIPT ON)
 else ()
   set(HAVE_LIBIPT OFF)
