@@ -136,6 +136,13 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             case TRACE_MARKER_TYPE_FUNC_RETADDR: ++counters->func_retaddr_markers; break;
             case TRACE_MARKER_TYPE_FUNC_ARG: ++counters->func_arg_markers; break;
             case TRACE_MARKER_TYPE_FUNC_RETVAL: ++counters->func_retval_markers; break;
+            case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS: ++counters->phys_addr_markers; break;
+            case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
+                // Counted implicitly as part of phys_addr_markers.
+                break;
+            case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
+                ++counters->phys_unavail_markers;
+                break;
             default: ++counters->other_markers; break;
             }
         }
@@ -205,6 +212,10 @@ basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_thr
               << " function argument markers\n";
     std::cerr << std::setw(12) << counters.func_retval_markers << prefix
               << " function return value markers\n";
+    std::cerr << std::setw(12) << counters.phys_addr_markers << prefix
+              << " physical address + virtual address marker pairs\n";
+    std::cerr << std::setw(12) << counters.phys_unavail_markers << prefix
+              << " physical address unavailable markers\n";
     std::cerr << std::setw(12) << counters.other_markers << prefix << " other markers\n";
 }
 

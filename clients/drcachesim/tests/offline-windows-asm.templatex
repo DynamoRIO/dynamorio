@@ -37,6 +37,8 @@ Total counts:
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
           11 total other markers
 Total windows: 7
 Window #0:
@@ -54,6 +56,8 @@ Window #0:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            5 window other markers
 Window #1:
            8 window \(fetched\) instructions
@@ -70,6 +74,8 @@ Window #1:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #2:
            8 window \(fetched\) instructions
@@ -86,6 +92,8 @@ Window #2:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #3:
            8 window \(fetched\) instructions
@@ -102,6 +110,8 @@ Window #3:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #4:
            8 window \(fetched\) instructions
@@ -118,6 +128,8 @@ Window #4:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #5:
            6 window \(fetched\) instructions
@@ -134,6 +146,8 @@ Window #5:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #6:
            0 window \(fetched\) instructions
@@ -150,6 +164,8 @@ Window #6:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Thread [0-9]* counts:
           15 \(fetched\) instructions
@@ -166,4 +182,6 @@ Thread [0-9]* counts:
            0 function return address markers
            0 function argument markers
            0 function return value markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
            5 other markers

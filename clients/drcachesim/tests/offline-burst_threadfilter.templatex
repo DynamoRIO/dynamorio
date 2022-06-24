@@ -28,5 +28,7 @@ Total counts:
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
     *[0-9]* total other markers
 .*
