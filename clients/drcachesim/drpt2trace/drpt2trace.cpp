@@ -44,6 +44,7 @@
 #include <sstream>
 #include <algorithm>
 #include <iterator>
+#include <memory>
 
 #include "droption.h"
 #include "pt2ir.h"
@@ -141,7 +142,7 @@ static droption_t<unsigned long long>
  */
 
 static void
-print_stats(pt2ir_t *pt_converter IN)
+print_stats(IN pt2ir_t *pt_converter)
 {
     std::cout << "Number of Instructions: " << pt_converter->get_instr_count()
               << std::endl;
@@ -245,7 +246,7 @@ main(int argc, const char *argv[])
     config.sb_config.kernel_start = opt_sb_kernel_start.get_value();
 
     /* Convert the pt raw data to DR ir */
-    unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
+    std::unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
     if (!ptconverter->init(config)) {
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
         return 1;
@@ -257,7 +258,7 @@ main(int argc, const char *argv[])
     }
 
     if (opt_stats.specified()) {
-        print_stats(ptconverter);
+        print_stats(ptconverter.get());
     }
 
     return 0;
