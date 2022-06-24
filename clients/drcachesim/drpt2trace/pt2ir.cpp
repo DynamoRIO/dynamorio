@@ -44,8 +44,6 @@
 extern "C" {
 #include "load_elf.h"
 }
-#define DR_FAST_IR 1
-#include "dr_api.h"
 
 #define ERRMSG_HEADER()                       \
     do {                                      \
@@ -59,31 +57,13 @@ extern "C" {
         fflush(stderr);               \
     } while (0)
 
-pt2ir_t::pt2ir_t(IN const pt2ir_config_t config)
-    : config_(config)
-    , pt_raw_buffer_(nullptr)
+pt2ir_t::pt2ir_t()
+    : pt_raw_buffer_(nullptr)
     , pt_raw_buffer_size_(0)
     , pt_instr_decoder_(nullptr)
     , pt_iscache_(nullptr)
     , pt_sb_session_(nullptr)
 {
-    pt_iscache_ = pt_iscache_alloc(NULL);
-    if (pt_iscache_ == NULL) {
-        ERRMSG("Failed to allocate iscache.\n");
-        exit(1);
-    }
-    pt_sb_session_ = pt_sb_alloc(pt_iscache_);
-    if (pt_sb_session_ == NULL) {
-        ERRMSG("Failed to allocate sb session.\n");
-        pt_iscache_free(pt_iscache_);
-        exit(1);
-    }
-    if (!init()) {
-        ERRMSG("Failed to initialize.\n");
-        pt_iscache_free(pt_iscache_);
-        pt_sb_free(pt_sb_session_);
-        exit(1);
-    }
 }
 
 pt2ir_t::~pt2ir_t()
@@ -91,9 +71,152 @@ pt2ir_t::~pt2ir_t()
     pt_sb_free(pt_sb_session_);
     pt_iscache_free(pt_iscache_);
     pt_insn_free_decoder(pt_instr_decoder_);
-    if (pt_raw_buffer_ != NULL) {
+    if (pt_raw_buffer_ != nullptr) {
         free(pt_raw_buffer_);
     }
+}
+
+bool
+pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
+{
+    pt_iscache_ = pt_iscache_alloc(nullptr);
+    if (pt_iscache_ == nullptr) {
+        ERRMSG("Failed to allocate iscache.\n");
+        return false;
+    }
+    pt_sb_session_ = pt_sb_alloc(pt_iscache_);
+    if (pt_sb_session_ == nullptr) {
+        ERRMSG("Failed to allocate sb session.\n");
+        pt_iscache_free(pt_iscache_);
+        return false;
+    }
+
+    struct pt_config pt_config;
+    pt_config_init(&pt_config);
+
+    struct pt_sb_pevent_config sb_pevent_config;
+    memset(&sb_pevent_config, 0, sizeof(sb_pevent_config));
+    sb_pevent_config.size = sizeof(sb_pevent_config);
+
+    /* Set configurations for libipt instruction decoder. */
+    pt_config.cpu.vendor =
+        pt2ir_config.pt_config.cpu.vendor == 1 ? pcv_intel : pcv_unknown;
+    pt_config.cpu.family = pt2ir_config.pt_config.cpu.family;
+    pt_config.cpu.model = pt2ir_config.pt_config.cpu.model;
+    pt_config.cpu.stepping = pt2ir_config.pt_config.cpu.stepping;
+    pt_config.cpuid_0x15_eax = pt2ir_config.pt_config.cpuid_0x15_eax;
+    pt_config.cpuid_0x15_ebx = pt2ir_config.pt_config.cpuid_0x15_ebx;
+    pt_config.nom_freq = pt2ir_config.pt_config.nom_freq;
+    pt_config.mtc_freq = pt2ir_config.pt_config.mtc_freq;
+
+    /* Parse the sideband perf event sample type*/
+    sb_pevent_config.sample_type = pt2ir_config.sb_config.sample_type;
+
+    /* Parse the sideband images sysroot.*/
+    if (pt2ir_config.sb_config.sysroot.size() > 0) {
+        sb_pevent_config.sysroot = pt2ir_config.sb_config.sysroot.c_str();
+    } else {
+        sb_pevent_config.sysroot = "";
+    }
+
+    /* Parse time synchronization related configuration. */
+    sb_pevent_config.tsc_offset = pt2ir_config.sb_config.tsc_offset;
+    sb_pevent_config.time_shift = pt2ir_config.sb_config.time_shift;
+    sb_pevent_config.time_mult =
+        pt2ir_config.sb_config.time_mult > 0 ? pt2ir_config.sb_config.time_mult : 1;
+    sb_pevent_config.time_zero = pt2ir_config.sb_config.time_zero;
+
+    /* Parse the start address of the kernel image  */
+    sb_pevent_config.kernel_start = pt2ir_config.sb_config.kernel_start;
+
+    /* Allocate the primary sideband decoder */
+    if (pt2ir_config.sb_primary_file_path.size() > 0) {
+        struct pt_sb_pevent_config sb_primary_config = sb_pevent_config;
+        sb_primary_config.filename = pt2ir_config.sb_primary_file_path.c_str();
+        sb_primary_config.primary = 1;
+        sb_primary_config.begin = (size_t)0;
+        sb_primary_config.end = (size_t)0;
+        if (!alloc_sb_pevent_decoder(&sb_primary_config)) {
+            ERRMSG("Failed to allocate primary sideband perf event decoder.\n");
+            pt_iscache_free(pt_iscache_);
+            pt_sb_free(pt_sb_session_);
+            return false;
+        }
+    }
+
+    /* Allocate the secondary sideband decoders */
+    for (auto sb_secondary_file : pt2ir_config.sb_secondary_file_path_list) {
+        if (sb_secondary_file.size() > 0) {
+            struct pt_sb_pevent_config sb_secondary_config = sb_pevent_config;
+            sb_secondary_config.filename = sb_secondary_file.c_str();
+            sb_secondary_config.primary = 0;
+            sb_secondary_config.begin = (size_t)0;
+            sb_secondary_config.end = (size_t)0;
+            if (!alloc_sb_pevent_decoder(&sb_secondary_config)) {
+                ERRMSG("Failed to allocate secondary sideband perf event decoder.\n");
+                pt_iscache_free(pt_iscache_);
+                pt_sb_free(pt_sb_session_);
+                return false;
+            }
+        }
+    }
+
+    /* Load kcore to sideband kernel image cache. */
+    if (pt2ir_config.kcore_path.size() > 0) {
+        if (!load_kernel_image(pt2ir_config.kcore_path)) {
+            ERRMSG("Failed to load kernel image: %s\n", pt2ir_config.kcore_path.c_str());
+            pt_iscache_free(pt_iscache_);
+            pt_sb_free(pt_sb_session_);
+            return false;
+        }
+    }
+
+    /* Initialize all sideband decoders. It needs to be called after all sideband decoders
+     * have been allocated.
+     */
+    int errcode = pt_sb_init_decoders(pt_sb_session_);
+    if (errcode < 0) {
+        ERRMSG("Failed to initialize sideband session: %s.\n",
+               pt_errstr(pt_errcode(errcode)));
+        pt_iscache_free(pt_iscache_);
+        pt_sb_free(pt_sb_session_);
+        return false;
+    }
+
+    /* Load the PT raw trace file and allocate the instruction decoder.*/
+    if (pt2ir_config.raw_file_path.size() == 0) {
+        ERRMSG("No PT raw trace file specified.\n");
+        pt_iscache_free(pt_iscache_);
+        pt_sb_free(pt_sb_session_);
+        return false;
+    }
+    if (pt_config.cpu.vendor) {
+        int errcode = pt_cpu_errata(&pt_config.errata, &pt_config.cpu);
+        if (errcode < 0) {
+            ERRMSG("Failed to get cpu errata: %s.\n", pt_errstr(pt_errcode(errcode)));
+            pt_iscache_free(pt_iscache_);
+            pt_sb_free(pt_sb_session_);
+            return false;
+        }
+    }
+    if (!load_pt_raw_file(pt2ir_config.raw_file_path)) {
+        ERRMSG("Failed to load trace file: %s.\n", pt2ir_config.raw_file_path.c_str());
+        pt_iscache_free(pt_iscache_);
+        pt_sb_free(pt_sb_session_);
+        return false;
+    }
+    pt_config.begin = static_cast<uint8_t *>(pt_raw_buffer_);
+    pt_config.end = static_cast<uint8_t *>(pt_raw_buffer_) + pt_raw_buffer_size_;
+    pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
+    if (pt_instr_decoder_ == nullptr) {
+        ERRMSG("Failed to create libipt instruction decoder.\n");
+        free(pt_raw_buffer_);
+        pt_iscache_free(pt_iscache_);
+        pt_sb_free(pt_sb_session_);
+        return false;
+    }
+
+    return true;
 }
 
 pt2ir_convert_status_t
@@ -101,7 +224,8 @@ pt2ir_t::convert()
 {
     /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
      * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
-     * it decodes the trace data. */
+     * it decodes the trace data.
+     */
     for (;;) {
         struct pt_insn insn;
         memset(&insn, 0, sizeof(insn));
@@ -134,8 +258,9 @@ pt2ir_t::convert()
 
             /* Before starting to decode instructions, we need to handle the event before
              * the instruction trace. For example, if a mmap2 event happens, we need to
-             * switch the cached image. */
-            while (nextstatus & pts_event_pending) {
+             * switch the cached image.
+             */
+            while (nextstatus & pts_event_pending != 0) {
                 struct pt_event event;
 
                 nextstatus = pt_insn_event(pt_instr_decoder_, &event, sizeof(event));
@@ -147,7 +272,7 @@ pt2ir_t::convert()
 
                 /* Use a sideband session to check if pt_event is an image switch event.
                  * If so, change the image in 'pt_instr_decoder_' to the target image. */
-                image = NULL;
+                image = nullptr;
                 errcode =
                     pt_sb_event(pt_sb_session_, &image, &event, sizeof(event), stdout, 0);
                 if (errcode < 0) {
@@ -157,7 +282,7 @@ pt2ir_t::convert()
 
                 /* If it is not an image switch event, the PT instruction decoder
                  * will not switch their cached image.*/
-                if (image == NULL)
+                if (image == nullptr)
                     continue;
 
                 errcode = pt_insn_set_image(pt_instr_decoder_, image);
@@ -179,10 +304,16 @@ pt2ir_t::convert()
 
             pt_instr_list_.push_back(insn);
 
-            /* TODO i#5505: Use drdecode to decode insn(pt_insn) to inst_t. */
+            /* TODO i#5505: Use drdecode to decode insn(pt_insn) to instr_t. */
         }
     }
     return PT2IR_CONV_SUCCESS;
+}
+
+std::vector<instr_t>
+pt2ir_t::get_instrlist()
+{
+    return instr_list_;
 }
 
 uint64_t
@@ -195,126 +326,13 @@ void
 pt2ir_t::print_instrs_to_stdout()
 {
     void *dcontext = GLOBAL_DCONTEXT;
-    for (auto it = pt_instr_list_.begin(); it != pt_instr_list_.end(); it++) {
-        disassemble_with_info(dcontext, it->raw, STDOUT, false, false);
+    for (auto pt_instr : pt_instr_list_) {
+        disassemble_with_info(dcontext, pt_instr.raw, STDOUT, false, false);
     }
 }
 
 bool
-pt2ir_t::init()
-{
-    struct pt_config pt_config;
-    pt_config_init(&pt_config);
-
-    struct pt_sb_pevent_config sb_pevent_config;
-    memset(&sb_pevent_config, 0, sizeof(sb_pevent_config));
-    sb_pevent_config.size = sizeof(sb_pevent_config);
-
-    /* Set configurations for libipt instruction decoder. */
-    pt_config.cpu.vendor = config_.pt_config.cpu.vendor == 1 ? pcv_intel : pcv_unknown;
-    pt_config.cpu.family = config_.pt_config.cpu.family;
-    pt_config.cpu.model = config_.pt_config.cpu.model;
-    pt_config.cpu.stepping = config_.pt_config.cpu.stepping;
-    pt_config.cpuid_0x15_eax = config_.pt_config.cpuid_0x15_eax;
-    pt_config.cpuid_0x15_ebx = config_.pt_config.cpuid_0x15_ebx;
-    pt_config.nom_freq = config_.pt_config.nom_freq;
-    pt_config.mtc_freq = config_.pt_config.mtc_freq;
-
-    /* Parse the sideband perf event sample type*/
-    sb_pevent_config.sample_type = config_.sb_config.sample_type;
-
-    /* Parse the sideband images sysroot.*/
-    if (config_.sb_config.sysroot.size() > 0) {
-        sb_pevent_config.sysroot = config_.sb_config.sysroot.c_str();
-    } else {
-        sb_pevent_config.sysroot = "";
-    }
-
-    /* Parse time synchronization related configuration. */
-    sb_pevent_config.tsc_offset = config_.sb_config.tsc_offset;
-    sb_pevent_config.time_shift = config_.sb_config.time_shift;
-    sb_pevent_config.time_mult =
-        config_.sb_config.time_mult > 0 ? config_.sb_config.time_mult : 1;
-    sb_pevent_config.time_zero = config_.sb_config.time_zero;
-
-    /* Parse the start address of the kernel image  */
-    sb_pevent_config.kernel_start = config_.sb_config.kernel_start;
-
-    /* Allocate the primary sideband decoder */
-    if (config_.sb_primary_file_path.size() > 0) {
-        struct pt_sb_pevent_config sb_primary_config = sb_pevent_config;
-        sb_primary_config.filename = config_.sb_primary_file_path.c_str();
-        sb_primary_config.primary = 1;
-        sb_primary_config.begin = (size_t)0;
-        sb_primary_config.end = (size_t)0;
-        if (!alloc_sb_pevent_decoder(sb_primary_config)) {
-            ERRMSG("Failed to allocate primary sideband perf event decoder.\n");
-            return false;
-        }
-    }
-
-    /* Allocate the secondary sideband decoders */
-    for (auto sb_secondary_file : config_.sb_secondary_file_path_list) {
-        if (sb_secondary_file.size() > 0) {
-            struct pt_sb_pevent_config sb_secondary_config = sb_pevent_config;
-            sb_secondary_config.filename = sb_secondary_file.c_str();
-            sb_secondary_config.primary = 0;
-            sb_secondary_config.begin = (size_t)0;
-            sb_secondary_config.end = (size_t)0;
-            if (!alloc_sb_pevent_decoder(sb_secondary_config)) {
-                ERRMSG("Failed to allocate secondary sideband perf event decoder.\n");
-                return false;
-            }
-        }
-    }
-
-    /* Load kcore to sideband kernel image cache. */
-    if (config_.kcore_path.size() > 0) {
-        if (!load_kernel_image(config_.kcore_path)) {
-            ERRMSG("Failed to load kernel image: %s\n", config_.kcore_path.c_str());
-            return false;
-        }
-    }
-
-    /* Initialize all sideband decoders. It needs to be called after all sideband decoders
-     * have been allocated.
-     */
-    int errcode = pt_sb_init_decoders(pt_sb_session_);
-    if (errcode < 0) {
-        ERRMSG("Failed to initialize sideband session: %s.\n",
-               pt_errstr(pt_errcode(errcode)));
-        return false;
-    }
-
-    /* Load the PT raw trace file and allocate the instruction decoder.*/
-    if (config_.raw_file_path.size() == 0) {
-        ERRMSG("No PT raw trace file specified.\n");
-        return false;
-    }
-    if (pt_config.cpu.vendor) {
-        int errcode = pt_cpu_errata(&pt_config.errata, &pt_config.cpu);
-        if (errcode < 0) {
-            ERRMSG("Failed to get cpu errata: %s.\n", pt_errstr(pt_errcode(errcode)));
-            return false;
-        }
-    }
-    if (!load_pt_raw_file(config_.raw_file_path)) {
-        ERRMSG("Failed to load trace file: %s.\n", config_.raw_file_path.c_str());
-        return false;
-    }
-    pt_config.begin = static_cast<uint8_t *>(pt_raw_buffer_);
-    pt_config.end = static_cast<uint8_t *>(pt_raw_buffer_) + pt_raw_buffer_size_;
-    pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
-    if (pt_instr_decoder_ == NULL) {
-        ERRMSG("Failed to create libipt instruction decoder.\n");
-        return false;
-    }
-
-    return true;
-}
-
-bool
-pt2ir_t::load_pt_raw_file(IN std::string &path)
+pt2ir_t::load_pt_raw_file(IN std::string path)
 {
     /* Under C++11, there is no good solution to get the file size after using ifstream to
      * open a file. Because we will not change the PT raw trace file during converting, we
@@ -348,7 +366,7 @@ pt2ir_t::load_pt_raw_file(IN std::string &path)
 }
 
 bool
-pt2ir_t::load_kernel_image(IN std::string &path)
+pt2ir_t::load_kernel_image(IN std::string path)
 {
     struct pt_image *kimage = pt_sb_kernel_image(pt_sb_session_);
     /* Load all ELF sections in kcore to the shared image cache.
@@ -366,9 +384,9 @@ pt2ir_t::load_kernel_image(IN std::string &path)
 }
 
 bool
-pt2ir_t::alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config)
+pt2ir_t::alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config *config)
 {
-    int errcode = pt_sb_alloc_pevent_decoder(pt_sb_session_, &config);
+    int errcode = pt_sb_alloc_pevent_decoder(pt_sb_session_, config);
     if (errcode < 0) {
         ERRMSG("Failed to allocate sideband perf event decoder: %s.\n",
                pt_errstr(pt_errcode(errcode)));
@@ -384,7 +402,8 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
     uint64_t pos = 0;
 
     /* Get the current position of 'pt_instr_decoder_'. It will fill the position into
-     * pos. The 'pt_insn_get_offset' function mainly used to report error. */
+     * pos. The 'pt_insn_get_offset' function mainly used to report error.
+     */
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
         ERRMSG("Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));

@@ -1217,28 +1217,13 @@ else ()
   set(HAVE_HALF_FLOAT OFF)
 endif ()
 
-# Define a macro to check if we have included and initialized libipt.
-set(HAVE_LIBIPT OFF)
-# Initialize libipt and activate the macro HAVE_LIBIPT.
-find_package(Git QUIET)
-if (GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
-  # Update submodules as needed
-  option(UPDATE_SUBMODULE "Update submodules during build" ON)
-  if (UPDATE_SUBMODULE)
-    message(STATUS "Update submodules")
-    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
-                      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-                      RESULT_VARIABLE UPDATE_SUBMODULE_RESULT)
-    if (NOT UPDATE_SUBMODULE_RESULT EQUAL "0")
-      message(STATUS "Update submodules - failed")
-      message(STATUS
-      "git submodule update --init --recursive failed with ${UPDATE_SUBMODULE_RESULT}, please checkout submodules")
-    else (NOT UPDATE_SUBMODULE_RESULT EQUAL "0")
-      message(STATUS "Update submodules - done")
-      set(HAVE_LIBIPT ON)
-    endif (NOT UPDATE_SUBMODULE_RESULT EQUAL "0")
-  endif (UPDATE_SUBMODULE)
-endif (GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+# Right now we only build libipt on Linux x86_64.
+# We define a variable to indicate whether DR will build libipt.
+if (LINUX AND X64)
+  set(HAVE_LIBIPT ON)
+else ()
+  set(HAVE_LIBIPT OFF)
+endif ()
 
 ###########################################################################
 

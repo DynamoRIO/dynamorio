@@ -32,35 +32,29 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../../make/policies.cmake NO_POLICY_SCOPE)
 
-add_subdirectory(libipt)
 # Add libipt to build system. For kernel traces decoding,
 # we need to activate SIDEBAND, PEVENT and FEATURE_ELF.
 # XXX: libipt does not use the CMake export mechanism for modular separation.
 # It puts us at risk of CMake name collisions. Since libipt's build system is
-# not complicated, we can rewrite a new CMakeList.txt for it and make it modular
+# not complicated, we could rewrite a new CMakeList.txt for it and make it modular
 # using the cmake export mechanism.
-# set(SIDEBAND ON CACHE BOOL "Enable libipt-sb, a sideband correlation library." FORCE)
-# set(PEVENT ON CACHE BOOL "Enable perf_event sideband support." FORCE)
-# set(FEATURE_ELF ON CACHE BOOL "Support ELF files." FORCE)
-# add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt/libipt)
-# add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt/sideband)
-# add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt/pevent)
-# add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt
-#   ${PROJECT_BINARY_DIR}/third_party/libipt)
+set(SIDEBAND ON CACHE BOOL "Enable libipt-sb, a sideband correlation library." FORCE)
+set(PEVENT ON CACHE BOOL "Enable perf_event sideband support." FORCE)
+set(FEATURE_ELF ON CACHE BOOL "Support ELF files." FORCE)
+add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/libipt
+  ${PROJECT_BINARY_DIR}/third_party/libipt)
 
-# drpt2ir depends on libipt and libipt-sb. Also, the head files
-# intel-pt.h and libipt-sb.h are generated into the project binary directory.
-# So we need to add the subdirectories that contain them to the include path.
-include_directories(SYSTEM
-  ${PROJECT_BINARY_DIR}/clients/drcachesim/drpt2trace/libipt/libipt/include
-  ${PROJECT_BINARY_DIR}/clients/drcachesim/drpt2trace/libipt/sideband/include
+# Import libipt and libipt-sb as modules and set include paths and libraries.
+add_library(ipt SHARED IMPORTED)
+set_target_properties(ipt PROPERTIES
+  IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/lib/libipt.so"
+  INTERFACE_INCLUDE_DIRECTORIES "${PROJECT_BINARY_DIR}/third_party/libipt/libipt/include"
 )
-
-# # libipt.so and libipt-sb.so will be built in the project binary directory.
-# # Add link directories for libipt-ext and drpt2ir to find them.
-# link_directories(
-#   ${PROJECT_BINARY_DIR}/lib
-# )
+add_library(ipt-sb SHARED IMPORTED)
+set_target_properties(ipt-sb PROPERTIES
+  IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/lib/libipt-sb.so"
+  INTERFACE_INCLUDE_DIRECTORIES "${PROJECT_BINARY_DIR}/third_party/libipt/sideband/include"
+)
 
 # The library libipt-ext and drpt2ir need to find headers from
 # the following directories.
@@ -77,7 +71,7 @@ set(ipt-ext_srcs
   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
 )
 add_library(ipt-ext STATIC ${ipt-ext_srcs})
-add_dependencies(ipt-ext libipt)
+add_dependencies(ipt-ext ipt)
 target_link_libraries(ipt-ext ipt)
 
 # We build drpt2ir to a static library. So we can link it in the independent
@@ -87,7 +81,7 @@ set(drpt2ir_srcs
 )
 add_library(drpt2ir STATIC ${drpt2ir_srcs})
 configure_DynamoRIO_decoder(drpt2ir)
-add_dependencies(drpt2ir libipt libipt-sb ipt-ext api_headers)
+add_dependencies(drpt2ir ipt ipt-sb ipt-ext api_headers)
 target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
 
 # TODO i#5505: Currently, drpt2trace only counts instructions.
@@ -100,4 +94,6 @@ add_executable(drpt2trace ${drpt2trace_srcs})
 configure_DynamoRIO_standalone(drpt2trace)
 use_DynamoRIO_extension(drpt2trace droption)
 add_dependencies(drpt2trace drpt2ir)
+# Add the directory containing libipt.so and libipt-sb.so to the linker search path.
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${PROJECT_BINARY_DIR}/lib'")
 target_link_libraries(drpt2trace drpt2ir)

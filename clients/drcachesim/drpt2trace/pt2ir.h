@@ -42,6 +42,8 @@
 
 #include <string>
 #include <vector>
+#define DR_FAST_IR 1
+#include "dr_api.h"
 
 #ifndef IN
 #    define IN // nothing
@@ -57,22 +59,22 @@
  * The type of pt2ir_t::convert() return value.
  */
 enum pt2ir_convert_status_t {
-    PT2IR_CONV_SUCCESS = 0,
-
-    /* The conversion process ends with a failure to sync to the PSB packet. */
-    PT2IR_CONV_SYNC_PACKET_ERROR = 1,
-
-    /* The conversion process ends with a failure to handle a perf event. */
-    PT2IR_CONV_HANDLE_SIDEBAND_EVENT_ERROR,
-
-    /* The conversion process ends with a failure to get the pending event. */
-    PT2IR_CONV_GET_PENDING_EVENT_ERROR,
-
-    /* The conversion process ends with a failure to set the new image. */
-    PT2IR_CONV_SET_IMAGE_ERROR,
-
-    /* The conversion process ends with a failure to decode the next intruction. */
-    PT2IR_CONV_DECODE_NEXT_INSTR_ERROR
+    PT2IR_CONV_SUCCESS = 0,       /**< The conversion process is successful. */
+    PT2IR_CONV_SYNC_PACKET_ERROR, /**< The conversion process ends with a failure to sync
+                                   *   to the PSB packet.
+                                   */
+    PT2IR_CONV_HANDLE_SIDEBAND_EVENT_ERROR, /**< The conversion process ends with a
+                                             *   failure to handle a perf event.
+                                             */
+    PT2IR_CONV_GET_PENDING_EVENT_ERROR, /**< The conversion process ends with a failure to
+                                         *   get the pending event.
+                                         */
+    PT2IR_CONV_SET_IMAGE_ERROR, /**< The conversion process ends with a failure to set the
+                                 *   new image.
+                                 */
+    PT2IR_CONV_DECODE_NEXT_INSTR_ERROR /**< The conversion process ends with a failure to
+                                        *   decode the next intruction.
+                                        */
 };
 
 /**
@@ -84,7 +86,8 @@ enum pt2ir_convert_status_t {
 struct pt2ir_config_t {
     /* The class pt2ir_t does not want to expose libipt to the upper layer. So we redefine
      * some configurations of libipt decoder in pt_config. The libipt pt decoder requires
-     * these parameters.
+     * these parameters. We can get these parameters by running
+     * libipt/scirpts/perf-get-opts.bash.
      */
     struct {
         /* A cpu identifier.*/
@@ -92,7 +95,7 @@ struct pt2ir_config_t {
             /* The vendor of the cpu(0 for unknown, 1 for Intel). */
             uint8_t vendor;
 
-            /** The cpu family, modle and stepping */
+            /* The cpu family, model and stepping */
             uint16_t family;
             uint8_t model;
             uint8_t stepping;
@@ -107,14 +110,16 @@ struct pt2ir_config_t {
 
         /* The nominal frequency. */
         uint8_t nom_freq;
-    } pt_config;
+    } pt_config; /**< The libipt config of PT raw trace. We can get these parameters by
+                  *   running libipt/scirpts/perf-get-opts.bash.
+                  */
 
-    /* The PT raw trace file path. */
-    std::string raw_file_path;
+    std::string raw_file_path; /**< The PT raw trace file path. */
 
     /* The class pt2ir_t does not want to expose libipt-sb to the upper layer too. So we
      * redefine some configurations of libipt-sb in sb_config. The libipt-sb sideband
-     * session requires these parameters.
+     * session requires these parameters. We can get these parameters by running
+     * libipt/scirpts/perf-get-opts.bash.
      */
     struct {
         /* perf_event_attr.sample_type */
@@ -150,7 +155,9 @@ struct pt2ir_config_t {
          * to find a way to generate the suitable tsc_offset.
          */
         uint64_t tsc_offset;
-    } sb_config;
+    } sb_config; /**< The libipt-sb config of PT raw trace. We can get these parameters by
+                  *   running libipt/scirpts/perf-get-opts.bash.
+                  */
 
     /* sb_primary_file_path is the path of the primary sideband file.
      * sb_secondary_file_path_list is a list of paths to secondary sideband files.
@@ -158,11 +165,11 @@ struct pt2ir_config_t {
      * primary sideband file contain perf event records for the traced cpu.  A secondary
      * sideband contain perf event records for other cpus on the system.
      */
-    std::string sb_primary_file_path;
-    std::vector<std::string> sb_secondary_file_path_list;
+    std::string sb_primary_file_path; /**< The sideband primary file of PT raw trace. */
+    std::vector<std::string>
+        sb_secondary_file_path_list; /**< The sideband secondary file of PT raw trace. */
 
-    /* The path of the kernel dump file. */
-    std::string kcore_path;
+    std::string kcore_path; /**< The path of the kernel dump file. */
 };
 
 struct pt_image_section_cache;
@@ -173,15 +180,23 @@ struct pt_ins;
 
 /**
  * pt2ir_t is a class that can convert PT raw trace to DynamoRIO's IR.
- * It use libipt and libipt-sb to decode the PT raw trace. Then it use libdrdecode to
- * convert libipt's IR(struct pt_insn) to DynamoRIO's IR(instr_t).
  */
 class pt2ir_t {
 public:
-    pt2ir_t(IN const pt2ir_config_t config);
+    pt2ir_t();
     ~pt2ir_t();
 
-    /* The convert function performs two processes: (1) decode the PT raw trace into
+    /**
+     * Returns TRUE if the pt2ir_t is successfully initialized. Returns FALSE on failure.
+     * \note Parse struct pt2ir_config_t and initialize PT instruction decoder, the
+     * sideband session, and images caches.
+     */
+    bool
+    init(IN const pt2ir_config_t pt2ir_config);
+
+    /**
+     * Returns pt2ir_convert_status_t.
+     * \note The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the doctor's IR format
      * instr_t. If the convertion is successful, the function returns PT2IR_CONV_SUCCESS.
      * Otherwise, the function returns the corresponding error code.
@@ -189,24 +204,30 @@ public:
     pt2ir_convert_status_t
     convert();
 
-    /* Get the count number of instructions in the converted IR. */
+    /**
+     * Returns all converted DynamoRIO IR.
+     */
+    std::vector<instr_t>
+    get_instrlist();
+
+    /**
+     * Returns the number of instructions in the converted IR.
+     */
     uint64_t
     get_instr_count();
 
-    /* Print the disassembled text of all valid instructions to STDOUT. */
+    /**
+     * Print the disassembled text of all valid instructions to STDOUT.
+     */
     void
     print_instrs_to_stdout();
 
 private:
-    /* Parse struct pt2ir_config_t and initialize PT instruction decoder, the sideband
-     * session, and images caches. */
-    bool
-    init();
-
     /* Load PT raw file to buffer. The struct pt_insn_decoder will decode this buffer to
-     * libipt's IR. */
+     * libipt's IR.
+     */
     bool
-    load_pt_raw_file(IN std::string &path);
+    load_pt_raw_file(IN std::string path);
 
     /* Load the elf section in kcore to sideband session iscache and store the section
      * index to sideband kimage.
@@ -214,22 +235,19 @@ private:
      * information.
      */
     bool
-    load_kernel_image(IN std::string &path);
+    load_kernel_image(IN std::string path);
 
     /* Allocate a sideband decoder in the sideband session. The sideband session may
      * allocate many decoders, which mainly work on handling sideband perf records and
      * help the PT decoder switch images. */
     bool
-    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config);
+    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config *config);
 
     /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.
      */
     void
     dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
-
-    /* The config of pt2ir_t. */
-    pt2ir_config_t config_;
 
     /* Buffer for caching the PT raw trace. */
     void *pt_raw_buffer_;
@@ -246,6 +264,9 @@ private:
 
     /* All valid instructions that can be decoded from PT raw trace. */
     std::vector<struct pt_insn> pt_instr_list_;
+
+    /* The DynamoRIO's IR list. */
+    std::vector<instr_t> instr_list_;
 };
 
 #endif /* _PT2IR_H_ */

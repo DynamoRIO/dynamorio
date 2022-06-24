@@ -717,24 +717,15 @@ inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    long input = strtol(s.c_str(), NULL, 0);
-    if (input >= 0)
-        value_ = (unsigned long)input;
-    else
-        return false;
-
+    value_ = strtoul(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>
 inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
-    long long input = strtoll(s.c_str(), NULL, 0);
-    if (input >= 0)
-        value_ = (unsigned long long)input;
-    else
-        return false;
-
+    errno = 0;
+    value_ = strtoull(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>

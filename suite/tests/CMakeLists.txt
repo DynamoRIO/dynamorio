@@ -2564,7 +2564,7 @@ torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll.A
   "" "" "")
 
 tobuild_ci(client.option_parse client-interface/option_parse.cpp
-  "-l;-4;-ll;-3220721071790640321;-ul;4;-ull;1384772493926445887;-x;3;-x_alias;4;-y;quoted string;-z;first;-z_alias;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-flag;-flag_alias1;-no_flag_alias2;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4;-large_bytesize;9999999999"
+  "-l;-4;-ll;-3220721071790640321;-ul;4;-ull;1384772493926445887;-x;3;-x_alias;4;-y;quoted string;-z;first;-z_alias;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-flag;-flag_alias1;-no_flag_alias2;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4;-large_bytesize;9999999999;-oi;-012;-ol;-012;-oll;-012;-ou;012;-olu;012;-ollu;012;-xi;-0xa;-xl;-0xa;-xll;-0xa;-xu;0xa;-xlu;0xa;-xllu;0xa;"
   "" "")
 use_DynamoRIO_extension(client.option_parse.dll droption)
 set(client.option_parse_client_ops_islist ON)
@@ -4168,27 +4168,27 @@ endif (BUILD_CLIENTS)
 ###########################################################################
 # drpt2trace tests
 if (BUILD_CLIENTS)
-  if (LINUX AND X64)
-    if (HAVE_LIBIPT)
-      set(drpt2trace_args "--stats"
-        "--raw-pt"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin"
-        "--primary-sb"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent"
-        "--pt:cpu" "6/85/4"
-        "--pt:mtc-freq" "3" "--pt:nom-freq" "37"
-        "--pt:cpuid-0x15.eax" "2" "--pt:cpuid-0x15.ebx" "308"
-        "--sb:sample-type" "0x10086"
-        "--sb:time-shift" "31"
-        "--sb:time-mult" "581029125"
-        "--sb:time-zero" "18444502336406842448"
-        "--sb:sysroot"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir")
-      torunonly_api(tool.drpt2trace drpt2trace
-        "../../clients/drcachesim/drpt2trace/test_simple.template"
-        "" "${drpt2trace_args}" ON OFF)
-    endif (HAVE_LIBIPT)
-  endif (LINUX AND X64)
+  if (HAVE_LIBIPT)
+    set(drpt2trace_args "-stats"
+      "-raw_pt"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin"
+      "-primary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent"
+      "-pt_cpu_f" "6"
+      "-pt_cpu_m" "85"
+      "-pt_cpu_s" "4"
+      "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
+      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308"
+      "-sb_sample_type" "0x10086"
+      "-sb_time_shift" "31"
+      "-sb_time_mult" "581029125"
+      "-sb_time_zero" "18444502336406842448"
+      "-sb_sysroot"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir")
+    torunonly_api(tool.drpt2trace drpt2trace
+      "../../clients/drcachesim/drpt2trace/test_simple.template"
+      "" "${drpt2trace_args}" ON OFF)
+  endif (HAVE_LIBIPT)
 endif (BUILD_CLIENTS)
 
 if (UNIX)

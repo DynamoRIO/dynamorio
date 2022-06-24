@@ -31,8 +31,10 @@
  */
 
 /* DrPT2Trace.c
- * command-line tool for decoding a PT trace, and converting it into an memtrace composed
- * of 'trace_entry_t's
+ * Command-line tool for decoding a PT trace, and converting it into a memtrace composed
+ * of trace_entry_t records. This is a standalone client and not part of the
+ * drmemtrace/drcachesim's workflow. It is used to convert the PT trace output by the
+ * "perf record" command.
  * TODO i#5505: Currently, it only counts and prints the instruction count in the trace
  * data.
  */
@@ -126,8 +128,8 @@ static droption_t<unsigned int>
 static droption_t<unsigned long long>
     opt_sb_tsc_offset(DROPTION_SCOPE_FRONTEND, "sb_tsc_offset", 0x0,
                       "[libipt-sb Optional] set tsc offset for sideband stream",
-                      "Set perf events <val> ticks earlier(<val> must be a hexadecimal "
-                      "integer and default: 0x0).");
+                      "Set perf events the given value ticks earlier(the given value "
+                      "must be a hexadecimal integer and default: 0x0).");
 static droption_t<unsigned long long>
     opt_sb_kernel_start(DROPTION_SCOPE_FRONTEND, "sb_kernel_start", 0x0,
                         "[libipt-sb Optional] set kernel start for sideband stream",
@@ -225,6 +227,11 @@ main(int argc, const char *argv[])
     config.pt_config.cpu.family = opt_pt_cpu_f.get_value();
     config.pt_config.cpu.model = opt_pt_cpu_m.get_value();
     config.pt_config.cpu.stepping = opt_pt_cpu_s.get_value();
+    if (opt_pt_cpu_f.get_value() != 0) {
+        config.pt_config.cpu.vendor = 1;
+    } else {
+        config.pt_config.cpu.vendor = 0;
+    }
     config.pt_config.cpuid_0x15_eax = opt_pt_cpuid_0x15_eax.get_value();
     config.pt_config.cpuid_0x15_ebx = opt_pt_cpuid_0x15_ebx.get_value();
     config.pt_config.mtc_freq = opt_pt_mtc_freq.get_value();
@@ -238,10 +245,15 @@ main(int argc, const char *argv[])
     config.sb_config.kernel_start = opt_sb_kernel_start.get_value();
 
     /* Convert the pt raw data to DR ir */
-    pt2ir_t *ptconverter = new pt2ir_t(config);
+    pt2ir_t *ptconverter = new pt2ir_t();
+    if (!ptconverter->init(config)) {
+        std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
+        return 1;
+    }
     if (ptconverter->convert() != PT2IR_CONV_SUCCESS) {
         delete ptconverter;
-        std::cerr << "Convert pt raw data to DR ir failed." << std::endl;
+        std::cerr << CLIENT_NAME << ": failed to convert pt raw data to DR ir."
+                  << std::endl;
         return 1;
     }
 

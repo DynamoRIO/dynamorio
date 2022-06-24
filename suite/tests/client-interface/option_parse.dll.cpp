@@ -91,11 +91,35 @@ static droption_t<bytesize_t>
     op_large_bytesize(DROPTION_SCOPE_CLIENT, "large_bytesize", DROPTION_FLAG_ACCUMULATE,
                       0, "Param that takes in a large bytesize value",
                       "Longer desc of param that takes in a large bytesize value");
+static droption_t<int> op_oi(DROPTION_SCOPE_CLIENT, "oi", 8, -64, 64, "Some param",
+                              "Longer desc of some param.");
+static droption_t<long> op_ol(DROPTION_SCOPE_CLIENT, "ol", 0L, -64, 64, "Some param",
+                             "Longer desc of some param.");
+static droption_t<long long> op_oll(DROPTION_SCOPE_CLIENT, "oll", 0LL, "Some param",
+                                   "Longer desc of some param.");
+static droption_t<unsigned int> op_ou(DROPTION_SCOPE_CLIENT, "ou", 0, 0,
+                                     64, "Some param", "Longer desc of some param.");
+static droption_t<unsigned long> op_olu(DROPTION_SCOPE_CLIENT, "olu", 0UL, 0, 64,
+                                       "Some param", "Longer desc of some param.");
+static droption_t<unsigned long long> op_ollu(DROPTION_SCOPE_CLIENT, "ollu", 0ULL,
+                                             "Some param", "Longer desc of some param.");
+static droption_t<int> op_xi(DROPTION_SCOPE_CLIENT, "xi", 8, -64, 64, "Some param",
+                              "Longer desc of some param.");
+static droption_t<long> op_xl(DROPTION_SCOPE_CLIENT, "xl", 0L, -64, 64, "Some param",
+                             "Longer desc of some param.");
+static droption_t<long long> op_xll(DROPTION_SCOPE_CLIENT, "xll", 0LL, "Some param",
+                                   "Longer desc of some param.");
+static droption_t<unsigned int> op_xu(DROPTION_SCOPE_CLIENT, "xu", 0, 0,
+                                     64, "Some param", "Longer desc of some param.");
+static droption_t<unsigned long> op_xlu(DROPTION_SCOPE_CLIENT, "xlu", 0UL, 0, 64,
+                                       "Some param", "Longer desc of some param.");
+static droption_t<unsigned long long> op_xllu(DROPTION_SCOPE_CLIENT, "xllu", 0ULL,
+                                             "Some param", "Longer desc of some param.");
 
 static void
 test_argv(int argc, const char *argv[])
 {
-    ASSERT(argc == 46);
+    ASSERT(argc == 70);
 
     int i = 1;
     ASSERT(strcmp(argv[i++], "-l") == 0);
@@ -143,6 +167,30 @@ test_argv(int argc, const char *argv[])
     ASSERT(strcmp(argv[i++], "v4") == 0);
     ASSERT(strcmp(argv[i++], "-large_bytesize") == 0);
     ASSERT(strcmp(argv[i++], "9999999999") == 0);
+    ASSERT(strcmp(argv[i++], "-oi") == 0);
+    ASSERT(strcmp(argv[i++], "-012") == 0);
+    ASSERT(strcmp(argv[i++], "-ol") == 0);
+    ASSERT(strcmp(argv[i++], "-012") == 0);
+    ASSERT(strcmp(argv[i++], "-oll") == 0);
+    ASSERT(strcmp(argv[i++], "-012") == 0);
+    ASSERT(strcmp(argv[i++], "-ou") == 0);
+    ASSERT(strcmp(argv[i++], "012") == 0);
+    ASSERT(strcmp(argv[i++], "-olu") == 0);
+    ASSERT(strcmp(argv[i++], "012") == 0);
+    ASSERT(strcmp(argv[i++], "-ollu") == 0);
+    ASSERT(strcmp(argv[i++], "012") == 0);
+    ASSERT(strcmp(argv[i++], "-xi") == 0);
+    ASSERT(strcmp(argv[i++], "-0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xl") == 0);
+    ASSERT(strcmp(argv[i++], "-0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xll") == 0);
+    ASSERT(strcmp(argv[i++], "-0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xu") == 0);
+    ASSERT(strcmp(argv[i++], "0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xlu") == 0);
+    ASSERT(strcmp(argv[i++], "0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xllu") == 0);
+    ASSERT(strcmp(argv[i++], "0xa") == 0);
 }
 
 DR_EXPORT void
@@ -202,4 +250,20 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     ASSERT(op_y.get_value_separator() == std::string(" "));
     ASSERT(op_val_sep.get_value_separator() == std::string("+"));
     ASSERT(op_val_sep2.get_value_separator() == std::string("+"));
+
+    /* Test parsing a string of octal digits. */
+    dr_fprintf(STDERR, "param oi = %d\n", op_oi.get_value());
+    dr_fprintf(STDERR, "param ol = %ld\n", op_ol.get_value());
+    dr_fprintf(STDERR, "param oll = %lld\n", op_oll.get_value());
+    dr_fprintf(STDERR, "param ou = %u\n", op_ou.get_value());
+    dr_fprintf(STDERR, "param olu = %lu\n", op_olu.get_value());
+    dr_fprintf(STDERR, "param ollu = %llu\n", op_ollu.get_value());
+
+    /* Test parsing a string of hexadecimal digits. */
+    dr_fprintf(STDERR, "param xi = %d\n", op_xi.get_value());
+    dr_fprintf(STDERR, "param xl = %ld\n", op_xl.get_value());
+    dr_fprintf(STDERR, "param xll = %lld\n", op_xll.get_value());
+    dr_fprintf(STDERR, "param xu = %u\n", op_xu.get_value());
+    dr_fprintf(STDERR, "param xlu = %lu\n", op_xlu.get_value());
+    dr_fprintf(STDERR, "param xllu = %llu\n", op_xllu.get_value());
 }
