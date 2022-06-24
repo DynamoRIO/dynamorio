@@ -245,13 +245,12 @@ main(int argc, const char *argv[])
     config.sb_config.kernel_start = opt_sb_kernel_start.get_value();
 
     /* Convert the pt raw data to DR ir */
-    pt2ir_t *ptconverter = new pt2ir_t();
+    unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
     if (!ptconverter->init(config)) {
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
         return 1;
     }
     if (ptconverter->convert() != PT2IR_CONV_SUCCESS) {
-        delete ptconverter;
         std::cerr << CLIENT_NAME << ": failed to convert pt raw data to DR ir."
                   << std::endl;
         return 1;
@@ -261,6 +260,5 @@ main(int argc, const char *argv[])
         print_stats(ptconverter);
     }
 
-    delete ptconverter;
     return 0;
 }
