@@ -1201,10 +1201,10 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
         entry->extended.ext != OFFLINE_EXT_TYPE_HEADER) {
         return false;
     }
-    int ver = static_cast<int>(entry->extended.valueA);
+    int ver = static_cast<int>(entry->extended.valueB);
     if (version != nullptr)
         *version = ver;
-    offline_file_type_t type = static_cast<offline_file_type_t>(entry->extended.valueB);
+    offline_file_type_t type = static_cast<offline_file_type_t>(entry->extended.valueA);
     if (file_type != nullptr)
         *file_type = type;
     if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {

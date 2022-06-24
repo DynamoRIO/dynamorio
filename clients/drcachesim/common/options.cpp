@@ -170,6 +170,15 @@ droption_t<bool> op_L0_filter(
     "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries "
     "and at thread exit.");
 
+droption_t<bool>
+    op_L0I_filter(DROPTION_SCOPE_CLIENT, "L0I_filter", false,
+                  "Filter out first-level instruction cache hits during tracing",
+                  "Same as L0_filter, but applies only to instruction addresses.");
+
+droption_t<bool> op_L0D_filter(DROPTION_SCOPE_CLIENT, "L0D_filter", false,
+                               "Filter out first-level data cache hits during tracing",
+                               "Same as L0_filter, but applies only to data addresses.");
+
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
     "If -L0_filter, filter out instruction hits during tracing",

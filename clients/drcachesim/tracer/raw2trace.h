@@ -875,7 +875,8 @@ private:
             return "";
         // Filtered and instruction-only traces have no elision.
         if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
-                        OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
+                        OFFLINE_FILE_TYPE_INSTRUCTION_ONLY | OFFLINE_FILE_TYPE_IFILTERED |
+                        OFFLINE_FILE_TYPE_DFILTERED,
                     impl()->get_file_type(tls)))
             return "";
         // Avoid type complaints for 32-bit.
@@ -1041,7 +1042,8 @@ private:
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
         bool instrs_are_separate =
-            TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls));
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                    impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
         // Cast to unsigned pointer-sized int first to avoid sign-extending.
@@ -1392,7 +1394,9 @@ private:
         reg_id_t base;
         int version = impl()->get_version(tls);
         if (memref.use_remembered_base) {
-            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls)));
+            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                                   OFFLINE_FILE_TYPE_DFILTERED,
+                               impl()->get_file_type(tls)));
             bool is_elidable =
                 instru_offline_.opnd_is_elidable(memref.opnd, base, version);
             DR_ASSERT(is_elidable);
@@ -1498,7 +1502,6 @@ private:
             buf->type = TRACE_TYPE_WRITE;
         }
 #endif
-
         *buf_in = ++buf;
         return "";
     }

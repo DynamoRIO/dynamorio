@@ -520,10 +520,8 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
         OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
-    // For raw files, this is currently stored in an 8-bit field.
-    // If we run out of flags we should swap the version to be in valueB and
-    // the flags in valueA, leaving the bottom few bits of valueA for compatibility
-    // with old versions.
+    OFFLINE_FILE_TYPE_IFILTERED = 0x80,
+    OFFLINE_FILE_TYPE_DFILTERED = 0x100,
 } offline_file_type_t;
 
 static inline const char *
