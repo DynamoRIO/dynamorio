@@ -92,29 +92,29 @@ static droption_t<bytesize_t>
                       0, "Param that takes in a large bytesize value",
                       "Longer desc of param that takes in a large bytesize value");
 static droption_t<int> op_oi(DROPTION_SCOPE_CLIENT, "oi", 8, -64, 64, "Some param",
-                              "Longer desc of some param.");
+                             "Longer desc of some param.");
 static droption_t<long> op_ol(DROPTION_SCOPE_CLIENT, "ol", 0L, -64, 64, "Some param",
-                             "Longer desc of some param.");
-static droption_t<long long> op_oll(DROPTION_SCOPE_CLIENT, "oll", 0LL, "Some param",
-                                   "Longer desc of some param.");
-static droption_t<unsigned int> op_ou(DROPTION_SCOPE_CLIENT, "ou", 0, 0,
-                                     64, "Some param", "Longer desc of some param.");
-static droption_t<unsigned long> op_olu(DROPTION_SCOPE_CLIENT, "olu", 0UL, 0, 64,
-                                       "Some param", "Longer desc of some param.");
-static droption_t<unsigned long long> op_ollu(DROPTION_SCOPE_CLIENT, "ollu", 0ULL,
-                                             "Some param", "Longer desc of some param.");
-static droption_t<int> op_xi(DROPTION_SCOPE_CLIENT, "xi", 8, -64, 64, "Some param",
                               "Longer desc of some param.");
-static droption_t<long> op_xl(DROPTION_SCOPE_CLIENT, "xl", 0L, -64, 64, "Some param",
+static droption_t<long long> op_oll(DROPTION_SCOPE_CLIENT, "oll", 0LL, "Some param",
+                                    "Longer desc of some param.");
+static droption_t<unsigned int> op_ou(DROPTION_SCOPE_CLIENT, "ou", 0, 0, 64, "Some param",
+                                      "Longer desc of some param.");
+static droption_t<unsigned long> op_olu(DROPTION_SCOPE_CLIENT, "olu", 0UL, 0, 64,
+                                        "Some param", "Longer desc of some param.");
+static droption_t<unsigned long long> op_ollu(DROPTION_SCOPE_CLIENT, "ollu", 0ULL,
+                                              "Some param", "Longer desc of some param.");
+static droption_t<int> op_xi(DROPTION_SCOPE_CLIENT, "xi", 8, -64, 64, "Some param",
                              "Longer desc of some param.");
+static droption_t<long> op_xl(DROPTION_SCOPE_CLIENT, "xl", 0L, -64, 64, "Some param",
+                              "Longer desc of some param.");
 static droption_t<long long> op_xll(DROPTION_SCOPE_CLIENT, "xll", 0LL, "Some param",
-                                   "Longer desc of some param.");
-static droption_t<unsigned int> op_xu(DROPTION_SCOPE_CLIENT, "xu", 0, 0,
-                                     64, "Some param", "Longer desc of some param.");
+                                    "Longer desc of some param.");
+static droption_t<unsigned int> op_xu(DROPTION_SCOPE_CLIENT, "xu", 0, 0, 64, "Some param",
+                                      "Longer desc of some param.");
 static droption_t<unsigned long> op_xlu(DROPTION_SCOPE_CLIENT, "xlu", 0UL, 0, 64,
-                                       "Some param", "Longer desc of some param.");
+                                        "Some param", "Longer desc of some param.");
 static droption_t<unsigned long long> op_xllu(DROPTION_SCOPE_CLIENT, "xllu", 0ULL,
-                                             "Some param", "Longer desc of some param.");
+                                              "Some param", "Longer desc of some param.");
 
 static void
 test_argv(int argc, const char *argv[])
