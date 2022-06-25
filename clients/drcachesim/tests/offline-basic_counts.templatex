@@ -38,6 +38,8 @@ Total counts:
      .* total function return address markers
      .* total function argument markers
      .* total function return value markers
+     .* total physical address \+ virtual address marker pairs
+     .* total physical address unavailable markers
      .* total other markers
 Thread .* counts:
      .* \(fetched\) instructions
@@ -58,4 +60,6 @@ Thread .* counts:
      .* function return address markers
      .* function argument markers
      .* function return value markers
+     .* physical address \+ virtual address marker pairs
+     .* physical address unavailable markers
      .* other markers
