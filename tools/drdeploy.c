@@ -407,6 +407,9 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
     char list_file[MAXIMUM_PATH];
     size_t sofar = 0;
     const char *arch = IF_X64_ELSE("64", "32");
+    /* clear global tool list on re-read */
+    tool_list[0] = '\0';
+
     if (dr_platform == DR_PLATFORM_32BIT)
         arch = "32";
     else if (dr_platform == DR_PLATFORM_64BIT)
