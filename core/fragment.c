@@ -4321,7 +4321,6 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
     }
 #endif /* HASHTABLE_STATISTICS */
     DOLOG(4, LOG_FRAGMENT, { dump_lookuptable_tls(dcontext); });
-    return;
 }
 
 /**********************************************************************/
