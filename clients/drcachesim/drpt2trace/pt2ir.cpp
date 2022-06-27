@@ -305,6 +305,15 @@ pt2ir_t::convert()
             pt_instr_list_.push_back(insn);
 
             /* TODO i#5505: Use drdecode to decode insn(pt_insn) to instr_t. */
+            instr_t instr;
+            instr_init(GLOBAL_DCONTEXT, &instr);
+            decode(GLOBAL_DCONTEXT, insn.raw, &instr);
+            if (instr_get_opcode(&instr) == OP_INVALID) {
+                ERRMSG("Failed to convert the libipt's IR to Dynamorio's IR.\n");
+                return PT2IR_CONV_CONVERT_ERROR;
+            }
+            ERRMSG("libipt pc %p, DynamoRIO pc %p\n", insn.ip, instr_get_app_pc(&instr));
+            instr_list_.push_back(instr);
         }
     }
     return PT2IR_CONV_SUCCESS;
