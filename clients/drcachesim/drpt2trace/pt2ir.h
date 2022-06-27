@@ -208,10 +208,10 @@ public:
     convert();
 
     /**
-     * Returns the number of instructions in the converted IR.
+     * Returns all converted DynamoRIO IR.
      */
-    uint64_t
-    get_instr_count();
+    instrlist_t *
+    get_instrlist();
 
     /**
      * Print the disassembled text of all valid instructions to STDOUT.
