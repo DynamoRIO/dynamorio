@@ -258,7 +258,6 @@ private:
 
     /* All valid instructions that can be decoded from PT raw trace. */
     std::vector<struct pt_insn> pt_insn_list_;
-
 };
 
 #endif /* _PT2IR_H_ */
