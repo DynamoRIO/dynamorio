@@ -223,23 +223,23 @@ option_init(int argc, const char *argv[])
         print_usage();
         return false;
     }
-    std::vector<droption_parser_t *> requires_op_list;
-    requires_op_list.push_back(&op_raw_pt);
-    requires_op_list.push_back(&op_primary_sb);
+    std::vector<droption_parser_t *> required_op_list;
+    required_op_list.push_back(&op_raw_pt);
+    required_op_list.push_back(&op_primary_sb);
 
-    requires_op_list.push_back(&op_pt_cpu_f);
-    requires_op_list.push_back(&op_pt_cpu_m);
-    requires_op_list.push_back(&op_pt_cpu_s);
-    requires_op_list.push_back(&op_pt_mtc_freq);
-    requires_op_list.push_back(&op_pt_nom_freq);
-    requires_op_list.push_back(&op_pt_cpuid_0x15_eax);
-    requires_op_list.push_back(&op_pt_cpuid_0x15_ebx);
-    requires_op_list.push_back(&op_sb_sample_type);
-    requires_op_list.push_back(&op_sb_time_zero);
-    requires_op_list.push_back(&op_sb_time_shift);
-    requires_op_list.push_back(&op_sb_time_mult);
+    required_op_list.push_back(&op_pt_cpu_f);
+    required_op_list.push_back(&op_pt_cpu_m);
+    required_op_list.push_back(&op_pt_cpu_s);
+    required_op_list.push_back(&op_pt_mtc_freq);
+    required_op_list.push_back(&op_pt_nom_freq);
+    required_op_list.push_back(&op_pt_cpuid_0x15_eax);
+    required_op_list.push_back(&op_pt_cpuid_0x15_ebx);
+    required_op_list.push_back(&op_sb_sample_type);
+    required_op_list.push_back(&op_sb_time_zero);
+    required_op_list.push_back(&op_sb_time_shift);
+    required_op_list.push_back(&op_sb_time_mult);
 
-    for (auto it = requires_op_list.begin(); it != requires_op_list.end(); it++) {
+    for (auto it = required_op_list.begin(); it != required_op_list.end(); it++) {
         if (!(*it)->specified()) {
             std::cerr << CLIENT_NAME << ": option " << (*it)->get_name()
                       << " is required." << std::endl;
