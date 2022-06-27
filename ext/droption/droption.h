@@ -665,10 +665,10 @@ inline bool
 droption_t<int>::convert_from_string(const std::string s)
 {
     errno = 0;
-    /* If we set 0 as the base, strtol() will automatically identify the base of the
-     * number to convert. By default, it will assume the number to be converted is
-     * decimal, and number starting with 0or 0x is assumed to be octal or hexadecimal.
-     */
+    // If we set 0 as the base, strtol() will automatically identify the base of the
+    // number to convert. By default, it will assume the number to be converted is
+    // decimal, and number starting with 0 or 0x is assumed to be octal or hexadecimal.
+    //
     long input = strtol(s.c_str(), NULL, 0);
 
     // strtol returns a long, but this may not always fit into an integer.
@@ -692,8 +692,8 @@ inline bool
 droption_t<long long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    /* If we set 0 as the base, strtoll() will automatically identify the base like
-     * strtol(). */
+    // If we set 0 as the base, strtoll() will automatically identify the base like
+    // strtol().
     value_ = strtoll(s.c_str(), NULL, 0);
     return errno == 0;
 }

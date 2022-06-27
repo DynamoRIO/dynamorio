@@ -205,12 +205,6 @@ public:
     convert();
 
     /**
-     * Returns all converted DynamoRIO IR.
-     */
-    std::vector<instr_t>
-    get_instrlist();
-
-    /**
      * Returns the number of instructions in the converted IR.
      */
     uint64_t
@@ -263,10 +257,8 @@ private:
     struct pt_sb_session *pt_sb_session_;
 
     /* All valid instructions that can be decoded from PT raw trace. */
-    std::vector<struct pt_insn> pt_instr_list_;
+    std::vector<struct pt_insn> pt_insn_list_;
 
-    /* The DynamoRIO's IR list. */
-    std::vector<instr_t> instr_list_;
 };
 
 #endif /* _PT2IR_H_ */
