@@ -122,8 +122,7 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
     /* Parse time synchronization related configuration. */
     sb_pevent_config.tsc_offset = pt2ir_config.sb_config.tsc_offset;
     sb_pevent_config.time_shift = pt2ir_config.sb_config.time_shift;
-    sb_pevent_config.time_mult =
-        pt2ir_config.sb_config.time_mult > 0 ? pt2ir_config.sb_config.time_mult : 1;
+    sb_pevent_config.time_mult = pt2ir_config.sb_config.time_mult;
     sb_pevent_config.time_zero = pt2ir_config.sb_config.time_zero;
 
     /* Parse the start address of the kernel image  */
@@ -302,7 +301,7 @@ pt2ir_t::convert()
                 return PT2IR_CONV_DECODE_NEXT_INSTR_ERROR;
             }
 
-            pt_instr_list_.push_back(insn);
+            pt_insn_list_.push_back(insn);
 
             /* TODO i#5505: Use drdecode to decode insn(pt_insn) to instr_t. */
             instr_t instr;
@@ -319,23 +318,17 @@ pt2ir_t::convert()
     return PT2IR_CONV_SUCCESS;
 }
 
-std::vector<instr_t>
-pt2ir_t::get_instrlist()
-{
-    return instr_list_;
-}
-
 uint64_t
 pt2ir_t::get_instr_count()
 {
-    return pt_instr_list_.size();
+    return pt_insn_list_.size();
 }
 
 void
 pt2ir_t::print_instrs_to_stdout()
 {
     void *dcontext = GLOBAL_DCONTEXT;
-    for (auto pt_instr : pt_instr_list_) {
+    for (auto pt_instr : pt_insn_list_) {
         disassemble_with_info(dcontext, pt_instr.raw, STDOUT, false, false);
     }
 }

@@ -4167,6 +4167,7 @@ endif (BUILD_CLIENTS)
 
 ###########################################################################
 # drpt2trace tests
+# We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
 if (BUILD_CLIENTS)
   if (HAVE_LIBIPT)
     set(drpt2trace_args "-stats"
