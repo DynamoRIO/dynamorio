@@ -171,6 +171,8 @@ Further non-compatibility-affecting changes include:
  - Added dr_register_inject_paths() and a corresponding -use_alt_dll drrun/drconfig
    parameter for control over DynamoRIO library paths, in particular the other
    bitwidth path, when configuring target processes.
+ - Added -tool_dir drrun/drconfig parameter to control where to look for tool
+   config files.
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:

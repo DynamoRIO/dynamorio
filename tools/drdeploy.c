@@ -318,6 +318,7 @@ const char *options_list_str =
 #    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -use_alt_dll <dll> Use the given dll as the alternate-bitwidth DR dll.\n"
+    "       -tool_dir <dir>    Directory containing tool configuration files.\n"
     "       -force             Inject regardless of configuration.\n"
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
     "\n"
@@ -401,17 +402,20 @@ print_tool_list(FILE *stream)
  * install time.  Thus we only expect to have it for a package build.
  */
 static void
-read_tool_list(const char *dr_root, dr_platform_t dr_platform)
+read_tool_list(const char *dr_toolconfig_dir, dr_platform_t dr_platform)
 {
     FILE *f;
     char list_file[MAXIMUM_PATH];
     size_t sofar = 0;
     const char *arch = IF_X64_ELSE("64", "32");
+    /* clear global tool list on re-read */
+    tool_list[0] = '\0';
+
     if (dr_platform == DR_PLATFORM_32BIT)
         arch = "32";
     else if (dr_platform == DR_PLATFORM_64BIT)
         arch = "64";
-    _snprintf(list_file, BUFFER_SIZE_ELEMENTS(list_file), "%s/tools/list%s", dr_root,
+    _snprintf(list_file, BUFFER_SIZE_ELEMENTS(list_file), "%s/list%s", dr_toolconfig_dir,
               arch);
     NULL_TERMINATE_BUFFER(list_file);
     f = fopen_utf8(list_file, "r");
@@ -914,11 +918,11 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
  *   USER_NOTICE=This tool is currently experimental.  Please report issues to <url>.
  */
 static bool
-read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platform,
-               char *client, size_t client_size, char *alt_client, size_t alt_size,
-               char *ops, size_t ops_size, size_t *ops_sofar, char *tool_ops,
-               size_t tool_ops_size, size_t *tool_ops_sofar, char *native_path OUT,
-               size_t native_path_size)
+read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolconfig_dir,
+               dr_platform_t dr_platform, char *client, size_t client_size,
+               char *alt_client, size_t alt_size, char *ops, size_t ops_size,
+               size_t *ops_sofar, char *tool_ops, size_t tool_ops_size,
+               size_t *tool_ops_sofar, char *native_path OUT, size_t native_path_size)
 {
     FILE *f;
     char config_file[MAXIMUM_PATH];
@@ -929,8 +933,8 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
         arch = "32";
     else if (dr_platform == DR_PLATFORM_64BIT)
         arch = "64";
-    _snprintf(config_file, BUFFER_SIZE_ELEMENTS(config_file), "%s/tools/%s.drrun%s",
-              dr_root, toolname, arch);
+    _snprintf(config_file, BUFFER_SIZE_ELEMENTS(config_file), "%s/%s.drrun%s",
+              dr_toolconfig_dir, toolname, arch);
     NULL_TERMINATE_BUFFER(config_file);
     info("reading tool config file %s", config_file);
     f = fopen_utf8(config_file, "r");
@@ -1200,12 +1204,15 @@ _tmain(int argc, TCHAR *targv[])
     char *drlib_alt_path = NULL;
     char custom_dll[MAXIMUM_PATH];
     char custom_alt_dll[MAXIMUM_PATH];
+    char *dr_toolconfig_dir = NULL;
+    char custom_toolconfig_dir[MAXIMUM_PATH];
     int i;
 #ifndef DRINJECT
     size_t j;
 #endif
     char buf[MAXIMUM_PATH];
     char default_root[MAXIMUM_PATH];
+    char default_toolconfig_dir[MAXIMUM_PATH];
     char *c;
 #if defined(DRCONFIG) || defined(DRRUN)
     char native_tool[MAXIMUM_PATH];
@@ -1246,8 +1253,14 @@ _tmain(int argc, TCHAR *targv[])
     dr_root = default_root;
     info("default root: %s", default_root);
 
-    /* we re-read the tool list if the root or platform change */
-    read_tool_list(dr_root, dr_platform);
+    _snprintf(default_toolconfig_dir, BUFFER_SIZE_ELEMENTS(default_toolconfig_dir),
+              "%s/%s", dr_root, "tools");
+    NULL_TERMINATE_BUFFER(default_toolconfig_dir);
+    dr_toolconfig_dir = default_toolconfig_dir;
+    info("default toolconfig dir: %s", default_toolconfig_dir);
+
+    /* we re-read the tool list if the root, platform or toolconfig dir change */
+    read_tool_list(dr_toolconfig_dir, dr_platform);
 
     /* parse command line */
     for (i = 1; i < argc; i++) {
@@ -1301,11 +1314,11 @@ _tmain(int argc, TCHAR *targv[])
 #endif
         else if (strcmp(argv[i], "-32") == 0) {
             dr_platform = DR_PLATFORM_32BIT;
-            read_tool_list(dr_root, dr_platform);
+            read_tool_list(dr_toolconfig_dir, dr_platform);
             continue;
         } else if (strcmp(argv[i], "-64") == 0) {
             dr_platform = DR_PLATFORM_64BIT;
-            read_tool_list(dr_root, dr_platform);
+            read_tool_list(dr_toolconfig_dir, dr_platform);
             continue;
         }
 #if defined(DRRUN) || defined(DRINJECT)
@@ -1404,7 +1417,15 @@ _tmain(int argc, TCHAR *targv[])
             /* support -dr_home alias used by script */
             strcmp(argv[i], "-dr_home") == 0) {
             dr_root = argv[++i];
-            read_tool_list(dr_root, dr_platform);
+            /* Modify the default toolconfig dir only.
+             * If toolconfig dir is specified explicitly, dr_toolconfig_dir points
+             * to other buffer, hence is not affected by overwriting the default.
+             */
+            _snprintf(default_toolconfig_dir,
+                      BUFFER_SIZE_ELEMENTS(default_toolconfig_dir), "%s/%s", dr_root,
+                      "tools");
+            NULL_TERMINATE_BUFFER(default_toolconfig_dir);
+            read_tool_list(dr_toolconfig_dir, dr_platform);
         } else if (strcmp(argv[i], "-logdir") == 0) {
             /* Accept this for compatibility with the old drrun shell script. */
             const char *dir = argv[++i];
@@ -1518,6 +1539,12 @@ _tmain(int argc, TCHAR *targv[])
                               BUFFER_SIZE_ELEMENTS(custom_alt_dll));
             NULL_TERMINATE_BUFFER(custom_alt_dll);
             drlib_alt_path = custom_alt_dll;
+        } else if (strcmp(argv[i], "-tool_dir") == 0) {
+            get_absolute_path(argv[++i], custom_toolconfig_dir,
+                              BUFFER_SIZE_ELEMENTS(custom_toolconfig_dir));
+            NULL_TERMINATE_BUFFER(custom_toolconfig_dir);
+            dr_toolconfig_dir = custom_toolconfig_dir;
+            read_tool_list(dr_toolconfig_dir, dr_platform);
         }
 #if defined(DRRUN) || defined(DRINJECT)
         else if (strcmp(argv[i], "-pidfile") == 0) {
@@ -1585,9 +1612,9 @@ _tmain(int argc, TCHAR *targv[])
                      * cannot be overridden by DR options passed here.
                      * The user must use -c or -client to do that.
                      */
-                    if (!read_tool_file(client, dr_root, dr_platform, client_buf,
-                                        BUFFER_SIZE_ELEMENTS(client_buf), alt_buf,
-                                        BUFFER_SIZE_ELEMENTS(alt_buf), extra_ops,
+                    if (!read_tool_file(client, dr_root, dr_toolconfig_dir, dr_platform,
+                                        client_buf, BUFFER_SIZE_ELEMENTS(client_buf),
+                                        alt_buf, BUFFER_SIZE_ELEMENTS(alt_buf), extra_ops,
                                         BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
                                         single_client_ops,
                                         BUFFER_SIZE_ELEMENTS(single_client_ops),
