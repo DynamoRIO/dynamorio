@@ -1546,7 +1546,7 @@ DR_API
  * Registers a callback function for nudge events.  External entities
  * can nudge a process through the dr_nudge_process() or
  * dr_nudge_pid() drconfig API routines on Windows or using the \p
- * nudgeunix tool on Linux.  A client in this process can use
+ * drnudgeunix tool on Linux.  A client in this process can use
  * dr_nudge_client() to raise a nudge, while a client in another
  * process can use dr_nudge_client_ex().
  *

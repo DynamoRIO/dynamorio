@@ -213,7 +213,7 @@ elseif ("${nudge}" MATCHES "<attach>")
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
 else ()
-  # nudgeunix and drconfig have different syntax:
+  # drnudgeunix and drconfig have different syntax:
   if (WIN32)
     # XXX i#120: expand beyond -client.
     string(REGEX REPLACE "-client" "-nudge_timeout;30000;-nudge_pid;${pid}"
