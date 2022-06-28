@@ -318,7 +318,7 @@ const char *options_list_str =
 #    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -use_alt_dll <dll> Use the given dll as the alternate-bitwidth DR dll.\n"
-    "       -toolsdir <dir>    Directory containing tool configuration files.\n"
+    "       -tool_dir <dir>    Directory containing tool configuration files.\n"
     "       -force             Inject regardless of configuration.\n"
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
     "\n"
@@ -1417,9 +1417,9 @@ _tmain(int argc, TCHAR *targv[])
             /* support -dr_home alias used by script */
             strcmp(argv[i], "-dr_home") == 0) {
             dr_root = argv[++i];
-            /* modify default toolconfig dir only.
+            /* Modify the default toolconfig dir only.
              * If toolconfig dir is specified explicitly, dr_toolconfig_dir points
-             * to other buffer, hence is not affected by overwriting the default
+             * to other buffer, hence is not affected by overwriting the default.
              */
             _snprintf(default_toolconfig_dir,
                       BUFFER_SIZE_ELEMENTS(default_toolconfig_dir), "%s/%s", dr_root,
@@ -1539,7 +1539,7 @@ _tmain(int argc, TCHAR *targv[])
                               BUFFER_SIZE_ELEMENTS(custom_alt_dll));
             NULL_TERMINATE_BUFFER(custom_alt_dll);
             drlib_alt_path = custom_alt_dll;
-        } else if (strcmp(argv[i], "-toolsdir") == 0) {
+        } else if (strcmp(argv[i], "-tool_dir") == 0) {
             get_absolute_path(argv[++i], custom_toolconfig_dir,
                               BUFFER_SIZE_ELEMENTS(custom_toolconfig_dir));
             NULL_TERMINATE_BUFFER(custom_toolconfig_dir);
