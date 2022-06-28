@@ -187,10 +187,16 @@ static droption_t<unsigned long long> op_sb_kernel_start(
  */
 
 static void
-print_stats(IN pt2ir_t *pt_converter)
+print_stats(IN instrlist_t *ilist)
 {
-    std::cout << "Number of Instructions: " << pt_converter->get_instr_count()
-              << std::endl;
+    instr_t *instr = instrlist_first(ilist);
+    uint64_t count = 0;
+    while (instr != NULL) {
+        count++;
+        instr = instr_get_next(instr);
+    }
+    instrlist_disassemble(GLOBAL_DCONTEXT, 0, ilist, STDOUT);
+    std::cout << "Number of Instructions: " << count << std::endl;
 }
 
 /****************************************************************************
@@ -290,21 +296,26 @@ main(int argc, const char *argv[])
     config.sb_config.tsc_offset = op_sb_tsc_offset.get_value();
     config.sb_config.kernel_start = op_sb_kernel_start.get_value();
 
-    /* Convert the pt raw data to DR IR */
+    /* Convert the PT raw trace to DR IR. */
     std::unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
     if (!ptconverter->init(config)) {
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
         return FAILURE;
     }
-    if (ptconverter->convert() != PT2IR_CONV_SUCCESS) {
-        std::cerr << CLIENT_NAME << ": failed to convert pt raw data to DR IR."
+    instrlist_t *ilist = nullptr;
+    pt2ir_convert_status_t status = ptconverter->convert(&ilist);
+    if (status != PT2IR_CONV_SUCCESS) {
+        std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                   << std::endl;
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         return FAILURE;
     }
 
+    /* Print the count of DR IR. */
     if (op_stats.specified()) {
-        print_stats(ptconverter.get());
+        print_stats(ilist);
     }
 
+    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     return SUCCESS;
 }

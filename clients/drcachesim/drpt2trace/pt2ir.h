@@ -201,23 +201,12 @@ public:
      * Returns pt2ir_convert_status_t.
      * \note The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the doctor's IR format
-     * instr_t. If the convertion is successful, the function returns PT2IR_CONV_SUCCESS.
-     * Otherwise, the function returns the corresponding error code.
+     * instr_t and append it to ilist. If the convertion is successful, the function
+     * returns PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding error
+     * code.
      */
     pt2ir_convert_status_t
-    convert();
-
-    /**
-     * Returns all converted DynamoRIO IR.
-     */
-    instrlist_t *
-    get_instrlist();
-
-    /**
-     * Print the disassembled text of all valid instructions to STDOUT.
-     */
-    void
-    print_instrs_to_stdout();
+    convert(OUT instrlist_t **ilist);
 
 private:
     /* Load PT raw file to buffer. The struct pt_insn_decoder will decode this buffer to
@@ -258,9 +247,6 @@ private:
 
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
-
-    /* All valid instructions that can be decoded from PT raw trace. */
-    std::vector<struct pt_insn> pt_insn_list_;
 };
 
 #endif /* _PT2IR_H_ */

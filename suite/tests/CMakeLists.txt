@@ -4172,9 +4172,11 @@ if (BUILD_CLIENTS)
   if (HAVE_LIBIPT)
     set(drpt2trace_args "-stats"
       "-raw_pt"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
       "-primary_sb"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
+      "-secondary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
       "-pt_cpu_f" "6"
       "-pt_cpu_m" "85"
       "-pt_cpu_s" "4"
@@ -4185,7 +4187,7 @@ if (BUILD_CLIENTS)
       "-sb_time_mult" "581029125"
       "-sb_time_zero" "18444502336406842448"
       "-sb_sysroot"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
     torunonly_api(tool.drpt2trace drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.template"
       "" "${drpt2trace_args}" ON OFF)

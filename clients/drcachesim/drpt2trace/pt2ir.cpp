@@ -219,8 +219,13 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
 }
 
 pt2ir_convert_status_t
-pt2ir_t::convert()
+pt2ir_t::convert(OUT instrlist_t **ilist)
 {
+    /* Initializes an empty instruction list to store all DynamoRIO's IR list converted
+     * from PT IR.
+     */
+    *ilist = instrlist_create(GLOBAL_DCONTEXT);
+
     /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
      * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
      * it decodes the trace data.
@@ -301,45 +306,20 @@ pt2ir_t::convert()
                 return PT2IR_CONV_DECODE_NEXT_INSTR_ERROR;
             }
 
-            pt_insn_list_.push_back(insn);
+            /* Use drdecode to decode insn(pt_insn) to instr_t. */
+            instr_t *instr = instr_create(GLOBAL_DCONTEXT);
+            instr_init(GLOBAL_DCONTEXT, instr);
+            decode(GLOBAL_DCONTEXT, insn.raw, instr);
+            instr_set_translation(instr, (app_pc)insn.ip);
+            instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
+            if (instr_get_opcode(instr) == OP_INVALID) {
+                ERRMSG("Failed to convert the libipt's IR to Dynamorio's IR.\n");
+                return PT2IR_CONV_CONVERT_ERROR;
+            }
+            instrlist_append(*ilist, instr);
         }
     }
     return PT2IR_CONV_SUCCESS;
-}
-
-instrlist_t *
-pt2ir_t::get_instrlist()
-{
-    void *dcontext = GLOBAL_DCONTEXT;
-    instrlist *ilist = instrlist_create(dcontext);
-    for (auto pt_instr : pt_insn_list_) {
-        /* TODO i#5505: Use drdecode to decode insn(pt_insn) to instr_t. */
-        instr_t *instr = instr_create(dcontext);
-        instr_init(dcontext, instr);
-        decode(dcontext, insn.raw, instr);
-        if (instr_get_opcode(instr) == OP_INVALID) {
-            ERRMSG("Failed to convert the libipt's IR to Dynamorio's IR.\n");
-            return PT2IR_CONV_CONVERT_ERROR;
-        }
-        instrlist_append(ilist, instr);
-    }
-
-    return ilist;
-}
-
-uint64_t
-pt2ir_t::get_instr_count()
-{
-    return pt_insn_list_.size();
-}
-
-void
-pt2ir_t::print_instrs_to_stdout()
-{
-    void *dcontext = GLOBAL_DCONTEXT;
-    for (auto pt_instr : pt_insn_list_) {
-        disassemble_with_info(dcontext, pt_instr.raw, STDOUT, false, false);
-    }
 }
 
 bool

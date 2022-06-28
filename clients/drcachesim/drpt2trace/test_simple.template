@@ -1,1 +1,10 @@
-Number of Instructions: 59234
+TAG  0x0000000000000000
+ +0    L2                      ba 0e 00 00 00       mov    $0x0000000e -> %edx
+ +5    L2                      b9 00 a0 04 08       mov    $0x0804a000 -> %ecx
+ +10   L2                      bb 01 00 00 00       mov    $0x00000001 -> %ebx
+ +15   L2                      b8 04 00 00 00       mov    $0x00000004 -> %eax
+ +20   L2                      bb 00 00 00 00       mov    $0x00000000 -> %ebx
+ +25   L2                      b8 01 00 00 00       mov    $0x00000001 -> %eax
+END 0x0000000000000000
+
+Number of Instructions: 6
