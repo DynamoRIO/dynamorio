@@ -373,9 +373,9 @@ view_t::process_memref(const memref_t &memref)
         case TRACE_TYPE_INSTR_FLUSH: name = "iflush"; break;
         case TRACE_TYPE_DATA_FLUSH: name = "dflush"; break;
         case TRACE_TYPE_PREFETCH: name = "pref"; break;
-        case TRACE_TYPE_PREFETCH_READ_L1: name = "pref-L1"; break;
-        case TRACE_TYPE_PREFETCH_READ_L2: name = "pref-L2"; break;
-        case TRACE_TYPE_PREFETCH_READ_L3: name = "pref-L3"; break;
+        case TRACE_TYPE_PREFETCH_READ_L1: name = "pref-r-L1"; break;
+        case TRACE_TYPE_PREFETCH_READ_L2: name = "pref-r-L2"; break;
+        case TRACE_TYPE_PREFETCH_READ_L3: name = "pref-r-L3"; break;
         case TRACE_TYPE_PREFETCHNTA: name = "pref-NTA"; break;
         case TRACE_TYPE_PREFETCH_READ: name = "pref-r"; break;
         case TRACE_TYPE_PREFETCH_WRITE: name = "pref-w"; break;
