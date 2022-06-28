@@ -16,6 +16,8 @@ Total counts:
      .* total function return address markers
      .* total function argument markers
      .* total function return value markers
+     .* total physical address \+ virtual address marker pairs
+     .* total physical address unavailable markers
      .* total other markers
 Thread .* counts:
           96 \(fetched\) instructions
@@ -32,6 +34,8 @@ Thread .* counts:
      .* function return address markers
      .* function argument markers
      .* function return value markers
+     .* physical address \+ virtual address marker pairs
+     .* physical address unavailable markers
      .* other markers
 Prefetch operation frequencies:
            2 prefetch_read_l1

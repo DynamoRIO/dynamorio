@@ -78,6 +78,8 @@ protected:
             func_retaddr_markers += rhs.func_retaddr_markers;
             func_arg_markers += rhs.func_arg_markers;
             func_retval_markers += rhs.func_retval_markers;
+            phys_addr_markers += rhs.phys_addr_markers;
+            phys_unavail_markers += rhs.phys_unavail_markers;
             other_markers += rhs.other_markers;
             icache_flushes += rhs.icache_flushes;
             dcache_flushes += rhs.dcache_flushes;
@@ -97,6 +99,8 @@ protected:
         int_least64_t func_retaddr_markers = 0;
         int_least64_t func_arg_markers = 0;
         int_least64_t func_retval_markers = 0;
+        int_least64_t phys_addr_markers = 0;
+        int_least64_t phys_unavail_markers = 0;
         int_least64_t other_markers = 0;
         int_least64_t icache_flushes = 0;
         int_least64_t dcache_flushes = 0;
