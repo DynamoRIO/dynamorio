@@ -68,9 +68,15 @@ pt2ir_t::pt2ir_t()
 
 pt2ir_t::~pt2ir_t()
 {
-    pt_sb_free(pt_sb_session_);
-    pt_iscache_free(pt_iscache_);
-    pt_insn_free_decoder(pt_instr_decoder_);
+    if (pt_sb_session_ != nullptr) {
+        pt_sb_free(pt_sb_session_);
+    }
+    if (pt_iscache_ != nullptr) {
+        pt_iscache_free(pt_iscache_);
+    }
+    if (pt_instr_decoder_ != nullptr) {
+        pt_insn_free_decoder(pt_instr_decoder_);
+    }
     if (pt_raw_buffer_ != nullptr) {
         free(pt_raw_buffer_);
     }
@@ -87,7 +93,6 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
     pt_sb_session_ = pt_sb_alloc(pt_iscache_);
     if (pt_sb_session_ == nullptr) {
         ERRMSG("Failed to allocate sb session.\n");
-        pt_iscache_free(pt_iscache_);
         return false;
     }
 
@@ -137,8 +142,6 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
         sb_primary_config.end = (size_t)0;
         if (!alloc_sb_pevent_decoder(&sb_primary_config)) {
             ERRMSG("Failed to allocate primary sideband perf event decoder.\n");
-            pt_iscache_free(pt_iscache_);
-            pt_sb_free(pt_sb_session_);
             return false;
         }
     }
@@ -153,8 +156,6 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
             sb_secondary_config.end = (size_t)0;
             if (!alloc_sb_pevent_decoder(&sb_secondary_config)) {
                 ERRMSG("Failed to allocate secondary sideband perf event decoder.\n");
-                pt_iscache_free(pt_iscache_);
-                pt_sb_free(pt_sb_session_);
                 return false;
             }
         }
@@ -164,8 +165,6 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
     if (pt2ir_config.kcore_path.size() > 0) {
         if (!load_kernel_image(pt2ir_config.kcore_path)) {
             ERRMSG("Failed to load kernel image: %s\n", pt2ir_config.kcore_path.c_str());
-            pt_iscache_free(pt_iscache_);
-            pt_sb_free(pt_sb_session_);
             return false;
         }
     }
@@ -177,31 +176,23 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
     if (errcode < 0) {
         ERRMSG("Failed to initialize sideband session: %s.\n",
                pt_errstr(pt_errcode(errcode)));
-        pt_iscache_free(pt_iscache_);
-        pt_sb_free(pt_sb_session_);
         return false;
     }
 
     /* Load the PT raw trace file and allocate the instruction decoder.*/
     if (pt2ir_config.raw_file_path.size() == 0) {
         ERRMSG("No PT raw trace file specified.\n");
-        pt_iscache_free(pt_iscache_);
-        pt_sb_free(pt_sb_session_);
         return false;
     }
     if (pt_config.cpu.vendor) {
         int errcode = pt_cpu_errata(&pt_config.errata, &pt_config.cpu);
         if (errcode < 0) {
             ERRMSG("Failed to get cpu errata: %s.\n", pt_errstr(pt_errcode(errcode)));
-            pt_iscache_free(pt_iscache_);
-            pt_sb_free(pt_sb_session_);
             return false;
         }
     }
     if (!load_pt_raw_file(pt2ir_config.raw_file_path)) {
         ERRMSG("Failed to load trace file: %s.\n", pt2ir_config.raw_file_path.c_str());
-        pt_iscache_free(pt_iscache_);
-        pt_sb_free(pt_sb_session_);
         return false;
     }
     pt_config.begin = static_cast<uint8_t *>(pt_raw_buffer_);
@@ -209,9 +200,6 @@ pt2ir_t::init(IN const pt2ir_config_t pt2ir_config)
     pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
     if (pt_instr_decoder_ == nullptr) {
         ERRMSG("Failed to create libipt instruction decoder.\n");
-        free(pt_raw_buffer_);
-        pt_iscache_free(pt_iscache_);
-        pt_sb_free(pt_sb_session_);
         return false;
     }
 
