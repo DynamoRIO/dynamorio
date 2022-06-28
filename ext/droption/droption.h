@@ -716,14 +716,48 @@ template <>
 inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
+    // Checks if the first non-space character of a string is a negative sign. If it is,
+    // it is invalid.
+    const char *str = s.c_str();
+    const char *startptr = &str[0];
+    for (int i = 0; i < (int)s.size(); i++) {
+        char c = str[i];
+        if (c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\v' || c == '\f') {
+            continue;
+        } else {
+            startptr = &str[i];
+            break;
+        }
+    }
+    if (*startptr == '-') {
+        return false;
+    }
+
     errno = 0;
-    value_ = strtoul(s.c_str(), NULL, 0);
+    value_ = strtoul(startptr, NULL, 0);
     return errno == 0;
 }
 template <>
 inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
+    // Checks if the first non-space character of a string is a negative sign. If it is,
+    // it is invalid.
+    const char *str = s.c_str();
+    const char *startptr = &str[0];
+    for (int i = 0; i < (int)s.size(); i++) {
+        char c = str[i];
+        if (c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\v' || c == '\f') {
+            continue;
+        } else {
+            startptr = &str[i];
+            break;
+        }
+    }
+    if (*startptr == '-') {
+        return false;
+    }
+
     errno = 0;
     value_ = strtoull(s.c_str(), NULL, 0);
     return errno == 0;
