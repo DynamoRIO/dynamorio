@@ -976,7 +976,6 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
             alt_client[alt_size - 1] = '\0';
             if (!does_file_exist(alt_client)) {
                 alt_client[0] = '\0';
-                continue;
             }
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
@@ -1003,7 +1002,6 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
                     alt_size);
             if (!does_file_exist(alt_client)) {
                 alt_client[0] = '\0';
-                continue;
             }
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
