@@ -331,7 +331,7 @@ pt2ir_t::load_pt_raw_file(IN std::string &path)
         ERRMSG("Failed to open trace file: %s.\n", path.c_str());
         return false;
     }
-    f.read(reinterpret_cast<char*>(pt_raw_buffer_.get()), pt_raw_buffer_size_);
+    f.read(reinterpret_cast<char *>(pt_raw_buffer_.get()), pt_raw_buffer_size_);
     if (f.fail()) {
         ERRMSG("Failed to read trace file: %s.\n", path.c_str());
         return false;

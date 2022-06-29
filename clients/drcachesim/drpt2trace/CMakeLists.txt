@@ -87,7 +87,6 @@ add_library(drpt2ir STATIC ${drpt2ir_srcs})
 configure_DynamoRIO_decoder(drpt2ir)
 add_dependencies(drpt2ir ipt ipt-sb ipt-ext api_headers)
 target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
-
 install_client_nonDR_header(drmemtrace pt2ir.h)
 
 # TODO i#5505: Currently, drpt2trace only counts instructions.
