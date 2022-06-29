@@ -103,8 +103,8 @@ make_header()
     offline_entry_t entry;
     entry.extended.type = OFFLINE_TYPE_EXTENDED;
     entry.extended.ext = OFFLINE_EXT_TYPE_HEADER;
-    entry.extended.valueA = OFFLINE_FILE_VERSION;
-    entry.extended.valueB = OFFLINE_FILE_TYPE_DEFAULT;
+    entry.extended.valueA = OFFLINE_FILE_TYPE_DEFAULT;
+    entry.extended.valueB = OFFLINE_FILE_VERSION;
     return entry;
 }
 
