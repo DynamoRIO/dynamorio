@@ -60,22 +60,27 @@
  */
 enum pt2ir_convert_status_t {
     PT2IR_CONV_SUCCESS = 0,       /**< The conversion process is successful. */
-    PT2IR_CONV_SYNC_PACKET_ERROR, /**< The conversion process ends with a failure to sync
+    PT2IR_CONV_ERROR_SYNC_PACKET, /**< The conversion process ends with a failure to sync
                                    *   to the PSB packet.
                                    */
-    PT2IR_CONV_HANDLE_SIDEBAND_EVENT_ERROR, /**< The conversion process ends with a
+    PT2IR_CONV_ERROR_HANDLE_SIDEBAND_EVENT, /**< The conversion process ends with a
                                              *   failure to handle a perf event.
                                              */
-    PT2IR_CONV_GET_PENDING_EVENT_ERROR, /**< The conversion process ends with a failure to
+    PT2IR_CONV_ERROR_GET_PENDING_EVENT, /**< The conversion process ends with a failure to
                                          *   get the pending event.
                                          */
-    PT2IR_CONV_SET_IMAGE_ERROR, /**< The conversion process ends with a failure to set the
+    PT2IR_CONV_ERROR_SET_IMAGE, /**< The conversion process ends with a failure to set the
                                  *   new image.
                                  */
-    PT2IR_CONV_DECODE_NEXT_INSTR_ERROR /**< The conversion process ends with a failure to
+    PT2IR_CONV_ERROR_DECODE_NEXT_INSTR /**< The conversion process ends with a failure to
                                         *   decode the next intruction.
                                         */
 };
+
+/**
+ * The type of the cpu vendor.
+ */
+enum cpu_vendor_t { CPU_VENDOR_UNKNOWN = 0, CPU_VENDOR_INTEL };
 
 /**
  * The struct pt2ir_config_t is a collection of one PT trace's configurations. drpt2trace
@@ -89,19 +94,23 @@ struct pt2ir_config_t {
      * these parameters. We can get these parameters by running
      * libipt/scirpts/perf-get-opts.bash.
      */
+    /**
+     * The libipt config of PT raw trace. We can get these parameters by running
+     * libipt/scirpts/perf-get-opts.bash.
+     */
     struct {
-        /* A cpu identifier.*/
+        /* A cpu identifier. */
         struct {
-            /* The vendor of the cpu(0 for unknown, 1 for Intel). */
-            uint8_t vendor;
+            /* The vendor of the cpu. */
+            cpu_vendor_t vendor;
 
-            /* The cpu family, model and stepping */
+            /* The cpu family, model and stepping. */
             uint16_t family;
             uint8_t model;
             uint8_t stepping;
         } cpu;
 
-        /* cpuid_0x15_eax and cpuid_0x15_ebx represent the CTC frequency*/
+        /* cpuid_0x15_eax and cpuid_0x15_ebx represent the CTC frequency. */
         uint32_t cpuid_0x15_eax;
         uint32_t cpuid_0x15_ebx;
 
@@ -110,9 +119,7 @@ struct pt2ir_config_t {
 
         /* The nominal frequency. */
         uint8_t nom_freq;
-    } pt_config; /**< The libipt config of PT raw trace. We can get these parameters by
-                  *   running libipt/scirpts/perf-get-opts.bash.
-                  */
+    } pt_config;
 
     std::string raw_file_path; /**< The PT raw trace file path. */
 
@@ -122,7 +129,7 @@ struct pt2ir_config_t {
      * libipt/scirpts/perf-get-opts.bash.
      */
     struct {
-        /* perf_event_attr.sample_type */
+        /* The value of perf_event_attr.sample_type. */
         uint64_t sample_type;
 
         /* The start address of kernel. The sideband session use it to distinguish kernel
@@ -187,17 +194,17 @@ public:
     ~pt2ir_t();
 
     /**
-     * Returns TRUE if the pt2ir_t is successfully initialized. Returns FALSE on failure.
+     * Returns true if the pt2ir_t is successfully initialized. Returns false on failure.
      * \note Parse struct pt2ir_config_t and initialize PT instruction decoder, the
      * sideband session, and images caches.
      */
     bool
-    init(IN const pt2ir_config_t pt2ir_config);
+    init(IN pt2ir_config_t &pt2ir_config);
 
     /**
      * Returns pt2ir_convert_status_t.
      * \note The convert function performs two processes: (1) decode the PT raw trace into
-     * libipt's IR format pt_insn; (2) convert pt_insn into the doctor's IR format
+     * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
      * instr_t. If the convertion is successful, the function returns PT2IR_CONV_SUCCESS.
      * Otherwise, the function returns the corresponding error code.
      */
@@ -221,7 +228,7 @@ private:
      * libipt's IR.
      */
     bool
-    load_pt_raw_file(IN std::string path);
+    load_pt_raw_file(IN std::string &path);
 
     /* Load the elf section in kcore to sideband session iscache and store the section
      * index to sideband kimage.
@@ -229,11 +236,12 @@ private:
      * information.
      */
     bool
-    load_kernel_image(IN std::string path);
+    load_kernel_image(IN std::string &path);
 
     /* Allocate a sideband decoder in the sideband session. The sideband session may
      * allocate many decoders, which mainly work on handling sideband perf records and
-     * help the PT decoder switch images. */
+     * help the PT decoder switch images.
+     */
     bool
     alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config *config);
 

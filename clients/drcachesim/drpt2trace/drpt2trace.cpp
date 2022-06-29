@@ -278,9 +278,9 @@ main(int argc, const char *argv[])
     config.pt_config.cpu.model = op_pt_cpu_model.get_value();
     config.pt_config.cpu.stepping = op_pt_cpu_stepping.get_value();
     if (op_pt_cpu_family.get_value() != 0) {
-        config.pt_config.cpu.vendor = 1;
+        config.pt_config.cpu.vendor = CPU_VENDOR_INTEL;
     } else {
-        config.pt_config.cpu.vendor = 0;
+        config.pt_config.cpu.vendor = CPU_VENDOR_UNKNOWN;
     }
     config.pt_config.cpuid_0x15_eax = op_pt_cpuid_0x15_eax.get_value();
     config.pt_config.cpuid_0x15_ebx = op_pt_cpuid_0x15_ebx.get_value();
@@ -294,7 +294,7 @@ main(int argc, const char *argv[])
     config.sb_config.tsc_offset = op_sb_tsc_offset.get_value();
     config.sb_config.kernel_start = op_sb_kernel_start.get_value();
 
-    /* Convert the pt raw data to DR IR */
+    /* Convert the pt raw data to DR IR. */
     std::unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
     if (!ptconverter->init(config)) {
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
