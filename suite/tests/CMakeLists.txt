@@ -1397,7 +1397,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
       if (UNIX)
-        get_target_path_for_execution(toolbindir nudgeunix "${location_suffix}")
+        get_target_path_for_execution(toolbindir drnudgeunix "${location_suffix}")
       else ()
         get_target_path_for_execution(toolbindir drconfig "${location_suffix}")
       endif ()
@@ -4177,9 +4177,9 @@ if (BUILD_CLIENTS)
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
       "-secondary_sb"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
-      "-pt_cpu_f" "6"
-      "-pt_cpu_m" "85"
-      "-pt_cpu_s" "4"
+      "-pt_cpu_family" "6"
+      "-pt_cpu_model" "85"
+      "-pt_cpu_stepping" "4"
       "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
       "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308"
       "-sb_sample_type" "0x10086"

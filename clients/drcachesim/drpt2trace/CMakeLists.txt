@@ -32,6 +32,10 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../../make/policies.cmake NO_POLICY_SCOPE)
 
+if (NOT LINUX OR NOT X86 OR NOT X64)
+  message(FATAL_ERROR "This is only for Linux x86_64.")
+endif ()
+
 # Add libipt to build system. For kernel traces decoding,
 # we need to activate SIDEBAND, PEVENT and FEATURE_ELF.
 # XXX: libipt does not use the CMake export mechanism for modular separation.
@@ -83,6 +87,7 @@ add_library(drpt2ir STATIC ${drpt2ir_srcs})
 configure_DynamoRIO_decoder(drpt2ir)
 add_dependencies(drpt2ir ipt ipt-sb ipt-ext api_headers)
 target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
+install_client_nonDR_header(drmemtrace pt2ir.h)
 
 # TODO i#5505: Currently, drpt2trace only counts instructions.
 # In the future, we will add support for converting pt trace to memref_t.
