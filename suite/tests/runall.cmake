@@ -40,7 +40,7 @@
 # * toolbindir
 # * out = file where output of background process will be sent
 # * pidfile = file where the pid of the background process will be written
-# * nudge = arguments to nudgeunix or drconfig
+# * nudge = arguments to drnudgeunix or drconfig
 # * clear = dir to clear ahead of time
 
 # intra-arg space=@@ and inter-arg space=@
@@ -80,7 +80,7 @@ if (UNIX)
   if (NOT SLEEP)
     message(FATAL_ERROR "cannot find 'sleep'")
   endif ()
-  set(nudge_cmd nudgeunix)
+  set(nudge_cmd drnudgeunix)
 else (UNIX)
   # We use "ping" on Windows to "sleep" :)
   find_program(PING "ping")
@@ -213,7 +213,7 @@ elseif ("${nudge}" MATCHES "<attach>")
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
 else ()
-  # nudgeunix and drconfig have different syntax:
+  # drnudgeunix and drconfig have different syntax:
   if (WIN32)
     # XXX i#120: expand beyond -client.
     string(REGEX REPLACE "-client" "-nudge_timeout;30000;-nudge_pid;${pid}"
