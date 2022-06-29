@@ -5,8 +5,8 @@ Total counts:
      .* total unique \(fetched\) instructions
      .* total non-fetched instructions
      .* total prefetches
-     .* total data loads
-     .* total data stores
+           0 total data loads
+           0 total data stores
      .* total icache flushes
      .* total dcache flushes
            1 total threads
@@ -22,8 +22,8 @@ Thread .* counts:
      .* unique \(fetched\) instructions
      .* non-fetched instructions
      .* prefetches
-     .* data loads
-     .* data stores
+           0 data loads
+           0 data stores
      .* icache flushes
      .* dcache flushes
      .* scheduling markers
