@@ -267,19 +267,18 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     dr_fprintf(STDERR, "param xul = %lu\n", op_xul.get_value());
     dr_fprintf(STDERR, "param xull = %llu\n", op_xull.get_value());
 
-    // Test parsing a string of negetive digits. These tests are used to check whether the
+    // Test parsing a string of negative digits. These tests are used to check whether the
     // unsigned option can recognize negative input and output an error.
     std::vector<droption_parser_t *> negtive_test_options;
     negtive_test_options.push_back(static_cast<droption_parser_t *>(&op_ou));
     negtive_test_options.push_back(static_cast<droption_parser_t *>(&op_oul));
     negtive_test_options.push_back(static_cast<droption_parser_t *>(&op_oull));
-    const char *negetive_test_args[3] = { "", "", "" };
+    const char *negative_test_args[3] = { "", "", "   -1" };
     std::string parse_err;
     for (auto op : negtive_test_options) {
         std::string op_name = "-" + op->get_name();
-        negetive_test_args[1] = op_name.c_str();
-        negetive_test_args[2] = "   -1";
-        ok = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, 3, negetive_test_args,
+        negative_test_args[1] = op_name.c_str();
+        ok = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, 3, negative_test_args,
                                            &parse_err, NULL);
         ASSERT(!ok);
         dr_fprintf(STDERR, "%s\n", parse_err.c_str());

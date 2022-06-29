@@ -371,6 +371,8 @@ protected:
     convert_from_string(const std::string s1, const std::string s2) = 0;
     virtual bool
     clamp_value() = 0;
+    virtual bool
+    is_negative_input(const std::string &s) = 0;
     virtual std::string
     default_as_string() const = 0;
     virtual void
@@ -571,6 +573,23 @@ protected:
     }
 
     bool
+    is_negative_input(const std::string &s) override
+    {
+        // Checks if the first non-space character of a string is a negative sign.
+        for (size_t i = 0; i < s.size(); i++) {
+            // XXX: The function isspace() only identify ASCII whitespace characters. We
+            // should implement one function that can support non-ASCII whitespace
+            // characters.
+            if (isspace(s[i]))
+                continue;
+            if (s[i] == '-')
+                return true;
+            break;
+        }
+        return false;
+    }
+
+    bool
     option_takes_arg() const override;
     bool
     option_takes_2args() const override;
@@ -691,8 +710,7 @@ inline bool
 droption_t<long long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    // If we set 0 as the base, strtoll() will automatically identify the base like
-    // strtol().
+    // If we set 0 as the base, strtoll() will automatically identify the base.
     value_ = strtoll(s.c_str(), NULL, 0);
     return errno == 0;
 }
@@ -714,17 +732,8 @@ template <>
 inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
-    // Checks if the first non-space character of a string is a negative sign. If it is,
-    // the input string is invalid.
-    for (size_t i = 0; i < s.size(); i++) {
-        // XXX: The function isspace() only identify ASCII whitespace characters. We
-        // should implement one function that can support non-ASCII whitespace characters.
-        if (isspace(s[i]))
-            continue;
-        if (s[i] == '-')
-            return false;
-        break;
-    }
+    if (is_negative_input(s))
+        return false;
 
     errno = 0;
     value_ = strtoul(s.c_str(), NULL, 0);
@@ -734,17 +743,8 @@ template <>
 inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
-    // Checks if the first non-space character of a string is a negative sign. If it is,
-    // the input string is invalid.
-    for (size_t i = 0; i < s.size(); i++) {
-        // XXX: The function isspace() only identify ASCII whitespace characters. We
-        // should implement one function that can support non-ASCII whitespace characters.
-        if (isspace(s[i]))
-            continue;
-        if (s[i] == '-')
-            return false;
-        break;
-    }
+    if (is_negative_input(s))
+        return false;
 
     errno = 0;
     value_ = strtoull(s.c_str(), NULL, 0);
