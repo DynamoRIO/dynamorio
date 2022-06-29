@@ -53,7 +53,7 @@ create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask, client_id_t c
                             uint64 client_arg);
 
 static const char *usage_str =
-    "usage: nudgeunix [-help] [-v] [-pid <pid>] [-type <type>] [-client <ID> <arg>]\n"
+    "usage: drnudgeunix [-help] [-v] [-pid <pid>] [-type <type>] [-client <ID> <arg>]\n"
     "       -help              Display this usage information\n"
     "       -v                 Display version information\n"
     "       -pid <pid>         Nudge the process with id <pid>\n"
@@ -94,7 +94,7 @@ main(int argc, const char *argv[])
         if (strcmp(argv[arg_offs], "-help") == 0) {
             return usage();
         } else if (strcmp(argv[arg_offs], "-v") == 0) {
-            printf("nudgeunix version %s -- build %d\n", STRINGIFY(VERSION_NUMBER),
+            printf("drnudgeunix version %s -- build %d\n", STRINGIFY(VERSION_NUMBER),
                    BUILD_NUMBER);
             exit(0);
         } else if (strcmp(argv[arg_offs], "-pid") == 0) {
