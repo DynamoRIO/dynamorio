@@ -36,12 +36,13 @@
 #define _PT2IR_H_ 1
 
 /**
- * @file drpt2trace/pt2ir.h
+ * @file drmemtrace/pt2ir.h
  * @brief Offline PT raw trace converter.
  */
 
 #include <string>
 #include <vector>
+#include <memory>
 #define DR_FAST_IR 1
 #include "dr_api.h"
 
@@ -78,105 +79,149 @@ enum pt2ir_convert_status_t {
 };
 
 /**
- * The type of the cpu vendor.
+ * The types of the CPU vendor.
  */
-enum cpu_vendor_t { CPU_VENDOR_UNKNOWN = 0, CPU_VENDOR_INTEL };
+enum pt_cpu_vendor_t {
+    /**
+     * The CPU vendor is unknown.
+     */
+    CPU_VENDOR_UNKNOWN = 0,
+
+    /**
+     * The CPU vendor is Intel.
+     */
+    CPU_VENDOR_INTEL
+};
+
+/**
+ * The types of the CPU model.
+ */
+struct pt_cpu_t {
+    pt_cpu_vendor_t vendor; /**< The vendor of the CPU. */
+    uint16_t family;        /**< The CPU family. */
+    uint8_t model;          /**< The CPU mode;. */
+    uint8_t stepping;       /**< The CPU stepping. */
+};
+
+/**
+ * The type of PT raw trace's libipt config.
+ * \note The class pt2ir_t does not want to expose libipt to the upper layer. So we
+ * redefine some configurations of libipt decoder in pt_config. The libipt pt decoder
+ * requires these parameters. We can get these parameters by running
+ * libipt/scirpts/perf-get-opts.bash.
+ */
+struct pt_config_t {
+    pt_cpu_t cpu; /**< The CPU identifier. */
+
+    /**
+     * The value of cpuid[0x15].eax. It represent the CTC frequency.
+     */
+    uint32_t cpuid_0x15_eax;
+
+    /**
+     * The value of cpuid[0x15].ebx. It represent the CTC frequency.
+     */
+    uint32_t cpuid_0x15_ebx;
+    uint8_t mtc_freq; /**< The MTC frequency. */
+    uint8_t nom_freq; /**< The nominal frequency. */
+};
+
+/**
+ * The type of PT raw trace's libipt-sb config.
+ * \note The class pt2ir_t does not want to expose libipt-sb to the upper layer too.
+ * So we redefine some configurations of libipt-sb in sb_config. The libipt-sb
+ * sideband session requires these parameters. We can get these parameters by running
+ * libipt/scirpts/perf-get-opts.bash.
+ */
+struct pt_sb_config_t {
+    /**
+     * The value of perf_event_attr.sample_type.
+     */
+    uint64_t sample_type;
+
+    /**
+     * The start address of kernel. The sideband session use it to distinguish kernel
+     * from user addresses: user < kernel_start < kernel.
+     */
+    uint64_t kernel_start;
+
+    /**
+     * The sysroot is used for remote trace decoding. If the image locates at
+     * /path/to/image in remote machine, it will load it from ${sysroot}/path/to/image
+     * in local machine.
+     */
+    std::string sysroot;
+
+    /**
+     * The time shift. It is used to synchronize trace time, and the sideband recodes
+     * time.
+     * \note time_shift = perf_event_mmap_page.ttime_shift
+     */
+    uint16_t time_shift;
+
+    /**
+     * The time multiplier. It is used to synchronize trace time, and the sideband
+     * recodes time.
+     * \note time_mult = perf_event_mmap_page.time_mult
+     */
+    uint32_t time_mult;
+
+    /**
+     * The time zero. It is used to synchronize trace time, and the sideband recodes
+     * time.
+     * \note time_zero = perf_event_mmap_page.time_zero
+     */
+    uint64_t time_zero;
+
+    /* If the trace contains coarse timing information, the sideband events may be
+     * applied too late to cause "no memory mmapped at this address" issue. To set the
+     * tsc_offset can fix the issue.
+     * \note XXX: The libipt documentation said we need to set a suitable value for
+     * tsc_offset. But it didn't give a method to get a suitable value. So we may need
+     * to find a way to generate the suitable tsc_offset.
+     */
+    uint64_t tsc_offset;
+};
 
 /**
  * The struct pt2ir_config_t is a collection of one PT trace's configurations. drpt2trace
  * and raw2trace can use it to construct pt2ir_t.
- * XXX: Multiple PT raw traces for a process will share one kcore dump file. We may need a
- * kernel image manager to avoid loading the same dump file many times.
+ * \note XXX: Multiple PT raw traces for a process will share one kcore dump file. We may
+ * need a kernel image manager to avoid loading the same dump file many times.
  */
 struct pt2ir_config_t {
-    /* The class pt2ir_t does not want to expose libipt to the upper layer. So we redefine
-     * some configurations of libipt decoder in pt_config. The libipt pt decoder requires
-     * these parameters. We can get these parameters by running
-     * libipt/scirpts/perf-get-opts.bash.
-     */
     /**
-     * The libipt config of PT raw trace. We can get these parameters by running
-     * libipt/scirpts/perf-get-opts.bash.
+     * The libipt config of PT raw trace.
      */
-    struct {
-        /* A cpu identifier. */
-        struct {
-            /* The vendor of the cpu. */
-            cpu_vendor_t vendor;
+    pt_config_t pt_config;
 
-            /* The cpu family, model and stepping. */
-            uint16_t family;
-            uint8_t model;
-            uint8_t stepping;
-        } cpu;
-
-        /* cpuid_0x15_eax and cpuid_0x15_ebx represent the CTC frequency. */
-        uint32_t cpuid_0x15_eax;
-        uint32_t cpuid_0x15_ebx;
-
-        /* The MTC frequency. */
-        uint8_t mtc_freq;
-
-        /* The nominal frequency. */
-        uint8_t nom_freq;
-    } pt_config;
-
-    std::string raw_file_path; /**< The PT raw trace file path. */
-
-    /* The class pt2ir_t does not want to expose libipt-sb to the upper layer too. So we
-     * redefine some configurations of libipt-sb in sb_config. The libipt-sb sideband
-     * session requires these parameters. We can get these parameters by running
-     * libipt/scirpts/perf-get-opts.bash.
+    /**
+     * The PT raw trace file path.
      */
-    struct {
-        /* The value of perf_event_attr.sample_type. */
-        uint64_t sample_type;
+    std::string raw_file_path;
 
-        /* The start address of kernel. The sideband session use it to distinguish kernel
-         * from user addresses: kernel >= @kernel_start user   <  @kernel_start
-         */
-        uint64_t kernel_start;
-
-        /* The sysroot is used for remote trace decoding. If the image locates at
-         * /path/to/image in remote machine, it will load it from ${sysroot}/path/to/image
-         * in local machine.
-         */
-        std::string sysroot;
-
-        /* The values of time_shift, time_mult, and time_zero are used to synchronize
-         * trace time, and the sideband recodes time.
-         *
-         *   time_shift = perf_event_mmap_page.ttime_shift
-         *   time_mult = perf_event_mmap_page.time_mult
-         *   time_zero = perf_event_mmap_page.time_zero
-         */
-        uint16_t time_shift;
-        uint32_t time_mult;
-        uint64_t time_zero;
-
-        /* If the trace contains coarse timing information, the sideband events may be
-         * applied too late to cause "no memory mmapped at this address" issue. To set the
-         * tsc_offset can fix the issue.
-         * XXX: The libipt documentation said we need to set a suitable value for
-         * tsc_offset. But it didn't give a method to get a suitable value. So we may need
-         * to find a way to generate the suitable tsc_offset.
-         */
-        uint64_t tsc_offset;
-    } sb_config; /**< The libipt-sb config of PT raw trace. We can get these parameters by
-                  *   running libipt/scirpts/perf-get-opts.bash.
-                  */
-
-    /* sb_primary_file_path is the path of the primary sideband file.
-     * sb_secondary_file_path_list is a list of paths to secondary sideband files.
-     * The sideband primary file and secondary files are stored perf event records. A
-     * primary sideband file contain perf event records for the traced cpu.  A secondary
-     * sideband contain perf event records for other cpus on the system.
+    /**
+     * The libipt-sb config of PT raw trace.
      */
-    std::string sb_primary_file_path; /**< The sideband primary file of PT raw trace. */
-    std::vector<std::string>
-        sb_secondary_file_path_list; /**< The sideband secondary file of PT raw trace. */
+    pt_sb_config_t sb_config;
 
-    std::string kcore_path; /**< The path of the kernel dump file. */
+    /**
+     * The primary sideband file path. A primary sideband file contains perf event records
+     * for the traced CPU.
+     */
+    std::string sb_primary_file_path;
+
+    /**
+     * The secondary sideband file paths of PT raw trace. A secondary sideband file
+     * contains perf event records for other CPUs on the system.
+     */
+    std::vector<std::string> sb_secondary_file_path_list;
+
+    /**
+     * The path of the kernel dump file. The kernel dump file is used to decode the kernel
+     * PT raw trace.
+     */
+    std::string kcore_path;
 };
 
 struct pt_image_section_cache;
@@ -232,7 +277,7 @@ private:
 
     /* Load the elf section in kcore to sideband session iscache and store the section
      * index to sideband kimage.
-     * XXX: Could we not use kcore? We can store all kernel modules and the mapping
+     * \note XXX: Could we not use kcore? We can store all kernel modules and the mapping
      * information.
      */
     bool
@@ -252,7 +297,7 @@ private:
     dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
 
     /* Buffer for caching the PT raw trace. */
-    void *pt_raw_buffer_;
+    std::unique_ptr<unsigned char> pt_raw_buffer_;
     size_t pt_raw_buffer_size_;
 
     /* The libipt instruction decoder. */

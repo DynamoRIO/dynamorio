@@ -58,7 +58,7 @@ extern "C" {
     } while (0)
 
 pt2ir_t::pt2ir_t()
-    : pt_raw_buffer_(nullptr)
+    : pt_raw_buffer_(std::unique_ptr<unsigned char>(nullptr))
     , pt_raw_buffer_size_(0)
     , pt_instr_decoder_(nullptr)
     , pt_iscache_(nullptr)
@@ -68,18 +68,12 @@ pt2ir_t::pt2ir_t()
 
 pt2ir_t::~pt2ir_t()
 {
-    if (pt_sb_session_ != nullptr) {
+    if (pt_sb_session_ != nullptr)
         pt_sb_free(pt_sb_session_);
-    }
-    if (pt_iscache_ != nullptr) {
+    if (pt_iscache_ != nullptr)
         pt_iscache_free(pt_iscache_);
-    }
-    if (pt_instr_decoder_ != nullptr) {
+    if (pt_instr_decoder_ != nullptr)
         pt_insn_free_decoder(pt_instr_decoder_);
-    }
-    if (pt_raw_buffer_ != nullptr) {
-        free(pt_raw_buffer_);
-    }
 }
 
 bool
@@ -179,7 +173,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         return false;
     }
 
-    /* Load the PT raw trace file and allocate the instruction decoder.*/
+    /* Load the PT raw trace file and allocate the instruction decoder. */
     if (pt2ir_config.raw_file_path.empty()) {
         ERRMSG("No PT raw trace file specified.\n");
         return false;
@@ -195,8 +189,8 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         ERRMSG("Failed to load trace file: %s.\n", pt2ir_config.raw_file_path.c_str());
         return false;
     }
-    pt_config.begin = static_cast<uint8_t *>(pt_raw_buffer_);
-    pt_config.end = static_cast<uint8_t *>(pt_raw_buffer_) + pt_raw_buffer_size_;
+    pt_config.begin = static_cast<uint8_t *>(pt_raw_buffer_.get());
+    pt_config.end = static_cast<uint8_t *>(pt_raw_buffer_.get()) + pt_raw_buffer_size_;
     pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
     if (pt_instr_decoder_ == nullptr) {
         ERRMSG("Failed to create libipt instruction decoder.\n");
@@ -247,7 +241,7 @@ pt2ir_t::convert()
              * the instruction trace. For example, if a mmap2 event happens, we need to
              * switch the cached image.
              */
-            while (nextstatus & pts_event_pending != 0) {
+            while ((nextstatus & pts_event_pending) != 0) {
                 struct pt_event event;
 
                 nextstatus = pt_insn_event(pt_instr_decoder_, &event, sizeof(event));
@@ -280,9 +274,8 @@ pt2ir_t::convert()
                     return PT2IR_CONV_ERROR_SET_IMAGE;
                 }
             }
-            if (nextstatus & pts_eos != 0) {
+            if ((nextstatus & pts_eos) != 0)
                 break;
-            }
 
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
@@ -332,13 +325,13 @@ pt2ir_t::load_pt_raw_file(IN std::string &path)
     }
     pt_raw_buffer_size_ = static_cast<size_t>(fstat.st_size);
 
-    pt_raw_buffer_ = new uint8_t[pt_raw_buffer_size_];
+    pt_raw_buffer_ = std::unique_ptr<unsigned char>(new uint8_t[pt_raw_buffer_size_]);
     std::ifstream f(path, std::ios::binary | std::ios::in);
     if (!f.is_open()) {
         ERRMSG("Failed to open trace file: %s.\n", path.c_str());
         return false;
     }
-    f.read(static_cast<char *>(pt_raw_buffer_), pt_raw_buffer_size_);
+    f.read(reinterpret_cast<char*>(pt_raw_buffer_.get()), pt_raw_buffer_size_);
     if (f.fail()) {
         ERRMSG("Failed to read trace file: %s.\n", path.c_str());
         return false;
@@ -391,7 +384,8 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
     if (err < 0) {
         ERRMSG("Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));
         ERRMSG("[?, %" PRIx64 "] %s: %s\n", ip, errtype, pt_errstr(pt_errcode(errcode)));
-    } else
+    } else {
         ERRMSG("[%" PRIx64 ", IP:%" PRIx64 "] %s: %s\n", pos, ip, errtype,
                pt_errstr(pt_errcode(errcode)));
+    }
 }

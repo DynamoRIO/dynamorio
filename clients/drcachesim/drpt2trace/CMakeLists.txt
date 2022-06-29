@@ -88,6 +88,8 @@ configure_DynamoRIO_decoder(drpt2ir)
 add_dependencies(drpt2ir ipt ipt-sb ipt-ext api_headers)
 target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
 
+install_client_nonDR_header(drmemtrace pt2ir.h)
+
 # TODO i#5505: Currently, drpt2trace only counts instructions.
 # In the future, we will add support for converting pt trace to memref_t.
 # So we may need to link drdecode to drpt2ir library.
