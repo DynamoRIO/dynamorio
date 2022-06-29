@@ -376,9 +376,9 @@ than invoking the script directly:
 
 To \ref sec_comm "nudge" a process with pid \c targetpid running under
 DynamoRIO and pass argument "5" to the nudge callback, use the \c
-nudgeunix tool:
+drnudgeunix tool:
 \code
-bin32/nudgeunix -pid targetpid -client 0 5
+bin32/drnudgeunix -pid targetpid -client 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
 client callback registered with dr_register_nudge_event() in the

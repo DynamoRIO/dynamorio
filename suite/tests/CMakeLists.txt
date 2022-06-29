@@ -1397,7 +1397,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
       if (UNIX)
-        get_target_path_for_execution(toolbindir nudgeunix "${location_suffix}")
+        get_target_path_for_execution(toolbindir drnudgeunix "${location_suffix}")
       else ()
         get_target_path_for_execution(toolbindir drconfig "${location_suffix}")
       endif ()

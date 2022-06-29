@@ -332,7 +332,23 @@ view_t::process_memref(const memref_t &memref)
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
-            std::cerr << "<marker: physical address not available>\n";
+            std::cerr << "<marker: physical address not available for 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_ID:
+            std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_RETADDR:
+            std::cerr << "<marker: function return address 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_ARG:
+            std::cerr << "<marker: function argument 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_RETVAL:
+            std::cerr << "<marker: function return value 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
@@ -342,33 +358,57 @@ view_t::process_memref(const memref_t &memref)
         return true;
     }
 
+    static constexpr int name_width = 12;
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
-        // XXX: Print prefetch info.
+        std::string name; // Shared output for address-containing types.
         switch (memref.data.type) {
-        case TRACE_TYPE_READ:
-            std::cerr << "read   " << std::setw(2) << memref.data.size << " byte(s) @ 0x"
-                      << std::hex << std::setfill('0') << std::setw(sizeof(void *) * 2)
-                      << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
-                      << memref.data.pc << std::dec << std::setfill(' ') << "\n";
-            break;
-        case TRACE_TYPE_WRITE:
-            std::cerr << "write  " << std::setw(2) << memref.data.size << " byte(s) @ 0x"
-                      << std::hex << std::setfill('0') << std::setw(sizeof(void *) * 2)
-                      << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
-                      << memref.data.pc << std::dec << std::setfill(' ') << "\n";
-            break;
+        default: std::cerr << "<entry type " << memref.data.type << ">\n"; return true;
         case TRACE_TYPE_THREAD_EXIT:
             std::cerr << "<thread " << memref.data.tid << " exited>\n";
-            break;
-        default: std::cerr << "<entry type " << memref.data.type << ">\n"; break;
+            return true;
+            // The rest are address-containing types.
+        case TRACE_TYPE_READ: name = "read"; break;
+        case TRACE_TYPE_WRITE: name = "write"; break;
+        case TRACE_TYPE_INSTR_FLUSH: name = "iflush"; break;
+        case TRACE_TYPE_DATA_FLUSH: name = "dflush"; break;
+        case TRACE_TYPE_PREFETCH: name = "pref"; break;
+        case TRACE_TYPE_PREFETCH_READ_L1: name = "pref-r-L1"; break;
+        case TRACE_TYPE_PREFETCH_READ_L2: name = "pref-r-L2"; break;
+        case TRACE_TYPE_PREFETCH_READ_L3: name = "pref-r-L3"; break;
+        case TRACE_TYPE_PREFETCHNTA: name = "pref-NTA"; break;
+        case TRACE_TYPE_PREFETCH_READ: name = "pref-r"; break;
+        case TRACE_TYPE_PREFETCH_WRITE: name = "pref-w"; break;
+        case TRACE_TYPE_PREFETCH_INSTR: name = "pref-i"; break;
+        case TRACE_TYPE_PREFETCH_READ_L1_NT: name = "pref-r-L1-NT"; break;
+        case TRACE_TYPE_PREFETCH_READ_L2_NT: name = "pref-r-L2-NT"; break;
+        case TRACE_TYPE_PREFETCH_READ_L3_NT: name = "pref-r-L3-NT"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L1: name = "pref-i-L1"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L1_NT: name = "pref-i-L1-NT"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L2: name = "pref-i-L2"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L2_NT: name = "pref-i-L2-NT"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L3: name = "pref-i-L3"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L3_NT: name = "pref-i-L3-NT"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L1: name = "pref-w-L1"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L1_NT: name = "pref-w-L1-NT"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L2: name = "pref-w-L2"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L2_NT: name = "pref-w-L2-NT"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L3: name = "pref-w-L3"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L3_NT: name = "pref-w-L3-NT"; break;
+        case TRACE_TYPE_HARDWARE_PREFETCH: name = "pref-HW"; break;
         }
+        std::cerr << std::left << std::setw(name_width) << name << std::right
+                  << std::setw(2) << memref.data.size << " byte(s) @ 0x" << std::hex
+                  << std::setfill('0') << std::setw(sizeof(void *) * 2)
+                  << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
+                  << memref.data.pc << std::dec << std::setfill(' ') << "\n";
         return true;
     }
 
-    std::cerr << "ifetch " << std::setw(2) << memref.instr.size << " byte(s) @ 0x"
-              << std::hex << std::setfill('0') << std::setw(sizeof(void *) * 2)
-              << memref.instr.addr << std::dec << std::setfill(' ');
+    std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
+              << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
+              << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
+              << std::dec << std::setfill(' ');
     if (!has_modules_) {
         // We can't disassemble so we provide what info the trace itself contains.
         // XXX i#5486: We may want to store the taken target for conditional
@@ -426,8 +466,9 @@ view_t::process_memref(const memref_t &memref)
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
         print_prefix(memref, 0, prefix);
+        std::string skip_name(name_width, ' ');
         disasm.insert(newline + 1,
-                      prefix.str() + "                                     ");
+                      prefix.str() + skip_name + "                               ");
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;

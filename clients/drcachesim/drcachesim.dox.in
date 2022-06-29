@@ -515,6 +515,12 @@ Total counts:
            3 total threads
          280 total scheduling markers
            0 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           0 total physical address + virtual address marker pairs
+           0 total physical address unavailable markers
            3 total other markers
 Thread 247451 counts:
       255009 (fetched) instructions
@@ -524,6 +530,12 @@ Thread 247451 counts:
        21243 data stores
          258 scheduling markers
            0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
            1 other markers
 Thread 247453 counts:
         9195 (fetched) instructions
@@ -533,6 +545,12 @@ Thread 247453 counts:
          937 data stores
           12 scheduling markers
            0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
            1 other markers
 Thread 247454 counts:
         2989 (fetched) instructions
@@ -542,6 +560,12 @@ Thread 247454 counts:
          323 data stores
           10 scheduling markers
            0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
            1 other markers
 \endcode
 
