@@ -297,7 +297,7 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
             if (instr_get_opcode(instr) == OP_INVALID) {
                 ERRMSG("Failed to convert the libipt's IR to Dynamorio's IR.\n");
-                return PT2IR_CONV_CONVERT_ERROR;
+                return PT2IR_CONV_ERROR_CONVERT;
             }
             instrlist_append(*ilist, instr);
         }

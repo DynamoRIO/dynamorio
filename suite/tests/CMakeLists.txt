@@ -4189,7 +4189,7 @@ if (BUILD_CLIENTS)
       "-sb_sysroot"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
     torunonly_api(tool.drpt2trace drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.template"
+      "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_args}" ON OFF)
   endif (HAVE_LIBIPT)
 endif (BUILD_CLIENTS)
