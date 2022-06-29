@@ -715,7 +715,7 @@ inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
     // Checks if the first non-space character of a string is a negative sign. If it is,
-    // it is invalid.
+    // the input string is invalid.
     for (size_t i = 0; i < s.size(); i++) {
         // XXX: The function isspace() only identify ASCII whitespace characters. We
         // should implement one function that can support non-ASCII whitespace characters.
@@ -735,7 +735,7 @@ inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
     // Checks if the first non-space character of a string is a negative sign. If it is,
-    // it is invalid.
+    // the input string is invalid.
     for (size_t i = 0; i < s.size(); i++) {
         // XXX: The function isspace() only identify ASCII whitespace characters. We
         // should implement one function that can support non-ASCII whitespace characters.
