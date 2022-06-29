@@ -251,7 +251,7 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     ASSERT(op_val_sep.get_value_separator() == std::string("+"));
     ASSERT(op_val_sep2.get_value_separator() == std::string("+"));
 
-    // Test parsing a string of octal digits.
+    // Test parsing octal format numeric strings.
     dr_fprintf(STDERR, "param oi = %d\n", op_oi.get_value());
     dr_fprintf(STDERR, "param ol = %ld\n", op_ol.get_value());
     dr_fprintf(STDERR, "param oll = %lld\n", op_oll.get_value());
@@ -259,7 +259,7 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     dr_fprintf(STDERR, "param oul = %lu\n", op_oul.get_value());
     dr_fprintf(STDERR, "param oull = %llu\n", op_oull.get_value());
 
-    // Test parsing a string of hexadecimal digits.
+    // Test parsing hexadecimal format numeric strings.
     dr_fprintf(STDERR, "param xi = %d\n", op_xi.get_value());
     dr_fprintf(STDERR, "param xl = %ld\n", op_xl.get_value());
     dr_fprintf(STDERR, "param xll = %lld\n", op_xll.get_value());
