@@ -47,6 +47,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <errno.h>
+#include <ctype.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
@@ -575,9 +576,8 @@ protected:
     {
         // Checks if the first non-space character of a string is a negative sign.
         for (size_t i = 0; i < s.size(); i++) {
-            // XXX: The function isspace() only identifies ASCII whitespace characters. We
-            // should implement one function that can support non-ASCII whitespace
-            // characters too.
+            // XXX: isspace() identifies whitespace in the current locale. We ignore
+            // locale effects here.
             if (isspace(s[i]))
                 continue;
             if (s[i] == '-')
@@ -684,7 +684,8 @@ droption_t<int>::convert_from_string(const std::string s)
     errno = 0;
     // If we set 0 as the base, strtol() will automatically identify the base of the
     // number to convert. By default, it will assume the number to be converted is
-    // decimal, and number starting with 0 or 0x is assumed to be octal or hexadecimal.
+    // decimal, and a number starting with 0 or 0x is assumed to be octal or hexadecimal,
+    // respectively.
     long input = strtol(s.c_str(), NULL, 0);
 
     // strtol returns a long, but this may not always fit into an integer.
