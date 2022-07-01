@@ -571,13 +571,13 @@ protected:
         return true;
     }
 
+    /* Checks if the first non-space character of a string is a negative sign.
+     * XXX: This function does not work with UTF-16/UTF-32 formatted strings.
+     */
     static bool
     is_negative(const std::string &s)
     {
-        // Checks if the first non-space character of a string is a negative sign.
         for (size_t i = 0; i < s.size(); i++) {
-            // XXX: isspace() identifies whitespace in the current locale. We ignore
-            // locale effects here.
             if (isspace(s[i]))
                 continue;
             if (s[i] == '-')
