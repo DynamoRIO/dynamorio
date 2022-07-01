@@ -28,11 +28,184 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# The new codec will no longer use the instruction specification format of
-# codec_v80.txt and opnd_defs.txt to generate the decoder and encoder. This
-# file is a temporary placeholder using dummy definitions to enable codec.py to
-# ignore instructions handled by the new generator while it is in development.
+# See header comments in codec_v80.txt and opnd_defs.txt to understand how
+# instructions are defined for the purposes of decode and encode code
+# generation.
 
 # Instruction definitions:
 
-00000000000000000000000000000000  n   412  sqrdmlah   :
+10001000101xxxxx011111xxxxxxxxxx  n   38         cas  w16 mem0 : w16 w0 mem0
+11001000101xxxxx011111xxxxxxxxxx  n   38         cas  x16 mem0 : x16 x0 mem0
+10001000111xxxxx011111xxxxxxxxxx  n   39        casa  w16 mem0 : w16 w0 mem0
+11001000111xxxxx011111xxxxxxxxxx  n   39        casa  x16 mem0 : x16 x0 mem0
+00001000111xxxxx011111xxxxxxxxxx  n   40       casab  w16 mem0 : w16 w0 mem0
+01001000111xxxxx011111xxxxxxxxxx  n   41       casah  w16 mem0 : w16 w0 mem0
+10001000111xxxxx111111xxxxxxxxxx  n   42       casal  w16 mem0 : w16 w0 mem0
+11001000111xxxxx111111xxxxxxxxxx  n   42       casal  x16 mem0 : x16 x0 mem0
+00001000111xxxxx111111xxxxxxxxxx  n   43      casalb  w16 mem0 : w16 w0 mem0
+01001000111xxxxx111111xxxxxxxxxx  n   44      casalh  w16 mem0 : w16 w0 mem0
+00001000101xxxxx011111xxxxxxxxxx  n   45        casb  w16 mem0 : w16 w0 mem0
+01001000101xxxxx011111xxxxxxxxxx  n   46        cash  w16 mem0 : w16 w0 mem0
+10001000101xxxxx111111xxxxxxxxxx  n   47        casl  w16 mem0 : w16 w0 mem0
+11001000101xxxxx111111xxxxxxxxxx  n   47        casl  x16 mem0 : x16 x0 mem0
+00001000101xxxxx111111xxxxxxxxxx  n   48       caslb  w16 mem0 : w16 w0 mem0
+01001000101xxxxx111111xxxxxxxxxx  n   49       caslh  w16 mem0 : w16 w0 mem0
+00001000001xxxxx011111xxxxxxxxxx  n   50        casp  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000001xxxxx011111xxxxxxxxxx  n   50        casp  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+00001000011xxxxx011111xxxxxxxxxx  n   51       caspa  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000011xxxxx011111xxxxxxxxxx  n   51       caspa  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+00001000011xxxxx111111xxxxxxxxxx  n   52      caspal  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000011xxxxx111111xxxxxxxxxx  n   52      caspal  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+00001000001xxxxx111111xxxxxxxxxx  n   53       caspl  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000001xxxxx111111xxxxxxxxxx  n   53       caspl  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+10111000001xxxxx000000xxxxxxxxxx  n   181      ldadd   w0 mem0 : w16 mem0
+11111000001xxxxx000000xxxxxxxxxx  n   181      ldadd   x0 mem0 : x16 mem0
+10111000101xxxxx000000xxxxxxxxxx  n   182     ldadda   w0 mem0 : w16 mem0
+11111000101xxxxx000000xxxxxxxxxx  n   182     ldadda   x0 mem0 : x16 mem0
+00111000101xxxxx000000xxxxxxxxxx  n   183    ldaddab   w0 mem0 : w16 mem0
+01111000101xxxxx000000xxxxxxxxxx  n   184    ldaddah   w0 mem0 : w16 mem0
+10111000111xxxxx000000xxxxxxxxxx  n   185    ldaddal   w0 mem0 : w16 mem0
+11111000111xxxxx000000xxxxxxxxxx  n   185    ldaddal   x0 mem0 : x16 mem0
+00111000111xxxxx000000xxxxxxxxxx  n   186   ldaddalb   w0 mem0 : w16 mem0
+01111000111xxxxx000000xxxxxxxxxx  n   187   ldaddalh   w0 mem0 : w16 mem0
+00111000001xxxxx000000xxxxxxxxxx  n   188     ldaddb   w0 mem0 : w16 mem0
+01111000001xxxxx000000xxxxxxxxxx  n   189     ldaddh   w0 mem0 : w16 mem0
+10111000011xxxxx000000xxxxxxxxxx  n   190     ldaddl   w0 mem0 : w16 mem0
+11111000011xxxxx000000xxxxxxxxxx  n   190     ldaddl   x0 mem0 : x16 mem0
+00111000011xxxxx000000xxxxxxxxxx  n   191    ldaddlb   w0 mem0 : w16 mem0
+01111000011xxxxx000000xxxxxxxxxx  n   192    ldaddlh   w0 mem0 : w16 mem0
+10111000001xxxxx000100xxxxxxxxxx  n   200      ldclr   w0 mem0 : w16 mem0
+11111000001xxxxx000100xxxxxxxxxx  n   200      ldclr   x0 mem0 : x16 mem0
+10111000101xxxxx000100xxxxxxxxxx  n   201     ldclra   w0 mem0 : w16 mem0
+11111000101xxxxx000100xxxxxxxxxx  n   201     ldclra   x0 mem0 : x16 mem0
+00111000101xxxxx000100xxxxxxxxxx  n   202    ldclrab   w0 mem0 : w16 mem0
+01111000101xxxxx000100xxxxxxxxxx  n   203    ldclrah   w0 mem0 : w16 mem0
+10111000111xxxxx000100xxxxxxxxxx  n   204    ldclral   w0 mem0 : w16 mem0
+11111000111xxxxx000100xxxxxxxxxx  n   204    ldclral   x0 mem0 : x16 mem0
+00111000111xxxxx000100xxxxxxxxxx  n   205   ldclralb   w0 mem0 : w16 mem0
+01111000111xxxxx000100xxxxxxxxxx  n   206   ldclralh   w0 mem0 : w16 mem0
+00111000001xxxxx000100xxxxxxxxxx  n   207     ldclrb   w0 mem0 : w16 mem0
+01111000001xxxxx000100xxxxxxxxxx  n   208     ldclrh   w0 mem0 : w16 mem0
+10111000011xxxxx000100xxxxxxxxxx  n   209     ldclrl   w0 mem0 : w16 mem0
+11111000011xxxxx000100xxxxxxxxxx  n   209     ldclrl   x0 mem0 : x16 mem0
+00111000011xxxxx000100xxxxxxxxxx  n   210    ldclrlb   w0 mem0 : w16 mem0
+01111000011xxxxx000100xxxxxxxxxx  n   211    ldclrlh   w0 mem0 : w16 mem0
+10111000001xxxxx001000xxxxxxxxxx  n   212      ldeor   w0 mem0 : w16 mem0
+11111000001xxxxx001000xxxxxxxxxx  n   212      ldeor   x0 mem0 : x16 mem0
+10111000101xxxxx001000xxxxxxxxxx  n   213     ldeora   w0 mem0 : w16 mem0
+11111000101xxxxx001000xxxxxxxxxx  n   213     ldeora   x0 mem0 : x16 mem0
+00111000101xxxxx001000xxxxxxxxxx  n   214    ldeorab   w0 mem0 : w16 mem0
+01111000101xxxxx001000xxxxxxxxxx  n   215    ldeorah   w0 mem0 : w16 mem0
+10111000111xxxxx001000xxxxxxxxxx  n   216    ldeoral   w0 mem0 : w16 mem0
+11111000111xxxxx001000xxxxxxxxxx  n   216    ldeoral   x0 mem0 : x16 mem0
+00111000111xxxxx001000xxxxxxxxxx  n   217   ldeoralb   w0 mem0 : w16 mem0
+01111000111xxxxx001000xxxxxxxxxx  n   218   ldeoralh   w0 mem0 : w16 mem0
+00111000001xxxxx001000xxxxxxxxxx  n   219     ldeorb   w0 mem0 : w16 mem0
+01111000001xxxxx001000xxxxxxxxxx  n   220     ldeorh   w0 mem0 : w16 mem0
+10111000011xxxxx001000xxxxxxxxxx  n   221     ldeorl   w0 mem0 : w16 mem0
+11111000011xxxxx001000xxxxxxxxxx  n   221     ldeorl   x0 mem0 : x16 mem0
+00111000011xxxxx001000xxxxxxxxxx  n   222    ldeorlb   w0 mem0 : w16 mem0
+01111000011xxxxx001000xxxxxxxxxx  n   223    ldeorlh   w0 mem0 : w16 mem0
+10111000001xxxxx001100xxxxxxxxxx  n   233      ldset   w0 mem0 : w16 mem0
+11111000001xxxxx001100xxxxxxxxxx  n   233      ldset   x0 mem0 : x16 mem0
+10111000101xxxxx001100xxxxxxxxxx  n   234     ldseta   w0 mem0 : w16 mem0
+11111000101xxxxx001100xxxxxxxxxx  n   234     ldseta   x0 mem0 : x16 mem0
+00111000101xxxxx001100xxxxxxxxxx  n   235    ldsetab   w0 mem0 : w16 mem0
+01111000101xxxxx001100xxxxxxxxxx  n   236    ldsetah   w0 mem0 : w16 mem0
+10111000111xxxxx001100xxxxxxxxxx  n   237    ldsetal   w0 mem0 : w16 mem0
+11111000111xxxxx001100xxxxxxxxxx  n   237    ldsetal   x0 mem0 : x16 mem0
+00111000111xxxxx001100xxxxxxxxxx  n   238   ldsetalb   w0 mem0 : w16 mem0
+01111000111xxxxx001100xxxxxxxxxx  n   239   ldsetalh   w0 mem0 : w16 mem0
+00111000001xxxxx001100xxxxxxxxxx  n   240     ldsetb   w0 mem0 : w16 mem0
+01111000001xxxxx001100xxxxxxxxxx  n   241     ldseth   w0 mem0 : w16 mem0
+10111000011xxxxx001100xxxxxxxxxx  n   242     ldsetl   w0 mem0 : w16 mem0
+11111000011xxxxx001100xxxxxxxxxx  n   242     ldsetl   x0 mem0 : x16 mem0
+00111000011xxxxx001100xxxxxxxxxx  n   243    ldsetlb   w0 mem0 : w16 mem0
+01111000011xxxxx001100xxxxxxxxxx  n   244    ldsetlh   w0 mem0 : w16 mem0
+10111000001xxxxx010000xxxxxxxxxx  n   245     ldsmax   w0 mem0 : w16 mem0
+11111000001xxxxx010000xxxxxxxxxx  n   245     ldsmax   x0 mem0 : x16 mem0
+10111000101xxxxx010000xxxxxxxxxx  n   246    ldsmaxa   w0 mem0 : w16 mem0
+11111000101xxxxx010000xxxxxxxxxx  n   246    ldsmaxa   x0 mem0 : x16 mem0
+00111000101xxxxx010000xxxxxxxxxx  n   247   ldsmaxab   w0 mem0 : w16 mem0
+01111000101xxxxx010000xxxxxxxxxx  n   248   ldsmaxah   w0 mem0 : w16 mem0
+10111000111xxxxx010000xxxxxxxxxx  n   249   ldsmaxal   w0 mem0 : w16 mem0
+11111000111xxxxx010000xxxxxxxxxx  n   249   ldsmaxal   x0 mem0 : x16 mem0
+00111000111xxxxx010000xxxxxxxxxx  n   250  ldsmaxalb   w0 mem0 : w16 mem0
+01111000111xxxxx010000xxxxxxxxxx  n   251  ldsmaxalh   w0 mem0 : w16 mem0
+00111000001xxxxx010000xxxxxxxxxx  n   252    ldsmaxb   w0 mem0 : w16 mem0
+01111000001xxxxx010000xxxxxxxxxx  n   253    ldsmaxh   w0 mem0 : w16 mem0
+10111000011xxxxx010000xxxxxxxxxx  n   254    ldsmaxl   w0 mem0 : w16 mem0
+11111000011xxxxx010000xxxxxxxxxx  n   254    ldsmaxl   x0 mem0 : x16 mem0
+00111000011xxxxx010000xxxxxxxxxx  n   255   ldsmaxlb   w0 mem0 : w16 mem0
+01111000011xxxxx010000xxxxxxxxxx  n   256   ldsmaxlh   w0 mem0 : w16 mem0
+10111000001xxxxx010100xxxxxxxxxx  n   257     ldsmin   w0 mem0 : w16 mem0
+11111000001xxxxx010100xxxxxxxxxx  n   257     ldsmin   x0 mem0 : x16 mem0
+10111000101xxxxx010100xxxxxxxxxx  n   258    ldsmina   w0 mem0 : w16 mem0
+11111000101xxxxx010100xxxxxxxxxx  n   258    ldsmina   x0 mem0 : x16 mem0
+00111000101xxxxx010100xxxxxxxxxx  n   259   ldsminab   w0 mem0 : w16 mem0
+01111000101xxxxx010100xxxxxxxxxx  n   260   ldsminah   w0 mem0 : w16 mem0
+10111000111xxxxx010100xxxxxxxxxx  n   261   ldsminal   w0 mem0 : w16 mem0
+11111000111xxxxx010100xxxxxxxxxx  n   261   ldsminal   x0 mem0 : x16 mem0
+00111000111xxxxx010100xxxxxxxxxx  n   262  ldsminalb   w0 mem0 : w16 mem0
+01111000111xxxxx010100xxxxxxxxxx  n   263  ldsminalh   w0 mem0 : w16 mem0
+00111000001xxxxx010100xxxxxxxxxx  n   264    ldsminb   w0 mem0 : w16 mem0
+01111000001xxxxx010100xxxxxxxxxx  n   265    ldsminh   w0 mem0 : w16 mem0
+10111000011xxxxx010100xxxxxxxxxx  n   266    ldsminl   w0 mem0 : w16 mem0
+11111000011xxxxx010100xxxxxxxxxx  n   266    ldsminl   x0 mem0 : x16 mem0
+00111000011xxxxx010100xxxxxxxxxx  n   267   ldsminlb   w0 mem0 : w16 mem0
+01111000011xxxxx010100xxxxxxxxxx  n   268   ldsminlh   w0 mem0 : w16 mem0
+10111000001xxxxx011000xxxxxxxxxx  n   275     ldumax   w0 mem0 : w16 mem0
+11111000001xxxxx011000xxxxxxxxxx  n   275     ldumax   x0 mem0 : x16 mem0
+10111000101xxxxx011000xxxxxxxxxx  n   276    ldumaxa   w0 mem0 : w16 mem0
+11111000101xxxxx011000xxxxxxxxxx  n   276    ldumaxa   x0 mem0 : x16 mem0
+00111000101xxxxx011000xxxxxxxxxx  n   277   ldumaxab   w0 mem0 : w16 mem0
+01111000101xxxxx011000xxxxxxxxxx  n   278   ldumaxah   w0 mem0 : w16 mem0
+10111000111xxxxx011000xxxxxxxxxx  n   279   ldumaxal   w0 mem0 : w16 mem0
+11111000111xxxxx011000xxxxxxxxxx  n   279   ldumaxal   x0 mem0 : x16 mem0
+00111000111xxxxx011000xxxxxxxxxx  n   280  ldumaxalb   w0 mem0 : w16 mem0
+01111000111xxxxx011000xxxxxxxxxx  n   281  ldumaxalh   w0 mem0 : w16 mem0
+00111000001xxxxx011000xxxxxxxxxx  n   282    ldumaxb   w0 mem0 : w16 mem0
+01111000001xxxxx011000xxxxxxxxxx  n   283    ldumaxh   w0 mem0 : w16 mem0
+10111000011xxxxx011000xxxxxxxxxx  n   284    ldumaxl   w0 mem0 : w16 mem0
+11111000011xxxxx011000xxxxxxxxxx  n   284    ldumaxl   x0 mem0 : x16 mem0
+00111000011xxxxx011000xxxxxxxxxx  n   285   ldumaxlb   w0 mem0 : w16 mem0
+01111000011xxxxx011000xxxxxxxxxx  n   286   ldumaxlh   w0 mem0 : w16 mem0
+10111000001xxxxx011100xxxxxxxxxx  n   287     ldumin   w0 mem0 : w16 mem0
+11111000001xxxxx011100xxxxxxxxxx  n   287     ldumin   x0 mem0 : x16 mem0
+10111000101xxxxx011100xxxxxxxxxx  n   288    ldumina   w0 mem0 : w16 mem0
+11111000101xxxxx011100xxxxxxxxxx  n   288    ldumina   x0 mem0 : x16 mem0
+00111000101xxxxx011100xxxxxxxxxx  n   289   lduminab   w0 mem0 : w16 mem0
+01111000101xxxxx011100xxxxxxxxxx  n   290   lduminah   w0 mem0 : w16 mem0
+10111000111xxxxx011100xxxxxxxxxx  n   291   lduminal   w0 mem0 : w16 mem0
+11111000111xxxxx011100xxxxxxxxxx  n   291   lduminal   x0 mem0 : x16 mem0
+00111000111xxxxx011100xxxxxxxxxx  n   292  lduminalb   w0 mem0 : w16 mem0
+01111000111xxxxx011100xxxxxxxxxx  n   293  lduminalh   w0 mem0 : w16 mem0
+00111000001xxxxx011100xxxxxxxxxx  n   294    lduminb   w0 mem0 : w16 mem0
+01111000001xxxxx011100xxxxxxxxxx  n   295    lduminh   w0 mem0 : w16 mem0
+10111000011xxxxx011100xxxxxxxxxx  n   296    lduminl   w0 mem0 : w16 mem0
+11111000011xxxxx011100xxxxxxxxxx  n   296    lduminl   x0 mem0 : x16 mem0
+00111000011xxxxx011100xxxxxxxxxx  n   297   lduminlb   w0 mem0 : w16 mem0
+01111000011xxxxx011100xxxxxxxxxx  n   298   lduminlh   w0 mem0 : w16 mem0
+0x1011111xxxxxxx1101x0xxxxxxxxxx  n   412   sqrdmlah       dq0 : dq0 dq5 dq16 vindex_SD sd_sz
+0x10111101xxxxxx1101x0xxxxxxxxxx  n   412   sqrdmlah       dq0 : dq0 dq5 dq16_h_sz vindex_H h_sz
+0111111101xxxxxx1101x0xxxxxxxxxx  n   412   sqrdmlah        h0 : h0 h5 dq16_h_sz vindex_H h_sz
+0111111110xxxxxx1101x0xxxxxxxxxx  n   412   sqrdmlah        s0 : s0 s5 dq16 vindex_SD sd_sz
+0x101110xx0xxxxx100001xxxxxxxxxx  n   412   sqrdmlah       dq0 : dq0 dq5 dq16 hs_sz
+01111110010xxxxx100001xxxxxxxxxx  n   412   sqrdmlah        h0 : h0 h5 h16
+01111110100xxxxx100001xxxxxxxxxx  n   412   sqrdmlah        s0 : s0 s5 s16
+10111000001xxxxx100000xxxxxxxxxx  n   476        swp   w0 mem0 : w16 mem0
+11111000001xxxxx100000xxxxxxxxxx  n   476        swp   x0 mem0 : x16 mem0
+10111000101xxxxx100000xxxxxxxxxx  n   477       swpa   w0 mem0 : w16 mem0
+11111000101xxxxx100000xxxxxxxxxx  n   477       swpa   x0 mem0 : x16 mem0
+00111000101xxxxx100000xxxxxxxxxx  n   478      swpab   w0 mem0 : w16 mem0
+01111000101xxxxx100000xxxxxxxxxx  n   479      swpah   w0 mem0 : w16 mem0
+10111000111xxxxx100000xxxxxxxxxx  n   480      swpal   w0 mem0 : w16 mem0
+11111000111xxxxx100000xxxxxxxxxx  n   480      swpal   x0 mem0 : x16 mem0
+00111000111xxxxx100000xxxxxxxxxx  n   481     swpalb   w0 mem0 : w16 mem0
+01111000111xxxxx100000xxxxxxxxxx  n   482     swpalh   w0 mem0 : w16 mem0
+00111000001xxxxx100000xxxxxxxxxx  n   483       swpb   w0 mem0 : w16 mem0
+01111000001xxxxx100000xxxxxxxxxx  n   484       swph   w0 mem0 : w16 mem0
+10111000011xxxxx100000xxxxxxxxxx  n   485       swpl   w0 mem0 : w16 mem0
+11111000011xxxxx100000xxxxxxxxxx  n   485       swpl   x0 mem0 : x16 mem0
+00111000011xxxxx100000xxxxxxxxxx  n   486      swplb   w0 mem0 : w16 mem0
+01111000011xxxxx100000xxxxxxxxxx  n   487      swplh   w0 mem0 : w16 mem0
