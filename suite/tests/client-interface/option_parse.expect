@@ -17,12 +17,15 @@ param oi = -10
 param ol = -10
 param oll = -10
 param ou = 10
-param olu = 10
-param ollu = 10
+param oul = 10
+param oull = 10
 param xi = -10
 param xl = -10
 param xll = -10
 param xu = 10
-param xlu = 10
-param xllu = 10
+param xul = 10
+param xull = 10
+Option ou value out of range
+Option oul value out of range
+Option oull value out of range
 Hello, world!
