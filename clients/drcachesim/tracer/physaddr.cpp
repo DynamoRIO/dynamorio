@@ -253,7 +253,8 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
     NOTIFY(3, "v2p: %p => entry " HEX64_FORMAT_STRING " @ offs " INT64_FORMAT_STRING "\n",
            vpage, entry, offs);
     if (!TESTALL(PAGEMAP_VALID, entry) || TESTANY(PAGEMAP_SWAP, entry)) {
-        NOTIFY(1, "v2p failure: entry %p is invalid for %p\n", entry, vpage);
+        NOTIFY(1, "v2p failure: entry %p is invalid for %p in T%d\n", entry, vpage,
+               dr_get_thread_id(drcontext));
         return false;
     }
     addr_t ppage = (addr_t)((entry & PAGEMAP_PFN) << page_bits_);
