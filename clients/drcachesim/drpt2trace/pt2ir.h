@@ -60,37 +60,31 @@
  * The type of pt2ir_t::convert() return value.
  */
 enum pt2ir_convert_status_t {
-    PT2IR_CONV_SUCCESS = 0,       /**< The conversion process is successful. */
-    PT2IR_CONV_ERROR_SYNC_PACKET, /**< The conversion process ends with a failure to sync
-                                   *   to the PSB packet.
-                                   */
-    PT2IR_CONV_ERROR_HANDLE_SIDEBAND_EVENT, /**< The conversion process ends with a
-                                             *   failure to handle a perf event.
-                                             */
-    PT2IR_CONV_ERROR_GET_PENDING_EVENT, /**< The conversion process ends with a failure to
-                                         *   get the pending event.
-                                         */
-    PT2IR_CONV_ERROR_SET_IMAGE, /**< The conversion process ends with a failure to set the
-                                 *   new image.
-                                 */
-    PT2IR_CONV_ERROR_DECODE_NEXT_INSTR /**< The conversion process ends with a failure to
-                                        *   decode the next intruction.
-                                        */
+    /** The conversion process is successful. */
+    PT2IR_CONV_SUCCESS = 0,
+
+    /** The conversion process ends with a failure to sync to the PSB packet. */
+    PT2IR_CONV_ERROR_SYNC_PACKET,
+
+    /** The conversion process ends with a failure to handle a perf event. */
+    PT2IR_CONV_ERROR_HANDLE_SIDEBAND_EVENT,
+
+    /** The conversion process ends with a failure to get the pending event. */
+    PT2IR_CONV_ERROR_GET_PENDING_EVENT,
+
+    /** The conversion process ends with a failure to set the new image. */
+    PT2IR_CONV_ERROR_SET_IMAGE,
+
+    /** The conversion process ends with a failure to decode the next intruction. */
+    PT2IR_CONV_ERROR_DECODE_NEXT_INSTR
 };
 
 /**
  * The types of the CPU vendor.
  */
 enum pt_cpu_vendor_t {
-    /**
-     * The CPU vendor is unknown.
-     */
-    CPU_VENDOR_UNKNOWN = 0,
-
-    /**
-     * The CPU vendor is Intel.
-     */
-    CPU_VENDOR_INTEL
+    CPU_VENDOR_UNKNOWN = 0, /**< The CPU vendor is unknown. */
+    CPU_VENDOR_INTEL        /**< The CPU vendor is Intel. */
 };
 
 /**
@@ -99,7 +93,7 @@ enum pt_cpu_vendor_t {
 struct pt_cpu_t {
     pt_cpu_vendor_t vendor; /**< The vendor of the CPU. */
     uint16_t family;        /**< The CPU family. */
-    uint8_t model;          /**< The CPU mode;. */
+    uint8_t model;          /**< The CPU mode. */
     uint8_t stepping;       /**< The CPU stepping. */
 };
 
@@ -113,14 +107,10 @@ struct pt_cpu_t {
 struct pt_config_t {
     pt_cpu_t cpu; /**< The CPU identifier. */
 
-    /**
-     * The value of cpuid[0x15].eax. It represent the CTC frequency.
-     */
+    /** The value of cpuid[0x15].eax. It represents the CTC frequency. */
     uint32_t cpuid_0x15_eax;
 
-    /**
-     * The value of cpuid[0x15].ebx. It represent the CTC frequency.
-     */
+    /** The value of cpuid[0x15].ebx. It represents the CTC frequency. */
     uint32_t cpuid_0x15_ebx;
     uint8_t mtc_freq; /**< The MTC frequency. */
     uint8_t nom_freq; /**< The nominal frequency. */

@@ -303,7 +303,8 @@ pt2ir_t::print_instrs_to_stdout()
 {
     void *dcontext = GLOBAL_DCONTEXT;
     for (auto pt_instr : pt_insn_list_) {
-        disassemble_with_info(dcontext, pt_instr.raw, STDOUT, false, false);
+        disassemble_with_info(dcontext, pt_instr.raw, STDOUT, /*show_pc=*/false,
+                              /*show_bytes=*/false);
     }
 }
 
@@ -325,7 +326,7 @@ pt2ir_t::load_pt_raw_file(IN std::string &path)
     }
     pt_raw_buffer_size_ = static_cast<size_t>(fstat.st_size);
 
-    pt_raw_buffer_ = std::unique_ptr<unsigned char>(new uint8_t[pt_raw_buffer_size_]);
+    pt_raw_buffer_ = std::unique_ptr<unsigned char>(new char[pt_raw_buffer_size_]);
     std::ifstream f(path, std::ios::binary | std::ios::in);
     if (!f.is_open()) {
         ERRMSG("Failed to open trace file: %s.\n", path.c_str());
@@ -378,7 +379,7 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
     uint64_t pos = 0;
 
     /* Get the current position of 'pt_instr_decoder_'. It will fill the position into
-     * pos. The 'pt_insn_get_offset' function mainly used to report error.
+     * pos. The 'pt_insn_get_offset' is function mainly used to report error.
      */
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
