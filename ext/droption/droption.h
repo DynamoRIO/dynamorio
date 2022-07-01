@@ -733,7 +733,6 @@ droption_t<unsigned long>::convert_from_string(const std::string s)
 {
     if (is_negative(s))
         return false;
-    }
 
     errno = 0;
     value_ = strtoul(s.c_str(), NULL, 0);
@@ -745,7 +744,6 @@ droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
     if (is_negative(s))
         return false;
-    }
 
     errno = 0;
     value_ = strtoull(s.c_str(), NULL, 0);
