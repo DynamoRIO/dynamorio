@@ -3369,12 +3369,12 @@ if (BUILD_CLIENTS)
     torunonly_drcachesim(filter-no-i ${ci_shared_app}
       "-L0I_filter -L0I_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
     torunonly_drcachesim(filter-i ${ci_shared_app}
-      "-L0I_filter -L0I_size 1073741824 -simulator_type basic_counts ${test_mode_flag}" "")
+      "-L0I_filter -L0I_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
     set(tool.drcachesim.filter-i_expectbase "filter-l0")
     torunonly_drcachesim(filter-no-d ${ci_shared_app}
       "-L0D_filter -L0D_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
     torunonly_drcachesim(filter-d ${ci_shared_app}
-      "-L0D_filter -L0D_size 1073741824 -simulator_type basic_counts ${test_mode_flag}" "")
+      "-L0D_filter -L0D_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
     set(tool.drcachesim.filter-d_expectbase "filter-l0")
 
     torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
@@ -3668,12 +3668,12 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(filter-no-i ${ci_shared_app}
       "-L0I_filter -L0I_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
     torunonly_drcacheoff(filter-i ${ci_shared_app}
-      "-L0I_filter -L0I_size 1073741824 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+      "-L0I_filter -L0I_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
     set(tool.drcacheoff.filter-i_expectbase "offline-filter-l0")
     torunonly_drcacheoff(filter-no-d ${ci_shared_app}
       "-L0D_filter -L0D_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
     torunonly_drcacheoff(filter-d ${ci_shared_app}
-      "-L0D_filter -L0D_size 1073741824 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+      "-L0D_filter -L0D_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
     set(tool.drcacheoff.filter-d_expectbase "offline-filter-l0")
 
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
