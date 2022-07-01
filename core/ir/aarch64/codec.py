@@ -121,10 +121,6 @@ def generate_opndset_decoders(opndsettab, opndtab):
           FALLTHROUGH.values()]
     c += ['\n']
     for name in sorted(opndsettab):
-        # Ignore dummy codec_*.txt entries. This suppresses generation of this
-        # decoder function for instructions handled by the new decoder.
-        if name == 'gen_00000000_00000000':
-            return '\n'
         opnd_set = opndsettab[name]
         (dsts, srcs) = (opnd_set.dsts, opnd_set.srcs)
         c += ['/* %s <- %s */' % (opnd_set.dsts, opnd_set.srcs)]
@@ -259,17 +255,10 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props, curr_isa, next_is
     c = ['static bool',
          'decoder_' + curr_isa + '(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)',
           '{']
-    if curr_isa != 'v81':
-        gen(c, patterns, 1)
-        for opcode in FALLTHROUGH.values():
-            c += ['    %s' % opcode.decode_clause]
-            c += ['        %s' % opcode.decode_function]
-    else:
-        # This calls a decode function for v8.1 instructions which uses a new
-        # method of decoding.
-        c += ['    return decode_v81(enc, dc, pc, instr);']
-        c.append('}')
-        return '\n'.join(c) + '\n'
+    gen(c, patterns, 1)
+    for opcode in FALLTHROUGH.values():
+        c += ['    %s' % opcode.decode_clause]
+        c += ['        %s' % opcode.decode_function]
     # Call the next version of the decoder if defined.
     if next_isa != '':
         c.append('    return decoder_' + next_isa + '(enc, dc, pc, instr);')
@@ -308,10 +297,6 @@ def make_enc(n, reordered, f, opndtab):
 def generate_opndset_encoders(opndsettab, opndtab):
     c = []
     for name in sorted(opndsettab):
-        # Ignore dummy codec_*.txt entries. This suppresses generation of this
-        # encoder function for instructions handled by the new encoder.
-        if name == 'gen_00000000_00000000':
-            return '\n'
         os = opndsettab[name]
         (fixed, dsts, srcs, enc_order) = (os.fixed, os.dsts, os.srcs, os.enc_order)
         c += ['/* %s <- %s */' % (os.dsts, os.srcs)]
@@ -360,17 +345,10 @@ def generate_encoder(patterns, opndsettab, opndtab, curr_isa, next_isa):
         case[mn].append(p)
     c += ['static uint',
           'encoder_' + curr_isa + '(byte *pc, instr_t *instr, decode_info_t *di)',
-          '{']
-    # This calls an encode function for v8.1 instructions which uses a new
-    # method of encoding.
-    if curr_isa == 'v81':
-        c += ['    return encode_v81(pc, instr, di);']
-        c.append('}')
-        return '\n'.join(c) + '\n'
-    else:
-        c += ['    uint enc;',
-              '    (void)enc;',
-              '    switch (instr->opcode) {']
+          '{',
+          '    uint enc;',
+          '    (void)enc;',
+          '    switch (instr->opcode) {']
 
     def reorder_key(t):
         b, m, mn, f = t
