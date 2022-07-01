@@ -47,6 +47,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <errno.h>
+#include <ctype.h>
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
@@ -570,6 +571,22 @@ protected:
         return true;
     }
 
+    /* Checks if the first non-space character of a string is a negative sign.
+     * XXX: This function does not work with UTF-16/UTF-32 formatted strings.
+     */
+    static bool
+    is_negative(const std::string &s)
+    {
+        for (size_t i = 0; i < s.size(); i++) {
+            if (isspace(s[i]))
+                continue;
+            if (s[i] == '-')
+                return true;
+            break;
+        }
+        return false;
+    }
+
     bool
     option_takes_arg() const override;
     bool
@@ -665,7 +682,11 @@ inline bool
 droption_t<int>::convert_from_string(const std::string s)
 {
     errno = 0;
-    long input = strtol(s.c_str(), NULL, 10);
+    // If we set 0 as the base, strtol() will automatically identify the base of the
+    // number to convert. By default, it will assume the number to be converted is
+    // decimal, and a number starting with 0 or 0x is assumed to be octal or hexadecimal,
+    // respectively.
+    long input = strtol(s.c_str(), NULL, 0);
 
     // strtol returns a long, but this may not always fit into an integer.
     if (input >= (long)INT_MIN && input <= (long)INT_MAX)
@@ -680,7 +701,7 @@ inline bool
 droption_t<long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    value_ = strtol(s.c_str(), NULL, 10);
+    value_ = strtol(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>
@@ -688,7 +709,8 @@ inline bool
 droption_t<long long>::convert_from_string(const std::string s)
 {
     errno = 0;
-    value_ = strtoll(s.c_str(), NULL, 10);
+    // If we set 0 as the base, strtoll() will automatically identify the base.
+    value_ = strtoll(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>
@@ -696,8 +718,7 @@ inline bool
 droption_t<unsigned int>::convert_from_string(const std::string s)
 {
     errno = 0;
-    long input = strtol(s.c_str(), NULL, 10);
-
+    long input = strtol(s.c_str(), NULL, 0);
     // Is the value positive and fits into an unsigned integer?
     if (input >= 0 && (unsigned long)input <= (unsigned long)UINT_MAX)
         value_ = (unsigned int)input;
@@ -710,25 +731,22 @@ template <>
 inline bool
 droption_t<unsigned long>::convert_from_string(const std::string s)
 {
-    errno = 0;
-    long input = strtol(s.c_str(), NULL, 10);
-    if (input >= 0)
-        value_ = (unsigned long)input;
-    else
+    if (is_negative(s))
         return false;
 
+    errno = 0;
+    value_ = strtoul(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>
 inline bool
 droption_t<unsigned long long>::convert_from_string(const std::string s)
 {
-    long long input = strtoll(s.c_str(), NULL, 10);
-    if (input >= 0)
-        value_ = (unsigned long long)input;
-    else
+    if (is_negative(s))
         return false;
 
+    errno = 0;
+    value_ = strtoull(s.c_str(), NULL, 0);
     return errno == 0;
 }
 template <>
