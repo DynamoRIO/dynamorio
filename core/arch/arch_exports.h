@@ -1674,8 +1674,8 @@ _dynamorio_runtime_resolve(void);
 #    define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
 #endif /* X86/ARM */
 
-#define MCXT_SYSNUM_REG(mc) ((mc)->IF_X86_ELSE(xax, IF_ARM_ELSE(r7, r8)))
-#define MCXT_FIRST_REG_FIELD(mc) ((mc)->IF_X86_ELSE(xdi, r0))
+#define MCXT_SYSNUM_REG(mc) ((mc)->MCXT_FLD_SYSNUM_REG)
+#define MCXT_FIRST_REG_FIELD(mc) ((mc)->MCXT_FLD_FIRST_REG)
 
 static inline reg_t
 get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)

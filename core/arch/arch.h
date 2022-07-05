@@ -118,6 +118,7 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS XDX_OFFSET
 #    define SCRATCH_REG4_OFFS XSI_OFFSET
 #    define SCRATCH_REG5_OFFS XDI_OFFSET
+#    define CALL_SCRATCH_REG DR_REG_R11
 #elif defined(AARCHXX)
 #    define R0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
 #    define REG0_OFFSET R0_OFFSET
@@ -151,6 +152,7 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG4_OFFS R4_OFFSET
 #    define SCRATCH_REG5_OFFS R5_OFFSET
 #    define REG_OFFSET(reg) (R0_OFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t))
+#    define CALL_SCRATCH_REG DR_REG_R11
 #endif /* X86/ARM */
 #define XSP_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
 #define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))

@@ -282,6 +282,18 @@ enum {
     REGPARM_END_ALIGN = 8,
 #endif
 };
+
+#ifdef X86
+#    define MCXT_FLD_FIRST_REG xdi
+#    define MCXT_FLD_SYSNUM_REG xax
+#elif defined(AARCHXX)
+#    define MCXT_FLD_FIRST_REG r0
+#    ifdef X64
+#    define MCXT_FLD_SYSNUM_REG r8
+#    else
+#    define MCXT_FLD_SYSNUM_REG r7
+#    endif /* 64/32 */
+#endif
 extern const reg_id_t d_r_regparms[];
 
 /* arch-specific */
