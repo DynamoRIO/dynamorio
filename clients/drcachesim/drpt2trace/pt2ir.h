@@ -76,7 +76,13 @@ enum pt2ir_convert_status_t {
     PT2IR_CONV_ERROR_SET_IMAGE,
 
     /** The conversion process ends with a failure to decode the next intruction. */
-    PT2IR_CONV_ERROR_DECODE_NEXT_INSTR
+    PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
+
+    /**
+     * The conversion process ends with a failure to convert the libipt's IR to
+     * Dynamorio's IR.
+     */
+    PT2IR_CONV_ERROR_CONVERT
 };
 
 /**
