@@ -202,10 +202,12 @@ static drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
 /* Allocated TLS slot offsets */
 enum {
     MEMTRACE_TLS_OFFS_BUF_PTR,
-    /* XXX: we could make these dynamic to save slots when there's no -L0_filter. */
+    /* XXX: we could make these dynamic to save slots when there's no
+     *-L0I_filter or -L0D_filter.
+     */
     MEMTRACE_TLS_OFFS_DCACHE,
     MEMTRACE_TLS_OFFS_ICACHE,
-    /* The instruction count for -L0_filter. */
+    /* The instruction count for -L0I_filter. */
     MEMTRACE_TLS_OFFS_ICOUNT,
     /* The decrementing instruction count for -trace_after_instrs.
      * We could share with MEMTRACE_TLS_OFFS_ICOUNT if we cleared in each thread
@@ -881,9 +883,9 @@ create_v2p_buffer(per_thread_t *data)
 static bool
 is_ok_to_split_before(trace_type_t type)
 {
-    return op_L0I_filter.get_value() || type_is_instr(type) ||
-        type == TRACE_TYPE_INSTR_MAYBE_FETCH || type == TRACE_TYPE_MARKER ||
-        type == TRACE_TYPE_THREAD_EXIT;
+    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
+        type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT ||
+        op_L0I_filter.get_value();
 }
 
 static inline bool
@@ -1152,7 +1154,8 @@ memtrace(void *drcontext, bool skip_size_cap)
     }
 
     buf_ptr = BUF_PTR(data->seg_base);
-    // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
+    // We may get called with nothing to write: e.g., on a syscall for
+    // -L0I_filter and -L0D_filter.
     if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size) {
         if (has_tracing_windows()) {
             // If there is no data to write, we do not emit an empty header here
@@ -2012,6 +2015,9 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
             return adjust;
         }
     }
+    // XXX: If we're filtering only instrs, not data, then we can possibly
+    // avoid loading the buf ptr for each memref. We skip this optimization for
+    // now for simplicity.
     if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app, ref,
@@ -2302,7 +2308,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      * assuming the clean call does not need the two register values.
      */
     if (is_last_instr(drcontext, instr)) {
-        if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()))
+        if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
             insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         instrument_clean_call(drcontext, bb, where, reg_ptr);
     }
@@ -2769,7 +2775,7 @@ get_file_type()
                                                      OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
     }
     if (op_instr_only_trace.get_value() ||
-        // Data entries are removed from trace if -L0_filter and -L0D_size 0
+        // Data entries are removed from trace if -L0D_filter and -L0D_size 0
         (op_L0D_filter.get_value() && op_L0D_size.get_value() == 0)) {
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
@@ -3215,7 +3221,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
-    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value())) {
+    if (op_L0I_filter.get_value() || op_L0D_filter.get_value()) {
         /* We need to preserve the flags so we need xax. */
         drreg_set_vector_entry(&scratch_reserve_vec, DR_REG_XAX, false);
     }
@@ -3241,7 +3247,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new (placement)
             online_instru_t(insert_load_buf_ptr, insert_update_buf_ptr,
-                            op_L0D_filter.get_value(), &scratch_reserve_vec);
+                            op_L0I_filter.get_value(), &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX
@@ -3272,8 +3278,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Failed to initialized function tracing.\n");
     }
 
-    /* We need an extra for -L0_filter. */
-    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()))
+    /* We need an extra for -L0I_filter and -L0D_filter. */
+    if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
         ++ops.num_spill_slots;
     // We use the buf pointer reg plus 2 more in instrument_clean_call, so we want
     // 3 total: thus 1 more than the base.
