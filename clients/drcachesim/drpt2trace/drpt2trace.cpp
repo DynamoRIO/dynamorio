@@ -315,7 +315,7 @@ main(int argc, const char *argv[])
         return FAILURE;
     }
 
-    /* Print the count of DR IR. */
+    /* Print the count and the disassemble code of DR IR. */
     if (op_stats.specified()) {
         print_stats(ilist);
     }
