@@ -106,7 +106,7 @@ if (WIN32)
     set(libutil_ldflags "${libutil_ldflags} /debug")
   endif (DEBUG)
 
-  add_library(policy_static ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS})
+  add_library(policy_static STATIC ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS})
   set_target_properties(policy_static PROPERTIES
     COMPILE_FLAGS "${libutil_cflags}" COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE")
   set_target_properties(policy_static PROPERTIES
