@@ -3183,7 +3183,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: function recording is only supported for -offline\n");
     }
 
-    if (op_L0_filter.get_value()) {
+    if (op_L0_filter_deprecated.get_value()) {
         op_L0D_filter.set_value(true);
         op_L0I_filter.set_value(true);
     }

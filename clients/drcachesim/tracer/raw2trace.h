@@ -874,7 +874,8 @@ private:
         if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
             return "";
         // Filtered and instruction-only traces have no elision.
-        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
+        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED_DEPRECATED |
+                        OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
                         OFFLINE_FILE_TYPE_INSTRUCTION_ONLY | OFFLINE_FILE_TYPE_IFILTERED |
                         OFFLINE_FILE_TYPE_DFILTERED,
                     impl()->get_file_type(tls)))
@@ -1042,7 +1043,7 @@ private:
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
         bool instrs_are_separate =
-            TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED_DEPRECATED | OFFLINE_FILE_TYPE_IFILTERED,
                     impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
@@ -1058,7 +1059,8 @@ private:
             skip_icache = true;
             instr_count = 1;
             // We should have set a flag to avoid peeking forward on instr entries
-            // based on OFFLINE_FILE_TYPE_FILTERED.
+            // based on OFFLINE_FILE_TYPE_FILTERED_DEPRECATED and
+            // OFFLINE_FILE_TYPE_IFILTERED.
             DR_ASSERT(instrs_are_separate);
         } else {
             if (!impl()->instr_summary_exists(tls, in_entry->pc.modidx,
@@ -1394,7 +1396,8 @@ private:
         reg_id_t base;
         int version = impl()->get_version(tls);
         if (memref.use_remembered_base) {
-            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED_DEPRECATED |
+                                   OFFLINE_FILE_TYPE_IFILTERED |
                                    OFFLINE_FILE_TYPE_DFILTERED,
                                impl()->get_file_type(tls)));
             bool is_elidable =
