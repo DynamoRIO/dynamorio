@@ -1129,12 +1129,12 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
 
-        if (pd->soname != NULL){
+        if (pd->soname != NULL) {
             LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name,
-            pd->soname,mod->path);
-        }else{
-            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name,
-            "NULL",mod->path);
+                pd->soname, mod->path);
+        } else {
+            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, "NULL",
+                mod->path);
         }
 
         /* XXX i#956: A private libpthread is not fully supported.  For now we let
