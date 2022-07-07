@@ -4169,7 +4169,7 @@ endif (BUILD_CLIENTS)
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
 if (BUILD_CLIENTS)
   if (HAVE_LIBIPT)
-    set(drpt2trace_args "-stats"
+    set(drpt2trace_args "-print_trace"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
       "-primary_sb"

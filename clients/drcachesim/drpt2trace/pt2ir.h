@@ -82,7 +82,7 @@ enum pt2ir_convert_status_t {
      * The conversion process ends with a failure to convert the libipt's IR to
      * Dynamorio's IR.
      */
-    PT2IR_CONV_ERROR_CONVERT
+    PT2IR_CONV_ERROR_DR_IR_CONVERT
 };
 
 /**
@@ -243,12 +243,14 @@ public:
     init(IN pt2ir_config_t &pt2ir_config);
 
     /**
-     * Returns pt2ir_convert_status_t.
-     * \note The convert function performs two processes: (1) decode the PT raw trace into
-     * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t and append it to ilist. If the convertion is successful, the function
+     * Returns pt2ir_convert_status_t. If the convertion is successful, the function
      * returns PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding error
      * code.
+     * \note The convert function performs two processes:
+     * (1) decode the PT raw trace into libipt's IR format pt_insn;
+     * (2) convert pt_insn into the DynamoRIO's IR format instr_t and append it to ilist.
+     * \note The caller does not need to initialize ilist. But if the convertion is
+     * successful, the caller need to destory the ilist.
      */
     pt2ir_convert_status_t
     convert(OUT instrlist_t **ilist);

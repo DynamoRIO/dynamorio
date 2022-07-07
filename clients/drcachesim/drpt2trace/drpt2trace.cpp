@@ -64,9 +64,9 @@
 /* A collection of options. */
 static droption_t<bool> op_help(DROPTION_SCOPE_FRONTEND, "help", false,
                                 "Print this message", "Prints the usage message.");
-static droption_t<bool> op_stats(DROPTION_SCOPE_FRONTEND, "stats", false,
-                                 "Print trace statistics",
-                                 "Print statistics about the trace.");
+static droption_t<bool> op_print_trace(DROPTION_SCOPE_FRONTEND, "print_trace", false,
+                                 "Print trace",
+                                 "Print the disassemble code of the trace.");
 
 static droption_t<std::string>
     op_raw_pt(DROPTION_SCOPE_FRONTEND, "raw_pt", "",
@@ -191,7 +191,7 @@ static droption_t<unsigned long long> op_sb_kernel_start(
  */
 
 static void
-print_stats(IN instrlist_t *ilist)
+print_results(IN instrlist_t *ilist)
 {
     instr_t *instr = instrlist_first(ilist);
     uint64_t count = 0;
@@ -199,7 +199,11 @@ print_stats(IN instrlist_t *ilist)
         count++;
         instr = instr_get_next(instr);
     }
-    instrlist_disassemble(GLOBAL_DCONTEXT, 0, ilist, STDOUT);
+
+    if (op_print_trace.specified()) {
+        /* Print the disassemble code of the trace. */
+        instrlist_disassemble(GLOBAL_DCONTEXT, 0, ilist, STDOUT);
+    }
     std::cout << "Number of Instructions: " << count << std::endl;
 }
 
@@ -311,14 +315,11 @@ main(int argc, const char *argv[])
     if (status != PT2IR_CONV_SUCCESS) {
         std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                   << std::endl;
-        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         return FAILURE;
     }
 
     /* Print the count and the disassemble code of DR IR. */
-    if (op_stats.specified()) {
-        print_stats(ilist);
-    }
+    print_results(ilist);
 
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     return SUCCESS;
