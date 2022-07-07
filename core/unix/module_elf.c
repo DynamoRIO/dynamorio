@@ -1535,7 +1535,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
 
     res = module_lookup_symbol(sym, pd);
     LOG(GLOBAL, LOG_LOADER, 3, "symbol lookup for %s %p\n", name, res);
-    if (res == NULL && ELF_ST_BIND(sym->st_info) != STB_WEAK && pd->soname != NULL) {
+    if (res == NULL && ELF_ST_BIND(sym->st_info) != STB_WEAK) {
         /* Warn up front on undefined symbols.  Don't warn for weak symbols,
          * which should be resolved to NULL if they are not present.  Weak
          * symbols are used in situations where libc needs to interact with a
@@ -1547,7 +1547,8 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
          * libgcc_s.so.1: undefined symbol pthread_cancel
          * libstdc++.so.6: undefined symbol pthread_cancel
          */
-        SYSLOG(SYSLOG_WARNING, UNDEFINED_SYMBOL, 2, pd->soname, name);
+        const char *soname = pd->soname == NULL ? "<empty soname>" : pd->soname;
+        SYSLOG(SYSLOG_WARNING, UNDEFINED_SYMBOL, 2, soname, name);
         if (r_type == ELF_R_JUMP_SLOT)
             *r_addr = (reg_t)module_undef_symbols;
         return;
