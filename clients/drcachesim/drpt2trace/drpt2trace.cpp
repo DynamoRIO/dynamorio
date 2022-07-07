@@ -65,8 +65,8 @@
 static droption_t<bool> op_help(DROPTION_SCOPE_FRONTEND, "help", false,
                                 "Print this message", "Prints the usage message.");
 static droption_t<bool> op_print_trace(DROPTION_SCOPE_FRONTEND, "print_trace", false,
-                                 "Print trace",
-                                 "Print the disassemble code of the trace.");
+                                       "Print trace",
+                                       "Print the disassemble code of the trace.");
 
 static droption_t<std::string>
     op_raw_pt(DROPTION_SCOPE_FRONTEND, "raw_pt", "",
