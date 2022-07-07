@@ -4164,6 +4164,33 @@ if (BUILD_CLIENTS)
 
 endif (BUILD_CLIENTS)
 
+###########################################################################
+# drpt2trace tests
+# We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
+if (BUILD_CLIENTS)
+  if (HAVE_LIBIPT)
+    set(drpt2trace_args "-stats"
+      "-raw_pt"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin"
+      "-primary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent"
+      "-pt_cpu_family" "6"
+      "-pt_cpu_model" "85"
+      "-pt_cpu_stepping" "4"
+      "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
+      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308"
+      "-sb_sample_type" "0x10086"
+      "-sb_time_shift" "31"
+      "-sb_time_mult" "581029125"
+      "-sb_time_zero" "18444502336406842448"
+      "-sb_sysroot"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir")
+    torunonly_api(tool.drpt2trace drpt2trace
+      "../../clients/drcachesim/drpt2trace/test_simple.template"
+      "" "${drpt2trace_args}" ON OFF)
+  endif (HAVE_LIBIPT)
+endif (BUILD_CLIENTS)
+
 if (UNIX)
   macro(make_symlink src dst)
     execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${src} ${dst}
