@@ -1128,13 +1128,18 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     while (mod != NULL) {
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
-        LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, pd->soname,
-            mod->path);
+        
+        if(pd->soname != NULL){
+            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, pd->soname,mod->path);
+        }else{
+            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, "NULL",mod->path);
+        }
+
         /* XXX i#956: A private libpthread is not fully supported.  For now we let
          * it load but avoid using any symbols like __errno_location as those
          * cause crashes: prefer the libc version.
          */
-        if (strstr(pd->soname, "libpthread") == pd->soname &&
+        if (pd->soname != NULL && strstr(pd->soname, "libpthread") == pd->soname &&
             strstr(name, "pthread") != name) {
             LOG(GLOBAL, LOG_LOADER, 3, "NOT using libpthread's non-pthread symbol\n");
             res = NULL;
@@ -1528,7 +1533,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
 
     res = module_lookup_symbol(sym, pd);
     LOG(GLOBAL, LOG_LOADER, 3, "symbol lookup for %s %p\n", name, res);
-    if (res == NULL && ELF_ST_BIND(sym->st_info) != STB_WEAK) {
+    if (res == NULL && ELF_ST_BIND(sym->st_info) != STB_WEAK && pd->soname != NULL) {
         /* Warn up front on undefined symbols.  Don't warn for weak symbols,
          * which should be resolved to NULL if they are not present.  Weak
          * symbols are used in situations where libc needs to interact with a

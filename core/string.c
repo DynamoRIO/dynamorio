@@ -254,11 +254,6 @@ char *
 d_r_strstr(const char *haystack, const char *needle)
 {
     const char *cur = haystack;
-
-    if(cur == 0x0){
-        return NULL;
-    }
-
     size_t needle_len = strlen(needle);
     while (*cur != '\0') {
         if (strncmp(cur, needle, needle_len) == 0) {
