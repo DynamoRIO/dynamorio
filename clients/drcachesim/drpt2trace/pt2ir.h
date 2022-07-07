@@ -151,7 +151,7 @@ struct pt_sb_config_t {
     /**
      * The time shift. It is used to synchronize trace time, and the sideband recodes
      * time.
-     * \note time_shift = perf_event_mmap_page.ttime_shift
+     * \note time_shift = perf_event_mmap_page.time_shift
      */
     uint16_t time_shift;
 
@@ -250,7 +250,7 @@ public:
      * (1) decode the PT raw trace into libipt's IR format pt_insn;
      * (2) convert pt_insn into the DynamoRIO's IR format instr_t and append it to ilist.
      * \note The caller does not need to initialize ilist. But if the convertion is
-     * successful, the caller need to destory the ilist.
+     * successful, the caller needs to destory the ilist.
      */
     pt2ir_convert_status_t
     convert(OUT instrlist_t **ilist);

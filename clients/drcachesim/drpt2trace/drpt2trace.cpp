@@ -314,7 +314,7 @@ main(int argc, const char *argv[])
     pt2ir_convert_status_t status = ptconverter->convert(&ilist);
     if (status != PT2IR_CONV_SUCCESS) {
         std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
-                  << std::endl;
+                  << "[error status: " << status << "]" << std::endl;
         return FAILURE;
     }
 
