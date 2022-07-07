@@ -1128,7 +1128,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     while (mod != NULL) {
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
-        
+
         if(pd->soname != NULL){
             LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, pd->soname,mod->path);
         }else{
