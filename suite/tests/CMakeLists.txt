@@ -3370,12 +3370,12 @@ if (BUILD_CLIENTS)
       "-L0I_filter -L0I_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
     torunonly_drcachesim(filter-i ${ci_shared_app}
       "-L0I_filter -L0I_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
-    set(tool.drcachesim.filter-i_expectbase "filter-l0")
+    set(tool.drcachesim.filter-i_expectbase "basic-counts-generic")
     torunonly_drcachesim(filter-no-d ${ci_shared_app}
       "-L0D_filter -L0D_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
     torunonly_drcachesim(filter-d ${ci_shared_app}
       "-L0D_filter -L0D_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
-    set(tool.drcachesim.filter-d_expectbase "filter-l0")
+    set(tool.drcachesim.filter-d_expectbase "basic-counts-generic")
 
     torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
@@ -3669,12 +3669,12 @@ if (BUILD_CLIENTS)
       "-L0I_filter -L0I_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
     torunonly_drcacheoff(filter-i ${ci_shared_app}
       "-L0I_filter -L0I_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
-    set(tool.drcacheoff.filter-i_expectbase "offline-filter-l0")
+    set(tool.drcacheoff.filter-i_expectbase "offline-basic-counts-generic")
     torunonly_drcacheoff(filter-no-d ${ci_shared_app}
       "-L0D_filter -L0D_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
     torunonly_drcacheoff(filter-d ${ci_shared_app}
       "-L0D_filter -L0D_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
-    set(tool.drcacheoff.filter-d_expectbase "offline-filter-l0")
+    set(tool.drcacheoff.filter-d_expectbase "offline-basic-counts-generic")
 
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
