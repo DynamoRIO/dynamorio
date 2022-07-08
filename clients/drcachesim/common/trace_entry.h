@@ -517,9 +517,7 @@ typedef enum {
  */
 typedef enum {
     OFFLINE_FILE_TYPE_DEFAULT = 0x00,
-    // This is deprecated. Newer trace files use OFFLINE_FILE_TYPE_IFILTERED
-    // and OFFLINE_FILE_TYPE_DFILTERED.
-    OFFLINE_FILE_TYPE_FILTERED_DEPRECATED = 0x01, /**< Addresses filtered online. */
+    OFFLINE_FILE_TYPE_FILTERED = 0x01, /**< DEPRECATED: Addresses filtered online. */
     OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 0x02,
     OFFLINE_FILE_TYPE_INSTRUCTION_ONLY = 0x04, /**< Trace has no data references. */
     OFFLINE_FILE_TYPE_ARCH_AARCH64 = 0x08,     /**< Recorded on AArch64. */
@@ -529,7 +527,7 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
         OFFLINE_FILE_TYPE_ARCH_X86_64,   /**< All possible architecture types. */
-    OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instr addresses filtered online. */
+    OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
 } offline_file_type_t;
 
