@@ -4169,11 +4169,13 @@ endif (BUILD_CLIENTS)
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
 if (BUILD_CLIENTS)
   if (HAVE_LIBIPT)
-    set(drpt2trace_args "-stats"
+    set(drpt2trace_args "-print_trace"
       "-raw_pt"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/pt.bin"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
       "-primary_sb"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir/sideband.pevent"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
+      "-secondary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
       "-pt_cpu_family" "6"
       "-pt_cpu_model" "85"
       "-pt_cpu_stepping" "4"
@@ -4184,9 +4186,9 @@ if (BUILD_CLIENTS)
       "-sb_time_mult" "581029125"
       "-sb_time_zero" "18444502336406842448"
       "-sb_sysroot"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.tracedir")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
     torunonly_api(tool.drpt2trace drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.template"
+      "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_args}" ON OFF)
   endif (HAVE_LIBIPT)
 endif (BUILD_CLIENTS)

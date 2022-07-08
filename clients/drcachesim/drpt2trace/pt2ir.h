@@ -76,7 +76,13 @@ enum pt2ir_convert_status_t {
     PT2IR_CONV_ERROR_SET_IMAGE,
 
     /** The conversion process ends with a failure to decode the next intruction. */
-    PT2IR_CONV_ERROR_DECODE_NEXT_INSTR
+    PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
+
+    /**
+     * The conversion process ends with a failure to convert the libipt's IR to
+     * Dynamorio's IR.
+     */
+    PT2IR_CONV_ERROR_DR_IR_CONVERT
 };
 
 /**
@@ -145,7 +151,7 @@ struct pt_sb_config_t {
     /**
      * The time shift. It is used to synchronize trace time, and the sideband recodes
      * time.
-     * \note time_shift = perf_event_mmap_page.ttime_shift
+     * \note time_shift = perf_event_mmap_page.time_shift
      */
     uint16_t time_shift;
 
@@ -237,26 +243,17 @@ public:
     init(IN pt2ir_config_t &pt2ir_config);
 
     /**
-     * Returns pt2ir_convert_status_t.
-     * \note The convert function performs two processes: (1) decode the PT raw trace into
-     * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t. If the convertion is successful, the function returns PT2IR_CONV_SUCCESS.
-     * Otherwise, the function returns the corresponding error code.
+     * Returns pt2ir_convert_status_t. If the convertion is successful, the function
+     * returns PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding error
+     * code.
+     * \note The convert function performs two processes:
+     * (1) decode the PT raw trace into libipt's IR format pt_insn;
+     * (2) convert pt_insn into the DynamoRIO's IR format instr_t and append it to ilist.
+     * \note The caller does not need to initialize ilist. But if the convertion is
+     * successful, the caller needs to destory the ilist.
      */
     pt2ir_convert_status_t
-    convert();
-
-    /**
-     * Returns the number of instructions in the converted IR.
-     */
-    uint64_t
-    get_instr_count();
-
-    /**
-     * Print the disassembled text of all valid instructions to STDOUT.
-     */
-    void
-    print_instrs_to_stdout();
+    convert(OUT instrlist_t **ilist);
 
 private:
     /* Load PT raw file to buffer. The struct pt_insn_decoder will decode this buffer to
@@ -298,9 +295,6 @@ private:
 
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
-
-    /* All valid instructions that can be decoded from PT raw trace. */
-    std::vector<struct pt_insn> pt_insn_list_;
 };
 
 #endif /* _PT2IR_H_ */
