@@ -195,6 +195,8 @@ proc_has_feature(feature_bit_t f)
 
     feat_val = GET_FEAT_VAL(f);
     return (freg_nibble >= feat_val) ? true : false;
+#else
+    return false;
 #endif
 }
 
