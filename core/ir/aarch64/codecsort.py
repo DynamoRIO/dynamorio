@@ -44,8 +44,9 @@ DELIMITER = "# Instruction definitions:"
 
 class CodecLine:
     """Container to keep line info together"""
-    def __init__(self, pattern, nzcv, enum, opcode, opndtypes):
+    def __init__(self, pattern, nzcv, enum, feat, opcode, opndtypes):
         self.enum = enum
+        self.feat = feat
         self.pattern = pattern
         self.nzcv = nzcv
         self.opcode = opcode
@@ -65,10 +66,10 @@ def read_instrs(codec_file):
                     continue
                 if line.strip().startswith("#"):
                     continue
-                line = line.split(None, 4)
+                line = line.split(None, 5)
                 if not line[2].isnumeric():
                     # missing an enum entry, put a none in
-                    line = [line[0], line[1], None, line[2], " ".join(line[3:])]
+                    line = [line[0], line[1], None, line[2], line[3], " ".join(line[4:])]
                 instrs.append(CodecLine(*line))
             except:
                 print("Error parsing line: {}".format(line), file=sys.stderr)
@@ -150,8 +151,9 @@ def main():
 
     for instr in instrs:
         new_lines.append(
-            "{pattern}  {nzcv:<3} {enum:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
+            "{pattern}  {nzcv:<3} {enum:<4} {feat:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
                 enum=instr.enum,
+                feat=instr.feat,
                 pattern=instr.pattern,
                 nzcv=instr.nzcv,
                 opcode_pad=(instr_length - len(instr.opcode)) * " ",
