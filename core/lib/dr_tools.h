@@ -2632,11 +2632,11 @@ DR_API
  *                    heap is used for the table.
  * @param[in] bits       The base-2 log of the initial capacity of the table.
  * @param[in] load_factor_percent The threshold of the table's occupancy at which
- *                                it will be resized (so smaller values keep the table sparser
- *                                and generally more performant but at the cost of more memory).
- *                                This is a percentage and so must be between 0 and 100.
- *                                Values are typically in the 20-80 range and for performance
- *                                critical tables would usually be below 50.
+ *      it will be resized (so smaller values keep the table sparser
+ *      and generally more performant but at the cost of more memory).
+ *      This is a percentage and so must be between 0 and 100.
+ *      Values are typically in the 20-80 range and for performance
+ *      critical tables would usually be below 50.
  * @param[in] synch      Whether to use a lock around all operations.
  * @param[in] free_payload_func An optional function to call when removing an entry.
  *
