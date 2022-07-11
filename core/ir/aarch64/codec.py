@@ -545,7 +545,6 @@ def read_codec_file(path):
             for line in (l.split('#')[0].strip() for l in file):
                 if not line:
                     continue
-                #print('{}'.format(line))
                 if re.match('^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z0-9]* +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$', line):
                     # Syntax: pattern opcode opndtype* : opndtype*
                     pattern, nzcv_rw_flag, enum, feat, opcode, args = line.split(None, 5)
