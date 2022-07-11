@@ -34,69 +34,69 @@
 
 # Instruction definitions:
 
-0x101110110xxxxx000101xxxxxxxxxx  n   94      fabd  dq0 : dq5 dq16 h_sz
-01111110110xxxxx000101xxxxxxxxxx  n   94      fabd   h0 : h5 h16
-0x00111011111000111110xxxxxxxxxx  n   95      fabs  dq0 : dq5 h_sz
-0x101110010xxxxx001011xxxxxxxxxx  n   96     facge  dq0 : dq5 dq16 h_sz
-0x101110110xxxxx001011xxxxxxxxxx  n   97     facgt  dq0 : dq5 dq16 h_sz
-0x001110010xxxxx000101xxxxxxxxxx  n   98      fadd  dq0 : dq5 dq16 h_sz
-0x101110010xxxxx000101xxxxxxxxxx  n   99     faddp  dq0 : dq5 dq16 h_sz
-0101111000110000110110xxxxxxxxxx  n   99     faddp   h0 : q5 h_sz
-0x001110010xxxxx001001xxxxxxxxxx  n   102    fcmeq  dq0 : dq5 dq16 h_sz
-0x00111011111000110110xxxxxxxxxx  n   102    fcmeq  dq0 : dq5 zero_fp_const h_sz
-0101111011111000110110xxxxxxxxxx  n   102    fcmeq   h0 : h5 zero_fp_const
-0x101110010xxxxx001001xxxxxxxxxx  n   103    fcmge  dq0 : dq5 dq16 h_sz
-0x10111011111000110010xxxxxxxxxx  n   103    fcmge  dq0 : dq5 zero_fp_const h_sz
-0111111011111000110010xxxxxxxxxx  n   103    fcmge   h0 : h5 zero_fp_const
-0x101110110xxxxx001001xxxxxxxxxx  n   104    fcmgt  dq0 : dq5 dq16 h_sz
-0x00111011111000110010xxxxxxxxxx  n   104    fcmgt  dq0 : dq5 zero_fp_const h_sz
-0101111011111000110010xxxxxxxxxx  n   104    fcmgt   h0 : h5 zero_fp_const
-0111111011111000110110xxxxxxxxxx  n   105    fcmle   h0 : h5 zero_fp_const
-0101111011111000111010xxxxxxxxxx  n   106    fcmlt   h0 : h5 zero_fp_const
-00011110111xxxxx001000xxxxx10000  w   108    fcmpe      : h5 h16
-0001111011100000001000xxxxx11000  w   108    fcmpe      : h5 zero_fp_const
-0001111000100011110000xxxxxxxxxx  n   110     fcvt   h0 : s5
-0001111001100011110000xxxxxxxxxx  n   110     fcvt   h0 : d5
-0001111011100010010000xxxxxxxxxx  n   110     fcvt   s0 : h5
-0001111011100010110000xxxxxxxxxx  n   110     fcvt   d0 : h5
-x001111011110001000000xxxxxxxxxx  n   116   fcvtmu  wx0 : h5
-0111111001111001101110xxxxxxxxxx  n   116   fcvtmu   h0 : h5
-x001111011100001000000xxxxxxxxxx  n   120   fcvtnu  wx0 : h5
-0111111001111001101010xxxxxxxxxx  n   120   fcvtnu   h0 : h5
-0x0011110xxxxxxx111111xxxxxxxxxx  n   125   fcvtzs  dq0 : dq5 immhb_fxp bhsd_immh_sz
-0x10111011111001101110xxxxxxxxxx  n   126   fcvtzu  dq0 : dq5 h_sz
-0x1011110xxxxxxx111111xxxxxxxxxx  n   126   fcvtzu  dq0 : dq5 immhb_fxp bhsd_immh_sz
-0x101110010xxxxx001111xxxxxxxxxx  n   127     fdiv  dq0 : dq5 dq16 h_sz
-0x001110010xxxxx001101xxxxxxxxxx  n   129     fmax  dq0 : dq5 dq16 h_sz
-0x001110010xxxxx000001xxxxxxxxxx  n   130   fmaxnm  dq0 : dq5 dq16 h_sz
-0x101110010xxxxx000001xxxxxxxxxx  n   131  fmaxnmp  dq0 : dq5 dq16 h_sz
-0x00111000110000110010xxxxxxxxxx  n   132  fmaxnmv   h0 : dq5 h_sz
-0x101110010xxxxx001101xxxxxxxxxx  n   133    fmaxp  dq0 : dq5 dq16 h_sz
-0x00111000110000111110xxxxxxxxxx  n   134    fmaxv   h0 : dq5 h_sz
-0x001110110xxxxx001101xxxxxxxxxx  n   135     fmin  dq0 : dq5 dq16 h_sz
-0x001110110xxxxx000001xxxxxxxxxx  n   136   fminnm  dq0 : dq5 dq16 h_sz
-0x101110110xxxxx000001xxxxxxxxxx  n   137  fminnmp  dq0 : dq5 dq16 h_sz
-0000111010110000110010xxxxxxxxxx  n   138  fminnmv   h0 : d5
-0100111010110000110010xxxxxxxxxx  n   138  fminnmv   h0 : q5
-0x101110110xxxxx001101xxxxxxxxxx  n   139    fminp  dq0 : dq5 dq16 h_sz
-0x00111010110000111110xxxxxxxxxx  n   140    fminv   h0 : dq5 h_sz
-0x001110010xxxxx000011xxxxxxxxxx  n   141     fmla  dq0 : dq0 dq5 dq16 h_sz
-0x001110110xxxxx000011xxxxxxxxxx  n   144     fmls  dq0 : dq0 dq5 dq16 h_sz
-0x00111100xxxxxx0101x0xxxxxxxxxx  n   144     fmls  dq0 : dq5 dq16_h_sz vindex_H h_sz
-00011110111xxxxxxxx10000000xxxxx  n   147     fmov   h0 : fpimm13
-0001111011100111000000xxxxxxxxxx  n   147     fmov   h0 : w5
-1001111011100111000000xxxxxxxxxx  n   147     fmov   h0 : x5
-0x00111100000xxx111111xxxxxxxxxx  n   147     fmov  dq0 : fpimm8 h_sz
-0x00111100xxxxxx1001x0xxxxxxxxxx  n   149     fmul  dq0 : dq5 dq16_h_sz vindex_H h_sz
-0101111100xxxxxx1001x0xxxxxxxxxx  n   149     fmul   h0 : h5 dq16_h_sz vindex_H h_sz
-0x101110010xxxxx000111xxxxxxxxxx  n   149     fmul  dq0 : dq5 dq16 h_sz
-0x001110010xxxxx000111xxxxxxxxxx  n   150    fmulx  dq0 : dq5 dq16 h_sz
-0x10111011111000111110xxxxxxxxxx  n   151     fneg  dq0 : dq5 h_sz
-0101111011111001110110xxxxxxxxxx  n   155   frecpe   h0 : h5
-0x001110010xxxxx001111xxxxxxxxxx  n   156   frecps  dq0 : dq5 dq16 h_sz
-0101111011111001111110xxxxxxxxxx  n   157   frecpx   h0 : h5
-0111111011111001110110xxxxxxxxxx  n   165  frsqrte   h0 : h5
-0x001110110xxxxx001111xxxxxxxxxx  n   166  frsqrts  dq0 : dq5 dq16 h_sz
-0x001110110xxxxx000101xxxxxxxxxx  n   168     fsub  dq0 : dq5 dq16 h_sz
-0x001110100xxxxx100101xxxxxxxxxx  n   364     sdot  dq0 : dq5 dq16 s_const_sz b_const_sz
-0x101110100xxxxx100101xxxxxxxxxx  n   512     udot  dq0 : dq5 dq16 s_const_sz b_const_sz
+0x101110110xxxxx000101xxxxxxxxxx  n   94   FP16    fabd  dq0 : dq5 dq16 h_sz
+01111110110xxxxx000101xxxxxxxxxx  n   94   FP16    fabd   h0 : h5 h16
+0x00111011111000111110xxxxxxxxxx  n   95   FP16    fabs  dq0 : dq5 h_sz
+0x101110010xxxxx001011xxxxxxxxxx  n   96   FP16   facge  dq0 : dq5 dq16 h_sz
+0x101110110xxxxx001011xxxxxxxxxx  n   97   FP16   facgt  dq0 : dq5 dq16 h_sz
+0x001110010xxxxx000101xxxxxxxxxx  n   98   FP16    fadd  dq0 : dq5 dq16 h_sz
+0x101110010xxxxx000101xxxxxxxxxx  n   99   FP16   faddp  dq0 : dq5 dq16 h_sz
+0101111000110000110110xxxxxxxxxx  n   99   FP16   faddp   h0 : q5 h_sz
+0x001110010xxxxx001001xxxxxxxxxx  n   102  FP16   fcmeq  dq0 : dq5 dq16 h_sz
+0x00111011111000110110xxxxxxxxxx  n   102  FP16   fcmeq  dq0 : dq5 zero_fp_const h_sz
+0101111011111000110110xxxxxxxxxx  n   102  FP16   fcmeq   h0 : h5 zero_fp_const
+0x101110010xxxxx001001xxxxxxxxxx  n   103  FP16   fcmge  dq0 : dq5 dq16 h_sz
+0x10111011111000110010xxxxxxxxxx  n   103  FP16   fcmge  dq0 : dq5 zero_fp_const h_sz
+0111111011111000110010xxxxxxxxxx  n   103  FP16   fcmge   h0 : h5 zero_fp_const
+0x101110110xxxxx001001xxxxxxxxxx  n   104  FP16   fcmgt  dq0 : dq5 dq16 h_sz
+0x00111011111000110010xxxxxxxxxx  n   104  FP16   fcmgt  dq0 : dq5 zero_fp_const h_sz
+0101111011111000110010xxxxxxxxxx  n   104  FP16   fcmgt   h0 : h5 zero_fp_const
+0111111011111000110110xxxxxxxxxx  n   105  FP16   fcmle   h0 : h5 zero_fp_const
+0101111011111000111010xxxxxxxxxx  n   106  FP16   fcmlt   h0 : h5 zero_fp_const
+00011110111xxxxx001000xxxxx10000  w   108  FP16   fcmpe      : h5 h16
+0001111011100000001000xxxxx11000  w   108  FP16   fcmpe      : h5 zero_fp_const
+0001111000100011110000xxxxxxxxxx  n   110  FP16    fcvt   h0 : s5
+0001111001100011110000xxxxxxxxxx  n   110  FP16    fcvt   h0 : d5
+0001111011100010010000xxxxxxxxxx  n   110  FP16    fcvt   s0 : h5
+0001111011100010110000xxxxxxxxxx  n   110  FP16    fcvt   d0 : h5
+x001111011110001000000xxxxxxxxxx  n   116  FP16  fcvtmu  wx0 : h5
+0111111001111001101110xxxxxxxxxx  n   116  FP16  fcvtmu   h0 : h5
+x001111011100001000000xxxxxxxxxx  n   120  FP16  fcvtnu  wx0 : h5
+0111111001111001101010xxxxxxxxxx  n   120  FP16  fcvtnu   h0 : h5
+0x0011110xxxxxxx111111xxxxxxxxxx  n   125  FP16  fcvtzs  dq0 : dq5 immhb_fxp bhsd_immh_sz
+0x10111011111001101110xxxxxxxxxx  n   126  FP16  fcvtzu  dq0 : dq5 h_sz
+0x1011110xxxxxxx111111xxxxxxxxxx  n   126  FP16  fcvtzu  dq0 : dq5 immhb_fxp bhsd_immh_sz
+0x101110010xxxxx001111xxxxxxxxxx  n   127  FP16    fdiv  dq0 : dq5 dq16 h_sz
+0x001110010xxxxx001101xxxxxxxxxx  n   129  FP16    fmax  dq0 : dq5 dq16 h_sz
+0x001110010xxxxx000001xxxxxxxxxx  n   130  FP16  fmaxnm  dq0 : dq5 dq16 h_sz
+0x101110010xxxxx000001xxxxxxxxxx  n   131  FP16 fmaxnmp  dq0 : dq5 dq16 h_sz
+0x00111000110000110010xxxxxxxxxx  n   132  FP16 fmaxnmv   h0 : dq5 h_sz
+0x101110010xxxxx001101xxxxxxxxxx  n   133  FP16   fmaxp  dq0 : dq5 dq16 h_sz
+0x00111000110000111110xxxxxxxxxx  n   134  FP16   fmaxv   h0 : dq5 h_sz
+0x001110110xxxxx001101xxxxxxxxxx  n   135  FP16    fmin  dq0 : dq5 dq16 h_sz
+0x001110110xxxxx000001xxxxxxxxxx  n   136  FP16  fminnm  dq0 : dq5 dq16 h_sz
+0x101110110xxxxx000001xxxxxxxxxx  n   137  FP16 fminnmp  dq0 : dq5 dq16 h_sz
+0000111010110000110010xxxxxxxxxx  n   138  FP16 fminnmv   h0 : d5
+0100111010110000110010xxxxxxxxxx  n   138  FP16 fminnmv   h0 : q5
+0x101110110xxxxx001101xxxxxxxxxx  n   139  FP16   fminp  dq0 : dq5 dq16 h_sz
+0x00111010110000111110xxxxxxxxxx  n   140  FP16   fminv   h0 : dq5 h_sz
+0x001110010xxxxx000011xxxxxxxxxx  n   141  FP16    fmla  dq0 : dq0 dq5 dq16 h_sz
+0x001110110xxxxx000011xxxxxxxxxx  n   144  FP16    fmls  dq0 : dq0 dq5 dq16 h_sz
+0x00111100xxxxxx0101x0xxxxxxxxxx  n   144  FP16    fmls  dq0 : dq5 dq16_h_sz vindex_H h_sz
+00011110111xxxxxxxx10000000xxxxx  n   147  FP16    fmov   h0 : fpimm13
+0001111011100111000000xxxxxxxxxx  n   147  FP16    fmov   h0 : w5
+1001111011100111000000xxxxxxxxxx  n   147  FP16    fmov   h0 : x5
+0x00111100000xxx111111xxxxxxxxxx  n   147  FP16    fmov  dq0 : fpimm8 h_sz
+0x00111100xxxxxx1001x0xxxxxxxxxx  n   149  FP16    fmul  dq0 : dq5 dq16_h_sz vindex_H h_sz
+0101111100xxxxxx1001x0xxxxxxxxxx  n   149  FP16    fmul   h0 : h5 dq16_h_sz vindex_H h_sz
+0x101110010xxxxx000111xxxxxxxxxx  n   149  FP16    fmul  dq0 : dq5 dq16 h_sz
+0x001110010xxxxx000111xxxxxxxxxx  n   150  FP16   fmulx  dq0 : dq5 dq16 h_sz
+0x10111011111000111110xxxxxxxxxx  n   151  FP16    fneg  dq0 : dq5 h_sz
+0101111011111001110110xxxxxxxxxx  n   155  FP16  frecpe   h0 : h5
+0x001110010xxxxx001111xxxxxxxxxx  n   156  FP16  frecps  dq0 : dq5 dq16 h_sz
+0101111011111001111110xxxxxxxxxx  n   157  FP16  frecpx   h0 : h5
+0111111011111001110110xxxxxxxxxx  n   165  FP16 frsqrte   h0 : h5
+0x001110110xxxxx001111xxxxxxxxxx  n   166  FP16 frsqrts  dq0 : dq5 dq16 h_sz
+0x001110110xxxxx000101xxxxxxxxxx  n   168  FP16    fsub  dq0 : dq5 dq16 h_sz
+0x001110100xxxxx100101xxxxxxxxxx  n   364  DotProd    sdot  dq0 : dq5 dq16 s_const_sz b_const_sz
+0x101110100xxxxx100101xxxxxxxxxx  n   512  DotProd    udot  dq0 : dq5 dq16 s_const_sz b_const_sz
