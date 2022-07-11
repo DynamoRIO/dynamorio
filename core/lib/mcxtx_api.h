@@ -39,7 +39,7 @@
  *
  */
 /* clang-format off */
-#ifdef AARCHXX
+#if defined(AARCHXX)
     /* We want to simplify things by keeping this in register lists order.
      * We also want registers used by ibl to be placed together to fit on
      * the same 32-byte cache line, whether on a 32-bit or 64-bit machine,
@@ -136,7 +136,7 @@
      * and dr_simd_t has no fields larger than 32 bits, so we have no padding.
      */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
-#else /* X86 */
+#elif defined(X86)
     /* Our inlined ibl uses eax-edx, so we place them together to fit
      * on the same 32-byte cache line; yet we also want to simplify
      * things by keeping this in pusha order.  Whether on a 32-bit or
@@ -272,4 +272,287 @@
     };
     /** Storage for #MCXT_NUM_OPMASK_SLOTS mask registers as part of AVX-512. */
     dr_opmask_t opmask[MCXT_NUM_OPMASK_SLOTS];
-#endif /* ARM/X86 */
+#elif defined(RISCV64)
+    /* FIXME-RISCV: add rest of machine context and register aliases. */
+    /* Any changes in order here must be mirrored in arch/riscv64.asm offsets.
+     */
+    union {
+        /* FIXME-RISCV: This is hard-wired to zero so could be removed */
+        reg_t x0;   /**< The x0 register. */
+        reg_t zero; /**< The zero register. */
+    }; /**< The anonymous union of alternative names for x0/zero register. */
+    union {
+        reg_t x1;   /**< The x1 register. */
+        reg_t ra;
+    };
+    union {
+        reg_t x2;  /**< The x2 register. */
+        reg_t sp;  /**< The stack pointer register.*/
+        reg_t xsp; /**< The platform-independent name for the stack pointer register. */
+    };
+    union {
+        reg_t x3;   /**< The x3 register. */
+        reg_t gp;
+    };
+    union {
+        reg_t x4;   /**< The x4 register. */
+        reg_t tp;
+    };
+    union {
+        reg_t x5;   /**< The x5 register. */
+        reg_t t0;
+    };
+    union {
+        reg_t x6;   /**< The x6 register. */
+        reg_t t1;
+    };
+    union {
+        reg_t x7;   /**< The x7 register. */
+        reg_t t2;
+    };
+    union {
+        reg_t x8;   /**< The x8 register. */
+        reg_t s0;
+        reg_t fp;
+    };
+    union {
+        reg_t x9;   /**< The x9 register. */
+        reg_t s1;
+    };
+    union {
+        reg_t x10;  /**< The x10 register. */
+        reg_t a0;
+    };
+    union {
+        reg_t x11;  /**< The x11 register. */
+        reg_t a1;
+    };
+    union {
+        reg_t x12;  /**< The x12 register. */
+        reg_t a2;
+    };
+    union {
+        reg_t x13;  /**< The x13 register. */
+        reg_t a3;
+    };
+    union {
+        reg_t x14;  /**< The x14 register. */
+        reg_t a4;
+    };
+    union {
+        reg_t x15;  /**< The x15 register. */
+        reg_t a5;
+    };
+    union {
+        reg_t x16;  /**< The x16 register. */
+        reg_t a6;
+    };
+    union {
+        reg_t x17;  /**< The x17 register. */
+        reg_t a7;
+    };
+    union {
+        reg_t x18;  /**< The x18 register. */
+        reg_t s2;
+    };
+    union {
+        reg_t x19;  /**< The x19 register. */
+        reg_t s3;
+    };
+    union {
+        reg_t x20;  /**< The x20 register. */
+        reg_t s4;
+    };
+    union {
+        reg_t x21;  /**< The x21 register. */
+        reg_t s5;
+    };
+    union {
+        reg_t x22;  /**< The x22 register. */
+        reg_t s6;
+    };
+    union {
+        reg_t x23;  /**< The x23 register. */
+        reg_t s7;
+    };
+    union {
+        reg_t x24;  /**< The x24 register. */
+        reg_t s8;
+    };
+    union {
+        reg_t x25;  /**< The x25 register. */
+        reg_t s9;
+    };
+    union {
+        reg_t x26;  /**< The x26 register. */
+        reg_t s10;
+    };
+    union {
+        reg_t x27;  /**< The x27 register. */
+        reg_t s11;
+    };
+    union {
+        reg_t x28;  /**< The x28 register. */
+        reg_t t3;
+    };
+    union {
+        reg_t x29;  /**< The x29 register. */
+        reg_t t4;
+    };
+    union {
+        reg_t x30;  /**< The x30 register. */
+        reg_t t5;
+    };
+    union {
+        reg_t x31;  /**< The x31 register. */
+        reg_t t6;
+    };
+    /**
+     * The program counter.
+     * \note This field is not always set or read by all API routines.
+     */
+    byte *pc;
+#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+    union {
+        reg_t f0;   /**< The f0 register. */
+        reg_t ft0;
+    };
+    union {
+        reg_t f1;   /**< The f1 register. */
+        reg_t ft1;
+    };
+    union {
+        reg_t f2;  /**< The f2 register. */
+        reg_t ft2;
+    };
+    union {
+        reg_t f3;   /**< The f3 register. */
+        reg_t ft3;
+    };
+    union {
+        reg_t f4;   /**< The f4 register. */
+        reg_t ft4;
+    };
+    union {
+        reg_t f5;   /**< The f5 register. */
+        reg_t ft5;
+    };
+    union {
+        reg_t f6;   /**< The f6 register. */
+        reg_t ft6;
+    };
+    union {
+        reg_t f7;   /**< The f7 register. */
+        reg_t ft7;
+    };
+    union {
+        reg_t f8;   /**< The f8 register. */
+        reg_t fs0;
+    };
+    union {
+        reg_t f9;   /**< The f9 register. */
+        reg_t fs1;
+    };
+    union {
+        reg_t f10;  /**< The f10 register. */
+        reg_t fa0;
+    };
+    union {
+        reg_t f11;  /**< The f11 register. */
+        reg_t fa1;
+    };
+    union {
+        reg_t f12;  /**< The f12 register. */
+        reg_t fa2;
+    };
+    union {
+        reg_t f13;  /**< The f13 register. */
+        reg_t fa3;
+    };
+    union {
+        reg_t f14;  /**< The f14 register. */
+        reg_t fa4;
+    };
+    union {
+        reg_t f15;  /**< The f15 register. */
+        reg_t fa5;
+    };
+    union {
+        reg_t f16;  /**< The f16 register. */
+        reg_t fa6;
+    };
+    union {
+        reg_t f17;  /**< The f17 register. */
+        reg_t fa7;
+    };
+    union {
+        reg_t f18;  /**< The f18 register. */
+        reg_t fs2;
+    };
+    union {
+        reg_t f19;  /**< The f19 register. */
+        reg_t fs3;
+    };
+    union {
+        reg_t f20;  /**< The f20 register. */
+        reg_t fs4;
+    };
+    union {
+        reg_t f21;  /**< The f21 register. */
+        reg_t fs5;
+    };
+    union {
+        reg_t f22;  /**< The f22 register. */
+        reg_t fs6;
+    };
+    union {
+        reg_t f23;  /**< The f23 register. */
+        reg_t fs7;
+    };
+    union {
+        reg_t f24;  /**< The f24 register. */
+        reg_t fs8;
+    };
+    union {
+        reg_t f25;  /**< The f25 register. */
+        reg_t fs9;
+    };
+    union {
+        reg_t f26;  /**< The f26 register. */
+        reg_t fs10;
+    };
+    union {
+        reg_t f27;  /**< The f27 register. */
+        reg_t fs11;
+    };
+    union {
+        reg_t f28;  /**< The f28 register. */
+        reg_t ft8;
+    };
+    union {
+        reg_t f29;  /**< The f29 register. */
+        reg_t ft9;
+    };
+    union {
+        reg_t f30;  /**< The f30 register. */
+        reg_t ft10;
+    };
+    union {
+        reg_t f31;  /**< The f31 register. */
+        reg_t ft11;
+    };
+#endif
+    union {
+        /* FIXME-RISCV: There are no arith or compare flags. */
+        reg_t xflags; /**< The platform-independent name for condition flags. */
+        struct {
+#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+            reg_t fcsr; /**< Floating-Point Control Register. */
+#endif
+        }; /**< RISC-V flag registers. */
+    }; /**< The anonymous union of alternative names for flag registers. */
+    /** The SIMD registers. No support for SIMD on RISC-V so far. */
+    dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
+#else /* RISCV64 */
+#error Unsupported architecture
+#endif

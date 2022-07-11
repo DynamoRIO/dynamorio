@@ -1124,8 +1124,166 @@ enum {
     /** Platform-independent way to refer to stack pointer. */
     DR_REG_XSP = DR_REG_SP,
 #    endif
+#elif defined(RISCV64)
+    DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
+    DR_REG_X0,
+    DR_REG_X1,
+    DR_REG_X2,
+    DR_REG_X3,
+    DR_REG_X4,
+    DR_REG_X5,
+    DR_REG_X6,
+    DR_REG_X7,
+    DR_REG_X8,
+    DR_REG_X9,
+    DR_REG_X10,
+    DR_REG_X11,
+    DR_REG_X12,
+    DR_REG_X13,
+    DR_REG_X14,
+    DR_REG_X15,
+    DR_REG_X16,
+    DR_REG_X17,
+    DR_REG_X18,
+    DR_REG_X19,
+    DR_REG_X20,
+    DR_REG_X21,
+    DR_REG_X22,
+    DR_REG_X23,
+    DR_REG_X24,
+    DR_REG_X25,
+    DR_REG_X26,
+    DR_REG_X27,
+    DR_REG_X28,
+    DR_REG_X29,
+    DR_REG_X30,
+    DR_REG_X31,
+    DR_REG_PC,
+    /* GPR aliases */
+    DR_REG_ZERO = DR_REG_X0,
+    DR_REG_RA = DR_REG_X1,
+    DR_REG_SP = DR_REG_X2,
+    DR_REG_GP = DR_REG_X3,
+    DR_REG_TP = DR_REG_X4,
+    DR_REG_T0 = DR_REG_X5,
+    DR_REG_T1 = DR_REG_X6,
+    DR_REG_T2 = DR_REG_X7,
+    DR_REG_S0 = DR_REG_X8,
+    DR_REG_FP = DR_REG_X8,
+    DR_REG_S1 = DR_REG_X9,
+    DR_REG_A0 = DR_REG_X10,
+    DR_REG_A1 = DR_REG_X11,
+    DR_REG_A2 = DR_REG_X12,
+    DR_REG_A3 = DR_REG_X13,
+    DR_REG_A4 = DR_REG_X14,
+    DR_REG_A5 = DR_REG_X15,
+    DR_REG_A6 = DR_REG_X16,
+    DR_REG_A7 = DR_REG_X17,
+    DR_REG_S2 = DR_REG_X18,
+    DR_REG_S3 = DR_REG_X19,
+    DR_REG_S4 = DR_REG_X20,
+    DR_REG_S5 = DR_REG_X21,
+    DR_REG_S6 = DR_REG_X22,
+    DR_REG_S7 = DR_REG_X23,
+    DR_REG_S8 = DR_REG_X24,
+    DR_REG_S9 = DR_REG_X25,
+    DR_REG_S10 = DR_REG_X26,
+    DR_REG_S11 = DR_REG_X27,
+    DR_REG_T3 = DR_REG_X28,
+    DR_REG_T4 = DR_REG_X29,
+    DR_REG_T5 = DR_REG_X30,
+    DR_REG_T6 = DR_REG_X31,
+#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+    DR_REG_F0,
+    DR_REG_F1,
+    DR_REG_F2,
+    DR_REG_F3,
+    DR_REG_F4,
+    DR_REG_F5,
+    DR_REG_F6,
+    DR_REG_F7,
+    DR_REG_F8,
+    DR_REG_F9,
+    DR_REG_F10,
+    DR_REG_F11,
+    DR_REG_F12,
+    DR_REG_F13,
+    DR_REG_F14,
+    DR_REG_F15,
+    DR_REG_F16,
+    DR_REG_F17,
+    DR_REG_F18,
+    DR_REG_F19,
+    DR_REG_F20,
+    DR_REG_F21,
+    DR_REG_F22,
+    DR_REG_F23,
+    DR_REG_F24,
+    DR_REG_F25,
+    DR_REG_F26,
+    DR_REG_F27,
+    DR_REG_F28,
+    DR_REG_F29,
+    DR_REG_F30,
+    DR_REG_F31,
+    DR_REG_FCSR,
+    /* FPR aliases */
+    DR_REG_FT0 = DR_REG_F0,
+    DR_REG_FT1 = DR_REG_F1,
+    DR_REG_FT2 = DR_REG_F2,
+    DR_REG_FT3 = DR_REG_F3,
+    DR_REG_FT4 = DR_REG_F4,
+    DR_REG_FT5 = DR_REG_F5,
+    DR_REG_FT6 = DR_REG_F6,
+    DR_REG_FT7 = DR_REG_F7,
+    DR_REG_FS0 = DR_REG_F8,
+    DR_REG_FS1 = DR_REG_F9,
+    DR_REG_FA0 = DR_REG_F10,
+    DR_REG_FA1 = DR_REG_F11,
+    DR_REG_FA2 = DR_REG_F12,
+    DR_REG_FA3 = DR_REG_F13,
+    DR_REG_FA4 = DR_REG_F14,
+    DR_REG_FA5 = DR_REG_F15,
+    DR_REG_FA6 = DR_REG_F16,
+    DR_REG_FA7 = DR_REG_F17,
+    DR_REG_FS2 = DR_REG_F18,
+    DR_REG_FS3 = DR_REG_F19,
+    DR_REG_FS4 = DR_REG_F20,
+    DR_REG_FS5 = DR_REG_F21,
+    DR_REG_FS6 = DR_REG_F22,
+    DR_REG_FS7 = DR_REG_F23,
+    DR_REG_FS8 = DR_REG_F24,
+    DR_REG_FS9 = DR_REG_F25,
+    DR_REG_FS10 = DR_REG_F26,
+    DR_REG_FS11 = DR_REG_F27,
+    DR_REG_FT8 = DR_REG_F28,
+    DR_REG_FT9 = DR_REG_F29,
+    DR_REG_FT10 = DR_REG_F30,
+    DR_REG_FT11 = DR_REG_F31,
+#endif /* RISCV_ISA_F || RISCV_ISA_D */
+    /* FIXME-RISCV: CCSRs */
+    /* FIXME-RISCV: Ifdefs for different extensions */
 
-#endif /* X86/ARM */
+#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+    DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums */
+#else
+    DR_REG_LAST_VALID_ENUM = DR_REG_PC, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_PC,       /**< Last value of register enums */
+#endif
+    DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit general register enum values */
+    DR_REG_STOP_64 = DR_REG_X31,  /**< End of 64-bit general register enum values */
+    DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit general register enum values */
+    DR_REG_STOP_32 = DR_REG_X31,  /**< End of 32-bit general register enum values */
+    DR_REG_START_GPR = DR_REG_X0, /**< Start of general register registers */
+    DR_REG_STOP_GPR = DR_REG_X31, /**< End of general register registers */
+    DR_REG_XSP = DR_REG_SP,
+
+    DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
+    DR_NUM_SIMD_VECTOR_REGS = 0, /**< Count of SIMD regs. */
+#else  /* RISCV64 */
+#error Register definitions missing for this platform.
+#endif
 };
 
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
