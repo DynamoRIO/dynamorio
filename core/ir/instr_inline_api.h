@@ -183,8 +183,27 @@ opnd_is_far_rel_addr(opnd_t opnd)
 {
     return false;
 }
-#        endif
-#    endif /* X64 || ARM */
+#        elif defined(RISCV64)
+#            define OPND_IS_REL_ADDR(op) ((op).kind == REL_ADDR_kind)
+#            define opnd_is_rel_addr OPND_IS_REL_ADDR
+
+INSTR_INLINE
+bool
+opnd_is_near_rel_addr(opnd_t opnd)
+{
+    /* FIXME i#3544: Not implemented */
+    return opnd_is_rel_addr(opnd);
+}
+
+INSTR_INLINE
+bool
+opnd_is_far_rel_addr(opnd_t opnd)
+{
+    /* FIXME i#3544: Not implemented */
+    return false;
+}
+#        endif /* RISCV64 */
+#    endif     /* X64 || ARM */
 
 /* opnd_t constructors */
 
@@ -271,6 +290,11 @@ opnd_create_pc(app_pc pc)
                  "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd")( \
                  opnd)                                                                 \
                  .aux.flags)
+#    elif defined(RISCV64)
+#        define OPND_GET_FLAGS(opnd)                                                     \
+            (CLIENT_ASSERT_(                                                             \
+                opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || opnd_is_immed_int(opnd), \
+                "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") 0)
 #    endif
 #    define opnd_get_flags OPND_GET_FLAGS
 
@@ -302,7 +326,7 @@ opnd_create_pc(app_pc pc)
                                                            opnd_is_rel_addr(opnd)),     \
                             "opnd_get_segment called on invalid opnd type")(opnd)       \
                  .aux.segment)
-#    elif defined(AARCHXX)
+#    elif defined(AARCHXX) || defined(RISCV64)
 #        define OPND_GET_SEGMENT(opnd) DR_REG_NULL
 #    endif
 #    define opnd_get_segment OPND_GET_SEGMENT

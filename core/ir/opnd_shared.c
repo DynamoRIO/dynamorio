@@ -1179,6 +1179,8 @@ const reg_id_t d_r_regparms[] = {
 #    ifdef X64
     REGPARM_4,  REGPARM_5, REGPARM_6, REGPARM_7,
 #    endif
+#elif defined(RISCV64)
+    REGPARM_0,  REGPARM_1, REGPARM_2, REGPARM_3, REGPARM_4, REGPARM_5,
 #endif
     REG_INVALID
 };
@@ -1273,6 +1275,21 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             *opnd = opnd_create_far_base_disp_ex(
                 s, b, i, sc, d, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
+#elif defined(RISCV64)
+            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
+             * We could support base + disp as long as disp == +/-1MB.
+             * If needed, instructions with this operand should be transformed
+             * to:
+             *   mul idx, idx, scale # or slli if scale is immediate
+             *   add base, base, idx
+             *   addi base, base, disp
+             */
+            CLIENT_ASSERT(false, "Not implemented");
+            (void)size;
+            (void)b;
+            (void)i;
+            (void)d;
+            return false;
 #endif
             return true;
         }
@@ -1381,6 +1398,19 @@ opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             *opnd = opnd_create_far_base_disp_ex(
                 new_s, new_b, new_i, sc, disp, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
+#elif defined(RISCV64)
+            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
+             * We could support base + disp as long as disp == +/-1MB.
+             * If needed, instructions with this operand should be transformed
+             * to:
+             *   mul idx, idx, scale # or slli if scale is immediate
+             *   add base, base, idx
+             *   addi base, base, disp
+             */
+            CLIENT_ASSERT(false, "Not implemented");
+            (void)disp;
+            (void)size;
+            return false;
 #endif
             return true;
         }
@@ -2161,6 +2191,11 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
             break;
         default: scaled_index = index_val;
         }
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        (void)index;
+        CLIENT_ASSERT(false, "Not implemented");
+        return NULL;
 #endif
     }
     return opnd_compute_address_helper(opnd, mc, scaled_index);
@@ -2200,6 +2235,11 @@ reg_32_to_16(reg_id_t reg)
 #elif defined(AARCHXX)
     CLIENT_ASSERT(false, "reg_32_to_16 not supported on ARM");
     return REG_NULL;
+#elif defined(RISCV64)
+    /* FIXME i#3544: There is no separate addressing for half registers.
+     * Semantics are part of the opcode.
+     */
+    return reg;
 #endif
 }
 
@@ -2222,6 +2262,11 @@ reg_32_to_8(reg_id_t reg)
 #elif defined(AARCHXX)
     CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
     return REG_NULL;
+#elif defined(RISCV64)
+    /* FIXME i#3544: There is no separate addressing for half registers.
+     * Semantics are part of the opcode.
+     */
+    return reg;
 #endif
 }
 
