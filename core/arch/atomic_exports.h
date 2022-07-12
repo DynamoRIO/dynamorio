@@ -723,7 +723,254 @@ atomic_dec_becomes_zero(volatile int *var)
                                  : "r2")
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(ne, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
-#    endif /* X86/ARM */
+#    elif defined(DR_HOST_RISCV64)
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
+            do {                                                    \
+                __asm__ __volatile__("lbu %0, 0(%1)\n\t"            \
+                                     "fence iorw,iorw"              \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "memory");                   \
+            } while (0)
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                __asm__ __volatile__("fence iorw,iorw\n\t"     \
+                                     "sb %0, 0(%1)\n\t"        \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
+#        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                /* Assuming little endian. */                  \
+                ASSERT(BYTE_ORDER == LITTLE_ENDIAN);           \
+                /* FIXME i#3544: test the assembly!*/          \
+                __asm__ __volatile__("fence iorw,iorw\n\t"     \
+                                     "sb %0, 0(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 1(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 2(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 3(%1)\n\t"        \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+            do {                                                     \
+                /* Not currently used to write code */               \
+                ASSERT_CURIOSITY(!hot_patch);                        \
+                __asm__ __volatile__("fence iorw,iorw\n\t"           \
+                                     "sw %0, 0(%1)\n\t"              \
+                                     :                               \
+                                     : "r"(value), "r"(target)       \
+                                     : "memory");                    \
+            } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                __asm__ __volatile__("lwu %0, 0(%1)\n\t"            \
+                                     "fence iorw,iorw"              \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "memory");                   \
+            } while (0)
+#        define ATOMIC_8BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                /* Assuming little endian. */                  \
+                ASSERT(BYTE_ORDER == LITTLE_ENDIAN);           \
+                /* FIXME i#3544: test the assembly!*/          \
+                __asm__ __volatile__("fence iorw,iorw\n\t"     \
+                                     "sb %0, 0(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 1(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 2(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 3(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 4(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 5(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 6(%1)\n\t"        \
+                                     "srli %0, %0, 8\n\t"      \
+                                     "sb %0, 7(%1)\n\t"        \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+            do {                                                     \
+                /* Not currently used to write code */               \
+                ASSERT_CURIOSITY(!hot_patch);                        \
+                __asm__ __volatile__("fence iorw,iorw\n\t"           \
+                                     "sd %0, 0(%1)\n\t"              \
+                                     :                               \
+                                     : "r"(value), "r"(target)       \
+                                     : "memory");                    \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                __asm__ __volatile__("ld %0, 0(%1)\n\t"             \
+                                     "fence iorw,iorw"              \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "memory");                   \
+            } while (0)
+
+#        define ADDI_suffix(sfx, var, val)                               \
+            do {                                                         \
+                /* Result width is handled by load/store instructions */ \
+                __asm__ __volatile__("l" sfx " t0, 0(%0)\n\t"            \
+                                     "add t0, t0, " #val "\n\t"          \
+                                     "fence iorw,iorw\n\t"               \
+                                     "s" sfx " t0, 0(%0)\n\t"            \
+                                     :                                   \
+                                     : "r"(var)                          \
+                                     : "t0", "memory");                  \
+            } while (0)
+
+static inline void
+ATOMIC_INC_int(volatile int *var)
+{
+    ADDI_suffix("w", var, 1);
+}
+
+static inline void
+ATOMIC_INC_int64(volatile int64 *var)
+{
+    ADDI_suffix("d", var, 1);
+}
+
+static inline void
+ATOMIC_DEC_int(volatile int *var)
+{
+    ADDI_suffix("w", var, -1);
+}
+
+static inline void
+ATOMIC_DEC_int64(volatile int64 *var)
+{
+    ADDI_suffix("d", var, -1);
+}
+
+#        define ATOMIC_INC(type, var) ATOMIC_INC_##type(&var)
+#        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(&var)
+
+#        undef ADDI_suffix
+
+static inline void
+ATOMIC_ADD_int(volatile int *var, int val)
+{
+    __asm__ __volatile__("lw t0, 0(%0)\n\t"
+                         "add t0, t0, %1\n\t"
+                         "fence iorw,iorw\n\t"
+                         "sw t0, 0(%0)\n\t"
+                         :
+                         : "r"(var), "r"(val)
+                         : "t0", "memory");
+}
+
+static inline void
+ATOMIC_ADD_int64(volatile int64 *var, int64 val)
+{
+    __asm__ __volatile__("ld t0, 0(%0)\n\t"
+                         "add t0, t0, %1\n\t"
+                         "fence iorw,iorw\n\t"
+                         "sd t0, 0(%0)\n\t"
+                         :
+                         : "r"(var), "r"(val)
+                         : "t0", "memory");
+}
+
+#        define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(&var, val)
+
+static inline int
+atomic_add_exchange_int(volatile int *var, int val)
+{
+    ASSERT_NOT_IMPLEMENTED(false);
+    *var += val;
+    return *var;
+}
+
+static inline int64
+atomic_add_exchange_int64(volatile int64 *var, int64 val)
+{
+    ASSERT_NOT_IMPLEMENTED(false);
+    *var += val;
+    return *var;
+}
+
+#        define atomic_add_exchange atomic_add_exchange_int
+
+static inline bool
+atomic_compare_exchange_int(volatile int *bar, int compare, int exchange)
+{
+    ASSERT_NOT_IMPLEMENTED(false);
+    int prev = *bar;
+    bool ret = prev == compare;
+    if (ret) {
+        *bar = exchange;
+    }
+    return ret;
+}
+
+static inline bool
+atomic_compare_exchange_int64(volatile int64 *bar, int64 compare, int64 exchange)
+{
+    ASSERT_NOT_IMPLEMENTED(false);
+    int64 prev = *bar;
+    bool ret = prev == compare;
+    if (ret) {
+        *bar = exchange;
+    }
+    return ret;
+}
+
+#        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
+            atomic_compare_exchange_int(var, compare, exchange)
+#        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
+            atomic_compare_exchange_int64(var, compare, exchange)
+
+static inline int
+atomic_exchange_int(volatile int *var, int newval)
+{
+    int ret = *var;
+    *var = newval;
+    return ret;
+}
+
+#        define MEMORY_STORE_BARRIER() __asm__ __volatile__("fence")
+
+/* Insert pause hint directly to be compatible with old compilers. This
+ * will work even on platforms without Zihintpause extension because this
+ * is a FENCE hint instruction which evaluates to NOP then.
+ */
+#        define SPINLOCK_PAUSE() __asm__ __volatile__(".int 0x0100000F");
+
+static inline bool
+atomic_inc_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, 1) == 0;
+}
+
+static inline bool
+atomic_dec_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == -1;
+}
+
+static inline bool
+atomic_dec_becomes_zero(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == 0;
+}
+#    endif /* RISCV64 */
 
 #    ifdef X64
 #        define ATOMIC_ADD_PTR(type, var, val) ATOMIC_ADD_int64(var, val)
@@ -737,7 +984,7 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 #    endif
 
-#    ifndef DR_HOST_AARCH64
+#    if !defined(DR_HOST_AARCH64) && !defined(DR_HOST_RISCV64)
 /* Atomically increments *var by 1
  * Returns true if the resulting value is zero, otherwise returns false
  */
