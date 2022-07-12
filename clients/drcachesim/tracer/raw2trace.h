@@ -875,8 +875,7 @@ private:
             return "";
         // Filtered and instruction-only traces have no elision.
         if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
-                        OFFLINE_FILE_TYPE_INSTRUCTION_ONLY | OFFLINE_FILE_TYPE_IFILTERED |
-                        OFFLINE_FILE_TYPE_DFILTERED,
+                        OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                     impl()->get_file_type(tls)))
             return "";
         // Avoid type complaints for 32-bit.
