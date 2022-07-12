@@ -344,8 +344,8 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
-    entry->extended.valueA = OFFLINE_FILE_VERSION;
-    entry->extended.valueB = file_type;
+    entry->extended.valueA = file_type;
+    entry->extended.valueB = OFFLINE_FILE_VERSION;
     new_buf += sizeof(*entry);
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());

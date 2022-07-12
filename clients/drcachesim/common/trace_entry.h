@@ -474,10 +474,11 @@ typedef enum {
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
 // These differ in what they store in offline_entry_t.extended.value.
 typedef enum {
-    // The initial entry in the file.  The valueA field holds the version
-    // (OFFLINE_FILE_VERSION*) while valueB holds the type
+    // The initial entry in trace files with version older than
+    // OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP.  The valueA field holds the
+    // version (OFFLINE_FILE_VERSION*) while valueB holds the type
     // (OFFLINE_FILE_TYPE*).
-    OFFLINE_EXT_TYPE_HEADER,
+    OFFLINE_EXT_TYPE_HEADER_DEPRECATED,
     // The final entry in the file.  The value fields are 0.
     OFFLINE_EXT_TYPE_FOOTER,
     // A marker type.  The valueB field holds the sub-type and valueA the value.
@@ -486,6 +487,11 @@ typedef enum {
     // Used for filters on multi-memref instrs where post-processing can't tell
     // which memref passed the filter.
     OFFLINE_EXT_TYPE_MEMINFO,
+    // The initial entry in trace files (this is the expected header in current
+    // traces, as opposed to OFFLINE_EXT_TYPE_HEADER_DEPRECATED).  The valueA
+    // field holds the type (OFFLINE_FILE_TYPE*), while valueB holds the
+    // version (OFFLINE_FILE_VERSION*).
+    OFFLINE_EXT_TYPE_HEADER,
 } offline_ext_type_t;
 
 #define EXT_VALUE_A_BITS 48
@@ -500,7 +506,8 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
 #define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
 #define OFFLINE_FILE_VERSION_KERNEL_INT_PC 4
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_KERNEL_INT_PC
+#define OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP 5
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
@@ -510,7 +517,11 @@ typedef enum {
  */
 typedef enum {
     OFFLINE_FILE_TYPE_DEFAULT = 0x00,
-    OFFLINE_FILE_TYPE_FILTERED = 0x01, /**< Addresses filtered online. */
+    /**
+     * DEPRECATED: Addresses filtered online. Newer trace files use
+     * #OFFLINE_FILE_TYPE_IFILTERED and #OFFLINE_FILE_TYPE_DFILTERED.
+     */
+    OFFLINE_FILE_TYPE_FILTERED = 0x01,
     OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 0x02,
     OFFLINE_FILE_TYPE_INSTRUCTION_ONLY = 0x04, /**< Trace has no data references. */
     OFFLINE_FILE_TYPE_ARCH_AARCH64 = 0x08,     /**< Recorded on AArch64. */
@@ -519,11 +530,9 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
     OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
-        OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
-    // For raw files, this is currently stored in an 8-bit field.
-    // If we run out of flags we should swap the version to be in valueB and
-    // the flags in valueA, leaving the bottom few bits of valueA for compatibility
-    // with old versions.
+        OFFLINE_FILE_TYPE_ARCH_X86_64,   /**< All possible architecture types. */
+    OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
+    OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
 } offline_file_type_t;
 
 static inline const char *
