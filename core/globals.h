@@ -216,8 +216,8 @@ typedef byte *cache_pc; /* fragment cache pc */
 #endif
 
 /* make sure defines are consistent */
-#if !defined(X86) && !defined(ARM) && !defined(AARCH64)
-#    error Must define X86, ARM or AARCH64: no other platforms are supported
+#if !defined(X86) && !defined(ARM) && !defined(AARCH64) && !defined(RISCV64)
+#    error Must define X86, ARM, AARCH64 or RISCV64: no other platforms are supported
 #endif
 
 #if defined(PAPI) && defined(WINDOWS)

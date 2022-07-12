@@ -169,6 +169,9 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_XSP SC_FIELD(sp)
 #    define SC_XFLAGS SC_FIELD(pstate)
 #    define SC_SYSNUM_REG SC_FIELD(regs[8])
+/* FIXME i#3544: RFC: Why is SC_RETURN_REG not defined for AArch64? It would
+ * eliminate some ifdef ladders.
+ */
 #elif defined(ARM)
 #    define SC_XIP SC_FIELD(arm_pc)
 #    define SC_FP SC_FIELD(arm_fp)
@@ -203,8 +206,6 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_RA SC_FIELD(sc_regs.ra)
 #    define SC_XIP SC_FIELD(sc_regs.pc)
 #    define SC_XSP SC_FIELD(sc_regs.sp)
-/* FIXME i#3544: There is no general purpose flag register so point to float. */
-#    define SC_XFLAGS SC_FIELD(sc_fpregs.f.fcsr)
 #    define SC_SYSNUM_REG SC_A7
 #    define SC_RETURN_REG SC_A0
 #endif /* X86/ARM */

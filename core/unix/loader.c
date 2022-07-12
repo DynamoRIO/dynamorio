@@ -109,6 +109,9 @@ static const char *const system_lib_paths[] = {
 #    elif defined(AARCH64)
     "/lib/aarch64-linux-gnu",
     "/usr/lib/aarch64-linux-gnu",
+#    elif defined(RISCV64)
+    "/lib/riscv64-linux-gnu",
+    "/usr/lib/riscv64-linux-gnu",
 #    endif
 #endif
 };
