@@ -84,8 +84,9 @@ typedef enum {
 } drbbdup_thread_slots_t;
 
 /* A scratch register used by drbbdup's dispatcher. */
-#define DRBBDUP_SCRATCH_REG IF_X86_ELSE(DR_REG_XAX, DR_REG_R0)
-#define DRBBDUP_SCRATCH_REG_NO_FLAGS IF_X86_ELSE(DR_REG_XCX, DR_REG_R0)
+#define DRBBDUP_SCRATCH_REG IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0))
+#define DRBBDUP_SCRATCH_REG_NO_FLAGS \
+    IF_X86_ELSE(DR_REG_XCX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0))
 #ifdef AARCHXX
 /* RISC architectures need a 2nd scratch register. */
 #    define DRBBDUP_SCRATCH_REG2 DR_REG_R1

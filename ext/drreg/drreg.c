@@ -2069,7 +2069,10 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
                         __FUNCTION__, pc);
                 }
             }
-        } else if (instr_get_opcode(&inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
+        } else if (instr_get_opcode(&inst) ==
+                   IF_X86_ELSE(OP_lahf, IF_RISCV64_ELSE(OP_hint, OP_mrs))) {
+            /* FIXME i#3544: Not implemented */
+            ASSERT(false, "Not implemented");
             /* TODO i#4937: Unfortunately, without the extra metadata provided by the
              * faulting fragment ilist, we cannot determine whether this spill was a tool
              * aflags spill or app aflags spill. We assume the latter and update our
@@ -2079,9 +2082,11 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
         } else if (aflags_reg != DR_REG_NULL &&
                    instr_get_opcode(&inst) ==
                        IF_X86_ELSE(OP_sahf,
-                                   OP_msr &&
+                                   IF_RISCV64_ELSE(OP_hint, OP_mrs) &&
                                        opnd_get_reg(instr_get_src(&inst, 0)) ==
                                            aflags_reg)) {
+            /* FIXME i#3544: Not implemented */
+            ASSERT(false, "Not implemented");
             aflags_reg = DR_REG_NULL;
         } else if (aflags_reg != DR_REG_NULL) {
             /* If the reg storing aflags gets written to before being spilled to a slot,
@@ -2107,6 +2112,10 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
 #ifdef X86
             ASSERT(aflags_reg == DR_REG_XAX, "x86 aflags can only be in xax");
             val = info->mcontext->xax;
+#elif defined(RISCV64)
+            /* FIXME i#3544: Not implemented */
+            ASSERT(false, "Not implemented");
+            val = 0;
 #else
             val = *(reg_t *)(&info->mcontext->r0 + (aflags_reg - DR_REG_R0));
 #endif
@@ -2275,7 +2284,10 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                             get_register_name(reg), slot);
                     }
                 }
-            } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
+            } else if (instr_get_opcode(inst) ==
+                       IF_X86_ELSE(OP_sahf, IF_RISCV64_ELSE(OP_hint, OP_msr))) {
+                /* FIXME i#3544: Not implemented */
+                ASSERT(false, "Not implemented");
                 if (aflags_spill_reg == DR_REG_NULL &&
                     spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)] == MAX_SPILLS) {
                     /* Found a restore for app aflags from reg. */
@@ -2288,8 +2300,10 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                     tool_aflags_spill_reg =
                         IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)));
                 }
-            } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
-
+            } else if (instr_get_opcode(inst) ==
+                       IF_X86_ELSE(OP_lahf, IF_RISCV64_ELSE(OP_hint, OP_mrs))) {
+                /* FIXME i#3544: Not implemented */
+                ASSERT(false, "Not implemented");
                 if (aflags_spill_reg ==
                     IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_dst(inst, 0)))) {
                     /* Found the matching app aflags spill for the previously recorded
@@ -2332,6 +2346,10 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
 #ifdef X86
             ASSERT(aflags_spill_reg == DR_REG_XAX, "x86 aflags can only be in xax");
             val = info->mcontext->xax;
+#elif defined(RISCV64)
+            /* FIXME i#3544: Not implemented */
+            ASSERT(false, "Not implemented");
+            val = DR_REG_NULL;
 #else
             val = *(reg_t *)(&info->mcontext->r0 + (aflags_spill_reg - DR_REG_R0));
 #endif
