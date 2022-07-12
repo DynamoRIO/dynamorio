@@ -1807,6 +1807,9 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where,
                 XINST_CREATE_sub(drcontext, opnd_create_reg(reg_mine),
                                  opnd_create_reg(reg_global)));
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        DR_ASSERT_MSG(false, "Not implemented on RISC-V");
 #else
         // Our version of a flags-free reg-reg subtraction: 1's complement one reg
         // plus 1 and then add using base+index of LEA.
@@ -2218,6 +2221,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drreg_init_and_fill_vector(&rvec, false);
 #ifdef X86
     drreg_set_vector_entry(&rvec, DR_REG_XCX, true);
+#elif defined(RISCV64)
+    /* FIXME i#3544: Check if scratch reg can be used here. */
+    drreg_set_vector_entry(&rvec, DR_REG_T2, true);
 #else
     for (reg_ptr = DR_REG_R0; reg_ptr <= DR_REG_R7; reg_ptr++)
         drreg_set_vector_entry(&rvec, reg_ptr, true);
