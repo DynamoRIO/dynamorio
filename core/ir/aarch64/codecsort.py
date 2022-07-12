@@ -44,8 +44,9 @@ DELIMITER = "# Instruction definitions:"
 
 class CodecLine:
     """Container to keep line info together"""
-    def __init__(self, pattern, nzcv, enum, opcode, opndtypes):
+    def __init__(self, pattern, nzcv, enum, feat, opcode, opndtypes):
         self.enum = enum
+        self.feat = feat
         self.pattern = pattern
         self.nzcv = nzcv
         self.opcode = opcode
@@ -65,10 +66,10 @@ def read_instrs(codec_file):
                     continue
                 if line.strip().startswith("#"):
                     continue
-                line = line.split(None, 4)
+                line = line.split(None, 5)
                 if not line[2].isnumeric():
                     # missing an enum entry, put a none in
-                    line = [line[0], line[1], None, line[2], " ".join(line[3:])]
+                    line = [line[0], line[1], None, line[2], line[3], " ".join(line[4:])]
                 instrs.append(CodecLine(*line))
             except:
                 print("Error parsing line: {}".format(line), file=sys.stderr)
@@ -114,72 +115,69 @@ def handle_enums(instrs):
 def main():
     """Reorder the given codec_<version>.txt """
 
-    if len(sys.argv) < 2 or len(sys.argv) > 3:
-        print('Usage: codecsort.py [--rewrite|--global] <codec definitions file>')
+    if len(sys.argv) < 2:
+        print('Usage: codecsort.py [--rewrite|--global] <codec definitions files>')
         sys.exit(1)
 
     is_rewrite = False
-    is_global = False
-    if len(sys.argv) == 3 and sys.argv[1] == "--rewrite":
+    if len(sys.argv) >= 3 and sys.argv[1] == "--rewrite":
         is_rewrite = True
-        codec_file = sys.argv[2]
-    elif len(sys.argv) == 3 and sys.argv[1] == "--global":
-        is_global = True
-        codec_file = sys.argv[2]
+        codec_files = sys.argv[2:]
     else:
-        codec_file = sys.argv[1]
+        codec_files = sys.argv[1:]
 
-    instrs = read_instrs(codec_file)
-    instrs.sort(key=lambda line: line.opcode)
+    instr_orig = {codec_file: read_instrs(codec_file) for codec_file in codec_files}
+    file_instrs = {codec_file: sorted(instrs, key=lambda line: line.opcode) for codec_file, instrs in instr_orig.items()}
 
-    handle_enums(instrs)
-    if is_global:
-       status = str(len(instrs)) + ' instruction definitions checked in --global mode'
-       sys.stdout.write(status)
-       return
+    handle_enums([instr for finstrs in file_instrs.values() for instr in finstrs])
 
-    # Scan for some max lengths for formatting
-    instr_length = max(len(i.opcode) for i in instrs)
-    pre_colon = max(
-        len(i.opndtypes.split(":")[0].strip())
-        for i in instrs
-        if ":" in i.opndtypes
-        and len(i.opndtypes.split(":")[0].strip()) < 14)
+    for codec_file, instrs in file_instrs.items():
+        # Scan for some max lengths for formatting
+        instr_length = max(len(i.opcode) for i in instrs)
+        pre_colon = max(
+            len(i.opndtypes.split(":")[0].strip())
+            for i in instrs
+            if ":" in i.opndtypes
+            and len(i.opndtypes.split(":")[0].strip()) < 14)
 
-    new_lines = []
+        new_lines = []
 
-    for instr in instrs:
-        new_lines.append(
-            "{pattern}  {nzcv:<3} {enum:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
-                enum=instr.enum,
-                pattern=instr.pattern,
-                nzcv=instr.nzcv,
-                opcode_pad=(instr_length - len(instr.opcode)) * " ",
-                opcode=instr.opcode,
-                opand_pad=(pre_colon - len(instr.opndtypes.split(":")[0].strip())) * " ",
-                opand="{} : {}".format(
-                    instr.opndtypes.split(":")[0].strip(),
-                    instr.opndtypes.split(":")[1].strip()) if ":" in instr.opndtypes
-                else instr.opndtypes
-                ).strip())
+        for instr in instrs:
+            new_lines.append(
+                "{pattern}  {nzcv:<3} {enum:<4} {feat:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
+                    enum=instr.enum,
+                    feat=instr.feat,
+                    pattern=instr.pattern,
+                    nzcv=instr.nzcv,
+                    opcode_pad=(instr_length - len(instr.opcode)) * " ",
+                    opcode=instr.opcode,
+                    opand_pad=(pre_colon - len(instr.opndtypes.split(":")[0].strip())) * " ",
+                    opand="{} : {}".format(
+                        instr.opndtypes.split(":")[0].strip(),
+                        instr.opndtypes.split(":")[1].strip()) if ":" in instr.opndtypes
+                    else instr.opndtypes
+                    ).strip())
 
-    header = []
-    with open(codec_file, "r") as lines:
-        for line in lines:
-            header.append(line.strip("\n"))
-            if line.strip() == DELIMITER:
-                header.append("")
-                break
+        header = []
+        with open(codec_file, "r") as lines:
+            for line in lines:
+                header.append(line.strip("\n"))
+                if line.strip() == DELIMITER:
+                    header.append("")
+                    break
 
-    def output(dest):
-        dest("\n".join(header))
-        dest("\n".join(new_lines))
+        def output(dest):
+            dest("\n".join(header))
+            dest("\n".join(new_lines))
 
-    if is_rewrite:
-        with open(codec_file, "w") as codec_txt:
-            output(lambda l: codec_txt.write(l+"\n"))
-    else:
-        output(lambda l: sys.stdout.write(l + "\n"))
+        if is_rewrite:
+            with open(codec_file, "w") as codec_txt:
+                output(lambda l: codec_txt.write(l+"\n"))
+        else:
+            output(lambda l: sys.stdout.write(l + "\n"))
+
+            if instr_orig != file_instrs:
+                sys.exit(1)
 
 if __name__ == "__main__":
     main()

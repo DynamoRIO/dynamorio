@@ -134,6 +134,7 @@ proc_init_arch(void)
             cpu_info.features.flags_aa64pfr0);
         /* FIXME i#5474: Log all FEATURE_s for ID_AA64PFR0_EL1. */
         LOG_FEATURE(FEATURE_FP16);
+        LOG_FEATURE(FEATURE_SVE);
     });
 #endif
 }
@@ -147,6 +148,14 @@ bool
 proc_has_feature(feature_bit_t f)
 {
 #ifndef DR_HOST_NOT_TARGET
+    /* Pretend features are supported for codec tests run on h/w which does not
+     * support all features.
+     */
+#    if defined(BUILD_TESTS)
+    if (f == FEATURE_LSE || f == FEATURE_RDM || f == FEATURE_FP16 ||
+        f == FEATURE_DotProd || f == FEATURE_SVE)
+        return true;
+#    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
     uint64 freg_val = 0;
 

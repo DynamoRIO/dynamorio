@@ -1217,6 +1217,14 @@ else ()
   set(HAVE_HALF_FLOAT OFF)
 endif ()
 
+# Right now we only build libipt on Linux x86_64.
+# We define a variable to indicate whether DR will build libipt.
+if (LINUX AND X86 AND X64)
+  set(HAVE_LIBIPT ON)
+else ()
+  set(HAVE_LIBIPT OFF)
+endif ()
+
 ###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not
@@ -1580,9 +1588,9 @@ if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
 
-if (BUILD_TOOLS OR BUILD_DRSTATS)
+if (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
   add_subdirectory(libutil)
-endif (BUILD_TOOLS OR BUILD_DRSTATS)
+endif (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
 
 if (BUILD_TOOLS)
   add_subdirectory(tools)

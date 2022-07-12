@@ -108,35 +108,17 @@ def main():
     codecsort_py = os.path.join(src_dir, "codecsort.py")
 
     print("Checking if instructions are in the correct order and format in each codec_<version>.txt file.")
-    for isa_version in isa_versions:
-        codec_file = os.path.join(src_dir, 'codec_' + isa_version + '.txt')
-        reordered_codec = subprocess.check_output([codecsort_py, codec_file])
-        with open(codec_file) as f:
-
-            if f.read().strip() != reordered_codec.decode().strip():
-                print("{} instructions are out of order, run:\n{} --rewrite {}".format(
-                    codec_file, codecsort_py, codec_file))
-                sys.exit(1)
-            print(" " + codec_file + " OK!")
+    codec_files = [os.path.join(src_dir, 'codec_' + isa_version + '.txt') for isa_version in isa_versions]
+    with open(os.devnull, 'wb') as dev_null:
+        needs_reorder = subprocess.call([codecsort_py] + codec_files, stdout=dev_null)
+    if needs_reorder:
+        print("codec file instructions are out of order, run:\n{} --rewrite {}".format(
+            codecsort_py, " ".join(codec_files)))
+        sys.exit(1)
+    print(", ".join(codec_files), "OK!")
 
     print("Check there are no duplicate opcode enums across ALL codec_<version>.txt files.")
 
-    # Create one codec_all.txt file which concatanates all codec_<version>.txt files.
-    codec_all_file = os.path.join(bld_dir, 'codec_all.txt')
-    with open(codec_all_file, "w") as codec_all_txt:
-        codec_all_txt.write("\n# Instruction definitions:\n\n")
-        for isa_version in isa_versions:
-            codec_file = os.path.join(src_dir, 'codec_' + isa_version + '.txt')
-            with open(codec_file, "r") as lines:
-                for line in (l.strip() for l in lines if l.strip()):
-                    if line.strip().startswith("#"):
-                        continue
-                    codec_all_txt.write(line + "\n")
-
-    # Call codecsort.py to check for opcode enum duplicates in codec_all.txt
-    # using the --global option to limit checking for duplicates only.
-    opc_dup_enum_status = subprocess.check_output([codecsort_py, '--global', codec_all_file])
-    print(opc_dup_enum_status)
 
 if __name__ == '__main__':
     main()

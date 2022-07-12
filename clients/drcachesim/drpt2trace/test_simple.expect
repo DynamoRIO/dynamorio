@@ -1,0 +1,13 @@
+TAG  0x0000000000000000
+ +0    L2                      b8 01 00 00 00       mov    $0x00000001 -> %eax
+ +5    L2                      bf 01 00 00 00       mov    $0x00000001 -> %edi
+ +10   L2                      48 be 00 20 40 00 00 mov    $0x0000000000402000 -> %rsi
+                                00 00 00
+ +20   L2                      ba 0e 00 00 00       mov    $0x0000000e -> %edx
+ +25   L2                      0f 05                syscall  -> %rcx %r11
+ +27   L2                      b8 3c 00 00 00       mov    $0x0000003c -> %eax
+ +32   L2                      bf 00 00 00 00       mov    $0x00000000 -> %edi
+ +37   L2                      0f 05                syscall  -> %rcx %r11
+END 0x0000000000000000
+
+Number of Instructions: 8

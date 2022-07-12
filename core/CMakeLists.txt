@@ -953,7 +953,7 @@ endif (UNIX)
 # Decoding library
 
 # static decoding library
-add_library(drdecode
+add_library(drdecode STATIC
   ${DECODER_SRCS}
   ir/decodelib.c
   string.c

@@ -2628,17 +2628,17 @@ DR_API
 /**
  * Allocates and initializes an open-address library-independent hashtable:
  *
- * @param[drcontext]  This context controls whether thread-private or global
+ * @param[in] drcontext  This context controls whether thread-private or global
  *                    heap is used for the table.
- * @param[bits]       The base-2 log of the initial capacity of the table.
- * @param[load_factor_percent] The threshold of the table's occupancy at which
- *                    it will be resized (so smaller values keep the table sparser
- *                    and generally more performant but at the cost of more memory).
- *                    This is a percentage and so must be between 0 and 100.
- *                    Values are typically in the 20-80 range and for performance
- *                    critical tables would usually be below 50.
- * @param[synch]      Whether to use a lock around all operations.
- * @param[free_payload_func] An optional function to call when removing an entry.
+ * @param[in] bits       The base-2 log of the initial capacity of the table.
+ * @param[in] load_factor_percent The threshold of the table's occupancy at which
+ *      it will be resized (so smaller values keep the table sparser
+ *      and generally more performant but at the cost of more memory).
+ *      This is a percentage and so must be between 0 and 100.
+ *      Values are typically in the 20-80 range and for performance
+ *      critical tables would usually be below 50.
+ * @param[in] synch      Whether to use a lock around all operations.
+ * @param[in] free_payload_func An optional function to call when removing an entry.
  *
  * @return a pointer to the heap-allocated table.
  */
@@ -2650,8 +2650,8 @@ DR_API
 /**
  * Destroys a hashtable created by dr_hashtable_create().
  *
- * @param[drcontext]  Must be the same context passed to dr_hashtable_create().
- * @param[htable]     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
  */
 void
 dr_hashtable_destroy(void *drcontext, void *htable);
@@ -2660,8 +2660,8 @@ DR_API
 /**
  * Removes all entries in a hashtable created by dr_hashtable_create().
  *
- * @param[drcontext]  Must be the same context passed to dr_hashtable_create().
- * @param[htable]     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
  */
 void
 dr_hashtable_clear(void *drcontext, void *htable);
@@ -2670,9 +2670,9 @@ DR_API
 /**
  * Queries whether an entry for the given key exists.
  *
- * @param[drcontext]  Must be the same context passed to dr_hashtable_create().
- * @param[htable]     A pointer to the table itself, returned by dr_hashtable_create().
- * @param[key]        The key to query.
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] key        The key to query.
  *
  * @return the payload value for the key that was passed to dr_hashtable_add(),
  * or NULL if no such key is found.
@@ -2684,10 +2684,10 @@ DR_API
 /**
  * Adds a new entry to the hashtable.
  *
- * @param[drcontext]  Must be the same context passed to dr_hashtable_create().
- * @param[htable]     A pointer to the table itself, returned by dr_hashtable_create().
- * @param[key]        The key to add.
- * @param[payload]    The payload to add.
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] key        The key to add.
+ * @param[in] payload    The payload to add.
  */
 void
 dr_hashtable_add(void *drcontext, void *htable, ptr_uint_t key, void *payload);
@@ -2696,9 +2696,9 @@ DR_API
 /**
  * Removes an entry for the given key.
  *
- * @param[drcontext]  Must be the same context passed to dr_hashtable_create().
- * @param[htable]     A pointer to the table itself, returned by dr_hashtable_create().
- * @param[key]        The key to remove.
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] key        The key to remove.
  *
  * @return whether the key was found.
  */

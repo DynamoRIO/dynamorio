@@ -40,13 +40,13 @@
 
 # Instruction definitions:
 
-00000100xx1xxxxx000000xxxxxxxxxx  n   9      add  z0 : z5 z16 bhsd_sz
-00000100xx011010000xxxxxxxxxxxxx  n   21     and  z0 : p10_low z0 z5 bhsd_sz
-00000100xx011011000xxxxxxxxxxxxx  n   29     bic  z0 : p10_low z0 z5 bhsd_sz
-00000100xx011001000xxxxxxxxxxxxx  n   90     eor  z0 : p10_low z0 z5 bhsd_sz
-00000100xx011000000xxxxxxxxxxxxx  n   327    orr  z0 : p10_low z0 z5 bhsd_sz
-00000100xx1xxxxx000100xxxxxxxxxx  n   403  sqadd  z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000110xxxxxxxxxx  n   425  sqsub  z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000001xxxxxxxxxx  n   470    sub  z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000101xxxxxxxxxx  n   531  uqadd  z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000111xxxxxxxxxx  n   538  uqsub  z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000000xxxxxxxxxx  n   9    SVE    add  z0 : z5 z16 bhsd_sz
+00000100xx011010000xxxxxxxxxxxxx  n   21   SVE    and  z0 : p10_low z0 z5 bhsd_sz
+00000100xx011011000xxxxxxxxxxxxx  n   29   SVE    bic  z0 : p10_low z0 z5 bhsd_sz
+00000100xx011001000xxxxxxxxxxxxx  n   90   SVE    eor  z0 : p10_low z0 z5 bhsd_sz
+00000100xx011000000xxxxxxxxxxxxx  n   327  SVE    orr  z0 : p10_low z0 z5 bhsd_sz
+00000100xx1xxxxx000100xxxxxxxxxx  n   403  SVE  sqadd  z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000110xxxxxxxxxx  n   425  SVE  sqsub  z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000001xxxxxxxxxx  n   470  SVE    sub  z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000101xxxxxxxxxx  n   531  SVE  uqadd  z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000111xxxxxxxxxx  n   538  SVE  uqsub  z0 : z5 z16 bhsd_sz

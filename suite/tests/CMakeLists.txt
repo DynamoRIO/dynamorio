@@ -2564,7 +2564,7 @@ torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll.A
   "" "" "")
 
 tobuild_ci(client.option_parse client-interface/option_parse.cpp
-  "-l;-4;-ll;-3220721071790640321;-ul;4;-ull;1384772493926445887;-x;3;-x_alias;4;-y;quoted string;-z;first;-z_alias;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-flag;-flag_alias1;-no_flag_alias2;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4;-large_bytesize;9999999999"
+  "-l;-4;-ll;-3220721071790640321;-ul;4;-ull;1384772493926445887;-x;3;-x_alias;4;-y;quoted string;-z;first;-z_alias;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-flag;-flag_alias1;-no_flag_alias2;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4;-large_bytesize;9999999999;-oi;-012;-ol;-012;-oll;-012;-ou;012;-oul;012;-oull;012;-xi;-0xa;-xl;-0xa;-xll;-0xa;-xu;0xa;-xul;0xa;-xull;0xa;"
   "" "")
 use_DynamoRIO_extension(client.option_parse.dll droption)
 set(client.option_parse_client_ops_islist ON)
@@ -4174,6 +4174,35 @@ if (BUILD_CLIENTS)
     # b/c our tests have too-new instrs for older machines.
   endif (X86)
 
+endif (BUILD_CLIENTS)
+
+###########################################################################
+# drpt2trace tests
+# We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
+if (BUILD_CLIENTS)
+  if (HAVE_LIBIPT)
+    set(drpt2trace_args "-print_trace"
+      "-raw_pt"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
+      "-primary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
+      "-secondary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
+      "-pt_cpu_family" "6"
+      "-pt_cpu_model" "85"
+      "-pt_cpu_stepping" "4"
+      "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
+      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308"
+      "-sb_sample_type" "0x10086"
+      "-sb_time_shift" "31"
+      "-sb_time_mult" "581029125"
+      "-sb_time_zero" "18444502336406842448"
+      "-sb_sysroot"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
+    torunonly_api(tool.drpt2trace drpt2trace
+      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "" "${drpt2trace_args}" ON OFF)
+  endif (HAVE_LIBIPT)
 endif (BUILD_CLIENTS)
 
 if (UNIX)
