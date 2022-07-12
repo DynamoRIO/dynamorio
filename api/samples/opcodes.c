@@ -67,6 +67,8 @@ enum {
     ISA_ARM_THUMB,
 #elif defined(AARCH64)
     ISA_ARM_A64,
+#elif defined(RISCV64)
+    ISA_RV64IMAFDC,
 #endif
     NUM_ISA_MODE,
 };
