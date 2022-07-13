@@ -17,7 +17,7 @@
 #include "syscall_linux_uapi.h"
 
 #ifndef __NR_riscv_flush_icache
-#define __NR_riscv_flush_icache (__NR_arch_specific_syscall + 15)
+#    define __NR_riscv_flush_icache (__NR_arch_specific_syscall + 15)
 #endif
 
 #endif /* SYSCALL_LINUX_RISCV64_H */

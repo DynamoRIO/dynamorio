@@ -86,7 +86,8 @@
 #            error Target architecture over-specified: must define only one
 #        endif
 #    else
-#        error Target architecture unknown: define X86_32, X86_64, ARM_32, ARM_64 or RISCV_64
+#        error Target architecture unknown: define X86_32, X86_64, ARM_32, ARM_64 or \
+               RISCV_64
 #    endif
 #    define DR_API                  /* Ignore for clients. */
 #    define DR_UNS_EXCEPT_TESTS_API /* Ignore for clients. */

@@ -558,7 +558,7 @@ enum {
 #ifdef WINDOWS
     SYSCALL_METHOD_WOW64,
 #endif
-    SYSCALL_METHOD_SVC, /* ARM */
+    SYSCALL_METHOD_SVC,   /* ARM */
     SYSCALL_METHOD_ECALL, /* RISCV64 */
 };
 #ifdef UNIX
@@ -1048,12 +1048,12 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 #elif defined(RISCV64)
 /* FIXME-RISCV: This can be 2B in C. */
-#define RISCV64_INSTR_SIZE 4
+#    define RISCV64_INSTR_SIZE 4
 /* FIXME-RISCV: Not implemented */
-#        define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE
+#    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE
 /* FIXME-RISCV: Not implemented */
-#        define DIRECT_EXIT_STUB_SIZE(flags) \
-            (10 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+#    define DIRECT_EXIT_STUB_SIZE(flags) \
+        (10 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
 #    define FRAG_IS_32(flags) false
 #    define PC_AS_JMP_TGT(isa_mode, pc) pc
 #    define PC_AS_LOAD_TGT(isa_mode, pc) pc

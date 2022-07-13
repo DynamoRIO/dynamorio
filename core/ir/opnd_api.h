@@ -1193,7 +1193,7 @@ enum {
     DR_REG_T4 = DR_REG_X29,
     DR_REG_T5 = DR_REG_X30,
     DR_REG_T6 = DR_REG_X31,
-#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+#    if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
     DR_REG_F0,
     DR_REG_F1,
     DR_REG_F2,
@@ -1260,17 +1260,17 @@ enum {
     DR_REG_FT9 = DR_REG_F29,
     DR_REG_FT10 = DR_REG_F30,
     DR_REG_FT11 = DR_REG_F31,
-#endif /* RISCV_ISA_F || RISCV_ISA_D */
-    /* FIXME-RISCV: CCSRs */
-    /* FIXME-RISCV: Ifdefs for different extensions */
+#    endif /* RISCV_ISA_F || RISCV_ISA_D */
+/* FIXME-RISCV: CCSRs */
+/* FIXME-RISCV: Ifdefs for different extensions */
 
-#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+#    if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
     DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums */
-#else
+#    else
     DR_REG_LAST_VALID_ENUM = DR_REG_PC, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_PC,       /**< Last value of register enums */
-#endif
+#    endif
     DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit general register enum values */
     DR_REG_STOP_64 = DR_REG_X31,  /**< End of 64-bit general register enum values */
     DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit general register enum values */
@@ -1280,9 +1280,9 @@ enum {
     DR_REG_XSP = DR_REG_SP,
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
-    DR_NUM_SIMD_VECTOR_REGS = 0, /**< Count of SIMD regs. */
-#else  /* RISCV64 */
-#error Register definitions missing for this platform.
+    DR_NUM_SIMD_VECTOR_REGS = 0,                              /**< Count of SIMD regs. */
+#else /* RISCV64 */
+#    error Register definitions missing for this platform.
 #endif
 };
 

@@ -2547,7 +2547,7 @@ enum {
 /* FIXME-RISCV: Not implemented */
 /** Platform-independent macro for reads all arithmetic flags. */
 #    define EFLAGS_READ_ARITH 0
-#    define EFLAGS_READ_ALL 0 /**< Reads all flags. */
+#    define EFLAGS_READ_ALL 0      /**< Reads all flags. */
 #    define EFLAGS_READ_NON_PRED 0 /**< Flags not read by predicates. */
 /** Platform-independent macro for writes all arithmetic flags. */
 #    define EFLAGS_WRITE_ARITH 0
