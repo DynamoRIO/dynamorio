@@ -197,6 +197,16 @@ struct pt2ir_config_t {
     std::string raw_file_path;
 
     /**
+     * The elf file path.
+     */
+    std::string elf_file_path;
+
+    /**
+     * The base address of the elf file.
+     */
+    uint64_t elf_base;
+
+    /**
      * The libipt-sb config of PT raw trace.
      */
     pt_sb_config_t sb_config;
@@ -220,6 +230,7 @@ struct pt2ir_config_t {
     std::string kcore_path;
 };
 
+struct pt_image;
 struct pt_image_section_cache;
 struct pt_sb_pevent_config;
 struct pt_sb_session;
@@ -292,6 +303,9 @@ private:
 
     /* The libipt image section cache. */
     struct pt_image_section_cache *pt_iscache_;
+
+    /* The libipt elf file image. */
+    struct pt_image *pt_image_;
 
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;

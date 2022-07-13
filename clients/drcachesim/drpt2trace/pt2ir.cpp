@@ -197,6 +197,21 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         return false;
     }
 
+    if (!pt2ir_config.elf_file_path.empty()) {
+        pt_image_ = pt_image_alloc(NULL);
+        errcode = load_elf(pt_iscache_, pt_image_, pt2ir_config.elf_file_path.c_str(),
+                           pt2ir_config.elf_base, "", 0);
+        if (errcode < 0) {
+            ERRMSG("Failed to load ELF file: %s.\n", pt_errstr(pt_errcode(errcode)));
+            return false;
+        }
+        errcode = pt_insn_set_image(pt_instr_decoder_, pt_image_);
+        if (errcode < 0) {
+            ERRMSG("Failed to set image: %s.\n", pt_errstr(pt_errcode(errcode)));
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -300,12 +315,18 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             decode(GLOBAL_DCONTEXT, insn.raw, instr);
             instr_set_translation(instr, (app_pc)insn.ip);
             instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
+            instr_set_isa_mode(instr,
+                               insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
             if (!instr_valid(instr)) {
-                ERRMSG("Failed to convert the libipt's IR to Dynamorio's IR.\n");
-                instrlist_clear_and_destroy(GLOBAL_DCONTEXT, *ilist);
-                return PT2IR_CONV_ERROR_DR_IR_CONVERT;
+                /* XXX:If the PT raw data contains some instructions not supported by
+                 * Dynamorio, we will not append them to the output instrlist_t.
+                 * Currently, the PT raw data may contains 'STAC' and 'CLAC' instructions.
+                 * We'd better to support them in the future.
+                 */
+                instr_free(GLOBAL_DCONTEXT, instr);
+            } else {
+                instrlist_append(*ilist, instr);
             }
-            instrlist_append(*ilist, instr);
         }
     }
     return PT2IR_CONV_SUCCESS;
