@@ -45,7 +45,6 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
-#include <inttypes.h>
 
 #include "droption.h"
 #include "pt2ir.h"
