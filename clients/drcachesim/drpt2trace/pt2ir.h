@@ -304,9 +304,6 @@ private:
     /* The libipt image section cache. */
     struct pt_image_section_cache *pt_iscache_;
 
-    /* The libipt elf file image. */
-    struct pt_image *pt_image_;
-
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
 };

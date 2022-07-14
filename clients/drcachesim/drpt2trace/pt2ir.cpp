@@ -198,16 +198,11 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
     }
 
     if (!pt2ir_config.elf_file_path.empty()) {
-        pt_image_ = pt_image_alloc(NULL);
-        errcode = load_elf(pt_iscache_, pt_image_, pt2ir_config.elf_file_path.c_str(),
-                           pt2ir_config.elf_base, "", 0);
+        errcode =
+            load_elf(pt_iscache_, pt_insn_get_image(pt_instr_decoder_),
+                     pt2ir_config.elf_file_path.c_str(), pt2ir_config.elf_base, "", 0);
         if (errcode < 0) {
             ERRMSG("Failed to load ELF file: %s.\n", pt_errstr(pt_errcode(errcode)));
-            return false;
-        }
-        errcode = pt_insn_set_image(pt_instr_decoder_, pt_image_);
-        if (errcode < 0) {
-            ERRMSG("Failed to set image: %s.\n", pt_errstr(pt_errcode(errcode)));
             return false;
         }
     }
@@ -318,13 +313,11 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             instr_set_isa_mode(instr,
                                insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
 #ifdef DEBUG
-            /* XXX: Currently, the PT raw data may contain 'STAC' and 'CLAC'
-             * instructions that are not supported by Dynamorio. We'd better to
-             * support them in the future.
+            /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
+             * instructions that are not supported by Dynamorio.
              */
             if (!instr_valid(instr)) {
-                /* We print the invalid instruction‘s PC and raw bytes in DEBUG mode.
-                 */
+                /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
                 dr_fprintf(STDOUT, "0x%" PRIx64 " <INVALID> <raw ", insn.ip);
                 for (int i = 0; i < insn.size; i++) {
                     dr_fprintf(STDOUT, "%02x ", insn.raw[i]);
