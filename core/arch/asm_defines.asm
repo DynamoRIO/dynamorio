@@ -355,10 +355,6 @@ ASSUME fs:_DATA @N@\
 # define REG_R29  x29
 # define REG_R30  x30
 # define REG_R31  x31
-#  define SEG_TLS s11 /* keep in sync w/ {unix,win32}/os_exports.h defines */
-#  ifdef UNIX
-#   define LIB_SEG_TLS tp /* keep in sync w/ unix/os_exports.h defines */
-#  endif
 #else /* Intel X86 */
 # ifdef X64
 #  define REG_XAX rax
