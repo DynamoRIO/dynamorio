@@ -100,7 +100,6 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_START_SPILL DR_REG_R0
 #    define REG_STOP_SPILL DR_REG_R10 /* r10 might be used in syscall mangling */
 #elif defined(RISCV64)
-/* We only normally use r0-r5 but we support more in translation code */
 #    define REG_START_SPILL DR_REG_A0
 #    define REG_STOP_SPILL DR_REG_A5
 #endif /* RISCV64 */
@@ -292,8 +291,6 @@ enum {
     REGPARM_3 = DR_REG_A3,
     REGPARM_4 = DR_REG_A4,
     REGPARM_5 = DR_REG_A5,
-    REGPARM_6 = DR_REG_A6,
-    REGPARM_7 = DR_REG_A7,
     NUM_REGPARM = 6,
     REDZONE_SIZE = 0,
     REGPARM_MINSTACK = 0,

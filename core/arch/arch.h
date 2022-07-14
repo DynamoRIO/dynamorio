@@ -154,18 +154,18 @@ mixed_mode_enabled(void)
 #    define REG_OFFSET(reg) (R0_OFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t))
 #    define CALL_SCRATCH_REG DR_REG_R11
 #elif defined(RISCV64)
-#    define REG0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, t0)))
-#    define REG1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, t1)))
-#    define REG2_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, t2)))
-#    define REG3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, t3)))
-#    define REG4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, t4)))
-#    define REG5_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, t5)))
-#    define SCRATCH_REG0 DR_REG_T0
-#    define SCRATCH_REG1 DR_REG_T1
-#    define SCRATCH_REG2 DR_REG_T2
-#    define SCRATCH_REG3 DR_REG_T3
-#    define SCRATCH_REG4 DR_REG_T4
-#    define SCRATCH_REG5 DR_REG_T5
+#    define REG0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a0)))
+#    define REG1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a1)))
+#    define REG2_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a2)))
+#    define REG3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a3)))
+#    define REG4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a4)))
+#    define REG5_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a5)))
+#    define SCRATCH_REG0 DR_REG_A0
+#    define SCRATCH_REG1 DR_REG_A1
+#    define SCRATCH_REG2 DR_REG_A2
+#    define SCRATCH_REG3 DR_REG_A3
+#    define SCRATCH_REG4 DR_REG_A4
+#    define SCRATCH_REG5 DR_REG_A5
 #    define SCRATCH_REG0_OFFS REG0_OFFSET
 #    define SCRATCH_REG1_OFFS REG1_OFFSET
 #    define SCRATCH_REG2_OFFS REG2_OFFSET

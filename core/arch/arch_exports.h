@@ -156,8 +156,7 @@ typedef struct _spill_state_t {
     reg_t r4, r5;
     reg_t reg_stolen; /* slot for the stolen register */
 #elif defined(RISCV64)
-    /* FIXME-RISCV: Find proper registers to use as scratch. Does it matter? */
-    reg_t t0, t1, t2, t3;
+    reg_t a0, a1, a2, a3;
 #endif
     /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
@@ -224,19 +223,14 @@ typedef struct _local_state_extended_t {
 #    define SCRATCH_REG5 DR_REG_R5
 #    define SCRATCH_REG_LAST SCRATCH_REG5
 #elif defined(RISCV64)
-/* FIXME-RISCV: RFC: Are there any requirements on TLS/scratch registers?
- * Aarch64 and X86 use a combination of argument, callee-saved and
- * caller-saved/temporary regs. Can we use temporary registers or rather leave
- * them to client code?
- */
-#    define TLS_REG0_SLOT ((ushort)offsetof(spill_state_t, t0))
-#    define TLS_REG1_SLOT ((ushort)offsetof(spill_state_t, t1))
-#    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, t2))
-#    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, t3))
-#    define SCRATCH_REG0 DR_REG_T0
-#    define SCRATCH_REG1 DR_REG_T1
-#    define SCRATCH_REG2 DR_REG_T2
-#    define SCRATCH_REG3 DR_REG_T3
+#    define TLS_REG0_SLOT ((ushort)offsetof(spill_state_t, a0))
+#    define TLS_REG1_SLOT ((ushort)offsetof(spill_state_t, a1))
+#    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, a2))
+#    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, a3))
+#    define SCRATCH_REG0 DR_REG_A0
+#    define SCRATCH_REG1 DR_REG_A1
+#    define SCRATCH_REG2 DR_REG_A2
+#    define SCRATCH_REG3 DR_REG_A3
 #endif /* X86/ARM */
 #define IBL_TARGET_REG SCRATCH_REG2
 #define IBL_TARGET_SLOT TLS_REG2_SLOT
