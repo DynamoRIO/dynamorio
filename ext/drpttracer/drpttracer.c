@@ -37,10 +37,12 @@
 #include <linux/perf_event.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <dirent.h> /* opendir, readdir */
 #include "../core/unix/include/syscall_linux_x86.h"
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "hashtable.h"
 
 #if !defined(X86_64) && !defined(LINUX)
 #    error "This is only for Linux x86_64."
@@ -73,15 +75,18 @@ typedef struct _range_t {
 #define PT_PMU_TYPE_FILE "/sys/bus/event_source/devices/intel_pt/type"
 
 /* The PMU type id of intel_pt is different on different machines.
- * We read it from '/sys/bus/event_source/devices/intel_pt/type'.
+ * We read it from PT_PMU_TYPE_FILE.
  */
 static int pt_pmu_type;
 
+#define PT_PMU_EVENT_CONFIG_DIR "/sys/bus/event_source/devices/intel_pt/format"
+
 /* The intel_pt config terms table of intel_pt PMU events. The item's key is the event's
  * name, and the value is the event's bit fields in perf_event_attr.config.
- * We get it from /sys/bus/event_source/devices/intel_pt/format/'*'.
+ * We get them from the files in PT_PMU_EVENT_CONFIG_DIR.
  */
 static hashtable_t pt_config_terms_table;
+#define PT_CONFIG_TERMS_TABLE_HASH_BITS 12
 
 typedef struct _perf_fd_t {
     int fd;
@@ -103,40 +108,122 @@ typedef struct _per_thread_t {
  */
 
 static bool
-read_file(IN const char *filename, OUT char **content, OUT uint64_t *content_size)
+read_file_to_buffer(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size)
 {
-    char *local_content = NULL;
-    uint64_t local_content_size = 0;
+    char *local_buf = NULL;
+    uint64_t local_buf_size = 0;
     file_t *f = dr_open_file(filename, DR_FILE_READ);
     if (f == INVALID_FILE) {
+        ASSERT(false, "failed to open file %s", filename);
         return false;
     }
-    if (dr_file_size(f, &local_content_size) != 0) {
+
+    if (dr_file_size(f, &local_buf_size) != 0) {
+        ASSERT(false, "failed to get file size of %s", filename);
+        dr_close_file(f);
         return false;
     }
-    local_content = (char *)dr_global_alloc(local_content_size);
-    if (dr_read_file(f, local_content, local_content_size) != local_content_size) {
-        dr_global_free(local_content, local_content_size);
+
+    local_buf = (char *)dr_global_alloc(local_buf_size);
+    if (dr_read_file(f, local_buf, local_buf_size)) {
+        ASSERT(false, "failed to read file %s", filename);
+        dr_global_free(local_buf, local_buf_size);
+        dr_close_file(f);
         return false;
     }
-    *content = local_content;
-    *content_size = local_content_size;
+
+    *buf = local_buf;
+    *buf_size = local_buf_size;
+
+    dr_close_file(f);
     return true;
 }
 
 static bool
-intel_pt_init()
+try_parse_range(IN char *str, OUT range_t *range)
+{
+    char *endptr;
+    uint32_t start, end;
+
+    errno = 0;
+    start = strtou(str, &endptr, 10);
+    if (endptr == str || errno != 0) {
+        ASSERT(false, "failed to parse range start from %s", str);
+        return false;
+    }
+    if (*endptr == '-') {
+        errno = 0;
+        end = strtou(endptr + 1, &endptr, 10);
+        if (endptr == str + 1 || errno != 0) {
+            ASSERT(false, "failed to parse range end from %s", str);
+            return false;
+        }
+    } else {
+        end = start;
+    }
+    range->start = start;
+    range->end = end;
+    return true;
+}
+
+static bool
+init_pt_pmu_type()
 {
     char *type_str = NULL;
     uint64_t type_str_size = 0;
-    if (!read_file(PT_PMU_TYPE_FILE, &type_str, &type_str_size)) {
+
+    if (!read_file_to_buffer(PT_PMU_TYPE_FILE, &type_str, &type_str_size)) {
+        ASSERT(false, "failed to read file %s to buffer", PT_PMU_TYPE_FILE);
         return false;
     }
+    errno = 0;
     pt_pmu_type = atoi(type_str);
+    if (errno != 0) {
+        ASSERT(false, "failed to parse pmu type from %s", type_str);
+        dr_global_free(type_str, type_str_size);
+        return false;
+    }
     dr_global_free(type_str, type_str_size);
+    return true;
+}
 
-    hashtable_init(&pt_config_terms_table, sizeof(char *),
-                   offsetof(hashtable_entry_t, entry), HASH_STRING_HASH, false);
+static bool
+init_pt_config_terms_table()
+{
+    DIR *dir = opendir(PT_PMU_EVENT_CONFIG_DIR);
+    if (dir == NULL) {
+        ASSERT(false, "failed to open directory %s", PT_PMU_EVENT_CONFIG_DIR);
+        return false;
+    }
+    struct dirent *ent = NULL;
+    while ((ent = readdir(dir)) != NULL) {
+        char *filename = ent->d_name;
+        if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0) {
+            continue;
+        }
+        char *config_str = NULL;
+        uint64_t config_str_size = 0;
+        char file_path[PATH_MAX];
+        snprintf(file_path, PATH_MAX, "%s/%s", PT_PMU_EVENT_CONFIG_DIR, filename);
+        if (!read_file_to_buffer(file_path, &config_str, &config_str_size)) {
+            ASSERT(false, "failed to read file %s to buffer", file_path);
+            continue;
+        }
+        int range_start_index = strlen("config:");
+        if (config_str_size < range_start_index) {
+            ASSERT(false, "failed to parse config from %s", config_str);
+            dr_global_free(config_str, config_str_size);
+            continue;
+        }
+        range_t range;
+        range.range = 0;
+        if (!try_parse_range(config_str + range_start_index, &range)) {
+            ASSERT(false, "failed to parse range from %s", config_str);
+            dr_global_free(config_str, config_str_size);
+            continue;
+        }
+        hashtable_add(&pt_config_terms_table, filename, &range);
+    }
 }
 
 static int
@@ -144,30 +231,6 @@ perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd,
                 unsigned long flags)
 {
     return syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
-}
-
-/* Resolve perf style event to perf_event_attr.
- *
- */
-static bool
-perf_event_attr_init(const char *pmu, const char *fname, perf_event_attr)
-{
-    int value = -1;
-    std::string line = "";
-    std::string path = "/sys/devices/intel_pt/format/" + fname;
-    std::ifstream f(path);
-    if (!f.is_open()) {
-        ERRMSG("Failed to open Intel PT format file: %s.\n", path.c_str());
-        return value;
-    }
-    if (!std::getline(f, line)) {
-        ERRMSG("Failed to get the content of Intel PT format file: %s.\n", path.c_str());
-        f.close();
-        return -1;
-    }
-    sscanf(line.c_str(), "config:%d", value);
-    f.close();
-    return value;
 }
 
 /***************************************************************************
@@ -194,6 +257,19 @@ drpttracer_init(void)
     int count = dr_atomic_add32_return_sum(&drpttracer_init_count, 1);
     if (count > 1)
         return true;
+    if (!init_pt_pmu_type()) {
+        ASSERT(false, "failed to init pt pmu type");
+        dr_atomic_add32_return_sum(&drpttracer_init_count, -1);
+        return false;
+    }
+    hashtable_init(&pt_config_terms_table, PT_CONFIG_TERMS_TABLE_HASH_BITS, HASH_STRING,
+                   true);
+    if (!init_pt_config_terms_table()) {
+        ASSERT(false, "failed to init pt config terms table");
+        dr_atomic_add32_return_sum(&drpttracer_init_count, -1);
+        hashtable_delete(&pt_config_terms_table);
+        return false;
+    }
 
     drmgr_init();
     tls_idx = drmgr_register_tls_field();
@@ -220,6 +296,8 @@ drpttracer_exit(void)
         !drmgr_unregister_thread_exit_event(drpttracer_thread_exit) ||
         !drmgr_unregister_tls_field(tls_idx))
         ASSERT(false, "failed to unregister in drpttracer_exit");
+
+    hashtable_delete(&pt_config_terms_table);
 
     drmgr_exit();
 }
