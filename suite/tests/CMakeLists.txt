@@ -4176,23 +4176,24 @@ if (BUILD_CLIENTS)
 
 endif (BUILD_CLIENTS)
 
-###########################################################################
+# ##########################################################################
 # drpt2trace tests
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
-if (BUILD_CLIENTS)
-  if (HAVE_LIBIPT)
-    set(drpt2trace_sideband_args "-print_trace"
+if(BUILD_CLIENTS)
+  if(HAVE_LIBIPT)
+    set(drpt2trace_commong "-print_trace"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
-      "-primary_sb"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
-      "-secondary_sb"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
       "-pt_cpu_family" "6"
       "-pt_cpu_model" "85"
       "-pt_cpu_stepping" "4"
       "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
-      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308"
+      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308")
+    set(drpt2trace_sideband_args ${drpt2trace_commong}
+      "-primary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
+      "-secondary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
       "-sb_sample_type" "0x10086"
       "-sb_time_shift" "31"
       "-sb_time_mult" "581029125"
@@ -4202,21 +4203,14 @@ if (BUILD_CLIENTS)
     torunonly_api(tool.drpt2trace.sideband drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_sideband_args}" ON OFF)
-    set(drpt2trace_elf_args "-print_trace"
-      "-raw_pt"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
-      "-pt_cpu_family" "6"
-      "-pt_cpu_model" "85"
-      "-pt_cpu_stepping" "4"
-      "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
-      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308"
+    set(drpt2trace_elf_args ${drpt2trace_commong}
       "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_elf_args}" ON OFF)
-  endif (HAVE_LIBIPT)
-endif (BUILD_CLIENTS)
+  endif(HAVE_LIBIPT)
+endif(BUILD_CLIENTS)
 
 if (UNIX)
   macro(make_symlink src dst)

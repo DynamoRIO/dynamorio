@@ -317,16 +317,20 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
             instr_set_isa_mode(instr,
                                insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
+#ifdef DEBUG
+            /* XXX: Currently, the PT raw data may contains 'STAC' and 'CLAC'
+             * instructions that are not supported by Dynamorio. We'd better to
+             * support them in the future.
+             */
             if (!instr_valid(instr)) {
-                /* XXX:If the PT raw data contains some instructions not supported by
-                 * Dynamorio, we will not append them to the output instrlist_t.
-                 * Currently, the PT raw data may contains 'STAC' and 'CLAC' instructions.
-                 * We'd better to support them in the future.
-                 */
-                instr_free(GLOBAL_DCONTEXT, instr);
-            } else {
-                instrlist_append(*ilist, instr);
+                dr_fprintf(STDOUT, "0x%" PRIx64 " <INVALID> <raw ", insn.ip);
+                for (int i = 0; i < insn.size; i++) {
+                    dr_fprintf(STDOUT, "%02x ", insn.raw[i]);
+                }
+                dr_fprintf(STDOUT, ">\n");
             }
+#endif
+            instrlist_append(*ilist, instr);
         }
     }
     return PT2IR_CONV_SUCCESS;
