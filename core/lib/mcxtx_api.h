@@ -273,11 +273,11 @@
     /** Storage for #MCXT_NUM_OPMASK_SLOTS mask registers as part of AVX-512. */
     dr_opmask_t opmask[MCXT_NUM_OPMASK_SLOTS];
 #elif defined(RISCV64)
-    /* FIXME-RISCV: add rest of machine context and register aliases. */
+    /* FIXME i#3544: add rest of machine context and register aliases. */
     /* Any changes in order here must be mirrored in arch/riscv64.asm offsets.
      */
     union {
-        /* FIXME-RISCV: This is hard-wired to zero so could be removed */
+        /* FIXME i#3544: This is hard-wired to zero so could be removed */
         reg_t x0;   /**< The x0 register. */
         reg_t zero; /**< The zero register. */
     }; /**< The anonymous union of alternative names for x0/zero register. */
@@ -543,7 +543,7 @@
     };
 #endif
     union {
-        /* FIXME-RISCV: There are no arith or compare flags. */
+        /* FIXME i#3544: There are no arith or compare flags. */
         reg_t xflags; /**< The platform-independent name for condition flags. */
         struct {
 #if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)

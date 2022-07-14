@@ -198,7 +198,7 @@
 #    define ELF_R_NONE R_RISCV_NONE               /* No relocation. */
 #    define ELF_R_DIRECT R_RISCV_64               /* Direct 64 bit. */
 #    define ELF_R_COPY R_RISCV_COPY               /* Copy symbol at runtime. */
-/* FIXME-RISCV: GOT and direct 64 bit both use R_RISCV_64. */
+/* FIXME i#3544: GOT and direct 64 bit both use R_RISCV_64. */
 #    define ELF_R_GLOB_DAT R_RISCV_64             /* Create GOT entry. */
 #    define ELF_R_JUMP_SLOT R_RISCV_JUMP_SLOT     /* Create PLT entry. */
 #    define ELF_R_RELATIVE R_RISCV_RELATIVE       /* Adjust by program base. */

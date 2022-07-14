@@ -148,7 +148,7 @@ typedef enum _dr_pred_type_t {
     DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
 #endif
 #ifdef RISCV64
-    /* FIXME-RISCV: RISC-V does not have compare flag register! */
+    /* FIXME i#3544: RISC-V does not have compare flag register! */
     /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
     DR_PRED_EQ, /**< Condition code: equal. */
     DR_PRED_NE, /**< Condition code: not equal. */
@@ -2544,7 +2544,7 @@ enum {
 /** The bits in the 4-bit OP_msr immediate that select the nzcvqg status flags. */
 #    define EFLAGS_MSR_NZCVQG (EFLAGS_MSR_NZCVQ | EFLAGS_MSR_G)
 #elif defined(RISCV64)
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 /** Platform-independent macro for reads all arithmetic flags. */
 #    define EFLAGS_READ_ARITH 0
 #    define EFLAGS_READ_ALL 0      /**< Reads all flags. */

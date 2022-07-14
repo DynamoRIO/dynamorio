@@ -1261,8 +1261,8 @@ enum {
     DR_REG_FT10 = DR_REG_F30,
     DR_REG_FT11 = DR_REG_F31,
 #    endif /* RISCV_ISA_F || RISCV_ISA_D */
-/* FIXME-RISCV: CCSRs */
-/* FIXME-RISCV: Ifdefs for different extensions */
+/* FIXME i#3544: CCSRs */
+/* FIXME i#3544: Ifdefs for different extensions. */
 
 #    if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
     DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum */

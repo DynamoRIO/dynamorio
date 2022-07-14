@@ -106,7 +106,7 @@
 #        define LIB_SEG_TLS DR_REG_TPIDRURO /* libc+loader tls */
 #    endif                                  /* 64/32-bit */
 #elif defined(RISCV64)
-/* FIXME-RISCV: Check if this is preserved by kernel and safe to use? */
+/* FIXME i#3544: Check if this is preserved by kernel and safe to use? */
 #    define SEG_TLS DR_REG_S11
 #    define LIB_SEG_TLS DR_REG_TP
 #endif /* X86/ARM */
@@ -174,7 +174,7 @@ extern uint android_tls_base_offs;
 #endif
 
 #ifdef RISCV64
-/* FIXME-RISCV: We might need to re-use ARM's approach and store DR TLS in
+/* FIXME i#3544: We might need to re-use ARM's approach and store DR TLS in
  * tcb_head_t::private field: typedef struct
  *   {
  *     dtv_t *dtv;

@@ -1041,17 +1041,17 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define PC_LOAD_ADDR_ALIGN 4
 
 #elif defined(RISCV64)
-/* FIXME-RISCV: This can be 2B in C. */
+/* FIXME i#3544: This can be 2B in C. */
 #    define RISCV64_INSTR_SIZE 4
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define DIRECT_EXIT_STUB_SIZE(flags) \
         (10 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
 #    define FRAG_IS_32(flags) false
 #    define PC_AS_JMP_TGT(isa_mode, pc) pc
 #    define PC_AS_LOAD_TGT(isa_mode, pc) pc
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define DIRECT_EXIT_STUB_DATA_SZ 0
 #    define STUB_COARSE_DIRECT_SIZE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
@@ -1059,16 +1059,16 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define IS_SET_TO_DEBUG(addr, size) (ASSERT_NOT_IMPLEMENTED(false), false)
 
 /* offset of the patchable region from the end of a cti */
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define CTI_PATCH_OFFSET 4
 /* offset of the patchable region from the end of a stub */
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define EXIT_STUB_PATCH_OFFSET 4
 /* size of the patch to a stub */
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define EXIT_STUB_PATCH_SIZE 4
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define MAX_PAD_SIZE 0
 #endif /* RISCV64 */
 /****************************************************************************/
@@ -1288,7 +1288,7 @@ enum {
 #endif
 
 /* Not under defines so we can have code that is less cluttered */
-/* FIXME-RISCV: With Compressed ext ecall can be 2 */
+/* FIXME i#3544: With Compressed ext ecall can be 2 */
 #if defined(AARCH64) || defined(RISCV64)
     INT_LENGTH = 4,
     SYSCALL_LENGTH = 4,

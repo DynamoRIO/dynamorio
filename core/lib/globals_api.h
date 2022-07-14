@@ -739,7 +739,7 @@ typedef union _dr_simd_t {
 
 #elif defined(RISCV64)
 
-/* FIXME-RISCV: Not implemented. Definitions just for compiling. */
+/* FIXME i#3544: Not implemented. Definitions just for compiling. */
 typedef union ALIGN_VAR(16) _dr_simd_t {
     byte b;      /**< Bottom  8 bits of Vn == Bn. */
     ushort h;    /**< Bottom 16 bits of Vn == Hn. */

@@ -172,7 +172,7 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS REG3_OFFSET
 #    define SCRATCH_REG4_OFFS REG4_OFFSET
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
-/* FIXME-RISCV: Check is T6 safe to use */
+/* FIXME i#3544: Check is T6 safe to use */
 #    define CALL_SCRATCH_REG DR_REG_T6
 #endif /* X86/ARM/RISCV64 */
 #define XSP_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))

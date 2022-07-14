@@ -203,7 +203,7 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_RA SC_FIELD(sc_regs.ra)
 #    define SC_XIP SC_FIELD(sc_regs.pc)
 #    define SC_XSP SC_FIELD(sc_regs.sp)
-/* FIXME-RISCV: There is no general purpose flag register so point to float. */
+/* FIXME i#3544: There is no general purpose flag register so point to float. */
 #    define SC_XFLAGS SC_FIELD(sc_fpregs.f.fcsr)
 #    define SC_SYSNUM_REG SC_A7
 #    define SC_RETURN_REG SC_A0

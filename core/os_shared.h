@@ -1081,7 +1081,7 @@ enum {
 };
 #elif defined(RISCV64)
 enum {
-    /* FIXME-RISCV: Fix proper values. Those are for compilation only. */
+    /* FIXME i#3544: Fix proper values. Those are for compilation only. */
     JMP_REL32_OPCODE = 0xec000000,
     JMP_REL32_SIZE = 4,
     CALL_REL32_OPCODE = 0xed000000,

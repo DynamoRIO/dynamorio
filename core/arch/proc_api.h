@@ -53,7 +53,7 @@
 #ifdef X86
 #    define DR_FPSTATE_BUF_SIZE 512
 #elif defined(RISCV64)
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 #    define DR_FPSTATE_BUF_SIZE 1
 #elif defined(ARM) || defined(AARCH64)
 /* On ARM/AArch64 proc_save_fpstate saves nothing, so use the smallest
@@ -181,7 +181,7 @@ typedef struct {
 typedef enum { AA64ISAR0 = 0, AA64ISAR1 = 1, AA64PFR0 = 2 } feature_reg_idx_t;
 #endif
 #ifdef RISCV64
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 /**
  * For RISC-V64 there are no features readable from userspace. Hence only a
  * dummy flag is there. May be replaced by actual feature flags in the future.
@@ -340,7 +340,7 @@ typedef enum {
 } feature_bit_t;
 #endif
 #ifdef RISCV64
-/* FIXME-RISCV: Not implemented */
+/* FIXME i#3544: Not implemented */
 /**
  * Feature bits passed to proc_has_feature() to determine whether the underlying
  * processor has the feature.
