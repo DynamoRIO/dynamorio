@@ -1633,6 +1633,28 @@
     instr_create_1dst_3src(dc, OP_sqrdmulh, Rd, Rm, Rn, width)
 
 /**
+ * Creates a SQRDMLSH scalar instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ */
+#define INSTR_CREATE_sqrdmlsh_scalar(dc, Rd, Rm, Rn) \
+    instr_create_1dst_3src(dc, OP_sqrdmlsh, Rd, Rd, Rm, Rn)
+
+/**
+ * Creates a SQRDMLSH vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param width   The vector element width. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqrdmlsh_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_4src(dc, OP_sqrdmlsh, Rd, Rd, Rm, Rn, width)
+
+/**
  * Creates a FMAXNMP vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.

@@ -1817,6 +1817,26 @@ ccmn.ge %x28 %x2 $0x0c
 ccmn.lt %x29 %x1 $0x0d
 ccmn.gt %x30 %x0 $0x0e
 test_ccmp_ccmn complete
+sqrdmlsh %h0 %h1 %h2 -> %h0
+sqrdmlsh %h10 %h11 %h12 -> %h10
+sqrdmlsh %h29 %h30 %h31 -> %h29
+sqrdmlsh %s2 %s4 %s8 -> %s2
+sqrdmlsh %s9 %s11 %s13 -> %s9
+sqrdmlsh %s26 %s28 %s30 -> %s26
+test_scalar_sqrdmlsh complete
+sqrdmlsh %d0 %d15 %d31 $0x01 -> %d0
+sqrdmlsh %d5 %d25 %d30 $0x01 -> %d5
+sqrdmlsh %d31 %d20 %d7 $0x01 -> %d31
+sqrdmlsh %d0 %d0 %d0 $0x02 -> %d0
+sqrdmlsh %d10 %d10 %d10 $0x02 -> %d10
+sqrdmlsh %d31 %d31 %d31 $0x02 -> %d31
+sqrdmlsh %q0 %q0 %q0 $0x01 -> %q0
+sqrdmlsh %q10 %q10 %q10 $0x01 -> %q10
+sqrdmlsh %q31 %q31 %q31 $0x01 -> %q31
+sqrdmlsh %q0 %q0 %q0 $0x02 -> %q0
+sqrdmlsh %q10 %q10 %q10 $0x02 -> %q10
+sqrdmlsh %q31 %q31 %q31 $0x02 -> %q31
+test_vector_sqrdmlsh complete
 ldr    (%x1)[4byte] %x1 $0x0000000000000081 -> %w0 %x1
 ldr    (%x1)[8byte] %x1 $0x0000000000000081 -> %x0 %x1
 ldr    (%x1)[4byte] %x1 $0x00000000000000ff -> %w0 %x1
