@@ -202,7 +202,7 @@ struct pt2ir_config_t {
     std::string elf_file_path;
 
     /**
-     * The base address of the elf file.
+     * The runtime load address of the elf file.
      */
     uint64_t elf_base;
 

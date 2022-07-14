@@ -318,11 +318,13 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             instr_set_isa_mode(instr,
                                insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
 #ifdef DEBUG
-            /* XXX: Currently, the PT raw data may contains 'STAC' and 'CLAC'
+            /* XXX: Currently, the PT raw data may contain 'STAC' and 'CLAC'
              * instructions that are not supported by Dynamorio. We'd better to
              * support them in the future.
              */
             if (!instr_valid(instr)) {
+                /* We print the invalid instruction‘s PC and raw bytes in DEBUG mode.
+                 */
                 dr_fprintf(STDOUT, "0x%" PRIx64 " <INVALID> <raw ", insn.ip);
                 for (int i = 0; i < insn.size; i++) {
                     dr_fprintf(STDOUT, "%02x ", insn.raw[i]);
