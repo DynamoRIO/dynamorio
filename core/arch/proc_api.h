@@ -188,7 +188,7 @@ typedef enum { AA64ISAR0 = 0, AA64ISAR1 = 1, AA64PFR0 = 2 } feature_reg_idx_t;
  * Used by proc_get_all_feature_bits().
  */
 typedef struct {
-    uint64 dummy; /**< dummy member to keep size non-0. */
+    uint64 dummy; /**< Dummy member to keep size non-0. */
 } features_t;
 #endif
 
