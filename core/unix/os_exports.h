@@ -298,6 +298,10 @@ disable_env(const char *name);
  * section goes -- for cl, order linked seems to do it, but for linux
  * will need a linker script (see unix/os.c for the nspdata problem)
  */
+/* XXX i#5565: Sections are aligned to page-size because DR can enable memory
+ * protection per-page (currently only on Windows). Hard-coded 4K alignment will
+ * lead to issues on systems with larger base pages.
+ */
 #ifdef MACOS
 /* XXX: currently assuming all custom sections are writable and non-executable! */
 #    define DECLARE_DATA_SECTION(name, wx) \
@@ -313,9 +317,6 @@ disable_env(const char *name);
             asm(".section " name ", \"a" wx "\""); \
             asm(".align 12"); /* 2^12 */
 #    elif defined(DR_HOST_RISCV64)
-/* FIXME-RISCV: RFC: Why all archs align those sections to 4K? Page size?
- * Normally linker aligns to some lower number (2, 3, 8?)
- */
 #        define DECLARE_DATA_SECTION(name, wx)     \
             asm(".section " name ", \"a" wx "\""); \
             asm(".align 12"); /* 2^12 */
