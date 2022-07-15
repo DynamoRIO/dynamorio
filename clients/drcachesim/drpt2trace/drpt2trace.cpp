@@ -279,8 +279,8 @@ option_init(int argc, const char *argv[])
      * drpt2trace supports two modes to convert:
      * (1) Sideband Mode: the user must provide sideband data and parameters. In this
      * mode, the converter uses sideband decoders to simulate image switches during the
-     * conversion. We can use this mode to convert the traces where the instruction bytes
-     * located in multiple images.
+     * conversion. For example, we can use this mode to convert the traces where the
+     * instruction bytes are located in multiple images.
      * (2) Elf Mode: the user needs to provide an elf image for the PT trace. This mode is
      * for cases where the PT trace's instruction bytes belong to one image. So we can use
      * this mode to convert the kernel trace and the short-term user trace where it's
