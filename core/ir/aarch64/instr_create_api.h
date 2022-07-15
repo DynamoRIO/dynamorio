@@ -1633,6 +1633,54 @@
     instr_create_1dst_3src(dc, OP_sqrdmulh, Rd, Rm, Rn, width)
 
 /**
+ * Creates a SQRDMLSH scalar instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ */
+#define INSTR_CREATE_sqrdmlsh_scalar(dc, Rd, Rm, Rn) \
+    instr_create_1dst_3src(dc, OP_sqrdmlsh, Rd, Rd, Rm, Rn)
+
+/**
+ * Creates a SQRDMLSH scalar indexed instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ * \param elsz    The vector element size. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqrdmlsh_scalar_idx(dc, Rd, Rm, Rn, index, elsz) \
+    instr_create_1dst_5src(dc, OP_sqrdmlsh, Rd, Rd, Rm, Rn, index, elsz)
+
+/**
+ * Creates a SQRDMLSH vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param elsz    The vector element size. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqrdmlsh_vector(dc, Rd, Rm, Rn, elsz) \
+    instr_create_1dst_4src(dc, OP_sqrdmlsh, Rd, Rd, Rm, Rn, elsz)
+
+/**
+ * Creates a SQRDMLSH vector indexed instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ * \param elsz    The vector element size. Use either OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_sqrdmlsh_vector_idx(dc, Rd, Rm, Rn, index, elsz) \
+    instr_create_1dst_5src(dc, OP_sqrdmlsh, Rd, Rd, Rm, Rn, index, elsz)
+
+/**
  * Creates a FMAXNMP vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
