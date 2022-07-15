@@ -7165,95 +7165,6 @@ test_ccmp_ccmn(void *dc)
 }
 
 static void
-test_scalar_sqrdmlsh(void *dc)
-{
-    instr_t *instr;
-    byte *pc;
-
-    /* SQRDMLSH <V><d>, <V><n>, <V><m> */
-
-    /* SQRDMLSH H<d>, H<n>, H<m> */
-    reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H29 };
-    reg_id_t Rn_0[3] = { DR_REG_H1, DR_REG_H11, DR_REG_H30 };
-    reg_id_t Rm_0[3] = { DR_REG_H2, DR_REG_H12, DR_REG_H31 };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_scalar(dc, opnd_create_reg(Rd_0[i]),
-                                             opnd_create_reg(Rn_0[i]),
-                                             opnd_create_reg(Rm_0[i]));
-        test_instr_encoding(dc, OP_sqrdmlsh, instr);
-    }
-
-    /* SQRDMLSH S<d>, S<n>, S<m> */
-    reg_id_t Rd_1[3] = { DR_REG_S2, DR_REG_S9, DR_REG_S26 };
-    reg_id_t Rn_1[3] = { DR_REG_S4, DR_REG_S11, DR_REG_S28 };
-    reg_id_t Rm_1[3] = { DR_REG_S8, DR_REG_S13, DR_REG_S30 };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_scalar(dc, opnd_create_reg(Rd_1[i]),
-                                             opnd_create_reg(Rn_1[i]),
-                                             opnd_create_reg(Rm_1[i]));
-        test_instr_encoding(dc, OP_sqrdmlsh, instr);
-    }
-}
-
-static void
-test_vector_sqrdmlsh(void *dc)
-{
-    instr_t *instr;
-    byte *pc;
-
-    /* SQRDMLSH <Vd>.<T>, <Vn>.<T>, <Vm>.<T> */
-
-    /* SQRDMLSH <Vd>.4H, <Vn>.4H, <Vm>.4H */
-    opnd_t elsz;
-    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D5, DR_REG_D31 };
-    reg_id_t Rn_0[3] = { DR_REG_D15, DR_REG_D25, DR_REG_D20 };
-    reg_id_t Rm_0[3] = { DR_REG_D31, DR_REG_D30, DR_REG_D7 };
-    elsz = OPND_CREATE_HALF();
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_0[i]),
-                                             opnd_create_reg(Rn_0[i]),
-                                             opnd_create_reg(Rm_0[i]), elsz);
-        test_instr_encoding(dc, OP_sqrdmlsh, instr);
-    }
-
-    /* SQRDMLSH <Vd>.2S, <Vn>.2S, <Vm>.2S */
-    reg_id_t Rd_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rn_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rm_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    elsz = OPND_CREATE_SINGLE();
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_1[i]),
-                                             opnd_create_reg(Rn_1[i]),
-                                             opnd_create_reg(Rm_1[i]), elsz);
-        test_instr_encoding(dc, OP_sqrdmlsh, instr);
-    }
-
-    /* SQRDMLSH <Vd>.8H, <Vn>.8H, <Vm>.8H */
-    reg_id_t Rd_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    reg_id_t Rn_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    reg_id_t Rm_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    elsz = OPND_CREATE_HALF();
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_2[i]),
-                                             opnd_create_reg(Rn_2[i]),
-                                             opnd_create_reg(Rm_2[i]), elsz);
-        test_instr_encoding(dc, OP_sqrdmlsh, instr);
-    }
-
-    /* SQRDMLSH <Vd>.4S, <Vn>.4S, <Vm>.4S */
-    reg_id_t Rd_3[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    reg_id_t Rn_3[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    reg_id_t Rm_3[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    elsz = OPND_CREATE_SINGLE();
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_3[i]),
-                                             opnd_create_reg(Rn_3[i]),
-                                             opnd_create_reg(Rm_3[i]), elsz);
-        test_instr_encoding(dc, OP_sqrdmlsh, instr);
-    }
-}
-
-static void
 test_internal_encode(void *dcontext)
 {
     instr_t *label = INSTR_CREATE_label(dcontext);
@@ -7433,12 +7344,6 @@ main(int argc, char *argv[])
 
     test_ccmp_ccmn(dcontext);
     print("test_ccmp_ccmn complete\n");
-
-    test_scalar_sqrdmlsh(dcontext);
-    print("test_scalar_sqrdmlsh complete\n");
-
-    test_vector_sqrdmlsh(dcontext);
-    print("test_vector_sqrdmlsh complete\n");
 
     ldr(dcontext);
     str(dcontext);
