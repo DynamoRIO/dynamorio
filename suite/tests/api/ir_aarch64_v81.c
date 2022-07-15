@@ -76,18 +76,17 @@ reg_id_t D_registers[31] = { DR_REG_D1,  DR_REG_D2,  DR_REG_D3,  DR_REG_D4,  DR_
                        : 0))
 #endif
 
-#define TEST_INSTR(instruction_name) \
-        bool test_instr_##instruction_name(void *dc)
+#define TEST_INSTR(instruction_name) bool test_instr_##instruction_name(void *dc)
 
-#define RUN_INSTR_TEST(instruction_name)                       \
-        test_result = test_instr_##instruction_name(dcontext); \
-        if (test_result == false) {                            \
-            print("test for " #instruction_name " failed.\n"); \
-            result = false;                                    \
-        }
+#define RUN_INSTR_TEST(instruction_name)                   \
+    test_result = test_instr_##instruction_name(dcontext); \
+    if (test_result == false) {                            \
+        print("test for " #instruction_name " failed.\n"); \
+        result = false;                                    \
+    }
 
 static bool
-test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char* expected)
+test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
 {
     instr_t *decin;
     byte *pc;
@@ -114,7 +113,7 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char* expected)
         result = false;
     }
 
-    if (!instr_is_encoding_possible(instr)){
+    if (!instr_is_encoding_possible(instr)) {
         print("encoding for expected %s not possible\n", expected);
         result = false;
     } else {
@@ -152,11 +151,11 @@ TEST_INSTR(sqrdmlsh_vector)
         "sqrdmlsh %d10 %d10 %d10 $0x01 -> %d10",
         "sqrdmlsh %d31 %d31 %d31 $0x01 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_0[i]),
                                              opnd_create_reg(Rn_0[i]),
                                              opnd_create_reg(Rm_0[i]), elsz);
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
             success = false;
     }
 
@@ -169,11 +168,11 @@ TEST_INSTR(sqrdmlsh_vector)
         "sqrdmlsh %d10 %d10 %d10 $0x02 -> %d10",
         "sqrdmlsh %d31 %d31 %d31 $0x02 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_1[i]),
                                              opnd_create_reg(Rn_1[i]),
                                              opnd_create_reg(Rm_1[i]), elsz);
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
             success = false;
     }
 
@@ -186,11 +185,11 @@ TEST_INSTR(sqrdmlsh_vector)
         "sqrdmlsh %q10 %q10 %q10 $0x01 -> %q10",
         "sqrdmlsh %q31 %q31 %q31 $0x01 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_2[i]),
                                              opnd_create_reg(Rn_2[i]),
                                              opnd_create_reg(Rm_2[i]), elsz);
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_2[i]))
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_2[i]))
             success = false;
     }
 
@@ -203,11 +202,11 @@ TEST_INSTR(sqrdmlsh_vector)
         "sqrdmlsh %q10 %q10 %q10 $0x02 -> %q10",
         "sqrdmlsh %q31 %q31 %q31 $0x02 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_sqrdmlsh_vector(dc, opnd_create_reg(Rd_3[i]),
                                              opnd_create_reg(Rn_3[i]),
                                              opnd_create_reg(Rm_3[i]), elsz);
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_3[i]))
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_3[i]))
             success = false;
     }
 
@@ -231,13 +230,11 @@ TEST_INSTR(sqrdmlsh_scalar_idx)
         "sqrdmlsh %h10 %h10 %q5 $0x02 $0x01 -> %h10",
         "sqrdmlsh %h31 %h31 %q15 $0x07 $0x01 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_scalar_idx(dc, opnd_create_reg(Rd_0[i]),
-                                             opnd_create_reg(Rn_0[i]),
-                                             opnd_create_reg(Rm_0[i]),
-                                             opnd_create_immed_uint(index_0[i], OPSZ_0),
-                                             elsz);
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sqrdmlsh_scalar_idx(
+            dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
+            opnd_create_reg(Rm_0[i]), opnd_create_immed_uint(index_0[i], OPSZ_0), elsz);
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
             success = false;
     }
 
@@ -251,13 +248,11 @@ TEST_INSTR(sqrdmlsh_scalar_idx)
         "sqrdmlsh %s10 %s10 %q5 $0x01 $0x02 -> %s10",
         "sqrdmlsh %s31 %s31 %q15 $0x03 $0x02 -> %s31",
     };
-    for (int i=0; i < 3; i++) {
-        instr = INSTR_CREATE_sqrdmlsh_scalar_idx(dc, opnd_create_reg(Rd_1[i]),
-                                             opnd_create_reg(Rn_1[i]),
-                                             opnd_create_reg(Rm_1[i]),
-                                             opnd_create_immed_uint(index_1[i], OPSZ_0),
-                                             elsz);
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sqrdmlsh_scalar_idx(
+            dc, opnd_create_reg(Rd_1[i]), opnd_create_reg(Rn_1[i]),
+            opnd_create_reg(Rm_1[i]), opnd_create_immed_uint(index_1[i], OPSZ_0), elsz);
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
             success = false;
     }
 
@@ -278,11 +273,11 @@ TEST_INSTR(sqrdmlsh_scalar)
         "sqrdmlsh %h10 %h10 %h10 -> %h10",
         "sqrdmlsh %h31 %h31 %h31 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_sqrdmlsh_scalar(dc, opnd_create_reg(Rd_0[i]),
                                              opnd_create_reg(Rn_0[i]),
                                              opnd_create_reg(Rm_0[i]));
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
             success = false;
     }
 
@@ -294,11 +289,11 @@ TEST_INSTR(sqrdmlsh_scalar)
         "sqrdmlsh %s10 %s10 %s10 -> %s10",
         "sqrdmlsh %s31 %s31 %s31 -> %s31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_sqrdmlsh_scalar(dc, opnd_create_reg(Rd_1[i]),
                                              opnd_create_reg(Rn_1[i]),
                                              opnd_create_reg(Rm_1[i]));
-        if(!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
             success = false;
     }
 
