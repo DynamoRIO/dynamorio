@@ -193,6 +193,13 @@
 0x101110xx0xxxxx100001xxxxxxxxxx  n   412  RDM   sqrdmlah       dq0 : dq0 dq5 dq16 hs_sz
 01111110010xxxxx100001xxxxxxxxxx  n   412  RDM   sqrdmlah        h0 : h0 h5 h16
 01111110100xxxxx100001xxxxxxxxxx  n   412  RDM   sqrdmlah        s0 : s0 s5 s16
+0x1011111xxxxxxx1111x0xxxxxxxxxx  n   579  RDM   sqrdmlsh       dq0 : dq0 dq5 q16 vindex_SD sd_sz
+0x10111101xxxxxx1111x0xxxxxxxxxx  n   579  RDM   sqrdmlsh       dq0 : dq0 dq5 dq16_h_sz vindex_H h_sz
+0111111101xxxxxx1111x0xxxxxxxxxx  n   579  RDM   sqrdmlsh        h0 : h0 h5 dq16_h_sz vindex_H h_sz
+0111111110xxxxxx1111x0xxxxxxxxxx  n   579  RDM   sqrdmlsh        s0 : s0 s5 dq16 vindex_SD sd_sz
+0x101110xx0xxxxx100011xxxxxxxxxx  n   579  RDM   sqrdmlsh       dq0 : dq0 dq5 dq16 hs_sz
+01111110010xxxxx100011xxxxxxxxxx  n   579  RDM   sqrdmlsh        h0 : h0 h5 h16
+01111110100xxxxx100011xxxxxxxxxx  n   579  RDM   sqrdmlsh        s0 : s0 s5 s16
 10111000001xxxxx100000xxxxxxxxxx  n   476  LSE        swp   w0 mem0 : w16 mem0
 11111000001xxxxx100000xxxxxxxxxx  n   476  LSE        swp   x0 mem0 : x16 mem0
 10111000101xxxxx100000xxxxxxxxxx  n   477  LSE       swpa   w0 mem0 : w16 mem0
