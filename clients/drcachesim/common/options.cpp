@@ -159,28 +159,41 @@ droption_t<std::string> op_LL_miss_file(
     "analysis be written to the specified file. Each hint is written in text format as a "
     "<program counter, stride, locality level> tuple.");
 
-droption_t<bool> op_L0_filter(
+droption_t<bool> op_L0_filter_deprecated(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
-    "Filter out first-level cache hits during tracing",
-    "Filters out instruction and data hits in a 'zero-level' cache during tracing "
-    "itself, shrinking the final trace to only contain instruction and data accesses "
-    "that miss in this initial cache.  This cache is direct-mapped with sizes equal to "
-    "-L0I_size and -L0D_size.  It uses virtual addresses regardless of -use_physical. "
-    "The dynamic (pre-filtered) per-thread instruction count is tracked and supplied "
-    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries "
-    "and at thread exit.");
+    "Filter out first-level instruction and data cache hits during tracing",
+    "DEPRECATED: Use the -L0I_filter and -L0D_filter options instead.");
+
+droption_t<bool> op_L0I_filter(
+    DROPTION_SCOPE_CLIENT, "L0I_filter", false,
+    "Filter out first-level instruction cache hits during tracing",
+    "Filters out instruction hits in a 'zero-level' cache during tracing itself, "
+    "shrinking the final trace to only contain instructions that miss in this initial "
+    "cache.  This cache is direct-mapped with size equal to -L0I_size.  It uses virtual "
+    "addresses regardless of -use_physical. The dynamic (pre-filtered) per-thread "
+    "instruction count is tracked and supplied via a "
+    "#TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries and at "
+    "thread exit.");
+
+droption_t<bool> op_L0D_filter(
+    DROPTION_SCOPE_CLIENT, "L0D_filter", false,
+    "Filter out first-level data cache hits during tracing",
+    "Filters out data hits in a 'zero-level' cache during tracing itself, shrinking the "
+    "final trace to only contain data accesses that miss in this initial cache.  This "
+    "cache is direct-mapped with size equal to -L0D_size.  It uses virtual addresses "
+    "regardless of -use_physical. ");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
-    "If -L0_filter, filter out instruction hits during tracing",
-    "Specifies the size of the 'zero-level' instruction cache for -L0_filter.  "
+    "If -L0I_filter, filter out instruction hits during tracing",
+    "Specifies the size of the 'zero-level' instruction cache for -L0I_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables instruction fetch entries from appearing in the trace.");
 
 droption_t<bytesize_t> op_L0D_size(
     DROPTION_SCOPE_CLIENT, "L0D_size", 32 * 1024U,
-    "If -L0_filter, filter out data hits during tracing",
-    "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
+    "If -L0D_filter, filter out data hits during tracing",
+    "Specifies the size of the 'zero-level' data cache for -L0D_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
 

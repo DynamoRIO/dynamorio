@@ -193,7 +193,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         report_if_false(shard,
-                        !TESTALL(OFFLINE_FILE_TYPE_FILTERED, shard->file_type_) ||
+                        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                                 shard->file_type_) ||
                             shard->found_instr_count_marker_,
                         "Missing instr count markers");
         report_if_false(shard, shard->found_cache_line_size_marker_,
@@ -260,7 +261,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             !type_is_instr_branch(shard->prev_instr_.instr.type)) {
             report_if_false(
                 shard, // Filtered.
-                TESTALL(OFFLINE_FILE_TYPE_FILTERED, shard->file_type_) ||
+                TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                        shard->file_type_) ||
                     // Regular fall-through.
                     (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
                      memref.instr.addr) ||

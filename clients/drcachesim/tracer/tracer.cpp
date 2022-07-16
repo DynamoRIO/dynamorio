@@ -202,10 +202,12 @@ static drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
 /* Allocated TLS slot offsets */
 enum {
     MEMTRACE_TLS_OFFS_BUF_PTR,
-    /* XXX: we could make these dynamic to save slots when there's no -L0_filter. */
+    /* XXX: we could make these dynamic to save slots when there's no
+     *-L0I_filter or -L0D_filter.
+     */
     MEMTRACE_TLS_OFFS_DCACHE,
     MEMTRACE_TLS_OFFS_ICACHE,
-    /* The instruction count for -L0_filter. */
+    /* The instruction count for -L0I_filter. */
     MEMTRACE_TLS_OFFS_ICOUNT,
     /* The decrementing instruction count for -trace_after_instrs.
      * We could share with MEMTRACE_TLS_OFFS_ICOUNT if we cleared in each thread
@@ -458,7 +460,7 @@ static int
 append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window)
 {
     int size_added = instru->append_unit_header(buf_ptr, tid, window);
-    if (op_L0_filter.get_value()) {
+    if (op_L0I_filter.get_value()) {
         // Include the instruction count.
         // It might be useful to include the count with each miss as well, but
         // in experiments that adds non-trivial space and time overheads (as
@@ -882,7 +884,8 @@ static bool
 is_ok_to_split_before(trace_type_t type)
 {
     return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
-        type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT;
+        type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT ||
+        op_L0I_filter.get_value();
 }
 
 static inline bool
@@ -1151,7 +1154,8 @@ memtrace(void *drcontext, bool skip_size_cap)
     }
 
     buf_ptr = BUF_PTR(data->seg_base);
-    // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
+    // We may get called with nothing to write: e.g., on a syscall for
+    // -L0I_filter and -L0D_filter.
     if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size) {
         if (has_tracing_windows()) {
             // If there is no data to write, we do not emit an empty header here
@@ -1578,7 +1582,8 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     if (adjust == 0)
         return;
-    if (!op_L0_filter.get_value()) // Filter skips over this for !pred.
+    if (!(op_L0I_filter.get_value() ||
+          op_L0D_filter.get_value())) // Filter skips over this for !pred.
         instrlist_set_auto_predicate(ilist, pred);
     MINSERT(
         ilist, where,
@@ -1835,7 +1840,8 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     reg_id_t reg_tmp = DR_REG_NULL;
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
     reg_id_set_t app_regs_at_skip_thread;
-    if (op_L0_filter.get_value() && thread_filtering_enabled) {
+    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) &&
+        thread_filtering_enabled) {
         insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_thread,
                                 short_reaches, app_regs_at_skip_thread);
     }
@@ -1867,7 +1873,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
                    dr_pred_type_t pred)
 {
     // Our "level 0" inlined direct-mapped cache filter.
-    DR_ASSERT(op_L0_filter.get_value());
+    DR_ASSERT(op_L0I_filter.get_value() || op_L0D_filter.get_value());
     reg_id_t reg_idx;
     bool is_icache = opnd_is_null(ref);
     uint64 cache_size = is_icache ? op_L0I_size.get_value() : op_L0D_size.get_value();
@@ -2001,7 +2007,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     }
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
-    if (op_L0_filter.get_value()) {
+    if (op_L0D_filter.get_value()) {
         reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr, ref, NULL,
                                        skip, pred);
         if (reg_third == DR_REG_NULL) {
@@ -2009,17 +2015,20 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
             return adjust;
         }
     }
-    if (op_L0_filter.get_value())
+    // XXX: If we're filtering only instrs, not data, then we can possibly
+    // avoid loading the buf ptr for each memref. We skip this optimization for
+    // now for simplicity.
+    if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app, ref,
                                        ref_index, write, pred);
-    if (op_L0_filter.get_value() && adjust != 0) {
+    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
         adjust = 0;
     }
     MINSERT(ilist, where, skip);
-    if (op_L0_filter.get_value()) {
+    if (op_L0D_filter.get_value()) {
         // drreg requires parity on all paths, so we need to restore the scratch regs
         // for the filter *after* the skip target.
         if (reg_third != DR_REG_NULL &&
@@ -2037,7 +2046,7 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
 {
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
-    if (op_L0_filter.get_value()) {
+    if (op_L0I_filter.get_value()) {
         // Count dynamic instructions per thread.
         // It is too expensive to increment per instruction, so we increment once
         // per block by the instruction count for that block.
@@ -2063,17 +2072,17 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
             return adjust;
         }
     }
-    if (op_L0_filter.get_value()) // Else already loaded.
+    if (op_L0I_filter.get_value() || op_L0D_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
                                       reg_ptr, adjust, app);
-    if (op_L0_filter.get_value() && adjust != 0) {
+    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
         adjust = 0;
     }
     MINSERT(ilist, where, skip);
-    if (op_L0_filter.get_value()) {
+    if (op_L0I_filter.get_value()) {
         // drreg requires parity on all paths, so we need to restore the scratch regs
         // for the filter *after* the skip target.
         if (reg_third != DR_REG_NULL &&
@@ -2117,7 +2126,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     drmgr_disable_auto_predication(drcontext, bb);
 
-    if (op_L0_filter.get_value() && ud->repstr && is_first_nonlabel(drcontext, instr)) {
+    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && ud->repstr &&
+        is_first_nonlabel(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the
         // aflags spill for the memref, yet it hits the lazily-delayed aflags
         // restore.  We don't have a great solution (repstr violates drreg's
@@ -2194,7 +2204,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         // flow and other complications that could cause us to skip an instruction.
         !drmgr_in_emulation_region(drcontext, NULL) &&
         // We can't bundle with a filter.
-        !op_L0_filter.get_value() &&
+        !(op_L0I_filter.get_value() || op_L0D_filter.get_value()) &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
         ud->delay_instrs[ud->num_delay_instrs++] = instr_fetch;
@@ -2222,7 +2232,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     instr_t *skip_instru = INSTR_CREATE_label(drcontext);
     reg_id_t reg_skip = DR_REG_NULL;
     reg_id_set_t app_regs_at_skip;
-    if (!op_L0_filter.get_value()) {
+    if (!(op_L0I_filter.get_value() || op_L0D_filter.get_value())) {
         insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         if (thread_filtering_enabled) {
             bool short_reaches = false;
@@ -2298,7 +2308,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      * assuming the clean call does not need the two register values.
      */
     if (is_last_instr(drcontext, instr)) {
-        if (op_L0_filter.get_value())
+        if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
             insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         instrument_clean_call(drcontext, bb, where, reg_ptr);
     }
@@ -2751,15 +2761,22 @@ event_inscount_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 static offline_file_type_t
 get_file_type()
 {
-    offline_file_type_t file_type =
-        op_L0_filter.get_value() ? OFFLINE_FILE_TYPE_FILTERED : OFFLINE_FILE_TYPE_DEFAULT;
+    offline_file_type_t file_type = OFFLINE_FILE_TYPE_DEFAULT;
+    if (op_L0I_filter.get_value()) {
+        file_type =
+            static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_IFILTERED);
+    }
+    if (op_L0D_filter.get_value()) {
+        file_type =
+            static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_DFILTERED);
+    }
     if (op_disable_optimizations.get_value()) {
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
     }
     if (op_instr_only_trace.get_value() ||
-        // Data entries are removed from trace if -L0_filter and -L0D_size 0
-        (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
+        // Data entries are removed from trace if -L0D_filter and -L0D_size 0
+        (op_L0D_filter.get_value() && op_L0D_size.get_value() == 0)) {
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
     }
@@ -2832,23 +2849,17 @@ init_thread_in_process(void *drcontext)
         BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
     }
 
-    if (op_L0_filter.get_value()) {
-        if (op_L0D_size.get_value() > 0) {
-            data->l0_dcache =
-                (byte *)dr_raw_mem_alloc((size_t)op_L0D_size.get_value() /
-                                             op_line_size.get_value() * sizeof(void *),
-                                         DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-            *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_DCACHE) =
-                data->l0_dcache;
-        }
-        if (op_L0I_size.get_value() > 0) {
-            data->l0_icache =
-                (byte *)dr_raw_mem_alloc((size_t)op_L0I_size.get_value() /
-                                             op_line_size.get_value() * sizeof(void *),
-                                         DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-            *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICACHE) =
-                data->l0_icache;
-        }
+    if (op_L0D_filter.get_value() && op_L0D_size.get_value() > 0) {
+        data->l0_dcache = (byte *)dr_raw_mem_alloc(
+            (size_t)op_L0D_size.get_value() / op_line_size.get_value() * sizeof(void *),
+            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_DCACHE) = data->l0_dcache;
+    }
+    if (op_L0I_filter.get_value() && op_L0I_size.get_value() > 0) {
+        data->l0_icache = (byte *)dr_raw_mem_alloc(
+            (size_t)op_L0I_size.get_value() / op_line_size.get_value() * sizeof(void *),
+            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICACHE) = data->l0_icache;
     }
 
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -2900,7 +2911,7 @@ event_thread_exit(void *drcontext)
             // If over the limit, we still want to write the footer, but nothing else.
             BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
         }
-        if (op_L0_filter.get_value()) {
+        if (op_L0I_filter.get_value()) {
             // Include the final instruction count.
             // It might be useful to include the count with each miss as well, but
             // in experiments that adds non-trivial space and time overheads (as
@@ -2932,12 +2943,14 @@ event_thread_exit(void *drcontext)
             }
         }
 
-        if (op_L0_filter.get_value()) {
+        if (op_L0D_filter.get_value()) {
             if (op_L0D_size.get_value() > 0) {
                 dr_raw_mem_free(data->l0_dcache,
                                 (size_t)op_L0D_size.get_value() /
                                     op_line_size.get_value() * sizeof(void *));
             }
+        }
+        if (op_L0I_filter.get_value()) {
             if (op_L0I_size.get_value() > 0) {
                 dr_raw_mem_free(data->l0_icache,
                                 (size_t)op_L0I_size.get_value() /
@@ -3169,9 +3182,15 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
         FATAL("Usage error: function recording is only supported for -offline\n");
     }
-    if (op_L0_filter.get_value() &&
-        ((!IS_POWER_OF_2(op_L0I_size.get_value()) && op_L0I_size.get_value() != 0) ||
-         (!IS_POWER_OF_2(op_L0D_size.get_value()) && op_L0D_size.get_value() != 0))) {
+
+    if (op_L0_filter_deprecated.get_value()) {
+        op_L0D_filter.set_value(true);
+        op_L0I_filter.set_value(true);
+    }
+    if ((op_L0I_filter.get_value() && !IS_POWER_OF_2(op_L0I_size.get_value()) &&
+         op_L0I_size.get_value() != 0) ||
+        (op_L0D_filter.get_value() && !IS_POWER_OF_2(op_L0D_size.get_value()) &&
+         op_L0D_size.get_value() != 0)) {
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
     if (op_raw_compress.get_value() == "none"
@@ -3192,8 +3211,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
               op_raw_compress.get_value().c_str());
     }
     // We cannot elide addresses or ignore offsets when we need to translate
-    // all addresses during tracing.
-    if (op_use_physical.get_value())
+    // all addresses during tracing or when instruction or data address entries
+    // are being filtered.
+    if (op_use_physical.get_value() || op_L0I_filter.get_value() ||
+        op_L0D_filter.get_value())
         op_disable_optimizations.set_value(true);
 
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
@@ -3202,7 +3223,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
-    if (op_L0_filter.get_value()) {
+    if (op_L0I_filter.get_value() || op_L0D_filter.get_value()) {
         /* We need to preserve the flags so we need xax. */
         drreg_set_vector_entry(&scratch_reserve_vec, DR_REG_XAX, false);
     }
@@ -3217,7 +3238,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new (placement) offline_instru_t(
-            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
+            insert_load_buf_ptr, op_L0I_filter.get_value(), &scratch_reserve_vec,
             file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
     } else {
         void *placement;
@@ -3226,7 +3247,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new (placement)
             online_instru_t(insert_load_buf_ptr, insert_update_buf_ptr,
-                            op_L0_filter.get_value(), &scratch_reserve_vec);
+                            op_L0I_filter.get_value(), &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX
@@ -3257,8 +3278,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Failed to initialized function tracing.\n");
     }
 
-    /* We need an extra for -L0_filter. */
-    if (op_L0_filter.get_value())
+    /* We need an extra for -L0I_filter and -L0D_filter. */
+    if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
         ++ops.num_spill_slots;
     // We use the buf pointer reg plus 2 more in instrument_clean_call, so we want
     // 3 total: thus 1 more than the base.

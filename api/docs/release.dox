@@ -149,6 +149,10 @@ Further non-compatibility-affecting changes include:
    dr_hashtable_destroy(), dr_hashtable_clear(), dr_hashtable_lookup(),
    dr_hashtable_add(), dr_hashtable_remove().
  - Added a new #TRACE_MARKER_TYPE_PAGE_SIZE record to drcachesim offline traces.
+ - Added new drmemtrace options -L0I_filter and -L0D_filter that allow enabling
+   online filtering for only instruction or only data entries respectively. The
+   old option -L0_filter is deprecated but still supported for backward
+   compatibility. It simply sets both the new options.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
