@@ -104,8 +104,8 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
     insert_reachable_cti(dcontext, ilist, instr, encode_pc,
                          save ? get_clean_call_save(dcontext _IF_X64(GENCODE_X64))
                               : get_clean_call_restore(dcontext _IF_X64(GENCODE_X64)),
-                         false /*call*/, true /*returns*/, false /*!precise*/, DR_REG_R11,
-                         NULL);
+                         false /*call*/, true /*returns*/, false /*!precise*/,
+                         CALL_SCRATCH_REG, NULL);
     return get_clean_call_switch_stack_size();
 }
 

@@ -52,6 +52,9 @@
  */
 #ifdef X86
 #    define DR_FPSTATE_BUF_SIZE 512
+#elif defined(RISCV64)
+/* FIXME i#3544: Not implemented */
+#    define DR_FPSTATE_BUF_SIZE 1
 #elif defined(ARM) || defined(AARCH64)
 /* On ARM/AArch64 proc_save_fpstate saves nothing, so use the smallest
  * legal size for an array.
@@ -62,6 +65,8 @@
 /** The alignment requirements of floating point state buffer. */
 #if defined(X86) || defined(AARCH64)
 #    define DR_FPSTATE_ALIGN 16
+#elif defined(RISCV64)
+#    define DR_FPSTATE_ALIGN 1
 #elif defined(ARM)
 #    define DR_FPSTATE_ALIGN 1
 #endif
@@ -180,6 +185,17 @@ typedef enum {
     AA64PFR0 = 2,
     AA64MMFR1 = 3
 } feature_reg_idx_t;
+#endif
+#ifdef RISCV64
+/* FIXME i#3544: Not implemented */
+/**
+ * For RISC-V64 there are no features readable from userspace. Hence only a
+ * dummy flag is there. May be replaced by actual feature flags in the future.
+ * Used by proc_get_all_feature_bits().
+ */
+typedef struct {
+    uint64 dummy; /**< Dummy member to keep size non-0. */
+} features_t;
 #endif
 
 #ifdef X86
@@ -327,6 +343,16 @@ typedef enum {
     FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
     FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 1),       /**< Scalable Vectors (AArch64) */
     FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 1), /**< Limited order regions (AArch64) */
+} feature_bit_t;
+#endif
+#ifdef RISCV64
+/* FIXME i#3544: Not implemented */
+/**
+ * Feature bits passed to proc_has_feature() to determine whether the underlying
+ * processor has the feature.
+ */
+typedef enum {
+    FEATURE_DUMMY = 0, /**< Dummy, non-existent feature. */
 } feature_bit_t;
 #endif
 

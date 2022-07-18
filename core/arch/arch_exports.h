@@ -155,6 +155,8 @@ typedef struct _spill_state_t {
     /* These are needed for ldex/stex mangling and A64 icache_op_ic_ivau_asm. */
     reg_t r4, r5;
     reg_t reg_stolen; /* slot for the stolen register */
+#elif defined(RISCV64)
+    reg_t a0, a1, a2, a3;
 #endif
     /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
@@ -220,6 +222,15 @@ typedef struct _local_state_extended_t {
 #    define SCRATCH_REG4 DR_REG_R4
 #    define SCRATCH_REG5 DR_REG_R5
 #    define SCRATCH_REG_LAST SCRATCH_REG5
+#elif defined(RISCV64)
+#    define TLS_REG0_SLOT ((ushort)offsetof(spill_state_t, a0))
+#    define TLS_REG1_SLOT ((ushort)offsetof(spill_state_t, a1))
+#    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, a2))
+#    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, a3))
+#    define SCRATCH_REG0 DR_REG_A0
+#    define SCRATCH_REG1 DR_REG_A1
+#    define SCRATCH_REG2 DR_REG_A2
+#    define SCRATCH_REG3 DR_REG_A3
 #endif /* X86/ARM */
 #define IBL_TARGET_REG SCRATCH_REG2
 #define IBL_TARGET_SLOT TLS_REG2_SLOT
@@ -541,7 +552,8 @@ enum {
 #ifdef WINDOWS
     SYSCALL_METHOD_WOW64,
 #endif
-    SYSCALL_METHOD_SVC, /* ARM */
+    SYSCALL_METHOD_SVC,   /* ARM */
+    SYSCALL_METHOD_ECALL, /* RISCV64 */
 };
 #ifdef UNIX
 enum { SYSCALL_METHOD_LONGEST_INSTR = 2 }; /* to ensure safe patching */
@@ -1028,7 +1040,37 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 /* i#1906: alignment needed for the source address of data to load into the PC */
 #    define PC_LOAD_ADDR_ALIGN 4
 
-#endif /* ARM */
+#elif defined(RISCV64)
+/* FIXME i#3544: This can be 2B in C. */
+#    define RISCV64_INSTR_SIZE 4
+/* FIXME i#3544: Not implemented */
+#    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE
+/* FIXME i#3544: Not implemented */
+#    define DIRECT_EXIT_STUB_SIZE(flags) \
+        (10 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+#    define FRAG_IS_32(flags) false
+#    define PC_AS_JMP_TGT(isa_mode, pc) pc
+#    define PC_AS_LOAD_TGT(isa_mode, pc) pc
+/* FIXME i#3544: Not implemented */
+#    define DIRECT_EXIT_STUB_DATA_SZ 0
+#    define STUB_COARSE_DIRECT_SIZE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
+#    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
+#    define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
+#    define IS_SET_TO_DEBUG(addr, size) (ASSERT_NOT_IMPLEMENTED(false), false)
+
+/* offset of the patchable region from the end of a cti */
+/* FIXME i#3544: Not implemented */
+#    define CTI_PATCH_OFFSET 4
+/* offset of the patchable region from the end of a stub */
+/* FIXME i#3544: Not implemented */
+#    define EXIT_STUB_PATCH_OFFSET 4
+/* size of the patch to a stub */
+/* FIXME i#3544: Not implemented */
+#    define EXIT_STUB_PATCH_SIZE 4
+/* the most bytes we'll need to shift a patchable location for -pad_jmps */
+/* FIXME i#3544: Not implemented */
+#    define MAX_PAD_SIZE 0
+#endif /* RISCV64 */
 /****************************************************************************/
 
 /* evaluates to true if region crosses at most 1 padding boundary */
@@ -1238,10 +1280,16 @@ enum {
     CBR_SHORT_REWRITE_LENGTH = 6,
     SVC_THUMB_LENGTH = THUMB_SHORT_INSTR_SIZE, /* Thumb syscall instr */
     SVC_ARM_LENGTH = ARM_INSTR_SIZE,           /* ARM syscall instr */
+#elif defined(RISCV64)
+    CBR_LONG_LENGTH = 4,
+    JMP_LONG_LENGTH = 4,
+    JMP_SHORT_LENGTH = 4,
+    CBR_SHORT_REWRITE_LENGTH = 4,
 #endif
 
 /* Not under defines so we can have code that is less cluttered */
-#ifdef AARCH64
+/* FIXME i#3544: With Compressed ext ecall can be 2 */
+#if defined(AARCH64) || defined(RISCV64)
     INT_LENGTH = 4,
     SYSCALL_LENGTH = 4,
     SYSENTER_LENGTH = 4,
@@ -1674,8 +1722,8 @@ _dynamorio_runtime_resolve(void);
 #    define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
 #endif /* X86/ARM */
 
-#define MCXT_SYSNUM_REG(mc) ((mc)->IF_X86_ELSE(xax, IF_ARM_ELSE(r7, r8)))
-#define MCXT_FIRST_REG_FIELD(mc) ((mc)->IF_X86_ELSE(xdi, r0))
+#define MCXT_SYSNUM_REG(mc) ((mc)->MCXT_FLD_SYSNUM_REG)
+#define MCXT_FIRST_REG_FIELD(mc) ((mc)->MCXT_FLD_FIRST_REG)
 
 static inline reg_t
 get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)

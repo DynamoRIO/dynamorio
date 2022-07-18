@@ -190,6 +190,23 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_XFLAGS SC_FIELD(arm_cpsr)
 #    define SC_SYSNUM_REG SC_R7
 #    define SC_RETURN_REG SC_R0
+#elif defined(RISCV64)
+#    define SC_A0 SC_FIELD(sc_regs.a0)
+#    define SC_A1 SC_FIELD(sc_regs.a1)
+#    define SC_A2 SC_FIELD(sc_regs.a2)
+#    define SC_A3 SC_FIELD(sc_regs.a3)
+#    define SC_A4 SC_FIELD(sc_regs.a4)
+#    define SC_A5 SC_FIELD(sc_regs.a5)
+#    define SC_A6 SC_FIELD(sc_regs.a6)
+#    define SC_A7 SC_FIELD(sc_regs.a7)
+#    define SC_FP SC_FIELD(sc_regs.s0)
+#    define SC_RA SC_FIELD(sc_regs.ra)
+#    define SC_XIP SC_FIELD(sc_regs.pc)
+#    define SC_XSP SC_FIELD(sc_regs.sp)
+/* FIXME i#3544: There is no general purpose flag register so point to float. */
+#    define SC_XFLAGS SC_FIELD(sc_fpregs.f.fcsr)
+#    define SC_SYSNUM_REG SC_A7
+#    define SC_RETURN_REG SC_A0
 #endif /* X86/ARM */
 
 #endif /* _OS_PUBLIC_H_ 1 */

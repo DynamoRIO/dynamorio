@@ -191,7 +191,23 @@
                             * offset for the symbol.      \
                             */
 #    endif                 /* ANDROID */
-#endif                     /* X86/ARM */
+#elif defined(RISCV64)
+#    define ELF_R_TYPE ELF64_R_TYPE
+#    define ELF_R_SYM ELF64_R_SYM
+/* relocation type */
+#    define ELF_R_NONE R_RISCV_NONE               /* No relocation. */
+#    define ELF_R_DIRECT R_RISCV_64               /* Direct 64 bit. */
+#    define ELF_R_COPY R_RISCV_COPY               /* Copy symbol at runtime. */
+/* FIXME i#3544: GOT and direct 64 bit both use R_RISCV_64. */
+#    define ELF_R_GLOB_DAT R_RISCV_64             /* Create GOT entry. */
+#    define ELF_R_JUMP_SLOT R_RISCV_JUMP_SLOT     /* Create PLT entry. */
+#    define ELF_R_RELATIVE R_RISCV_RELATIVE       /* Adjust by program base. */
+#    define ELF_R_IRELATIVE R_RISCV_IRELATIVE     /* STT_GNU_IFUNC relocation. */
+/* tls related */
+#    define ELF_R_TLS_DTPMOD R_RISCV_TLS_DTPMOD64 /* Module ID. */
+#    define ELF_R_TLS_TPOFF R_RISCV_TLS_TPREL64   /* TP-relative offset. */
+#    define ELF_R_TLS_DTPOFF R_RISCV_TLS_DTPREL64 /* Module-relative offset. */
+#endif                                            /* X86/ARM/RISCV64 */
 
 /* Define ARM ELF machine types to support compiling on old Linux distros. */
 #ifndef EM_ARM

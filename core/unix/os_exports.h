@@ -105,7 +105,11 @@
                              */
 #        define LIB_SEG_TLS DR_REG_TPIDRURO /* libc+loader tls */
 #    endif                                  /* 64/32-bit */
-#endif                                      /* X86/ARM */
+#elif defined(RISCV64)
+/* FIXME i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
+#    define SEG_TLS DR_REG_INVALID
+#    define LIB_SEG_TLS DR_REG_TP
+#endif /* X86/ARM */
 
 #define TLS_REG_LIB LIB_SEG_TLS /* TLS reg commonly used by libraries in Linux */
 #define TLS_REG_ALT SEG_TLS     /* spare TLS reg, used by DR in X86 Linux */
@@ -116,6 +120,8 @@
 #    define DR_REG_SYSNUM DR_REG_R7
 #elif defined(AARCH64)
 #    define DR_REG_SYSNUM DR_REG_X8
+#elif defined(RISCV64)
+#    define DR_REG_SYSNUM DR_REG_A7
 #else
 #    error NYI
 #endif
@@ -165,6 +171,17 @@ extern uint android_tls_base_offs;
  */
 #    define USR_TLS_REG_OPCODE 3
 #    define USR_TLS_COPROC_15 15
+#endif
+
+#ifdef RISCV64
+/* FIXME i#3544: We might need to re-use ARM's approach and store DR TLS in
+ * tcb_head_t::private field: typedef struct
+ *   {
+ *     dtv_t *dtv;
+ *     void *private;
+ *   } tcb_head_t;
+ */
+#    define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4) /* skip dtv */
 #endif
 
 #ifdef LINUX
@@ -281,6 +298,10 @@ disable_env(const char *name);
  * section goes -- for cl, order linked seems to do it, but for linux
  * will need a linker script (see unix/os.c for the nspdata problem)
  */
+/* XXX i#5565: Sections are aligned to page-size because DR can enable memory
+ * protection per-page (currently only on Windows). Hard-coded 4K alignment will
+ * lead to issues on systems with larger base pages.
+ */
 #ifdef MACOS
 /* XXX: currently assuming all custom sections are writable and non-executable! */
 #    define DECLARE_DATA_SECTION(name, wx) \
@@ -295,7 +316,11 @@ disable_env(const char *name);
 #        define DECLARE_DATA_SECTION(name, wx)     \
             asm(".section " name ", \"a" wx "\""); \
             asm(".align 12"); /* 2^12 */
-#    endif                    /* X86/ARM */
+#    elif defined(DR_HOST_RISCV64)
+#        define DECLARE_DATA_SECTION(name, wx)     \
+            asm(".section " name ", \"a" wx "\""); \
+            asm(".align 12"); /* 2^12 */
+#    endif                    /* X86/ARM/RISCV64 */
 #endif                        /* MACOS/UNIX */
 
 /* XXX i#465: It's unclear what section we should switch to after our section
@@ -316,6 +341,11 @@ disable_env(const char *name);
             asm(".align 0x1000");               \
             asm(".text");
 #    elif defined(DR_HOST_AARCHXX)
+#        define END_DATA_SECTION_DECLARATIONS() \
+            asm(".section .data");              \
+            asm(".align 12");                   \
+            asm(".text");
+#    elif defined(DR_HOST_RISCV64)
 #        define END_DATA_SECTION_DECLARATIONS() \
             asm(".section .data");              \
             asm(".align 12");                   \
