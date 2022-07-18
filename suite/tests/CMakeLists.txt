@@ -2598,10 +2598,12 @@ tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdl
 use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
 link_with_pthread(client.drmgr-test)
 
-tobuild_ci(client.drpttracer-test client-interface/drpttracer-test.c "" "" "")
-use_DynamoRIO_extension(client.drpttracer-test.dll drpttracer)
-use_DynamoRIO_extension(client.drpttracer-test.dll drmgr)
-link_with_pthread(client.drpttracer-test)
+if(proc_supports_libipt)
+  tobuild_ci(client.drpttracer-test client-interface/drpttracer-test.c "" "" "")
+  use_DynamoRIO_extension(client.drpttracer-test.dll drpttracer)
+  use_DynamoRIO_extension(client.drpttracer-test.dll drmgr)
+  link_with_pthread(client.drpttracer-test)
+endif()
 
 tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
 use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)

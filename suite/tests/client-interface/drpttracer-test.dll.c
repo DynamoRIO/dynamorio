@@ -54,6 +54,9 @@ static void
 event_thread_exit(void *drcontext);
 
 static bool
+event_filter_syscall(void *drcontext, int sysnum);
+
+static bool
 event_pre_syscall(void *drcontext, int sysnum);
 
 static void
@@ -65,12 +68,13 @@ dr_init(client_id_t id)
     bool ok;
     drmgr_init();
     ok = drpttracer_init();
-    CHECK(ok, "drpttracer init succeeded");
+    CHECK(ok, "drpttracer_init failed");
     dr_register_exit_event(event_exit);
     drmgr_register_thread_init_event(event_thread_init);
     drmgr_register_thread_exit_event(event_thread_exit);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
+    dr_register_filter_syscall_event(event_filter_syscall);
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx > -1, "unable to reserve TLS field");
 }
@@ -78,13 +82,10 @@ dr_init(client_id_t id)
 static void
 event_exit(void)
 {
-    bool ok;
-    ok = drpttracer_dump_kcore_and_kallsyms("./");
-    CHECK(ok, "drpttracer dump kcore and kallsym succeeded");
     drpttracer_exit();
-    CHECK(true, "drpttracer exit succeeded");
     drmgr_unregister_thread_init_event(event_thread_init);
     drmgr_unregister_thread_exit_event(event_thread_exit);
+    dr_unregister_filter_syscall_event(event_filter_syscall);
     drmgr_unregister_pre_syscall_event(event_pre_syscall);
     drmgr_unregister_post_syscall_event(event_post_syscall);
     drmgr_unregister_tls_field(tls_idx);
@@ -104,24 +105,40 @@ static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (pt->tracer_handle != NULL) {
+        drpttracer_end_tracing(&pt->tracer_handle, NULL, NULL);
+    }
     dr_thread_free(drcontext, pt, sizeof(*pt));
+}
+
+static bool
+event_filter_syscall(void *drcontext, int sysnum)
+{
+    return true;
 }
 
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
-    bool ok;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    ok = drpttracer_start_trace(false, true, pt->tracer_handle) == DRPTTRACER_SUCCESS;
-    CHECK(ok, "drpttracer start tracing");
+    if (pt->tracer_handle != NULL) {
+        drpttracer_end_tracing(&pt->tracer_handle, NULL, NULL);
+    }
+    bool ok = drpttracer_start_tracing(dr_get_thread_id(drcontext), true, false,
+                                       &pt->tracer_handle) == DRPTTRACER_SUCCESS;
+    CHECK(ok, "drpttracer_start_tracing failed");
     return true;
 }
 
 static void
 event_post_syscall(void *drcontext, int sysnum)
 {
-    bool ok;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    ok = drpttracer_end_trace(pt->tracer_handle, NULL, NULL) == DRPTTRACER_SUCCESS;
-    CHECK(ok, "drpttracer stop tracing");
+    if (pt->tracer_handle == NULL) {
+        return;
+    }
+    bool ok =
+        drpttracer_end_tracing(&pt->tracer_handle, NULL, NULL) == DRPTTRACER_SUCCESS;
+    CHECK(ok, "drpttracer_end_tracing failed");
+    pt->tracer_handle = NULL;
 }

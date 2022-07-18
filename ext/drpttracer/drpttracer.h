@@ -88,37 +88,39 @@ drpttracer_exit(void);
 
 /** Success code for each drpttracer operation. */
 typedef enum {
-    DRPTTRACER_SUCCESS, /**< Operation succeeded. */
-    DRPTTRACER_ERROR,   /**< Operation failed. */
-    DRPTTRACER_ERROR_INVALID_ARGUMENT, /**< Operation failed: invalid argument. */
-    DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT, /**< Operation failed: failed to open perf event. */
-    DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_EVENT, /**< Operation failed: failed to mmap perf event. */
-    DRPTTRACER_ERROR_FAILED_TO_MMAP_AUX, /**< Operation failed: failed to mmap aux. */
-    DRPTTRACER_ERROR_FAILED_TO_FREE_NULL_BUFFER, /**< Operation failed: failed to free a null buffer. */
-    DRPTTRACER_ERROR_FAILED_TO_CREATE_PIPE, /**< Operation failed: failed to create pipe. */
-    DRPTTRACER_ERROR_FAILED_TO_DUMP_KCORE_AND_KALLSYMS /**< Operation failed: failed to dump kcore and kallsyms. */
+    /** Operation succeeded. */
+    DRPTTRACER_SUCCESS,
+    /** Operation failed. */
+    DRPTTRACER_ERROR,
+    /** Operation failed: invalid argument. */
+    DRPTTRACER_ERROR_INVALID_ARGUMENT,
+    /** Operation failed: failed to open perf event. */
+    DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT,
+    /** Operation failed: failed to disable perf event. */
+    DRPTTRACER_ERROR_FAILED_TO_DISABLE_PERF_EVENT,
+    /** Operation failed: failed to create tracer handle. */
+    DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE,
+    /** Operation failed: try to delete a null buffer. */
+    DRPTTRACER_ERROR_TRY_TO_DELETE_NULL_BUFFER
 } drpttracer_status_t;
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_start_trace(IN bool user, IN bool kernel, OUT void *tracer_handle);
+drpttracer_start_tracing(IN thread_id_t thread_id, IN bool user, IN bool kernel,
+                         OUT void **tracer_handle);
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_end_trace(IN void *tracer_handle, OUT drpttracer_data_buf_t *pt_data,
-                     OUT drpttracer_data_buf_t *sideband_data);
+drpttracer_end_tracing(INOUT void **tracer_handle, OUT drpttracer_data_buf_t *pt_data,
+                       OUT drpttracer_data_buf_t *sideband_data);
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_create_data_buffer(OUT drpttracer_data_buf_t *data_buf);
+drpttracer_create_data_buffer(OUT drpttracer_data_buf_t **data_buf);
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_delete_data_buffer(IN drpttracer_data_buf_t *data_buf);
-
-DR_EXPORT
-drpttracer_status_t
-drpttracer_dump_kcore_and_kallsyms(IN const char *dir);
+drpttracer_delete_data_buffer(IN drpttracer_data_buf_t **data_buf);
 
 #ifdef __cplusplus
 }

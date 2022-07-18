@@ -32,16 +32,16 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-if(NOT LINUX OR NOT X86 OR NOT X64)
+if (NOT LINUX OR NOT X86 OR NOT X64)
   message(FATAL_ERROR "This is only for Linux x86_64.")
-endif()
+endif ()
 
 # DynamoRIO Intel PT Tracing Extension
 
 # We do not need libc, and we avoid a 10x size increase in both our
 # dll and pdb (plus we avoid stressing private library isolation) by
 # not using it (i#714).
-set(DynamoRIO_USE_LIBC OFF)
+set(DynamoRIO_USE_LIBC ON)
 
 set(srcs
   drpttracer.c

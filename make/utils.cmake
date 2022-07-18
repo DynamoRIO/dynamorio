@@ -235,6 +235,30 @@ function (check_avx512_processor_and_compiler_support out)
   set(${out} ${proc_found_avx512} PARENT_SCOPE)
 endfunction (check_avx512_processor_and_compiler_support)
 
+function(check_intel_pt_support out)
+  if (NOT LINUX OR NOT X86 OR NOT X64)
+    message(STATUS "Intel PT not supported on this platform.")
+    set(${out} 0 PARENT_SCOPE)
+  else ()
+    find_program(BASH bash DOC "shell")
+    if (NOT BASH)
+      message(FATAL_ERROR "Unable to find bash for check_intel_pt_support")
+    else ()
+      execute_process(
+        COMMAND ${BASH} "-c" "cat /sys/devices/intel_pt/type 2>/dev/null"
+        OUTPUT_VARIABLE proc_found_intel_pt
+      )
+      if(proc_found_intel_pt)
+        message(STATUS "Intel PT is available.")
+      else()
+        message(STATUS "WARNING: Intel PT is not available. "
+          "Skipping tests")
+      endif()
+      set(${out} ${proc_found_intel_pt} PARENT_SCOPE)
+    endif()
+  endif ()
+endfunction(check_intel_pt_support)
+
 if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
   # We could build this at configure time instead of build time as
