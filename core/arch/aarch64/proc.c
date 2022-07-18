@@ -56,6 +56,7 @@ read_feature_regs(uint64 isa_features[])
     MRS(ID_AA64ISAR0_EL1, AA64ISAR0, isa_features);
     MRS(ID_AA64ISAR1_EL1, AA64ISAR1, isa_features);
     MRS(ID_AA64PFR0_EL1, AA64PFR0, isa_features);
+    MRS(ID_AA64MMFR1_EL1, AA64MMFR1, isa_features);
 }
 
 static void
@@ -74,12 +75,13 @@ get_processor_specific_info(void)
     }
 
     /* Reads instruction attribute and preocessor feature registers
-     * ID_AA64ISAR0_EL1, ID_AA64ISAR1_EL1 and ID_AA64PFR0_EL1.
+     * ID_AA64ISAR0_EL1, ID_AA64ISAR1_EL1, ID_AA64PFR0_EL1 and ID_AA64MMFR1_EL1.
      */
     read_feature_regs(isa_features);
     cpu_info.features.flags_aa64isar0 = isa_features[AA64ISAR0];
     cpu_info.features.flags_aa64isar1 = isa_features[AA64ISAR1];
     cpu_info.features.flags_aa64pfr0 = isa_features[AA64PFR0];
+    cpu_info.features.flags_aa64mmfr1 = isa_features[AA64MMFR1];
 }
 
 #    define LOG_FEATURE(feature)       \
@@ -125,16 +127,20 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_FlagM);
         LOG_FEATURE(FEATURE_FlagM2);
         LOG_FEATURE(FEATURE_RNG);
+
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR1_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64isar1);
-        /* FIXME i#5474: Log all FEATURE_s for ID_AA64ISAR1_EL1. */
         LOG_FEATURE(FEATURE_DPB);
         LOG_FEATURE(FEATURE_DPB2);
+
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64pfr0);
-        /* FIXME i#5474: Log all FEATURE_s for ID_AA64PFR0_EL1. */
         LOG_FEATURE(FEATURE_FP16);
         LOG_FEATURE(FEATURE_SVE);
+
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64MMFR1_EL1 = 0x%016lx\n",
+            cpu_info.features.flags_aa64mmfr1);
+        LOG_FEATURE(FEATURE_LOR);
     });
 #endif
 }
@@ -153,7 +159,7 @@ proc_has_feature(feature_bit_t f)
      */
 #    if defined(BUILD_TESTS)
     if (f == FEATURE_LSE || f == FEATURE_RDM || f == FEATURE_FP16 ||
-        f == FEATURE_DotProd || f == FEATURE_SVE)
+        f == FEATURE_DotProd || f == FEATURE_SVE || f == FEATURE_LOR)
         return true;
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
@@ -172,6 +178,10 @@ proc_has_feature(feature_bit_t f)
         }
         case AA64PFR0: {
             freg_val = cpu_info.features.flags_aa64pfr0;
+            break;
+        }
+        case AA64MMFR1: {
+            freg_val = cpu_info.features.flags_aa64mmfr1;
             break;
         }
         default: CLIENT_ASSERT(false, "proc_has_feature: feature register index error");
