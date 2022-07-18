@@ -322,11 +322,11 @@ typedef enum {
     FEATURE_FlagM = DEF_FEAT(AA64ISAR0, 13, 1, 0),   /**< CFINV,RMIF,SETF<x> (AArch64) */
     FEATURE_FlagM2 = DEF_FEAT(AA64ISAR0, 13, 2, 0),  /**< AXFLAG, XAFLAG (AArch64) */
     FEATURE_RNG = DEF_FEAT(AA64ISAR0, 15, 1, 0),     /**< RNDR, RNDRRS (AArch64) */
-    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),  /**< DC CVAP (AArch64) */
-    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0), /**< DC CVAP, DC CVADP (AArch64) */
-    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),  /**< Half-precision FP (AArch64) */
-    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 1),   /**< Scalable Vectors (AArch64) */
-    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 1),  /**< Limited order regions (AArch64) */
+    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),      /**< DC CVAP (AArch64) */
+    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0),     /**< DC CVAP, DC CVADP (AArch64) */
+    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
+    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 1),       /**< Scalable Vectors (AArch64) */
+    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 1), /**< Limited order regions (AArch64) */
 } feature_bit_t;
 #endif
 
