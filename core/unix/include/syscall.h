@@ -24,6 +24,8 @@
 #    include "syscall_linux_arm.h"
 #elif defined(DR_HOST_AARCH64)
 #    include "syscall_linux_uapi.h"
+#elif defined(DR_HOST_RISCV64)
+#    include "syscall_linux_riscv64.h"
 #else
 #    error Unknown platform.
 #endif

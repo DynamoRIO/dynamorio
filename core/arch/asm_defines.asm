@@ -147,6 +147,8 @@
 # endif
 # ifdef X86
 #  define HEX(n) 0x##n
+# elif defined(RISCV64)
+#  define HEX(n) 0x##n
 # else
 #  define POUND #
 #  define HEX(n) POUND 0x##n
@@ -319,6 +321,40 @@ ASSUME fs:_DATA @N@\
 # define REG_R11 x11
 # define REG_R12 x12
 /* skip [x13..x30], not available on AArch32 */
+#elif defined(RISCV64)
+# define REG_SP   sp
+# define REG_R0   x0
+# define REG_R1   x1
+# define REG_R2   x2
+# define REG_R3   x3
+# define REG_R4   x4
+# define REG_R5   x5
+# define REG_R6   x6
+# define REG_R7   x7
+# define REG_R8   x8
+# define REG_R9   x9
+# define REG_R10  x10
+# define REG_R11  x11
+# define REG_R12  x12
+# define REG_R13  x13
+# define REG_R14  x14
+# define REG_R15  x15
+# define REG_R16  x16
+# define REG_R17  x17
+# define REG_R18  x18
+# define REG_R19  x19
+# define REG_R20  x20
+# define REG_R21  x21
+# define REG_R22  x22
+# define REG_R23  x23
+# define REG_R24  x24
+# define REG_R25  x25
+# define REG_R26  x26
+# define REG_R27  x27
+# define REG_R28  x28
+# define REG_R29  x29
+# define REG_R30  x30
+# define REG_R31  x31
 #else /* Intel X86 */
 # ifdef X64
 #  define REG_XAX rax
@@ -440,6 +476,50 @@ ASSUME fs:_DATA @N@\
 #  define RESTORE_PRESERVED_REGS ldp REG_PRESERVED_1, LR, [sp], #16
 # endif
 
+#elif defined(RISCV64)
+/* RISC-V psABI calling convention:
+ * x0(zero)         : Hard-wired zero
+ * x1(ra)           : Return address
+ * x2(sp)           : Stack pointer (callee saved)
+ * x3(gp)           : Global pointer
+ * x4(tp)           : Thread pointer
+ * x5(t0)           : Temporary/alternate link register
+ * x6..7(t1..2)     : Temporaries
+ * x8(s0/fp)        : Calee saved register/frame pointer
+ * x9(s1)           : Calee saved register
+ * x10..11(a0..1)   : Function arguments/return values
+ * x12..17(a2..7)   : Function arguments
+ * x18..27(s2..11)  : Calee saved registers
+ * x28..31(t3..6)   : Temporaries
+ *
+ * f0..7(ft0..7)    : FP temporaries
+ * f8..9(fs0..1)    : FP callee saved registers
+ * f10..11(fa0..1)  : FP arguments/return values
+ * f12..17(fa2..7)  : FP arguments
+ * f18..27(fs2..11) : FP callee saved registers
+ * f28..31(ft8..11) : FP temporaries
+ */
+# define ARG1 REG_R10
+# define ARG2 REG_R11
+# define ARG3 REG_R12
+# define ARG4 REG_R13
+# define ARG5 REG_R14
+# define ARG6 REG_R15
+# define ARG7 REG_R16
+# define ARG8 REG_R17
+/* Arguments are passed on stack right-to-left. */
+# define ARG9  0(REG_SP) /* no ret addr */
+# define ARG10 ARG_SZ(REG_SP)
+# define ARG1_NORETADDR  ARG1
+# define ARG2_NORETADDR  ARG2
+# define ARG3_NORETADDR  ARG3
+# define ARG4_NORETADDR  ARG4
+# define ARG5_NORETADDR  ARG5
+# define ARG6_NORETADDR  ARG6
+# define ARG7_NORETADDR  ARG7
+# define ARG8_NORETADDR  ARG8
+# define ARG9_NORETADDR  ARG9
+# define ARG10_NORETADDR ARG10
 #else /* Intel X86 */
 # ifdef X64
 #  ifdef WINDOWS

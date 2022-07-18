@@ -74,11 +74,7 @@ cpu_info_t cpu_info = { VENDOR_UNKNOWN,
                         CACHE_SIZE_UNKNOWN,
                         CACHE_SIZE_UNKNOWN,
                         CACHE_SIZE_UNKNOWN,
-#ifdef X86
                         { 0, 0, 0, 0 },
-#elif defined(AARCHXX)
-                        { 0, 0, 0 },
-#endif
                         { 0x6e6b6e75, 0x006e776f } };
 
 void

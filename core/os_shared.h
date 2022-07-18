@@ -1079,6 +1079,13 @@ enum {
     JMP_REL32_SIZE = 4,
     CALL_REL32_OPCODE = 0xed000000,
 };
+#elif defined(RISCV64)
+enum {
+    /* FIXME i#3544: Fix proper values. Those are for compilation only. */
+    JMP_REL32_OPCODE = 0xec000000,
+    JMP_REL32_SIZE = 4,
+    CALL_REL32_OPCODE = 0xed000000,
+};
 #else
 #    error only X86 and ARM supported
 #endif /* X86 */

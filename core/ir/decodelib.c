@@ -39,6 +39,7 @@
 
 #    include "../globals.h"
 #    include "instr.h"
+#    include "opnd.h"
 
 #    ifdef UNIX
 #        include <unistd.h>
@@ -153,7 +154,7 @@ proc_restore_fpstate(byte *buf)
 priv_mcontext_t *
 dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 {
-    return (priv_mcontext_t *)(&mc->IF_X86_ELSE(xdi, r0));
+    return (priv_mcontext_t *)(&mc->MCXT_FLD_FIRST_REG);
 }
 
 /* XXX: the code below is duplicated w/ only minor changes from utils.c.

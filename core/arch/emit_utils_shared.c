@@ -2354,7 +2354,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     /* d_r_dispatch() shouldn't return! */
     insert_reachable_cti(dcontext, ilist, NULL, vmcode_get_start(),
                          (byte *)unexpected_return, true /*jmp*/, false /*!returns*/,
-                         false /*!precise*/, DR_REG_R11 /*scratch*/, NULL);
+                         false /*!precise*/, CALL_SCRATCH_REG /*scratch*/, NULL);
 }
 
 /*
@@ -5271,7 +5271,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
     /* should not return */
     insert_reachable_cti(dcontext, &ilist, NULL, vmcode_get_start(),
                          (byte *)unexpected_return, true /*jmp*/, false /*!returns*/,
-                         false /*!precise*/, DR_REG_R11 /*scratch*/, NULL);
+                         false /*!precise*/, CALL_SCRATCH_REG /*scratch*/, NULL);
 
     /* now encode the instructions */
     pc = instrlist_encode_to_copy(dcontext, &ilist, vmcode_get_writable_addr(pc), pc,
