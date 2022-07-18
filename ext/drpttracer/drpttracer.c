@@ -32,101 +32,53 @@
 
 /* DynamoRIO Intel PT Tracing Extension. */
 
-#include <unistd.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <linux/perf_event.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <dirent.h> /* opendir, readdir */
-#include "../core/unix/include/syscall_linux_x86.h"
+#include <unistd.h>
 
+#include "../../core/unix/include/syscall_linux_x86.h" // for SYS_perf_event_open
 #include "dr_api.h"
-#include "drmgr.h"
-#include "hashtable.h"
+#include "drpttracer.h"
 
 #if !defined(X86_64) && !defined(LINUX)
 #    error "This is only for Linux x86_64."
 #endif
 
-/* currently using asserts on internal logic sanity checks (never on
- * input from user)
- */
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
-#    define DODEBUG(statement) \
-        do {                   \
-            statement          \
-        } while (0)
 #else
 #    define ASSERT(x, msg) /* nothing */
-#    define DODEBUG(statement)
 #endif
 
-typedef struct _range_t {
-    union {
-        uint32_t range;
-        struct {
-            uint32_t start : 16;
-            uint32_t end : 16;
-        };
-    };
-} range_t;
-
-#define PT_PMU_TYPE_FILE "/sys/bus/event_source/devices/intel_pt/type"
-
-/* The PMU type id of intel_pt is different on different machines.
- * We read it from PT_PMU_TYPE_FILE.
- */
-static int pt_pmu_type;
-
-#define PT_PMU_EVENT_CONFIG_DIR "/sys/bus/event_source/devices/intel_pt/format"
-
-/* The intel_pt config terms table of intel_pt PMU events. The item's key is the event's
- * name, and the value is the event's bit fields in perf_event_attr.config.
- * We get them from the files in PT_PMU_EVENT_CONFIG_DIR.
- */
-static hashtable_t pt_config_terms_table;
-#define PT_CONFIG_TERMS_TABLE_HASH_BITS 12
-
-typedef struct _perf_fd_t {
-    int fd;
-    struct perf_event_mmap_page *mpage;
-    int buf_size_shift;
-} perf_fd_t;
-
-typedef struct _perf_aux_map_t {
-    void *aux_map;
-} perf_aux_map_t;
-
-typedef struct _per_thread_t {
-    perf_fd_t perf_fd;
-    perf_aux_map_t perf_aux_map;
-} per_thread_t;
-
 /***************************************************************************
- * PERF EVENT RELATED FUNCTIONS
+ * UTTILITY FUNCTIONS
  */
 
 static bool
-read_file_to_buffer(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size)
+read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size)
 {
     char *local_buf = NULL;
     uint64_t local_buf_size = 0;
-    file_t *f = dr_open_file(filename, DR_FILE_READ);
+    file_t f = dr_open_file(filename, DR_FILE_READ);
     if (f == INVALID_FILE) {
-        ASSERT(false, "failed to open file %s", filename);
+        ASSERT(false, "failed to open file");
         return false;
     }
 
     if (dr_file_size(f, &local_buf_size) != 0) {
-        ASSERT(false, "failed to get file size of %s", filename);
+        ASSERT(false, "failed to get file size");
         dr_close_file(f);
         return false;
     }
 
     local_buf = (char *)dr_global_alloc(local_buf_size);
     if (dr_read_file(f, local_buf, local_buf_size)) {
-        ASSERT(false, "failed to read file %s", filename);
+        ASSERT(false, "failed to read file");
         dr_global_free(local_buf, local_buf_size);
         dr_close_file(f);
         return false;
@@ -139,91 +91,132 @@ read_file_to_buffer(IN const char *filename, OUT char **buf, OUT uint64_t *buf_s
     return true;
 }
 
-static bool
-try_parse_range(IN char *str, OUT range_t *range)
+static void
+read_ring_buf_to_buf(IN void *base, IN __u64 base_size, IN __u64 head, IN __u64 tail,
+                     INOUT drpttracer_data_buf_t *data_buf)
 {
-    char *endptr;
-    uint32_t start, end;
+    if (data_buf == NULL) {
+        ASSERT(false, "buf is NULL");
+        return;
+    }
+    __u64 head_offs = head % base_size;
+    __u64 tail_offs = tail % base_size;
+    if (head_offs > tail_offs) {
+        data_buf->buf_size = head_offs - tail_offs;
+        data_buf->buf = (char *)dr_global_alloc(data_buf->buf_size);
+        memcpy(data_buf->buf, (char *)base + tail_offs, data_buf->buf_size);
+    } else if (head_offs < tail_offs) {
+        data_buf->buf_size = head_offs + base_size - tail_offs;
+        data_buf->buf = (char *)dr_global_alloc(data_buf->buf_size);
+        memcpy(data_buf->buf, (char *)base + tail_offs, base_size - tail_offs);
+        memcpy((char *)data_buf->buf + base_size - tail_offs, (char *)base, head_offs);
+    } else {
+        data_buf->buf = NULL;
+        data_buf->buf_size = 0;
+    }
+}
 
-    errno = 0;
-    start = strtou(str, &endptr, 10);
-    if (endptr == str || errno != 0) {
-        ASSERT(false, "failed to parse range start from %s", str);
+/***************************************************************************
+ * PMU CONFIG PARSING FUNCTIONS
+ */
+
+#define PT_PMU_PERF_TYPE_FILE "/sys/devices/intel_pt/type"
+#define PT_PMU_EVENTS_CONFIG_DIR "/sys/devices/intel_pt/format"
+
+static bool
+parse_pt_pmu_type(OUT __u32 *pmu_type)
+{
+    char *buf = NULL;
+    uint64_t buf_size = 0;
+    if (!read_file_to_buf(PT_PMU_PERF_TYPE_FILE, &buf, &buf_size)) {
+        ASSERT(false, "failed to read file " PT_PMU_PERF_TYPE_FILE " to buffer");
         return false;
     }
-    if (*endptr == '-') {
-        errno = 0;
-        end = strtou(endptr + 1, &endptr, 10);
-        if (endptr == str + 1 || errno != 0) {
-            ASSERT(false, "failed to parse range end from %s", str);
-            return false;
-        }
-    } else {
+
+    errno = 0;
+    int type = atoi(buf);
+    if (errno != 0) {
+        ASSERT(false, "failed to parse pmu type");
+        dr_global_free(buf, buf_size);
+        return false;
+    }
+
+    *pmu_type = (__u32)type;
+    dr_global_free(buf, buf_size);
+    return true;
+}
+
+#define BITS(x) ((x) == 64 ? -1ULL : (1ULL << (x)) - 1)
+static bool
+parse_pt_pmu_event_config(IN const char *name, __u64 val, OUT __u64 *config)
+{
+    char *buf = NULL;
+    uint64_t buf_size = 0;
+    char file_path[MAXIMUM_PATH];
+    snprintf(file_path, MAXIMUM_PATH, PT_PMU_EVENTS_CONFIG_DIR "/%s", name);
+    if (!read_file_to_buf(file_path, &buf, &buf_size)) {
+        ASSERT(false, "failed to read file to buffer");
+        return false;
+    }
+    int start = 0, end = 0;
+    int ret = dr_sscanf(buf, "config:%d-%d", &start, &end);
+    if (ret < 1) {
+        ASSERT(false, "failed to parse event's config bit fields from the format file");
+        dr_global_free(buf, buf_size);
+        return false;
+    }
+    if (ret == 1) {
         end = start;
     }
-    range->start = start;
-    range->end = end;
+    __u64 mask = BITS(end - start + 1);
+    if ((val & ~mask) > 0) {
+        ASSERT(false, "pmu event's config value is out of range");
+        dr_global_free(buf, buf_size);
+        return false;
+    }
+
+    *config |= (val & mask) << start;
+    dr_global_free(buf, buf_size);
     return true;
 }
 
-static bool
-init_pt_pmu_type()
-{
-    char *type_str = NULL;
-    uint64_t type_str_size = 0;
+/***************************************************************************
+ * PERF EVENT RELATED FUNCTIONS
+ */
 
-    if (!read_file_to_buffer(PT_PMU_TYPE_FILE, &type_str, &type_str_size)) {
-        ASSERT(false, "failed to read file %s to buffer", PT_PMU_TYPE_FILE);
+static struct perf_event_attr user_only_pe_attr;
+static struct perf_event_attr kernel_only_pe_attr;
+static struct perf_event_attr user_kernel_pe_attr;
+
+static bool
+pt_perf_event_attr_init(bool user, bool kernel, OUT struct perf_event_attr *attr)
+{
+    memset(attr, 0, sizeof(struct perf_event_attr));
+    attr->size = sizeof(struct perf_event_attr);
+    if (!parse_pt_pmu_type(&attr->type)) {
+        ASSERT(false, "failed to parse PT's pmu type");
         return false;
     }
-    errno = 0;
-    pt_pmu_type = atoi(type_str);
-    if (errno != 0) {
-        ASSERT(false, "failed to parse pmu type from %s", type_str);
-        dr_global_free(type_str, type_str_size);
-        return false;
+    if (kernel) {
+        attr->exclude_user = 1;
+        attr->exclude_hv = 1;
+        if (!parse_pt_pmu_event_config("noretcomp", 1, &attr->config)) {
+            ASSERT(false,
+                   "failed to parse PT's pmu event noretcomp to perf_event_attr.config");
+            return false;
+        }
     }
-    dr_global_free(type_str, type_str_size);
+    if (user) {
+        attr->exclude_kernel = 1;
+        attr->exclude_hv = 1;
+        if (!parse_pt_pmu_event_config("cyc", 1, &attr->config)) {
+            ASSERT(false, "failed to parse PT's pmu event cyc to perf_event_attr.config");
+            return false;
+        }
+    }
+
+    attr->disabled = 1;
     return true;
-}
-
-static bool
-init_pt_config_terms_table()
-{
-    DIR *dir = opendir(PT_PMU_EVENT_CONFIG_DIR);
-    if (dir == NULL) {
-        ASSERT(false, "failed to open directory %s", PT_PMU_EVENT_CONFIG_DIR);
-        return false;
-    }
-    struct dirent *ent = NULL;
-    while ((ent = readdir(dir)) != NULL) {
-        char *filename = ent->d_name;
-        if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0) {
-            continue;
-        }
-        char *config_str = NULL;
-        uint64_t config_str_size = 0;
-        char file_path[PATH_MAX];
-        snprintf(file_path, PATH_MAX, "%s/%s", PT_PMU_EVENT_CONFIG_DIR, filename);
-        if (!read_file_to_buffer(file_path, &config_str, &config_str_size)) {
-            ASSERT(false, "failed to read file %s to buffer", file_path);
-            continue;
-        }
-        int range_start_index = strlen("config:");
-        if (config_str_size < range_start_index) {
-            ASSERT(false, "failed to parse config from %s", config_str);
-            dr_global_free(config_str, config_str_size);
-            continue;
-        }
-        range_t range;
-        range.range = 0;
-        if (!try_parse_range(config_str + range_start_index, &range)) {
-            ASSERT(false, "failed to parse range from %s", config_str);
-            dr_global_free(config_str, config_str_size);
-            continue;
-        }
-        hashtable_add(&pt_config_terms_table, filename, &range);
-    }
 }
 
 static int
@@ -233,15 +226,11 @@ perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd,
     return syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
-/***************************************************************************
- * FORWARD DECLS
- */
-
-static void
-drpttracer_thread_init(void *drcontext);
-
-static void
-drpttracer_thread_exit(void *drcontext);
+static unsigned
+perf_mmap_size(int buf_size_shift)
+{
+    return ((1U << buf_size_shift) + 1) * sysconf(_SC_PAGESIZE);
+}
 
 /***************************************************************************
  * INIT
@@ -257,29 +246,13 @@ drpttracer_init(void)
     int count = dr_atomic_add32_return_sum(&drpttracer_init_count, 1);
     if (count > 1)
         return true;
-    if (!init_pt_pmu_type()) {
-        ASSERT(false, "failed to init pt pmu type");
-        dr_atomic_add32_return_sum(&drpttracer_init_count, -1);
+    if (pt_perf_event_attr_init(true, false, &user_only_pe_attr) &&
+        pt_perf_event_attr_init(false, true, &kernel_only_pe_attr) &&
+        pt_perf_event_attr_init(true, true, &user_kernel_pe_attr)) {
+        ASSERT(false, "failed to init drpttracer's perf_event_attr");
+        drpttracer_exit();
         return false;
     }
-    hashtable_init(&pt_config_terms_table, PT_CONFIG_TERMS_TABLE_HASH_BITS, HASH_STRING,
-                   true);
-    if (!init_pt_config_terms_table()) {
-        ASSERT(false, "failed to init pt config terms table");
-        dr_atomic_add32_return_sum(&drpttracer_init_count, -1);
-        hashtable_delete(&pt_config_terms_table);
-        return false;
-    }
-
-    drmgr_init();
-    tls_idx = drmgr_register_tls_field();
-    if (tls_idx == -1)
-        return false;
-    if (!drmgr_register_thread_init_event(drpttracer_thread_init))
-        return false;
-    if (!drmgr_register_thread_exit_event(drpttracer_thread_exit))
-        return false;
-
     return true;
 }
 
@@ -291,40 +264,142 @@ drpttracer_exit(void)
     int count = dr_atomic_add32_return_sum(&drpttracer_init_count, -1);
     if (count != 0)
         return;
-
-    if (!drmgr_unregister_thread_init_event(drpttracer_thread_init) ||
-        !drmgr_unregister_thread_exit_event(drpttracer_thread_exit) ||
-        !drmgr_unregister_tls_field(tls_idx))
-        ASSERT(false, "failed to unregister in drpttracer_exit");
-
-    hashtable_delete(&pt_config_terms_table);
-
-    drmgr_exit();
-}
-
-static void
-drpttracer_thread_init(void *drcontext)
-{
-    per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
-    memset(pt, 0, sizeof(*pt));
-    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
-}
-
-static void
-drpttracer_thread_exit(void *drcontext)
-{
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
 /***************************************************************************
- * INTEL PT TRACING
+ * PT TRACING APIS
  */
 
+typedef struct _pttracer_handle_t {
+    int fd;
+    int base_size;
+    struct perf_event_mmap_page *header;
+    void *aux;
+} pttracer_handle_t;
+
+/* 2^n size of event ring buffer (in pages) */
+#define BUF_SIZE_SHIFT 8
+
 drpttracer_status_t
-drpttracer_start_trace(void *drcontext, bool exclude_user, bool exclude_kernel)
+drpttracer_start_trace(IN bool user, IN bool kernel, OUT void *tracer_handle)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (pt->pfd != -1)
-        return DRPTTRACER_STATUS_ALREADY_STARTED;
+    struct perf_event_attr *attr = NULL;
+    if (user && kernel) {
+        attr = &user_kernel_pe_attr;
+    } else if (user) {
+        attr = &user_only_pe_attr;
+    } else if (kernel) {
+        attr = &kernel_only_pe_attr;
+    } else {
+        ASSERT(false, "invalid arguments");
+        return DRPTTRACER_ERROR_INVALID_ARGUMENT;
+    }
+
+    int fd = perf_event_open(attr, 0, -1, -1, 0);
+    if (fd < 0) {
+        ASSERT(false, "failed to init perf event for pt tracing");
+        return DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT;
+    }
+
+    int base_size = perf_mmap_size(BUF_SIZE_SHIFT);
+    struct perf_event_mmap_page *mpage =
+        mmap(NULL, base_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mpage == (struct perf_event_mmap_page *)MAP_FAILED) {
+        ASSERT(false, "failed to mmap perf event for pt tracing");
+        close(fd);
+        return DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_EVENT;
+    }
+
+    mpage->aux_offset = mpage->data_offset + mpage->data_size;
+    mpage->aux_size = perf_mmap_size(BUF_SIZE_SHIFT);
+    void *aux = mmap(NULL, mpage->aux_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (aux == (void *)MAP_FAILED) {
+        ASSERT(false, "failed to mmap aux for pt tracing");
+        munmap(mpage, base_size);
+        close(fd);
+        return DRPTTRACER_ERROR_FAILED_TO_MMAP_AUX;
+    }
+
+    pttracer_handle_t *handle =
+        (pttracer_handle_t *)dr_global_alloc(sizeof(pttracer_handle_t));
+    handle->fd = fd;
+    handle->base_size = base_size;
+    handle->header = mpage;
+    handle->aux = aux;
+    tracer_handle = (void *)handle;
+
+    ioctl(handle->fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(handle->fd, PERF_EVENT_IOC_ENABLE, 0);
+    return DRPTTRACER_SUCCESS;
+}
+
+drpttracer_status_t
+drpttracer_end_trace(IN void *tracer_handle, OUT drpttracer_data_buf_t *pt_data,
+                     OUT drpttracer_data_buf_t *sideband_data)
+{
+    pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
+    if (handle == NULL && handle->fd < 0) {
+        ASSERT(false, "invalid arguments");
+        return DRPTTRACER_ERROR_INVALID_ARGUMENT;
+    }
+    ioctl(handle->fd, PERF_EVENT_IOC_DISABLE, 0);
+    close(handle->fd);
+    if (pt_data != NULL) {
+        read_ring_buf_to_buf(handle->aux, handle->header->aux_size,
+                             handle->header->aux_head, handle->header->aux_tail, pt_data);
+    }
+    munmap(handle->aux, handle->header->aux_size);
+    if (sideband_data != NULL) {
+        read_ring_buf_to_buf(handle->header, handle->header->data_size,
+                             handle->header->data_head, handle->header->data_tail,
+                             sideband_data);
+    }
+    munmap(handle->header, handle->base_size);
+    dr_global_free(handle, sizeof(pttracer_handle_t));
+    return DRPTTRACER_SUCCESS;
+}
+
+DR_EXPORT
+drpttracer_status_t
+drpttracer_create_data_buffer(OUT drpttracer_data_buf_t *data_buf)
+{
+    data_buf = (drpttracer_data_buf_t *)dr_global_alloc(sizeof(drpttracer_data_buf_t));
+    memset(data_buf, 0, sizeof(drpttracer_data_buf_t));
+    return DRPTTRACER_SUCCESS;
+}
+
+DR_EXPORT
+drpttracer_status_t
+drpttracer_delete_data_buffer(IN drpttracer_data_buf_t *data_buf)
+{
+    if (data_buf == NULL) {
+        ASSERT(false, "failed to delete data buffer");
+        return DRPTTRACER_ERROR_FAILED_TO_FREE_NULL_BUFFER;
+    }
+    dr_global_free(data_buf->buf, data_buf->buf_size);
+    dr_global_free(data_buf, sizeof(drpttracer_data_buf_t));
+    return DRPTTRACER_SUCCESS;
+}
+
+DR_EXPORT
+drpttracer_status_t
+drpttracer_dump_kcore_and_kallsyms(IN const char *dir)
+{
+    char script_template[512] = "#/bin/sh\n"
+                                "sudo $(which perf) record --kcore -e "
+                                "intel_pt/cyc,noretcomp/k echo '' >/dev/null 2>&1\n"
+                                "sudo /usr/bin/cp perf.data/kcore_dir/kcore %s\n"
+                                "sudo /usr/bin/cp perf.data/kcore_dir/kallsyms %s\n"
+                                "sudo /usr/bin/rm -rf perf.data\n"
+                                "sudo /usr/bin/chmod 644 %s/kcore %s/kallsyms\n";
+    int script_max_len = 512 + MAXIMUM_PATH * 4;
+    char *script = (char *)dr_global_alloc(sizeof(char) * script_max_len);
+    dr_snprintf(script, script_max_len, script_template, dir, dir, dir, dir);
+    if(system(script) == -1){
+        ASSERT(false, "failed to dump kcore and kallsym");
+        dr_global_free(script, sizeof(char) * script_max_len);
+        return DRPTTRACER_ERROR_FAILED_TO_DUMP_KCORE_AND_KALLSYMS;
+    }
+    dr_global_free(script, sizeof(char) * script_max_len);
+    return DRPTTRACER_SUCCESS;
 }

@@ -45,7 +45,6 @@ set(DynamoRIO_USE_LIBC OFF)
 
 set(srcs
   drpttracer.c
-
   # add more here
 )
 
@@ -53,12 +52,8 @@ set(srcs_static ${srcs})
 
 add_library(drpttracer SHARED ${srcs})
 configure_extension(drpttracer OFF)
-use_DynamoRIO_extension(drpttracer drmgr)
-use_DynamoRIO_extension(drpttracer drcontainers)
 
 add_library(drpttracer_static STATIC ${srcs_static})
 configure_extension(drpttracer_static ON)
-use_DynamoRIO_extension(drpttracer_static drmgr)
-use_DynamoRIO_extension(drpttracer_static drcontainers)
 
 install_ext_header(drpttracer.h)
