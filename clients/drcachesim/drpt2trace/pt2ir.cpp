@@ -307,16 +307,22 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             /* Use drdecode to decode insn(pt_insn) to instr_t. */
             instr_t *instr = instr_create(GLOBAL_DCONTEXT);
             instr_init(GLOBAL_DCONTEXT, instr);
+            instr_set_isa_mode(instr,
+                               insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
             decode(GLOBAL_DCONTEXT, insn.raw, instr);
             instr_set_translation(instr, (app_pc)insn.ip);
             instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
-            instr_set_isa_mode(instr,
-                               insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
 #ifdef DEBUG
             /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
              * instructions that are not supported by Dynamorio.
              */
             if (!instr_valid(instr)) {
+                /* The decode() function will not correctly identify the raw bits for
+                 * invalid instruction. So we need to set the raw bits of instr manually.
+                 */
+                instr_free_raw_bits(GLOBAL_DCONTEXT, instr);
+                instr_set_raw_bits(instr, insn.raw, insn.size);
+                instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
                 /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
                 instr_disassemble(GLOBAL_DCONTEXT, instr, STDOUT);
                 dr_fprintf(STDOUT, "\n");
