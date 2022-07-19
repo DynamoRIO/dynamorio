@@ -318,11 +318,8 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
              */
             if (!instr_valid(instr)) {
                 /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
-                dr_fprintf(STDOUT, "0x%" PRIx64 " <INVALID> <raw ", insn.ip);
-                for (int i = 0; i < insn.size; i++) {
-                    dr_fprintf(STDOUT, "%02x ", insn.raw[i]);
-                }
-                dr_fprintf(STDOUT, ">\n");
+                instr_disassemble(GLOBAL_DCONTEXT, instr, STDOUT);
+                dr_fprintf(STDOUT, "\n");
             }
 #endif
             instrlist_append(*ilist, instr);
