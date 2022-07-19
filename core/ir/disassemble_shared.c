@@ -1093,12 +1093,13 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     size_t offs_pre_name, offs_post_name, offs_pre_opnds;
 
     if (!instr_valid(instr)) {
-        print_to_buffer(buf, bufsz, sofar, "<INVALID> ");
+        print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         if (instr_raw_bits_valid(instr)) {
             byte *raw = instr_get_raw_bits(instr);
             uint len = instr_length(dcontext, instr);
             byte *b;
-            print_to_buffer(buf, bufsz, sofar, "<raw " PFX "-" PFX " ==", raw, raw + len);
+            print_to_buffer(buf, bufsz, sofar, " <raw " PFX "-" PFX " ==", raw,
+                            raw + len);
             for (b = raw; b < raw + len && b < raw + 9; b++)
                 print_to_buffer(buf, bufsz, sofar, " %02x", *b);
             if (len > 9)
