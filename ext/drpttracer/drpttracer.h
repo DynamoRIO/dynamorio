@@ -150,7 +150,7 @@ DR_EXPORT
  * Starts PT tracing. Must be called after drpttracer_init() and before drpttracer_exit().
  *
  * \param[in] drcontext  The context of DynamoRIO.
- * \param[in] type  The tracing type.
+ * \param[in] mode  The tracing mode.
  * \param[out] tracer_handle  The tracer handle.
  *
  * \note Each tracing corresponds to a trace_handle. When calling

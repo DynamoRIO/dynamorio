@@ -38,9 +38,8 @@ endif ()
 
 # DynamoRIO Intel PT Tracing Extension
 
-# We do not need libc, and we avoid a 10x size increase in both our
-# dll and pdb (plus we avoid stressing private library isolation) by
-# not using it (i#714).
+# We need libc to call syscall(SYS_perf_event_open, ...), ioctl(...) and
+# sysconf(_SC_PAGESIZE)
 set(DynamoRIO_USE_LIBC ON)
 
 set(srcs
