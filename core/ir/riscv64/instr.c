@@ -48,7 +48,8 @@ instr_get_isa_mode(instr_t *instr)
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
-    /* FIXME i#3544: C ISA extension has a shorter instruction length. */
+    /* FIXME i#3544: Compressed Instructions ISA extension has a shorter instruction
+     * length. */
     return RISCV64_INSTR_SIZE;
 }
 
