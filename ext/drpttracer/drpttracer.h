@@ -44,6 +44,8 @@
 extern "C" {
 #endif
 
+#include <inttypes.h>
+
 #ifndef IN
 #    define IN // nothing
 #endif
@@ -54,10 +56,33 @@ extern "C" {
 #    define INOUT // nothing
 #endif
 
-typedef struct _drpttracer_data_buf_t {
-    void *buf;
-    int buf_size;
-} drpttracer_data_buf_t;
+/**
+ * The storage container type of a drpttracer's output buffer.
+ * The drpttracer_buf_t is used for the drpttracer to store the PT trace or Sideband data.
+ */
+typedef struct _drpttracer_buf_t {
+    void *buf;    /**< The buffer pointer */
+    int buf_size; /**< The buffer size */
+} drpttracer_buf_t;
+
+/**
+ * The type of PT trace's metadata. This type is used to initialize the PT config and PT
+ * sideband config.
+ */
+typedef struct _pt_meta_data_t {
+    /** The CPU family. */
+    uint16_t cpu_family;
+    /** The CPU mode. */
+    uint8_t cpu_model;
+    /** The CPU stepping. */
+    uint8_t cpu_stepping;
+    /** perf_event_mmap_page.time_shift */
+    uint16_t time_shift;
+    /** perf_event_mmap_page.time_mult */
+    uint32_t time_mult;
+    /** perf_event_mmap_page.time_zero */
+    uint64_t time_zero;
+} pt_metadata_t;
 
 /***************************************************************************
  * INIT
@@ -83,47 +108,176 @@ void
 drpttracer_exit(void);
 
 /***************************************************************************
- * INTEL PT TRACING
+ * PT TRACING APIS
  */
 
-/** Success code for each drpttracer operation. */
+/**
+ * Success code for each drpttracer operation.
+ */
 typedef enum {
     /** Operation succeeded. */
     DRPTTRACER_SUCCESS,
     /** Operation failed. */
     DRPTTRACER_ERROR,
-    /** Operation failed: invalid argument. */
-    DRPTTRACER_ERROR_INVALID_ARGUMENT,
+    /** Operation failed: invalid tracing handle. */
+    DRPTTRACER_ERROR_INVALID_TRACING_HANDLE,
+    /** Operation failed: invalid tracing mode. */
+    DRPTTRACER_ERROR_INVALID_TRACING_MODE,
     /** Operation failed: failed to open perf event. */
     DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT,
-    /** Operation failed: failed to disable perf event. */
-    DRPTTRACER_ERROR_FAILED_TO_DISABLE_PERF_EVENT,
     /** Operation failed: failed to create tracer handle. */
     DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE,
-    /** Operation failed: try to delete a null buffer. */
-    DRPTTRACER_ERROR_TRY_TO_DELETE_NULL_BUFFER
+    /** Operation failed: failed to start tracing. */
+    DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
+    /** Operation failed: failed to stop tracing. */
+    DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING
 } drpttracer_status_t;
 
+/**
+ * The tracing modes for drpttracer_start_tracing().
+ */
+typedef enum {
+    /* drpttracer only traces in user space. */
+    DRPTTRACER_TRACING_ONLY_USER,
+    /* drpttracer only traces in kernel. */
+    DRPTTRACER_TRACING_ONLY_KERNEL,
+    /* drpttracer traces both user and kernel. */
+    DRPTTRACER_TRACING_USER_AND_KERNEL
+} drpttracer_tracing_mode_t;
+
 DR_EXPORT
+/**
+ * Starts PT tracing. Must be called after drpttracer_init() and before drpttracer_exit().
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ * \param[in] type  The tracing type.
+ * \param[out] tracer_handle  The tracer handle.
+ *
+ * \note Each tracing corresponds to a trace_handle. When calling
+ * drpttracer_start_tracing(), the caller will get a tracer_handle. And the caller can
+ * stop tracing by passing it to drpttracer_stop_tracing().
+ *
+ * \return the status code.
+ */
 drpttracer_status_t
-drpttracer_start_tracing(IN thread_id_t thread_id, IN bool user, IN bool kernel,
+drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
                          OUT void **tracer_handle);
 
 DR_EXPORT
+/**
+ * Stops PT tracing.
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ * \param[in] tracer_handle  The tracer handle.
+ * \param[out] meta_data  The metadata of the PT trace. If NULL, the metadata will not be
+ * return.
+ * \param[out] pt_data  The buffer of the PT trace. If NULL, the PT trace will not be
+ * return.
+ * \param[out] sideband_data  The buffer of the PT sideband data. If NULL, the PT sideband
+ * data will not be return.
+ *
+ * \return the status code.
+ */
 drpttracer_status_t
-drpttracer_end_tracing(INOUT void **tracer_handle, OUT drpttracer_data_buf_t *pt_data,
-                       OUT drpttracer_data_buf_t *sideband_data);
+drpttracer_end_tracing(IN void *drcontext, IN void *tracer_handle,
+                       OUT pt_metadata_t *meta_data, OUT drpttracer_buf_t *pt_data,
+                       OUT drpttracer_buf_t *sideband_data);
 
 DR_EXPORT
-drpttracer_status_t
-drpttracer_create_data_buffer(OUT drpttracer_data_buf_t **data_buf);
+/**
+ * Creates a new drpttracer_buf_t.
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ *
+ * \return the created buffer.
+ */
+drpttracer_buf_t *
+drpttracer_create_buffer(IN void *drcontext);
 
 DR_EXPORT
-drpttracer_status_t
-drpttracer_delete_data_buffer(IN drpttracer_data_buf_t **data_buf);
+/**
+ * Destroys a drpttracer_buf_t.
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ * \param[in] buf  The buffer to be destroyed.
+ */
+void
+drpttracer_delete_buffer(IN void *drcontext, IN drpttracer_buf_t *buf);
 
 #ifdef __cplusplus
 }
 #endif
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drpttracer Intel PT Tracing
+
+The \p drpttracer DynamoRIO Extension provides clients with tracing PT.
+
+\note This extension only works on x86_64 Linux.
+
+ - \ref sec_drpttracer_setup
+ - \ref sec_drpttracer_usage
+ - \ref sec_drpttracer_tracing_mode
+
+\section sec_drpttracer_setup Setup
+
+To use \p drpttracer with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drpttracer) \endcode
+
+That will automatically set up the include path and library dependence.
+
+Initialize and clean up \p drpttracer by calling drpttracer_init() and
+drpttracer_exit().
+
+\section sec_drpttracer_usage Usage
+
+Intel PT (Processor Trace) only logs control flow changes. Therefore, when decoding a
+trace, the decoder needs to get raw bits of every instruction from images. \p drpttracer
+provides APIs to trace PT and generate trace data and some related data to help the
+decoder to decode the trace. One related data is sideband data. This sideband data stores
+perf event records, which contain the image changes message necessary for decoding the
+trace. Other related data is the metadata for a trace. The metadata contains the CPU
+information and some other information that can be used to synthesize the time of PT trace
+and the perf event records. The related data can promise the decoder can find the correct
+raw bits for every instruction.
+
+And \p drpttracer provides two data structures to store all generated data:
+
+    - drpttracer_buf_t
+    - pt_metadata_t
+
+It uses drpttracer_buf_t to store the trace and sideband data and pt_metadata_t to store
+the metadata.
+
+And \p drpttracer provides two APIs to start and stop tracing:
+
+    - drpttracer_start_trace()
+    - drpttracer_stop_trace()
+
+To record a PT trace, the client can use drpttracer_start_trace() to initialize the trace
+handle and start tracing. The trace handle contains the tracing's pt buffer, sideband
+buffer, and metadata. When the client wants to stop the tracing, the client needs to
+allocate local buffers to store the trace and sideband data and initialize an empty pt
+metadata struct. Then the client can use drpttracer_stop_trace() to stop the tracing, copy
+the trace and sideband data to the local buffers, and fill the metadata struct.
+
+\section sec_drpttracer_tracing_mode Tracing Mode
+
+\p drpttracer provides three types of tracing modes:
+
+    - DRPTTRACER_TRACING_ONLY_USER
+    - DRPTTRACER_TRACING_ONLY_KERNEL
+    - DRPTTRACER_TRACING_USER_AND_KERNEL
+
+When starting tracing, the client can choose the tracing mode and pass the flag to
+drpttracer_start_trace(). \note To trace PT in the kernel, the trace data's raw bits are
+all from kcore. So the client doesn't need to get the sideband data. It only needs to get
+the trace data and metadata.
+
+*/
 
 #endif /* _DRPTTRACER_H_ */

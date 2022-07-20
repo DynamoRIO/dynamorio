@@ -39,6 +39,8 @@
 #include "drpttracer.h"
 
 typedef struct _per_thread_t {
+    /* Initialize the tracer_handle before each syscall, and free it after each syscall.
+     */
     void *tracer_handle;
 } per_thread_t;
 
@@ -106,7 +108,8 @@ event_thread_exit(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (pt->tracer_handle != NULL) {
-        drpttracer_end_tracing(&pt->tracer_handle, NULL, NULL);
+        drpttracer_end_tracing(drcontext, pt->tracer_handle, NULL, NULL, NULL);
+        pt->tracer_handle = NULL;
     }
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
@@ -122,9 +125,11 @@ event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (pt->tracer_handle != NULL) {
-        drpttracer_end_tracing(&pt->tracer_handle, NULL, NULL);
+        drpttracer_end_tracing(drcontext, pt->tracer_handle, NULL, NULL, NULL);
+        pt->tracer_handle = NULL;
     }
-    bool ok = drpttracer_start_tracing(dr_get_thread_id(drcontext), true, false,
+    /* Start tracing pre syscall. */
+    bool ok = drpttracer_start_tracing(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL,
                                        &pt->tracer_handle) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_start_tracing failed");
     return true;
@@ -137,8 +142,9 @@ event_post_syscall(void *drcontext, int sysnum)
     if (pt->tracer_handle == NULL) {
         return;
     }
-    bool ok =
-        drpttracer_end_tracing(&pt->tracer_handle, NULL, NULL) == DRPTTRACER_SUCCESS;
+    /* End tracing post syscall. */
+    bool ok = drpttracer_end_tracing(drcontext, pt->tracer_handle, NULL, NULL, NULL) ==
+        DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_end_tracing failed");
     pt->tracer_handle = NULL;
 }

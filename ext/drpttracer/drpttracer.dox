@@ -29,3 +29,75 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drpttracer Intel PT Tracing
+
+The \p drpttracer DynamoRIO Extension provides clients with tracing PT.
+
+\note This extension only works on x86_64 Linux.
+
+ - \ref sec_drpttracer_setup
+ - \ref sec_drpttracer_usage
+ - \ref sec_drpttracer_tracing_mode
+
+\section sec_drpttracer_setup Setup
+
+To use \p drpttracer with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drpttracer) \endcode
+
+That will automatically set up the include path and library dependence.
+
+Initialize and clean up \p drpttracer by calling drpttracer_init() and
+drpttracer_exit().
+
+\section sec_drpttracer_usage Usage
+
+Intel PT (Processor Trace) only logs control flow changes. Therefore, when decoding a
+trace, the decoder needs to get raw bits of every instruction from images. \p drpttracer
+provides APIs to trace PT and generate trace data and some related data to help the
+decoder to decode the trace. One related data is sideband data. This sideband data stores
+perf event records, which contain the image changes message necessary for decoding the
+trace. Other related data is the metadata for a trace. The metadata contains the CPU
+information and some other information that can be used to synthesize the time of PT trace
+and the perf event records. The related data can promise the decoder can find the correct
+raw bits for every instruction.
+
+And \p drpttracer provides two data structures to store all generated data:
+
+    - drpttracer_buf_t
+    - pt_metadata_t
+
+It uses drpttracer_buf_t to store the trace and sideband data and pt_metadata_t to store
+the metadata.
+
+And \p drpttracer provides two APIs to start and stop tracing:
+
+    - drpttracer_start_trace()
+    - drpttracer_stop_trace()
+
+To record a PT trace, the client can use drpttracer_start_trace() to initialize the trace
+handle and start tracing. The trace handle contains the tracing's pt buffer, sideband
+buffer, and metadata. When the client wants to stop the tracing, the client needs to
+allocate local buffers to store the trace and sideband data and initialize an empty pt
+metadata struct. Then the client can use drpttracer_stop_trace() to stop the tracing, copy
+the trace and sideband data to the local buffers, and fill the metadata struct.
+
+\section sec_drpttracer_tracing_mode Tracing Mode
+
+\p drpttracer provides three types of tracing modes:
+
+    - DRPTTRACER_TRACING_ONLY_USER
+    - DRPTTRACER_TRACING_ONLY_KERNEL
+    - DRPTTRACER_TRACING_USER_AND_KERNEL
+
+When starting tracing, the client can choose the tracing mode and pass the flag to
+drpttracer_start_trace(). \note To trace PT in the kernel, the trace data's raw bits are
+all from kcore. So the client doesn't need to get the sideband data. It only needs to get
+the trace data and metadata.
+
+*/
