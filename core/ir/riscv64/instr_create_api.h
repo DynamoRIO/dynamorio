@@ -356,7 +356,7 @@
 /** @} */ /* end doxygen group */
 
 /****************************************************************************
- * x86-specific INSTR_CREATE_* macros
+ * RISC-V-specific INSTR_CREATE_* macros
  */
 
 /** @name No-operand instructions */
