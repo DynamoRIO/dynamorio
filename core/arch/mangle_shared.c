@@ -499,7 +499,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     direct = insert_reachable_cti(dcontext, ilist, instr, encode_pc, (byte *)callee,
                                   false /*call*/, TEST(META_CALL_RETURNS, flags),
-                                  false /*!precise*/, DR_REG_R11, NULL);
+                                  false /*!precise*/, CALL_SCRATCH_REG, NULL);
     if (stack_for_params > 0) {
         /* XXX PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?

@@ -99,7 +99,10 @@ extern const reg_id_t dr_reg_fixer[];
 /* We only normally use r0-r5 but we support more in translation code */
 #    define REG_START_SPILL DR_REG_R0
 #    define REG_STOP_SPILL DR_REG_R10 /* r10 might be used in syscall mangling */
-#endif                                /* X86/ARM */
+#elif defined(RISCV64)
+#    define REG_START_SPILL DR_REG_A0
+#    define REG_STOP_SPILL DR_REG_A5
+#endif /* RISCV64 */
 #define REG_SPILL_NUM (REG_STOP_SPILL - REG_START_SPILL + 1)
 
 #ifndef INT8_MIN
@@ -280,8 +283,35 @@ enum {
     REDZONE_SIZE = 0,
     REGPARM_MINSTACK = 0,
     REGPARM_END_ALIGN = 8,
+#elif defined(RISCV64)
+    DR_SYSNUM_REG = DR_REG_A7,
+    REGPARM_0 = DR_REG_A0,
+    REGPARM_1 = DR_REG_A1,
+    REGPARM_2 = DR_REG_A2,
+    REGPARM_3 = DR_REG_A3,
+    REGPARM_4 = DR_REG_A4,
+    REGPARM_5 = DR_REG_A5,
+    NUM_REGPARM = 6,
+    REDZONE_SIZE = 0,
+    REGPARM_MINSTACK = 0,
+    REGPARM_END_ALIGN = 8,
 #endif
 };
+
+#ifdef X86
+#    define MCXT_FLD_FIRST_REG xdi
+#    define MCXT_FLD_SYSNUM_REG xax
+#elif defined(AARCHXX)
+#    define MCXT_FLD_FIRST_REG r0
+#    ifdef X64
+#        define MCXT_FLD_SYSNUM_REG r8
+#    else
+#        define MCXT_FLD_SYSNUM_REG r7
+#    endif /* 64/32 */
+#elif defined(RISCV64)
+#    define MCXT_FLD_FIRST_REG x0
+#    define MCXT_FLD_SYSNUM_REG a7
+#endif
 extern const reg_id_t d_r_regparms[];
 
 /* arch-specific */

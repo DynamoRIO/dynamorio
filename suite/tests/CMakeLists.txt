@@ -1876,6 +1876,7 @@ if (NOT ANDROID)
 
   if (AARCH64)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
   endif (AARCH64)
 endif ()
 

@@ -52,6 +52,9 @@
  */
 #ifdef X86
 #    define DR_FPSTATE_BUF_SIZE 512
+#elif defined(RISCV64)
+/* FIXME i#3544: Not implemented */
+#    define DR_FPSTATE_BUF_SIZE 1
 #elif defined(ARM) || defined(AARCH64)
 /* On ARM/AArch64 proc_save_fpstate saves nothing, so use the smallest
  * legal size for an array.
@@ -62,6 +65,8 @@
 /** The alignment requirements of floating point state buffer. */
 #if defined(X86) || defined(AARCH64)
 #    define DR_FPSTATE_ALIGN 16
+#elif defined(RISCV64)
+#    define DR_FPSTATE_ALIGN 1
 #elif defined(ARM)
 #    define DR_FPSTATE_ALIGN 1
 #endif
@@ -172,8 +177,25 @@ typedef struct {
     uint64 flags_aa64isar0; /**< AArch64 feature flags stored in ID_AA64ISAR0_EL1 */
     uint64 flags_aa64isar1; /**< AArch64 feature flags stored in ID_AA64ISAR1_EL1 */
     uint64 flags_aa64pfr0;  /**< AArch64 feature flags stored in ID_AA64PFR0_EL1 */
+    uint64 flags_aa64mmfr1; /**< AArch64 feature flags stored in ID_AA64MMFR1_EL1*/
 } features_t;
-typedef enum { AA64ISAR0 = 0, AA64ISAR1 = 1, AA64PFR0 = 2 } feature_reg_idx_t;
+typedef enum {
+    AA64ISAR0 = 0,
+    AA64ISAR1 = 1,
+    AA64PFR0 = 2,
+    AA64MMFR1 = 3
+} feature_reg_idx_t;
+#endif
+#ifdef RISCV64
+/* FIXME i#3544: Not implemented */
+/**
+ * For RISC-V64 there are no features readable from userspace. Hence only a
+ * dummy flag is there. May be replaced by actual feature flags in the future.
+ * Used by proc_get_all_feature_bits().
+ */
+typedef struct {
+    uint64 dummy; /**< Dummy member to keep size non-0. */
+} features_t;
 #endif
 
 #ifdef X86
@@ -316,11 +338,21 @@ typedef enum {
     FEATURE_FlagM = DEF_FEAT(AA64ISAR0, 13, 1, 0),   /**< CFINV,RMIF,SETF<x> (AArch64) */
     FEATURE_FlagM2 = DEF_FEAT(AA64ISAR0, 13, 2, 0),  /**< AXFLAG, XAFLAG (AArch64) */
     FEATURE_RNG = DEF_FEAT(AA64ISAR0, 15, 1, 0),     /**< RNDR, RNDRRS (AArch64) */
-    /* FIXME i#5474: Define all FEATURE_s for ID_AA64ISAR1_EL1 and ID_AA64PFR0_EL1. */
-    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),  /**< DC CVAP (AArch64) */
-    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0), /**< DC CVAP, DC CVADP (AArch64) */
-    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),  /**< Half-precision FP (AArch64) */
-    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 1),   /**< Scalable Vectors (AArch64) */
+    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),      /**< DC CVAP (AArch64) */
+    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0),     /**< DC CVAP, DC CVADP (AArch64) */
+    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
+    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 1),       /**< Scalable Vectors (AArch64) */
+    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 1), /**< Limited order regions (AArch64) */
+} feature_bit_t;
+#endif
+#ifdef RISCV64
+/* FIXME i#3544: Not implemented */
+/**
+ * Feature bits passed to proc_has_feature() to determine whether the underlying
+ * processor has the feature.
+ */
+typedef enum {
+    FEATURE_DUMMY = 0, /**< Dummy, non-existent feature. */
 } feature_bit_t;
 #endif
 

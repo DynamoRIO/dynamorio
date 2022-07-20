@@ -347,7 +347,7 @@ def generate_encoder(patterns, opndsettab, opndtab, opc_props, curr_isa, next_is
     case = dict()
     for p in patterns:
         (opcode_bits, opnd_bits, opcode, opndset) = p
-        if not opcode in case:
+        if opcode not in case:
             case[opcode] = []
         case[opcode].append(p)
 
