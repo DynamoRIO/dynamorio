@@ -51,13 +51,10 @@ enum {
     /*   3 */ OP_LABEL,
     /* NULL, */ /**< LABEL opcode */
 
-    /* FIXME i#3544: Put real opcodes here ans make sure ordering matches HW */
-    /* FIXME i#3544: should load/store width be separate opcode or in the instruction
-       flags? */
-    /* FIXME i#3544: Should pseudo instructions be here too? */
+    /* FIXME i#3544: Put real opcodes here and make sure ordering matches HW. */
     OP_ecall, /**< RISC-V ecall opcode. */
-    OP_l,     /**< RISC-V load opcode. */
-    OP_s,     /**< RISC-V store opcode. */
+    OP_l,     /**< RISC-V integer load opcode. Width is encoded in operand sizes. */
+    OP_s,     /**< RISC-V integer store opcode. Width is encoded in operand sizes. */
     OP_add,   /**< RISC-V add opcode. */
     OP_addi,  /**< RISC-V addi opcode. */
     OP_sub,   /**< RISC-V sub opcode. */
@@ -75,7 +72,13 @@ enum {
     OP_bgeu,  /**< RISC-V bgeu opcode. */
     OP_hint,  /**< RISC-V hint opcode. */
 
+#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+    OP_fl, /**< RISC-V FP load opcode. Width is encoded in operand sizes. */
+    OP_fs, /**< RISC-V FP store opcode. Width is encoded in operand sizes. */
+#endif
+
     OP_AFTER_LAST,
+    /* FIXME i#3544: Replace OP_hint with a real opcode. */
     OP_FIRST = OP_hint,          /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
 };

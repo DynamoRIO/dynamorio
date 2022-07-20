@@ -1285,6 +1285,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
              *   addi base, base, disp
              */
             CLIENT_ASSERT(false, "Not implemented");
+            /* Marking as unused to silence -Wunused-variable. */
             (void)size;
             (void)b;
             (void)i;
@@ -1408,6 +1409,7 @@ opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
              *   addi base, base, disp
              */
             CLIENT_ASSERT(false, "Not implemented");
+            /* Marking as unused to silence -Wunused-variable. */
             (void)disp;
             (void)size;
             return false;
@@ -2193,8 +2195,9 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         }
 #elif defined(RISCV64)
         /* FIXME i#3544: Not implemented */
-        (void)index;
+        /* Marking as unused to silence -Wunused-variable. */
         CLIENT_ASSERT(false, "Not implemented");
+        (void)index;
         return NULL;
 #endif
     }

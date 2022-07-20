@@ -39,10 +39,8 @@
 /** @name Platform-independent macros */
 /** @{ */ /* doxygen start group */
 
-/* FIXME i#3544: Check and implement all INSTR_CREATE_* macros. */
-
-#define INSTR_CREATE_ecall(dc) instr_create_0dst_0src(dc, OP_ecall)
-#define INSTR_CREATE_nop(dc) XINST_CREATE_nop(dc)
+/* FIXME i#3544: Check and implement all INSTR_CREATE_ and XINST_CREATE_ macros. For now
+ * all unimplemented instructions use OP_hint which is effectively a no-op. */
 
 /**
  * This platform-independent macro creates an instr_t for a debug trap
@@ -337,7 +335,7 @@
  * This platform-independent macro creates an instr_t for a nop instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
-#define XINST_CREATE_nop(dc) instr_create_0dst_0src(dc, OP_hint)
+#define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
 
 /**
  * This platform-independent macro creates an instr_t for an indirect call instr
@@ -355,6 +353,21 @@
  */
 #define OPND_CREATE_ABSMEM(addr, size) opnd_create_rel_addr(addr, size)
 
+/** @} */ /* end doxygen group */
+
+/****************************************************************************
+ * x86-specific INSTR_CREATE_* macros
+ */
+
+/** @name No-operand instructions */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_ecall(dc) instr_create_0dst_0src(dc, OP_ecall)
+#define INSTR_CREATE_nop(dc) instr_create_0dst_0src(dc, OP_hint)
 /** @} */ /* end doxygen group */
 
 #endif /* _DR_IR_MACROS_RISCV64_H_ */

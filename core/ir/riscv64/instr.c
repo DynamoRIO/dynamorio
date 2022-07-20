@@ -48,7 +48,7 @@ instr_get_isa_mode(instr_t *instr)
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
-    /* FIXME i#3544: C has shorter instruction length. */
+    /* FIXME i#3544: C ISA extension has a shorter instruction length. */
     return RISCV64_INSTR_SIZE;
 }
 
@@ -62,7 +62,9 @@ opc_is_not_a_real_memory_load(int opc)
 uint
 instr_branch_type(instr_t *cti_instr)
 {
-    /* FIXME i#3544: Add parameter checking (inc table 2.1 in spec) */
+    /* FIXME i#3544: The branch type depends on JAL(R) operands. More details
+     * are provided in Table 2.1 of the The RISC-V Instruction Set Manual Volume I:
+     * Unprivileged ISA (page 22 in version 20191213). */
     int opcode = instr_get_opcode(cti_instr);
     switch (opcode) {
     case OP_jal: return LINK_DIRECT | LINK_CALL;
@@ -82,7 +84,7 @@ const char *
 get_opcode_name(int opc)
 {
     ASSERT_NOT_IMPLEMENTED(false);
-    return "";
+    return "<opcode>";
 }
 
 bool
@@ -128,6 +130,8 @@ instr_is_return(instr_t *instr)
 {
     /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
+    if (instr_num_srcs(instr) < 1 || instr_num_dsts(instr) < 1)
+        return false;
     opnd_t rd = instr_get_dst(instr, 0);
     opnd_t rs = instr_get_src(instr, 0);
     return (opc == OP_jalr && opnd_get_reg(rd) == DR_REG_X0 &&
@@ -138,8 +142,9 @@ instr_is_return(instr_t *instr)
 bool
 instr_is_cbr_arch(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return opc == OP_beq || opc == OP_bne || opc == OP_blt || opc == OP_bltu ||
+        opc == OP_bge || opc == OP_bgeu;
 }
 
 bool
@@ -159,8 +164,8 @@ instr_is_far_cti(instr_t *instr)
 bool
 instr_is_ubr_arch(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return opc == OP_jal || opc == OP_jalr;
 }
 
 bool
@@ -390,6 +395,8 @@ bool
 instr_is_nop(instr_t *instr)
 {
     uint opc = instr_get_opcode(instr);
+    if (instr_num_srcs(instr) < 2 || instr_num_dsts(instr) < 1)
+        return false;
     opnd_t rd = instr_get_dst(instr, 0);
     opnd_t rs = instr_get_src(instr, 0);
     opnd_t i = instr_get_src(instr, 1);

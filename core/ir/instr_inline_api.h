@@ -191,7 +191,6 @@ INSTR_INLINE
 bool
 opnd_is_near_rel_addr(opnd_t opnd)
 {
-    /* FIXME i#3544: Not implemented */
     return opnd_is_rel_addr(opnd);
 }
 
@@ -199,7 +198,7 @@ INSTR_INLINE
 bool
 opnd_is_far_rel_addr(opnd_t opnd)
 {
-    /* FIXME i#3544: Not implemented */
+    /* FIXME i#3544: Decide if this should differentiate between JAL and AUIPC+JALR. */
     return false;
 }
 #        endif /* RISCV64 */
@@ -277,7 +276,7 @@ opnd_create_pc(app_pc pc)
              .value.reg)
 #    define opnd_get_reg OPND_GET_REG
 
-#    ifdef X86
+#    if defined(X86) || defined(RISCV64)
 #        define OPND_GET_FLAGS(opnd)                                                     \
             (CLIENT_ASSERT_(                                                             \
                 opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || opnd_is_immed_int(opnd), \
@@ -290,11 +289,6 @@ opnd_create_pc(app_pc pc)
                  "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd")( \
                  opnd)                                                                 \
                  .aux.flags)
-#    elif defined(RISCV64)
-#        define OPND_GET_FLAGS(opnd)                                                     \
-            (CLIENT_ASSERT_(                                                             \
-                opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || opnd_is_immed_int(opnd), \
-                "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") 0)
 #    endif
 #    define opnd_get_flags OPND_GET_FLAGS
 

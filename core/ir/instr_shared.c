@@ -3605,6 +3605,7 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented. */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif /* X86/ARM/RISCV64 */
