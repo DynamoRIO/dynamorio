@@ -2656,7 +2656,8 @@ instr_is_cti(instr_t *instr) /* any control-transfer instruction */
 int
 instr_get_interrupt_number(instr_t *instr)
 {
-    CLIENT_ASSERT(instr_get_opcode(instr) == IF_X86_ELSE(OP_int, OP_svc),
+    CLIENT_ASSERT(instr_get_opcode(instr) ==
+                      IF_X86_ELSE(OP_int, IF_RISCV64_ELSE(OP_ecall, OP_svc)),
                   "instr_get_interrupt_number: instr not interrupt");
     if (instr_operands_valid(instr)) {
         ptr_int_t val = opnd_get_immed_int(instr_get_src(instr, 0));
@@ -3603,7 +3604,11 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
-#    endif /* X86/ARM */
+#    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#    endif /* X86/ARM/RISCV64 */
 }
 
 /* this routine may upgrade a level 1 instr */
@@ -3639,6 +3644,10 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
         opnd_is_abs_base_disp(memop)
 #    elif defined(AARCHXX)
         opnd_is_base_disp(memop) && opnd_get_base(memop) == dr_reg_stolen &&
+        opnd_get_index(memop) == DR_REG_NULL
+#    elif defined(RISCV64)
+        /* FIXME i#3544: Check if valid. */
+        opnd_is_base_disp(memop) && opnd_get_base(memop) == DR_REG_TP &&
         opnd_get_index(memop) == DR_REG_NULL
 #    endif
     ) {
@@ -3693,6 +3702,10 @@ instr_is_tls_xcx_spill(instr_t *instr)
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
 #    elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif
@@ -3883,7 +3896,11 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
 #    elif defined(AARCH64)
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;
-#    endif /* X86/ARM */
+#    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+#    endif /* X86/ARM/RISCV64 */
 }
 
 uint
