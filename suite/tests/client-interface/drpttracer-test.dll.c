@@ -128,7 +128,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         drpttracer_end_tracing(drcontext, pt->tracer_handle, NULL, NULL, NULL);
         pt->tracer_handle = NULL;
     }
-    /* Start tracing pre syscall. */
+    /* Start trace before syscall. */
     bool ok = drpttracer_start_tracing(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL,
                                        &pt->tracer_handle) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_start_tracing failed");
@@ -142,7 +142,7 @@ event_post_syscall(void *drcontext, int sysnum)
     if (pt->tracer_handle == NULL) {
         return;
     }
-    /* End tracing post syscall. */
+    /* End trace after syscall. */
     bool ok = drpttracer_end_tracing(drcontext, pt->tracer_handle, NULL, NULL, NULL) ==
         DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_end_tracing failed");

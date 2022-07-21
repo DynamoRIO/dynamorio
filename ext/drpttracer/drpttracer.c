@@ -476,12 +476,6 @@ drpttracer_status_t
 drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
                          OUT void **tracer_handle)
 {
-    /* Backup the application's errno. We will restore it before return.
-     * XXX: We use syscalls to start the pt tracing. However, these syscalls may set
-     * errno, which will cause crash issues when the application uses the errno.
-     */
-    int app_errno = errno;
-
     /* Select one perf_event_attr for current tracing. */
     struct perf_event_attr attr;
     if (mode == DRPTTRACER_TRACING_ONLY_USER) {
@@ -492,7 +486,6 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
         attr = user_kernel_pe_attr;
     } else {
         ASSERT(false, "invalid tracing mode");
-        errno = app_errno;
         return DRPTTRACER_ERROR_INVALID_TRACING_MODE;
     }
 
@@ -500,17 +493,14 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
     int perf_event_fd = perf_event_open(&attr, dr_get_thread_id(drcontext), -1, -1, 0);
     if (perf_event_fd < 0) {
         ASSERT(false, "failed to open perf event");
-        errno = app_errno;
         return DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT;
     }
     /* Initialize the pttracer_handle_t. */
     pttracer_handle_t *handle = pttracer_handle_create(drcontext, perf_event_fd);
     if (handle == NULL) {
         ASSERT(false, "failed to create pttracer_handle");
-        errno = app_errno;
         return DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE;
     }
-    *(pttracer_handle_t **)tracer_handle = handle;
 
     /* Start the pt tracing. */
     errno = 0;
@@ -518,11 +508,11 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
         ioctl(perf_event_fd, PERF_EVENT_IOC_ENABLE, 0) < 0) {
         ERRMSG("Error Message: %s\n", strerror(errno));
         ASSERT(false, "failed to start tracing");
-        errno = app_errno;
+        pttracer_handle_free(drcontext, handle);
         return DRPTTRACER_ERROR_FAILED_TO_START_TRACING;
     }
 
-    errno = app_errno;
+    *(pttracer_handle_t **)tracer_handle = handle;
     return DRPTTRACER_SUCCESS;
 }
 
@@ -532,12 +522,9 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
                        OUT pt_metadata_t *meta_data, OUT drpttracer_buf_t *pt_data,
                        OUT drpttracer_buf_t *sideband_data)
 {
-    int app_errno = errno;
-
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
         ASSERT(false, "invalid pttracer handle");
-        errno = app_errno;
         return DRPTTRACER_ERROR_INVALID_TRACING_HANDLE;
     }
 
@@ -546,7 +533,6 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
     if (ioctl(handle->fd, PERF_EVENT_IOC_DISABLE, 0) < 0) {
         ERRMSG("Error Message: %s\n", strerror(errno));
         ASSERT(false, "failed to stop tracing");
-        errno = app_errno;
         return DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING;
     }
 
@@ -570,8 +556,6 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
     }
 
     pttracer_handle_free(drcontext, handle);
-
-    errno = app_errno;
     return DRPTTRACER_SUCCESS;
 }
 
