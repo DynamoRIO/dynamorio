@@ -312,7 +312,6 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             decode(GLOBAL_DCONTEXT, insn.raw, instr);
             instr_set_translation(instr, (app_pc)insn.ip);
             instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
-#ifdef DEBUG
             /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
              * instructions that are not supported by Dynamorio.
              */
@@ -323,11 +322,16 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
                 instr_free_raw_bits(GLOBAL_DCONTEXT, instr);
                 instr_set_raw_bits(instr, insn.raw, insn.size);
                 instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
+#ifdef DEBUG
                 /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
-                instr_disassemble(GLOBAL_DCONTEXT, instr, STDOUT);
-                dr_fprintf(STDOUT, "\n");
-            }
+                dr_fprintf(STDOUT, "<INVALID> <raw " PFX "-" PFX " ==", (app_pc)insn.ip,
+                           (app_pc)insn.ip + insn.size);
+                for (int i = 0; i < insn.size; i++) {
+                    dr_fprintf(STDOUT, " %02x", insn.raw[i]);
+                }
+                dr_fprintf(STDOUT, ">\n");
 #endif
+            }
             instrlist_append(*ilist, instr);
         }
     }
