@@ -73,10 +73,10 @@ static struct perf_event_attr user_only_pe_attr;
 static struct perf_event_attr kernel_only_pe_attr;
 static struct perf_event_attr user_kernel_pe_attr;
 
-/* pt_shared_meta_data is used to store shared meta data: cpu_family, cpu_model,
+/* pt_shared_metadata is used to store shared meta data: cpu_family, cpu_model,
  * cpu_stepping.
  */
-static pt_metadata_t pt_shared_meta_data;
+static pt_metadata_t pt_shared_metadata;
 
 /***************************************************************************
  * UTTILITY FUNCTIONS
@@ -321,10 +321,10 @@ perf_event_open(IN struct perf_event_attr *attr, IN pid_t pid, IN int cpu,
  *  cpu_family, cpu_model, cpu_step
  */
 static void
-pt_shared_meta_data_init(pt_metadata_t *meta_data)
+pt_shared_metadata_init(pt_metadata_t *metadata)
 {
-    memset(meta_data, 0, sizeof(pt_metadata_t));
-    get_cpu_info(&meta_data->cpu_family, &meta_data->cpu_model, &meta_data->cpu_stepping);
+    memset(metadata, 0, sizeof(pt_metadata_t));
+    get_cpu_info(&metadata->cpu_family, &metadata->cpu_model, &metadata->cpu_stepping);
 }
 
 /***************************************************************************
@@ -446,7 +446,7 @@ drpttracer_init(void)
     int count = dr_atomic_add32_return_sum(&drpttracer_init_count, 1);
     if (count > 1)
         return true;
-    pt_shared_meta_data_init(&pt_shared_meta_data);
+    pt_shared_metadata_init(&pt_shared_metadata);
     if (!(pt_perf_event_attr_init(true, false, &user_only_pe_attr) &&
           pt_perf_event_attr_init(false, true, &kernel_only_pe_attr) &&
           pt_perf_event_attr_init(true, true, &user_kernel_pe_attr))) {
@@ -519,7 +519,7 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
 DR_EXPORT
 drpttracer_status_t
 drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
-                       OUT pt_metadata_t *meta_data, OUT drpttracer_buf_t *pt_data,
+                       OUT pt_metadata_t *metadata, OUT drpttracer_buf_t *pt_data,
                        OUT drpttracer_buf_t *sideband_data)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
@@ -536,11 +536,11 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
         return DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING;
     }
 
-    if (meta_data != NULL) {
-        memcpy(meta_data, &pt_shared_meta_data, sizeof(pt_metadata_t));
-        meta_data->time_shift = handle->header->time_shift;
-        meta_data->time_mult = handle->header->time_mult;
-        meta_data->time_zero = handle->header->time_zero;
+    if (metadata != NULL) {
+        memcpy(metadata, &pt_shared_metadata, sizeof(pt_metadata_t));
+        metadata->time_shift = handle->header->time_shift;
+        metadata->time_mult = handle->header->time_mult;
+        metadata->time_zero = handle->header->time_zero;
     }
 
     if (pt_data != NULL) {
