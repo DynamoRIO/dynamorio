@@ -152,7 +152,7 @@ read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *base, IN uint64_t base_size
 /* This function use cpuid instruction to get the CPU family, CPU model and CPU stepping.
  */
 static void
-get_cpu_info(uint16_t *cpu_family, uint8_t *cpu_model, uint8_t *cpu_stepping)
+get_cpu_info(int *cpu_family, int *cpu_model, int *cpu_stepping)
 {
     /* When set ‘eax’ equals 1, the ‘cpuid’ instruction will get the processor info and
      * feature bits.
@@ -164,17 +164,13 @@ get_cpu_info(uint16_t *cpu_family, uint8_t *cpu_model, uint8_t *cpu_stepping)
     asm volatile("cpuid"
                  : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
                  : "0"(eax), "2"(ecx));
-    int stepping = (eax >> 0) & 0xf;
-    int model = (eax >> 4) & 0xf;
-    int family = (eax >> 8) & 0xf;
-    if (family == 0xf)
-        family += (eax >> 20) & 0xff;
-    if (family == 6 || family == 0xf)
-        model += ((eax >> 16) & 0xf) << 4;
-
-    *cpu_family = (uint16_t)family;
-    *cpu_model = (uint8_t)model;
-    *cpu_stepping = (uint8_t)stepping;
+    *cpu_stepping = (eax >> 0) & 0xf;
+    *cpu_model = (eax >> 4) & 0xf;
+    *cpu_family = (eax >> 8) & 0xf;
+    if (*cpu_family == 0xf)
+        *cpu_family += (eax >> 20) & 0xff;
+    if (*cpu_family == 6 || *cpu_family == 0xf)
+        *cpu_model += ((eax >> 16) & 0xf) << 4;
 }
 
 /***************************************************************************
@@ -324,7 +320,11 @@ static void
 pt_shared_metadata_init(pt_metadata_t *metadata)
 {
     memset(metadata, 0, sizeof(pt_metadata_t));
-    get_cpu_info(&metadata->cpu_family, &metadata->cpu_model, &metadata->cpu_stepping);
+    int cpu_family = 0, cpu_model = 0, cpu_stepping = 0;
+    get_cpu_info(&cpu_family, &cpu_model, &cpu_stepping);
+    metadata->cpu_family = (uint16_t)cpu_family;
+    metadata->cpu_model = (uint8_t)cpu_model;
+    metadata->cpu_stepping = (uint8_t)cpu_stepping;
 }
 
 /***************************************************************************

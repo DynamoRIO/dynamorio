@@ -69,7 +69,7 @@ typedef struct _drpttracer_buf_t {
  * The type of PT trace's metadata. This type is used to initialize the PT config and PT
  * sideband config.
  */
-typedef struct _pt_metadata_t {
+typedef struct __attribute__((__packed__)) _pt_metadata_t {
     /** The CPU family. */
     uint16_t cpu_family;
     /** The CPU mode. */
