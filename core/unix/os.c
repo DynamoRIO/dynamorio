@@ -4656,7 +4656,7 @@ safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
     }
 }
 
-bool
+DR_EXPORT bool
 safe_read_if_fast(const void *base, size_t size, void *out_buf)
 {
     if (!fault_handling_initialized) {
@@ -4668,7 +4668,7 @@ safe_read_if_fast(const void *base, size_t size, void *out_buf)
 }
 
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */
-bool
+DR_EXPORT bool
 d_r_safe_read(const void *base, size_t size, void *out_buf)
 {
     return safe_read_ex(base, size, out_buf, NULL);
