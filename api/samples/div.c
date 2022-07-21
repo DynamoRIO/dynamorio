@@ -119,6 +119,11 @@ instr_is_div(instr_t *instr, OUT opnd_t *opnd)
         *opnd = instr_get_src(instr, 1); /* divisor is 2nd src */
         return true;
     }
+#elif defined(RISCV64)
+    if (opc == OP_divu) {
+        *opnd = instr_get_src(instr, 1); /* divisor is 2nd src */
+        return true;
+    }
 #else
 #    error NYI
 #endif
