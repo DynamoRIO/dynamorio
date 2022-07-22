@@ -59,10 +59,34 @@
 0001111001100011110000xxxxxxxxxx  n   110  FP16    fcvt   h0 : d5
 0001111011100010010000xxxxxxxxxx  n   110  FP16    fcvt   s0 : h5
 0001111011100010110000xxxxxxxxxx  n   110  FP16    fcvt   d0 : h5
+0x00111001111001110010xxxxxxxxxx  n   111  FP16  fcvtas  dq0 : dq5 h_sz
+0101111001111001110010xxxxxxxxxx  n   111  FP16  fcvtas   h0 : h5
+0001111011100100000000xxxxxxxxxx  n   111  FP16  fcvtas   w0 : h5
+1001111011100100000000xxxxxxxxxx  n   111  FP16  fcvtas   x0 : h5
+0x10111001111001110010xxxxxxxxxx  n   112  FP16  fcvtau  dq0 : dq5 h_sz
+0111111001111001110010xxxxxxxxxx  n   112  FP16  fcvtau   h0 : h5
+0001111011100101000000xxxxxxxxxx  n   112  FP16  fcvtau   w0 : h5
+1001111011100101000000xxxxxxxxxx  n   112  FP16  fcvtau   x0 : h5
+0x00111001111001101110xxxxxxxxxx  n   115  FP16  fcvtms  dq0 : dq5 h_sz
+0101111001111001101110xxxxxxxxxx  n   115  FP16  fcvtms   h0 : h5
+0001111011110000000000xxxxxxxxxx  n   115  FP16  fcvtms   w0 : h5
+1001111011110000000000xxxxxxxxxx  n   115  FP16  fcvtms   x0 : h5
 x001111011110001000000xxxxxxxxxx  n   116  FP16  fcvtmu  wx0 : h5
 0111111001111001101110xxxxxxxxxx  n   116  FP16  fcvtmu   h0 : h5
+0x00111001111001101010xxxxxxxxxx  n   119  FP16  fcvtns  dq0 : dq5 h_sz
+0101111001111001101010xxxxxxxxxx  n   119  FP16  fcvtns   h0 : h5
+0001111011100000000000xxxxxxxxxx  n   119  FP16  fcvtns   w0 : h5
+1001111011100000000000xxxxxxxxxx  n   119  FP16  fcvtns   x0 : h5
 x001111011100001000000xxxxxxxxxx  n   120  FP16  fcvtnu  wx0 : h5
 0111111001111001101010xxxxxxxxxx  n   120  FP16  fcvtnu   h0 : h5
+0x00111011111001101010xxxxxxxxxx  n   121  FP16  fcvtps  dq0 : dq5 h_sz
+0001111011101000000000xxxxxxxxxx  n   121  FP16  fcvtps   w0 : h5
+1001111011101000000000xxxxxxxxxx  n   121  FP16  fcvtps   x0 : h5
+0101111011111001101010xxxxxxxxxx  n   121  FP16  fcvtps   h0 : h5
+0x10111011111001101010xxxxxxxxxx  n   122  FP16  fcvtpu  dq0 : dq5 h_sz
+0111111011111001101010xxxxxxxxxx  n   122  FP16  fcvtpu   h0 : h5
+0001111011101001000000xxxxxxxxxx  n   122  FP16  fcvtpu   w0 : h5
+1001111011101001000000xxxxxxxxxx  n   122  FP16  fcvtpu   x0 : h5
 0x0011110xxxxxxx111111xxxxxxxxxx  n   125  FP16  fcvtzs  dq0 : dq5 immhb_fxp bhsd_immh_sz
 0x10111011111001101110xxxxxxxxxx  n   126  FP16  fcvtzu  dq0 : dq5 h_sz
 0x1011110xxxxxxx111111xxxxxxxxxx  n   126  FP16  fcvtzu  dq0 : dq5 immhb_fxp bhsd_immh_sz
