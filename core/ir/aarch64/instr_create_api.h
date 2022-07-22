@@ -3464,4 +3464,84 @@
  */
 #define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
+/**
+ * Creates a LDLAR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDLAR   <Wt>, [<Xn|SP>]
+ *    LDLAR   <Xt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The first destination register. Can be W (Word, 32 bits) or X (Extended, 64
+ * bits) \param Rn   The second source register. Can be X (Extended, 64 bits)
+ */
+#define INSTR_CREATE_ldlar(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldlar, Rt, Rn)
+
+/**
+ * Creates a LDLARB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDLARB  <Wt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The first destination register, W (Word, 32 bits)
+ * \param Rn   The second source register, X (Extended, 64 bits)
+ */
+#define INSTR_CREATE_ldlarb(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldlarb, Rt, Rn)
+
+/**
+ * Creates a LDLARH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDLARH  <Wt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The first destination register, W (Word, 32 bits)
+ * \param Rn   The second source register, X (Extended, 64 bits)
+ */
+#define INSTR_CREATE_ldlarh(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldlarh, Rt, Rn)
+
+/**
+ * Creates a STLLR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    STLLR   <Wt>, [<Xn|SP>]
+ *    STLLR   <Xt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The first destination register. Can be W (Word, 32 bits) or X (Extended, 64
+ * bits) \param Rn   The second source register. Can be X (Extended, 64 bits)
+ */
+#define INSTR_CREATE_stllr(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_stllr, Rt, Rn)
+
+/**
+ * Creates a STLLRB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    STLLRB  <Wt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The first destination register, W (Word, 32 bits)
+ * \param Rn   The second source register, X (Extended, 64 bits)
+ */
+#define INSTR_CREATE_stllrb(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_stllrb, Rt, Rn)
+
+/**
+ * Creates a STLLRH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    STLLRH  <Wt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The first destination register, W (Word, 32 bits)
+ * \param Rn   The second source register, X (Extended, 64 bits)
+ */
+#define INSTR_CREATE_stllrh(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_stllrh, Rt, Rn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

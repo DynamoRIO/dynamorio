@@ -213,6 +213,188 @@ TEST_INSTR(sqrdmlsh_scalar)
     return success;
 }
 
+TEST_INSTR(ldlar)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing LDLAR   <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "ldlar  (%x0)[4byte] -> %w0",
+        "ldlar  (%x10)[4byte] -> %w10",
+        "ldlar  (%sp)[4byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlar(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_4));
+        if (!test_instr_encoding(dc, OP_ldlar, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    /* Testing LDLAR   <Xt>, [<Xn|SP>] */
+    reg_id_t Rt_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_X30 };
+    reg_id_t Rn_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_1_0[3] = {
+        "ldlar  (%x0)[8byte] -> %x0",
+        "ldlar  (%x10)[8byte] -> %x10",
+        "ldlar  (%sp)[8byte] -> %x30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlar(
+            dc, opnd_create_reg(Rt_1_0[i]),
+            opnd_create_base_disp(Rn_1_0[i], DR_REG_NULL, 0, 0, OPSZ_8));
+        if (!test_instr_encoding(dc, OP_ldlar, instr, expected_1_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(ldlarb)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing LDLARB  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "ldlarb (%x0)[1byte] -> %w0",
+        "ldlarb (%x10)[1byte] -> %w10",
+        "ldlarb (%sp)[1byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlarb(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_1));
+        if (!test_instr_encoding(dc, OP_ldlarb, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(ldlarh)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing LDLARH  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "ldlarh (%x0)[2byte] -> %w0",
+        "ldlarh (%x10)[2byte] -> %w10",
+        "ldlarh (%sp)[2byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlarh(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_2));
+        if (!test_instr_encoding(dc, OP_ldlarh, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(stllr)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing STLLR   <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "stllr  (%x0)[4byte] -> %w0",
+        "stllr  (%x10)[4byte] -> %w10",
+        "stllr  (%sp)[4byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllr(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_4));
+        if (!test_instr_encoding(dc, OP_stllr, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    /* Testing STLLR   <Xt>, [<Xn|SP>] */
+    reg_id_t Rt_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_X30 };
+    reg_id_t Rn_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_1_0[3] = {
+        "stllr  (%x0)[8byte] -> %x0",
+        "stllr  (%x10)[8byte] -> %x10",
+        "stllr  (%sp)[8byte] -> %x30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllr(
+            dc, opnd_create_reg(Rt_1_0[i]),
+            opnd_create_base_disp(Rn_1_0[i], DR_REG_NULL, 0, 0, OPSZ_8));
+        if (!test_instr_encoding(dc, OP_stllr, instr, expected_1_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(stllrb)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing STLLRB  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "stllrb (%x0)[1byte] -> %w0",
+        "stllrb (%x10)[1byte] -> %w10",
+        "stllrb (%sp)[1byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllrb(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_1));
+        if (!test_instr_encoding(dc, OP_stllrb, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(stllrh)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing STLLRH  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "stllrh (%x0)[2byte] -> %w0",
+        "stllrh (%x10)[2byte] -> %w10",
+        "stllrh (%sp)[2byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllrh(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_2));
+        if (!test_instr_encoding(dc, OP_stllrh, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -227,6 +409,12 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(sqrdmlsh_scalar);
     RUN_INSTR_TEST(sqrdmlsh_scalar_idx);
     RUN_INSTR_TEST(sqrdmlsh_vector);
+    RUN_INSTR_TEST(ldlar);
+    RUN_INSTR_TEST(ldlarb);
+    RUN_INSTR_TEST(ldlarh);
+    RUN_INSTR_TEST(stllr);
+    RUN_INSTR_TEST(stllrb);
+    RUN_INSTR_TEST(stllrh);
 
     print("All v8.1 tests complete.\n");
 #ifndef STANDALONE_DECODER
