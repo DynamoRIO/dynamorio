@@ -1111,7 +1111,10 @@ function (configure_DynamoRIO_static target)
   target_link_libraries(${target} ${static_libc})
   # For the weakly linked routines defined in drlibc, we want to use DR's
   # definitions when available. So we use dynamorio_static_nohide, which does
-  # not hide its symbols, for building static binaries.
+  # not hide its symbols, for building static binaries. There are downsides that
+  # we have to live with, including pushing our many global symbols into the app
+  # namespace. We have renamed some of the ones that are more likely to collide
+  # in #3348.
   if (UNIX)
     target_link_libraries(${target} dynamorio_static_nohide)
   else (UNIX)
