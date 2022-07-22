@@ -846,6 +846,9 @@ if (NOT APPLE)
     # Create a version without hidden symbols to support that model.
     # The symbol hiding step is complex and for some toolchains it is simpler
     # to avoid it and count on symbol names preventing collisions (i#3348).
+    # XXX i#5570: Cleanup: rename the following to make it clear that it's the
+    # default variant. Also evaluate which of the static_nohide_api tests we
+    # do not need anymore.
     configure_static_core_lib(dynamorio_static_nohide OFF)
 
     if (LINUX AND READELF_EXECUTABLE)
