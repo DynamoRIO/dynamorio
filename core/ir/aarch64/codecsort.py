@@ -176,7 +176,7 @@ def main():
         else:
             output(lambda l: sys.stdout.write(l + "\n"))
 
-            if instr_orig != file_instrs:
+            if instr_orig[codec_file] != file_instrs[codec_file]:
                 sys.exit(1)
 
 if __name__ == "__main__":
