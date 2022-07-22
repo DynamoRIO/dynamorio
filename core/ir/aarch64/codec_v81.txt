@@ -106,6 +106,10 @@
 11111000011xxxxx001000xxxxxxxxxx  n   221  LSE     ldeorl   x0 mem0 : x16 mem0
 00111000011xxxxx001000xxxxxxxxxx  n   222  LSE    ldeorlb   w0 mem0 : w16 mem0
 01111000011xxxxx001000xxxxxxxxxx  n   223  LSE    ldeorlh   w0 mem0 : w16 mem0
+10001000110^^^^^0^^^^^xxxxxxxxxx  n   580  LOR      ldlar        w0 : mem0
+11001000110^^^^^0^^^^^xxxxxxxxxx  n   580  LOR      ldlar        x0 : mem0
+00001000110^^^^^0^^^^^xxxxxxxxxx  n   581  LOR     ldlarb        w0 : mem0
+01001000110^^^^^0^^^^^xxxxxxxxxx  n   582  LOR     ldlarh        w0 : mem0
 10111000001xxxxx001100xxxxxxxxxx  n   233  LSE      ldset   w0 mem0 : w16 mem0
 11111000001xxxxx001100xxxxxxxxxx  n   233  LSE      ldset   x0 mem0 : x16 mem0
 10111000101xxxxx001100xxxxxxxxxx  n   234  LSE     ldseta   w0 mem0 : w16 mem0
@@ -200,6 +204,10 @@
 0x101110xx0xxxxx100011xxxxxxxxxx  n   579  RDM   sqrdmlsh       dq0 : dq0 dq5 dq16 hs_sz
 01111110010xxxxx100011xxxxxxxxxx  n   579  RDM   sqrdmlsh        h0 : h0 h5 h16
 01111110100xxxxx100011xxxxxxxxxx  n   579  RDM   sqrdmlsh        s0 : s0 s5 s16
+10001000100^^^^^0^^^^^xxxxxxxxxx  n   583  LOR      stllr        w0 : mem0
+11001000100^^^^^0^^^^^xxxxxxxxxx  n   583  LOR      stllr        x0 : mem0
+00001000100^^^^^0^^^^^xxxxxxxxxx  n   584  LOR     stllrb        w0 : mem0
+01001000100^^^^^0^^^^^xxxxxxxxxx  n   585  LOR     stllrh        w0 : mem0
 10111000001xxxxx100000xxxxxxxxxx  n   476  LSE        swp   w0 mem0 : w16 mem0
 11111000001xxxxx100000xxxxxxxxxx  n   476  LSE        swp   x0 mem0 : x16 mem0
 10111000101xxxxx100000xxxxxxxxxx  n   477  LSE       swpa   w0 mem0 : w16 mem0

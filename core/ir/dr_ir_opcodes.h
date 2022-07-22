@@ -40,6 +40,8 @@
 #    include "dr_ir_opcodes_aarch64.h"
 #elif defined(ARM)
 #    include "dr_ir_opcodes_arm.h"
+#elif defined(RISCV64)
+#    include "dr_ir_opcodes_riscv64.h"
 #endif
 
 #endif /* _DR_IR_OPCODES_H_ */
