@@ -68,10 +68,10 @@ TEST_INSTR(fcvtas_vector)
         "fcvtas %q10 $0x01 -> %q10",
         "fcvtas %q31 $0x01 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtas_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
             success = false;
     }
 
@@ -84,10 +84,10 @@ TEST_INSTR(fcvtas_vector)
         "fcvtas %d10 $0x01 -> %d10",
         "fcvtas %d31 $0x01 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtas_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
             success = false;
     }
 
@@ -108,10 +108,10 @@ TEST_INSTR(fcvtas_scalar)
         "fcvtas %h10 -> %w10",
         "fcvtas %h31 -> %w30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtas_scalar(dc, opnd_create_reg(Rd_0[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
             success = false;
     }
 
@@ -122,10 +122,10 @@ TEST_INSTR(fcvtas_scalar)
         "fcvtas %h10 -> %x10",
         "fcvtas %h31 -> %x30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtas_scalar(dc, opnd_create_reg(Rd_1[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
             success = false;
     }
 
@@ -136,10 +136,10 @@ TEST_INSTR(fcvtas_scalar)
         "fcvtas %h10 -> %h10",
         "fcvtas %h31 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtas_scalar(dc, opnd_create_reg(Rd_2[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtas, instr, expected_2[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_2[i]))
             success = false;
     }
 
@@ -166,10 +166,10 @@ TEST_INSTR(fcvtau_vector)
         "fcvtau %q10 $0x01 -> %q10",
         "fcvtau %q31 $0x01 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtau_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
             success = false;
     }
 
@@ -182,10 +182,10 @@ TEST_INSTR(fcvtau_vector)
         "fcvtau %d10 $0x01 -> %d10",
         "fcvtau %d31 $0x01 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtau_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
             success = false;
     }
 
@@ -206,10 +206,10 @@ TEST_INSTR(fcvtau_scalar)
         "fcvtau %h10 -> %w10",
         "fcvtau %h31 -> %w30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtau_scalar(dc, opnd_create_reg(Rd_0[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
             success = false;
     }
 
@@ -220,10 +220,10 @@ TEST_INSTR(fcvtau_scalar)
         "fcvtau %h10 -> %x10",
         "fcvtau %h31 -> %x30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtau_scalar(dc, opnd_create_reg(Rd_1[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
             success = false;
     }
 
@@ -234,10 +234,10 @@ TEST_INSTR(fcvtau_scalar)
         "fcvtau %h10 -> %h10",
         "fcvtau %h31 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtau_scalar(dc, opnd_create_reg(Rd_2[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtau, instr, expected_2[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_2[i]))
             success = false;
     }
 
@@ -264,10 +264,10 @@ TEST_INSTR(fcvtms_vector)
         "fcvtms %q10 $0x01 -> %q10",
         "fcvtms %q31 $0x01 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtms_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
             success = false;
     }
 
@@ -280,10 +280,10 @@ TEST_INSTR(fcvtms_vector)
         "fcvtms %d10 $0x01 -> %d10",
         "fcvtms %d31 $0x01 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtms_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
             success = false;
     }
 
@@ -304,10 +304,10 @@ TEST_INSTR(fcvtms_scalar)
         "fcvtms %h10 -> %w10",
         "fcvtms %h31 -> %w30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtms_scalar(dc, opnd_create_reg(Rd_0[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
             success = false;
     }
 
@@ -318,10 +318,10 @@ TEST_INSTR(fcvtms_scalar)
         "fcvtms %h10 -> %x10",
         "fcvtms %h31 -> %x30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtms_scalar(dc, opnd_create_reg(Rd_1[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
             success = false;
     }
 
@@ -332,10 +332,10 @@ TEST_INSTR(fcvtms_scalar)
         "fcvtms %h10 -> %h10",
         "fcvtms %h31 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtms_scalar(dc, opnd_create_reg(Rd_2[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtms, instr, expected_2[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_2[i]))
             success = false;
     }
 
@@ -362,10 +362,10 @@ TEST_INSTR(fcvtns_vector)
         "fcvtns %q10 $0x01 -> %q10",
         "fcvtns %q31 $0x01 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtns_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
             success = false;
     }
 
@@ -378,10 +378,10 @@ TEST_INSTR(fcvtns_vector)
         "fcvtns %d10 $0x01 -> %d10",
         "fcvtns %d31 $0x01 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtns_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
             success = false;
     }
 
@@ -402,10 +402,10 @@ TEST_INSTR(fcvtns_scalar)
         "fcvtns %h10 -> %w10",
         "fcvtns %h31 -> %w30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtns_scalar(dc, opnd_create_reg(Rd_0[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
             success = false;
     }
 
@@ -416,10 +416,10 @@ TEST_INSTR(fcvtns_scalar)
         "fcvtns %h10 -> %x10",
         "fcvtns %h31 -> %x30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtns_scalar(dc, opnd_create_reg(Rd_1[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
             success = false;
     }
 
@@ -430,10 +430,10 @@ TEST_INSTR(fcvtns_scalar)
         "fcvtns %h10 -> %h10",
         "fcvtns %h31 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtns_scalar(dc, opnd_create_reg(Rd_2[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtns, instr, expected_2[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_2[i]))
             success = false;
     }
 
@@ -460,10 +460,10 @@ TEST_INSTR(fcvtps_vector)
         "fcvtps %q10 $0x01 -> %q10",
         "fcvtps %q31 $0x01 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtps_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
             success = false;
     }
 
@@ -476,10 +476,10 @@ TEST_INSTR(fcvtps_vector)
         "fcvtps %d10 $0x01 -> %d10",
         "fcvtps %d31 $0x01 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtps_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
             success = false;
     }
 
@@ -500,10 +500,10 @@ TEST_INSTR(fcvtps_scalar)
         "fcvtps %h10 -> %w10",
         "fcvtps %h31 -> %w30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtps_scalar(dc, opnd_create_reg(Rd_0[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
             success = false;
     }
 
@@ -514,10 +514,10 @@ TEST_INSTR(fcvtps_scalar)
         "fcvtps %h10 -> %x10",
         "fcvtps %h31 -> %x30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtps_scalar(dc, opnd_create_reg(Rd_1[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
             success = false;
     }
 
@@ -528,10 +528,10 @@ TEST_INSTR(fcvtps_scalar)
         "fcvtps %h10 -> %h10",
         "fcvtps %h31 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtps_scalar(dc, opnd_create_reg(Rd_2[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtps, instr, expected_2[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_2[i]))
             success = false;
     }
 
@@ -558,10 +558,10 @@ TEST_INSTR(fcvtpu_vector)
         "fcvtpu %q10 $0x01 -> %q10",
         "fcvtpu %q31 $0x01 -> %q31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtpu_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
+        if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
             success = false;
     }
 
@@ -574,10 +574,10 @@ TEST_INSTR(fcvtpu_vector)
         "fcvtpu %d10 $0x01 -> %d10",
         "fcvtpu %d31 $0x01 -> %d31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtpu_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
-        if(!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
+        if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
             success = false;
     }
 
@@ -598,10 +598,10 @@ TEST_INSTR(fcvtpu_scalar)
         "fcvtpu %h10 -> %w10",
         "fcvtpu %h31 -> %w30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtpu_scalar(dc, opnd_create_reg(Rd_0[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
             success = false;
     }
 
@@ -612,10 +612,10 @@ TEST_INSTR(fcvtpu_scalar)
         "fcvtpu %h10 -> %x10",
         "fcvtpu %h31 -> %x30",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtpu_scalar(dc, opnd_create_reg(Rd_1[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
             success = false;
     }
 
@@ -626,10 +626,10 @@ TEST_INSTR(fcvtpu_scalar)
         "fcvtpu %h10 -> %h10",
         "fcvtpu %h31 -> %h31",
     };
-    for (int i=0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcvtpu_scalar(dc, opnd_create_reg(Rd_2[i]),
-                                    opnd_create_reg(Rn_0[i]));
-        if(!test_instr_encoding(dc, OP_fcvtpu, instr, expected_2[i]))
+                                           opnd_create_reg(Rn_0[i]));
+        if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_2[i]))
             success = false;
     }
 
