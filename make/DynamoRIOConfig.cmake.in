@@ -1112,7 +1112,11 @@ function (configure_DynamoRIO_static target)
   # For the weakly linked routines defined in drlibc, we want to use DR's
   # definitions instead. So we use dynamorio_static_nohide, which does not hide
   # its symbols for static binary building.
-  target_link_libraries(${target} dynamorio_static_nohide)
+  if (UNIX)
+    target_link_libraries(${target} dynamorio_static_nohide)
+  else (UNIX)
+    target_link_libraries(${target} dynamorio_static)
+  endif (UNIX)
   if (UNIX AND NOT APPLE) # --as-needed not supported by Mac ld
     # i#2070: avoid pulling libdynamorio.so
     # Assuming LINK_FLAGS goes before target_link_libraries.
