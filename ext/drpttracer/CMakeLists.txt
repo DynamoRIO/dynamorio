@@ -38,8 +38,7 @@ endif ()
 
 # DynamoRIO Intel PT Tracing Extension
 
-# We need libc to call syscall(SYS_perf_event_open, ...), ioctl(...) and
-# sysconf(_SC_PAGESIZE)
+# We need libc to call syscall(SYS_perf_event_open, ...) and ioctl(...)
 set(DynamoRIO_USE_LIBC ON)
 
 set(srcs

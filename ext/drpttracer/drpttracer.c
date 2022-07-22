@@ -45,7 +45,7 @@
 #include "dr_api.h"
 #include "drpttracer.h"
 
-#if !defined(X86_64) && !defined(LINUX)
+#if !defined(X86_64) || !defined(LINUX)
 #    error "This is only for Linux x86_64."
 #endif
 
@@ -64,10 +64,10 @@
 #    define ERRMSG(...) /* nothing */
 #endif
 
-/* drpttracer supports multiple type's tracing. However, perf_event_attr's initialization
- * causes significant overhead. So drpttracer stores all tracing types' perf_event_attr as
- * global static variables, then drpttracer can directly use them when the caller want to
- * start tracing.
+/* drpttracer supports multiple types of tracing. However, perf_event_attr's
+ * initialization causes significant overhead. So drpttracer stores all tracing types'
+ * perf_event_attr as global static variables, then drpttracer can directly use them when
+ * the caller want to start tracing.
  */
 static struct perf_event_attr user_only_pe_attr;
 static struct perf_event_attr kernel_only_pe_attr;
@@ -126,26 +126,27 @@ read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size
  */
 static void
 read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *base, IN uint64_t base_size,
-                     IN uint64_t head, IN uint64_t tail, INOUT drpttracer_buf_t *data_buf)
+                     IN uint64_t head, IN uint64_t tail, OUT void **data_buf,
+                     OUT uint64_t *data_buf_size)
 {
-    if (data_buf == NULL) {
+    if (base == NULL) {
         ERRMSG("try to read from NULL buffer\n");
         return;
     }
     uint64_t head_offs = head % base_size;
     uint64_t tail_offs = tail % base_size;
     if (head_offs > tail_offs) {
-        data_buf->buf_size = head_offs - tail_offs;
-        data_buf->buf = dr_thread_alloc(drcontext, data_buf->buf_size);
-        memcpy(data_buf->buf, base + tail_offs, data_buf->buf_size);
+        *data_buf_size = head_offs - tail_offs;
+        *data_buf = dr_thread_alloc(drcontext, *data_buf_size);
+        memcpy((uint8_t *)*data_buf, base + tail_offs, *data_buf_size);
     } else if (head_offs < tail_offs) {
-        data_buf->buf_size = head_offs + base_size - tail_offs;
-        data_buf->buf = dr_thread_alloc(drcontext, data_buf->buf_size);
-        memcpy(data_buf->buf, base + tail_offs, base_size - tail_offs);
-        memcpy((uint8_t *)data_buf->buf + base_size - tail_offs, base, head_offs);
+        *data_buf_size = head_offs + base_size - tail_offs;
+        *data_buf = dr_thread_alloc(drcontext, *data_buf_size);
+        memcpy((uint8_t *)*data_buf, base + tail_offs, base_size - tail_offs);
+        memcpy((uint8_t *)*data_buf + base_size - tail_offs, base, head_offs);
     } else {
-        data_buf->buf = NULL;
-        data_buf->buf_size = 0;
+        *data_buf = NULL;
+        *data_buf_size = 0;
     }
 }
 
@@ -338,6 +339,7 @@ pt_shared_metadata_init(pt_metadata_t *metadata)
  *  3. The size of the perf event file's mmap pages.
  *  4. The header of the perf event file's mmap page.
  *  5. The ring buffer of the perf event's auxiliary data.
+ *  6. The tracing mode.
  *
  * The handle's data fields is transparent to the caller.
  */
@@ -363,6 +365,8 @@ typedef struct _pttracer_handle_t {
      *  sizeof(aux ring buffer) = header->aux_size.
      */
     void *aux;
+    /* The mode of the tracing. */
+    drpttracer_tracing_mode_t tracing_mode;
 } pttracer_handle_t;
 
 /* The event ring buffer and aux ring buffer sizes must be set to (2^n)*_SC_PAGESIZE. We
@@ -375,10 +379,17 @@ typedef struct _pttracer_handle_t {
  * descriptor.
  */
 static pttracer_handle_t *
-pttracer_handle_create(IN void *drcontext, IN int fd)
+pttracer_handle_create(IN void *drcontext, IN int fd, IN uint pt_size_shift,
+                       IN uint sideband_size_shift,
+                       IN drpttracer_tracing_mode_t tracing_mode)
 {
+    if (pt_size_shift == 0 || sideband_size_shift == 0) {
+        ERRMSG("pt_size_shift and sideband_size_shift must be greater than 0\n");
+        return NULL;
+    }
+
     /* Initialize the perf event file's mmap pages. */
-    uint64_t base_size = (uint64_t)((1UL << BASE_SIZE_SHIFT) + 1) * sysconf(_SC_PAGESIZE);
+    uint64_t base_size = (uint64_t)((1UL << sideband_size_shift) + 1) * dr_page_size();
     uint64_t base_mmap_size = base_size;
     void *base =
         dr_map_file(fd, &base_mmap_size, 0, NULL, DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
@@ -391,7 +402,7 @@ pttracer_handle_create(IN void *drcontext, IN int fd)
     /* Initialize the header of the perf event file's mmap pages. */
     struct perf_event_mmap_page *header = (struct perf_event_mmap_page *)base;
     header->aux_offset = header->data_offset + header->data_size;
-    header->aux_size = (uint64_t)(1UL << AUX_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
+    header->aux_size = (uint64_t)(1UL << pt_size_shift) * dr_page_size();
 
     /* Initialize the ring buffer of the perf event's auxiliary data. */
     uint64_t aux_mmap_size = header->aux_size;
@@ -412,6 +423,7 @@ pttracer_handle_create(IN void *drcontext, IN int fd)
     handle->base_size = base_size;
     handle->header = header;
     handle->aux = aux;
+    handle->tracing_mode = tracing_mode;
     return handle;
 }
 
@@ -474,6 +486,7 @@ drpttracer_exit(void)
 DR_EXPORT
 drpttracer_status_t
 drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+                         IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle)
 {
     /* Select one perf_event_attr for current tracing. */
@@ -495,8 +508,10 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
         ASSERT(false, "failed to open perf event");
         return DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT;
     }
+
     /* Initialize the pttracer_handle_t. */
-    pttracer_handle_t *handle = pttracer_handle_create(drcontext, perf_event_fd);
+    pttracer_handle_t *handle = pttracer_handle_create(
+        drcontext, perf_event_fd, pt_size_shift, sideband_size_shift, mode);
     if (handle == NULL) {
         ASSERT(false, "failed to create pttracer_handle");
         return DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE;
@@ -519,13 +534,17 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
 DR_EXPORT
 drpttracer_status_t
 drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
-                       OUT pt_metadata_t *metadata, OUT drpttracer_buf_t *pt_data,
-                       OUT drpttracer_buf_t *sideband_data)
+                       OUT drpttracer_output_t **output)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
         ASSERT(false, "invalid pttracer handle");
         return DRPTTRACER_ERROR_INVALID_TRACING_HANDLE;
+    }
+
+    if (output == NULL) {
+        ASSERT(false, "invalid output");
+        return DRPTTRACER_ERROR_INVALID_OUTPUT;
     }
 
     /* Stop the pt tracing. */
@@ -536,23 +555,28 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
         return DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING;
     }
 
-    if (metadata != NULL) {
-        memcpy(metadata, &pt_shared_metadata, sizeof(pt_metadata_t));
-        metadata->time_shift = handle->header->time_shift;
-        metadata->time_mult = handle->header->time_mult;
-        metadata->time_zero = handle->header->time_zero;
-    }
+    *output =
+        (drpttracer_output_t *)dr_thread_alloc(drcontext, sizeof(drpttracer_output_t));
+    memset(*output, 0, sizeof(drpttracer_output_t));
 
-    if (pt_data != NULL) {
-        read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
-                             handle->header->aux_head, handle->header->aux_tail, pt_data);
-    }
+    memcpy(&(*output)->metadata, &pt_shared_metadata, sizeof(pt_metadata_t));
+    (*output)->metadata.time_shift = handle->header->time_shift;
+    (*output)->metadata.time_mult = handle->header->time_mult;
+    (*output)->metadata.time_zero = handle->header->time_zero;
 
-    if (sideband_data != NULL) {
+    read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
+                         handle->header->aux_head, handle->header->aux_tail,
+                         &(*output)->pt_buf, &(*output)->pt_buf_size);
+    if (handle->tracing_mode == DRPTTRACER_TRACING_ONLY_USER ||
+        handle->tracing_mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
         read_ring_buf_to_buf(drcontext,
                              (uint8_t *)handle->base + handle->header->data_offset,
                              handle->header->data_size, handle->header->data_head,
-                             handle->header->data_tail, sideband_data);
+                             handle->header->data_tail, &(*output)->sideband_buf,
+                             &(*output)->sideband_buf_size);
+    } else {
+        (*output)->sideband_buf = NULL;
+        (*output)->sideband_buf_size = 0;
     }
 
     pttracer_handle_free(drcontext, handle);
@@ -560,20 +584,14 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
 }
 
 DR_EXPORT
-drpttracer_buf_t *
-drpttracer_create_buffer(IN void *drcontext)
-{
-    drpttracer_buf_t *buf =
-        (drpttracer_buf_t *)dr_thread_alloc(drcontext, sizeof(drpttracer_buf_t));
-    memset(buf, 0, sizeof(drpttracer_buf_t));
-    return buf;
-}
-
-DR_EXPORT
 void
-drpttracer_delete_buffer(IN void *drcontext, IN drpttracer_buf_t *buf)
+drpttracer_destory_output(IN void *drcontext, IN drpttracer_output_t *output)
 {
-    ASSERT(buf != NULL, "try to delete NULL buffer");
-    dr_thread_free(drcontext, buf->buf, buf->buf_size);
-    dr_thread_free(drcontext, buf, sizeof(drpttracer_buf_t));
+    ASSERT(output != NULL, "try to free NULL buffer");
+    ASSERT(output->pt_buf != NULL, "try to free NULL PT buffer");
+    dr_thread_free(drcontext, output->pt_buf, output->pt_buf_size);
+    if (output->sideband_buf != NULL) {
+        dr_thread_free(drcontext, output->sideband_buf, output->sideband_buf_size);
+    }
+    dr_thread_free(drcontext, output, sizeof(drpttracer_output_t));
 }

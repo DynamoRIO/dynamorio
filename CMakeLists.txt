@@ -1221,11 +1221,11 @@ endif ()
 # We define a variable to indicate whether DR will build libipt.
 if (LINUX AND X86 AND X64)
   set(HAVE_LIBIPT ON)
-  set(proc_supports_libipt OFF)
-  check_intel_pt_support(proc_supports_libipt)
+  set(proc_supports_pt OFF)
+  check_intel_pt_support(proc_supports_pt)
 else ()
   set(HAVE_LIBIPT OFF)
-  set(proc_supports_libipt OFF)
+  set(proc_supports_pt OFF)
 endif ()
 
 ###########################################################################

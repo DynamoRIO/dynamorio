@@ -57,17 +57,8 @@ extern "C" {
 #endif
 
 /**
- * The storage container type of a drpttracer's output buffer.
- * The drpttracer_buf_t is used for the drpttracer to store the PT trace or Sideband data.
- */
-typedef struct _drpttracer_buf_t {
-    void *buf;    /**< The buffer pointer */
-    int buf_size; /**< The buffer size */
-} drpttracer_buf_t;
-
-/**
  * The type of PT trace's metadata. This type is used to initialize the PT config and PT
- * sideband config.
+ * sideband config of drpt2ir when decoding a PT trace.
  */
 typedef struct __attribute__((__packed__)) _pt_metadata_t {
     /** The CPU family. */
@@ -76,13 +67,40 @@ typedef struct __attribute__((__packed__)) _pt_metadata_t {
     uint8_t cpu_model;
     /** The CPU stepping. */
     uint8_t cpu_stepping;
-    /** perf_event_mmap_page.time_shift */
+    /**
+     * The time shift. It is used to synchronize trace time, and the sideband recodes
+     * time.
+     * \note time_shift = perf_event_mmap_page.time_shift
+     */
     uint16_t time_shift;
-    /** perf_event_mmap_page.time_mult */
+    /**
+     * The time multiplier. It is used to synchronize trace time, and the sideband
+     * recodes time.
+     * \note time_mult = perf_event_mmap_page.time_mult
+     */
     uint32_t time_mult;
-    /** perf_event_mmap_page.time_zero */
+
+    /**
+     * The time zero. It is used to synchronize trace time, and the sideband recodes
+     * time.
+     * \note time_zero = perf_event_mmap_page.time_zero
+     */
     uint64_t time_zero;
 } pt_metadata_t;
+
+/**
+ * The storage container type of a drpttracer's output.
+ * This data struct is used by drpttracer to store PT metadata, PT trace, and
+ * sideband data. These data can be dumped into different files. These files can be the
+ * inputs of drpt2ir, which decodes the PT data into Dynamorio's IR.
+ */
+typedef struct _drpttracer_buf_t {
+    pt_metadata_t metadata;   /**< The PT trace's metadata. */
+    void *pt_buf;             /**< The PT trace's buffer pointer. */
+    size_t pt_buf_size;       /**< The buffer size of PT trace. */
+    void *sideband_buf;       /**< The PT sideband data's buffer pointer. */
+    size_t sideband_buf_size; /**< The buffer size of PT sideband data. */
+} drpttracer_output_t;
 
 /***************************************************************************
  * INIT
@@ -123,6 +141,8 @@ typedef enum {
     DRPTTRACER_ERROR_INVALID_TRACING_HANDLE,
     /** Operation failed: invalid tracing mode. */
     DRPTTRACER_ERROR_INVALID_TRACING_MODE,
+    /** Operation failed: invalid output. */
+    DRPTTRACER_ERROR_INVALID_OUTPUT,
     /** Operation failed: failed to open perf event. */
     DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT,
     /** Operation failed: failed to create tracer handle. */
@@ -137,11 +157,14 @@ typedef enum {
  * The tracing modes for drpttracer_start_tracing().
  */
 typedef enum {
-    /* drpttracer only traces in user space. */
+    /** If drpttracer is set to work in this mode, it will trace in userspace. */
     DRPTTRACER_TRACING_ONLY_USER,
-    /* drpttracer only traces in kernel. */
+    /** If drpttracer is set to work in this mode, it will trace in kernel. */
     DRPTTRACER_TRACING_ONLY_KERNEL,
-    /* drpttracer traces both user and kernel. */
+    /**
+     * If drpttracer is set to work in this mode, it will trace in both userspace and
+     * kernel.
+     */
     DRPTTRACER_TRACING_USER_AND_KERNEL
 } drpttracer_tracing_mode_t;
 
@@ -151,16 +174,26 @@ DR_EXPORT
  *
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] mode  The tracing mode.
+ * \param[in] pt_size_shift  The size shift of PT trace's buffer.
+ * \param[in] sideband_size_shift  The size shift of sideband data's buffer.
  * \param[out] tracer_handle  The tracer handle.
+ *
+ * \note The size shift is used to control the size of buffers:
+ *       sizeof(PT trace's buffer) = 2 ^ pt_size_shift * PAGE_SIZE.
+ *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
+ *
+ * \note The PT trace's buffer and sideband data's buffer are all ring buffers. So Intel
+ * PT will overwrite the oldest data when the buffer is full.
  *
  * \note Each tracing corresponds to a trace_handle. When calling
  * drpttracer_start_tracing(), the caller will get a tracer_handle. And the caller can
- * stop tracing by passing it to drpttracer_stop_tracing().
+ * stop tracing by passing it to drpttracer_end_tracing().
  *
  * \return the status code.
  */
 drpttracer_status_t
 drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+                         IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle);
 
 DR_EXPORT
@@ -169,40 +202,34 @@ DR_EXPORT
  *
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] tracer_handle  The tracer handle.
- * \param[out] meta_data  The metadata of the PT trace. If NULL, the metadata will not be
- * return.
- * \param[out] pt_data  The buffer of the PT trace. If NULL, the PT trace will not be
- * return.
- * \param[out] sideband_data  The buffer of the PT sideband data. If NULL, the PT sideband
- * data will not be return.
+ * \param[out] output  The output of PT tracing. This function will allocate
+ * and fill this output. It will copy the PT trace to the pt_buff of the output. When the
+ * tracing mode is #DRPTTRACER_TRACING_ONLY_USER or #DRPTTRACER_TRACING_USER_AND_KERNEL,
+ * the PT sideband data will be copy to the sideband_buf of the output. When the tracing
+ * mode is #DRPTTRACER_TRACING_ONLY_KERNEL, it will not copy the sideband data to the
+ * buffer.
+ *
+ * \note The output data can be dumped into different files. After offline tracings are
+ * done, drpt2trace can use these files to decode the offline tracings.
+ *
+ * \note The caller doesn't need to allocate the output object, but it needs to free the
+ * output object.
  *
  * \return the status code.
  */
 drpttracer_status_t
 drpttracer_end_tracing(IN void *drcontext, IN void *tracer_handle,
-                       OUT pt_metadata_t *meta_data, OUT drpttracer_buf_t *pt_data,
-                       OUT drpttracer_buf_t *sideband_data);
+                       OUT drpttracer_output_t **output);
 
 DR_EXPORT
 /**
- * Creates a new drpttracer_buf_t.
+ * Destroys a output object of drpttrace.
  *
  * \param[in] drcontext  The context of DynamoRIO.
- *
- * \return the created buffer.
- */
-drpttracer_buf_t *
-drpttracer_create_buffer(IN void *drcontext);
-
-DR_EXPORT
-/**
- * Destroys a drpttracer_buf_t.
- *
- * \param[in] drcontext  The context of DynamoRIO.
- * \param[in] buf  The buffer to be destroyed.
+ * \param[in] output  The output object that will be destroyed.
  */
 void
-drpttracer_delete_buffer(IN void *drcontext, IN drpttracer_buf_t *buf);
+drpttracer_destory_output(IN void *drcontext, IN drpttracer_output_t *output);
 
 #ifdef __cplusplus
 }

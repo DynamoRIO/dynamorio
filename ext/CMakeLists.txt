@@ -117,7 +117,7 @@ add_subdirectory(drutil)
 add_subdirectory(droption)
 add_subdirectory(drcovlib)
 add_subdirectory(drstatecmp)
-if (LINUX AND X86 AND X64)
+if (HAVE_LIBIPT)
   add_subdirectory(drpttracer)
 endif ()
 if (LINUX) # TODO i#2414: Port to Windows, Mac, and Android.
