@@ -99,7 +99,7 @@ drpttracer_end_tracing(). When the tracing is stopped, the stop function will al
 instance of #drpttracer_output_t, and copy the PT data, sideband data, and metadata to an
 #drpttracer_output_t instance. Then return the instance to the client. The client can dump
 the data in the output to different files for offline post-processing. And the user can
-use #pt2ir_t to convert the PT trace to DynamoRIO's IR.
+use the library drpt2ir in drcachesim to convert the PT trace to DynamoRIO's IR.
 
 Also, \p drpttracer provides a function to destory the output instance:
 
