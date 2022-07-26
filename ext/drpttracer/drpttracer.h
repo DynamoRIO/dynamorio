@@ -56,23 +56,31 @@ extern "C" {
 #    define INOUT // nothing
 #endif
 
+#define END_PACKED_STRUCTURE __attribute__((__packed__))
+
 /**
- * The type of PT trace's metadata. This type is used to initialize the PT config and PT
+ * The type of PT trace's metadata.
+ *
+ * \note drpttracer use cpuid instruction to get the cpu_family, cpu_model and
+ * cpu_stepping. The cpu_family, cpu_model and cpu_stepping are used to initialize the PT
+ * config of drpt2ir when decoding a PT trace.
+ *
+ * \note drpttracer get the time_shift, time_mult and time_zero from the opened perf event
+ * file's head. The time_shift, time_mult and time_zero are used to initialize the PT
  * sideband config of drpt2ir when decoding a PT trace.
  */
-typedef struct __attribute__((__packed__)) _pt_metadata_t {
-    /** The CPU family. */
-    uint16_t cpu_family;
-    /** The CPU mode. */
-    uint8_t cpu_model;
-    /** The CPU stepping. */
-    uint8_t cpu_stepping;
+typedef struct _pt_metadata_t {
+    uint16_t cpu_family; /**< The CPU family. */
+    uint8_t cpu_model; /**< The CPU mode. */
+    uint8_t cpu_stepping; /**< The CPU stepping. */
+
     /**
      * The time shift. It is used to synchronize trace time, and the sideband recodes
      * time.
      * \note time_shift = perf_event_mmap_page.time_shift
      */
     uint16_t time_shift;
+
     /**
      * The time multiplier. It is used to synchronize trace time, and the sideband
      * recodes time.
@@ -86,7 +94,7 @@ typedef struct __attribute__((__packed__)) _pt_metadata_t {
      * \note time_zero = perf_event_mmap_page.time_zero
      */
     uint64_t time_zero;
-} pt_metadata_t;
+} END_PACKED_STRUCTURE pt_metadata_t;
 
 /**
  * The storage container type of a drpttracer's output.
@@ -94,7 +102,7 @@ typedef struct __attribute__((__packed__)) _pt_metadata_t {
  * sideband data. These data can be dumped into different files. These files can be the
  * inputs of drpt2ir, which decodes the PT data into Dynamorio's IR.
  */
-typedef struct _drpttracer_buf_t {
+typedef struct _drpttracer_output_t {
     pt_metadata_t metadata;   /**< The PT trace's metadata. */
     void *pt_buf;             /**< The PT trace's buffer pointer. */
     size_t pt_buf_size;       /**< The buffer size of PT trace. */
@@ -150,21 +158,27 @@ typedef enum {
     /** Operation failed: failed to start tracing. */
     DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
     /** Operation failed: failed to stop tracing. */
-    DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING
+    DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING,
+    /** Operation failed: failed to read trace. */
+    DRPTTRACER_ERROR_FAILED_TO_READ_TRACE,
+    /** Operation failed: failed to read sideband data. */
+    DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA
 } drpttracer_status_t;
 
 /**
  * The tracing modes for drpttracer_start_tracing().
+ *
+ * XXX: The sideband data collected in DRPTTRACER_TRACING_ONLY_USER and
+ * DRPTTRACER_TRACING_USER_AND_KERNEL modes don't include the initialization mmap2 event
+ * records. So that it will cause the drpt2ir to fail to find the images, the user can not
+ * use the sideband converter mode.
  */
 typedef enum {
-    /** If drpttracer is set to work in this mode, it will trace in userspace. */
+    /** Trace only userspace instructions. */
     DRPTTRACER_TRACING_ONLY_USER,
-    /** If drpttracer is set to work in this mode, it will trace in kernel. */
+    /** Trace only kernel instructions. */
     DRPTTRACER_TRACING_ONLY_KERNEL,
-    /**
-     * If drpttracer is set to work in this mode, it will trace in both userspace and
-     * kernel.
-     */
+    /** Trace both userspace and kernel instructions. */
     DRPTTRACER_TRACING_USER_AND_KERNEL
 } drpttracer_tracing_mode_t;
 
@@ -183,11 +197,21 @@ DR_EXPORT
  *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
  *
  * \note The PT trace's buffer and sideband data's buffer are all ring buffers. So Intel
- * PT will overwrite the oldest data when the buffer is full.
+ * PT will overwrite the oldest data when the buffer is full. The caller needs to make
+ * sure the buffer is large enough to hold the data. Overflows in the ring buffer will
+ * overwrite old data, which may cause issues during decoding, e.g. pt2ir may be unable to
+ * decode partial PT traces, or some entry may be partially overwritten (ideally, we
+ * should read backwards).
+ * XXX: Handling perf data or PT data in ring buffers is complicated. To ensure easier
+ * work for the post-processor, if the ring buffer contains overwritten data, the caller
+ * will not be able to get the data when calling drpttracer_end_tracing() and
+ * drpttracer_end_tracing() will return an error status code.
  *
  * \note Each tracing corresponds to a trace_handle. When calling
  * drpttracer_start_tracing(), the caller will get a tracer_handle. And the caller can
  * stop tracing by passing it to drpttracer_end_tracing().
+ *
+ * \note For one thread, only one tracing can execute at the same time.
  *
  * \return the status code.
  */
@@ -203,17 +227,20 @@ DR_EXPORT
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] tracer_handle  The tracer handle.
  * \param[out] output  The output of PT tracing. This function will allocate
- * and fill this output. It will copy the PT trace to the pt_buff of the output. When the
+ * and fill this output. It will copy the PT trace to the pt_buf of the output. When the
  * tracing mode is #DRPTTRACER_TRACING_ONLY_USER or #DRPTTRACER_TRACING_USER_AND_KERNEL,
- * the PT sideband data will be copy to the sideband_buf of the output. When the tracing
+ * the PT sideband data will be copied to the sideband_buf of the output. When the tracing
  * mode is #DRPTTRACER_TRACING_ONLY_KERNEL, it will not copy the sideband data to the
  * buffer.
  *
- * \note The output data can be dumped into different files. After offline tracings are
- * done, drpt2trace can use these files to decode the offline tracings.
+ * \note If the buffer size that setting in drpttracer_start_tracing() is not enough,
+ * this function will return an error status code.
+ *
+ * \note The caller can dump the output data to files. After online tracing is done,
+ * drpt2trace can use these files to decode the online PT trace.
  *
  * \note The caller doesn't need to allocate the output object, but it needs to free the
- * output object.
+ * output object using drpttracer_destory_output.
  *
  * \return the status code.
  */

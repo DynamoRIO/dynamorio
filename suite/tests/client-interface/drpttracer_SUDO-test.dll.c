@@ -31,10 +31,8 @@
  */
 
 /* The drpttracer extension's tests.
- * XXX: This version only tests whether the function of the tracer can output data. The
- * tests of whether the output data is correct will come on the next version. This version
- * only tests whether the function of the tracer can output data. The tests of whether the
- * output data is correct will come on the next version.
+ * TODO i#5505: This version only tests whether the function of the tracer can output
+ * data. The tests of whether the output data is correct will come on the next version.
  */
 
 #include <string.h>
@@ -46,7 +44,7 @@
 typedef struct _per_thread_t {
     /* Initialize the tracer_handle before each syscall, and free it after each syscall.
      */
-    void *tracer_handle;
+    void *current_trace_handle;
     /* The number of recorded syscalls. */
     int recorded_syscall_num;
 } per_thread_t;
@@ -130,9 +128,9 @@ event_thread_exit(void *drcontext)
     /* If the thread's last syscall doesn't trigger post_syscall event, we need to end the
      * tracing manually.
      */
-    if (pt->tracer_handle != NULL) {
+    if (pt->current_trace_handle != NULL) {
         end_tracing_and_dump_trace(drcontext);
-        pt->tracer_handle = NULL;
+        pt->current_trace_handle = NULL;
     }
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
@@ -152,13 +150,14 @@ event_pre_syscall(void *drcontext, int sysnum)
      * XXX: We don't stop tracing when the application's system call returns. So we might
      * trace some system calls called by Dynamorio's internal code.
      */
-    if (pt->tracer_handle != NULL) {
+    if (pt->current_trace_handle != NULL) {
         end_tracing_and_dump_trace(drcontext);
-        pt->tracer_handle = NULL;
+        pt->current_trace_handle = NULL;
     }
+
     /* Start trace before syscall. */
     bool ok = drpttracer_start_tracing(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL, 8, 8,
-                                       &pt->tracer_handle) == DRPTTRACER_SUCCESS;
+                                       &pt->current_trace_handle) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_start_tracing failed");
     return true;
 }
@@ -167,47 +166,28 @@ static void
 event_post_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    /* If the syscall doesn't trigger pre_syscall event, we need to skip it. */
-    if (pt->tracer_handle == NULL) {
-        return;
-    }
+    CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
+
     /* End trace after syscall. */
     end_tracing_and_dump_trace(drcontext);
-    pt->tracer_handle = NULL;
+    pt->current_trace_handle = NULL;
 }
 
 static void
 end_tracing_and_dump_trace(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    CHECK(pt->tracer_handle != NULL, "tracer_handle is NULL");
+    CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
     drpttracer_output_t *output;
-    bool ok = drpttracer_end_tracing(drcontext, pt->tracer_handle, &output) ==
+    bool ok = drpttracer_end_tracing(drcontext, pt->current_trace_handle, &output) ==
         DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_end_tracing failed");
     pt->recorded_syscall_num++;
 
-    /* Dump the PT trace data to threadid.syscall_id.pt. */
-    char pt_filename[MAXIMUM_PATH];
-    dr_snprintf(pt_filename, MAXIMUM_PATH, "%d.%d.pt", dr_get_thread_id(drcontext),
-                pt->recorded_syscall_num);
-    file_t pt_file = dr_open_file(pt_filename, DR_FILE_WRITE_OVERWRITE);
-    CHECK(pt_file != INVALID_FILE, "dr_open_file failed");
-    CHECK(output->pt_buf_size ==
-              dr_write_file(pt_file, output->pt_buf, output->pt_buf_size),
-          "dr_write_file failed");
-    dr_close_file(pt_file);
-
-    /* Dump the PT trace's metadata to threadid.syscall_id.pt. */
-    char pt_metadata_filename[MAXIMUM_PATH];
-    dr_snprintf(pt_metadata_filename, MAXIMUM_PATH, "%d.%d.pt.metadata",
-                dr_get_thread_id(drcontext), pt->recorded_syscall_num);
-    file_t pt_metadata_file = dr_open_file(pt_metadata_filename, DR_FILE_WRITE_OVERWRITE);
-    CHECK(pt_metadata_file != INVALID_FILE, "dr_open_file failed");
-    CHECK(sizeof(pt_metadata_t) ==
-              dr_write_file(pt_metadata_file, &(output->metadata), sizeof(pt_metadata_t)),
-          "dr_write_file failed");
-    dr_close_file(pt_metadata_file);
+    CHECK(output->pt_buf != NULL, "PT trace data is NULL");
+    CHECK(output->pt_buf_size != 0, "PT trace data size is 0");
+    CHECK(output->sideband_buf == NULL, "PT's sideband data is not NULL");
+    CHECK(output->sideband_buf_size == 0, "PT's sideband data size is not 0");
 
     drpttracer_destory_output(drcontext, output);
 }
