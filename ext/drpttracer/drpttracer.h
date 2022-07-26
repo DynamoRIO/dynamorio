@@ -70,8 +70,8 @@ extern "C" {
  * sideband config of drpt2ir when decoding a PT trace.
  */
 typedef struct _pt_metadata_t {
-    uint16_t cpu_family; /**< The CPU family. */
-    uint8_t cpu_model; /**< The CPU mode. */
+    uint16_t cpu_family;  /**< The CPU family. */
+    uint8_t cpu_model;    /**< The CPU mode. */
     uint8_t cpu_stepping; /**< The CPU stepping. */
 
     /**
