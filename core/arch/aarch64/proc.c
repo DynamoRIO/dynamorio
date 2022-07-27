@@ -159,7 +159,7 @@ proc_has_feature(feature_bit_t f)
      */
 #    if defined(BUILD_TESTS)
     if (f == FEATURE_LSE || f == FEATURE_RDM || f == FEATURE_FP16 ||
-        f == FEATURE_DotProd || f == FEATURE_SVE || f == FEATURE_LOR)
+        f == FEATURE_DotProd || f == FEATURE_SVE || f == FEATURE_LOR || f == FEATURE_FHM)
         return true;
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;

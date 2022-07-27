@@ -753,6 +753,31 @@ encode_opnd_dq_plus(int add, int rpos, int qpos, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
+/* sd: used for sd0, sd5, sd16 */
+
+static inline bool
+decode_opnd_sd(int rpos, int qpos, uint enc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg((TEST(1U << qpos, enc) ? DR_REG_D0 : DR_REG_S0) +
+                            (extract_uint(enc, rpos, rpos + 5) % 32));
+    return true;
+}
+
+static inline bool
+encode_opnd_sd(int rpos, int qpos, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    bool d;
+    if (!opnd_is_reg(opnd))
+        return false;
+    d = (uint)(opnd_get_reg(opnd) - DR_REG_D0) < 32;
+    num = opnd_get_reg(opnd) - (d ? DR_REG_D0 : DR_REG_S0);
+    if (num >= 32)
+        return false;
+    *enc_out = (num % 32) << rpos | (uint)d << qpos;
+    return true;
+}
+
 /* index: used for opnd_index0, ..., opnd_index3 */
 
 static bool
@@ -1271,7 +1296,7 @@ encode_opnd_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return false;
 }
 
-/* b_const_sz: Operand size for byte elements
+/* b_const_sz: Operand size for byte vector elements
  */
 static inline bool
 decode_opnd_b_const_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -1291,7 +1316,27 @@ encode_opnd_b_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return false;
 }
 
-/* s_const_sz: Operand size for single (32-bit) element
+/* h_const_sz: Operand size for half (16-bit) vector elements
+ */
+static inline bool
+decode_opnd_h_const_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_h_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_HALF)
+        return true;
+    return false;
+}
+
+/* s_const_sz: Operand size for single (32-bit) vector element
  */
 static inline bool
 decode_opnd_s_const_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -1311,7 +1356,7 @@ encode_opnd_s_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return false;
 }
 
-/* d_const_sz: Operand size for double elements
+/* d_const_sz: Operand size for double (64 bit) vector elements
  */
 static inline bool
 decode_opnd_d_const_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -4241,6 +4286,20 @@ encode_opnd_dq0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_dq_plus(0, 0, 30, opnd, enc_out);
 }
 
+/* sd0: S/D register at bit position 0; bit 30 selects D reg */
+
+static inline bool
+decode_opnd_sd0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_sd(0, 30, enc, opnd);
+}
+
+static inline bool
+encode_opnd_sd0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_sd(0, 30, opnd, enc_out);
+}
+
 /* dq0p1: as dq0 but add 1 mod 32 to reg number */
 
 static inline bool
@@ -4353,6 +4412,20 @@ encode_opnd_dq5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_dq_plus(0, 5, 30, opnd, enc_out);
 }
 
+/* sd5: S/D register at bit position 5; bit 30 selects D reg */
+
+static inline bool
+decode_opnd_sd5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_sd(5, 30, enc, opnd);
+}
+
+static inline bool
+encode_opnd_sd5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_sd(5, 30, opnd, enc_out);
+}
+
 /* index2: index of S subreg in Q register: 0-3 */
 
 static inline bool
@@ -4459,6 +4532,20 @@ static inline bool
 encode_opnd_dq16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_dq_plus(0, 16, 30, opnd, enc_out);
+}
+
+/* sd16: S/D register at bit position 16; bit 30 selects D reg */
+
+static inline bool
+decode_opnd_sd16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_sd(16, 30, enc, opnd);
+}
+
+static inline bool
+encode_opnd_sd16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_sd(16, 30, opnd, enc_out);
 }
 
 /* imm6: shift amount for logical and arithmetical instructions */
