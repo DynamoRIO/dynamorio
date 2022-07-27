@@ -318,8 +318,6 @@ fmulx  %q22 %q20 $0x03 -> %q30
 fcmeq  %d14 %d0 $0x02 -> %d27
 fcmeq  %q14 %q0 $0x02 -> %q27
 fcmeq  %q14 %q0 $0x03 -> %q27
-fmlal  %d0 %d29 %d31 -> %d0
-fmlal  %q0 %q29 %q31 -> %q0
 fmax   %d21 %d20 $0x02 -> %d2
 fmax   %q21 %q20 $0x02 -> %q2
 fmax   %q21 %q20 $0x03 -> %q2
@@ -339,8 +337,6 @@ fmls   %q4 %q31 %q29 $0x03 -> %q4
 fsub   %d8 %d26 $0x02 -> %d25
 fsub   %q8 %q26 $0x02 -> %q25
 fsub   %q8 %q26 $0x03 -> %q25
-fmlsl  %d0 %d29 %d31 -> %d0
-fmlsl  %q0 %q29 %q31 -> %q0
 fmin   %d24 %d31 $0x02 -> %d22
 fmin   %q24 %q31 $0x02 -> %q22
 fmin   %q24 %q31 $0x03 -> %q22
@@ -490,8 +486,6 @@ sqrdmulh %q29 %q27 $0x02 -> %q23
 fmaxnmp %d18 %d29 $0x02 -> %d12
 fmaxnmp %q18 %q29 $0x02 -> %q12
 fmaxnmp %q18 %q29 $0x03 -> %q12
-fmlal2 %d0 %d29 %d31 -> %d0
-fmlal2 %q0 %q29 %q31 -> %q0
 faddp  %d31 %d16 $0x02 -> %d18
 faddp  %q31 %q16 $0x02 -> %q18
 faddp  %q31 %q16 $0x03 -> %q18
@@ -517,8 +511,6 @@ bsl    %q4 %q25 -> %q20
 fminnmp %d18 %d11 $0x02 -> %d23
 fminnmp %q18 %q11 $0x02 -> %q23
 fminnmp %q18 %q11 $0x03 -> %q23
-fmlsl2 %d0 %d29 %d31 -> %d0
-fmlsl2 %q0 %q29 %q31 -> %q0
 fabd   %d10 %d19 $0x02 -> %d15
 fabd   %q10 %q19 $0x02 -> %q15
 fabd   %q10 %q19 $0x03 -> %q15

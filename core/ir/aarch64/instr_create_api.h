@@ -1232,8 +1232,9 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlal_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlal, Rd, Rd, Rm, Rn)
+#define INSTR_CREATE_fmlal_vector(dc, Rd, Rm, Rn)                              \
+    instr_create_1dst_5src(dc, OP_fmlal, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
+                           OPND_CREATE_HALF())
 
 /**
  * Creates a FMAX vector instruction.
@@ -1322,8 +1323,9 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlsl_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlsl, Rd, Rd, Rm, Rn)
+#define INSTR_CREATE_fmlsl_vector(dc, Rd, Rm, Rn)                              \
+    instr_create_1dst_5src(dc, OP_fmlsl, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
+                           OPND_CREATE_HALF())
 
 /**
  * Creates a FMIN vector instruction.
@@ -1699,8 +1701,9 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlal2_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlal2, Rd, Rd, Rm, Rn)
+#define INSTR_CREATE_fmlal2_vector(dc, Rd, Rm, Rn)                              \
+    instr_create_1dst_5src(dc, OP_fmlal2, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
+                           OPND_CREATE_HALF())
 
 /**
  * Creates a FADDP vector instruction.
@@ -1813,8 +1816,9 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlsl2_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn)
+#define INSTR_CREATE_fmlsl2_vector(dc, Rd, Rm, Rn)                              \
+    instr_create_1dst_5src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
+                           OPND_CREATE_HALF())
 
 /**
  * Creates a FABD vector instruction.
