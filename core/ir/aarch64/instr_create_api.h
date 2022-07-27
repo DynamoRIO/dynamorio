@@ -2266,6 +2266,17 @@
     instr_create_1dst_1src(dc, OP_frintn, Rd, Rm)
 
 /**
+ * Creates a FRINTN vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintn_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintn, Rd, Rm, width)
+
+/**
  * Creates a FRINTP floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2273,6 +2284,17 @@
  */
 #define INSTR_CREATE_frintp_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frintp, Rd, Rm)
+
+/**
+ * Creates a FRINTP vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintp_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintp, Rd, Rm, width)
 
 /**
  * Creates a FRINTM floating point instruction.
@@ -2284,6 +2306,17 @@
     instr_create_1dst_1src(dc, OP_frintm, Rd, Rm)
 
 /**
+ * Creates a FRINTM vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintm_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintm, Rd, Rm, width)
+
+/**
  * Creates a FRINTZ floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2291,6 +2324,17 @@
  */
 #define INSTR_CREATE_frintz_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frintz, Rd, Rm)
+
+/**
+ * Creates a FRINTZ vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintz_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintz, Rd, Rm, width)
 
 /**
  * Creates a FRINTA floating point instruction.
@@ -2302,6 +2346,17 @@
     instr_create_1dst_1src(dc, OP_frinta, Rd, Rm)
 
 /**
+ * Creates a FRINTA vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frinta_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frinta, Rd, Rm, width)
+
+/**
  * Creates a FRINTX floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2311,6 +2366,17 @@
     instr_create_1dst_1src(dc, OP_frintx, Rd, Rm)
 
 /**
+ * Creates a FRINTX vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintx_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintx, Rd, Rm, width)
+
+/**
  * Creates a FRINTI floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2318,6 +2384,17 @@
  */
 #define INSTR_CREATE_frinti_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frinti, Rd, Rm)
+
+/**
+ * Creates a FRINTI vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frinti_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frinti, Rd, Rm, width)
 
 /**
  * Creates a LDPSW floating point instruction.
