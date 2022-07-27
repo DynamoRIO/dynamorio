@@ -68,6 +68,7 @@
 --------------------------------  h_sz       # element width of FP vector reg, used to
                                              # distinguish FP16 and float/double encs
 --------------------------------  b_const_sz # as above, but for byte width
+--------------------------------  h_const_sz # as above, but for half width
 --------------------------------  s_const_sz # as above, but for single width
 --------------------------------  d_const_sz # as above, but for double width
 --------------------------------  vindex_D1  # An implicit index, at index 1
@@ -200,6 +201,7 @@
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
+-x-------------------------xxxxx  sd0        # D register if bit 30 is set, else S
 -x-------------------------xxxxx  dq0p1      # ... add 1
 -x-------------------------xxxxx  dq0p2      # ... add 2
 -x-------------------------xxxxx  dq0p3      # ... add 3
@@ -208,12 +210,14 @@
 -x-------------------------xxxxx  vt2        # ... add 2
 -x-------------------------xxxxx  vt3        # ... add 3
 -x--------------------xxxxx-----  dq5        # Q register if bit 30 is set, else D
+-x--------------------xxxxx-----  sd5        # D register if bit 30 is set, else S
 -x-----------------x------------  index2     # index of S subreg in Q: 0-3
 -x-----------------xx-----------  index1     # index of H subreg in Q: 0-7
 -x-----------------xxx----------  index0     # index of B subreg in Q: 0-15
 -x--------------????--xxxxx-----  memvm      # computes multiplier from 15:12
 -x----------xxxx----------------  dq16_h_sz # Q register (0-15) if bit 30 is set, else D
 -x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
+-x---------xxxxx----------------  sd16       # D register if bit 30 is set, else S
 ?---------------xxxxxx----------  imm6       # shift amount
 ?---------------xxxxxx----------  imms       # bitfield immediate, checks 31
 ?---------xxxxxx----------------  immr       # bitfield immediate, checks 31
