@@ -45,8 +45,6 @@ typedef struct _per_thread_t {
     /* Initialize the tracer_handle before each syscall, and free it after each syscall.
      */
     void *current_trace_handle;
-    /* The number of recorded syscalls. */
-    int recorded_syscall_num;
 } per_thread_t;
 
 static int tls_idx;
@@ -126,7 +124,7 @@ event_thread_exit(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     /* If the thread's last syscall doesn't trigger post_syscall event, we need to end the
-     * tracing manually.
+     * tracing manually. (e.g. The 'exit_group' syscall.)
      */
     if (pt->current_trace_handle != NULL) {
         end_tracing_and_dump_trace(drcontext);
@@ -147,8 +145,8 @@ event_pre_syscall(void *drcontext, int sysnum)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     /* If last syscall doesn't trigger post_syscall event, we need to stop its tracing
      * here.
-     * XXX: We don't stop tracing when the application's system call returns. So we might
-     * trace some system calls called by Dynamorio's internal code.
+     * XXX: In this case, We don't stop tracing when the application's system call
+     * returns. So we might trace some system calls called by Dynamorio's internal code.
      */
     if (pt->current_trace_handle != NULL) {
         end_tracing_and_dump_trace(drcontext);
@@ -182,7 +180,6 @@ end_tracing_and_dump_trace(void *drcontext)
     bool ok = drpttracer_end_tracing(drcontext, pt->current_trace_handle, &output) ==
         DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_end_tracing failed");
-    pt->recorded_syscall_num++;
 
     CHECK(output->pt_buf != NULL, "PT trace data is NULL");
     CHECK(output->pt_buf_size != 0, "PT trace data size is 0");
