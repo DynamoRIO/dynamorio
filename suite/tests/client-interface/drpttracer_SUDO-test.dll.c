@@ -68,7 +68,7 @@ static void
 event_post_syscall(void *drcontext, int sysnum);
 
 static void
-end_tracing_and_dump_trace(void *drcontext);
+end_tracing_and_check_trace(void *drcontext);
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -127,7 +127,7 @@ event_thread_exit(void *drcontext)
      * tracing manually. (e.g. The 'exit_group' syscall.)
      */
     if (pt->current_trace_handle != NULL) {
-        end_tracing_and_dump_trace(drcontext);
+        end_tracing_and_check_trace(drcontext);
         pt->current_trace_handle = NULL;
     }
     dr_thread_free(drcontext, pt, sizeof(*pt));
@@ -149,7 +149,7 @@ event_pre_syscall(void *drcontext, int sysnum)
      * returns. So we might trace some system calls called by Dynamorio's internal code.
      */
     if (pt->current_trace_handle != NULL) {
-        end_tracing_and_dump_trace(drcontext);
+        end_tracing_and_check_trace(drcontext);
         pt->current_trace_handle = NULL;
     }
 
@@ -167,12 +167,12 @@ event_post_syscall(void *drcontext, int sysnum)
     CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
 
     /* End trace after syscall. */
-    end_tracing_and_dump_trace(drcontext);
+    end_tracing_and_check_trace(drcontext);
     pt->current_trace_handle = NULL;
 }
 
 static void
-end_tracing_and_dump_trace(void *drcontext)
+end_tracing_and_check_trace(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
@@ -186,5 +186,5 @@ end_tracing_and_dump_trace(void *drcontext)
     CHECK(output->sideband_buf == NULL, "PT's sideband data is not NULL");
     CHECK(output->sideband_buf_size == 0, "PT's sideband data size is not 0");
 
-    drpttracer_destory_output(drcontext, output);
+    drpttracer_destroy_output(drcontext, output);
 }

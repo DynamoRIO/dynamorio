@@ -66,7 +66,7 @@
 
 /* drpttracer supports multiple types of tracing. To avoid the overhead of re-initializing
  * perf_event_attr for each request, drpttracer stores all tracing types' perf_event_attr
- * as global static variables, then drpttracer can directly use them when the caller want
+ * as global static variables, then drpttracer can directly use them when the caller wants
  * to start tracing.
  */
 static struct perf_event_attr user_only_pe_attr;
@@ -85,6 +85,9 @@ static pt_metadata_t pt_shared_metadata;
 static bool
 read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size)
 {
+    ASSERT(filename != NULL, "filename is NULL");
+    ASSERT(buf != NULL, "buf is NULL");
+    ASSERT(buf_size != NULL, "buf_size is NULL");
     char *local_buf = NULL;
     uint64_t local_buf_size = 0;
     file_t f = dr_open_file(filename, DR_FILE_READ);
@@ -100,7 +103,10 @@ read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size
     }
 
     local_buf = (char *)dr_global_alloc(local_buf_size);
-    if (!dr_read_file(f, local_buf, local_buf_size)) {
+    /* XXX: When read files in /sys/devices/intel_pt/, the value returned from
+     * dr_read_file(file_size) doesn't equals to dr_file_size().
+     */
+    if (dr_read_file(f, local_buf, local_buf_size) == 0) {
         ERRMSG("failed to read file %s\n", filename);
         dr_global_free(local_buf, local_buf_size);
         dr_close_file(f);
@@ -153,6 +159,7 @@ get_cpu_info(int *cpu_family, int *cpu_model, int *cpu_stepping)
 static bool
 parse_pt_pmu_type(OUT uint32_t *pmu_type)
 {
+    ASSERT(pmu_type != NULL, "pmu_type is NULL");
     /* Read type str from /sys/devices/intel_pt/type. */
     char *buf = NULL;
     uint64_t buf_size = 0;
@@ -206,7 +213,7 @@ parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *confi
     }
 
 #define BITS(x) ((x) == 64 ? -1ULL : (1ULL << (x)) - 1)
-    /* Set the 'val' to the corresponding bit. */
+    /* Set the 'val' in the corresponding bit. */
     uint64_t mask = BITS(end - start + 1);
     if ((val & ~mask) > 0) {
         ERRMSG("pmu event's config value %" PRIu64 " is out of range\n", val);
@@ -250,6 +257,7 @@ parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *confi
 static bool
 pt_perf_event_attr_init(bool user, bool kernel, OUT struct perf_event_attr *attr)
 {
+    ASSERT(attr != NULL, "attr is NULL");
     ASSERT(user || kernel, "user and kernel are all false");
     memset(attr, 0, sizeof(struct perf_event_attr));
     attr->size = sizeof(struct perf_event_attr);
@@ -323,26 +331,29 @@ pt_shared_metadata_init(pt_metadata_t *metadata)
  */
 
 /* The PT trace handle. The handle is used to store information about the currently active
- * tracing. And the handle's data fields is transparent to the caller.
+ * tracing. And the handle's data fields are opaque to the caller.
  */
 typedef struct _pttracer_handle_t {
     /* The file descriptor of the perf event. */
     int fd;
-    /* The perf event file's mmap pages.
-     * The mmap pages stores the header page and the perf event's ring buffer.
-     */
-    void *base;
+
     /* The size of the perf event file's mmap pages.
      *  base_size = sizeof(header page) + sizeof(event ring buffer)
      */
     int base_size;
-    /* The header of the perf event file's mmap pages.
-     * The header is located at the beginning of the mmap pages.
-     * And it stores the all ring buffers' offset, size, head and tail.
-     * Also, it contains the perf event's meta data:
-     *  time_shift, time_mult, and time_zero.
-     */
-    struct perf_event_mmap_page *header;
+    union {
+        /* The perf event file's mmap pages.
+         * The mmap pages stores the header page and the perf event's ring buffer.
+         */
+        void *base;
+        /* The header of the perf event file's mmap pages.
+         * The header is located at the beginning of the mmap pages.
+         * And it stores the all ring buffers' offset, size, head and tail.
+         * Also, it contains the perf event's meta data:
+         *  time_shift, time_mult, and time_zero.
+         */
+        struct perf_event_mmap_page *header;
+    };
     /* The ring buffer of the perf event's auxiliary data.
      *  sizeof(aux ring buffer) = header->aux_size.
      */
@@ -397,7 +408,6 @@ pttracer_handle_create(IN void *drcontext, IN int fd, IN uint pt_size_shift,
     handle->fd = fd;
     handle->base = base;
     handle->base_size = base_size;
-    handle->header = header;
     handle->aux = aux;
     handle->tracing_mode = tracing_mode;
     return handle;
@@ -467,6 +477,7 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle)
 {
+    ASSERT(tracer_handle != NULL, "tracer_handle is NULL");
     /* Select one perf_event_attr for current tracing. */
     struct perf_event_attr attr;
     if (mode == DRPTTRACER_TRACING_ONLY_USER) {
@@ -576,7 +587,7 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
 
 DR_EXPORT
 void
-drpttracer_destory_output(IN void *drcontext, IN drpttracer_output_t *output)
+drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
 {
     ASSERT(output != NULL, "trying to free NULL output buffer");
     ASSERT(output->pt_buf != NULL, "trying to free NULL PT buffer");

@@ -103,7 +103,7 @@ use the library drpt2ir in drcachesim to convert the PT trace to DynamoRIO's IR.
 
 Also, \p drpttracer provides a function to destory the output instance:
 
- - drpttracer_destory_output()
+ - drpttracer_destroy_output()
 
 The client can use this function to destory the output instance after using it.
 

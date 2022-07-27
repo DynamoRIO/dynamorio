@@ -43,7 +43,6 @@ set(DynamoRIO_USE_LIBC ON)
 
 set(srcs
   drpttracer.c
-  # add more here
 )
 
 set(srcs_static ${srcs})

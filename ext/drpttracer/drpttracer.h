@@ -61,13 +61,13 @@ extern "C" {
 /**
  * The type of PT trace's metadata.
  *
- * \note drpttracer use cpuid instruction to get the cpu_family, cpu_model and
+ * \note drpttracer uses cpuid instruction to get the cpu_family, cpu_model and
  * cpu_stepping. The cpu_family, cpu_model and cpu_stepping are used to initialize the PT
  * config of drpt2ir when decoding a PT trace.
  *
- * \note drpttracer get the time_shift, time_mult and time_zero from the opened perf event
- * file's head. The time_shift, time_mult and time_zero are used to initialize the PT
- * sideband config of drpt2ir when decoding a PT trace.
+ * \note drpttracer gets the time_shift, time_mult and time_zero from the opened perf
+ * event file's head. The time_shift, time_mult and time_zero are used to initialize the
+ * PT sideband config of drpt2ir when decoding a PT trace.
  */
 typedef struct _pt_metadata_t {
     uint16_t cpu_family;  /**< The CPU family. */
@@ -75,22 +75,22 @@ typedef struct _pt_metadata_t {
     uint8_t cpu_stepping; /**< The CPU stepping. */
 
     /**
-     * The time shift. It is used to synchronize trace time, and the sideband recodes
-     * time.
+     * The time shift. drpt2ir uses it to synchronize the time of the PT trace and
+     * sideband data.
      * \note time_shift = perf_event_mmap_page.time_shift
      */
     uint16_t time_shift;
 
     /**
-     * The time multiplier. It is used to synchronize trace time, and the sideband
-     * recodes time.
+     * The time multiplier. drpt2ir uses it to synchronize the time of the PT trace and
+     * sideband data.
      * \note time_mult = perf_event_mmap_page.time_mult
      */
     uint32_t time_mult;
 
     /**
-     * The time zero. It is used to synchronize trace time, and the sideband recodes
-     * time.
+     * The time zero. drpt2ir uses it to synchronize the time of the PT trace and sideband
+     * data.
      * \note time_zero = perf_event_mmap_page.time_zero
      */
     uint64_t time_zero;
@@ -99,8 +99,8 @@ typedef struct _pt_metadata_t {
 /**
  * The storage container type of a drpttracer's output.
  * This data struct is used by drpttracer to store PT metadata, PT trace, and
- * sideband data. These data can be dumped into different files. These files can be the
- * inputs of drpt2ir, which decodes the PT data into Dynamorio's IR.
+ * sideband data. These data can be dumped into different files by the caller. These files
+ * can be the inputs of drpt2ir, which decodes the PT data into Dynamorio's IR.
  */
 typedef struct _drpttracer_output_t {
     pt_metadata_t metadata;   /**< The PT trace's metadata. */
@@ -168,10 +168,10 @@ typedef enum {
 /**
  * The tracing modes for drpttracer_start_tracing().
  *
- * XXX: The sideband data collected in DRPTTRACER_TRACING_ONLY_USER and
- * DRPTTRACER_TRACING_USER_AND_KERNEL modes don't include the initialization mmap2 event
- * records. So that it will cause the drpt2ir to fail to find the images, the user can not
- * use the sideband converter mode.
+ * XXX: The DRPTTRACER_TRACING_ONLY_USER and DRPTTRACER_TRACING_USER_AND_KERNEL modes are
+ * not completely supported yet. The sideband data collected in these two modes do not
+ * include the initial mmap2 event recording. Therefore, if the user uses drpt2ir in
+ * sideband converter mode, drpt2ir cannot find the image and cannot decode the PT trace.
  */
 typedef enum {
     /** Trace only userspace instructions. */
@@ -240,7 +240,7 @@ DR_EXPORT
  * drpt2trace can use these files to decode the online PT trace.
  *
  * \note The caller doesn't need to allocate the output object, but it needs to free the
- * output object using drpttracer_destory_output.
+ * output object using drpttracer_destroy_output.
  *
  * \return the status code.
  */
@@ -256,7 +256,7 @@ DR_EXPORT
  * \param[in] output  The output object that will be destroyed.
  */
 void
-drpttracer_destory_output(IN void *drcontext, IN drpttracer_output_t *output);
+drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output);
 
 #ifdef __cplusplus
 }
