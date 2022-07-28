@@ -88,6 +88,9 @@ the buffer size is 2^pt_size_shift * PAGE_SIZE.
  - sideband_size_shift: The size shift of PT sideband data's ring buffer. It must be
 greater than 0, and the buffer size is 2^sideband_size_shift * PAGE_SIZE.
 
+\note Linux perf sets the buffer size to 4MiB by default. Therefore, it is best for clients
+to set trace and sideband buffers larger than 4Mib.
+
 The client must ensure that the PT trace's ring buffer and the sideband data's ring buffer
 is large enough to hold the PT data. Insufficient buffer size will lead to lost data,
 which may cause issues in pt2ir_t decoding. After the tracing is started, the

@@ -63,11 +63,11 @@ extern "C" {
  *
  * \note drpttracer uses the cpuid instruction to get the cpu_family, cpu_model and
  * cpu_stepping. The cpu_family, cpu_model and cpu_stepping are used to initialize the PT
- * config of drpt2ir when decoding a PT trace.
+ * config of pt2ir_t when decoding a PT trace.
  *
  * \note drpttracer gets the time_shift, time_mult and time_zero from the opened perf
  * event file's head. The time_shift, time_mult and time_zero are used to initialize the
- * PT sideband config of drpt2ir when decoding a PT trace.
+ * PT sideband config of pt2ir_t when decoding a PT trace.
  */
 typedef struct _pt_metadata_t {
     uint16_t cpu_family;  /**< The CPU family. */
@@ -75,23 +75,22 @@ typedef struct _pt_metadata_t {
     uint8_t cpu_stepping; /**< The CPU stepping. */
 
     /**
-     * The time shift. drpt2ir uses it to synchronize the time of the PT trace and
+     * The time shift. pt2ir_t uses it to synchronize the time of the PT trace and
      * sideband data.
      * \note time_shift = perf_event_mmap_page.time_shift
      */
     uint16_t time_shift;
 
     /**
-     * The time multiplier. drpt2ir uses it to synchronize the time of the PT trace and
+     * The time multiplier. pt2ir_t uses it to synchronize the time of the PT trace and
      * sideband data.
      * \note time_mult = perf_event_mmap_page.time_mult
      */
     uint32_t time_mult;
 
     /**
-     * The time zero. drpt2ir uses it to synchronize the time of the PT trace and sideband
-     * data.
-     * \note time_zero = perf_event_mmap_page.time_zero
+     * The time zero. pt2ir_t uses it to synchronize the time of the PT trace and
+     * sideband data. \note time_zero = perf_event_mmap_page.time_zero
      */
     uint64_t time_zero;
 } END_PACKED_STRUCTURE pt_metadata_t;
@@ -100,7 +99,7 @@ typedef struct _pt_metadata_t {
  * The storage container type of drpttracer's output.
  * This data struct is used by drpttracer to store PT metadata, PT trace, and
  * sideband data. These data can be dumped into different files by the caller. These files
- * can be the inputs of drpt2ir, which decodes the PT data into Dynamorio's IR.
+ * can be the inputs of pt2ir_t, which decodes the PT data into Dynamorio's IR.
  */
 typedef struct _drpttracer_output_t {
     pt_metadata_t metadata;   /**< The PT trace's metadata. */
@@ -166,8 +165,8 @@ typedef enum {
  *
  * XXX: The #DRPTTRACER_TRACING_ONLY_USER and #DRPTTRACER_TRACING_USER_AND_KERNEL modes
  * are not completely supported yet. The sideband data collected in these two modes do not
- * include the initial mmap2 event recording. Therefore, if the user uses drpt2ir in
- * sideband converter mode, drpt2ir cannot find the image and cannot decode the PT trace.
+ * include the initial mmap2 event recording. Therefore, if the user uses pt2ir_t in
+ * sideband converter mode, pt2ir_t cannot find the image and cannot decode the PT trace.
  */
 typedef enum {
     /** Trace only userspace instructions. */
@@ -191,9 +190,12 @@ DR_EXPORT
  * \note The size shift is used to control the size of buffers:
  *       sizeof(PT trace's buffer) = 2 ^ pt_size_shift * PAGE_SIZE.
  *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
+ * Additionally, perf sets the buffer size to 4MiB by default. Therefore, when the client
+ * uses drpttracer to trace, it is best to set the trace and sideband buffer larger than
+ * 4Mib.
  *
  * \note The client must ensure that the buffer is large enough to hold the PT data.
- * Insufficient buffer size will lead to lost data, which may cause issues in pt2ir_t
+ * Insufficient buffer size will lead to lost data, which may cause issues in #pt2ir_t
  * decoding. If we detect an overflow, drpttracer_end_tracing() will return an error code
  * #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE or
  * #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA.
@@ -231,7 +233,7 @@ DR_EXPORT
  * overwritten.
  *
  * \note The caller can dump the output data to files. After online tracing is done,
- * drpt2ir can use these files to decode the online PT trace.
+ * pt2ir_t can use these files to decode the online PT trace.
  *
  * \note The caller doesn't need to allocate the output object, but it needs to free the
  * output object using drpttracer_destroy_output().
