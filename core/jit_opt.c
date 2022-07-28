@@ -437,7 +437,7 @@ fragment_tree_delete_rebalance(fragment_tree_t *tree, bb_node_t *node)
     }
 }
 
-/* Remove the specified node from the tree and destory it. */
+/* Remove the specified node from the tree and destroy it. */
 static inline void
 fragment_tree_delete(fragment_tree_t *tree, bb_node_t *node)
 {

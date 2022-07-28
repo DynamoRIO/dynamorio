@@ -30,10 +30,7 @@
  * DAMAGE.
  */
 
-/* The drpttracer extension's tests.
- * TODO i#5505: This version only tests whether the function of the tracer can output
- * data. The tests of whether the output data is correct will come on the next version.
- */
+/* The drpttracer extension's tests. */
 
 #include <string.h>
 #include "dr_api.h"
@@ -180,11 +177,15 @@ end_tracing_and_check_trace(void *drcontext)
     bool ok = drpttracer_end_tracing(drcontext, pt->current_trace_handle, &output) ==
         DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_end_tracing failed");
-
+    /* TODO i#5505: This version only tests whether the function of the tracer can output
+     * data. The tests of whether the output data is correct will come on the next
+     * version.
+     */
     CHECK(output->pt_buf != NULL, "PT trace data is NULL");
     CHECK(output->pt_buf_size != 0, "PT trace data size is 0");
     CHECK(output->sideband_buf == NULL, "PT's sideband data is not NULL");
     CHECK(output->sideband_buf_size == 0, "PT's sideband data size is not 0");
 
-    drpttracer_destroy_output(drcontext, output);
+    ok = drpttracer_destroy_output(drcontext, output) == DRPTTRACER_SUCCESS;
+    CHECK(ok, "drpttracer_destroy_output failed");
 }

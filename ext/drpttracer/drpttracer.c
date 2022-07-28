@@ -82,6 +82,9 @@ static pt_metadata_t pt_shared_metadata;
  * UTILITY FUNCTIONS
  */
 
+/* This function will use dr_global_alloc() to allocate the buffer. So the caller needs to
+ * use dr_global_free() to free the buffer.
+ */
 static bool
 read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size)
 {
@@ -104,7 +107,7 @@ read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size
 
     local_buf = (char *)dr_global_alloc(local_buf_size);
     /* XXX: When read files in /sys/devices/intel_pt/, the value returned from
-     * dr_read_file(file_size) doesn't equals to dr_file_size().
+     * dr_read_file(file_size) doesn't equal dr_file_size().
      */
     if (dr_read_file(f, local_buf, local_buf_size) == 0) {
         ERRMSG("failed to read file %s\n", filename);
@@ -118,34 +121,6 @@ read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size
 
     dr_close_file(f);
     return true;
-}
-
-/* This function uses the cpuid instruction to get the CPU family, CPU model and CPU
- * stepping.
- */
-static void
-get_cpu_info(int *cpu_family, int *cpu_model, int *cpu_stepping)
-{
-    ASSERT(cpu_family != NULL, "cpu_family is NULL");
-    ASSERT(cpu_model != NULL, "cpu_model is NULL");
-    ASSERT(cpu_stepping != NULL, "cpu_stepping is NULL");
-    /* When set ‘eax’ equals 1, the ‘cpuid’ instruction will get the processor info and
-     * feature bits.
-     */
-    unsigned eax = 1;
-    unsigned ebx = 0, ecx = 0, edx = 0;
-
-    /* ecx is often an input as well as an output. */
-    asm volatile("cpuid"
-                 : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
-                 : "0"(eax), "2"(ecx));
-    *cpu_stepping = (eax >> 0) & 0xf;
-    *cpu_model = (eax >> 4) & 0xf;
-    *cpu_family = (eax >> 8) & 0xf;
-    if (*cpu_family == 0xf)
-        *cpu_family += (eax >> 20) & 0xff;
-    if (*cpu_family == 6 || *cpu_family == 0xf)
-        *cpu_model += ((eax >> 16) & 0xf) << 4;
 }
 
 /***************************************************************************
@@ -319,11 +294,9 @@ static void
 pt_shared_metadata_init(pt_metadata_t *metadata)
 {
     memset(metadata, 0, sizeof(pt_metadata_t));
-    int cpu_family = 0, cpu_model = 0, cpu_stepping = 0;
-    get_cpu_info(&cpu_family, &cpu_model, &cpu_stepping);
-    metadata->cpu_family = (uint16_t)cpu_family;
-    metadata->cpu_model = (uint8_t)cpu_model;
-    metadata->cpu_stepping = (uint8_t)cpu_stepping;
+    metadata->cpu_family = (uint16_t)proc_get_family();
+    metadata->cpu_model = (uint8_t)proc_get_model();
+    metadata->cpu_stepping = (uint8_t)proc_get_stepping();
 }
 
 /***************************************************************************
@@ -556,7 +529,7 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
     if (handle->header->aux_head > handle->header->aux_size) {
         ERRMSG("the buffer is full and the new PT data is overwritten\n");
         ASSERT(false, "aux_head > aux_size");
-        return DRPTTRACER_ERROR_FAILED_TO_READ_TRACE;
+        return DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE;
     }
 
     (*output)->pt_buf_size = handle->header->aux_head - handle->header->aux_tail;
@@ -567,7 +540,7 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
         if (handle->header->data_head > handle->header->data_size) {
             ERRMSG("the buffer is full and the new PT's sideband data is overwritten\n");
             ASSERT(false, "data_head > data_size");
-            return DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA;
+            return DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA;
         }
         (*output)->sideband_buf_size =
             handle->header->data_head - handle->header->data_tail;
@@ -577,6 +550,9 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
                (uint8_t *)handle->base + handle->header->data_tail,
                (*output)->sideband_buf_size);
     } else {
+        /* Even only tracing kernel instructions, there are some sideband data. Because we
+         * don't need this data in future processes, we discard it.
+         */
         (*output)->sideband_buf = NULL;
         (*output)->sideband_buf_size = 0;
     }
@@ -586,14 +562,21 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
 }
 
 DR_EXPORT
-void
+drpttracer_status_t
 drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
 {
-    ASSERT(output != NULL, "trying to free NULL output buffer");
-    ASSERT(output->pt_buf != NULL, "trying to free NULL PT buffer");
+    if (output == NULL) {
+        ASSERT(false, "trying to free NULL output buffer");
+        return DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_OUTPUT;
+    }
+    if (output->pt_buf == NULL) {
+        ASSERT(false, "trying to free NULL PT buffer");
+        return DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_PT_BUF;
+    }
     dr_thread_free(drcontext, output->pt_buf, output->pt_buf_size);
     if (output->sideband_buf != NULL) {
         dr_thread_free(drcontext, output->sideband_buf, output->sideband_buf_size);
     }
     dr_thread_free(drcontext, output, sizeof(drpttracer_output_t));
+    return DRPTTRACER_SUCCESS;
 }

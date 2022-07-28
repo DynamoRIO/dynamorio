@@ -61,7 +61,7 @@ extern "C" {
 /**
  * The type of PT trace's metadata.
  *
- * \note drpttracer uses cpuid instruction to get the cpu_family, cpu_model and
+ * \note drpttracer uses the cpuid instruction to get the cpu_family, cpu_model and
  * cpu_stepping. The cpu_family, cpu_model and cpu_stepping are used to initialize the PT
  * config of drpt2ir when decoding a PT trace.
  *
@@ -97,7 +97,7 @@ typedef struct _pt_metadata_t {
 } END_PACKED_STRUCTURE pt_metadata_t;
 
 /**
- * The storage container type of a drpttracer's output.
+ * The storage container type of drpttracer's output.
  * This data struct is used by drpttracer to store PT metadata, PT trace, and
  * sideband data. These data can be dumped into different files by the caller. These files
  * can be the inputs of drpt2ir, which decodes the PT data into Dynamorio's IR.
@@ -159,17 +159,21 @@ typedef enum {
     DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
     /** Operation failed: failed to stop tracing. */
     DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING,
-    /** Operation failed: failed to read trace. */
-    DRPTTRACER_ERROR_FAILED_TO_READ_TRACE,
-    /** Operation failed: failed to read sideband data. */
-    DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA
+    /** Operation failed: overwritten PT trace. */
+    DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE,
+    /** Operation failed: overwritten sideband data. */
+    DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA,
+    /** Operation failed: trying to free null output buffer. */
+    DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_OUTPUT,
+    /** Operation failed: trying to free null PT buffer. */
+    DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_PT_BUF
 } drpttracer_status_t;
 
 /**
  * The tracing modes for drpttracer_start_tracing().
  *
- * XXX: The DRPTTRACER_TRACING_ONLY_USER and DRPTTRACER_TRACING_USER_AND_KERNEL modes are
- * not completely supported yet. The sideband data collected in these two modes do not
+ * XXX: The #DRPTTRACER_TRACING_ONLY_USER and #DRPTTRACER_TRACING_USER_AND_KERNEL modes
+ * are not completely supported yet. The sideband data collected in these two modes do not
  * include the initial mmap2 event recording. Therefore, if the user uses drpt2ir in
  * sideband converter mode, drpt2ir cannot find the image and cannot decode the PT trace.
  */
@@ -196,19 +200,14 @@ DR_EXPORT
  *       sizeof(PT trace's buffer) = 2 ^ pt_size_shift * PAGE_SIZE.
  *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
  *
- * \note The PT trace's buffer and sideband data's buffer are all ring buffers. So Intel
- * PT will overwrite the oldest data when the buffer is full. The caller needs to make
- * sure the buffer is large enough to hold the data. Overflows in the ring buffer will
- * overwrite old data, which may cause issues during decoding, e.g. pt2ir may be unable to
- * decode partial PT traces, or some entry may be partially overwritten (ideally, we
- * should read backwards).
- * XXX: Handling perf data or PT data in ring buffers is complicated. To ensure easier
- * work for the post-processor, if the ring buffer contains overwritten data, the caller
- * will not be able to get the data when calling drpttracer_end_tracing() and
- * drpttracer_end_tracing() will return an error status code.
+ * \note The client must ensure that the buffer is large enough to hold the PT data.
+ * Insufficient buffer size will lead to lost data, which may cause issues in #pt2ir_t
+ * decoding. If we detect an overflow, drpttracer_end_tracing() will return an error code
+ * #DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE or
+ * #DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA.
  *
  * \note Each tracing corresponds to a trace_handle. When calling
- * drpttracer_start_tracing(), the caller will get a tracer_handle. And the caller can
+ * drpttracer_start_tracing(), the caller will get a tracer_handle. The caller can
  * stop tracing by passing it to drpttracer_end_tracing().
  *
  * \note For one thread, only one tracing can execute at the same time.
@@ -233,14 +232,17 @@ DR_EXPORT
  * mode is #DRPTTRACER_TRACING_ONLY_KERNEL, it will not copy the sideband data to the
  * buffer.
  *
- * \note If the buffer size that setting in drpttracer_start_tracing() is not enough,
- * this function will return an error status code.
+ * \note If the buffer size that was set in drpttracer_start_tracing() is not enough,
+ * this function will return an error status code:
+ *  - Return #DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE if the PT trace is overwritten.
+ *  - Return #DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA if the sideband data is
+ * overwritten.
  *
  * \note The caller can dump the output data to files. After online tracing is done,
- * drpt2trace can use these files to decode the online PT trace.
+ * drpt2ir can use these files to decode the online PT trace.
  *
  * \note The caller doesn't need to allocate the output object, but it needs to free the
- * output object using drpttracer_destroy_output.
+ * output object using drpttracer_destroy_output().
  *
  * \return the status code.
  */
@@ -250,12 +252,14 @@ drpttracer_end_tracing(IN void *drcontext, IN void *tracer_handle,
 
 DR_EXPORT
 /**
- * Destroys a output object of drpttrace.
+ * Destroys an output object of drpttrace.
  *
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] output  The output object that will be destroyed.
+ *
+ * \return the status code.
  */
-void
+drpttracer_status_t
 drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output);
 
 #ifdef __cplusplus
