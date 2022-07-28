@@ -145,12 +145,8 @@ typedef enum {
     DRPTTRACER_SUCCESS,
     /** Operation failed. */
     DRPTTRACER_ERROR,
-    /** Operation failed: invalid tracing handle. */
-    DRPTTRACER_ERROR_INVALID_TRACING_HANDLE,
-    /** Operation failed: invalid tracing mode. */
-    DRPTTRACER_ERROR_INVALID_TRACING_MODE,
-    /** Operation failed: invalid output. */
-    DRPTTRACER_ERROR_INVALID_OUTPUT,
+    /** Operation failed: invalid parameter. */
+    DRPTTRACER_ERROR_INVALID_PARAMETER,
     /** Operation failed: failed to open perf event. */
     DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT,
     /** Operation failed: failed to create tracer handle. */
@@ -160,13 +156,9 @@ typedef enum {
     /** Operation failed: failed to stop tracing. */
     DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING,
     /** Operation failed: overwritten PT trace. */
-    DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE,
+    DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE,
     /** Operation failed: overwritten sideband data. */
-    DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA,
-    /** Operation failed: trying to free null output buffer. */
-    DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_OUTPUT,
-    /** Operation failed: trying to free null PT buffer. */
-    DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_PT_BUF
+    DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA,
 } drpttracer_status_t;
 
 /**
@@ -201,10 +193,10 @@ DR_EXPORT
  *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
  *
  * \note The client must ensure that the buffer is large enough to hold the PT data.
- * Insufficient buffer size will lead to lost data, which may cause issues in #pt2ir_t
+ * Insufficient buffer size will lead to lost data, which may cause issues in pt2ir_t
  * decoding. If we detect an overflow, drpttracer_end_tracing() will return an error code
- * #DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE or
- * #DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA.
+ * #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE or
+ * #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA.
  *
  * \note Each tracing corresponds to a trace_handle. When calling
  * drpttracer_start_tracing(), the caller will get a tracer_handle. The caller can
@@ -234,8 +226,8 @@ DR_EXPORT
  *
  * \note If the buffer size that was set in drpttracer_start_tracing() is not enough,
  * this function will return an error status code:
- *  - Return #DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE if the PT trace is overwritten.
- *  - Return #DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA if the sideband data is
+ *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE if the PT trace is overwritten.
+ *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA if the sideband data is
  * overwritten.
  *
  * \note The caller can dump the output data to files. After online tracing is done,

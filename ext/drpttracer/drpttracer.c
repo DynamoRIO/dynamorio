@@ -461,7 +461,7 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
         attr = user_kernel_pe_attr;
     } else {
         ASSERT(false, "invalid tracing mode");
-        return DRPTTRACER_ERROR_INVALID_TRACING_MODE;
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
 
     /* Open perf event. */
@@ -501,12 +501,12 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
         ASSERT(false, "invalid pttracer handle");
-        return DRPTTRACER_ERROR_INVALID_TRACING_HANDLE;
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
 
     if (output == NULL) {
         ASSERT(false, "invalid output");
-        return DRPTTRACER_ERROR_INVALID_OUTPUT;
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
 
     /* Stop the pt tracing. */
@@ -529,7 +529,7 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
     if (handle->header->aux_head > handle->header->aux_size) {
         ERRMSG("the buffer is full and the new PT data is overwritten\n");
         ASSERT(false, "aux_head > aux_size");
-        return DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE;
+        return DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE;
     }
 
     (*output)->pt_buf_size = handle->header->aux_head - handle->header->aux_tail;
@@ -540,7 +540,7 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
         if (handle->header->data_head > handle->header->data_size) {
             ERRMSG("the buffer is full and the new PT's sideband data is overwritten\n");
             ASSERT(false, "data_head > data_size");
-            return DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA;
+            return DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA;
         }
         (*output)->sideband_buf_size =
             handle->header->data_head - handle->header->data_tail;
@@ -550,8 +550,8 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
                (uint8_t *)handle->base + handle->header->data_tail,
                (*output)->sideband_buf_size);
     } else {
-        /* Even only tracing kernel instructions, there are some sideband data. Because we
-         * don't need this data in future processes, we discard it.
+        /* Even when tracing only kernel instructions, there is some sideband data.
+         * Because we don't need this data in future processes, we discard it.
          */
         (*output)->sideband_buf = NULL;
         (*output)->sideband_buf_size = 0;
@@ -567,11 +567,11 @@ drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
 {
     if (output == NULL) {
         ASSERT(false, "trying to free NULL output buffer");
-        return DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_OUTPUT;
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
     if (output->pt_buf == NULL) {
         ASSERT(false, "trying to free NULL PT buffer");
-        return DRPTTRACER_ERROR_TRYING_TO_FREE_NULL_PT_BUF;
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
     dr_thread_free(drcontext, output->pt_buf, output->pt_buf_size);
     if (output->sideband_buf != NULL) {

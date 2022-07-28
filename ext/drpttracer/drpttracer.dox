@@ -90,7 +90,7 @@ greater than 0, and the buffer size is 2^sideband_size_shift * PAGE_SIZE.
 
 The client must ensure that the PT trace's ring buffer and the sideband data's ring buffer
 is large enough to hold the PT data. Insufficient buffer size will lead to lost data,
-which may cause issues in #pt2ir_t decoding. After the tracing is started, the
+which may cause issues in pt2ir_t decoding. After the tracing is started, the
 client can get  a handle for the PT tracing. The handle is a pointer to \p drpttracer's
 internal data structure which contains the tracing's PT data buffer, sideband data buffer,
 and metadata.
@@ -100,15 +100,15 @@ drpttracer_end_tracing(). When the tracing is stopped, the stop function will al
 instance of #drpttracer_output_t, and copy the PT data, sideband data, and metadata to a
 #drpttracer_output_t instance which is returned to the instance to the client. The client
 can dump the data in the output to different files for offline post-processing. The user
-can use the library #pt2ir_t in drcachesim to convert the PT trace to DynamoRIO's
+can use the library pt2ir_t in drcachesim to convert the PT trace to DynamoRIO's
 IR.
 
 Additionally, if drpttracer_end_tracing() detect an overflow, it will return an error
 status code:
 
- - Return #DRPTTRACER_ERROR_OVERWRITTEEN_PT_TRACE if the PT trace is overwritten.
+ - Return #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE if the PT trace is overwritten.
 
- - Return #DRPTTRACER_ERROR_OVERWRITTEEN_SIDEBAND_DATA if the sideband data is
+ - Return #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA if the sideband data is
 overwritten.
 
 Also, to avoid memory leak, the client must call the following function to destroy the
