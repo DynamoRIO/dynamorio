@@ -195,7 +195,7 @@ DR_EXPORT
  * 4Mib.
  *
  * \note The client must ensure that the buffer is large enough to hold the PT data.
- * Insufficient buffer size will lead to lost data, which may cause issues in #pt2ir_t
+ * Insufficient buffer size will lead to lost data, which may cause issues in pt2ir_t
  * decoding. If we detect an overflow, drpttracer_end_tracing() will return an error code
  * #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE or
  * #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA.
