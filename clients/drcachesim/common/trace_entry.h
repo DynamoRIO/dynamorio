@@ -369,6 +369,11 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_PAGE_SIZE,
 
+    /**
+     * The marker value contains the ID of recorded syscalls.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_ID,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

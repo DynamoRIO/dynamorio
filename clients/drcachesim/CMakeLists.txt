@@ -308,6 +308,11 @@ macro(add_drmemtrace name type)
     tracer/func_trace.cpp
     ${client_and_sim_srcs}
     )
+  if (LINUX AND X86 AND X64)
+    set(drmemtrace_srcs ${drmemtrace_srcs}
+      tracer/syscall_pt_trace.cpp
+    )
+  endif ()
   if (libsnappy)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/snappy_file_writer.cpp
@@ -327,6 +332,9 @@ macro(add_drmemtrace name type)
   use_DynamoRIO_extension(${name} droption)
   use_DynamoRIO_extension(${name} drcovlib${ext_sfx})
   use_DynamoRIO_extension(${name} drbbdup${ext_sfx})
+  if (LINUX AND X86 AND X64)
+    use_DynamoRIO_extension(${name} drpttracer${ext_sfx})
+  endif ()
   if (libsnappy)
     target_link_libraries(${name} snappy)
   endif ()
