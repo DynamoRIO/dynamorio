@@ -1109,18 +1109,7 @@ function (configure_DynamoRIO_static target)
   # We need libc before the ntdll_imports pulled in for DR.
   _DR_get_static_libc_list(static_libc)
   target_link_libraries(${target} ${static_libc})
-  # For the weakly linked routines defined in drlibc, we want to use DR's
-  # definitions when available. So we use dynamorio_static_nohide, which does
-  # not hide its symbols, for building static binaries. There are downsides that
-  # we have to live with, including pushing our many global symbols into the app
-  # namespace. We have renamed some of the ones that are more likely to collide
-  # in #3348.
-  if (UNIX)
-    target_link_libraries(${target} dynamorio_static_nohide)
-  else (UNIX)
-    # Non-Unix does not build the nohide version anyway.
-    target_link_libraries(${target} dynamorio_static)
-  endif (UNIX)
+  target_link_libraries(${target} dynamorio_static)
   if (UNIX AND NOT APPLE) # --as-needed not supported by Mac ld
     # i#2070: avoid pulling libdynamorio.so
     # Assuming LINK_FLAGS goes before target_link_libraries.
