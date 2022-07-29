@@ -874,22 +874,6 @@ macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR pass_opts
     ${pass_opts_via_env})
 endmacro(tobuild_api)
 
-# tobuild_static_nohide_api builds a static API test which uses the
-# dynamorio_static_nohide as a base library. It is a macro so the PARENT_SCOPE
-# in torunonly_api will reach caller of this.
-# XXX: Do we want to support a nicer API for 'nohide' than assuming that
-# add_api_exe adds dynamorio_static and replacing it manually with
-# dynamorio_static_nohide? Punting until there are more uses: it's a lot of
-# plumbing for no clear gain.
-macro(tobuild_static_nohide_api test source dr_ops exe_ops use_decoder)
-  add_api_exe(${test} ${source} ${use_decoder} ON)
-  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder} OFF OFF)
-  get_target_property(lib_list ${test} LINK_LIBRARIES)
-  list(REMOVE_ITEM lib_list dynamorio_static)
-  set_property(TARGET ${test} PROPERTY LINK_LIBRARIES ${lib_list} )
-  target_link_libraries(${test} dynamorio_static_nohide)
-endmacro(tobuild_static_nohide_api)
-
 # run that uses a different build
 function(torunonly test realtest source dr_ops exe_ops)
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
@@ -3085,27 +3069,25 @@ if (NOT ANDROID AND NOT APPLE)
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
     # checking).
-    tobuild_static_nohide_api(api.static_symbols api/static_symbols.c "" "" OFF)
+
+    tobuild_api(api.static_symbols api/static_symbols.c "" "" OFF ON OFF)
     append_link_flags(api.static_symbols "-Wl,--warn-common -Wl,--fatal-warnings")
 
     # To ensure that the dynamorio_so_start/_end linker variables are actually
     # used in static binaries, we have two tests which run the same "map mixup"
     # logic: one which exits successfully because we provide the linker
     # variables and another which exits with an assertion because we don't.
-    # Both versions utilize the dynamorio_static_nohide as a base because
-    # the variables in dynamorio_static have already been resolved as a part of
-    # the symbol hiding step.
     set(api.static_maps_mixup_yesvars_expectbase
        "static_maps_mixup_yesvars")
-    tobuild_static_nohide_api(api.static_maps_mixup_yesvars
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_yesvars
+       api/static_maps_mixup.c "" "" OFF ON OFF)
     append_link_flags(api.static_maps_mixup_yesvars
         "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
 
     set(api.static_maps_mixup_novars_FLAKY_expectbase
        "static_maps_mixup_novars")
-    tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_novars_FLAKY
+       api/static_maps_mixup.c "" "" OFF ON OFF)
   endif ()
 
   if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
