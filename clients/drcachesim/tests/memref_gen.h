@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,20 +49,20 @@ gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 }
 
 inline memref_t
-gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc)
+gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc, size_t size = 1)
 {
     memref_t memref = {};
     memref.instr.type = type;
     memref.instr.tid = tid;
     memref.instr.addr = pc;
-    memref.instr.size = 1;
+    memref.instr.size = size;
     return memref;
 }
 
 inline memref_t
-gen_instr(memref_tid_t tid, addr_t pc)
+gen_instr(memref_tid_t tid, addr_t pc, size_t size = 1)
 {
-    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc);
+    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size);
 }
 
 inline memref_t
