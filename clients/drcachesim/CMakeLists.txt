@@ -310,7 +310,7 @@ macro(add_drmemtrace name type)
     )
   if (LINUX AND X86 AND X64)
     set(drmemtrace_srcs ${drmemtrace_srcs}
-      tracer/syscall_pt_trace.cpp
+      tracer/syscall_pt_tracer.cpp
     )
   endif ()
   if (libsnappy)

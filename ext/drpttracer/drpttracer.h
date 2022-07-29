@@ -102,11 +102,11 @@ typedef struct _pt_metadata_t {
  * can be the inputs of pt2ir_t, which decodes the PT data into Dynamorio's IR.
  */
 typedef struct _drpttracer_output_t {
-    pt_metadata_t metadata;   /**< The PT trace's metadata. */
-    void *pt_buf;             /**< The PT trace's buffer pointer. */
-    size_t pt_buf_size;       /**< The buffer size of PT trace. */
-    void *sideband_buf;       /**< The PT sideband data's buffer pointer. */
-    size_t sideband_buf_size; /**< The buffer size of PT sideband data. */
+    pt_metadata_t metadata;    /**< The PT trace's metadata. */
+    void *pt;                  /**< The PT trace's pointer. */
+    size_t pt_size;            /**< The size of PT trace. */
+    void *sideband_data;       /**< The PT sideband data's pointer. */
+    size_t sideband_data_size; /**< The buffer size of PT sideband data. */
 } drpttracer_output_t;
 
 /***************************************************************************
@@ -187,7 +187,7 @@ DR_EXPORT
  * \param[in] sideband_size_shift  The size shift of sideband data's buffer.
  * \param[out] tracer_handle  The tracer handle.
  *
- * \note The size shift is used to control the size of buffers:
+ * \note The size offset is used to control the size of the buffer allocated by the perf:
  *       sizeof(PT trace's buffer) = 2 ^ pt_size_shift * PAGE_SIZE.
  *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
  * Additionally, perf sets the buffer size to 4MiB by default. Therefore, when the client
@@ -209,9 +209,17 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+drpttracer_create_tracer(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle);
+
+DR_EXPORT
+drpttracer_status_t
+drpttracer_destory_tracer(IN void *drcontext, IN void *tracer_handle);
+
+DR_EXPORT
+drpttracer_status_t
+drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle);
 
 DR_EXPORT
 /**
@@ -241,8 +249,8 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_end_tracing(IN void *drcontext, IN void *tracer_handle,
-                       OUT drpttracer_output_t **output);
+drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
+                        OUT drpttracer_output_t **output);
 
 DR_EXPORT
 /**

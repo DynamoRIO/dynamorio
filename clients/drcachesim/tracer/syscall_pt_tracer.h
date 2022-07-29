@@ -30,43 +30,55 @@
  * DAMAGE.
  */
 
-/* syscall_pt_trace.h: header of module for recording kernel PT traces for every syscall.
+/* syscall_pt_tracer.h: header of module for recording kernel PT traces for every syscall.
  */
 
-#ifndef _SYSCALL_PT_TRACE_
-#define _SYSCALL_PT_TRACE_ 1
+#ifndef _SYSCALL_PT_TRACER_
+#define _SYSCALL_PT_TRACER_ 1
 
+#include <cstddef>
+#include <string>
 #include "dr_api.h"
-#include "trace_entry.h"
 
-/**
- * Name of drmgr instrumentation pass priorities for event_pre_syscall,
- * event_post_syscall, event_thread_init and event_thread_exit.
+/* This class is not thread-safe: the caller should create a separate instance per thread.
  */
-#define DRMGR_PRIORITY_NAME_SYSCALL_PT_TRACE "syscall_pt_trace"
+class syscall_pt_tracer_t {
+public:
+    syscall_pt_tracer_t();
+    ~syscall_pt_tracer_t();
 
-/**
- * Priorities of drmgr instrumentation passes used by syscall_pt_trace.
- */
-enum {
-    /**
-     * Priority of event_pre_syscall, event_post_syscall, event_thread_init and
-     * event_thread_exit.
-     */
-    DRMGR_PRIORITY_SYSCALL_PT_TRACE = 1000,
+    bool
+    init(char *log_dir_name,
+         ssize_t (*write_file_func)(file_t file, const void *data, size_t count));
+
+    bool
+    start_syscall_pt_trace(int sysnum);
+
+    bool
+    stop_syscall_pt_trace();
+
+    int
+    get_recording_sysnum()
+    {
+        return recording_sysnum_;
+    }
+
+    int
+    get_last_recorded_syscall_id()
+    {
+        return recorded_syscall_num_;
+    }
+
+private:
+    bool
+    trace_data_dump(void *pt, size_t pt_size, void *pt_meta);
+
+    ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
+    std::string log_dir_name_;
+    void *drpttracer_handle_;
+    int recorded_syscall_num_;
+    int recording_sysnum_;
+    void *drcontext_;
 };
 
-/* Initializes the syscall_pt_trace module. Each call must be paired with a corresponding
- * call to syscall_pt_trace_exit().
- */
-bool
-syscall_pt_trace_init(char *kernel_logsubdir,
-                      ssize_t (*write_file)(file_t file, const void *data, size_t count),
-                      bool (*post_syscall_trace)(void *drcontext,
-                                                 int recorded_syscall_id));
-
-/* Cleans up the syscall_pt_trace module */
-void
-syscall_pt_trace_exit(void);
-
-#endif /* _SYSCALL_PT_TRACE_ */
+#endif /* _SYSCALL_PT_TRACER_ */
