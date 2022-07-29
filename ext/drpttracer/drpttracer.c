@@ -156,8 +156,8 @@ read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
         *data_buf = NULL;
     }
 
-    uint64_t head_offs = head % ring_buf_base;
-    uint64_t tail_offs = tail % ring_buf_base;
+    uint64_t head_offs = head % ring_buf_size;
+    uint64_t tail_offs = tail % ring_buf_size;
     if (head_offs > tail_offs) {
         memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs, data_size);
     } else if (head_offs < tail_offs) {
