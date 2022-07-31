@@ -163,7 +163,7 @@ read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
     } else if (head_offs < tail_offs) {
         memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs,
                ring_buf_size - tail_offs);
-        memcpy((uint8_t *)*data_buf + ring_buf_base - tail_offs, ring_buf_size,
+        memcpy((uint8_t *)*data_buf + ring_buf_size - tail_offs, ring_buf_base,
                head_offs);
     } else {
         /* Do nothing. */
@@ -492,9 +492,9 @@ drpttracer_exit(void)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_init_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
-                        IN uint pt_size_shift, IN uint sideband_size_shift,
-                        OUT void **tracer_handle)
+drpttracer_create_tracer(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+                         IN uint pt_size_shift, IN uint sideband_size_shift,
+                         OUT void **tracer_handle)
 {
     ASSERT(tracer_handle != NULL, "tracer_handle is NULL");
     /* Select one perf_event_attr for current tracing. */
@@ -592,9 +592,9 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
     (*output)->metadata.time_mult = handle->header->time_mult;
     (*output)->metadata.time_zero = handle->header->time_zero;
 
-    read_ring_buf_to_buf(drcontext, (uint8_t *)handle->header->aux,
-                         handle->header->aux_size, handle->header->aux_head,
-                         handle->header->aux_tail, &(*output)->pt, &(*output)->pt_size);
+    read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
+                         handle->header->aux_head, handle->header->aux_tail,
+                         &(*output)->pt, &(*output)->pt_size);
     handle->header->aux_tail = handle->header->aux_head;
 
     if (handle->tracing_mode == DRPTTRACER_TRACING_ONLY_USER ||
@@ -610,7 +610,8 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
             *output = NULL;
             return DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA;
         }
-        read_ring_buf_to_buf(drcontext, (uint8_t *)handle->header->data,
+        read_ring_buf_to_buf(drcontext,
+                             (uint8_t *)handle->base + handle->header->data_offset,
                              handle->header->data_size, handle->header->data_head,
                              handle->header->data_tail, &(*output)->sideband_data,
                              &(*output)->sideband_data_size);
@@ -627,10 +628,14 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handleq)
+drpttracer_destory_tracer(IN void *drcontext, INOUT void *tracer_handle)
 {
+    if (tracer_handle == NULL) {
+        ASSERT(false, "invalid pttracer handle");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
     pttracer_handle_free(drcontext, (pttracer_handle_t *)tracer_handle);
-    return status;
+    return DRPTTRACER_SUCCESS;
 }
 
 DR_EXPORT
@@ -645,9 +650,9 @@ drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
         ASSERT(false, "trying to free NULL PT buffer");
         return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
-    dr_thread_free(drcontext, output->pt, output->pt_buf_size);
-    if (output->sideband_buf != NULL) {
-        dr_thread_free(drcontext, output->sideband_buf, output->sideband_buf_size);
+    dr_thread_free(drcontext, output->pt, output->pt_size);
+    if (output->sideband_data != NULL) {
+        dr_thread_free(drcontext, output->sideband_data, output->sideband_data_size);
     }
     dr_thread_free(drcontext, output, sizeof(drpttracer_output_t));
     return DRPTTRACER_SUCCESS;

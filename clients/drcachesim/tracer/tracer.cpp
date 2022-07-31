@@ -2417,7 +2417,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         memtrace(drcontext, false);
 #if defined(X86_64) && defined(LINUX)
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value()) {
-        ASSERT(data->syscall_pt_tracer.get_recording_sysnum == -1,
+        ASSERT(data->syscall_pt_tracer.get_recording_sysnum() == -1,
                "last tracing isn't stopped");
         if (!data->syscall_pt_tracer.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
@@ -2428,7 +2428,7 @@ event_pre_syscall(void *drcontext, int sysnum)
     return true;
 }
 
-static bool
+static void
 event_post_syscall(void *drcontext, int sysnum)
 {
 #if defined(X86_64) && defined(LINUX)
@@ -2437,12 +2437,12 @@ event_post_syscall(void *drcontext, int sysnum)
     }
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    if (data->syscall_pt_tracer.get_recording_sysnum == -1) {
+    if (data->syscall_pt_tracer.get_recording_sysnum() == -1) {
         ASSERT(false, "last syscall is not traced");
         return;
     }
 
-    ASSERT(data->syscall_pt_tracer.get_recording_sysnum != sysnum,
+    ASSERT(data->syscall_pt_tracer.get_recording_sysnum() != sysnum,
            "last tracing isn't stopped");
     if (!data->syscall_pt_tracer.stop_syscall_pt_trace()) {
         ASSERT(false, "failed to stop syscall pt trace");
@@ -2454,7 +2454,7 @@ event_post_syscall(void *drcontext, int sysnum)
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_ID;
-    uintptr_t marker_val = data->syscall_pt_tracer.get_last_syscall_id();
+    uintptr_t marker_val = data->syscall_pt_tracer.get_last_recorded_syscall_id();
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
     if (file_ops_func.handoff_buf == NULL)

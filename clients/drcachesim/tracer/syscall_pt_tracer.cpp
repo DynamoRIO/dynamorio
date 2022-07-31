@@ -43,6 +43,8 @@
 #    error "This is only for Linux x86_64."
 #endif
 
+#define RING_BUFFER_SIZE_SHIFT 8
+
 struct drpttracer_output_cleanup_last_t {
 public:
     ~drpttracer_output_cleanup_last_t()
@@ -82,7 +84,7 @@ syscall_pt_tracer_t::init(char *log_dir_name,
     drcontext_ = dr_get_current_drcontext();
     if (drpttracer_create_tracer(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
                                  RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
-                                 &drpttracer_handle_) != DR_SUCCESS) {
+                                 &drpttracer_handle_) != DRPTTRACER_SUCCESS) {
         drpttracer_handle_ = NULL;
         return false;
     }
@@ -96,7 +98,7 @@ syscall_pt_tracer_t::start_syscall_pt_trace(int sysnum)
 {
     ASSERT(drpttracer_handle_ != nullptr, "drpttracer_handle_ is nullptr");
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
-    if (drpttracer_start_tracing(drcontext_, drpttracer_handle_) != DR_SUCCESS) {
+    if (drpttracer_start_tracing(drcontext_, drpttracer_handle_) != DRPTTRACER_SUCCESS) {
         return false;
     }
     recording_sysnum_ = sysnum;
@@ -111,16 +113,16 @@ syscall_pt_tracer_t::stop_syscall_pt_trace()
 
     drpttracer_output_cleanup_last_t output;
     if (drpttracer_stop_tracing(drcontext_, drpttracer_handle_, &output.output) !=
-        DR_SUCCESS) {
+        DRPTTRACER_SUCCESS) {
         return false;
     }
     recording_sysnum_ = -1;
     recorded_syscall_num_++;
-    trace_data_dump(output.output->pt, output.output->pt_size, &output.output->metadata);
-    return true;
+    return trace_data_dump(output.output->pt, output.output->pt_size,
+                           &output.output->metadata);
 }
 
-void
+bool
 syscall_pt_tracer_t::trace_data_dump(void *pt, size_t pt_size, void *pt_meta)
 {
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
@@ -128,15 +130,15 @@ syscall_pt_tracer_t::trace_data_dump(void *pt, size_t pt_size, void *pt_meta)
     ASSERT(pt_size > 0, "pt_size is 0");
     ASSERT(pt_meta != nullptr, "pt_meta is nullptr");
 
-    if (pt == nullptr || pt_size == 0 || pt_meta == nullptr || pt_meta_size == 0) {
-        return;
+    if (pt == nullptr || pt_size == 0 || pt_meta == nullptr) {
+        return false;
     }
     char pt_filename[MAXIMUM_PATH];
     dr_snprintf(pt_filename, BUFFER_SIZE_ELEMENTS(pt_filename), "%s%s%d.%d.pt",
                 log_dir_name_.c_str(), DIRSEP, dr_get_thread_id(drcontext_),
                 recorded_syscall_num_);
     file_t pt_file = dr_open_file(pt_filename, DR_FILE_WRITE_OVERWRITE);
-    write_file_func_(pt_file, pt, pt->pt_buf_size);
+    write_file_func_(pt_file, pt, pt_size);
     dr_close_file(pt_file);
 
     char pt_metadata_filename[MAXIMUM_PATH];
