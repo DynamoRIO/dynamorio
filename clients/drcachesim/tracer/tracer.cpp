@@ -2416,7 +2416,7 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (file_ops_func.handoff_buf == NULL)
         memtrace(drcontext, false);
 #if defined(X86_64) && defined(LINUX)
-    if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value()) {
+    if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         ASSERT(data->syscall_pt_tracer.get_recording_sysnum() == -1,
                "last tracing isn't stopped");
         if (!data->syscall_pt_tracer.start_syscall_pt_trace(sysnum)) {
