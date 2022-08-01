@@ -60,11 +60,11 @@ public:
 
 syscall_pt_tracer_t::syscall_pt_tracer_t()
     : write_file_func_(nullptr)
-    , log_dir_name_("")
     , drpttracer_handle_(nullptr)
     , recorded_syscall_num_(0)
     , recording_sysnum_(-1)
     , drcontext_(nullptr)
+    , pt_dir_name_{'\0'}
 {
 }
 
@@ -77,7 +77,7 @@ syscall_pt_tracer_t::~syscall_pt_tracer_t()
 }
 
 bool
-syscall_pt_tracer_t::init(char *log_dir_name,
+syscall_pt_tracer_t::init(char* pt_dir_name, size_t pt_dir_name_size,
                           ssize_t (*write_file_func)(file_t file, const void *data,
                                                      size_t count))
 {
@@ -88,7 +88,7 @@ syscall_pt_tracer_t::init(char *log_dir_name,
         drpttracer_handle_ = NULL;
         return false;
     }
-    log_dir_name_ += log_dir_name;
+    memcpy(pt_dir_name_, pt_dir_name, pt_dir_name_size);
     write_file_func_ = write_file_func;
     return true;
 }
@@ -135,7 +135,7 @@ syscall_pt_tracer_t::trace_data_dump(void *pt, size_t pt_size, void *pt_meta)
     }
     char pt_filename[MAXIMUM_PATH];
     dr_snprintf(pt_filename, BUFFER_SIZE_ELEMENTS(pt_filename), "%s%s%d.%d.pt",
-                log_dir_name_.c_str(), DIRSEP, dr_get_thread_id(drcontext_),
+                pt_dir_name_, DIRSEP, dr_get_thread_id(drcontext_),
                 recorded_syscall_num_);
     file_t pt_file = dr_open_file(pt_filename, DR_FILE_WRITE_OVERWRITE);
     write_file_func_(pt_file, pt, pt_size);

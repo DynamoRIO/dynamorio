@@ -2442,7 +2442,7 @@ event_post_syscall(void *drcontext, int sysnum)
         return;
     }
 
-    ASSERT(data->syscall_pt_tracer.get_recording_sysnum() != sysnum,
+    ASSERT(data->syscall_pt_tracer.get_recording_sysnum() == sysnum,
            "last tracing isn't stopped");
     if (!data->syscall_pt_tracer.stop_syscall_pt_trace()) {
         ASSERT(false, "failed to stop syscall pt trace");
@@ -2924,7 +2924,8 @@ init_thread_in_process(void *drcontext)
 
 #if defined(X86_64) && defined(LINUX)
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        data->syscall_pt_tracer.init(kernel_logsubdir, file_ops_func.write_file);
+        data->syscall_pt_tracer.init(kernel_logsubdir, MAXIMUM_PATH,
+                                     file_ops_func.write_file);
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -3464,7 +3465,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 
 #if defined(X86_64) && defined(LINUX)
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        if (drpttracer_init())
+        if (!drpttracer_init())
             FATAL("Failed to initialize drpttracer.\n");
     }
 #endif

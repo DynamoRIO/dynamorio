@@ -412,8 +412,8 @@ pttracer_handle_create(IN void *drcontext, IN int fd, IN uint pt_size_shift,
 
     /* Mmap the ring buffer of the perf event's auxiliary data. */
     uint64_t aux_mmap_size = header->aux_size;
-    void *aux =
-        dr_map_file(fd, &aux_mmap_size, header->aux_offset, NULL, DR_MEMPROT_READ, 0);
+    void *aux = dr_map_file(fd, &aux_mmap_size, header->aux_offset, NULL,
+                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
     if (aux == NULL || aux_mmap_size != header->aux_size) {
         ERRMSG("failed to mmap aux for pt tracing\n");
         dr_unmap_file(base, base_size);

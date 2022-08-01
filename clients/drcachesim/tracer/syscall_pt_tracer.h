@@ -37,7 +37,6 @@
 #define _SYSCALL_PT_TRACER_ 1
 
 #include <cstddef>
-#include <string>
 #include "dr_api.h"
 
 /* This class is not thread-safe: the caller should create a separate instance per thread.
@@ -48,7 +47,7 @@ public:
     ~syscall_pt_tracer_t();
 
     bool
-    init(char *log_dir_name,
+    init(char* pt_dir_name, size_t pt_dir_name_size,
          ssize_t (*write_file_func)(file_t file, const void *data, size_t count));
 
     bool
@@ -74,11 +73,11 @@ private:
     trace_data_dump(void *pt, size_t pt_size, void *pt_meta);
 
     ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
-    std::string log_dir_name_;
     void *drpttracer_handle_;
     int recorded_syscall_num_;
     int recording_sysnum_;
     void *drcontext_;
+    char pt_dir_name_[MAXIMUM_PATH];
 };
 
 #endif /* _SYSCALL_PT_TRACER_ */
