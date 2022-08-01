@@ -403,14 +403,10 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126  BASE     fcvtzu            wx0 : d5 s
 0x0011111xxxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla            dq0 : dq0 dq5 dq16 vindex_SD sd_sz
 0101111110xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             s0 : s0 s5 dq16 vindex_SD sd_sz
 0101111111xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             d0 : d0 d5 dq16 vindex_SD sd_sz
-0x001110001xxxxx111011xxxxxxxxxx  n   142  BASE      fmlal            dq0 : dq0 dq5 dq16
-0x101110001xxxxx110011xxxxxxxxxx  n   143  BASE     fmlal2            dq0 : dq0 dq5 dq16
 0x0011111xxxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq5 dq16 vindex_SD sd_sz
 0x0011101x1xxxxx110011xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq0 dq5 dq16 sd_sz
 0101111110xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             s0 : s0 s5 dq16 vindex_SD sd_sz
 0101111111xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             d0 : d0 d5 dq16 vindex_SD sd_sz
-0x001110101xxxxx111011xxxxxxxxxx  n   145  BASE      fmlsl            dq0 : dq0 dq5 dq16
-0x101110101xxxxx110011xxxxxxxxxx  n   146  BASE     fmlsl2            dq0 : dq0 dq5 dq16
 00011110001xxxxxxxx10000000xxxxx  n   147  BASE       fmov             s0 : fpimm13
 00011110011xxxxxxxx10000000xxxxx  n   147  BASE       fmov             d0 : fpimm13
 0001111000100111000000xxxxxxxxxx  n   147  BASE       fmov             s0 : w5

@@ -78,6 +78,9 @@ add_library(ipt-ext STATIC ${ipt-ext_srcs})
 add_dependencies(ipt-ext ipt)
 target_link_libraries(ipt-ext ipt)
 
+# drpt2ir don't include configure.h so they don't get DR defines
+add_dr_defines()
+
 # We build drpt2ir to a static library. So we can link it in the independent
 # clients drpt2trace and drraw2trace.
 set(drpt2ir_srcs

@@ -197,6 +197,16 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         return false;
     }
 
+    if (!pt2ir_config.elf_file_path.empty()) {
+        errcode =
+            load_elf(pt_iscache_, pt_insn_get_image(pt_instr_decoder_),
+                     pt2ir_config.elf_file_path.c_str(), pt2ir_config.elf_base, "", 0);
+        if (errcode < 0) {
+            ERRMSG("Failed to load ELF file: %s.\n", pt_errstr(pt_errcode(errcode)));
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -297,13 +307,30 @@ pt2ir_t::convert(OUT instrlist_t **ilist)
             /* Use drdecode to decode insn(pt_insn) to instr_t. */
             instr_t *instr = instr_create(GLOBAL_DCONTEXT);
             instr_init(GLOBAL_DCONTEXT, instr);
+            instr_set_isa_mode(instr,
+                               insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
             decode(GLOBAL_DCONTEXT, insn.raw, instr);
             instr_set_translation(instr, (app_pc)insn.ip);
             instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
+            /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
+             * instructions that are not supported by Dynamorio.
+             */
             if (!instr_valid(instr)) {
-                ERRMSG("Failed to convert the libipt's IR to Dynamorio's IR.\n");
-                instrlist_clear_and_destroy(GLOBAL_DCONTEXT, *ilist);
-                return PT2IR_CONV_ERROR_DR_IR_CONVERT;
+                /* The decode() function will not correctly identify the raw bits for
+                 * invalid instruction. So we need to set the raw bits of instr manually.
+                 */
+                instr_free_raw_bits(GLOBAL_DCONTEXT, instr);
+                instr_set_raw_bits(instr, insn.raw, insn.size);
+                instr_allocate_raw_bits(GLOBAL_DCONTEXT, instr, insn.size);
+#ifdef DEBUG
+                /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
+                dr_fprintf(STDOUT, "<INVALID> <raw " PFX "-" PFX " ==", (app_pc)insn.ip,
+                           (app_pc)insn.ip + insn.size);
+                for (int i = 0; i < insn.size; i++) {
+                    dr_fprintf(STDOUT, " %02x", insn.raw[i]);
+                }
+                dr_fprintf(STDOUT, ">\n");
+#endif
             }
             instrlist_append(*ilist, instr);
         }

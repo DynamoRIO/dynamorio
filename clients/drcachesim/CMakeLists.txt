@@ -616,6 +616,14 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcacheoff.view_test
       COMMAND tool.drcacheoff.view_test)
 
+    add_executable(tool.drcachesim.histogram_test
+      tools/histogram.cpp tests/histogram_test.cpp)
+    target_link_libraries(tool.drcachesim.histogram_test
+      drmemtrace_static drmemtrace_analyzer)
+    add_win32_flags(tool.drcachesim.histogram_test)
+    add_test(NAME tool.drcachesim.histogram_test
+             COMMAND tool.drcachesim.histogram_test)
+
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)

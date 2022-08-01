@@ -874,22 +874,6 @@ macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR pass_opts
     ${pass_opts_via_env})
 endmacro(tobuild_api)
 
-# tobuild_static_nohide_api builds a static API test which uses the
-# dynamorio_static_nohide as a base library. It is a macro so the PARENT_SCOPE
-# in torunonly_api will reach caller of this.
-# XXX: Do we want to support a nicer API for 'nohide' than assuming that
-# add_api_exe adds dynamorio_static and replacing it manually with
-# dynamorio_static_nohide? Punting until there are more uses: it's a lot of
-# plumbing for no clear gain.
-macro(tobuild_static_nohide_api test source dr_ops exe_ops use_decoder)
-  add_api_exe(${test} ${source} ${use_decoder} ON)
-  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder} OFF OFF)
-  get_target_property(lib_list ${test} LINK_LIBRARIES)
-  list(REMOVE_ITEM lib_list dynamorio_static)
-  set_property(TARGET ${test} PROPERTY LINK_LIBRARIES ${lib_list} )
-  target_link_libraries(${test} dynamorio_static_nohide)
-endmacro(tobuild_static_nohide_api)
-
 # run that uses a different build
 function(torunonly test realtest source dr_ops exe_ops)
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
@@ -1877,6 +1861,7 @@ if (NOT ANDROID)
   if (AARCH64)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
   endif (AARCH64)
 endif ()
 
@@ -2599,6 +2584,13 @@ tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdl
 use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
 link_with_pthread(client.drmgr-test)
 
+if (proc_supports_pt)
+  tobuild_ci(client.drpttracer_SUDO-test client-interface/drpttracer_SUDO-test.c "" "" "")
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drpttracer)
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drmgr)
+  set(client.drpttracer_SUDO-test_sudo ON)
+endif ()
+
 tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
 use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
 use_DynamoRIO_extension(client.drx_buf-test.dll drx)
@@ -3084,27 +3076,25 @@ if (NOT ANDROID AND NOT APPLE)
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
     # checking).
-    tobuild_static_nohide_api(api.static_symbols api/static_symbols.c "" "" OFF)
+
+    tobuild_api(api.static_symbols api/static_symbols.c "" "" OFF ON OFF)
     append_link_flags(api.static_symbols "-Wl,--warn-common -Wl,--fatal-warnings")
 
     # To ensure that the dynamorio_so_start/_end linker variables are actually
     # used in static binaries, we have two tests which run the same "map mixup"
     # logic: one which exits successfully because we provide the linker
     # variables and another which exits with an assertion because we don't.
-    # Both versions utilize the dynamorio_static_nohide as a base because
-    # the variables in dynamorio_static have already been resolved as a part of
-    # the symbol hiding step.
     set(api.static_maps_mixup_yesvars_expectbase
        "static_maps_mixup_yesvars")
-    tobuild_static_nohide_api(api.static_maps_mixup_yesvars
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_yesvars
+       api/static_maps_mixup.c "" "" OFF ON OFF)
     append_link_flags(api.static_maps_mixup_yesvars
         "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
 
     set(api.static_maps_mixup_novars_FLAKY_expectbase
        "static_maps_mixup_novars")
-    tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_novars_FLAKY
+       api/static_maps_mixup.c "" "" OFF ON OFF)
   endif ()
 
   if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
@@ -4177,34 +4167,41 @@ if (BUILD_CLIENTS)
 
 endif (BUILD_CLIENTS)
 
-###########################################################################
+# ##########################################################################
 # drpt2trace tests
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
-if (BUILD_CLIENTS)
-  if (HAVE_LIBIPT)
-    set(drpt2trace_args "-print_trace"
+if(BUILD_CLIENTS)
+  if(HAVE_LIBIPT)
+    set(drpt2trace_commong "-print_trace"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
-      "-primary_sb"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
-      "-secondary_sb"
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
       "-pt_cpu_family" "6"
       "-pt_cpu_model" "85"
       "-pt_cpu_stepping" "4"
       "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
-      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308"
+      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308")
+    set(drpt2trace_sideband_args ${drpt2trace_commong}
+      "-primary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
+      "-secondary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
       "-sb_sample_type" "0x10086"
       "-sb_time_shift" "31"
       "-sb_time_mult" "581029125"
       "-sb_time_zero" "18444502336406842448"
       "-sb_sysroot"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
-    torunonly_api(tool.drpt2trace drpt2trace
+    torunonly_api(tool.drpt2trace.sideband drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
-      "" "${drpt2trace_args}" ON OFF)
-  endif (HAVE_LIBIPT)
-endif (BUILD_CLIENTS)
+      "" "${drpt2trace_sideband_args}" ON OFF)
+    set(drpt2trace_elf_args ${drpt2trace_commong}
+      "-elf"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
+    torunonly_api(tool.drpt2trace.elf drpt2trace
+      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "" "${drpt2trace_elf_args}" ON OFF)
+  endif(HAVE_LIBIPT)
+endif(BUILD_CLIENTS)
 
 if (UNIX)
   macro(make_symlink src dst)
