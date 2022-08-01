@@ -1979,7 +1979,7 @@ is_aflags_restore(instr_t *inst)
 #if defined(X86)
     return instr_get_opcode(inst) == OP_sahf;
 #elif defined(AARCHXX)
-    return instr_get_opcode(inst) == OP_mrs;
+    return instr_get_opcode(inst) == OP_msr;
 #elif defined(RISCV64)
     /* RISC-V does not have any integer arithmetic or condition flag registers. */
     return false;
