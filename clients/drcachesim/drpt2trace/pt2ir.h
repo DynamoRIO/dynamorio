@@ -261,7 +261,7 @@ public:
      * (1) decode the PT raw trace into libipt's IR format pt_insn;
      * (2) convert pt_insn into the DynamoRIO's IR format instr_t and append it to ilist.
      * \note The caller does not need to initialize ilist. But if the convertion is
-     * successful, the caller needs to destory the ilist.
+     * successful, the caller needs to destroy the ilist.
      */
     pt2ir_convert_status_t
     convert(OUT instrlist_t **ilist);

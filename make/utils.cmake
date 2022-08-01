@@ -235,6 +235,25 @@ function (check_avx512_processor_and_compiler_support out)
   set(${out} ${proc_found_avx512} PARENT_SCOPE)
 endfunction (check_avx512_processor_and_compiler_support)
 
+# Check if the building machine support Intel PT.
+# This function only checks if PT-related tests need to be built. PT-capable
+# binaries can be built on any system. When building an export module, please
+# do not use it to check if PT-related libraries need to be built.
+function(check_intel_pt_support out)
+  if (NOT LINUX OR NOT X86 OR NOT X64)
+    message(STATUS "Intel PT not supported on this platform.")
+    set(${out} 0 PARENT_SCOPE)
+  else ()
+    if (EXISTS "/sys/devices/intel_pt/type")
+      message(STATUS "Intel PT is available.")
+      set(${out} 1 PARENT_SCOPE)
+    else ()
+      message(STATUS "Intel PT not found.")
+      set(${out} 0 PARENT_SCOPE)
+    endif()
+  endif ()
+endfunction(check_intel_pt_support)
+
 if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
   # We could build this at configure time instead of build time as

@@ -1217,10 +1217,14 @@ else ()
   set(HAVE_HALF_FLOAT OFF)
 endif ()
 
-# Right now we only build libipt on Linux x86_64.
-# We define a variable to indicate whether DR will build libipt.
+set(proc_supports_pt OFF)
 if (LINUX AND X86 AND X64)
+  # Right now we only build libipt on Linux x86_64.
+  # We define a variable to indicate whether DR will build libipt.
+  # TODO i#5505: In the next PR, we need to check whether the libipt submodule is initialized
+  # and print a warning message when the libipt directory is empty.
   set(HAVE_LIBIPT ON)
+  check_intel_pt_support(proc_supports_pt)
 else ()
   set(HAVE_LIBIPT OFF)
 endif ()

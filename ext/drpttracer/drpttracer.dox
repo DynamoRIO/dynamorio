@@ -1,0 +1,137 @@
+/* **********************************************************
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drpttracer Intel PT Tracing
+
+The \p drpttracer DynamoRIO Extension provides clients with tracing functionality via
+Intel's PT instruction tracing feature.
+
+\note This extension only works on x86_64 Linux.
+
+ - \ref sec_drpttracer_setup
+ - \ref sec_drpttracer_usage
+ - \ref sec_drpttracer_tracing_mode
+
+\section sec_drpttracer_setup Setup
+
+To use \p drpttracer with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drpttracer) \endcode
+
+That will automatically set up the include path and library dependence.
+
+Initialize and clean up \p drpttracer by calling drpttracer_init() and
+drpttracer_exit().
+
+\section sec_drpttracer_usage Usage
+
+Intel PT (Processor Trace) only logs control flow changes. Therefore, when decoding a
+trace, the decoder needs to get raw bits of every instruction from images.
+\p drpttracer provides APIs to use Intel PT to generate trace data and some auxiliary data
+to help the decoder (e.g. libipt) to decode the trace. One type of auxiliary data is
+sideband data. This sideband data stores perf event records, which contain the image
+change messages necessary for decoding the trace. Another type of auxiliary data is the
+metadata for a trace. The metadata contains the CPU information and some other information
+that can be used to synthesize the time of PT trace and the perf event records. The
+auxiliary data enables the decoder to find the correct raw bits for every instruction.
+
+\p drpttracer provides one data structure to store all generated data:
+
+ - #drpttracer_output_t
+
+Additionally, \p drpttracer provides two APIs for a client to start and stop tracing:
+
+ - drpttracer_start_tracing()
+ - drpttracer_end_tracing()
+
+To record a PT trace, the client uses drpttracer_start_tracing() to start the tracing. The
+start function lets the client specify the following parameters:
+
+ - trace_mode : The tracing mode.
+
+ - pt_size_shift: The size shift of PT trace's ring buffer. It must be greater than 0, and
+the buffer size is 2^pt_size_shift * PAGE_SIZE.
+
+ - sideband_size_shift: The size shift of PT sideband data's ring buffer. It must be
+greater than 0, and the buffer size is 2^sideband_size_shift * PAGE_SIZE.
+
+\note Linux perf sets the buffer size to 4MiB by default. Therefore, it is best for clients
+to set trace and sideband buffers larger than 4Mib.
+
+The client must ensure that the PT trace's ring buffer and the sideband data's ring buffer
+is large enough to hold the PT data. Insufficient buffer size will lead to lost data,
+which may cause issues in pt2ir_t decoding. After the tracing is started, the
+client can get  a handle for the PT tracing. The handle is a pointer to \p drpttracer's
+internal data structure which contains the tracing's PT data buffer, sideband data buffer,
+and metadata.
+
+To stop collecting the trace, the client needs to pass the trace handle to
+drpttracer_end_tracing(). When the tracing is stopped, the stop function will allocate an
+instance of #drpttracer_output_t, and copy the PT data, sideband data, and metadata to a
+#drpttracer_output_t instance which is returned to the instance to the client. The client
+can dump the data in the output to different files for offline post-processing. The user
+can use the library pt2ir_t in drcachesim to convert the PT trace to DynamoRIO's
+IR.
+
+Additionally, if drpttracer_end_tracing() detect an overflow, it will return an error
+status code:
+
+ - Return #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE if the PT trace is overwritten.
+
+ - Return #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA if the sideband data is
+overwritten.
+
+Also, to avoid memory leak, the client must call the following function to destroy the
+output instance after using it:
+
+ - drpttracer_destroy_output()
+
+\section sec_drpttracer_tracing_mode Tracing Mode
+
+\p drpttracer provides three types of tracing modes:
+
+ - #DRPTTRACER_TRACING_ONLY_USER
+ - #DRPTTRACER_TRACING_ONLY_KERNEL
+ - #DRPTTRACER_TRACING_USER_AND_KERNEL
+
+When starting tracing, the client can choose the tracing mode by passing the appropriate
+flag to drpttracer_start_tracing().
+
+\note For kernel PT traces, the trace data's raw bits are all from kcore. So the output
+data from \p drpttracer doesn't contain sideband data; it only contains the trace
+data and metadata.
+
+*/

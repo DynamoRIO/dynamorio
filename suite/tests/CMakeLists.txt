@@ -2584,6 +2584,13 @@ tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdl
 use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
 link_with_pthread(client.drmgr-test)
 
+if (proc_supports_pt)
+  tobuild_ci(client.drpttracer_SUDO-test client-interface/drpttracer_SUDO-test.c "" "" "")
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drpttracer)
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drmgr)
+  set(client.drpttracer_SUDO-test_sudo ON)
+endif ()
+
 tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
 use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
 use_DynamoRIO_extension(client.drx_buf-test.dll drx)
