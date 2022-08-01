@@ -30,7 +30,10 @@
  * DAMAGE.
  */
 
-/* DynamoRIO Intel PT Tracing Extension. */
+/* DynamoRIO Intel PT Tracing Extension.
+ * TODO i#5505: Currently, this extension incurs significant overhead. We will reduce the
+ * overhead in the next PR.
+ */
 
 #ifndef _DRPTTRACER_H_
 #define _DRPTTRACER_H_ 1
