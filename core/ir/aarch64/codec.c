@@ -1981,6 +1981,23 @@ encode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return true;
 }
 
+/* imm2 encoded in bits 13-12 */
+static inline bool
+decode_opnd_imm2idx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint value = extract_uint(enc, 12, 2);
+    *opnd = opnd_create_immed_uint(value, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm2idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    return encode_opnd_int(12, 2, false, 0, 0, opnd, enc_out);
+}
+
 /* p10_low: P register at bit position 10; P0-P7 */
 
 static inline bool

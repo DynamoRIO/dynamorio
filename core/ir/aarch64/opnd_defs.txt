@@ -108,6 +108,7 @@
 -------------------x------------  cmode4_s_sz_msl # MSL bit for 32 bit element shifts
 -------------------xxx----------  extam      # extend amount
 ------------------x-------------  cmode_h_sz # Vector shift for 16 bit elements
+------------------xx------------  imm2idx    # imm from 13-12, used as an index
 ------------------xxxx----------  p10_low    # SVE predicate registers p0-p7
 -----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
 -----------------xx-------------  len        # imm2 len
