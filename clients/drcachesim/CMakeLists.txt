@@ -127,16 +127,9 @@ add_dependencies(directory_iterator api_headers)
 target_link_libraries(directory_iterator drfrontendlib)
 
 # Right now drpt2trace only works on Linux x86_64.
-if (LINUX AND X86 AND X64)
-  # Building drpt2trace in DynamoRIO requires libipt.
-  if (HAVE_LIBIPT)
-    add_subdirectory(drpt2trace)
-  else()
-    message(STATUS "libipt package not installed: not building drpt2trace")
-  endif (HAVE_LIBIPT)
-else()
-  message(STATUS "drpt2trace not supported on this platform")
-endif (LINUX AND X86 AND X64)
+if (BUILD_PT_POST_PROCESSOR)
+  add_subdirectory(drpt2trace)
+endif (BUILD_PT_POST_PROCESSOR)
 
 set(raw2trace_srcs
   tracer/raw2trace.cpp
