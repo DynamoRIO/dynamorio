@@ -110,6 +110,8 @@
 #cmakedefine ANNOTATIONS
 #cmakedefine HAVE_RSEQ
 #cmakedefine HAVE_HALF_FLOAT
+#cmakedefine BUILD_PT_POST_PROCESSOR
+#cmakedefine BUILD_PT_TRACER
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool
