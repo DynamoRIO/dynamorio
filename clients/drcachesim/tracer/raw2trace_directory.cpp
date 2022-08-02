@@ -298,6 +298,7 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
 {
     indir_ = indir;
     outdir_ = outdir;
+    syscall_kernel_trace_dir_ = indir + "kernel.raw";
 #ifdef WINDOWS
     // Canonicalize.
     std::replace(indir_.begin(), indir_.end(), ALT_DIRSEP[0], DIRSEP[0]);

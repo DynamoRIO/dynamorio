@@ -127,6 +127,14 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
     /* Parse the start address of the kernel image. */
     sb_pevent_config.kernel_start = pt2ir_config.sb_config.kernel_start;
 
+    /* Parse the metadata. */
+    if (!pt2ir_config.metadata_file_path.empty()) {
+        if (!load_metadata(pt2ir_config.metadata_file_path, pt_config,
+                           sb_pevent_config)) {
+            ERRMSG("Failed to initialize libipt.\n");
+            return false;
+        }
+    }
     /* Allocate the primary sideband decoder. */
     if (!pt2ir_config.sb_primary_file_path.empty()) {
         struct pt_sb_pevent_config sb_primary_config = sb_pevent_config;
@@ -134,7 +142,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         sb_primary_config.primary = 1;
         sb_primary_config.begin = (size_t)0;
         sb_primary_config.end = (size_t)0;
-        if (!alloc_sb_pevent_decoder(&sb_primary_config)) {
+        if (!alloc_sb_pevent_decoder(sb_primary_config)) {
             ERRMSG("Failed to allocate primary sideband perf event decoder.\n");
             return false;
         }
@@ -148,7 +156,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
             sb_secondary_config.primary = 0;
             sb_secondary_config.begin = (size_t)0;
             sb_secondary_config.end = (size_t)0;
-            if (!alloc_sb_pevent_decoder(&sb_secondary_config)) {
+            if (!alloc_sb_pevent_decoder(sb_secondary_config)) {
                 ERRMSG("Failed to allocate secondary sideband perf event decoder.\n");
                 return false;
             }
@@ -391,9 +399,9 @@ pt2ir_t::load_kernel_image(IN std::string &path)
 }
 
 bool
-pt2ir_t::alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config *config)
+pt2ir_t::alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config)
 {
-    int errcode = pt_sb_alloc_pevent_decoder(pt_sb_session_, config);
+    int errcode = pt_sb_alloc_pevent_decoder(pt_sb_session_, &config);
     if (errcode < 0) {
         ERRMSG("Failed to allocate sideband perf event decoder: %s.\n",
                pt_errstr(pt_errcode(errcode)));
@@ -419,4 +427,40 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
         ERRMSG("[%" PRIx64 ", IP:%" PRIx64 "] %s: %s\n", pos, ip, errtype,
                pt_errstr(pt_errcode(errcode)));
     }
+}
+
+bool
+pt2ir_t::load_metadata(IN std::string &path, INOUT struct pt_config &pt_config,
+                       INOUT struct pt_sb_pevent_config &sb_pevent_config)
+{
+    struct {
+        uint16_t cpu_family;
+        uint8_t cpu_model;
+        uint8_t cpu_stepping;
+        uint16_t time_shift;
+        uint32_t time_mult;
+        uint64_t time_zero;
+    } __attribute__((__packed__)) metadata;
+
+    std::ifstream f(path, std::ios::binary | std::ios::in);
+    if (!f.is_open()) {
+        ERRMSG("Failed to open metadata file: %s.\n", path.c_str());
+        return false;
+    }
+    f.read(reinterpret_cast<char *>(&metadata), sizeof(metadata));
+    if (f.fail()) {
+        ERRMSG("Failed to read metadata file: %s.\n", path.c_str());
+        return false;
+    }
+    f.close();
+
+    pt_config.cpu.family = metadata.cpu_family;
+    pt_config.cpu.model = metadata.cpu_model;
+    pt_config.cpu.stepping = metadata.cpu_stepping;
+    pt_config.cpu.vendor = pt_config.cpu.family != 0 ? pcv_intel : pcv_unknown;
+    sb_pevent_config.time_shift = metadata.time_shift;
+    sb_pevent_config.time_mult = metadata.time_mult;
+    sb_pevent_config.time_zero = metadata.time_zero;
+
+    return true;
 }

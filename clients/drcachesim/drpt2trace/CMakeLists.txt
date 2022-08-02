@@ -66,17 +66,17 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/include
 )
 
-# XXX: The repository of lipipt contains some functions that are useful
-# for drpt2ir. But they are not built in libipt.so or libipt-sb.so.
-# So we build them as an external library of libipt and link the external
-# library to drpt2ir. In the future we may need to implement
-# these functions in our library.
-set(ipt-ext_srcs
-  ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
-)
-add_library(ipt-ext STATIC ${ipt-ext_srcs})
-add_dependencies(ipt-ext ipt)
-target_link_libraries(ipt-ext ipt)
+# # XXX: The repository of lipipt contains some functions that are useful
+# # for drpt2ir. But they are not built in libipt.so or libipt-sb.so.
+# # So we build them as an external library of libipt and link the external
+# # library to drpt2ir. In the future we may need to implement
+# # these functions in our library.
+# set(ipt-ext_srcs
+#   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
+# )
+# add_library(ipt-ext STATIC ${ipt-ext_srcs})
+# add_dependencies(ipt-ext ipt)
+# target_link_libraries(ipt-ext ipt)
 
 # drpt2ir don't include configure.h so they don't get DR defines
 add_dr_defines()
@@ -85,12 +85,15 @@ add_dr_defines()
 # clients drpt2trace and drraw2trace.
 set(drpt2ir_srcs
   pt2ir.cpp
+  ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
 )
 add_library(drpt2ir STATIC ${drpt2ir_srcs})
 configure_DynamoRIO_decoder(drpt2ir)
-add_dependencies(drpt2ir ipt ipt-sb ipt-ext api_headers)
-target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
+add_dependencies(drpt2ir ipt ipt-sb api_headers)
+target_link_libraries(drpt2ir ipt ipt-sb)
 install_client_nonDR_header(drmemtrace pt2ir.h)
+DR_export_target(drpt2ir)
+install_exported_target(drpt2ir ${INSTALL_CLIENTS_LIB})
 
 # TODO i#5505: Currently, drpt2trace only counts instructions.
 # In the future, we will add support for converting pt trace to memref_t.

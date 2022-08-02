@@ -145,7 +145,7 @@ syscall_pt_tracer_t::trace_data_dump(void *pt, size_t pt_size, void *pt_meta)
     dr_snprintf(pt_metadata_filename, BUFFER_SIZE_ELEMENTS(pt_metadata_filename),
                 "%s.metadata", pt_filename);
     file_t pt_metadata_file = dr_open_file(pt_metadata_filename, DR_FILE_WRITE_OVERWRITE);
-    write_file_func_(pt_metadata_file, &pt_meta, sizeof(pt_metadata_t));
+    write_file_func_(pt_metadata_file, pt_meta, sizeof(pt_metadata_t));
     dr_close_file(pt_metadata_file);
     return true;
 }

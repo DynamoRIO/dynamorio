@@ -107,6 +107,7 @@ analyzer_multi_t::analyzer_multi_t()
             }
             raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
                                   nullptr, op_verbose.get_value(), op_jobs.get_value(),
+                                  dir.syscall_kernel_trace_dir_,
                                   op_alt_module_dir.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {

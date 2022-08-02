@@ -202,6 +202,11 @@ struct pt2ir_config_t {
     std::string elf_file_path;
 
     /**
+     * The file path of PT raw trace's metadata.
+     */
+    std::string metadata_file_path;
+
+    /**
      * The runtime load address of the elf file.
      */
     uint64_t elf_base;
@@ -230,6 +235,7 @@ struct pt2ir_config_t {
     std::string kcore_path;
 };
 
+struct pt_config;
 struct pt_image;
 struct pt_image_section_cache;
 struct pt_sb_pevent_config;
@@ -281,12 +287,18 @@ private:
     bool
     load_kernel_image(IN std::string &path);
 
+    /* Load the metadat of PT raw trace.
+     */
+    bool
+    load_metadata(IN std::string &path, INOUT struct pt_config &pt_config,
+                  INOUT struct pt_sb_pevent_config &sb_pevent_config);
+
     /* Allocate a sideband decoder in the sideband session. The sideband session may
      * allocate many decoders, which mainly work on handling sideband perf records and
      * help the PT decoder switch images.
      */
     bool
-    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config *config);
+    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config);
 
     /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.
