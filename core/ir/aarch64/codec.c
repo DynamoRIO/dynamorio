@@ -513,9 +513,9 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
 static inline reg_id_t
 decode_reg(uint n, bool is_x, bool is_sp)
 {
-    return (n < 31      ? (is_x ? DR_REG_X0 : DR_REG_W0) + n
-                : is_sp ? (is_x ? DR_REG_XSP : DR_REG_WSP)
-                        : (is_x ? DR_REG_XZR : DR_REG_WZR));
+    return (n < 31 ? (is_x ? DR_REG_X0 : DR_REG_W0) + n
+                   : is_sp ? (is_x ? DR_REG_XSP : DR_REG_WSP)
+                           : (is_x ? DR_REG_XZR : DR_REG_WZR));
 }
 
 /* Encode integer register. */
