@@ -3625,4 +3625,152 @@
  */
 #define INSTR_CREATE_stllrh(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_stllrh, Rt, Rn)
 
+/**
+ * Creates a SM3PARTW1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3PARTW1 <Sd>.4S, <Sn>.4S, <Sm>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3partw1_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_sm3partw1, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SM3PARTW2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3PARTW2 <Sd>.4S, <Sn>.4S, <Sm>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3partw2_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_sm3partw2, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SM3SS1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3SS1  <Sd>.4S, <Sn>.4S, <Sm>.4S, <Sa>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
+ * \param Ra_elsz   The element size for Ra, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3ss1_vector(dc, Rd, Rn, Rm, Ra, Ra_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3ss1, Rd, Rn, Rm, Ra, Ra_elsz)
+
+/**
+ * Creates a SM3TT1A instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT1A <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt1a_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt1a, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM3TT1B instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT1B <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt1b_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt1b, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM3TT2A instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT2A <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt2a_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt2a, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM3TT2B instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT2B <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt2b_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt2b, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM4E instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM4E    <Sd>.4S, <Sn>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm4e_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_sm4e, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a SM4EKEY instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM4EKEY <Sd>.4S, <Sn>.4S, <Sm>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm4ekey_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_sm4ekey, Rd, Rn, Rm, Rm_elsz)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
