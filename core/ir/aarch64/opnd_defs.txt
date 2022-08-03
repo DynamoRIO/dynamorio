@@ -217,6 +217,7 @@
 -x-----------------xxx----------  index0     # index of B subreg in Q: 0-15
 -x--------------????--xxxxx-----  memvm      # computes multiplier from 15:12
 -x----------xxxx----------------  dq16_h_sz # Q register (0-15) if bit 30 is set, else D
+-x----------xxxx----------------  sd16_h_sz # D register (0-15) if bit 30 is set, else S
 -x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 -x---------xxxxx----------------  sd16       # D register if bit 30 is set, else S
 ?---------------xxxxxx----------  imm6       # shift amount

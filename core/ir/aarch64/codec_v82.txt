@@ -105,12 +105,16 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0x101110110xxxxx001101xxxxxxxxxx  n   139  FP16     fminp  dq0 : dq5 dq16 h_sz
 0x00111010110000111110xxxxxxxxxx  n   140  FP16     fminv   h0 : dq5 h_sz
 0x001110010xxxxx000011xxxxxxxxxx  n   141  FP16      fmla  dq0 : dq0 dq5 dq16 h_sz
-0x001110001xxxxx111011xxxxxxxxxx  n   142  FHM      fmlal  dq0 : dq0 sd5 sd16 s_const_sz h_const_sz
-0x101110001xxxxx110011xxxxxxxxxx  n   143  FHM     fmlal2  dq0 : dq0 sd5 sd16 s_const_sz h_const_sz
+0x001110001xxxxx111011xxxxxxxxxx  n   142   FHM   fmlal  dq0 : dq0 sd5 sd16 h_sz
+0x00111110xxxxxx0000x0xxxxxxxxxx  n   142   FHM   fmlal  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
+0x101110001xxxxx110011xxxxxxxxxx  n   143   FHM  fmlal2  dq0 : dq0 sd5 sd16 h_sz
+0x10111110xxxxxx1000x0xxxxxxxxxx  n   143   FHM  fmlal2  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
 0x001110110xxxxx000011xxxxxxxxxx  n   144  FP16      fmls  dq0 : dq0 dq5 dq16 h_sz
 0x00111100xxxxxx0101x0xxxxxxxxxx  n   144  FP16      fmls  dq0 : dq5 dq16_h_sz vindex_H h_sz
-0x001110101xxxxx111011xxxxxxxxxx  n   145  FHM      fmlsl  dq0 : dq0 sd5 sd16 s_const_sz h_const_sz
-0x101110101xxxxx110011xxxxxxxxxx  n   146  FHM     fmlsl2  dq0 : dq0 sd5 sd16 s_const_sz h_const_sz
+0x001110101xxxxx111011xxxxxxxxxx  n   145   FHM   fmlsl  dq0 : dq0 sd5 sd16 h_sz
+0x00111110xxxxxx0100x0xxxxxxxxxx  n   145   FHM   fmlsl  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
+0x101110101xxxxx110011xxxxxxxxxx  n   146   FHM  fmlsl2  dq0 : dq0 sd5 sd16 h_sz
+0x10111110xxxxxx1100x0xxxxxxxxxx  n   146   FHM  fmlsl2  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
 00011110111xxxxxxxx10000000xxxxx  n   147  FP16      fmov   h0 : fpimm13
 0001111011100111000000xxxxxxxxxx  n   147  FP16      fmov   h0 : w5
 1001111011100111000000xxxxxxxxxx  n   147  FP16      fmov   h0 : x5
