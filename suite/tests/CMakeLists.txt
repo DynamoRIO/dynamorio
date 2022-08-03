@@ -4170,8 +4170,8 @@ endif (BUILD_CLIENTS)
 # ##########################################################################
 # drpt2trace tests
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
-if(BUILD_CLIENTS)
-  if(HAVE_LIBIPT)
+if (BUILD_CLIENTS)
+  if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
     set(drpt2trace_commong "-print_trace"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
@@ -4200,8 +4200,8 @@ if(BUILD_CLIENTS)
     torunonly_api(tool.drpt2trace.elf drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_elf_args}" ON OFF)
-  endif(HAVE_LIBIPT)
-endif(BUILD_CLIENTS)
+  endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+endif (BUILD_CLIENTS)
 
 if (UNIX)
   macro(make_symlink src dst)
