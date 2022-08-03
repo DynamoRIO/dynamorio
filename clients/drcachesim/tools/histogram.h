@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -66,6 +66,11 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // This is public, with output parameters, for test use.
+    virtual bool
+    reduce_results(uint64_t *unique_icache_lines = nullptr,
+                   uint64_t *unique_dcache_lines = nullptr);
+
 protected:
     struct shard_data_t {
         std::unordered_map<addr_t, uint64_t> icache_map;
@@ -82,6 +87,8 @@ protected:
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
     shard_data_t serial_shard_;
+    // The combined data from all the shards.
+    shard_data_t reduced_;
 };
 
 #endif /* _HISTOGRAM_H_ */

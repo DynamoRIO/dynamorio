@@ -46,94 +46,7 @@
 #include "dr_api.h"
 #include "tools.h"
 
-static byte buf[8192];
-
-reg_id_t Q_registers[31] = { DR_REG_Q1,  DR_REG_Q2,  DR_REG_Q3,  DR_REG_Q4,  DR_REG_Q5,
-                             DR_REG_Q6,  DR_REG_Q7,  DR_REG_Q8,  DR_REG_Q9,  DR_REG_Q10,
-                             DR_REG_Q11, DR_REG_Q12, DR_REG_Q13, DR_REG_Q14, DR_REG_Q15,
-                             DR_REG_Q16, DR_REG_Q17, DR_REG_Q18, DR_REG_Q19, DR_REG_Q21,
-                             DR_REG_Q22, DR_REG_Q23, DR_REG_Q24, DR_REG_Q25, DR_REG_Q26,
-                             DR_REG_Q27, DR_REG_Q28, DR_REG_Q29, DR_REG_Q30, DR_REG_Q31 };
-
-reg_id_t D_registers[31] = { DR_REG_D1,  DR_REG_D2,  DR_REG_D3,  DR_REG_D4,  DR_REG_D5,
-                             DR_REG_D6,  DR_REG_D7,  DR_REG_D8,  DR_REG_D9,  DR_REG_D10,
-                             DR_REG_D11, DR_REG_D12, DR_REG_D13, DR_REG_D14, DR_REG_D15,
-                             DR_REG_D16, DR_REG_D17, DR_REG_D18, DR_REG_D19, DR_REG_D21,
-                             DR_REG_D22, DR_REG_D23, DR_REG_D24, DR_REG_D25, DR_REG_D26,
-                             DR_REG_D27, DR_REG_D28, DR_REG_D29, DR_REG_D30, DR_REG_D31 };
-
-#ifdef STANDALONE_DECODER
-#    define ASSERT(x)                                                                 \
-        ((void)((!(x)) ? (fprintf(stderr, "ASSERT FAILURE (standalone): %s:%d: %s\n", \
-                                  __FILE__, __LINE__, #x),                            \
-                          abort(), 0)                                                 \
-                       : 0))
-#else
-#    define ASSERT(x)                                                                \
-        ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE (client): %s:%d: %s\n", \
-                                     __FILE__, __LINE__, #x),                        \
-                          dr_abort(), 0)                                             \
-                       : 0))
-#endif
-
-#define TEST_INSTR(instruction_name) bool test_instr_##instruction_name(void *dc)
-
-#define RUN_INSTR_TEST(instruction_name)                   \
-    test_result = test_instr_##instruction_name(dcontext); \
-    if (test_result == false) {                            \
-        print("test for " #instruction_name " failed.\n"); \
-        result = false;                                    \
-    }
-
-static bool
-test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
-{
-    instr_t *decin;
-    byte *pc;
-    char *end, *big;
-    size_t len = strlen(expected);
-    size_t buflen = (len < 100 ? 100 : len) + 2;
-    bool result = true;
-    char *buf = malloc(buflen);
-
-    if (instr_get_opcode(instr) != opcode) {
-        print("incorrect opcode for instr %s: %s", opcode, instr_get_opcode(instr));
-        result = false;
-    }
-    instr_disassemble_to_buffer(dc, instr, buf, buflen);
-    end = buf + strlen(buf);
-    if (end > buf && *(end - 1) == '\n')
-        --end;
-
-    if (end - buf != len || memcmp(buf, expected, len) != 0) {
-        print("dissassembled as:\n");
-        print("   %s\n", buf);
-        print("but expected:\n");
-        print("   %s\n", expected);
-        result = false;
-    }
-
-    if (!instr_is_encoding_possible(instr)) {
-        print("encoding for expected %s not possible\n", expected);
-        result = false;
-    } else {
-        pc = instr_encode(dc, instr, buf);
-        decin = instr_create(dc);
-        decode(dc, buf, decin);
-        if (!instr_same(instr, decin)) {
-            print("Reencoding failed, dissassembled as:\n   ");
-            instr_disassemble(dc, decin, STDERR);
-            print("\n");
-            print("but expected:\n");
-            print("   %s\n", expected);
-            result = false;
-        }
-    }
-    instr_destroy(dc, instr);
-    instr_destroy(dc, decin);
-
-    return result;
-}
+#include "ir_aarch64.h"
 
 TEST_INSTR(sqrdmlsh_vector)
 {
@@ -300,6 +213,188 @@ TEST_INSTR(sqrdmlsh_scalar)
     return success;
 }
 
+TEST_INSTR(ldlar)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing LDLAR   <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "ldlar  (%x0)[4byte] -> %w0",
+        "ldlar  (%x10)[4byte] -> %w10",
+        "ldlar  (%sp)[4byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlar(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_4));
+        if (!test_instr_encoding(dc, OP_ldlar, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    /* Testing LDLAR   <Xt>, [<Xn|SP>] */
+    reg_id_t Rt_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_X30 };
+    reg_id_t Rn_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_1_0[3] = {
+        "ldlar  (%x0)[8byte] -> %x0",
+        "ldlar  (%x10)[8byte] -> %x10",
+        "ldlar  (%sp)[8byte] -> %x30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlar(
+            dc, opnd_create_reg(Rt_1_0[i]),
+            opnd_create_base_disp(Rn_1_0[i], DR_REG_NULL, 0, 0, OPSZ_8));
+        if (!test_instr_encoding(dc, OP_ldlar, instr, expected_1_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(ldlarb)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing LDLARB  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "ldlarb (%x0)[1byte] -> %w0",
+        "ldlarb (%x10)[1byte] -> %w10",
+        "ldlarb (%sp)[1byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlarb(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_1));
+        if (!test_instr_encoding(dc, OP_ldlarb, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(ldlarh)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing LDLARH  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "ldlarh (%x0)[2byte] -> %w0",
+        "ldlarh (%x10)[2byte] -> %w10",
+        "ldlarh (%sp)[2byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_ldlarh(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_2));
+        if (!test_instr_encoding(dc, OP_ldlarh, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(stllr)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing STLLR   <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "stllr  (%x0)[4byte] -> %w0",
+        "stllr  (%x10)[4byte] -> %w10",
+        "stllr  (%sp)[4byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllr(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_4));
+        if (!test_instr_encoding(dc, OP_stllr, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    /* Testing STLLR   <Xt>, [<Xn|SP>] */
+    reg_id_t Rt_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_X30 };
+    reg_id_t Rn_1_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_1_0[3] = {
+        "stllr  (%x0)[8byte] -> %x0",
+        "stllr  (%x10)[8byte] -> %x10",
+        "stllr  (%sp)[8byte] -> %x30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllr(
+            dc, opnd_create_reg(Rt_1_0[i]),
+            opnd_create_base_disp(Rn_1_0[i], DR_REG_NULL, 0, 0, OPSZ_8));
+        if (!test_instr_encoding(dc, OP_stllr, instr, expected_1_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(stllrb)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing STLLRB  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "stllrb (%x0)[1byte] -> %w0",
+        "stllrb (%x10)[1byte] -> %w10",
+        "stllrb (%sp)[1byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllrb(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_1));
+        if (!test_instr_encoding(dc, OP_stllrb, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(stllrh)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing STLLRH  <Wt>, [<Xn|SP>] */
+    reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
+    reg_id_t Rn_0_0[3] = { DR_REG_X0, DR_REG_X10, DR_REG_SP };
+    const char *expected_0_0[3] = {
+        "stllrh (%x0)[2byte] -> %w0",
+        "stllrh (%x10)[2byte] -> %w10",
+        "stllrh (%sp)[2byte] -> %w30",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_stllrh(
+            dc, opnd_create_reg(Rt_0_0[i]),
+            opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_2));
+        if (!test_instr_encoding(dc, OP_stllrh, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -314,6 +409,12 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(sqrdmlsh_scalar);
     RUN_INSTR_TEST(sqrdmlsh_scalar_idx);
     RUN_INSTR_TEST(sqrdmlsh_vector);
+    RUN_INSTR_TEST(ldlar);
+    RUN_INSTR_TEST(ldlarb);
+    RUN_INSTR_TEST(ldlarh);
+    RUN_INSTR_TEST(stllr);
+    RUN_INSTR_TEST(stllrb);
+    RUN_INSTR_TEST(stllrh);
 
     print("All v8.1 tests complete.\n");
 #ifndef STANDALONE_DECODER
