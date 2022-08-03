@@ -866,7 +866,7 @@ ATOMIC_ADD_int(volatile int *var, int val)
     __asm__ __volatile__("amoadd.w.aqrl zero, %1, 0(%0)\n\t"
                          :
                          : "r"(var), "r"(val)
-                         :  "memory");
+                         : "memory");
 }
 
 static inline void
@@ -879,7 +879,7 @@ ATOMIC_ADD_int64(volatile int64 *var, int64 val)
     __asm__ __volatile__("amoadd.d.aqrl zero, %1, 0(%0)\n\t"
                          :
                          : "r"(var), "r"(val)
-                         :  "memory");
+                         : "memory");
 }
 
 #        define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(&var, val)
@@ -895,7 +895,7 @@ atomic_add_exchange_int(volatile int *var, int val)
     __asm__ __volatile__("amoadd.w.aqrl %0, %2, 0(%1)\n\t"
                          : "=r"(res)
                          : "r"(var), "r"(val)
-                         :  "memory");
+                         : "memory");
     return res + val;
 }
 
@@ -910,7 +910,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 val)
     __asm__ __volatile__("amoadd.d.aqrl %0, %2, 0(%1)\n\t"
                          : "=r"(res)
                          : "r"(var), "r"(val)
-                         :  "memory");
+                         : "memory");
     return res + val;
 }
 
@@ -982,7 +982,7 @@ atomic_exchange_int(volatile int *var, int newval)
     __asm__ __volatile__("amoswap.w.aqrl %0, %2, 0(%1)\n\t"
                          : "=r"(res)
                          : "r"(var), "r"(newval)
-                         :  "memory");
+                         : "memory");
     return res;
 }
 
