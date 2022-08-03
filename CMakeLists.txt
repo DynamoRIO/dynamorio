@@ -1217,17 +1217,28 @@ else ()
   set(HAVE_HALF_FLOAT OFF)
 endif ()
 
+set(BUILD_PT_TRACER OFF)
+set(BUILD_PT_POST_PROCESSOR OFF)
 set(proc_supports_pt OFF)
+# Right now we only build PT related libraries on Linux x86_64.
 if (LINUX AND X86 AND X64)
-  # Right now we only build libipt on Linux x86_64.
-  # We define a variable to indicate whether DR will build libipt.
-  # TODO i#5505: In the next PR, we need to check whether the libipt submodule is initialized
-  # and print a warning message when the libipt directory is empty.
-  set(HAVE_LIBIPT ON)
+  # We will always build the PT tracer on Linux X86_64 no matter whether the system
+  # supports PT, because users may want to use the built binaries on a different system
+  # that does support PT.
+  set(BUILD_PT_TRACER ON)
+  # Check if the building machine supports Intel PT. This function only checks if
+  # PT-related tests need to be built. PT-capable binaries can be built on any system.
   check_intel_pt_support(proc_supports_pt)
-else ()
-  set(HAVE_LIBIPT OFF)
-endif ()
+  # libdrpt2ir and drpt2trace depend on libipt. If the libipt submodule is not
+  # initialized, cmake will report a warning here.
+  if (EXISTS "${PROJECT_SOURCE_DIR}/third_party/libipt/.git" )
+    set(BUILD_PT_POST_PROCESSOR ON)
+  else ()
+    message(STATUS "libipt submodule is not initialized. libdrpt2ir and drpt2trace will not be built.")
+  endif ()
+else (LINUX AND X86 AND X64)
+  message(STATUS "PT related libraries only supported on Linux x86_64")
+endif (LINUX AND X86 AND X64)
 
 ###########################################################################
 
