@@ -975,8 +975,8 @@ static inline int
 atomic_exchange_int(volatile int *var, int newval)
 {
     int res;
-    /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address is
-     * naturally aligned.
+    /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address
+     * is naturally aligned.
      */
     ASSERT(ALIGNED(var, 4));
     __asm__ __volatile__("amoswap.w.aqrl %0, %2, 0(%1)\n\t"
