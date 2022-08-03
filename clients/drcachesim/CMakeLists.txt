@@ -301,10 +301,11 @@ macro(add_drmemtrace name type)
     tracer/func_trace.cpp
     ${client_and_sim_srcs}
     )
-  if (LINUX AND X86 AND X64)
+  if (BUILD_PT_TRACER)
     set(drmemtrace_srcs ${drmemtrace_srcs}
-      tracer/syscall_pt_tracer.cpp
+      tracer/syscall_pt_trace.cpp
     )
+    add_definitions(-DBUILD_PT_TRACER)
   endif ()
   if (libsnappy)
     set(drmemtrace_srcs ${drmemtrace_srcs}

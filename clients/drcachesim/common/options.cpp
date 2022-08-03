@@ -637,10 +637,10 @@ droption_t<bool> op_enable_drstatecmp(
     "When true, this option enables the drstatecmp library that performs state "
     "comparisons to detect instrumentation-induced bugs due to state clobbering.");
 
-#if defined(LINUX) && defined(X86_64)
+#ifdef BUILD_PT_TRACER
 droption_t<bool> op_enable_kernel_tracing(
     DROPTION_SCOPE_ALL, "enable_kernel_tracing", false, "Enable Kernel PT tracing.",
     "By default, offline tracing only records userspace trace. If this option is "
     "enabled, offline tracing will record syscall's Kernel PT and write every syscall's "
-    "PT and metadata to files in -outdir for later offline analysis.");
+    "PT and metadata to files in -outdir/kernel.raw/ for later offline analysis.");
 #endif

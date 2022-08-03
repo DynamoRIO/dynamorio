@@ -527,7 +527,7 @@ drpttracer_create_tracer(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
 {
     if (tracer_handle == NULL) {
         ASSERT(false, "tracer_handle is NULL");
-        return DRPTTRACER_STATUS_INVALID_ARGUMENT;
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
 
     /* Initialize the pttracer_handle_t. */

@@ -76,9 +76,9 @@
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
 #endif
 
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
 #    include "drpttracer.h"
-#    include "syscall_pt_tracer.h"
+#    include "syscall_pt_trace.h"
 #endif
 
 /* Make sure we export function name as the symbol name without mangling. */
@@ -105,8 +105,8 @@ DR_DISALLOW_UNSAFE_STATIC
     } while (0)
 
 static char logsubdir[MAXIMUM_PATH];
-#if defined(X86_64) && defined(LINUX)
-static char kernel_logsubdir[MAXIMUM_PATH];
+#ifdef BUILD_PT_TRACER
+static char kernel_pt_logsubdir[MAXIMUM_PATH];
 #endif
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
@@ -169,9 +169,9 @@ typedef struct {
     uint64 num_phys_markers;
     byte *v2p_buf;
     uint64 num_v2p_writeouts; /* v2p_buf writeout instances. */
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
     /* For syscall kernel trace. */
-    syscall_pt_tracer_t syscall_pt_tracer;
+    syscall_pt_trace_t syscall_pt_trace;
 #endif
 } per_thread_t;
 
@@ -2421,11 +2421,13 @@ event_pre_syscall(void *drcontext, int sysnum)
 #endif
     if (file_ops_func.handoff_buf == NULL)
         memtrace(drcontext, false);
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        ASSERT(data->syscall_pt_tracer.get_recording_sysnum() == -1,
-               "last tracing isn't stopped");
-        if (!data->syscall_pt_tracer.start_syscall_pt_trace(sysnum)) {
+        if (data->syscall_pt_trace.get_recording_sysnum() != -1) {
+            ASSERT(false, "last tracing isn't stopped");
+            return false;
+        }
+        if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
             return false;
         }
@@ -2437,30 +2439,31 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_post_syscall(void *drcontext, int sysnum)
 {
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value()) {
         return;
     }
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    if (data->syscall_pt_tracer.get_recording_sysnum() == -1) {
+    if (data->syscall_pt_trace.get_recording_sysnum() == -1) {
         ASSERT(false, "last syscall is not traced");
         return;
     }
 
-    ASSERT(data->syscall_pt_tracer.get_recording_sysnum() == sysnum,
+    ASSERT(data->syscall_pt_trace.get_recording_sysnum() == sysnum,
            "last tracing isn't stopped");
-    if (!data->syscall_pt_tracer.stop_syscall_pt_trace()) {
+    if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
         ASSERT(false, "failed to stop syscall pt trace");
         return;
     }
 
+    /* Write a marker to userspace raw trace. */
     if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_ID;
-    uintptr_t marker_val = data->syscall_pt_tracer.get_last_recorded_syscall_id();
+    uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_id();
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
     if (file_ops_func.handoff_buf == NULL)
@@ -2928,10 +2931,10 @@ init_thread_in_process(void *drcontext)
         *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICACHE) = data->l0_icache;
     }
 
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        data->syscall_pt_tracer.init(kernel_logsubdir, MAXIMUM_PATH,
-                                     file_ops_func.write_file);
+        data->syscall_pt_trace.init(drcontext, kernel_pt_logsubdir, MAXIMUM_PATH,
+                                    file_ops_func.write_file);
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -3063,7 +3066,7 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
     }
@@ -3174,12 +3177,12 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(logsubdir);
     if (!file_ops_func.create_dir(logsubdir))
         return false;
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        dr_snprintf(kernel_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_logsubdir), "%s%s%s",
-                    buf, DIRSEP, KERNEL_OUTFILE_SUBDIR);
-        NULL_TERMINATE_BUFFER(kernel_logsubdir);
-        if (!file_ops_func.create_dir(kernel_logsubdir))
+        dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir),
+                    "%s%s%s", buf, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
+        NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
+        if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;
     }
 #endif
@@ -3469,7 +3472,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_use_physical.get_value() && !physaddr_t::global_init())
         FATAL("Unable to open pagemap for physical addresses: check privileges.\n");
 
-#if defined(X86_64) && defined(LINUX)
+#ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (!drpttracer_init())
             FATAL("Failed to initialize drpttracer.\n");
