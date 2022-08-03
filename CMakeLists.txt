@@ -1222,14 +1222,15 @@ set(BUILD_PT_POST_PROCESSOR OFF)
 set(proc_supports_pt OFF)
 # Right now we only build PT related libraries on Linux x86_64.
 if (LINUX AND X86 AND X64)
-  # We will always build the PT tracer on Linux X86_64 no matter whether the system supports PT.
-  # Because users may want to use the built binaries on a different system that does support PT.
+  # We will always build the PT tracer on Linux X86_64 no matter whether the system
+  # supports PT, because users may want to use the built binaries on a different system
+  # that does support PT.
   set(BUILD_PT_TRACER ON)
-  # Check if the building machine supports Intel PT. This function only checks if PT-related tests
-  # need to be built. PT-capable binaries can be built on any system.
+  # Check if the building machine supports Intel PT. This function only checks if
+  # PT-related tests need to be built. PT-capable binaries can be built on any system.
   check_intel_pt_support(proc_supports_pt)
-  # libdrpt2ir and drpt2trace depend on libipt. If the libipt submodule is not initialized,
-  # cmake will report a warning here.
+  # libdrpt2ir and drpt2trace depend on libipt. If the libipt submodule is not
+  # initialized, cmake will report a warning here.
   if (EXISTS "${PROJECT_SOURCE_DIR}/third_party/libipt/.git" )
     set(BUILD_PT_POST_PROCESSOR ON)
   else ()
