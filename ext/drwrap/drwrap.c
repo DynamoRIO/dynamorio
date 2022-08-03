@@ -598,7 +598,7 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
 #ifdef AARCHXX
                 wrapcxt->mc->xflags = 0; /*0 is fine for ARM */
 #elif defined(RISCV64)
-                wrapcxt->mc->xflags = 0; /* FIXME i#3544: Check if valid */
+                /* No condition flags that need to be cleaned/preserved. */
 #else
 #    ifdef WINDOWS
                 wrapcxt->mc->xflags = __readeflags();

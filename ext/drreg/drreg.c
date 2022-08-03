@@ -2126,6 +2126,8 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
         }
     }
     instr_free(drcontext, &inst);
+/* RISC-V does not have any aflags to restore */
+#if !defined(RISCV64)
     if (aflags_slot < MAX_SPILLS || aflags_reg != DR_REG_NULL) {
         reg_t newval = info->mcontext->xflags;
         reg_t val;
@@ -2133,9 +2135,6 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
 #ifdef X86
             ASSERT(aflags_reg == DR_REG_XAX, "x86 aflags can only be in xax");
             val = info->mcontext->xax;
-#elif defined(RISCV64)
-            ASSERT(false, "No flags reg on RISC-V, should not be here!");
-            val = 0;
 #else
             val = *(reg_t *)(&info->mcontext->r0 + (aflags_reg - DR_REG_R0));
 #endif
@@ -2147,6 +2146,7 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
             __FUNCTION__, info->mcontext->xflags, newval);
         info->mcontext->xflags = newval;
     }
+#endif
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS) {
             reg_t val = get_spilled_value(drcontext, spilled_to[GPR_IDX(reg)]);
@@ -2351,6 +2351,8 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
             }
         }
     }
+/* RISC-V does not have any aflags to restore */
+#if !defined(RISCV64)
     if (aflags_spill_reg != DR_REG_NULL ||
         spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)] != MAX_SPILLS) {
         reg_t newval = info->mcontext->xflags;
@@ -2360,9 +2362,6 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
 #ifdef X86
             ASSERT(aflags_spill_reg == DR_REG_XAX, "x86 aflags can only be in xax");
             val = info->mcontext->xax;
-#elif defined(RISCV64)
-            ASSERT(false, "No flags reg on RISC-V, should not be here!");
-            val = 0;
 #else
             val = *(reg_t *)(&info->mcontext->r0 + (aflags_spill_reg - DR_REG_R0));
 #endif
@@ -2379,6 +2378,7 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
         }
         info->mcontext->xflags = newval;
     }
+#endif
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (spill_slot[GPR_IDX(reg)] != MAX_SPILLS) {
             slot = spill_slot[GPR_IDX(reg)];
