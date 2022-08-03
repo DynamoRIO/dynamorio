@@ -1232,9 +1232,19 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlal_vector(dc, Rd, Rm, Rn)                              \
-    instr_create_1dst_5src(dc, OP_fmlal, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
-                           OPND_CREATE_HALF())
+#define INSTR_CREATE_fmlal_vector(dc, Rd, Rm, Rn) \
+    instr_create_1dst_4src(dc, OP_fmlal, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
+
+/**
+ * Creates a FMLAL indexed vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register. The instruction also reads this register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ */
+#define INSTR_CREATE_fmlal_vector_idx(dc, Rd, Rm, Rn, index) \
+    instr_create_1dst_5src(dc, OP_fmlal, Rd, Rd, Rm, Rn, index, OPND_CREATE_HALF())
 
 /**
  * Creates a FMAX vector instruction.
@@ -1323,9 +1333,18 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlsl_vector(dc, Rd, Rm, Rn)                              \
-    instr_create_1dst_5src(dc, OP_fmlsl, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
-                           OPND_CREATE_HALF())
+#define INSTR_CREATE_fmlsl_vector(dc, Rd, Rm, Rn) \
+    instr_create_1dst_4src(dc, OP_fmlsl, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
+/**
+ * Creates a FMLSL indexed vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register. The instruction also reads this register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ */
+#define INSTR_CREATE_fmlsl_vector_idx(dc, Rd, Rm, Rn, index) \
+    instr_create_1dst_5src(dc, OP_fmlsl, Rd, Rd, Rm, Rn, index, OPND_CREATE_HALF())
 
 /**
  * Creates a FMIN vector instruction.
@@ -1701,9 +1720,19 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlal2_vector(dc, Rd, Rm, Rn)                              \
-    instr_create_1dst_5src(dc, OP_fmlal2, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
-                           OPND_CREATE_HALF())
+#define INSTR_CREATE_fmlal2_vector(dc, Rd, Rm, Rn) \
+    instr_create_1dst_4src(dc, OP_fmlal2, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
+
+/**
+ * Creates a FMLAL2 indexed vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register. The instruction also reads this register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ */
+#define INSTR_CREATE_fmlal2_vector_idx(dc, Rd, Rm, Rn, index) \
+    instr_create_1dst_5src(dc, OP_fmlal2, Rd, Rd, Rm, Rn, index, OPND_CREATE_HALF())
 
 /**
  * Creates a FADDP vector instruction.
@@ -1816,9 +1845,18 @@
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  */
-#define INSTR_CREATE_fmlsl2_vector(dc, Rd, Rm, Rn)                              \
-    instr_create_1dst_5src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn, OPND_CREATE_SINGLE(), \
-                           OPND_CREATE_HALF())
+#define INSTR_CREATE_fmlsl2_vector(dc, Rd, Rm, Rn) \
+    instr_create_1dst_4src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
+/**
+ * Creates a FMLSL2 indexed vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register. The instruction also reads this register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ */
+#define INSTR_CREATE_fmlsl2_vector_idx(dc, Rd, Rm, Rn, index) \
+    instr_create_1dst_5src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn, index, OPND_CREATE_HALF())
 
 /**
  * Creates a FABD vector instruction.

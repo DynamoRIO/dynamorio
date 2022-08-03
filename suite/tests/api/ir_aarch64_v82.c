@@ -1143,9 +1143,9 @@ TEST_INSTR(fmlal_vector)
     reg_id_t Rn_0[3] = { DR_REG_S1, DR_REG_S11, DR_REG_S30 };
     reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
     const char *expected_0[3] = {
-        "fmlal  %d0 %s1 %s0 $0x02 $0x01 -> %d0",
-        "fmlal  %d10 %s11 %s10 $0x02 $0x01 -> %d10",
-        "fmlal  %d31 %s30 %s31 $0x02 $0x01 -> %d31",
+        "fmlal  %d0 %s1 %s0 $0x01 -> %d0",
+        "fmlal  %d10 %s11 %s10 $0x01 -> %d10",
+        "fmlal  %d31 %s30 %s31 $0x01 -> %d31",
     };
     for (int i = 0; i < 3; i++) {
         instr =
@@ -1160,15 +1160,42 @@ TEST_INSTR(fmlal_vector)
     reg_id_t Rn_1[3] = { DR_REG_D1, DR_REG_D11, DR_REG_D30 };
     reg_id_t Rm_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     const char *expected_1[3] = {
-        "fmlal  %q0 %d1 %d0 $0x02 $0x01 -> %q0",
-        "fmlal  %q10 %d11 %d10 $0x02 $0x01 -> %q10",
-        "fmlal  %q31 %d30 %d31 $0x02 $0x01 -> %q31",
+        "fmlal  %q0 %d1 %d0 $0x01 -> %q0",
+        "fmlal  %q10 %d11 %d10 $0x01 -> %q10",
+        "fmlal  %q31 %d30 %d31 $0x01 -> %q31",
     };
     for (int i = 0; i < 3; i++) {
         instr =
             INSTR_CREATE_fmlal_vector(dc, opnd_create_reg(Rd_1[i]),
                                       opnd_create_reg(Rn_1[i]), opnd_create_reg(Rm_1[i]));
         if (!test_instr_encoding(dc, OP_fmlal, instr, expected_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(fmlal_vector_idx)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* FMLAL <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
+    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0[3] = { DR_REG_S2, DR_REG_S20, DR_REG_S30 };
+    reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S7, DR_REG_S15 };
+    short index[3] = { 0, 5, 7 };
+    const char *expected_0[3] = {
+        "fmlal  %d0 %s2 %s0 $0x0000000000000000 $0x01 -> %d0",
+        "fmlal  %d10 %s20 %s7 $0x0000000000000005 $0x01 -> %d10",
+        "fmlal  %d31 %s30 %s15 $0x0000000000000007 $0x01 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fmlal_vector_idx(
+            dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
+            opnd_create_reg(Rm_0[i]), OPND_CREATE_INT(index[i]));
+        if (!test_instr_encoding(dc, OP_fmlal, instr, expected_0[i]))
             success = false;
     }
 
@@ -1192,9 +1219,9 @@ TEST_INSTR(fmlal2_vector)
     reg_id_t Rn_0[3] = { DR_REG_S1, DR_REG_S11, DR_REG_S30 };
     reg_id_t Rm_0[3] = { DR_REG_S2, DR_REG_S12, DR_REG_S29 };
     const char *expected_0[3] = {
-        "fmlal2 %d0 %s1 %s2 $0x02 $0x01 -> %d0",
-        "fmlal2 %d10 %s11 %s12 $0x02 $0x01 -> %d10",
-        "fmlal2 %d31 %s30 %s29 $0x02 $0x01 -> %d31",
+        "fmlal2 %d0 %s1 %s2 $0x01 -> %d0",
+        "fmlal2 %d10 %s11 %s12 $0x01 -> %d10",
+        "fmlal2 %d31 %s30 %s29 $0x01 -> %d31",
     };
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fmlal2_vector(dc, opnd_create_reg(Rd_0[i]),
@@ -1209,15 +1236,42 @@ TEST_INSTR(fmlal2_vector)
     reg_id_t Rn_1[3] = { DR_REG_D1, DR_REG_D11, DR_REG_D30 };
     reg_id_t Rm_1[3] = { DR_REG_D2, DR_REG_D12, DR_REG_D29 };
     const char *expected_1[3] = {
-        "fmlal2 %q0 %d1 %d2 $0x02 $0x01 -> %q0",
-        "fmlal2 %q10 %d11 %d12 $0x02 $0x01 -> %q10",
-        "fmlal2 %q31 %d30 %d29 $0x02 $0x01 -> %q31",
+        "fmlal2 %q0 %d1 %d2 $0x01 -> %q0",
+        "fmlal2 %q10 %d11 %d12 $0x01 -> %q10",
+        "fmlal2 %q31 %d30 %d29 $0x01 -> %q31",
     };
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fmlal2_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]),
                                            opnd_create_reg(Rm_1[i]));
         if (!test_instr_encoding(dc, OP_fmlal2, instr, expected_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(fmlal2_vector_idx)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* FMLAL2 <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
+    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0[3] = { DR_REG_S2, DR_REG_S20, DR_REG_S30 };
+    reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S7, DR_REG_S15 };
+    short index[3] = { 0, 5, 7 };
+    const char *expected_0[3] = {
+        "fmlal2 %d0 %s2 %s0 $0x0000000000000000 $0x01 -> %d0",
+        "fmlal2 %d10 %s20 %s7 $0x0000000000000005 $0x01 -> %d10",
+        "fmlal2 %d31 %s30 %s15 $0x0000000000000007 $0x01 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fmlal2_vector_idx(
+            dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
+            opnd_create_reg(Rm_0[i]), OPND_CREATE_INT(index[i]));
+        if (!test_instr_encoding(dc, OP_fmlal2, instr, expected_0[i]))
             success = false;
     }
 
@@ -1241,9 +1295,9 @@ TEST_INSTR(fmlsl_vector)
     reg_id_t Rn_0[3] = { DR_REG_S1, DR_REG_S11, DR_REG_S30 };
     reg_id_t Rm_0[3] = { DR_REG_S2, DR_REG_S12, DR_REG_S29 };
     const char *expected_0[3] = {
-        "fmlsl  %d0 %s1 %s2 $0x02 $0x01 -> %d0",
-        "fmlsl  %d10 %s11 %s12 $0x02 $0x01 -> %d10",
-        "fmlsl  %d31 %s30 %s29 $0x02 $0x01 -> %d31",
+        "fmlsl  %d0 %s1 %s2 $0x01 -> %d0",
+        "fmlsl  %d10 %s11 %s12 $0x01 -> %d10",
+        "fmlsl  %d31 %s30 %s29 $0x01 -> %d31",
     };
     for (int i = 0; i < 3; i++) {
         instr =
@@ -1258,15 +1312,42 @@ TEST_INSTR(fmlsl_vector)
     reg_id_t Rn_1[3] = { DR_REG_D1, DR_REG_D11, DR_REG_D30 };
     reg_id_t Rm_1[3] = { DR_REG_D2, DR_REG_D12, DR_REG_D29 };
     const char *expected_1[3] = {
-        "fmlsl  %q0 %d1 %d2 $0x02 $0x01 -> %q0",
-        "fmlsl  %q10 %d11 %d12 $0x02 $0x01 -> %q10",
-        "fmlsl  %q31 %d30 %d29 $0x02 $0x01 -> %q31",
+        "fmlsl  %q0 %d1 %d2 $0x01 -> %q0",
+        "fmlsl  %q10 %d11 %d12 $0x01 -> %q10",
+        "fmlsl  %q31 %d30 %d29 $0x01 -> %q31",
     };
     for (int i = 0; i < 3; i++) {
         instr =
             INSTR_CREATE_fmlsl_vector(dc, opnd_create_reg(Rd_1[i]),
                                       opnd_create_reg(Rn_1[i]), opnd_create_reg(Rm_1[i]));
         if (!test_instr_encoding(dc, OP_fmlsl, instr, expected_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(fmlsl_vector_idx)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* FMLSL <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
+    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0[3] = { DR_REG_S2, DR_REG_S20, DR_REG_S30 };
+    reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S7, DR_REG_S15 };
+    short index[3] = { 0, 5, 7 };
+    const char *expected_0[3] = {
+        "fmlsl  %d0 %s2 %s0 $0x0000000000000000 $0x01 -> %d0",
+        "fmlsl  %d10 %s20 %s7 $0x0000000000000005 $0x01 -> %d10",
+        "fmlsl  %d31 %s30 %s15 $0x0000000000000007 $0x01 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fmlsl_vector_idx(
+            dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
+            opnd_create_reg(Rm_0[i]), OPND_CREATE_INT(index[i]));
+        if (!test_instr_encoding(dc, OP_fmlsl, instr, expected_0[i]))
             success = false;
     }
 
@@ -1290,9 +1371,9 @@ TEST_INSTR(fmlsl2_vector)
     reg_id_t Rn_0[3] = { DR_REG_S1, DR_REG_S11, DR_REG_S30 };
     reg_id_t Rm_0[3] = { DR_REG_S2, DR_REG_S12, DR_REG_S29 };
     const char *expected_0[3] = {
-        "fmlsl2 %d0 %s1 %s2 $0x02 $0x01 -> %d0",
-        "fmlsl2 %d10 %s11 %s12 $0x02 $0x01 -> %d10",
-        "fmlsl2 %d31 %s30 %s29 $0x02 $0x01 -> %d31",
+        "fmlsl2 %d0 %s1 %s2 $0x01 -> %d0",
+        "fmlsl2 %d10 %s11 %s12 $0x01 -> %d10",
+        "fmlsl2 %d31 %s30 %s29 $0x01 -> %d31",
     };
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fmlsl2_vector(dc, opnd_create_reg(Rd_0[i]),
@@ -1307,15 +1388,42 @@ TEST_INSTR(fmlsl2_vector)
     reg_id_t Rn_1[3] = { DR_REG_D1, DR_REG_D11, DR_REG_D30 };
     reg_id_t Rm_1[3] = { DR_REG_D2, DR_REG_D12, DR_REG_D29 };
     const char *expected_1[3] = {
-        "fmlsl2 %q0 %d1 %d2 $0x02 $0x01 -> %q0",
-        "fmlsl2 %q10 %d11 %d12 $0x02 $0x01 -> %q10",
-        "fmlsl2 %q31 %d30 %d29 $0x02 $0x01 -> %q31",
+        "fmlsl2 %q0 %d1 %d2 $0x01 -> %q0",
+        "fmlsl2 %q10 %d11 %d12 $0x01 -> %q10",
+        "fmlsl2 %q31 %d30 %d29 $0x01 -> %q31",
     };
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fmlsl2_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]),
                                            opnd_create_reg(Rm_1[i]));
         if (!test_instr_encoding(dc, OP_fmlsl2, instr, expected_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(fmlsl2_vector_idx)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* FMLSL2 <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
+    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0[3] = { DR_REG_S2, DR_REG_S20, DR_REG_S30 };
+    reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S7, DR_REG_S15 };
+    short index[3] = { 0, 5, 7 };
+    const char *expected_0[3] = {
+        "fmlsl2 %d0 %s2 %s0 $0x0000000000000000 $0x01 -> %d0",
+        "fmlsl2 %d10 %s20 %s7 $0x0000000000000005 $0x01 -> %d10",
+        "fmlsl2 %d31 %s30 %s15 $0x0000000000000007 $0x01 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fmlsl2_vector_idx(
+            dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
+            opnd_create_reg(Rm_0[i]), OPND_CREATE_INT(index[i]));
+        if (!test_instr_encoding(dc, OP_fmlsl2, instr, expected_0[i]))
             success = false;
     }
 
@@ -1612,9 +1720,13 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(frintz_scalar);
 
     RUN_INSTR_TEST(fmlal_vector);
+    RUN_INSTR_TEST(fmlal_vector_idx);
     RUN_INSTR_TEST(fmlal2_vector);
+    RUN_INSTR_TEST(fmlal2_vector_idx);
     RUN_INSTR_TEST(fmlsl_vector);
+    RUN_INSTR_TEST(fmlsl_vector_idx);
     RUN_INSTR_TEST(fmlsl2_vector);
+    RUN_INSTR_TEST(fmlsl2_vector_idx);
 
     RUN_INSTR_TEST(sm3partw1_vector);
     RUN_INSTR_TEST(sm3partw2_vector);
