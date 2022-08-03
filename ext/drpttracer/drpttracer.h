@@ -101,7 +101,7 @@ typedef struct _pt_metadata_t {
 /**
  * The storage container type of drpttracer's output.
  * This data struct is used by drpttracer to store PT metadata, PT trace, and
- * sideband data. These data can be dumped into different files by the caller. These files
+ * sideband data. These data can be dumped into different files by the client. These files
  * can be the inputs of pt2ir_t, which decodes the PT data into Dynamorio's IR.
  */
 typedef struct _drpttracer_output_t {
@@ -151,7 +151,7 @@ typedef enum {
     DRPTTRACER_ERROR_INVALID_PARAMETER,
     /** Operation failed: failed to open perf event. */
     DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT,
-    /** Operation failed: failed to create tracer handle. */
+    /** Operation failed: failed to create a pttracer handle. */
     DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE,
     /** Operation failed: failed to start tracing. */
     DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
@@ -182,13 +182,14 @@ typedef enum {
 
 DR_EXPORT
 /**
- * Starts PT tracing. Must be called after drpttracer_init() and before drpttracer_exit().
+ * Create a pttracer handle. Must be called after drpttracer_init() and before
+ * drpttracer_exit(). The handle is used to start and stop PT tracing.
  *
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] mode  The tracing mode.
  * \param[in] pt_size_shift  The size shift of PT trace's buffer.
  * \param[in] sideband_size_shift  The size shift of sideband data's buffer.
- * \param[out] tracer_handle  The tracer handle.
+ * \param[out] tracer_handle  The pttracer handle.
  *
  * \note The size offset is used to control the size of the buffer allocated by the perf:
  *       sizeof(PT trace's buffer) = 2 ^ pt_size_shift * PAGE_SIZE.
@@ -199,15 +200,19 @@ DR_EXPORT
  *
  * \note The client must ensure that the buffer is large enough to hold the PT data.
  * Insufficient buffer size will lead to lost data, which may cause issues in pt2ir_t
- * decoding. If we detect an overflow, drpttracer_end_tracing() will return an error code
+ * decoding. If we detect an overflow, drpttracer_stop_tracing() will return an error code
  * #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE or
  * #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA.
  *
- * \note Each tracing corresponds to a trace_handle. When calling
- * drpttracer_start_tracing(), the caller will get a tracer_handle. The caller can
- * stop tracing by passing it to drpttracer_end_tracing().
+ * \note Each thread corresponds to a trace handle. When calling
+ * drpttracer_create_tracer(), the client will get a tracer_handle. The client can start
+ * and stop tracing by passing it to drpttracer_start_tracing() and
+ * drpttracer_stop_tracing(). And if the thread hold a tracer_handle, the client needs to
+ * call drpttracer_destory_tracer() to destroy the corresponding tracer_handle and release
+ * the resources before the thread end.
  *
- * \note For one thread, only one tracing can execute at the same time.
+ * \note For one thread, only one tracing can execute at the same time. So the client
+ * needs to ensure one thread only owns one pttracer handle.
  *
  * \return the status code.
  */
@@ -217,19 +222,36 @@ drpttracer_create_tracer(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
                          OUT void **tracer_handle);
 
 DR_EXPORT
+/**
+ * Destroy a pttracer handle and release the resources. Must be called after
+ * drpttracer_init() and before drpttracer_exit().
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ * \param[in] tracer_handle  The pttracer handle.
+ *
+ * \return the status code.
+ */
 drpttracer_status_t
 drpttracer_destory_tracer(IN void *drcontext, IN void *tracer_handle);
 
 DR_EXPORT
+/**
+ * Start a PT tracing session. Must pass a valid pttracer handle to this function.
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ * \param[in] tracer_handle  The pttracer handle.
+ *
+ * \return the status code.
+ */
 drpttracer_status_t
 drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle);
 
 DR_EXPORT
 /**
- * Stops PT tracing.
+ * Stops a PT tracing session. Must pass a valid pttracer handle to this function.
  *
  * \param[in] drcontext  The context of DynamoRIO.
- * \param[in] tracer_handle  The tracer handle.
+ * \param[in] tracer_handle  The pttracer handle.
  * \param[out] output  The output of PT tracing. This function will allocate
  * and fill this output. It will copy the PT trace to the pt_buf of the output. When the
  * tracing mode is #DRPTTRACER_TRACING_ONLY_USER or #DRPTTRACER_TRACING_USER_AND_KERNEL,
@@ -243,10 +265,10 @@ DR_EXPORT
  *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA if the sideband data is
  * overwritten.
  *
- * \note The caller can dump the output data to files. After online tracing is done,
+ * \note The client can dump the output data to files. After online tracing is done,
  * pt2ir_t can use these files to decode the online PT trace.
  *
- * \note The caller doesn't need to allocate the output object, but it needs to free the
+ * \note The client doesn't need to allocate the output object, but it needs to free the
  * output object using drpttracer_destroy_output().
  *
  * \return the status code.
@@ -257,7 +279,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
 
 DR_EXPORT
 /**
- * Destroys an output object of drpttrace.
+ * Destroys an output object of drpttracer.
  *
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] output  The output object that will be destroyed.
