@@ -4537,6 +4537,33 @@ encode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return true;
 }
 
+/* sd16_h_sz: S/D register at bit position 16 with 4 bits only, for the FP16
+ *             by-element encoding; bit 30 selects D reg
+ */
+
+static inline bool
+decode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_D0 : DR_REG_S0) +
+                            extract_uint(enc, 16, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    bool d;
+    if (!opnd_is_reg(opnd))
+        return false;
+    d = (uint)(opnd_get_reg(opnd) - DR_REG_D0) < 16;
+    num = opnd_get_reg(opnd) - (d ? DR_REG_D0 : DR_REG_S0);
+    if (num >= 16)
+        return false;
+    *enc_out = num << 16 | (uint)d << 30;
+    return true;
+}
+
 /* dq16: D/Q register at bit position 16; bit 30 selects Q reg */
 
 static inline bool
