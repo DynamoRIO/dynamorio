@@ -144,7 +144,7 @@ simulator_t::virt2phys(addr_t virt) const
     if (it == virt2phys_.end()) {
         // We handled TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE so this
         // should not happen.
-        ERRMSG("Missing physical address marker for 0x%lx\n", virt);
+        ERRMSG("Missing physical address marker for 0x%zx\n", virt);
         phys_page = page_start(synthetic_virt2phys(virt));
     } else
         phys_page = it->second;
