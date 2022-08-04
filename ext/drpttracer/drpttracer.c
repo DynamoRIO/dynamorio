@@ -465,7 +465,7 @@ pttracer_handle_free(IN void *drcontext, IN pttracer_handle_t *handle)
         ERRMSG("pttracer handle has invalid fd");
     }
     if (handle->aux != NULL) {
-        dr_unmap_file(handle->aux, handle->base_size);
+        dr_unmap_file(handle->aux, handle->header->aux_size);
     } else {
         ERRMSG("pttracer handle has invalid aux");
     }

@@ -77,6 +77,8 @@
 #endif
 
 #ifdef BUILD_PT_TRACER
+/* For SYS_exit,SYS_exit_group. */
+#    include "../../../core/unix/include/syscall_linux_x86.h"
 #    include "drpttracer.h"
 #    include "syscall_pt_trace.h"
 #endif
@@ -106,6 +108,7 @@ DR_DISALLOW_UNSAFE_STATIC
 
 static char logsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
+static char logdir[MAXIMUM_PATH];
 static char kernel_pt_logsubdir[MAXIMUM_PATH];
 #endif
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
@@ -2981,6 +2984,26 @@ event_thread_exit(void *drcontext)
     if (BUF_PTR(data->seg_base) != NULL) {
         /* This thread was *not* filtered out. */
 
+#ifdef BUILD_PT_TRACER
+        if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
+            int recording_sysnum = data->syscall_pt_trace.get_recording_sysnum();
+            if (recording_sysnum != SYS_exit && recording_sysnum != SYS_exit_group) {
+                NOTIFY(0, "ERROR: The last recorded syscall of thread T%d is %d.\n",
+                       dr_get_thread_id(drcontext), recording_sysnum);
+                ASSERT(recording_sysnum == SYS_exit || recording_sysnum == SYS_exit_group,
+                       "recording syscall is not exit");
+            }
+
+            if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
+                FATAL("failed to stop syscall pt trace(sysnum=%d)\n", recording_sysnum);
+            }
+            trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_ID;
+            uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_id();
+            BUF_PTR(data->seg_base) +=
+                instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+        }
+#endif
+
         /* let the simulator know this thread has exited */
         if (is_bytes_written_beyond_trace_max(data)) {
             // If over the limit, we still want to write the footer, but nothing else.
@@ -3069,6 +3092,27 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
+        /* Dump kcore and kallsyms to {kernel_pt_logsubdir}. */
+#    define SHELLSCRIPT_FMT                                                          \
+        "perf record --kcore -e intel_pt/cyc,noretcomp/k echo '' >/dev/null 2>&1 \n" \
+        "chmod 755 -R perf.data \n"                                                  \
+        "cp perf.data/kcore_dir/kcore %s/ \n"                                        \
+        "cp perf.data/kcore_dir/kallsyms %s/ \n"                                     \
+        "chmod 755 -R %s \n"                                                         \
+        "rm -rf perf.data \n"
+#    define SHELLSCRIPT_MAX_LEN 512 + MAXIMUM_PATH * 2
+        char shellscript[SHELLSCRIPT_MAX_LEN];
+        dr_snprintf(shellscript, BUFFER_SIZE_ELEMENTS(shellscript), SHELLSCRIPT_FMT,
+                    kernel_pt_logsubdir, kernel_pt_logsubdir, logdir);
+        NULL_TERMINATE_BUFFER(shellscript);
+        int ret = system(shellscript);
+        // int ret = 0;
+        if (ret != 0) {
+            NOTIFY(0,
+                   "WARNING: failed to run shellscript to dump kcore and kallsyms(ret = "
+                   "%d)\n",
+                   ret);
+        }
     }
 #endif
     dr_log(NULL, DR_LOG_ALL, 1, "drcachesim num refs seen: " UINT64_FORMAT_STRING "\n",
@@ -3179,8 +3223,10 @@ init_offline_dir(void)
         return false;
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
+        dr_snprintf(logdir, BUFFER_SIZE_ELEMENTS(logdir), "%s", buf);
+        NULL_TERMINATE_BUFFER(logdir);
         dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir),
-                    "%s%s%s", buf, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
+                    "%s%s%s", logdir, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
         NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
         if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;
