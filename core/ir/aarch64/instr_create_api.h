@@ -3917,8 +3917,7 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  */
-#define INSTR_CREATE_esb(dc) \
-    instr_create_0dst_0src(dc, OP_esb)
+#define INSTR_CREATE_esb(dc) instr_create_0dst_0src(dc, OP_esb)
 
 /**
  * Creates a PSB instruction.
@@ -3929,7 +3928,6 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  */
-#define INSTR_CREATE_psb_csync(dc) \
-    instr_create_0dst_0src(dc, OP_psb)
+#define INSTR_CREATE_psb_csync(dc) instr_create_0dst_0src(dc, OP_psb)
 
 #endif /* DR_IR_MACROS_AARCH64_H */
