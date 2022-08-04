@@ -2058,7 +2058,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
- * or #OPND_CREATE_DOUBLE().
+ * or #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  */
 #define INSTR_CREATE_ucvtf_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_ucvtf, Rd, Rm, width)
@@ -2069,7 +2069,7 @@
  * \param Rd      The output register.
  * \param Rm      The input register.
  * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
- *                #OPND_CREATE_DOUBLE().
+ *                #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  * \param fbits   The number of bits after the binary point in the fixed-point
  *                destination element.
  */
@@ -2082,7 +2082,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
- * or #OPND_CREATE_DOUBLE().
+ * or #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  */
 #define INSTR_CREATE_scvtf_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_scvtf, Rd, Rm, width)
@@ -2093,7 +2093,7 @@
  * \param Rd      The output register.
  * \param Rm      The input register.
  * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
- *                #OPND_CREATE_DOUBLE().
+ *                #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  * \param fbits   The number of bits after the binary point in the fixed-point
  *                destination element.
  */
@@ -2163,6 +2163,37 @@
 #define INSTR_CREATE_sha512su1(dc, Rd, Rn, Rm, Rm_elsz) \
     instr_create_1dst_4src(dc, OP_sha512su1, Rd, Rd, Rn, Rm, Rm_elsz)
 
+/**
+ * Creates a RAX1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RAX1    <Dd>.2D, <Dn>.2D, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_rax1(dc, Rd, Rn, Rm) \
+    instr_create_1dst_3src(dc, OP_rax1, Rd, Rn, Rm, OPND_CREATE_DOUBLE())
+
+/**
+ * Creates a XAR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    XAR     <Dd>.2D, <Dn>.2D, <Dm>.2D, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm6   The immediate imm
+ */
+#define INSTR_CREATE_xar(dc, Rd, Rn, Rm, imm6) \
+    instr_create_1dst_4src(dc, OP_xar, Rd, Rn, Rm, imm6, OPND_CREATE_DOUBLE())
+
 /* -------- Memory Touching instructions ------------------------------- */
 
 /**
@@ -2220,6 +2251,17 @@
  * \param Rm      The first input register.
  */
 #define INSTR_CREATE_fsqrt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fsqrt, Rd, Rm)
+
+/**
+ * Creates a FSQRT instruction.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be D (doubleword, 64 bits) or Q
+ * (quadword, 128 bits) \param Rn   The second source vector register. Can be D
+ * (doubleword, 64 bits) or Q (quadword, 128 bits) \param Rn_elsz   The element size for
+ * Rn. Can be #OPND_CREATE_HALF(), #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fsqrt_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_fsqrt, Rd, Rn, Rn_elsz)
 
 /**
  * Creates an FCVT floating point instruction.
