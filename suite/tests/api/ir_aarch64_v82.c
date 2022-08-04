@@ -1782,6 +1782,89 @@ TEST_INSTR(sha512su1)
     return success;
 }
 
+TEST_INSTR(bcax)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing BCAX    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B */
+    reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    reg_id_t Ra_0_0[3] = { DR_REG_Q0, DR_REG_Q13, DR_REG_Q31 };
+    const char *expected_0_0[3] = {
+        "bcax   %q0 %q0 %q0 $0x00 -> %q0",
+        "bcax   %q11 %q12 %q13 $0x00 -> %q10",
+        "bcax   %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_bcax(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
+                              opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
+        if (!test_instr_encoding(dc, OP_bcax, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(eor3)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing EOR3    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B */
+    reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    reg_id_t Ra_0_0[3] = { DR_REG_Q0, DR_REG_Q13, DR_REG_Q31 };
+    const char *expected_0_0[3] = {
+        "eor3   %q0 %q0 %q0 $0x00 -> %q0",
+        "eor3   %q11 %q12 %q13 $0x00 -> %q10",
+        "eor3   %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_eor3(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
+                              opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
+        if (!test_instr_encoding(dc, OP_eor3, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(esb)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing ESB      */
+    const char *expected_0_0[1] = { "esb" };
+    instr = INSTR_CREATE_esb(dc);
+    if (!test_instr_encoding(dc, OP_esb, instr, expected_0_0[0]))
+        success = false;
+
+    return success;
+}
+
+TEST_INSTR(psb)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing PSB      */
+    const char *expected_0_0[1] = { "psb" };
+    instr = INSTR_CREATE_psb_csync(dc);
+    if (!test_instr_encoding(dc, OP_psb, instr, expected_0_0[0]))
+        success = false;
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1844,6 +1927,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(sha512h2);
     RUN_INSTR_TEST(sha512su0);
     RUN_INSTR_TEST(sha512su1);
+
+    RUN_INSTR_TEST(bcax);
+    RUN_INSTR_TEST(eor3);
+    RUN_INSTR_TEST(esb);
+    RUN_INSTR_TEST(psb);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER
