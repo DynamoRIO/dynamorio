@@ -145,6 +145,10 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0x001110110xxxxx001111xxxxxxxxxx  n   166  FP16   frsqrts  dq0 : dq5 dq16 h_sz
 0x001110110xxxxx000101xxxxxxxxxx  n   168  FP16      fsub  dq0 : dq5 dq16 h_sz
 0x001110100xxxxx100101xxxxxxxxxx  n   364  DotProd      sdot  dq0 : dq5 dq16 s_const_sz b_const_sz
+11001110011xxxxx100000xxxxxxxxxx  n   595  SHA512   sha512h   q0 : q0 q5 q16 d_const_sz
+11001110011xxxxx100001xxxxxxxxxx  n   596  SHA512  sha512h2   q0 : q0 q5 q16 d_const_sz
+1100111011000000100000xxxxxxxxxx  n   597  SHA512 sha512su0   q0 : q0 q5 d_const_sz
+11001110011xxxxx100010xxxxxxxxxx  n   598  SHA512 sha512su1   q0 : q0 q5 q16 d_const_sz
 11001110011xxxxx110000xxxxxxxxxx  n   586  SM3  sm3partw1   q0 : q5 q16 s_const_sz
 11001110011xxxxx110001xxxxxxxxxx  n   587  SM3  sm3partw2   q0 : q5 q16 s_const_sz
 11001110010xxxxx0xxxxxxxxxxxxxxx  n   588  SM3     sm3ss1   q0 : q5 q16 q10 s_const_sz
