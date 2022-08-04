@@ -2100,6 +2100,69 @@
 #define INSTR_CREATE_scvtf_vector_fixed(dc, Rd, Rm, width, fbits) \
     instr_create_1dst_3src(dc, OP_scvtf, Rd, Rm, width, fbits)
 
+/**
+ * Creates a SHA512H instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512H <Qd>, <Qn>, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, Q (quadword, 128 bits)
+ * \param Rn   The second source register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512h(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sha512h, Rd, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SHA512H2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512H2 <Qd>, <Qn>, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, Q (quadword, 128 bits)
+ * \param Rn   The second source register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512h2(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sha512h2, Rd, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SHA512SU0 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512SU0 <Dd>.2D, <Dn>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512su0(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_3src(dc, OP_sha512su0, Rd, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a SHA512SU1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512SU1 <Dd>.2D, <Dn>.2D, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512su1(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sha512su1, Rd, Rd, Rn, Rm, Rm_elsz)
+
 /* -------- Memory Touching instructions ------------------------------- */
 
 /**

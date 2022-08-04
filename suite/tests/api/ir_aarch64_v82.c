@@ -1680,6 +1680,108 @@ TEST_INSTR(sm4ekey_vector)
     return success;
 }
 
+TEST_INSTR(sha512h)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SHA512H <Qd>, <Qn>, <Dm>.2D */
+    reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    opnd_t Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_0_0[3] = {
+        "sha512h %q0 %q0 %q0 $0x03 -> %q0",
+        "sha512h %q10 %q10 %q10 $0x03 -> %q10",
+        "sha512h %q31 %q31 %q31 $0x03 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sha512h(dc, opnd_create_reg(Rd_0_0[i]),
+                                     opnd_create_reg(Rn_0_0[i]),
+                                     opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+        if (!test_instr_encoding(dc, OP_sha512h, instr, expected_0_0[i]))
+            success = false;
+    }
+    return success;
+}
+
+TEST_INSTR(sha512h2)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SHA512H2 <Qd>, <Qn>, <Dm>.2D */
+    reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    opnd_t Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_0_0[3] = {
+        "sha512h2 %q0 %q0 %q0 $0x03 -> %q0",
+        "sha512h2 %q10 %q10 %q10 $0x03 -> %q10",
+        "sha512h2 %q31 %q31 %q31 $0x03 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sha512h2(dc, opnd_create_reg(Rd_0_0[i]),
+                                      opnd_create_reg(Rn_0_0[i]),
+                                      opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+        if (!test_instr_encoding(dc, OP_sha512h2, instr, expected_0_0[i]))
+            success = false;
+    }
+    return success;
+}
+
+TEST_INSTR(sha512su0)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SHA512SU0 <Dd>.2D, <Dn>.2D */
+    reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    opnd_t Rn_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_0_0[3] = {
+        "sha512su0 %q0 %q0 $0x03 -> %q0",
+        "sha512su0 %q10 %q10 $0x03 -> %q10",
+        "sha512su0 %q31 %q31 $0x03 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sha512su0(dc, opnd_create_reg(Rd_0_0[i]),
+                                       opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+        if (!test_instr_encoding(dc, OP_sha512su0, instr, expected_0_0[i]))
+            success = false;
+    }
+    return success;
+}
+
+TEST_INSTR(sha512su1)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SHA512SU1 <Dd>.2D, <Dn>.2D, <Dm>.2D */
+    reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    opnd_t Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_0_0[3] = {
+        "sha512su1 %q0 %q0 %q0 $0x03 -> %q0",
+        "sha512su1 %q10 %q10 %q10 $0x03 -> %q10",
+        "sha512su1 %q31 %q31 %q31 $0x03 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sha512su1(dc, opnd_create_reg(Rd_0_0[i]),
+                                       opnd_create_reg(Rn_0_0[i]),
+                                       opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+        if (!test_instr_encoding(dc, OP_sha512su1, instr, expected_0_0[i]))
+            success = false;
+    }
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1737,6 +1839,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(sm3tt2b_vector_indexed);
     RUN_INSTR_TEST(sm4e_vector);
     RUN_INSTR_TEST(sm4ekey_vector);
+
+    RUN_INSTR_TEST(sha512h);
+    RUN_INSTR_TEST(sha512h2);
+    RUN_INSTR_TEST(sha512su0);
+    RUN_INSTR_TEST(sha512su1);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER
