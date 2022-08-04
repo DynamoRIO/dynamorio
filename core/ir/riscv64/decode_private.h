@@ -33,6 +33,7 @@
 #ifndef DECODE_PRIVATE_H
 #define DECODE_PRIVATE_H 1
 
-struct _decode_info_t { };
+struct _decode_info_t {
+};
 
 #endif /* DECODE_PRIVATE_H */
