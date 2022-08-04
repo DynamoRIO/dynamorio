@@ -126,6 +126,7 @@ get_cache_simulator_knobs()
     knobs->sim_refs = op_sim_refs.get_value();
     knobs->verbose = op_verbose.get_value();
     knobs->cpu_scheduling = op_cpu_scheduling.get_value();
+    knobs->use_physical = op_use_physical.get_value();
     return knobs;
 }
 
@@ -162,6 +163,7 @@ drmemtrace_analysis_tool_create()
         knobs.sim_refs = op_sim_refs.get_value();
         knobs.verbose = op_verbose.get_value();
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
+        knobs.use_physical = op_use_physical.get_value();
         return tlb_simulator_create(knobs);
     } else if (op_simulator_type.get_value() == HISTOGRAM) {
         return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),

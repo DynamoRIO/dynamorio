@@ -1012,66 +1012,56 @@ process_entry_for_physaddr(void *drcontext, per_thread_t *data, size_t header_si
                virt);
         phys = virt;
     }
-    if (op_offline.get_value()) {
-        // For offline we keep the main entries as virtual but add markers showing
-        // the corresponding physical.  We assume the mappings are static, allowing
-        // us to only emit one marker pair per new page seen (per thread to avoid
-        // locks).
-        // XXX: Add spot-checks of mapping changes via a separate option from
-        // -virt2phys_freq?
-        if (from_cache)
-            return v2p_ptr;
-        // We have something to emit.  Rather than a memmove to insert inside the
-        // main buffer, we have a separate buffer, as our pair of markers means we
-        // do not need precise placement next to the corresponding regular entry
-        // (which also avoids extra work in raw2trace, esp for delayed branches and
-        // other cases).
-        // The downside is that we might have many buffers with a small number
-        // of markers on which we waste buffer output overhead.
-        // XXX: We could count them up and do a memmove if the count is small
-        // and we have space in the redzone?
-        if (!*emitted) {
-            // We need to be sure to emit the initial thread header if this is before
-            // the first regular buffer and skip it in the regular buffer.
-            if (header_size > buf_hdr_slots_size) {
-                size_t size =
-                    reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
-                        data->v2p_buf, dr_get_thread_id(drcontext), get_file_type());
-                ASSERT(size == data->init_header_size, "inconsistent header");
-                *skip = data->init_header_size;
-                v2p_ptr += size;
-                header_size += size;
-            }
-            v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
-            *emitted = true;
+    // We keep the main entries as virtual but add markers showing
+    // the corresponding physical.  We assume the mappings are static, allowing
+    // us to only emit one marker pair per new page seen (per thread to avoid
+    // locks).
+    // XXX: Add spot-checks of mapping changes via a separate option from
+    // -virt2phys_freq?
+    if (from_cache)
+        return v2p_ptr;
+    // We have something to emit.  Rather than a memmove to insert inside the
+    // main buffer, we have a separate buffer, as our pair of markers means we
+    // do not need precise placement next to the corresponding regular entry
+    // (which also avoids extra work in raw2trace, esp for delayed branches and
+    // other cases).
+    // The downside is that we might have many buffers with a small number
+    // of markers on which we waste buffer output overhead.
+    // XXX: We could count them up and do a memmove if the count is small
+    // and we have space in the redzone?
+    if (!*emitted) {
+        // We need to be sure to emit the initial thread header if this is before
+        // the first regular buffer and skip it in the regular buffer.
+        if (header_size > buf_hdr_slots_size) {
+            size_t size =
+                reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
+                    data->v2p_buf, dr_get_thread_id(drcontext), get_file_type());
+            ASSERT(size == data->init_header_size, "inconsistent header");
+            *skip = data->init_header_size;
+            v2p_ptr += size;
+            header_size += size;
         }
-        if (v2p_ptr + 2 * instru->sizeof_entry() - data->v2p_buf >=
-            static_cast<ssize_t>(get_v2p_buffer_size())) {
-            NOTIFY(1, "Reached v2p buffer limit: emitting multiple times\n");
-            data->num_phys_markers +=
-                output_buffer(drcontext, data, data->v2p_buf, v2p_ptr, header_size);
-            v2p_ptr = data->v2p_buf;
-            v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
-        }
-        if (success) {
-            v2p_ptr +=
-                instru->append_marker(v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, phys);
-            v2p_ptr +=
-                instru->append_marker(v2p_ptr, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, virt);
-        } else {
-            // For translation failure, we insert a distinct marker type, so analyzers
-            // know for sure and don't have to infer based on a missing marker.
-            v2p_ptr += instru->append_marker(
-                v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, virt);
-        }
+        v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
+        *emitted = true;
+    }
+    if (v2p_ptr + 2 * instru->sizeof_entry() - data->v2p_buf >=
+        static_cast<ssize_t>(get_v2p_buffer_size())) {
+        NOTIFY(1, "Reached v2p buffer limit: emitting multiple times\n");
+        data->num_phys_markers +=
+            output_buffer(drcontext, data, data->v2p_buf, v2p_ptr, header_size);
+        v2p_ptr = data->v2p_buf;
+        v2p_ptr += add_buffer_header(drcontext, data, v2p_ptr);
+    }
+    if (success) {
+        v2p_ptr +=
+            instru->append_marker(v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, phys);
+        v2p_ptr +=
+            instru->append_marker(v2p_ptr, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, virt);
     } else {
-        // For online we replace the virtual with physical.
-        // XXX i#4014: For consistency we should break compatibility, *not* replace,
-        // and insert the markers instead, updating dr$sim to use the markers
-        // to compute the physical addresses.  We should then update
-        // https://dynamorio.org/sec_drcachesim_phys.html.
-        if (success)
-            instru->set_entry_addr(mem_ref, phys);
+        // For translation failure, we insert a distinct marker type, so analyzers
+        // know for sure and don't have to infer based on a missing marker.
+        v2p_ptr += instru->append_marker(
+            v2p_ptr, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, virt);
     }
     return v2p_ptr;
 }
@@ -2896,7 +2886,7 @@ event_thread_init(void *drcontext)
         BUF_PTR(data->seg_base) = NULL;
     else {
         create_buffer(data);
-        if (op_use_physical.get_value() && op_offline.get_value()) {
+        if (op_use_physical.get_value()) {
             create_v2p_buffer(data);
         }
         init_thread_in_process(drcontext);
@@ -3003,7 +2993,7 @@ event_exit(void)
            "drmemtrace exiting process " PIDFMT "; traced " UINT64_FORMAT_STRING
            " references in " UINT64_FORMAT_STRING " writeouts.\n",
            dr_get_process_id(), num_refs, num_writeouts);
-    if (op_use_physical.get_value() && op_offline.get_value()) {
+    if (op_use_physical.get_value()) {
         dr_log(NULL, DR_LOG_ALL, 1,
                "drcachesim num physical address markers emitted: " UINT64_FORMAT_STRING
                "\n",

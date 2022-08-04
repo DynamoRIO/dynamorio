@@ -132,7 +132,7 @@ trace in a metadata marker entry of type
 
 Memory accesses (data loads and stores) are stored in #_memref_data_t.
 The program counter of the instruction performing the memory access,
-the virtual address (unless \ref sec_drcachesim_phys are enabled), and
+the virtual address (convertable to physical: see \ref sec_drcachesim_phys), and
 the size are provided.
 
 \section sec_drcachesim_format_other Other Records
@@ -1266,12 +1266,28 @@ $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv 
 
 The memory access tracing client gathers virtual addresses.  On Linux, if
 the kernel allows user-mode applications access to the \p
-/proc/self/pagemap file, physical addresses may be used instead.  This can
-be requested via the \p -use_physical runtime option (see \ref
-sec_drcachesim_ops).  This works on current kernels but is expected to stop
-working from user mode on future kernels due to recent security changes
-(see
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce).
+/proc/self/pagemap file or the application can be run with root
+privileges, information to translate virtual addresses to physical addresses may be included in the trace.  This can be
+requested via the \p -use_physical runtime option (see \ref
+sec_drcachesim_ops).  On older kernels the pagemap file was readable without
+privileges:
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce.
+
+When \p -use_physical is enabled, the regular trace entries remain
+virtual, with a pair of markers of types
+#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and
+#TRACE_MARKER_TYPE_VIRTUAL_ADDRESS inserted at some prior point for
+each new page mapping to show the corresponding physical
+addresses.  If translation fails, a
+#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted.
+Limited support for detecting changes in page mappings is provided via
+the \p -virt2phys_freq option to periodically clear cached
+translations.
+
+Each analysis tool must decide whether to use this translation
+information.  The cache and TLB simulators provided are equipped to
+read these markers and they use the marker data when \p -use_physical
+is specified.
 
 ****************************************************************************
 \page sec_drcachesim_core Core Simulation Support
