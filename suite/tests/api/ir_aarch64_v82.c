@@ -1799,9 +1799,9 @@ TEST_INSTR(bcax)
         "bcax   %q31 %q31 %q31 $0x00 -> %q31",
     };
     for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_bcax(dc, opnd_create_reg(Rd_0_0[i]),
-                                  opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
-                                  opnd_create_reg(Ra_0_0[i]));
+        instr =
+            INSTR_CREATE_bcax(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
+                              opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_bcax, instr, expected_0_0[i]))
             success = false;
     }
@@ -1826,9 +1826,9 @@ TEST_INSTR(eor3)
         "eor3   %q31 %q31 %q31 $0x00 -> %q31",
     };
     for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_eor3(dc, opnd_create_reg(Rd_0_0[i]),
-                                  opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
-                                  opnd_create_reg(Ra_0_0[i]));
+        instr =
+            INSTR_CREATE_eor3(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
+                              opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_eor3, instr, expected_0_0[i]))
             success = false;
     }
