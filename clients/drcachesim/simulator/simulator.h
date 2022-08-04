@@ -36,6 +36,7 @@
 #ifndef _SIMULATOR_H_
 #define _SIMULATOR_H_ 1
 
+#include <assert.h>
 #include <unordered_map>
 #include <vector>
 #include "caching_device_stats.h"
@@ -79,6 +80,7 @@ protected:
     addr_t
     page_start(addr_t addr) const
     {
+        assert(page_size_ > 0);
         return addr & ~(page_size_ - 1);
     }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -109,6 +109,10 @@ simulator_t::process_memref(const memref_t &memref)
     if (!knob_use_physical_)
         return true;
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
+        if (page_size_ != 0 && page_size_ != memref.marker.marker_value) {
+            ERRMSG("Error: conflicting page size markers");
+            return false;
+        }
         page_size_ = memref.marker.marker_value;
         if (!IS_POWER_OF_2(page_size_)) {
             ERRMSG("Error: page size %zu is not power of 2", page_size_);
@@ -130,8 +134,12 @@ addr_t
 simulator_t::synthetic_virt2phys(addr_t virt) const
 {
     // For a missing translation, we drop upper bits from the virtual address
-    // to create a synthetic physical address.
-    // We live with collisions with real translations.
+    // to create a synthetic physical address with arbitrarily the bottom 28 bits.
+    // XXX i#4014: Ideally we would detect a collision with an existing translation
+    // (when added new synthetic ones, and by adding a bit saying which entries are
+    // synthetic which we can check when we add new legitimate entries) We currently
+    // live with collisions with real translations under the assumption that missing
+    // translations are rare.
     const addr_t SYNTHETIC_PHYS_BITS = 0xfffffff;
     return virt & SYNTHETIC_PHYS_BITS;
 }

@@ -496,6 +496,9 @@ cache_simulator_t::process_memref(const memref_t &memref)
     } else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;
+    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+               memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+        last_thread_ = 0;
     } else if (simref->marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // Just ignore.
         if (knobs_.verbose >= 3) {

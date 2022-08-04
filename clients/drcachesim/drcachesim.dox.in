@@ -1277,9 +1277,12 @@ When \p -use_physical is enabled, the regular trace entries remain
 virtual, with a pair of markers of types
 #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and
 #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS inserted at some prior point for
-each new or changed page mapping to show the corresponding physical
+each new page mapping to show the corresponding physical
 addresses.  If translation fails, a
 #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted.
+Limited support for detecting changes in page mappings is provided via
+the \p -virt2phys_freq option to periodically clear cached
+translations.
 
 Each analysis tool must decide whether to use this translation
 information.  The cache and TLB simulators provided are equipped to
