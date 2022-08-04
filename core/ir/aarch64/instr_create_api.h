@@ -3886,10 +3886,9 @@
  * \param Rn   The second source vector register, Q (quadword, 128 bits)
  * \param Rm   The third source vector register, Q (quadword, 128 bits)
  * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
- * \param Ra_elsz   The element size for Ra, OPND_CREATE_BYTE()
  */
-#define INSTR_CREATE_bcax(dc, Rd, Rn, Rm, Ra, Ra_elsz) \
-    instr_create_1dst_4src(dc, OP_bcax, Rd, Rn, Rm, Ra, Ra_elsz)
+#define INSTR_CREATE_bcax(dc, Rd, Rn, Rm, Ra) \
+    instr_create_1dst_4src(dc, OP_bcax, Rd, Rn, Rm, Ra, OPND_CREATE_BYTE())
 
 /**
  * Creates a EOR3 instruction.
@@ -3903,10 +3902,9 @@
  * \param Rn   The second source vector register, Q (quadword, 128 bits)
  * \param Rm   The third source vector register, Q (quadword, 128 bits)
  * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
- * \param Ra_elsz   The element size for Ra, OPND_CREATE_BYTE()
  */
-#define INSTR_CREATE_eor3(dc, Rd, Rn, Rm, Ra, Ra_elsz) \
-    instr_create_1dst_4src(dc, OP_eor3, Rd, Rn, Rm, Ra, Ra_elsz)
+#define INSTR_CREATE_eor3(dc, Rd, Rn, Rm, Ra) \
+    instr_create_1dst_4src(dc, OP_eor3, Rd, Rn, Rm, Ra, OPND_CREATE_BYTE())
 
 /**
  * Creates a ESB instruction.

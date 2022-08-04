@@ -1793,7 +1793,6 @@ TEST_INSTR(bcax)
     reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
     reg_id_t Ra_0_0[3] = { DR_REG_Q0, DR_REG_Q13, DR_REG_Q31 };
-    opnd_t Ra_elsz = OPND_CREATE_BYTE();
     const char *expected_0_0[3] = {
         "bcax   %q0 %q0 %q0 $0x00 -> %q0",
         "bcax   %q11 %q12 %q13 $0x00 -> %q10",
@@ -1802,7 +1801,7 @@ TEST_INSTR(bcax)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_bcax(dc, opnd_create_reg(Rd_0_0[i]),
                                   opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
-                                  opnd_create_reg(Ra_0_0[i]), Ra_elsz);
+                                  opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_bcax, instr, expected_0_0[i]))
             success = false;
     }
@@ -1821,7 +1820,6 @@ TEST_INSTR(eor3)
     reg_id_t Rn_0_0[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
     reg_id_t Ra_0_0[3] = { DR_REG_Q0, DR_REG_Q13, DR_REG_Q31 };
-    opnd_t Ra_elsz = OPND_CREATE_BYTE();
     const char *expected_0_0[3] = {
         "eor3   %q0 %q0 %q0 $0x00 -> %q0",
         "eor3   %q11 %q12 %q13 $0x00 -> %q10",
@@ -1830,7 +1828,7 @@ TEST_INSTR(eor3)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_eor3(dc, opnd_create_reg(Rd_0_0[i]),
                                   opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
-                                  opnd_create_reg(Ra_0_0[i]), Ra_elsz);
+                                  opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_eor3, instr, expected_0_0[i]))
             success = false;
     }
