@@ -34,6 +34,9 @@
 
 # Instruction definitions:
 
+11001110001xxxxx0xxxxxxxxxxxxxxx  n   599  SHA3      bcax   q0 : q5 q16 q10 b_const_sz
+11001110000xxxxx0xxxxxxxxxxxxxxx  n   600  SHA3      eor3   q0 : q5 q16 q10 b_const_sz
+11010101000000110010001000011111  n   601  BASE       esb      :
 0x101110110xxxxx000101xxxxxxxxxx  n   94   FP16      fabd  dq0 : dq5 dq16 h_sz
 01111110110xxxxx000101xxxxxxxxxx  n   94   FP16      fabd   h0 : h5 h16
 0x00111011111000111110xxxxxxxxxx  n   95   FP16      fabs  dq0 : dq5 h_sz
@@ -105,16 +108,16 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0x101110110xxxxx001101xxxxxxxxxx  n   139  FP16     fminp  dq0 : dq5 dq16 h_sz
 0x00111010110000111110xxxxxxxxxx  n   140  FP16     fminv   h0 : dq5 h_sz
 0x001110010xxxxx000011xxxxxxxxxx  n   141  FP16      fmla  dq0 : dq0 dq5 dq16 h_sz
-0x001110001xxxxx111011xxxxxxxxxx  n   142   FHM   fmlal  dq0 : dq0 sd5 sd16 h_sz
-0x00111110xxxxxx0000x0xxxxxxxxxx  n   142   FHM   fmlal  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
-0x101110001xxxxx110011xxxxxxxxxx  n   143   FHM  fmlal2  dq0 : dq0 sd5 sd16 h_sz
-0x10111110xxxxxx1000x0xxxxxxxxxx  n   143   FHM  fmlal2  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
+0x001110001xxxxx111011xxxxxxxxxx  n   142  FHM      fmlal  dq0 : dq0 sd5 sd16 h_sz
+0x00111110xxxxxx0000x0xxxxxxxxxx  n   142  FHM      fmlal  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
+0x101110001xxxxx110011xxxxxxxxxx  n   143  FHM     fmlal2  dq0 : dq0 sd5 sd16 h_sz
+0x10111110xxxxxx1000x0xxxxxxxxxx  n   143  FHM     fmlal2  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
 0x001110110xxxxx000011xxxxxxxxxx  n   144  FP16      fmls  dq0 : dq0 dq5 dq16 h_sz
 0x00111100xxxxxx0101x0xxxxxxxxxx  n   144  FP16      fmls  dq0 : dq5 dq16_h_sz vindex_H h_sz
-0x001110101xxxxx111011xxxxxxxxxx  n   145   FHM   fmlsl  dq0 : dq0 sd5 sd16 h_sz
-0x00111110xxxxxx0100x0xxxxxxxxxx  n   145   FHM   fmlsl  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
-0x101110101xxxxx110011xxxxxxxxxx  n   146   FHM  fmlsl2  dq0 : dq0 sd5 sd16 h_sz
-0x10111110xxxxxx1100x0xxxxxxxxxx  n   146   FHM  fmlsl2  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
+0x001110101xxxxx111011xxxxxxxxxx  n   145  FHM      fmlsl  dq0 : dq0 sd5 sd16 h_sz
+0x00111110xxxxxx0100x0xxxxxxxxxx  n   145  FHM      fmlsl  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
+0x101110101xxxxx110011xxxxxxxxxx  n   146  FHM     fmlsl2  dq0 : dq0 sd5 sd16 h_sz
+0x10111110xxxxxx1100x0xxxxxxxxxx  n   146  FHM     fmlsl2  dq0 : dq0 sd5 sd16_h_sz vindex_H h_sz
 00011110111xxxxxxxx10000000xxxxx  n   147  FP16      fmov   h0 : fpimm13
 0001111011100111000000xxxxxxxxxx  n   147  FP16      fmov   h0 : w5
 1001111011100111000000xxxxxxxxxx  n   147  FP16      fmov   h0 : x5
@@ -144,6 +147,7 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0111111011111001110110xxxxxxxxxx  n   165  FP16   frsqrte   h0 : h5
 0x001110110xxxxx001111xxxxxxxxxx  n   166  FP16   frsqrts  dq0 : dq5 dq16 h_sz
 0x001110110xxxxx000101xxxxxxxxxx  n   168  FP16      fsub  dq0 : dq5 dq16 h_sz
+11010101000000110010001000111111  n   602  BASE       psb      :
 0x001110100xxxxx100101xxxxxxxxxx  n   364  DotProd      sdot  dq0 : dq5 dq16 s_const_sz b_const_sz
 11001110011xxxxx100000xxxxxxxxxx  n   595  SHA512   sha512h   q0 : q0 q5 q16 d_const_sz
 11001110011xxxxx100001xxxxxxxxxx  n   596  SHA512  sha512h2   q0 : q0 q5 q16 d_const_sz

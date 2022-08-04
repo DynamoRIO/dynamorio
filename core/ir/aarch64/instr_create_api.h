@@ -3874,4 +3874,58 @@
 #define INSTR_CREATE_sm4ekey_vector(dc, Rd, Rn, Rm, Rm_elsz) \
     instr_create_1dst_3src(dc, OP_sm4ekey, Rd, Rn, Rm, Rm_elsz)
 
+/**
+ * Creates a BCAX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BCAX    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_bcax(dc, Rd, Rn, Rm, Ra) \
+    instr_create_1dst_4src(dc, OP_bcax, Rd, Rn, Rm, Ra, OPND_CREATE_BYTE())
+
+/**
+ * Creates a EOR3 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    EOR3    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_eor3(dc, Rd, Rn, Rm, Ra) \
+    instr_create_1dst_4src(dc, OP_eor3, Rd, Rn, Rm, Ra, OPND_CREATE_BYTE())
+
+/**
+ * Creates a ESB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ESB
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_esb(dc) instr_create_0dst_0src(dc, OP_esb)
+
+/**
+ * Creates a PSB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PSB CSYNC
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_psb_csync(dc) instr_create_0dst_0src(dc, OP_psb)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
