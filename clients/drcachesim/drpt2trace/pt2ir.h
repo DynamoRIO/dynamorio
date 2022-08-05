@@ -290,12 +290,12 @@ public:
 
         std::ifstream f(path, std::ios::binary | std::ios::in);
         if (!f.is_open()) {
-            std::cerr<<"Failed to open metadata file: "<<path<<std::endl;
+            std::cerr << "Failed to open metadata file: " << path << std::endl;
             return false;
         }
         f.read(reinterpret_cast<char *>(&metadata), sizeof(metadata));
         if (f.fail()) {
-            std::cerr<<"Failed to read metadata file: "<<path<<std::endl;
+            std::cerr << "Failed to read metadata file: " << path << std::endl;
             return false;
         }
         f.close();

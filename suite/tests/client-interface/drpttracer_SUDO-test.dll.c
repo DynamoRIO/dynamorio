@@ -66,7 +66,7 @@ static void
 event_post_syscall(void *drcontext, int sysnum);
 
 static void
-stop_tracing_and_check_trace(void *drcontext, void* trace_handle);
+stop_tracing_and_check_trace(void *drcontext, void *trace_handle);
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -128,7 +128,7 @@ event_thread_exit(void *drcontext)
     /* If the thread's last syscall doesn't trigger post_syscall event, we need to end the
      * tracing manually. (e.g. The 'exit_group' syscall.)
      */
-    if (pt->recording_sysnum  != -1) {
+    if (pt->recording_sysnum != -1) {
         stop_tracing_and_check_trace(drcontext, pt->current_trace_handle);
         pt->recording_sysnum = -1;
     }
@@ -155,7 +155,7 @@ event_pre_syscall(void *drcontext, int sysnum)
      */
     if (pt->recording_sysnum != -1) {
         stop_tracing_and_check_trace(drcontext, pt->current_trace_handle);
-        pt->recording_sysnum  = -1;
+        pt->recording_sysnum = -1;
     }
     CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
 
@@ -181,12 +181,12 @@ event_post_syscall(void *drcontext, int sysnum)
 }
 
 static void
-stop_tracing_and_check_trace(void *drcontext, void* trace_handle)
+stop_tracing_and_check_trace(void *drcontext, void *trace_handle)
 {
     CHECK(trace_handle != NULL, "trace_handle is NULL");
     drpttracer_output_t *output;
-    bool ok = drpttracer_stop_tracing(drcontext, trace_handle, &output) ==
-        DRPTTRACER_SUCCESS;
+    bool ok =
+        drpttracer_stop_tracing(drcontext, trace_handle, &output) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_stop_tracing failed");
     /* TODO i#5505: This version only tests whether the function of the tracer can output
      * data. The tests of whether the output data is correct will come on the next

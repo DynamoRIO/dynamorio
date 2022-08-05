@@ -260,8 +260,8 @@ option_init(int argc, const char *argv[])
         return false;
     }
     if (!op_raw_pt.specified()) {
-        std::cerr << CLIENT_NAME << ": option " << op_raw_pt.get_name()
-                  << " is required." << std::endl;
+        std::cerr << CLIENT_NAME << ": option " << op_raw_pt.get_name() << " is required."
+                  << std::endl;
         print_usage();
         return false;
     }

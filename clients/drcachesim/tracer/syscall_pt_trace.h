@@ -114,7 +114,7 @@ public:
 private:
     /* Dump PT trace and the metadata to files. */
     bool
-    trace_data_dump(drpttracer_output_cleanup_last_t& output);
+    trace_data_dump(drpttracer_output_cleanup_last_t &output);
 
     /* The shared file write function. */
     ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
