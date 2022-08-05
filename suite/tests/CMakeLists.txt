@@ -4097,7 +4097,7 @@ if (BUILD_CLIENTS)
         set(${testname_full}_precmd
           "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
         set(${testname_full}_postcmd
-          "firstglob@${cmd_pfx}${drpt2trace_path}@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore@-raw_pt_meta@${testname_full}.*.dir/kernel.raw/*.1.pt.meta")
+          "firstglob@${cmd_pfx}${drpt2trace_path}@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)

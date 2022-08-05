@@ -371,6 +371,7 @@ typedef enum {
 
     /**
      * The marker value contains the ID of recorded syscalls.
+     * \note This marker is generated when -enable_kernel_tracing is specified.
      */
     TRACE_MARKER_TYPE_SYSCALL_ID,
 

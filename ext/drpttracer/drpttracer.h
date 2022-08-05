@@ -205,10 +205,10 @@ DR_EXPORT
  * #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA.
  *
  * \note Each thread corresponds to a trace handle. When calling
- * drpttracer_create_tracer(), the client will get a tracer_handle. The client can start
+ * drpttracer_create_handle(), the client will get a tracer_handle. The client can start
  * and stop tracing by passing it to drpttracer_start_tracing() and
  * drpttracer_stop_tracing(). And if the thread hold a tracer_handle, the client needs to
- * call drpttracer_destory_tracer() to destroy the corresponding tracer_handle and release
+ * call drpttracer_destory_handle() to destroy the corresponding tracer_handle and release
  * the resources before the thread end.
  *
  * \note For one thread, only one tracing can execute at the same time. So the client
@@ -217,7 +217,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_create_tracer(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle);
 
@@ -232,7 +232,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_destory_tracer(IN void *drcontext, IN void *tracer_handle);
+drpttracer_destory_handle(IN void *drcontext, IN void *tracer_handle);
 
 DR_EXPORT
 /**
