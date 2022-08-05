@@ -4077,6 +4077,32 @@ if (BUILD_CLIENTS)
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
 
+  if (proc_supports_pt)
+    if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+      get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
+      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
+        set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
+        torunonly_ci(${testname_full} ${exetgt} drcachesim
+          "offline-kernel-${testname}.c" # for templatex basename
+          "-offline -enable_kernel_tracing -subdir_prefix ${testname_full} ${extra_ops}"
+          "" "${app_args}")
+        set(${testname_full}_sudo ON)
+        set(${testname_full}_self_serial ON)
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(${testname_full}_rawtemp ON) # no preprocessor
+        set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        # Each command is assumed to need sudo.
+        set(cmd_pfx "sudo@")
+        set(${testname_full}_precmd
+          "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+        set(${testname_full}_postcmd
+          "firstglob@${cmd_pfx}${drpt2trace_path}@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore@-raw_pt_meta@${testname_full}.*.dir/kernel.raw/*.1.pt.meta")
+      endmacro ()
+      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
+    endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+  endif (proc_supports_pt)
+
   ###########################################################################
   # drcpusim tests
 
@@ -4170,8 +4196,8 @@ endif (BUILD_CLIENTS)
 # ##########################################################################
 # drpt2trace tests
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
-if(BUILD_CLIENTS)
-  if(HAVE_LIBIPT)
+if (BUILD_CLIENTS)
+  if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
     set(drpt2trace_commong "-print_trace"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
@@ -4200,8 +4226,8 @@ if(BUILD_CLIENTS)
     torunonly_api(tool.drpt2trace.elf drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_elf_args}" ON OFF)
-  endif(HAVE_LIBIPT)
-endif(BUILD_CLIENTS)
+  endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+endif (BUILD_CLIENTS)
 
 if (UNIX)
   macro(make_symlink src dst)
