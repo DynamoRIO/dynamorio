@@ -172,8 +172,6 @@ enum {
  * Buffer writing to disk.
  */
 
-// NOCHECK move to output.h?
-
 /* file operations functions */
 struct file_ops_func_t {
     file_ops_func_t()
