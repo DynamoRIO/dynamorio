@@ -930,14 +930,14 @@ atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
      * sequentially consistent memory order semantics.
      */
     __asm__ __volatile__("fence   iorw,ow\n\t"
-                         "1: lr.w.aq %0, (%1)\n\t"
-                         "   bne     %0, %2, 2f\n\t"
+                         "1: lr.w.aq t0, (%1)\n\t"
+                         "   bne     t0, %2, 2f\n\t"
                          "   sc.w.aq %0, %3, (%1)\n\t"
                          "   bnez    %0, 1b\n\t"
                          "2:"
                          : "+r"(res)
                          : "r"(var), "r"(compare), "r"(exchange)
-                         : "memory");
+                         : "t0", "memory");
     return res == 0;
 }
 
@@ -955,8 +955,8 @@ atomic_compare_exchange_int64(volatile int64 *var, int64 compare, int64 exchange
      * sequentially consistent memory order semantics.
      */
     __asm__ __volatile__("fence   iorw,ow\n\t"
-                         "1: lr.d.aq %0, (%1)\n\t"
-                         "   bne     %0, %2, 2f\n\t"
+                         "1: lr.d.aq t0, (%1)\n\t"
+                         "   bne     t0, %2, 2f\n\t"
                          "   sc.d.aq %0, %3, (%1)\n\t"
                          "   bnez    %0, 1b\n\t"
                          "2:"
