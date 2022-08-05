@@ -164,6 +164,8 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0x001110010xxxxx000111xxxxxxxxxx  n   150  FP16     fmulx  dq0 : dq5 dq16 h_sz
 0x10111011111000111110xxxxxxxxxx  n   151  FP16      fneg  dq0 : dq5 h_sz
 0101111011111001110110xxxxxxxxxx  n   155  FP16    frecpe   h0 : h5
+0x00111011111001110110xxxxxxxxxx  n   155  FP16    frecpe  dq0 : dq5 h_sz
+01011110010xxxxx001111xxxxxxxxxx  n   156  FP16    frecps   h0 : h5 h16
 0x001110010xxxxx001111xxxxxxxxxx  n   156  FP16    frecps  dq0 : dq5 dq16 h_sz
 0101111011111001111110xxxxxxxxxx  n   157  FP16    frecpx   h0 : h5
 0x10111001111001100010xxxxxxxxxx  n   158  FP16    frinta  dq0 : dq5 h_sz
@@ -180,7 +182,9 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0001111011100111010000xxxxxxxxxx  n   163  FP16    frintx   h0 : h5
 0x00111011111001100110xxxxxxxxxx  n   164  FP16    frintz  dq0 : dq5 h_sz
 0001111011100101110000xxxxxxxxxx  n   164  FP16    frintz   h0 : h5
+0x10111011111001110110xxxxxxxxxx  n   165  FP16   frsqrte  dq0 : dq5 h_sz
 0111111011111001110110xxxxxxxxxx  n   165  FP16   frsqrte   h0 : h5
+01011110110xxxxx001111xxxxxxxxxx  n   166  FP16   frsqrts   h0 : h5 h16
 0x001110110xxxxx001111xxxxxxxxxx  n   166  FP16   frsqrts  dq0 : dq5 dq16 h_sz
 0010111011111001111110xxxxxxxxxx  n   167  FP16     fsqrt   d0 : d5 h_sz
 0110111011111001111110xxxxxxxxxx  n   167  FP16     fsqrt   q0 : q5 h_sz
