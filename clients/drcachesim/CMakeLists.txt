@@ -156,10 +156,11 @@ endif ()
 if (liblz4)
   target_link_libraries(drmemtrace_raw2trace lz4)
 endif ()
-if (HAVE_LIBIPT)
+if (BUILD_PT_POST_PROCESSOR)
+  add_definitions(-DBUILD_PT_POST_PROCESSOR)
   # Add the directory containing libipt.so and libipt-sb.so to the linker search path.
   SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${PROJECT_BINARY_DIR}/lib'")
-  target_link_libraries(drmemtrace_raw2trace drpt2ir)
+  target_link_libraries(drmemtrace_raw2trace drpt2ir drir2trace)
 endif ()
 
 set(drcachesim_srcs

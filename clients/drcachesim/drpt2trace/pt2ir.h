@@ -45,8 +45,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
-#define DR_FAST_IR 1
-#include "dr_api.h"
+#include "drir.h"
 
 #ifndef IN
 #    define IN // nothing
@@ -57,21 +56,6 @@
 #ifndef INOUT
 #    define INOUT // nothing
 #endif
-
-/* The auto cleanup wrapper of instrlist_t.
- * This can ensure the instant of instrlist_t is cleaned up when it is out of scope.
- */
-struct instrlist_cleanup_last_t {
-public:
-    ~instrlist_cleanup_last_t()
-    {
-        if (data != nullptr) {
-            instrlist_clear_and_destroy(GLOBAL_DCONTEXT, data);
-            data = nullptr;
-        }
-    }
-    instrlist_t *data = nullptr;
-};
 
 /**
  * The type of pt2ir_t::convert() return value.
@@ -220,11 +204,6 @@ public:
     std::string elf_file_path;
 
     /**
-     * The file path of PT raw trace's metadata.
-     */
-    std::string metadata_file_path;
-
-    /**
      * The runtime load address of the elf file.
      */
     uint64_t elf_base;
@@ -369,12 +348,6 @@ private:
      */
     bool
     load_kernel_image(IN std::string &path);
-
-    /* Load the metadat of PT raw trace.
-     */
-    bool
-    load_metadata(IN std::string &path, INOUT struct pt_config &pt_config,
-                  INOUT struct pt_sb_pevent_config &sb_pevent_config);
 
     /* Allocate a sideband decoder in the sideband session. The sideband session may
      * allocate many decoders, which mainly work on handling sideband perf records and

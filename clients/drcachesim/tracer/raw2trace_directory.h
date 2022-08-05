@@ -81,7 +81,9 @@ public:
     char *modfile_bytes_;
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
-    std::string syscall_kernel_trace_dir_;
+
+    std::string
+    get_syscall_pt_trace_dir();
 
 private:
     std::string

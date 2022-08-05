@@ -44,7 +44,10 @@
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drcovlib.h"
-#include "../drpt2trace/pt2ir.h"
+#ifdef BUILD_PT_POST_PROCESSOR
+#    include "../drpt2trace/pt2ir.h"
+#    include "../drpt2trace/ir2trace.h"
+#endif
 #include <array>
 #include <atomic>
 #include <memory>
@@ -73,7 +76,7 @@
 #    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
 #endif
 #define OUTFILE_SUBDIR "raw"
-#ifdef BUILD_PT_TRACER
+#if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 #    define KERNEL_PT_OUTFILE_SUBDIR "kernel.raw"
 #endif
 #define WINDOW_SUBDIR_PREFIX "window"
@@ -704,8 +707,7 @@ protected:
      */
     std::string
     process_offline_entry(void *tls, const offline_entry_t *in_entry, thread_id_t tid,
-                          std::string &syscall_kernel_pt_dir, OUT bool *end_of_record,
-                          OUT bool *last_bb_handled)
+                          OUT bool *end_of_record, OUT bool *last_bb_handled)
     {
         trace_entry_t *buf_base = impl()->get_write_buffer(tls);
         byte *buf = reinterpret_cast<byte *>(buf_base);
@@ -730,14 +732,14 @@ protected:
                 if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                     impl()->log(4, "Signal/exception between bbs\n");
                 } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL_ID) {
+#ifdef BUILD_PT_POST_PROCESSOR
                     if (!impl()->write(tls, buf_base,
                                        reinterpret_cast<trace_entry_t *>(buf)))
                         return "Failed to write to output file";
-                    impl()->log(2, "Syscall between bbs %d\n", marker_val);
-                    append_syscall_kernel_trace(tls, syscall_kernel_pt_dir, tid,
-                                                marker_val);
+                    append_syscall_pt_trace(tls, tid, marker_val);
                     buf_base = impl()->get_write_buffer(tls);
                     buf = reinterpret_cast<byte *>(buf_base);
+#endif
                 }
                 impl()->log(3, "Appended marker type %u value " PIFX "\n",
                             (trace_marker_type_t)in_entry->extended.valueB,
@@ -1353,61 +1355,64 @@ private:
         return "";
     }
 
+#ifdef BUILD_PT_POST_PROCESSOR
+#    define PT_DATA_FILE_NAME_SUFFIX ".pt"
+#    define PT_METADAT_FILE_NAME_SUFFIX ".meta"
     std::string
-    append_syscall_kernel_trace(void *tls, std::string &syscall_kernel_pt_dir,
-                                thread_id_t thread_id, uint64_t syscall_id)
+    append_syscall_pt_trace(void *tls, thread_id_t thread_id, uint64_t syscall_id)
     {
         std::string error = "";
         pt2ir_config_t config = {};
-        config.raw_file_path = syscall_kernel_pt_dir + "/" + std::to_string(thread_id) +
-            "." + std::to_string(syscall_id) + ".pt";
-        config.metadata_file_path = config.raw_file_path + ".metadata";
-        impl()->log(2, "%s\n", config.raw_file_path.c_str());
-        config.elf_file_path = syscall_kernel_pt_dir + "/kcore";
-        impl()->log(2, "%s\n", config.elf_file_path.c_str());
+        config.raw_file_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
+            std::to_string(thread_id) + "." + std::to_string(syscall_id) +
+            PT_DATA_FILE_NAME_SUFFIX;
+        config.elf_file_path = impl()->get_syscall_pt_trace_dir(tls) + "/kcore";
+        config.init_with_metadata(config.raw_file_path + PT_METADAT_FILE_NAME_SUFFIX);
+
         std::unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
         if (!ptconverter->init(config)) {
             error = "Failed to initialize pt2ir";
             return error;
         }
-        instrlist_t *ilist = nullptr;
-        pt2ir_convert_status_t status = ptconverter->convert(&ilist);
-        if (status != PT2IR_CONV_SUCCESS) {
+        instrlist_cleanup_last_t drir;
+        pt2ir_convert_status_t pt2ir_convert_status = ptconverter->convert(drir);
+        if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
             error = "Failed to convert PT raw trace to DR IR";
             return error;
         }
-        impl()->log(2, "Converted PT raw trace to DR IR\n");
+
+        std::vector<trace_entry_t> entries;
+        ir2trace_convert_status_t ir2trace_convert_status =
+            ir2trace_t::convert(drir, entries);
+        if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
+            error = "Failed to convert DR IR to trace entries";
+            return error;
+        }
+
         trace_entry_t *buf_start = impl()->get_write_buffer(tls);
         trace_entry_t *buf = buf_start;
-        instr_t *instr = instrlist_first(ilist);
-        while (instr != NULL) {
-            buf->type = TRACE_TYPE_INSTR;
-            buf->size = instr_length(GLOBAL_DCONTEXT, instr);
-            buf->addr = (uintptr_t)instr_get_app_pc(instr);
-            trace_entry_t *next = buf + 1;
-            if ((uint)(next - buf_start) >= WRITE_BUFFER_SIZE) {
+        for (auto &entry : entries) {
+            *buf = entry;
+            ++buf;
+            if (buf - buf_start >= WRITE_BUFFER_SIZE) {
                 if (!impl()->write(tls, buf_start, buf)) {
-                    error = "Failed to write syscall kernel trace to output file";
+                    error = "Failed to write syscall PT trace to output file";
                     break;
                 }
-                buf_start = impl()->get_write_buffer(tls);
-                buf = buf_start;
-            } else {
-                buf = next;
+                impl()->log(4, "Appended %u entries to write buffer\n", buf - buf_start);
+                buf_start = buf;
             }
-            instr = instr_get_next(instr);
         }
-        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+
         if (error.empty()) {
-            impl()->log(2, "Converted DR IR to trace_entry_t\n");
-            impl()->log(2, "size %u max size %u\n", (uint)(buf - buf_start),
-                        WRITE_BUFFER_SIZE);
             if (!impl()->write(tls, buf_start, buf)) {
-                error = "Failed to write syscall kernel trace to output file";
+                error = "Failed to write syscall PT trace to output file";
             }
+            impl()->log(4, "Appended %u entries to write buffer\n", buf - buf_start);
         }
         return "";
     }
+#endif
 
     std::string
     get_marker_value(void *tls, INOUT const offline_entry_t **entry, OUT uintptr_t *value)
@@ -1594,8 +1599,8 @@ public:
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
                 unsigned int verbosity = 0, int worker_count = -1,
-                const std::string &syscall_kernel_pt_dir = "",
-                const std::string &alt_module_dir = "");
+                const std::string &alt_module_dir = "",
+                const std::string &syscall_pt_trace_dir = "");
     virtual ~raw2trace_t();
 
     /**
@@ -1721,7 +1726,7 @@ protected:
             , prev_instr_was_rep_string(false)
             , last_decode_block_start(nullptr)
             , last_block_summary(nullptr)
-            , syscall_kernel_pt_dir("")
+            , syscall_pt_trace_dir("")
         {
         }
 
@@ -1749,7 +1754,7 @@ protected:
         bool prev_instr_was_rep_string;
         app_pc last_decode_block_start;
         block_summary_t *last_block_summary;
-        std::string syscall_kernel_pt_dir;
+        std::string syscall_pt_trace_dir;
         uint64 last_window = 0;
 
         // Statistics on the processing.
@@ -1824,6 +1829,8 @@ private:
     add_to_statistic(void *tls, raw2trace_statistic_t stat, int value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
+    std::string
+    get_syscall_pt_trace_dir(void *tls);
 
     std::string
     append_delayed_branch(void *tls);
@@ -1866,8 +1873,9 @@ private:
 
     unsigned int verbosity_ = 0;
 
-    std::string syscall_kernel_pt_dir_;
     std::string alt_module_dir_;
+
+    std::string syscall_pt_trace_dir_;
 
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.

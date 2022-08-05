@@ -6,15 +6,15 @@
 # modification, are permitted provided that the following conditions are met:
 #
 # * Redistributions of source code must retain the above copyright notice,
-#   this list of conditions and the following disclaimer.
+# this list of conditions and the following disclaimer.
 #
 # * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
 #
 # * Neither the name of Google, Inc. nor the names of its contributors may be
-#   used to endorse or promote products derived from this software without
-#   specific prior written permission.
+# used to endorse or promote products derived from this software without
+# specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -66,45 +66,57 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/include
 )
 
-# # XXX: The repository of lipipt contains some functions that are useful
-# # for drpt2ir. But they are not built in libipt.so or libipt-sb.so.
-# # So we build them as an external library of libipt and link the external
-# # library to drpt2ir. In the future we may need to implement
-# # these functions in our library.
-# set(ipt-ext_srcs
-#   ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
-# )
-# add_library(ipt-ext STATIC ${ipt-ext_srcs})
-# add_dependencies(ipt-ext ipt)
-# target_link_libraries(ipt-ext ipt)
+# XXX: The repository of lipipt contains some functions that are useful
+# for drpt2ir. But they are not built in libipt.so or libipt-sb.so.
+# So we build them as an external library of libipt and link the external
+# library to drpt2ir. In the future we may need to implement
+# these functions in our library.
+set(ipt-ext_srcs
+  ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
+)
+add_library(ipt-ext STATIC ${ipt-ext_srcs})
+add_dependencies(ipt-ext ipt)
+target_link_libraries(ipt-ext ipt)
+DR_export_target(ipt-ext)
+install_exported_target(ipt-ext ${PROJECT_BINARY_DIR}/lib)
 
 # drpt2ir don't include configure.h so they don't get DR defines
 add_dr_defines()
 
-# We build drpt2ir to a static library. So we can link it in the independent
-# clients drpt2trace and drraw2trace.
+# We build drpt2ir and drir2trace to a static library. So we can link them in the
+# independent clients drpt2trace and raw2trace.
 set(drpt2ir_srcs
   pt2ir.cpp
-  ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
 )
 add_library(drpt2ir STATIC ${drpt2ir_srcs})
 configure_DynamoRIO_decoder(drpt2ir)
-add_dependencies(drpt2ir ipt ipt-sb api_headers)
-target_link_libraries(drpt2ir ipt ipt-sb)
+add_dependencies(drpt2ir ipt ipt-sb ipt-ext api_headers)
+target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
 install_client_nonDR_header(drmemtrace pt2ir.h)
 DR_export_target(drpt2ir)
 install_exported_target(drpt2ir ${INSTALL_CLIENTS_LIB})
 
+set(drir2trace_srcs
+  ir2trace.cpp
+)
+add_library(drir2trace STATIC ${drir2trace_srcs})
+configure_DynamoRIO_decoder(drir2trace)
+add_dependencies(drir2trace api_headers)
+install_client_nonDR_header(drmemtrace ir2trace.h)
+DR_export_target(drir2trace)
+install_exported_target(drir2trace ${INSTALL_CLIENTS_LIB})
+
 # TODO i#5505: Currently, drpt2trace only counts instructions.
 # In the future, we will add support for converting pt trace to memref_t.
-# So we may need to link drdecode to drpt2ir library.
 set(drpt2trace_srcs
   drpt2trace.cpp
 )
 add_executable(drpt2trace ${drpt2trace_srcs})
 configure_DynamoRIO_standalone(drpt2trace)
 use_DynamoRIO_extension(drpt2trace droption)
-add_dependencies(drpt2trace drpt2ir)
+add_dependencies(drpt2trace drpt2ir drir2trace)
+
 # Add the directory containing libipt.so and libipt-sb.so to the linker search path.
-SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${PROJECT_BINARY_DIR}/lib'")
-target_link_libraries(drpt2trace drpt2ir)
+set(CMAKE_EXE_LINKER_FLAGS
+  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${PROJECT_BINARY_DIR}/lib'")
+target_link_libraries(drpt2trace drpt2ir drir2trace)

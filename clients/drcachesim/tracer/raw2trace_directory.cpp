@@ -298,7 +298,6 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
 {
     indir_ = indir;
     outdir_ = outdir;
-    syscall_kernel_trace_dir_ = indir + "kernel.raw";
 #ifdef WINDOWS
     // Canonicalize.
     std::replace(indir_.begin(), indir_.end(), ALT_DIRSEP[0], DIRSEP[0]);
@@ -370,6 +369,15 @@ raw2trace_directory_t::initialize_funclist_file(
         } while (comma != std::string::npos);
         entries->push_back(fields);
     }
+    return "";
+}
+
+std::string
+raw2trace_directory_t::get_syscall_pt_trace_dir()
+{
+#ifdef BUILD_PT_POST_PROCESSOR
+    return indir_ + "/../" + KERNEL_PT_OUTFILE_SUBDIR;
+#endif
     return "";
 }
 

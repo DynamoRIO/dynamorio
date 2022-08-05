@@ -48,6 +48,7 @@
 
 #include "droption.h"
 #include "pt2ir.h"
+#include "ir2trace.h"
 
 #define CLIENT_NAME "drpt2trace"
 #define SUCCESS 0
@@ -213,20 +214,13 @@ static droption_t<unsigned long long> op_sb_kernel_start(
  */
 
 static void
-print_results(IN instrlist_cleanup_last_t &ilist)
+print_results(IN instrlist_cleanup_last_t &drir, IN std::vector<trace_entry_t> &entries)
 {
-    instr_t *instr = instrlist_first(ilist.data);
-    uint64_t count = 0;
-    while (instr != NULL) {
-        count++;
-        instr = instr_get_next(instr);
-    }
-
     if (op_print_trace.specified()) {
         /* Print the disassemble code of the trace. */
-        instrlist_disassemble(GLOBAL_DCONTEXT, 0, ilist.data, STDOUT);
+        instrlist_disassemble(GLOBAL_DCONTEXT, 0, drir.data, STDOUT);
     }
-    std::cout << "Number of Instructions: " << count << std::endl;
+    std::cout << "Number of Instructions: " << entries.size() << std::endl;
 }
 
 /****************************************************************************
@@ -357,16 +351,26 @@ main(int argc, const char *argv[])
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
         return FAILURE;
     }
-    instrlist_cleanup_last_t ilist = {};
-    pt2ir_convert_status_t status = ptconverter->convert(ilist);
-    if (status != PT2IR_CONV_SUCCESS) {
+    instrlist_cleanup_last_t drir = {};
+    pt2ir_convert_status_t pt2ir_convert_status = ptconverter->convert(drir);
+    if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
         std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
-                  << "[error status: " << status << "]" << std::endl;
+                  << "[error status: " << pt2ir_convert_status << "]" << std::endl;
+        return FAILURE;
+    }
+
+    /* Convert the DR IR to trace entries. */
+    std::vector<trace_entry_t> entries;
+    ir2trace_convert_status_t ir2trace_convert_status =
+        ir2trace_t::convert(drir, entries);
+    if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
+        std::cerr << CLIENT_NAME << ": failed to convert DR IR to trace entries"
+                  << "[error status: " << ir2trace_convert_status << "]" << std::endl;
         return FAILURE;
     }
 
     /* Print the count and the disassemble code of DR IR. */
-    print_results(ilist);
+    print_results(drir, entries);
 
     return SUCCESS;
 }

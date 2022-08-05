@@ -612,9 +612,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
             entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
             tdata->last_window = entry.extended.valueA;
-        tdata->error =
-            process_offline_entry(tdata, &entry, tdata->tid, tdata->syscall_kernel_pt_dir,
-                                  end_of_record, &last_bb_handled);
+        tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
+                                             &last_bb_handled);
         if (!tdata->error.empty())
             return tdata->error;
     }
@@ -640,7 +639,6 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                 entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
                 bool last_bb_handled = true;
                 tdata->error = process_offline_entry(tdata, &entry, tdata->tid,
-                                                     tdata->syscall_kernel_pt_dir,
                                                      &end_of_file, &last_bb_handled);
                 CHECK(end_of_file, "Synthetic footer failed");
                 if (!tdata->error.empty())
@@ -1116,20 +1114,27 @@ raw2trace_t::get_file_type(void *tls)
     return tdata->file_type;
 }
 
+std::string
+raw2trace_t::get_syscall_pt_trace_dir(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->syscall_pt_trace_dir;
+}
+
 raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
                          const std::vector<std::ostream *> &out_files, void *dcontext,
                          unsigned int verbosity, int worker_count,
-                         const std::string &syscall_kernel_pt_dir,
-                         const std::string &alt_module_dir)
+                         const std::string &alt_module_dir,
+                         const std::string &syscall_pt_trace_dir)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
     , user_process_data_(nullptr)
     , modmap_(module_map)
     , verbosity_(verbosity)
-    , syscall_kernel_pt_dir_(syscall_kernel_pt_dir)
     , alt_module_dir_(alt_module_dir)
+    , syscall_pt_trace_dir_(syscall_pt_trace_dir)
 {
     if (dcontext == NULL) {
 #ifdef ARM
@@ -1143,7 +1148,7 @@ raw2trace_t::raw2trace_t(const char *module_map,
         thread_data_[i].index = static_cast<int>(i);
         thread_data_[i].thread_file = thread_files[i];
         thread_data_[i].out_file = out_files[i];
-        thread_data_[i].syscall_kernel_pt_dir = syscall_kernel_pt_dir_;
+        thread_data_[i].syscall_pt_trace_dir = syscall_pt_trace_dir_;
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
     // static work assigment.  This won't be as load balanced as a dynamic work
