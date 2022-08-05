@@ -63,6 +63,7 @@ dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
 byte *
 decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -70,6 +71,7 @@ decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_
 byte *
 decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -77,6 +79,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 byte *
 decode(void *drcontext, byte *pc, instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -84,6 +87,7 @@ decode(void *drcontext, byte *pc, instr_t *instr)
 byte *
 decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -91,6 +95,7 @@ decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 byte *
 decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -112,6 +117,7 @@ decode_sizeof(void *drcontext, byte *pc, int *num_prefixes)
 byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -119,6 +125,7 @@ decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 bool
 decode_raw_is_jmp(dcontext_t *dcontext, byte *pc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -126,6 +133,7 @@ decode_raw_is_jmp(dcontext_t *dcontext, byte *pc)
 byte *
 decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -133,6 +141,7 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
 bool
 decode_raw_is_cond_branch_zero(dcontext_t *dcontext, byte *pc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -140,6 +149,7 @@ decode_raw_is_cond_branch_zero(dcontext_t *dcontext, byte *pc)
 byte *
 decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -147,6 +157,7 @@ decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc)
 const instr_info_t *
 instr_info_extra_opnds(const instr_info_t *info)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -154,6 +165,7 @@ instr_info_extra_opnds(const instr_info_t *info)
 byte
 instr_info_opnd_type(const instr_info_t *info, bool src, int num)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
@@ -161,6 +173,7 @@ instr_info_opnd_type(const instr_info_t *info, bool src, int num)
 const instr_info_t *
 get_next_instr_info(const instr_info_t *info)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -168,6 +181,7 @@ get_next_instr_info(const instr_info_t *info)
 byte
 decode_first_opcode_byte(int opcode)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
@@ -175,6 +189,7 @@ decode_first_opcode_byte(int opcode)
 const instr_info_t *
 opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -183,6 +198,7 @@ DR_API
 const char *
 decode_opcode_name(int opcode)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -190,6 +206,7 @@ decode_opcode_name(int opcode)
 opnd_size_t
 resolve_variable_size(decode_info_t *di, opnd_size_t sz, bool is_reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
@@ -197,6 +214,7 @@ resolve_variable_size(decode_info_t *di, opnd_size_t sz, bool is_reg)
 bool
 optype_is_indir_reg(int optype)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -204,6 +222,7 @@ optype_is_indir_reg(int optype)
 bool
 optype_is_reg(int optype)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -211,6 +230,7 @@ optype_is_reg(int optype)
 bool
 optype_is_gpr(int optype)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -220,6 +240,7 @@ optype_is_gpr(int optype)
 void
 check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 #    endif /* STANDALONE_DECODER */
@@ -227,6 +248,7 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
 void
 decode_debug_checks_arch(void)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 #endif /* DEBUG */
@@ -238,6 +260,7 @@ decode_debug_checks_arch(void)
 int
 main()
 {
+    /* FIXME i#3544: Add decoder tests. */
     bool res = true;
     standalone_init();
     standalone_exit();

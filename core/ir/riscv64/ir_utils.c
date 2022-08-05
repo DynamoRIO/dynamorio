@@ -35,6 +35,7 @@
 byte *
 remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc target)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -42,6 +43,7 @@ remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc ta
 instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -52,6 +54,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
                       OUT instr_t **first, OUT instr_t **last)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -60,5 +63,6 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        OUT instr_t **first, OUT instr_t **last)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }

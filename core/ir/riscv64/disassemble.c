@@ -45,6 +45,7 @@ void
 print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
                             byte *next_pc, int extra_sz, const char *extra_bytes_prefix)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -52,12 +53,14 @@ void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
 bool
 opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -68,6 +71,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
                             int *idx INOUT)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -76,6 +80,7 @@ void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
                      size_t *sofar INOUT)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -83,5 +88,6 @@ void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
                   size_t *sofar INOUT)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }

@@ -3444,7 +3444,10 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
         if (TEST(DR_MC_CONTROL, src->flags)) {
             /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
-#if !defined(RISCV64)
+#if defined(RISCV64)
+            if (src->size > offsetof(dr_mcontext_t, fcsr))
+                dst->fcsr = src->fcsr;
+#else
             if (src->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
 #endif
@@ -3540,7 +3543,10 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
         }
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
-#if !defined(RISCV64)
+#if defined(RISCV64)
+            if (dst->size > offsetof(dr_mcontext_t, fcsr))
+                dst->fcsr = src->fcsr;
+#else
             if (dst->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
 #endif

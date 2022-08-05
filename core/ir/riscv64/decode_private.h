@@ -34,6 +34,7 @@
 #define DECODE_PRIVATE_H 1
 
 struct _decode_info_t {
+    /* FIXME i#3544: Add decoding info. */
 };
 
 #endif /* DECODE_PRIVATE_H */

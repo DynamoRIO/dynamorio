@@ -74,6 +74,7 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
 void
 encode_debug_checks(void)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 #endif
@@ -81,6 +82,7 @@ encode_debug_checks(void)
 bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -88,6 +90,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 void
 decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -97,6 +100,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool *has_instr_opnds /*OUT OPTIONAL*/
                       _IF_DEBUG(bool assert_reachable))
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -105,12 +109,7 @@ byte *
 copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst_pc,
                                  byte *final_pc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
-}
-
-void
-append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
-{
-    ASSERT_NOT_IMPLEMENTED(false);
 }
