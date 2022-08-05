@@ -81,7 +81,8 @@ DR_DISALLOW_UNSAFE_STATIC
 
 using namespace dynamorio::drmemtrace;
 
-namespace dynamorio::drmemtrace {
+namespace dynamorio {
+namespace drmemtrace {
 
 char logsubdir[MAXIMUM_PATH];
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
@@ -1574,7 +1575,8 @@ fork_init(void *drcontext)
 }
 #endif
 
-} // namespace dynamorio::drmemtrace
+} // namespace drmemtrace
+} // namespace dynamorio
 
 /***************************************************************************
  * Outside of namespace.

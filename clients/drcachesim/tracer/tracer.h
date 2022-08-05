@@ -51,7 +51,8 @@
 #    include <lz4frame.h>
 #endif
 
-namespace dynamorio::drmemtrace {
+namespace dynamorio {
+namespace drmemtrace {
 
 extern named_pipe_t ipc_pipe;
 // A clean exit via dr_exit_process() is not supported from init code, but
@@ -225,6 +226,7 @@ has_tracing_windows()
     return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
 }
 
-} // namespace dynamorio::drmemtrace
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _TRACER_ */

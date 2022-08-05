@@ -36,7 +36,8 @@
 
 #include "dr_api.h"
 
-namespace dynamorio::drmemtrace {
+namespace dynamorio {
+namespace drmemtrace {
 
 dr_emit_flags_t
 event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
@@ -54,6 +55,7 @@ event_inscount_thread_init(void *drcontext);
 void
 event_inscount_init();
 
-} // namespace dynamorio::drmemtrace
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _INSTR_COUNTER_ */

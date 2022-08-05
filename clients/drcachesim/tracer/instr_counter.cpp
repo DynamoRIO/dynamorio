@@ -51,7 +51,8 @@
 #include "../common/options.h"
 #include "../common/utils.h"
 
-namespace dynamorio::drmemtrace {
+namespace dynamorio {
+namespace drmemtrace {
 
 static uint64 instr_count;
 /* For performance, we only increment the global instr_count exactly for
@@ -338,4 +339,5 @@ event_inscount_init()
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
 }
 
-} // namespace dynamorio::drmemtrace
+} // namespace drmemtrace
+} // namespace dynamorio

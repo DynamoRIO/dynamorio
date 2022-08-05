@@ -36,7 +36,8 @@
 
 #include "dr_api.h"
 
-namespace dynamorio::drmemtrace {
+namespace dynamorio {
+namespace drmemtrace {
 
 void
 open_new_window_dir(ptr_int_t window_num);
@@ -62,6 +63,7 @@ init_io();
 void
 exit_io();
 
-} // namespace dynamorio::drmemtrace
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _OUTPUT_ */

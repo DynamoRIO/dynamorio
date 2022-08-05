@@ -63,7 +63,8 @@
 #    include <lz4frame.h>
 #endif
 
-namespace dynamorio::drmemtrace {
+namespace dynamorio {
+namespace drmemtrace {
 
 /***************************************************************************
  * Trace thresholds.
@@ -1191,4 +1192,5 @@ exit_io()
     notify_beyond_global_max_once = 0;
 }
 
-} // namespace dynamorio::drmemtrace
+} // namespace drmemtrace
+} // namespace dynamorio
