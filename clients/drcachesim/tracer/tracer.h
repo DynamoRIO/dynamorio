@@ -128,6 +128,7 @@ enum {
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 
+extern reg_id_t tls_seg;
 extern uint tls_offs;
 extern int tls_idx;
 #define TLS_SLOT(tls_base, enum_val) \
@@ -158,6 +159,12 @@ enum {
     BBDUP_MODE_TRACE = 0,
     BBDUP_MODE_COUNT = 1,
 };
+
+#if defined(X86_64) || defined(AARCH64)
+#    define DELAYED_CHECK_INLINED 1
+#else
+/* XXX we don't have the inlining implemented yet for 32-bit architectures. */
+#endif
 
 #define INSTR_COUNT_LOCAL_UNIT 10000
 

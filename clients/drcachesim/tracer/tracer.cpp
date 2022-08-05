@@ -137,7 +137,7 @@ static drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
                                           DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL,
                                           DRMGR_PRIORITY_APP2APP_DRBBDUP - 1 };
 
-static reg_id_t tls_seg;
+reg_id_t tls_seg;
 uint tls_offs;
 int tls_idx;
 /* We leave slot(s) at the start so we can easily insert a header entry */
@@ -172,12 +172,6 @@ clean_call(void)
 /***************************************************************************
  * Alternating tracing-no-tracing feature.
  */
-
-#if defined(X86_64) || defined(AARCH64)
-#    define DELAYED_CHECK_INLINED 1
-#else
-/* XXX we don't have the inlining implemented yet for 32-bit architectures. */
-#endif
 
 /* This holds one of the BBDUP_MODE_ enum values, but drbbdup requires that it
  * be pointer-sized.
