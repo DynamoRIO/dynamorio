@@ -73,7 +73,7 @@ pointer to \p drpttracer's internal data structure, which contains the tracing's
 buffer, sideband data buffer, and metadata. To generate a pttracer handle, the client
 needs to call:
 
- - drpttracer_create_tracer()
+ - drpttracer_create_handle()
 
 The create function lets the client specify the following parameters:
 
@@ -116,7 +116,7 @@ overwritten.
 After all the tracing sessions are stopped, the client needs to call
 the following function to free the pttracer handle:
 
- - drpttracer_destroy_tracer()
+ - drpttracer_destory_handle()
 
 Additionally, to avoid memory leak, the client must call the following function to destroy
 the output instances after using them:

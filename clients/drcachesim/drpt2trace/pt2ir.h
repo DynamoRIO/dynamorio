@@ -59,7 +59,7 @@
 #endif
 
 /* The auto cleanup wrapper of instrlist_t.
- * This can ensure the instant of instrlist_t is cleaned up when it is out of scope.
+ * This can ensure the instance of instrlist_t is cleaned up when it is out of scope.
  */
 struct instrlist_cleanup_last_t {
 public:

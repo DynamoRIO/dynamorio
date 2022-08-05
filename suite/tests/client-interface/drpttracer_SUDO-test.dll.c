@@ -116,9 +116,9 @@ event_thread_init(void *drcontext)
     memset(pt, 0, sizeof(*pt));
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
     pt->recording_sysnum = -1;
-    bool ok = drpttracer_create_tracer(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL, 8, 8,
+    bool ok = drpttracer_create_handle(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL, 8, 8,
                                        &pt->current_trace_handle) == DRPTTRACER_SUCCESS;
-    CHECK(ok, "drpttracer_create_tracer failed");
+    CHECK(ok, "drpttracer_create_handle failed");
 }
 
 static void
@@ -133,7 +133,7 @@ event_thread_exit(void *drcontext)
         pt->recording_sysnum = -1;
     }
     CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
-    bool ok = drpttracer_destory_tracer(drcontext, pt->current_trace_handle) ==
+    bool ok = drpttracer_destory_handle(drcontext, pt->current_trace_handle) ==
         DRPTTRACER_SUCCESS;
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }

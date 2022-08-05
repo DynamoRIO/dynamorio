@@ -521,7 +521,7 @@ drpttracer_exit(void)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_create_tracer(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle)
 {
@@ -543,7 +543,7 @@ drpttracer_create_tracer(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_destory_tracer(IN void *drcontext, INOUT void *tracer_handle)
+drpttracer_destory_handle(IN void *drcontext, INOUT void *tracer_handle)
 {
     if (tracer_handle == NULL) {
         ASSERT(false, "invalid pttracer handle");

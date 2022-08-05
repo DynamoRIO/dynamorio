@@ -2416,7 +2416,13 @@ event_pre_syscall(void *drcontext, int sysnum)
         memtrace(drcontext, false);
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        if (data->syscall_pt_trace.get_recording_sysnum() != -1) {
+        /* The post syscall callback of SYS_exit and SYS_exit_group can't be triggered. So
+         * we skip recording the kernel PT of these syscalls.
+         */
+        if (sysnum == SYS_exit || sysnum == SYS_exit_group) {
+            return true;
+        }
+        if (data->syscall_pt_trace.get_cur_recording_sysnum() != -1) {
             ASSERT(false, "last tracing isn't stopped");
             return false;
         }
@@ -2433,17 +2439,21 @@ static void
 event_post_syscall(void *drcontext, int sysnum)
 {
 #ifdef BUILD_PT_TRACER
-    if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value()) {
+    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
-    }
+    if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
+        return;
+    if (sysnum == SYS_exit || sysnum == SYS_exit_group)
+        return;
+
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    if (data->syscall_pt_trace.get_recording_sysnum() == -1) {
+    if (data->syscall_pt_trace.get_cur_recording_sysnum() == -1) {
         ASSERT(false, "last syscall is not traced");
         return;
     }
 
-    ASSERT(data->syscall_pt_trace.get_recording_sysnum() == sysnum,
+    ASSERT(data->syscall_pt_trace.get_cur_recording_sysnum() == sysnum,
            "last tracing isn't stopped");
     if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
         ASSERT(false, "failed to stop syscall pt trace");
@@ -2451,8 +2461,6 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 
     /* Write a marker to userspace raw trace. */
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
-        return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_ID;
@@ -2976,21 +2984,16 @@ event_thread_exit(void *drcontext)
 
 #ifdef BUILD_PT_TRACER
         if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-            int recording_sysnum = data->syscall_pt_trace.get_recording_sysnum();
-            if (recording_sysnum != SYS_exit && recording_sysnum != SYS_exit_group) {
-                NOTIFY(0, "ERROR: The last recorded syscall of thread T%d is %d.\n",
-                       dr_get_thread_id(drcontext), recording_sysnum);
-                ASSERT(recording_sysnum == SYS_exit || recording_sysnum == SYS_exit_group,
-                       "recording syscall is not exit");
+            int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
+            if (cur_recording_sysnum != -1) {
+                NOTIFY(0,
+                       "ERROR: The last recorded syscall %d of thread T%d isn't be "
+                       "stopped.\n",
+                       cur_recording_sysnum, dr_get_thread_id(drcontext));
+                ASSERT(cur_recording_sysnum, "syscall recording is not stopped");
+                FATAL("failed to stop syscall pt trace(sysnum=%d)\n",
+                      cur_recording_sysnum);
             }
-
-            if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
-                FATAL("failed to stop syscall pt trace(sysnum=%d)\n", recording_sysnum);
-            }
-            trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_ID;
-            uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_id();
-            BUF_PTR(data->seg_base) +=
-                instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
         }
 #endif
 
@@ -3082,6 +3085,9 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
+        /* TODO i#5505: Using the perf command to get kcore and kallsyms is not a good
+         * solution. We need to implement the kcore_copy() in syscall_pt_trace_t.
+         */
         /* Dump kcore and kallsyms to {kernel_pt_logsubdir}. */
 #    define SHELLSCRIPT_FMT                                                          \
         "perf record --kcore -e intel_pt/cyc,noretcomp/k echo '' >/dev/null 2>&1 \n" \
@@ -3096,7 +3102,6 @@ event_exit(void)
                     kernel_pt_logsubdir, kernel_pt_logsubdir, logdir);
         NULL_TERMINATE_BUFFER(shellscript);
         int ret = system(shellscript);
-        // int ret = 0;
         if (ret != 0) {
             NOTIFY(0,
                    "WARNING: failed to run shellscript to dump kcore and kallsyms(ret = "

@@ -51,7 +51,7 @@ public:
     {
         if (handle != nullptr) {
             void *drcontext = dr_get_current_drcontext();
-            drpttracer_destory_tracer(drcontext, handle);
+            drpttracer_destory_handle(drcontext, handle);
             handle = nullptr;
         }
     }
@@ -99,9 +99,9 @@ public:
 
     /* Get the sysnum of current recording syscall. */
     int
-    get_recording_sysnum()
+    get_cur_recording_sysnum()
     {
-        return recording_sysnum_;
+        return cur_recording_sysnum_;
     }
 
     /* Get the record id of the last recorded syscall. */
@@ -126,7 +126,7 @@ private:
     int recorded_syscall_num_;
 
     /* The sysnum of current recording syscall. */
-    int recording_sysnum_;
+    int cur_recording_sysnum_;
 
     /* The drcontext.
      * We need ensure pass the same context to all drpttracer's APIs.

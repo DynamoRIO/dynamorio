@@ -42,15 +42,14 @@
 #    error "This module requires the drpttracer extension."
 #endif
 
-#define RING_BUFFER_SIZE_SHIFT 8
 #define PT_DATA_FILE_NAME_SUFFIX ".pt"
-#define PT_METADAT_FILE_NAME_SUFFIX ".meta"
+#define PT_METADATA_FILE_NAME_SUFFIX ".metadata"
 
 syscall_pt_trace_t::syscall_pt_trace_t()
     : write_file_func_(nullptr)
     , pttracer_handle_ {}
     , recorded_syscall_num_(0)
-    , recording_sysnum_(-1)
+    , cur_recording_sysnum_(-1)
     , drcontext_(nullptr)
     , pt_dir_name_ { '\0' }
 {
@@ -65,8 +64,9 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_
                          ssize_t (*write_file_func)(file_t file, const void *data,
                                                     size_t count))
 {
+#define RING_BUFFER_SIZE_SHIFT 8
     drcontext_ = drcontext;
-    if (drpttracer_create_tracer(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
+    if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
                                  RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
                                  &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
         return false;
@@ -85,7 +85,7 @@ syscall_pt_trace_t::start_syscall_pt_trace(int sysnum)
         DRPTTRACER_SUCCESS) {
         return false;
     }
-    recording_sysnum_ = sysnum;
+    cur_recording_sysnum_ = sysnum;
     return true;
 }
 
@@ -100,7 +100,7 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
         DRPTTRACER_SUCCESS) {
         return false;
     }
-    recording_sysnum_ = -1;
+    cur_recording_sysnum_ = -1;
     recorded_syscall_num_++;
     return trace_data_dump(output);
 }
@@ -118,19 +118,23 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_cleanup_last_t &output)
         return false;
     }
 
+    /* TODO i#5505: To reduce the overhead caused by IO, we better use a buffer to store
+     * multiple PT trace data. And only dump the buffer when it is full.
+     */
+
     /* Dump PT trace data to file '{thread_id}.{syscall_id}.pt'. */
     char pt_filename[MAXIMUM_PATH];
     dr_snprintf(pt_filename, BUFFER_SIZE_ELEMENTS(pt_filename), "%s%s%d.%d%s",
                 pt_dir_name_, DIRSEP, dr_get_thread_id(drcontext_), recorded_syscall_num_,
                 PT_DATA_FILE_NAME_SUFFIX);
-    file_t pt_file = dr_open_file(pt_filename, DR_FILE_WRITE_OVERWRITE);
+    file_t pt_file = dr_open_file(pt_filename, DR_FILE_WRITE_REQUIRE_NEW);
     write_file_func_(pt_file, data->pt, data->pt_size);
     dr_close_file(pt_file);
 
     /* Dump PT trace data to file '{thread_id}.{syscall_id}.pt.meta'. */
     char pt_metadata_filename[MAXIMUM_PATH];
     dr_snprintf(pt_metadata_filename, BUFFER_SIZE_ELEMENTS(pt_metadata_filename), "%s%s",
-                pt_filename, PT_METADAT_FILE_NAME_SUFFIX);
+                pt_filename, PT_METADATA_FILE_NAME_SUFFIX);
     file_t pt_metadata_file = dr_open_file(pt_metadata_filename, DR_FILE_WRITE_OVERWRITE);
     write_file_func_(pt_metadata_file, &data->metadata, sizeof(pt_metadata_t));
     dr_close_file(pt_metadata_file);
