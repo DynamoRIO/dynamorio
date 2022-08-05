@@ -261,6 +261,7 @@ int
 main()
 {
     /* FIXME i#3544: Add decoder tests. */
+
     bool res = true;
     standalone_init();
     standalone_exit();
