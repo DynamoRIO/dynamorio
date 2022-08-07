@@ -111,6 +111,9 @@ public:
         return recorded_syscall_num_;
     }
 
+    static bool
+    kcore_dump(IN const char *to_dir);
+
 private:
     /* Dump PT trace and the metadata to files. */
     bool

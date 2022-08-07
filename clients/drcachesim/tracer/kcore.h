@@ -30,17 +30,11 @@
  * DAMAGE.
  */
 
-#include <vector>
-#include "ra"
+#ifndef _KCORE_H_
+#define _KCORE_H_ 1
 
-#define KERNEL_MODULE_NEME_MAX_LEN 128
-
-struct kernel_module_t {
-    char name[KERNEL_MODULE_NEME_MAX_LEN];
-    uint64_t start;
-    uint64_t end;
-    int numsym;
-};
+struct proc_module_t;
+struct proc_kcore_code_segment_t;
 
 class kcore_t {
 public:
@@ -49,8 +43,20 @@ public:
     bool
     init();
     bool
-    dump();
+    dump(const char *to_dir);
 
 private:
-    std::vector<module_t> modules_;
+    bool
+    read_modules();
+
+    bool
+    read_kallsyms();
+
+    bool
+    read_kcore();
+
+    proc_module_t* modules_;
+    proc_kcore_code_segment_t* kcore_code_segments_;
 };
+
+#endif /* _KCORE_H_ */

@@ -3085,28 +3085,9 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        /* TODO i#5505: Using the perf command to get kcore and kallsyms is not a good
-         * solution. We need to implement the kcore_copy() in syscall_pt_trace_t.
-         */
-        /* Dump kcore and kallsyms to {kernel_pt_logsubdir}. */
-#    define SHELLSCRIPT_FMT                                                          \
-        "perf record --kcore -e intel_pt/cyc,noretcomp/k echo '' >/dev/null 2>&1 \n" \
-        "chmod 755 -R perf.data \n"                                                  \
-        "cp perf.data/kcore_dir/kcore %s/ \n"                                        \
-        "cp perf.data/kcore_dir/kallsyms %s/ \n"                                     \
-        "chmod 755 -R %s \n"                                                         \
-        "rm -rf perf.data \n"
-#    define SHELLSCRIPT_MAX_LEN 512 + MAXIMUM_PATH * 2
-        char shellscript[SHELLSCRIPT_MAX_LEN];
-        dr_snprintf(shellscript, BUFFER_SIZE_ELEMENTS(shellscript), SHELLSCRIPT_FMT,
-                    kernel_pt_logsubdir, kernel_pt_logsubdir, logdir);
-        NULL_TERMINATE_BUFFER(shellscript);
-        int ret = system(shellscript);
-        if (ret != 0) {
-            NOTIFY(0,
-                   "WARNING: failed to run shellscript to dump kcore and kallsyms(ret = "
-                   "%d)\n",
-                   ret);
+        if (!syscall_pt_trace_t::kcore_dump(kernel_pt_logsubdir)) {
+            NOTIFY(0, "ERROR: Failed to dump kcore.\n");
+            ERRMSG("failed to dump kcore\n");
         }
     }
 #endif

@@ -310,6 +310,7 @@ macro(add_drmemtrace name type)
   if (BUILD_PT_TRACER)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/syscall_pt_trace.cpp
+      tracer/kcore.cpp
     )
     add_definitions(-DBUILD_PT_TRACER)
   endif ()
@@ -332,8 +333,9 @@ macro(add_drmemtrace name type)
   use_DynamoRIO_extension(${name} droption)
   use_DynamoRIO_extension(${name} drcovlib${ext_sfx})
   use_DynamoRIO_extension(${name} drbbdup${ext_sfx})
-  if (LINUX AND X86 AND X64)
+  if (BUILD_PT_TRACER)
     use_DynamoRIO_extension(${name} drpttracer${ext_sfx})
+    target_link_libraries(${name} elf)
   endif ()
   if (libsnappy)
     target_link_libraries(${name} snappy)
