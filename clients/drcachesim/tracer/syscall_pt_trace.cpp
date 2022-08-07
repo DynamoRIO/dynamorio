@@ -36,7 +36,7 @@
 
 #include "dr_api.h"
 #include "drpttracer.h"
-#include "kcore.h"
+#include "kernel_image.h"
 #include "syscall_pt_trace.h"
 
 #ifndef BUILD_PT_TRACER
@@ -143,13 +143,13 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_cleanup_last_t &output)
 }
 
 bool
-syscall_pt_trace_t::kcore_dump(IN const char *to_dir)
+syscall_pt_trace_t::kernel_image_dump(IN const char *to_dir)
 {
-    std::unique_ptr<kcore_t> kcore(new kcore_t());
-    if (!kcore->init()) {
+    std::unique_ptr<kernel_image_t> kernel_image(new kernel_image_t());
+    if (!kernel_image->init()) {
         return false;
     }
-    if (!kcore->dump(to_dir)) {
+    if (!kernel_image->dump(to_dir)) {
         return false;
     }
     return true;

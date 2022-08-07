@@ -39,7 +39,7 @@
 
 #include "../common/utils.h"
 #include "dr_api.h"
-#include "kcore.h"
+#include "kernel_image.h"
 
 #define MODULES_FILE_PATH "/proc/modules"
 #define KALLSYMS_FILE_PATH "/proc/kallsyms"
@@ -62,13 +62,13 @@ struct proc_kcore_code_segment_t {
     uint64_t vaddr;
 };
 
-kcore_t::kcore_t()
+kernel_image_t::kernel_image_t()
     : modules_(NULL)
     , kcore_code_segments_(NULL)
 {
 }
 
-kcore_t::~kcore_t()
+kernel_image_t::~kernel_image_t()
 {
     proc_module_t *module = modules_;
     while (module) {
@@ -87,7 +87,7 @@ kcore_t::~kcore_t()
 }
 
 bool
-kcore_t::read_modules()
+kernel_image_t::read_modules()
 {
     std::ifstream f(MODULES_FILE_PATH, std::ios::in);
     if (!f.is_open()) {
@@ -127,7 +127,7 @@ kcore_t::read_modules()
 }
 
 bool
-kcore_t::read_kallsyms()
+kernel_image_t::read_kallsyms()
 {
     std::ifstream f(KALLSYMS_FILE_PATH, std::ios::in);
     if (!f.is_open()) {
@@ -167,7 +167,7 @@ kcore_t::read_kallsyms()
 }
 
 bool
-kcore_t::read_kcore()
+kernel_image_t::read_kcore()
 {
     elf_version(EV_CURRENT);
     file_t fd = dr_open_file(KCORE_FILE_PATH, DR_FILE_READ);
@@ -231,7 +231,6 @@ kcore_t::read_kcore()
         }
     } while ((module = module->next) != nullptr);
 
-
     dr_global_free(kphdr, knumphdr * sizeof(GElf_Phdr));
     elf_end(kcore_elf);
     dr_close_file(fd);
@@ -239,7 +238,7 @@ kcore_t::read_kcore()
 }
 
 bool
-kcore_t::init()
+kernel_image_t::init()
 {
     if (!read_modules()) {
         return false;
@@ -254,7 +253,7 @@ kcore_t::init()
 }
 
 bool
-kcore_t::dump(const char *to_dir)
+kernel_image_t::dump(const char *to_dir)
 {
     file_t kcore_fd = dr_open_file(KCORE_FILE_PATH, DR_FILE_READ);
     if (kcore_fd < 0) {
@@ -263,26 +262,26 @@ kcore_t::dump(const char *to_dir)
     }
     char image_file_name[MAXIMUM_PATH];
     char metadata_file_name[MAXIMUM_PATH];
-    dr_snprintf(image_file_name, BUFFER_SIZE_ELEMENTS(image_file_name), "%s/kcore",
+    dr_snprintf(image_file_name, BUFFER_SIZE_ELEMENTS(image_file_name), "%s/kimage",
                 to_dir);
     NULL_TERMINATE_BUFFER(image_file_name);
     dr_snprintf(metadata_file_name, BUFFER_SIZE_ELEMENTS(metadata_file_name),
-                "%s/kcore.metadata", to_dir);
+                "%s/kimage.metadata", to_dir);
     NULL_TERMINATE_BUFFER(metadata_file_name);
     file_t image_fd = dr_open_file(image_file_name, DR_FILE_WRITE_OVERWRITE);
     if (image_fd < 0) {
-        ASSERT(false, "failed to open dump kcore image file");
+        ASSERT(false, "failed to open kernel image file");
         dr_close_file(kcore_fd);
         return false;
     }
     std::ofstream metadata_fd(metadata_file_name, std::ios::out);
     if (!metadata_fd.is_open()) {
-        ASSERT(false, "failed to open " MODULES_FILE_PATH);
+        ASSERT(false, "failed to open kernel image metadata file");
         dr_close_file(image_fd);
         dr_close_file(kcore_fd);
         return false;
     }
-    uint64_t offset;
+    uint64_t offset = 0;
     bool dump_success = true;
     proc_kcore_code_segment_t *kcore_code_segment = kcore_code_segments_;
     while (kcore_code_segment != nullptr) {
@@ -296,7 +295,7 @@ kcore_t::dump(const char *to_dir)
         }
         if (dr_write_file(image_fd, buf, kcore_code_segment->len) !=
             kcore_code_segment->len) {
-            ASSERT(false, "failed to write image segment to kcore image file");
+            ASSERT(false, "failed to write code segment to kernel image file");
             dump_success = false;
             break;
         }

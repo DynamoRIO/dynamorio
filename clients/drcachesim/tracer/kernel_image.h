@@ -36,10 +36,10 @@
 struct proc_module_t;
 struct proc_kcore_code_segment_t;
 
-class kcore_t {
+class kernel_image_t {
 public:
-    kcore_t();
-    ~kcore_t();
+    kernel_image_t();
+    ~kernel_image_t();
     bool
     init();
     bool

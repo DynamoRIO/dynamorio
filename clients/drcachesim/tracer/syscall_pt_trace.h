@@ -112,7 +112,7 @@ public:
     }
 
     static bool
-    kcore_dump(IN const char *to_dir);
+    kernel_image_dump(IN const char *to_dir);
 
 private:
     /* Dump PT trace and the metadata to files. */

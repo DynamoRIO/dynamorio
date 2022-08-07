@@ -158,7 +158,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
 
     /* Load kcore to sideband kernel image cache. */
     if (!pt2ir_config.kcore_path.empty()) {
-        if (!load_kernel_image(pt2ir_config.kcore_path)) {
+        if (!load_kcore(pt2ir_config.kcore_path)) {
             ERRMSG("Failed to load kernel image: %s\n", pt2ir_config.kcore_path.c_str());
             return false;
         }
@@ -204,6 +204,17 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
                      pt2ir_config.elf_file_path.c_str(), pt2ir_config.elf_base, "", 0);
         if (errcode < 0) {
             ERRMSG("Failed to load ELF file: %s.\n", pt_errstr(pt_errcode(errcode)));
+            return false;
+        }
+    }
+
+    if (!pt2ir_config.kernel_image_path.empty() &&
+        !pt2ir_config.kernel_image_metadata_path.empty()) {
+        if (load_kernel_image(pt2ir_config.kernel_image_path,
+                              pt2ir_config.kernel_image_metadata_path)) {
+            ERRMSG("Failed to load kernel image: %s %s.\n",
+                   pt2ir_config.kernel_image_path.c_str(),
+                   pt2ir_config.kernel_image_metadata_path.c_str());
             return false;
         }
     }
@@ -374,7 +385,7 @@ pt2ir_t::load_pt_raw_file(IN std::string &path)
 }
 
 bool
-pt2ir_t::load_kernel_image(IN std::string &path)
+pt2ir_t::load_kcore(IN std::string &path)
 {
     /* Load all ELF sections in kcore to the shared image cache.
      * XXX: load_elf() is implemented in libipt's client ptxed. Currently we directly use
@@ -387,6 +398,37 @@ pt2ir_t::load_kernel_image(IN std::string &path)
                pt_errstr(pt_errcode(errcode)));
         return false;
     }
+    return true;
+}
+
+bool
+pt2ir_t::load_kernel_image(IN std::string &path, IN std::string &metadata_path)
+{
+    std::ifstream metadata_f(metadata_path, std::ios::in);
+    if (!metadata_f.is_open()) {
+        ERRMSG("Failed to open metadata file: %s.\n", metadata_path.c_str());
+        return false;
+    }
+    std::string line;
+    while (std::getline(metadata_f, line)) {
+        uint64_t offset = 0, len = 0, vaddr = 0;
+        if (sscanf(line.c_str(), "%" PRIx64 " %" PRIx64 " %" PRIx64 " %", offset, len,
+                   vaddr) < 3) {
+            ERRMSG("Failed to parse metadata file: %s(%s).\n", metadata_path.c_str(),
+                   line.c_str());
+            metadata_f.close();
+            return false;
+        }
+        int errcode = pt_image_add_file(pt_insn_get_image(pt_instr_decoder_),
+                                        path.c_str(), offset, len, NULL, vaddr);
+        if (errcode < 0) {
+            ERRMSG("Failed to load kernel image %s: %s.\n", path.c_str(),
+                   pt_errstr(pt_errcode(errcode)));
+            metadata_f.close();
+            return false;
+        }
+    }
+    metadata_f.close();
     return true;
 }
 

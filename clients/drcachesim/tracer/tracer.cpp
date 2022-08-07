@@ -3085,9 +3085,8 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        if (!syscall_pt_trace_t::kcore_dump(kernel_pt_logsubdir)) {
-            NOTIFY(0, "ERROR: Failed to dump kcore.\n");
-            ERRMSG("failed to dump kcore\n");
+        if (!syscall_pt_trace_t::kernel_image_dump(kernel_pt_logsubdir)) {
+            NOTIFY(0, "ERROR: Failed to dump kernel image and kernel image metadata.\n");
         }
     }
 #endif

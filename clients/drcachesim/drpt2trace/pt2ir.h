@@ -231,6 +231,18 @@ public:
      */
     std::string kcore_path;
 
+    /**
+     * The path of the kernel image file. The kernel image file is used to decode the
+     * kernel PT raw trace. This file contains all code segments in kcore.
+     */
+    std::string kernel_image_path;
+
+    /**
+     * The path of the kernel image metadata file. The metadata file contains the metadata
+     * of the code segments in kernel_image_path.
+     */
+    std::string kernel_image_metadata_path;
+
     pt2ir_config_t()
     {
         raw_file_path = "";
@@ -239,6 +251,8 @@ public:
         sb_primary_file_path = "";
         sb_secondary_file_path_list.clear();
         kcore_path = "";
+        kernel_image_path = "";
+        kernel_image_metadata_path = "";
         pt_config.cpu.vendor = CPU_VENDOR_UNKNOWN;
         pt_config.cpu.family = 0;
         pt_config.cpu.model = 0;
@@ -347,7 +361,12 @@ private:
      * information.
      */
     bool
-    load_kernel_image(IN std::string &path);
+    load_kcore(IN std::string &path);
+
+    /* Load the all code segments in kernel image to pt_insn_decoder's image cache.
+     */
+    bool
+    load_kernel_image(IN std::string &path, IN std::string &metadata_path);
 
     /* Allocate a sideband decoder in the sideband session. The sideband session may
      * allocate many decoders, which mainly work on handling sideband perf records and
