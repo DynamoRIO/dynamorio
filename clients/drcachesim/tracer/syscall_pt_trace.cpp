@@ -140,3 +140,9 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_cleanup_last_t &output)
     dr_close_file(pt_metadata_file);
     return true;
 }
+
+bool
+syscall_pt_trace_t::kcore_copy(const char *to_dir)
+{
+#define KCORE_FROM_DIR "/proc"
+}

@@ -100,7 +100,7 @@ _tmain(int argc, const TCHAR *targv[])
         FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
     raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, NULL,
                           op_verbose.get_value(), op_jobs.get_value(),
-                          op_alt_module_dir.get_value(), dir.get_syscall_pt_trace_dir());
+                          dir.get_syscall_pt_trace_dir(), op_alt_module_dir.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

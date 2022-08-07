@@ -1873,9 +1873,9 @@ private:
 
     unsigned int verbosity_ = 0;
 
-    std::string alt_module_dir_;
-
     std::string syscall_pt_trace_dir_;
+
+    std::string alt_module_dir_;
 
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.

@@ -1133,8 +1133,8 @@ raw2trace_t::raw2trace_t(const char *module_map,
     , user_process_data_(nullptr)
     , modmap_(module_map)
     , verbosity_(verbosity)
-    , alt_module_dir_(alt_module_dir)
     , syscall_pt_trace_dir_(syscall_pt_trace_dir)
+    , alt_module_dir_(alt_module_dir)
 {
     if (dcontext == NULL) {
 #ifdef ARM
