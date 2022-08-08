@@ -505,6 +505,8 @@ typedef enum {
 
 #define PC_MODOFFS_BITS 33
 #define PC_MODIDX_BITS 16
+// We reserve the top value to indicate non-module generated code.
+#define PC_MODIDX_INVALID ((1 << PC_MODIDX_BITS) - 1)
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
 
@@ -618,6 +620,20 @@ typedef union {
     uint64_t combined_value;
 } kernel_interrupted_raw_pc_t;
 
+// The encoding file begins with a 64-bit integer holding a version number,
+// followed by a series of records of type encoding_entry_t.
+#define ENCODING_FILE_VERSION 0
+
+START_PACKED_STRUCTURE
+struct _encoding_entry_t {
+    size_t length; // Size of the entire structure.
+    uint64_t id;
+    uint64_t start_pc;
+    // Variable-length encodings for entire block, of length 'length'.
+    unsigned char encodings[0];
+} END_PACKED_STRUCTURE;
+typedef struct _encoding_entry_t encoding_entry_t;
+
 /**
  * The name of the file in -offline mode where module data is written.
  * Its creation can be customized using drmemtrace_custom_module_data()
@@ -632,5 +648,11 @@ typedef union {
  * are written.  Use drmemtrace_get_funclist_path() to obtain the full path.
  */
 #define DRMEMTRACE_FUNCTION_LIST_FILENAME "funclist.log"
+
+/**
+ * The name of the file in -offline mode where non-module instruction encodings
+ * are written.  Use drmemtrace_get_encoding_path() to obtain the full path.
+ */
+#define DRMEMTRACE_ENCODING_FILENAME "encodings.log"
 
 #endif /* _TRACE_ENTRY_H_ */

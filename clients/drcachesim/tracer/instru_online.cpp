@@ -297,9 +297,10 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 }
 
 int
-online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
-                                   int ref_index, bool write, dr_pred_type_t pred)
+online_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
+                                   instr_t *where, reg_id_t reg_ptr, int adjust,
+                                   instr_t *app, opnd_t ref, int ref_index, bool write,
+                                   dr_pred_type_t pred)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
@@ -336,11 +337,11 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
 }
 
 int
-online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
+online_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                   instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
                                   int adjust, instr_t *app)
 {
-    bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
+    bool repstr_expanded = bb_field != 0; // Avoid cl warning C4800.
 #ifdef AARCH64
     // Update the trace buffer pointer if we are about to exceed the maximum
     // immediate displacement allowed by OP_stur. As sizeof(trace_entry_t) = 12,
@@ -410,4 +411,10 @@ online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded)
 {
     *bb_field = (void *)repstr_expanded;
+}
+
+void
+online_instru_t::bb_analysis_cleanup(void *drcontext, void *bb_field)
+{
+    // Nothing to do.
 }

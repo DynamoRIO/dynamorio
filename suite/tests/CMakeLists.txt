@@ -3826,11 +3826,14 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+      # We specify this executable here as it uses tools.h code.
       set(tool.drcacheoff.gencode_no_reg_compat)
       add_api_exe(tool.drcacheoff.gencode
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
         OFF ON)
       use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
+      target_include_directories(tool.drcacheoff.gencode PUBLIC
+        "${PROJECT_BINARY_DIR}/clients/include")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@basic_counts" "")
