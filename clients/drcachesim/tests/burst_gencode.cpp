@@ -38,10 +38,10 @@
 
 #include "configure.h"
 #include "dr_api.h"
-#include "tools.h"
 #include <assert.h>
 #include <iostream>
 #include <string>
+#include "tools.h" // Included after system headers to avoid printf warning.
 
 /***************************************************************************
  * Code generation.
