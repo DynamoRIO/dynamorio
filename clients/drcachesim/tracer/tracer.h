@@ -54,7 +54,6 @@
 #    include "syscall_pt_trace.h"
 #endif
 
-
 namespace dynamorio {
 namespace drmemtrace {
 
