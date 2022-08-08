@@ -177,13 +177,15 @@ typedef struct {
     uint64 flags_aa64isar0; /**< AArch64 feature flags stored in ID_AA64ISAR0_EL1 */
     uint64 flags_aa64isar1; /**< AArch64 feature flags stored in ID_AA64ISAR1_EL1 */
     uint64 flags_aa64pfr0;  /**< AArch64 feature flags stored in ID_AA64PFR0_EL1 */
-    uint64 flags_aa64mmfr1; /**< AArch64 feature flags stored in ID_AA64MMFR1_EL1*/
+    uint64 flags_aa64mmfr1; /**< AArch64 feature flags stored in ID_AA64MMFR1_EL1 */
+    uint64 flags_aa64dfr0;  /**< AArch64 feature flags stored in ID_AA64DFR0_EL1 */
 } features_t;
 typedef enum {
     AA64ISAR0 = 0,
     AA64ISAR1 = 1,
     AA64PFR0 = 2,
-    AA64MMFR1 = 3
+    AA64MMFR1 = 3,
+    AA64DFR0 = 4
 } feature_reg_idx_t;
 #endif
 #ifdef RISCV64
@@ -341,8 +343,10 @@ typedef enum {
     FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),      /**< DC CVAP (AArch64) */
     FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0),     /**< DC CVAP, DC CVADP (AArch64) */
     FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
-    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 1),       /**< Scalable Vectors (AArch64) */
-    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 1), /**< Limited order regions (AArch64) */
+    FEATURE_RAS = DEF_FEAT(AA64PFR0, 7, 1, 0),       /**< RAS extension (AArch64) */
+    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 0),       /**< Scalable Vectors (AArch64) */
+    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0), /**< Limited order regions (AArch64) */
+    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),  /**< Profiling extension (AArch64) */
 } feature_bit_t;
 #endif
 #ifdef RISCV64

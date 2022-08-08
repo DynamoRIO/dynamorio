@@ -36,7 +36,7 @@
 
 11001110001xxxxx0xxxxxxxxxxxxxxx  n   599  SHA3      bcax   q0 : q5 q16 q10 b_const_sz
 11001110000xxxxx0xxxxxxxxxxxxxxx  n   600  SHA3      eor3   q0 : q5 q16 q10 b_const_sz
-11010101000000110010001000011111  n   601  BASE       esb      :
+11010101000000110010001000011111  n   601  RAS        esb      :
 0x101110110xxxxx000101xxxxxxxxxx  n   94   FP16      fabd  dq0 : dq5 dq16 h_sz
 01111110110xxxxx000101xxxxxxxxxx  n   94   FP16      fabd   h0 : h5 h16
 0x00111011111000111110xxxxxxxxxx  n   95   FP16      fabs  dq0 : dq5 h_sz
@@ -150,7 +150,7 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0110111011111001111110xxxxxxxxxx  n   167  FP16     fsqrt   q0 : q5 h_sz
 0001111011100001110000xxxxxxxxxx  n   167  FP16     fsqrt   h0 : h5
 0x001110110xxxxx000101xxxxxxxxxx  n   168  FP16      fsub  dq0 : dq5 dq16 h_sz
-11010101000000110010001000111111  n   602  BASE       psb      :
+11010101000000110010001000111111  n   602  SPE        psb      :
 11001110011xxxxx100011xxxxxxxxxx  n   603  SHA3      rax1   q0 : q5 q16 d_const_sz
 0000111001111001110110xxxxxxxxxx  n   362  FP16     scvtf   d0 : d5 h_sz
 0100111001111001110110xxxxxxxxxx  n   362  FP16     scvtf   q0 : q5 h_sz
