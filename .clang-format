@@ -13,6 +13,8 @@ BinPackArguments: true
 BinPackParameters: true
 BreakBeforeBinaryOperators: None
 ColumnLimit: 90
+FixNamespaceComments: true
+NamespaceIndentation: None
 IndentWidth: 4
 IndentPPDirectives: AfterHash
 PointerAlignment: Right
