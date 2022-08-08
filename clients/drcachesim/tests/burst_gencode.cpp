@@ -59,7 +59,7 @@ public:
     }
     ~code_generator_t()
     {
-        munmap(map_, map_size_);
+        free_mem(map_, map_size_);
     }
     void
     execute_generated_code() const
@@ -84,7 +84,7 @@ private:
 
         instrlist_t *ilist = instrlist_create(dc);
         reg_id_t base = IF_X86_ELSE(IF_X64_ELSE(DR_REG_RAX, DR_REG_EAX), DR_REG_R0);
-        ssize_t ptrsz = static_cast<ssize_t>(sizeof(void *));
+        int ptrsz = static_cast<int>(sizeof(void *));
         // TODO i#2062: Add more instructions and look for them in the final trace.
         // For now we are testing that drmemtrace detects generated code.
         instrlist_append(
@@ -92,7 +92,7 @@ private:
             XINST_CREATE_move(dc, opnd_create_reg(base), opnd_create_reg(DR_REG_XSP)));
         instrlist_append(ilist,
                          XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(base, -ptrsz),
-                                            opnd_create_reg(DR_REG_XSP)));
+                                            opnd_create_reg(base)));
         instrlist_append(ilist, XINST_CREATE_return(dc));
 
         byte *last_pc = instrlist_encode(dc, ilist, reinterpret_cast<byte *>(map_), true);
