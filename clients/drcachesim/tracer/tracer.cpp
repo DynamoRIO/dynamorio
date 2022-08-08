@@ -1276,7 +1276,7 @@ event_post_syscall(void *drcontext, int sysnum)
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
     if (file_ops_func.handoff_buf == NULL)
-        memtrace(drcontext, false);
+        process_and_output_buffer(drcontext, false);
 #endif
 }
 
