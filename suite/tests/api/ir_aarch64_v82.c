@@ -1862,8 +1862,8 @@ TEST_INSTR(psb)
     instr = INSTR_CREATE_psb_csync(dc);
     if (!test_instr_encoding(dc, OP_psb, instr, expected_0_0[0]))
         success = false;
-      return success;
- }
+    return success;
+}
 
 TEST_INSTR(fsqrt_vector)
 {
@@ -2498,7 +2498,6 @@ TEST_INSTR(fcmpe)
     }
     return success;
 }
-
 
 int
 main(int argc, char *argv[])
