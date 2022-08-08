@@ -1176,6 +1176,21 @@ decode_opnd_float_reg(int pos, uint enc, OUT opnd_t *opnd)
 }
 
 static inline bool
+size_to_ftype(opnd_size_t size, OUT uint *ftype)
+{
+    switch (size) {
+    case OPSZ_2:
+        /* Half precision operands are only supported in Armv8.2+. */
+        *ftype = 3;
+        break;
+    case OPSZ_4: *ftype = 0; break;
+    case OPSZ_8: *ftype = 1; break;
+    default: return false;
+    }
+    return true;
+}
+
+static inline bool
 encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
 {
     uint num;
@@ -1185,16 +1200,8 @@ encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
 
     if (!encode_vreg(&size, &num, opnd))
         return false;
-
-    switch (size) {
-    case OPSZ_2:
-        /* Half precision operands are only supported in Armv8.2+. */
-        type = 3;
-        break;
-    case OPSZ_4: type = 0; break;
-    case OPSZ_8: type = 1; break;
-    default: return false;
-    }
+    if (!size_to_ftype(size, &type))
+        return false;
 
     *enc_out = type << 22 | num << pos;
     return true;
@@ -5111,6 +5118,96 @@ encode_opnds_logic_imm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
             return ENCFAIL;
         return (enc | rd | rn | (uint)imm_enc << 10);
     }
+}
+
+/* fccm: operands for conditional compare instructions */
+
+static inline bool
+decode_opnds_fccm(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 0, 3);
+
+    reg_id_t rn, rm;
+    uint ftype = BITS(enc, 23, 22);
+
+    if (!decode_float_reg(BITS(enc, 9, 5), ftype, &rn))
+        return false;
+    if (!decode_float_reg(BITS(enc, 20, 16), ftype, &rm))
+        return false;
+
+    instr_set_src(instr, 0, opnd_create_reg(rn));
+    instr_set_src(instr, 1, opnd_create_reg(rm));
+
+    /* nzcv */
+    instr_set_src(instr, 2, opnd_create_immed_int(BITS(enc, 3, 0), OPSZ_4b));
+    /* cond */
+    instr_set_predicate(instr, DR_PRED_EQ + BITS(enc, 15, 12));
+
+    return true;
+}
+
+static inline uint
+encode_opnds_fccm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
+{
+    if (instr_num_dsts(instr) != 0 || instr_num_srcs(instr) != 3)
+        return ENCFAIL;
+
+    opnd_size_t rn_size = OPSZ_NA, rm_size = OPSZ_NA;
+    uint rn, rm;
+    uint ftype;
+
+    if (!encode_vreg(&rn_size, &rn, instr_get_src(instr, 0)))
+        return ENCFAIL;
+    if (!encode_vreg(&rm_size, &rm, instr_get_src(instr, 1)))
+        return ENCFAIL;
+    if (rn_size != rm_size)
+        return ENCFAIL;
+    if (!size_to_ftype(rn_size, &ftype))
+        return ENCFAIL;
+
+    if (!opnd_is_immed_int(instr_get_src(instr, 2)))
+        return ENCFAIL;
+    uint nzcv = opnd_get_immed_int(instr_get_src(instr, 2));
+
+    uint cond = instr_get_predicate(instr) - DR_PRED_EQ;
+    if (cond >= 16)
+        return ENCFAIL;
+
+    return (enc | (rn << 5) | (rm << 16) | (ftype << 22) | nzcv | (cond << 12));
+}
+
+static inline bool
+decode_opnds_fccm_h(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    if (BITS(enc, 23, 22) != 0b11)
+        return false;
+    return decode_opnds_fccm(enc, dcontext, pc, instr, opcode);
+}
+
+static inline uint
+encode_opnds_fccm_h(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
+{
+    uint h_enc = encode_opnds_fccm(pc, instr, enc, di);
+    if (BITS(enc, 23, 22) != 0b11)
+        return ENCFAIL;
+    return h_enc;
+}
+
+static inline bool
+decode_opnds_fccm_sd(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    if (BITS(enc, 23, 22) == 0b11)
+        return false;
+    return decode_opnds_fccm(enc, dcontext, pc, instr, opcode);
+}
+static inline uint
+encode_opnds_fccm_sd(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
+{
+    uint sd_enc = encode_opnds_fccm(pc, instr, enc, di);
+    if (BITS(enc, 23, 22) == 0b11)
+        return ENCFAIL;
+    return sd_enc;
 }
 
 /* mst: used for MSR.

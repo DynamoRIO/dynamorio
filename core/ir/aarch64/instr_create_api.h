@@ -3970,4 +3970,116 @@
  */
 #define INSTR_CREATE_psb_csync(dc) instr_create_0dst_0src(dc, OP_psb)
 
+/**
+ * Creates a FCCMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCCMP   <Dn>, <Dm>, #<imm>, <cond>
+ *    FCCMP   <Hn>, <Hm>, #<imm>, <cond>
+ *    FCCMP   <Sn>, <Sm>, #<imm>, <cond>
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn    The first source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm    The second source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
+ *              (use #opnd_create_immed_uint() to create the operand, e.g.
+ *              opnd_create_immed_uint(val, #OPSZ_4b)).
+ * \param condition_code   The comparison condition specified by #dr_pred_type_t,
+ *              e.g. #DR_PRED_EQ.
+ */
+#define INSTR_CREATE_fccmp(dc, Rn, Rm, nzcv, condition_code) \
+    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmp, Rn, Rm, nzcv), (condition_code))
+
+/**
+ * Creates a FCCMPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCCMPE   <Dn>, <Dm>, #<imm>, <cond>
+ *    FCCMPE   <Hn>, <Hm>, #<imm>, <cond>
+ *    FCCMPE   <Sn>, <Sm>, #<imm>, <cond>
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn    The first source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm    The second source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
+ *              (use #opnd_create_immed_uint() to create the operand, e.g.
+ *              opnd_create_immed_uint(val, #OPSZ_4b)).
+ * \param condition_code   The comparison condition specified by #dr_pred_type_t,
+ *              e.g. #DR_PRED_EQ.
+ */
+#define INSTR_CREATE_fccmpe(dc, Rn, Rm, nzcv, condition_code) \
+    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmpe, Rn, Rm, nzcv), (condition_code))
+
+/**
+ * Creates a FCMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMP    <Dn>, #0.0
+ *    FCMP    <Hn>, #0.0
+ *    FCMP    <Sn>, #0.0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmp_zero(dc, Rn) \
+    instr_create_0dst_2src(dc, OP_fcmp, Rn, opnd_create_immed_float(0.0))
+
+/**
+ * Creates a FCMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMP    <Dn>, <Dm>
+ *    FCMP    <Hn>, <Hm>
+ *    FCMP    <Sn>, <Sm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm   The second source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmp(dc, Rn, Rm) instr_create_0dst_2src(dc, OP_fcmp, Rn, Rm)
+
+/**
+ * Creates a FCMPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMPE   <Dn>, #0.0
+ *    FCMPE   <Hn>, #0.0
+ *    FCMPE   <Sn>, #0.0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmpe_zero(dc, Rn) \
+    instr_create_0dst_2src(dc, OP_fcmpe, Rn, opnd_create_immed_float(0.0))
+
+/**
+ * Creates a FCMPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMPE   <Dn>, <Dm>
+ *    FCMPE   <Hn>, <Hm>
+ *    FCMPE   <Sn>, <Sm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm   The second source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmpe(dc, Rn, Rm) instr_create_0dst_2src(dc, OP_fcmpe, Rn, Rm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
