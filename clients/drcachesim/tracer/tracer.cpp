@@ -2420,7 +2420,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         /* The post syscall callback of SYS_exit and SYS_exit_group can't be triggered. So
          * we skip recording the kernel PT of these syscalls.
          */
-        if (sysnum == SYS_exit || sysnum == SYS_exit_group) {
+        if (sysnum == SYS_exit || sysnum == SYS_exit_group || sysnum == SYS_futex) {
             return true;
         }
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != -1) {
@@ -2444,7 +2444,7 @@ event_post_syscall(void *drcontext, int sysnum)
         return;
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (sysnum == SYS_exit || sysnum == SYS_exit_group)
+    if (sysnum == SYS_exit || sysnum == SYS_exit_group || sysnum == SYS_futex)
         return;
 
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);

@@ -1399,6 +1399,7 @@ private:
         for (auto &entry : entries) {
             trace_entry_t *buf_entry = reinterpret_cast<trace_entry_t *>(buf);
             *buf_entry = entry;
+            buf += sizeof(trace_entry_t);
             size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
             if (size >= WRITE_BUFFER_SIZE) {
                 if (!impl()->write(tls, buf_base,
