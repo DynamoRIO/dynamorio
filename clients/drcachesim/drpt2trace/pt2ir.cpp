@@ -210,7 +210,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
 
     if (!pt2ir_config.kernel_image_path.empty() &&
         !pt2ir_config.kernel_image_metadata_path.empty()) {
-        if (load_kernel_image(pt2ir_config.kernel_image_path,
+        if (!load_kernel_image(pt2ir_config.kernel_image_path,
                               pt2ir_config.kernel_image_metadata_path)) {
             ERRMSG("Failed to load kernel image: %s %s.\n",
                    pt2ir_config.kernel_image_path.c_str(),
@@ -412,8 +412,8 @@ pt2ir_t::load_kernel_image(IN std::string &path, IN std::string &metadata_path)
     std::string line;
     while (std::getline(metadata_f, line)) {
         uint64_t offset = 0, len = 0, vaddr = 0;
-        if (sscanf(line.c_str(), "%" PRIx64 " %" PRIx64 " %" PRIx64 " %", offset, len,
-                   vaddr) < 3) {
+        if (sscanf(line.c_str(), "%" PRIx64 " %" PRIx64 " %" PRIx64 " %", &offset, &len,
+                   &vaddr) < 3) {
             ERRMSG("Failed to parse metadata file: %s(%s).\n", metadata_path.c_str(),
                    line.c_str());
             metadata_f.close();

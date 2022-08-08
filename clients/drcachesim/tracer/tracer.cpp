@@ -1497,6 +1497,7 @@ instrumentation_exit()
 {
     dr_unregister_filter_syscall_event(event_filter_syscall);
     if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
+        !drmgr_unregister_post_syscall_event(event_post_syscall) ||
         !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_unregister_bb_app2app_event(event_bb_app2app))
         DR_ASSERT(false);

@@ -44,6 +44,8 @@
 #define MODULES_FILE_PATH "/proc/modules"
 #define KALLSYMS_FILE_PATH "/proc/kallsyms"
 #define KCORE_FILE_PATH "/proc/kcore"
+#define KERNEL_IMAGE_FILE_NAME "kimage"
+#define KERNEL_IMAGE_METADATA_FILE_NAME "kimage.metadata"
 
 #define MODULE_NEME_MAX_LEN 100
 #define SYMBOL_MAX_LEN 300
@@ -262,11 +264,11 @@ kernel_image_t::dump(const char *to_dir)
     }
     char image_file_name[MAXIMUM_PATH];
     char metadata_file_name[MAXIMUM_PATH];
-    dr_snprintf(image_file_name, BUFFER_SIZE_ELEMENTS(image_file_name), "%s/kimage",
-                to_dir);
+    dr_snprintf(image_file_name, BUFFER_SIZE_ELEMENTS(image_file_name), "%s%s%s", to_dir,
+                DIRSEP, KERNEL_IMAGE_FILE_NAME);
     NULL_TERMINATE_BUFFER(image_file_name);
-    dr_snprintf(metadata_file_name, BUFFER_SIZE_ELEMENTS(metadata_file_name),
-                "%s/kimage.metadata", to_dir);
+    dr_snprintf(metadata_file_name, BUFFER_SIZE_ELEMENTS(metadata_file_name), "%s%s%s",
+                to_dir, DIRSEP, KERNEL_IMAGE_METADATA_FILE_NAME);
     NULL_TERMINATE_BUFFER(metadata_file_name);
     file_t image_fd = dr_open_file(image_file_name, DR_FILE_WRITE_OVERWRITE);
     if (image_fd < 0) {

@@ -1358,6 +1358,8 @@ private:
 #ifdef BUILD_PT_POST_PROCESSOR
 #    define PT_DATA_FILE_NAME_SUFFIX ".pt"
 #    define PT_METADAT_FILE_NAME_SUFFIX ".meta"
+#    define KERNEL_IMAGE_FILE_NAME "kimage"
+#    define KERNEL_IMAGE_METADATA_FILE_NAME "kimage.metadata"
     std::string
     append_syscall_pt_trace(void *tls, thread_id_t thread_id, uint64_t syscall_id)
     {
@@ -1366,7 +1368,10 @@ private:
         config.raw_file_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
             std::to_string(thread_id) + "." + std::to_string(syscall_id) +
             PT_DATA_FILE_NAME_SUFFIX;
-        config.elf_file_path = impl()->get_syscall_pt_trace_dir(tls) + "/kcore";
+        config.kernel_image_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
+            KERNEL_IMAGE_FILE_NAME;
+        config.kernel_image_metadata_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
+            KERNEL_IMAGE_METADATA_FILE_NAME;
         config.init_with_metadata(config.raw_file_path + PT_METADAT_FILE_NAME_SUFFIX);
 
         std::unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());

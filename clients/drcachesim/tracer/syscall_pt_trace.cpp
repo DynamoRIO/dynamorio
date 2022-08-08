@@ -65,13 +65,13 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_
                          ssize_t (*write_file_func)(file_t file, const void *data,
                                                     size_t count))
 {
-#define RING_BUFFER_SIZE_SHIFT 8
+    // #define RING_BUFFER_SIZE_SHIFT 8
     drcontext_ = drcontext;
-    if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
-                                 RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
-                                 &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
-        return false;
-    }
+    // if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
+    //                              RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
+    //                              &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
+    //     return false;
+    // }
     memcpy(pt_dir_name_, pt_dir_name, pt_dir_name_size);
     write_file_func_ = write_file_func;
     return true;
@@ -80,8 +80,15 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_
 bool
 syscall_pt_trace_t::start_syscall_pt_trace(int sysnum)
 {
+#define RING_BUFFER_SIZE_SHIFT 8
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
-    ASSERT(pttracer_handle_.handle != nullptr, "pttracer_handle_.handle is nullptr");
+    // ASSERT(pttracer_handle_.handle != nullptr, "pttracer_handle_.handle is nullptr");
+    ASSERT(pttracer_handle_.handle == nullptr, "pttracer_handle_.handle isn't nullptr");
+    if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
+                                 RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
+                                 &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
+        return false;
+    }
     if (drpttracer_start_tracing(drcontext_, pttracer_handle_.handle) !=
         DRPTTRACER_SUCCESS) {
         return false;
@@ -101,6 +108,8 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
         DRPTTRACER_SUCCESS) {
         return false;
     }
+    drpttracer_destory_handle(drcontext_, pttracer_handle_.handle);
+    pttracer_handle_.handle = nullptr;
     cur_recording_sysnum_ = -1;
     recorded_syscall_num_++;
     return trace_data_dump(output);
