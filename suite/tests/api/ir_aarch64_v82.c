@@ -3024,6 +3024,174 @@ TEST_INSTR(fcsel)
     return success;
 }
 
+TEST_INSTR(sdot_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb> */
+    reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
+    const char *expected_0_0[3] = {
+        "sdot   %d0 %d0 %d0 $0x00 -> %d0",
+        "sdot   %d10 %d11 %d12 $0x00 -> %d10",
+        "sdot   %d31 %d31 %d31 $0x00 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sdot_vector(dc, opnd_create_reg(Rd_0_0[i]),
+                                         opnd_create_reg(Rn_0_0[i]),
+                                         opnd_create_reg(Rm_0_0[i]));
+        if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_0[i]))
+            success = false;
+    }
+    reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
+    reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    const char *expected_0_1[3] = {
+        "sdot   %q0 %q0 %q0 $0x00 -> %q0",
+        "sdot   %q10 %q11 %q12 $0x00 -> %q10",
+        "sdot   %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sdot_vector(dc, opnd_create_reg(Rd_0_1[i]),
+                                         opnd_create_reg(Rn_0_1[i]),
+                                         opnd_create_reg(Rm_0_1[i]));
+        if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(sdot_vector_indexed)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>] */
+    reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    uint index_0_0[3] = { 0, 0, 3 };
+    const char *expected_0_0[3] = {
+        "sdot   %d0 %d0 %q0 $0x00 $0x00 -> %d0",
+        "sdot   %d10 %d11 %q12 $0x00 $0x00 -> %d10",
+        "sdot   %d31 %d31 %q31 $0x03 $0x00 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sdot_vector_indexed(
+            dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
+            opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(index_0_0[i], OPSZ_0));
+        if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_0[i]))
+            success = false;
+    }
+    reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
+    reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    uint index_0_1[3] = { 0, 0, 3 };
+    const char *expected_0_1[3] = {
+        "sdot   %q0 %q0 %q0 $0x00 $0x00 -> %q0",
+        "sdot   %q10 %q11 %q12 $0x00 $0x00 -> %q10",
+        "sdot   %q31 %q31 %q31 $0x03 $0x00 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_sdot_vector_indexed(
+            dc, opnd_create_reg(Rd_0_1[i]), opnd_create_reg(Rn_0_1[i]),
+            opnd_create_reg(Rm_0_1[i]), opnd_create_immed_uint(index_0_1[i], OPSZ_0));
+        if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(udot_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb> */
+    reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
+    const char *expected_0_0[3] = {
+        "udot   %d0 %d0 %d0 $0x00 -> %d0",
+        "udot   %d10 %d11 %d12 $0x00 -> %d10",
+        "udot   %d31 %d31 %d31 $0x00 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_udot_vector(dc, opnd_create_reg(Rd_0_0[i]),
+                                         opnd_create_reg(Rn_0_0[i]),
+                                         opnd_create_reg(Rm_0_0[i]));
+        if (!test_instr_encoding(dc, OP_udot, instr, expected_0_0[i]))
+            success = false;
+    }
+    reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
+    reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    const char *expected_0_1[3] = {
+        "udot   %q0 %q0 %q0 $0x00 -> %q0",
+        "udot   %q10 %q11 %q12 $0x00 -> %q10",
+        "udot   %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_udot_vector(dc, opnd_create_reg(Rd_0_1[i]),
+                                         opnd_create_reg(Rn_0_1[i]),
+                                         opnd_create_reg(Rm_0_1[i]));
+        if (!test_instr_encoding(dc, OP_udot, instr, expected_0_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
+TEST_INSTR(udot_vector_indexed)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>] */
+    reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    uint index_0_0[3] = { 0, 0, 3 };
+    const char *expected_0_0[3] = {
+        "udot   %d0 %d0 %q0 $0x00 $0x00 -> %d0",
+        "udot   %d10 %d11 %q12 $0x00 $0x00 -> %d10",
+        "udot   %d31 %d31 %q31 $0x03 $0x00 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_udot_vector_indexed(
+            dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
+            opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(index_0_0[i], OPSZ_0));
+        if (!test_instr_encoding(dc, OP_udot, instr, expected_0_0[i]))
+            success = false;
+    }
+    reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
+    reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
+    reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
+    uint index_0_1[3] = { 0, 0, 3 };
+    const char *expected_0_1[3] = {
+        "udot   %q0 %q0 %q0 $0x00 $0x00 -> %q0",
+        "udot   %q10 %q11 %q12 $0x00 $0x00 -> %q10",
+        "udot   %q31 %q31 %q31 $0x03 $0x00 -> %q31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_udot_vector_indexed(
+            dc, opnd_create_reg(Rd_0_1[i]), opnd_create_reg(Rn_0_1[i]),
+            opnd_create_reg(Rm_0_1[i]), opnd_create_immed_uint(index_0_1[i], OPSZ_0));
+        if (!test_instr_encoding(dc, OP_udot, instr, expected_0_1[i]))
+            success = false;
+    }
+
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -3118,6 +3286,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(fcmp);
     RUN_INSTR_TEST(fcmpe);
     RUN_INSTR_TEST(fcsel);
+
+    RUN_INSTR_TEST(sdot_vector);
+    RUN_INSTR_TEST(sdot_vector_indexed);
+    RUN_INSTR_TEST(udot_vector);
+    RUN_INSTR_TEST(udot_vector_indexed);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER
