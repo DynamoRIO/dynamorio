@@ -294,6 +294,8 @@ macro(add_drmemtrace name type)
   endif ()
   set(drmemtrace_srcs
     tracer/tracer.cpp
+    tracer/instr_counter.cpp
+    tracer/output.cpp
     tracer/instru.cpp
     tracer/instru_offline.cpp
     tracer/instru_online.cpp
