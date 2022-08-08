@@ -41,10 +41,7 @@
 #include "tools.h"
 #include <assert.h>
 #include <iostream>
-#include <fstream>
 #include <string>
-#include <math.h>
-#include <stdlib.h>
 
 /***************************************************************************
  * Code generation.
@@ -59,7 +56,7 @@ public:
     }
     ~code_generator_t()
     {
-        free_mem(map_, map_size_);
+        free_mem(reinterpret_cast<char *>(map_), map_size_);
     }
     void
     execute_generated_code() const
@@ -68,7 +65,7 @@ public:
     }
 
 private:
-    void *map_ = nullptr;
+    byte *map_ = nullptr;
     size_t map_size_ = 0;
     bool verbose_ = false;
 
@@ -79,7 +76,8 @@ private:
         assert(dc != nullptr);
 
         map_size_ = PAGE_SIZE;
-        map_ = allocate_mem(map_size_, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
+        map_ = reinterpret_cast<byte *>(
+            allocate_mem(map_size_, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE));
         assert(map_ != nullptr);
 
         instrlist_t *ilist = instrlist_create(dc);
@@ -95,8 +93,8 @@ private:
                                             opnd_create_reg(base)));
         instrlist_append(ilist, XINST_CREATE_return(dc));
 
-        byte *last_pc = instrlist_encode(dc, ilist, reinterpret_cast<byte *>(map_), true);
-        assert(last_pc <= reinterpret_cast<byte *>(map_) + map_size_);
+        byte *last_pc = instrlist_encode(dc, ilist, map_, true);
+        assert(last_pc <= map_ + map_size_);
 
         instrlist_clear_and_destroy(dc, ilist);
 
