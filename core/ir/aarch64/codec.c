@@ -5153,7 +5153,7 @@ encode_opnds_fccm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     if (instr_num_dsts(instr) != 0 || instr_num_srcs(instr) != 3)
         return ENCFAIL;
 
-    opnd_size_t rn_size, rm_size;
+    opnd_size_t rn_size = OPSZ_NA, rm_size = OPSZ_NA;
     uint rn, rm;
     uint ftype;
 
