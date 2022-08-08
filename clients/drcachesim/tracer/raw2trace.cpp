@@ -1125,8 +1125,8 @@ raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
                          const std::vector<std::ostream *> &out_files, void *dcontext,
                          unsigned int verbosity, int worker_count,
-                         const std::string &alt_module_dir,
-                         const std::string &syscall_pt_trace_dir)
+                         const std::string &syscall_pt_trace_dir,
+                         const std::string &alt_module_dir)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)

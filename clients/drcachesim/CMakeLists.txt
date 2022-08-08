@@ -161,7 +161,7 @@ if (BUILD_PT_POST_PROCESSOR)
   # Add the directory containing libipt.so and libipt-sb.so to the linker search path.
   SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${PROJECT_BINARY_DIR}/lib'")
   target_link_libraries(drmemtrace_raw2trace drpt2ir drir2trace)
-endif ()
+endif (BUILD_PT_POST_PROCESSOR)
 
 set(drcachesim_srcs
   launcher.cpp

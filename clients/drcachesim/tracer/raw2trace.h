@@ -1357,7 +1357,7 @@ private:
 
 #ifdef BUILD_PT_POST_PROCESSOR
 #    define PT_DATA_FILE_NAME_SUFFIX ".pt"
-#    define PT_METADAT_FILE_NAME_SUFFIX ".meta"
+#    define PT_METADAT_FILE_NAME_SUFFIX ".metadata"
 #    define KERNEL_IMAGE_FILE_NAME "kimage"
 #    define KERNEL_IMAGE_METADATA_FILE_NAME "kimage.metadata"
     std::string
@@ -1368,8 +1368,8 @@ private:
         config.raw_file_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
             std::to_string(thread_id) + "." + std::to_string(syscall_id) +
             PT_DATA_FILE_NAME_SUFFIX;
-        config.kernel_image_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
-            KERNEL_IMAGE_FILE_NAME;
+        config.kernel_image_path =
+            impl()->get_syscall_pt_trace_dir(tls) + "/" + KERNEL_IMAGE_FILE_NAME;
         config.kernel_image_metadata_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
             KERNEL_IMAGE_METADATA_FILE_NAME;
         config.init_with_metadata(config.raw_file_path + PT_METADAT_FILE_NAME_SUFFIX);
@@ -1394,26 +1394,30 @@ private:
             return error;
         }
 
-        trace_entry_t *buf_start = impl()->get_write_buffer(tls);
-        trace_entry_t *buf = buf_start;
+        trace_entry_t *buf_base = impl()->get_write_buffer(tls);
+        byte *buf = reinterpret_cast<byte *>(buf_base);
         for (auto &entry : entries) {
-            *buf = entry;
-            ++buf;
-            if (buf - buf_start >= WRITE_BUFFER_SIZE) {
-                if (!impl()->write(tls, buf_start, buf)) {
+            trace_entry_t *buf_entry = reinterpret_cast<trace_entry_t *>(buf);
+            *buf_entry = entry;
+            size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
+            if (size >= WRITE_BUFFER_SIZE) {
+                if (!impl()->write(tls, buf_base,
+                                   reinterpret_cast<trace_entry_t *>(buf))) {
                     error = "Failed to write syscall PT trace to output file";
                     break;
                 }
-                impl()->log(4, "Appended %u entries to write buffer\n", buf - buf_start);
-                buf_start = buf;
+                impl()->log(4, "Appended %u entries to write buffer\n", size);
+                buf_base = impl()->get_write_buffer(tls);
+                buf = reinterpret_cast<byte *>(buf_base);
             }
         }
 
         if (error.empty()) {
-            if (!impl()->write(tls, buf_start, buf)) {
+            if (!impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf))) {
                 error = "Failed to write syscall PT trace to output file";
             }
-            impl()->log(4, "Appended %u entries to write buffer\n", buf - buf_start);
+            impl()->log(4, "Appended %u entries to write buffer\n",
+                        reinterpret_cast<trace_entry_t *>(buf) - buf_base);
         }
         return "";
     }

@@ -377,8 +377,9 @@ raw2trace_directory_t::get_syscall_pt_trace_dir()
 {
 #ifdef BUILD_PT_POST_PROCESSOR
     return indir_ + "/../" + KERNEL_PT_OUTFILE_SUBDIR;
-#endif
+#else
     return "";
+#endif
 }
 
 raw2trace_directory_t::~raw2trace_directory_t()
