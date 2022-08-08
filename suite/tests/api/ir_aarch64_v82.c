@@ -2212,6 +2212,293 @@ TEST_INSTR(xar)
     return success;
 }
 
+TEST_INSTR(fccmp)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    /* Testing FCCMP   <Dn>, <Dm>, #<imm>, <cond> */
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    uint nzcv_0_0[3] = { 0, 7, 15 };
+    dr_pred_type_t condition_code_0_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_0_0[3] = {
+        "fccmp.eq %d0 %d0 $0x00",
+        "fccmp.hi %d10 %d11 $0x07",
+        "fccmp.nv %d31 %d31 $0x0f",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fccmp(
+            dc, opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
+            opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
+        if (!test_instr_encoding(dc, OP_fccmp, instr, expected_0_0[i]))
+            success = false;
+    }
+    /* Testing FCCMP   <Hn>, <Hm>, #<imm>, <cond> */
+    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
+    reg_id_t Rm_1_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
+    uint nzcv_1_0[3] = { 0, 7, 15 };
+    dr_pred_type_t condition_code_1_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_1_0[3] = {
+        "fccmp.eq %h0 %h0 $0x00",
+        "fccmp.hi %h10 %h11 $0x07",
+        "fccmp.nv %h31 %h31 $0x0f",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fccmp(
+            dc, opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
+            opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
+        if (!test_instr_encoding(dc, OP_fccmp, instr, expected_1_0[i]))
+            success = false;
+    }
+    /* Testing FCCMP   <Sn>, <Sm>, #<imm>, <cond> */
+    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
+    reg_id_t Rm_2_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
+    uint nzcv_2_0[3] = { 0, 7, 15 };
+    dr_pred_type_t condition_code_2_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_2_0[3] = {
+        "fccmp.eq %s0 %s0 $0x00",
+        "fccmp.hi %s10 %s11 $0x07",
+        "fccmp.nv %s31 %s31 $0x0f",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fccmp(
+            dc, opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
+            opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
+        if (!test_instr_encoding(dc, OP_fccmp, instr, expected_2_0[i]))
+            success = false;
+    }
+    return success;
+}
+TEST_INSTR(fccmpe)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    /* Testing FCCMPE  <Dn>, <Dm>, #<imm>, <cond> */
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    uint nzcv_0_0[3] = { 0, 7, 15 };
+    dr_pred_type_t condition_code_0_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_0_0[3] = {
+        "fccmpe.eq %d0 %d0 $0x00",
+        "fccmpe.hi %d10 %d11 $0x07",
+        "fccmpe.nv %d31 %d31 $0x0f",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fccmpe(
+            dc, opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
+            opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
+        if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_0_0[i]))
+            success = false;
+    }
+    /* Testing FCCMPE  <Hn>, <Hm>, #<imm>, <cond> */
+    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
+    reg_id_t Rm_1_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
+    uint nzcv_1_0[3] = { 0, 7, 15 };
+    dr_pred_type_t condition_code_1_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_1_0[3] = {
+        "fccmpe.eq %h0 %h0 $0x00",
+        "fccmpe.hi %h10 %h11 $0x07",
+        "fccmpe.nv %h31 %h31 $0x0f",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fccmpe(
+            dc, opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
+            opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
+        if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_1_0[i]))
+            success = false;
+    }
+    /* Testing FCCMPE  <Sn>, <Sm>, #<imm>, <cond> */
+    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
+    reg_id_t Rm_2_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
+    uint nzcv_2_0[3] = { 0, 7, 15 };
+    dr_pred_type_t condition_code_2_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_2_0[3] = {
+        "fccmpe.eq %s0 %s0 $0x00",
+        "fccmpe.hi %s10 %s11 $0x07",
+        "fccmpe.nv %s31 %s31 $0x0f",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fccmpe(
+            dc, opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
+            opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
+        if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_2_0[i]))
+            success = false;
+    }
+    return success;
+}
+TEST_INSTR(fcmp)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    /* Testing FCMP    <Dn>, #0.0 */
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    const char *expected_0_0[3] = {
+        "fcmp   %d0 $0.000000",
+        "fcmp   %d10 $0.000000",
+        "fcmp   %d31 $0.000000",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_0_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmp, instr, expected_0_0[i]))
+            success = false;
+    }
+    /* Testing FCMP    <Hn>, #0.0 */
+    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
+    const char *expected_1_0[3] = {
+        "fcmp   %h0 $0.000000",
+        "fcmp   %h10 $0.000000",
+        "fcmp   %h31 $0.000000",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_1_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmp, instr, expected_1_0[i]))
+            success = false;
+    }
+    /* Testing FCMP    <Sn>, #0.0 */
+    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
+    const char *expected_2_0[3] = {
+        "fcmp   %s0 $0.000000",
+        "fcmp   %s10 $0.000000",
+        "fcmp   %s31 $0.000000",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_2_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmp, instr, expected_2_0[i]))
+            success = false;
+    }
+    /* Testing FCMP    <Dn>, <Dm> */
+    reg_id_t Rn_3_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rm_3_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    const char *expected_3_0[3] = {
+        "fcmp   %d0 %d0",
+        "fcmp   %d10 %d11",
+        "fcmp   %d31 %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_3_0[i]), opnd_create_reg(Rm_3_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmp, instr, expected_3_0[i]))
+            success = false;
+    }
+    /* Testing FCMP    <Hn>, <Hm> */
+    reg_id_t Rn_4_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
+    reg_id_t Rm_4_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
+    const char *expected_4_0[3] = {
+        "fcmp   %h0 %h0",
+        "fcmp   %h10 %h11",
+        "fcmp   %h31 %h31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_4_0[i]), opnd_create_reg(Rm_4_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmp, instr, expected_4_0[i]))
+            success = false;
+    }
+    /* Testing FCMP    <Sn>, <Sm> */
+    reg_id_t Rn_5_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
+    reg_id_t Rm_5_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
+    const char *expected_5_0[3] = {
+        "fcmp   %s0 %s0",
+        "fcmp   %s10 %s11",
+        "fcmp   %s31 %s31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_5_0[i]), opnd_create_reg(Rm_5_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmp, instr, expected_5_0[i]))
+            success = false;
+    }
+    return success;
+}
+TEST_INSTR(fcmpe)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    /* Testing FCMPE   <Dn>, #0.0 */
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    const char *expected_0_0[3] = {
+        "fcmpe  %d0 $0.000000",
+        "fcmpe  %d10 $0.000000",
+        "fcmpe  %d31 $0.000000",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_0_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_0_0[i]))
+            success = false;
+    }
+    /* Testing FCMPE   <Hn>, #0.0 */
+    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
+    const char *expected_1_0[3] = {
+        "fcmpe  %h0 $0.000000",
+        "fcmpe  %h10 $0.000000",
+        "fcmpe  %h31 $0.000000",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_1_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_1_0[i]))
+            success = false;
+    }
+    /* Testing FCMPE   <Sn>, #0.0 */
+    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
+    const char *expected_2_0[3] = {
+        "fcmpe  %s0 $0.000000",
+        "fcmpe  %s10 $0.000000",
+        "fcmpe  %s31 $0.000000",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_2_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_2_0[i]))
+            success = false;
+    }
+    /* Testing FCMPE   <Dn>, <Dm> */
+    reg_id_t Rn_3_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rm_3_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    const char *expected_3_0[3] = {
+        "fcmpe  %d0 %d0",
+        "fcmpe  %d10 %d11",
+        "fcmpe  %d31 %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmpe(dc, opnd_create_reg(Rn_3_0[i]),
+                                   opnd_create_reg(Rm_3_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_3_0[i]))
+            success = false;
+    }
+    /* Testing FCMPE   <Hn>, <Hm> */
+    reg_id_t Rn_4_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
+    reg_id_t Rm_4_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
+    const char *expected_4_0[3] = {
+        "fcmpe  %h0 %h0",
+        "fcmpe  %h10 %h11",
+        "fcmpe  %h31 %h31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmpe(dc, opnd_create_reg(Rn_4_0[i]),
+                                   opnd_create_reg(Rm_4_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_4_0[i]))
+            success = false;
+    }
+    /* Testing FCMPE   <Sn>, <Sm> */
+    reg_id_t Rn_5_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
+    reg_id_t Rm_5_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
+    const char *expected_5_0[3] = {
+        "fcmpe  %s0 %s0",
+        "fcmpe  %s10 %s11",
+        "fcmpe  %s31 %s31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr = INSTR_CREATE_fcmpe(dc, opnd_create_reg(Rn_5_0[i]),
+                                   opnd_create_reg(Rm_5_0[i]));
+        if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_5_0[i]))
+            success = false;
+    }
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2292,6 +2579,11 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(rax1);
     RUN_INSTR_TEST(xar);
+
+    RUN_INSTR_TEST(fccmp);
+    RUN_INSTR_TEST(fccmpe);
+    RUN_INSTR_TEST(fcmp);
+    RUN_INSTR_TEST(fcmpe);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER

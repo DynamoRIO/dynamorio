@@ -259,8 +259,8 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 0x1011100x1xxxxx110101xxxxxxxxxx  n   99   BASE      faddp            dq0 : dq5 dq16 sd_sz
 0111111000110000110110xxxxxxxxxx  n   99   BASE      faddp             s0 : d5 sd_sz
 0111111001110000110110xxxxxxxxxx  n   99   BASE      faddp             d0 : q5 sd_sz
-00011110xx1xxxxxxxxx01xxxxx0xxxx  w   100  BASE      fccmp                : float_reg5 float_reg16 nzcv cond
-00011110xx1xxxxxxxxx01xxxxx1xxxx  w   101  BASE     fccmpe                : float_reg5 float_reg16 nzcv cond
+000111100x1xxxxxxxxx01xxxxx0xxxx  w   100  BASE      fccmp        fccm_sd
+000111100x1xxxxxxxxx01xxxxx1xxxx  w   101  BASE     fccmpe        fccm_sd
 0x0011100x1xxxxx111001xxxxxxxxxx  n   102  BASE      fcmeq            dq0 : dq5 dq16 sd_sz
 0x0011101x100000110110xxxxxxxxxx  n   102  BASE      fcmeq            dq0 : dq5 zero_fp_const sd_sz
 0101111010100000110110xxxxxxxxxx  n   102  BASE      fcmeq             s0 : s5 zero_fp_const
@@ -284,14 +284,14 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 0101111010100000111010xxxxxxxxxx  n   106  BASE      fcmlt             s0 : s5 zero_fp_const
 0101111011100000111010xxxxxxxxxx  n   106  BASE      fcmlt             d0 : d5 zero_fp_const
 0x0011101x100000111010xxxxxxxxxx  n   106  BASE      fcmlt            dq0 : dq5 zero_fp_const sd_sz
-00011110xx1xxxxx001000xxxxx00000  w   107  BASE       fcmp                : float_reg5 float_reg16
-0001111000100000001000xxxxx01000  w   107  BASE       fcmp                : s5 zero_fp_const
 0001111001100000001000xxxxx01000  w   107  BASE       fcmp                : d5 zero_fp_const
-00011110xx100000001000xxxxx01000  w   107  BASE       fcmp                : float_reg5 zero_fp_const
-00011110001xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : s5 s16
+0001111000100000001000xxxxx01000  w   107  BASE       fcmp                : s5 zero_fp_const
+00011110011xxxxx001000xxxxx00000  w   107  BASE       fcmp                : d5 d16
+00011110001xxxxx001000xxxxx00000  w   107  BASE       fcmp                : s5 s16
+0001111001100000001000xxxxx11000  w   108  BASE      fcmpe                : d5 zero_fp_const
 0001111000100000001000xxxxx11000  w   108  BASE      fcmpe                : s5 zero_fp_const
 00011110011xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : d5 d16
-0001111001100000001000xxxxx11000  w   108  BASE      fcmpe                : d5 zero_fp_const
+00011110001xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : s5 s16
 00011110xx1xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel     float_reg0 : float_reg5 float_reg16 cond
 0001111000100010110000xxxxxxxxxx  n   110  BASE       fcvt             d0 : s5
 0001111001100010010000xxxxxxxxxx  n   110  BASE       fcvt             s0 : d5
