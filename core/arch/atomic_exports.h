@@ -35,7 +35,10 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
-/* file "atomic_exports.h" -- arch-specific synchronization declarations */
+/* file "atomic_exports.h" -- arch-specific synchronization declarations
+ *
+ * Note that ATOMIC_*_READ/WRITE() macros follow acquire-release semantics.
+ */
 
 #ifndef _ATOMIC_EXPORTS_H_
 #define _ATOMIC_EXPORTS_H_ 1
