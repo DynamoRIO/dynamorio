@@ -169,6 +169,17 @@ clean_call(void)
     process_and_output_buffer(drcontext, false);
 }
 
+void
+instru_notify(uint level, const char *fmt, ...)
+{
+    if (op_verbose.get_value() < level)
+        return;
+    va_list args;
+    va_start(args, fmt);
+    dr_vfprintf(STDERR, fmt, args);
+    va_end(args);
+}
+
 /***************************************************************************
  * Alternating tracing-no-tracing feature.
  */
@@ -1737,9 +1748,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement) offline_instru_t(
-            insert_load_buf_ptr, op_L0I_filter.get_value(), &scratch_reserve_vec,
-            file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
+        instru = new (placement)
+            offline_instru_t(insert_load_buf_ptr, op_L0I_filter.get_value(),
+                             &scratch_reserve_vec, file_ops_func.write_file, module_file,
+                             op_disable_optimizations.get_value(), instru_notify);
     } else {
         void *placement;
         /* we use placement new for better isolation */
