@@ -5280,10 +5280,10 @@ encode_opnds_fcsel(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     return (enc | (rn << 5) | (rm << 16) | rd | (ftype << 22) | (cond << 12));
 }
 
-encode_h_variant(fcsel)
-encode_sd_variant(fcsel)
+encode_h_variant(fcsel);
+encode_sd_variant(fcsel);
 
-/* mst: used for MSR.
+/* msr: used for MSR.
  * With MSR the destination register may or may not be one of the system registers
  * that we recognise.
  */
