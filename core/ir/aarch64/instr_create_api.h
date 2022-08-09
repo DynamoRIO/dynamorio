@@ -4057,6 +4057,28 @@
     INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmpe, Rn, Rm, nzcv), (condition_code))
 
 /**
+ * Creates a FCSEL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCSEL   <Dd>, <Dn>, <Dm>, <cond>
+ *    FCSEL   <Hd>, <Hn>, <Hm>, <cond>
+ *    FCSEL   <Sd>, <Sn>, <Sm>, <cond>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rn   The second source register. Can be D (doubleword, 64 bits),
+               H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm   The third source register. Can be D (doubleword, 64 bits),
+               H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param condition_code   The comparison condition specified by #dr_pred_type_t,
+ *                         e.g. #DR_PRED_EQ.
+ */
+#define INSTR_CREATE_fcsel(dc, Rd, Rn, Rm, condition_code) \
+    INSTR_PRED(instr_create_1dst_2src(dc, OP_fcsel, Rd, Rn, Rm), (condition_code))
+
+/**
  * Creates a FCMP instruction.
  *
  * This macro is used to encode the forms:

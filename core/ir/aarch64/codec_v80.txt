@@ -292,7 +292,7 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 0001111000100000001000xxxxx11000  w   108  BASE      fcmpe                : s5 zero_fp_const
 00011110011xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : d5 d16
 00011110001xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : s5 s16
-00011110xx1xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel     float_reg0 : float_reg5 float_reg16 cond
+000111100x1xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel       fcsel_sd
 0001111000100010110000xxxxxxxxxx  n   110  BASE       fcvt             d0 : s5
 0001111001100010010000xxxxxxxxxx  n   110  BASE       fcvt             s0 : d5
 0001111000100100000000xxxxxxxxxx  n   111  BASE     fcvtas             w0 : s5

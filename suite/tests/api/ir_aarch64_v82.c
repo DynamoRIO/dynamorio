@@ -2961,6 +2961,69 @@ TEST_INSTR(fcmpe)
     return success;
 }
 
+TEST_INSTR(fcsel)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCSEL   <Dd>, <Dn>, <Dm>, <cond> */
+    reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
+    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
+    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
+    dr_pred_type_t condition_code_0_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_0_0[3] = {
+        "fcsel.eq %d0 %d0 -> %d0",
+        "fcsel.hi %d11 %d12 -> %d10",
+        "fcsel.nv %d31 %d31 -> %d31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
+                               opnd_create_reg(Rm_0_0[i]), condition_code_0_0[i]);
+        if (!test_instr_encoding(dc, OP_fcsel, instr, expected_0_0[i]))
+            success = false;
+    }
+
+    /* Testing FCSEL   <Hd>, <Hn>, <Hm>, <cond> */
+    reg_id_t Rd_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
+    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
+    reg_id_t Rm_1_0[3] = { DR_REG_H0, DR_REG_H12, DR_REG_H31 };
+    dr_pred_type_t condition_code_1_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_1_0[3] = {
+        "fcsel.eq %h0 %h0 -> %h0",
+        "fcsel.hi %h11 %h12 -> %h10",
+        "fcsel.nv %h31 %h31 -> %h31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_1_0[i]), opnd_create_reg(Rn_1_0[i]),
+                               opnd_create_reg(Rm_1_0[i]), condition_code_1_0[i]);
+        if (!test_instr_encoding(dc, OP_fcsel, instr, expected_1_0[i]))
+            success = false;
+    }
+
+    /* Testing FCSEL   <Sd>, <Sn>, <Sm>, <cond> */
+    reg_id_t Rd_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
+    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
+    reg_id_t Rm_2_0[3] = { DR_REG_S0, DR_REG_S12, DR_REG_S31 };
+    dr_pred_type_t condition_code_2_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
+    const char *expected_2_0[3] = {
+        "fcsel.eq %s0 %s0 -> %s0",
+        "fcsel.hi %s11 %s12 -> %s10",
+        "fcsel.nv %s31 %s31 -> %s31",
+    };
+    for (int i = 0; i < 3; i++) {
+        instr =
+            INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_2_0[i]), opnd_create_reg(Rn_2_0[i]),
+                               opnd_create_reg(Rm_2_0[i]), condition_code_2_0[i]);
+        if (!test_instr_encoding(dc, OP_fcsel, instr, expected_2_0[i]))
+            success = false;
+    }
+
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -3054,6 +3117,7 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(fccmpe);
     RUN_INSTR_TEST(fcmp);
     RUN_INSTR_TEST(fcmpe);
+    RUN_INSTR_TEST(fcsel);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER
