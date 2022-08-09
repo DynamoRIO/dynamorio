@@ -149,12 +149,13 @@ print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
                   size_t *sofar INOUT)
 {
     if (instr_get_predicate(instr) != DR_PRED_NONE) {
-        if (instr_get_opcode(instr) == OP_bcond)
+        if (instr_get_opcode(instr) == OP_bcond) {
             print_to_buffer(buf, bufsz, sofar, "b.%s",
                             pred_names[instr_get_predicate(instr)]);
-        else
+        } else {
             print_to_buffer(buf, bufsz, sofar, "%s.%s", name,
                             pred_names[instr_get_predicate(instr)]);
+        }
     } else
         print_to_buffer(buf, bufsz, sofar, "%s", name);
 }
