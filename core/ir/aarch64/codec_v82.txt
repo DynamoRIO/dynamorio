@@ -82,10 +82,12 @@
 1001111011110000000000xxxxxxxxxx  n   115  FP16    fcvtms   x0 : h5
 x001111011110001000000xxxxxxxxxx  n   116  FP16    fcvtmu  wx0 : h5
 0111111001111001101110xxxxxxxxxx  n   116  FP16    fcvtmu   h0 : h5
+0x10111001111001101110xxxxxxxxxx  n   116  FP16    fcvtmu  dq0 : dq5 h_sz
 0x00111001111001101010xxxxxxxxxx  n   119  FP16    fcvtns  dq0 : dq5 h_sz
 0101111001111001101010xxxxxxxxxx  n   119  FP16    fcvtns   h0 : h5
 0001111011100000000000xxxxxxxxxx  n   119  FP16    fcvtns   w0 : h5
 1001111011100000000000xxxxxxxxxx  n   119  FP16    fcvtns   x0 : h5
+0x10111001111001101010xxxxxxxxxx  n   120  FP16    fcvtnu  dq0 : dq5 h_sz
 x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0111111001111001101010xxxxxxxxxx  n   120  FP16    fcvtnu   h0 : h5
 0x00111011111001101010xxxxxxxxxx  n   121  FP16    fcvtps  dq0 : dq5 h_sz
@@ -96,7 +98,18 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0111111011111001101010xxxxxxxxxx  n   122  FP16    fcvtpu   h0 : h5
 0001111011101001000000xxxxxxxxxx  n   122  FP16    fcvtpu   w0 : h5
 1001111011101001000000xxxxxxxxxx  n   122  FP16    fcvtpu   x0 : h5
+0001111011111000000000xxxxxxxxxx  n   125  FP16    fcvtzs   w0 : h5
+0001111011011000xxxxxxxxxxxxxxxx  n   125  FP16    fcvtzs   w0 : h5 scale
+1001111011011000xxxxxxxxxxxxxxxx  n   125  FP16    fcvtzs   x0 : h5 scale
+1001111011111000000000xxxxxxxxxx  n   125  FP16    fcvtzs   x0 : h5
+0101111011111001101110xxxxxxxxxx  n   125  FP16    fcvtzs   h0 : h5
+0x00111011111001101110xxxxxxxxxx  n   125  FP16    fcvtzs  dq0 : dq5 h_sz
 0x0011110xxxxxxx111111xxxxxxxxxx  n   125  FP16    fcvtzs  dq0 : dq5 immhb_fxp bhsd_immh_sz
+0111111011111001101110xxxxxxxxxx  n   126  FP16    fcvtzu   h0 : h5
+0001111011011001xxxxxxxxxxxxxxxx  n   126  FP16    fcvtzu   w0 : h5 scale
+1001111011011001xxxxxxxxxxxxxxxx  n   126  FP16    fcvtzu   x0 : h5 scale
+1001111011111001000000xxxxxxxxxx  n   126  FP16    fcvtzu   x0 : h5
+0001111011111001000000xxxxxxxxxx  n   126  FP16    fcvtzu   w0 : h5
 0x10111011111001101110xxxxxxxxxx  n   126  FP16    fcvtzu  dq0 : dq5 h_sz
 0x1011110xxxxxxx111111xxxxxxxxxx  n   126  FP16    fcvtzu  dq0 : dq5 immhb_fxp bhsd_immh_sz
 0x101110010xxxxx001111xxxxxxxxxx  n   127  FP16      fdiv  dq0 : dq5 dq16 h_sz
