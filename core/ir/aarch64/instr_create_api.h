@@ -1960,6 +1960,17 @@
     instr_create_1dst_2src(dc, OP_fcvtms, Rd, Rm, width)
 
 /**
+ * Creates an FCVTMU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtmu_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtmu, Rd, Rm, width)
+
+/**
  * Creates an FCVTNS vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
@@ -1969,6 +1980,17 @@
  */
 #define INSTR_CREATE_fcvtns_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtns, Rd, Rm, width)
+
+/**
+ * Creates an FCVTNU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtnu_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtnu, Rd, Rm, width)
 
 /**
  * Creates an FCVTPS vector instruction.
@@ -2299,6 +2321,15 @@
     instr_create_1dst_1src(dc, OP_fcvtms, Rd, Rm)
 
 /**
+ * Creates an FCVTMU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtmu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtmu, Rd, Rm)
+
+/**
  * Creates an FCVTNS floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
@@ -2306,6 +2337,15 @@
  */
 #define INSTR_CREATE_fcvtns_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_fcvtns, Rd, Rm)
+
+/**
+ * Creates an FCVTNU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtnu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtnu, Rd, Rm)
 
 /**
  * Creates an FCVTPS floating point instruction.
@@ -4015,6 +4055,28 @@
  */
 #define INSTR_CREATE_fccmpe(dc, Rn, Rm, nzcv, condition_code) \
     INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmpe, Rn, Rm, nzcv), (condition_code))
+
+/**
+ * Creates a FCSEL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCSEL   <Dd>, <Dn>, <Dm>, <cond>
+ *    FCSEL   <Hd>, <Hn>, <Hm>, <cond>
+ *    FCSEL   <Sd>, <Sn>, <Sm>, <cond>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rn   The second source register. Can be D (doubleword, 64 bits),
+               H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm   The third source register. Can be D (doubleword, 64 bits),
+               H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param condition_code   The comparison condition specified by #dr_pred_type_t,
+ *                         e.g. #DR_PRED_EQ.
+ */
+#define INSTR_CREATE_fcsel(dc, Rd, Rn, Rm, condition_code) \
+    INSTR_PRED(instr_create_1dst_2src(dc, OP_fcsel, Rd, Rn, Rm), (condition_code))
 
 /**
  * Creates a FCMP instruction.

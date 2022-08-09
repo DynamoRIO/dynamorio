@@ -3825,6 +3825,17 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys "" "@-simulator_type@basic_counts" "")
     endif ()
 
+    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+      set(tool.drcacheoff.gencode_no_reg_compat)
+      add_api_exe(tool.drcacheoff.gencode
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
+        OFF ON)
+      use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
+      set(tool.drcacheoff.gencode_nodr ON)
+      torunonly_drcacheoff(gencode tool.drcacheoff.gencode
+        "" "@-simulator_type@basic_counts" "")
+    endif ()
+
     # XXX i#1551: startstop API is NYI on ARM
     # XXX i#1997: dynamorio_static is not supported on Mac yet
     # FIXME i#2949: gcc 7.3 fails to link certain configs
