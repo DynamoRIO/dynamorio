@@ -1735,7 +1735,6 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
     return DRREG_SUCCESS;
 }
 
-#if !defined(RISCV64)
 drreg_status_t
 drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
@@ -1764,7 +1763,7 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
             pt->live_idx, get_where_app_pc(where));
         return DRREG_SUCCESS;
     }
-    /* Check for a prior reservation hnot yet lazily restored */
+    /* Check for a prior reservation not yet lazily restored */
     if (!pt->aflags.native IF_X86(||
                                   (pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use &&
                                    pt->aflags.xchg == DR_REG_XAX))) {
@@ -1880,7 +1879,6 @@ drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     }
     return res;
 }
-#endif
 
 /***************************************************************************
  * RESTORE STATE

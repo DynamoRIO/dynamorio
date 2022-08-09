@@ -1021,8 +1021,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     drreg_is_register_dead(drcontext, manager->scratch_reg, where,
                            &manager->is_scratch_reg_dead);
 #else
-    /* Since RISC-V does not have a flags register, always use the standard reg and there
-     * is no need to spill+restore it to save the flags register. */
+    /* Since RISC-V does not have a flags register, always use the standard reg. */
     manager->scratch_reg = DRBBDUP_SCRATCH_REG;
 #endif
     if (!manager->is_scratch_reg_dead) {

@@ -117,7 +117,6 @@ drx_reserve_note_range(size_t size);
  * ANALYSIS
  */
 
-#if !defined(RISCV64)
 DR_EXPORT
 /**
  * Analyze if arithmetic flags are dead after (including) instruction \p where.
@@ -126,7 +125,6 @@ DR_EXPORT
  */
 bool
 drx_aflags_are_dead(instr_t *where);
-#endif
 
 /***************************************************************************
  * INSTRUMENTATION
