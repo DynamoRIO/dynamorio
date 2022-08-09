@@ -2134,12 +2134,12 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
         reg_t newval = info->mcontext->xflags;
         reg_t val;
         if (aflags_reg != DR_REG_NULL) {
-#ifdef X86
+#    ifdef X86
             ASSERT(aflags_reg == DR_REG_XAX, "x86 aflags can only be in xax");
             val = info->mcontext->xax;
-#else
+#    else
             val = *(reg_t *)(&info->mcontext->r0 + (aflags_reg - DR_REG_R0));
-#endif
+#    endif
         } else {
             val = get_spilled_value(drcontext, aflags_slot);
         }
@@ -2361,12 +2361,12 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
         reg_t val;
         slot = spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)];
         if (aflags_spill_reg != DR_REG_NULL) {
-#ifdef X86
+#    ifdef X86
             ASSERT(aflags_spill_reg == DR_REG_XAX, "x86 aflags can only be in xax");
             val = info->mcontext->xax;
-#else
+#    else
             val = *(reg_t *)(&info->mcontext->r0 + (aflags_spill_reg - DR_REG_R0));
-#endif
+#    endif
             newval = dr_merge_arith_flags(newval, val);
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s: restoring aflags from reg %s " PFX " to " PFX "\n", __FUNCTION__,
