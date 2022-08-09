@@ -60,9 +60,11 @@
 static int global_count;
 
 #ifdef SHOW_RESULTS
+#    if !defined(RISCV64)
 /* some meta-stats: static (not per-execution) */
 static int bbs_eflags_saved;
 static int bbs_no_eflags_saved;
+#    endif
 #endif
 
 static void
@@ -74,9 +76,16 @@ event_exit(void)
     len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                       "Instrumentation results:\n"
                       "%10d basic block executions\n"
+#    if !defined(RISCV64)
                       "%10d basic blocks needed flag saving\n"
                       "%10d basic blocks did not\n",
-                      global_count, bbs_eflags_saved, bbs_no_eflags_saved);
+#    endif
+                      global_count
+#    if !defined(RISCV64)
+                      ,
+                      bbs_eflags_saved, bbs_no_eflags_saved
+#    endif
+    );
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
@@ -91,7 +100,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       bool for_trace, bool translating, void *user_data)
 {
 #ifdef SHOW_RESULTS
+#    if !defined(RISCV64)
     bool aflags_dead;
+#    endif
 #endif
 
     /* By default drmgr enables auto-predication, which predicates all instructions with
@@ -111,11 +122,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #endif
 
 #ifdef SHOW_RESULTS
+#    if !defined(RISCV64)
     if (drreg_are_aflags_dead(drcontext, inst, &aflags_dead) == DRREG_SUCCESS &&
         !aflags_dead)
         bbs_eflags_saved++;
     else
         bbs_no_eflags_saved++;
+#    endif
 #endif
 
     /* racy update on the counter for better performance */

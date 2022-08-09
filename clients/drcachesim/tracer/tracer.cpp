@@ -1907,8 +1907,10 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
     if (drreg_reserve_register(drcontext, ilist, where, &scratch_reserve_vec,
                                &reg_addr) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve scratch reg\n");
+#if !defined(RISCV64)
     if (drreg_reserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve aflags\n");
+#endif
     // We need a 3rd scratch register.  We can avoid clobbering the app address
     // if we either get a 4th scratch or keep re-computing the tag and the mask
     // but it's better to keep the common path shorter, so we clobber reg_addr
@@ -2037,8 +2039,10 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
         if (reg_third != DR_REG_NULL &&
             drreg_unreserve_register(drcontext, ilist, where, reg_third) != DRREG_SUCCESS)
             DR_ASSERT(false);
+#if !defined(RISCV64)
         if (drreg_unreserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
             DR_ASSERT(false);
+#endif
     }
     return adjust;
 }
@@ -2091,8 +2095,10 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
         if (reg_third != DR_REG_NULL &&
             drreg_unreserve_register(drcontext, ilist, where, reg_third) != DRREG_SUCCESS)
             DR_ASSERT(false);
+#if !defined(RISCV64)
         if (drreg_unreserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
             DR_ASSERT(false);
+#endif
     }
     return adjust;
 }
@@ -2129,6 +2135,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     drmgr_disable_auto_predication(drcontext, bb);
 
+#if !defined(RISCV64)
     if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && ud->repstr &&
         is_first_nonlabel(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the
@@ -2141,6 +2148,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (drreg_unreserve_aflags(drcontext, bb, where) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve aflags\n");
     }
+#endif
 
     // Use emulation-aware queries to accurately trace rep string and
     // scatter-gather expansions.  Getting this wrong can result in significantly

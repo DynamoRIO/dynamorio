@@ -225,6 +225,7 @@ drreg_max_slots_used(OUT uint *max);
  * ARITHMETIC FLAGS
  */
 
+#if !defined(RISCV64)
 DR_EXPORT
 /**
  * Requests exclusive use of the arithmetic flags register.  Spills
@@ -297,6 +298,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where);
+#endif
 
 /***************************************************************************
  * SCRATCH REGISTERS

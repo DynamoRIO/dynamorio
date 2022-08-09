@@ -301,6 +301,7 @@ drx_reserve_note_range(size_t size)
  * ANALYSIS
  */
 
+#if !defined(RISCV64)
 DR_EXPORT
 bool
 drx_aflags_are_dead(instr_t *where)
@@ -311,6 +312,7 @@ drx_aflags_are_dead(instr_t *where)
     ASSERT(res == DRREG_SUCCESS, "drreg_are_aflags_dead failed!");
     return dead;
 }
+#endif
 
 /***************************************************************************
  * INSTRUMENTATION
