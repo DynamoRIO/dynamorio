@@ -3448,6 +3448,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             if (src->size > offsetof(dr_mcontext_t, fcsr))
                 dst->fcsr = src->fcsr;
 #else
+            /* XXX i#5595: AArch64 should handle fpcr and fpsr here. */
             if (src->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
 #endif
@@ -3547,6 +3548,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
             if (dst->size > offsetof(dr_mcontext_t, fcsr))
                 dst->fcsr = src->fcsr;
 #else
+            /* XXX i#5595: AArch64 should handle fpcr and fpsr here. */
             if (dst->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
 #endif
