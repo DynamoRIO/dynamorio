@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,7 +53,7 @@ tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
 tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
     : simulator_t(knobs.num_cores, knobs.skip_refs, knobs.warmup_refs,
                   knobs.warmup_fraction, knobs.sim_refs, knobs.cpu_scheduling,
-                  knobs.verbose)
+                  knobs.use_physical, knobs.verbose)
     , knobs_(knobs)
 {
     itlbs_ = new tlb_t *[knobs_.num_cores];
@@ -159,29 +159,40 @@ tlb_simulator_t::process_memref(const memref_t &memref)
         last_core_ = core;
     }
 
-    if (type_is_instr(memref.instr.type))
-        itlbs_[core]->request(memref);
-    else if (memref.data.type == TRACE_TYPE_READ || memref.data.type == TRACE_TYPE_WRITE)
-        dtlbs_[core]->request(memref);
-    else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
-        handle_thread_exit(memref.exit.tid);
+    // To support swapping to physical addresses without modifying the passed-in
+    // memref (which is also passed to other tools run at the same time) we use
+    // indirection.
+    const memref_t *simref = &memref;
+    memref_t phys_memref;
+    if (knobs_.use_physical) {
+        phys_memref = memref2phys(memref);
+        simref = &phys_memref;
+    }
+
+    if (type_is_instr(simref->instr.type))
+        itlbs_[core]->request(*simref);
+    else if (simref->data.type == TRACE_TYPE_READ ||
+             simref->data.type == TRACE_TYPE_WRITE)
+        dtlbs_[core]->request(*simref);
+    else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
+        handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;
-    } else if (type_is_prefetch(memref.data.type) ||
-               memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
-               memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
-               memref.marker.type == TRACE_TYPE_MARKER ||
-               memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
+    } else if (type_is_prefetch(simref->data.type) ||
+               simref->flush.type == TRACE_TYPE_INSTR_FLUSH ||
+               simref->flush.type == TRACE_TYPE_DATA_FLUSH ||
+               simref->marker.type == TRACE_TYPE_MARKER ||
+               simref->marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // TLB simulator ignores prefetching, cache flushing, and markers
     } else {
-        error_string_ = "Unhandled memref type " + std::to_string(memref.data.type);
+        error_string_ = "Unhandled memref type " + std::to_string(simref->data.type);
         return false;
     }
 
     if (knobs_.verbose >= 3) {
-        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
-                  << " @" << (void *)memref.data.pc << " "
-                  << trace_type_names[memref.data.type] << " " << (void *)memref.data.addr
-                  << " x" << memref.data.size << std::endl;
+        std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
+                  << " @" << (void *)simref->data.pc << " "
+                  << trace_type_names[simref->data.type] << " "
+                  << (void *)simref->data.addr << " x" << simref->data.size << std::endl;
     }
 
     // process counters for warmup and simulated references

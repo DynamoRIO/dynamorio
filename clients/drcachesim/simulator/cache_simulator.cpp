@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,7 +74,7 @@ cache_simulator_create(const std::string &config_file)
 cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     : simulator_t(knobs.num_cores, knobs.skip_refs, knobs.warmup_refs,
                   knobs.warmup_fraction, knobs.sim_refs, knobs.cpu_scheduling,
-                  knobs.verbose)
+                  knobs.use_physical, knobs.verbose)
     , knobs_(knobs)
     , l1_icaches_(NULL)
     , l1_dcaches_(NULL)
@@ -193,7 +193,7 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
 
     init_knobs(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
                knobs_.warmup_fraction, knobs_.sim_refs, knobs_.cpu_scheduling,
-               knobs_.verbose);
+               knobs_.use_physical, knobs_.verbose);
 
     if (knobs_.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs_.data_prefetcher != PREFETCH_POLICY_NONE) {
@@ -440,9 +440,6 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return true;
     }
 
-    // We use a static scheduling of threads to cores, as it is
-    // not practical to measure which core each thread actually
-    // ran on for each memref.
     int core;
     if (memref.data.tid == last_thread_)
         core = last_core_;
@@ -452,52 +449,65 @@ cache_simulator_t::process_memref(const memref_t &memref)
         last_core_ = core;
     }
 
-    if (type_is_instr(memref.instr.type) ||
-        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR) {
+    // To support swapping to physical addresses without modifying the passed-in
+    // memref (which is also passed to other tools run at the same time) we use
+    // indirection.
+    const memref_t *simref = &memref;
+    memref_t phys_memref;
+    if (knobs_.use_physical) {
+        phys_memref = memref2phys(memref);
+        simref = &phys_memref;
+    }
+
+    if (type_is_instr(simref->instr.type) ||
+        simref->instr.type == TRACE_TYPE_PREFETCH_INSTR) {
         if (knobs_.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
-                      << " @" << (void *)memref.instr.addr << " instr x"
-                      << memref.instr.size << "\n";
+            std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
+                      << " @" << (void *)simref->instr.addr << " instr x"
+                      << simref->instr.size << "\n";
         }
-        l1_icaches_[core]->request(memref);
-    } else if (memref.data.type == TRACE_TYPE_READ ||
-               memref.data.type == TRACE_TYPE_WRITE ||
+        l1_icaches_[core]->request(*simref);
+    } else if (simref->data.type == TRACE_TYPE_READ ||
+               simref->data.type == TRACE_TYPE_WRITE ||
                // We may potentially handle prefetches differently.
                // TRACE_TYPE_PREFETCH_INSTR is handled above.
-               type_is_prefetch(memref.data.type)) {
+               type_is_prefetch(simref->data.type)) {
         if (knobs_.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
-                      << " @" << (void *)memref.data.pc << " "
-                      << trace_type_names[memref.data.type] << " "
-                      << (void *)memref.data.addr << " x" << memref.data.size << "\n";
+            std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
+                      << " @" << (void *)simref->data.pc << " "
+                      << trace_type_names[simref->data.type] << " "
+                      << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
-        l1_dcaches_[core]->request(memref);
-    } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH) {
+        l1_dcaches_[core]->request(*simref);
+    } else if (simref->flush.type == TRACE_TYPE_INSTR_FLUSH) {
         if (knobs_.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
-                      << " @" << (void *)memref.data.pc << " iflush "
-                      << (void *)memref.data.addr << " x" << memref.data.size << "\n";
+            std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
+                      << " @" << (void *)simref->data.pc << " iflush "
+                      << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
-        l1_icaches_[core]->flush(memref);
-    } else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
+        l1_icaches_[core]->flush(*simref);
+    } else if (simref->flush.type == TRACE_TYPE_DATA_FLUSH) {
         if (knobs_.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
-                      << " @" << (void *)memref.data.pc << " dflush "
-                      << (void *)memref.data.addr << " x" << memref.data.size << "\n";
+            std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
+                      << " @" << (void *)simref->data.pc << " dflush "
+                      << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
-        l1_dcaches_[core]->flush(memref);
-    } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
-        handle_thread_exit(memref.exit.tid);
+        l1_dcaches_[core]->flush(*simref);
+    } else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
+        handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;
-    } else if (memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
+    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+               memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+        last_thread_ = 0;
+    } else if (simref->marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // Just ignore.
         if (knobs_.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
-                      << " @" << (void *)memref.instr.addr << " non-fetched instr x"
-                      << memref.instr.size << "\n";
+            std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
+                      << " @" << (void *)simref->instr.addr << " non-fetched instr x"
+                      << simref->instr.size << "\n";
         }
     } else {
-        error_string_ = "Unhandled memref type " + std::to_string(memref.data.type);
+        error_string_ = "Unhandled memref type " + std::to_string(simref->data.type);
         return false;
     }
 

@@ -128,6 +128,9 @@ The changes between version \DR_VERSION and 9.0.1 include the following compatib
 changes:
  - Eliminated the -skip_syscall option to drrun and drinject, which is now always
    on by default.
+ - Changed the drcachesim -use_physical option to not modify the regular trace
+   entry virtual addresses but to instead insert metadata containing translation
+   information for converting virtual to physical addresses.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
