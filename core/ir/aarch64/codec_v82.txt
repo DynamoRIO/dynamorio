@@ -179,7 +179,8 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0001111011000010xxxxxxxxxxxxxxxx  n   362  FP16     scvtf   h0 : w5 scale
 1001111011000010xxxxxxxxxxxxxxxx  n   362  FP16     scvtf   h0 : x5 scale
 0101111001111001110110xxxxxxxxxx  n   362  FP16     scvtf   h0 : h5
-0x001110100xxxxx100101xxxxxxxxxx  n   364  DotProd      sdot  dq0 : dq5 dq16 s_const_sz b_const_sz
+0x001110100xxxxx100101xxxxxxxxxx  n   364  DotProd      sdot  dq0 : dq0 dq5 dq16 b_const_sz
+0x00111110xxxxxx1110x0xxxxxxxxxx  n   364  DotProd      sdot  dq0 : dq0 dq5 q16 vindex_SD b_const_sz
 11001110011xxxxx100000xxxxxxxxxx  n   595  SHA512   sha512h   q0 : q0 q5 q16 d_const_sz
 11001110011xxxxx100001xxxxxxxxxx  n   596  SHA512  sha512h2   q0 : q0 q5 q16 d_const_sz
 1100111011000000100000xxxxxxxxxx  n   597  SHA512 sha512su0   q0 : q0 q5 d_const_sz
@@ -200,5 +201,6 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0001111011000011xxxxxxxxxxxxxxxx  n   510  FP16     ucvtf   h0 : w5 scale
 1001111011000011xxxxxxxxxxxxxxxx  n   510  FP16     ucvtf   h0 : x5 scale
 0111111001111001110110xxxxxxxxxx  n   510  FP16     ucvtf   h0 : h5
-0x101110100xxxxx100101xxxxxxxxxx  n   512  DotProd      udot  dq0 : dq5 dq16 s_const_sz b_const_sz
+0x101110100xxxxx100101xxxxxxxxxx  n   512  DotProd      udot  dq0 : dq0 dq5 dq16 b_const_sz
+0x10111110xxxxxx1110x0xxxxxxxxxx  n   512  DotProd      udot  dq0 : dq0 dq5 q16 vindex_SD b_const_sz
 11001110100xxxxxxxxxxxxxxxxxxxxx  n   604  SHA3       xar   q0 : q5 q16 imm6 d_const_sz
