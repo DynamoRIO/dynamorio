@@ -867,6 +867,20 @@
 
 /**
  * Creates an FMOV instruction to move between GPRs and floating point registers.
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMOV    <Wd>, <Hn>
+ *    FMOV    <Wd>, <Sn>
+ *    FMOV    <Xd>, <Dn>
+ *    FMOV    <Xd>, <Hn>
+ *    FMOV    <Dd>, <Xn>
+ *    FMOV    <Hd>, <Wn>
+ *    FMOV    <Hd>, <Xn>
+ *    FMOV    <Sd>, <Wn>
+ *    FMOV    <Dd>, <Dn>
+ *    FMOV    <Hd>, <Hn>
+ *    FMOV    <Sd>, <Sn>
+ * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  * \param Rd   The output register.
  * \param Rn   The first input register.
@@ -1202,16 +1216,68 @@
     instr_create_1dst_3src(dc, OP_fadd, Rd, Rm, Rn, width)
 
 /**
- * Creates a FMULX vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMULX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMULX   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMULX   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_fmulx_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fmulx, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmulx_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fmulx, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FMULX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMULX   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>]
+ *    FMULX   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Tb>[<index>]
+ *    FMULX   <Hd>, <Hn>, <Hm>.H[<index>]
+ *    FMULX   <V><d>, <V><n>, <Sm>.<Ts>[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index     The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fmulx_vector_idx(dc, Rd, Rn, Rm, index, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_fmulx, Rd, Rn, Rm, index, Rm_elsz)
+
+/**
+ * Creates a FMULX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMULX   <Hd>, <Hn>, <Hm>
+ *    FMULX   <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+
+ */
+#define INSTR_CREATE_fmulx(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_fmulx, Rd, Rn, Rm)
 
 /**
  * Creates a FCMEQ vector instruction.
@@ -4143,5 +4209,77 @@
  *             H (halfword, 16 bits) or S (singleword, 32 bits)
  */
 #define INSTR_CREATE_fcmpe(dc, Rn, Rm) instr_create_0dst_2src(dc, OP_fcmpe, Rn, Rm)
+
+/**
+ * Creates a SDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_sdot_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_sdot, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates a SDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
+ */
+#define INSTR_CREATE_sdot_vector_indexed(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_sdot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
+
+/**
+ * Creates a UDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_udot_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_udot, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates a UDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
+ */
+#define INSTR_CREATE_udot_vector_indexed(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_udot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
 
 #endif /* DR_IR_MACROS_AARCH64_H */
