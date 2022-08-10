@@ -1224,11 +1224,14 @@
  *    FMULX   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rd   The first destination vector register. Can be D (doubleword, 64 bits) or Q (quadword, 128 bits)
- * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or Q (quadword, 128 bits)
- * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or Q (quadword, 128 bits)
-[16, 32, 32, 64]
- * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
 #define INSTR_CREATE_fmulx_vector(dc, Rd, Rn, Rm, Rm_elsz) \
     instr_create_1dst_3src(dc, OP_fmulx, Rd, Rn, Rm, Rm_elsz)
@@ -1244,12 +1247,14 @@
  *    FMULX   <V><d>, <V><n>, <Sm>.<Ts>[<index>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rd   The first destination vector register. Can be S (singleword, 32 bits), D (doubleword, 64 bits) or Q (quadword, 128 bits)
- * \param Rn   The second source vector register. Can be S (singleword, 32 bits), D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rd   The first destination vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
  * \param Rm   The third source vector register, Q (quadword, 128 bits)
- * \param index   The immediate index for Rm
-[16, 32, 32, 64, 16]
- * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ * \param index     The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
 #define INSTR_CREATE_fmulx_vector_idx(dc, Rd, Rn, Rm, index, Rm_elsz) \
     instr_create_1dst_4src(dc, OP_fmulx, Rd, Rn, Rm, index, Rm_elsz)
@@ -1263,9 +1268,12 @@
  *    FMULX   <V><d>, <V><n>, <V><m>
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rd   The first destination register. Can be H (halfword, 16 bits), S (singleword, 32 bits) or D (doubleword, 64 bits)
- * \param Rn   The second source register. Can be H (halfword, 16 bits), S (singleword, 32 bits) or D (doubleword, 64 bits)
- * \param Rm   The third source register. Can be H (halfword, 16 bits), S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
 
  */
 #define INSTR_CREATE_fmulx(dc, Rd, Rn, Rm) \

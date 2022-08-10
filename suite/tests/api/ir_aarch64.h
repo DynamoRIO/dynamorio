@@ -56,9 +56,9 @@ static byte buf[8192];
         result = false;                                    \
     }
 
-#define TEST_LOOP(opcode, create_name, number, expected, args...)                \
+#define TEST_LOOP(opcode, create_name, number, expected, args...)   \
     for (int i = 0; i < number; i++) {                              \
-        instr = INSTR_CREATE_##create_name(dc, args);                     \
+        instr = INSTR_CREATE_##create_name(dc, args);               \
         if (!test_instr_encoding(dc, OP_##opcode, instr, expected)) \
             success = false;                                        \
     }
@@ -98,8 +98,6 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
         instr_destroy(dc, instr);
         return false;
     }
-
-
 
     pc = instr_encode(dc, instr, buf);
     decin = instr_create(dc);

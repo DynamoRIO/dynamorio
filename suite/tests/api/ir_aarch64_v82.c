@@ -3392,10 +3392,9 @@ TEST_INSTR(fmulx_vector_idx)
         "fmulx  %s11 %q12 $0x00 $0x02 -> %s10",
         "fmulx  %s31 %q31 $0x03 $0x02 -> %s31",
     };
-    TEST_LOOP(fmulx, fmulx_vector_idx, 3, expected_3_0[i],
-              opnd_create_reg(Rd_3_0[i]), opnd_create_reg(Rn_3_0[i]),
-              opnd_create_reg(Rm_3_0[i]), opnd_create_immed_uint(index_3_0[i], OPSZ_0),
-              Rm_elsz);
+    TEST_LOOP(fmulx, fmulx_vector_idx, 3, expected_3_0[i], opnd_create_reg(Rd_3_0[i]),
+              opnd_create_reg(Rn_3_0[i]), opnd_create_reg(Rm_3_0[i]),
+              opnd_create_immed_uint(index_3_0[i], OPSZ_0), Rm_elsz);
 
     reg_id_t Rd_3_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_3_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
@@ -3407,10 +3406,9 @@ TEST_INSTR(fmulx_vector_idx)
         "fmulx  %d11 %q12 $0x01 $0x03 -> %d10",
         "fmulx  %d31 %q31 $0x01 $0x03 -> %d31",
     };
-    TEST_LOOP(fmulx, fmulx_vector_idx, 3, expected_3_1[i],
-              opnd_create_reg(Rd_3_1[i]), opnd_create_reg(Rn_3_1[i]),
-              opnd_create_reg(Rm_3_1[i]), opnd_create_immed_uint(index_3_1[i], OPSZ_0),
-              Rm_elsz);
+    TEST_LOOP(fmulx, fmulx_vector_idx, 3, expected_3_1[i], opnd_create_reg(Rd_3_1[i]),
+              opnd_create_reg(Rn_3_1[i]), opnd_create_reg(Rm_3_1[i]),
+              opnd_create_immed_uint(index_3_1[i], OPSZ_0), Rm_elsz);
 
     return success;
 }
