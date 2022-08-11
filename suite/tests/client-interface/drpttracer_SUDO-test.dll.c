@@ -133,7 +133,7 @@ event_thread_exit(void *drcontext)
         pt->recording_sysnum = -1;
     }
     CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
-    bool ok = drpttracer_destory_handle(drcontext, pt->current_trace_handle) ==
+    bool ok = drpttracer_destroy_handle(drcontext, pt->current_trace_handle) ==
         DRPTTRACER_SUCCESS;
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }

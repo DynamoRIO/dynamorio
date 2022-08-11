@@ -45,32 +45,48 @@
 /* The auto cleanup wrapper of pttracer handle.
  * This can ensure the pttracer handle is cleaned up when it is out of scope.
  */
-struct drpttracer_handle_cleanup_last_t {
+struct drpttracer_handle_autoclean_t {
 public:
-    ~drpttracer_handle_cleanup_last_t()
+    drpttracer_handle_autoclean_t(void *drcontext, void *handle)
+        : drcontext { drcontext }
+        , handle { handle }
     {
-        if (handle != nullptr) {
-            void *drcontext = dr_get_current_drcontext();
-            drpttracer_destory_handle(drcontext, handle);
+    }
+    ~drpttracer_handle_autoclean_t()
+    {
+        reset();
+    }
+    void
+    reset()
+    {
+        if (drcontext != nullptr && handle != nullptr) {
+            drpttracer_destroy_handle(drcontext, handle);
             handle = nullptr;
         }
     }
+    void *drcontext = nullptr;
     void *handle = nullptr;
 };
 
 /* The auto cleanup wrapper of drpttracer_output_t.
  * This can ensure the pttracer handle is cleaned up when it is out of scope.
  */
-struct drpttracer_output_cleanup_last_t {
+struct drpttracer_output_autoclean_t {
 public:
-    ~drpttracer_output_cleanup_last_t()
+    drpttracer_output_autoclean_t(void *drcontext, drpttracer_output_t *data)
+        : drcontext { drcontext }
+        , data { data }
     {
-        if (data != nullptr) {
+    }
+    ~drpttracer_output_autoclean_t()
+    {
+        if (drcontext != nullptr && data != nullptr) {
             void *drcontext = dr_get_current_drcontext();
             drpttracer_destroy_output(drcontext, data);
             data = nullptr;
         }
     }
+    void *drcontext = nullptr;
     drpttracer_output_t *data = nullptr;
 };
 /* This class is not thread-safe: the caller should create a separate instance per thread.
@@ -82,12 +98,14 @@ public:
     ~syscall_pt_trace_t();
 
     /* Initialize the syscall_pt_trace_t instance for current thread.
-     * The instance will dump the kernel PT trace for every syscall. So we need to pass
-     * the output directory and the file write function to the caller.
+     * The instance will dump the kernel PT trace for every syscall. So the caller must
+     * pass in the output directory and the file write function.
      */
     bool
-    init(IN void *drcontext, IN char *pt_dir_name, IN size_t pt_dir_name_size,
-         IN ssize_t (*write_file_func)(file_t file, const void *data, IN size_t count));
+    init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_size,
+         file_t (*open_file_func)(const char *fname, uint mode_flags),
+         ssize_t (*write_file_func)(file_t file, const void *data, size_t count),
+         void (*close_file_func)(file_t file));
 
     /* Start the PT tracing for current syscall and store the sysnum of the syscall. */
     bool
@@ -104,26 +122,45 @@ public:
         return cur_recording_sysnum_;
     }
 
-    /* Get the record id of the last recorded syscall. */
+    /* Get the id of the last recorded syscall.
+     * The id is the index of the last recorded syscall in this thread's recorded syscall
+     * list.
+     */
     int
     get_last_recorded_syscall_id()
     {
-        return recorded_syscall_num_;
+        return recorded_syscall_count_;
     }
+
+    static bool
+    kernel_image_dump(IN const char *to_dir);
+
+    /* Check whether the syscall's PT need to be recorded.
+     * It can be used to filter out the syscalls that are not interesting or not
+     * supported.
+     */
+    static bool
+    is_syscall_pt_trace_enabled(IN int sysnum);
 
 private:
     /* Dump PT trace and the metadata to files. */
     bool
-    trace_data_dump(drpttracer_output_cleanup_last_t &output);
+    trace_data_dump(drpttracer_output_autoclean_t &output);
+
+    /* The shared file open function. */
+    file_t (*open_file_func_)(const char *fname, uint mode_flags);
 
     /* The shared file write function. */
     ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
 
-    /* The pttracer handle holded by this instance. */
-    drpttracer_handle_cleanup_last_t pttracer_handle_;
+    /* The shared file close function. */
+    void (*close_file_func_)(file_t file);
+
+    /* The pttracer handle held by this instance. */
+    drpttracer_handle_autoclean_t pttracer_handle_;
 
     /* The number of recorded syscall. */
-    int recorded_syscall_num_;
+    int recorded_syscall_count_;
 
     /* The sysnum of current recording syscall. */
     int cur_recording_sysnum_;

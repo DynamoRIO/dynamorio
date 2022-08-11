@@ -67,8 +67,6 @@
 #endif
 
 #ifdef BUILD_PT_TRACER
-/* For SYS_exit,SYS_exit_group. */
-#    include "../../../core/unix/include/syscall_linux_x86.h"
 #    include "drpttracer.h"
 #    include "syscall_pt_trace.h"
 #endif
@@ -93,7 +91,6 @@ namespace drmemtrace {
 
 char logsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
-static char logdir[MAXIMUM_PATH];
 static char kernel_pt_logsubdir[MAXIMUM_PATH];
 #endif
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
@@ -1235,12 +1232,10 @@ event_pre_syscall(void *drcontext, int sysnum)
         process_and_output_buffer(drcontext, false);
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        /* The post syscall callback of SYS_exit and SYS_exit_group can't be triggered. So
-         * we skip recording the kernel PT of these syscalls.
-         */
-        if (sysnum == SYS_exit || sysnum == SYS_exit_group) {
+        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
             return true;
         }
+
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != -1) {
             ASSERT(false, "last tracing isn't stopped");
             return false;
@@ -1262,7 +1257,7 @@ event_post_syscall(void *drcontext, int sysnum)
         return;
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (sysnum == SYS_exit || sysnum == SYS_exit_group)
+    if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
 
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
@@ -1286,8 +1281,6 @@ event_post_syscall(void *drcontext, int sysnum)
     uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_id();
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
-    if (file_ops_func.handoff_buf == NULL)
-        process_and_output_buffer(drcontext, false);
 #endif
 }
 
@@ -1398,7 +1391,8 @@ init_thread_in_process(void *drcontext)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         data->syscall_pt_trace.init(drcontext, kernel_pt_logsubdir, MAXIMUM_PATH,
-                                    file_ops_func.write_file);
+                                    file_ops_func.open_file, file_ops_func.write_file,
+                                    file_ops_func.close_file);
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -1445,7 +1439,7 @@ event_thread_exit(void *drcontext)
             int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
             if (cur_recording_sysnum != -1) {
                 NOTIFY(0,
-                       "ERROR: The last recorded syscall %d of thread T%d isn't be "
+                       "ERROR: The last recorded syscall %d of thread T%d wasn't be "
                        "stopped.\n",
                        cur_recording_sysnum, dr_get_thread_id(drcontext));
                 ASSERT(cur_recording_sysnum, "syscall recording is not stopped");
@@ -1512,28 +1506,9 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        /* TODO i#5505: Using the perf command to get kcore and kallsyms is not a good
-         * solution. We need to implement the kcore_copy() in syscall_pt_trace_t.
-         */
         /* Dump kcore and kallsyms to {kernel_pt_logsubdir}. */
-#    define SHELLSCRIPT_FMT                                                          \
-        "perf record --kcore -e intel_pt/cyc,noretcomp/k echo '' >/dev/null 2>&1 \n" \
-        "chmod 755 -R perf.data \n"                                                  \
-        "cp perf.data/kcore_dir/kcore %s/ \n"                                        \
-        "cp perf.data/kcore_dir/kallsyms %s/ \n"                                     \
-        "chmod 755 -R %s \n"                                                         \
-        "rm -rf perf.data \n"
-#    define SHELLSCRIPT_MAX_LEN 512 + MAXIMUM_PATH * 2
-        char shellscript[SHELLSCRIPT_MAX_LEN];
-        dr_snprintf(shellscript, BUFFER_SIZE_ELEMENTS(shellscript), SHELLSCRIPT_FMT,
-                    kernel_pt_logsubdir, kernel_pt_logsubdir, logdir);
-        NULL_TERMINATE_BUFFER(shellscript);
-        int ret = system(shellscript);
-        if (ret != 0) {
-            NOTIFY(0,
-                   "WARNING: failed to run shellscript to dump kcore and kallsyms(ret = "
-                   "%d)\n",
-                   ret);
+        if (!syscall_pt_trace_t::kernel_image_dump(kernel_pt_logsubdir)) {
+            NOTIFY(0, "WARNING: failed to run shellscript to dump kernel image\n");
         }
     }
 #endif
@@ -1646,10 +1621,8 @@ init_offline_dir(void)
         return false;
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        dr_snprintf(logdir, BUFFER_SIZE_ELEMENTS(logdir), "%s", buf);
-        NULL_TERMINATE_BUFFER(logdir);
         dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir),
-                    "%s%s%s", logdir, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
+                    "%s%s%s", buf, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
         NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
         if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;

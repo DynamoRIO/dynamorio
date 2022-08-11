@@ -213,8 +213,13 @@ static droption_t<unsigned long long> op_sb_kernel_start(
  */
 
 static void
-print_results(IN instrlist_cleanup_last_t &ilist)
+print_results(IN instrlist_autoclean_t &ilist)
 {
+    if (ilist.data == nullptr) {
+        std::cerr << "The list to store decoded instructions is not initialized."
+                  << std::endl;
+        return;
+    }
     instr_t *instr = instrlist_first(ilist.data);
     uint64_t count = 0;
     while (instr != NULL) {
@@ -357,7 +362,7 @@ main(int argc, const char *argv[])
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
         return FAILURE;
     }
-    instrlist_cleanup_last_t ilist = {};
+    instrlist_autoclean_t ilist = { GLOBAL_DCONTEXT, nullptr };
     pt2ir_convert_status_t status = ptconverter->convert(ilist);
     if (status != PT2IR_CONV_SUCCESS) {
         std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."

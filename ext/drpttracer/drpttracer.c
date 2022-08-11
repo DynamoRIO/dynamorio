@@ -64,6 +64,13 @@
 #    define ERRMSG(...) /* nothing */
 #endif
 
+#ifndef UINT32_FORMAT_STRING
+#    define UINT32_FORMAT_STRING "%" PRIu32
+#endif
+#ifndef UINT64_FORMAT_STRING
+#    define UINT64_FORMAT_STRING "%" PRIu64
+#endif
+
 /* drpttracer supports multiple types of tracing. To avoid the overhead of re-initializing
  * perf_event_attr for each request, drpttracer stores all tracing types' perf_event_attr
  * as global static variables, then drpttracer can directly use them when the caller wants
@@ -123,8 +130,15 @@ read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size
     return true;
 }
 
+typedef enum {
+    READ_RING_BUFFER_SUCCESS,
+    READ_RING_BUFFER_ERROR,
+    READ_RING_BUFFER_ERROR_INVALID_PARAMETER,
+    READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN
+} read_ring_buf_status_t;
+
 /*
- * This function is used to copy data from ring buffer to a output buffer.
+ * This function is used to copy data from ring buffer to an output buffer.
  * ring buffer:
  *  if head_offs > tail_offs:
  *   vaild data = [tail_offs, head_offs]
@@ -133,21 +147,21 @@ read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size
  *  else:
  *   vaild data = empty
  */
-static void
+static read_ring_buf_status_t
 read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
                      IN uint64_t ring_buf_size, IN uint64_t head, IN uint64_t tail,
                      OUT void **data_buf, OUT uint64_t *data_buf_size)
 {
     if (ring_buf_base == NULL) {
         ASSERT(false, "try to read from NULL buffer");
-        return;
+        return READ_RING_BUFFER_ERROR_INVALID_PARAMETER;
     }
     uint64_t data_size = head - tail;
     if (data_size > ring_buf_size) {
         ASSERT(
             false,
             "data size is larger than the ring buffer size, and old data is overwritten");
-        return;
+        return READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN;
     }
     *data_buf_size = data_size;
     if (data_size > 0) {
@@ -168,6 +182,7 @@ read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
     } else {
         /* Do nothing. */
     }
+    return READ_RING_BUFFER_SUCCESS;
 }
 /***************************************************************************
  * PMU CONFIG PARSING FUNCTIONS
@@ -191,7 +206,7 @@ parse_pt_pmu_type(OUT uint32_t *pmu_type)
 
     /* Parse type str to get the PMU type. */
     uint32_t type = 0;
-    int ret = dr_sscanf(buf, "%" PRIu32, &type);
+    int ret = dr_sscanf(buf, UINT32_FORMAT_STRING, &type);
     if (ret < 1) {
         ERRMSG("failed to parse pmu type from file " PT_PMU_PERF_TYPE_FILE "\n");
         dr_global_free(buf, buf_size);
@@ -237,7 +252,8 @@ parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *confi
     /* Set the 'val' in the corresponding bit. */
     uint64_t mask = BITS(end - start + 1);
     if ((val & ~mask) > 0) {
-        ERRMSG("pmu event's config value %" PRIu64 " is out of range\n", val);
+        ERRMSG("pmu event's config value " UINT64_FORMAT_STRING " is out of range\n",
+               val);
         dr_global_free(buf, buf_size);
         return false;
     }
@@ -543,7 +559,7 @@ drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_destory_handle(IN void *drcontext, INOUT void *tracer_handle)
+drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle)
 {
     if (tracer_handle == NULL) {
         ASSERT(false, "invalid pttracer handle");
@@ -602,8 +618,8 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
     /* Check if the PT data in the aux ring buffer is overwritten. */
     uint64_t pt_size = handle->header->aux_head - handle->header->aux_tail;
     if (pt_size > handle->header->aux_size) {
-        ERRMSG("the size of PT trace data(%" PRIu64
-               ") is bigger than the size of PT trace buffer(%" PRIu64 ")\n",
+        ERRMSG("the size of PT trace data(" UINT64_FORMAT_STRING
+               ") is bigger than the size of PT trace buffer(" UINT64_FORMAT_STRING ")\n",
                pt_size, handle->header->aux_size);
         ASSERT(false, "the buffer is full and the new PT data is overwritten");
         return DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE;
@@ -614,9 +630,17 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
     memset(*output, 0, sizeof(drpttracer_output_t));
 
     /* Copy pttracer's PT data to current tracing's output container. */
-    read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
-                         handle->header->aux_head, handle->header->aux_tail,
-                         &(*output)->pt, &(*output)->pt_size);
+    read_ring_buf_status_t read_pt_data_status =
+        read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
+                             handle->header->aux_head, handle->header->aux_tail,
+                             &(*output)->pt, &(*output)->pt_size);
+    if (read_pt_data_status != READ_RING_BUFFER_SUCCESS) {
+        drpttracer_destroy_output(drcontext, *output);
+        *output = NULL;
+        ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_pt_data_status);
+        ASSERT(false, "failed to read PT data from the ring buffer");
+        return DRPTTRACER_ERROR_FAILED_TO_READ_PT_DATA;
+    }
 
     if (handle->tracing_mode == DRPTTRACER_TRACING_ONLY_USER ||
         handle->tracing_mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
@@ -626,18 +650,28 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
         if (sideband_data_size > handle->header->aux_size) {
             drpttracer_destroy_output(drcontext, *output);
             *output = NULL;
-            ERRMSG("the size of sideband data(%" PRIu64
-                   ") is bigger than the size of sideband data buffer(%" PRIu64 ")\n",
-                   sideband_data_size, handle->header->data_size);
+            ERRMSG(
+                "the size of sideband data(" UINT64_FORMAT_STRING
+                ") is bigger than the size of sideband data buffer(" UINT64_FORMAT_STRING
+                ")\n",
+                sideband_data_size, handle->header->data_size);
             ASSERT(false, "the buffer is full and the new sideband data is overwritten");
             return DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA;
         }
         /* Copy pttracer's sideband data to current tracing's output container. */
-        read_ring_buf_to_buf(drcontext,
-                             (uint8_t *)handle->base + handle->header->data_offset,
-                             handle->header->data_size, handle->header->data_head,
-                             handle->header->data_tail, &(*output)->sideband_data,
-                             &(*output)->sideband_data_size);
+        read_ring_buf_status_t read_sideban_data_status = read_ring_buf_to_buf(
+            drcontext, (uint8_t *)handle->base + handle->header->data_offset,
+            handle->header->data_size, handle->header->data_head,
+            handle->header->data_tail, &(*output)->sideband_data,
+            &(*output)->sideband_data_size);
+        if (read_sideban_data_status != READ_RING_BUFFER_SUCCESS) {
+            drpttracer_destroy_output(drcontext, *output);
+            *output = NULL;
+            ERRMSG("failed to read data from ring buffer(errno:%d) \n",
+                   read_sideban_data_status);
+            ASSERT(false, "failed to read sideband data from the ring buffer");
+            return DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA;
+        }
     } else {
         /* Even when tracing only kernel instructions, there is some sideband data.
          * Because we don't need this data in future processes, we discard it.
