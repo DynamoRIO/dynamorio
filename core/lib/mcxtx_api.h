@@ -542,15 +542,9 @@
         reg_t ft11; /**< The 12th temporary floating-point register. */
     };  /**< The anonymous union of alternative names for the f31/ft11 register. */
 #endif
-    union {
-        /* FIXME i#3544: There are no arith or compare flags. */
-        reg_t xflags; /**< The platform-independent name for condition flags. */
-        struct {
 #if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
-            reg_t fcsr; /**< Floating-Point Control Register. */
+    reg_t fcsr; /**< Floating-Point Control Register. */
 #endif
-        }; /**< RISC-V flag registers. */
-    }; /**< The anonymous union of alternative names for flag registers. */
     /** The SIMD registers. No support for SIMD on RISC-V so far. */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #else /* RISCV64 */

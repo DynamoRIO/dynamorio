@@ -80,7 +80,8 @@ public:
         {
         }
 
-        reg_id_t operator*()
+        reg_id_t
+        operator*()
         {
             return static_cast<reg_id_t>(DR_REG_START_GPR + index_);
         }
@@ -372,7 +373,8 @@ public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
                      bool memref_needs_info, drvector_t *reg_vector,
                      ssize_t (*write_file)(file_t file, const void *data, size_t count),
-                     file_t module_file, bool disable_optimizations = false);
+                     file_t module_file, bool disable_optimizations = false,
+                     void (*log)(uint level, const char *fmt, ...) = nullptr);
     virtual ~offline_instru_t();
 
     trace_type_t
@@ -501,6 +503,7 @@ private:
     static CONSTEXPR int LABEL_DATA_ELIDED_NEEDS_BASE = 3;
     ptr_uint_t elide_memref_note_;
     bool standalone_ = false;
+    void (*log_)(uint level, const char *fmt, ...);
 };
 
 #endif /* _INSTRU_H_ */

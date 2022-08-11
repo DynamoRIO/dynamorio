@@ -516,7 +516,7 @@ DR_EXPORT
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                           dr_spill_slot_t slot,
-                          IF_NOT_X86_(dr_spill_slot_t slot2) void *addr, int value,
+                          IF_AARCHXX_(dr_spill_slot_t slot2) void *addr, int value,
                           uint flags)
 {
     instr_t *instr;
@@ -540,7 +540,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
         use_drreg = true;
         if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&
-            (slot != SPILL_SLOT_MAX + 1 IF_NOT_X86(|| slot2 != SPILL_SLOT_MAX + 1))) {
+            (slot != SPILL_SLOT_MAX + 1 IF_AARCHXX(|| slot2 != SPILL_SLOT_MAX + 1))) {
             ASSERT(false, "with drmgr, SPILL_SLOT_MAX+1 must be passed");
             return false;
         }
@@ -712,6 +712,15 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         ilist_insert_note_label(drcontext, ilist, where,
                                 NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
     }
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented - below to make compiler happy */
+    ASSERT(false, "Not implemented");
+    instr = merge_prev_drx_spill(ilist, where, false);
+    ilist_insert_note_label(drcontext, ilist, where,
+                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
+    ilist_insert_note_label(drcontext, ilist, where,
+                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
+    return false;
 #endif
     return true;
 }
