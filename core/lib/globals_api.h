@@ -780,6 +780,7 @@ typedef enum {
      * On x86, selects the xsp, xflags, and xip fields.
      * On ARM, selects the sp, pc, and cpsr fields.
      * On AArch64, selects the sp, pc, and nzcv fields.
+     * On RISC-V, selects the sp, pc and fcsr fields.
      * \note: The xip/pc field is only honored as an input for
      * dr_redirect_execution(), and as an output for system call
      * events.
