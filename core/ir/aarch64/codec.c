@@ -1176,6 +1176,21 @@ decode_opnd_float_reg(int pos, uint enc, OUT opnd_t *opnd)
 }
 
 static inline bool
+size_to_ftype(opnd_size_t size, OUT uint *ftype)
+{
+    switch (size) {
+    case OPSZ_2:
+        /* Half precision operands are only supported in Armv8.2+. */
+        *ftype = 3;
+        break;
+    case OPSZ_4: *ftype = 0; break;
+    case OPSZ_8: *ftype = 1; break;
+    default: return false;
+    }
+    return true;
+}
+
+static inline bool
 encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
 {
     uint num;
@@ -1185,16 +1200,8 @@ encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
 
     if (!encode_vreg(&size, &num, opnd))
         return false;
-
-    switch (size) {
-    case OPSZ_2:
-        /* Half precision operands are only supported in Armv8.2+. */
-        type = 3;
-        break;
-    case OPSZ_4: type = 0; break;
-    case OPSZ_8: type = 1; break;
-    default: return false;
-    }
+    if (!size_to_ftype(size, &type))
+        return false;
 
     *enc_out = type << 22 | num << pos;
     return true;
@@ -1979,6 +1986,23 @@ encode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     opnd = opnd_create_immed_uint(cmode, OPSZ_1b);
     encode_opnd_int(13, 1, false, false, 0, opnd, enc_out);
     return true;
+}
+
+/* imm2 encoded in bits 13-12 */
+static inline bool
+decode_opnd_imm2idx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint value = extract_uint(enc, 12, 2);
+    *opnd = opnd_create_immed_uint(value, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm2idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    return encode_opnd_int(12, 2, false, 0, 0, opnd, enc_out);
 }
 
 /* p10_low: P register at bit position 10; P0-P7 */
@@ -4520,6 +4544,33 @@ encode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return true;
 }
 
+/* sd16_h_sz: S/D register at bit position 16 with 4 bits only, for the FP16
+ *             by-element encoding; bit 30 selects D reg
+ */
+
+static inline bool
+decode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_D0 : DR_REG_S0) +
+                            extract_uint(enc, 16, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    bool d;
+    if (!opnd_is_reg(opnd))
+        return false;
+    d = (uint)(opnd_get_reg(opnd) - DR_REG_D0) < 16;
+    num = opnd_get_reg(opnd) - (d ? DR_REG_D0 : DR_REG_S0);
+    if (num >= 16)
+        return false;
+    *enc_out = num << 16 | (uint)d << 30;
+    return true;
+}
+
 /* dq16: D/Q register at bit position 16; bit 30 selects Q reg */
 
 static inline bool
@@ -5069,7 +5120,170 @@ encode_opnds_logic_imm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     }
 }
 
-/* mst: used for MSR.
+/* fccm: operands for conditional compare instructions */
+
+static inline bool
+decode_opnds_fccm(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 0, 3);
+
+    reg_id_t rn, rm;
+    uint ftype = BITS(enc, 23, 22);
+
+    if (!decode_float_reg(BITS(enc, 9, 5), ftype, &rn))
+        return false;
+    if (!decode_float_reg(BITS(enc, 20, 16), ftype, &rm))
+        return false;
+
+    instr_set_src(instr, 0, opnd_create_reg(rn));
+    instr_set_src(instr, 1, opnd_create_reg(rm));
+
+    /* nzcv */
+    instr_set_src(instr, 2, opnd_create_immed_int(BITS(enc, 3, 0), OPSZ_4b));
+    /* cond */
+    instr_set_predicate(instr, DR_PRED_EQ + BITS(enc, 15, 12));
+
+    return true;
+}
+
+#define decode_h_variant(instr)                                                       \
+    static inline uint decode_opnds_##instr##_h(uint enc, dcontext_t *dcontext,       \
+                                                byte *pc, instr_t *instr, int opcode) \
+    {                                                                                 \
+        if (BITS(enc, 23, 22) != 0b11)                                                \
+            return false;                                                             \
+        return decode_opnds_##instr(enc, dcontext, pc, instr, opcode);                \
+    }
+
+#define decode_sd_variant(instr)                                                       \
+    static inline uint decode_opnds_##instr##_sd(uint enc, dcontext_t *dcontext,       \
+                                                 byte *pc, instr_t *instr, int opcode) \
+    {                                                                                  \
+        if (BITS(enc, 23, 22) == 0b11)                                                 \
+            return false;                                                              \
+        return decode_opnds_##instr(enc, dcontext, pc, instr, opcode);                 \
+    }
+
+decode_h_variant(fccm);
+decode_sd_variant(fccm);
+
+static inline uint
+encode_opnds_fccm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
+{
+    if (instr_num_dsts(instr) != 0 || instr_num_srcs(instr) != 3)
+        return ENCFAIL;
+
+    opnd_size_t rn_size = OPSZ_NA, rm_size = OPSZ_NA;
+    uint rn, rm;
+    uint ftype;
+
+    if (!encode_vreg(&rn_size, &rn, instr_get_src(instr, 0)))
+        return ENCFAIL;
+    if (!encode_vreg(&rm_size, &rm, instr_get_src(instr, 1)))
+        return ENCFAIL;
+    if (rn_size != rm_size)
+        return ENCFAIL;
+    if (!size_to_ftype(rn_size, &ftype))
+        return ENCFAIL;
+
+    if (!opnd_is_immed_int(instr_get_src(instr, 2)))
+        return ENCFAIL;
+    uint nzcv = opnd_get_immed_int(instr_get_src(instr, 2));
+
+    uint cond = instr_get_predicate(instr) - DR_PRED_EQ;
+    if (cond >= 16)
+        return ENCFAIL;
+
+    return (enc | (rn << 5) | (rm << 16) | (ftype << 22) | nzcv | (cond << 12));
+}
+
+#define encode_h_variant(instr)                                                     \
+    static inline uint encode_opnds_##instr##_h(byte *pc, instr_t *instr, uint enc, \
+                                                decode_info_t *di)                  \
+    {                                                                               \
+        uint h_enc = encode_opnds_##instr(pc, instr, enc, di);                      \
+        if (BITS(enc, 23, 22) != 0b11)                                              \
+            return ENCFAIL;                                                         \
+        return h_enc;                                                               \
+    }
+
+#define encode_sd_variant(instr)                                                     \
+    static inline uint encode_opnds_##instr##_sd(byte *pc, instr_t *instr, uint enc, \
+                                                 decode_info_t *di)                  \
+    {                                                                                \
+        uint sd_enc = encode_opnds_##instr(pc, instr, enc, di);                      \
+        if (BITS(enc, 23, 22) == 0b11)                                               \
+            return ENCFAIL;                                                          \
+        return sd_enc;                                                               \
+    }
+
+encode_h_variant(fccm);
+encode_sd_variant(fccm);
+
+/* fcsel: operands for conditional compare instructions */
+
+static inline bool
+decode_opnds_fcsel(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 1, 2);
+
+    reg_id_t rn, rm, rd;
+    uint ftype = BITS(enc, 23, 22);
+
+    if (!decode_float_reg(BITS(enc, 9, 5), ftype, &rn))
+        return false;
+    if (!decode_float_reg(BITS(enc, 20, 16), ftype, &rm))
+        return false;
+    if (!decode_float_reg(BITS(enc, 4, 0), ftype, &rd))
+        return false;
+
+    instr_set_src(instr, 0, opnd_create_reg(rn));
+    instr_set_src(instr, 1, opnd_create_reg(rm));
+    instr_set_dst(instr, 0, opnd_create_reg(rd));
+
+    /* cond */
+    instr_set_predicate(instr, DR_PRED_EQ + BITS(enc, 15, 12));
+
+    return true;
+}
+
+decode_h_variant(fcsel);
+decode_sd_variant(fcsel);
+
+static inline uint
+encode_opnds_fcsel(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
+{
+    if (instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 2)
+        return ENCFAIL;
+
+    opnd_size_t rn_size = OPSZ_NA, rm_size = OPSZ_NA, rd_size = OPSZ_NA;
+    uint rn, rm, rd;
+    uint ftype;
+
+    if (!encode_vreg(&rn_size, &rn, instr_get_src(instr, 0)))
+        return ENCFAIL;
+    if (!encode_vreg(&rm_size, &rm, instr_get_src(instr, 1)))
+        return ENCFAIL;
+    if (!encode_vreg(&rd_size, &rd, instr_get_dst(instr, 0)))
+        return ENCFAIL;
+    if ((rn_size != rm_size || rn_size != rd_size))
+        return ENCFAIL;
+    if (!size_to_ftype(rn_size, &ftype))
+        return ENCFAIL;
+
+    uint cond = instr_get_predicate(instr) - DR_PRED_EQ;
+    if (cond >= 16)
+        return ENCFAIL;
+
+    return (enc | (rn << 5) | (rm << 16) | rd | (ftype << 22) | (cond << 12));
+}
+
+encode_h_variant(fcsel);
+encode_sd_variant(fcsel);
+
+/* msr: used for MSR.
  * With MSR the destination register may or may not be one of the system registers
  * that we recognise.
  */

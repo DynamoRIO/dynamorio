@@ -69,11 +69,13 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
                                    bool memref_needs_info, drvector_t *reg_vector,
                                    ssize_t (*write_file)(file_t file, const void *data,
                                                          size_t count),
-                                   file_t module_file, bool disable_optimizations)
+                                   file_t module_file, bool disable_optimizations,
+                                   void (*log)(uint level, const char *fmt, ...))
     : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
+    , log_(log)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -420,11 +422,17 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
     app_pc modbase;
     uint modidx;
     if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS) {
-        // FIXME i#2062: add non-module support.  The plan for instrs is to have
-        // one entry w/ the start abs pc, and subsequent entries that pack the instr
-        // length for 10 instrs, 4 bits each, into a pc.modoffs field.  We will
-        // also need to store the type (read/write/prefetch*) and size for the
-        // memrefs.
+        // FIXME i#2062: add non-module support by storing instruction encodings at
+        // tracing time.
+        if (log_ != nullptr) {
+            // We want a visible non-spewing one-time warning.  A race is fine here.
+            static volatile bool warned_once;
+            if (!warned_once) {
+                log_(0, "WARNING: Found unsupported non-module code\n");
+                warned_once = true;
+            }
+            log_(1, "Found unsupported non-module code at %p\n", pc);
+        }
         modidx = 0;
         modbase = pc;
     }

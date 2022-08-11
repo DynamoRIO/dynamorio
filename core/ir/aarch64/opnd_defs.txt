@@ -108,6 +108,7 @@
 -------------------x------------  cmode4_s_sz_msl # MSL bit for 32 bit element shifts
 -------------------xxx----------  extam      # extend amount
 ------------------x-------------  cmode_h_sz # Vector shift for 16 bit elements
+------------------xx------------  imm2idx    # imm from 13-12, used as an index
 ------------------xxxx----------  p10_low    # SVE predicate registers p0-p7
 -----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
 -----------------xx-------------  len        # imm2 len
@@ -216,6 +217,7 @@
 -x-----------------xxx----------  index0     # index of B subreg in Q: 0-15
 -x--------------????--xxxxx-----  memvm      # computes multiplier from 15:12
 -x----------xxxx----------------  dq16_h_sz # Q register (0-15) if bit 30 is set, else D
+-x----------xxxx----------------  sd16_h_sz # D register (0-15) if bit 30 is set, else S
 -x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 -x---------xxxxx----------------  sd16       # D register if bit 30 is set, else S
 ?---------------xxxxxx----------  imm6       # shift amount

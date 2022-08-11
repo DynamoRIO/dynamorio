@@ -1026,6 +1026,13 @@ private:
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
             // Once that support is in we can remove the bool return value and handle
             // the memrefs up here.
+            // A race is fine for our visible ~one-time warning at level 0.
+            static volatile bool warned_once;
+            if (!warned_once) {
+                impl()->log(
+                    0, "WARNING: Skipping ifetch for instructions not in a module\n");
+                warned_once = true;
+            }
             impl()->log(
                 1, "Skipping ifetch for %u instrs not in a module (idx %d, +" PIFX ")\n",
                 instr_count, in_entry->pc.modidx, in_entry->pc.modoffs);
