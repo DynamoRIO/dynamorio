@@ -1,0 +1,159 @@
+/* **********************************************************
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+// This application links in drmemtrace_static and acquires a trace during
+// a "burst" of execution that includes generated code.
+
+// This is set globally in CMake for other tests so easier to undef here.
+#undef DR_REG_ENUM_COMPATIBILITY
+
+#include "configure.h"
+#include "dr_api.h"
+#include <assert.h>
+#include <iostream>
+#include <string>
+#include "tools.h" // Included after system headers to avoid printf warning.
+
+/***************************************************************************
+ * Code generation.
+ */
+
+class code_generator_t {
+public:
+    explicit code_generator_t(bool verbose = false)
+        : verbose_(verbose)
+    {
+        generate_code();
+    }
+    ~code_generator_t()
+    {
+        free_mem(reinterpret_cast<char *>(map_), map_size_);
+    }
+    void
+    execute_generated_code() const
+    {
+        reinterpret_cast<void (*)()>(map_)();
+    }
+
+private:
+    byte *map_ = nullptr;
+    size_t map_size_ = 0;
+    bool verbose_ = false;
+
+    void
+    generate_code()
+    {
+        void *dc = dr_standalone_init();
+        assert(dc != nullptr);
+
+        map_size_ = PAGE_SIZE;
+        map_ = reinterpret_cast<byte *>(
+            allocate_mem(map_size_, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE));
+        assert(map_ != nullptr);
+
+        instrlist_t *ilist = instrlist_create(dc);
+        reg_id_t base = IF_X86_ELSE(IF_X64_ELSE(DR_REG_RAX, DR_REG_EAX), DR_REG_R0);
+        int ptrsz = static_cast<int>(sizeof(void *));
+        // TODO i#2062: Add more instructions and look for them in the final trace.
+        // For now we are testing that drmemtrace detects generated code.
+        instrlist_append(
+            ilist,
+            XINST_CREATE_move(dc, opnd_create_reg(base), opnd_create_reg(DR_REG_XSP)));
+        instrlist_append(ilist,
+                         XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(base, -ptrsz),
+                                            opnd_create_reg(base)));
+        instrlist_append(ilist, XINST_CREATE_return(dc));
+
+        byte *last_pc = instrlist_encode(dc, ilist, map_, true);
+        assert(last_pc <= map_ + map_size_);
+
+        instrlist_clear_and_destroy(dc, ilist);
+
+        protect_mem(map_, map_size_, ALLOW_EXEC | ALLOW_READ);
+
+        if (verbose_) {
+            std::cerr << "Generated code:\n";
+            byte *start_pc = reinterpret_cast<byte *>(map_);
+            for (byte *pc = start_pc; pc < last_pc;) {
+                pc = disassemble_with_info(dc, pc, STDERR, true, true);
+                assert(pc != nullptr);
+            }
+        }
+
+        dr_standalone_exit();
+    }
+};
+
+/***************************************************************************
+ * Top-level tracing.
+ */
+
+// TODO i#2062: Run raw2trace and examine the final trace looking for the gencode
+// instrs; use a unique start and end pattern to identify.
+
+static int
+do_some_work(const code_generator_t &gen)
+{
+    static const int iters = 1000;
+    for (int i = 0; i < iters; ++i) {
+        gen.execute_generated_code();
+    }
+
+    // TODO i#2062: Test code that triggers DR's "selfmod" instrumentation.
+
+    // TODO i#2062: Test modified library code.
+
+    return 1;
+}
+
+int
+main(int argc, const char *argv[])
+{
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline"))
+        std::cerr << "failed to set env var!\n";
+
+    code_generator_t gen(false);
+    for (int i = 0; i < 3; i++) {
+        std::cerr << "pre-DR init\n";
+        dr_app_setup();
+        assert(!dr_app_running_under_dynamorio());
+        std::cerr << "pre-DR start\n";
+        dr_app_start();
+        if (do_some_work(gen) < 0)
+            std::cerr << "error in computation\n";
+        std::cerr << "pre-DR detach\n";
+        dr_app_stop_and_cleanup();
+        std::cerr << "all done\n";
+    }
+
+    return 0;
+}

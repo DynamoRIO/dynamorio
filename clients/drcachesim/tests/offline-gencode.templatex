@@ -1,0 +1,17 @@
+pre-DR init
+pre-DR start
+WARNING: Found unsupported non-module code
+pre-DR detach
+all done
+pre-DR init
+pre-DR start
+pre-DR detach
+all done
+pre-DR init
+pre-DR start
+pre-DR detach
+all done
+\[drmemtrace\]: WARNING: Skipping ifetch for instructions not in a module
+Basic counts tool results:
+Total counts:
+.*

@@ -56,6 +56,13 @@ static byte buf[8192];
         result = false;                                    \
     }
 
+#define TEST_LOOP(opcode, create_name, number, expected, args...)   \
+    for (int i = 0; i < number; i++) {                              \
+        instr = INSTR_CREATE_##create_name(dc, args);               \
+        if (!test_instr_encoding(dc, OP_##opcode, instr, expected)) \
+            success = false;                                        \
+    }
+
 static bool
 test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
 {
@@ -68,38 +75,42 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
     char *buf = malloc(buflen);
 
     if (instr_get_opcode(instr) != opcode) {
-        print("incorrect opcode for instr %s: %s", opcode, instr_get_opcode(instr));
-        result = false;
+        print("incorrect opcode for instr %s: %s\n\n", opcode, instr_get_opcode(instr));
+        instr_destroy(dc, instr);
+        return false;
     }
     instr_disassemble_to_buffer(dc, instr, buf, buflen);
     end = buf + strlen(buf);
     if (end > buf && *(end - 1) == '\n')
         --end;
 
+    if (!instr_is_encoding_possible(instr)) {
+        print("encoding for expected %s not possible\n", expected);
+        instr_destroy(dc, instr);
+        return false;
+    }
+
     if (end - buf != len || memcmp(buf, expected, len) != 0) {
         print("dissassembled as:\n");
         print("   %s\n", buf);
         print("but expected:\n");
-        print("   %s\n", expected);
+        print("   %s\n\n", expected);
+        instr_destroy(dc, instr);
+        return false;
+    }
+
+    pc = instr_encode(dc, instr, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    if (!instr_same(instr, decin)) {
+        print("Reencoding failed, dissassembled as:\n   ");
+        instr_disassemble(dc, decin, STDERR);
+        print("\n");
+        print("but expected:\n");
+        print("   %s\n\n", expected);
         result = false;
     }
 
-    if (!instr_is_encoding_possible(instr)) {
-        print("encoding for expected %s not possible\n", expected);
-        result = false;
-    } else {
-        pc = instr_encode(dc, instr, buf);
-        decin = instr_create(dc);
-        decode(dc, buf, decin);
-        if (!instr_same(instr, decin)) {
-            print("Reencoding failed, dissassembled as:\n   ");
-            instr_disassemble(dc, decin, STDERR);
-            print("\n");
-            print("but expected:\n");
-            print("   %s\n", expected);
-            result = false;
-        }
-    }
     instr_destroy(dc, instr);
     instr_destroy(dc, decin);
 
