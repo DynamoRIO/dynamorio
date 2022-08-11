@@ -236,7 +236,7 @@ is_isa_mode_legal(dr_isa_mode_t mode);
  * Later, if needed, we can introduce a new field in dcontext_t (xref i#862).
  */
 #    define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) IF_X64(|| DYNAMO_OPTION(x86_to_x64)))
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
 #    define X64_MODE_DC(dc) IF_X64_ELSE(true, false)
 #    define X64_CACHE_MODE_DC(dc) IF_X64_ELSE(true, false)
 #endif
