@@ -167,7 +167,12 @@ static bool
 drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
                                OUT bool *scratch_used);
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+static bool
+drutil_insert_get_mem_addr_riscv64(void *drcontext, instrlist_t *bb, instr_t *where,
+                                   opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                                   OUT bool *scratch_used);
+#endif /* X86/ARM/RISCV64 */
 
 /* Could be optimized to have scratch==dst for many common cases, but
  * need way to get a 2nd reg for corner cases: simpler to ask caller
@@ -193,6 +198,9 @@ drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
 #elif defined(AARCHXX)
     return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch,
                                           scratch_used);
+#elif defined(RISCV64)
+    return drutil_insert_get_mem_addr_riscv64(drcontext, bb, where, memref, dst, scratch,
+                                              scratch_used);
 #endif
 }
 
@@ -207,6 +215,9 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
 #elif defined(AARCHXX)
     return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch,
                                           NULL);
+#elif defined(RISCV64)
+    return drutil_insert_get_mem_addr_riscv64(drcontext, bb, where, memref, dst, scratch,
+                                              NULL);
 #endif
 }
 
@@ -510,7 +521,17 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
     }
     return true;
 }
-#endif     /* X86/AARCHXX */
+#elif defined(RISCV64)
+static bool
+drutil_insert_get_mem_addr_riscv64(void *drcontext, instrlist_t *bb, instr_t *where,
+                                   opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                                   OUT bool *scratch_used)
+{
+    /* FIXME i#3544: Not implemented */
+    ASSERT(false, "Not implemented");
+    return false;
+}
+#endif /* X86/AARCHXX/RISCV64 */
 
 DR_EXPORT
 uint

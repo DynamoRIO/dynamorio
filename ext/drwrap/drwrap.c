@@ -79,6 +79,10 @@ static uint verbose = 0;
 #elif defined(AARCH64)
 #    define CALL_POINT_SCRATCH_REG DR_REG_X12
 #    define RETURN_POINT_SCRATCH_REG DR_REG_X1
+#elif defined(RISCV64)
+/* FIXME i#3544: Check if T6 is valid */
+#    define CALL_POINT_SCRATCH_REG DR_REG_T6
+#    define RETURN_POINT_SCRATCH_REG DR_REG_A1
 #elif defined(X64)
 #    define CALL_POINT_SCRATCH_REG DR_REG_R11
 #    define RETURN_POINT_SCRATCH_REG DR_REG_RCX
@@ -593,6 +597,8 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
                  */
 #ifdef AARCHXX
                 wrapcxt->mc->xflags = 0; /*0 is fine for ARM */
+#elif defined(RISCV64)
+                /* No condition flags that need to be cleaned/preserved. */
 #else
 #    ifdef WINDOWS
                 wrapcxt->mc->xflags = __readeflags();
@@ -679,6 +685,19 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         case 5: return &wrapcxt->mc->r5;
         case 6: return &wrapcxt->mc->r6;
         case 7: return &wrapcxt->mc->r7;
+        default: return drwrap_stack_arg_addr(wrapcxt, arg, 8, 0);
+        }
+#elif defined(RISCV64)
+    case DRWRAP_CALLCONV_RISCV_LP64:
+        switch (arg) {
+        case 0: return &wrapcxt->mc->a0;
+        case 1: return &wrapcxt->mc->a1;
+        case 2: return &wrapcxt->mc->a2;
+        case 3: return &wrapcxt->mc->a3;
+        case 4: return &wrapcxt->mc->a4;
+        case 5: return &wrapcxt->mc->a5;
+        case 6: return &wrapcxt->mc->a6;
+        case 7: return &wrapcxt->mc->a7;
         default: return drwrap_stack_arg_addr(wrapcxt, arg, 8, 0);
         }
 #else          /* Intel x86 or x64 */
@@ -775,7 +794,7 @@ drwrap_get_retval(void *wrapcxt_opaque)
         return NULL;
     /* ensure we have the info we need */
     drwrap_get_mcontext_internal(wrapcxt_opaque, DR_MC_INTEGER);
-    return (void *)wrapcxt->mc->IF_X86_ELSE(xax, r0);
+    return (void *)wrapcxt->mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0));
 }
 
 DR_EXPORT
@@ -790,7 +809,7 @@ drwrap_set_retval(void *wrapcxt_opaque, void *val)
     if (wrapcxt->where_am_i != DRWRAP_WHERE_POST_FUNC && !pt->skip[pt->wrap_level])
         return false; /* can only set retval in post, or if skipping */
     drwrap_get_mcontext_internal(wrapcxt_opaque, DR_MC_INTEGER);
-    wrapcxt->mc->IF_X86_ELSE(xax, r0) = (reg_t)val;
+    wrapcxt->mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = (reg_t)val;
     wrapcxt->mc_modified = true;
     return true;
 }
@@ -1414,6 +1433,9 @@ drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
         if (last == NULL || first == last)
             break;
     }
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT(false, "Not implemented");
 #else
     if (stacksz == OPSZ_4 IF_X64(&&x86)) {
         instrlist_append(
@@ -1918,6 +1940,9 @@ drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
         pt->retaddr[pt->wrap_level] = wrapcxt->retaddr; /* Original, not load tgt. */
 #ifdef X86
         set_retaddr_on_stack(wrapcxt->mc->xsp, (app_pc)replace_retaddr_sentinel);
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        ASSERT(false, "Not implemented");
 #else
         drwrap_get_mcontext_internal(wrapcxt, DR_MC_CONTROL);
         wrapcxt->mc->lr = (reg_t)replace_retaddr_sentinel;
@@ -2430,11 +2455,12 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
                 ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
                 : 0;
             flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
+            /* FIXME i#3544: Adapt to a real RISC-V clean call implementation */
             dr_insert_clean_call_ex(
-                drcontext, bb, where, (void *)drwrap_in_callee, flags, IF_X86_ELSE(2, 3),
-                OPND_CREATE_INTPTR((ptr_int_t)arg1),
+                drcontext, bb, where, (void *)drwrap_in_callee, flags,
+                IF_AARCHXX_ELSE(3, 2), OPND_CREATE_INTPTR((ptr_int_t)arg1),
                 /* pass in xsp to avoid dr_get_mcontext */
-                opnd_create_reg(DR_REG_XSP) _IF_NOT_X86(opnd_create_reg(DR_REG_LR)));
+                opnd_create_reg(DR_REG_XSP) _IF_AARCHXX(opnd_create_reg(DR_REG_LR)));
         }
         dr_recurlock_unlock(wrap_lock);
     }

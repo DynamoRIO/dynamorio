@@ -35,7 +35,10 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
-/* file "atomic_exports.h" -- arch-specific synchronization declarations */
+/* file "atomic_exports.h" -- arch-specific synchronization declarations
+ *
+ * Note that ATOMIC_*_READ/WRITE() macros follow acquire-release semantics.
+ */
 
 #ifndef _ATOMIC_EXPORTS_H_
 #define _ATOMIC_EXPORTS_H_ 1
@@ -723,7 +726,296 @@ atomic_dec_becomes_zero(volatile int *var)
                                  : "r2")
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(ne, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
-#    endif /* X86/ARM */
+#    elif defined(DR_HOST_RISCV64)
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
+            do {                                                    \
+                /* Fence for acquire semantics. */                  \
+                __asm__ __volatile__("lbu %0, 0(%1)\n\t"            \
+                                     "fence iorw,iorw"              \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "memory");                   \
+            } while (0)
+#        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                /* Fence for release semantics. */             \
+                __asm__ __volatile__("fence iorw,iorw\n\t"     \
+                                     "sb %0, 0(%1)\n\t"        \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+            do {                                                     \
+                /* Page 25 of Volume I: RISC-V Unprivileged ISA      \
+                 * V20191213 states that aligned loads/stores are    \
+                 * atomic. Alternatively we could use                \
+                 * amoswap.w zero %0, 0(%1) but that would incur     \
+                 * an extra read we don't need and also requires     \
+                 * alignment.                                        \
+                 */                                                  \
+                ASSERT(ALIGNED(target, 4));                          \
+                /* Not currently used to write code. */              \
+                ASSERT_CURIOSITY(!hot_patch);                        \
+                /* Fence for release semantics. */                   \
+                __asm__ __volatile__("fence iorw,iorw\n\t"           \
+                                     "sw %0, 0(%1)\n\t"              \
+                                     :                               \
+                                     : "r"(value), "r"(target)       \
+                                     : "memory");                    \
+            } while (0)
+#        define ATOMIC_4BYTE_WRITE ATOMIC_4BYTE_ALIGNED_WRITE
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                /* Page 25 of Volume I: RISC-V Unprivileged ISA     \
+                 * V20191213 states that aligned loads/stores are   \
+                 * atomic.                                          \
+                 */                                                 \
+                ASSERT(ALIGNED(addr_src, 4));                       \
+                ASSERT(ALIGNED(addr_res, 4));                       \
+                /* Fence for acquire semantics. */                  \
+                __asm__ __volatile__("lw %0, 0(%1)\n\t"             \
+                                     "fence iorw,iorw"              \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "memory");                   \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+            do {                                                     \
+                /* Page 25 of Volume I: RISC-V Unprivileged ISA      \
+                 * V20191213 states that aligned loads/stores are    \
+                 * atomic. Alternatively we could use                \
+                 * amoswap.w zero %0, 0(%1) but that would incur     \
+                 * an extra read we don't need and also requires     \
+                 * alignment.                                        \
+                 */                                                  \
+                ASSERT(ALIGNED(target, 8));                          \
+                /* Not currently used to write code */               \
+                ASSERT_CURIOSITY(!hot_patch);                        \
+                /* Fence for release semantics. */                   \
+                __asm__ __volatile__("fence iorw,iorw\n\t"           \
+                                     "sd %0, 0(%1)\n\t"              \
+                                     :                               \
+                                     : "r"(value), "r"(target)       \
+                                     : "memory");                    \
+            } while (0)
+#        define ATOMIC_8BYTE_WRITE ATOMIC_8BYTE_ALIGNED_WRITE
+#        define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                /* Page 25 of Volume I: RISC-V Unprivileged ISA     \
+                 * V20191213 states that aligned loads/stores are   \
+                 * atomic.                                          \
+                 */                                                 \
+                ASSERT(ALIGNED(addr_src, 8));                       \
+                ASSERT(ALIGNED(addr_res, 8));                       \
+                __asm__ __volatile__("ld %0, 0(%1)\n\t"             \
+                                     "fence iorw,iorw"              \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "memory");                   \
+            } while (0)
+
+#        define ADDI_suffix(sfx, var, val, align)                               \
+            do {                                                                \
+                /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213       \
+                 * requires that var address is naturally aligned.              \
+                 */                                                             \
+                ASSERT(ALIGNED(var, align));                                    \
+                __asm__ __volatile__("li t0, " #val "\n\t"                      \
+                                     "amoadd." sfx ".aqrl zero,  t0, 0(%0)\n\t" \
+                                     :                                          \
+                                     : "r"(var)                                 \
+                                     : "t0", "memory");                         \
+            } while (0)
+
+static inline void
+ATOMIC_INC_int(volatile int *var)
+{
+    ADDI_suffix("w", var, 1, 4);
+}
+
+static inline void
+ATOMIC_INC_int64(volatile int64 *var)
+{
+    ADDI_suffix("d", var, 1, 8);
+}
+
+static inline void
+ATOMIC_DEC_int(volatile int *var)
+{
+    ADDI_suffix("w", var, -1, 4);
+}
+
+static inline void
+ATOMIC_DEC_int64(volatile int64 *var)
+{
+    ADDI_suffix("d", var, -1, 8);
+}
+
+#        define ATOMIC_INC(type, var) ATOMIC_INC_##type(&var)
+#        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(&var)
+
+#        undef ADDI_suffix
+
+static inline void
+ATOMIC_ADD_int(volatile int *var, int val)
+{
+    /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address is
+     * naturally aligned.
+     */
+    ASSERT(ALIGNED(var, 4));
+    __asm__ __volatile__("amoadd.w.aqrl zero, %1, 0(%0)\n\t"
+                         :
+                         : "r"(var), "r"(val)
+                         : "memory");
+}
+
+static inline void
+ATOMIC_ADD_int64(volatile int64 *var, int64 val)
+{
+    /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address is
+     * naturally aligned.
+     */
+    ASSERT(ALIGNED(var, 8));
+    __asm__ __volatile__("amoadd.d.aqrl zero, %1, 0(%0)\n\t"
+                         :
+                         : "r"(var), "r"(val)
+                         : "memory");
+}
+
+#        define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(&var, val)
+
+static inline int
+atomic_add_exchange_int(volatile int *var, int val)
+{
+    int res;
+    /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address is
+     * naturally aligned.
+     */
+    ASSERT(ALIGNED(var, 4));
+    __asm__ __volatile__("amoadd.w.aqrl %0, %2, 0(%1)\n\t"
+                         : "=r"(res)
+                         : "r"(var), "r"(val)
+                         : "memory");
+    return res + val;
+}
+
+static inline int64
+atomic_add_exchange_int64(volatile int64 *var, int64 val)
+{
+    int64 res;
+    /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address is
+     * naturally aligned.
+     */
+    ASSERT(ALIGNED(var, 8));
+    __asm__ __volatile__("amoadd.d.aqrl %0, %2, 0(%1)\n\t"
+                         : "=r"(res)
+                         : "r"(var), "r"(val)
+                         : "memory");
+    return res + val;
+}
+
+#        define atomic_add_exchange atomic_add_exchange_int
+
+static inline bool
+atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
+{
+    bool res = 1;
+    /* Page 49 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address is
+     * naturally aligned.
+     */
+    ASSERT(ALIGNED(var, 4));
+    /* This code is based on GCC's atomic_compare_exchange_strong().
+     * The fence ensures no re-ordering beyond the start of the lr/sc loop.
+     * The lr/sc use acquire ordering to ensure that the full loop has
+     * sequentially consistent memory order semantics.
+     */
+    __asm__ __volatile__("fence   iorw,ow\n\t"
+                         "1: lr.w.aq t0, (%1)\n\t"
+                         "   bne     t0, %2, 2f\n\t"
+                         "   sc.w.aq %0, %3, (%1)\n\t"
+                         "   bnez    %0, 1b\n\t"
+                         "2:"
+                         : "+r"(res)
+                         : "r"(var), "r"(compare), "r"(exchange)
+                         : "t0", "memory");
+    return res == 0;
+}
+
+static inline bool
+atomic_compare_exchange_int64(volatile int64 *var, int64 compare, int64 exchange)
+{
+    bool res = 1;
+    /* Page 49 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address is
+     * naturally aligned.
+     */
+    ASSERT(ALIGNED(var, 8));
+    /* This code is based on GCC's atomic_compare_exchange_strong().
+     * The fence ensures no re-ordering beyond the start of the lr/sc loop.
+     * The lr/sc use acquire ordering to ensure that the full loop has
+     * sequentially consistent memory order semantics.
+     */
+    __asm__ __volatile__("fence   iorw,ow\n\t"
+                         "1: lr.d.aq t0, (%1)\n\t"
+                         "   bne     t0, %2, 2f\n\t"
+                         "   sc.d.aq %0, %3, (%1)\n\t"
+                         "   bnez    %0, 1b\n\t"
+                         "2:"
+                         : "+r"(res)
+                         : "r"(var), "r"(compare), "r"(exchange)
+                         : "t0", "memory");
+    return res == 0;
+}
+
+#        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
+            atomic_compare_exchange_int(var, compare, exchange)
+#        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
+            atomic_compare_exchange_int64(var, compare, exchange)
+
+static inline int
+atomic_exchange_int(volatile int *var, int newval)
+{
+    int res;
+    /* Page 53 of Volume I: RISC-V Unprivileged ISA V20191213 requires that var address
+     * is naturally aligned.
+     */
+    ASSERT(ALIGNED(var, 4));
+    __asm__ __volatile__("amoswap.w.aqrl %0, %2, 0(%1)\n\t"
+                         : "=r"(res)
+                         : "r"(var), "r"(newval)
+                         : "memory");
+    return res;
+}
+
+/* Ensure no store reordering for normal memory writes. */
+#        define MEMORY_STORE_BARRIER() __asm__ __volatile__("fence w,w")
+
+/* Insert pause hint directly to be compatible with old compilers. This
+ * will work even on platforms without Zihintpause extension because this
+ * is a FENCE hint instruction which evaluates to NOP then.
+ */
+#        define SPINLOCK_PAUSE() __asm__ __volatile__(".int 0x0100000F");
+
+static inline bool
+atomic_inc_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, 1) == 0;
+}
+
+static inline bool
+atomic_dec_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == -1;
+}
+
+static inline bool
+atomic_dec_becomes_zero(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == 0;
+}
+#    endif /* RISCV64 */
 
 #    ifdef X64
 #        define ATOMIC_ADD_PTR(type, var, val) ATOMIC_ADD_int64(var, val)
@@ -737,7 +1029,7 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 #    endif
 
-#    ifndef DR_HOST_AARCH64
+#    if !defined(DR_HOST_AARCH64) && !defined(DR_HOST_RISCV64)
 /* Atomically increments *var by 1
  * Returns true if the resulting value is zero, otherwise returns false
  */

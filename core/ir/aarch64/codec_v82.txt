@@ -40,23 +40,30 @@
 0x101110110xxxxx000101xxxxxxxxxx  n   94   FP16      fabd  dq0 : dq5 dq16 h_sz
 01111110110xxxxx000101xxxxxxxxxx  n   94   FP16      fabd   h0 : h5 h16
 0x00111011111000111110xxxxxxxxxx  n   95   FP16      fabs  dq0 : dq5 h_sz
+01111110010xxxxx001011xxxxxxxxxx  n   96   FP16     facge   h0 : h5 h16
 0x101110010xxxxx001011xxxxxxxxxx  n   96   FP16     facge  dq0 : dq5 dq16 h_sz
 0x101110110xxxxx001011xxxxxxxxxx  n   97   FP16     facgt  dq0 : dq5 dq16 h_sz
+01111110110xxxxx001011xxxxxxxxxx  n   97   FP16     facgt   h0 : h5 h16
 0x001110010xxxxx000101xxxxxxxxxx  n   98   FP16      fadd  dq0 : dq5 dq16 h_sz
 0x101110010xxxxx000101xxxxxxxxxx  n   99   FP16     faddp  dq0 : dq5 dq16 h_sz
-0101111000110000110110xxxxxxxxxx  n   99   FP16     faddp   h0 : q5 h_sz
+0101111000110000110110xxxxxxxxxx  n   99   FP16     faddp   h0 : s5 h_sz
 00011110111xxxxxxxxx01xxxxx0xxxx  w   100  FP16     fccmp  fccm_h
 00011110111xxxxxxxxx01xxxxx1xxxx  w   101  FP16    fccmpe  fccm_h
 0x001110010xxxxx001001xxxxxxxxxx  n   102  FP16     fcmeq  dq0 : dq5 dq16 h_sz
 0x00111011111000110110xxxxxxxxxx  n   102  FP16     fcmeq  dq0 : dq5 zero_fp_const h_sz
+01011110010xxxxx001001xxxxxxxxxx  n   102  FP16     fcmeq   h0 : h5 h16
 0101111011111000110110xxxxxxxxxx  n   102  FP16     fcmeq   h0 : h5 zero_fp_const
+01111110010xxxxx001001xxxxxxxxxx  n   103  FP16     fcmge   h0 : h5 h16
 0x101110010xxxxx001001xxxxxxxxxx  n   103  FP16     fcmge  dq0 : dq5 dq16 h_sz
 0x10111011111000110010xxxxxxxxxx  n   103  FP16     fcmge  dq0 : dq5 zero_fp_const h_sz
 0111111011111000110010xxxxxxxxxx  n   103  FP16     fcmge   h0 : h5 zero_fp_const
+01111110110xxxxx001001xxxxxxxxxx  n   104  FP16     fcmgt   h0 : h5 h16
 0x101110110xxxxx001001xxxxxxxxxx  n   104  FP16     fcmgt  dq0 : dq5 dq16 h_sz
 0x00111011111000110010xxxxxxxxxx  n   104  FP16     fcmgt  dq0 : dq5 zero_fp_const h_sz
 0101111011111000110010xxxxxxxxxx  n   104  FP16     fcmgt   h0 : h5 zero_fp_const
+0x10111011111000110110xxxxxxxxxx  n   105  FP16     fcmle  dq0 : dq5 zero_fp_const h_sz
 0111111011111000110110xxxxxxxxxx  n   105  FP16     fcmle   h0 : h5 zero_fp_const
+0x00111011111000111010xxxxxxxxxx  n   106  FP16     fcmlt  dq0 : dq5 zero_fp_const h_sz
 0101111011111000111010xxxxxxxxxx  n   106  FP16     fcmlt   h0 : h5 zero_fp_const
 0001111011100000001000xxxxx01000  w   107  FP16      fcmp      : h5 zero_fp_const
 00011110111xxxxx001000xxxxx00000  w   107  FP16      fcmp      : h5 h16
