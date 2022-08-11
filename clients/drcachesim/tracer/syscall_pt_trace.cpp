@@ -51,7 +51,7 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     : open_file_func_(nullptr)
     , write_file_func_(nullptr)
     , close_file_func_(nullptr)
-    , pttracer_handle_ {nullptr, nullptr}
+    , pttracer_handle_ { nullptr, nullptr }
     , recorded_syscall_count_(0)
     , cur_recording_sysnum_(-1)
     , drcontext_(nullptr)
@@ -176,8 +176,8 @@ syscall_pt_trace_t::kernel_image_dump(IN const char *to_dir)
     "rm -rf perf.data \n"
 #define SHELLSCRIPT_MAX_LEN 512 + MAXIMUM_PATH * 2
     char shellscript[SHELLSCRIPT_MAX_LEN];
-    dr_snprintf(shellscript, BUFFER_SIZE_ELEMENTS(shellscript), SHELLSCRIPT_FMT,
-                to_dir, to_dir);
+    dr_snprintf(shellscript, BUFFER_SIZE_ELEMENTS(shellscript), SHELLSCRIPT_FMT, to_dir,
+                to_dir);
     NULL_TERMINATE_BUFFER(shellscript);
     int ret = system(shellscript);
     if (ret != 0) {
