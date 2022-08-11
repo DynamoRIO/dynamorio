@@ -101,7 +101,7 @@ session by calling drpttracer_start_tracing() and drpttracer_stop_tracing().
  - drpttracer_start_tracing()
  - drpttracer_stop_tracing()
 
-The client must pass an valid trace handle to the start and stop function. And the client
+The client must pass a valid trace handle to the start and stop function. And the client
 can use one handle for multiple tracing sessions. When the tracing is stopped, the stop
 function will allocate an instance of #drpttracer_output_t, and copy the PT data, sideband
 data, and metadata to a #drpttracer_output_t instance which is returned to the client. If

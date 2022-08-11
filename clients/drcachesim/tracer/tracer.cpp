@@ -1236,9 +1236,12 @@ event_pre_syscall(void *drcontext, int sysnum)
             return true;
         }
 
-        if (data->syscall_pt_trace.get_cur_recording_sysnum() != -1) {
+        if (data->syscall_pt_trace.get_cur_recording_sysnum() != INVALID_SYSNUM) {
             ASSERT(false, "last tracing isn't stopped");
-            return false;
+            if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
+                ASSERT(false, "failed to stop syscall pt trace");
+                return false;
+            }
         }
         if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
@@ -1253,22 +1256,22 @@ static void
 event_post_syscall(void *drcontext, int sysnum)
 {
 #ifdef BUILD_PT_TRACER
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
-        return;
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
+        return;
+    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
 
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    if (data->syscall_pt_trace.get_cur_recording_sysnum() == -1) {
+    if (data->syscall_pt_trace.get_cur_recording_sysnum() == INVALID_SYSNUM) {
         ASSERT(false, "last syscall is not traced");
         return;
     }
 
     ASSERT(data->syscall_pt_trace.get_cur_recording_sysnum() == sysnum,
-           "last tracing isn't stopped");
+           "last tracing isn't for the expected sysnum");
     if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
         ASSERT(false, "failed to stop syscall pt trace");
         return;
@@ -1437,14 +1440,15 @@ event_thread_exit(void *drcontext)
 #ifdef BUILD_PT_TRACER
         if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
             int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
-            if (cur_recording_sysnum != -1) {
+            if (cur_recording_sysnum != INVALID_SYSNUM) {
                 NOTIFY(0,
                        "ERROR: The last recorded syscall %d of thread T%d wasn't be "
                        "stopped.\n",
                        cur_recording_sysnum, dr_get_thread_id(drcontext));
                 ASSERT(cur_recording_sysnum, "syscall recording is not stopped");
-                FATAL("failed to stop syscall pt trace(sysnum=%d)\n",
-                      cur_recording_sysnum);
+                if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
+                    ASSERT(false, "failed to stop syscall pt trace");
+                }
             }
         }
 #endif

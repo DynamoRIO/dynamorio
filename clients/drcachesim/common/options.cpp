@@ -647,6 +647,6 @@ droption_t<bool> op_enable_kernel_tracing(
     "By default, offline tracing only records a userspace trace. If this option is "
     "enabled, offline tracing will record each syscall's Kernel PT and write every "
     "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
-    "analysis. And this feature is depended on the Intel CPU that supports Intel@ "
+    "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
 #endif

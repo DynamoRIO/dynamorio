@@ -85,6 +85,7 @@ syscall_pt_trace_t::start_syscall_pt_trace(int sysnum)
 #define RING_BUFFER_SIZE_SHIFT 8
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
     ASSERT(pttracer_handle_.handle == nullptr, "pttracer_handle_.handle isn't nullptr");
+
     /* TODO i#5505: To reduce the overhead caused by pttracer initialization, we should
      * share the same pttracer handle for all syscalls. We will do this when we upgrade
      * drpt2ir to support decoding PT fragments that don't have PSB packets.
@@ -113,6 +114,10 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
         DRPTTRACER_SUCCESS) {
         return false;
     }
+
+    /* TODO i#5505: If we can share the same pttracer handle for all syscalls, we can
+     * avoid to reset the handle.
+     */
     pttracer_handle_.reset();
     cur_recording_sysnum_ = -1;
     recorded_syscall_count_++;

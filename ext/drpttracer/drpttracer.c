@@ -141,11 +141,11 @@ typedef enum {
  * This function is used to copy data from ring buffer to an output buffer.
  * ring buffer:
  *  if head_offs > tail_offs:
- *   vaild data = [tail_offs, head_offs]
+ *   valid data = [tail_offs, head_offs]
  *  else if head_offs < tail_offs:
- *   vaild data = [tail_offs, ring_buf_size) + [0, head_offs]
+ *   valid data = [tail_offs, ring_buf_size) + [0, head_offs]
  *  else:
- *   vaild data = empty
+ *   valid data = empty
  */
 static read_ring_buf_status_t
 read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
@@ -362,7 +362,7 @@ pt_shared_metadata_init(pt_metadata_t *metadata)
 }
 
 /***************************************************************************
- * PT TRACER HANDLE RELATED FUNCTIONS
+ * PT TRACER HANDLE
  */
 
 /* The PT trace handle. The handle is used to store information about the currently active
@@ -396,103 +396,6 @@ typedef struct _pttracer_handle_t {
     /* The mode of the tracing. */
     drpttracer_tracing_mode_t tracing_mode;
 } pttracer_handle_t;
-
-/* This function is used to open perf event and generate a pttracer_handle_t.
- */
-static pttracer_handle_t *
-pttracer_handle_create(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
-                       IN uint pt_size_shift, IN uint sideband_size_shift)
-{
-    if (pt_size_shift == 0 || sideband_size_shift == 0) {
-        ERRMSG("pt_size_shift and sideband_size_shift must be greater than 0\n");
-        return NULL;
-    }
-
-    /* Select one perf_event_attr for current pttracer. */
-    struct perf_event_attr attr;
-    if (tracing_mode == DRPTTRACER_TRACING_ONLY_USER) {
-        attr = user_only_pe_attr;
-    } else if (tracing_mode == DRPTTRACER_TRACING_ONLY_KERNEL) {
-        attr = kernel_only_pe_attr;
-    } else if (tracing_mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
-        attr = user_kernel_pe_attr;
-    } else {
-        ERRMSG("invalid tracing mode");
-        return NULL;
-    }
-
-    /* Open perf event. */
-    int fd = perf_event_open(&attr, dr_get_thread_id(drcontext), -1, -1, 0);
-    if (fd < 0) {
-        ERRMSG("failed to open perf event");
-        return NULL;
-    }
-
-    /* Mmap the perf event file. */
-    uint64_t base_size = (uint64_t)((1UL << sideband_size_shift) + 1) * dr_page_size();
-    uint64_t base_mmap_size = base_size;
-    void *base =
-        dr_map_file(fd, &base_mmap_size, 0, NULL, DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
-    if (base == NULL || base_mmap_size != base_size) {
-        ERRMSG("failed to mmap perf event for pt tracing\n");
-        dr_close_file(fd);
-        return NULL;
-    }
-
-    /* Get the header of the perf event file's mmap pages. */
-    struct perf_event_mmap_page *header = (struct perf_event_mmap_page *)base;
-    header->aux_offset = header->data_offset + header->data_size;
-    header->aux_size = (uint64_t)(1UL << pt_size_shift) * dr_page_size();
-
-    /* Mmap the ring buffer of the perf event's auxiliary data. */
-    uint64_t aux_mmap_size = header->aux_size;
-    void *aux = dr_map_file(fd, &aux_mmap_size, header->aux_offset, NULL,
-                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
-    if (aux == NULL || aux_mmap_size != header->aux_size) {
-        ERRMSG("failed to mmap aux for pt tracing\n");
-        dr_unmap_file(base, base_size);
-        dr_close_file(fd);
-        return NULL;
-    }
-
-    /* Alloc the handle and set it. */
-    pttracer_handle_t *handle =
-        (pttracer_handle_t *)dr_thread_alloc(drcontext, sizeof(pttracer_handle_t));
-    handle->fd = fd;
-    handle->base = base;
-    handle->base_size = base_size;
-    handle->aux = aux;
-    handle->tracing_mode = tracing_mode;
-    return handle;
-}
-
-/* This function is used to free a pttracer_handle_t.
- */
-static void
-pttracer_handle_free(IN void *drcontext, IN pttracer_handle_t *handle)
-{
-    if (handle == NULL) {
-        ERRMSG("invalid pttracer handle");
-        return;
-    }
-    if (handle->fd >= 0) {
-        dr_close_file(handle->fd);
-    } else {
-        ERRMSG("pttracer handle has invalid fd");
-    }
-    if (handle->aux != NULL) {
-        dr_unmap_file(handle->aux, handle->header->aux_size);
-    } else {
-        ERRMSG("pttracer handle has invalid aux");
-    }
-    if (handle->base != NULL) {
-        dr_unmap_file(handle->base, handle->base_size);
-    } else {
-        ERRMSG("pttracer handle has invalid base");
-    }
-
-    dr_thread_free(drcontext, handle, sizeof(pttracer_handle_t));
-}
 
 /***************************************************************************
  * INIT APIS
@@ -537,7 +440,7 @@ drpttracer_exit(void)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle)
 {
@@ -546,13 +449,66 @@ drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
         return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
 
-    /* Initialize the pttracer_handle_t. */
-    pttracer_handle_t *handle =
-        pttracer_handle_create(drcontext, mode, pt_size_shift, sideband_size_shift);
-    if (handle == NULL) {
-        ASSERT(false, "failed to create pttracer_handle");
-        return DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE;
+    if (pt_size_shift == 0 || sideband_size_shift == 0) {
+        ASSERT(false, "pt_size_shift and sideband_size_shift must be greater than 0\n");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
+
+    /* Select one perf_event_attr for current pttracer. */
+    struct perf_event_attr attr;
+    if (tracing_mode == DRPTTRACER_TRACING_ONLY_USER) {
+        attr = user_only_pe_attr;
+    } else if (tracing_mode == DRPTTRACER_TRACING_ONLY_KERNEL) {
+        attr = kernel_only_pe_attr;
+    } else if (tracing_mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
+        attr = user_kernel_pe_attr;
+    } else {
+        ASSERT(false, "invalid tracing mode");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+
+    /* Open perf event. */
+    int fd = perf_event_open(&attr, dr_get_thread_id(drcontext), -1, -1, 0);
+    if (fd < 0) {
+        ASSERT(false, "failed to open perf event");
+        return DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT;
+    }
+
+    /* Mmap the perf event file. */
+    uint64_t base_size = (uint64_t)((1UL << sideband_size_shift) + 1) * dr_page_size();
+    uint64_t base_mmap_size = base_size;
+    void *base =
+        dr_map_file(fd, &base_mmap_size, 0, NULL, DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
+    if (base == NULL || base_mmap_size != base_size) {
+        ASSERT(false, "failed to mmap perf event for pt tracing\n");
+        dr_close_file(fd);
+        return DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_DATA;
+    }
+
+    /* Get the header of the perf event file's mmap pages. */
+    struct perf_event_mmap_page *header = (struct perf_event_mmap_page *)base;
+    header->aux_offset = header->data_offset + header->data_size;
+    header->aux_size = (uint64_t)(1UL << pt_size_shift) * dr_page_size();
+
+    /* Mmap the ring buffer of the perf event's auxiliary data. */
+    uint64_t aux_mmap_size = header->aux_size;
+    void *aux = dr_map_file(fd, &aux_mmap_size, header->aux_offset, NULL,
+                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
+    if (aux == NULL || aux_mmap_size != header->aux_size) {
+        ASSERT(false, "failed to mmap aux for pt tracing\n");
+        dr_unmap_file(base, base_size);
+        dr_close_file(fd);
+        return DRPTTRACER_ERROR_FAILED_TO_MMAP_PT_DATA;
+    }
+
+    /* Alloc the handle and set it. */
+    pttracer_handle_t *handle =
+        (pttracer_handle_t *)dr_thread_alloc(drcontext, sizeof(pttracer_handle_t));
+    handle->fd = fd;
+    handle->base = base;
+    handle->base_size = base_size;
+    handle->aux = aux;
+    handle->tracing_mode = tracing_mode;
     *(pttracer_handle_t **)tracer_handle = handle;
     return DRPTTRACER_SUCCESS;
 }
@@ -561,11 +517,31 @@ DR_EXPORT
 drpttracer_status_t
 drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle)
 {
-    if (tracer_handle == NULL) {
+    pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
+    if (handle == NULL) {
         ASSERT(false, "invalid pttracer handle");
         return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
-    pttracer_handle_free(drcontext, (pttracer_handle_t *)tracer_handle);
+    if (handle->fd >= 0) {
+        dr_close_file(handle->fd);
+    } else {
+        ASSERT(false, "pttracer handle has invalid fd");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+    if (handle->aux != NULL) {
+        dr_unmap_file(handle->aux, handle->header->aux_size);
+    } else {
+        ASSERT(false, "pttracer handle has invalid aux");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+    if (handle->base != NULL) {
+        dr_unmap_file(handle->base, handle->base_size);
+    } else {
+        ASSERT(false, "pttracer handle has invalid base");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+
+    dr_thread_free(drcontext, handle, sizeof(pttracer_handle_t));
     return DRPTTRACER_SUCCESS;
 }
 
@@ -585,7 +561,6 @@ drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle)
         ioctl(handle->fd, PERF_EVENT_IOC_ENABLE, 0) < 0) {
         ERRMSG("Error Message: %s\n", strerror(errno));
         ASSERT(false, "failed to start tracing");
-        pttracer_handle_free(drcontext, handle);
         return DRPTTRACER_ERROR_FAILED_TO_START_TRACING;
     }
     return DRPTTRACER_SUCCESS;

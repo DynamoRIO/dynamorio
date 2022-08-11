@@ -70,7 +70,13 @@ public:
     }
     ~instrlist_autoclean_t()
     {
-        if (drcontext != nullptr && data != nullptr) {
+#ifdef DEBUG
+        if (drcontext == nullptr) {
+            std::cerr << "instrlist_autoclean_t: invalid drcontext" << std::endl;
+            exit(1);
+        }
+#endif
+        if (data != nullptr) {
             instrlist_clear_and_destroy(drcontext, data);
             data = nullptr;
         }

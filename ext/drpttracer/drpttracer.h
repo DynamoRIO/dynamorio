@@ -151,8 +151,10 @@ typedef enum {
     DRPTTRACER_ERROR_INVALID_PARAMETER,
     /** Operation failed: failed to open perf event. */
     DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT,
-    /** Operation failed: failed to create a pttracer handle. */
-    DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE,
+    /** Operation failed: failed to mmap perf data. */
+    DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_DATA,
+    /** Operation failed: failed to mmap PT data. */
+    DRPTTRACER_ERROR_FAILED_TO_MMAP_PT_DATA,
     /** Operation failed: failed to start tracing. */
     DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
     /** Operation failed: failed to stop tracing. */
@@ -190,7 +192,7 @@ DR_EXPORT
  * drpttracer_exit(). The handle is used to start and stop PT tracing.
  *
  * \param[in] drcontext  The context of DynamoRIO.
- * \param[in] mode  The tracing mode.
+ * \param[in] tracing_mode  The tracing mode.
  * \param[in] pt_size_shift  The size shift of PT trace's buffer.
  * \param[in] sideband_size_shift  The size shift of sideband data's buffer.
  * \param[out] tracer_handle  The pttracer handle.
@@ -221,7 +223,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle);
 

@@ -59,7 +59,8 @@ public:
     void
     reset()
     {
-        if (drcontext != nullptr && handle != nullptr) {
+        ASSERT(drcontext != nullptr, "invalid drcontext");
+        if (handle != nullptr) {
             drpttracer_destroy_handle(drcontext, handle);
             handle = nullptr;
         }
@@ -80,7 +81,8 @@ public:
     }
     ~drpttracer_output_autoclean_t()
     {
-        if (drcontext != nullptr && data != nullptr) {
+        ASSERT(drcontext != nullptr, "invalid drcontext");
+        if (data != nullptr) {
             void *drcontext = dr_get_current_drcontext();
             drpttracer_destroy_output(drcontext, data);
             data = nullptr;
@@ -89,6 +91,9 @@ public:
     void *drcontext = nullptr;
     drpttracer_output_t *data = nullptr;
 };
+
+#define INVALID_SYSNUM -1
+
 /* This class is not thread-safe: the caller should create a separate instance per thread.
  */
 class syscall_pt_trace_t {
