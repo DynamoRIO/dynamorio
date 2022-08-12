@@ -1996,7 +1996,6 @@
 #define INSTR_CREATE_fmaxp_scalar(dc, Rd, Rn, Rn_elsz) \
     instr_create_1dst_2src(dc, OP_fmaxp, Rd, Rn, Rn_elsz)
 
-
 /**
  * Creates a FACGE vector instruction.
  *
@@ -2387,7 +2386,6 @@
  */
 #define INSTR_CREATE_fminp_scalar(dc, Rd, Rn, Rn_elsz) \
     instr_create_1dst_2src(dc, OP_fminp, Rd, Rn, Rn_elsz)
-
 
 /**
  * Creates a BIT vector instruction.
