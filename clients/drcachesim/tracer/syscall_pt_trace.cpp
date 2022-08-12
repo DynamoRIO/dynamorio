@@ -51,7 +51,7 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     : open_file_func_(nullptr)
     , write_file_func_(nullptr)
     , close_file_func_(nullptr)
-    , pttracer_handle_ { nullptr, nullptr }
+    , pttracer_handle_ { GLOBAL_DCONTEXT, nullptr }
     , recorded_syscall_count_(0)
     , cur_recording_sysnum_(-1)
     , drcontext_(nullptr)
