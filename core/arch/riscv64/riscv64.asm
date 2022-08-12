@@ -67,7 +67,7 @@ GLOBAL_LABEL(call_switch_stack:)
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
  * Passes in 8 arguments.  Uses the C calling convention, so 'func' will work
- * just fine even if if takes fewer than 8 args.
+ * just fine even if it takes fewer than 8 args.
  * Swaps the stack back upon return and returns the value returned by 'func'.
  *
  * void * dr_call_on_clean_stack(void *drcontext,

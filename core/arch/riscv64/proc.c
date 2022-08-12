@@ -81,18 +81,19 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
         "/sys/devices/system/cpu/cpu0/of_node/i-cache-block-size";
     static size_t dcache_line = 0;
     static size_t icache_line = 0;
+    bool result = true;
     size_t sz;
 
     if (dcache_line_size) {
-        ATOMIC_8BYTE_ALIGNED_READ(&dcache_line, &sz);
-        if (sz == 0) {
+        if (dcache_line == 0) {
             sz = read_cache_line(d_cache_fname);
             if (sz > 0)
-                ATOMIC_8BYTE_ALIGNED_WRITE(&dcache_line, &sz, false);
+                dcache_line = sz;
         }
-        ATOMIC_8BYTE_ALIGNED_READ(&dcache_line, &sz);
-        if (sz != 0)
-            *dcache_line_size = sz;
+        if (dcache_line != 0)
+            *dcache_line_size = dcache_line;
+        else
+            result = false;
     }
 
     if (icache_line_size) {
@@ -103,9 +104,11 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
         }
         if (icache_line != 0)
             *icache_line_size = icache_line;
+        else
+            result = false;
     }
 
-    return true;
+    return result;
 #endif
     return false;
 }

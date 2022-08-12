@@ -105,9 +105,7 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
 }
 
 /*###########################################################################
- *###########################################################################
- *
- *   M A N G L I N G   R O U T I N E S
+ *   MANGLING ROUTINES
  */
 
 /* This is *not* a hot-patchable patch: i.e., it is subject to races. */
@@ -214,6 +212,5 @@ float_pc_update(dcontext_t *dcontext)
 }
 
 /* END OF MANGLING ROUTINES
- *###########################################################################
  *###########################################################################
  */
