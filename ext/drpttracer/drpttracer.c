@@ -64,6 +64,13 @@
 #    define ERRMSG(...) /* nothing */
 #endif
 
+#ifndef UINT32_FORMAT_STRING
+#    define UINT32_FORMAT_STRING "%" PRIu32
+#endif
+#ifndef UINT64_FORMAT_STRING
+#    define UINT64_FORMAT_STRING "%" PRIu64
+#endif
+
 /* drpttracer supports multiple types of tracing. To avoid the overhead of re-initializing
  * perf_event_attr for each request, drpttracer stores all tracing types' perf_event_attr
  * as global static variables, then drpttracer can directly use them when the caller wants
@@ -123,6 +130,60 @@ read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size
     return true;
 }
 
+typedef enum {
+    READ_RING_BUFFER_SUCCESS,
+    READ_RING_BUFFER_ERROR,
+    READ_RING_BUFFER_ERROR_INVALID_PARAMETER,
+    READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN
+} read_ring_buf_status_t;
+
+/*
+ * This function is used to copy data from ring buffer to an output buffer.
+ * ring buffer:
+ *  if head_offs > tail_offs:
+ *   valid data = [tail_offs, head_offs]
+ *  else if head_offs < tail_offs:
+ *   valid data = [tail_offs, ring_buf_size) + [0, head_offs]
+ *  else:
+ *   valid data = empty
+ */
+static read_ring_buf_status_t
+read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
+                     IN uint64_t ring_buf_size, IN uint64_t head, IN uint64_t tail,
+                     OUT void **data_buf, OUT uint64_t *data_buf_size)
+{
+    if (ring_buf_base == NULL) {
+        ASSERT(false, "try to read from NULL buffer");
+        return READ_RING_BUFFER_ERROR_INVALID_PARAMETER;
+    }
+    uint64_t data_size = head - tail;
+    if (data_size > ring_buf_size) {
+        ASSERT(
+            false,
+            "data size is larger than the ring buffer size, and old data is overwritten");
+        return READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN;
+    }
+    *data_buf_size = data_size;
+    if (data_size > 0) {
+        *data_buf = dr_thread_alloc(drcontext, *data_buf_size);
+    } else {
+        *data_buf = NULL;
+    }
+
+    uint64_t head_offs = head % ring_buf_size;
+    uint64_t tail_offs = tail % ring_buf_size;
+    if (head_offs > tail_offs) {
+        memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs, data_size);
+    } else if (head_offs < tail_offs) {
+        memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs,
+               ring_buf_size - tail_offs);
+        memcpy((uint8_t *)*data_buf + ring_buf_size - tail_offs, ring_buf_base,
+               head_offs);
+    } else {
+        /* Do nothing. */
+    }
+    return READ_RING_BUFFER_SUCCESS;
+}
 /***************************************************************************
  * PMU CONFIG PARSING FUNCTIONS
  */
@@ -145,7 +206,7 @@ parse_pt_pmu_type(OUT uint32_t *pmu_type)
 
     /* Parse type str to get the PMU type. */
     uint32_t type = 0;
-    int ret = dr_sscanf(buf, "%" PRIu32, &type);
+    int ret = dr_sscanf(buf, UINT32_FORMAT_STRING, &type);
     if (ret < 1) {
         ERRMSG("failed to parse pmu type from file " PT_PMU_PERF_TYPE_FILE "\n");
         dr_global_free(buf, buf_size);
@@ -191,7 +252,8 @@ parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *confi
     /* Set the 'val' in the corresponding bit. */
     uint64_t mask = BITS(end - start + 1);
     if ((val & ~mask) > 0) {
-        ERRMSG("pmu event's config value %" PRIu64 " is out of range\n", val);
+        ERRMSG("pmu event's config value " UINT64_FORMAT_STRING " is out of range\n",
+               val);
         dr_global_free(buf, buf_size);
         return false;
     }
@@ -300,7 +362,7 @@ pt_shared_metadata_init(pt_metadata_t *metadata)
 }
 
 /***************************************************************************
- * PT TRACER HANDLE RELATED FUNCTIONS
+ * PT TRACER HANDLE
  */
 
 /* The PT trace handle. The handle is used to store information about the currently active
@@ -334,74 +396,6 @@ typedef struct _pttracer_handle_t {
     /* The mode of the tracing. */
     drpttracer_tracing_mode_t tracing_mode;
 } pttracer_handle_t;
-
-/* This function is used to generate a pttracer_handle_t from the perf event file
- * descriptor.
- */
-static pttracer_handle_t *
-pttracer_handle_create(IN void *drcontext, IN int fd, IN uint pt_size_shift,
-                       IN uint sideband_size_shift,
-                       IN drpttracer_tracing_mode_t tracing_mode)
-{
-    if (pt_size_shift == 0 || sideband_size_shift == 0) {
-        ERRMSG("pt_size_shift and sideband_size_shift must be greater than 0\n");
-        return NULL;
-    }
-
-    /* Mmap the perf event file. */
-    uint64_t base_size = (uint64_t)((1UL << sideband_size_shift) + 1) * dr_page_size();
-    uint64_t base_mmap_size = base_size;
-    void *base =
-        dr_map_file(fd, &base_mmap_size, 0, NULL, DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
-    if (base == NULL || base_mmap_size != base_size) {
-        ERRMSG("failed to mmap perf event for pt tracing\n");
-        dr_close_file(fd);
-        return NULL;
-    }
-
-    /* Get the header of the perf event file's mmap pages. */
-    struct perf_event_mmap_page *header = (struct perf_event_mmap_page *)base;
-    header->aux_offset = header->data_offset + header->data_size;
-    header->aux_size = (uint64_t)(1UL << pt_size_shift) * dr_page_size();
-
-    /* Mmap the ring buffer of the perf event's auxiliary data. */
-    uint64_t aux_mmap_size = header->aux_size;
-    void *aux =
-        dr_map_file(fd, &aux_mmap_size, header->aux_offset, NULL, DR_MEMPROT_READ, 0);
-    if (aux == NULL || aux_mmap_size != header->aux_size) {
-        ERRMSG("failed to mmap aux for pt tracing\n");
-        dr_unmap_file(base, base_size);
-        dr_close_file(fd);
-        return NULL;
-    }
-
-    /* Alloc the handle and set it. */
-    pttracer_handle_t *handle =
-        (pttracer_handle_t *)dr_thread_alloc(drcontext, sizeof(pttracer_handle_t));
-    handle->fd = fd;
-    handle->base = base;
-    handle->base_size = base_size;
-    handle->aux = aux;
-    handle->tracing_mode = tracing_mode;
-    return handle;
-}
-
-/* This function is used to free a pttracer_handle_t.
- */
-static void
-pttracer_handle_free(IN void *drcontext, pttracer_handle_t *handle)
-{
-    if (handle == NULL)
-        return;
-    if (handle->fd >= 0)
-        dr_close_file(handle->fd);
-    if (handle->aux != NULL)
-        dr_unmap_file(handle->aux, handle->header->aux_size);
-    if (handle->base != NULL)
-        dr_unmap_file(handle->base, handle->base_size);
-
-    dr_thread_free(drcontext, handle, sizeof(pttracer_handle_t));
-}
 
 /***************************************************************************
  * INIT APIS
@@ -446,18 +440,27 @@ drpttracer_exit(void)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle)
 {
-    ASSERT(tracer_handle != NULL, "tracer_handle is NULL");
-    /* Select one perf_event_attr for current tracing. */
+    if (tracer_handle == NULL) {
+        ASSERT(false, "tracer_handle is NULL");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+
+    if (pt_size_shift == 0 || sideband_size_shift == 0) {
+        ASSERT(false, "pt_size_shift and sideband_size_shift must be greater than 0\n");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+
+    /* Select one perf_event_attr for current pttracer. */
     struct perf_event_attr attr;
-    if (mode == DRPTTRACER_TRACING_ONLY_USER) {
+    if (tracing_mode == DRPTTRACER_TRACING_ONLY_USER) {
         attr = user_only_pe_attr;
-    } else if (mode == DRPTTRACER_TRACING_ONLY_KERNEL) {
+    } else if (tracing_mode == DRPTTRACER_TRACING_ONLY_KERNEL) {
         attr = kernel_only_pe_attr;
-    } else if (mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
+    } else if (tracing_mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
         attr = user_kernel_pe_attr;
     } else {
         ASSERT(false, "invalid tracing mode");
@@ -465,38 +468,108 @@ drpttracer_start_tracing(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
     }
 
     /* Open perf event. */
-    int perf_event_fd = perf_event_open(&attr, dr_get_thread_id(drcontext), -1, -1, 0);
-    if (perf_event_fd < 0) {
+    int fd = perf_event_open(&attr, dr_get_thread_id(drcontext), -1, -1, 0);
+    if (fd < 0) {
         ASSERT(false, "failed to open perf event");
         return DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT;
     }
 
-    /* Initialize the pttracer_handle_t. */
-    pttracer_handle_t *handle = pttracer_handle_create(
-        drcontext, perf_event_fd, pt_size_shift, sideband_size_shift, mode);
-    if (handle == NULL) {
-        ASSERT(false, "failed to create pttracer_handle");
-        return DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE;
+    /* Mmap the perf event file. */
+    uint64_t base_size = (uint64_t)((1UL << sideband_size_shift) + 1) * dr_page_size();
+    uint64_t base_mmap_size = base_size;
+    void *base =
+        dr_map_file(fd, &base_mmap_size, 0, NULL, DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
+    if (base == NULL || base_mmap_size != base_size) {
+        ASSERT(false, "failed to mmap perf event for pt tracing\n");
+        dr_close_file(fd);
+        return DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_DATA;
     }
 
-    /* Start the pt tracing. */
-    errno = 0;
-    if (ioctl(perf_event_fd, PERF_EVENT_IOC_RESET, 0) < 0 ||
-        ioctl(perf_event_fd, PERF_EVENT_IOC_ENABLE, 0) < 0) {
-        ERRMSG("Error Message: %s\n", strerror(errno));
-        ASSERT(false, "failed to start tracing");
-        pttracer_handle_free(drcontext, handle);
-        return DRPTTRACER_ERROR_FAILED_TO_START_TRACING;
+    /* Get the header of the perf event file's mmap pages. */
+    struct perf_event_mmap_page *header = (struct perf_event_mmap_page *)base;
+    header->aux_offset = header->data_offset + header->data_size;
+    header->aux_size = (uint64_t)(1UL << pt_size_shift) * dr_page_size();
+
+    /* Mmap the ring buffer of the perf event's auxiliary data. */
+    uint64_t aux_mmap_size = header->aux_size;
+    void *aux = dr_map_file(fd, &aux_mmap_size, header->aux_offset, NULL,
+                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
+    if (aux == NULL || aux_mmap_size != header->aux_size) {
+        ASSERT(false, "failed to mmap aux for pt tracing\n");
+        dr_unmap_file(base, base_size);
+        dr_close_file(fd);
+        return DRPTTRACER_ERROR_FAILED_TO_MMAP_PT_DATA;
     }
 
+    /* Alloc the handle and set it. */
+    pttracer_handle_t *handle =
+        (pttracer_handle_t *)dr_thread_alloc(drcontext, sizeof(pttracer_handle_t));
+    handle->fd = fd;
+    handle->base = base;
+    handle->base_size = base_size;
+    handle->aux = aux;
+    handle->tracing_mode = tracing_mode;
     *(pttracer_handle_t **)tracer_handle = handle;
     return DRPTTRACER_SUCCESS;
 }
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
-                       OUT drpttracer_output_t **output)
+drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle)
+{
+    pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
+    if (handle == NULL) {
+        ASSERT(false, "invalid pttracer handle");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+    if (handle->fd >= 0) {
+        dr_close_file(handle->fd);
+    } else {
+        ASSERT(false, "pttracer handle has invalid fd");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+    if (handle->aux != NULL) {
+        dr_unmap_file(handle->aux, handle->header->aux_size);
+    } else {
+        ASSERT(false, "pttracer handle has invalid aux");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+    if (handle->base != NULL) {
+        dr_unmap_file(handle->base, handle->base_size);
+    } else {
+        ASSERT(false, "pttracer handle has invalid base");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+
+    dr_thread_free(drcontext, handle, sizeof(pttracer_handle_t));
+    return DRPTTRACER_SUCCESS;
+}
+
+DR_EXPORT
+drpttracer_status_t
+drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle)
+{
+    pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
+    if (handle == NULL || handle->fd < 0) {
+        ASSERT(false, "invalid pttracer handle");
+        return DRPTTRACER_ERROR_INVALID_PARAMETER;
+    }
+
+    /* Start the pt tracing. */
+    errno = 0;
+    if (ioctl(handle->fd, PERF_EVENT_IOC_RESET, 0) < 0 ||
+        ioctl(handle->fd, PERF_EVENT_IOC_ENABLE, 0) < 0) {
+        ERRMSG("Error Message: %s\n", strerror(errno));
+        ASSERT(false, "failed to start tracing");
+        return DRPTTRACER_ERROR_FAILED_TO_START_TRACING;
+    }
+    return DRPTTRACER_SUCCESS;
+}
+
+DR_EXPORT
+drpttracer_status_t
+drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
+                        OUT drpttracer_output_t **output)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
@@ -517,47 +590,85 @@ drpttracer_end_tracing(IN void *drcontext, INOUT void *tracer_handle,
         return DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING;
     }
 
+    /* Check if the PT data in the aux ring buffer is overwritten. */
+    uint64_t pt_size = handle->header->aux_head - handle->header->aux_tail;
+    if (pt_size > handle->header->aux_size) {
+        ERRMSG("the size of PT trace data(" UINT64_FORMAT_STRING
+               ") is bigger than the size of PT trace buffer(" UINT64_FORMAT_STRING ")\n",
+               pt_size, handle->header->aux_size);
+        ASSERT(false, "the buffer is full and the new PT data is overwritten");
+        return DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE;
+    }
+
     *output =
         (drpttracer_output_t *)dr_thread_alloc(drcontext, sizeof(drpttracer_output_t));
     memset(*output, 0, sizeof(drpttracer_output_t));
 
-    memcpy(&(*output)->metadata, &pt_shared_metadata, sizeof(pt_metadata_t));
-    (*output)->metadata.time_shift = handle->header->time_shift;
-    (*output)->metadata.time_mult = handle->header->time_mult;
-    (*output)->metadata.time_zero = handle->header->time_zero;
-
-    if (handle->header->aux_head > handle->header->aux_size) {
-        ERRMSG("the buffer is full and the new PT data is overwritten\n");
-        ASSERT(false, "aux_head > aux_size");
-        return DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE;
+    /* Copy pttracer's PT data to current tracing's output container. */
+    read_ring_buf_status_t read_pt_data_status =
+        read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
+                             handle->header->aux_head, handle->header->aux_tail,
+                             &(*output)->pt, &(*output)->pt_size);
+    if (read_pt_data_status != READ_RING_BUFFER_SUCCESS) {
+        drpttracer_destroy_output(drcontext, *output);
+        *output = NULL;
+        ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_pt_data_status);
+        ASSERT(false, "failed to read PT data from the ring buffer");
+        return DRPTTRACER_ERROR_FAILED_TO_READ_PT_DATA;
     }
 
-    (*output)->pt_buf_size = handle->header->aux_head - handle->header->aux_tail;
-    (*output)->pt_buf = dr_thread_alloc(drcontext, (*output)->pt_buf_size);
-    memcpy((*output)->pt_buf, (uint8_t *)handle->aux, (*output)->pt_buf_size);
     if (handle->tracing_mode == DRPTTRACER_TRACING_ONLY_USER ||
         handle->tracing_mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
-        if (handle->header->data_head > handle->header->data_size) {
-            ERRMSG("the buffer is full and the new PT's sideband data is overwritten\n");
-            ASSERT(false, "data_head > data_size");
+        /* Check if the sideband data in the perf data ring buffer is overwritten. */
+        uint64_t sideband_data_size =
+            handle->header->data_head - handle->header->data_tail;
+        if (sideband_data_size > handle->header->aux_size) {
+            drpttracer_destroy_output(drcontext, *output);
+            *output = NULL;
+            ERRMSG(
+                "the size of sideband data(" UINT64_FORMAT_STRING
+                ") is bigger than the size of sideband data buffer(" UINT64_FORMAT_STRING
+                ")\n",
+                sideband_data_size, handle->header->data_size);
+            ASSERT(false, "the buffer is full and the new sideband data is overwritten");
             return DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA;
         }
-        (*output)->sideband_buf_size =
-            handle->header->data_head - handle->header->data_tail;
-        (*output)->sideband_buf =
-            dr_thread_alloc(drcontext, (*output)->sideband_buf_size);
-        memcpy((*output)->sideband_buf,
-               (uint8_t *)handle->base + handle->header->data_tail,
-               (*output)->sideband_buf_size);
+        /* Copy pttracer's sideband data to current tracing's output container. */
+        read_ring_buf_status_t read_sideban_data_status = read_ring_buf_to_buf(
+            drcontext, (uint8_t *)handle->base + handle->header->data_offset,
+            handle->header->data_size, handle->header->data_head,
+            handle->header->data_tail, &(*output)->sideband_data,
+            &(*output)->sideband_data_size);
+        if (read_sideban_data_status != READ_RING_BUFFER_SUCCESS) {
+            drpttracer_destroy_output(drcontext, *output);
+            *output = NULL;
+            ERRMSG("failed to read data from ring buffer(errno:%d) \n",
+                   read_sideban_data_status);
+            ASSERT(false, "failed to read sideband data from the ring buffer");
+            return DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA;
+        }
     } else {
         /* Even when tracing only kernel instructions, there is some sideband data.
          * Because we don't need this data in future processes, we discard it.
          */
-        (*output)->sideband_buf = NULL;
-        (*output)->sideband_buf_size = 0;
+        (*output)->sideband_data = NULL;
+        (*output)->sideband_data_size = 0;
     }
 
-    pttracer_handle_free(drcontext, handle);
+    /* Copy pttracer's metadata to current tracing's output container. */
+    (*output)->metadata = pt_shared_metadata;
+    (*output)->metadata.time_shift = handle->header->time_shift;
+    (*output)->metadata.time_mult = handle->header->time_mult;
+    (*output)->metadata.time_zero = handle->header->time_zero;
+
+    /* Reset the ring buffers' tail offset.
+     * This is necessary because we will reuse the same buffer for next tracing.
+     * The tail offset is used to indicate the start position of the buffer.
+     * When we copy out current tracing's data, we need to reset the tail offset.
+     */
+    handle->header->aux_tail = handle->header->aux_head;
+    handle->header->data_tail = handle->header->data_head;
+
     return DRPTTRACER_SUCCESS;
 }
 
@@ -569,13 +680,13 @@ drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
         ASSERT(false, "trying to free NULL output buffer");
         return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
-    if (output->pt_buf == NULL) {
+    if (output->pt == NULL) {
         ASSERT(false, "trying to free NULL PT buffer");
         return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
-    dr_thread_free(drcontext, output->pt_buf, output->pt_buf_size);
-    if (output->sideband_buf != NULL) {
-        dr_thread_free(drcontext, output->sideband_buf, output->sideband_buf_size);
+    dr_thread_free(drcontext, output->pt, output->pt_size);
+    if (output->sideband_data != NULL) {
+        dr_thread_free(drcontext, output->sideband_data, output->sideband_data_size);
     }
     dr_thread_free(drcontext, output, sizeof(drpttracer_output_t));
     return DRPTTRACER_SUCCESS;

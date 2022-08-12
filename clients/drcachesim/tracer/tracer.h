@@ -50,6 +50,9 @@
 #ifdef HAS_LZ4
 #    include <lz4frame.h>
 #endif
+#ifdef BUILD_PT_TRACER
+#    include "syscall_pt_trace.h"
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -105,6 +108,10 @@ typedef struct {
     uint64 num_phys_markers;
     byte *v2p_buf;
     uint64 num_v2p_writeouts; /* v2p_buf writeout instances. */
+#ifdef BUILD_PT_TRACER
+    /* For syscall kernel trace. */
+    syscall_pt_trace_t syscall_pt_trace;
+#endif
 } per_thread_t;
 
 /* Allocated TLS slot offsets */
