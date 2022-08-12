@@ -36,7 +36,7 @@
 #define _PT2IR_H_ 1
 
 /**
- * @file drmemtrace/pt2ir.h
+ * @file pt2ir.h
  * @brief Offline PT raw trace converter.
  */
 
@@ -56,6 +56,33 @@
 #ifndef INOUT
 #    define INOUT // nothing
 #endif
+
+/* The auto cleanup wrapper of instrlist_t.
+ * This can ensure the instance of instrlist_t is cleaned up when it is out of scope.
+ */
+struct instrlist_autoclean_t {
+public:
+    instrlist_autoclean_t(void *drcontext, instrlist_t *data)
+        : drcontext(drcontext)
+        , data(data)
+    {
+    }
+    ~instrlist_autoclean_t()
+    {
+#ifdef DEBUG
+        if (drcontext == nullptr) {
+            std::cerr << "instrlist_autoclean_t: invalid drcontext" << std::endl;
+            exit(1);
+        }
+#endif
+        if (data != nullptr) {
+            instrlist_clear_and_destroy(drcontext, data);
+            data = nullptr;
+        }
+    }
+    void *drcontext = nullptr;
+    instrlist_t *data = nullptr;
+};
 
 /**
  * The type of pt2ir_t::convert() return value.
@@ -346,7 +373,7 @@ public:
      * successful, the caller needs to destroy the ilist.
      */
     pt2ir_convert_status_t
-    convert(OUT instrlist_cleanup_last_t &ilist);
+    convert(OUT instrlist_autoclean_t &ilist);
 
 private:
     /* Load PT raw file to buffer. The struct pt_insn_decoder will decode this buffer to

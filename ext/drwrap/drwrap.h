@@ -450,6 +450,8 @@ typedef enum {
     DRWRAP_CALLCONV_THISCALL = 0x06000000,
     /** The ARM AArch64 calling convention. */
     DRWRAP_CALLCONV_AARCH64 = 0x07000000,
+    /** The RISC-V LP64 calling convention. */
+    DRWRAP_CALLCONV_RISCV_LP64 = 0x08000000,
 #ifdef X64
 #    ifdef AARCH64
     /** Default calling convention for the platform. */

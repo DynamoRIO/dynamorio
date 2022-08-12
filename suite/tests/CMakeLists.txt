@@ -3825,6 +3825,17 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys "" "@-simulator_type@basic_counts" "")
     endif ()
 
+    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+      set(tool.drcacheoff.gencode_no_reg_compat)
+      add_api_exe(tool.drcacheoff.gencode
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
+        OFF ON)
+      use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
+      set(tool.drcacheoff.gencode_nodr ON)
+      torunonly_drcacheoff(gencode tool.drcacheoff.gencode
+        "" "@-simulator_type@basic_counts" "")
+    endif ()
+
     # XXX i#1551: startstop API is NYI on ARM
     # XXX i#1997: dynamorio_static is not supported on Mac yet
     # FIXME i#2949: gcc 7.3 fails to link certain configs
@@ -4099,7 +4110,7 @@ if (BUILD_CLIENTS)
         set (${testname_full}_postcmd
           "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
         set(${testname_full}_postcmd2
-          "${cmd_pfx}${drpt2trace_path}@-mode@DR@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-kernel_image@${testname_full}.*.dir/kernel.raw/kimage@-kernel_image_metadata@${testname_full}.*.dir/kernel.raw/kimage.metadata")
+          "firstglob${cmd_pfx}${drpt2trace_path}@-mode@DR@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-kernel_image@${testname_full}.*.dir/kernel.raw/kimage@-kernel_image_metadata@${testname_full}.*.dir/kernel.raw/kimage.metadata")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)

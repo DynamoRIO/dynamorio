@@ -151,16 +151,22 @@ typedef enum {
     DRPTTRACER_ERROR_INVALID_PARAMETER,
     /** Operation failed: failed to open perf event. */
     DRPTTRACER_ERROR_FAILED_TO_OPEN_PERF_EVENT,
-    /** Operation failed: failed to create a pttracer handle. */
-    DRPTTRACER_ERROR_FAILED_TO_CREATE_PTTRACER_HANDLE,
+    /** Operation failed: failed to mmap perf data. */
+    DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_DATA,
+    /** Operation failed: failed to mmap PT data. */
+    DRPTTRACER_ERROR_FAILED_TO_MMAP_PT_DATA,
     /** Operation failed: failed to start tracing. */
     DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
     /** Operation failed: failed to stop tracing. */
     DRPTTRACER_ERROR_FAILED_TO_STOP_TRACING,
     /** Operation failed: overwritten PT trace. */
     DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE,
+    /** Operation failed: failed to read PT data from PT ring buffer. */
+    DRPTTRACER_ERROR_FAILED_TO_READ_PT_DATA,
     /** Operation failed: overwritten sideband data. */
     DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA,
+    /** Operation failed: failed to read SIDEBAND data from perf data ring buffer. */
+    DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA,
 } drpttracer_status_t;
 
 /**
@@ -186,7 +192,7 @@ DR_EXPORT
  * drpttracer_exit(). The handle is used to start and stop PT tracing.
  *
  * \param[in] drcontext  The context of DynamoRIO.
- * \param[in] mode  The tracing mode.
+ * \param[in] tracing_mode  The tracing mode.
  * \param[in] pt_size_shift  The size shift of PT trace's buffer.
  * \param[in] sideband_size_shift  The size shift of sideband data's buffer.
  * \param[out] tracer_handle  The pttracer handle.
@@ -208,7 +214,7 @@ DR_EXPORT
  * drpttracer_create_handle(), the client will get a tracer_handle. The client can start
  * and stop tracing by passing it to drpttracer_start_tracing() and
  * drpttracer_stop_tracing(). And if the thread hold a tracer_handle, the client needs to
- * call drpttracer_destory_handle() to destroy the corresponding tracer_handle and release
+ * call drpttracer_destroy_handle() to destroy the corresponding tracer_handle and release
  * the resources before the thread end.
  *
  * \note For one thread, only one tracing can execute at the same time. So the client
@@ -217,7 +223,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t mode,
+drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
                          IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle);
 
@@ -232,7 +238,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_destory_handle(IN void *drcontext, IN void *tracer_handle);
+drpttracer_destroy_handle(IN void *drcontext, IN void *tracer_handle);
 
 DR_EXPORT
 /**

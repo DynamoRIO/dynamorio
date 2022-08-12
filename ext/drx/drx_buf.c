@@ -461,6 +461,9 @@ drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf, instrlist_t
             XINST_CREATE_store_2bytes(drcontext,
                                       OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
                                       opnd_create_reg(reg_64_to_32(buf_ptr))));
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    DR_ASSERT_MSG(false, "Not implemented");
 #else
 #    error NYI
 #endif
@@ -496,6 +499,10 @@ drx_buf_insert_buf_store_1byte(void *drcontext, drx_buf_t *buf, instrlist_t *ili
                 XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch), opnd));
         instr = XINST_CREATE_store_1byte(drcontext, OPND_CREATE_MEM8(buf_ptr, offset),
                                          opnd_create_reg(scratch));
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        DR_ASSERT_MSG(false, "Not implemented");
+        return false;
 #else
 #    error NYI
 #endif
@@ -526,6 +533,10 @@ drx_buf_insert_buf_store_2bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
                 XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch), opnd));
         instr = XINST_CREATE_store_2bytes(drcontext, OPND_CREATE_MEM16(buf_ptr, offset),
                                           opnd_create_reg(scratch));
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        DR_ASSERT_MSG(false, "Not implemented");
+        return false;
 #else
 #    error NYI
 #endif
@@ -595,6 +606,14 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
                                    opnd_create_reg(scratch));
         INSTR_XL8(instr, instr_get_app_pc(where));
         MINSERT(ilist, where, instr);
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        DR_ASSERT_MSG(false, "Not implemented");
+        /* Marking as unused to silence -Wunused-variable. */
+        (void)first;
+        (void)last;
+        (void)immed;
+        return false;
 #else
 #    error NYI
 #endif
@@ -742,9 +761,15 @@ deduce_buf_ptr(instr_t *instr)
 {
     ushort opcode = (ushort)instr_get_opcode(instr);
 
+#if defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    DR_ASSERT_MSG(false, "Not implemented");
+#endif
     /* drx_buf will only emit these instructions to store a value */
     if (IF_X86_ELSE(opcode == OP_mov_st,
-                    opcode == OP_str || opcode == OP_strb || opcode == OP_strh)) {
+                    IF_RISCV64_ELSE(opcode == OP_s,
+                                    opcode == OP_str || opcode == OP_strb ||
+                                        opcode == OP_strh))) {
         int i;
         for (i = 0; i < instr_num_dsts(instr); ++i) {
             opnd_t dst = instr_get_dst(instr, i);

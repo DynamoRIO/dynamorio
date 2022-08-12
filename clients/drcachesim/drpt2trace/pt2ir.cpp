@@ -223,7 +223,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
 }
 
 pt2ir_convert_status_t
-pt2ir_t::convert(OUT instrlist_cleanup_last_t &ilist)
+pt2ir_t::convert(OUT instrlist_autoclean_t &ilist)
 {
     /* Initializes an empty instruction list to store all DynamoRIO's IR list converted
      * from PT IR.
@@ -259,6 +259,7 @@ pt2ir_t::convert(OUT instrlist_cleanup_last_t &ilist)
             if (status == -pte_eos)
                 break;
             dx_decoding_error(status, "sync error", insn.ip);
+            instrlist_clear(GLOBAL_DCONTEXT, ilist.data);
             return PT2IR_CONV_ERROR_SYNC_PACKET;
         }
 
@@ -279,6 +280,7 @@ pt2ir_t::convert(OUT instrlist_cleanup_last_t &ilist)
                 if (nextstatus < 0) {
                     errcode = nextstatus;
                     dx_decoding_error(errcode, "get pending event error", insn.ip);
+                    instrlist_clear(GLOBAL_DCONTEXT, ilist.data);
                     return PT2IR_CONV_ERROR_GET_PENDING_EVENT;
                 }
 
@@ -290,6 +292,7 @@ pt2ir_t::convert(OUT instrlist_cleanup_last_t &ilist)
                     pt_sb_event(pt_sb_session_, &image, &event, sizeof(event), stdout, 0);
                 if (errcode < 0) {
                     dx_decoding_error(errcode, "handle sideband event error", insn.ip);
+                    instrlist_clear(GLOBAL_DCONTEXT, ilist.data);
                     return PT2IR_CONV_ERROR_HANDLE_SIDEBAND_EVENT;
                 }
 
@@ -302,6 +305,7 @@ pt2ir_t::convert(OUT instrlist_cleanup_last_t &ilist)
                 errcode = pt_insn_set_image(pt_instr_decoder_, image);
                 if (errcode < 0) {
                     dx_decoding_error(errcode, "set image error", insn.ip);
+                    instrlist_clear(GLOBAL_DCONTEXT, ilist.data);
                     return PT2IR_CONV_ERROR_SET_IMAGE;
                 }
             }
@@ -312,6 +316,7 @@ pt2ir_t::convert(OUT instrlist_cleanup_last_t &ilist)
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             if (status < 0) {
                 dx_decoding_error(status, "get next instruction error", insn.ip);
+                instrlist_clear(GLOBAL_DCONTEXT, ilist.data);
                 return PT2IR_CONV_ERROR_DECODE_NEXT_INSTR;
             }
 

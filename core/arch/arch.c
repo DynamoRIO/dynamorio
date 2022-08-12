@@ -3444,8 +3444,14 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
         if (TEST(DR_MC_CONTROL, src->flags)) {
             /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
+#if defined(RISCV64)
+            if (src->size > offsetof(dr_mcontext_t, fcsr))
+                dst->fcsr = src->fcsr;
+#else
+            /* XXX i#5595: AArch64 should handle fpcr and fpsr here. */
             if (src->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
+#endif
             else
                 return false;
             if (src->size > offsetof(dr_mcontext_t, pc))
@@ -3538,8 +3544,14 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
         }
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
+#if defined(RISCV64)
+            if (dst->size > offsetof(dr_mcontext_t, fcsr))
+                dst->fcsr = src->fcsr;
+#else
+            /* XXX i#5595: AArch64 should handle fpcr and fpsr here. */
             if (dst->size > offsetof(dr_mcontext_t, xflags))
                 dst->xflags = src->xflags;
+#endif
             else
                 return false;
             if (dst->size > offsetof(dr_mcontext_t, pc))
@@ -3758,10 +3770,15 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
     }
 #endif
 
+#if defined(RISCV64)
+    print_file(f, dump_xml ? "\n\t\tpc=\"" PFX "\" />\n" : "\tpc     = " PFX "\n",
+               context->pc);
+#else
     print_file(f,
                dump_xml ? "\n\t\teflags=\"" PFX "\"\n\t\tpc=\"" PFX "\" />\n"
                         : "\teflags = " PFX "\n\tpc     = " PFX "\n",
                context->xflags, context->pc);
+#endif
 }
 
 #ifdef AARCHXX

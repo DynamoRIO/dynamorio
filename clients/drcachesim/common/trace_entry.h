@@ -370,8 +370,8 @@ typedef enum {
     TRACE_MARKER_TYPE_PAGE_SIZE,
 
     /**
-     * The marker value contains the ID of recorded syscalls.
-     * \note This marker is generated when -enable_kernel_tracing is specified.
+     * This marker is emitted prior to each system call when -enable_kernel_tracing is
+     * specified. The marker value contains a unique system call identifier.
      */
     TRACE_MARKER_TYPE_SYSCALL_ID,
 

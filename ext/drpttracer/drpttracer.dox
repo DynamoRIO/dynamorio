@@ -93,7 +93,7 @@ to ensure one thread only owns one pttracer handle.
 
 The client must ensure that the PT trace's ring buffer and the sideband data's ring buffer
 is large enough to hold the PT data. Insufficient buffer size will lead to lost data,
-which may cause issues in pt2ir_t decoding.
+which may cause issues in #pt2ir_t decoding.
 
 After creating a pttracer handle successfully, the client can start or stop a tracing
 session by calling drpttracer_start_tracing() and drpttracer_stop_tracing().
@@ -101,12 +101,11 @@ session by calling drpttracer_start_tracing() and drpttracer_stop_tracing().
  - drpttracer_start_tracing()
  - drpttracer_stop_tracing()
 
-The client must pass an invaild trace handle to the start and stop function. And the
-client can use one handle for multiple tracing sessions. When the tracing is stopped,
-the stop function will allocate an instance of #drpttracer_output_t, and copy the PT data,
-sideband data, and metadata to a #drpttracer_output_t instance which is returned to the
-client. If drpttracer_end_tracing() detect an overflow, it will return an error
-status code:
+The client must pass a valid trace handle to the start and stop function. And the client
+can use one handle for multiple tracing sessions. When the tracing is stopped, the stop
+function will allocate an instance of #drpttracer_output_t, and copy the PT data, sideband
+data, and metadata to a #drpttracer_output_t instance which is returned to the client. If
+drpttracer_end_tracing() detects an overflow, it will return an error status code:
 
  - Return #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE if the PT trace is overwritten.
 
@@ -116,7 +115,7 @@ overwritten.
 After all the tracing sessions are stopped, the client needs to call
 the following function to free the pttracer handle:
 
- - drpttracer_destory_handle()
+ - drpttracer_destroy_handle()
 
 Additionally, to avoid memory leak, the client must call the following function to destroy
 the output instances after using them:
@@ -124,7 +123,7 @@ the output instances after using them:
  - drpttracer_destroy_output()
 
 Also, the client can dump the data in the output to different files for offline
-post-processing. The user can use the library pt2ir_t in drcachesim to convert the PT
+post-processing. The user can use the library #pt2ir_t in drcachesim to convert the PT
 trace to DynamoRIO's IR.
 
 \section sec_drpttracer_tracing_mode Tracing Mode

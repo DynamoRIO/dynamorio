@@ -156,6 +156,14 @@ Further non-compatibility-affecting changes include:
    online filtering for only instruction or only data entries respectively. The
    old option -L0_filter is deprecated but still supported for backward
    compatibility. It simply sets both the new options.
+ - Added a new DR extension, namely "drpttracer", which provides clients with tracing
+   functionality via Intel's PT instruction tracing feature. This feature is still
+   experimental and available only on Intel processors.
+ - Added new drmemtrace options -enable_kernel_tracing that allow recording each
+   syscall's Kernel PT and write every syscall's PT and metadata to files in
+   -outdir/kernel.raw/ for later offline analysis. This feature is still experimental
+   and available only on Intel processors that support the Intel@ Processor Trace
+   feature.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
