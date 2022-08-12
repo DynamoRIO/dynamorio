@@ -116,7 +116,7 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
     }
 
     /* TODO i#5505: If we can share the same pttracer handle for all syscalls, we can
-     * avoid to reset the handle.
+     * avoid resetting the handle.
      */
     pttracer_handle_.reset();
     cur_recording_sysnum_ = -1;
