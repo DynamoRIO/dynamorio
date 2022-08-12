@@ -77,7 +77,7 @@ public:
      * \note The convert function convert the DR's IR format to trace entries.
      */
     static ir2trace_convert_status_t
-    convert(IN instrlist_cleanup_last_t &ilist, OUT std::vector<trace_entry_t> &trace);
+    convert(IN instrlist_autoclean_t &ilist, OUT std::vector<trace_entry_t> &trace);
 };
 
 #endif /* _IR2TRACE_H_ */

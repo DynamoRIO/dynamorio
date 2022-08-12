@@ -44,7 +44,7 @@ ir2trace_t::~ir2trace_t()
 }
 
 ir2trace_convert_status_t
-ir2trace_t::convert(IN instrlist_cleanup_last_t &ilist,
+ir2trace_t::convert(IN instrlist_autoclean_t &ilist,
                     OUT std::vector<trace_entry_t> &trace)
 {
     if (ilist.data == NULL) {

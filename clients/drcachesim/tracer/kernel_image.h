@@ -30,33 +30,75 @@
  * DAMAGE.
  */
 
+/* kernel_image.h: header of module for dump kernel code segments to one file.
+ */
+
 #ifndef _KCORE_H_
 #define _KCORE_H_ 1
 
 struct proc_module_t;
 struct proc_kcore_code_segment_t;
 
+/* This class is used to dump kernel code segments to one file.
+ */
 class kernel_image_t {
 public:
-    kernel_image_t();
+    kernel_image_t(file_t (*open_file_func)(const char *fname, uint mode_flags),
+                   ssize_t (*read_file_func)(file_t file, void *buf, size_t count),
+                   ssize_t (*write_file_func)(file_t file, const void *data,
+                                              size_t count),
+                   void (*close_file_func)(file_t file));
     ~kernel_image_t();
+
+    /* Parse the kernel code segments from /proc/kcore.
+     * This function will first read modules from /proc/modules, then read all kernel
+     * symbols from /proc/kallsyms. Then it will parse the kernel code segments from
+     * /proc/kcore.
+     */
     bool
     init();
+
+    /* Dump the kernel code segments to one file.
+     * This function will dump all kernel code segments to one file called kimage and dump
+     * the metadata of every code segment to kimage.metadata.
+     */
     bool
     dump(const char *to_dir);
 
 private:
+    /* Read the module information to module list from /proc/modules.
+     */
     bool
     read_modules();
 
+    /* Parse the kernel module information from /proc/kallsyms and insert them to the
+     * start ofmodule list.
+     */
     bool
     read_kallsyms();
 
+    /* Read the kernel code segments from /proc/kcore.
+     */
     bool
     read_kcore();
 
-    proc_module_t* modules_;
-    proc_kcore_code_segment_t* kcore_code_segments_;
+    /* The shared file open function. */
+    file_t (*open_file_func_)(const char *fname, uint mode_flags);
+
+    /* The shared file read function. */
+    ssize_t (*read_file_func_)(file_t file, void *buf, size_t count);
+
+    /* The shared file write function. */
+    ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
+
+    /* The shared file close function. */
+    void (*close_file_func_)(file_t file);
+
+    /* The module list. */
+    proc_module_t *modules_;
+
+    /* The kernel code segment list. */
+    proc_kcore_code_segment_t *kcore_code_segments_;
 };
 
 #endif /* _KCORE_H_ */

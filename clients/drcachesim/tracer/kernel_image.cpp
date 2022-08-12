@@ -50,6 +50,7 @@
 #define MODULE_NEME_MAX_LEN 100
 #define SYMBOL_MAX_LEN 300
 
+/* This struct type defines the information read form /proc/module.  */
 struct proc_module_t {
     proc_module_t *next;
     char name[MODULE_NEME_MAX_LEN];
@@ -57,16 +58,31 @@ struct proc_module_t {
     uint64_t end;
 };
 
+/* This struct type defines the information read of evey code segment in /proc/kcore.  */
 struct proc_kcore_code_segment_t {
     proc_kcore_code_segment_t *next;
+
+    /* The start offset of the code segment. */
     uint64_t start;
+
+    /* The length of the code segment. */
     ssize_t len;
-    uint64_t vaddr;
+
+    /* The base address of the code segment. */
+    uint64_t base;
 };
 
-kernel_image_t::kernel_image_t()
-    : modules_(NULL)
-    , kcore_code_segments_(NULL)
+kernel_image_t::kernel_image_t(
+    file_t (*open_file_func)(const char *fname, uint mode_flags),
+    ssize_t (*read_file_func)(file_t file, void *buf, size_t count),
+    ssize_t (*write_file_func)(file_t file, const void *data, size_t count),
+    void (*close_file_func)(file_t file))
+    : open_file_func_(open_file_func)
+    , read_file_func_(read_file_func)
+    , write_file_func_(write_file_func)
+    , close_file_func_(close_file_func)
+    , modules_(nullptr)
+    , kcore_code_segments_(nullptr)
 {
 }
 
@@ -78,14 +94,14 @@ kernel_image_t::~kernel_image_t()
         dr_global_free(module, sizeof(proc_module_t));
         module = next;
     }
-    modules_ = NULL;
+    modules_ = nullptr;
     proc_kcore_code_segment_t *kcore_code_segment = kcore_code_segments_;
     while (kcore_code_segment) {
         proc_kcore_code_segment_t *next = kcore_code_segment->next;
         dr_global_free(kcore_code_segment, sizeof(proc_kcore_code_segment_t));
         kcore_code_segment = next;
     }
-    kcore_code_segments_ = NULL;
+    kcore_code_segments_ = nullptr;
 }
 
 bool
@@ -112,7 +128,7 @@ kernel_image_t::read_modules()
 
         proc_module_t *module = (proc_module_t *)dr_global_alloc(sizeof(proc_module_t));
         dr_snprintf(module->name, BUFFER_SIZE_ELEMENTS(module->name), "%s", mname);
-        NULL_TERMINATE_BUFFER(module->name);
+        nullptr_TERMINATE_BUFFER(module->name);
         module->start = addr;
         module->end = addr + len;
         module->next = nullptr;
@@ -151,7 +167,7 @@ kernel_image_t::read_kallsyms()
             kernel_module = (proc_module_t *)dr_global_alloc(sizeof(proc_module_t));
             dr_snprintf(kernel_module->name, BUFFER_SIZE_ELEMENTS(kernel_module->name),
                         "kernel");
-            NULL_TERMINATE_BUFFER(kernel_module->name);
+            nullptr_TERMINATE_BUFFER(kernel_module->name);
             kernel_module->start = addr;
         } else if (!strcmp(name, "_etext")) {
             if (kernel_module == nullptr) {
@@ -172,7 +188,7 @@ bool
 kernel_image_t::read_kcore()
 {
     elf_version(EV_CURRENT);
-    file_t fd = dr_open_file(KCORE_FILE_PATH, DR_FILE_READ);
+    file_t fd = open_file_func_(KCORE_FILE_PATH, DR_FILE_READ);
     if (fd < 0) {
         ASSERT(false, "failed to open" KCORE_FILE_PATH);
         return false;
@@ -180,7 +196,7 @@ kernel_image_t::read_kcore()
     Elf *kcore_elf = elf_begin(fd, ELF_C_READ, nullptr);
     if (kcore_elf == nullptr) {
         ASSERT(false, "failed to read kcore elf");
-        dr_close_file(fd);
+        close_file_func_(fd);
         return false;
     }
 
@@ -193,7 +209,7 @@ kernel_image_t::read_kcore()
         if (!gelf_getphdr(kcore_elf, i, &kphdr[i])) {
             dr_global_free(kphdr, knumphdr * sizeof(GElf_Phdr));
             elf_end(kcore_elf);
-            dr_close_file(fd);
+            close_file_func_(fd);
             return false;
         }
     }
@@ -202,9 +218,10 @@ kernel_image_t::read_kcore()
     proc_module_t *module = modules_;
     if (modules_ == nullptr) {
         elf_end(kcore_elf);
-        dr_close_file(fd);
+        close_file_func_(fd);
         return false;
     }
+
     do {
         GElf_Phdr *phdr = nullptr;
         for (size_t i = 0; i < knumphdr; i++) {
@@ -222,7 +239,7 @@ kernel_image_t::read_kcore()
                 sizeof(proc_kcore_code_segment_t));
         kcore_code_segment->start = module->start - phdr->p_vaddr + phdr->p_offset;
         kcore_code_segment->len = module->end - module->start;
-        kcore_code_segment->vaddr = module->start;
+        kcore_code_segment->base = module->start;
         kcore_code_segment->next = nullptr;
         if (last_kcore_code_segment == nullptr) {
             kcore_code_segments_ = kcore_code_segment;
@@ -235,7 +252,7 @@ kernel_image_t::read_kcore()
 
     dr_global_free(kphdr, knumphdr * sizeof(GElf_Phdr));
     elf_end(kcore_elf);
-    dr_close_file(fd);
+    close_file_func_(fd);
     return true;
 }
 
@@ -257,7 +274,7 @@ kernel_image_t::init()
 bool
 kernel_image_t::dump(const char *to_dir)
 {
-    file_t kcore_fd = dr_open_file(KCORE_FILE_PATH, DR_FILE_READ);
+    file_t kcore_fd = open_file_func_(KCORE_FILE_PATH, DR_FILE_READ);
     if (kcore_fd < 0) {
         ASSERT(false, "failed to open " KCORE_FILE_PATH);
         return false;
@@ -266,21 +283,21 @@ kernel_image_t::dump(const char *to_dir)
     char metadata_file_name[MAXIMUM_PATH];
     dr_snprintf(image_file_name, BUFFER_SIZE_ELEMENTS(image_file_name), "%s%s%s", to_dir,
                 DIRSEP, KERNEL_IMAGE_FILE_NAME);
-    NULL_TERMINATE_BUFFER(image_file_name);
+    nullptr_TERMINATE_BUFFER(image_file_name);
     dr_snprintf(metadata_file_name, BUFFER_SIZE_ELEMENTS(metadata_file_name), "%s%s%s",
                 to_dir, DIRSEP, KERNEL_IMAGE_METADATA_FILE_NAME);
-    NULL_TERMINATE_BUFFER(metadata_file_name);
-    file_t image_fd = dr_open_file(image_file_name, DR_FILE_WRITE_OVERWRITE);
+    nullptr_TERMINATE_BUFFER(metadata_file_name);
+    file_t image_fd = open_file_func_(image_file_name, DR_FILE_WRITE_OVERWRITE);
     if (image_fd < 0) {
         ASSERT(false, "failed to open kernel image file");
-        dr_close_file(kcore_fd);
+        close_file_func_(kcore_fd);
         return false;
     }
     std::ofstream metadata_fd(metadata_file_name, std::ios::out);
     if (!metadata_fd.is_open()) {
         ASSERT(false, "failed to open kernel image metadata file");
-        dr_close_file(image_fd);
-        dr_close_file(kcore_fd);
+        close_file_func_(image_fd);
+        close_file_func_(kcore_fd);
         return false;
     }
     uint64_t offset = 0;
@@ -289,13 +306,13 @@ kernel_image_t::dump(const char *to_dir)
     while (kcore_code_segment != nullptr) {
         dr_file_seek(kcore_fd, kcore_code_segment->start, DR_SEEK_SET);
         char *buf = (char *)dr_global_alloc(kcore_code_segment->len);
-        if (dr_read_file(kcore_fd, buf, kcore_code_segment->len) !=
+        if (read_file_func_(kcore_fd, buf, kcore_code_segment->len) !=
             kcore_code_segment->len) {
             ASSERT(false, "failed to read " KCORE_FILE_PATH);
             dump_success = false;
             break;
         }
-        if (dr_write_file(image_fd, buf, kcore_code_segment->len) !=
+        if (write_file_func_(image_fd, buf, kcore_code_segment->len) !=
             kcore_code_segment->len) {
             ASSERT(false, "failed to write code segment to kernel image file");
             dump_success = false;
@@ -303,12 +320,12 @@ kernel_image_t::dump(const char *to_dir)
         }
         dr_global_free(buf, kcore_code_segment->len);
         metadata_fd << std::hex << offset << " " << kcore_code_segment->len << " "
-                    << kcore_code_segment->vaddr << std::endl;
+                    << kcore_code_segment->base << std::endl;
         offset += kcore_code_segment->len;
         kcore_code_segment = kcore_code_segment->next;
     }
     metadata_fd.close();
-    dr_close_file(image_fd);
-    dr_close_file(kcore_fd);
+    close_file_func_(image_fd);
+    close_file_func_(kcore_fd);
     return dump_success;
 }

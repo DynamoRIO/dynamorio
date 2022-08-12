@@ -234,7 +234,7 @@ static droption_t<unsigned long long> op_sb_kernel_start(
  */
 
 static void
-print_results(IN instrlist_cleanup_last_t &drir, IN std::vector<trace_entry_t> &entries)
+print_results(IN instrlist_autoclean_t &drir, IN std::vector<trace_entry_t> &entries)
 {
     if (op_print_trace.specified()) {
         /* Print the disassemble code of the trace. */
@@ -398,7 +398,7 @@ main(int argc, const char *argv[])
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
         return FAILURE;
     }
-    instrlist_cleanup_last_t drir = {};
+    instrlist_autoclean_t drir = {GLOBAL_DCONTEXT, nullptr};
     pt2ir_convert_status_t pt2ir_convert_status = ptconverter->convert(drir);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
         std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."

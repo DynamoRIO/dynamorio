@@ -1377,8 +1377,8 @@ private:
             PT_DATA_FILE_NAME_SUFFIX;
         config.kernel_image_path =
             impl()->get_syscall_pt_trace_dir(tls) + "/" + KERNEL_IMAGE_FILE_NAME;
-        config.kernel_image_metadata_path = impl()->get_syscall_pt_trace_dir(tls) + "/" +
-            KERNEL_IMAGE_METADATA_FILE_NAME;
+        config.kernel_image_metadata_path =
+            impl()->get_syscall_pt_trace_dir(tls) + "/" + KERNEL_IMAGE_METADATA_FILE_NAME;
         config.init_with_metadata(config.raw_file_path + PT_METADAT_FILE_NAME_SUFFIX);
 
         std::unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
@@ -1386,7 +1386,7 @@ private:
             error = "Failed to initialize pt2ir";
             return error;
         }
-        instrlist_cleanup_last_t drir;
+        instrlist_autoclean_t drir = { GLOBAL_DCONTEXT, nullptr };
         pt2ir_convert_status_t pt2ir_convert_status = ptconverter->convert(drir);
         if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
             error = "Failed to convert PT raw trace to DR IR";

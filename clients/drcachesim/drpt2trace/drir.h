@@ -38,19 +38,30 @@
 #define DR_FAST_IR 1
 #include "dr_api.h"
 
-/**
- * The auto cleanup wrapper of instrlist_t.
- * This can ensure the instant of instrlist_t is cleaned up when it is out of scope.
+/* The auto cleanup wrapper of instrlist_t.
+ * This can ensure the instance of instrlist_t is cleaned up when it is out of scope.
  */
-struct instrlist_cleanup_last_t {
+struct instrlist_autoclean_t {
 public:
-    ~instrlist_cleanup_last_t()
+    instrlist_autoclean_t(void *drcontext, instrlist_t *data)
+        : drcontext(drcontext)
+        , data(data)
     {
+    }
+    ~instrlist_autoclean_t()
+    {
+#ifdef DEBUG
+        if (drcontext == nullptr) {
+            std::cerr << "instrlist_autoclean_t: invalid drcontext" << std::endl;
+            exit(1);
+        }
+#endif
         if (data != nullptr) {
-            instrlist_clear_and_destroy(GLOBAL_DCONTEXT, data);
+            instrlist_clear_and_destroy(drcontext, data);
             data = nullptr;
         }
     }
+    void *drcontext = nullptr;
     instrlist_t *data = nullptr;
 };
 
