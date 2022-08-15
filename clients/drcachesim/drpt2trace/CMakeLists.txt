@@ -32,6 +32,10 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../../make/policies.cmake NO_POLICY_SCOPE)
 
+if (NOT LINUX OR NOT X86 OR NOT X64)
+  message(FATAL_ERROR "This is only for Linux x86_64.")
+endif ()
+
 # Add libipt to build system. For kernel traces decoding,
 # we need to activate SIDEBAND, PEVENT and FEATURE_ELF.
 # XXX: libipt does not use the CMake export mechanism for modular separation.

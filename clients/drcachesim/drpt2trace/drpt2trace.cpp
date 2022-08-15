@@ -53,6 +53,10 @@
 #define SUCCESS 0
 #define FAILURE 1
 
+#if !defined(X86_64) || !defined(LINUX)
+#    error "This is only for Linux x86_64."
+#endif
+
 /***************************************************************************
  * Options
  */

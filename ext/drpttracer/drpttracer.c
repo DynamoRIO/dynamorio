@@ -44,6 +44,10 @@
 #include "dr_api.h"
 #include "drpttracer.h"
 
+#if !defined(X86_64) || !defined(LINUX)
+#    error "This is only for Linux x86_64."
+#endif
+
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #else

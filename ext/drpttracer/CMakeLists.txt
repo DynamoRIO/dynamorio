@@ -32,6 +32,10 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
+if (NOT LINUX OR NOT X86 OR NOT X64)
+  message(FATAL_ERROR "This is only for Linux x86_64.")
+endif ()
+
 # DynamoRIO Intel PT Tracing Extension
 
 # We need libc to call syscall(SYS_perf_event_open, ...) and ioctl(...)
