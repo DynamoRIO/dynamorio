@@ -41,13 +41,8 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "../../core/unix/include/syscall_linux_x86.h" // for SYS_perf_event_open
 #include "dr_api.h"
 #include "drpttracer.h"
-
-#if !defined(X86_64) || !defined(LINUX)
-#    error "This is only for Linux x86_64."
-#endif
 
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
