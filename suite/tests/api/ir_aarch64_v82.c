@@ -5613,6 +5613,528 @@ TEST_INSTR(fmls_vector_idx)
     return success;
 }
 
+TEST_INSTR(frecpe_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rn_elsz;
+
+    /* Testing FRECPE  <Hd>.<Ts>, <Hn>.<Ts> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    Rn_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "frecpe %d0 $0x01 -> %d0",   "frecpe %d6 $0x01 -> %d5",
+        "frecpe %d11 $0x01 -> %d10", "frecpe %d17 $0x01 -> %d16",
+        "frecpe %d22 $0x01 -> %d21", "frecpe %d31 $0x01 -> %d31",
+    };
+    TEST_LOOP(frecpe, frecpe_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    Rn_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "frecpe %q0 $0x01 -> %q0",   "frecpe %q6 $0x01 -> %q5",
+        "frecpe %q11 $0x01 -> %q10", "frecpe %q17 $0x01 -> %q16",
+        "frecpe %q22 $0x01 -> %q21", "frecpe %q31 $0x01 -> %q31",
+    };
+    TEST_LOOP(frecpe, frecpe_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), Rn_elsz);
+
+    /* Testing FRECPE  <Dd>.<Ts>, <Dn>.<Ts> */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    Rn_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "frecpe %d0 $0x02 -> %d0",   "frecpe %d6 $0x02 -> %d5",
+        "frecpe %d11 $0x02 -> %d10", "frecpe %d17 $0x02 -> %d16",
+        "frecpe %d22 $0x02 -> %d21", "frecpe %d31 $0x02 -> %d31",
+    };
+    TEST_LOOP(frecpe, frecpe_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    Rn_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "frecpe %q0 $0x02 -> %q0",   "frecpe %q6 $0x02 -> %q5",
+        "frecpe %q11 $0x02 -> %q10", "frecpe %q17 $0x02 -> %q16",
+        "frecpe %q22 $0x02 -> %q21", "frecpe %q31 $0x02 -> %q31",
+    };
+    TEST_LOOP(frecpe, frecpe_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), Rn_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    Rn_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "frecpe %q0 $0x03 -> %q0",   "frecpe %q6 $0x03 -> %q5",
+        "frecpe %q11 $0x03 -> %q10", "frecpe %q17 $0x03 -> %q16",
+        "frecpe %q22 $0x03 -> %q21", "frecpe %q31 $0x03 -> %q31",
+    };
+    TEST_LOOP(frecpe, frecpe_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), Rn_elsz);
+
+    return success;
+}
+
+TEST_INSTR(frecpe)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FRECPE  <Hd>, <Hn> */
+    reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
+                           DR_REG_H16, DR_REG_H21, DR_REG_H31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_H0,  DR_REG_H6,  DR_REG_H11,
+                           DR_REG_H17, DR_REG_H22, DR_REG_H31 };
+    const char *expected_0_0[6] = {
+        "frecpe %h0 -> %h0",   "frecpe %h6 -> %h5",   "frecpe %h11 -> %h10",
+        "frecpe %h17 -> %h16", "frecpe %h22 -> %h21", "frecpe %h31 -> %h31",
+    };
+    TEST_LOOP(frecpe, frecpe, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]));
+
+    /* Testing FRECPE  <V><d>, <V><n> */
+    reg_id_t Rd_1_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
+                           DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    const char *expected_1_0[6] = {
+        "frecpe %s0 -> %s0",   "frecpe %s6 -> %s5",   "frecpe %s11 -> %s10",
+        "frecpe %s17 -> %s16", "frecpe %s22 -> %s21", "frecpe %s31 -> %s31",
+    };
+    TEST_LOOP(frecpe, frecpe, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]));
+
+    reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    const char *expected_1_1[6] = {
+        "frecpe %d0 -> %d0",   "frecpe %d6 -> %d5",   "frecpe %d11 -> %d10",
+        "frecpe %d17 -> %d16", "frecpe %d22 -> %d21", "frecpe %d31 -> %d31",
+    };
+    TEST_LOOP(frecpe, frecpe, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]));
+
+    return success;
+}
+
+TEST_INSTR(frecps_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rm_elsz;
+
+    /* Testing FRECPS  <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "frecps %d0 %d0 $0x01 -> %d0",    "frecps %d6 %d7 $0x01 -> %d5",
+        "frecps %d11 %d12 $0x01 -> %d10", "frecps %d17 %d18 $0x01 -> %d16",
+        "frecps %d22 %d23 $0x01 -> %d21", "frecps %d31 %d31 $0x01 -> %d31",
+    };
+    TEST_LOOP(frecps, frecps_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "frecps %q0 %q0 $0x01 -> %q0",    "frecps %q6 %q7 $0x01 -> %q5",
+        "frecps %q11 %q12 $0x01 -> %q10", "frecps %q17 %q18 $0x01 -> %q16",
+        "frecps %q22 %q23 $0x01 -> %q21", "frecps %q31 %q31 $0x01 -> %q31",
+    };
+    TEST_LOOP(frecps, frecps_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]), Rm_elsz);
+
+    /* Testing FRECPS  <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts> */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "frecps %d0 %d0 $0x02 -> %d0",    "frecps %d6 %d7 $0x02 -> %d5",
+        "frecps %d11 %d12 $0x02 -> %d10", "frecps %d17 %d18 $0x02 -> %d16",
+        "frecps %d22 %d23 $0x02 -> %d21", "frecps %d31 %d31 $0x02 -> %d31",
+    };
+    TEST_LOOP(frecps, frecps_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "frecps %q0 %q0 $0x02 -> %q0",    "frecps %q6 %q7 $0x02 -> %q5",
+        "frecps %q11 %q12 $0x02 -> %q10", "frecps %q17 %q18 $0x02 -> %q16",
+        "frecps %q22 %q23 $0x02 -> %q21", "frecps %q31 %q31 $0x02 -> %q31",
+    };
+    TEST_LOOP(frecps, frecps_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_2[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "frecps %q0 %q0 $0x03 -> %q0",    "frecps %q6 %q7 $0x03 -> %q5",
+        "frecps %q11 %q12 $0x03 -> %q10", "frecps %q17 %q18 $0x03 -> %q16",
+        "frecps %q22 %q23 $0x03 -> %q21", "frecps %q31 %q31 $0x03 -> %q31",
+    };
+    TEST_LOOP(frecps, frecps_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
+
+    return success;
+}
+
+TEST_INSTR(frecps)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FRECPS  <Hd>, <Hn>, <Hm> */
+    reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
+                           DR_REG_H16, DR_REG_H21, DR_REG_H31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_H0,  DR_REG_H6,  DR_REG_H11,
+                           DR_REG_H17, DR_REG_H22, DR_REG_H31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_H0,  DR_REG_H7,  DR_REG_H12,
+                           DR_REG_H18, DR_REG_H23, DR_REG_H31 };
+    const char *expected_0_0[6] = {
+        "frecps %h0 %h0 -> %h0",    "frecps %h6 %h7 -> %h5",
+        "frecps %h11 %h12 -> %h10", "frecps %h17 %h18 -> %h16",
+        "frecps %h22 %h23 -> %h21", "frecps %h31 %h31 -> %h31",
+    };
+    TEST_LOOP(frecps, frecps, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]));
+
+    /* Testing FRECPS  <V><d>, <V><n>, <V><m> */
+    reg_id_t Rd_1_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
+                           DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_S0,  DR_REG_S7,  DR_REG_S12,
+                           DR_REG_S18, DR_REG_S23, DR_REG_S31 };
+    const char *expected_1_0[6] = {
+        "frecps %s0 %s0 -> %s0",    "frecps %s6 %s7 -> %s5",
+        "frecps %s11 %s12 -> %s10", "frecps %s17 %s18 -> %s16",
+        "frecps %s22 %s23 -> %s21", "frecps %s31 %s31 -> %s31",
+    };
+    TEST_LOOP(frecps, frecps, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]));
+
+    reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    const char *expected_1_1[6] = {
+        "frecps %d0 %d0 -> %d0",    "frecps %d6 %d7 -> %d5",
+        "frecps %d11 %d12 -> %d10", "frecps %d17 %d18 -> %d16",
+        "frecps %d22 %d23 -> %d21", "frecps %d31 %d31 -> %d31",
+    };
+    TEST_LOOP(frecps, frecps, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
+
+    return success;
+}
+
+TEST_INSTR(frsqrte_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rn_elsz;
+
+    /* Testing FRSQRTE <Hd>.<Ts>, <Hn>.<Ts> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    Rn_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "frsqrte %d0 $0x01 -> %d0",   "frsqrte %d6 $0x01 -> %d5",
+        "frsqrte %d11 $0x01 -> %d10", "frsqrte %d17 $0x01 -> %d16",
+        "frsqrte %d22 $0x01 -> %d21", "frsqrte %d31 $0x01 -> %d31",
+    };
+    TEST_LOOP(frsqrte, frsqrte_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    Rn_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "frsqrte %q0 $0x01 -> %q0",   "frsqrte %q6 $0x01 -> %q5",
+        "frsqrte %q11 $0x01 -> %q10", "frsqrte %q17 $0x01 -> %q16",
+        "frsqrte %q22 $0x01 -> %q21", "frsqrte %q31 $0x01 -> %q31",
+    };
+    TEST_LOOP(frsqrte, frsqrte_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), Rn_elsz);
+
+    /* Testing FRSQRTE <Dd>.<Ts>, <Dn>.<Ts> */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    Rn_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "frsqrte %d0 $0x02 -> %d0",   "frsqrte %d6 $0x02 -> %d5",
+        "frsqrte %d11 $0x02 -> %d10", "frsqrte %d17 $0x02 -> %d16",
+        "frsqrte %d22 $0x02 -> %d21", "frsqrte %d31 $0x02 -> %d31",
+    };
+    TEST_LOOP(frsqrte, frsqrte_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    Rn_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "frsqrte %q0 $0x02 -> %q0",   "frsqrte %q6 $0x02 -> %q5",
+        "frsqrte %q11 $0x02 -> %q10", "frsqrte %q17 $0x02 -> %q16",
+        "frsqrte %q22 $0x02 -> %q21", "frsqrte %q31 $0x02 -> %q31",
+    };
+    TEST_LOOP(frsqrte, frsqrte_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), Rn_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    Rn_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "frsqrte %q0 $0x03 -> %q0",   "frsqrte %q6 $0x03 -> %q5",
+        "frsqrte %q11 $0x03 -> %q10", "frsqrte %q17 $0x03 -> %q16",
+        "frsqrte %q22 $0x03 -> %q21", "frsqrte %q31 $0x03 -> %q31",
+    };
+    TEST_LOOP(frsqrte, frsqrte_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), Rn_elsz);
+
+    return success;
+}
+
+TEST_INSTR(frsqrte)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FRSQRTE <Hd>, <Hn> */
+    reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
+                           DR_REG_H16, DR_REG_H21, DR_REG_H31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_H0,  DR_REG_H6,  DR_REG_H11,
+                           DR_REG_H17, DR_REG_H22, DR_REG_H31 };
+    const char *expected_0_0[6] = {
+        "frsqrte %h0 -> %h0",   "frsqrte %h6 -> %h5",   "frsqrte %h11 -> %h10",
+        "frsqrte %h17 -> %h16", "frsqrte %h22 -> %h21", "frsqrte %h31 -> %h31",
+    };
+    TEST_LOOP(frsqrte, frsqrte, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]));
+
+    /* Testing FRSQRTE <V><d>, <V><n> */
+    reg_id_t Rd_1_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
+                           DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    const char *expected_1_0[6] = {
+        "frsqrte %s0 -> %s0",   "frsqrte %s6 -> %s5",   "frsqrte %s11 -> %s10",
+        "frsqrte %s17 -> %s16", "frsqrte %s22 -> %s21", "frsqrte %s31 -> %s31",
+    };
+    TEST_LOOP(frsqrte, frsqrte, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]));
+
+    reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    const char *expected_1_1[6] = {
+        "frsqrte %d0 -> %d0",   "frsqrte %d6 -> %d5",   "frsqrte %d11 -> %d10",
+        "frsqrte %d17 -> %d16", "frsqrte %d22 -> %d21", "frsqrte %d31 -> %d31",
+    };
+    TEST_LOOP(frsqrte, frsqrte, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]));
+
+    return success;
+}
+
+TEST_INSTR(frsqrts_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rm_elsz;
+
+    /* Testing FRSQRTS <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "frsqrts %d0 %d0 $0x01 -> %d0",    "frsqrts %d6 %d7 $0x01 -> %d5",
+        "frsqrts %d11 %d12 $0x01 -> %d10", "frsqrts %d17 %d18 $0x01 -> %d16",
+        "frsqrts %d22 %d23 $0x01 -> %d21", "frsqrts %d31 %d31 $0x01 -> %d31",
+    };
+    TEST_LOOP(frsqrts, frsqrts_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "frsqrts %q0 %q0 $0x01 -> %q0",    "frsqrts %q6 %q7 $0x01 -> %q5",
+        "frsqrts %q11 %q12 $0x01 -> %q10", "frsqrts %q17 %q18 $0x01 -> %q16",
+        "frsqrts %q22 %q23 $0x01 -> %q21", "frsqrts %q31 %q31 $0x01 -> %q31",
+    };
+    TEST_LOOP(frsqrts, frsqrts_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]), Rm_elsz);
+
+    /* Testing FRSQRTS <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts> */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "frsqrts %d0 %d0 $0x02 -> %d0",    "frsqrts %d6 %d7 $0x02 -> %d5",
+        "frsqrts %d11 %d12 $0x02 -> %d10", "frsqrts %d17 %d18 $0x02 -> %d16",
+        "frsqrts %d22 %d23 $0x02 -> %d21", "frsqrts %d31 %d31 $0x02 -> %d31",
+    };
+    TEST_LOOP(frsqrts, frsqrts_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "frsqrts %q0 %q0 $0x02 -> %q0",    "frsqrts %q6 %q7 $0x02 -> %q5",
+        "frsqrts %q11 %q12 $0x02 -> %q10", "frsqrts %q17 %q18 $0x02 -> %q16",
+        "frsqrts %q22 %q23 $0x02 -> %q21", "frsqrts %q31 %q31 $0x02 -> %q31",
+    };
+    TEST_LOOP(frsqrts, frsqrts_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_2[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "frsqrts %q0 %q0 $0x03 -> %q0",    "frsqrts %q6 %q7 $0x03 -> %q5",
+        "frsqrts %q11 %q12 $0x03 -> %q10", "frsqrts %q17 %q18 $0x03 -> %q16",
+        "frsqrts %q22 %q23 $0x03 -> %q21", "frsqrts %q31 %q31 $0x03 -> %q31",
+    };
+    TEST_LOOP(frsqrts, frsqrts_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
+
+    return success;
+}
+
+TEST_INSTR(frsqrts)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FRSQRTS <Hd>, <Hn>, <Hm> */
+    reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
+                           DR_REG_H16, DR_REG_H21, DR_REG_H31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_H0,  DR_REG_H6,  DR_REG_H11,
+                           DR_REG_H17, DR_REG_H22, DR_REG_H31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_H0,  DR_REG_H7,  DR_REG_H12,
+                           DR_REG_H18, DR_REG_H23, DR_REG_H31 };
+    const char *expected_0_0[6] = {
+        "frsqrts %h0 %h0 -> %h0",    "frsqrts %h6 %h7 -> %h5",
+        "frsqrts %h11 %h12 -> %h10", "frsqrts %h17 %h18 -> %h16",
+        "frsqrts %h22 %h23 -> %h21", "frsqrts %h31 %h31 -> %h31",
+    };
+    TEST_LOOP(frsqrts, frsqrts, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]));
+
+    /* Testing FRSQRTS <V><d>, <V><n>, <V><m> */
+    reg_id_t Rd_1_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
+                           DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_S0,  DR_REG_S7,  DR_REG_S12,
+                           DR_REG_S18, DR_REG_S23, DR_REG_S31 };
+    const char *expected_1_0[6] = {
+        "frsqrts %s0 %s0 -> %s0",    "frsqrts %s6 %s7 -> %s5",
+        "frsqrts %s11 %s12 -> %s10", "frsqrts %s17 %s18 -> %s16",
+        "frsqrts %s22 %s23 -> %s21", "frsqrts %s31 %s31 -> %s31",
+    };
+    TEST_LOOP(frsqrts, frsqrts, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]));
+
+    reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    const char *expected_1_1[6] = {
+        "frsqrts %d0 %d0 -> %d0",    "frsqrts %d6 %d7 -> %d5",
+        "frsqrts %d11 %d12 -> %d10", "frsqrts %d17 %d18 -> %d16",
+        "frsqrts %d22 %d23 -> %d21", "frsqrts %d31 %d31 -> %d31",
+    };
+    TEST_LOOP(frsqrts, frsqrts, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
+
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -5751,6 +6273,15 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(fmla_vector_idx);
     RUN_INSTR_TEST(fmls_vector);
     RUN_INSTR_TEST(fmls_vector_idx);
+
+    RUN_INSTR_TEST(frecpe_vector);
+    RUN_INSTR_TEST(frecpe);
+    RUN_INSTR_TEST(frecps_vector);
+    RUN_INSTR_TEST(frecps);
+    RUN_INSTR_TEST(frsqrte_vector);
+    RUN_INSTR_TEST(frsqrte);
+    RUN_INSTR_TEST(frsqrts_vector);
+    RUN_INSTR_TEST(frsqrts);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER
