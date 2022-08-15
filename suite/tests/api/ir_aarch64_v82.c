@@ -1598,41 +1598,34 @@ TEST_INSTR(fmlal_vector)
     instr_t *instr;
     byte *pc;
 
-    /* FMLAL <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb> */
-
-    /* FMLAL <Vd>.2S, <Vn>.2H, <Vm>.2H */
-    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rn_0[3] = { DR_REG_S1, DR_REG_S11, DR_REG_S30 };
-    reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
-    const char *expected_0[3] = {
-        "fmlal  %d0 %s1 %s0 $0x01 -> %d0",
-        "fmlal  %d10 %s11 %s10 $0x01 -> %d10",
-        "fmlal  %d31 %s30 %s31 $0x01 -> %d31",
+    /* Testing FMLAL   <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.<Tb> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_S0,  DR_REG_S7,  DR_REG_S12,
+                           DR_REG_S18, DR_REG_S23, DR_REG_S31 };
+    const char *expected_0_0[6] = {
+        "fmlal  %d0 %s0 %s0 $0x01 -> %d0",     "fmlal  %d5 %s6 %s7 $0x01 -> %d5",
+        "fmlal  %d10 %s11 %s12 $0x01 -> %d10", "fmlal  %d16 %s17 %s18 $0x01 -> %d16",
+        "fmlal  %d21 %s22 %s23 $0x01 -> %d21", "fmlal  %d31 %s31 %s31 $0x01 -> %d31",
     };
-    for (int i = 0; i < 3; i++) {
-        instr =
-            INSTR_CREATE_fmlal_vector(dc, opnd_create_reg(Rd_0[i]),
-                                      opnd_create_reg(Rn_0[i]), opnd_create_reg(Rm_0[i]));
-        if (!test_instr_encoding(dc, OP_fmlal, instr, expected_0[i]))
-            success = false;
-    }
+    TEST_LOOP(fmlal, fmlal_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]));
 
-    /* FMLAL <Vd>.4S, <Vn>.4H, <Vm>.4H */
-    reg_id_t Rd_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    reg_id_t Rn_1[3] = { DR_REG_D1, DR_REG_D11, DR_REG_D30 };
-    reg_id_t Rm_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    const char *expected_1[3] = {
-        "fmlal  %q0 %d1 %d0 $0x01 -> %q0",
-        "fmlal  %q10 %d11 %d10 $0x01 -> %q10",
-        "fmlal  %q31 %d30 %d31 $0x01 -> %q31",
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    const char *expected_0_1[6] = {
+        "fmlal  %q0 %d0 %d0 $0x01 -> %q0",     "fmlal  %q5 %d6 %d7 $0x01 -> %q5",
+        "fmlal  %q10 %d11 %d12 $0x01 -> %q10", "fmlal  %q16 %d17 %d18 $0x01 -> %q16",
+        "fmlal  %q21 %d22 %d23 $0x01 -> %q21", "fmlal  %q31 %d31 %d31 $0x01 -> %q31",
     };
-    for (int i = 0; i < 3; i++) {
-        instr =
-            INSTR_CREATE_fmlal_vector(dc, opnd_create_reg(Rd_1[i]),
-                                      opnd_create_reg(Rn_1[i]), opnd_create_reg(Rm_1[i]));
-        if (!test_instr_encoding(dc, OP_fmlal, instr, expected_1[i]))
-            success = false;
-    }
+    TEST_LOOP(fmlal, fmlal_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]));
 
     return success;
 }
@@ -1643,30 +1636,47 @@ TEST_INSTR(fmlal_vector_idx)
     instr_t *instr;
     byte *pc;
 
-    /* FMLAL <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
-    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rn_0[3] = { DR_REG_S2, DR_REG_S20, DR_REG_S30 };
-    reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S7, DR_REG_S15 };
-    short index[3] = { 0, 5, 7 };
-    const char *expected_0[3] = {
-        "fmlal  %d0 %s2 %s0 $0x0000000000000000 $0x01 -> %d0",
-        "fmlal  %d10 %s20 %s7 $0x0000000000000005 $0x01 -> %d10",
-        "fmlal  %d31 %s30 %s15 $0x0000000000000007 $0x01 -> %d31",
+    /* Testing FMLAL   <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.H[<index>] */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D4,  DR_REG_D7,
+                           DR_REG_D10, DR_REG_D12, DR_REG_D15 };
+    uint index_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *expected_0_0[6] = {
+        "fmlal  %d0 %s0 %d0 $0x00 $0x01 -> %d0",
+        "fmlal  %d5 %s6 %d4 $0x04 $0x01 -> %d5",
+        "fmlal  %d10 %s11 %d7 $0x05 $0x01 -> %d10",
+        "fmlal  %d16 %s17 %d10 $0x07 $0x01 -> %d16",
+        "fmlal  %d21 %s22 %d12 $0x00 $0x01 -> %d21",
+        "fmlal  %d31 %s31 %d15 $0x07 $0x01 -> %d31",
     };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fmlal_vector_idx(
-            dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
-            opnd_create_reg(Rm_0[i]), OPND_CREATE_INT(index[i]));
-        if (!test_instr_encoding(dc, OP_fmlal, instr, expected_0[i]))
-            success = false;
-    }
+    TEST_LOOP(fmlal, fmlal_vector_idx, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_0));
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q4,  DR_REG_Q7,
+                           DR_REG_Q10, DR_REG_Q12, DR_REG_Q15 };
+    uint index_0_1[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *expected_0_1[6] = {
+        "fmlal  %q0 %d0 %q0 $0x00 $0x01 -> %q0",
+        "fmlal  %q5 %d6 %q4 $0x04 $0x01 -> %q5",
+        "fmlal  %q10 %d11 %q7 $0x05 $0x01 -> %q10",
+        "fmlal  %q16 %d17 %q10 $0x07 $0x01 -> %q16",
+        "fmlal  %q21 %d22 %q12 $0x00 $0x01 -> %q21",
+        "fmlal  %q31 %d31 %q15 $0x07 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmlal, fmlal_vector_idx, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]),
+              opnd_create_immed_uint(index_0_1[i], OPSZ_0));
 
     return success;
 }
-
-/*
- * FMLAL2
- */
 
 TEST_INSTR(fmlal2_vector)
 {
@@ -1674,41 +1684,34 @@ TEST_INSTR(fmlal2_vector)
     instr_t *instr;
     byte *pc;
 
-    /* FMLAL2 <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb> */
-
-    /* FMLAL2 <Vd>.2S, <Vn>.2H, <Vm>.2H */
-    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rn_0[3] = { DR_REG_S1, DR_REG_S11, DR_REG_S30 };
-    reg_id_t Rm_0[3] = { DR_REG_S2, DR_REG_S12, DR_REG_S29 };
-    const char *expected_0[3] = {
-        "fmlal2 %d0 %s1 %s2 $0x01 -> %d0",
-        "fmlal2 %d10 %s11 %s12 $0x01 -> %d10",
-        "fmlal2 %d31 %s30 %s29 $0x01 -> %d31",
+    /* Testing FMLAL2  <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.<Tb> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_S0,  DR_REG_S7,  DR_REG_S12,
+                           DR_REG_S18, DR_REG_S23, DR_REG_S31 };
+    const char *expected_0_0[6] = {
+        "fmlal2 %d0 %s0 %s0 $0x01 -> %d0",     "fmlal2 %d5 %s6 %s7 $0x01 -> %d5",
+        "fmlal2 %d10 %s11 %s12 $0x01 -> %d10", "fmlal2 %d16 %s17 %s18 $0x01 -> %d16",
+        "fmlal2 %d21 %s22 %s23 $0x01 -> %d21", "fmlal2 %d31 %s31 %s31 $0x01 -> %d31",
     };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fmlal2_vector(dc, opnd_create_reg(Rd_0[i]),
-                                           opnd_create_reg(Rn_0[i]),
-                                           opnd_create_reg(Rm_0[i]));
-        if (!test_instr_encoding(dc, OP_fmlal2, instr, expected_0[i]))
-            success = false;
-    }
+    TEST_LOOP(fmlal2, fmlal2_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]));
 
-    /* FMLAL2 <Vd>.4S, <Vn>.4H, <Vm>.4H */
-    reg_id_t Rd_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
-    reg_id_t Rn_1[3] = { DR_REG_D1, DR_REG_D11, DR_REG_D30 };
-    reg_id_t Rm_1[3] = { DR_REG_D2, DR_REG_D12, DR_REG_D29 };
-    const char *expected_1[3] = {
-        "fmlal2 %q0 %d1 %d2 $0x01 -> %q0",
-        "fmlal2 %q10 %d11 %d12 $0x01 -> %q10",
-        "fmlal2 %q31 %d30 %d29 $0x01 -> %q31",
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    const char *expected_0_1[6] = {
+        "fmlal2 %q0 %d0 %d0 $0x01 -> %q0",     "fmlal2 %q5 %d6 %d7 $0x01 -> %q5",
+        "fmlal2 %q10 %d11 %d12 $0x01 -> %q10", "fmlal2 %q16 %d17 %d18 $0x01 -> %q16",
+        "fmlal2 %q21 %d22 %d23 $0x01 -> %q21", "fmlal2 %q31 %d31 %d31 $0x01 -> %q31",
     };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fmlal2_vector(dc, opnd_create_reg(Rd_1[i]),
-                                           opnd_create_reg(Rn_1[i]),
-                                           opnd_create_reg(Rm_1[i]));
-        if (!test_instr_encoding(dc, OP_fmlal2, instr, expected_1[i]))
-            success = false;
-    }
+    TEST_LOOP(fmlal2, fmlal2_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]));
 
     return success;
 }
@@ -1719,23 +1722,44 @@ TEST_INSTR(fmlal2_vector_idx)
     instr_t *instr;
     byte *pc;
 
-    /* FMLAL2 <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
-    reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rn_0[3] = { DR_REG_S2, DR_REG_S20, DR_REG_S30 };
-    reg_id_t Rm_0[3] = { DR_REG_S0, DR_REG_S7, DR_REG_S15 };
-    short index[3] = { 0, 5, 7 };
-    const char *expected_0[3] = {
-        "fmlal2 %d0 %s2 %s0 $0x0000000000000000 $0x01 -> %d0",
-        "fmlal2 %d10 %s20 %s7 $0x0000000000000005 $0x01 -> %d10",
-        "fmlal2 %d31 %s30 %s15 $0x0000000000000007 $0x01 -> %d31",
+    /* Testing FMLAL2  <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.H[<index>] */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D4,  DR_REG_D7,
+                           DR_REG_D10, DR_REG_D12, DR_REG_D15 };
+    uint index_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *expected_0_0[6] = {
+        "fmlal2 %d0 %s0 %d0 $0x00 $0x01 -> %d0",
+        "fmlal2 %d5 %s6 %d4 $0x04 $0x01 -> %d5",
+        "fmlal2 %d10 %s11 %d7 $0x05 $0x01 -> %d10",
+        "fmlal2 %d16 %s17 %d10 $0x07 $0x01 -> %d16",
+        "fmlal2 %d21 %s22 %d12 $0x00 $0x01 -> %d21",
+        "fmlal2 %d31 %s31 %d15 $0x07 $0x01 -> %d31",
     };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fmlal2_vector_idx(
-            dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
-            opnd_create_reg(Rm_0[i]), OPND_CREATE_INT(index[i]));
-        if (!test_instr_encoding(dc, OP_fmlal2, instr, expected_0[i]))
-            success = false;
-    }
+    TEST_LOOP(fmlal2, fmlal2_vector_idx, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_0));
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q4,  DR_REG_Q7,
+                           DR_REG_Q10, DR_REG_Q12, DR_REG_Q15 };
+    uint index_0_1[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *expected_0_1[6] = {
+        "fmlal2 %q0 %d0 %q0 $0x00 $0x01 -> %q0",
+        "fmlal2 %q5 %d6 %q4 $0x04 $0x01 -> %q5",
+        "fmlal2 %q10 %d11 %q7 $0x05 $0x01 -> %q10",
+        "fmlal2 %q16 %d17 %q10 $0x07 $0x01 -> %q16",
+        "fmlal2 %q21 %d22 %q12 $0x00 $0x01 -> %q21",
+        "fmlal2 %q31 %d31 %q15 $0x07 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmlal2, fmlal2_vector_idx, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]),
+              opnd_create_immed_uint(index_0_1[i], OPSZ_0));
 
     return success;
 }
@@ -3475,6 +3499,7 @@ TEST_INSTR(facge_vector)
     };
     TEST_LOOP(facge, facge_vector, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3499,6 +3524,7 @@ TEST_INSTR(facge_vector)
     };
     TEST_LOOP(facge, facge_vector, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3510,6 +3536,7 @@ TEST_INSTR(facge_vector)
     };
     TEST_LOOP(facge, facge_vector, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_2[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3554,6 +3581,7 @@ TEST_INSTR(facge)
     };
     TEST_LOOP(facge, facge, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     reg_id_t Rm_1_1[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
@@ -3586,6 +3614,7 @@ TEST_INSTR(facgt_vector)
     };
     TEST_LOOP(facgt, facgt_vector, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3610,6 +3639,7 @@ TEST_INSTR(facgt_vector)
     };
     TEST_LOOP(facgt, facgt_vector, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3621,6 +3651,7 @@ TEST_INSTR(facgt_vector)
     };
     TEST_LOOP(facgt, facgt_vector, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_2[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3665,6 +3696,7 @@ TEST_INSTR(facgt)
     };
     TEST_LOOP(facgt, facgt, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     reg_id_t Rm_1_1[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
@@ -3697,6 +3729,7 @@ TEST_INSTR(faddp_vector)
     };
     TEST_LOOP(faddp, faddp_vector, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3721,6 +3754,7 @@ TEST_INSTR(faddp_vector)
     };
     TEST_LOOP(faddp, faddp_vector, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3732,6 +3766,7 @@ TEST_INSTR(faddp_vector)
     };
     TEST_LOOP(faddp, faddp_vector, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_2[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3776,6 +3811,7 @@ TEST_INSTR(faddp_scalar)
     };
     TEST_LOOP(faddp, faddp_scalar, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_DOUBLE();
@@ -3807,6 +3843,7 @@ TEST_INSTR(fcmeq_vector_zero)
     };
     TEST_LOOP(fcmeq, fcmeq_vector_zero, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_HALF();
@@ -3829,6 +3866,7 @@ TEST_INSTR(fcmeq_vector_zero)
     };
     TEST_LOOP(fcmeq, fcmeq_vector_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_SINGLE();
@@ -3839,6 +3877,7 @@ TEST_INSTR(fcmeq_vector_zero)
     };
     TEST_LOOP(fcmeq, fcmeq_vector_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_DOUBLE();
@@ -3871,6 +3910,7 @@ TEST_INSTR(fcmeq_vector)
     };
     TEST_LOOP(fcmeq, fcmeq_vector, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3895,6 +3935,7 @@ TEST_INSTR(fcmeq_vector)
     };
     TEST_LOOP(fcmeq, fcmeq_vector, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3906,6 +3947,7 @@ TEST_INSTR(fcmeq_vector)
     };
     TEST_LOOP(fcmeq, fcmeq_vector, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_2[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -3948,6 +3990,7 @@ TEST_INSTR(fcmeq_zero)
     };
     TEST_LOOP(fcmeq, fcmeq_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     const char *expected_1_1[3] = {
@@ -3990,6 +4033,7 @@ TEST_INSTR(fcmeq)
     };
     TEST_LOOP(fcmeq, fcmeq, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     reg_id_t Rm_1_1[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
@@ -4022,6 +4066,7 @@ TEST_INSTR(fcmgt_vector_zero)
     };
     TEST_LOOP(fcmgt, fcmgt_vector_zero, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_HALF();
@@ -4044,6 +4089,7 @@ TEST_INSTR(fcmgt_vector_zero)
     };
     TEST_LOOP(fcmgt, fcmgt_vector_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_SINGLE();
@@ -4054,6 +4100,7 @@ TEST_INSTR(fcmgt_vector_zero)
     };
     TEST_LOOP(fcmgt, fcmgt_vector_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_DOUBLE();
@@ -4087,6 +4134,7 @@ TEST_INSTR(fcmgt_vector)
     };
     TEST_LOOP(fcmgt, fcmgt_vector, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_0_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -4111,6 +4159,7 @@ TEST_INSTR(fcmgt_vector)
     };
     TEST_LOOP(fcmgt, fcmgt_vector, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_1[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -4122,6 +4171,7 @@ TEST_INSTR(fcmgt_vector)
     };
     TEST_LOOP(fcmgt, fcmgt_vector, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     reg_id_t Rm_1_2[3] = { DR_REG_Q0, DR_REG_Q12, DR_REG_Q31 };
@@ -4164,6 +4214,7 @@ TEST_INSTR(fcmgt_zero)
     };
     TEST_LOOP(fcmgt, fcmgt_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     const char *expected_1_1[3] = {
@@ -4206,6 +4257,7 @@ TEST_INSTR(fcmgt)
     };
     TEST_LOOP(fcmgt, fcmgt, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     reg_id_t Rm_1_1[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
@@ -4238,6 +4290,7 @@ TEST_INSTR(fcmle_vector_zero)
     };
     TEST_LOOP(fcmle, fcmle_vector_zero, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_HALF();
@@ -4260,6 +4313,7 @@ TEST_INSTR(fcmle_vector_zero)
     };
     TEST_LOOP(fcmle, fcmle_vector_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_SINGLE();
@@ -4270,6 +4324,7 @@ TEST_INSTR(fcmle_vector_zero)
     };
     TEST_LOOP(fcmle, fcmle_vector_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_DOUBLE();
@@ -4311,6 +4366,7 @@ TEST_INSTR(fcmle_zero)
     };
     TEST_LOOP(fcmle, fcmle_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     const char *expected_1_1[3] = {
@@ -4342,6 +4398,7 @@ TEST_INSTR(fcmlt_vector_zero)
     };
     TEST_LOOP(fcmlt, fcmlt_vector_zero, 3, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_HALF();
@@ -4364,6 +4421,7 @@ TEST_INSTR(fcmlt_vector_zero)
     };
     TEST_LOOP(fcmlt, fcmlt_vector_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_SINGLE();
@@ -4374,6 +4432,7 @@ TEST_INSTR(fcmlt_vector_zero)
     };
     TEST_LOOP(fcmlt, fcmlt_vector_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
+
     reg_id_t Rd_1_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_1_2[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
     Rn_elsz = OPND_CREATE_DOUBLE();
@@ -4415,6 +4474,7 @@ TEST_INSTR(fcmlt_zero)
     };
     TEST_LOOP(fcmlt, fcmlt_zero, 3, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]));
+
     reg_id_t Rd_1_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rn_1_1[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
     const char *expected_1_1[3] = {
@@ -4450,6 +4510,7 @@ TEST_INSTR(fmaxnmp_vector)
     };
     TEST_LOOP(fmaxnmp, fmaxnmp_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4480,6 +4541,7 @@ TEST_INSTR(fmaxnmp_vector)
     };
     TEST_LOOP(fmaxnmp, fmaxnmp_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4494,6 +4556,7 @@ TEST_INSTR(fmaxnmp_vector)
     };
     TEST_LOOP(fmaxnmp, fmaxnmp_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4546,6 +4609,7 @@ TEST_INSTR(fmaxnmp_scalar)
     };
     TEST_LOOP(fmaxnmp, fmaxnmp_scalar, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
                            DR_REG_D16, DR_REG_D21, DR_REG_D31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4584,6 +4648,7 @@ TEST_INSTR(fmaxp_vector)
     };
     TEST_LOOP(fmaxp, fmaxp_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4614,6 +4679,7 @@ TEST_INSTR(fmaxp_vector)
     };
     TEST_LOOP(fmaxp, fmaxp_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4628,6 +4694,7 @@ TEST_INSTR(fmaxp_vector)
     };
     TEST_LOOP(fmaxp, fmaxp_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4680,6 +4747,7 @@ TEST_INSTR(fmaxp_scalar)
     };
     TEST_LOOP(fmaxp, fmaxp_scalar, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
                            DR_REG_D16, DR_REG_D21, DR_REG_D31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4718,6 +4786,7 @@ TEST_INSTR(fminnmp_vector)
     };
     TEST_LOOP(fminnmp, fminnmp_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4748,6 +4817,7 @@ TEST_INSTR(fminnmp_vector)
     };
     TEST_LOOP(fminnmp, fminnmp_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4762,6 +4832,7 @@ TEST_INSTR(fminnmp_vector)
     };
     TEST_LOOP(fminnmp, fminnmp_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4814,6 +4885,7 @@ TEST_INSTR(fminnmp_scalar)
     };
     TEST_LOOP(fminnmp, fminnmp_scalar, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
                            DR_REG_D16, DR_REG_D21, DR_REG_D31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4850,6 +4922,7 @@ TEST_INSTR(fminnmv_vector)
     };
     TEST_LOOP(fminnmv, fminnmv_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), Rn_elsz);
+
     reg_id_t Rd_0_1[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
                            DR_REG_H16, DR_REG_H21, DR_REG_H31 };
     reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4902,6 +4975,7 @@ TEST_INSTR(fminp_vector)
     };
     TEST_LOOP(fminp, fminp_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
               opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
     reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4932,6 +5006,7 @@ TEST_INSTR(fminp_vector)
     };
     TEST_LOOP(fminp, fminp_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4946,6 +5021,7 @@ TEST_INSTR(fminp_vector)
     };
     TEST_LOOP(fminp, fminp_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
     reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
                            DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
     reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -4998,6 +5074,7 @@ TEST_INSTR(fminp_scalar)
     };
     TEST_LOOP(fminp, fminp_scalar, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
+
     reg_id_t Rd_1_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
                            DR_REG_D16, DR_REG_D21, DR_REG_D31 };
     reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
@@ -5010,6 +5087,528 @@ TEST_INSTR(fminp_scalar)
     };
     TEST_LOOP(fminp, fminp_scalar, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
+
+    return success;
+}
+
+TEST_INSTR(fmla_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rm_elsz;
+
+    /* Testing FMLA    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "fmla   %d0 %d0 %d0 $0x01 -> %d0",     "fmla   %d5 %d6 %d7 $0x01 -> %d5",
+        "fmla   %d10 %d11 %d12 $0x01 -> %d10", "fmla   %d16 %d17 %d18 $0x01 -> %d16",
+        "fmla   %d21 %d22 %d23 $0x01 -> %d21", "fmla   %d31 %d31 %d31 $0x01 -> %d31",
+    };
+    TEST_LOOP(fmla, fmla_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "fmla   %q0 %q0 %q0 $0x01 -> %q0",     "fmla   %q5 %q6 %q7 $0x01 -> %q5",
+        "fmla   %q10 %q11 %q12 $0x01 -> %q10", "fmla   %q16 %q17 %q18 $0x01 -> %q16",
+        "fmla   %q21 %q22 %q23 $0x01 -> %q21", "fmla   %q31 %q31 %q31 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmla, fmla_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]), Rm_elsz);
+
+    /* Testing FMLA    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts> */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "fmla   %d0 %d0 %d0 $0x02 -> %d0",     "fmla   %d5 %d6 %d7 $0x02 -> %d5",
+        "fmla   %d10 %d11 %d12 $0x02 -> %d10", "fmla   %d16 %d17 %d18 $0x02 -> %d16",
+        "fmla   %d21 %d22 %d23 $0x02 -> %d21", "fmla   %d31 %d31 %d31 $0x02 -> %d31",
+    };
+    TEST_LOOP(fmla, fmla_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "fmla   %q0 %q0 %q0 $0x02 -> %q0",     "fmla   %q5 %q6 %q7 $0x02 -> %q5",
+        "fmla   %q10 %q11 %q12 $0x02 -> %q10", "fmla   %q16 %q17 %q18 $0x02 -> %q16",
+        "fmla   %q21 %q22 %q23 $0x02 -> %q21", "fmla   %q31 %q31 %q31 $0x02 -> %q31",
+    };
+    TEST_LOOP(fmla, fmla_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_2[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "fmla   %q0 %q0 %q0 $0x03 -> %q0",     "fmla   %q5 %q6 %q7 $0x03 -> %q5",
+        "fmla   %q10 %q11 %q12 $0x03 -> %q10", "fmla   %q16 %q17 %q18 $0x03 -> %q16",
+        "fmla   %q21 %q22 %q23 $0x03 -> %q21", "fmla   %q31 %q31 %q31 $0x03 -> %q31",
+    };
+    TEST_LOOP(fmla, fmla_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
+
+    return success;
+}
+
+TEST_INSTR(fmla_vector_idx)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rm_elsz;
+
+    /* Testing FMLA    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>] */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D4,  DR_REG_D7,
+                           DR_REG_D10, DR_REG_D12, DR_REG_D15 };
+    uint index_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "fmla   %d0 %d0 %d0 $0x00 $0x01 -> %d0",
+        "fmla   %d5 %d6 %d4 $0x04 $0x01 -> %d5",
+        "fmla   %d10 %d11 %d7 $0x05 $0x01 -> %d10",
+        "fmla   %d16 %d17 %d10 $0x07 $0x01 -> %d16",
+        "fmla   %d21 %d22 %d12 $0x00 $0x01 -> %d21",
+        "fmla   %d31 %d31 %d15 $0x07 $0x01 -> %d31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q4,  DR_REG_Q7,
+                           DR_REG_Q10, DR_REG_Q12, DR_REG_Q15 };
+    uint index_0_1[6] = { 0, 4, 5, 7, 0, 7 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "fmla   %q0 %q0 %q0 $0x00 $0x01 -> %q0",
+        "fmla   %q5 %q6 %q4 $0x04 $0x01 -> %q5",
+        "fmla   %q10 %q11 %q7 $0x05 $0x01 -> %q10",
+        "fmla   %q16 %q17 %q10 $0x07 $0x01 -> %q16",
+        "fmla   %q21 %q22 %q12 $0x00 $0x01 -> %q21",
+        "fmla   %q31 %q31 %q15 $0x07 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]),
+              opnd_create_immed_uint(index_0_1[i], OPSZ_0), Rm_elsz);
+
+    /* Testing FMLA    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Tb>[<index>] */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    uint index_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "fmla   %d0 %d0 %d0 $0x00 $0x02 -> %d0",
+        "fmla   %d5 %d6 %d7 $0x03 $0x02 -> %d5",
+        "fmla   %d10 %d11 %d12 $0x00 $0x02 -> %d10",
+        "fmla   %d16 %d17 %d18 $0x01 $0x02 -> %d16",
+        "fmla   %d21 %d22 %d23 $0x01 $0x02 -> %d21",
+        "fmla   %d31 %d31 %d31 $0x03 $0x02 -> %d31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
+              opnd_create_immed_uint(index_1_0[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_1_1[6] = { 0, 3, 0, 1, 1, 3 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "fmla   %q0 %q0 %q0 $0x00 $0x02 -> %q0",
+        "fmla   %q5 %q6 %q7 $0x03 $0x02 -> %q5",
+        "fmla   %q10 %q11 %q12 $0x00 $0x02 -> %q10",
+        "fmla   %q16 %q17 %q18 $0x01 $0x02 -> %q16",
+        "fmla   %q21 %q22 %q23 $0x01 $0x02 -> %q21",
+        "fmla   %q31 %q31 %q31 $0x03 $0x02 -> %q31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]),
+              opnd_create_immed_uint(index_1_1[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_2[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_1_2[6] = { 0, 1, 1, 1, 0, 1 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "fmla   %q0 %q0 %q0 $0x00 $0x03 -> %q0",
+        "fmla   %q5 %q6 %q7 $0x01 $0x03 -> %q5",
+        "fmla   %q10 %q11 %q12 $0x01 $0x03 -> %q10",
+        "fmla   %q16 %q17 %q18 $0x01 $0x03 -> %q16",
+        "fmla   %q21 %q22 %q23 $0x00 $0x03 -> %q21",
+        "fmla   %q31 %q31 %q31 $0x01 $0x03 -> %q31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]),
+              opnd_create_immed_uint(index_1_2[i], OPSZ_0), Rm_elsz);
+
+    /* Testing FMLA    <Hd>, <Hn>, <Hm>.H[<index>] */
+    reg_id_t Rd_2_0[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_2_0[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_2_0[6] = { DR_REG_Q0,  DR_REG_Q4,  DR_REG_Q7,
+                           DR_REG_Q10, DR_REG_Q12, DR_REG_Q15 };
+    uint index_2_0[6] = { 0, 4, 5, 7, 0, 7 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_2_0[6] = {
+        "fmla   %q0 %q0 %q0 $0x00 $0x01 -> %q0",
+        "fmla   %q5 %q6 %q4 $0x04 $0x01 -> %q5",
+        "fmla   %q10 %q11 %q7 $0x05 $0x01 -> %q10",
+        "fmla   %q16 %q17 %q10 $0x07 $0x01 -> %q16",
+        "fmla   %q21 %q22 %q12 $0x00 $0x01 -> %q21",
+        "fmla   %q31 %q31 %q15 $0x07 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_2_0[i], opnd_create_reg(Rd_2_0[i]),
+              opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
+              opnd_create_immed_uint(index_2_0[i], OPSZ_0), Rm_elsz);
+
+    /* Testing FMLA    <V><d>, <V><n>, <Sm>.<Ts>[<index>] */
+    reg_id_t Rd_3_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
+                           DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+    reg_id_t Rn_3_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_3_0[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_3_0[6] = { 0, 3, 0, 1, 1, 3 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_3_0[6] = {
+        "fmla   %s0 %s0 %q0 $0x00 $0x02 -> %s0",
+        "fmla   %s5 %s6 %q7 $0x03 $0x02 -> %s5",
+        "fmla   %s10 %s11 %q12 $0x00 $0x02 -> %s10",
+        "fmla   %s16 %s17 %q18 $0x01 $0x02 -> %s16",
+        "fmla   %s21 %s22 %q23 $0x01 $0x02 -> %s21",
+        "fmla   %s31 %s31 %q31 $0x03 $0x02 -> %s31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_3_0[i], opnd_create_reg(Rd_3_0[i]),
+              opnd_create_reg(Rn_3_0[i]), opnd_create_reg(Rm_3_0[i]),
+              opnd_create_immed_uint(index_3_0[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_3_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_3_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_3_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_3_1[6] = { 0, 1, 1, 1, 0, 1 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_3_1[6] = {
+        "fmla   %d0 %d0 %q0 $0x00 $0x03 -> %d0",
+        "fmla   %d5 %d6 %q7 $0x01 $0x03 -> %d5",
+        "fmla   %d10 %d11 %q12 $0x01 $0x03 -> %d10",
+        "fmla   %d16 %d17 %q18 $0x01 $0x03 -> %d16",
+        "fmla   %d21 %d22 %q23 $0x00 $0x03 -> %d21",
+        "fmla   %d31 %d31 %q31 $0x01 $0x03 -> %d31",
+    };
+    TEST_LOOP(fmla, fmla_vector_idx, 6, expected_3_1[i], opnd_create_reg(Rd_3_1[i]),
+              opnd_create_reg(Rn_3_1[i]), opnd_create_reg(Rm_3_1[i]),
+              opnd_create_immed_uint(index_3_1[i], OPSZ_0), Rm_elsz);
+
+    return success;
+}
+
+TEST_INSTR(fmls_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rm_elsz;
+
+    /* Testing FMLS    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "fmls   %d0 %d0 %d0 $0x01 -> %d0",     "fmls   %d5 %d6 %d7 $0x01 -> %d5",
+        "fmls   %d10 %d11 %d12 $0x01 -> %d10", "fmls   %d16 %d17 %d18 $0x01 -> %d16",
+        "fmls   %d21 %d22 %d23 $0x01 -> %d21", "fmls   %d31 %d31 %d31 $0x01 -> %d31",
+    };
+    TEST_LOOP(fmls, fmls_vector, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]), Rm_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "fmls   %q0 %q0 %q0 $0x01 -> %q0",     "fmls   %q5 %q6 %q7 $0x01 -> %q5",
+        "fmls   %q10 %q11 %q12 $0x01 -> %q10", "fmls   %q16 %q17 %q18 $0x01 -> %q16",
+        "fmls   %q21 %q22 %q23 $0x01 -> %q21", "fmls   %q31 %q31 %q31 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmls, fmls_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]), Rm_elsz);
+
+    /* Testing FMLS    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts> */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "fmls   %d0 %d0 %d0 $0x02 -> %d0",     "fmls   %d5 %d6 %d7 $0x02 -> %d5",
+        "fmls   %d10 %d11 %d12 $0x02 -> %d10", "fmls   %d16 %d17 %d18 $0x02 -> %d16",
+        "fmls   %d21 %d22 %d23 $0x02 -> %d21", "fmls   %d31 %d31 %d31 $0x02 -> %d31",
+    };
+    TEST_LOOP(fmls, fmls_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]), Rm_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "fmls   %q0 %q0 %q0 $0x02 -> %q0",     "fmls   %q5 %q6 %q7 $0x02 -> %q5",
+        "fmls   %q10 %q11 %q12 $0x02 -> %q10", "fmls   %q16 %q17 %q18 $0x02 -> %q16",
+        "fmls   %q21 %q22 %q23 $0x02 -> %q21", "fmls   %q31 %q31 %q31 $0x02 -> %q31",
+    };
+    TEST_LOOP(fmls, fmls_vector, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]), Rm_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_2[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "fmls   %q0 %q0 %q0 $0x03 -> %q0",     "fmls   %q5 %q6 %q7 $0x03 -> %q5",
+        "fmls   %q10 %q11 %q12 $0x03 -> %q10", "fmls   %q16 %q17 %q18 $0x03 -> %q16",
+        "fmls   %q21 %q22 %q23 $0x03 -> %q21", "fmls   %q31 %q31 %q31 $0x03 -> %q31",
+    };
+    TEST_LOOP(fmls, fmls_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
+
+    return success;
+}
+
+TEST_INSTR(fmls_vector_idx)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+    opnd_t Rm_elsz;
+
+    /* Testing FMLS    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>] */
+    reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_0_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_0_0[6] = { DR_REG_D0,  DR_REG_D4,  DR_REG_D7,
+                           DR_REG_D10, DR_REG_D12, DR_REG_D15 };
+    uint index_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_0[6] = {
+        "fmls   %d0 %d0 %d0 $0x00 $0x01 -> %d0",
+        "fmls   %d5 %d6 %d4 $0x04 $0x01 -> %d5",
+        "fmls   %d10 %d11 %d7 $0x05 $0x01 -> %d10",
+        "fmls   %d16 %d17 %d10 $0x07 $0x01 -> %d16",
+        "fmls   %d21 %d22 %d12 $0x00 $0x01 -> %d21",
+        "fmls   %d31 %d31 %d15 $0x07 $0x01 -> %d31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_0_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_0_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_0_1[6] = { DR_REG_Q0,  DR_REG_Q4,  DR_REG_Q7,
+                           DR_REG_Q10, DR_REG_Q12, DR_REG_Q15 };
+    uint index_0_1[6] = { 0, 4, 5, 7, 0, 7 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_0_1[6] = {
+        "fmls   %q0 %q0 %q0 $0x00 $0x01 -> %q0",
+        "fmls   %q5 %q6 %q4 $0x04 $0x01 -> %q5",
+        "fmls   %q10 %q11 %q7 $0x05 $0x01 -> %q10",
+        "fmls   %q16 %q17 %q10 $0x07 $0x01 -> %q16",
+        "fmls   %q21 %q22 %q12 $0x00 $0x01 -> %q21",
+        "fmls   %q31 %q31 %q15 $0x07 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
+              opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]),
+              opnd_create_immed_uint(index_0_1[i], OPSZ_0), Rm_elsz);
+
+    /* Testing FMLS    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Tb>[<index>] */
+    reg_id_t Rd_1_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_1_0[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_1_0[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                           DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+    uint index_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_0[6] = {
+        "fmls   %d0 %d0 %d0 $0x00 $0x02 -> %d0",
+        "fmls   %d5 %d6 %d7 $0x03 $0x02 -> %d5",
+        "fmls   %d10 %d11 %d12 $0x00 $0x02 -> %d10",
+        "fmls   %d16 %d17 %d18 $0x01 $0x02 -> %d16",
+        "fmls   %d21 %d22 %d23 $0x01 $0x02 -> %d21",
+        "fmls   %d31 %d31 %d31 $0x03 $0x02 -> %d31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
+              opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
+              opnd_create_immed_uint(index_1_0[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_1_1[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_1_1[6] = { 0, 3, 0, 1, 1, 3 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_1_1[6] = {
+        "fmls   %q0 %q0 %q0 $0x00 $0x02 -> %q0",
+        "fmls   %q5 %q6 %q7 $0x03 $0x02 -> %q5",
+        "fmls   %q10 %q11 %q12 $0x00 $0x02 -> %q10",
+        "fmls   %q16 %q17 %q18 $0x01 $0x02 -> %q16",
+        "fmls   %q21 %q22 %q23 $0x01 $0x02 -> %q21",
+        "fmls   %q31 %q31 %q31 $0x03 $0x02 -> %q31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
+              opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]),
+              opnd_create_immed_uint(index_1_1[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_1_2[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_1_2[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_1_2[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_1_2[6] = { 0, 1, 1, 1, 0, 1 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_1_2[6] = {
+        "fmls   %q0 %q0 %q0 $0x00 $0x03 -> %q0",
+        "fmls   %q5 %q6 %q7 $0x01 $0x03 -> %q5",
+        "fmls   %q10 %q11 %q12 $0x01 $0x03 -> %q10",
+        "fmls   %q16 %q17 %q18 $0x01 $0x03 -> %q16",
+        "fmls   %q21 %q22 %q23 $0x00 $0x03 -> %q21",
+        "fmls   %q31 %q31 %q31 $0x01 $0x03 -> %q31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
+              opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]),
+              opnd_create_immed_uint(index_1_2[i], OPSZ_0), Rm_elsz);
+
+    /* Testing FMLS    <Hd>, <Hn>, <Hm>.H[<index>] */
+    reg_id_t Rd_2_0[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                           DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+    reg_id_t Rn_2_0[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                           DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+    reg_id_t Rm_2_0[6] = { DR_REG_Q0,  DR_REG_Q4,  DR_REG_Q7,
+                           DR_REG_Q10, DR_REG_Q12, DR_REG_Q15 };
+    uint index_2_0[6] = { 0, 4, 5, 7, 0, 7 };
+    Rm_elsz = OPND_CREATE_HALF();
+    const char *expected_2_0[6] = {
+        "fmls   %q0 %q0 %q0 $0x00 $0x01 -> %q0",
+        "fmls   %q5 %q6 %q4 $0x04 $0x01 -> %q5",
+        "fmls   %q10 %q11 %q7 $0x05 $0x01 -> %q10",
+        "fmls   %q16 %q17 %q10 $0x07 $0x01 -> %q16",
+        "fmls   %q21 %q22 %q12 $0x00 $0x01 -> %q21",
+        "fmls   %q31 %q31 %q15 $0x07 $0x01 -> %q31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_2_0[i], opnd_create_reg(Rd_2_0[i]),
+              opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
+              opnd_create_immed_uint(index_2_0[i], OPSZ_0), Rm_elsz);
+
+    /* Testing FMLS    <V><d>, <V><n>, <Sm>.<Ts>[<index>] */
+    reg_id_t Rd_3_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
+                           DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+    reg_id_t Rn_3_0[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                           DR_REG_S17, DR_REG_S22, DR_REG_S31 };
+    reg_id_t Rm_3_0[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_3_0[6] = { 0, 3, 0, 1, 1, 3 };
+    Rm_elsz = OPND_CREATE_SINGLE();
+    const char *expected_3_0[6] = {
+        "fmls   %s0 %s0 %q0 $0x00 $0x02 -> %s0",
+        "fmls   %s5 %s6 %q7 $0x03 $0x02 -> %s5",
+        "fmls   %s10 %s11 %q12 $0x00 $0x02 -> %s10",
+        "fmls   %s16 %s17 %q18 $0x01 $0x02 -> %s16",
+        "fmls   %s21 %s22 %q23 $0x01 $0x02 -> %s21",
+        "fmls   %s31 %s31 %q31 $0x03 $0x02 -> %s31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_3_0[i], opnd_create_reg(Rd_3_0[i]),
+              opnd_create_reg(Rn_3_0[i]), opnd_create_reg(Rm_3_0[i]),
+              opnd_create_immed_uint(index_3_0[i], OPSZ_0), Rm_elsz);
+
+    reg_id_t Rd_3_1[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                           DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+    reg_id_t Rn_3_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                           DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+    reg_id_t Rm_3_1[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                           DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
+    uint index_3_1[6] = { 0, 1, 1, 1, 0, 1 };
+    Rm_elsz = OPND_CREATE_DOUBLE();
+    const char *expected_3_1[6] = {
+        "fmls   %d0 %d0 %q0 $0x00 $0x03 -> %d0",
+        "fmls   %d5 %d6 %q7 $0x01 $0x03 -> %d5",
+        "fmls   %d10 %d11 %q12 $0x01 $0x03 -> %d10",
+        "fmls   %d16 %d17 %q18 $0x01 $0x03 -> %d16",
+        "fmls   %d21 %d22 %q23 $0x00 $0x03 -> %d21",
+        "fmls   %d31 %d31 %q31 $0x01 $0x03 -> %d31",
+    };
+    TEST_LOOP(fmls, fmls_vector_idx, 6, expected_3_1[i], opnd_create_reg(Rd_3_1[i]),
+              opnd_create_reg(Rn_3_1[i]), opnd_create_reg(Rm_3_1[i]),
+              opnd_create_immed_uint(index_3_1[i], OPSZ_0), Rm_elsz);
 
     return success;
 }
@@ -5147,6 +5746,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(fminnmv_vector);
     RUN_INSTR_TEST(fminp_vector);
     RUN_INSTR_TEST(fminp_scalar);
+
+    RUN_INSTR_TEST(fmla_vector);
+    RUN_INSTR_TEST(fmla_vector_idx);
+    RUN_INSTR_TEST(fmls_vector);
+    RUN_INSTR_TEST(fmls_vector_idx);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER
