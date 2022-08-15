@@ -159,28 +159,41 @@ droption_t<std::string> op_LL_miss_file(
     "analysis be written to the specified file. Each hint is written in text format as a "
     "<program counter, stride, locality level> tuple.");
 
-droption_t<bool> op_L0_filter(
+droption_t<bool> op_L0_filter_deprecated(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
-    "Filter out first-level cache hits during tracing",
-    "Filters out instruction and data hits in a 'zero-level' cache during tracing "
-    "itself, shrinking the final trace to only contain instruction and data accesses "
-    "that miss in this initial cache.  This cache is direct-mapped with sizes equal to "
-    "-L0I_size and -L0D_size.  It uses virtual addresses regardless of -use_physical. "
-    "The dynamic (pre-filtered) per-thread instruction count is tracked and supplied "
-    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries "
-    "and at thread exit.");
+    "Filter out first-level instruction and data cache hits during tracing",
+    "DEPRECATED: Use the -L0I_filter and -L0D_filter options instead.");
+
+droption_t<bool> op_L0I_filter(
+    DROPTION_SCOPE_CLIENT, "L0I_filter", false,
+    "Filter out first-level instruction cache hits during tracing",
+    "Filters out instruction hits in a 'zero-level' cache during tracing itself, "
+    "shrinking the final trace to only contain instructions that miss in this initial "
+    "cache.  This cache is direct-mapped with size equal to -L0I_size.  It uses virtual "
+    "addresses regardless of -use_physical. The dynamic (pre-filtered) per-thread "
+    "instruction count is tracked and supplied via a "
+    "#TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries and at "
+    "thread exit.");
+
+droption_t<bool> op_L0D_filter(
+    DROPTION_SCOPE_CLIENT, "L0D_filter", false,
+    "Filter out first-level data cache hits during tracing",
+    "Filters out data hits in a 'zero-level' cache during tracing itself, shrinking the "
+    "final trace to only contain data accesses that miss in this initial cache.  This "
+    "cache is direct-mapped with size equal to -L0D_size.  It uses virtual addresses "
+    "regardless of -use_physical. ");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
-    "If -L0_filter, filter out instruction hits during tracing",
-    "Specifies the size of the 'zero-level' instruction cache for -L0_filter.  "
+    "If -L0I_filter, filter out instruction hits during tracing",
+    "Specifies the size of the 'zero-level' instruction cache for -L0I_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables instruction fetch entries from appearing in the trace.");
 
 droption_t<bytesize_t> op_L0D_size(
     DROPTION_SCOPE_CLIENT, "L0D_size", 32 * 1024U,
-    "If -L0_filter, filter out data hits during tracing",
-    "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
+    "If -L0D_filter, filter out data hits during tracing",
+    "Specifies the size of the 'zero-level' data cache for -L0D_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
 
@@ -195,10 +208,18 @@ droption_t<bool> op_coherence(
     "Writes to cache lines will invalidate other private caches that hold that line.");
 
 droption_t<bool> op_use_physical(
-    DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
-    "If available, the default virtual addresses will be translated to physical.  "
-    "This is not possible from user mode on all platforms.  "
-    "This is not supported with -offline at this time.");
+    DROPTION_SCOPE_ALL, "use_physical", false, "Use physical addresses if possible",
+    "If available, metadata with virtual-to-physical-address translation information "
+    "is added to the trace.  This is not possible from user mode on all platforms.  "
+    "The regular trace entries remain virtual, with a pair of markers of "
+    "types #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
+    "inserted at some prior point for each new or changed page mapping to show the "
+    "corresponding physical addresses.  If translation fails, a "
+    "#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted. "
+    "This option may incur significant overhead "
+    "both for the physical translation and as it requires disabling optimizations."
+    "For -offline, this option must be passed to both the tracer (to insert the "
+    "markers) and the simulator (to use the markers).");
 
 droption_t<unsigned int> op_virt2phys_freq(
     DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
@@ -619,3 +640,13 @@ droption_t<bool> op_enable_drstatecmp(
     DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
     "When true, this option enables the drstatecmp library that performs state "
     "comparisons to detect instrumentation-induced bugs due to state clobbering.");
+
+#ifdef BUILD_PT_TRACER
+droption_t<bool> op_enable_kernel_tracing(
+    DROPTION_SCOPE_ALL, "enable_kernel_tracing", false, "Enable Kernel Intel PT tracing.",
+    "By default, offline tracing only records a userspace trace. If this option is "
+    "enabled, offline tracing will record each syscall's Kernel PT and write every "
+    "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
+    "analysis. And this feature is available only on Intel CPUs that support Intel@ "
+    "Processor Trace.");
+#endif

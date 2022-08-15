@@ -80,7 +80,8 @@ public:
         {
         }
 
-        reg_id_t operator*()
+        reg_id_t
+        operator*()
         {
             return static_cast<reg_id_t>(DR_REG_START_GPR + index_);
         }
@@ -199,7 +200,7 @@ public:
     virtual int
     get_instr_count(byte *buf_ptr) const = 0;
     virtual addr_t
-    get_entry_addr(byte *buf_ptr) const = 0;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const = 0;
     virtual void
     set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
 
@@ -312,7 +313,7 @@ public:
     int
     get_instr_count(byte *buf_ptr) const override;
     addr_t
-    get_entry_addr(byte *buf_ptr) const override;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const override;
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
@@ -372,7 +373,8 @@ public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
                      bool memref_needs_info, drvector_t *reg_vector,
                      ssize_t (*write_file)(file_t file, const void *data, size_t count),
-                     file_t module_file, bool disable_optimizations = false);
+                     file_t module_file, bool disable_optimizations = false,
+                     void (*log)(uint level, const char *fmt, ...) = nullptr);
     virtual ~offline_instru_t();
 
     trace_type_t
@@ -382,7 +384,7 @@ public:
     int
     get_instr_count(byte *buf_ptr) const override;
     addr_t
-    get_entry_addr(byte *buf_ptr) const override;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const override;
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
@@ -501,6 +503,7 @@ private:
     static CONSTEXPR int LABEL_DATA_ELIDED_NEEDS_BASE = 3;
     ptr_uint_t elide_memref_note_;
     bool standalone_ = false;
+    void (*log_)(uint level, const char *fmt, ...);
 };
 
 #endif /* _INSTRU_H_ */

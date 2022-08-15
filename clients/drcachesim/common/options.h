@@ -79,7 +79,9 @@ extern droption_t<bytesize_t> op_LL_size;
 extern droption_t<unsigned int> op_LL_assoc;
 extern droption_t<std::string> op_LL_miss_file;
 extern droption_t<bytesize_t> op_L0I_size;
-extern droption_t<bool> op_L0_filter;
+extern droption_t<bool> op_L0_filter_deprecated;
+extern droption_t<bool> op_L0I_filter;
+extern droption_t<bool> op_L0D_filter;
 extern droption_t<bytesize_t> op_L0D_size;
 extern droption_t<bool> op_instr_only_trace;
 extern droption_t<bool> op_coherence;
@@ -139,4 +141,7 @@ extern droption_t<unsigned int> op_miss_count_threshold;
 extern droption_t<double> op_miss_frac_threshold;
 extern droption_t<double> op_confidence_threshold;
 extern droption_t<bool> op_enable_drstatecmp;
+#ifdef BUILD_PT_TRACER
+extern droption_t<bool> op_enable_kernel_tracing;
+#endif
 #endif /* _OPTIONS_H_ */

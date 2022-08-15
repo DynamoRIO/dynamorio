@@ -72,6 +72,9 @@
 #    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
 #endif
 #define OUTFILE_SUBDIR "raw"
+#ifdef BUILD_PT_TRACER
+#    define KERNEL_PT_OUTFILE_SUBDIR "kernel.raw"
+#endif
 #define WINDOW_SUBDIR_PREFIX "window"
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
@@ -81,8 +84,6 @@
 #else
 #    define TRACE_SUFFIX "trace"
 #endif
-
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
 
 typedef enum {
     RAW2TRACE_STAT_COUNT_ELIDED,
@@ -1028,6 +1029,13 @@ private:
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
             // Once that support is in we can remove the bool return value and handle
             // the memrefs up here.
+            // A race is fine for our visible ~one-time warning at level 0.
+            static volatile bool warned_once;
+            if (!warned_once) {
+                impl()->log(
+                    0, "WARNING: Skipping ifetch for instructions not in a module\n");
+                warned_once = true;
+            }
             impl()->log(
                 1, "Skipping ifetch for %u instrs not in a module (idx %d, +" PIFX ")\n",
                 instr_count, in_entry->pc.modidx, in_entry->pc.modoffs);
@@ -1043,7 +1051,8 @@ private:
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
         bool instrs_are_separate =
-            TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls));
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                    impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
         // Cast to unsigned pointer-sized int first to avoid sign-extending.
@@ -1058,7 +1067,8 @@ private:
             skip_icache = true;
             instr_count = 1;
             // We should have set a flag to avoid peeking forward on instr entries
-            // based on OFFLINE_FILE_TYPE_FILTERED.
+            // based on OFFLINE_FILE_TYPE_FILTERED and
+            // OFFLINE_FILE_TYPE_IFILTERED.
             DR_ASSERT(instrs_are_separate);
         } else {
             if (!impl()->instr_summary_exists(tls, in_entry->pc.modidx,
@@ -1394,7 +1404,9 @@ private:
         reg_id_t base;
         int version = impl()->get_version(tls);
         if (memref.use_remembered_base) {
-            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls)));
+            DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                                   OFFLINE_FILE_TYPE_DFILTERED,
+                               impl()->get_file_type(tls)));
             bool is_elidable =
                 instru_offline_.opnd_is_elidable(memref.opnd, base, version);
             DR_ASSERT(is_elidable);
@@ -1500,7 +1512,6 @@ private:
             buf->type = TRACE_TYPE_WRITE;
         }
 #endif
-
         *buf_in = ++buf;
         return "";
     }

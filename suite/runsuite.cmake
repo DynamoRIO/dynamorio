@@ -106,6 +106,12 @@ if (arg_automated_ci)
     # prior to option parsing.
     set(build_tests "${build_tests}
 AUTOMATED_TESTING:BOOL=ON")
+    # We assume our GitHub Actions automated CI has password-less sudo.
+    # Our Jenkins tester does not.  CI_TRIGGER is only set for Actions.
+    if (NOT "$ENV{CI_TRIGGER}" STREQUAL "")
+      set(build_tests "${build_tests}
+RUN_SUDO_TESTS:BOOL=ON")
+    endif ()
   endif()
 endif()
 
@@ -217,8 +223,8 @@ endif ()
 # However, there's no simple way to do that.  For now we punt until someone
 # changes one of those.
 #
-# Prefer named version 9.0 from apt.llvm.org.
-find_program(CLANG_FORMAT_DIFF clang-format-diff-9 DOC "clang-format-diff")
+# Prefer named version 12.0 from apt.llvm.org.
+find_program(CLANG_FORMAT_DIFF clang-format-diff-12 DOC "clang-format-diff")
 if (NOT CLANG_FORMAT_DIFF)
   find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
 endif ()

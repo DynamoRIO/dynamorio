@@ -741,7 +741,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
 void
 fragment_update_ibl_tables(dcontext_t *dcontext);
 
-fragment_t *
+void
 fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t branch_type);
 
 /* future fragments */

@@ -13,4 +13,19 @@ param takes2 = |1_of_4 3_of_4|,|2_of_4 4_of_4|
 param val_sep = |v1.1 v1.2+v2.1 v2.2|
 param val_sep2 = |v1+v3|,|v2+v4|
 param large_bytesize = 9999999999
+param oi = -10
+param ol = -10
+param oll = -10
+param ou = 10
+param oul = 10
+param oull = 10
+param xi = -10
+param xl = -10
+param xll = -10
+param xu = 10
+param xul = 10
+param xull = 10
+Option ou value out of range
+Option oul value out of range
+Option oull value out of range
 Hello, world!

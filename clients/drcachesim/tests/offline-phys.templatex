@@ -1,0 +1,28 @@
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Output format:
+<record#>: T<tid> <record details>
+------------------------------------------------------------
+        1: T[0-9]+ <marker: version 3>
+        2: T[0-9]+ <marker: filetype 0x42>
+        3: T[0-9]+ <marker: cache line size [0-9]+>
+        4: T[0-9]+ <marker: page size [0-9]+>
+        5: T[0-9]+ <marker: timestamp [0-9]+>
+        6: T[0-9]+ <marker: tid [0-9]+ on core [0-9]+>
+        7: T[0-9]+ <marker: physical address for following virtual: 0x[0-9a-f][0-9a-f]+>
+        8: T[0-9]+ <marker: virtual address for prior physical: 0x[0-9a-f][0-9a-f]+>
+        9: T[0-9]+ <marker: physical address for following virtual: 0x[0-9a-f][0-9a-f]+>
+       10: T[0-9]+ <marker: virtual address for prior physical: 0x[0-9a-f][0-9a-f]+>
+       11: T[0-9]+ <marker: physical address for following virtual: 0x[0-9a-f][0-9a-f]+>
+       12: T[0-9]+ <marker: virtual address for prior physical: 0x[0-9a-f][0-9a-f]+>
+       13: T[0-9]+ <marker: timestamp [0-9]+>
+       14: T[0-9]+ <marker: tid [0-9]+ on core [0-9]+>
+       15: T[0-9]+ ifetch .*

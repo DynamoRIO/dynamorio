@@ -361,4 +361,70 @@ struct fpsimd_context {
 
 #endif /* AARCH64 */
 
+#ifdef RISCV64
+
+struct user_regs_struct {
+    unsigned long pc;
+    unsigned long ra;
+    unsigned long sp;
+    unsigned long gp;
+    unsigned long tp;
+    unsigned long t0;
+    unsigned long t1;
+    unsigned long t2;
+    unsigned long s0;
+    unsigned long s1;
+    unsigned long a0;
+    unsigned long a1;
+    unsigned long a2;
+    unsigned long a3;
+    unsigned long a4;
+    unsigned long a5;
+    unsigned long a6;
+    unsigned long a7;
+    unsigned long s2;
+    unsigned long s3;
+    unsigned long s4;
+    unsigned long s5;
+    unsigned long s6;
+    unsigned long s7;
+    unsigned long s8;
+    unsigned long s9;
+    unsigned long s10;
+    unsigned long s11;
+    unsigned long t3;
+    unsigned long t4;
+    unsigned long t5;
+    unsigned long t6;
+};
+
+struct __riscv_f_ext_state {
+    __u32 f[32];
+    __u32 fcsr;
+};
+
+struct __riscv_d_ext_state {
+    __u64 f[32];
+    __u32 fcsr;
+};
+
+struct __riscv_q_ext_state {
+    __u64 f[64] __attribute__((aligned(16)));
+    __u32 fcsr;
+    __u32 reserved[3];
+};
+
+union __riscv_fp_state {
+    struct __riscv_f_ext_state f;
+    struct __riscv_d_ext_state d;
+    struct __riscv_q_ext_state q;
+};
+
+typedef struct _kernel_sigcontext_t {
+    struct user_regs_struct sc_regs;
+    union __riscv_fp_state sc_fpregs;
+} kernel_sigcontext_t;
+
+#endif /* RISCV64 */
+
 #endif /* _SIGCONTEXT_H_ */

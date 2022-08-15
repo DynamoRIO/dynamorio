@@ -77,15 +77,25 @@ protected:
     };
 
     bool
-    should_skip();
+    should_skip(const memref_t &memref);
 
     inline void
-    print_prefix(const memref_t &memref, std::ostream &stream = std::cerr)
+    print_header()
+    {
+        std::cerr << std::setw(9) << "Output format:\n<record#>"
+                  << ": T<tid> <record details>\n"
+                  << "------------------------------------------------------------\n";
+    }
+
+    inline void
+    print_prefix(const memref_t &memref, int ref_adjust = 0,
+                 std::ostream &stream = std::cerr)
     {
         if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
-        stream << std::setw(9) << num_refs_ << ": T" << memref.marker.tid << " ";
+        stream << std::setw(9) << (num_refs_ + ref_adjust) << ": T" << memref.marker.tid
+               << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after

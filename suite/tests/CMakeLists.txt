@@ -1,7 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
-# Copyright (c) 2016      ARM Limited.    All rights reserved.
+# Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,9 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
 
 option(RUN_LONG_SUITE "run long set of tests")
+# We have some tests that need sudo, which is problematic if it requires
+# an interactive password.  Thus, we disable unless explicitly turned on.
+option(RUN_SUDO_TESTS "run tests that require sudo")
 option(SKIP_FLAKY_TESTS "do not run tests named *_FLAKY")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
@@ -606,6 +609,13 @@ set(ci_shared_app simple_app)
 set(ci_shared_app_src client-interface/${ci_shared_app}.c)
 add_exe(${ci_shared_app} ${ci_shared_app_src})
 
+# A shared tiny app.
+if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+  add_exe(allasm_x86_64 common/allasm_x86_64.asm)
+  set_target_properties(allasm_x86_64 PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(allasm_x86_64 "-nostartfiles -nodefaultlibs -static")
+endif ()
+
 function(setup_test_client_dll_basics test)
   configure_DynamoRIO_client(${test})
   append_property_string(TARGET ${test} LINK_FLAGS "${ARCH_DEBUG}")
@@ -863,22 +873,6 @@ macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR pass_opts
   torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder}
     ${pass_opts_via_env})
 endmacro(tobuild_api)
-
-# tobuild_static_nohide_api builds a static API test which uses the
-# dynamorio_static_nohide as a base library. It is a macro so the PARENT_SCOPE
-# in torunonly_api will reach caller of this.
-# XXX: Do we want to support a nicer API for 'nohide' than assuming that
-# add_api_exe adds dynamorio_static and replacing it manually with
-# dynamorio_static_nohide? Punting until there are more uses: it's a lot of
-# plumbing for no clear gain.
-macro(tobuild_static_nohide_api test source dr_ops exe_ops use_decoder)
-  add_api_exe(${test} ${source} ${use_decoder} ON)
-  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder} OFF OFF)
-  get_target_property(lib_list ${test} LINK_LIBRARIES)
-  list(REMOVE_ITEM lib_list dynamorio_static)
-  set_property(TARGET ${test} PROPERTY LINK_LIBRARIES ${lib_list} )
-  target_link_libraries(${test} dynamorio_static_nohide)
-endmacro(tobuild_static_nohide_api)
 
 # run that uses a different build
 function(torunonly test realtest source dr_ops exe_ops)
@@ -1306,6 +1300,10 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     string(REGEX REPLACE "/drrun;" "/drrun;-32;" rundr "${rundr}")
   endif ()
 
+  if (DEFINED ${key}_sudo)
+    set(rundr "sudo;${rundr}")
+  endif ()
+
   if (is_runall)
     # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
@@ -1383,7 +1381,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
       if (UNIX)
-        get_target_path_for_execution(toolbindir nudgeunix "${location_suffix}")
+        get_target_path_for_execution(toolbindir drnudgeunix "${location_suffix}")
       else ()
         get_target_path_for_execution(toolbindir drconfig "${location_suffix}")
       endif ()
@@ -1425,6 +1423,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D postcmd=${${key}_postcmd}
       -D postcmd2=${${key}_postcmd2}
       -D postcmd3=${${key}_postcmd3}
+      -D failok=${${key}_failok}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
       -D capture=${${key}_runcmp_capture}
@@ -1693,23 +1692,25 @@ function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
     if (TEST_LONG OR NOT "${name}" MATCHES "_LONG")
-      if (NOT regex OR "${name}" MATCHES "${regex}")
-        if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
-            # See above: for particular builds we skip some of the similar tests from
-            # some of the test groups.
-            (("${name}" MATCHES "tool.drcache" AND
-              NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
-            ("${name}" MATCHES "tool.drcpusim" AND
-              NOT "${name}" MATCHES "Pentium3") OR
-            ("${name}" MATCHES "tool.[^d]" AND
-              NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
-            # instrcalls is the slowest of the samples.
-            "${name}" MATCHES "sample.instrcalls" OR
-            ("${name}" MATCHES "client.annotation-" AND
-              NOT "${name}" MATCHES "(-opt|tiny-bb)")))
-          set(enabled OFF)
-        else ()
-          set(enabled ON)
+      if (RUN_SUDO_TESTS OR NOT "${name}" MATCHES "_SUDO")
+        if (NOT regex OR "${name}" MATCHES "${regex}")
+          if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+              # See above: for particular builds we skip some of the similar tests from
+              # some of the test groups.
+              (("${name}" MATCHES "tool.drcache" AND
+                  NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+                ("${name}" MATCHES "tool.drcpusim" AND
+                  NOT "${name}" MATCHES "Pentium3") OR
+                ("${name}" MATCHES "tool.[^d]" AND
+                  NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+                # instrcalls is the slowest of the samples.
+                "${name}" MATCHES "sample.instrcalls" OR
+                ("${name}" MATCHES "client.annotation-" AND
+                  NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+            set(enabled OFF)
+          else ()
+            set(enabled ON)
+          endif ()
         endif ()
       endif ()
     endif ()
@@ -1859,6 +1860,8 @@ if (NOT ANDROID)
 
   if (AARCH64)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
   endif (AARCH64)
 endif ()
 
@@ -2095,10 +2098,7 @@ if (DEBUG)
     # at -loglevel 19 produces 11GB of data and takes >17 minutes to run (vs <10MB and
     # <1s for Linux).  We live w/o a regression test on Windows for high loglevels.
     if (LINUX)
-      tobuild_ops(common.loglevel common/allasm_x86_64.asm
-        "-loglevel 19" "")
-      set_target_properties(common.loglevel PROPERTIES LINKER_LANGUAGE C)
-      append_link_flags(common.loglevel "-nostartfiles -nodefaultlibs -static")
+      torunonly(common.loglevel allasm_x86_64 common/allasm_x86_64.asm "-loglevel 19" "")
     endif ()
   elseif (DR_HOST_AARCH64)
     torunonly(common.loglevel common.allasm_aarch64_cache
@@ -2550,13 +2550,18 @@ torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll.A
   "" "" "")
 
 tobuild_ci(client.option_parse client-interface/option_parse.cpp
-  "-l;-4;-ll;-3220721071790640321;-ul;4;-ull;1384772493926445887;-x;3;-x_alias;4;-y;quoted string;-z;first;-z_alias;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-flag;-flag_alias1;-no_flag_alias2;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4;-large_bytesize;9999999999"
+  "-l;-4;-ll;-3220721071790640321;-ul;4;-ull;1384772493926445887;-x;3;-x_alias;4;-y;quoted string;-z;first;-z_alias;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-flag;-flag_alias1;-no_flag_alias2;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4;-large_bytesize;9999999999;-oi;-012;-ol;-012;-oll;-012;-ou;012;-oul;012;-oull;012;-xi;-0xa;-xl;-0xa;-xll;-0xa;-xu;0xa;-xul;0xa;-xull;0xa;"
   "" "")
 use_DynamoRIO_extension(client.option_parse.dll droption)
 set(client.option_parse_client_ops_islist ON)
 
 if (AARCH64)
   tobuild_ci(client.features client-interface/features.c "" "" "")
+
+  tobuild_ci(client.stolen-reg-index client-interface/stolen-reg-index.c "" "" "")
+  use_DynamoRIO_extension(client.stolen-reg-index.dll drmgr)
+  use_DynamoRIO_extension(client.stolen-reg-index.dll drreg)
+  use_DynamoRIO_extension(client.stolen-reg-index.dll drutil)
 endif ()
 
 tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
@@ -2578,6 +2583,13 @@ use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdll_path}")
 use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
 link_with_pthread(client.drmgr-test)
+
+if (proc_supports_pt)
+  tobuild_ci(client.drpttracer_SUDO-test client-interface/drpttracer_SUDO-test.c "" "" "")
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drpttracer)
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drmgr)
+  set(client.drpttracer_SUDO-test_sudo ON)
+endif ()
 
 tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
 use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
@@ -3064,27 +3076,25 @@ if (NOT ANDROID AND NOT APPLE)
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
     # checking).
-    tobuild_static_nohide_api(api.static_symbols api/static_symbols.c "" "" OFF)
+
+    tobuild_api(api.static_symbols api/static_symbols.c "" "" OFF ON OFF)
     append_link_flags(api.static_symbols "-Wl,--warn-common -Wl,--fatal-warnings")
 
     # To ensure that the dynamorio_so_start/_end linker variables are actually
     # used in static binaries, we have two tests which run the same "map mixup"
     # logic: one which exits successfully because we provide the linker
     # variables and another which exits with an assertion because we don't.
-    # Both versions utilize the dynamorio_static_nohide as a base because
-    # the variables in dynamorio_static have already been resolved as a part of
-    # the symbol hiding step.
     set(api.static_maps_mixup_yesvars_expectbase
        "static_maps_mixup_yesvars")
-    tobuild_static_nohide_api(api.static_maps_mixup_yesvars
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_yesvars
+       api/static_maps_mixup.c "" "" OFF ON OFF)
     append_link_flags(api.static_maps_mixup_yesvars
         "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
 
     set(api.static_maps_mixup_novars_FLAKY_expectbase
        "static_maps_mixup_novars")
-    tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_novars_FLAKY
+       api/static_maps_mixup.c "" "" OFF ON OFF)
   endif ()
 
   if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
@@ -3330,8 +3340,12 @@ if (BUILD_CLIENTS)
       # would need an analyzer to go examine addresses, or to use the view tool.
       # For now these are just sanity tests that flipping on the option doesn't
       # cause outright failure.
-      torunonly_drcachesim(phys ${ci_shared_app} "-use_physical" "")
-      torunonly_drcachesim(phys-threads client.annotation-concurrency "-use_physical"
+      set(tool.drcachesim.phys_SUDO_sudo ON)
+      set(tool.drcachesim.phys_SUDO_expectbase "phys")
+      torunonly_drcachesim(phys_SUDO ${ci_shared_app} "-use_physical" "")
+      set(tool.drcachesim.phys-threads_SUDO_sudo ON)
+      set(tool.drcachesim.phys-threads_SUDO_expectbase "phys-threads")
+      torunonly_drcachesim(phys-threads_SUDO client.annotation-concurrency "-use_physical"
         "${annotation_test_args_shorter}")
     endif ()
 
@@ -3340,13 +3354,19 @@ if (BUILD_CLIENTS)
       "-L0_filter ${test_mode_flag}" "")
     if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
       # If we have a pure-asm app with a constant instr count, check that count.
-      torunonly_drcachesim(filter-asm common.loglevel
+      torunonly_drcachesim(filter-asm allasm_x86_64
         "-L0_filter -test_mode -test_mode_name filter_asm_instr_count" "")
     endif ()
     torunonly_drcachesim(filter-no-i ${ci_shared_app}
-      "-L0_filter -L0I_size 0 ${test_mode_flag}" "")
+      "-L0I_filter -L0I_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
+    torunonly_drcachesim(filter-i ${ci_shared_app}
+      "-L0I_filter -L0I_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
+    set(tool.drcachesim.filter-i_expectbase "basic-counts-generic")
     torunonly_drcachesim(filter-no-d ${ci_shared_app}
-      "-L0_filter -L0D_size 0 ${test_mode_flag}" "")
+      "-L0D_filter -L0D_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
+    torunonly_drcachesim(filter-d ${ci_shared_app}
+      "-L0D_filter -L0D_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
+    set(tool.drcachesim.filter-d_expectbase "basic-counts-generic")
 
     torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
@@ -3557,13 +3577,20 @@ if (BUILD_CLIENTS)
       set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(${testname_full}_rawtemp ON) # no preprocessor
       set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      # Support for running under sudo for -use_physical.
+      # Each command is assumed to need sudo.
+      if (DEFINED ${testname_full}_sudo)
+        set(cmd_pfx "sudo@")
+      else ()
+        set(cmd_pfx "")
+      endif ()
       set(${testname_full}_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
+        "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir")
       if (${testname_full}_nopost)
         # No post needed.
       else ()
         set(${testname_full}_postcmd
-          "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
       endif ()
       set(${testname_full}_self_serial ON)
     endmacro()
@@ -3630,9 +3657,15 @@ if (BUILD_CLIENTS)
 
     torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter ${test_mode_flag}" "" "")
     torunonly_drcacheoff(filter-no-i ${ci_shared_app}
-      "-L0_filter -L0I_size 0 ${test_mode_flag}" "" "")
+      "-L0I_filter -L0I_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+    torunonly_drcacheoff(filter-i ${ci_shared_app}
+      "-L0I_filter -L0I_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+    set(tool.drcacheoff.filter-i_expectbase "offline-basic-counts-generic")
     torunonly_drcacheoff(filter-no-d ${ci_shared_app}
-      "-L0_filter -L0D_size 0 ${test_mode_flag}" "" "")
+      "-L0D_filter -L0D_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+    torunonly_drcacheoff(filter-d ${ci_shared_app}
+      "-L0D_filter -L0D_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+    set(tool.drcacheoff.filter-d_expectbase "offline-basic-counts-generic")
 
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
@@ -3722,6 +3755,21 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
       "@-simulator_type@func_view" "only_5")
 
+    if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+      # Requires sudo to access pagemap.
+      # XXX: Should we not enable this outside of the Github suite where we know
+      # we have passwordless sudo?  The pause for a password may cause problems
+      # for local interactive test running.
+      set(tool.drcacheoff.phys_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
+      torunonly_drcacheoff(phys_SUDO allasm_repstr
+        "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
+      set(tool.drcacheoff.phys_nopriv_failok ON)
+      set(tool.drcacheoff.phys_nopriv_nopost ON)
+      torunonly_drcacheoff(phys_nopriv allasm_x86_64
+        "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
+    endif ()
+
     if (UNIX AND ZLIB_FOUND)
       add_exe(tool.fib_plus
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/fib_plus.c)
@@ -3775,6 +3823,17 @@ if (BUILD_CLIENTS)
     if (AARCH64)
       set(tool.drcacheoff.burst_aarch64_sys_nodr ON)
       torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys "" "@-simulator_type@basic_counts" "")
+    endif ()
+
+    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+      set(tool.drcacheoff.gencode_no_reg_compat)
+      add_api_exe(tool.drcacheoff.gencode
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
+        OFF ON)
+      use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
+      set(tool.drcacheoff.gencode_nodr ON)
+      torunonly_drcacheoff(gencode tool.drcacheoff.gencode
+        "" "@-simulator_type@basic_counts" "")
     endif ()
 
     # XXX i#1551: startstop API is NYI on ARM
@@ -4029,6 +4088,34 @@ if (BUILD_CLIENTS)
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
 
+  if (proc_supports_pt)
+    if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+      get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
+      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
+        set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
+        torunonly_ci(${testname_full} ${exetgt} drcachesim
+          "offline-kernel-${testname}.c" # for templatex basename
+          "-offline -enable_kernel_tracing -subdir_prefix ${testname_full} ${extra_ops}"
+          "" "${app_args}")
+        set(${testname_full}_sudo ON)
+        set(${testname_full}_self_serial ON)
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(${testname_full}_rawtemp ON) # no preprocessor
+        set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        # Each command is assumed to need sudo.
+        set(cmd_pfx "sudo@")
+        set(${testname_full}_precmd
+          "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+        set (${testname_full}_postcmd
+          "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
+        set(${testname_full}_postcmd2
+          "firstglob@${cmd_pfx}${drpt2trace_path}@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata")
+      endmacro ()
+      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
+    endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+  endif (proc_supports_pt)
+
   ###########################################################################
   # drcpusim tests
 
@@ -4117,6 +4204,42 @@ if (BUILD_CLIENTS)
     # b/c our tests have too-new instrs for older machines.
   endif (X86)
 
+endif (BUILD_CLIENTS)
+
+# ##########################################################################
+# drpt2trace tests
+# We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
+if (BUILD_CLIENTS)
+  if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+    set(drpt2trace_commong "-print_trace"
+      "-raw_pt"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
+      "-pt_cpu_family" "6"
+      "-pt_cpu_model" "85"
+      "-pt_cpu_stepping" "4"
+      "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
+      "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308")
+    set(drpt2trace_sideband_args ${drpt2trace_commong}
+      "-primary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
+      "-secondary_sb"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/secondary.sideband.pevent"
+      "-sb_sample_type" "0x10086"
+      "-sb_time_shift" "31"
+      "-sb_time_mult" "581029125"
+      "-sb_time_zero" "18444502336406842448"
+      "-sb_sysroot"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
+    torunonly_api(tool.drpt2trace.sideband drpt2trace
+      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "" "${drpt2trace_sideband_args}" ON OFF)
+    set(drpt2trace_elf_args ${drpt2trace_commong}
+      "-elf"
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
+    torunonly_api(tool.drpt2trace.elf drpt2trace
+      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "" "${drpt2trace_elf_args}" ON OFF)
+  endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
 endif (BUILD_CLIENTS)
 
 if (UNIX)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,13 @@
 // XXX: can we share w/ core DR?
 #define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
 
+// XXX i#4399: DR should define a DEBUG-only assert.
+#ifdef DEBUG
+#    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#else
+#    define ASSERT(x, msg) /* Nothing. */
+#endif
+
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 #define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
@@ -62,6 +69,13 @@
 
 #define ALIGN_FORWARD(x, alignment) \
     ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
+
+#define NOTIFY(level, ...)                     \
+    do {                                       \
+        if (op_verbose.get_value() >= (level)) \
+            dr_fprintf(STDERR, __VA_ARGS__);   \
+    } while (0)
 
 #define BOOLS_MATCH(b1, b2) (!!(b1) == !!(b2))
 

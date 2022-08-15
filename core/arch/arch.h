@@ -118,6 +118,7 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS XDX_OFFSET
 #    define SCRATCH_REG4_OFFS XSI_OFFSET
 #    define SCRATCH_REG5_OFFS XDI_OFFSET
+#    define CALL_SCRATCH_REG DR_REG_R11
 #elif defined(AARCHXX)
 #    define R0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
 #    define REG0_OFFSET R0_OFFSET
@@ -151,7 +152,29 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG4_OFFS R4_OFFSET
 #    define SCRATCH_REG5_OFFS R5_OFFSET
 #    define REG_OFFSET(reg) (R0_OFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t))
-#endif /* X86/ARM */
+#    define CALL_SCRATCH_REG DR_REG_R11
+#elif defined(RISCV64)
+#    define REG0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a0)))
+#    define REG1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a1)))
+#    define REG2_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a2)))
+#    define REG3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a3)))
+#    define REG4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a4)))
+#    define REG5_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a5)))
+#    define SCRATCH_REG0 DR_REG_A0
+#    define SCRATCH_REG1 DR_REG_A1
+#    define SCRATCH_REG2 DR_REG_A2
+#    define SCRATCH_REG3 DR_REG_A3
+#    define SCRATCH_REG4 DR_REG_A4
+#    define SCRATCH_REG5 DR_REG_A5
+#    define SCRATCH_REG0_OFFS REG0_OFFSET
+#    define SCRATCH_REG1_OFFS REG1_OFFSET
+#    define SCRATCH_REG2_OFFS REG2_OFFSET
+#    define SCRATCH_REG3_OFFS REG3_OFFSET
+#    define SCRATCH_REG4_OFFS REG4_OFFSET
+#    define SCRATCH_REG5_OFFS REG5_OFFSET
+/* FIXME i#3544: Check is T6 safe to use */
+#    define CALL_SCRATCH_REG DR_REG_T6
+#endif /* X86/ARM/RISCV64 */
 #define XSP_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
 #define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #define PC_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
@@ -589,6 +612,8 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 #elif defined(AARCH64)
 #    define ABI_STACK_ALIGNMENT 16
 #elif defined(ARM)
+#    define ABI_STACK_ALIGNMENT 8
+#elif defined(RISCV64)
 #    define ABI_STACK_ALIGNMENT 8
 #endif
 

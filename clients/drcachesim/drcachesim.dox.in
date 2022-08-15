@@ -132,7 +132,7 @@ trace in a metadata marker entry of type
 
 Memory accesses (data loads and stores) are stored in #_memref_data_t.
 The program counter of the instruction performing the memory access,
-the virtual address (unless \ref sec_drcachesim_phys are enabled), and
+the virtual address (convertable to physical: see \ref sec_drcachesim_phys), and
 the size are provided.
 
 \section sec_drcachesim_format_other Other Records
@@ -158,7 +158,7 @@ Some of the more important markers are:
 
 - #TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads. It is used in the sequential analysis of a multi-threaded trace.
 
-- #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution.
+- #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution. This marker is written to the header of each trace buffer when the buffer is flushed. Note that if the thread migrates to a different CPU due to preemption by the kernel before a buffer is full, we do not output a separate #TRACE_MARKER_TYPE_CPU_ID marker to capture the previous CPU identifier. However, we expect such cases to be rare.
 
 - #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
 
@@ -515,6 +515,12 @@ Total counts:
            3 total threads
          280 total scheduling markers
            0 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           0 total physical address + virtual address marker pairs
+           0 total physical address unavailable markers
            3 total other markers
 Thread 247451 counts:
       255009 (fetched) instructions
@@ -524,6 +530,12 @@ Thread 247451 counts:
        21243 data stores
          258 scheduling markers
            0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
            1 other markers
 Thread 247453 counts:
         9195 (fetched) instructions
@@ -533,6 +545,12 @@ Thread 247453 counts:
          937 data stores
           12 scheduling markers
            0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
            1 other markers
 Thread 247454 counts:
         2989 (fetched) instructions
@@ -542,6 +560,12 @@ Thread 247454 counts:
          323 data stores
           10 scheduling markers
            0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
            1 other markers
 \endcode
 
@@ -1242,12 +1266,28 @@ $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv 
 
 The memory access tracing client gathers virtual addresses.  On Linux, if
 the kernel allows user-mode applications access to the \p
-/proc/self/pagemap file, physical addresses may be used instead.  This can
-be requested via the \p -use_physical runtime option (see \ref
-sec_drcachesim_ops).  This works on current kernels but is expected to stop
-working from user mode on future kernels due to recent security changes
-(see
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce).
+/proc/self/pagemap file or the application can be run with root
+privileges, information to translate virtual addresses to physical addresses may be included in the trace.  This can be
+requested via the \p -use_physical runtime option (see \ref
+sec_drcachesim_ops).  On older kernels the pagemap file was readable without
+privileges:
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce.
+
+When \p -use_physical is enabled, the regular trace entries remain
+virtual, with a pair of markers of types
+#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and
+#TRACE_MARKER_TYPE_VIRTUAL_ADDRESS inserted at some prior point for
+each new page mapping to show the corresponding physical
+addresses.  If translation fails, a
+#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted.
+Limited support for detecting changes in page mappings is provided via
+the \p -virt2phys_freq option to periodically clear cached
+translations.
+
+Each analysis tool must decide whether to use this translation
+information.  The cache and TLB simulators provided are equipped to
+read these markers and they use the marker data when \p -use_physical
+is specified.
 
 ****************************************************************************
 \page sec_drcachesim_core Core Simulation Support

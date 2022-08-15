@@ -1976,9 +1976,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                     (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
             } else {
                 mc.IF_X86_ELSE(xcx, r2) =
-                    (reg_t)d_r_get_tls(os_tls_offset(
-                        (ushort)reg_spill_tls_offs(IF_X86_ELSE(DR_REG_XCX, DR_REG_R2)))) +
-                    1;
+                    (reg_t)d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)) + 1;
             }
             mc.xsp = STRESS_XSP_INIT;
             mc.pc = cpc;
@@ -1995,8 +1993,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                 " vs " PFX "\n",
                 res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust,
                 mc.IF_X86_ELSE(xcx, r2),
-                d_r_get_tls(os_tls_offset(
-                    (ushort)reg_spill_tls_offs(IF_X86_ELSE(DR_REG_XCX, DR_REG_R2)))));
+                d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)));
             /* We should only have failures at tail end of mangle regions.
              * No instrs after a failing instr should touch app memory.
              */
@@ -2020,7 +2017,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             uint offs = UINT_MAX;
             if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg,
                                                  &offs) &&
-                reg == IF_X86_ELSE(DR_REG_XCX, DR_REG_R2)) {
+                reg == IBL_TARGET_REG) {
                 if (spill)
                     spill_ibreg_outstanding_offs = offs;
                 else

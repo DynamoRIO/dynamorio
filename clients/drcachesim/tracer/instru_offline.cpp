@@ -69,11 +69,13 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
                                    bool memref_needs_info, drvector_t *reg_vector,
                                    ssize_t (*write_file)(file_t file, const void *data,
                                                          size_t count),
-                                   file_t module_file, bool disable_optimizations)
+                                   file_t module_file, bool disable_optimizations,
+                                   void (*log)(uint level, const char *fmt, ...))
     : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
+    , log_(log)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -248,12 +250,17 @@ offline_instru_t::get_instr_count(byte *buf_ptr) const
 }
 
 addr_t
-offline_instru_t::get_entry_addr(byte *buf_ptr) const
+offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
 {
-    // TODO i#4014: To support -use_physical we would need to handle a PC
-    // entry here.
-    DR_ASSERT(!type_is_instr(get_entry_type(buf_ptr)));
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    if (entry->addr.type == OFFLINE_TYPE_PC) {
+        // XXX i#4014: Use caching to avoid lookup for last queried modbase.
+        app_pc modbase;
+        if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
+            DRCOVLIB_SUCCESS)
+            return 0;
+        return reinterpret_cast<addr_t>(modbase) + static_cast<addr_t>(entry->pc.modoffs);
+    }
     return entry->addr.addr;
 }
 
@@ -339,13 +346,14 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
-    entry->extended.valueA = OFFLINE_FILE_VERSION;
-    entry->extended.valueB = file_type;
+    entry->extended.valueA = file_type;
+    entry->extended.valueB = OFFLINE_FILE_VERSION;
     new_buf += sizeof(*entry);
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                              proc_get_cache_line_size());
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_PAGE_SIZE, dr_page_size());
     return (int)(new_buf - buf_ptr);
 }
 
@@ -414,11 +422,17 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
     app_pc modbase;
     uint modidx;
     if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS) {
-        // FIXME i#2062: add non-module support.  The plan for instrs is to have
-        // one entry w/ the start abs pc, and subsequent entries that pack the instr
-        // length for 10 instrs, 4 bits each, into a pc.modoffs field.  We will
-        // also need to store the type (read/write/prefetch*) and size for the
-        // memrefs.
+        // FIXME i#2062: add non-module support by storing instruction encodings at
+        // tracing time.
+        if (log_ != nullptr) {
+            // We want a visible non-spewing one-time warning.  A race is fine here.
+            static volatile bool warned_once;
+            if (!warned_once) {
+                log_(0, "WARNING: Found unsupported non-module code\n");
+                warned_once = true;
+            }
+            log_(1, "Found unsupported non-module code at %p\n", pc);
+        }
         modidx = 0;
         modbase = pc;
     }

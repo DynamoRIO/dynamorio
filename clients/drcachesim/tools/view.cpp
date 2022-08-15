@@ -79,9 +79,7 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
 std::string
 view_t::initialize()
 {
-    std::cerr << std::setw(9) << "Output format:\n<record#>"
-              << ": T<tid> <record details>\n"
-              << "------------------------------------------------------------\n";
+    print_header();
     dcontext_.dcontext = dr_standalone_init();
     if (module_file_path_.empty()) {
         has_modules_ = false;
@@ -150,7 +148,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 }
 
 bool
-view_t::should_skip()
+view_t::should_skip(const memref_t &memref)
 {
     num_refs_++;
     if (skip_refs_left_ > 0) {
@@ -164,6 +162,11 @@ view_t::should_skip()
         if (sim_refs_left_ == 0)
             return true;
         sim_refs_left_--;
+        if (sim_refs_left_ == 0 && timestamp_ > 0) {
+            print_prefix(memref, -1); // Already incremented for timestamp.
+            std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+            timestamp_ = 0;
+        }
     }
     return false;
 }
@@ -208,6 +211,8 @@ view_t::process_memref(const memref_t &memref)
             // We can't easily reorder and place window markers before timestamps
             // since memref iterators use the timestamps to order buffer units.
             timestamp_ = memref.marker.marker_value;
+            if (should_skip(memref))
+                timestamp_ = 0;
             return true;
         default: break;
         }
@@ -220,13 +225,13 @@ view_t::process_memref(const memref_t &memref)
         printed_header_.find(memref.marker.tid) == printed_header_.end()) {
         printed_header_.insert(memref.marker.tid);
         if (trace_version_ != -1) { // Old versions may not have a version marker.
-            if (!should_skip()) {
+            if (!should_skip(memref)) {
                 print_prefix(memref);
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
-            if (!should_skip()) {
+            if (!should_skip(memref)) {
                 print_prefix(memref);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                           << ">\n";
@@ -234,8 +239,31 @@ view_t::process_memref(const memref_t &memref)
         }
     }
 
-    if (should_skip())
+    if (should_skip(memref))
         return true;
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID) {
+            // Needs special handling to get the horizontal line before the timestamp.
+            if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
+                std::cerr
+                    << "------------------------------------------------------------\n";
+                print_prefix(memref, -1); // Already incremented for timestamp above.
+            }
+            if (timestamp_ > 0) {
+                std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+                timestamp_ = 0;
+                print_prefix(memref);
+            }
+            std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
+            last_window_[memref.marker.tid] = memref.marker.marker_value;
+        }
+        if (timestamp_ > 0) {
+            print_prefix(memref, -1); // Already incremented for timestamp above.
+            std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+            timestamp_ = 0;
+        }
+    }
 
     if (memref.instr.tid != 0) {
         print_prefix(memref);
@@ -292,62 +320,93 @@ view_t::process_memref(const memref_t &memref)
             std::cerr << "<marker: cache line size " << memref.marker.marker_value
                       << ">\n";
             break;
-        case TRACE_MARKER_TYPE_WINDOW_ID:
-            if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
-                std::cerr
-                    << "------------------------------------------------------------\n";
-                print_prefix(memref);
-            }
-            if (timestamp_ > 0) {
-                if (!should_skip()) {
-                    std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
-                    timestamp_ = 0;
-                    print_prefix(memref);
-                }
-            }
-            std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
-            last_window_[memref.marker.tid] = memref.marker.marker_value;
+        case TRACE_MARKER_TYPE_PAGE_SIZE:
+            std::cerr << "<marker: page size " << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
+            std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
+            std::cerr << "<marker: virtual address for prior physical: 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
+            std::cerr << "<marker: physical address not available for 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_ID:
+            std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_RETADDR:
+            std::cerr << "<marker: function return address 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_ARG:
+            std::cerr << "<marker: function argument 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FUNC_RETVAL:
+            std::cerr << "<marker: function return value 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";
             break;
         }
-        if (timestamp_ > 0) {
-            if (!should_skip()) {
-                print_prefix(memref);
-                std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
-                timestamp_ = 0;
-            }
-        }
         return true;
     }
 
+    static constexpr int name_width = 12;
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
-        // XXX: Print prefetch info.
+        std::string name; // Shared output for address-containing types.
         switch (memref.data.type) {
-        case TRACE_TYPE_READ:
-            std::cerr << "read   " << memref.data.size << " byte(s) @ 0x" << std::hex
-                      << std::setfill('0') << std::setw(sizeof(void *) * 2)
-                      << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
-                      << memref.data.pc << std::dec << std::setfill(' ') << "\n";
-            break;
-        case TRACE_TYPE_WRITE:
-            std::cerr << "write  " << memref.data.size << " byte(s) @ 0x" << std::hex
-                      << std::setfill('0') << std::setw(sizeof(void *) * 2)
-                      << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
-                      << memref.data.pc << std::dec << std::setfill(' ') << "\n";
-            break;
+        default: std::cerr << "<entry type " << memref.data.type << ">\n"; return true;
         case TRACE_TYPE_THREAD_EXIT:
             std::cerr << "<thread " << memref.data.tid << " exited>\n";
-            break;
-        default: std::cerr << "<entry type " << memref.data.type << ">\n"; break;
+            return true;
+            // The rest are address-containing types.
+        case TRACE_TYPE_READ: name = "read"; break;
+        case TRACE_TYPE_WRITE: name = "write"; break;
+        case TRACE_TYPE_INSTR_FLUSH: name = "iflush"; break;
+        case TRACE_TYPE_DATA_FLUSH: name = "dflush"; break;
+        case TRACE_TYPE_PREFETCH: name = "pref"; break;
+        case TRACE_TYPE_PREFETCH_READ_L1: name = "pref-r-L1"; break;
+        case TRACE_TYPE_PREFETCH_READ_L2: name = "pref-r-L2"; break;
+        case TRACE_TYPE_PREFETCH_READ_L3: name = "pref-r-L3"; break;
+        case TRACE_TYPE_PREFETCHNTA: name = "pref-NTA"; break;
+        case TRACE_TYPE_PREFETCH_READ: name = "pref-r"; break;
+        case TRACE_TYPE_PREFETCH_WRITE: name = "pref-w"; break;
+        case TRACE_TYPE_PREFETCH_INSTR: name = "pref-i"; break;
+        case TRACE_TYPE_PREFETCH_READ_L1_NT: name = "pref-r-L1-NT"; break;
+        case TRACE_TYPE_PREFETCH_READ_L2_NT: name = "pref-r-L2-NT"; break;
+        case TRACE_TYPE_PREFETCH_READ_L3_NT: name = "pref-r-L3-NT"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L1: name = "pref-i-L1"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L1_NT: name = "pref-i-L1-NT"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L2: name = "pref-i-L2"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L2_NT: name = "pref-i-L2-NT"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L3: name = "pref-i-L3"; break;
+        case TRACE_TYPE_PREFETCH_INSTR_L3_NT: name = "pref-i-L3-NT"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L1: name = "pref-w-L1"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L1_NT: name = "pref-w-L1-NT"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L2: name = "pref-w-L2"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L2_NT: name = "pref-w-L2-NT"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L3: name = "pref-w-L3"; break;
+        case TRACE_TYPE_PREFETCH_WRITE_L3_NT: name = "pref-w-L3-NT"; break;
+        case TRACE_TYPE_HARDWARE_PREFETCH: name = "pref-HW"; break;
         }
+        std::cerr << std::left << std::setw(name_width) << name << std::right
+                  << std::setw(2) << memref.data.size << " byte(s) @ 0x" << std::hex
+                  << std::setfill('0') << std::setw(sizeof(void *) * 2)
+                  << memref.data.addr << " by PC 0x" << std::setw(sizeof(void *) * 2)
+                  << memref.data.pc << std::dec << std::setfill(' ') << "\n";
         return true;
     }
 
-    std::cerr << "ifetch " << memref.instr.size << " byte(s) @ 0x" << std::hex
+    std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
+              << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
               << std::dec << std::setfill(' ');
     if (!has_modules_) {
@@ -370,6 +429,7 @@ view_t::process_memref(const memref_t &memref)
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
         default: error_string_ = "Uknown instruction type\n"; return false;
         }
+        ++num_disasm_instrs_;
         return true;
     }
 
@@ -401,12 +461,14 @@ view_t::process_memref(const memref_t &memref)
         disasm = buf;
         disasm_cache_.insert({ mapped_pc, disasm });
     }
-    // Put our prefix on raw byte spillover.
+    // Put our prefix on raw byte spillover, and skip the other columns.
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
-        print_prefix(memref, prefix);
-        disasm.insert(newline + 1, prefix.str());
+        print_prefix(memref, 0, prefix);
+        std::string skip_name(name_width, ' ');
+        disasm.insert(newline + 1,
+                      prefix.str() + skip_name + "                               ");
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;

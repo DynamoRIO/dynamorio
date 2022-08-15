@@ -49,6 +49,8 @@
 #        include "dr_ir_macros_aarch64.h"
 #    elif defined(ARM)
 #        include "dr_ir_macros_arm.h"
+#    elif defined(RISCV64)
+#        include "dr_ir_macros_riscv64.h"
 #    endif
 #    include "dr_ir_opnd.h"
 #    include "dr_ir_instr.h"

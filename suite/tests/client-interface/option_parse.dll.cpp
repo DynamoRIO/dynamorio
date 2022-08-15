@@ -91,11 +91,35 @@ static droption_t<bytesize_t>
     op_large_bytesize(DROPTION_SCOPE_CLIENT, "large_bytesize", DROPTION_FLAG_ACCUMULATE,
                       0, "Param that takes in a large bytesize value",
                       "Longer desc of param that takes in a large bytesize value");
+static droption_t<int> op_oi(DROPTION_SCOPE_CLIENT, "oi", 0, "Some param",
+                             "Longer desc of some param.");
+static droption_t<long> op_ol(DROPTION_SCOPE_CLIENT, "ol", 0L, "Some param",
+                              "Longer desc of some param.");
+static droption_t<long long> op_oll(DROPTION_SCOPE_CLIENT, "oll", 0LL, "Some param",
+                                    "Longer desc of some param.");
+static droption_t<unsigned int> op_ou(DROPTION_SCOPE_CLIENT, "ou", 0, "Some param",
+                                      "Longer desc of some param.");
+static droption_t<unsigned long> op_oul(DROPTION_SCOPE_CLIENT, "oul", 0UL, "Some param",
+                                        "Longer desc of some param.");
+static droption_t<unsigned long long> op_oull(DROPTION_SCOPE_CLIENT, "oull", 0ULL,
+                                              "Some param", "Longer desc of some param.");
+static droption_t<int> op_xi(DROPTION_SCOPE_CLIENT, "xi", 0, "Some param",
+                             "Longer desc of some param.");
+static droption_t<long> op_xl(DROPTION_SCOPE_CLIENT, "xl", 0L, "Some param",
+                              "Longer desc of some param.");
+static droption_t<long long> op_xll(DROPTION_SCOPE_CLIENT, "xll", 0LL, "Some param",
+                                    "Longer desc of some param.");
+static droption_t<unsigned int> op_xu(DROPTION_SCOPE_CLIENT, "xu", 0, "Some param",
+                                      "Longer desc of some param.");
+static droption_t<unsigned long> op_xul(DROPTION_SCOPE_CLIENT, "xul", 0UL, "Some param",
+                                        "Longer desc of some param.");
+static droption_t<unsigned long long> op_xull(DROPTION_SCOPE_CLIENT, "xull", 0ULL,
+                                              "Some param", "Longer desc of some param.");
 
 static void
 test_argv(int argc, const char *argv[])
 {
-    ASSERT(argc == 46);
+    ASSERT(argc == 70);
 
     int i = 1;
     ASSERT(strcmp(argv[i++], "-l") == 0);
@@ -143,6 +167,30 @@ test_argv(int argc, const char *argv[])
     ASSERT(strcmp(argv[i++], "v4") == 0);
     ASSERT(strcmp(argv[i++], "-large_bytesize") == 0);
     ASSERT(strcmp(argv[i++], "9999999999") == 0);
+    ASSERT(strcmp(argv[i++], "-oi") == 0);
+    ASSERT(strcmp(argv[i++], "-012") == 0);
+    ASSERT(strcmp(argv[i++], "-ol") == 0);
+    ASSERT(strcmp(argv[i++], "-012") == 0);
+    ASSERT(strcmp(argv[i++], "-oll") == 0);
+    ASSERT(strcmp(argv[i++], "-012") == 0);
+    ASSERT(strcmp(argv[i++], "-ou") == 0);
+    ASSERT(strcmp(argv[i++], "012") == 0);
+    ASSERT(strcmp(argv[i++], "-oul") == 0);
+    ASSERT(strcmp(argv[i++], "012") == 0);
+    ASSERT(strcmp(argv[i++], "-oull") == 0);
+    ASSERT(strcmp(argv[i++], "012") == 0);
+    ASSERT(strcmp(argv[i++], "-xi") == 0);
+    ASSERT(strcmp(argv[i++], "-0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xl") == 0);
+    ASSERT(strcmp(argv[i++], "-0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xll") == 0);
+    ASSERT(strcmp(argv[i++], "-0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xu") == 0);
+    ASSERT(strcmp(argv[i++], "0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xul") == 0);
+    ASSERT(strcmp(argv[i++], "0xa") == 0);
+    ASSERT(strcmp(argv[i++], "-xull") == 0);
+    ASSERT(strcmp(argv[i++], "0xa") == 0);
 }
 
 DR_EXPORT void
@@ -198,8 +246,41 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     ok = dr_parse_options(client_id, NULL, NULL);
     ASSERT(ok);
 
-    // Test get_value_separator()
+    // Test get_value_separator().
     ASSERT(op_y.get_value_separator() == std::string(" "));
     ASSERT(op_val_sep.get_value_separator() == std::string("+"));
     ASSERT(op_val_sep2.get_value_separator() == std::string("+"));
+
+    // Test parsing octal format numeric strings.
+    dr_fprintf(STDERR, "param oi = %d\n", op_oi.get_value());
+    dr_fprintf(STDERR, "param ol = %ld\n", op_ol.get_value());
+    dr_fprintf(STDERR, "param oll = %lld\n", op_oll.get_value());
+    dr_fprintf(STDERR, "param ou = %u\n", op_ou.get_value());
+    dr_fprintf(STDERR, "param oul = %lu\n", op_oul.get_value());
+    dr_fprintf(STDERR, "param oull = %llu\n", op_oull.get_value());
+
+    // Test parsing hexadecimal format numeric strings.
+    dr_fprintf(STDERR, "param xi = %d\n", op_xi.get_value());
+    dr_fprintf(STDERR, "param xl = %ld\n", op_xl.get_value());
+    dr_fprintf(STDERR, "param xll = %lld\n", op_xll.get_value());
+    dr_fprintf(STDERR, "param xu = %u\n", op_xu.get_value());
+    dr_fprintf(STDERR, "param xul = %lu\n", op_xul.get_value());
+    dr_fprintf(STDERR, "param xull = %llu\n", op_xull.get_value());
+
+    // Test parsing a string of negative digits. These tests are used to check whether the
+    // unsigned option can recognize negative input and output an error.
+    std::vector<droption_parser_t *> negtive_test_options;
+    negtive_test_options.push_back(static_cast<droption_parser_t *>(&op_ou));
+    negtive_test_options.push_back(static_cast<droption_parser_t *>(&op_oul));
+    negtive_test_options.push_back(static_cast<droption_parser_t *>(&op_oull));
+    const char *negative_test_args[3] = { "", "", "   -1" };
+    std::string parse_err;
+    for (auto op : negtive_test_options) {
+        std::string op_name = "-" + op->get_name();
+        negative_test_args[1] = op_name.c_str();
+        ok = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, 3, negative_test_args,
+                                           &parse_err, NULL);
+        ASSERT(!ok);
+        dr_fprintf(STDERR, "%s\n", parse_err.c_str());
+    }
 }

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -7810,4 +7810,62 @@ bool
 dr_is_detaching(void)
 {
     return doing_detach;
+}
+
+/**************************************************
+ * OPEN-ADDRESS HASHTABLE
+ *
+ * Some uses cases need an open-address hashtable that does not use 3rd-party
+ * libraries.  Rather than add something to drcontainers, we simply export the
+ * hashtablex.h-based table directly from DR.
+ */
+
+DR_API
+void *
+dr_hashtable_create(void *drcontext, uint bits, uint load_factor_percent, bool synch,
+                    void (*free_payload_func)(void * /*drcontext*/, void *))
+{
+    uint flags = HASHTABLE_PERSISTENT;
+    if (synch)
+        flags |= HASHTABLE_SHARED | HASHTABLE_ENTRY_SHARED;
+    else
+        flags |= HASHTABLE_LOCKLESS_ACCESS;
+    return generic_hash_create(
+        (dcontext_t *)drcontext, bits, load_factor_percent, flags,
+        (void (*)(dcontext_t *, void *))free_payload_func _IF_DEBUG("client"));
+}
+
+DR_API
+void
+dr_hashtable_destroy(void *drcontext, void *htable)
+{
+    generic_hash_destroy((dcontext_t *)drcontext, (generic_table_t *)htable);
+}
+
+DR_API
+void
+dr_hashtable_clear(void *drcontext, void *htable)
+{
+    generic_hash_clear((dcontext_t *)drcontext, (generic_table_t *)htable);
+}
+
+DR_API
+void *
+dr_hashtable_lookup(void *drcontext, void *htable, ptr_uint_t key)
+{
+    return generic_hash_lookup((dcontext_t *)drcontext, (generic_table_t *)htable, key);
+}
+
+DR_API
+void
+dr_hashtable_add(void *drcontext, void *htable, ptr_uint_t key, void *payload)
+{
+    generic_hash_add((dcontext_t *)drcontext, (generic_table_t *)htable, key, payload);
+}
+
+DR_API
+bool
+dr_hashtable_remove(void *drcontext, void *htable, ptr_uint_t key)
+{
+    return generic_hash_remove((dcontext_t *)drcontext, (generic_table_t *)htable, key);
 }

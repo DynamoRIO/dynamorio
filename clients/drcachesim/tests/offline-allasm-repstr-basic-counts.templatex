@@ -10,11 +10,11 @@ Adios world!
 Adios world!
 Basic counts tool results:
 Total counts:
-          95 total \(fetched\) instructions
-          23 total unique \(fetched\) instructions
+          98 total \(fetched\) instructions
+          26 total unique \(fetched\) instructions
            4 total non-fetched instructions
            0 total prefetches
-           5 total data loads
+           7 total data loads
            5 total data stores
            0 total icache flushes
            0 total dcache flushes
@@ -25,13 +25,15 @@ Total counts:
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
-           3 total other markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
+           4 total other markers
 Thread [0-9]* counts:
-          95 \(fetched\) instructions
-          23 unique \(fetched\) instructions
+          98 \(fetched\) instructions
+          26 unique \(fetched\) instructions
            4 non-fetched instructions
            0 prefetches
-           5 data loads
+           7 data loads
            5 data stores
            0 icache flushes
            0 dcache flushes
@@ -41,4 +43,6 @@ Thread [0-9]* counts:
            0 function return address markers
            0 function argument markers
            0 function return value markers
-           3 other markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+           4 other markers

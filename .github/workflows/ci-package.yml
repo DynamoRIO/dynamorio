@@ -59,6 +59,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -160,6 +162,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -246,6 +250,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -332,6 +338,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -348,6 +356,7 @@ jobs:
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
         unzip -q android-ndk-r10e-linux-x86_64.zip
+        export ANDROID_NDK_ROOT=/tmp/android-ndk-r10e
         android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
           --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
           --install-dir=/tmp/android-gcc-arm-ndk-10e
@@ -419,6 +428,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -516,6 +527,8 @@ jobs:
     steps:
       # We need a checkout to run git log for the version.
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Get Version
       id: version

@@ -1128,13 +1128,20 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     while (mod != NULL) {
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
-        LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, pd->soname,
-            mod->path);
+
+        if (pd->soname != NULL) {
+            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name,
+                pd->soname, mod->path);
+        } else {
+            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, "NULL",
+                mod->path);
+        }
+
         /* XXX i#956: A private libpthread is not fully supported.  For now we let
          * it load but avoid using any symbols like __errno_location as those
          * cause crashes: prefer the libc version.
          */
-        if (strstr(pd->soname, "libpthread") == pd->soname &&
+        if (pd->soname != NULL && strstr(pd->soname, "libpthread") == pd->soname &&
             strstr(name, "pthread") != name) {
             LOG(GLOBAL, LOG_LOADER, 3, "NOT using libpthread's non-pthread symbol\n");
             res = NULL;
@@ -1540,7 +1547,8 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
          * libgcc_s.so.1: undefined symbol pthread_cancel
          * libstdc++.so.6: undefined symbol pthread_cancel
          */
-        SYSLOG(SYSLOG_WARNING, UNDEFINED_SYMBOL, 2, pd->soname, name);
+        const char *soname = pd->soname == NULL ? "<empty soname>" : pd->soname;
+        SYSLOG(SYSLOG_WARNING, UNDEFINED_SYMBOL, 2, soname, name);
         if (r_type == ELF_R_JUMP_SLOT)
             *r_addr = (reg_t)module_undef_symbols;
         return;

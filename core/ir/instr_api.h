@@ -147,6 +147,16 @@ typedef enum _dr_pred_type_t {
     DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
     DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
 #endif
+#ifdef RISCV64
+    /* FIXME i#3544: RISC-V does not have compare flag register! */
+    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
+    DR_PRED_EQ, /**< Condition code: equal. */
+    DR_PRED_NE, /**< Condition code: not equal. */
+    DR_PRED_LT, /**< Condition code: signed less than. */
+    DR_PRED_LE, /**< Condition code: signed less than or equal. */
+    DR_PRED_GT, /**< Condition code: signed greater than. */
+    DR_PRED_GE, /**< Condition code: signed greater than or equal. */
+#endif
 } dr_pred_type_t;
 
 /**
@@ -2533,6 +2543,19 @@ enum {
 #    define EFLAGS_MSR_G 0x4
 /** The bits in the 4-bit OP_msr immediate that select the nzcvqg status flags. */
 #    define EFLAGS_MSR_NZCVQG (EFLAGS_MSR_NZCVQ | EFLAGS_MSR_G)
+#elif defined(RISCV64)
+/* FIXME i#3544: Not implemented */
+/** Platform-independent macro for reads all arithmetic flags. */
+#    define EFLAGS_READ_ARITH 0
+#    define EFLAGS_READ_ALL 0      /**< Reads all flags. */
+#    define EFLAGS_READ_NON_PRED 0 /**< Flags not read by predicates. */
+/** Platform-independent macro for writes all arithmetic flags. */
+#    define EFLAGS_WRITE_ARITH 0
+#    define EFLAGS_WRITE_ALL 0 /**< Writes all flags. */
+/** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
+#    define EFLAGS_WRITE_TO_READ(x) (x)
+/** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
+#    define EFLAGS_READ_TO_WRITE(x) (x)
 #endif /* X86 */
 
 #endif /* _DR_IR_INSTR_H_ */

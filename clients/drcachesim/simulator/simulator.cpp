@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,10 +42,10 @@
 
 simulator_t::simulator_t(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                          double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
-                         unsigned int verbose)
+                         bool use_physical, unsigned int verbose)
 {
     init_knobs(num_cores, skip_refs, warmup_refs, warmup_fraction, sim_refs,
-               cpu_scheduling, verbose);
+               cpu_scheduling, use_physical, verbose);
 }
 
 simulator_t::~simulator_t()
@@ -55,7 +55,7 @@ simulator_t::~simulator_t()
 void
 simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                         double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
-                        unsigned int verbose)
+                        bool use_physical, unsigned int verbose)
 {
     knob_num_cores_ = num_cores;
     knob_skip_refs_ = skip_refs;
@@ -63,6 +63,7 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
     knob_warmup_fraction_ = warmup_fraction;
     knob_sim_refs_ = sim_refs;
     knob_cpu_scheduling_ = cpu_scheduling;
+    knob_use_physical_ = use_physical;
     knob_verbose_ = verbose;
     last_thread_ = 0;
     last_core_ = 0;
@@ -80,8 +81,9 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
 bool
 simulator_t::process_memref(const memref_t &memref)
 {
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling_) {
+    if (memref.marker.type != TRACE_TYPE_MARKER)
+        return true;
+    if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling_) {
         int cpu = (int)(intptr_t)memref.marker.marker_value;
         if (cpu < 0)
             return true;
@@ -104,7 +106,84 @@ simulator_t::process_memref(const memref_t &memref)
         ++thread_counts_[min_core];
         ++thread_ever_counts_[min_core];
     }
+    if (!knob_use_physical_)
+        return true;
+    if (memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
+        if (page_size_ != 0 && page_size_ != memref.marker.marker_value) {
+            ERRMSG("Error: conflicting page size markers");
+            return false;
+        }
+        page_size_ = memref.marker.marker_value;
+        if (!IS_POWER_OF_2(page_size_)) {
+            ERRMSG("Error: page size %zu is not power of 2", page_size_);
+            return false;
+        }
+    } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
+        prior_phys_addr_ = memref.marker.marker_value;
+    } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
+        virt2phys_[page_start(memref.marker.marker_value)] = page_start(prior_phys_addr_);
+    } else if (memref.marker.marker_type ==
+               TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
+        addr_t virt = memref.marker.marker_value;
+        virt2phys_[page_start(virt)] = page_start(synthetic_virt2phys(virt));
+    }
     return true;
+}
+
+addr_t
+simulator_t::synthetic_virt2phys(addr_t virt) const
+{
+    // For a missing translation, we drop upper bits from the virtual address
+    // to create a synthetic physical address with arbitrarily the bottom 28 bits.
+    // XXX i#4014: Ideally we would detect a collision with an existing translation
+    // (when added new synthetic ones, and by adding a bit saying which entries are
+    // synthetic which we can check when we add new legitimate entries) We currently
+    // live with collisions with real translations under the assumption that missing
+    // translations are rare.
+    const addr_t SYNTHETIC_PHYS_BITS = 0xfffffff;
+    return virt & SYNTHETIC_PHYS_BITS;
+}
+
+addr_t
+simulator_t::virt2phys(addr_t virt) const
+{
+    addr_t phys_page = 0;
+    auto it = virt2phys_.find(page_start(virt));
+    if (it == virt2phys_.end()) {
+        // We handled TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE so this
+        // should not happen.
+        ERRMSG("Missing physical address marker for 0x%zx\n", virt);
+        phys_page = page_start(synthetic_virt2phys(virt));
+    } else
+        phys_page = it->second;
+    addr_t phys = phys_page | (virt & (page_size_ - 1));
+    if (knob_verbose_ >= 3) {
+        std::cerr << "translating virtual 0x" << std::hex << virt << " to 0x" << phys
+                  << std::dec << "\n";
+    }
+    return phys;
+}
+
+memref_t
+simulator_t::memref2phys(memref_t memref) const
+{
+    if (!type_has_address(memref.data.type))
+        return memref;
+    memref_t out = memref;
+    if (type_is_instr(memref.instr.type) ||
+        memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        out.instr.addr = virt2phys(memref.instr.addr);
+    } else if (memref.data.type == TRACE_TYPE_READ ||
+               memref.data.type == TRACE_TYPE_WRITE ||
+               type_is_prefetch(memref.data.type)) {
+        out.data.addr = virt2phys(memref.data.addr);
+        out.data.pc = virt2phys(memref.data.pc);
+    } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH ||
+               memref.data.type == TRACE_TYPE_DATA_FLUSH) {
+        out.flush.addr = virt2phys(memref.flush.addr);
+        out.flush.pc = virt2phys(memref.flush.pc);
+    }
+    return out;
 }
 
 int

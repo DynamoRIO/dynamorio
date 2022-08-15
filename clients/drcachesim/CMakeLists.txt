@@ -126,6 +126,10 @@ add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
 target_link_libraries(directory_iterator drfrontendlib)
 
+if (BUILD_PT_POST_PROCESSOR)
+  add_subdirectory(drpt2trace)
+endif (BUILD_PT_POST_PROCESSOR)
+
 set(raw2trace_srcs
   tracer/raw2trace.cpp
   tracer/raw2trace_directory.cpp
@@ -289,6 +293,8 @@ macro(add_drmemtrace name type)
   endif ()
   set(drmemtrace_srcs
     tracer/tracer.cpp
+    tracer/instr_counter.cpp
+    tracer/output.cpp
     tracer/instru.cpp
     tracer/instru_offline.cpp
     tracer/instru_online.cpp
@@ -296,6 +302,12 @@ macro(add_drmemtrace name type)
     tracer/func_trace.cpp
     ${client_and_sim_srcs}
     )
+  if (BUILD_PT_TRACER)
+    set(drmemtrace_srcs ${drmemtrace_srcs}
+      tracer/syscall_pt_trace.cpp
+    )
+    add_definitions(-DBUILD_PT_TRACER)
+  endif ()
   if (libsnappy)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/snappy_file_writer.cpp
@@ -315,6 +327,9 @@ macro(add_drmemtrace name type)
   use_DynamoRIO_extension(${name} droption)
   use_DynamoRIO_extension(${name} drcovlib${ext_sfx})
   use_DynamoRIO_extension(${name} drbbdup${ext_sfx})
+  if (BUILD_PT_TRACER)
+    use_DynamoRIO_extension(${name} drpttracer${ext_sfx})
+  endif ()
   if (libsnappy)
     target_link_libraries(${name} snappy)
   endif ()
@@ -603,6 +618,14 @@ if (BUILD_TESTS)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
     add_test(NAME tool.drcacheoff.view_test
       COMMAND tool.drcacheoff.view_test)
+
+    add_executable(tool.drcachesim.histogram_test
+      tools/histogram.cpp tests/histogram_test.cpp)
+    target_link_libraries(tool.drcachesim.histogram_test
+      drmemtrace_static drmemtrace_analyzer)
+    add_win32_flags(tool.drcachesim.histogram_test)
+    add_test(NAME tool.drcachesim.histogram_test
+             COMMAND tool.drcachesim.histogram_test)
 
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)

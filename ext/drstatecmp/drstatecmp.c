@@ -463,6 +463,12 @@ drstatecmp_check_simd_value
     if (memcmp(value, expected, sizeof(dr_simd_t)))
         drstatecmp_report_error("SIMD mismatch", tag);
 }
+#elif defined(RISCV64)
+    (void *tag, dr_simd_t *value, dr_simd_t *expected)
+{
+    /* FIXME i#3544: Not implemented */
+    ASSERT(false, "Not implemented");
+}
 #endif
 
 #ifdef X86
@@ -549,6 +555,39 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
 
     drstatecmp_check_xflags_value("xflags", tag, mc_instrumented->xflags,
                                   mc_expected->xflags);
+#elif defined(RISCV64)
+    drstatecmp_check_gpr_value("x0", tag, mc_instrumented->x0, mc_expected->x0);
+    drstatecmp_check_gpr_value("x1", tag, mc_instrumented->x1, mc_expected->x1);
+    drstatecmp_check_gpr_value("x2", tag, mc_instrumented->x2, mc_expected->x2);
+    drstatecmp_check_gpr_value("x3", tag, mc_instrumented->x3, mc_expected->x3);
+    drstatecmp_check_gpr_value("x4", tag, mc_instrumented->x4, mc_expected->x4);
+    drstatecmp_check_gpr_value("x5", tag, mc_instrumented->x5, mc_expected->x5);
+    drstatecmp_check_gpr_value("x6", tag, mc_instrumented->x6, mc_expected->x6);
+    drstatecmp_check_gpr_value("x7", tag, mc_instrumented->x7, mc_expected->x7);
+    drstatecmp_check_gpr_value("x8", tag, mc_instrumented->x8, mc_expected->x8);
+    drstatecmp_check_gpr_value("x9", tag, mc_instrumented->x9, mc_expected->x9);
+    drstatecmp_check_gpr_value("x10", tag, mc_instrumented->x10, mc_expected->x10);
+    drstatecmp_check_gpr_value("x11", tag, mc_instrumented->x11, mc_expected->x11);
+    drstatecmp_check_gpr_value("x12", tag, mc_instrumented->x12, mc_expected->x12);
+    drstatecmp_check_gpr_value("x13", tag, mc_instrumented->x13, mc_expected->x13);
+    drstatecmp_check_gpr_value("x14", tag, mc_instrumented->x14, mc_expected->x14);
+    drstatecmp_check_gpr_value("x15", tag, mc_instrumented->x15, mc_expected->x15);
+    drstatecmp_check_gpr_value("x16", tag, mc_instrumented->x16, mc_expected->x16);
+    drstatecmp_check_gpr_value("x17", tag, mc_instrumented->x17, mc_expected->x17);
+    drstatecmp_check_gpr_value("x18", tag, mc_instrumented->x18, mc_expected->x18);
+    drstatecmp_check_gpr_value("x19", tag, mc_instrumented->x19, mc_expected->x19);
+    drstatecmp_check_gpr_value("x20", tag, mc_instrumented->x20, mc_expected->x20);
+    drstatecmp_check_gpr_value("x21", tag, mc_instrumented->x21, mc_expected->x21);
+    drstatecmp_check_gpr_value("x22", tag, mc_instrumented->x22, mc_expected->x22);
+    drstatecmp_check_gpr_value("x23", tag, mc_instrumented->x23, mc_expected->x23);
+    drstatecmp_check_gpr_value("x24", tag, mc_instrumented->x24, mc_expected->x24);
+    drstatecmp_check_gpr_value("x25", tag, mc_instrumented->x25, mc_expected->x25);
+    drstatecmp_check_gpr_value("x26", tag, mc_instrumented->x26, mc_expected->x26);
+    drstatecmp_check_gpr_value("x27", tag, mc_instrumented->x27, mc_expected->x27);
+    drstatecmp_check_gpr_value("x28", tag, mc_instrumented->x28, mc_expected->x28);
+    drstatecmp_check_gpr_value("x29", tag, mc_instrumented->x29, mc_expected->x29);
+    drstatecmp_check_gpr_value("x30", tag, mc_instrumented->x30, mc_expected->x30);
+    drstatecmp_check_gpr_value("x31", tag, mc_instrumented->x31, mc_expected->x31);
 #else
 #    error NYI
 #endif

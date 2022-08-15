@@ -58,6 +58,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     # Cancel any prior runs for a PR (but do not cancel master branch runs).
     - uses: n1hility/cancel-previous-runs@v2
@@ -70,7 +72,7 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev clang-format-9 libunwind-dev
+          liblz4-dev clang-format-12 libunwind-dev
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

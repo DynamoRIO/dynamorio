@@ -46,8 +46,8 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
   # Install dependencies for Ubuntu 15+.  Adjust this command as appropriate for
   # other distributions (in particular, use "cmake3" for Ubuntu Trusty).
   $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev libsnappy-dev liblz4-dev
-  # Get sources.
-  $ git clone https://github.com/DynamoRIO/dynamorio.git
+  # Get sources and initialize the submodule third_party/libipt.
+  $ git clone --recursive https://github.com/DynamoRIO/dynamorio.git
   # Make a separate build directory.  Building in the source directory is not
   # supported.
   $ cd dynamorio && mkdir build && cd build
@@ -74,7 +74,7 @@ To build DynamoRIO on Windows, first install the following software.
 
 Once these dependencies are installed, you need to generate your project and solution files for Visual Studio using CMake.  The easiest way to do this is to launch a cmd prompt with the right environment from the Visual Studio folder in the Start menu.
 
-To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2019 > x86 Native Tools Command Prompt for VS 2019` and run the following commands:
+To build 64-bit DynamoRIO in release mode, launch the `Visual Studio 2019 > x64 Native Tools Command Prompt for VS 2019` and run the following commands:
 
   ```
   # Get sources.
@@ -83,7 +83,7 @@ To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2019 > x86 
   # supported.
   $ cd dynamorio && mkdir build && cd build
   # Configure using cmake.  Pass in the path to your source directory.
-  $ cmake -G"Visual Studio 16" ..
+  $ cmake -G"Visual Studio 16" -A x64 ..
   # Build from the command line.  Alternatively, open ALL_BUILD.vcproj in Visual
   # Studio and build from there.  You must pass --config to work around a cmake
   # bug.  (http://www.cmake.org/Bug/view.php?id=11830)
@@ -92,7 +92,7 @@ To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2019 > x86 
   $ bin32\drrun.exe notepad.exe
   ```
 
-If you need a 64-bit build, choose `x64 Native Tools Command Prompt` and pass `-G"Visual Studio 16 Win64"` to cmake.
+If you need a 32-bit build, choose `x32 Native Tools Command Prompt` and pass `-G"Visual Studio 16" -A x86` to cmake.
 
 An alternative to the command prompt is to execute the appropriate vcvars.bat command for your compiler in your shell of choice.
 

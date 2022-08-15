@@ -1124,8 +1124,168 @@ enum {
     /** Platform-independent way to refer to stack pointer. */
     DR_REG_XSP = DR_REG_SP,
 #    endif
+#elif defined(RISCV64)
+    DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
+    DR_REG_X0,      /**< The hard-wired x0(zero) register. */
+    DR_REG_X1,      /**< The x1(ra) register. */
+    DR_REG_X2,      /**< The x2(sp) register. */
+    DR_REG_X3,      /**< The x3(gp) register. */
+    DR_REG_X4,      /**< The x4(tp) register. */
+    DR_REG_X5,      /**< The x5(t0) register. */
+    DR_REG_X6,      /**< The x6(t1) register. */
+    DR_REG_X7,      /**< The x7(t2) register. */
+    DR_REG_X8,      /**< The x8(s0/fp) register. */
+    DR_REG_X9,      /**< The x9(s1) register. */
+    DR_REG_X10,     /**< The x10(a0) register. */
+    DR_REG_X11,     /**< The x11(a1) register. */
+    DR_REG_X12,     /**< The x12(a2) register. */
+    DR_REG_X13,     /**< The x13(a3) register. */
+    DR_REG_X14,     /**< The x14(a4) register. */
+    DR_REG_X15,     /**< The x15(a5) register. */
+    DR_REG_X16,     /**< The x16(a6) register. */
+    DR_REG_X17,     /**< The x17(a7) register. */
+    DR_REG_X18,     /**< The x18(s2) register. */
+    DR_REG_X19,     /**< The x19(s3) register. */
+    DR_REG_X20,     /**< The x20(s4) register. */
+    DR_REG_X21,     /**< The x21(s5) register. */
+    DR_REG_X22,     /**< The x22(s6) register. */
+    DR_REG_X23,     /**< The x23(s7) register. */
+    DR_REG_X24,     /**< The x24(s8) register. */
+    DR_REG_X25,     /**< The x25(s9) register. */
+    DR_REG_X26,     /**< The x26(s10) register. */
+    DR_REG_X27,     /**< The x27(s11) register. */
+    DR_REG_X28,     /**< The x28(t3) register. */
+    DR_REG_X29,     /**< The x29(t4) register. */
+    DR_REG_X30,     /**< The x30(t5) register. */
+    DR_REG_X31,     /**< The x31(t6) register. */
+    DR_REG_PC,      /**< The program counter. */
+    /* GPR aliases */
+    DR_REG_ZERO = DR_REG_X0, /**< The hard-wired zero (x0) register. */
+    DR_REG_RA = DR_REG_X1,   /**< The return address (x1) register. */
+    DR_REG_SP = DR_REG_X2,   /**< The stack pointer (x2) register. */
+    DR_REG_GP = DR_REG_X3,   /**< The global pointer (x3) register. */
+    DR_REG_TP = DR_REG_X4,   /**< The thread pointer (x4) register. */
+    DR_REG_T0 = DR_REG_X5,   /**< The 1st temporary (x5) register. */
+    DR_REG_T1 = DR_REG_X6,   /**< The 2nd temporary (x6) register. */
+    DR_REG_T2 = DR_REG_X7,   /**< The 3rd temporary (x7) register. */
+    DR_REG_S0 = DR_REG_X8,   /**< The 1st callee-saved (x8) register. */
+    DR_REG_FP = DR_REG_X8,   /**< The frame pointer (x8) register. */
+    DR_REG_S1 = DR_REG_X9,   /**< The 2nd callee-saved (x9) register. */
+    DR_REG_A0 = DR_REG_X10,  /**< The 1st argument/return value (x10) register. */
+    DR_REG_A1 = DR_REG_X11,  /**< The 2nd argument/return value (x11) register. */
+    DR_REG_A2 = DR_REG_X12,  /**< The 3rd argument (x12) register. */
+    DR_REG_A3 = DR_REG_X13,  /**< The 4th argument (x13) register. */
+    DR_REG_A4 = DR_REG_X14,  /**< The 5th argument (x14) register. */
+    DR_REG_A5 = DR_REG_X15,  /**< The 6th argument (x15) register. */
+    DR_REG_A6 = DR_REG_X16,  /**< The 7th argument (x16) register. */
+    DR_REG_A7 = DR_REG_X17,  /**< The 8th argument (x17) register. */
+    DR_REG_S2 = DR_REG_X18,  /**< The 3rd callee-saved (x18) register. */
+    DR_REG_S3 = DR_REG_X19,  /**< The 4th callee-saved (x19) register. */
+    DR_REG_S4 = DR_REG_X20,  /**< The 5th callee-saved (x20) register. */
+    DR_REG_S5 = DR_REG_X21,  /**< The 6th callee-saved (x21) register. */
+    DR_REG_S6 = DR_REG_X22,  /**< The 7th callee-saved (x22) register. */
+    DR_REG_S7 = DR_REG_X23,  /**< The 8th callee-saved (x23) register. */
+    DR_REG_S8 = DR_REG_X24,  /**< The 9th callee-saved (x24) register. */
+    DR_REG_S9 = DR_REG_X25,  /**< The 10th callee-saved (x25) register. */
+    DR_REG_S10 = DR_REG_X26, /**< The 11th callee-saved (x26) register. */
+    DR_REG_S11 = DR_REG_X27, /**< The 12th callee-saved (x27) register. */
+    DR_REG_T3 = DR_REG_X28,  /**< The 4th temporary (x28) register. */
+    DR_REG_T4 = DR_REG_X29,  /**< The 5th temporary (x29) register. */
+    DR_REG_T5 = DR_REG_X30,  /**< The 6th temporary (x30) register. */
+    DR_REG_T6 = DR_REG_X31,  /**< The 7th temporary (x31) register. */
+#    if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+    DR_REG_F0,               /**< The f0(ft0) floating-point register. */
+    DR_REG_F1,               /**< The f1(ft1) floating-point register. */
+    DR_REG_F2,               /**< The f2(ft2) floating-point register. */
+    DR_REG_F3,               /**< The f3(ft3) floating-point register. */
+    DR_REG_F4,               /**< The f4(ft4) floating-point register. */
+    DR_REG_F5,               /**< The f5(ft5) floating-point register. */
+    DR_REG_F6,               /**< The f6(ft6) floating-point register. */
+    DR_REG_F7,               /**< The f7(ft7) floating-point register. */
+    DR_REG_F8,               /**< The f8(fs0) floating-point register. */
+    DR_REG_F9,               /**< The f9(fs1) floating-point register. */
+    DR_REG_F10,              /**< The f10(fa0) floating-point register. */
+    DR_REG_F11,              /**< The f11(fa1) floating-point register. */
+    DR_REG_F12,              /**< The f12(fa2) floating-point register. */
+    DR_REG_F13,              /**< The f13(fa3) floating-point register. */
+    DR_REG_F14,              /**< The f14(fa4) floating-point register. */
+    DR_REG_F15,              /**< The f15(fa5) floating-point register. */
+    DR_REG_F16,              /**< The f16(fa6) floating-point register. */
+    DR_REG_F17,              /**< The f17(fa7) floating-point register. */
+    DR_REG_F18,              /**< The f18(fs2) floating-point register. */
+    DR_REG_F19,              /**< The f19(fs3) floating-point register. */
+    DR_REG_F20,              /**< The f20(fs4) floating-point register. */
+    DR_REG_F21,              /**< The f21(fs5) floating-point register. */
+    DR_REG_F22,              /**< The f22(fs6) floating-point register. */
+    DR_REG_F23,              /**< The f23(fs7) floating-point register. */
+    DR_REG_F24,              /**< The f24(fs8) floating-point register. */
+    DR_REG_F25,              /**< The f25(fs9) floating-point register. */
+    DR_REG_F26,              /**< The f26(fs10) floating-point register. */
+    DR_REG_F27,              /**< The f27(fs11) floating-point register. */
+    DR_REG_F28,              /**< The f28(ft8) floating-point register. */
+    DR_REG_F29,              /**< The f29(ft9) floating-point register. */
+    DR_REG_F30,              /**< The f30(ft10) floating-point register. */
+    DR_REG_F31,              /**< The f31(ft11) floating-point register. */
+    DR_REG_FCSR,             /**< The floating-point control and status register. */
+    /* FPR aliases */
+    DR_REG_FT0 = DR_REG_F0, /**< The 1st temporary floating-point (f0) register. */
+    DR_REG_FT1 = DR_REG_F1, /**< The 2nd temporary floating-point (f1) register. */
+    DR_REG_FT2 = DR_REG_F2, /**< The 3rd temporary floating-point (f2) register. */
+    DR_REG_FT3 = DR_REG_F3, /**< The 4th temporary floating-point (f3) register. */
+    DR_REG_FT4 = DR_REG_F4, /**< The 5th temporary floating-point (f4) register. */
+    DR_REG_FT5 = DR_REG_F5, /**< The 6th temporary floating-point (f5) register. */
+    DR_REG_FT6 = DR_REG_F6, /**< The 7th temporary floating-point (f6) register. */
+    DR_REG_FT7 = DR_REG_F7, /**< The 8th temporary floating-point (f7) register. */
+    DR_REG_FS0 = DR_REG_F8, /**< The 1st callee-saved floating-point (f8) register. */
+    DR_REG_FS1 = DR_REG_F9, /**< The 2nd callee-saved floating-point (f9) register. */
+    /** The 1st argument/return value floating-point (f10) register. */
+    DR_REG_FA0 = DR_REG_F10,
+    /** The 2nd argument/return value floating-point (f11) register. */
+    DR_REG_FA1 = DR_REG_F11,
+    DR_REG_FA2 = DR_REG_F12,  /**< The 3rd argument floating-point (f12) register. */
+    DR_REG_FA3 = DR_REG_F13,  /**< The 4th argument floating-point (f13) register. */
+    DR_REG_FA4 = DR_REG_F14,  /**< The 5th argument floating-point (f14) register. */
+    DR_REG_FA5 = DR_REG_F15,  /**< The 6th argument floating-point (f15) register. */
+    DR_REG_FA6 = DR_REG_F16,  /**< The 7th argument floating-point (f16) register. */
+    DR_REG_FA7 = DR_REG_F17,  /**< The 8th argument floating-point (f17) register. */
+    DR_REG_FS2 = DR_REG_F18,  /**< The 3rd callee-saved floating-point (f18) register. */
+    DR_REG_FS3 = DR_REG_F19,  /**< The 4th callee-saved floating-point (f19) register. */
+    DR_REG_FS4 = DR_REG_F20,  /**< The 5th callee-saved floating-point (f20) register. */
+    DR_REG_FS5 = DR_REG_F21,  /**< The 6th callee-saved floating-point (f21) register. */
+    DR_REG_FS6 = DR_REG_F22,  /**< The 7th callee-saved floating-point (f22) register. */
+    DR_REG_FS7 = DR_REG_F23,  /**< The 8th callee-saved floating-point (f23) register. */
+    DR_REG_FS8 = DR_REG_F24,  /**< The 9th callee-saved floating-point (f24) register. */
+    DR_REG_FS9 = DR_REG_F25,  /**< The 10th callee-saved floating-point (f25) register. */
+    DR_REG_FS10 = DR_REG_F26, /**< The 11th callee-saved floating-point (f26) register. */
+    DR_REG_FS11 = DR_REG_F27, /**< The 12th callee-saved floating-point (f27) register. */
+    DR_REG_FT8 = DR_REG_F28,  /**< The 9th temporary floating-point (f28) register. */
+    DR_REG_FT9 = DR_REG_F29,  /**< The 10th temporary floating-point (f29) register. */
+    DR_REG_FT10 = DR_REG_F30, /**< The 11th temporary floating-point (f30) register. */
+    DR_REG_FT11 = DR_REG_F31, /**< The 12th temporary floating-point (f31) register. */
+#    endif /* RISCV_ISA_F || RISCV_ISA_D */
+                              /* FIXME i#3544: CCSRs */
+                              /* FIXME i#3544: Ifdefs for different extensions. */
 
-#endif /* X86/ARM */
+#    if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+    DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum. */
+    DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
+#    else
+    DR_REG_LAST_VALID_ENUM = DR_REG_PC, /**< Last valid register enum. */
+    DR_REG_LAST_ENUM = DR_REG_PC,       /**< Last value of register enums. */
+#    endif
+    DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit general register enum values. */
+    DR_REG_STOP_64 = DR_REG_X31,  /**< End of 64-bit general register enum values. */
+    DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit general register enum values. */
+    DR_REG_STOP_32 = DR_REG_X31,  /**< End of 32-bit general register enum values. */
+    DR_REG_START_GPR = DR_REG_X0, /**< Start of general register registers. */
+    DR_REG_STOP_GPR = DR_REG_X31, /**< End of general register registers. */
+    DR_REG_XSP = DR_REG_SP, /**< Platform-independent way to refer to stack pointer. */
+
+    DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
+    DR_NUM_SIMD_VECTOR_REGS = 0,                              /**< Count of SIMD regs. */
+#else /* RISCV64 */
+#    error Register definitions missing for this platform.
+#endif
 };
 
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */

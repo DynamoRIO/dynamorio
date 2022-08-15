@@ -175,6 +175,13 @@ typedef struct {
         unsigned long uc_regspace[128] __attribute__((__aligned__(8)));
         kernel_vfp_sigframe_t uc_vfp;
     } coproc;
+#    elif defined(RISCV64)
+    unsigned long uc_flags;
+    struct ucontext *uc_link;
+    stack_t uc_stack;
+    kernel_sigset_t uc_sigmask;
+    unsigned char sigset_ex[1024 / 8 - sizeof(kernel_sigset_t)];
+    sigcontext_t uc_mcontext;
 #    else
 #        error NYI
 #    endif
@@ -271,6 +278,10 @@ typedef struct rt_sigframe {
 #        endif
     /* In 2.6.28+, fpstate/xstate goes here */
 #    elif defined(AARCHXX)
+    kernel_siginfo_t info;
+    kernel_ucontext_t uc;
+    char retcode[RETCODE_SIZE];
+#    elif defined(RISCV64)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];

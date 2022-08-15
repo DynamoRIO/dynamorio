@@ -115,6 +115,11 @@ event_insert_instru(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     if (drreg_unreserve_register(drcontext, bb, inst, reg1) != DRREG_SUCCESS ||
         drreg_unreserve_register(drcontext, bb, inst, reg2) != DRREG_SUCCESS)
         return DR_EMIT_DEFAULT;
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    DR_ASSERT_MSG(false, "Not implemented on RISC-V");
+    /* Marking as unused to silence -Wunused-variable. */
+    (void)global_count;
 #endif
     return DR_EMIT_DEFAULT;
 }

@@ -128,6 +128,9 @@ The changes between version \DR_VERSION and 9.0.1 include the following compatib
 changes:
  - Eliminated the -skip_syscall option to drrun and drinject, which is now always
    on by default.
+ - Changed the drcachesim -use_physical option to not modify the regular trace
+   entry virtual addresses but to instead insert metadata containing translation
+   information for converting virtual to physical addresses.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
@@ -140,6 +143,27 @@ Further non-compatibility-affecting changes include:
    choices under the -raw_compress option.  Compressing with lz4 is now the
    default (if built with lz4 support).
  - Added drmodtrack_lookup_pc_from_index().
+ - Added -use_physical support to drcachesim offline traces using three new
+   marker types: #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+   #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, and
+   #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE.
+ - Added an open-address hashtable implementation for cases where third-party
+   libraries must be avoided and open addressing is best: dr_hashtable_create(),
+   dr_hashtable_destroy(), dr_hashtable_clear(), dr_hashtable_lookup(),
+   dr_hashtable_add(), dr_hashtable_remove().
+ - Added a new #TRACE_MARKER_TYPE_PAGE_SIZE record to drcachesim offline traces.
+ - Added new drmemtrace options -L0I_filter and -L0D_filter that allow enabling
+   online filtering for only instruction or only data entries respectively. The
+   old option -L0_filter is deprecated but still supported for backward
+   compatibility. It simply sets both the new options.
+ - Added a new DR extension, namely "drpttracer", which provides clients with tracing
+   functionality via Intel's PT instruction tracing feature. This feature is still
+   experimental and available only on Intel processors.
+ - Added new drmemtrace options -enable_kernel_tracing that allow recording each
+   syscall's Kernel PT and write every syscall's PT and metadata to files in
+   -outdir/kernel.raw/ for later offline analysis. This feature is still experimental
+   and available only on Intel processors that support the Intel@ Processor Trace
+   feature.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
@@ -162,6 +186,8 @@ Further non-compatibility-affecting changes include:
  - Added dr_register_inject_paths() and a corresponding -use_alt_dll drrun/drconfig
    parameter for control over DynamoRIO library paths, in particular the other
    bitwidth path, when configuring target processes.
+ - Added -tool_dir drrun/drconfig parameter to control where to look for tool
+   config files.
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:

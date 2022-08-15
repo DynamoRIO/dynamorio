@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2619,5 +2619,90 @@ DR_API
 /** Checks to see that if there is a trace in the code cache at tag \p tag. */
 bool
 dr_trace_exists_at(void *drcontext, void *tag);
+
+/**************************************************
+ * OPEN-ADDRESS HASHTABLE
+ */
+
+DR_API
+/**
+ * Allocates and initializes an open-address library-independent hashtable:
+ *
+ * @param[in] drcontext  This context controls whether thread-private or global
+ *                    heap is used for the table.
+ * @param[in] bits       The base-2 log of the initial capacity of the table.
+ * @param[in] load_factor_percent The threshold of the table's occupancy at which
+ *      it will be resized (so smaller values keep the table sparser
+ *      and generally more performant but at the cost of more memory).
+ *      This is a percentage and so must be between 0 and 100.
+ *      Values are typically in the 20-80 range and for performance
+ *      critical tables would usually be below 50.
+ * @param[in] synch      Whether to use a lock around all operations.
+ * @param[in] free_payload_func An optional function to call when removing an entry.
+ *
+ * @return a pointer to the heap-allocated table.
+ */
+void *
+dr_hashtable_create(void *drcontext, uint bits, uint load_factor_percent, bool synch,
+                    void (*free_payload_func)(void * /*drcontext*/, void *));
+
+DR_API
+/**
+ * Destroys a hashtable created by dr_hashtable_create().
+ *
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ */
+void
+dr_hashtable_destroy(void *drcontext, void *htable);
+
+DR_API
+/**
+ * Removes all entries in a hashtable created by dr_hashtable_create().
+ *
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ */
+void
+dr_hashtable_clear(void *drcontext, void *htable);
+
+DR_API
+/**
+ * Queries whether an entry for the given key exists.
+ *
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] key        The key to query.
+ *
+ * @return the payload value for the key that was passed to dr_hashtable_add(),
+ * or NULL if no such key is found.
+ */
+void *
+dr_hashtable_lookup(void *drcontext, void *htable, ptr_uint_t key);
+
+DR_API
+/**
+ * Adds a new entry to the hashtable.
+ *
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] key        The key to add.
+ * @param[in] payload    The payload to add.
+ */
+void
+dr_hashtable_add(void *drcontext, void *htable, ptr_uint_t key, void *payload);
+
+DR_API
+/**
+ * Removes an entry for the given key.
+ *
+ * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] key        The key to remove.
+ *
+ * @return whether the key was found.
+ */
+bool
+dr_hashtable_remove(void *drcontext, void *htable, ptr_uint_t key);
 
 #endif /* _DR_TOOLS_H_ */

@@ -1217,6 +1217,29 @@ else ()
   set(HAVE_HALF_FLOAT OFF)
 endif ()
 
+set(BUILD_PT_TRACER OFF)
+set(BUILD_PT_POST_PROCESSOR OFF)
+set(proc_supports_pt OFF)
+# Right now we only build PT related libraries on Linux x86_64.
+if (LINUX AND X86 AND X64)
+  # We will always build the PT tracer on Linux X86_64 no matter whether the system
+  # supports PT, because users may want to use the built binaries on a different system
+  # that does support PT.
+  set(BUILD_PT_TRACER ON)
+  # Check if the building machine supports Intel PT. This function only checks if
+  # PT-related tests need to be built. PT-capable binaries can be built on any system.
+  check_intel_pt_support(proc_supports_pt)
+  # libdrpt2ir and drpt2trace depend on libipt. If the libipt submodule is not
+  # initialized, cmake will report a warning here.
+  if (EXISTS "${PROJECT_SOURCE_DIR}/third_party/libipt/.git" )
+    set(BUILD_PT_POST_PROCESSOR ON)
+  else ()
+    message(STATUS "libipt submodule is not initialized. libdrpt2ir and drpt2trace will not be built.")
+  endif ()
+else (LINUX AND X86 AND X64)
+  message(STATUS "PT related libraries only supported on Linux x86_64")
+endif (LINUX AND X86 AND X64)
+
 ###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not
@@ -1580,9 +1603,9 @@ if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
 
-if (BUILD_TOOLS OR BUILD_DRSTATS)
+if (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
   add_subdirectory(libutil)
-endif (BUILD_TOOLS OR BUILD_DRSTATS)
+endif (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
 
 if (BUILD_TOOLS)
   add_subdirectory(tools)

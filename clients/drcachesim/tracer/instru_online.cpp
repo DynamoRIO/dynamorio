@@ -87,7 +87,7 @@ online_instru_t::get_instr_count(byte *buf_ptr) const
 }
 
 addr_t
-online_instru_t::get_entry_addr(byte *buf_ptr) const
+online_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
 {
     trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     return entry->addr;
@@ -169,6 +169,7 @@ online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_FILETYPE, file_type);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                              proc_get_cache_line_size());
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_PAGE_SIZE, dr_page_size());
     return (int)(new_buf - buf_ptr);
 }
 

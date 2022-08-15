@@ -84,8 +84,9 @@ typedef enum {
 } drbbdup_thread_slots_t;
 
 /* A scratch register used by drbbdup's dispatcher. */
-#define DRBBDUP_SCRATCH_REG IF_X86_ELSE(DR_REG_XAX, DR_REG_R0)
-#define DRBBDUP_SCRATCH_REG_NO_FLAGS IF_X86_ELSE(DR_REG_XCX, DR_REG_R0)
+#define DRBBDUP_SCRATCH_REG IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0))
+#define DRBBDUP_SCRATCH_REG_NO_FLAGS \
+    IF_X86_ELSE(DR_REG_XCX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0))
 #ifdef AARCHXX
 /* RISC architectures need a 2nd scratch register. */
 #    define DRBBDUP_SCRATCH_REG2 DR_REG_R1
@@ -105,7 +106,9 @@ typedef struct {
 typedef struct {
     bool enable_dup;              /* Denotes whether to duplicate blocks. */
     bool enable_dynamic_handling; /* Denotes whether to dynamically generate cases. */
+#if !defined(RISCV64)
     bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
+#endif
     bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start. */
     reg_id_t scratch_reg;
 #ifdef AARCHXX
@@ -966,11 +969,13 @@ static void
 drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *where,
                                    const drbbdup_manager_t *manager)
 {
+#if !defined(RISCV64)
     if (!manager->are_flags_dead) {
         drbbdup_restore_register(drcontext, bb, where, DRBBDUP_FLAG_REG_SLOT,
                                  manager->scratch_reg);
         dr_restore_arith_flags_from_reg(drcontext, bb, where, manager->scratch_reg);
     }
+#endif
     if (!manager->is_scratch_reg_dead) {
         drbbdup_restore_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG_SLOT,
                                  manager->scratch_reg);
@@ -1005,6 +1010,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * manually perform the spilling for finer control across branches used by the
      * dispatcher.
      */
+#if !defined(RISCV64)
     if (drbbdup_case_zero_vs_nonzero(manager)) {
         manager->are_flags_dead = true; /* Not used, so don't restore. */
         manager->scratch_reg = DRBBDUP_SCRATCH_REG_NO_FLAGS;
@@ -1014,6 +1020,10 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     }
     drreg_is_register_dead(drcontext, manager->scratch_reg, where,
                            &manager->is_scratch_reg_dead);
+#else
+    /* Since RISC-V does not have a flags register, always use the standard reg. */
+    manager->scratch_reg = DRBBDUP_SCRATCH_REG;
+#endif
     if (!manager->is_scratch_reg_dead) {
         drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG_SLOT,
                                manager->scratch_reg);
@@ -1031,6 +1041,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
         }
     }
 #endif
+#if !defined(RISCV64)
     if (!manager->are_flags_dead) {
         dr_save_arith_flags_to_reg(drcontext, bb, where, manager->scratch_reg);
         drbbdup_spill_register(drcontext, bb, where, DRBBDUP_FLAG_REG_SLOT,
@@ -1040,6 +1051,7 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
                                      manager->scratch_reg);
         }
     }
+#endif
 
     /* Encoding is application-specific and therefore we need the user to define the
      * encoding of the runtime case. Therefore, we invoke a user-defined call-back.
@@ -1743,10 +1755,12 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
                          app_pc bb_pc)
 {
     /* Restore flags and scratch reg to their original app values. */
+#if !defined(RISCV64)
     if (!manager->are_flags_dead) {
         reg_t val = (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_FLAG_REG_SLOT);
         mcontext->xflags = dr_merge_arith_flags(mcontext->xflags, val);
     }
+#endif
     if (!manager->is_scratch_reg_dead) {
         reg_set_value(manager->scratch_reg, mcontext,
                       (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_SCRATCH_REG_SLOT));

@@ -41,6 +41,7 @@
 #include "../tracer/raw2trace.h"
 #include "memref_gen.h"
 
+#undef ASSERT
 #define ASSERT(cond, msg, ...)        \
     do {                              \
         if (!(cond)) {                \
@@ -162,7 +163,9 @@ test_num_memrefs(void *drcontext, instrlist_t &ilist,
     view_test_t view(drcontext, ilist, 0, 0, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
-        std::cerr << "Incorrect num_memrefs count\n";
+        std::cerr << "Incorrect num_memrefs count: expect " << num_memrefs
+                  << " but got \n"
+                  << res << "\n";
         return false;
     }
     return true;
@@ -170,9 +173,8 @@ test_num_memrefs(void *drcontext, instrlist_t &ilist,
 
 bool
 test_skip_memrefs(void *drcontext, instrlist_t &ilist,
-                  const std::vector<memref_t> &memrefs, int skip_memrefs)
+                  const std::vector<memref_t> &memrefs, int skip_memrefs, int num_memrefs)
 {
-    const int num_memrefs = 2;
     // We do a simple check on the marker count.
     // XXX: To test precisely skipping the instrs and data we'll need to spend
     // more effort here, but the initial delayed markers are the corner cases.
@@ -190,7 +192,9 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     view_test_t view(drcontext, ilist, 0, skip_memrefs, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
-        std::cerr << "Incorrect skipped num_memrefs count\n";
+        std::cerr << "Incorrect skipped_memrefs count: expect " << num_memrefs
+                  << " but got \n"
+                  << res << "\n";
         return false;
     }
     int found_markers = 0;
@@ -206,6 +210,8 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
         std::cerr << "Failed to skip proper number of markers\n";
         return false;
     }
+    // Unfortunately this doesn't detect an error in the internal counter.
+    // We rely on the marker count check for that.
     std::stringstream ss(res);
     int prefix;
     ss >> prefix;
@@ -290,8 +296,12 @@ run_limit_tests(void *drcontext)
         gen_marker(t1, TRACE_MARKER_TYPE_VERSION, 3),
         gen_marker(t1, TRACE_MARKER_TYPE_FILETYPE, 0),
         gen_marker(t1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+        gen_marker(t1, TRACE_MARKER_TYPE_TIMESTAMP, 1001),
+        gen_marker(t1, TRACE_MARKER_TYPE_CPU_ID, 2),
         gen_instr(t1, offs_nop1),
         gen_data(t1, true, 0x42, 4),
+        gen_marker(t1, TRACE_MARKER_TYPE_TIMESTAMP, 1002),
+        gen_marker(t1, TRACE_MARKER_TYPE_CPU_ID, 3),
         gen_branch(t1, offs_jz),
         gen_branch(t1, offs_nop2),
         gen_data(t1, true, 0x42, 4),
@@ -301,9 +311,9 @@ run_limit_tests(void *drcontext)
     for (int i = 1; i < static_cast<int>(memrefs.size()); ++i) {
         res = test_num_memrefs(drcontext, *ilist, memrefs, i) && res;
     }
-    // We primarily test skipping the initial markers.
-    for (int i = 1; i < 6; ++i) {
-        res = test_skip_memrefs(drcontext, *ilist, memrefs, i) && res;
+    constexpr int num_refs = 2;
+    for (int i = 1; i < static_cast<int>(memrefs.size() - num_refs); ++i) {
+        res = test_skip_memrefs(drcontext, *ilist, memrefs, i, num_refs) && res;
     }
 
     // Ensure missing modules are fine.

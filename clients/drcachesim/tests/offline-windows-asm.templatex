@@ -22,11 +22,11 @@ Adios world!
 Hit tracing window #5 limit: disabling tracing.
 Basic counts tool results:
 Total counts:
-          50 total \(fetched\) instructions
-          18 total unique \(fetched\) instructions
+          53 total \(fetched\) instructions
+          21 total unique \(fetched\) instructions
            4 total non-fetched instructions
            0 total prefetches
-           5 total data loads
+           7 total data loads
            5 total data stores
            0 total icache flushes
            0 total dcache flushes
@@ -37,14 +37,16 @@ Total counts:
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
-          10 total other markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
+          11 total other markers
 Total windows: 7
 Window #0:
-          12 window \(fetched\) instructions
-          12 window unique \(fetched\) instructions
+          15 window \(fetched\) instructions
+          15 window unique \(fetched\) instructions
            4 window non-fetched instructions
            0 window prefetches
-           5 window data loads
+           7 window data loads
            5 window data stores
            0 window icache flushes
            0 window dcache flushes
@@ -54,7 +56,9 @@ Window #0:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
-           4 window other markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
+           5 window other markers
 Window #1:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -70,6 +74,8 @@ Window #1:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #2:
            8 window \(fetched\) instructions
@@ -86,6 +92,8 @@ Window #2:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #3:
            8 window \(fetched\) instructions
@@ -102,6 +110,8 @@ Window #3:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #4:
            8 window \(fetched\) instructions
@@ -118,6 +128,8 @@ Window #4:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #5:
            6 window \(fetched\) instructions
@@ -134,6 +146,8 @@ Window #5:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Window #6:
            0 window \(fetched\) instructions
@@ -150,13 +164,15 @@ Window #6:
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
            1 window other markers
 Thread [0-9]* counts:
-          12 \(fetched\) instructions
-          12 unique \(fetched\) instructions
+          15 \(fetched\) instructions
+          15 unique \(fetched\) instructions
            4 non-fetched instructions
            0 prefetches
-           5 data loads
+           7 data loads
            5 data stores
            0 icache flushes
            0 dcache flushes
@@ -166,4 +182,6 @@ Thread [0-9]* counts:
            0 function return address markers
            0 function argument markers
            0 function return value markers
-           4 other markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+           5 other markers

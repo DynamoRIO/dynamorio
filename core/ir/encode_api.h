@@ -50,6 +50,7 @@ typedef enum _dr_isa_mode_t {
     DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
     DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
     DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
+    DR_ISA_RV64IMAFDC,        /**< RISC-V (rv64imafdc). */
 } dr_isa_mode_t;
 
 DR_API
@@ -92,6 +93,10 @@ enum {
     /* With register lists we can see quite long operand lists. */
     MAX_SRC_OPNDS = 33, /* vstm s0-s31 */
     MAX_DST_OPNDS = MAX_SRC_OPNDS,
+#elif defined(RISCV64)
+    MAX_INSTR_LENGTH = 4,
+    MAX_SRC_OPNDS = 3,
+    MAX_DST_OPNDS = 1,
 #endif
 };
 
