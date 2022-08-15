@@ -1436,16 +1436,114 @@
     instr_create_1dst_3src(dc, OP_fmax, Rd, Rm, Rn, width)
 
 /**
- * Creates a FRECPS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FRECPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPE  <Hd>.<Ts>, <Hn>.<Ts>
+ *    FRECPE  <Dd>.<Ts>, <Dn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_frecps_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_frecps, Rd, Rm, Rn, width)
+#define INSTR_CREATE_frecpe_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_frecpe, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a FRECPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPE  <Hd>, <Hn>
+ *    FRECPE  <V><d>, <V><n>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frecpe(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frecpe, Rd, Rn)
+
+/**
+ * Creates a FRECPS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPS  <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FRECPS  <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_frecps_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_frecps, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FRECPS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPS  <Hd>, <Hn>, <Hm>
+ *    FRECPS  <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frecps(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_frecps, Rd, Rn, Rm)
+
+/**
+ * Creates a FRSQRTE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTE <Hd>.<Ts>, <Hn>.<Ts>
+ *    FRSQRTE <Dd>.<Ts>, <Dn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_frsqrte_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_frsqrte, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a FRSQRTE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTE <Hd>, <Hn>
+ *    FRSQRTE <V><d>, <V><n>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frsqrte(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frsqrte, Rd, Rn)
 
 /**
  * Creates a AND vector instruction.
@@ -1568,16 +1666,44 @@
     instr_create_1dst_3src(dc, OP_fmin, Rd, Rm, Rn, width)
 
 /**
- * Creates a FRSQRTS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FRSQRTS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTS <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FRSQRTS <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+               D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+               D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+               D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_frsqrts_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_frsqrts, Rd, Rm, Rn, width)
+#define INSTR_CREATE_frsqrts_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_frsqrts, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FRSQRTS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTS <Hd>, <Hn>, <Hm>
+ *    FRSQRTS <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+               S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+               S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+               S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frsqrts(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_frsqrts, Rd, Rn, Rm)
 
 /**
  * Creates a ORR vector instruction.
