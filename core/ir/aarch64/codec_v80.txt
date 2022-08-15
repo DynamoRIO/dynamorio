@@ -401,9 +401,9 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126  BASE     fcvtzu            wx0 : d5 s
 0x10111010110000111110xxxxxxxxxx  n   140  BASE      fminv             s0 : dq5 s_const_sz
 0x0011100x1xxxxx110011xxxxxxxxxx  n   141  BASE       fmla            dq0 : dq0 dq5 dq16 sd_sz
 0x0011111xxxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla            dq0 : dq0 dq5 dq16 vindex_SD sd_sz
-0101111110xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             s0 : s0 s5 dq16 vindex_SD sd_sz
-0101111111xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             d0 : d0 d5 dq16 vindex_SD sd_sz
-0x0011111xxxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq5 dq16 vindex_SD sd_sz
+0101111110xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             s0 : s0 s5 q16 vindex_SD sd_sz
+0101111111xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             d0 : d0 d5 q16 vindex_SD sd_sz
+0x0011111xxxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq0 dq5 dq16 vindex_SD sd_sz
 0x0011101x1xxxxx110011xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq0 dq5 dq16 sd_sz
 0101111110xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             s0 : s0 s5 dq16 vindex_SD sd_sz
 0101111111xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             d0 : d0 d5 dq16 vindex_SD sd_sz
