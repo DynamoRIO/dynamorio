@@ -41,7 +41,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "../../core/unix/include/syscall_linux_x86.h" // for SYS_perf_event_open
 #include "dr_api.h"
 #include "drpttracer.h"
 

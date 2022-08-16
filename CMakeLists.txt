@@ -1224,7 +1224,7 @@ set(proc_supports_pt OFF)
 if (LINUX AND X86 AND X64)
   # We will always build the PT tracer on Linux X86_64 no matter whether the system
   # supports PT, because users may want to use the built binaries on a different system
-  # that does support PT.
+  # that does not support PT itself.
   set(BUILD_PT_TRACER ON)
   # Check if the building machine supports Intel PT. This function only checks if
   # PT-related tests need to be built. PT-capable binaries can be built on any system.
