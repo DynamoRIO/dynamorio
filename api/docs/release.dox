@@ -165,6 +165,7 @@ Further non-compatibility-affecting changes include:
    and available only on Intel processors that support the Intel@ Processor Trace
    feature.
  - Added drmemtrace_get_encoding_path().
+ - Added preliminary support for generated code to drmemtrace.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:

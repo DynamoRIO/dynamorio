@@ -333,6 +333,8 @@ dump_unmasked(dcontext_t *dcontext, const char *where)
     if (dcontext == GLOBAL_DCONTEXT || dcontext == NULL)
         return;
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    if (info->sighand == NULL)
+        return;
     LOG(THREAD, LOG_ASYNCH, 3, "%s: threads_unmasked: ", where);
     for (int i = 1; i <= MAX_SIGNUM; i++) {
         LOG(THREAD, LOG_ASYNCH, 3, "[%d]=%d ", i, info->sighand->threads_unmasked[i]);
@@ -1110,9 +1112,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                 ? "vfork"
                 :
 #endif
-                (IF_LINUX(record->clone_sysnum == SYS_clone
-                              ? "clone"
-                              : record->clone_sysnum == SYS_clone3 ? "clone3" :)
+                (IF_LINUX(record->clone_sysnum == SYS_clone        ? "clone"
+                              : record->clone_sysnum == SYS_clone3 ? "clone3"
+                                                                   :)
                      IF_MACOS(record->clone_sysnum == SYS_bsdthread_create
                                   ? "bsdthread_create"
                                   :) "unexpected"),
