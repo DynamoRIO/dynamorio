@@ -631,7 +631,7 @@ struct _encoding_entry_t {
     uint64_t start_pc;
 #ifdef WINDOWS
 #    pragma warning(push)
-#    pragma warning(disable : 2220) // Zero-sized array warning.
+#    pragma warning(disable : 4200) // Zero-sized array warning.
 #endif
     // Variable-length encodings for entire block, of length 'length'.
     unsigned char encodings[0];
