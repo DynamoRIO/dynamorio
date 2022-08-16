@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -175,7 +175,7 @@ DR_API
  * creation (false) or is for address translation (true).  This is
  * further explained below.
  *
- * \return a #dr_emit_flags_t flag.
+ * The callback function should return a #dr_emit_flags_t flag.
  *
  * The user is free to inspect and modify the block before it
  * executes, but must adhere to the following restrictions:
@@ -387,7 +387,7 @@ DR_API
  * (false) or is for fault address recreation (true).  This is further
  * explained below.
  *
- * \return a #dr_emit_flags_t flag.
+ * The callback function should return a #dr_emit_flags_t flag.
  *
  * The user is free to inspect and modify the non-control-flow
  * instructions in the trace before it
