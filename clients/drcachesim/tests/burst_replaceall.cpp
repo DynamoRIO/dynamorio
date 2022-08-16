@@ -109,10 +109,10 @@ local_open_file(const char *fname, uint mode_flags)
         drmemtrace_get_encoding_path(&enc_name) != DRMEMTRACE_SUCCESS)
         ASSERT(false);
     if (strncmp(fname, mod_name, MAXIMUM_PATH) == 0)
-        return MODULE_FILENO;
+        return (file_t)MODULE_FILENO;
     if (strncmp(fname, func_name, MAXIMUM_PATH) == 0 ||
         strncmp(fname, enc_name, MAXIMUM_PATH) == 0)
-        return IGNORE_FILENO;
+        return (file_t)IGNORE_FILENO;
     return (file_t)dr_get_thread_id(dr_get_current_drcontext());
 }
 
@@ -125,9 +125,9 @@ local_read_file(file_t file, void *data, size_t count)
 static ssize_t
 local_write_file(file_t file, const void *data, size_t size)
 {
-    if (file == IGNORE_FILENO)
+    if (file == (file_t)IGNORE_FILENO)
         return size;
-    if (file == MODULE_FILENO) {
+    if (file == (file_t)MODULE_FILENO) {
         void *copy = dr_raw_mem_alloc(size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
         memcpy(copy, data, size);
         drvector_lock(&all_buffers);
