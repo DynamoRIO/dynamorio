@@ -629,8 +629,15 @@ struct _encoding_entry_t {
     size_t length; // Size of the entire structure.
     uint64_t id;
     uint64_t start_pc;
+#ifdef WINDOWS
+#    pragma warning(push)
+#    pragma warning(disable : 2220) // Zero-sized array warning.
+#endif
     // Variable-length encodings for entire block, of length 'length'.
     unsigned char encodings[0];
+#ifdef WINDOWS
+#    pragma warning(pop)
+#endif
 } END_PACKED_STRUCTURE;
 typedef struct _encoding_entry_t encoding_entry_t;
 
