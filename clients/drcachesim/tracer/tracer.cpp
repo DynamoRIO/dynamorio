@@ -97,6 +97,7 @@ char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
+static file_t encoding_file = INVALID_FILE;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -131,7 +132,7 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 named_pipe_t ipc_pipe;
 
-#define MAX_INSTRU_SIZE 128 /* the max obj size of instr_t or its children */
+#define MAX_INSTRU_SIZE 256 /* The max instance size of instru_t or its children. */
 instru_t *instru;
 
 static client_id_t client_id;
@@ -169,6 +170,7 @@ struct file_ops_func_t file_ops_func;
 
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
+static char encoding_path[MAXIMUM_PATH];
 
 /* clean_call sends the memory reference info to the simulator */
 static void
@@ -423,7 +425,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
                         instr_t *where, reg_id_t reg_ptr, int adjust)
 {
     // Instrument to add a full instr entry for the first instr.
-    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+    adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                       reg_ptr, adjust, ud->delay_instrs[0]);
     if (op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
@@ -431,7 +433,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
             adjust =
-                instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+                instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                          reg_ptr, adjust, ud->delay_instrs[i]);
         }
     } else {
@@ -848,8 +850,8 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     // now for simplicity.
     if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app, ref,
-                                       ref_index, write, pred);
+    adjust = instru->instrument_memref(drcontext, ud->instru_field, ilist, where, reg_ptr,
+                                       adjust, app, ref, ref_index, write, pred);
     if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
@@ -902,7 +904,7 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     }
     if (op_L0I_filter.get_value() || op_L0D_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+    adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                       reg_ptr, adjust, app);
     if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
@@ -1199,6 +1201,9 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static dr_emit_flags_t
 event_bb_analysis_cleanup(void *drcontext, void *user_data)
 {
+    user_data_t *ud = reinterpret_cast<user_data_t *>(user_data);
+    instru->bb_analysis_cleanup(drcontext, ud->instru_field);
+
     dr_thread_free(drcontext, user_data, sizeof(user_data_t));
     return DR_EMIT_DEFAULT;
 }
@@ -1344,6 +1349,12 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
              * an absolute PC here might always take two entries for some modules.
              * We'll turn this into an absolute PC in the final trace.
              */
+            // TODO i#2062: For non-module code we don't have the block id.
+            // Plus, PC_MODIDX_INVALID is the highest value and so will always take
+            // 2 entries.  The simplest solution is to abandon this whole
+            // kernel_interrupted_raw_pc_t scheme and pay the cost of 2 entries to
+            // store the absolute PC: this is only on rare events after all.
+            // This will require a version bump.
             kernel_interrupted_raw_pc_t raw_pc = {};
             raw_pc.pc.modidx = modidx;
             raw_pc.pc.modoffs = modoffs;
@@ -1540,6 +1551,8 @@ event_exit(void)
         file_ops_func.close_file(module_file);
         if (funclist_file != INVALID_FILE)
             file_ops_func.close_file(funclist_file);
+        if (encoding_file != INVALID_FILE)
+            file_ops_func.close_file(encoding_file);
     } else
         ipc_pipe.close();
 
@@ -1652,7 +1665,14 @@ init_offline_dir(void)
     funclist_file = file_ops_func.open_file(
         funclist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
-    return (module_file != INVALID_FILE && funclist_file != INVALID_FILE);
+    dr_snprintf(encoding_path, BUFFER_SIZE_ELEMENTS(encoding_path), "%s%s%s", logsubdir,
+                DIRSEP, DRMEMTRACE_ENCODING_FILENAME);
+    NULL_TERMINATE_BUFFER(encoding_path);
+    encoding_file = file_ops_func.open_file(
+        encoding_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
+
+    return (module_file != INVALID_FILE && funclist_file != INVALID_FILE &&
+            encoding_file != INVALID_FILE);
 }
 
 #ifdef UNIX
@@ -1751,6 +1771,15 @@ drmemtrace_get_funclist_path(OUT const char **path)
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     *path = funclist_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_encoding_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = encoding_path;
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -1856,10 +1885,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            offline_instru_t(insert_load_buf_ptr, op_L0I_filter.get_value(),
-                             &scratch_reserve_vec, file_ops_func.write_file, module_file,
-                             op_disable_optimizations.get_value(), instru_notify);
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, op_L0I_filter.get_value(), &scratch_reserve_vec,
+            file_ops_func.write_file, module_file, encoding_file,
+            op_disable_optimizations.get_value(), instru_notify);
     } else {
         void *placement;
         /* we use placement new for better isolation */

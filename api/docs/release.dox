@@ -159,11 +159,12 @@ Further non-compatibility-affecting changes include:
  - Added a new DR extension, namely "drpttracer", which provides clients with tracing
    functionality via Intel's PT instruction tracing feature. This feature is still
    experimental and available only on Intel processors.
- - Added new drmemtrace options -enable_kernel_tracing that allow recording each
-   syscall's Kernel PT and write every syscall's PT and metadata to files in
+ - Added a new drmemtrace option -enable_kernel_tracing that allows recording each
+   syscall's Kernel PT and writes every syscall's PT and metadata to files in
    -outdir/kernel.raw/ for later offline analysis. This feature is still experimental
    and available only on Intel processors that support the Intel@ Processor Trace
    feature.
+ - Added drmemtrace_get_encoding_path().
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
