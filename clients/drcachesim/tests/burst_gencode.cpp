@@ -38,7 +38,9 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "drmemtrace/drmemtrace.h"
 #include <assert.h>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include "tools.h" // Included after system headers to avoid printf warning.
@@ -135,6 +137,16 @@ do_some_work(const code_generator_t &gen)
     return 1;
 }
 
+static void
+exit_cb(void *)
+{
+    const char *encoding_path;
+    drmemtrace_status_t res = drmemtrace_get_encoding_path(&encoding_path);
+    assert(res == DRMEMTRACE_SUCCESS);
+    std::ifstream stream(encoding_path);
+    assert(stream.good());
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -146,6 +158,8 @@ main(int argc, const char *argv[])
         std::cerr << "pre-DR init\n";
         dr_app_setup();
         assert(!dr_app_running_under_dynamorio());
+        drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
+        assert(res == DRMEMTRACE_SUCCESS);
         std::cerr << "pre-DR start\n";
         dr_app_start();
         if (do_some_work(gen) < 0)

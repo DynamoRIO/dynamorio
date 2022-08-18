@@ -1021,10 +1021,8 @@ private:
         std::string error = "";
         uint instr_count = in_entry->pc.instr_count;
         const instr_summary_t *instr = nullptr;
-        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_seg_base +
-            (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
-        app_pc pc, decode_pc = start_pc;
         if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
+            in_entry->pc.modidx == PC_MODIDX_INVALID ||
             modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
             // Once that support is in we can remove the bool return value and handle
@@ -1041,12 +1039,14 @@ private:
                 instr_count, in_entry->pc.modidx, in_entry->pc.modoffs);
             *handled = false;
             return "";
-        } else {
-            impl()->log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
-                        instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
-                        (ptr_uint_t)in_entry->pc.modoffs,
-                        modvec_()[in_entry->pc.modidx].path);
         }
+        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_seg_base +
+            (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
+        app_pc pc, decode_pc = start_pc;
+        impl()->log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
+                    instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
+                    (ptr_uint_t)in_entry->pc.modoffs,
+                    modvec_()[in_entry->pc.modidx].path);
         bool skip_icache = false;
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
