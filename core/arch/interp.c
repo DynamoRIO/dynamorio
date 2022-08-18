@@ -6571,8 +6571,7 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
 
 #ifdef HASHTABLE_STATISTICS
     DOSTATS({
-        /* FIXME i#3544: RFC: Is this SCRATCH_REG2 used on IBL or XCX/R2? */
-        reg_id_t reg = IF_X86_ELSE(REG_XCX, IF_RISCV64_ELSE(DR_REG_A2, DR_REG_R2));
+        reg_id_t reg = SCRATCH_REG2;
         if (INTERNAL_OPTION(speculate_last_exit_stats)) {
             int tls_stat_scratch_slot = os_tls_offset(HTABLE_STATS_SPILL_SLOT);
             /* XCX already saved */
@@ -6660,8 +6659,7 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
 
     instr_t *inst = instrlist_last(trace); /* currently only relevant to last CTI */
     instr_t *where = inst;                 /* preinsert before exit CTI */
-    /* FIXME i#3544: RFC: Is this SCRATCH_REG2 used on IBL or XCX/R2? */
-    reg_id_t reg = IF_X86_ELSE(REG_XCX, IF_RISCV64_ELSE(DR_REG_A2, DR_REG_R2));
+    reg_id_t reg = SCRATCH_REG2;
     DEBUG_DECLARE(bool ok;)
 
     /* should use similar eflags-clobbering scheme to inline cmp */
@@ -7634,14 +7632,9 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                         raw_start_pc = prev_pc;
                     }
                     /* now append our new xcx save */
-                    /* FIXME i#3544: RFC: Is this SCRATCH_REG2 used on IBL or XCX/R2? */
-                    instrlist_append(
-                        ilist,
-                        instr_create_save_to_dcontext(
-                            dcontext,
-                            IF_X86_ELSE(REG_XCX, IF_RISCV64_ELSE(DR_REG_A2, DR_REG_R2)),
-                            IF_X86_ELSE(XCX_OFFSET,
-                                        IF_RISCV64_ELSE(REG2_OFFSET, R2_OFFSET))));
+                    instrlist_append(ilist,
+                                     instr_create_save_to_dcontext(dcontext, SCRATCH_REG2,
+                                                                   SCRATCH_REG2_OFFS));
                     /* make sure skip current instr */
                     cur_buf += (int)(pc - prev_pc);
                     raw_start_pc = pc;

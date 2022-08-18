@@ -3299,8 +3299,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
      * SA_RESTORER is not specified.
      */
     return false;
-#    endif
-#    ifdef RISCV64
+#    elif defined(RISCV64)
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;

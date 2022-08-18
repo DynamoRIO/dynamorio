@@ -390,6 +390,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
          * comment above for post-mangling traces), and so for local
          * spills like rip-rel and ind branches this is fine.
          */
+#if defined(RISCV64)
+        ASSERT_NOT_IMPLEMENTED(false);
+#endif
         if (instr_is_cti(inst) &&
 #ifdef X86
             /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
@@ -410,7 +413,7 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
                 opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
 #elif defined(RISCV64)
             /* FIXME i#3544: Not implemented */
-            true
+            false
 #else
             /* Do not reset for cbnz/bne in ldstex mangling, nor for the b after strex. */
             !(instr_get_opcode(inst) == OP_cbnz ||

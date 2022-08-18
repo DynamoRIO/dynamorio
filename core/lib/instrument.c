@@ -5795,7 +5795,7 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
         ilist, where,
         INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV), opnd_create_reg(reg)));
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented. Perhaps float flags should be saved here? */
+    /* FIXME i#3544: Not implemented. Perhaps float flags should be restored here? */
     ASSERT_NOT_IMPLEMENTED(false);
     /* Marking as unused to silence -Wunused-variable. */
     (void)dcontext;
