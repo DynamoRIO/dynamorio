@@ -2523,14 +2523,10 @@ os_thread_init(dcontext_t *dcontext, void *os_data)
      * os_exports.h). If that's not necessary, then perhaps each arch could just
      * define the ASM_SEG and LIB_ASM_SEG and printing could be done using that?
      */
-    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n",
-        IF_X86_ELSE("gs", IF_RISCV64_ELSE("tp", "tpidruro")),
-        get_segment_base(
-            IF_X86_ELSE(SEG_GS, IF_RISCV64_ELSE(DR_REG_TP, DR_REG_TPIDRURO))));
-    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n",
-        IF_X86_ELSE("fs", IF_RISCV64_ELSE("s11", "tpidrurw")),
-        get_segment_base(
-            IF_X86_ELSE(SEG_FS, IF_RISCV64_ELSE(DR_REG_S11, DR_REG_TPIDRURW))));
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n", STR_SEG,
+        get_segment_base(SEG_TLS));
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n", STR_LIB_SEG,
+        get_segment_base(LIB_SEG_TLS));
 
 #ifdef MACOS
     /* XXX: do we need to free/close dcontext->thread_port?  I don't think so. */
