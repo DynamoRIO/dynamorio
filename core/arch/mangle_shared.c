@@ -570,7 +570,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 /*###########################################################################
  *###########################################################################
  *
- *   M A N G L I N G   R O U T I N E S
+ * MANGLING ROUTINES
  */
 
 /* This routine is not shared with drdecode, so it's here instead of mangle_utils.c. */
