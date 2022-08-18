@@ -433,7 +433,8 @@ public:
             return (map_pc - entry->encodings) +
                 reinterpret_cast<app_pc>(entry->start_pc);
         } else {
-            return map_pc - modvec_[modidx].map_seg_base + modvec_[modidx].orig_seg_base;
+            size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
+            return map_pc - modvec_[idx].map_seg_base + modvec_[idx].orig_seg_base;
         }
     }
 
@@ -447,10 +448,11 @@ public:
             encoding_entry_t *entry = it->second;
             return reinterpret_cast<app_pc>(entry->start_pc);
         } else {
+            size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
             // Cast to unsigned pointer-sized int first to avoid sign-extending.
             return reinterpret_cast<app_pc>(
-                       reinterpret_cast<ptr_uint_t>(modvec_[modidx].orig_seg_base)) +
-                (modoffs - modvec_[modidx].seg_offs);
+                       reinterpret_cast<ptr_uint_t>(modvec_[idx].orig_seg_base)) +
+                (modoffs - modvec_[idx].seg_offs);
         }
     }
 
@@ -464,7 +466,8 @@ public:
             encoding_entry_t *entry = it->second;
             return entry->encodings;
         } else {
-            return modvec_[modidx].map_seg_base + (modoffs - modvec_[modidx].seg_offs);
+            size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
+            return modvec_[idx].map_seg_base + (modoffs - modvec_[idx].seg_offs);
         }
     }
 

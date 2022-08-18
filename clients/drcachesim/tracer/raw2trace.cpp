@@ -601,9 +601,9 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                tdata->file_type);
         if (!tdata->error.empty())
             return tdata->error;
-        if (tdata->version >= OFFLINE_FILE_VERSION_ENCODINGS &&
-            encoding_file_ == INVALID_FILE)
-            return "Expected encoding file but none was passed";
+        // We do not complain if tdata->version >= OFFLINE_FILE_VERSION_ENCODINGS
+        // and encoding_file_ == INVALID_FILE since we have several tests with
+        // that setup.  We do complain during processing about unknown instructions.
         if (tdata->saw_header) {
             tdata->error = process_header(tdata);
             if (!tdata->error.empty())
