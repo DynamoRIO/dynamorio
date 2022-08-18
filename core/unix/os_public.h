@@ -168,10 +168,8 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_LR SC_FIELD(regs[30])
 #    define SC_XSP SC_FIELD(sp)
 #    define SC_XFLAGS SC_FIELD(pstate)
-#    define SC_SYSNUM_REG SC_FIELD(regs[8])
-/* FIXME i#3544: RFC: Why is SC_RETURN_REG not defined for AArch64? It would
- * eliminate some ifdef ladders.
- */
+#    define SC_SYSNUM_REG SC_R8
+#    define SC_RETURN_REG SC_R0
 #elif defined(ARM)
 #    define SC_XIP SC_FIELD(arm_pc)
 #    define SC_FP SC_FIELD(arm_fp)

@@ -4496,7 +4496,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     int sys_inst_len;
 
     /* FIXME i#3544: RFC: Why not use SC_RETURN_REG below? */
-    if (sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0)) != -EINTR) {
+    if (sc->SC_RETURN_REG != -EINTR) {
         /* The syscall succeeded, so no reason to interrupt.
          * Some syscalls succeed on a signal coming in.
          * E.g., SYS_wait4 on SIGCHLD, or reading from a slow device.
@@ -4719,7 +4719,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool reroute = false;
     bool at_auto_restart_syscall = false;
     int syslen = 0;
-    reg_t orig_retval_reg = sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0));
+    reg_t orig_retval_reg = sc->SC_RETURN_REG;
     sigpending_t *pend;
     fragment_t *f = NULL;
     fragment_t wrapper;
@@ -4934,7 +4934,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                     pc, pc + syslen);
                 at_auto_restart_syscall = true;
                 sc->SC_XIP += syslen;
-                sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0)) = -EINTR;
+                sc->SC_RETURN_REG = -EINTR;
                 pc = (byte *)sc->SC_XIP;
             }
         }
@@ -4971,7 +4971,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         at_auto_restart_syscall = true;
         sc->SC_XIP = (reg_t)vsyscall_sysenter_return_pc;
-        sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0)) = -EINTR;
+        sc->SC_RETURN_REG = -EINTR;
         pc = (byte *)sc->SC_XIP;
     } else if (pc == vsyscall_sysenter_return_pc) {
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from vsyscall " PFX "\n",
@@ -7273,10 +7273,9 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     sigcontext_to_mcontext(get_mcontext(dcontext), &sc_full, DR_MC_ALL);
 #else
     /* HACK to get eax put into mcontext AFTER do_syscall */
-    dcontext->next_tag = (app_pc)sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0));
+    dcontext->next_tag = (app_pc)sc->SC_RETURN_REG;
     /* use special linkstub so we know why we came out of the cache */
-    sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0)) =
-        (ptr_uint_t)get_asynch_linkstub();
+    sc->SC_RETURN_REG = (ptr_uint_t)get_asynch_linkstub();
 
     /* set our sigreturn context to point to fcache_return */
     /* We don't need PC_AS_JMP_TGT b/c the kernel uses EFLAGS_T for the mode */
