@@ -938,7 +938,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 /*###########################################################################
  *###########################################################################
  *
- *   M A N G L I N G   R O U T I N E S
+ * MANGLING ROUTINES
  */
 
 /* Updates the immediates used by insert_mov_immed_arch() to use the value "val".
