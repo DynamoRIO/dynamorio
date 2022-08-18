@@ -1984,11 +1984,9 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                 /* FIXME i#3544: RFC: Perhaps we need a union field for IBL register in
                  * mcontext?
                  */
-                mc.IF_X86_ELSE(xcx, IF_RISCV64_ELSE(a2, r2)) =
-                    (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
+                mc.ibl = (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
             } else {
-                mc.IF_X86_ELSE(xcx, IF_RISCV64_ELSE(a2, r2)) =
-                    (reg_t)d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)) + 1;
+                mc.ibl = (reg_t)d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)) + 1;
             }
             mc.xsp = STRESS_XSP_INIT;
             mc.pc = cpc;
@@ -2003,8 +2001,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             LOG(THREAD, LOG_INTERP, 3,
                 "  restored res=%d pc=" PFX ", xsp=" PFX " vs " PFX ", ibreg=" PFX
                 " vs " PFX "\n",
-                res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust,
-                mc.IF_X86_ELSE(xcx, IF_RISCV64_ELSE(a2, r2)),
+                res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust, mc.ibl,
                 d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)));
             /* We should only have failures at tail end of mangle regions.
              * No instrs after a failing instr should touch app memory.
@@ -2018,8 +2015,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             /* check that xsp and ibreg are adjusted properly */
             ASSERT(mc.xsp == STRESS_XSP_INIT - /*negate*/ xsp_adjust);
             ASSERT(spill_ibreg_outstanding_offs == UINT_MAX ||
-                   mc.IF_X86_ELSE(xcx, IF_RISCV64_ELSE(a2, r2)) ==
-                       (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs));
+                   mc.ibl == (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs));
 
             if (success_so_far && !res)
                 success_so_far = false;

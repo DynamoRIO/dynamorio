@@ -54,7 +54,11 @@
      */
     reg_t r0;   /**< The r0 register. */
     reg_t r1;   /**< The r1 register. */
-    reg_t r2;   /**< The r2 register. */
+    union {
+        reg_t r2;   /**< The r2 register. */
+        reg_t ibl; /**< The platform-independent name for the Indirect Branch
+                            Lookup target register */
+    }; /**< The anonymous union of alternative names for r2 register. */
     reg_t r3;   /**< The r3 register. */
     reg_t r4;   /**< The r4 register. */
     reg_t r5;   /**< The r5 register. */
@@ -181,6 +185,8 @@
         reg_t xcx; /**< The platform-independent name for full rcx/ecx register. */
         reg_t IF_X64_ELSE(rcx, ecx); /**< The platform-dependent name for
                                           rcx/ecx register. */
+        reg_t ibl; /**< The platform-independent name for the Indirect Branch
+                        Lookup target register */
     }; /**< The anonymous union of alternative names for rcx/ecx register. */
     union {
         reg_t xax; /**< The platform-independent name for full rax/eax register. */
@@ -330,6 +336,8 @@
     union {
         reg_t x12; /**< The x12 register. */
         reg_t a2;  /**< The 3rd argument register. */
+        reg_t ibl; /**< The platform-independent name for the Indirect Branch Lookup
+                        target register */
     };  /**< The anonymous union of alternative names for the x12/a2 register. */
     union {
         reg_t x13; /**< The x13 register. */
