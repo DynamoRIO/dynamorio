@@ -701,6 +701,16 @@ START_FILE
         ldp      x25, x26, [sp], #16 @N@\
         ldp      x27, x28, [sp], #16 @N@\
         ldp      x29, x30, [sp], #16
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+#    define PUSH_GPRS
+#    define PUSHALL
+#    define PUSH_CALLEE_SAVED
+#    define POP_GPRS
+#    define ALIGN_STACK_ON_FUNC_ENTRY
+#    define UNALIGN_STACK_ON_FUNC_EXIT
+#    define POPALL
+#    define POP_CALLEE_SAVED
 #endif
 
 DECL_EXTERN(sideline_exit)
@@ -887,6 +897,9 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_GPR_IMMED(x28, MAKE_HEX_C(X28_BASE())) @N@\
         SET_GPR_IMMED(x29, MAKE_HEX_C(X29_BASE())) @N@\
         SET_GPR_IMMED(x30, MAKE_HEX_C(X30_BASE()))
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+#    define SET_UNIQUE_REGISTER_VALS
 #endif
 
 #ifdef X86
@@ -898,16 +911,29 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_GPR_IMMED(x2, MAKE_HEX_C(X2_BASE())) @N@ \
         adr      x0, sideline_ready_for_detach @N@\
         strb     w2, [x0]
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+#   define SET_SIDELINE_READY
 #endif
 
 #ifdef X86
 #   define CHECK_SIDELINE_EXIT \
         cmp      BYTE SYMREF(sideline_exit), HEX(1)
+#   define JUMP_NOT_EQUAL     jne
 #elif defined(AARCH64)
 #   define CHECK_SIDELINE_EXIT \
         adr      x0, sideline_exit @N@\
         ldrb     w0, [x0] @N@\
         cmp      x0, #1
+#   define JUMP_NOT_EQUAL     b.ne
+#elif defined(RISCV64)
+/* Since comparison is against 1 we can use just a single register by
+ * decrementing the loaded value by 1 and comparing to 0.
+ */
+#   define CHECK_SIDELINE_EXIT \
+        lb REG_SCRATCH2, sideline_exit @N@\
+        addi REG_SCRATCH2, REG_SCRATCH2, -1@N@
+#   define JUMP_NOT_EQUAL     bne REG_SCRATCH2, x0,
 #endif
 
 #define FUNCNAME thread_check_gprs_from_cache
