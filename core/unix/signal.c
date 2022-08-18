@@ -4035,19 +4035,17 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      * read and if given arch does not define a given register field then it
      * means it uses a different mechanism.
      */
-    dcontext->local_state->spill_space.IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) =
-        sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0));
+    dcontext->local_state->spill_space.retval = sc->SC_RETURN_REG;
 #    ifdef AARCH64
     /* X1 needs to be spilled because of br x1 in exit stubs. */
     dcontext->local_state->spill_space.r1 = sc->SC_R1;
 #    endif
 #else
-    get_mcontext(dcontext)->IF_X86_ELSE(xax, r0) = sc->IF_X86_ELSE(SC_XAX, SC_R0);
+    get_mcontext(dcontext)->retval = sc->SC_RETURN_REG;
 #endif
-    LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax " PFX "\n",
-        sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0)));
+    LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax " PFX "\n", sc->SC_RETURN_REG);
 
-    sc->IF_X86_ELSE(SC_XAX, IF_RISCV64_ELSE(SC_A0, SC_R0)) = (ptr_uint_t)last_exit;
+    sc->SC_RETURN_REG = (ptr_uint_t)last_exit;
     LOG(THREAD, LOG_ASYNCH, 2, "\tset next_tag to " PFX ", resuming in fcache_return\n",
         next_pc);
     LOG(THREAD, LOG_ASYNCH, 3, "transfer_from_sig_handler_to_fcache_return\n");

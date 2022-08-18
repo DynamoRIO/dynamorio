@@ -52,7 +52,10 @@
      * actually holds DR's TLS base just due to a quirk of how fcache_enter
      * operates.
      */
-    reg_t r0;   /**< The r0 register. */
+    union {
+        reg_t r0;   /**< The r0 register. */
+        reg_t retval; /**< The platform-independent name for the return value register */
+    }; /**< The anonymous union of alternative names for r0 register. */
     reg_t r1;   /**< The r1 register. */
     union {
         reg_t r2;   /**< The r2 register. */
@@ -192,6 +195,7 @@
         reg_t xax; /**< The platform-independent name for full rax/eax register. */
         reg_t IF_X64_ELSE(rax, eax); /**< The platform-dependent name for
                                           rax/eax register. */
+        reg_t retval; /**< The platform-independent name for the return value register */
     }; /**< The anonymous union of alternative names for rax/eax register. */
 #    ifdef X64
     reg_t r8;  /**< The r8 register. \note For 64-bit DR builds only. */
@@ -328,6 +332,7 @@
     union {
         reg_t x10; /**< The x10 register. */
         reg_t a0;  /**< The 1st argument/return value register. */
+        reg_t retval; /**< The platform-independent name for the return value register */
     };  /**< The anonymous union of alternative names for the x10/a0 register. */
     union {
         reg_t x11; /**< The x11 register. */
