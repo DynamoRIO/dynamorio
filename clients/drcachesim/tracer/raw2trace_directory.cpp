@@ -345,6 +345,9 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     std::string encoding_filename =
         modfile_dir + std::string(DIRSEP) + DRMEMTRACE_ENCODING_FILENAME;
     // Older traces do not have encoding files.
+    // If we had the version we could check OFFLINE_FILE_VERSION_ENCODINGS but
+    // we don't currently read that; raw2trace will check it for us.
+    // TODO i#2062: When raw2trace support is added, check the version.
     if (dr_file_exists(encoding_filename.c_str())) {
         encoding_file_ = dr_open_file(encoding_filename.c_str(), DR_FILE_READ);
         if (encoding_file_ == INVALID_FILE)

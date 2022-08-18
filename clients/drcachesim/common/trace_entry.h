@@ -515,7 +515,8 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
 #define OFFLINE_FILE_VERSION_KERNEL_INT_PC 4
 #define OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP 5
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP
+#define OFFLINE_FILE_VERSION_ENCODINGS 6
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ENCODINGS
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
@@ -622,12 +623,13 @@ typedef union {
 
 // The encoding file begins with a 64-bit integer holding a version number,
 // followed by a series of records of type encoding_entry_t.
-#define ENCODING_FILE_VERSION 0
+#define ENCODING_FILE_INITIAL_VERSION 0
+#define ENCODING_FILE_VERSION ENCODING_FILE_INITIAL_VERSION
 
 START_PACKED_STRUCTURE
 struct _encoding_entry_t {
     size_t length; // Size of the entire structure.
-    uint64_t id;
+    uint64_t id;   // Incremented for each new non-module fragment DR creates.
     uint64_t start_pc;
 #ifdef WINDOWS
 #    pragma warning(push)
@@ -660,6 +662,6 @@ typedef struct _encoding_entry_t encoding_entry_t;
  * The name of the file in -offline mode where non-module instruction encodings
  * are written.  Use drmemtrace_get_encoding_path() to obtain the full path.
  */
-#define DRMEMTRACE_ENCODING_FILENAME "encodings.log"
+#define DRMEMTRACE_ENCODING_FILENAME "encodings.bin"
 
 #endif /* _TRACE_ENTRY_H_ */

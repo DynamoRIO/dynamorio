@@ -1022,7 +1022,6 @@ private:
         uint instr_count = in_entry->pc.instr_count;
         const instr_summary_t *instr = nullptr;
         if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
-            // TODO i#2062: Add raw2trace support for encoding file entries.
             in_entry->pc.modidx == PC_MODIDX_INVALID ||
             modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
