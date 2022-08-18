@@ -141,4 +141,7 @@ extern droption_t<unsigned int> op_miss_count_threshold;
 extern droption_t<double> op_miss_frac_threshold;
 extern droption_t<double> op_confidence_threshold;
 extern droption_t<bool> op_enable_drstatecmp;
+#ifdef BUILD_PT_TRACER
+extern droption_t<bool> op_enable_kernel_tracing;
+#endif
 #endif /* _OPTIONS_H_ */

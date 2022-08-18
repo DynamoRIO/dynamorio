@@ -72,6 +72,9 @@
 #    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
 #endif
 #define OUTFILE_SUBDIR "raw"
+#ifdef BUILD_PT_TRACER
+#    define KERNEL_PT_OUTFILE_SUBDIR "kernel.raw"
+#endif
 #define WINDOW_SUBDIR_PREFIX "window"
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"

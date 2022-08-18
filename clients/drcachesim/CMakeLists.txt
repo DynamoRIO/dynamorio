@@ -126,7 +126,6 @@ add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
 target_link_libraries(directory_iterator drfrontendlib)
 
-# Right now drpt2trace only works on Linux x86_64.
 if (BUILD_PT_POST_PROCESSOR)
   add_subdirectory(drpt2trace)
 endif (BUILD_PT_POST_PROCESSOR)
@@ -303,6 +302,12 @@ macro(add_drmemtrace name type)
     tracer/func_trace.cpp
     ${client_and_sim_srcs}
     )
+  if (BUILD_PT_TRACER)
+    set(drmemtrace_srcs ${drmemtrace_srcs}
+      tracer/syscall_pt_trace.cpp
+    )
+    add_definitions(-DBUILD_PT_TRACER)
+  endif ()
   if (libsnappy)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/snappy_file_writer.cpp
@@ -322,6 +327,9 @@ macro(add_drmemtrace name type)
   use_DynamoRIO_extension(${name} droption)
   use_DynamoRIO_extension(${name} drcovlib${ext_sfx})
   use_DynamoRIO_extension(${name} drbbdup${ext_sfx})
+  if (BUILD_PT_TRACER)
+    use_DynamoRIO_extension(${name} drpttracer${ext_sfx})
+  endif ()
   if (libsnappy)
     target_link_libraries(${name} snappy)
   endif ()

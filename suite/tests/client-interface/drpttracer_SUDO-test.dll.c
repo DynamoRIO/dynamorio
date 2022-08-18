@@ -42,6 +42,7 @@ typedef struct _per_thread_t {
     /* Initialize the tracer_handle before each syscall, and free it after each syscall.
      */
     void *current_trace_handle;
+    int recording_sysnum;
 } per_thread_t;
 
 static int tls_idx;
@@ -65,7 +66,7 @@ static void
 event_post_syscall(void *drcontext, int sysnum);
 
 static void
-end_tracing_and_check_trace(void *drcontext);
+stop_tracing_and_check_trace(void *drcontext, void *trace_handle);
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -114,6 +115,10 @@ event_thread_init(void *drcontext)
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
     memset(pt, 0, sizeof(*pt));
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
+    pt->recording_sysnum = -1;
+    bool ok = drpttracer_create_handle(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL, 8, 8,
+                                       &pt->current_trace_handle) == DRPTTRACER_SUCCESS;
+    CHECK(ok, "drpttracer_create_handle failed");
 }
 
 static void
@@ -123,10 +128,13 @@ event_thread_exit(void *drcontext)
     /* If the thread's last syscall doesn't trigger post_syscall event, we need to end the
      * tracing manually. (e.g. The 'exit_group' syscall.)
      */
-    if (pt->current_trace_handle != NULL) {
-        end_tracing_and_check_trace(drcontext);
-        pt->current_trace_handle = NULL;
+    if (pt->recording_sysnum != -1) {
+        stop_tracing_and_check_trace(drcontext, pt->current_trace_handle);
+        pt->recording_sysnum = -1;
     }
+    CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
+    bool ok = drpttracer_destroy_handle(drcontext, pt->current_trace_handle) ==
+        DRPTTRACER_SUCCESS;
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
@@ -145,15 +153,17 @@ event_pre_syscall(void *drcontext, int sysnum)
      * XXX: In this case, We don't stop tracing when the application's system call
      * returns. So we might trace some system calls called by Dynamorio's internal code.
      */
-    if (pt->current_trace_handle != NULL) {
-        end_tracing_and_check_trace(drcontext);
-        pt->current_trace_handle = NULL;
+    if (pt->recording_sysnum != -1) {
+        stop_tracing_and_check_trace(drcontext, pt->current_trace_handle);
+        pt->recording_sysnum = -1;
     }
+    CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
 
     /* Start trace before syscall. */
-    bool ok = drpttracer_start_tracing(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL, 8, 8,
-                                       &pt->current_trace_handle) == DRPTTRACER_SUCCESS;
+    bool ok = drpttracer_start_tracing(drcontext, pt->current_trace_handle) ==
+        DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_start_tracing failed");
+    pt->recording_sysnum = sysnum;
     return true;
 }
 
@@ -161,30 +171,31 @@ static void
 event_post_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    CHECK(pt->recording_sysnum == sysnum,
+          "recording_sysnum is not equals current sysnum");
     CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
 
     /* End trace after syscall. */
-    end_tracing_and_check_trace(drcontext);
-    pt->current_trace_handle = NULL;
+    stop_tracing_and_check_trace(drcontext, pt->current_trace_handle);
+    pt->recording_sysnum = -1;
 }
 
 static void
-end_tracing_and_check_trace(void *drcontext)
+stop_tracing_and_check_trace(void *drcontext, void *trace_handle)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    CHECK(pt->current_trace_handle != NULL, "current_trace_handle is NULL");
+    CHECK(trace_handle != NULL, "trace_handle is NULL");
     drpttracer_output_t *output;
-    bool ok = drpttracer_end_tracing(drcontext, pt->current_trace_handle, &output) ==
-        DRPTTRACER_SUCCESS;
-    CHECK(ok, "drpttracer_end_tracing failed");
+    bool ok =
+        drpttracer_stop_tracing(drcontext, trace_handle, &output) == DRPTTRACER_SUCCESS;
+    CHECK(ok, "drpttracer_stop_tracing failed");
     /* TODO i#5505: This version only tests whether the function of the tracer can output
      * data. The tests of whether the output data is correct will come on the next
      * version.
      */
-    CHECK(output->pt_buf != NULL, "PT trace data is NULL");
-    CHECK(output->pt_buf_size != 0, "PT trace data size is 0");
-    CHECK(output->sideband_buf == NULL, "PT's sideband data is not NULL");
-    CHECK(output->sideband_buf_size == 0, "PT's sideband data size is not 0");
+    CHECK(output->pt != NULL, "PT trace data is NULL");
+    CHECK(output->pt_size != 0, "PT trace data size is 0");
+    CHECK(output->sideband_data == NULL, "PT's sideband data is not NULL");
+    CHECK(output->sideband_data_size == 0, "PT's sideband data size is not 0");
 
     ok = drpttracer_destroy_output(drcontext, output) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_destroy_output failed");
