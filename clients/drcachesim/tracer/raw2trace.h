@@ -1919,6 +1919,15 @@ private:
         {
             hashtable_delete(&table);
         }
+#else
+        // Work around a known Visual Studio issue where it complains about deleted copy
+        // constructors for unique_ptr by deleting our copies and defaulting our moves.
+        block_hashtable_t(const block_hashtable_t &) = delete;
+        block_hashtable_t &
+        operator=(const block_hashtable_t &) = delete;
+        block_hashtable_t(block_hashtable_t &&) = default;
+        block_hashtable_t &
+        operator=(block_hashtable_t &&) = default;
 #endif
         block_summary_t *
         lookup(uint64 modidx, uint64 modoffs)
