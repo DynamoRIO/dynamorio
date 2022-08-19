@@ -39,15 +39,24 @@
 #include "configure.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
+#include "drmemtrace/raw2trace.h"
+#include "raw2trace_directory.h"
+#include "analyzer.h"
 #include <assert.h>
 #include <fstream>
 #include <iostream>
 #include <string>
-#include "tools.h" // Included after system headers to avoid printf warning.
+#undef ALIGN_FORWARD // Conflicts with drcachesim utils.h.
+#include "tools.h"   // Included after system headers to avoid printf warning.
+
+namespace {
 
 /***************************************************************************
  * Code generation.
  */
+
+// XXX i#2062: Remove this once we have encodings in the final trace.
+static app_pc gencode_start;
 
 class code_generator_t {
 public:
@@ -64,6 +73,15 @@ public:
     execute_generated_code() const
     {
         reinterpret_cast<void (*)()>(map_)();
+    }
+
+    static constexpr int kGencodeMagic1 = 0x742;
+    static constexpr int kGencodeMagic2 = 0x427;
+
+    app_pc
+    get_gencode_start() const
+    {
+        return map_;
     }
 
 private:
@@ -84,9 +102,15 @@ private:
 
         instrlist_t *ilist = instrlist_create(dc);
         reg_id_t base = IF_X86_ELSE(IF_X64_ELSE(DR_REG_RAX, DR_REG_EAX), DR_REG_R0);
+        reg_id_t base4imm = IF_X86_64_ELSE(reg_64_to_32(base), base);
         int ptrsz = static_cast<int>(sizeof(void *));
-        // TODO i#2062: Add more instructions and look for them in the final trace.
-        // For now we are testing that drmemtrace detects generated code.
+        // A two-immediate pattern we look for in the trace.
+        instrlist_append(ilist,
+                         XINST_CREATE_load_int(dc, opnd_create_reg(base4imm),
+                                               OPND_CREATE_INT32(kGencodeMagic1)));
+        instrlist_append(ilist,
+                         XINST_CREATE_load_int(dc, opnd_create_reg(base4imm),
+                                               OPND_CREATE_INT32(kGencodeMagic2)));
         instrlist_append(
             ilist,
             XINST_CREATE_move(dc, opnd_create_reg(base), opnd_create_reg(DR_REG_XSP)));
@@ -119,9 +143,6 @@ private:
  * Top-level tracing.
  */
 
-// TODO i#2062: Run raw2trace and examine the final trace looking for the gencode
-// instrs; use a unique start and end pattern to identify.
-
 static int
 do_some_work(const code_generator_t &gen)
 {
@@ -147,27 +168,107 @@ exit_cb(void *)
     assert(stream.good());
 }
 
-int
-main(int argc, const char *argv[])
+static std::string
+post_process()
+{
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    std::string outdir = std::string(raw_dir) + DIRSEP + "post_processed";
+    void *dr_context = dr_standalone_init();
+    // Use a new scope to free raw2trace_directory_t before dr_standalone_exit().
+    {
+        raw2trace_directory_t dir;
+        if (!dr_create_dir(outdir.c_str())) {
+            std::cerr << "Failed to create output dir";
+            assert(false);
+        }
+        std::string dir_err = dir.initialize(raw_dir, outdir);
+        assert(dir_err.empty());
+        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                              dir.encoding_file_, dr_context);
+        std::string error = raw2trace.do_conversion();
+        if (!error.empty()) {
+            std::cerr << "raw2trace failed: " << error << "\n";
+            assert(false);
+        }
+    }
+    dr_standalone_exit();
+    return outdir;
+}
+
+static std::string
+gather_trace()
 {
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline"))
         std::cerr << "failed to set env var!\n";
-
     code_generator_t gen(false);
-    for (int i = 0; i < 3; i++) {
-        std::cerr << "pre-DR init\n";
-        dr_app_setup();
-        assert(!dr_app_running_under_dynamorio());
-        drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
-        assert(res == DRMEMTRACE_SUCCESS);
-        std::cerr << "pre-DR start\n";
-        dr_app_start();
-        if (do_some_work(gen) < 0)
-            std::cerr << "error in computation\n";
-        std::cerr << "pre-DR detach\n";
-        dr_app_stop_and_cleanup();
-        std::cerr << "all done\n";
-    }
+    gencode_start = gen.get_gencode_start();
+    std::cerr << "pre-DR init\n";
+    dr_app_setup();
+    assert(!dr_app_running_under_dynamorio());
+    drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
+    assert(res == DRMEMTRACE_SUCCESS);
+    std::cerr << "pre-DR start\n";
+    dr_app_start();
+    if (do_some_work(gen) < 0)
+        std::cerr << "error in computation\n";
+    std::cerr << "pre-DR detach\n";
+    dr_app_stop_and_cleanup();
+    std::cerr << "all done\n";
+    return post_process();
+}
 
+static int
+look_for_gencode(std::string trace_dir)
+{
+    void *dr_context = dr_standalone_init();
+    analyzer_t analyzer(trace_dir);
+    if (!analyzer) {
+        std::cerr << "Failed to initialize: " << analyzer.get_error_string() << "\n";
+    }
+    bool found_magic1 = false, found_magic2 = false;
+    bool have_instr_encodings = false; // XXX i#5520: See comment below.
+    for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
+        memref_t memref = *iter;
+        if (!type_is_instr(memref.instr.type)) {
+            found_magic1 = false;
+            continue;
+        }
+        app_pc pc = (app_pc)memref.instr.addr;
+        // TODO i#5520: Once we have instruction encodings in the final trace, we want
+        // to perform the decoding below and look for the immediates.
+        // Until then, we just look for the gencode PC.
+        if (pc == gencode_start) {
+            found_magic2 = true;
+        }
+        if (have_instr_encodings) {
+            instr_t instr;
+            instr_init(dr_context, &instr);
+            app_pc next_pc = decode(dr_context, pc, &instr);
+            assert(next_pc != nullptr && instr_valid(&instr));
+            ptr_int_t immed;
+            if (!found_magic1 && instr_is_mov_constant(&instr, &immed) &&
+                immed == code_generator_t::kGencodeMagic1)
+                found_magic1 = true;
+            else if (found_magic1 && instr_is_mov_constant(&instr, &immed) &&
+                     immed == code_generator_t::kGencodeMagic2)
+                found_magic2 = true;
+            else
+                found_magic1 = false;
+            instr_free(dr_context, &instr);
+        }
+    }
+    dr_standalone_exit();
+    assert(found_magic2);
     return 0;
+}
+
+} // namespace
+
+int
+main(int argc, const char *argv[])
+{
+    std::string trace_dir = gather_trace();
+    return look_for_gencode(trace_dir);
 }

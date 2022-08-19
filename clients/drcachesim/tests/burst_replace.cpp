@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -196,7 +196,7 @@ post_process()
             dir.modfile_bytes_, parse_cb, process_cb, MAGIC_VALUE, free_cb);
         assert(module_mapper->get_last_error().empty());
         // Test back-compat of deprecated APIs.
-        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, NULL);
+        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_);
         std::string error =
             raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
         assert(error.empty());
@@ -218,8 +218,8 @@ post_process()
     raw2trace_directory_t dir;
     std::string dir_err = dir.initialize(raw_dir, "");
     assert(dir_err.empty());
-    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_, dr_context,
-                          0);
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                          dir.encoding_file_, dr_context, 0);
     std::string error =
         raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
     assert(error.empty());

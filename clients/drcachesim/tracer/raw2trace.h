@@ -357,7 +357,8 @@ struct trace_metadata_reader_t {
 };
 
 /**
- * module_mapper_t maps and unloads application modules.
+ * module_mapper_t maps and unloads application modules, as well as non-module
+ * instruction encodings (for raw traces, or if not present in the final trace).
  * Using it assumes a dr_context has already been setup.
  * This class is not thread-safe.
  */
@@ -376,6 +377,9 @@ public:
      *
      * The callbacks will only be called during object construction.
      *
+     * Additionally parses the non-module instruction encodings file if 'encoding_file'
+     * is not nullptr.
+     *
      * On success, calls the \p process_cb function for every module in the list.
      * On failure, get_last_error() is non-empty, and indicates the cause.
      */
@@ -385,11 +389,12 @@ public:
            std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                      void *user_data) = nullptr,
            void *process_cb_user_data = nullptr, void (*free_cb)(void *data) = nullptr,
-           uint verbosity = 0, const std::string &alt_module_dir = "")
+           uint verbosity = 0, const std::string &alt_module_dir = "",
+           file_t encoding_file = INVALID_FILE)
     {
         return std::unique_ptr<module_mapper_t>(
             new module_mapper_t(module_map, parse_cb, process_cb, process_cb_user_data,
-                                free_cb, verbosity, alt_module_dir));
+                                free_cb, verbosity, alt_module_dir, encoding_file));
     }
 
     /**
@@ -417,13 +422,64 @@ public:
         return modvec_;
     }
 
+    app_pc
+    get_orig_pc_from_map_pc(app_pc map_pc, uint64 modidx, uint64 modoffs) const
+    {
+        if (modidx == PC_MODIDX_INVALID) {
+            auto const it = encodings_.find(modoffs);
+            if (it == encodings_.end())
+                return nullptr;
+            encoding_entry_t *entry = it->second;
+            return (map_pc - entry->encodings) +
+                reinterpret_cast<app_pc>(entry->start_pc);
+        } else {
+            size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
+            return map_pc - modvec_[idx].map_seg_base + modvec_[idx].orig_seg_base;
+        }
+    }
+
+    app_pc
+    get_orig_pc(uint64 modidx, uint64 modoffs) const
+    {
+        if (modidx == PC_MODIDX_INVALID) {
+            auto const it = encodings_.find(modoffs);
+            if (it == encodings_.end())
+                return nullptr;
+            encoding_entry_t *entry = it->second;
+            return reinterpret_cast<app_pc>(entry->start_pc);
+        } else {
+            size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
+            // Cast to unsigned pointer-sized int first to avoid sign-extending.
+            return reinterpret_cast<app_pc>(
+                       reinterpret_cast<ptr_uint_t>(modvec_[idx].orig_seg_base)) +
+                (modoffs - modvec_[idx].seg_offs);
+        }
+    }
+
+    app_pc
+    get_map_pc(uint64 modidx, uint64 modoffs) const
+    {
+        if (modidx == PC_MODIDX_INVALID) {
+            auto const it = encodings_.find(modoffs);
+            if (it == encodings_.end())
+                return nullptr;
+            encoding_entry_t *entry = it->second;
+            return entry->encodings;
+        } else {
+            size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
+            return modvec_[idx].map_seg_base + (modoffs - modvec_[idx].seg_offs);
+        }
+    }
+
     /**
      * This interface is meant to be used with a final trace rather than a raw
      * trace, using the module log file saved from the raw2trace conversion.
-     * After the a call to get_loaded_modules(), this routine may be used
+     * After a call to get_loaded_modules(), this routine may be used
      * to convert an instruction program counter in a trace into an address in the
      * current process where the instruction bytes for that instruction are mapped,
      * allowing decoding for obtaining further information than is stored in the trace.
+     * This interface only supports code inside modules; generated code is
+     * expected to have instruction encodings in the trace itself.
      * Returns the mapped address. Check get_last_error_() if an error occurred.
      */
     app_pc
@@ -462,7 +518,8 @@ protected:
                                               void *user_data) = nullptr,
                     void *process_cb_user_data = nullptr,
                     void (*free_cb)(void *data) = nullptr, uint verbosity = 0,
-                    const std::string &alt_module_dir = "");
+                    const std::string &alt_module_dir = "",
+                    file_t encoding_file = INVALID_FILE);
 
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
@@ -485,6 +542,9 @@ protected:
 
     std::string
     do_module_parsing();
+
+    std::string
+    do_encoding_parsing();
 
     const char *modmap_ = nullptr;
     void *modhandle_ = nullptr;
@@ -517,6 +577,9 @@ protected:
     uint verbosity_ = 0;
     std::string alt_module_dir_;
     std::string last_error_;
+
+    file_t encoding_file_ = INVALID_FILE;
+    std::unordered_map<uint64_t, encoding_entry_t *> encodings_;
 };
 
 /**
@@ -610,7 +673,7 @@ struct trace_header_t {
  * </LI>
  *
  * <LI>bool raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
- * app_pc block_start_pc, app_pc pc) const
+ * int index) const
  *
  * Returns whether an #instr_summary_t representation of the instruction at pc inside
  * the block that begins at block_start_pc in the specified module exists.
@@ -699,7 +762,8 @@ protected:
     /**
      * Convert starting from in_entry, and reading more entries as required.
      * Sets end_of_record to true if processing hit the end of a record.
-     * set_modvec_() must have been called by the implementation before calling this API.
+     * read_and_map_modules() must have been called by the implementation before
+     * calling this API.
      */
     std::string
     process_offline_entry(void *tls, const offline_entry_t *in_entry, thread_id_t tid,
@@ -843,6 +907,9 @@ protected:
      */
     bool passed_dcontext_ = false;
 
+    /* TODO i#2062: Remove this after replacing all uses in favor of queries to
+     * module_mapper_t to handle both generated and module code.
+     */
     /**
      * Get the module map.
      */
@@ -852,6 +919,9 @@ protected:
         return *modvec_ptr_;
     }
 
+    /* TODO i#2062: Remove this after replacing all uses in favor of queries to
+     * module_mapper_t to handle both generated and module code.
+     */
     /**
      * Set the module map. Must be called before process_offline_entry() is called.
      */
@@ -860,6 +930,26 @@ protected:
     {
         modvec_ptr_ = modvec;
     }
+
+    /**
+     * Get the module mapper.
+     */
+    const module_mapper_t &
+    modmap_() const
+    {
+        return *modmap_ptr_;
+    }
+
+    /**
+     * Set the module mapper. Must be called before process_offline_entry() is called.
+     */
+    void
+    set_modmap_(const module_mapper_t *modmap)
+    {
+        modmap_ptr_ = modmap;
+    }
+
+    const module_mapper_t *modmap_ptr_ = nullptr;
 
 private:
     T *
@@ -881,8 +971,6 @@ private:
                         OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                     impl()->get_file_type(tls)))
             return "";
-        // Avoid type complaints for 32-bit.
-        size_t modidx_typed = static_cast<size_t>(modidx);
         // We build an ilist to use identify_elidable_addresses() and fill in
         // state needed to reconstruct elided addresses.
         instrlist_t *ilist = instrlist_create(dcontext_);
@@ -914,8 +1002,7 @@ private:
             pc = instr_get_app_pc(meminst);
             int index_in_bb =
                 static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(meminst)));
-            app_pc orig_pc = pc - modvec_()[modidx_typed].map_seg_base +
-                modvec_()[modidx_typed].orig_seg_base;
+            app_pc orig_pc = modmap_().get_orig_pc_from_map_pc(pc, modidx, modoffs);
             impl()->log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n",
                         start_pc, pc, write ? "write" : "read", memop_index);
             if (!impl()->set_instr_summary_flags(
@@ -977,8 +1064,8 @@ private:
                 if (remember_index == -1)
                     continue;
                 app_pc pc_prev = instr_get_app_pc(prev);
-                app_pc orig_pc_prev = pc_prev - modvec_()[modidx_typed].map_seg_base +
-                    modvec_()[modidx_typed].orig_seg_base;
+                app_pc orig_pc_prev =
+                    modmap_().get_orig_pc_from_map_pc(pc_prev, modidx, modoffs);
                 int index_prev =
                     static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(prev)));
                 if (!impl()->set_instr_summary_flags(
@@ -1021,32 +1108,39 @@ private:
         std::string error = "";
         uint instr_count = in_entry->pc.instr_count;
         const instr_summary_t *instr = nullptr;
-        if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
-            in_entry->pc.modidx == PC_MODIDX_INVALID ||
-            modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
-            // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
-            // Once that support is in we can remove the bool return value and handle
-            // the memrefs up here.
-            // A race is fine for our visible ~one-time warning at level 0.
+        app_pc start_pc = modmap_().get_map_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
+        app_pc pc, decode_pc = start_pc;
+        if (in_entry->pc.modidx == PC_MODIDX_INVALID) {
+            impl()->log(3, "Appending %u instrs in bb " PFX " in generated code\n",
+                        instr_count, (ptr_uint_t)start_pc);
+        } else if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
+                   modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
+            if (impl()->get_version(tls) >= OFFLINE_FILE_VERSION_ENCODINGS) {
+                // This is a fatal error if this trace should have encodings.
+                return "Non-module instructions found with no encoding information.";
+            }
+            //  This is a legacy trace without generated code support.
+            //  A race is fine for our visible ~one-time warning at level 0.
             static volatile bool warned_once;
             if (!warned_once) {
                 impl()->log(
-                    0, "WARNING: Skipping ifetch for instructions not in a module\n");
+                    0, "WARNING: Skipping ifetch for unknown-encoding instructions\n");
                 warned_once = true;
             }
             impl()->log(
-                1, "Skipping ifetch for %u instrs not in a module (idx %d, +" PIFX ")\n",
+                1, "Skipping ifetch for %u unknown-encoding instrs (idx %d, +" PIFX ")\n",
                 instr_count, in_entry->pc.modidx, in_entry->pc.modoffs);
+            // XXX i#2062: If we abandon this graceful skip (maybe once all legacy
+            // traces have expired), we can remove the bool return value and handle the
+            // memrefs in this function.
             *handled = false;
             return "";
+        } else {
+            impl()->log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
+                        instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
+                        (ptr_uint_t)in_entry->pc.modoffs,
+                        modvec_()[in_entry->pc.modidx].path);
         }
-        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_seg_base +
-            (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
-        app_pc pc, decode_pc = start_pc;
-        impl()->log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
-                    instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
-                    (ptr_uint_t)in_entry->pc.modoffs,
-                    modvec_()[in_entry->pc.modidx].path);
         bool skip_icache = false;
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
@@ -1057,8 +1151,7 @@ private:
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
         // Cast to unsigned pointer-sized int first to avoid sign-extending.
         uint64_t cur_pc = static_cast<uint64_t>(reinterpret_cast<ptr_uint_t>(
-                              modvec_()[in_entry->pc.modidx].orig_seg_base)) +
-            (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
+            modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs)));
         // Legacy traces need the offset, not the pc.
         uint64_t cur_offs = in_entry->pc.modoffs;
         std::unordered_map<reg_id_t, addr_t> reg_vals;
@@ -1086,8 +1179,8 @@ private:
         for (uint i = 0; i < instr_count; ++i) {
             trace_entry_t *buf_start = impl()->get_write_buffer(tls);
             trace_entry_t *buf = buf_start;
-            app_pc orig_pc = decode_pc - modvec_()[in_entry->pc.modidx].map_seg_base +
-                modvec_()[in_entry->pc.modidx].orig_seg_base;
+            app_pc orig_pc = modmap_().get_orig_pc_from_map_pc(
+                decode_pc, in_entry->pc.modidx, in_entry->pc.modoffs);
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
@@ -1372,8 +1465,12 @@ private:
             (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) {
             if (impl()->get_version(tls) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
                 // We convert the idx:offs to an absolute PC.
+                // TODO i#2062: For non-module code we don't have the block id and so
+                // cannot use this format.  We should probably just abandon this and
+                // always store the absolute PC.
                 kernel_interrupted_raw_pc_t raw_pc;
                 raw_pc.combined_value = marker_val;
+                DR_ASSERT(raw_pc.pc.modidx != PC_MODIDX_INVALID);
                 app_pc pc = modvec_()[raw_pc.pc.modidx].orig_seg_base +
                     (raw_pc.pc.modoffs - modvec_()[raw_pc.pc.modidx].seg_offs);
                 impl()->log(3,
@@ -1529,10 +1626,12 @@ private:
  */
 class raw2trace_t : public trace_converter_t<raw2trace_t> {
 public:
-    // module_map, thread_files and out_files are all owned and opened/closed by the
-    // caller.  module_map is not a string and can contain binary data.
+    // module_map, encoding_file, thread_files, and out_files are all owned and
+    // opened/closed by the caller.  module_map is not a string and can contain binary
+    // data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
-                const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
+                const std::vector<std::ostream *> &out_files,
+                file_t encoding_file = INVALID_FILE, void *dcontext = nullptr,
                 unsigned int verbosity = 0, int worker_count = -1,
                 const std::string &alt_module_dir = "");
     virtual ~raw2trace_t();
@@ -1659,6 +1758,8 @@ protected:
             , last_entry_is_split(false)
             , prev_instr_was_rep_string(false)
             , last_decode_block_start(nullptr)
+            , last_decode_modidx(0)
+            , last_decode_modoffs(0)
             , last_block_summary(nullptr)
         {
         }
@@ -1685,7 +1786,10 @@ protected:
         offline_entry_t last_split_first_entry;
         std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
         bool prev_instr_was_rep_string;
+        // There is no sentinel available for modidx+modoffs so we use the pc for that.
         app_pc last_decode_block_start;
+        uint64 last_decode_modidx;
+        uint64 last_decode_modoffs;
         block_summary_t *last_block_summary;
         uint64 last_window = 0;
 
@@ -1707,6 +1811,8 @@ protected:
     write_footer(void *tls);
 
     uint64 count_elided_ = 0;
+
+    std::unique_ptr<module_mapper_t> module_mapper_;
 
 private:
     friend class trace_converter_t<raw2trace_t>;
@@ -1731,7 +1837,7 @@ private:
     instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
                          int index, app_pc pc);
     block_summary_t *
-    lookup_block_summary(void *tls, app_pc block_start);
+    lookup_block_summary(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start);
     instr_summary_t *
     lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
                          int index, app_pc pc, OUT block_summary_t **block_summary);
@@ -1781,15 +1887,92 @@ private:
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
 
-    // We use a hashtable to cache decodings.  We compared the performance of
-    // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
-    // and c++11 std::unordered_map (including tuning its load factor, initial size,
-    // and hash function), and hashtable_t outperformed the others (i#2056).
-    // Update: that measurement was when we did a hashtable lookup on every
-    // instruction pc.  Now that we use block_summary_t and only look up each block,
-    // the hashtable performance matters much less.
+    class block_hashtable_t {
+        // We use a hashtable to cache decodings.  We compared the performance of
+        // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
+        // and c++11 std::unordered_map (including tuning its load factor, initial size,
+        // and hash function), and hashtable_t outperformed the others (i#2056).
+        // Update: that measurement was when we did a hashtable lookup on every
+        // instruction pc.  Now that we use block_summary_t and only look up each block,
+        // the hashtable performance matters much less.
+        // Plus, for 32-bit we cannot fit our modidx:modoffs key in the 32-bit-limited
+        // hashtable_t key, so we now use std::unordered_map there.
+    public:
+        explicit block_hashtable_t(int worker_count)
+        {
+#ifdef X64
+            // We go ahead and start with a reasonably large capacity.
+            // We do not want the built-in mutex: this is per-worker so it can be
+            // lockless.
+            hashtable_init_ex(&table, 16, HASH_INTPTR, false, false, free_payload,
+                              nullptr, nullptr);
+            // We pay a little memory to get a lower load factor, unless we have
+            // many duplicated tables.
+            hashtable_config_t config = { sizeof(config), true,
+                                          worker_count <= 8
+                                              ? 40U
+                                              : (worker_count <= 16 ? 50U : 60U) };
+            hashtable_configure(&table, &config);
+#endif
+        }
+#ifdef X64
+        ~block_hashtable_t()
+        {
+            hashtable_delete(&table);
+        }
+#else
+        // Work around a known Visual Studio issue where it complains about deleted copy
+        // constructors for unique_ptr by deleting our copies and defaulting our moves.
+        block_hashtable_t(const block_hashtable_t &) = delete;
+        block_hashtable_t &
+        operator=(const block_hashtable_t &) = delete;
+        block_hashtable_t(block_hashtable_t &&) = default;
+        block_hashtable_t &
+        operator=(block_hashtable_t &&) = default;
+#endif
+        block_summary_t *
+        lookup(uint64 modidx, uint64 modoffs)
+        {
+#ifdef X64
+            return static_cast<block_summary_t *>(hashtable_lookup(
+                &table, reinterpret_cast<void *>(hash_key(modidx, modoffs))));
+#else
+            return table[hash_key(modidx, modoffs)].get();
+#endif
+        }
+        // Takes ownership of "block".
+        void
+        add(uint64 modidx, uint64 modoffs, block_summary_t *block)
+        {
+#ifdef X64
+            hashtable_add(&table, reinterpret_cast<void *>(hash_key(modidx, modoffs)),
+                          block);
+#else
+            table[hash_key(modidx, modoffs)].reset(block);
+#endif
+        }
+
+    private:
+        static void
+        free_payload(void *ptr)
+        {
+            delete (static_cast<block_summary_t *>(ptr));
+        }
+        static inline uint64
+        hash_key(uint64 modidx, uint64 modoffs)
+        {
+            return (modidx << PC_MODOFFS_BITS) | modoffs;
+        }
+
+#ifdef X64
+        hashtable_t table;
+#else
+        std::unordered_map<uint64, std::unique_ptr<block_summary_t>> table;
+#endif
+    };
+
     // We use a per-worker cache to avoid locks.
-    std::vector<hashtable_t> decode_cache_;
+    std::vector<block_hashtable_t> decode_cache_;
 
     // Store optional parameters for the module_mapper_t until we need to construct it.
     const char *(*user_parse_)(const char *src, OUT void **data) = nullptr;
@@ -1799,7 +1982,7 @@ private:
     void *user_process_data_ = nullptr;
 
     const char *modmap_;
-    std::unique_ptr<module_mapper_t> module_mapper_;
+    file_t encoding_file_ = INVALID_FILE;
 
     unsigned int verbosity_ = 0;
 
