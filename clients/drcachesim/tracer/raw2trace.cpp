@@ -776,8 +776,7 @@ raw2trace_t::lookup_block_summary(void *tls, uint64 modidx, uint64 modoffs,
                tdata->last_block_summary, tdata->last_decode_block_start);
         return tdata->last_block_summary;
     }
-    block_summary_t *ret = static_cast<block_summary_t *>(hashtable_lookup(
-        &decode_cache_[tdata->worker], decode_cache_key(modidx, modoffs)));
+    block_summary_t *ret = decode_cache_[tdata->worker].lookup(modidx, modoffs);
     if (ret != nullptr) {
         DEBUG_ASSERT(ret->start_pc == block_start);
         tdata->last_decode_block_start = block_start;
@@ -825,12 +824,11 @@ raw2trace_t::create_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
     if (block == nullptr) {
         block = new block_summary_t(block_start, instr_count);
         DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
-        hashtable_add(&decode_cache_[tdata->worker], decode_cache_key(modidx, modoffs),
-                      block);
+        decode_cache_[tdata->worker].add(modidx, modoffs, block);
         VPRINT(5,
                "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
-               " modoffs=" HEX64_FORMAT_STRING " key=%p\n",
-               block, block_start, modidx, modoffs, decode_cache_key(modidx, modoffs));
+               " modoffs=" HEX64_FORMAT_STRING "\n",
+               block, block_start, modidx, modoffs);
         tdata->last_decode_block_start = block_start;
         tdata->last_decode_modidx = modidx;
         tdata->last_decode_modoffs = modoffs;
@@ -1210,35 +1208,14 @@ raw2trace_t::raw2trace_t(const char *module_map,
         }
     } else
         cache_count = 1;
-    decode_cache_.resize(cache_count);
-    for (int i = 0; i < cache_count; ++i) {
-        // We go ahead and start with a reasonably large capacity.
-        // We do not want the built-in mutex: this is per-worker so it can be lockless.
-        hashtable_init_ex(&decode_cache_[i], 16, HASH_INTPTR, false, false, nullptr,
-                          nullptr, nullptr);
-        // We pay a little memory to get a lower load factor, unless we have
-        // many duplicated tables.
-        hashtable_config_t config = { sizeof(config), true,
-                                      worker_count_ <= 8
-                                          ? 40U
-                                          : (worker_count_ <= 16 ? 50U : 60U) };
-        hashtable_configure(&decode_cache_[i], &config);
-    }
+    decode_cache_.reserve(cache_count);
+    for (int i = 0; i < cache_count; ++i)
+        decode_cache_.emplace_back(cache_count);
 }
 
 raw2trace_t::~raw2trace_t()
 {
     module_mapper_.reset();
-    for (size_t i = 0; i < decode_cache_.size(); ++i) {
-        // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
-        // so we have to explicitly free the payloads.
-        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache_[i].table_bits); j++) {
-            for (hash_entry_t *e = decode_cache_[i].table[j]; e != NULL; e = e->next) {
-                delete (static_cast<block_summary_t *>(e->payload));
-            }
-        }
-        hashtable_delete(&decode_cache_[i]);
-    }
 }
 
 bool

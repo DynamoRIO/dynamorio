@@ -1886,20 +1886,83 @@ private:
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
 
-    // We use a hashtable to cache decodings.  We compared the performance of
-    // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
-    // and c++11 std::unordered_map (including tuning its load factor, initial size,
-    // and hash function), and hashtable_t outperformed the others (i#2056).
-    // Update: that measurement was when we did a hashtable lookup on every
-    // instruction pc.  Now that we use block_summary_t and only look up each block,
-    // the hashtable performance matters much less.
+    class block_hashtable_t {
+        // We use a hashtable to cache decodings.  We compared the performance of
+        // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
+        // and c++11 std::unordered_map (including tuning its load factor, initial size,
+        // and hash function), and hashtable_t outperformed the others (i#2056).
+        // Update: that measurement was when we did a hashtable lookup on every
+        // instruction pc.  Now that we use block_summary_t and only look up each block,
+        // the hashtable performance matters much less.
+        // Plus, for 32-bit we cannot fit our modidx:modoffs key in the 32-bit-limited
+        // hashtable_t key, so we now use std::unordered_map there.
+    public:
+        explicit block_hashtable_t(int worker_count)
+        {
+#ifdef X64
+            // We go ahead and start with a reasonably large capacity.
+            // We do not want the built-in mutex: this is per-worker so it can be
+            // lockless.
+            hashtable_init_ex(&table, 16, HASH_INTPTR, false, false, free_payload,
+                              nullptr, nullptr);
+            // We pay a little memory to get a lower load factor, unless we have
+            // many duplicated tables.
+            hashtable_config_t config = { sizeof(config), true,
+                                          worker_count <= 8
+                                              ? 40U
+                                              : (worker_count <= 16 ? 50U : 60U) };
+            hashtable_configure(&table, &config);
+#endif
+        }
+#ifdef X64
+        ~block_hashtable_t()
+        {
+            hashtable_delete(&table);
+        }
+#endif
+        block_summary_t *
+        lookup(uint64 modidx, uint64 modoffs)
+        {
+#ifdef X64
+            return static_cast<block_summary_t *>(hashtable_lookup(
+                &table, reinterpret_cast<void *>(hash_key(modidx, modoffs))));
+#else
+            return table[hash_key(modidx, modoffs)].get();
+#endif
+        }
+        // Takes ownership of "block".
+        void
+        add(uint64 modidx, uint64 modoffs, block_summary_t *block)
+        {
+#ifdef X64
+            hashtable_add(&table, reinterpret_cast<void *>(hash_key(modidx, modoffs)),
+                          block);
+#else
+            table[hash_key(modidx, modoffs)].reset(block);
+#endif
+        }
+
+    private:
+        static void
+        free_payload(void *ptr)
+        {
+            delete (static_cast<block_summary_t *>(ptr));
+        }
+        static inline uint64
+        hash_key(uint64 modidx, uint64 modoffs)
+        {
+            return (modidx << PC_MODOFFS_BITS) | modoffs;
+        }
+
+#ifdef X64
+        hashtable_t table;
+#else
+        std::unordered_map<uint64, std::unique_ptr<block_summary_t>> table;
+#endif
+    };
+
     // We use a per-worker cache to avoid locks.
-    static inline void *
-    decode_cache_key(uint64 modidx, uint64 modoffs)
-    {
-        return reinterpret_cast<void *>((modidx << PC_MODOFFS_BITS) | modoffs);
-    }
-    std::vector<hashtable_t> decode_cache_;
+    std::vector<block_hashtable_t> decode_cache_;
 
     // Store optional parameters for the module_mapper_t until we need to construct it.
     const char *(*user_parse_)(const char *src, OUT void **data) = nullptr;
