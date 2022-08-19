@@ -201,7 +201,7 @@ static std::string
 gather_trace()
 {
     if (!my_setenv("DYNAMORIO_OPTIONS",
-#ifdef LINUX
+#if defined(LINUX) && defined(X64)
                    // We pass -satisfy_w_xor_x to further stress that option
                    // interacting with standalone mode (xref i#5621).
                    "-satisfy_w_xor_x "
