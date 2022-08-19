@@ -912,7 +912,7 @@ GLOBAL_LABEL(FUNCNAME:)
         adr      x0, sideline_ready_for_detach @N@\
         strb     w2, [x0]
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+/* FIXME i#3544: Not implemented */
 #   define SET_SIDELINE_READY
 #endif
 
