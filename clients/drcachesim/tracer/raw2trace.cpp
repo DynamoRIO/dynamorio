@@ -329,9 +329,11 @@ module_mapper_t::do_encoding_parsing()
     if (*reinterpret_cast<uint64_t *>(map_start) != ENCODING_FILE_VERSION)
         return "Encoding file has invalid version";
     size_t offs = sizeof(uint64_t);
-    while (offs < map_size) {
+    while (offs < file_size) {
         encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_start + offs);
-        if (offs + entry->length > map_size)
+        if (entry->length < sizeof(encoding_entry_t))
+            return "Encoding file is corrupted";
+        if (offs + entry->length > file_size)
             return "Encoding file is truncated";
         encodings_[entry->id] = entry;
         offs += entry->length;
