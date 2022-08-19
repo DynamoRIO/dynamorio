@@ -4205,7 +4205,7 @@ fd_table_remove(file_t fd)
         generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)fd);
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
-        ASSERT(dynamo_exited);
+        ASSERT(dynamo_exited || standalone_library);
     }
 }
 
