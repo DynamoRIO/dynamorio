@@ -772,6 +772,7 @@ raw2trace_t::lookup_block_summary(void *tls, uint64 modidx, uint64 modoffs,
                                   app_pc block_start)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    // There is no sentinel available for modidx+modoffs so we use block_start for that.
     if (block_start == tdata->last_decode_block_start &&
         modidx == tdata->last_decode_modidx && modoffs == tdata->last_decode_modoffs) {
         VPRINT(5, "Using last block summary " PFX " for " PFX "\n",

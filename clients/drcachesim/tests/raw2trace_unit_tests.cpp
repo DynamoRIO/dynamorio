@@ -65,8 +65,8 @@
 #    error Unsupported arch
 #endif
 
-// Subclasses raw2trace_t and module_mapper_t and replaces the module loading with
-// a buffer of encoded instr_t.
+// Subclasses module_mapper_t and replaces the module loading with a
+// buffer of encoded instr_t.
 class module_mapper_test_t : public module_mapper_t {
 public:
     module_mapper_test_t(instrlist_t &instrs, void *drcontext)
@@ -89,6 +89,7 @@ private:
     byte decode_buf_[MAX_DECODE_SIZE];
 };
 
+// Subclasses raw2trace_t and replaces the module_mapper_t with our own version.
 class raw2trace_test_t : public raw2trace_t {
 public:
     raw2trace_test_t(const std::vector<std::istream *> &input,
