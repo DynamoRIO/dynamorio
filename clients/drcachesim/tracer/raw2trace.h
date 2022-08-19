@@ -1149,8 +1149,9 @@ private:
                     impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
-        uint64_t cur_pc = reinterpret_cast<uint64_t>(
-            modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs));
+        // Cast to unsigned pointer-sized int first to avoid sign-extending.
+        uint64_t cur_pc = static_cast<uint64_t>(reinterpret_cast<ptr_uint_t>(
+            modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs)));
         // Legacy traces need the offset, not the pc.
         uint64_t cur_offs = in_entry->pc.modoffs;
         std::unordered_map<reg_id_t, addr_t> reg_vals;
