@@ -93,6 +93,8 @@ view_t::initialize()
         // not available.
         return "";
     }
+    // Non-module instruction entries will be in the final trace (i#2062,i#5520) so
+    // we do not need the encoding file and leave it as its default INVALID_FILE.
     module_mapper_ =
         module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
                                 nullptr, knob_verbose_, knob_alt_module_dir_);

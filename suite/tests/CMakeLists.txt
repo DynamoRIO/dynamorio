@@ -3832,8 +3832,14 @@ if (BUILD_CLIENTS)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
         OFF ON)
       use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.gencode)
+      target_link_libraries(tool.drcacheoff.gencode drmemtrace_raw2trace
+        drmemtrace_analyzer)
       target_include_directories(tool.drcacheoff.gencode PUBLIC
-        "${PROJECT_BINARY_DIR}/clients/include")
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@basic_counts" "")
