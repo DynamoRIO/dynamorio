@@ -200,7 +200,13 @@ post_process()
 static std::string
 gather_trace()
 {
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline"))
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+#if defined(LINUX) && defined(X64)
+                   // We pass -satisfy_w_xor_x to further stress that option
+                   // interacting with standalone mode (xref i#5621).
+                   "-satisfy_w_xor_x "
+#endif
+                   "-stderr_mask 0xc -client_lib ';;-offline"))
         std::cerr << "failed to set env var!\n";
     code_generator_t gen(false);
     gencode_start = gen.get_gencode_start();
