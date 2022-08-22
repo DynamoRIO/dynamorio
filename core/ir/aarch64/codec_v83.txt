@@ -32,6 +32,10 @@
 # instructions are defined for the purposes of decode and encode code
 # generation.
 
+# TODO i#5623: Add the complete set of pointer authentication instructions,
+# along with whatever else is in v8.3.  For now we only include
+# instructions needed for initial M1 support.
+
 # Instruction definitions:
 
 # retaa, retab
@@ -41,7 +45,7 @@
 11010101000000110010001111111111 n 581 autibsp :
 1101011000111111000010xxxxx11111 n 582 blraaz impx30 : x5
 # blraa
-110101110011111100001001xxxxxxxx n 582 blraaz impx30 : x5p8 x0
+1101011100111111000010xxxxxxxxxx n 582 blraa impx30 : x5 x0
 1101011100011111000010xxxxxxxxxx n 583 braa  : x5 x0
 110110101100000100100011111xxxxx n 584 paciza : x0
 110110101100000101000011111xxxxx n 585 xpaci : x0
@@ -49,5 +53,5 @@
 1101101011000001000010xxxxxxxxxx n 587 pacda : x0 x5
 1101101011000001000000xxxxxxxxxx n 588 pacia : x0 x5
 1101101011000001000001xxxxxxxxxx n 589 pacib : x0 x5
-110110101100000100011101xxxxxxxx n 590 autdb : x5p8 x0
+110110101100000100011101xxxxxxxx n 590 autdb : x5 x0
 

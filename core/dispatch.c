@@ -562,7 +562,13 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
 #endif
 
     dcontext->whereami = DR_WHERE_FCACHE;
-    pthread_jit_read();
+    /* XXX i#5383: Audit these calls and ensure they cover all scenarios, are placed
+     * at the most efficient level, and are always properly paired.
+     * Better to have write calls around block building and linking paths rather than
+     * assuming all paths might have written, with a debug query here to make sure no
+     * paths were missed?
+     */
+    PTHREAD_JIT_READ();
     (*entry)(dcontext);
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
@@ -1470,16 +1476,16 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             LOG(THREAD, LOG_DISPATCH, 2, "Exit from coarse ibl from tag " PFX ": %s %s",
                 dcontext->coarse_exit.src_tag,
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
-                TEST(LINK_RETURN, dcontext->last_exit->flags)
-                    ? "ret"
-                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
+                TEST(LINK_RETURN, dcontext->last_exit->flags)  ? "ret"
+                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*"
+                                                               : "jmp*");
         } else {
             /* We can get here for -indirect_stubs via client special ibl */
             LOG(THREAD, LOG_DISPATCH, 2, "Exit from sourceless ibl: %s %s",
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
-                TEST(LINK_RETURN, dcontext->last_exit->flags)
-                    ? "ret"
-                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
+                TEST(LINK_RETURN, dcontext->last_exit->flags)  ? "ret"
+                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*"
+                                                               : "jmp*");
         }
     } else if (dcontext->last_exit == get_coarse_exit_linkstub()) {
         DOLOG(2, LOG_DISPATCH, {

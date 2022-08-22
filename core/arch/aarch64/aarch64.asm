@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2021 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,6 @@
 
 #include "../asm_defines.asm"
 START_FILE
-
 
 #if !(defined(MACOS) && defined(AARCH64))
 #include "include/syscall.h"
@@ -299,12 +298,14 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         END_FUNC(dynamorio_app_take_over)
 
 /*
- * cleanup_and_terminate(dcontext_t *dcontext,     // X0 -> X19
- *                       int sysnum,               // W1 -> W20 = syscall #
- *                       int sys_arg1/param_base,  // W2 -> W21 = arg1 for syscall
- *                       int sys_arg2,             // W3 -> W22 = arg2 for syscall
- *                       bool exitproc,            // W4 -> W23
- *                       (2 more args that are ignored: Mac-only))
+ * cleanup_and_terminate(dcontext_t *dcontext,        // X0 -> X19
+ *                   int sysnum,                      // X1 -> X20 = syscall #
+ *                   ptr_uint_t sys_arg1/param_base,  // X2 -> X21 = arg1 for syscall
+ *                   ptr_uint_t sys_arg2,             // X3 -> X22 = arg2 for syscall
+ *                   bool exitproc,                   // X4 -> X23
+ *                   (These 2 args are only used for Mac thread exit:)
+ *                   ptr_uint_t sys_arg3,             // X5 -> X26 = arg3 for syscall
+ *                   ptr_uint_t sys_arg4)             // X6 -> X27 = arg4 for syscall
  *
  * See decl in arch_exports.h for description.
  */
@@ -312,18 +313,16 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
 GLOBAL_LABEL(cleanup_and_terminate:)
         /* move argument registers to callee saved registers */
         mov      x19, x0  /* dcontext ptr size */
-#ifdef MACOS
-        mov      x20, x1  /* sysnr */
-        mov      x21, x2  /* arg1 */
-        mov      x22, x3  /* arg2 */
-#else
-        mov      w20, w1  /* sysnum 32-bit int */
-        mov      w21, w2  /* sys_arg1 32-bit int */
-        mov      w22, w3  /* sys_arg2 32-bit int */
-#endif
-        mov      w23, w4  /* exitproc 32-bit int */
+        mov      x20, x1  /* sysnum */
+        mov      x21, x2  /* sys_arg1 */
+        mov      x22, x3  /* sys_arg2 */
+        mov      x23, x4  /* exitproc */
                           /* x24 reserved for dstack ptr */
                           /* x25 reserved for syscall ptr */
+#ifdef MACOS
+        mov      x26, x5  /* sys_arg3 */
+        mov      x27, x6  /* sys_arg4 */
+#endif
 
         /* inc exiting_thread_count to avoid being killed once off all_threads list */
         AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
@@ -376,15 +375,13 @@ cat_have_lock:
         CALLC2(GLOBAL_REF(atomic_add), x0, #-1)
 
         /* put system call number in x8 */
+        mov      x0, x21 /* sys_arg1 */
+        mov      x1, x22 /* sys_arg2 */
 #ifdef MACOS
-        mov      x0, x20  /* sysnr */
-        mov      x1, x21  /* arg1 */
-        mov      x2, x22  /* arg2 */
-#else
-        mov      w0, w21 /* sys_arg1 32-bit int */
-        mov      w1, w22 /* sys_arg2 32-bit int */
-        mov      w8, w20 /* int sys_call */
+        mov      x3, x26  /* sys_arg3 */
+        mov      x4, x27  /* sys_arg4 */
 #endif
+        mov      SYSNUM_REG, w20 /* sys_call */
 
         br       x25  /* go do the syscall! */
         bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
@@ -541,7 +538,7 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 GLOBAL_LABEL(dynamorio_clone:)
         stp      ARG6, x0, [ARG2, #-16]! /* func is now on TOS of newsp */
         /* All args are already in syscall registers. */
-        mov      w8, #SYS_clone
+        mov      SYSNUM_REG, #SYS_clone
         svc      #0
         cbnz     x0, dynamorio_clone_parent
         ldp      x0, x1, [sp], #16
@@ -553,7 +550,7 @@ dynamorio_clone_parent:
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        mov      w8, #SYS_rt_sigreturn
+        mov      SYSNUM_REG, #SYS_rt_sigreturn
         svc      #0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
@@ -561,7 +558,7 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
         mov      w0, #0 /* exit code: hardcoded */
-        mov      w8, #SYS_exit
+        mov      SYSNUM_REG, #SYS_exit
         svc      #0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
@@ -580,6 +577,27 @@ GLOBAL_LABEL(main_signal_handler:)
 # endif /* NOT_DYNAMORIO_CORE_PROPER */
 
 #endif /* LINUX */
+
+
+#if defined(MACOS) && defined(AARCH64)
+        DECLARE_FUNC(dynamorio_sigreturn)
+GLOBAL_LABEL(dynamorio_sigreturn:)
+        /* TODO i#5383: Get correct syscall number for svc. */
+        brk 0xb001 /* For now we break with a unique code. */
+        END_FUNC(dynamorio_sigreturn)
+
+        DECLARE_FUNC(dynamorio_sys_exit)
+GLOBAL_LABEL(dynamorio_sys_exit:)
+        /* TODO i#5383: Get correct syscall number for svc. */
+        brk 0xb002 /* For now we break with a unique code. */
+        END_FUNC(dynamorio_sys_exit)
+
+        DECLARE_FUNC(new_bsdthread_intercept)
+GLOBAL_LABEL(new_bsdthread_intercept:)
+        /* TODO i#5383: Get correct syscall number for svc. */
+        brk 0xb003 /* For now we break with a unique code. */
+        END_FUNC(new_bsdthread_intercept)
+#endif
 
 #ifdef MACOS
         DECLARE_FUNC(main_signal_handler)
@@ -808,24 +826,5 @@ GLOBAL_LABEL(icache_op_isb_asm:)
         /* Branch to fcache_return. */
         br       x1
         END_FUNC(icache_op_isb_asm)
-
-#if defined(MACOS) && defined(AARCH64)
-        DECLARE_FUNC(dynamorio_sigreturn)
-GLOBAL_LABEL(dynamorio_sigreturn:)
-        brk 0xb001
-        END_FUNC(dynamorio_sigreturn)
-
-        DECLARE_FUNC(dynamorio_sys_exit)
-GLOBAL_LABEL(dynamorio_sys_exit:)
-        brk 0xb002
-        END_FUNC(dynamorio_sys_exit)
-#endif
-
-#ifdef MACOS
-        DECLARE_FUNC(new_bsdthread_intercept)
-GLOBAL_LABEL(new_bsdthread_intercept:)
-        brk 0xb003
-        END_FUNC(new_bsdthread_intercept)
-#endif
 
 END_FILE

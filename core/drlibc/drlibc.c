@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -101,10 +101,14 @@ kernel_is_64bit(void)
 
 /***************************************************************************/
 
+#ifdef AARCH64
+
+#    ifdef MACOS
+/* This is from libc. */
 extern void
 sys_icache_invalidate(void *, size_t);
+#    endif
 
-#ifdef AARCH64
 void
 clear_icache(void *beg, void *end)
 {
@@ -150,6 +154,7 @@ clear_icache(void *beg, void *end)
     /* Instruction Synchronization Barrier */
     __asm__ __volatile__("isb" : : : "memory");
 
+    /* XXX i#5383: Do we need this in addition?  This is from PR #5497. */
     IF_MACOS64(sys_icache_invalidate(beg, end_uint - beg_uint));
 
 #    endif
@@ -186,8 +191,12 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
      */
     if (cache_info == 0) {
 #        if defined(MACOS)
-        // mrs traps to illegal instruction on M1;
-        // hardwire to "sysctl -a hw machdep.cpu" info
+        /* FIXME i#5383: Put in a proper solution; maybe getauxval() syscall with
+         * AT_HWCAP/AT_HWCAP2?
+         * mrs traps to illegal instruction on M1;
+         * hackily hardwire to "sysctl -a hw machdep.cpu" from one machine to
+         * make forward progress for now.
+         */
         cache_info = (1 << 31) | (7 << 16) | (7 << 0);
 #        else
         __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));

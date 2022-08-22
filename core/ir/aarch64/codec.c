@@ -513,9 +513,9 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
 static inline reg_id_t
 decode_reg(uint n, bool is_x, bool is_sp)
 {
-    return (n < 31 ? (is_x ? DR_REG_X0 : DR_REG_W0) + n
-                   : is_sp ? (is_x ? DR_REG_XSP : DR_REG_WSP)
-                           : (is_x ? DR_REG_XZR : DR_REG_WZR));
+    return (n < 31      ? (is_x ? DR_REG_X0 : DR_REG_W0) + n
+                : is_sp ? (is_x ? DR_REG_XSP : DR_REG_WSP)
+                        : (is_x ? DR_REG_XZR : DR_REG_WZR));
 }
 
 /* Encode integer register. */
@@ -1698,30 +1698,6 @@ static inline bool
 encode_opnd_op2(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(5, 3, false, 0, 0, opnd, enc_out);
-}
-
-/* x5p8 : X register, add 8 */
-
-static inline bool
-decode_opnd_x5p8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    *opnd = opnd_create_reg(decode_reg(8 + ((enc >> 5) & 7), true, false));
-    return true;
-}
-
-static inline bool
-encode_opnd_x5p8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    reg_id_t reg;
-    uint n;
-    if (!opnd_is_reg(opnd))
-        return false;
-    reg = opnd_get_reg(opnd);
-    n = reg - DR_REG_X0;
-    if (n < 8 || n > (8 + 7))
-        return false;
-    *enc_out = (n - 8) << 5;
-    return true;
 }
 
 /* w5: W register or WZR at bit position 5 */

@@ -115,7 +115,8 @@ GLOBAL_LABEL(dr_fpu_exception_init:)
 #ifdef MACOS
         DECLARE_FUNC(dynamorio_mach_dep_syscall)
 GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
-        brk 0xc001
+        /* TODO i#5383: Use proper gateway. */
+        brk 0xc001 /* For now we break with a unique code. */
         END_FUNC(dynamorio_mach_dep_syscall)
 
         DECLARE_FUNC(dynamorio_mach_syscall)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -100,61 +100,65 @@
 # define START_FILE .text
 # define END_FILE /* nothing */
 
-#if defined(MACOS) && defined(AARCH64)
+# if defined(MACOS) && defined(AARCH64)
 
-# define DECLARE_FUNC(symbol) \
+#  define DECLARE_FUNC(symbol) \
 .p2align 2 @N@ \
 .globl _##symbol @N@ \
 .private_extern _##symbol @N@ \
 
-# define DECLARE_EXPORTED_FUNC(symbol) \
+#  define DECLARE_EXPORTED_FUNC(symbol) \
 .p2align 2 @N@ \
 .globl _##symbol @N@ \
 
-# define DECLARE_GLOBAL(symbol) \
+#  define DECLARE_GLOBAL(symbol) \
 .globl _##symbol @N@\
 .private_extern _##symbol
 
-# define GLOBAL_LABEL(label) _##label
-# define GLOBAL_REF(label) _##label
+#  define GLOBAL_LABEL(label) _##label
+#  define GLOBAL_REF(label) _##label
 
-# define AARCH64_ADRP_GOT(sym, reg) \
+#  define AARCH64_ADRP_GOT(sym, reg) \
 adrp reg, sym@PAGE @N@\
 add reg, reg, sym@PAGEOFF
 
-# define AARCH64_ADRP_GOT_LDR(sym, reg) \
+#  define AARCH64_ADRP_GOT_LDR(sym, reg) \
 adrp reg, sym@PAGE @N@ \
 add  reg, reg, sym@PAGEOFF
 
-#else
+#  define SYSNUM_REG w16
 
-# define DECLARE_FUNC(symbol) \
+# else
+
+#  define DECLARE_FUNC(symbol) \
 .align 0 @N@\
 .global symbol @N@\
 .hidden symbol @N@\
 .type symbol, %function
 
-# define DECLARE_EXPORTED_FUNC(symbol) \
+#  define DECLARE_EXPORTED_FUNC(symbol) \
 .align 0 @N@\
 .global symbol @N@\
 .type symbol, %function
 
-# define DECLARE_GLOBAL(symbol) \
+#  define DECLARE_GLOBAL(symbol) \
 .global symbol @N@\
 .hidden symbol
 
-# define GLOBAL_LABEL(label) label
-# define GLOBAL_REF(label) label
+#  define GLOBAL_LABEL(label) label
+#  define GLOBAL_REF(label) label
 
-# define AARCH64_ADRP_GOT(sym, reg) \
+#  define AARCH64_ADRP_GOT(sym, reg) \
 adrp reg, :got:sym @N@ \
 add reg, reg, @P@:lo12:sym
 
-# define AARCH64_ADRP_GOT_LDR(sym, reg) \
+#  define AARCH64_ADRP_GOT_LDR(sym, reg) \
 adrp reg, :got:sym @N@ \
 ldr  reg, [reg, @P@:got_lo12:sym]
 
-#endif
+#  define SYSNUM_REG w8
+
+# endif
 
 # define END_FUNC(symbol) /* nothing */
 #if defined(MACOS) && defined(AARCH64)

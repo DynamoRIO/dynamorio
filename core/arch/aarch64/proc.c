@@ -109,7 +109,7 @@ proc_init_arch(void)
     }
 
 #ifndef DR_HOST_NOT_TARGET
-#    if !defined(MACOS)
+#    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
     get_processor_specific_info();
 
     DOLOG(1, LOG_TOP, {

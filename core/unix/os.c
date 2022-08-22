@@ -1309,6 +1309,8 @@ query_time_millis()
 #if !(defined(MACOS) && defined(AARCH64))
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
 #else
+    /* TODO i#5383: Replace with a system call. */
+#    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
     uint64 val = gettimeofday(&current_time, NULL);
 #endif
 
