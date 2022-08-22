@@ -90,11 +90,11 @@ view_t::initialize()
     }
     if (!has_modules_) {
         // Continue but omit disassembly to support cases where binaries are
-        // not available.
+        // not available and OFFLINE_FILE_TYPE_ENCODINGS is not present.
         return "";
     }
-    // Non-module instruction entries will be in the final trace (i#2062,i#5520) so
-    // we do not need the encoding file and leave it as its default INVALID_FILE.
+    // Legacy trace support where binaries are needed.
+    // We do not support non-module code for such traces.
     module_mapper_ =
         module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
                                 nullptr, knob_verbose_, knob_alt_module_dir_);
@@ -442,17 +442,27 @@ view_t::process_memref(const memref_t &memref)
         return true;
     }
 
-    app_pc mapped_pc;
-    app_pc orig_pc = (app_pc)memref.instr.addr;
-    mapped_pc = module_mapper_->find_mapped_trace_address(orig_pc);
-    if (!module_mapper_->get_last_error().empty()) {
-        error_string_ = "Failed to find mapped address for " +
-            to_hex_string(memref.instr.addr) + ": " + module_mapper_->get_last_error();
-        return false;
+    app_pc decode_pc;
+    const app_pc orig_pc = (app_pc)memref.instr.addr;
+    if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
+        // The trace has instruction encodings inside it.
+        decode_pc = const_cast<app_pc>(memref.instr.encoding);
+    } else {
+        // Legacy trace support where we need the binaries.
+        decode_pc = module_mapper_->find_mapped_trace_address(orig_pc);
+        if (!module_mapper_->get_last_error().empty()) {
+            error_string_ = "Failed to find mapped address for " +
+                to_hex_string(memref.instr.addr) + ": " +
+                module_mapper_->get_last_error();
+            return false;
+        }
     }
 
     std::string disasm;
-    auto cached_disasm = disasm_cache_.find(mapped_pc);
+    // TODO i#2062,i#5520: We need to invalidate opcode_cache on changed app code.
+    // The reader may add markers to help us with that.
+    // For now we assume unchanging code.
+    auto cached_disasm = disasm_cache_.find(orig_pc);
     if (cached_disasm != disasm_cache_.end()) {
         disasm = cached_disasm->second;
     } else {
@@ -460,7 +470,7 @@ view_t::process_memref(const memref_t &memref)
         // exported so we just use the same value here.
         char buf[196];
         byte *next_pc = disassemble_to_buffer(
-            dcontext_.dcontext, mapped_pc, orig_pc, /*show_pc=*/false,
+            dcontext_.dcontext, decode_pc, orig_pc, /*show_pc=*/false,
             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
             /*printed=*/nullptr);
         if (next_pc == nullptr) {
@@ -468,7 +478,7 @@ view_t::process_memref(const memref_t &memref)
             return false;
         }
         disasm = buf;
-        disasm_cache_.insert({ mapped_pc, disasm });
+        disasm_cache_.insert({ orig_pc, disasm });
     }
     // Put our prefix on raw byte spillover, and skip the other columns.
     auto newline = disasm.find('\n');

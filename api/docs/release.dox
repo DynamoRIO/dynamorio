@@ -171,7 +171,7 @@ Further non-compatibility-affecting changes include:
    the .zip, which sets the granularity of a fast seek.
  - Added dr_register_post_attach_event(), dr_unregister_post_attach_event(),
    dr_register_pre_detach_event(), and dr_unregister_pre_detach_event().
-
+ - Added insruction encodings to drmemtrace offline traces.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:

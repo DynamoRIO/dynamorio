@@ -781,6 +781,16 @@ raw2trace_t::do_conversion()
     return "";
 }
 
+bool
+raw2trace_t::record_encoding_emitted(void *tls, app_pc pc)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->encoding_emitted.find(pc) != tdata->encoding_emitted.end())
+        return false;
+    tdata->encoding_emitted.insert(pc);
+    return true;
+}
+
 raw2trace_t::block_summary_t *
 raw2trace_t::lookup_block_summary(void *tls, uint64 modidx, uint64 modoffs,
                                   app_pc block_start)
@@ -1148,8 +1158,9 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     if (!error.empty())
         return error;
 
-    // TODO i#5520: Once we emit encodings, we need to clear the encoding cache
-    // here so that each chunk is self-contained.
+    // We need to clear the encoding cache so that each chunk is self-contained
+    // and repeats all encodings used inside it.
+    tdata->encoding_emitted.clear();
 
     // TODO i#5538: Add a virtual-to-physical cache and clear it here.
     // We'll need to add a routine for trace_converter_t to call to query our cache --
@@ -1397,6 +1408,8 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
         if (ver < OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP)
             return false;
     }
+    type = static_cast<offline_file_type_t>(static_cast<int>(type) |
+                                            OFFLINE_FILE_TYPE_ENCODINGS);
     if (version != nullptr)
         *version = ver;
     if (file_type != nullptr)

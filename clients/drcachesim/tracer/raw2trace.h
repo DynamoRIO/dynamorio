@@ -47,6 +47,7 @@
 #include <array>
 #include <atomic>
 #include <memory>
+#include <set>
 #include <unordered_map>
 #include "trace_entry.h"
 #include "instru.h"
@@ -678,6 +679,12 @@ struct trace_header_t {
  * Increases the per-thread counter for the statistic identified by stat by value.
  * </LI>
  *
+ * <LI>bool raw2trace_t::record_encoding_emitted(void *tls, app_pc pc)
+ *
+ * Returns false if an encoding was already emitted.
+ * Otherwise, remembers that an encoding is being emitted now, and returns true.
+ * </LI>
+ *
  * <LI>bool raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
  * int index) const
  *
@@ -1213,6 +1220,11 @@ private:
                 if (!error.empty())
                     return error;
             }
+            if (!skip_icache && impl()->record_encoding_emitted(tls, decode_pc)) {
+                error = append_encoding(instr, buf, decode_pc);
+                if (!error.empty())
+                    return error;
+            }
             // TODO i#1729: make bundles via lazy accum until hit memref/end.
             buf->type = instr->type();
             if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
@@ -1331,6 +1343,27 @@ private:
                 break;
         }
         *handled = true;
+        return "";
+    }
+
+    std::string
+    append_encoding(const instr_summary_t *instr, trace_entry_t *&buf, app_pc pc)
+    {
+        size_t size_left = instr->length();
+        size_t offs = 0;
+        do {
+            buf->type = TRACE_TYPE_ENCODING;
+            buf->size = std::min(size_left, sizeof(buf->encoding));
+            memcpy(buf->encoding, pc + offs, buf->size);
+            if (buf->size < sizeof(buf->encoding)) {
+                // We don't have to set the rest to 0 but it is nice.
+                memset(buf->encoding + buf->size, 0, sizeof(buf->encoding) - buf->size);
+            }
+            offs += buf->size;
+            size_left -= buf->size;
+            ++buf;
+            impl()->log(4, "Appended encoding entry for %p\n", pc);
+        } while (size_left > 0);
         return "";
     }
 
@@ -1818,6 +1851,8 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
+
+        std::set<app_pc> encoding_emitted;
     };
 
     virtual std::string
@@ -1859,6 +1894,8 @@ private:
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
+    bool
+    record_encoding_emitted(void *tls, app_pc pc);
     bool
     instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
                          int index, app_pc pc);
