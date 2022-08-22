@@ -250,6 +250,16 @@ drmemtrace_get_funclist_path(OUT const char **path);
 
 DR_EXPORT
 /**
+ * Retrieves the full path to the file in -offline mode where
+ * non-module instruction encoding data is written.  The basename of
+ * the file is #DRMEMTRACE_ENCODING_FILENAME.  It contains binary data
+ * read by the raw2trace tool.
+ */
+drmemtrace_status_t
+drmemtrace_get_encoding_path(OUT const char **path);
+
+DR_EXPORT
+/**
  * Adds custom data stored with each module in the module list produced for
  * offline trace post-processing.  The \p load_cb is called for each segment
  * of each new module (with \p seg_idx indicating the segment number, starting at 0),

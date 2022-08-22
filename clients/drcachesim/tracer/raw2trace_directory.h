@@ -43,6 +43,7 @@ class raw2trace_directory_t {
 public:
     raw2trace_directory_t(unsigned int verbosity = 0)
         : modfile_bytes_(nullptr)
+        , encoding_file_(INVALID_FILE)
         , modfile_(INVALID_FILE)
         , indir_("")
         , outdir_("")
@@ -79,6 +80,7 @@ public:
     is_window_subdir(const std::string &dir);
 
     char *modfile_bytes_;
+    file_t encoding_file_;
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
 

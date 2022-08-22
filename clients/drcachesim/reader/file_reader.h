@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -132,7 +132,8 @@ protected:
                     continue;
                 // Skip the auxiliary files.
                 if (fname == DRMEMTRACE_MODULE_LIST_FILENAME ||
-                    fname == DRMEMTRACE_FUNCTION_LIST_FILENAME)
+                    fname == DRMEMTRACE_FUNCTION_LIST_FILENAME ||
+                    fname == DRMEMTRACE_ENCODING_FILENAME)
                     continue;
                 VPRINT(this, 2, "Found file %s\n", fname.c_str());
                 if (!open_single_file(input_path_ + DIRSEP + fname)) {

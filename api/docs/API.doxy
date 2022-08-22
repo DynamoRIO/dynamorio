@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
 # Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
 # **********************************************************/
 
@@ -222,7 +222,6 @@ EXTERNAL_GROUPS        = YES
 #---------------------------------------------------------------------------
 # Configuration options related to the dot tool
 #---------------------------------------------------------------------------
-CLASS_DIAGRAMS         = NO
 HIDE_UNDOC_RELATIONS   = YES
 HAVE_DOT               = NO
 CLASS_GRAPH            = YES

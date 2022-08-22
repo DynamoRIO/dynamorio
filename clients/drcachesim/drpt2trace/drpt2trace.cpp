@@ -234,7 +234,7 @@ static droption_t<unsigned long long> op_sb_kernel_start(
  */
 
 static void
-print_results(IN instrlist_autoclean_t &drir, IN std::vector<trace_entry_t> &entries)
+print_results(IN instrlist_t *ilist)
 {
     if (op_print_trace.specified()) {
         /* Print the disassemble code of the trace. */

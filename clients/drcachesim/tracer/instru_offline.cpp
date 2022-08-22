@@ -40,12 +40,13 @@
 #include "drcovlib.h"
 #include "instru.h"
 #include "../common/trace_entry.h"
+#include "../common/utils.h"
 #include <new>
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 #include <string.h> /* for strlen */
 
-static const ptr_uint_t MAX_INSTR_COUNT = 64 * 1024;
+static const uint MAX_INSTR_COUNT = 64 * 1024;
 
 void *(*offline_instru_t::user_load_)(module_data_t *module, int seg_idx);
 int (*offline_instru_t::user_print_)(void *data, char *dst, size_t max_len);
@@ -56,7 +57,6 @@ void (*offline_instru_t::user_free_)(void *data);
 offline_instru_t::offline_instru_t()
     : instru_t(nullptr, false, nullptr, sizeof(offline_entry_t))
     , write_file_func_(nullptr)
-    , modfile_(INVALID_FILE)
 {
     // We can't use drmgr in standalone mode, but for post-processing it's just us,
     // so we just pick a note value.
@@ -64,18 +64,18 @@ offline_instru_t::offline_instru_t()
     standalone_ = true;
 }
 
-offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                           instr_t *, reg_id_t),
-                                   bool memref_needs_info, drvector_t *reg_vector,
-                                   ssize_t (*write_file)(file_t file, const void *data,
-                                                         size_t count),
-                                   file_t module_file, bool disable_optimizations,
-                                   void (*log)(uint level, const char *fmt, ...))
+offline_instru_t::offline_instru_t(
+    void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
+    bool memref_needs_info, drvector_t *reg_vector,
+    ssize_t (*write_file)(file_t file, const void *data, size_t count),
+    file_t module_file, file_t encoding_file, bool disable_optimizations,
+    void (*log)(uint level, const char *fmt, ...))
     : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
     , log_(log)
+    , encoding_file_(encoding_file)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -91,12 +91,34 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
         DR_ASSERT(false);
     elide_memref_note_ = drmgr_reserve_note_range(1);
     DR_ASSERT(elide_memref_note_ != DRMGR_NOTE_NONE);
+
+    uint64 max_bb_instrs;
+    if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))
+        max_bb_instrs = 256; /* current default */
+    max_block_encoding_size_ = static_cast<int>(max_bb_instrs) * MAX_INSTR_LENGTH;
+    encoding_lock_ = dr_mutex_create();
+    encoding_buf_sz_ = ALIGN_FORWARD(max_block_encoding_size_ * 10, dr_page_size());
+    encoding_buf_start_ = reinterpret_cast<byte *>(
+        dr_raw_mem_alloc(encoding_buf_sz_, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
+    encoding_buf_ptr_ = encoding_buf_start_;
+    // Write out the header which is just a 64-bit version.
+    *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = ENCODING_FILE_VERSION;
+    encoding_buf_ptr_ += sizeof(uint64_t);
 }
 
 offline_instru_t::~offline_instru_t()
 {
     if (standalone_)
         return;
+
+    dr_mutex_lock(encoding_lock_);
+    flush_instr_encodings();
+    dr_raw_mem_free(encoding_buf_start_, encoding_buf_sz_);
+    dr_mutex_unlock(encoding_lock_);
+    dr_mutex_destroy(encoding_lock_);
+    log_(1, "Wrote " UINT64_FORMAT_STRING " bytes to encoding file\n",
+         encoding_bytes_written_);
+
     drcovlib_status_t res;
     size_t size = 8192;
     char *buf;
@@ -414,32 +436,100 @@ offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
     return pc - modbase;
 }
 
+// Caller must hold the encoding_lock.
+void
+offline_instru_t::flush_instr_encodings()
+{
+    DR_ASSERT(dr_mutex_self_owns(encoding_lock_));
+    size_t size = encoding_buf_ptr_ - encoding_buf_start_;
+    if (size == 0)
+        return;
+    ssize_t written = write_file_func_(encoding_file_, encoding_buf_start_, size);
+    log_(2, "%s: Wrote %zu/%zu bytes to encoding file\n", __FUNCTION__, written, size);
+    DR_ASSERT(written == static_cast<ssize_t>(size));
+    encoding_buf_ptr_ = encoding_buf_start_;
+    encoding_bytes_written_ += written;
+}
+
+void
+offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
+                                         per_block_t *per_block, instrlist_t *ilist)
+{
+    dr_mutex_lock(encoding_lock_);
+    per_block->id = encoding_id_++;
+
+    if (encoding_buf_ptr_ + max_block_encoding_size_ >=
+        encoding_buf_start_ + encoding_buf_sz_) {
+        flush_instr_encodings();
+    }
+    byte *buf_start = encoding_buf_ptr_;
+    byte *buf = buf_start;
+    buf += sizeof(encoding_entry_t);
+
+    bool in_emulation_region = false;
+    for (instr_t *instr = instrlist_first(ilist); instr != NULL;
+         instr = instr_get_next(instr)) {
+        instr_t *to_copy = nullptr;
+        emulated_instr_t emulation_info = {};
+        if (in_emulation_region) {
+            if (drmgr_is_emulation_end(instr))
+                in_emulation_region = false;
+        } else if (drmgr_is_emulation_start(instr)) {
+            bool ok = drmgr_get_emulated_instr_data(instr, &emulation_info);
+            DR_ASSERT(ok);
+            to_copy = emulation_info.instr;
+            in_emulation_region = true;
+        } else if (instr_is_app(instr)) {
+            to_copy = instr;
+        }
+        if (to_copy == nullptr)
+            continue;
+        // To handle application code hooked by DR we cannot just copy from
+        // instr_get_app_pc(): we have to encode.  Nearly all the time this
+        // will be a pure memcpy so this only incurs an actual encoding walk
+        // for the hooked level 4 instrs.
+        byte *end_pc =
+            instr_encode_to_copy(drcontext, to_copy, buf, instr_get_app_pc(to_copy));
+        DR_ASSERT(end_pc != nullptr);
+        buf = end_pc;
+        DR_ASSERT(buf < encoding_buf_start_ + encoding_buf_sz_);
+    }
+
+    encoding_entry_t *enc = reinterpret_cast<encoding_entry_t *>(buf_start);
+    enc->length = buf - buf_start;
+    enc->id = per_block->id;
+    enc->start_pc = reinterpret_cast<uint64_t>(tag_pc);
+    log_(2, "%s: Recorded %zu bytes for id " UINT64_FORMAT_STRING " @ %p\n", __FUNCTION__,
+         enc->length, enc->id, tag_pc);
+
+    encoding_buf_ptr_ += enc->length;
+    dr_mutex_unlock(encoding_lock_);
+}
+
 int
 offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t scratch, int adjust,
-                                 app_pc pc, uint instr_count)
+                                 app_pc pc, uint instr_count, per_block_t *per_block)
 {
-    app_pc modbase;
-    uint modidx;
-    if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS) {
-        // FIXME i#2062: add non-module support by storing instruction encodings at
-        // tracing time.
-        if (log_ != nullptr) {
-            // We want a visible non-spewing one-time warning.  A race is fine here.
-            static volatile bool warned_once;
-            if (!warned_once) {
-                log_(0, "WARNING: Found unsupported non-module code\n");
-                warned_once = true;
-            }
-            log_(1, "Found unsupported non-module code at %p\n", pc);
-        }
-        modidx = 0;
-        modbase = pc;
-    }
     offline_entry_t entry;
     entry.pc.type = OFFLINE_TYPE_PC;
-    // We put the ARM vs Thumb mode into the modoffs to ensure proper decoding.
-    uint64_t modoffs = dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
+    app_pc modbase;
+    uint modidx;
+    uint64_t modoffs;
+    if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) == DRCOVLIB_SUCCESS) {
+        // TODO i#2062: We need to also identify modified library code and record
+        // its encodings.  The plan is to augment drmodtrack to track this for us;
+        // for now we will incorrectly use the original bits in the trace.
+        //
+        // We put the ARM vs Thumb mode into the modoffs to ensure proper decoding.
+        modoffs = dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
+        DR_ASSERT(modidx != PC_MODIDX_INVALID);
+    } else {
+        modidx = PC_MODIDX_INVALID;
+        // For generated code we store the id for matching with the encodings recorded
+        // into the encoding file.
+        modoffs = per_block->id;
+    }
     // Check that the values we want to assign to the bitfields in offline_entry_t do not
     // overflow. In i#2956 we observed an overflow for the modidx field.
     DR_ASSERT(modoffs < uint64_t(1) << PC_MODOFFS_BITS);
@@ -566,9 +656,9 @@ offline_instru_t::instr_has_multiple_different_memrefs(instr_t *instr)
 }
 
 int
-offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_ptr, int adjust, instr_t *app,
-                                    opnd_t ref, int ref_index, bool write,
+offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
+                                    instr_t *where, reg_id_t reg_ptr, int adjust,
+                                    instr_t *app, opnd_t ref, int ref_index, bool write,
                                     dr_pred_type_t pred)
 {
     // Check whether we can elide this address.
@@ -592,12 +682,13 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
     if (memref_needs_full_info_) {
+        per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
         reg_id_t reg_tmp;
         drreg_status_t res =
             drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
         adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
-                                 instr_get_app_pc(app), 0);
+                                 instr_get_app_pc(app), 0, per_block);
         if (instr_has_multiple_different_memrefs(app)) {
             // i#2756: post-processing can't determine which memref this is, so we
             // insert a type entry.  (For instrs w/ identical memrefs, like an ALU
@@ -614,17 +705,18 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     return adjust;
 }
 
-// We stored the instr count in *bb_field in bb_analysis().
+// We stored the instr count in bb_field==per_block_t in bb_analysis().
 int
-offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
+offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
                                    int adjust, instr_t *app)
 {
+    per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
     app_pc pc;
     reg_id_t reg_tmp;
     if (!memref_needs_full_info_) {
         // We write just once per bb, if not filtering.
-        if ((ptr_uint_t)*bb_field > MAX_INSTR_COUNT)
+        if (per_block->instr_count > MAX_INSTR_COUNT)
             return adjust;
         pc = dr_fragment_app_pc(tag);
     } else {
@@ -634,10 +726,12 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
-                             memref_needs_full_info_ ? 1 : (uint)(ptr_uint_t)*bb_field);
+    adjust += insert_save_pc(
+        drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
+        memref_needs_full_info_ ? 1 : static_cast<uint>(per_block->instr_count),
+        per_block);
     if (!memref_needs_full_info_)
-        *(ptr_uint_t *)bb_field = MAX_INSTR_COUNT + 1;
+        per_block->instr_count = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return adjust;
@@ -656,8 +750,30 @@ void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                               instrlist_t *ilist, bool repstr_expanded)
 {
-    *bb_field = (void *)(ptr_uint_t)instru_t::count_app_instrs(ilist);
+    per_block_t *per_block =
+        reinterpret_cast<per_block_t *>(dr_thread_alloc(drcontext, sizeof(*per_block)));
+    *bb_field = per_block;
+
+    per_block->instr_count = instru_t::count_app_instrs(ilist);
+
     identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
+
+    app_pc tag_pc = dr_fragment_app_pc(tag);
+    if (drmodtrack_lookup(drcontext, tag_pc, nullptr, nullptr) != DRCOVLIB_SUCCESS) {
+        // For (unmodified) library code we do not need to record encodings as we
+        // rely on access to the binary during post-processing.
+        //
+        // TODO i#2062: We need to also identify modified library code and record
+        // its encodings.  The plan is to augment drmodtrack to track this for us;
+        // for now we will incorrectly use the original bits in the trace.
+        record_instr_encodings(drcontext, tag_pc, per_block, ilist);
+    }
+}
+
+void
+offline_instru_t::bb_analysis_cleanup(void *drcontext, void *bb_field)
+{
+    dr_thread_free(drcontext, bb_field, sizeof(per_block_t));
 }
 
 bool

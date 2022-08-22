@@ -229,11 +229,11 @@ public:
 
     // These insert inlined code to add an entry into the trace buffer.
     virtual int
-    instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+    instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
                       int ref_index, bool write, dr_pred_type_t pred) = 0;
     virtual int
-    instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+    instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
                      instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) = 0;
     virtual int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -243,6 +243,8 @@ public:
     virtual void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
                 bool repstr_expanded) = 0;
+    virtual void
+    bb_analysis_cleanup(void *drcontext, void *bb_field) = 0;
 
     // Utilities.
 #ifdef AARCH64
@@ -335,11 +337,11 @@ public:
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
 
     int
-    instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+    instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
                       int ref_index, bool write, dr_pred_type_t pred) override;
     int
-    instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+    instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
                      instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -349,6 +351,8 @@ public:
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
                 bool repstr_expanded) override;
+    void
+    bb_analysis_cleanup(void *drcontext, void *bb_field) override;
 
 private:
     void
@@ -373,7 +377,8 @@ public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
                      bool memref_needs_info, drvector_t *reg_vector,
                      ssize_t (*write_file)(file_t file, const void *data, size_t count),
-                     file_t module_file, bool disable_optimizations = false,
+                     file_t module_file, file_t encoding_file,
+                     bool disable_optimizations = false,
                      void (*log)(uint level, const char *fmt, ...) = nullptr);
     virtual ~offline_instru_t();
 
@@ -409,11 +414,11 @@ public:
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
 
     int
-    instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+    instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
                       int ref_index, bool write, dr_pred_type_t pred) override;
     int
-    instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
+    instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
                      instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -423,6 +428,8 @@ public:
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
                 bool repstr_expanded) override;
+    void
+    bb_analysis_cleanup(void *drcontext, void *bb_field) override;
 
     static bool
     custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
@@ -460,6 +467,11 @@ private:
         void *user_data;
     };
 
+    struct per_block_t {
+        uint64_t id = 0;
+        uint instr_count = 0;
+    };
+
     bool
     instr_has_multiple_different_memrefs(instr_t *instr);
     int
@@ -468,7 +480,8 @@ private:
                       offline_entry_t *entry);
     int
     insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                   reg_id_t scratch, int adjust, app_pc pc, uint instr_count);
+                   reg_id_t scratch, int adjust, app_pc pc, uint instr_count,
+                   per_block_t *per_block);
     int
     insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                      reg_id_t reg_ptr, int adjust, opnd_t ref, bool write);
@@ -477,12 +490,16 @@ private:
                               reg_id_t reg_ptr, reg_id_t scratch, int adjust,
                               instr_t *app, opnd_t ref, bool write);
     ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
-    file_t modfile_;
 
     void
     opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t memop,
                         int op_index, int memop_index, bool write, int version,
                         reg_id_set_t &saw_base);
+    void
+    record_instr_encodings(void *drcontext, app_pc tag_pc, per_block_t *per_block,
+                           instrlist_t *ilist);
+    void
+    flush_instr_encodings();
 
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
@@ -503,7 +520,17 @@ private:
     static CONSTEXPR int LABEL_DATA_ELIDED_NEEDS_BASE = 3;
     ptr_uint_t elide_memref_note_;
     bool standalone_ = false;
+    file_t modfile_ = INVALID_FILE;
     void (*log_)(uint level, const char *fmt, ...);
+
+    file_t encoding_file_ = INVALID_FILE;
+    int max_block_encoding_size_ = 0;
+    void *encoding_lock_ = nullptr;
+    byte *encoding_buf_start_ = nullptr;
+    size_t encoding_buf_sz_ = 0;
+    byte *encoding_buf_ptr_ = nullptr;
+    uint64_t encoding_id_ = 0;
+    uint64_t encoding_bytes_written_ = 0;
 };
 
 #endif /* _INSTRU_H_ */
