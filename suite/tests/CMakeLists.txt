@@ -4119,7 +4119,7 @@ if (BUILD_CLIENTS)
         set (${testname_full}_postcmd
           "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
         set(${testname_full}_postcmd2
-          "firstglob${cmd_pfx}${drpt2trace_path}@-mode@DR@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-kernel_image@${testname_full}.*.dir/kernel.raw/kimage@-kernel_image_metadata@${testname_full}.*.dir/kernel.raw/kimage.metadata")
+          "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@DR@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-kernel_image@${testname_full}.*.dir/kernel.raw/kimage@-kernel_image_metadata@${testname_full}.*.dir/kernel.raw/kimage.metadata")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
