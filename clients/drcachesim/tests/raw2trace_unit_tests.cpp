@@ -73,6 +73,7 @@ public:
         : module_mapper_t(nullptr)
     {
         byte *pc = instrlist_encode(drcontext, &instrs, decode_buf_, true);
+        ASSERT(pc != nullptr, "encoding failed");
         ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE, "decode buffer overflow");
     }
 
@@ -328,8 +329,14 @@ test_marker_placement(void *drcontext)
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *move2 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+#ifdef AARCH64
+    // XXX i#5628: opnd_create_mem_instr is not supported yet on AArch64.
+    instr_t *load1 = INSTR_CREATE_ldr(drcontext, opnd_create_reg(REG1),
+                                      OPND_CREATE_ABSMEM(move2, OPSZ_PTR));
+#else
     instr_t *load1 = XINST_CREATE_load(drcontext, opnd_create_reg(REG1),
                                        opnd_create_mem_instr(move1, 0, OPSZ_PTR));
+#endif
     instr_t *move3 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instrlist_append(ilist, nop);
