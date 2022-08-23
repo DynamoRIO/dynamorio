@@ -43,11 +43,7 @@ struct proc_kcore_code_segment_t;
  */
 class kernel_image_t {
 public:
-    kernel_image_t(file_t (*open_file_func)(const char *fname, uint mode_flags),
-                   ssize_t (*read_file_func)(file_t file, void *buf, size_t count),
-                   ssize_t (*write_file_func)(file_t file, const void *data,
-                                              size_t count),
-                   void (*close_file_func)(file_t file));
+    kernel_image_t();
     ~kernel_image_t();
 
     /* Parse the kernel code segments from /proc/kcore.
@@ -81,18 +77,6 @@ private:
      */
     bool
     read_kcore();
-
-    /* The shared file open function. */
-    file_t (*open_file_func_)(const char *fname, uint mode_flags);
-
-    /* The shared file read function. */
-    ssize_t (*read_file_func_)(file_t file, void *buf, size_t count);
-
-    /* The shared file write function. */
-    ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
-
-    /* The shared file close function. */
-    void (*close_file_func_)(file_t file);
 
     /* The module list. */
     proc_module_t *modules_;

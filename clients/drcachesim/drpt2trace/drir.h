@@ -37,6 +37,7 @@
 
 #define DR_FAST_IR 1
 #include "dr_api.h"
+#include <iostream>
 
 /* The auto cleanup wrapper of instrlist_t.
  * This can ensure the instance of instrlist_t is cleaned up when it is out of scope.

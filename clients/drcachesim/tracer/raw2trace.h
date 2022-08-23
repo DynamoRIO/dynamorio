@@ -1715,8 +1715,8 @@ public:
                 const std::vector<std::ostream *> &out_files,
                 file_t encoding_file = INVALID_FILE, void *dcontext = nullptr,
                 unsigned int verbosity = 0, int worker_count = -1,
-                const std::string &alt_module_dir = "",
-                const std::string &syscall_pt_trace_dir = "");
+                const std::string &syscall_pt_trace_dir = "",
+                const std::string &alt_module_dir = "");
     virtual ~raw2trace_t();
 
     /**

@@ -1522,9 +1522,11 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        /* Dump kcore and kallsyms to {kernel_pt_logsubdir}. */
+        /* Dump kcore to kimage and kimage.metadata, and store the two file to
+         * {kernel_pt_logsubdir}.
+         */
         if (!syscall_pt_trace_t::kernel_image_dump(kernel_pt_logsubdir)) {
-            NOTIFY(0, "WARNING: failed to run shellscript to dump kernel image\n");
+            NOTIFY(0, "WARNING: failed to dump kernel image\n");
         }
     }
 #endif
