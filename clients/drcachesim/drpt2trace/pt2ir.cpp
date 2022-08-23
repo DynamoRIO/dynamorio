@@ -211,7 +211,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
     if (!pt2ir_config.kernel_image_path.empty() &&
         !pt2ir_config.kernel_image_metadata_path.empty()) {
         if (!load_kernel_image(pt2ir_config.kernel_image_path,
-                              pt2ir_config.kernel_image_metadata_path)) {
+                               pt2ir_config.kernel_image_metadata_path)) {
             ERRMSG("Failed to load kernel image: %s %s.\n",
                    pt2ir_config.kernel_image_path.c_str(),
                    pt2ir_config.kernel_image_metadata_path.c_str());
