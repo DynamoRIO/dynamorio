@@ -55,7 +55,7 @@ SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 # Set additional variables.
 # If we don't set some of these, CMake will end up using the host version.
 # We want the full path, however, so we can pass EXISTS and other checks in
-# the our CMake code.
+# our CMake code.
 find_program(GCC_FULL_PATH riscv64-${TARGET_ABI}-gcc)
 if (NOT GCC_FULL_PATH)
   message(FATAL_ERROR "Cross-compiler riscv64-${TARGET_ABI}-gcc not found")
