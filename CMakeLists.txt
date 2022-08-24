@@ -317,7 +317,7 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
     message(FATAL_ERROR "Targeting ARM on i386 is not yet supported: i#1684.")
   endif ()
   if (RISCV64)
-    # TODO i#xxx: We don't have full support for targeting RISC-V in i386 yet.
+    # TODO #1684: We don't have full support for targeting RISC-V in i386 yet.
     message(FATAL_ERROR "Targeting riscv64 on i386 is not yet supported.")
   endif ()
 endif ()
