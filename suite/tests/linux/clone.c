@@ -108,7 +108,7 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
 #ifdef SYS_clone3
         child = create_thread_clone3(run_with_exit, &stack, share_sighand, clone_vm);
 #else
-        /* If SYS_clone3 is not found, we simply use SYS_clone instead, so that
+        /* If SYS_clone3 is not defined, we simply use SYS_clone instead, so that
          * the expected output is the same in both cases.
          */
         child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
@@ -138,9 +138,7 @@ main()
     test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
     test_thread(true /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
 
-    /* We use this test in os.c to find whether the system supports clone3 or
-     * not.
-     */
+    /* Try using clone3 when it is possibly not defined. */
     int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
     assert(ret_failure_clone3 == -1);
 #ifdef SYS_clone3
