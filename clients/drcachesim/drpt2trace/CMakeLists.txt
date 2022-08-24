@@ -83,7 +83,7 @@ install_exported_target(ipt-ext ${PROJECT_BINARY_DIR}/lib)
 # drpt2ir don't include configure.h so they don't get DR defines
 add_dr_defines()
 
-# We build drpt2ir and drir2trace to a static library. So we can link them in the
+# We build drpt2ir and drir2trace to static libraries. So we can link them to the
 # independent clients drpt2trace and raw2trace.
 set(drpt2ir_srcs
   pt2ir.cpp
@@ -106,8 +106,7 @@ install_client_nonDR_header(drmemtrace ir2trace.h)
 DR_export_target(drir2trace)
 install_exported_target(drir2trace ${INSTALL_CLIENTS_LIB})
 
-# TODO i#5505: Currently, drpt2trace only counts instructions.
-# In the future, we will add support for converting pt trace to memref_t.
+# drpt2trace is a client that uses drpt2ir and drir2trace to convert PT data to memref_t.
 set(drpt2trace_srcs
   drpt2trace.cpp
 )

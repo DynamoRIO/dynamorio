@@ -50,7 +50,9 @@
 #define MODULE_NEME_MAX_LEN 100
 #define SYMBOL_MAX_LEN 300
 
-/* This struct type defines the information read form /proc/module.  */
+/* This struct type defines the information of every module read from /proc/module.
+ * We store all information on a linked list.
+ */
 struct proc_module_t {
     proc_module_t *next;
     char name[MODULE_NEME_MAX_LEN];
@@ -58,7 +60,9 @@ struct proc_module_t {
     uint64_t end;
 };
 
-/* This struct type defines the information read of evey code segment in /proc/kcore.  */
+/* This struct type defines the metadata of every code segment read from  /proc/kcore.
+ * We store all metadata on a linked list.
+ */
 struct proc_kcore_code_segment_t {
     proc_kcore_code_segment_t *next;
 
@@ -80,6 +84,7 @@ kernel_image_t::kernel_image_t()
 
 kernel_image_t::~kernel_image_t()
 {
+    /* Free the module information linked list. */
     proc_module_t *module = modules_;
     while (module) {
         proc_module_t *next = module->next;
@@ -87,6 +92,8 @@ kernel_image_t::~kernel_image_t()
         module = next;
     }
     modules_ = nullptr;
+
+    /* Free the kcore code segment metadata linked list. */
     proc_kcore_code_segment_t *kcore_code_segment = kcore_code_segments_;
     while (kcore_code_segment) {
         proc_kcore_code_segment_t *next = kcore_code_segment->next;
@@ -107,12 +114,16 @@ kernel_image_t::read_modules()
     proc_module_t *last_module = modules_;
     std::string line;
     while (std::getline(f, line)) {
+        /* Each line is similar to the following line:
+         * 'scsi_dh_hp_sw 12895 0 - Live 0xffffffffa005e000'
+         * We parse the first, the second, and the last field to construct a proc_module_t
+         * type instance.
+         */
         char mname[MODULE_NEME_MAX_LEN];
         uint64_t addr;
         int len;
-        // scsi_dh_hp_sw 12895 0 - Live 0xffffffffa005e000
-        if (dr_sscanf(line.c_str(), "%99s %d %*d %*s %*s %" PRIx64, mname, &len, &addr) !=
-            3) {
+        if (dr_sscanf(line.c_str(), "%99s %d %*d %*s %*s " HEX64_FORMAT_STRING, mname,
+                      &len, &addr) != 3) {
             ASSERT(false, "failed to parse " MODULES_FILE_PATH);
             f.close();
             return false;
@@ -149,7 +160,8 @@ kernel_image_t::read_kallsyms()
     while (std::getline(f, line)) {
         char name[SYMBOL_MAX_LEN];
         uint64_t addr;
-        if (dr_sscanf(line.c_str(), "%" PRIx64 " %*1c %299s [%*99s", &addr, name) < 2)
+        if (dr_sscanf(line.c_str(), HEX64_FORMAT_STRING " %*1c %299s [%*99s", &addr,
+                      name) < 2)
             continue;
         if (strcmp(name, "_stext") == 0) {
             if (kernel_module != nullptr) {
@@ -179,6 +191,11 @@ kernel_image_t::read_kallsyms()
 bool
 kernel_image_t::read_kcore()
 {
+    proc_module_t *module = modules_;
+    if (modules_ == nullptr) {
+        return false;
+    }
+
     elf_version(EV_CURRENT);
     file_t fd = dr_open_file(KCORE_FILE_PATH, DR_FILE_READ);
     if (fd < 0) {
@@ -206,14 +223,8 @@ kernel_image_t::read_kcore()
         }
     }
 
+    /* Read code segment metadata from kcore. */
     proc_kcore_code_segment_t *last_kcore_code_segment = kcore_code_segments_;
-    proc_module_t *module = modules_;
-    if (modules_ == nullptr) {
-        elf_end(kcore_elf);
-        dr_close_file(fd);
-        return false;
-    }
-
     do {
         GElf_Phdr *phdr = nullptr;
         for (size_t i = 0; i < knumphdr; i++) {
@@ -271,6 +282,7 @@ kernel_image_t::dump(const char *to_dir)
         ASSERT(false, "failed to open " KCORE_FILE_PATH);
         return false;
     }
+
     char image_file_name[MAXIMUM_PATH];
     char metadata_file_name[MAXIMUM_PATH];
     dr_snprintf(image_file_name, BUFFER_SIZE_ELEMENTS(image_file_name), "%s%s%s", to_dir,
@@ -292,6 +304,7 @@ kernel_image_t::dump(const char *to_dir)
         dr_close_file(kcore_fd);
         return false;
     }
+
     uint64_t offset = 0;
     bool dump_success = true;
     proc_kcore_code_segment_t *kcore_code_segment = kcore_code_segments_;
@@ -316,6 +329,7 @@ kernel_image_t::dump(const char *to_dir)
         offset += kcore_code_segment->len;
         kcore_code_segment = kcore_code_segment->next;
     }
+
     metadata_fd.close();
     dr_close_file(image_fd);
     dr_close_file(kcore_fd);

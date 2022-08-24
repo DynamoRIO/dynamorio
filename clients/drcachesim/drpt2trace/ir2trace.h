@@ -36,7 +36,7 @@
 #define _IR2TRACE_H_ 1
 
 /**
- * @file drmemtrace/ir2trace.h
+ * @file ir2trace.h
  * @brief Offline DynamoRIO's IR converter. Converts DynamoRIO's IR format to trace
  * entries.
  */
@@ -67,8 +67,12 @@ enum ir2trace_convert_status_t {
 
 class ir2trace_t {
 public:
-    ir2trace_t();
-    ~ir2trace_t();
+    ir2trace_t()
+    {
+    }
+    ~ir2trace_t()
+    {
+    }
 
     /**
      * Returns ir2trace_convert_status_t. If the convertion is successful, the function

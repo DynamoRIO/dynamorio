@@ -4100,7 +4100,8 @@ if (BUILD_CLIENTS)
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
-      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
+      get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops sim_atops app_args)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
         torunonly_ci(${testname_full} ${exetgt} drcachesim
           "offline-kernel-${testname}.c" # for templatex basename
@@ -4116,9 +4117,11 @@ if (BUILD_CLIENTS)
         set(cmd_pfx "sudo@")
         set(${testname_full}_precmd
           "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
-        set (${testname_full}_postcmd
+        set(${testname_full}_postcmd
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${testname_full}.*.dir${sim_atops}")
+        set (${testname_full}_postcmd2
           "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
-        set(${testname_full}_postcmd2
+        set(${testname_full}_postcmd3
           "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@DR@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-kernel_image@${testname_full}.*.dir/kernel.raw/kimage@-kernel_image_metadata@${testname_full}.*.dir/kernel.raw/kimage.metadata")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
@@ -4220,7 +4223,7 @@ endif (BUILD_CLIENTS)
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
 if (BUILD_CLIENTS)
   if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
-    set(drpt2trace_commong "-print_trace"
+    set(drpt2trace_common_args "-print_trace"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
       "-pt_cpu_family" "6"
@@ -4228,7 +4231,7 @@ if (BUILD_CLIENTS)
       "-pt_cpu_stepping" "4"
       "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
       "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308")
-    set(drpt2trace_sideband_args ${drpt2trace_commong}
+    set(drpt2trace_sideband_args ${drpt2trace_common_args}
       "-mode" "SIDEBAND"
       "-primary_sb"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
@@ -4243,7 +4246,7 @@ if (BUILD_CLIENTS)
     torunonly_api(tool.drpt2trace.sideband drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_sideband_args}" ON OFF)
-    set(drpt2trace_elf_args ${drpt2trace_commong}
+    set(drpt2trace_elf_args ${drpt2trace_common_args}
       "-mode" "ELF"
       "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")

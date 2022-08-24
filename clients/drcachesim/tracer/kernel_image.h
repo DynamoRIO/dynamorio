@@ -68,7 +68,7 @@ private:
     read_modules();
 
     /* Parse the kernel module information from /proc/kallsyms and insert them to the
-     * start ofmodule list.
+     * start of module list.
      */
     bool
     read_kallsyms();
@@ -81,7 +81,7 @@ private:
     /* The module list. */
     proc_module_t *modules_;
 
-    /* The kernel code segment list. */
+    /* The kernel code segment metadata list. */
     proc_kcore_code_segment_t *kcore_code_segments_;
 };
 

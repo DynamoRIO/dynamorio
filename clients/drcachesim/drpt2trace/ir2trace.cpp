@@ -35,14 +35,6 @@
 #include "ir2trace.h"
 #include "dr_api.h"
 
-ir2trace_t::ir2trace_t()
-{
-}
-
-ir2trace_t::~ir2trace_t()
-{
-}
-
 ir2trace_convert_status_t
 ir2trace_t::convert(IN instrlist_autoclean_t &ilist,
                     OUT std::vector<trace_entry_t> &trace)
