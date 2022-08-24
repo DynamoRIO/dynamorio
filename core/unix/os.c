@@ -2518,11 +2518,6 @@ os_thread_init(dcontext_t *dcontext, void *os_data)
     }
 #endif
 
-    /* FIXME i#3544: RFC: this log essentially prints DR TLS registers but
-     * keeping order consistent across different permutations (see
-     * os_exports.h). If that's not necessary, then perhaps each arch could just
-     * define the ASM_SEG and LIB_ASM_SEG and printing could be done using that?
-     */
     LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n", STR_SEG,
         get_segment_base(SEG_TLS));
     LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n", STR_LIB_SEG,

@@ -79,7 +79,7 @@
 #        define SEG_TLS SEG_GS     /* DR is sharing the app's segment. */
 #        define LIB_SEG_TLS SEG_GS /* libc+loader tls */
 #        define STR_SEG "gs"
-#        define STR_LIB_SEG "fs"
+#        define STR_LIB_SEG "gs"
 #    elif defined(X64)
 #        define SEG_TLS SEG_GS
 #        define ASM_SEG "%gs"
@@ -119,8 +119,8 @@
 /* FIXME i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
 #    define SEG_TLS DR_REG_INVALID
 #    define LIB_SEG_TLS DR_REG_TP
-#    define STR_SEG "tp"
-#    define STR_LIB_SEG "s11"
+#    define STR_SEG "<none>"
+#    define STR_LIB_SEG "tp"
 #endif /* X86/ARM */
 
 #define TLS_REG_LIB LIB_SEG_TLS /* TLS reg commonly used by libraries in Linux */

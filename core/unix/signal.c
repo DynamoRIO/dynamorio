@@ -4030,18 +4030,13 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
 
 #if defined(X64) || defined(ARM)
     /* x64 always uses shared gencode */
-    /* FIXME i#3544: RFC: Perhaps IF_<arch>_ELSE ladder should be replaced by
-     * platform-dependent register field definitions? This way code would be easier to
-     * read and if given arch does not define a given register field then it
-     * means it uses a different mechanism.
-     */
-    dcontext->local_state->spill_space.retval = sc->SC_RETURN_REG;
+    SS_RETVAL(dcontext->local_state->spill_space) = sc->SC_RETURN_REG;
 #    ifdef AARCH64
     /* X1 needs to be spilled because of br x1 in exit stubs. */
     dcontext->local_state->spill_space.r1 = sc->SC_R1;
 #    endif
 #else
-    get_mcontext(dcontext)->retval = sc->SC_RETURN_REG;
+    MC_RETVAL(get_mcontext(dcontext)) = sc->SC_RETURN_REG;
 #endif
     LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax " PFX "\n", sc->SC_RETURN_REG);
 
@@ -4493,7 +4488,6 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     byte *pc = (byte *)sc->SC_XIP;
     int sys_inst_len;
 
-    /* FIXME i#3544: RFC: Why not use SC_RETURN_REG below? */
     if (sc->SC_RETURN_REG != -EINTR) {
         /* The syscall succeeded, so no reason to interrupt.
          * Some syscalls succeed on a signal coming in.

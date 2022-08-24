@@ -188,8 +188,9 @@ read_thread_register(reg_id_t reg)
     ptr_uint_t sel;
     if (reg == DR_REG_TP) {
         asm volatile("mv %0, tp" : "=r"(sel));
-    } else if (reg == DR_REG_S11) {
-        asm volatile("mv %0, s11" : "=r"(sel));
+    } else if (reg == DR_REG_INVALID) {
+        /* FIXME i#3544: SEG_TLS is not used. See os_exports.h */
+        return 0;
     } else {
         ASSERT_NOT_REACHED();
         return 0;

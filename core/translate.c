@@ -1981,12 +1981,10 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             }
 
             if (spill_ibreg_outstanding_offs != UINT_MAX) {
-                /* FIXME i#3544: RFC: Perhaps we need a union field for IBL register in
-                 * mcontext?
-                 */
-                mc.ibl = (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
+                MC_IBL(mc) = (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
             } else {
-                mc.ibl = (reg_t)d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)) + 1;
+                MC_IBL(mc) =
+                    (reg_t)d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)) + 1;
             }
             mc.xsp = STRESS_XSP_INIT;
             mc.pc = cpc;
@@ -2001,7 +1999,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             LOG(THREAD, LOG_INTERP, 3,
                 "  restored res=%d pc=" PFX ", xsp=" PFX " vs " PFX ", ibreg=" PFX
                 " vs " PFX "\n",
-                res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust, mc.ibl,
+                res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust, MC_IBL(mc),
                 d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)));
             /* We should only have failures at tail end of mangle regions.
              * No instrs after a failing instr should touch app memory.
@@ -2015,7 +2013,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             /* check that xsp and ibreg are adjusted properly */
             ASSERT(mc.xsp == STRESS_XSP_INIT - /*negate*/ xsp_adjust);
             ASSERT(spill_ibreg_outstanding_offs == UINT_MAX ||
-                   mc.ibl == (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs));
+                   MC_IBL(mc) == (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs));
 
             if (success_so_far && !res)
                 success_so_far = false;

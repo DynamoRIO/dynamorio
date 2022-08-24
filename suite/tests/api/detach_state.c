@@ -912,28 +912,25 @@ GLOBAL_LABEL(FUNCNAME:)
         adr      x0, sideline_ready_for_detach @N@\
         strb     w2, [x0]
 #elif defined(RISCV64)
-/* FIXME i#3544: Not implemented */
+    /* FIXME i#3544: Not implemented */
 #   define SET_SIDELINE_READY
 #endif
 
 #ifdef X86
 #   define CHECK_SIDELINE_EXIT \
         cmp      BYTE SYMREF(sideline_exit), HEX(1)
-#   define JUMP_NOT_EQUAL     jne
 #elif defined(AARCH64)
 #   define CHECK_SIDELINE_EXIT \
         adr      x0, sideline_exit @N@\
         ldrb     w0, [x0] @N@\
         cmp      x0, #1
-#   define JUMP_NOT_EQUAL     b.ne
 #elif defined(RISCV64)
 /* Since comparison is against 1 we can use just a single register by
  * decrementing the loaded value by 1 and comparing to 0.
  */
-#   define CHECK_SIDELINE_EXIT \
-        lb REG_SCRATCH2, sideline_exit @N@\
-        addi REG_SCRATCH2, REG_SCRATCH2, -1@N@
-#   define JUMP_NOT_EQUAL     bne REG_SCRATCH2, x0,
+#   define CHECK_SIDELINE_EXIT(reg) \
+        lb reg, sideline_exit @N@\
+        addi reg, reg, -1@N@
 #endif
 
 #define FUNCNAME thread_check_gprs_from_cache
@@ -948,8 +945,13 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_SIDELINE_READY
         /* Now spin so we'll detach from the code cache. */
 check_gprs_from_cache_spin:
+#if defined(RISCV64)
+        CHECK_SIDELINE_EXIT(REG_SCRATCH2)
+        JUMP_NOT_EQUAL(REG_SCRATCH2, x0) check_gprs_from_cache_spin
+#else
         CHECK_SIDELINE_EXIT
         JUMP_NOT_EQUAL check_gprs_from_cache_spin
+#endif
         PUSHALL
         mov      REG_SCRATCH0, REG_SP
         mov      REG_SCRATCH1, 0 /* no regs changed */

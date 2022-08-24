@@ -149,26 +149,14 @@ typedef struct _ibl_entry_pc_t {
 typedef struct _spill_state_t {
     /* Four registers are used in the indirect branch lookup routines */
 #ifdef X86
-    union {
-        reg_t xax;
-        reg_t retval;
-    };
-    reg_t xbx, xcx, xdx; /* general-purpose registers */
+    reg_t xax, xbx, xcx, xdx; /* general-purpose registers */
 #elif defined(AARCHXX)
-    union {
-        reg_t r0;
-        reg_t retval;
-    };
-    reg_t r1, r2, r3;
+    reg_t r0, r1, r2, r3;
     /* These are needed for ldex/stex mangling and A64 icache_op_ic_ivau_asm. */
     reg_t r4, r5;
     reg_t reg_stolen; /* slot for the stolen register */
 #elif defined(RISCV64)
-    union {
-        reg_t a0;
-        reg_t retval;
-    };
-    reg_t a1, a2, a3;
+    reg_t a0, a1, a2, a3;
 #endif
     /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
