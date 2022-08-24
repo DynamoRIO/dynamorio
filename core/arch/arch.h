@@ -120,7 +120,7 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG5_OFFS XDI_OFFSET
 #    define CALL_SCRATCH_REG DR_REG_R11
 #    define MC_IBL_REG xcx
-#    define MC_RETVAL xax
+#    define MC_RETVAL_REG xax
 #    define SS_RETVAL_REG xax
 #elif defined(AARCHXX)
 #    define R0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
@@ -157,7 +157,7 @@ mixed_mode_enabled(void)
 #    define REG_OFFSET(reg) (R0_OFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t))
 #    define CALL_SCRATCH_REG DR_REG_R11
 #    define MC_IBL_REG r2
-#    define MC_RETVAL r0
+#    define MC_RETVAL_REG r0
 #    define SS_RETVAL_REG r0
 #elif defined(RISCV64)
 #    define REG0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a0)))
@@ -181,7 +181,7 @@ mixed_mode_enabled(void)
 /* FIXME i#3544: Check is T6 safe to use */
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2
-#    define MC_RETVAL a0
+#    define MC_RETVAL_REG a0
 #    define SS_RETVAL_REG a0
 #endif /* X86/ARM/RISCV64 */
 #define XSP_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
