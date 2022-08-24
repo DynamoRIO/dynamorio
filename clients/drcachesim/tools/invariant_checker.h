@@ -77,6 +77,7 @@ protected:
         memref_t prev_instr_ = {};
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
+        addr_t last_retaddr_ = 0;
 #ifdef UNIX
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<addr_t> prev_xfer_int_pc_;

@@ -191,6 +191,29 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->found_page_size_marker_ = true;
     }
 
+    // Invariant: a function marker should not appear between an instruction and its
+    // memrefs or in the middle of a block (we assume elision is turned off and so a
+    // callee entry will always be the top of a block).  (We don't check for other types
+    // of markers b/c a virtual2physical one *could* appear in between.)
+    if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+        marker_type_is_function_marker(shard->prev_entry_.marker.marker_type)) {
+        report_if_false(shard,
+                        memref.data.type != TRACE_TYPE_READ &&
+                            memref.data.type != TRACE_TYPE_WRITE &&
+                            !type_is_prefetch(memref.data.type),
+                        "Function marker misplaced between instr and memref");
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        marker_type_is_function_marker(memref.marker.marker_type)) {
+        report_if_false(shard, type_is_instr_branch(shard->prev_instr_.instr.type),
+                        "Function marker should be after a branch");
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR) {
+        report_if_false(shard, memref.marker.marker_value == shard->last_retaddr_,
+                        "Function marker retaddr should match prior call");
+    }
+
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         report_if_false(shard,
                         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -239,6 +262,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (shard->instrs_until_interrupt_ > 0)
             --shard->instrs_until_interrupt_;
 #endif
+        if (memref.instr.type == TRACE_TYPE_INSTR_DIRECT_CALL ||
+            memref.instr.type == TRACE_TYPE_INSTR_INDIRECT_CALL) {
+            shard->last_retaddr_ = memref.instr.addr + memref.instr.size;
+        }
         // Invariant: offline traces guarantee that a branch target must immediately
         // follow the branch w/ no intervening thread switch.
         // If we did serial analyses only, we'd just track the previous instr in the
