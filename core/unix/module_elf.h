@@ -206,9 +206,9 @@
  * don't have it yet (i.e. Ubuntu 20.04). The official number has been defined
  * here: https://github.com/riscv/riscv-elf-psabi-doc/commit/d21ca40a.
  */
-#ifndef R_RISCV_IRELATIVE
-#define R_RISCV_IRELATIVE	58
-#endif
+#    ifndef R_RISCV_IRELATIVE
+#        define R_RISCV_IRELATIVE 58
+#    endif
 #    define ELF_R_IRELATIVE R_RISCV_IRELATIVE     /* STT_GNU_IFUNC relocation. */
 /* tls related */
 #    define ELF_R_TLS_DTPMOD R_RISCV_TLS_DTPMOD64 /* Module ID. */
