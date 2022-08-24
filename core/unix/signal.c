@@ -4030,13 +4030,13 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
 
 #if defined(X64) || defined(ARM)
     /* x64 always uses shared gencode */
-    SS_RETVAL(dcontext->local_state->spill_space) = sc->SC_RETURN_REG;
+    dcontext->local_state->spill_space.SS_RETVAL_REG = sc->SC_RETURN_REG;
 #    ifdef AARCH64
     /* X1 needs to be spilled because of br x1 in exit stubs. */
     dcontext->local_state->spill_space.r1 = sc->SC_R1;
 #    endif
 #else
-    MC_RETVAL(get_mcontext(dcontext)) = sc->SC_RETURN_REG;
+    get_mcontext(dcontext)->MC_RETVAL_REG = sc->SC_RETURN_REG;
 #endif
     LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax " PFX "\n", sc->SC_RETURN_REG);
 
