@@ -70,6 +70,9 @@
 #if defined(AARCHXX) && defined(X64) && !defined(ARM_64)
 #    define ARM_64
 #endif
+#if defined(RISCV64) && defined(X64) && !defined(RISCV_64)
+#    define RISCV_64
+#endif
 
 #include "globals_api.h"
 
