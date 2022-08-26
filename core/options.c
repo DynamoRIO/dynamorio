@@ -1127,7 +1127,7 @@ options_enable_code_api_dependences(options_t *options)
      * logic in heap_mmap_reserve_post_stack() to handle sharing the
      * tail end of a multi-64K-region stack.
      */
-    options->stack_size = MAX(options->stack_size, IF_MACOSA64_ELSE(48, 56) * 1024);
+    options->stack_size = MAX(options->stack_size, 56 * 1024);
 #ifdef UNIX
     /* We assume that clients avoid private library code, within reason, and
      * don't need as much space when handling signals.  We still raise the

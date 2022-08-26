@@ -36,6 +36,9 @@
 # along with whatever else is in v8.3.  For now we only include
 # instructions needed for initial M1 support.
 
+# TODO i#5623: Add the INSTR_CREATE_ macros for the opcodes below and
+# add tests for these.
+
 # Instruction definitions:
 
 # retaa, retab

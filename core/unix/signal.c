@@ -4191,34 +4191,30 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
         dumpcore_flag = 0;
 #endif
 
-#if !(defined(MACOS) && defined(AARCH64))
     report_dynamorio_problem(
         dcontext, dumpcore_flag | (stack_overflow ? DUMPCORE_STACK_OVERFLOW : 0), pc,
         (app_pc)sc->SC_FP, fmt, prefix, stack_overflow ? STACK_OVERFLOW_NAME : CRASH_NAME,
         pc, signame, where, pc, d_r_get_thread_id(), get_dynamorio_dll_start(),
-#    ifdef X86
+#ifdef X86
         sc->SC_XAX, sc->SC_XBX, sc->SC_XCX, sc->SC_XDX, sc->SC_XSI, sc->SC_XDI,
         sc->SC_XSP, sc->SC_XBP,
-#        ifdef X64
+#    ifdef X64
         sc->SC_FIELD(r8), sc->SC_FIELD(r9), sc->SC_FIELD(r10), sc->SC_FIELD(r11),
         sc->SC_FIELD(r12), sc->SC_FIELD(r13), sc->SC_FIELD(r14), sc->SC_FIELD(r15),
-#        endif /* X86 */
-#    elif defined(ARM)
-#        ifndef X64
+#    endif /* X86 */
+#elif defined(ARM)
+#    ifndef X64
         sc->SC_FIELD(arm_r0), sc->SC_FIELD(arm_r1), sc->SC_FIELD(arm_r2),
         sc->SC_FIELD(arm_r3), sc->SC_FIELD(arm_r4), sc->SC_FIELD(arm_r5),
         sc->SC_FIELD(arm_r6), sc->SC_FIELD(arm_r7), sc->SC_FIELD(arm_r8),
         sc->SC_FIELD(arm_r9), sc->SC_FIELD(arm_r10), sc->SC_FIELD(arm_fp),
         sc->SC_FIELD(arm_ip), sc->SC_FIELD(arm_sp), sc->SC_FIELD(arm_lr),
         sc->SC_FIELD(arm_pc),
-#        else
-#            error NYI on AArch64
-#        endif /* X64 */
-#    endif     /* X86/ARM */
+#    else
+#        error NYI on AArch64
+#    endif /* X64 */
+#endif     /* X86/ARM */
         sc->SC_XFLAGS);
-#else
-    abort();
-#endif
 
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     /* i#2119: For static DR, the surrounding app's handler may well be
@@ -4589,7 +4585,8 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
         }
 #ifdef AARCHXX
 #    if defined(MACOS)
-        abort();
+        /* TODO i#5383: NYI. */
+        ASSERT_NOT_IMPLEMENTED();
 #    endif
         /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
         if (f == NULL && sc->SC_R2 != 0)

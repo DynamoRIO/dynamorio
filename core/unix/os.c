@@ -1329,7 +1329,7 @@ query_time_millis()
         res += UTC_TO_EPOCH_SECONDS * 1000;
         return res;
     } else {
-        // ASSERT_NOT_REACHED();
+        ASSERT_NOT_REACHED();
         return 0;
     }
 }
@@ -3156,7 +3156,8 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     uint os_flags =
         MAP_PRIVATE | MAP_ANONYMOUS | (TEST(RAW_ALLOC_32BIT, flags) ? MAP_32BIT : 0);
 #if defined(MACOS) && defined(AARCH64)
-    os_flags |= MAP_JIT;
+    if (TEST(MEMPROT_EXEC, prot))
+        os_flags |= MAP_JIT;
 #endif
 
     ASSERT(error_code != NULL);
@@ -3352,7 +3353,8 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     uint os_flags = MAP_PRIVATE |
         MAP_ANONYMOUS IF_X64(| (DYNAMO_OPTION(heap_in_lower_4GB) ? MAP_32BIT : 0));
 #if defined(MACOS) && defined(AARCH64)
-    os_flags |= MAP_JIT;
+    if (executable)
+        os_flags |= MAP_JIT;
 #endif
 
     /* FIXME: note that this memory is in fact still committed - see man mmap */

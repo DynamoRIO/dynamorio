@@ -92,7 +92,6 @@
 ---------------------------xxxxx  q0p3       # Q register, add 3
 ---------------------------xxxxx  prfop      # prefetch operation
 ------------------------xxx-----  op2        # 3 bit immediate from 5-7
-------------------------xxx-----  x5p8       # X register, add 8
 ----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
 ----------------------xxxxx-----  x5sp       # X register or XSP

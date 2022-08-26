@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,7 +66,6 @@
  * want to use a similar strategy to handle the different struct sizes for both.
  */
 #        if defined(AARCH64)
-#            define TESTINGTESTING
 typedef _STRUCT_MCONTEXT64 sigcontext_t;
 #        else
 typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
@@ -144,10 +143,12 @@ typedef kernel_sigcontext_t sigcontext_t;
 #        define SC_FIELD_AARCH64(n) SC_FIELD(x[n])
 #        define SC_LR SC_FIELD(lr)
 #        define SC_XFLAGS SC_FIELD(cpsr)
+#        define SC_SYSNUM_REG SC_FIELD_AARCH64(16)
 #    else
 #        define SC_FIELD_AARCH64(n) SC_FIELD(regs[n])
 #        define SC_LR SC_FIELD_AARCH64(30)
 #        define SC_XFLAGS SC_FIELD(pstate)
+#        define SC_SYSNUM_REG SC_FIELD_AARCH64(8)
 #    endif
 #    define SC_R0 SC_FIELD_AARCH64(0)
 #    define SC_R1 SC_FIELD_AARCH64(1)
@@ -181,7 +182,6 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_FP SC_FIELD_AARCH64(29)
 #    define SC_XIP SC_FIELD(pc)
 #    define SC_XSP SC_FIELD(sp)
-#    define SC_SYSNUM_REG SC_FIELD_AARCH64(8)
 #elif defined(ARM)
 #    define SC_XIP SC_FIELD(arm_pc)
 #    define SC_FP SC_FIELD(arm_fp)

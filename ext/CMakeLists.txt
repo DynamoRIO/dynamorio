@@ -113,6 +113,7 @@ add_subdirectory(drwrap)
 add_subdirectory(drreg)
 add_subdirectory(drbbdup)
 if (NOT (MACOS AND AARCH64))
+  # TODO i#5383: Add M1 drsyms libraries.
   add_subdirectory(drsyms)
 endif ()
 add_subdirectory(drutil)

@@ -833,6 +833,7 @@ OPTION_DEFAULT(uint_size, stack_size,
                 * 32KB is the max that will still allow sharing per-thread
                 * gencode in the same 64KB alloc as the stack on Windows.
                 */
+               /* XXX i#5383: Evaluate why Mac M1 needs 32K. */
                IF_MACOSA64_ELSE(32 * 1024, 24 * 1024),
                "size of thread-private stacks, in KB")
 #ifdef UNIX
@@ -1161,6 +1162,7 @@ OPTION_DEFAULT(
     uint, protect_mask,
     IF_STATIC_LIBRARY_ELSE(
         0x100 /*SELFPROT_GENCODE*/,
+        /* XXX i#5383: Can we enable for M1 with the JIT_WRITE calls? */
         IF_MACOSA64_ELSE(0,
                          IF_WINDOWS_ELSE(0x101 /*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/,
                                          0x100 /*SELFPROT_GENCODE*/))),

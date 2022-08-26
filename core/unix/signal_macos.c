@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -306,6 +306,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\terr=0x%08x\n", sc->__es.__err);
     LOG(THREAD, LOG_ASYNCH, 1, "\tfaultvaddr=" PFX "\n", sc->__es.__faultvaddr);
 #else
+    /* TODO i#5383: NYI. */
     LOG(THREAD, LOG_ASYNCH, 1, "\tTODO: AARCH64 DUMP\n");
 #endif
 

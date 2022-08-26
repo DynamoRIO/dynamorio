@@ -4918,7 +4918,7 @@
     instr_create_1dst_5src(dc, OP_udot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
 
 /**
- * Creates a XPACI instruction.
+ * Creates an XPACI instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      Register with PAC bits to remove.
  */
