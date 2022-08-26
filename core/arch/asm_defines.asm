@@ -149,7 +149,7 @@ add  reg, reg, sym@PAGEOFF
 #  define GLOBAL_REF(label) label
 
 #  define AARCH64_ADRP_GOT(sym, reg) \
-adrp reg, :got:sym @N@ \
+adrp reg, sym @N@ \
 add reg, reg, @P@:lo12:sym
 
 #  define AARCH64_ADRP_GOT_LDR(sym, reg) \
