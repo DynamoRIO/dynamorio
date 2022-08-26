@@ -294,13 +294,100 @@ check_rseq()
 #endif
     return true;
 }
+
+bool
+check_function_markers()
+{
+    constexpr memref_tid_t TID = 1;
+    constexpr addr_t CALL_PC = 2;
+    constexpr size_t CALL_SZ = 2;
+    // Incorrectly between instr and memref.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(1, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            // There should be just one error.
+            gen_marker(1, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            gen_marker(1, TRACE_MARKER_TYPE_FUNC_ARG, 2),
+            gen_data(1, true, 42, 8),
+        };
+        if (!run_checker(memrefs, true, TID, 5,
+                         "Function marker misplaced between instr and memref",
+                         "Failed to catch misplaced function marker"))
+            return false;
+    }
+    // Incorrectly not after a branch.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+        };
+        if (!run_checker(memrefs, true, TID, 2,
+                         "Function marker should be after a branch",
+                         "Failed to catch function marker not after branch"))
+            return false;
+    }
+    // Incorrect return address.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ + 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
+        };
+        if (!run_checker(memrefs, true, TID, 3,
+                         "Function marker retaddr should match prior call",
+                         "Failed to catch wrong function retaddr"))
+            return false;
+    }
+    // Incorrectly not after a branch with a load in between.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_data(TID, true, 42, 8),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+        };
+        if (!run_checker(memrefs, true, TID, 3,
+                         "Function marker should be after a branch",
+                         "Failed to catch function marker after non-branch with load"))
+            return false;
+    }
+    // Correctly after a branch.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly after a branch with memref for the branch.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID, 3),
+            gen_data(TID, true, 42, 8),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int
 main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
-        check_kernel_xfer() && check_rseq()) {
+        check_kernel_xfer() && check_rseq() && check_function_markers()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

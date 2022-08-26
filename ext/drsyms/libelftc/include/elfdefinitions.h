@@ -33,7 +33,7 @@
  *   See: http://www.sco.com/developers/gabi/latest/ch4.intro.html
  * - The May 1998 (version 1.5) draft of "The ELF-64 object format".
  * - Processor-specific ELF ABI definitions for sparc, i386, amd64, mips,
- *   ia64, and powerpc processors.
+ *   ia64, powerpc, arm and risc-v processors.
  * - The "Linkers and Libraries Guide", from Sun Microsystems.
  */
 
@@ -1724,7 +1724,15 @@ enum { _ELF_DEFINE_VERSIONING_NUMBERS() VER_DEF__LAST__ };
     _ELF_DEFINE_RELOC(R_RISCV_RVC_JUMP, 45)      \
     _ELF_DEFINE_RELOC(R_RISCV_RVC_LUI, 46)       \
     _ELF_DEFINE_RELOC(R_RISCV_GPREL_I, 47)       \
-    _ELF_DEFINE_RELOC(R_RISCV_GPREL_S, 48)
+    _ELF_DEFINE_RELOC(R_RISCV_GPREL_S, 48)       \
+    _ELF_DEFINE_RELOC(R_RISCV_RELAX, 51)         \
+    _ELF_DEFINE_RELOC(R_RISCV_SUB6, 52)          \
+    _ELF_DEFINE_RELOC(R_RISCV_SET6, 53)          \
+    _ELF_DEFINE_RELOC(R_RISCV_SET8, 54)          \
+    _ELF_DEFINE_RELOC(R_RISCV_SET16, 55)         \
+    _ELF_DEFINE_RELOC(R_RISCV_SET32, 56)         \
+    _ELF_DEFINE_RELOC(R_RISCV_32_PCREL, 57)      \
+    _ELF_DEFINE_RELOC(R_RISCV_IRELATIVE, 58)
 
 #define _ELF_DEFINE_SPARC_RELOCATIONS()             \
     _ELF_DEFINE_RELOC(R_SPARC_NONE, 0)              \

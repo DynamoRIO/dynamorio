@@ -802,9 +802,11 @@ protected:
             }
         } else if (in_entry->addr.type == OFFLINE_TYPE_MEMREF ||
                    in_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
-            if (!*last_bb_handled) {
-                // For currently-unhandled non-module code, memrefs are handled here
-                // where we can easily handle the transition out of the bb.
+            if (!*last_bb_handled &&
+                // Shouldn't get here if encodings are present.
+                impl()->get_version(tls) < OFFLINE_FILE_VERSION_ENCODINGS) {
+                // For legacy traces with unhandled non-module code, memrefs are handled
+                // here where we can easily handle the transition out of the bb.
                 trace_entry_t *entry = reinterpret_cast<trace_entry_t *>(buf);
                 entry->type = TRACE_TYPE_READ; // Guess.
                 entry->size = 1;               // Guess.
@@ -1410,13 +1412,11 @@ private:
                     // not-inside-a-block main loop.
                 }
             } else {
-                // It's some other marker, such as for function tracing.  Output it now,
-                // to avoid confusion with memrefs.
-                // For instrs_are_separate, however, we're only processing a single
-                // instruction here and want to avoid dealing with a long string of
-                // markers (say, from function tracing) before the next instr overflowing
-                // our buffer.  Better to return to the main loop.
-                append = !instrs_are_separate;
+                // Other than kernel event markers checked above, markers should be
+                // only at block boundaries, as we cannot figure out where they should go
+                // (and could easily insert them in the middle of this block instead
+                // of between this and the next block, with implicit instructions added).
+                // Thus, we do not append any other markers.
             }
             if (append) {
                 byte *buf = reinterpret_cast<byte *>(*buf_in);

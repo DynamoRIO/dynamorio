@@ -392,13 +392,14 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 
 #    elif defined(DR_HOST_AARCH64)
 
-#        define ATOMIC_1BYTE_READ(addr_src, addr_res)                \
-            do {                                                     \
-                /* We use "load-acquire" to add a barrier. */        \
-                __asm__ __volatile__("ldarb w0, [%0]; strb w0, [%1]" \
-                                     :                               \
-                                     : "r"(addr_src), "r"(addr_res)  \
-                                     : "w0", "memory");              \
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
+            do {                                                    \
+                /* We use "load-acquire" to add a barrier. */       \
+                __asm__ __volatile__("ldarb w0, [%0]\n\t"           \
+                                     "strb w0, [%1]"                \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "w0", "memory");             \
             } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
@@ -429,7 +430,8 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             do {                                                    \
                 ASSERT(ALIGNED(addr_src, 4));                       \
                 /* We use "load-acquire" to add a barrier. */       \
-                __asm__ __volatile__("ldar w0, [%0]; str w0, [%1]"  \
+                __asm__ __volatile__("ldar w0, [%0]\n\t"            \
+                                     "str w0, [%1]"                 \
                                      :                              \
                                      : "r"(addr_src), "r"(addr_res) \
                                      : "w0", "memory");             \
@@ -450,7 +452,8 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             do {                                                    \
                 ASSERT(ALIGNED(addr_src, 8));                       \
                 /* We use "load-acquire" to add a barrier. */       \
-                __asm__ __volatile__("ldar x0, [%0]; str x0, [%1]"  \
+                __asm__ __volatile__("ldar x0, [%0]\n\t"            \
+                                     "str x0, [%1]"                 \
                                      :                              \
                                      : "r"(addr_src), "r"(addr_res) \
                                      : "x0", "memory");             \

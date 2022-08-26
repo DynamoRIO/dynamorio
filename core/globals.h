@@ -216,8 +216,8 @@ typedef byte *cache_pc; /* fragment cache pc */
 #endif
 
 /* make sure defines are consistent */
-#if !defined(X86) && !defined(ARM) && !defined(AARCH64)
-#    error Must define X86, ARM or AARCH64: no other platforms are supported
+#if !defined(X86) && !defined(ARM) && !defined(AARCH64) && !defined(RISCV64)
+#    error Must define X86, ARM, AARCH64 or RISCV64: no other platforms are supported
 #endif
 
 #if defined(PAPI) && defined(WINDOWS)
@@ -1188,7 +1188,9 @@ strtoul(const char *str, char **end, int base);
 #    define sigaltstack sigaltstack_forbidden_function
 #    define setitimer setitimer_forbidden_function
 #    define _exit _exit_forbidden_function
-#    define gettimeofday gettimeofday_forbidden_function
+#    if !(defined(MACOS) && defined(AARCH64))
+#        define gettimeofday gettimeofday_forbidden_function
+#    endif
 #    define time time_forbidden_function
 #    define modify_ldt modify_ldt_forbidden_function
 #endif

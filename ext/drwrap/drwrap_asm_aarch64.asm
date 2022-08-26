@@ -39,9 +39,8 @@
 
 START_FILE
 
-#define FUNCNAME replace_native_xfer
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
+        DECLARE_FUNC(replace_native_xfer)
+GLOBAL_LABEL(replace_native_xfer:)
         stp     x0, x30, [sp, #-16]!
         bl      GLOBAL_REF(replace_native_xfer_app_retaddr)
         /* Store return address to x30 position. */
@@ -51,36 +50,30 @@ GLOBAL_LABEL(FUNCNAME:)
         ldp     x0, x30, [sp], #16
         br      x1
         /* never reached */
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
+        END_FUNC(replace_native_xfer)
 
 DECLARE_GLOBAL(replace_native_ret_imms)
 DECLARE_GLOBAL(replace_native_ret_imms_end)
-#define FUNCNAME replace_native_rets
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
+        DECLARE_FUNC(replace_native_rets)
+GLOBAL_LABEL(replace_native_rets:)
         ret
 ADDRTAKEN_LABEL(replace_native_ret_imms:)
 ADDRTAKEN_LABEL(replace_native_ret_imms_end:)
         nop
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
+        END_FUNC(replace_native_rets)
 
-#define FUNCNAME get_cur_xsp
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
+        DECLARE_FUNC(get_cur_xsp)
+GLOBAL_LABEL(get_cur_xsp:)
         mov      x0, sp
         ret
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
+        END_FUNC(get_cur_xsp)
 
 /* We just need a sentinel block that does not cause DR to complain about
  * non-executable code or illegal instrutions, for DRWRAP_REPLACE_RETADDR.
  */
-#define FUNCNAME replace_retaddr_sentinel
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
+        DECLARE_FUNC(replace_retaddr_sentinel)
+GLOBAL_LABEL(replace_retaddr_sentinel:)
         ret
-        END_FUNC(FUNCNAME)
+        END_FUNC(replace_retaddr_sentinel)
 
 END_FILE

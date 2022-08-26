@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -80,9 +80,13 @@ instr_branch_type(instr_t *cti_instr)
     case OP_tbnz:
     case OP_tbz: return LINK_DIRECT | LINK_JMP;
     case OP_bl: return LINK_DIRECT | LINK_CALL;
+    // TODO i#5623: Add the other OP_blra*, OP_brra*, and OP_reta* opcodes.
+    case OP_blraaz:
     case OP_blr: return LINK_INDIRECT | LINK_CALL;
-    case OP_br: return LINK_INDIRECT | LINK_JMP;
-    case OP_ret: return LINK_INDIRECT | LINK_RETURN;
+    case OP_br:
+    case OP_braa: return LINK_INDIRECT | LINK_JMP;
+    case OP_ret:
+    case OP_reta: return LINK_INDIRECT | LINK_RETURN;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -105,7 +109,8 @@ bool
 instr_is_call_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    return (opc == OP_bl || opc == OP_blr);
+    // TODO i#5623: Add the other OP_blra* opcodes.
+    return (opc == OP_bl || opc == OP_blr || opc == OP_blraaz);
 }
 
 bool
@@ -126,14 +131,16 @@ bool
 instr_is_call_indirect(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_blr);
+    // TODO i#5623: Add the other OP_blra* opcodes.
+    return (opc == OP_blr || opc == OP_blraaz);
 }
 
 bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret);
+    // TODO i#5623: Add the other OP_brra* and OP_reta* opcodes.
+    return (opc == OP_ret || opc == OP_reta);
 }
 
 bool
@@ -149,7 +156,9 @@ bool
 instr_is_mbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    return (opc == OP_blr || opc == OP_br || opc == OP_ret);
+    // TODO i#5623: Add the other OP_blra*, OP_brra*, and OP_reta* opcodes.
+    return (opc == OP_blr || opc == OP_blraaz || opc == OP_br || opc == OP_braa ||
+            opc == OP_ret || opc == OP_reta);
 }
 
 bool
