@@ -153,7 +153,11 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return NULL;
+#endif /* X86/ARM/RISCV64 */
 }
 
 /* Creates a template stub copied repeatedly for each stub we need to create.
@@ -285,9 +289,10 @@ create_opt_plt_stub(app_pc plt_tgt, app_pc stub_pc)
                        "kstat is not compatible with ");
 
     /* mov plt_tgt => XAX */
-    instr =
-        XINST_CREATE_load_int(dcontext, opnd_create_reg(IF_X86_ELSE(REG_XAX, DR_REG_R0)),
-                              OPND_CREATE_INTPTR(plt_tgt));
+    instr = XINST_CREATE_load_int(
+        dcontext,
+        opnd_create_reg(IF_X86_ELSE(REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0))),
+        OPND_CREATE_INTPTR(plt_tgt));
     pc = instr_encode(dcontext, instr, stub_pc);
     instr_destroy(dcontext, instr);
     if (pc == NULL)

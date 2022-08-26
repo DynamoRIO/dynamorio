@@ -118,11 +118,11 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         END_FUNC(dynamorio_app_take_over)
 
 /*
- * cleanup_and_terminate(dcontext_t *dcontext,     // A0
- *                       int sysnum,               // A1
- *                       int sys_arg1/param_base,  // A2
- *                       int sys_arg2,             // A3
- *                       bool exitproc,            // A4
+ * cleanup_and_terminate(dcontext_t *dcontext,            // A0
+ *                       int sysnum,                      // A1
+ *                       ptr_uint_t sys_arg1/param_base,  // A2
+ *                       ptr_uint_t sys_arg2,             // A3
+ *                       bool exitproc,                   // A4
  *                       (2 more args that are ignored: Mac-only))
  *
  * See decl in arch_exports.h for description.

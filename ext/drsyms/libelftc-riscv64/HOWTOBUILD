@@ -1,0 +1,64 @@
+How To Build libelf.a, libelftc.a, and libdwarf.a for RISC-V LP64F
+by Stanislaw Kardach based on version for Aarch64 by Edmund Grimley Evans
+
+# Environment setup
+
+  export DYNAMORIO_PATH=/PATH/TO/DYNAMORIO
+  export ELFTC_DIR=/tmp/elftc_dir
+
+# Native build
+
+Tested on Ubuntu 20.04 on 2022-08-12.
+
+Install pre-requisites:
+
+  sudo apt-get install bison build-essential flex libarchive-dev m4 pmake zlib1g-dev
+  sudo apt-get install lsb-release subversion
+
+Fetch and build elftoolchain:
+
+  svn co -r 3877 svn://svn.code.sf.net/p/elftoolchain/code/trunk "${ELFTC_DIR}"
+  cd "${ELFTC_DIR}"
+  cp ${DYNAMORIO_PATH}/ext/drsyms/libelftc-riscv64/native-elf-format.h common/
+  REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free"
+  ( cd libelf && CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelf.a )
+  ( cd libelftc && CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelftc.a )
+  ( cd libdwarf && CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libdwarf.a )
+
+Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the
+DynamoRIO source tree at ext/drsyms/libelftc-riscv64/lib64/.
+
+# Cross-compilation
+
+Tested on Ubuntu 20.04 on 2022-08-12.
+
+Install pre-requisites:
+
+  sudo apt-get install bison build-essential flex libarchive-dev m4 pmake zlib1g-dev
+  sudo apt-get install lsb-release subversion
+  sudo apt-get install gcc-riscv64-linux-gnu
+
+Check if cross compiler is present, i.e. for riscv64-linux-gnu-gcc
+
+  riscv64-linux-gnu-gcc --version
+    riscv64-linux-gnu-gcc (Debian 5.3.1-8) 5.3.1 20160205
+
+Check out the sources and build:
+
+  svn co -r 3877 svn://svn.code.sf.net/p/elftoolchain/code/trunk "${ELFTC_DIR}"
+  cd ${ELFTC_DIR}
+  export CC=riscv64-linux-gnu-gcc
+  export LD=riscv64-linux-gnu-ld
+  export AR=riscv64-linux-gnu-ar
+  export RANLIB=riscv64-linux-gnu-ranlib
+  cp ${DYNAMORIO_PATH}/ext/drsyms/libelftc-riscv64/native-elf-format.h common/
+  REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
+  ( cd libelf && CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelf.a )
+  ( cd libelftc && CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelftc.a )
+  ( cd libdwarf && CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libdwarf.a )
+
+# Copy the build artifacts
+
+  cp "${ELFTC_DIR}/libelf/libelf.a" "${DYNAMORIO_PATH}/ext/drsyms/libelftc-riscv64/lib64/"
+  cp "${ELFTC_DIR}/libelftc/libelftc.a" "${DYNAMORIO_PATH}/ext/drsyms/libelftc-riscv64/lib64/"
+  cp "${ELFTC_DIR}/libdwarf/libdwarf.a" "${DYNAMORIO_PATH}/ext/drsyms/libelftc-riscv64/lib64/"

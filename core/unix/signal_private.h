@@ -299,9 +299,13 @@ typedef struct rt_sigframe {
      * like on Linux?  We would get the size by counting from "info".
      * Also, should we change this to sigcontext_t.
      */
+#        if defined(AARCH64)
+    struct __darwin_mcontext64 mc;
+#        else
     struct __darwin_mcontext_avx64 mc; /* sigcontext, "struct mcontext_avx64" to kernel */
-    kernel_siginfo_t info;             /* matches user-mode sys/signal.h struct */
-    struct __darwin_ucontext64 uc;     /* "struct user_ucontext64" to kernel */
+#        endif
+    kernel_siginfo_t info;         /* matches user-mode sys/signal.h struct */
+    struct __darwin_ucontext64 uc; /* "struct user_ucontext64" to kernel */
 #    else
     app_pc retaddr;
     app_pc handler;

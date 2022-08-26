@@ -4842,7 +4842,7 @@ check_origins_bb_pattern(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t
 
 #    ifndef X86
     /* FIXME: move the x86-specific analysis to an arch/ file! */
-    ASSERT_NOT_IMPLEMENTED();
+    ASSERT_NOT_IMPLEMENTED(false);
 #    endif
 
 #    ifdef UNIX
@@ -6466,7 +6466,9 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
         LOG(THREAD, LOG_VMAREAS, 1,
             "patch proof module " PFX "-" PFX " modified %s, by %s,%s=>%s\n", base,
             base + size, patching_code ? "code!" : "data --ok",
-            loader ? "loader --ok" : patching_code ? "hooker!" : "loader or hooker",
+            loader              ? "loader --ok"
+                : patching_code ? "hooker!"
+                                : "loader or hooker",
             patching_IAT ? "IAT hooker" : "patching!",
             patch_proof_overlap ? "SQUASH" : "allow");
         /* curiosly the loader modifies the .reloc section of Dell\QuickSet\dadkeyb.dll */
