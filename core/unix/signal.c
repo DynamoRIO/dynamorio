@@ -56,6 +56,7 @@
 #elif defined(MACOS)
 #    include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
 #    include <signal.h>     /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+#    include "os_public.h"
 #endif
 
 #ifdef LINUX
@@ -333,6 +334,8 @@ dump_unmasked(dcontext_t *dcontext, const char *where)
     if (dcontext == GLOBAL_DCONTEXT || dcontext == NULL)
         return;
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    if (info->sighand == NULL)
+        return;
     LOG(THREAD, LOG_ASYNCH, 3, "%s: threads_unmasked: ", where);
     for (int i = 1; i <= MAX_SIGNUM; i++) {
         LOG(THREAD, LOG_ASYNCH, 3, "[%d]=%d ", i, info->sighand->threads_unmasked[i]);
@@ -1110,9 +1113,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                 ? "vfork"
                 :
 #endif
-                (IF_LINUX(record->clone_sysnum == SYS_clone
-                              ? "clone"
-                              : record->clone_sysnum == SYS_clone3 ? "clone3" :)
+                (IF_LINUX(record->clone_sysnum == SYS_clone        ? "clone"
+                              : record->clone_sysnum == SYS_clone3 ? "clone3"
+                                                                   :)
                      IF_MACOS(record->clone_sysnum == SYS_bsdthread_create
                                   ? "bsdthread_create"
                                   :) "unexpected"),
@@ -2766,7 +2769,8 @@ sig_full_initialize(sig_full_cxt_t *sc_full, kernel_ucontext_t *ucxt)
 #elif defined(ARM)
     sc_full->fp_simd_state = &ucxt->coproc.uc_vfp;
 #elif defined(AARCH64)
-    sc_full->fp_simd_state = &ucxt->uc_mcontext.__reserved;
+    sc_full->fp_simd_state =
+        &ucxt->IF_MACOS64_ELSE(uc_mcontext64->__ns, uc_mcontext.__reserved);
 #else
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
@@ -2803,14 +2807,57 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
         mc->xflags = sc->SC_XFLAGS;
         mc->pc = (app_pc)sc->SC_XIP;
     }
+#elif defined(RISCV64)
+    if (TEST(DR_MC_INTEGER, flags)) {
+        mc->ra = sc->SC_FIELD(sc_regs.ra);
+        mc->gp = sc->SC_FIELD(sc_regs.gp);
+        mc->tp = sc->SC_FIELD(sc_regs.tp);
+        mc->t0 = sc->SC_FIELD(sc_regs.t0);
+        mc->t1 = sc->SC_FIELD(sc_regs.t1);
+        mc->t2 = sc->SC_FIELD(sc_regs.t2);
+        mc->s0 = sc->SC_FIELD(sc_regs.s0);
+        mc->s1 = sc->SC_FIELD(sc_regs.s1);
+        mc->a0 = sc->SC_FIELD(sc_regs.a0);
+        mc->a1 = sc->SC_FIELD(sc_regs.a1);
+        mc->a2 = sc->SC_FIELD(sc_regs.a2);
+        mc->a3 = sc->SC_FIELD(sc_regs.a3);
+        mc->a4 = sc->SC_FIELD(sc_regs.a4);
+        mc->a5 = sc->SC_FIELD(sc_regs.a5);
+        mc->a6 = sc->SC_FIELD(sc_regs.a6);
+        mc->a7 = sc->SC_FIELD(sc_regs.a7);
+        mc->s2 = sc->SC_FIELD(sc_regs.s2);
+        mc->s3 = sc->SC_FIELD(sc_regs.s3);
+        mc->s4 = sc->SC_FIELD(sc_regs.s4);
+        mc->s5 = sc->SC_FIELD(sc_regs.s5);
+        mc->s6 = sc->SC_FIELD(sc_regs.s6);
+        mc->s7 = sc->SC_FIELD(sc_regs.s7);
+        mc->s8 = sc->SC_FIELD(sc_regs.s8);
+        mc->s9 = sc->SC_FIELD(sc_regs.s9);
+        mc->s10 = sc->SC_FIELD(sc_regs.s10);
+        mc->s11 = sc->SC_FIELD(sc_regs.s11);
+        mc->t3 = sc->SC_FIELD(sc_regs.t3);
+        mc->t4 = sc->SC_FIELD(sc_regs.t4);
+        mc->t5 = sc->SC_FIELD(sc_regs.t5);
+        mc->t6 = sc->SC_FIELD(sc_regs.t6);
+    }
+    if (TEST(DR_MC_CONTROL, flags)) {
+        mc->pc = (void *)sc->SC_FIELD(sc_regs.pc);
+        mc->sp = sc->SC_FIELD(sc_regs.sp);
+        mc->fcsr = sc->SC_FIELD(sc_fpregs.f.fcsr);
+    }
 #elif defined(AARCH64)
-    if (TEST(DR_MC_INTEGER, flags))
+    if (TEST(DR_MC_INTEGER, flags)) {
+#    ifdef MACOS
+        memcpy(&mc->r0, &sc->SC_FIELD(x[0]), sizeof(mc->r0) * 31);
+#    else
         memcpy(&mc->r0, &sc->SC_FIELD(regs[0]), sizeof(mc->r0) * 31);
+#    endif
+    }
     if (TEST(DR_MC_CONTROL, flags)) {
         /* XXX i#2710: the link register should be under DR_MC_CONTROL */
         mc->sp = sc->SC_FIELD(sp);
         mc->pc = (void *)sc->SC_FIELD(pc);
-        mc->nzcv = sc->SC_FIELD(pstate);
+        mc->nzcv = sc->SC_XFLAGS;
     }
 #elif defined(ARM)
     if (TEST(DR_MC_INTEGER, flags)) {
@@ -2838,7 +2885,7 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
 #    ifdef X64
 #        error NYI on AArch64
 #    endif /* X64 */
-#endif     /* X86/ARM */
+#endif     /* X86/ARM/RISCV64 */
     if (TEST(DR_MC_MULTIMEDIA, flags))
         sigcontext_to_mcontext_simd(mc, sc_full);
 }
@@ -2890,15 +2937,57 @@ mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
         sc->SC_XFLAGS = mc->xflags;
         sc->SC_XIP = (ptr_uint_t)mc->pc;
     }
+#elif defined(RISCV64)
+    if (TEST(DR_MC_INTEGER, flags)) {
+        sc->SC_FIELD(sc_regs.ra) = mc->ra;
+        sc->SC_FIELD(sc_regs.gp) = mc->gp;
+        sc->SC_FIELD(sc_regs.tp) = mc->tp;
+        sc->SC_FIELD(sc_regs.t0) = mc->t0;
+        sc->SC_FIELD(sc_regs.t1) = mc->t1;
+        sc->SC_FIELD(sc_regs.t2) = mc->t2;
+        sc->SC_FIELD(sc_regs.s0) = mc->s0;
+        sc->SC_FIELD(sc_regs.s1) = mc->s1;
+        sc->SC_FIELD(sc_regs.a0) = mc->a0;
+        sc->SC_FIELD(sc_regs.a1) = mc->a1;
+        sc->SC_FIELD(sc_regs.a2) = mc->a2;
+        sc->SC_FIELD(sc_regs.a3) = mc->a3;
+        sc->SC_FIELD(sc_regs.a4) = mc->a4;
+        sc->SC_FIELD(sc_regs.a5) = mc->a5;
+        sc->SC_FIELD(sc_regs.a6) = mc->a6;
+        sc->SC_FIELD(sc_regs.a7) = mc->a7;
+        sc->SC_FIELD(sc_regs.s2) = mc->s2;
+        sc->SC_FIELD(sc_regs.s3) = mc->s3;
+        sc->SC_FIELD(sc_regs.s4) = mc->s4;
+        sc->SC_FIELD(sc_regs.s5) = mc->s5;
+        sc->SC_FIELD(sc_regs.s6) = mc->s6;
+        sc->SC_FIELD(sc_regs.s7) = mc->s7;
+        sc->SC_FIELD(sc_regs.s8) = mc->s8;
+        sc->SC_FIELD(sc_regs.s9) = mc->s9;
+        sc->SC_FIELD(sc_regs.s10) = mc->s10;
+        sc->SC_FIELD(sc_regs.s11) = mc->s11;
+        sc->SC_FIELD(sc_regs.t3) = mc->t3;
+        sc->SC_FIELD(sc_regs.t4) = mc->t4;
+        sc->SC_FIELD(sc_regs.t5) = mc->t5;
+        sc->SC_FIELD(sc_regs.t6) = mc->t6;
+    }
+    if (TEST(DR_MC_CONTROL, flags)) {
+        sc->SC_FIELD(sc_regs.pc) = (ptr_uint_t)mc->pc;
+        sc->SC_FIELD(sc_regs.sp) = mc->sp;
+        sc->SC_FIELD(sc_fpregs.f.fcsr) = mc->fcsr;
+    }
 #elif defined(AARCH64)
     if (TEST(DR_MC_INTEGER, flags)) {
+#    ifdef MACOS
+        memcpy(&sc->SC_FIELD(x[0]), &mc->r0, sizeof(mc->r0) * 31);
+#    else
         memcpy(&sc->SC_FIELD(regs[0]), &mc->r0, sizeof(mc->r0) * 31);
+#    endif
     }
     if (TEST(DR_MC_CONTROL, flags)) {
         /* XXX i#2710: the link register should be under DR_MC_CONTROL */
         sc->SC_FIELD(sp) = mc->sp;
         sc->SC_FIELD(pc) = (ptr_uint_t)mc->pc;
-        sc->SC_FIELD(pstate) = mc->nzcv;
+        sc->SC_XFLAGS = mc->nzcv;
     }
 #elif defined(ARM)
     if (TEST(DR_MC_INTEGER, flags)) {
@@ -2926,7 +3015,7 @@ mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
 #    ifdef X64
 #        error NYI on AArch64
 #    endif /* X64 */
-#endif     /* X86/ARM */
+#endif     /* X86/ARM/RISCV64 */
     if (TEST(DR_MC_MULTIMEDIA, flags))
         mcontext_to_sigcontext_simd(sc_full, mc);
 }
@@ -3139,7 +3228,11 @@ thread_set_self_context(void *cxt)
 #    endif /* MACOS/LINUX */
 #elif defined(AARCH64)
     asm("mov  " ASM_XSP ", %0" : : "r"(xsp_for_sigreturn));
+#    ifdef MACOS
+    asm("b    _dynamorio_sigreturn");
+#    else
     asm("b    dynamorio_sigreturn");
+#    endif
 #elif defined(ARM)
     asm("ldr  " ASM_XSP ", %0" : : "m"(xsp_for_sigreturn));
     asm("b    dynamorio_sigreturn");
@@ -3223,6 +3316,10 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
      * SA_RESTORER is not specified.
      */
     return false;
+#    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
 #    endif
     if (info->sighand->action[sig]->restorer == NULL)
         return false;
@@ -3256,6 +3353,10 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
             /* FIXME i#1569: untested */
             /* mov w8, #139 ; svc #0 */
             { 0x68, 0x11, 0x80, 0x52, 0x01, 0x00, 0x00, 0xd4 };
+#    elif defined(RISCV64)
+        static const byte SIGRET_NONRT[8] = { 0 }; /* unused */
+        static const byte SIGRET_RT[8] = { 0 };    /* unused */
+        ;
 #    endif
         byte buf[MAX(sizeof(SIGRET_NONRT), sizeof(SIGRET_RT))] = { 0 };
         if (d_r_safe_read(info->sighand->action[sig]->restorer, sizeof(buf), buf) &&
@@ -3924,7 +4025,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      * still go to the private fcache_return for simplicity.
      */
     sc->SC_XIP = (ptr_uint_t)fcache_return_routine(dcontext);
-#ifdef AARCHXX
+#if defined(AARCHXX) && !defined(MACOS)
     /* We do not have to set dr_reg_stolen in dcontext's mcontext here
      * because dcontext's mcontext is stale and we used the mcontext
      * created from recreate_app_state_internal with the original sigcontext.
@@ -3946,18 +4047,17 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
 
 #if defined(X64) || defined(ARM)
     /* x64 always uses shared gencode */
-    dcontext->local_state->spill_space.IF_X86_ELSE(xax, r0) =
-        sc->IF_X86_ELSE(SC_XAX, SC_R0);
+    dcontext->local_state->spill_space.SS_RETVAL_REG = sc->SC_RETURN_REG;
 #    ifdef AARCH64
     /* X1 needs to be spilled because of br x1 in exit stubs. */
     dcontext->local_state->spill_space.r1 = sc->SC_R1;
 #    endif
 #else
-    get_mcontext(dcontext)->IF_X86_ELSE(xax, r0) = sc->IF_X86_ELSE(SC_XAX, SC_R0);
+    get_mcontext(dcontext)->MC_RETVAL_REG = sc->SC_RETURN_REG;
 #endif
-    LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax " PFX "\n", sc->IF_X86_ELSE(SC_XAX, SC_R0));
+    LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax " PFX "\n", sc->SC_RETURN_REG);
 
-    sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t)last_exit;
+    sc->SC_RETURN_REG = (ptr_uint_t)last_exit;
     LOG(THREAD, LOG_ASYNCH, 2, "\tset next_tag to " PFX ", resuming in fcache_return\n",
         next_pc);
     LOG(THREAD, LOG_ASYNCH, 3, "transfer_from_sig_handler_to_fcache_return\n");
@@ -4196,8 +4296,21 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
 #    else
 #        error NYI on AArch64
 #    endif /* X64 */
-#endif     /* X86/ARM */
-        sc->SC_XFLAGS);
+#elif defined(RISCV64)
+        sc->SC_FIELD(sc_regs.pc), sc->SC_FIELD(sc_regs.ra), sc->SC_FIELD(sc_regs.sp),
+        sc->SC_FIELD(sc_regs.gp), sc->SC_FIELD(sc_regs.tp), sc->SC_FIELD(sc_regs.t0),
+        sc->SC_FIELD(sc_regs.t1), sc->SC_FIELD(sc_regs.t2), sc->SC_FIELD(sc_regs.s0),
+        sc->SC_FIELD(sc_regs.s1), sc->SC_FIELD(sc_regs.a0), sc->SC_FIELD(sc_regs.a1),
+        sc->SC_FIELD(sc_regs.a2), sc->SC_FIELD(sc_regs.a3), sc->SC_FIELD(sc_regs.a4),
+        sc->SC_FIELD(sc_regs.a5), sc->SC_FIELD(sc_regs.a6), sc->SC_FIELD(sc_regs.a7),
+        sc->SC_FIELD(sc_regs.s2), sc->SC_FIELD(sc_regs.s3), sc->SC_FIELD(sc_regs.s4),
+        sc->SC_FIELD(sc_regs.s5), sc->SC_FIELD(sc_regs.s6), sc->SC_FIELD(sc_regs.s7),
+        sc->SC_FIELD(sc_regs.s8), sc->SC_FIELD(sc_regs.s9), sc->SC_FIELD(sc_regs.s10),
+        sc->SC_FIELD(sc_regs.s11), sc->SC_FIELD(sc_regs.t3), sc->SC_FIELD(sc_regs.t4),
+        sc->SC_FIELD(sc_regs.t5),
+        sc->SC_FIELD(sc_regs.t6)
+#endif /* X86/ARM/RISCV64 */
+        IF_NOT_RISCV64(sc->SC_XFLAGS));
 
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     /* i#2119: For static DR, the surrounding app's handler may well be
@@ -4392,7 +4505,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     byte *pc = (byte *)sc->SC_XIP;
     int sys_inst_len;
 
-    if (sc->IF_X86_ELSE(SC_XAX, SC_R0) != -EINTR) {
+    if (sc->SC_RETURN_REG != -EINTR) {
         /* The syscall succeeded, so no reason to interrupt.
          * Some syscalls succeed on a signal coming in.
          * E.g., SYS_wait4 on SIGCHLD, or reading from a slow device.
@@ -4416,12 +4529,14 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
      * inaccurate check sysnum_is_not_restartable(sysnum).
      * SA_RESTART also means we can just be passed in the register value to restore.
      */
-    LOG(THREAD, LOG_ASYNCH, 2, "%s: restored xax/r0 to %ld\n", __FUNCTION__,
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: restored xax/r0/a0 to %ld\n", __FUNCTION__,
         orig_retval_reg);
 #ifdef X86
     sc->SC_XAX = orig_retval_reg;
 #elif defined(AARCHXX)
     sc->SC_R0 = orig_retval_reg;
+#elif defined(RISCV64)
+    sc->SC_A0 = orig_retval_reg;
 #else
 #    error NYI
 #endif
@@ -4514,6 +4629,10 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
             ra_slot -= get_clean_call_temp_stack_size();
         if (d_r_safe_read(ra_slot, sizeof(retaddr), &retaddr))
             f = fragment_pclookup(dcontext, retaddr, &wrapper);
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        ASSERT_NOT_IMPLEMENTED(false);
+        f = fragment_pclookup(dcontext, (cache_pc)sc->SC_RA, &wrapper);
 #else
 #    error Unsupported arch.
 #endif
@@ -4567,6 +4686,10 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
             instr_free(dcontext, &instr);
         }
 #ifdef AARCHXX
+#    if defined(MACOS)
+        /* TODO i#5383: NYI. */
+        ASSERT_NOT_IMPLEMENTED(false);
+#    endif
         /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
         if (f == NULL && sc->SC_R2 != 0)
             f = fragment_lookup(dcontext, ENTRY_PC_TO_DECODE_PC(sc->SC_R2));
@@ -4576,6 +4699,8 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
             f = fragment_lookup(dcontext, (app_pc)sc->SC_XBX);
         if (f == NULL && sc->SC_XCX != 0)
             f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
+#elif defined(RISCV64)
+/* FIXME i#3544: Not implemented */
 #else
 #    error Unsupported arch.
 #endif
@@ -4607,7 +4732,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool reroute = false;
     bool at_auto_restart_syscall = false;
     int syslen = 0;
-    reg_t orig_retval_reg = sc->IF_X86_ELSE(SC_XAX, SC_R0);
+    reg_t orig_retval_reg = sc->SC_RETURN_REG;
     sigpending_t *pend;
     fragment_t *f = NULL;
     fragment_t wrapper;
@@ -4822,7 +4947,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                     pc, pc + syslen);
                 at_auto_restart_syscall = true;
                 sc->SC_XIP += syslen;
-                sc->IF_X86_ELSE(SC_XAX, SC_R0) = -EINTR;
+                sc->SC_RETURN_REG = -EINTR;
                 pc = (byte *)sc->SC_XIP;
             }
         }
@@ -4859,7 +4984,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         at_auto_restart_syscall = true;
         sc->SC_XIP = (reg_t)vsyscall_sysenter_return_pc;
-        sc->IF_X86_ELSE(SC_XAX, SC_R0) = -EINTR;
+        sc->SC_RETURN_REG = -EINTR;
         pc = (byte *)sc->SC_XIP;
     } else if (pc == vsyscall_sysenter_return_pc) {
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from vsyscall " PFX "\n",
@@ -5406,7 +5531,7 @@ void
 main_signal_handler_C(byte *xsp)
 #endif
 {
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
     /* The kernel aligns to 16 after setting up the frame, so we instead compute
      * from the siginfo pointer.
      * XXX: 32-bit does the same thing: how was it working?!?
@@ -5467,7 +5592,7 @@ main_signal_handler_C(byte *xsp)
 
     dcontext_t *dcontext = get_thread_private_dcontext();
 
-#ifdef MACOS
+#if defined(MACOS) && !defined(AARCH64)
 #    ifdef X64
     ASSERT((YMM_ENABLED() && ucxt->uc_mcsize == sizeof(_STRUCT_MCONTEXT_AVX64)) ||
            (!YMM_ENABLED() && ucxt->uc_mcsize == sizeof(_STRUCT_MCONTEXT64)));
@@ -6016,10 +6141,23 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         sc->SC_R1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
         sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
+#    ifdef LINUX
     if (sig_has_restorer(info, sig))
         sc->SC_LR = (reg_t)info->sighand->action[sig]->restorer;
     else
+#    endif
         sc->SC_LR = (reg_t)dynamorio_sigreturn;
+#elif defined(RISCV64)
+    /* FIXME i#3544: Check if xsp is cast correctly? */
+    sc->SC_A0 = sig;
+    if (IS_RT_FOR_APP(info, sig)) {
+        sc->SC_A1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+        sc->SC_A2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    }
+    if (sig_has_restorer(info, sig))
+        sc->SC_RA = (reg_t)info->sighand->action[sig]->restorer;
+    else
+        sc->SC_RA = (reg_t)dynamorio_sigreturn;
 #endif
     /* Set our sigreturn context (NOT for the app: we already copied the
      * translated context to the app stack) to point to fcache_return!
@@ -6116,7 +6254,10 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         dump_sigcontext(dcontext, sc);
         LOG(THREAD, LOG_ASYNCH, 3, "\n");
     }
+#    ifndef MACOS
     IF_AARCHXX(ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr()));
+#    endif
+
 #endif
     /* FIXME: other state?  debug regs?
      * if no syscall allowed between main_ (when frame created) and
@@ -6212,7 +6353,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
      * kernel_ucontext_t *ucxt.
      */
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
     mcontext->xdi = (reg_t)info->sighand->action[sig]->handler;
     int infostyle = TEST(SA_SIGINFO, info->sighand->action[sig]->flags)
         ? SIGHAND_STYLE_UC_FLAVOR
@@ -6231,10 +6372,23 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         mcontext->r1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
         mcontext->r2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
+#    ifdef LINUX
     if (sig_has_restorer(info, sig))
         mcontext->lr = (reg_t)info->sighand->action[sig]->restorer;
     else
+#    endif
         mcontext->lr = (reg_t)dynamorio_sigreturn;
+#elif defined(RISCV64)
+    /* FIXME i#3544: Check if xsp is cast correctly? */
+    sc->SC_A0 = sig;
+    if (IS_RT_FOR_APP(info, sig)) {
+        sc->SC_A1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+        sc->SC_A2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    }
+    if (sig_has_restorer(info, sig))
+        sc->SC_RA = (reg_t)info->sighand->action[sig]->restorer;
+    else
+        sc->SC_RA = (reg_t)dynamorio_sigreturn;
 #endif
 #ifdef X86
     /* Clear eflags DF (signal handler should match function entry ABI) */
@@ -6406,10 +6560,23 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         sc->SC_R1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
         sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
+#    ifdef LINUX
     if (sig_has_restorer(info, sig))
         sc->SC_LR = (reg_t)info->sighand->action[sig]->restorer;
     else
+#    endif
         sc->SC_LR = (reg_t)dynamorio_sigreturn;
+#elif defined(RISCV64)
+    /* FIXME i#3544: Check if xsp is cast correctly? */
+    sc->SC_A0 = sig;
+    if (IS_RT_FOR_APP(info, sig)) {
+        sc->SC_A1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+        sc->SC_A2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    }
+    if (sig_has_restorer(info, sig))
+        sc->SC_RA = (reg_t)info->sighand->action[sig]->restorer;
+    else
+        sc->SC_RA = (reg_t)dynamorio_sigreturn;
 #endif
     sc->SC_XIP = (reg_t)SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]);
 
@@ -7128,9 +7295,9 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     sigcontext_to_mcontext(get_mcontext(dcontext), &sc_full, DR_MC_ALL);
 #else
     /* HACK to get eax put into mcontext AFTER do_syscall */
-    dcontext->next_tag = (app_pc)sc->IF_X86_ELSE(SC_XAX, SC_R0);
+    dcontext->next_tag = (app_pc)sc->SC_RETURN_REG;
     /* use special linkstub so we know why we came out of the cache */
-    sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t)get_asynch_linkstub();
+    sc->SC_RETURN_REG = (ptr_uint_t)get_asynch_linkstub();
 
     /* set our sigreturn context to point to fcache_return */
     /* We don't need PC_AS_JMP_TGT b/c the kernel uses EFLAGS_T for the mode */
@@ -7144,7 +7311,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
-#    ifdef AARCHXX
+#    if defined(AARCHXX) && !defined(MACOS)
     ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
     /* We're called from DR and are not yet in the cache, so we want to set the
      * mcontext slot, not the TLS slot, to set the stolen reg value.
@@ -7157,7 +7324,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * Then the sigreturn would redirect the flow to the fcache_return gencode.
      * In fcache_return it recovers the values of x0 and x1 from TLS_SLOT 0 and 1.
      */
-    get_mcontext(dcontext)->r1 = sc->regs[1];
+    get_mcontext(dcontext)->r1 = sc->SC_FIELD_AARCH64(1);
 #        else
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
     set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
@@ -8044,7 +8211,14 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         asm("ldr " ASM_R1 ", %0" : : "m"(continuation));
         asm("ldr " ASM_R2 ", %0" : : "m"(xsp));
         asm("mov " ASM_XSP ", " ASM_R2); /* Clobber xsp last (see above). */
+#    ifdef MACOS
+        asm("b _dynamorio_condvar_wake_and_jmp");
+#    else
         asm("b dynamorio_condvar_wake_and_jmp");
+#    endif
+#elif defined(RISCV64)
+        /* FIXME i#3544: Not implemented */
+        ASSERT_NOT_IMPLEMENTED(false);
 #endif
     } else {
         ksynch_set_value(notify_var, 1);

@@ -232,7 +232,13 @@
 */
 
 #ifdef MACOS
+
+#ifndef AARCH64
 # define ASSEMBLE_WITH_NASM
+#else
+# define ASSEMBLE_WITH_GAS
+#endif
+
 #elif defined(UNIX)
 # define ASSEMBLE_WITH_GAS
 #else

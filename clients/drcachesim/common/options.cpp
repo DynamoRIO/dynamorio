@@ -640,3 +640,13 @@ droption_t<bool> op_enable_drstatecmp(
     DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
     "When true, this option enables the drstatecmp library that performs state "
     "comparisons to detect instrumentation-induced bugs due to state clobbering.");
+
+#ifdef BUILD_PT_TRACER
+droption_t<bool> op_enable_kernel_tracing(
+    DROPTION_SCOPE_ALL, "enable_kernel_tracing", false, "Enable Kernel Intel PT tracing.",
+    "By default, offline tracing only records a userspace trace. If this option is "
+    "enabled, offline tracing will record each syscall's Kernel PT and write every "
+    "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
+    "analysis. And this feature is available only on Intel CPUs that support Intel@ "
+    "Processor Trace.");
+#endif
