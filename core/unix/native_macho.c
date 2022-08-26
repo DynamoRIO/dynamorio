@@ -39,10 +39,6 @@
 #include "module.h"
 #include "module_private.h"
 
-#ifndef X86
-#    error X86-only!
-#endif
-
 void
 native_module_hook(module_area_t *ma, bool at_map)
 {

@@ -103,10 +103,17 @@
  * the DR base.
  */
 #    ifdef X64
-#        define SEG_TLS DR_REG_TPIDRRO_EL0   /* DR_REG_TPIDRURO, but we can't use it */
-#        define LIB_SEG_TLS DR_REG_TPIDR_EL0 /* DR_REG_TPIDRURW, libc+loader tls */
-#        define STR_SEG "tpidruro"
-#        define STR_LIB_SEG "tpidrurw"
+#        ifdef MACOS
+#            define SEG_TLS DR_REG_TPIDR_EL0       /* cpu number */
+#            define LIB_SEG_TLS DR_REG_TPIDRRO_EL0 /* loader tls */
+#            define STR_SEG "tpidrurw"
+#            define STR_LIB_SEG "tpidruro"
+#        else
+#            define SEG_TLS DR_REG_TPIDRRO_EL0   /* DR_REG_TPIDRURO, but can't use it */
+#            define LIB_SEG_TLS DR_REG_TPIDR_EL0 /* DR_REG_TPIDRURW, libc+loader tls */
+#            define STR_SEG "tpidruro"
+#            define STR_LIB_SEG "tpidrurw"
+#        endif
 #    else
 #        define SEG_TLS                                                     \
             DR_REG_TPIDRURW /* not restored by older kernel => we can't use \
@@ -151,7 +158,7 @@
 #    define DR_TLS_BASE_OFFSET (SEG_TLS_BASE_OFFSET + DR_TLS_BASE_SLOT)
 #endif
 
-#ifdef AARCHXX
+#if defined(AARCHXX) && !defined(MACOS64)
 #    ifdef ANDROID
 /* We have our own slot at the end of our instance of Android's
  * pthread_internal_t. However, its offset varies by Android version, requiring

@@ -199,6 +199,12 @@
 #    define IF_MACOS64_ELSE(x, y) y
 #endif
 
+#if defined(MACOS) && defined(AARCH64)
+#    define IF_MACOSA64_ELSE(x, y) x
+#else
+#    define IF_MACOSA64_ELSE(x, y) y
+#endif
+
 #ifdef HAVE_MEMINFO_QUERY
 #    define IF_MEMQUERY(x) x
 #    define IF_MEMQUERY_(x) x,

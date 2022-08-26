@@ -114,7 +114,8 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
           basename);
     // Skip the auxiliary files.
     if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0 ||
-        strcmp(basename, DRMEMTRACE_FUNCTION_LIST_FILENAME) == 0)
+        strcmp(basename, DRMEMTRACE_FUNCTION_LIST_FILENAME) == 0 ||
+        strcmp(basename, DRMEMTRACE_ENCODING_FILENAME) == 0)
         return "";
     // Skip any non-.raw in case someone put some other file in there.
     const char *basename_dot = strrchr(basename, '.');
@@ -341,6 +342,18 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     if (!err.empty())
         return err;
 
+    std::string encoding_filename =
+        modfile_dir + std::string(DIRSEP) + DRMEMTRACE_ENCODING_FILENAME;
+    // Older traces do not have encoding files.
+    // If we had the version we could check OFFLINE_FILE_VERSION_ENCODINGS but
+    // we don't currently read that; raw2trace will check it for us.
+    // TODO i#2062: When raw2trace support is added, check the version.
+    if (dr_file_exists(encoding_filename.c_str())) {
+        encoding_file_ = dr_open_file(encoding_filename.c_str(), DR_FILE_READ);
+        if (encoding_file_ == INVALID_FILE)
+            return "Failed to open encoding file " + encoding_filename;
+    }
+
     return open_thread_files();
 }
 
@@ -378,6 +391,8 @@ raw2trace_directory_t::~raw2trace_directory_t()
         delete[] modfile_bytes_;
     if (modfile_ != INVALID_FILE)
         dr_close_file(modfile_);
+    if (encoding_file_ != INVALID_FILE)
+        dr_close_file(encoding_file_);
     for (std::vector<std::istream *>::iterator fi = in_files_.begin();
          fi != in_files_.end(); ++fi) {
         delete *fi;

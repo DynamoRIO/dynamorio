@@ -497,6 +497,11 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
     bool x86_to_x64_mode = false;
 #endif
 
+    /* XXX i#5383: Audit these calls and ensure they cover all scenarios, are placed
+     * at the most efficient level, and are always properly paired.
+     */
+    PTHREAD_JIT_WRITE();
+
     gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
                                 MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
                                 VMM_SPECIAL_MMAP | VMM_REACHABLE);

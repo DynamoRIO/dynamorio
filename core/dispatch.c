@@ -562,6 +562,13 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
 #endif
 
     dcontext->whereami = DR_WHERE_FCACHE;
+    /* XXX i#5383: Audit these calls and ensure they cover all scenarios, are placed
+     * at the most efficient level, and are always properly paired.
+     * Better to have write calls around block building and linking paths rather than
+     * assuming all paths might have written, with a debug query here to make sure no
+     * paths were missed?
+     */
+    PTHREAD_JIT_READ();
     (*entry)(dcontext);
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
@@ -1469,16 +1476,16 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             LOG(THREAD, LOG_DISPATCH, 2, "Exit from coarse ibl from tag " PFX ": %s %s",
                 dcontext->coarse_exit.src_tag,
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
-                TEST(LINK_RETURN, dcontext->last_exit->flags)
-                    ? "ret"
-                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
+                TEST(LINK_RETURN, dcontext->last_exit->flags)  ? "ret"
+                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*"
+                                                               : "jmp*");
         } else {
             /* We can get here for -indirect_stubs via client special ibl */
             LOG(THREAD, LOG_DISPATCH, 2, "Exit from sourceless ibl: %s %s",
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
-                TEST(LINK_RETURN, dcontext->last_exit->flags)
-                    ? "ret"
-                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
+                TEST(LINK_RETURN, dcontext->last_exit->flags)  ? "ret"
+                    : EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*"
+                                                               : "jmp*");
         }
     } else if (dcontext->last_exit == get_coarse_exit_linkstub()) {
         DOLOG(2, LOG_DISPATCH, {
@@ -1789,7 +1796,7 @@ adjust_syscall_continuation(dcontext_t *dcontext)
     bool syscall_method_is_syscall = get_syscall_method() == SYSCALL_METHOD_SYSCALL;
 
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
         if (!dcontext->sys_was_int) {
             priv_mcontext_t *mc = get_mcontext(dcontext);
             LOG(THREAD, LOG_SYSCALLS, 3,
@@ -2014,7 +2021,7 @@ handle_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#ifdef MACOS
+#if defined(MACOS) && defined(X86)
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && !dcontext->sys_was_int) {
         /* The kernel returns control to whatever user-mode places in edx.
          * We want to put this in even if we skip the syscall as we'll still call

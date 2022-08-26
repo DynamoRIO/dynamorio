@@ -1193,6 +1193,10 @@ vmheap_for_which(which_vmm_t which)
 byte *
 vmcode_get_writable_addr(byte *exec_addr)
 {
+    /* XXX i#5383: Audit these calls and ensure they cover all scenarios, are placed
+     * at the most efficient level, and are always properly paired.
+     */
+    PTHREAD_JIT_WRITE();
     if (!DYNAMO_OPTION(satisfy_w_xor_x))
         return exec_addr;
     /* If we want this to be an assert instead to catch superfluous calls, we'll need

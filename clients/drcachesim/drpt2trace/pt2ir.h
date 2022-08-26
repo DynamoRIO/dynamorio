@@ -36,12 +36,14 @@
 #define _PT2IR_H_ 1
 
 /**
- * @file drmemtrace/pt2ir.h
+ * @file pt2ir.h
  * @brief Offline PT raw trace converter.
  */
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <fstream>
 #include <memory>
 #define DR_FAST_IR 1
 #include "dr_api.h"
@@ -55,6 +57,33 @@
 #ifndef INOUT
 #    define INOUT // nothing
 #endif
+
+/* The auto cleanup wrapper of instrlist_t.
+ * This can ensure the instance of instrlist_t is cleaned up when it is out of scope.
+ */
+struct instrlist_autoclean_t {
+public:
+    instrlist_autoclean_t(void *drcontext, instrlist_t *data)
+        : drcontext(drcontext)
+        , data(data)
+    {
+    }
+    ~instrlist_autoclean_t()
+    {
+#ifdef DEBUG
+        if (drcontext == nullptr) {
+            std::cerr << "instrlist_autoclean_t: invalid drcontext" << std::endl;
+            exit(1);
+        }
+#endif
+        if (data != nullptr) {
+            instrlist_clear_and_destroy(drcontext, data);
+            data = nullptr;
+        }
+    }
+    void *drcontext = nullptr;
+    instrlist_t *data = nullptr;
+};
 
 /**
  * The type of pt2ir_t::convert() return value.
@@ -186,6 +215,7 @@ struct pt_sb_config_t {
  * need a kernel image manager to avoid loading the same dump file many times.
  */
 struct pt2ir_config_t {
+public:
     /**
      * The libipt config of PT raw trace.
      */
@@ -228,8 +258,74 @@ struct pt2ir_config_t {
      * PT raw trace.
      */
     std::string kcore_path;
+
+    pt2ir_config_t()
+    {
+        raw_file_path = "";
+        elf_file_path = "";
+        elf_base = 0;
+        sb_primary_file_path = "";
+        sb_secondary_file_path_list.clear();
+        kcore_path = "";
+        pt_config.cpu.vendor = CPU_VENDOR_UNKNOWN;
+        pt_config.cpu.family = 0;
+        pt_config.cpu.model = 0;
+        pt_config.cpu.stepping = 0;
+        pt_config.cpuid_0x15_eax = 0;
+        pt_config.cpuid_0x15_ebx = 0;
+        pt_config.mtc_freq = 0;
+        pt_config.nom_freq = 0;
+        sb_config.sample_type = 0;
+        sb_config.kernel_start = 0;
+        sb_config.sysroot = "";
+        sb_config.time_shift = 0;
+        sb_config.time_mult = 1;
+        sb_config.time_zero = 0;
+        sb_config.tsc_offset = 0;
+    }
+
+    /**
+     * Return true if the config is successfully initialized.
+     * This function is used to parse the metadata of the PT raw trace.
+     */
+    bool
+    init_with_metadata(IN const std::string &path)
+    {
+        struct {
+            uint16_t cpu_family;
+            uint8_t cpu_model;
+            uint8_t cpu_stepping;
+            uint16_t time_shift;
+            uint32_t time_mult;
+            uint64_t time_zero;
+        } __attribute__((__packed__)) metadata;
+
+        std::ifstream f(path, std::ios::binary | std::ios::in);
+        if (!f.is_open()) {
+            std::cerr << "Failed to open metadata file: " << path << std::endl;
+            return false;
+        }
+        f.read(reinterpret_cast<char *>(&metadata), sizeof(metadata));
+        if (f.fail()) {
+            std::cerr << "Failed to read metadata file: " << path << std::endl;
+            return false;
+        }
+        f.close();
+
+        pt_config.cpu.family = metadata.cpu_family;
+        pt_config.cpu.model = metadata.cpu_model;
+        pt_config.cpu.stepping = metadata.cpu_stepping;
+        pt_config.cpu.vendor =
+            pt_config.cpu.family != 0 ? CPU_VENDOR_INTEL : CPU_VENDOR_UNKNOWN;
+        sb_config.time_shift = metadata.time_shift;
+        sb_config.time_mult = metadata.time_mult;
+        sb_config.time_zero = metadata.time_zero;
+
+        return true;
+    }
 };
 
+struct pt_config;
 struct pt_image;
 struct pt_image_section_cache;
 struct pt_sb_pevent_config;
@@ -264,7 +360,7 @@ public:
      * successful, the caller needs to destroy the ilist.
      */
     pt2ir_convert_status_t
-    convert(OUT instrlist_t **ilist);
+    convert(OUT instrlist_autoclean_t &ilist);
 
 private:
     /* Load PT raw file to buffer. The struct pt_insn_decoder will decode this buffer to
@@ -286,7 +382,7 @@ private:
      * help the PT decoder switch images.
      */
     bool
-    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config *config);
+    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config);
 
     /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.

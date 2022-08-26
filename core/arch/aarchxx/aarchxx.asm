@@ -80,7 +80,7 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
          * the current DR, but w/o clobbering ARG3 or ARG4.
          */
         adr      ARG1, .L_start_invoke_C
-        adr      ARG2, _start
+        adr      ARG2, GLOBAL_REF(_start)
         sub      ARG1, ARG1, ARG2
         add      REG_PRESERVED_1, REG_PRESERVED_1, ARG1
         /* _start expects these as 2nd & 3rd args */

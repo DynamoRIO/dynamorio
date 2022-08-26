@@ -107,7 +107,9 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
         instr_disassemble(dc, decin, STDERR);
         print("\n");
         print("but expected:\n");
-        print("   %s\n\n", expected);
+        print("   %s\n", expected);
+        print("Encoded as:\n");
+        print("   %08x\n\n", pc);
         result = false;
     }
 

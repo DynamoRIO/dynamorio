@@ -70,14 +70,14 @@ GLOBAL_LABEL(memset:)
 
 /* See x86.asm notes about needing these to avoid gcc invoking *_chk */
 .global __memcpy_chk
-.hidden __memcpy_chk
+HIDDEN(__memcpy_chk)
 WEAK(__memcpy_chk)
-.set __memcpy_chk,memcpy
+.set __memcpy_chk,GLOBAL_REF(memcpy)
 
 .global __memset_chk
-.hidden __memset_chk
+HIDDEN(__memset_chk)
 WEAK(__memset_chk)
-.set __memset_chk,memset
+.set __memset_chk,GLOBAL_REF(memset)
 
 #endif /* UNIX */
 

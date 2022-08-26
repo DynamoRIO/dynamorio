@@ -124,11 +124,12 @@ module_mapper_t::module_mapper_t(
     const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
     void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
-    const std::string &alt_module_dir)
+    const std::string &alt_module_dir, file_t encoding_file)
     : modmap_(module_map)
     , cached_user_free_(free_cb)
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)
+    , encoding_file_(encoding_file)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
@@ -145,7 +146,10 @@ module_mapper_t::module_mapper_t(
     // It is assumed to be set to 'true' initially.
     has_custom_data_global_ = true;
 
-    last_error_ = do_module_parsing();
+    if (modmap_ != nullptr)
+        last_error_ = do_module_parsing();
+    if (encoding_file_ != INVALID_FILE)
+        last_error_ += do_encoding_parsing();
 
     // capture has_custom_data_global_'s value for this instance.
     has_custom_data_ = has_custom_data_global_;
@@ -274,9 +278,9 @@ std::string
 raw2trace_t::do_module_parsing()
 {
     if (!module_mapper_) {
-        module_mapper_ = module_mapper_t::create(modmap_, user_parse_, user_process_,
-                                                 user_process_data_, user_free_,
-                                                 verbosity_, alt_module_dir_);
+        module_mapper_ = module_mapper_t::create(
+            modmap_, user_parse_, user_process_, user_process_data_, user_free_,
+            verbosity_, alt_module_dir_, encoding_file_);
     }
     return module_mapper_->get_last_error();
 }
@@ -310,6 +314,34 @@ module_mapper_t::do_module_parsing()
 }
 
 std::string
+module_mapper_t::do_encoding_parsing()
+{
+    if (encoding_file_ == INVALID_FILE)
+        return "";
+    uint64 file_size;
+    if (!dr_file_size(encoding_file_, &file_size))
+        return "Failed to obtain size of encoding file";
+    size_t map_size = (size_t)file_size;
+    byte *map_start = reinterpret_cast<byte *>(
+        dr_map_file(encoding_file_, &map_size, 0, NULL, DR_MEMPROT_READ, 0));
+    if (map_start == nullptr || map_size < file_size)
+        return "Failed to map encoding file";
+    if (*reinterpret_cast<uint64_t *>(map_start) != ENCODING_FILE_VERSION)
+        return "Encoding file has invalid version";
+    size_t offs = sizeof(uint64_t);
+    while (offs < file_size) {
+        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_start + offs);
+        if (entry->length < sizeof(encoding_entry_t))
+            return "Encoding file is corrupted";
+        if (offs + entry->length > file_size)
+            return "Encoding file is truncated";
+        encodings_[entry->id] = entry;
+        offs += entry->length;
+    }
+    return "";
+}
+
+std::string
 raw2trace_t::read_and_map_modules()
 {
     if (!module_mapper_) {
@@ -319,6 +351,7 @@ raw2trace_t::read_and_map_modules()
     }
 
     set_modvec_(&module_mapper_->get_loaded_modules());
+    set_modmap_(module_mapper_.get());
     return module_mapper_->get_last_error();
 }
 
@@ -339,6 +372,8 @@ module_mapper_t::read_and_map_modules()
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
         if (custom_data != nullptr && custom_data->contents_size > 0) {
+            // XXX i#2062: We could eliminate this raw bytes in the module data in
+            // favor of the new encoding file used for generated code.
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
                    (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
@@ -568,6 +603,9 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                tdata->file_type);
         if (!tdata->error.empty())
             return tdata->error;
+        // We do not complain if tdata->version >= OFFLINE_FILE_VERSION_ENCODINGS
+        // and encoding_file_ == INVALID_FILE since we have several tests with
+        // that setup.  We do complain during processing about unknown instructions.
         if (tdata->saw_header) {
             tdata->error = process_header(tdata);
             if (!tdata->error.empty())
@@ -730,19 +768,23 @@ raw2trace_t::do_conversion()
 }
 
 raw2trace_t::block_summary_t *
-raw2trace_t::lookup_block_summary(void *tls, app_pc block_start)
+raw2trace_t::lookup_block_summary(void *tls, uint64 modidx, uint64 modoffs,
+                                  app_pc block_start)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    if (block_start == tdata->last_decode_block_start) {
+    // There is no sentinel available for modidx+modoffs so we use block_start for that.
+    if (block_start == tdata->last_decode_block_start &&
+        modidx == tdata->last_decode_modidx && modoffs == tdata->last_decode_modoffs) {
         VPRINT(5, "Using last block summary " PFX " for " PFX "\n",
                tdata->last_block_summary, tdata->last_decode_block_start);
         return tdata->last_block_summary;
     }
-    block_summary_t *ret = static_cast<block_summary_t *>(
-        hashtable_lookup(&decode_cache_[tdata->worker], block_start));
+    block_summary_t *ret = decode_cache_[tdata->worker].lookup(modidx, modoffs);
     if (ret != nullptr) {
         DEBUG_ASSERT(ret->start_pc == block_start);
         tdata->last_decode_block_start = block_start;
+        tdata->last_decode_modidx = modidx;
+        tdata->last_decode_modoffs = modoffs;
         tdata->last_block_summary = ret;
         VPRINT(5, "Caching last block summary " PFX " for " PFX "\n",
                tdata->last_block_summary, tdata->last_decode_block_start);
@@ -755,7 +797,7 @@ raw2trace_t::lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
                                   app_pc block_start, int index, app_pc pc,
                                   OUT block_summary_t **block_summary)
 {
-    block_summary_t *block = lookup_block_summary(tls, block_start);
+    block_summary_t *block = lookup_block_summary(tls, modidx, modoffs, block_start);
     if (block_summary != nullptr)
         *block_summary = block;
     if (block == nullptr)
@@ -785,15 +827,23 @@ raw2trace_t::create_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
     if (block == nullptr) {
         block = new block_summary_t(block_start, instr_count);
         DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
-        hashtable_add(&decode_cache_[tdata->worker], block_start, block);
-        VPRINT(5, "Created new block summary " PFX " for " PFX "\n", block, block_start);
+        decode_cache_[tdata->worker].add(modidx, modoffs, block);
+        VPRINT(5,
+               "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
+               " modoffs=" HEX64_FORMAT_STRING "\n",
+               block, block_start, modidx, modoffs);
         tdata->last_decode_block_start = block_start;
+        tdata->last_decode_modidx = modidx;
+        tdata->last_decode_modoffs = modoffs;
         tdata->last_block_summary = block;
     }
     instr_summary_t *desc = &block->instrs[index];
     if (!instr_summary_t::construct(dcontext_, block_start, pc, orig, desc, verbosity_)) {
-        WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
-             modvec_()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
+        WARN("Encountered invalid/undecodable instr @ idx=" INT64_FORMAT_STRING
+             " offs=" INT64_FORMAT_STRING " %s",
+             modidx, modoffs,
+             modidx == PC_MODIDX_INVALID ? "<gencode>"
+                                         : modvec_()[static_cast<size_t>(modidx)].path);
         return nullptr;
     }
     return desc;
@@ -1116,14 +1166,15 @@ raw2trace_t::get_file_type(void *tls)
 
 raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
-                         const std::vector<std::ostream *> &out_files, void *dcontext,
-                         unsigned int verbosity, int worker_count,
-                         const std::string &alt_module_dir)
+                         const std::vector<std::ostream *> &out_files,
+                         file_t encoding_file, void *dcontext, unsigned int verbosity,
+                         int worker_count, const std::string &alt_module_dir)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
     , user_process_data_(nullptr)
     , modmap_(module_map)
+    , encoding_file_(encoding_file)
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)
 {
@@ -1160,35 +1211,14 @@ raw2trace_t::raw2trace_t(const char *module_map,
         }
     } else
         cache_count = 1;
-    decode_cache_.resize(cache_count);
-    for (int i = 0; i < cache_count; ++i) {
-        // We go ahead and start with a reasonably large capacity.
-        // We do not want the built-in mutex: this is per-worker so it can be lockless.
-        hashtable_init_ex(&decode_cache_[i], 16, HASH_INTPTR, false, false, nullptr,
-                          nullptr, nullptr);
-        // We pay a little memory to get a lower load factor, unless we have
-        // many duplicated tables.
-        hashtable_config_t config = { sizeof(config), true,
-                                      worker_count_ <= 8
-                                          ? 40U
-                                          : (worker_count_ <= 16 ? 50U : 60U) };
-        hashtable_configure(&decode_cache_[i], &config);
-    }
+    decode_cache_.reserve(cache_count);
+    for (int i = 0; i < cache_count; ++i)
+        decode_cache_.emplace_back(cache_count);
 }
 
 raw2trace_t::~raw2trace_t()
 {
     module_mapper_.reset();
-    for (size_t i = 0; i < decode_cache_.size(); ++i) {
-        // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
-        // so we have to explicitly free the payloads.
-        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache_[i].table_bits); j++) {
-            for (hash_entry_t *e = decode_cache_[i].table[j]; e != NULL; e = e->next) {
-                delete (static_cast<block_summary_t *>(e->payload));
-            }
-        }
-        hashtable_delete(&decode_cache_[i]);
-    }
 }
 
 bool
