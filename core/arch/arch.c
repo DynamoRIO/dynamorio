@@ -3445,7 +3445,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
              */
             reg_t save_xsp = dst->xsp;
             if (src->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
-                memcpy(MCXT_FIRST_REG_FIELD(dst), MCXT_FIRST_REG_FIELD(src),
+                memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
                        /* end of the mcxt integer gpr */
                        offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
             } else
@@ -3538,7 +3538,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
     if (dst->size > sizeof(dr_mcontext_t))
         return false;
     if (TESTALL(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
-        *(priv_mcontext_t *)(MCXT_FIRST_REG_FIELD(dst)) = *src;
+        *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
     } else {
         if (TEST(DR_MC_INTEGER, dst->flags)) {
             /* xsp is in the middle of the mcxt, so we save dst->xsp here and
@@ -3546,7 +3546,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
              */
             reg_t save_xsp = dst->xsp;
             if (dst->size >= offsetof(dr_mcontext_t, IF_X86_ELSE(xflags, pc))) {
-                memcpy(MCXT_FIRST_REG_FIELD(dst), MCXT_FIRST_REG_FIELD(src),
+                memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
                        /* end of the mcxt integer gpr */
                        offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
             } else
@@ -3633,7 +3633,7 @@ priv_mcontext_t *
 dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 {
     /* It's up to the caller to ensure the proper DR_MC_ flags are set (i#1848) */
-    return (priv_mcontext_t *)(MCXT_FIRST_REG_FIELD(mc));
+    return (priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(mc));
 }
 
 priv_mcontext_t *
