@@ -181,6 +181,9 @@ endif()
 # The target OS:
 if (APPLE)
   set(MACOS 1)
+  # Ensure our binaries can run on older OSX but only as far back as is
+  # officially supported by Apple.
+  set(OLDEST_OSX_SUPPPORTED "11.7")
 elseif (UNIX)
   set(LINUX 1)
 endif (APPLE)
@@ -843,12 +846,7 @@ if (UNIX)
     endif (X64)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
-    # Ensure our binaries can run on older OSX
-    # We're building our release package on 10.14, and that XCode does not
-    # supply C++ libraries for below 10.9, causing drcachesim to fail to build.
-    # Thus we have abandoned support for below 10.9.
-    # If this is updated, update drcachesim's as well.
-    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.9")
+    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=${OLDEST_OSX_SUPPPORTED}")
   endif ()
   if (APPLE)
     set(ld_entry_flag "-e")
@@ -1826,15 +1824,18 @@ if (UNIX AND X64)
   find_library(liblz4 lz4)
   if (liblz4)
     message(STATUS "Found liblz4: ${liblz4}")
+    if (APPLE)
+      find_path(LZ4_INCLUDE_DIR lz4.h HINTS /usr/local/include /opt/homebrew/include)
+      find_path(LZ4_LIB_DIR liblz4.a HINTS /usr/local/lib /opt/homebrew/lib)
+      include_directories(${LZ4_INCLUDE_DIR})
+      link_directories(${LZ4_LIB_DIR})
+    endif ()
   endif ()
 endif ()
 
 if (BUILD_CLIENTS)
   # Must be prior to api/docs
-  if (NOT (MACOS AND AARCH64))
-    # TODO i#5383: Add M1 drsyms libraries, needed by drcov2lcov and func_trace.
-    add_subdirectory(clients)
-  endif ()
+  add_subdirectory(clients)
 endif (BUILD_CLIENTS)
 
 if (BUILD_DOCS)

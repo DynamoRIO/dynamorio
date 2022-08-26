@@ -5144,8 +5144,6 @@ if (APPLE)
     samples_proj
     code_api|common.broadfun
     code_api|common.fib
-    code_api|common.floatpc
-    code_api|common.floatpc_xl8all
     code_api|common.getretaddr
     code_api|libutil.frontend_test
     code_api|linux.exit
@@ -5158,36 +5156,46 @@ if (APPLE)
     code_api|linux.fib-conflict
     code_api|linux.fib-pie
     code_api|security-common.codemod
-    code_api|security-common.retexisting
     code_api|security-common.ret_noncall_trace
     code_api|client.crashmsg
-    code_api|client.count-ctis-noopt
     code_api|client.exception
     code_api|client.syscall-mod
-    code_api|client.cbr-retarget
     code_api|client.truncate
-    code_api|client.dr_options
     code_api|client.unregister
     code_api|client.null_instrument
     code_api|client.option_parse
     code_api|client.drcontainers-test
     code_api|client.destructor
     code_api|sample.signal
-    code_api|tool.drcpusim.cpuid-Prescott
-    code_api|tool.drcpusim.cpuid-Presler
-    code_api|tool.drcpusim.cpuid-Merom
-    code_api|tool.drcpusim.cpuid-Penryn
-    code_api|tool.drcpusim.cpuid-Westmere
-    code_api|tool.drcpusim.cpuid-Nehalem
     code_api|api.ir
-    code_api|api.dis
     code_api|api.ir-static
     code_api|api.drdecode
     code_api|linux.sigaction
     no_code_api,no_intercept_all_signals|linux.sigaction
     code_api|linux.sigaction.native
     PROPERTIES LABELS OSX)
-  if (DEBUG) # FIXME i#1806: fails in release
+  if (X86)
+    set_tests_properties(
+      code_api|common.floatpc
+      code_api|common.floatpc_xl8all
+      code_api|security-common.retexisting
+      code_api|client.count-ctis-noopt
+      code_api|client.cbr-retarget
+      code_api|client.dr_options
+      code_api|tool.drcpusim.cpuid-Prescott
+      code_api|tool.drcpusim.cpuid-Presler
+      code_api|tool.drcpusim.cpuid-Merom
+      code_api|tool.drcpusim.cpuid-Penryn
+      code_api|tool.drcpusim.cpuid-Westmere
+      code_api|tool.drcpusim.cpuid-Nehalem
+      code_api|api.dis
+      PROPERTIES LABELS OSX)
+  elseif (AARCH64)
+    set_tests_properties(
+      code_api|api.dis-a64
+      PROPERTIES LABELS OSX)
+  endif ()
+  if (DEBUG AND X86) # FIXME i#1806: fails in release
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
   endif ()
   if (NOT X64)
@@ -5213,14 +5221,11 @@ if (NOT ANDROID AND AARCHXX)
     code_api|linux.fib-conflict
     code_api|linux.fib-conflict-early
     code_api|linux.fib-pie
-    code_api|linux.fib-static
     code_api|linux.fork
     code_api|linux.infinite
     code_api|linux.longjmp
     code_api|linux.readlink
     code_api|linux.sigaction
-    code_api|linux.signalfd
-    code_api|linux.signal_racesys
     code_api|security-common.codemod
     code_api|security-common.ret_noncall_trace
     code_api|security-common.TestMemProtChg_FLAKY
@@ -5242,7 +5247,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.exception
     code_api|client.int64_overrides
     code_api|client.low_on_memory
-    code_api|client.modules
     code_api|client.null_instrument
     code_api|client.option_parse
     code_api|client.reg_size_test
@@ -5262,6 +5266,14 @@ if (NOT ANDROID AND AARCHXX)
     code_api|sample.syscall
     code_api|sample.wrap
     PROPERTIES LABELS RUNS_ON_QEMU)
+  if (NOT APPLE)
+    set_tests_properties(
+      code_api|linux.fib-static
+      code_api|linux.signalfd
+      code_api|linux.signal_racesys
+      code_api|client.modules
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
   if (DEBUG)
     set_tests_properties(
       code_api|common.logstderr
@@ -5283,7 +5295,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|pthreads.pthreads
       code_api,satisfy_w_xor_x|linux.fork
       code_api|security-common.retnonexisting
-      code_api|security-linux.trampoline
       code_api|client.app_inscount
       code_api|client.cleancall-opt-1
       code_api|client.cleancallparams
@@ -5311,6 +5322,11 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    if (NOT CMAKE_COMPILER_IS_CLANG)
+      set_tests_properties(
+        code_api|security-linux.trampoline
+        PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
     if (LINUX AND X64 AND HAVE_RSEQ)
       # QEMU just returns ENOSYS, but still this is testing that.
       set_tests_properties(

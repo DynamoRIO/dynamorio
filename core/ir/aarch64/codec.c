@@ -2091,14 +2091,14 @@ encode_opnd_p10_lo(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_p(10, 7, opnd, enc_out);
 }
 
-static inline bool
+static inline __attribute__((unused)) bool
 decode_opnd_p10_zer_lo(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     *opnd = opnd_create_predicate_reg(DR_REG_P0 + extract_uint(enc, 10, 3), false);
     return true;
 }
 
-static inline bool
+static inline __attribute__((unused)) bool
 encode_opnd_p10_zer_lo(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     if (!opnd_is_predicate_zero(opnd))
@@ -5303,7 +5303,7 @@ decode_opnds_ccm(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
     instr_set_src(instr, 0, rn);
 
     opnd_t rm;
-    if (TEST(1U << 11, enc)) /* imm5 */
+    if (TEST(1U << 11, enc))                       /* imm5 */
         instr_set_src(instr, 1, opnd_create_immed_int(extract_uint(enc, 16, 5), OPSZ_5b));
     else if (!decode_opnd_rn(false, 16, enc, &rm)) /* Rm */
         return false;

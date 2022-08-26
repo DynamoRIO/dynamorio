@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -447,7 +447,7 @@ if (NOT DEFINED KERNEL_IS_X64)  # Allow variable override.
       RESULT_VARIABLE cmd_result)
     # If for some reason uname fails (not on PATH), assume the kernel is x64
     # anyway.
-    if (cmd_result OR "${machine}" MATCHES "x86_64|aarch64")
+    if (cmd_result OR "${machine}" MATCHES "x86_64|aarch64|arm64")
       set(KERNEL_IS_X64 ON)
     else ()
       set(KERNEL_IS_X64 OFF)

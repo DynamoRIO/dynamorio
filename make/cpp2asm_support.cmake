@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -186,6 +186,9 @@ if (APPLE)
   if (AARCH64)
     set(CMAKE_ASM_COMPILER "clang")
     set(ASM_FLAGS "${ASM_FLAGS} -c")
+    if (DEFINED OLDEST_OSX_SUPPPORTED)
+      set(ASM_FLAGS "${ASM_FLAGS} -mmacosx-version-min=${OLDEST_OSX_SUPPPORTED}")
+    endif ()
   else (AARCH64)
     # XXX: we may be able to avoid some of this given CMake 2.8.3's NASM support.
     find_program(NASM nasm DOC "path to nasm assembler")

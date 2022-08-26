@@ -81,6 +81,10 @@ if (ZLIB_FOUND)
       list(REMOVE_ITEM minizip_srcs "${minizip_dir}/iowin32.c")
     endif ()
     add_library(minizip STATIC ${minizip_srcs})
+    if (APPLE)
+      append_property_string(TARGET minizip
+        COMPILE_FLAGS "-mmacosx-version-min=${OLDEST_OSX_SUPPPORTED}")
+    endif ()
     add_definitions(-DHAS_ZIP)
     set(ZIP_FOUND ON)
     # We add "minizip/" to avoid collisions with system "zip.h" on Mac.
@@ -475,7 +479,8 @@ macro(add_win32_flags target)
     endif ()
     if (APPLE)
       # Match the core/ flags.
-      append_property_string(TARGET ${target} COMPILE_FLAGS "-mmacosx-version-min=10.9")
+      append_property_string(TARGET ${target}
+        COMPILE_FLAGS "-mmacosx-version-min=${OLDEST_OSX_SUPPPORTED}")
     endif ()
   endif ()
 endmacro ()
@@ -636,7 +641,7 @@ if (BUILD_TESTS)
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
   endif ()
 
-  if (DR_HOST_AARCH64)
+  if (DR_HOST_AARCH64 AND NOT APPLE) # i#1997: static DR on Mac NYI.
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_aarch64_sys drmemtrace_static)
