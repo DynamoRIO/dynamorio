@@ -875,12 +875,14 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
     insert_mov_immed_ptrsz(dcontext, EXIT_REASON_RSEQ_ABORT, opnd_create_reg(scratch2),
                            ilist, insert_at, NULL, NULL);
 #    endif
+    /* FIXME i#3544: Not implemented */
     PRE(ilist, insert_at,
-        XINST_CREATE_store_2bytes(dcontext,
-                                  opnd_create_dcontext_field_via_reg_sz(
-                                      dcontext, scratch_reg, EXIT_REASON_OFFSET, OPSZ_2),
-                                  IF_X86_ELSE(OPND_CREATE_INT16(EXIT_REASON_RSEQ_ABORT),
-                                              opnd_create_reg(scratch2))));
+        XINST_CREATE_store_2bytes(
+            dcontext,
+            opnd_create_dcontext_field_via_reg_sz(dcontext, scratch_reg,
+                                                  EXIT_REASON_OFFSET, OPSZ_2),
+            IF_AARCHXX_ELSE(opnd_create_reg(scratch2),
+                            OPND_CREATE_INT16(EXIT_REASON_RSEQ_ABORT))));
 #    ifdef AARCHXX
     PRE(ilist, insert_at,
         instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
@@ -1045,6 +1047,10 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                                   rseq_get_tls_ptr_offset(), OPSZ_PTR),
         opnd_create_reg(scratch_reg));
     instrlist_preinsert(ilist, insert_at, start_mangling);
+#    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    instr_t *start_mangling = NULL;
 #    else
     /* We need another scratch reg to write to TLS. */
     ASSERT(SCRATCH_ALWAYS_TLS());
@@ -1178,6 +1184,9 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                                                LIB_SEG_TLS, DR_REG_NULL, DR_REG_NULL, 0,
                                                rseq_get_tls_ptr_offset(), OPSZ_PTR),
                                            OPND_CREATE_INT32(0)));
+#    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
 #    else
     PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch2, TLS_REG2_SLOT));
     instrlist_preinsert(ilist, insert_at,

@@ -2192,9 +2192,10 @@ handle_post_system_call(dcontext_t *dcontext)
     if (was_sigreturn_syscall(dcontext)) {
         /* restore app xax/r0 */
         LOG(THREAD, LOG_SYSCALLS, 3,
-            "post-sigreturn: setting xax/r0 to " PFX ", asynch_target=" PFX "\n",
+            "post-sigreturn: setting xax/r0/a0 to " PFX ", asynch_target=" PFX "\n",
             dcontext->sys_param1, dcontext->asynch_target);
-        mc->IF_X86_ELSE(xax, r0) = dcontext->sys_param1;
+        /* FIXME i#3544: Check if this is a proper register to use */
+        mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = dcontext->sys_param1;
 #    ifdef MACOS
         /* We need to skip the use app_xdx, as we've changed the context.
          * We can't just set app_xdx from handle_sigreturn() as the

@@ -86,6 +86,10 @@
 # error ARM/AArch64 on Windows is not supported
 #endif
 
+#if defined(RISCV64) && defined(WINDOWS)
+# error RISC-V on Windows is not supported
+#endif
+
 #undef WEAK /* avoid conflict with C define */
 
 /* This is the alignment needed by both x64 and 32-bit code except
@@ -903,6 +907,28 @@ ASSUME fs:_DATA @N@\
         mov      ARG2, p2   @N@\
         mov      ARG1, p1   @N@\
         blx      callee
+#elif defined(RISCV64)
+# define CALLC0(callee)    \
+        call      callee
+/* FIXME i#3544: Handle p1..4 being registers instead of immediates. */
+# define CALLC1(callee, p1)    \
+        li      ARG1, p1   @N@\
+        call      callee
+# define CALLC2(callee, p1, p2)    \
+        li      ARG2, p2   @N@\
+        li      ARG1, p1   @N@\
+        call      callee
+# define CALLC3(callee, p1, p2, p3)    \
+        li      ARG3, p3   @N@\
+        li      ARG2, p2   @N@\
+        li      ARG1, p1   @N@\
+        call      callee
+# define CALLC4(callee, p1, p2, p3, p4)    \
+        li      ARG4, p4   @N@\
+        li      ARG3, p3   @N@\
+        li      ARG2, p2   @N@\
+        li      ARG1, p1   @N@\
+        call      callee
 #endif
 
 /* For stdcall callees */
@@ -955,6 +981,15 @@ ASSUME fs:_DATA @N@\
 # endif
 # define INC(reg) add reg, reg, POUND 1
 # define DEC(reg) sub reg, reg, POUND 1
+#elif defined(RISCV64)
+# define REG_SCRATCH0 REG_A0
+# define REG_SCRATCH1 REG_A1
+# define REG_SCRATCH2 REG_A2
+# define JUMP     j
+# define JUMP_NOT_EQUAL(lhr, rhs) bne lhs, rhs,
+# define RETURN   ret
+# define INC(reg) addi reg, reg, 1
+# define DEC(reg) addi reg, reg, -1
 #endif /* X86/ARM */
 
 # define TRY_CXT_SETJMP_OFFS 0 /* offsetof(try_except_context_t, context) */

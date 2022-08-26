@@ -3102,7 +3102,10 @@ hook_vsyscall_return:
      */
     ASSERT(!method_changing);
     return false;
-#    endif /* X86/ARM */
+#    elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#    endif /* X86/ARM/RISCV64 */
 }
 
 bool
@@ -3143,7 +3146,10 @@ unhook_vsyscall(void)
 #    elif defined(AARCHXX)
     ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
     return false;
-#    endif /* X86/ARM */
+#    elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#    endif /* X86/ARM/RISCV64 */
 }
 #endif     /* LINUX */
 
@@ -3165,6 +3171,9 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
 #elif defined(AARCHXX)
     if (instr_get_opcode(instr) == OP_svc)
         new_method = SYSCALL_METHOD_SVC;
+#elif defined(RISCV64)
+    if (instr_get_opcode(instr) == OP_ecall)
+        new_method = SYSCALL_METHOD_ECALL;
 #endif /* X86/ARM */
     else
         ASSERT_NOT_REACHED();
@@ -3339,8 +3348,9 @@ does_syscall_ret_to_callsite(void)
 
     return (syscall_method == SYSCALL_METHOD_INT ||
             syscall_method == SYSCALL_METHOD_SYSCALL ||
+            syscall_method == SYSCALL_METHOD_SVC ||
             syscall_method ==
-                SYSCALL_METHOD_SVC IF_WINDOWS(|| syscall_method == SYSCALL_METHOD_WOW64)
+                SYSCALL_METHOD_ECALL IF_WINDOWS(|| syscall_method == SYSCALL_METHOD_WOW64)
                 /* The app is reported to be at whatever's in edx, so
                  * for our purposes it does return to the call site
                  * if we always mangle edx to point there.  Since we inline
@@ -3387,17 +3397,17 @@ size_t
 syscall_instr_length(dr_isa_mode_t mode)
 {
     size_t syslen;
-    IF_X86_ELSE(
-        {
-            ASSERT(INT_LENGTH == SYSCALL_LENGTH);
-            ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
-            syslen = SYSCALL_LENGTH;
-        },
-        {
-            syslen = IF_ARM_ELSE(
-                (mode == DR_ISA_ARM_THUMB ? SVC_THUMB_LENGTH : SVC_ARM_LENGTH),
-                SVC_LENGTH);
-        });
+#if defined(X86)
+    ASSERT(INT_LENGTH == SYSCALL_LENGTH);
+    ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
+    syslen = SYSCALL_LENGTH;
+#elif defined(RISCV64)
+    syslen = SYSCALL_LENGTH;
+#elif defined(ARM)
+    syslen = mode == DR_ISA_ARM_THUMB ? SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
+#else
+    syslen = SVC_LENGTH;
+#endif
     return syslen;
 }
 
@@ -3680,7 +3690,24 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\n\t\tr28=\"" PFX "\"\n\t\tr29=\"" PFX "\""
                    "\n\t\tr30=\"" PFX "\"\n\t\tr31=\"" PFX "\""
 #    endif /* X64 */
-#endif     /* X86/ARM */
+#elif defined(RISCV64)
+                   "\n\t\tx0=\"" PFX "\"\n\t\tx1=\"" PFX "\""
+                   "\n\t\tx2=\"" PFX "\"\n\t\tx3=\"" PFX "\""
+                   "\n\t\tx4=\"" PFX "\"\n\t\tx5=\"" PFX "\""
+                   "\n\t\tx6=\"" PFX "\"\n\t\tx7=\"" PFX "\""
+                   "\n\t\tx8=\"" PFX "\"\n\t\tx9=\"" PFX "\""
+                   "\n\t\tx10=\"" PFX "\"\n\t\tx11=\"" PFX "\""
+                   "\n\t\tx12=\"" PFX "\"\n\t\tx13=\"" PFX "\""
+                   "\n\t\tx14=\"" PFX "\"\n\t\tx15=\"" PFX "\""
+                   "\n\t\tx16=\"" PFX "\"\n\t\tx17=\"" PFX "\""
+                   "\n\t\tx18=\"" PFX "\"\n\t\tx19=\"" PFX "\""
+                   "\n\t\tx20=\"" PFX "\"\n\t\tx21=\"" PFX "\""
+                   "\n\t\tx22=\"" PFX "\"\n\t\tx23=\"" PFX "\""
+                   "\n\t\tx24=\"" PFX "\"\n\t\tx25=\"" PFX "\""
+                   "\n\t\tx26=\"" PFX "\"\n\t\tx27=\"" PFX "\""
+                   "\n\t\tx28=\"" PFX "\"\n\t\tx29=\"" PFX "\""
+                   "\n\t\tx30=\"" PFX "\"\n\t\tx31=\"" PFX "\""
+#endif /* X86/ARM/RISCV64 */
                  : "priv_mcontext_t @" PFX "\n"
 #ifdef X86
                    "\txax = " PFX "\n\txbx = " PFX "\n\txcx = " PFX "\n\txdx = " PFX "\n"
@@ -3700,7 +3727,16 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\tr24 = " PFX "\n\tr25 = " PFX "\n\tr26 = " PFX "\n\tr27 = " PFX "\n"
                    "\tr28 = " PFX "\n\tr29 = " PFX "\n\tr30 = " PFX "\n\tr31 = " PFX "\n"
 #    endif /* X64 */
-#endif     /* X86/ARM */
+#elif defined(RISCV64)
+                   "\tx0  = " PFX "\n\tx1  = " PFX "\n\tx2  = " PFX "\n\tx3  = " PFX "\n"
+                   "\tx4  = " PFX "\n\tx5  = " PFX "\n\tx6  = " PFX "\n\tx7  = " PFX "\n"
+                   "\tx8  = " PFX "\n\tx9  = " PFX "\n\tx10 = " PFX "\n\tx11 = " PFX "\n"
+                   "\tx12 = " PFX "\n\tx13 = " PFX "\n\tx14 = " PFX "\n\tx15 = " PFX "\n"
+                   "\tx16 = " PFX "\n\tx17 = " PFX "\n\tx18 = " PFX "\n\tx19 = " PFX "\n"
+                   "\tx20 = " PFX "\n\tx21 = " PFX "\n\tx22 = " PFX "\n\tx23 = " PFX "\n"
+                   "\tx24 = " PFX "\n\tx25 = " PFX "\n\tx26 = " PFX "\n\tx27 = " PFX "\n"
+                   "\tx28 = " PFX "\n\tx29 = " PFX "\n\tx30 = " PFX "\n\tx31 = " PFX "\n"
+#endif /* X86/ARM/RISCV64 */
         ,
         context,
 #ifdef X86
@@ -3721,7 +3757,14 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         context->r21, context->r22, context->r23, context->r24, context->r25,
         context->r26, context->r27, context->r28, context->r29, context->r30, context->r31
 #    endif /* X64 */
-#endif     /* X86/ARM */
+#elif defined(RISCV64)
+        context->x0, context->x1, context->x2, context->x3, context->x4, context->x5,
+        context->x6, context->x7, context->x8, context->x9, context->x10, context->x11,
+        context->x12, context->x13, context->x14, context->x15, context->x16,
+        context->x17, context->x18, context->x19, context->x20, context->x21,
+        context->x22, context->x23, context->x24, context->x25, context->x26,
+        context->x27, context->x28, context->x29, context->x30, context->x31
+#endif /* X86/ARM/RISCV64 */
     );
 
 #ifdef X86

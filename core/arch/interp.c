@@ -584,7 +584,7 @@ check_for_stopping_point(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef DR_APP_EXPORTS
     if (must_escape_from(bb->cur_pc)) {
         /* x64 will zero-extend to rax, so we use eax here */
-        reg_id_t reg = IF_X86_ELSE(REG_EAX, DR_REG_R0);
+        reg_id_t reg = IF_X86_ELSE(REG_EAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
         BBPRINT(bb, 3, "interp: emergency exit from " PFX "\n", bb->cur_pc);
         /* if ever find ourselves at top of one of these, immediately issue
          * a ret instruction...haven't set up frame yet so stack fine, only
@@ -1860,7 +1860,8 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb, int sysnu
     /* Indicate that this is a non-ignorable syscall so mangle will remove */
     /* FIXME i#1551: maybe we should union int80 and svc as both are inline syscall? */
 #ifdef UNIX
-    if (instr_get_opcode(bb->instr) == IF_X86_ELSE(OP_int, OP_svc)) {
+    if (instr_get_opcode(bb->instr) ==
+        IF_X86_ELSE(OP_int, IF_RISCV64_ELSE(OP_ecall, OP_svc))) {
 #    if defined(MACOS) && defined(X86)
         int num = instr_get_interrupt_number(bb->instr);
         if (num == 0x81 || num == 0x82) {
@@ -2502,7 +2503,11 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#endif /* X86/ARM/RISCV64 */
 }
 
 /* Returns true if the current instr in the BB is an indirect call
@@ -2614,7 +2619,11 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#endif /* X86/ARM/RISCV64 */
 }
 
 /* Called on instructions that save the FPU state */
@@ -2653,7 +2662,7 @@ static bool
 client_check_syscall(instrlist_t *ilist, instr_t *inst, bool *found_syscall,
                      bool *found_int)
 {
-    int op_int = IF_X86_ELSE(OP_int, OP_svc);
+    int op_int = IF_X86_ELSE(OP_int, IF_RISCV64_ELSE(OP_ecall, OP_svc));
     /* We do consider the wow64 call* a syscall here (it is both
      * a syscall and a call*: PR 240258).
      */
@@ -2873,12 +2882,14 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
          * so do so now to get bb->flags and bb->exit_type set
          */
         if (instr_is_syscall(inst) ||
-            instr_get_opcode(inst) == IF_X86_ELSE(OP_int, OP_svc)) {
+            instr_get_opcode(inst) ==
+                IF_X86_ELSE(OP_int, IF_RISCV64_ELSE(OP_ecall, OP_svc))) {
             instr_t *tmp = bb->instr;
             bb->instr = inst;
             if (instr_is_syscall(bb->instr))
                 bb_process_syscall(dcontext, bb);
-            else if (instr_get_opcode(bb->instr) == IF_X86_ELSE(OP_int, OP_svc)) {
+            else if (instr_get_opcode(bb->instr) ==
+                     IF_X86_ELSE(OP_int, IF_RISCV64_ELSE(OP_ecall, OP_svc))) {
                 /* non-syscall int */
                 bb_process_interrupt(dcontext, bb);
             }
@@ -3865,7 +3876,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_syscall(dcontext, bb))
                 break;
         } /* end syscall */
-        else if (instr_get_opcode(bb->instr) == IF_X86_ELSE(OP_int, OP_svc)) {
+        else if (instr_get_opcode(bb->instr) ==
+                 IF_X86_ELSE(OP_int, IF_RISCV64_ELSE(OP_ecall, OP_svc))) {
             /* non-syscall int */
             if (!bb_process_interrupt(dcontext, bb))
                 break;
@@ -5648,6 +5660,10 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
     /* FIXME i#1668: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
+    return false;
 #endif
 }
 
@@ -6555,7 +6571,7 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
 
 #ifdef HASHTABLE_STATISTICS
     DOSTATS({
-        reg_id_t reg = IF_X86_ELSE(REG_XCX, DR_REG_R2);
+        reg_id_t reg = SCRATCH_REG2;
         if (INTERNAL_OPTION(speculate_last_exit_stats)) {
             int tls_stat_scratch_slot = os_tls_offset(HTABLE_STATS_SPILL_SLOT);
             /* XCX already saved */
@@ -6643,7 +6659,7 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
 
     instr_t *inst = instrlist_last(trace); /* currently only relevant to last CTI */
     instr_t *where = inst;                 /* preinsert before exit CTI */
-    reg_id_t reg = IF_X86_ELSE(REG_XCX, DR_REG_R2);
+    reg_id_t reg = SCRATCH_REG2;
     DEBUG_DECLARE(bool ok;)
 
     /* should use similar eflags-clobbering scheme to inline cmp */
@@ -7617,9 +7633,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     }
                     /* now append our new xcx save */
                     instrlist_append(ilist,
-                                     instr_create_save_to_dcontext(
-                                         dcontext, IF_X86_ELSE(REG_XCX, DR_REG_R2),
-                                         IF_X86_ELSE(XCX_OFFSET, R2_OFFSET)));
+                                     instr_create_save_to_dcontext(dcontext, SCRATCH_REG2,
+                                                                   SCRATCH_REG2_OFFS));
                     /* make sure skip current instr */
                     cur_buf += (int)(pc - prev_pc);
                     raw_start_pc = pc;

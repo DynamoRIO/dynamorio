@@ -130,7 +130,7 @@ typedef struct rlimit64 rlimit64_t;
  * For example, MacOS has some 32-bit syscalls that return 64-bit
  * values in xdx:xax.
  */
-#define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
+#define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)))
 #if defined(DR_HOST_AARCH64)
 #    if defined(MACOS)
 #        define READ_TP_TO_R3_DISP_IN_R2      \
@@ -1667,7 +1667,67 @@ os_timeout(int time_in_milliseconds)
 #    define READ_TLS_SLOT(offs, var) \
         var = *((__typeof__(var) *)(tls_get_dr_addr() + offs));
 
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+#    define WRITE_TLS_SLOT_IMM(imm, var)                                       \
+        do {                                                                   \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                             \
+            ASSERT(sizeof(var) == sizeof(void *));                             \
+            __asm__ __volatile__("ld t0, %0(tp) \n\t"                          \
+                                 "sd %1, %2(t0) \n\t"                          \
+                                 :                                             \
+                                 : "i"(DR_TLS_BASE_OFFSET), "r"(var), "i"(imm) \
+                                 : "memory", "t0");                            \
+        } while (0)
+#    define READ_TLS_SLOT_IMM(imm, var)                                \
+        do {                                                           \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                     \
+            ASSERT(sizeof(var) == sizeof(void *));                     \
+            __asm__ __volatile__("ld %0, %1(tp) \n\t"                  \
+                                 "ld %0, %2(%0) \n\t"                  \
+                                 : "=r"(var)                           \
+                                 : "i"(DR_TLS_BASE_OFFSET), "i"(imm)); \
+        } while (0)
+#    define WRITE_TLS_INT_SLOT_IMM(imm, var)                                   \
+        do {                                                                   \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                             \
+            ASSERT(sizeof(var) == sizeof(void *));                             \
+            __asm__ __volatile__("lw t0, %0(tp) \n\t"                          \
+                                 "sw %1, %2(t0) \n\t"                          \
+                                 :                                             \
+                                 : "i"(DR_TLS_BASE_OFFSET), "r"(var), "i"(imm) \
+                                 : "memory", "t0");                            \
+        } while (0)
+#    define READ_TLS_INT_SLOT_IMM(imm, var)                            \
+        do {                                                           \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                     \
+            ASSERT(sizeof(var) == sizeof(void *));                     \
+            __asm__ __volatile__("lw %0, %1(tp) \n\t"                  \
+                                 "lw %0, %2(%0) \n\t"                  \
+                                 : "=r"(var)                           \
+                                 : "i"(DR_TLS_BASE_OFFSET), "i"(imm)); \
+        } while (0)
+#    define WRITE_TLS_SLOT(offs, var)                                           \
+        do {                                                                    \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                              \
+            ASSERT(sizeof(var) == sizeof(void *));                              \
+            __asm__ __volatile__("ld t0, %0(tp) \n\t"                           \
+                                 "add t0, t0, %2\n\t"                           \
+                                 "sd %1, 0(t0) \n\t"                            \
+                                 :                                              \
+                                 : "i"(DR_TLS_BASE_OFFSET), "r"(var), "r"(offs) \
+                                 : "memory", "t0");                             \
+        } while (0)
+#    define READ_TLS_SLOT(offs, var)                                    \
+        do {                                                            \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                      \
+            ASSERT(sizeof(var) == sizeof(void *));                      \
+            __asm__ __volatile__("ld %0, %1(tp) \n\t"                   \
+                                 "add %0, %0, %2\n\t"                   \
+                                 "ld %0, 0(%0) \n\t"                    \
+                                 : "=r"(var)                            \
+                                 : "i"(DR_TLS_BASE_OFFSET), "r"(offs)); \
+        } while (0)
+#endif /* X86/ARM/RISCV64 */
 
 #ifdef X86
 /* We use this at thread init and exit to make it easy to identify
@@ -1777,6 +1837,10 @@ is_thread_tls_initialized(void)
      * deadlock_avoidance_unlock() which calls get_thread_private_dcontext()
      * which comes here.
      */
+    return true;
+#else
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
     return true;
 #endif
     return true;
@@ -2003,7 +2067,7 @@ get_segment_base(uint seg)
 #    else
     return (byte *)POINTER_MAX;
 #    endif /* HAVE_TLS */
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     /* XXX i#1551: should we rename/refactor to avoid "segment"? */
     return (byte *)read_thread_register(seg);
 #endif
@@ -2486,12 +2550,10 @@ os_thread_init(dcontext_t *dcontext, void *os_data)
     }
 #endif
 
-    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n",
-        IF_X86_ELSE("gs", "tpidruro"),
-        get_segment_base(IF_X86_ELSE(SEG_GS, DR_REG_TPIDRURO)));
-    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n",
-        IF_X86_ELSE("fs", "tpidrurw"),
-        get_segment_base(IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW)));
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n", STR_SEG,
+        get_segment_base(SEG_TLS));
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is " PFX "\n", STR_LIB_SEG,
+        get_segment_base(LIB_SEG_TLS));
 
 #ifdef MACOS
     /* XXX: do we need to free/close dcontext->thread_port?  I don't think so. */
@@ -2790,7 +2852,7 @@ os_should_swap_state(void)
 #ifdef X86
     /* -private_loader currently implies -mangle_app_seg, but let's be safe. */
     return (INTERNAL_OPTION(mangle_app_seg) && INTERNAL_OPTION(private_loader));
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     return INTERNAL_OPTION(private_loader);
 #endif
 }
@@ -5235,16 +5297,16 @@ sys_param_addr(dcontext_t *dcontext, int num)
      *     0xffffe405  0f 34                sysenter -> %esp
      */
     switch (num) {
-    case 0: return &mc->IF_X86_ELSE(xbx, r0);
-    case 1: return &mc->IF_X86_ELSE(xcx, r1);
-    case 2: return &mc->IF_X86_ELSE(xdx, r2);
-    case 3: return &mc->IF_X86_ELSE(xsi, r3);
-    case 4: return &mc->IF_X86_ELSE(xdi, r4);
+    case 0: return &mc->IF_X86_ELSE(xbx, IF_RISCV64_ELSE(a0, r0));
+    case 1: return &mc->IF_X86_ELSE(xcx, IF_RISCV64_ELSE(a1, r1));
+    case 2: return &mc->IF_X86_ELSE(xdx, IF_RISCV64_ELSE(a2, r2));
+    case 3: return &mc->IF_X86_ELSE(xsi, IF_RISCV64_ELSE(a3, r3));
+    case 4: return &mc->IF_X86_ELSE(xdi, IF_RISCV64_ELSE(a4, r4));
     /* FIXME: do a safe_read: but what about performance?
      * See the #if 0 below, as well. */
     case 5:
         return IF_X86_ELSE((dcontext->sys_was_int ? &mc->xbp : ((reg_t *)mc->xsp)),
-                           &mc->r5);
+                           &mc->IF_RISCV64_ELSE(a5, r5));
 #    ifdef ARM
     /* AArch32 supposedly has 7 args in some cases. */
     case 6: return &mc->r6;
@@ -6725,7 +6787,13 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2, "%s %s: set_tls swap success=%d for thread " TIDFMT "\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, d_r_get_thread_id());
     return res;
-#endif /* X86/AARCHXX */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    /* Marking as unused to silence -Wunused-variable. */
+    (void)os_tls;
+    return false;
+#endif /* X86/AARCHXX/RISCV64 */
 }
 
 #ifdef LINUX

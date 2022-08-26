@@ -349,7 +349,17 @@ get_stack_ptr(void);
 #        define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
 #        define GET_CUR_PC(var) \
             __asm__ __volatile__("bl 1f\n1: str lr, %0" : "=m"(var) : : "lr")
-#    endif /* X86/ARM */
+#    elif defined(DR_HOST_RISCV64)
+#        define RDTSC_LL(llval)                                      \
+            do {                                                     \
+                __asm__ __volatile__("csrr %0, time" : "=r"(llval)); \
+            } while (0)
+
+#        define GET_FRAME_PTR(var) __asm__ __volatile__("mv %0, fp" : "=r"(var))
+#        define GET_STACK_PTR(var) __asm__ __volatile__("mv %0, sp" : "=r"(var))
+#        define GET_CUR_PC(var) \
+            __asm__ __volatile__("jal t0, 1f; 1: sd t0, %0" : "=m"(var) : : "t0")
+#    endif /* X86/ARM/RISCV64 */
 #endif     /* UNIX */
 
 #define DEBUGGER_INTERRUPT_BYTE 0xcc
@@ -1738,6 +1748,8 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
     case DR_ISA_ARM_A32: reg = mc->r11; break;
 #elif defined(AARCH64)
     case DR_ISA_ARM_A64: reg = mc->r29; break;
+#elif defined(RISCV64)
+    case DR_ISA_RV64IMAFDC: reg = mc->x8; break;
 #endif /* X86/ARM/AARCH64 */
     default: ASSERT_NOT_REACHED(); reg = 0;
     }

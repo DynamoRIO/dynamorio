@@ -65,6 +65,9 @@ get_simd_vals(priv_mcontext_t *mc)
 #elif defined(ARM)
     /* FIXME i#1551: no xmm but SIMD regs on ARM */
     ASSERT_NOT_REACHED();
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif
 }
 
@@ -289,7 +292,7 @@ new_thread_setup(priv_mcontext_t *mc)
      */
     mc->xsp = get_clone_record_app_xsp(crec);
     /* clear xax/r0 (was used as scratch in gencode, and app expects 0) */
-    mc->IF_X86_ELSE(xax, r0) = 0;
+    mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = 0;
     /* clear pc */
     mc->pc = 0;
 #    ifdef AARCHXX

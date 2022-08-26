@@ -78,16 +78,22 @@
 #    if defined(MACOS64)
 #        define SEG_TLS SEG_GS     /* DR is sharing the app's segment. */
 #        define LIB_SEG_TLS SEG_GS /* libc+loader tls */
+#        define STR_SEG "gs"
+#        define STR_LIB_SEG "gs"
 #    elif defined(X64)
 #        define SEG_TLS SEG_GS
 #        define ASM_SEG "%gs"
 #        define LIB_SEG_TLS SEG_FS /* libc+loader tls */
 #        define LIB_ASM_SEG "%fs"
+#        define STR_SEG "gs"
+#        define STR_LIB_SEG "fs"
 #    else
 #        define SEG_TLS SEG_FS
 #        define ASM_SEG "%fs"
 #        define LIB_SEG_TLS SEG_GS /* libc+loader tls */
 #        define LIB_ASM_SEG "%gs"
+#        define STR_SEG "fs"
+#        define STR_LIB_SEG "gs"
 #    endif
 #elif defined(AARCHXX)
 /* The SEG_TLS is not preserved by all kernels (older 32-bit, or all 64-bit), so we
@@ -100,20 +106,28 @@
 #        ifdef MACOS
 #            define SEG_TLS DR_REG_TPIDR_EL0       /* cpu number */
 #            define LIB_SEG_TLS DR_REG_TPIDRRO_EL0 /* loader tls */
+#            define STR_SEG "tpidrurw"
+#            define STR_LIB_SEG "tpidruro"
 #        else
 #            define SEG_TLS DR_REG_TPIDRRO_EL0   /* DR_REG_TPIDRURO, but can't use it */
 #            define LIB_SEG_TLS DR_REG_TPIDR_EL0 /* DR_REG_TPIDRURW, libc+loader tls */
+#            define STR_SEG "tpidruro"
+#            define STR_LIB_SEG "tpidrurw"
 #        endif
 #    else
 #        define SEG_TLS                                                     \
             DR_REG_TPIDRURW /* not restored by older kernel => we can't use \
                              */
 #        define LIB_SEG_TLS DR_REG_TPIDRURO /* libc+loader tls */
-#    endif                                  /* 64/32-bit */
+#        define STR_SEG "tpidrurw"
+#        define STR_LIB_SEG "tpidruro"
+#    endif /* 64/32-bit */
 #elif defined(RISCV64)
 /* FIXME i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
 #    define SEG_TLS DR_REG_INVALID
 #    define LIB_SEG_TLS DR_REG_TP
+#    define STR_SEG "<none>"
+#    define STR_LIB_SEG "tp"
 #endif /* X86/ARM */
 
 #define TLS_REG_LIB LIB_SEG_TLS /* TLS reg commonly used by libraries in Linux */
