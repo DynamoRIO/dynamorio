@@ -1268,7 +1268,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app: no PC translation needed (at vsyscall)\n");
         }
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
         if (!just_pc) {
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app: restoring xdx (at sysenter)\n");

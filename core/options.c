@@ -1345,6 +1345,15 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.protect_mask &= ~SELFPROT_DCONTEXT;
         changed_options = true;
     }
+
+#    if defined(MACOS) && defined(AARCH64)
+    if (TEST(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
+        USAGE_ERROR("memory protection changes incompatible with MAP_JIT");
+        dynamo_options.protect_mask &= ~SELFPROT_GENCODE;
+        changed_options = true;
+    }
+#    endif
+
 #    ifdef TRACE_HEAD_CACHE_INCR
     if (TESTANY(SELFPROT_LOCAL | SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
         USAGE_ERROR("Cannot protect heap in a TRACE_HEAD_CACHE_INCR build");
@@ -1393,7 +1402,7 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.shared_traces = false;
         changed_options = true;
     }
-#            ifdef X64
+#            if defined(X64) && !(defined(MACOS) && defined(AARCH64))
     /* PR 361894: we do not support x64 without TLS (xref PR 244737) */
 #                error X64 requires HAVE_TLS
 #            endif

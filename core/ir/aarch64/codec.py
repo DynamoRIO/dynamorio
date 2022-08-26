@@ -694,7 +694,7 @@ def main():
     # partially supported. The null terminator element at the end is required
     # by some generator functions to correctly generate links between each
     # version's decode/encode logic.
-    isa_versions = ['v80', 'v81', 'v82', 'sve', '']
+    isa_versions = ['v80', 'v81', 'v82', 'v83', 'sve', '']
 
     # Read the instruction operand definitions. Used by the codec when
     # generating code to decode and encode instructions.

@@ -162,8 +162,8 @@ DECLARE_NEVERPROT_VAR(byte *exception_stack, NULL);
 START_DATA_SECTION(NEVER_PROTECTED_SECTION, "w");
 
 /* spinlock used in assembly trampolines when we can't spare registers for more */
-mutex_t initstack_mutex VAR_IN_SECTION(NEVER_PROTECTED_SECTION) =
-    INIT_SPINLOCK_FREE(initstack_mutex);
+mutex_t initstack_mutex IF_AARCH64(__attribute__((aligned(8))))
+    VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = INIT_SPINLOCK_FREE(initstack_mutex);
 byte *initstack_app_xsp VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
 /* keeps track of how many threads are in cleanup_and_terminate */
 volatile int exiting_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;

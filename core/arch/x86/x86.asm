@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -523,14 +523,14 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         END_FUNC(dynamorio_app_take_over)
 
 /*
- * cleanup_and_terminate(dcontext_t *dcontext,     // 1*ARG_SZ+XBP
- *                       int sysnum,               // 2*ARG_SZ+XBP = syscall #
- *                       int sys_arg1/param_base,  // 3*ARG_SZ+XBP = arg1 for syscall
- *                       int sys_arg2,             // 4*ARG_SZ+XBP = arg2 for syscall
- *                       bool exitproc,            // 5*ARG_SZ+XBP
- *                       (these 2 args are only used for Mac thread exit:)
- *                       int sys_arg3,             // 6*ARG_SZ+XBP = arg3 for syscall
- *                       int sys_arg4)             // 7*ARG_SZ+XBP = arg4 for syscall
+ * cleanup_and_terminate(dcontext_t *dcontext,        // 1*ARG_SZ+XBP
+ *                   ptr_uint_t sysnum,               // 2*ARG_SZ+XBP = syscall #
+ *                   ptr_uint_t sys_arg1/param_base,  // 3*ARG_SZ+XBP = arg1 for syscall
+ *                   ptr_uint_t sys_arg2,             // 4*ARG_SZ+XBP = arg2 for syscall
+ *                   bool exitproc,                   // 5*ARG_SZ+XBP
+ *                   (These 2 args are only used for Mac thread exit:)
+ *                   ptr_uint_t sys_arg3,             // 6*ARG_SZ+XBP = arg3 for syscall
+ *                   ptr_uint_t sys_arg4)             // 7*ARG_SZ+XBP = arg4 for syscall
  *
  * See decl in arch_exports.h for description.
  *

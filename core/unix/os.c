@@ -132,9 +132,15 @@ typedef struct rlimit64 rlimit64_t;
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
 #if defined(DR_HOST_AARCH64)
-#    define READ_TP_TO_R3_DISP_IN_R2    \
-        "mrs " ASM_R3 ", tpidr_el0\n\t" \
-        "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
+#    if defined(MACOS)
+#        define READ_TP_TO_R3_DISP_IN_R2      \
+            "mrs " ASM_R3 ", tpidrro_el0\n\t" \
+            "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
+#    else
+#        define READ_TP_TO_R3_DISP_IN_R2    \
+            "mrs " ASM_R3 ", tpidr_el0\n\t" \
+            "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
+#    endif
 #elif defined(DR_HOST_ARM)
 #    define READ_TP_TO_R3_DISP_IN_R2                                           \
         "mrc p15, 0, " ASM_R3                                                  \
@@ -1291,12 +1297,23 @@ query_time_seconds(void)
     }
 }
 
+#if defined(MACOS) && defined(AARCH64)
+#    include <sys/time.h>
+#endif
+
 /* milliseconds since 1601 */
 uint64
 query_time_millis()
 {
     struct timeval current_time;
+#if !(defined(MACOS) && defined(AARCH64))
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
+#else
+    /* TODO i#5383: Replace with a system call. */
+#    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
+    uint64 val = gettimeofday(&current_time, NULL);
+#endif
+
 #ifdef MACOS
     /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
     if (macos_version < MACOS_VERSION_SIERRA) {
@@ -1511,7 +1528,7 @@ os_timeout(int time_in_milliseconds)
 #    define READ_TLS_INT_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
 #    define WRITE_TLS_SLOT(offs, var) offs = var ? 0 : 1, ASSERT_NOT_REACHED()
 #    define READ_TLS_SLOT(offs, var) var = (void *)(ptr_uint_t)offs, ASSERT_NOT_REACHED()
-#elif defined(MACOS64)
+#elif defined(MACOS64) && !defined(AARCH64)
 /* For now we have both a directly-addressable os_local_state_t and a pointer to
  * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
  * we would probably get rid of the indirection here and directly access slot fields.
@@ -1593,7 +1610,7 @@ os_timeout(int time_in_milliseconds)
         asm("movzw" IF_X64_ELSE("q", "l") " %0, %%" ASM_XAX : : "m"((offs)) : ASM_XAX); \
         asm("mov %" ASM_SEG ":(%%" ASM_XAX "), %%" ASM_XAX : : : ASM_XAX);              \
         asm("mov %%" ASM_XAX ", %0" : "=m"((var)) : : ASM_XAX);
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) && !defined(MACOS)
 /* Android needs indirection through a global.  The Android toolchain has
  * trouble with relocations if we use a global directly in asm, so we convert to
  * a local variable in these macros.  We pay the cost of the extra instructions
@@ -1639,6 +1656,17 @@ os_timeout(int time_in_milliseconds)
                                  : "r"(_base_offs), "r"(offs)                       \
                                  : ASM_R2, ASM_R3);                                 \
         } while (0)
+#elif defined(AARCH64) && defined(MACOS)
+
+#    define WRITE_TLS_SLOT_IMM(imm, var) WRITE_TLS_SLOT(imm, var)
+#    define READ_TLS_SLOT_IMM(imm, var) READ_TLS_SLOT(imm, var)
+#    define WRITE_TLS_INT_SLOT_IMM(imm, var) WRITE_TLS_SLOT(imm, var)
+#    define READ_TLS_INT_SLOT_IMM(imm, var) READ_TLS_SLOT(imm, var)
+#    define WRITE_TLS_SLOT(offs, var) \
+        *((__typeof__(var) *)(tls_get_dr_addr() + offs)) = var;
+#    define READ_TLS_SLOT(offs, var) \
+        var = *((__typeof__(var) *)(tls_get_dr_addr() + offs));
+
 #endif /* X86/ARM */
 
 #ifdef X86
@@ -1652,7 +1680,10 @@ static os_local_state_t uninit_tls; /* has .magic == 0 */
 static bool
 is_thread_tls_initialized(void)
 {
-#ifdef MACOS64
+#if defined(MACOS) && defined(AARCH64)
+    os_local_state_t *v = (void *)tls_get_dr_addr();
+    return v != NULL && v->tls_type == TLS_TYPE_SLOT;
+#elif defined(MACOS64) && !defined(AARCH64)
     /* For now we have both a directly-addressable os_local_state_t and a pointer to
      * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
      * we would probably get rid of the indirection here and directly read the magic
@@ -1706,7 +1737,7 @@ is_thread_tls_initialized(void)
             /* XXX: make this a safe read: but w/o dcontext we need special asm support */
             READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
         }
-#    ifdef X64
+#    if defined(X64) && defined(X86)
         if (os_tls == NULL && tls_dr_using_msr()) {
             /* When the MSR is used, the selector in the register remains 0.
              * We can't clear the MSR early in a new thread and then look for
@@ -1748,6 +1779,7 @@ is_thread_tls_initialized(void)
      */
     return true;
 #endif
+    return true;
 }
 
 bool
@@ -1800,7 +1832,7 @@ os_tls_offset(ushort tls_offs)
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (TLS_LOCAL_STATE_OFFSET + tls_offs IF_MACOS64(+tls_get_dr_offs()));
+    return (TLS_LOCAL_STATE_OFFSET + tls_offs IF_X86(IF_MACOS64(+tls_get_dr_offs())));
 }
 
 /* converts a segment offset to a local_state_t offset */
@@ -1960,7 +1992,7 @@ d_r_set_tls(ushort tls_offs, void *value)
 byte *
 get_segment_base(uint seg)
 {
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
     ptr_uint_t *pthread_self = (ptr_uint_t *)read_thread_register(seg);
     return (byte *)&pthread_self[SEG_TLS_BASE_OFFSET];
 #elif defined(X86)
@@ -2179,7 +2211,7 @@ os_tls_init(void)
     ASSERT(!is_thread_tls_initialized());
 
     /* MUST zero out dcontext slot so uninit access gets NULL */
-    memset(segment, 0, PAGE_SIZE);
+    memset(segment, 0, IF_MACOSA64_ELSE(sizeof(os_local_state_t), PAGE_SIZE));
     /* store key data in the tls itself */
     os_tls->self = os_tls;
     os_tls->tid = get_sys_thread_id();
@@ -3123,6 +3155,10 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     uint os_prot = memprot_to_osprot(prot);
     uint os_flags =
         MAP_PRIVATE | MAP_ANONYMOUS | (TEST(RAW_ALLOC_32BIT, flags) ? MAP_32BIT : 0);
+#if defined(MACOS) && defined(AARCH64)
+    if (TEST(MEMPROT_EXEC, prot))
+        os_flags |= MAP_JIT;
+#endif
 
     ASSERT(error_code != NULL);
     /* should only be used on aligned pieces */
@@ -3314,15 +3350,17 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     /* should only be used on aligned pieces */
     ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
     ASSERT(error_code != NULL);
+    uint os_flags = MAP_PRIVATE |
+        MAP_ANONYMOUS IF_X64(| (DYNAMO_OPTION(heap_in_lower_4GB) ? MAP_32BIT : 0));
+#if defined(MACOS) && defined(AARCH64)
+    if (executable)
+        os_flags |= MAP_JIT;
+#endif
 
     /* FIXME: note that this memory is in fact still committed - see man mmap */
     /* FIXME: case 2347 on Linux or -vm_reserve should be set to false */
     /* FIXME: Need to actually get a mmap-ing with |MAP_NORESERVE */
-    p = mmap_syscall(
-        preferred, size, prot,
-        MAP_PRIVATE |
-            MAP_ANONYMOUS IF_X64(| (DYNAMO_OPTION(heap_in_lower_4GB) ? MAP_32BIT : 0)),
-        -1, 0);
+    p = mmap_syscall(preferred, size, prot, os_flags, -1, 0);
     if (!mmap_syscall_succeeded(p)) {
         *error_code = -(heap_error_code_t)(ptr_int_t)p;
         LOG(GLOBAL, LOG_HEAP, 4, "os_heap_reserve %d bytes failed " PFX "\n", size, p);
@@ -3390,6 +3428,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
 {
     byte *p = NULL;
+    void *find_start = start;
     byte *try_start = NULL, *try_end = NULL;
     uint iters = 0;
 
@@ -3406,7 +3445,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
 
         /* loop to handle races */
 #define RESERVE_IN_REGION_MAX_ITERS 128
-    while (find_free_memory_in_region(start, end, size, &try_start, &try_end)) {
+    while (find_free_memory_in_region(find_start, end, size, &try_start, &try_end)) {
         /* If there's space we'd prefer the end, to avoid the common case of
          * a large binary + heap at attach where we're likely to reserve
          * right at the start of the brk: we'd prefer to leave more brk space.
@@ -3421,6 +3460,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
             ASSERT_NOT_REACHED();
             break;
         }
+        find_start = try_end;
     }
     if (p == NULL)
         *error_code = HEAP_ERROR_CANT_RESERVE_IN_REGION;
@@ -5172,7 +5212,7 @@ sys_param_addr(dcontext_t *dcontext, int num)
     default: CLIENT_ASSERT(false, "invalid system call parameter number");
     }
 #else
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
     /* XXX: if we don't end up using dcontext->sys_was_int here, we could
      * make that field Linux-only.
      */
@@ -5238,7 +5278,12 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          */
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
     } else
+#    ifdef X86
         return !TEST(EFLAGS_CF, mc->xflags);
+#    else
+        return -1;
+#    endif
+
 #else
     if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
 #    if !defined(ARM) && !defined(X64)
@@ -5260,7 +5305,7 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
 {
     /* since always coming from d_r_dispatch now, only need to set mcontext */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#ifdef MACOS
+#if defined(MACOS) && defined(X86)
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
      * there it doesn't hurt to set CF.
      */
@@ -5274,7 +5319,7 @@ static inline void
 set_failure_return_val(dcontext_t *dcontext, uint errno_val)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#ifdef MACOS
+#if defined(MACOS) && defined(X86)
     /* On MacOS, success is determined by CF, and errno is positive */
     mc->xflags |= EFLAGS_CF;
     MCXT_SYSCALL_RES(mc) = errno_val;

@@ -304,7 +304,11 @@ enum {
 #elif defined(AARCHXX)
 #    define MCXT_FLD_FIRST_REG r0
 #    ifdef X64
-#        define MCXT_FLD_SYSNUM_REG r8
+#        ifdef MACOS
+#            define MCXT_FLD_SYSNUM_REG r16
+#        else
+#            define MCXT_FLD_SYSNUM_REG r8
+#        endif
 #    else
 #        define MCXT_FLD_SYSNUM_REG r7
 #    endif /* 64/32 */

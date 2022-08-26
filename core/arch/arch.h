@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1361,7 +1361,23 @@ new_thread_setup(priv_mcontext_t *mc);
 #    ifdef MACOS
 void
 new_bsdthread_setup(priv_mcontext_t *mc);
+/* Enable writing to MAP_JIT pages.
+ * This is for the local thread only and not process-wide.
+ */
+
+#        define PTHREAD_JIT_WRITE() pthread_jit_write_protect_np(false)
+/* Enable writing to MAP_JIT pages.
+ * This is for the local thread only and not process-wide.
+ */
+#        define PTHREAD_JIT_READ() pthread_jit_write_protect_np(true)
+void
+pthread_jit_write_protect_np(int);
 #    endif
+#endif
+
+#ifndef PTHREAD_JIT_WRITE
+#    define PTHREAD_JIT_WRITE()
+#    define PTHREAD_JIT_READ()
 #endif
 
 void

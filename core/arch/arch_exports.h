@@ -340,7 +340,7 @@ get_stack_ptr(void);
 #        define GET_FRAME_PTR(var) __asm__ __volatile__("mov %0, x29" : "=r"(var))
 #        define GET_STACK_PTR(var) __asm__ __volatile__("mov %0, sp" : "=r"(var))
 #        define GET_CUR_PC(var) \
-            __asm__ __volatile__("bl 1f; 1: str x30, %0" : "=m"(var) : : "x30")
+            __asm__ __volatile__("bl 1f\n1: str x30, %0" : "=m"(var) : : "x30")
 #    elif defined(DR_HOST_ARM)
 #        define RDTSC_LL(llval) (llval) = proc_get_timestamp()
 /* FIXME i#1551: frame pointer is r7 in thumb mode */
@@ -348,7 +348,7 @@ get_stack_ptr(void);
             __asm__ __volatile__("str " IF_X64_ELSE("x29", "r11") ", %0" : "=m"(var))
 #        define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
 #        define GET_CUR_PC(var) \
-            __asm__ __volatile__("bl 1f; 1: str lr, %0" : "=m"(var) : : "lr")
+            __asm__ __volatile__("bl 1f\n1: str lr, %0" : "=m"(var) : : "lr")
 #    endif /* X86/ARM */
 #endif     /* UNIX */
 

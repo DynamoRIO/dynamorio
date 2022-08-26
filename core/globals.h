@@ -1188,7 +1188,9 @@ strtoul(const char *str, char **end, int base);
 #    define sigaltstack sigaltstack_forbidden_function
 #    define setitimer setitimer_forbidden_function
 #    define _exit _exit_forbidden_function
-#    define gettimeofday gettimeofday_forbidden_function
+#    if !(defined(MACOS) && defined(AARCH64))
+#        define gettimeofday gettimeofday_forbidden_function
+#    endif
 #    define time time_forbidden_function
 #    define modify_ldt modify_ldt_forbidden_function
 #endif

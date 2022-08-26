@@ -327,7 +327,8 @@ typedef struct _mutex_t {
     bool deleted;                     /* this lock has been deleted at least once */
 #endif                                /* DEADLOCK_AVOIDANCE */
     /* Any new field needs to be initialized with INIT_LOCK_NO_TYPE */
-} mutex_t;
+} /* XXX i#5383: 8-align is needed for MacM1 or for aarch64 in general? */
+IF_MACOS(IF_AARCH64(__attribute__((aligned(8))))) mutex_t;
 
 /* A spin_mutex_t is the same thing as a mutex_t (and all utils.c users use it as
  * such).  It exists only to enforce type separation outside of utils.c which
