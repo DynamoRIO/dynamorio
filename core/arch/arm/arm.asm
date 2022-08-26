@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -246,11 +246,11 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
 
 /*
  * cleanup_and_terminate(dcontext_t *dcontext,     // 0*ARG_SZ+sp
- *                       int sysnum,               // 1*ARG_SZ+sp = syscall #
- *                       int sys_arg1/param_base,  // 2*ARG_SZ+sp = arg1 for syscall
- *                       int sys_arg2,             // 3*ARG_SZ+sp = arg2 for syscall
- *                       bool exitproc,            // 4*ARG_SZ+sp
- *                       (2 more args that are ignored: Mac-only))
+ *                   int sysnum,               // 1*ARG_SZ+sp = syscall #
+ *                   ptr_uint_t sys_arg1/param_base,  // 2*ARG_SZ+sp = arg1 for syscall
+ *                   ptr_uint_t sys_arg2,             // 3*ARG_SZ+sp = arg2 for syscall
+ *                   bool exitproc,            // 4*ARG_SZ+sp
+ *                   (2 more args that are ignored: Mac-only))
  *
  * See decl in arch_exports.h for description.
  */

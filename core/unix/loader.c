@@ -109,6 +109,9 @@ static const char *const system_lib_paths[] = {
 #    elif defined(AARCH64)
     "/lib/aarch64-linux-gnu",
     "/usr/lib/aarch64-linux-gnu",
+#    elif defined(RISCV64)
+    "/lib/riscv64-linux-gnu",
+    "/usr/lib/riscv64-linux-gnu",
 #    endif
 #endif
 };
@@ -2195,4 +2198,15 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 #    endif /* !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY) */
 #else
 /* XXX i#1285: implement MacOS private loader */
+void
+relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
+{
+    ASSERT_NOT_IMPLEMENTED(false);
+}
+
+void
+privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
+{
+    ASSERT_NOT_IMPLEMENTED(false);
+}
 #endif

@@ -49,6 +49,13 @@
 #cmakedefine ARM
 #cmakedefine AARCH64
 #cmakedefine AARCHXX
+#cmakedefine RISCV64
+#cmakedefine RISCV_ISA_I
+#cmakedefine RISCV_ISA_M
+#cmakedefine RISCV_ISA_A
+#cmakedefine RISCV_ISA_F
+#cmakedefine RISCV_ISA_D
+#cmakedefine RISCV_ISA_C
 #cmakedefine X64
 #cmakedefine WINDOWS
 #cmakedefine LINUX
@@ -68,6 +75,7 @@
 #cmakedefine DR_HOST_ARM
 #cmakedefine DR_HOST_AARCH64
 #cmakedefine DR_HOST_AARCHXX
+#cmakedefine DR_HOST_RISCV64
 #cmakedefine DR_HOST_X64
 #cmakedefine DR_HOST_NOT_TARGET
 
@@ -232,7 +240,13 @@
 */
 
 #ifdef MACOS
+
+#ifndef AARCH64
 # define ASSEMBLE_WITH_NASM
+#else
+# define ASSEMBLE_WITH_GAS
+#endif
+
 #elif defined(UNIX)
 # define ASSEMBLE_WITH_GAS
 #else

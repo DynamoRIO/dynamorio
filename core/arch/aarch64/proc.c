@@ -109,6 +109,7 @@ proc_init_arch(void)
     }
 
 #ifndef DR_HOST_NOT_TARGET
+#    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
     get_processor_specific_info();
 
     DOLOG(1, LOG_TOP, {
@@ -149,7 +150,9 @@ proc_init_arch(void)
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64DFR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64dfr0);
         LOG_FEATURE(FEATURE_SPE);
+        LOG_FEATURE(FEATURE_PAUTH);
     });
+#    endif
 #endif
 }
 
@@ -169,7 +172,7 @@ proc_has_feature(feature_bit_t f)
     if (f == FEATURE_LSE || f == FEATURE_RDM || f == FEATURE_FP16 ||
         f == FEATURE_DotProd || f == FEATURE_SVE || f == FEATURE_LOR ||
         f == FEATURE_FHM || f == FEATURE_SM3 || f == FEATURE_SM4 || f == FEATURE_SHA512 ||
-        f == FEATURE_SHA3 || f == FEATURE_RAS || f == FEATURE_SPE)
+        f == FEATURE_SHA3 || f == FEATURE_RAS || f == FEATURE_SPE || f == FEATURE_PAUTH)
         return true;
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;

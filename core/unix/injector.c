@@ -896,6 +896,11 @@ enum { MAX_SHELL_CODE = 4096 };
 #        define REG_PC_FIELD pc
 #        define REG_SP_FIELD sp
 #        define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */
+#    elif defined(DR_HOST_RISCV64)
+#        define USER_REGS_TYPE user_regs_struct
+#        define REG_PC_FIELD pc
+#        define REG_SP_FIELD sp
+#        define REG_RETVAL_FIELD a0
 #    endif
 
 enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
@@ -917,6 +922,8 @@ system_call_length(dr_isa_mode_t mode)
     return SVC_LENGTH;
 #    elif defined(ARM)
     return mode == DR_ISA_ARM_THUMB ? SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
+#    elif defined(RISCV64)
+    return SYSCALL_LENGTH;
 #    else
 #        error Unsupported arch.
 #    endif
@@ -1019,7 +1026,7 @@ our_ptrace(int request, pid_t pid, void *addr, void *data)
 static long
 our_ptrace_getregs(pid_t pid, struct USER_REGS_TYPE *regs)
 {
-#    ifdef AARCH64
+#    if defined(AARCH64) || defined(RISCV64)
     struct iovec iovec = { regs, sizeof(*regs) };
     return our_ptrace(PTRACE_GETREGSET, pid, (void *)NT_PRSTATUS, &iovec);
 #    else
@@ -1144,6 +1151,8 @@ gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds, opnd_t *ar
 #        else
     APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((sbyte)0x80)));
 #        endif
+#    elif defined(RISCV64)
+    APP(ilist, INSTR_CREATE_ecall(dc));
 #    else
     APP(ilist, INSTR_CREATE_svc(dc, opnd_create_immed_int((sbyte)0x0, OPSZ_1)));
 #    endif /* X86 */
@@ -1238,6 +1247,8 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     app_mode = DR_ISA_ARM_A64;
 #    elif defined(ARM)
     app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+#    elif defined(RISCV64)
+    app_mode = DR_ISA_RV64IMAFDC;
 #    else
 #        error Unsupported arch.
 #    endif
@@ -1790,6 +1801,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     app_mode = DR_ISA_ARM_A64;
 #    elif defined(ARM)
     app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+#    elif defined(RISCV64)
+    app_mode = DR_ISA_RV64IMAFDC;
 #    else
 #        error Unsupported arch.
 #    endif
@@ -1853,7 +1866,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     strncpy(args.home_dir, getenv("HOME"), BUFFER_SIZE_ELEMENTS(args.home_dir));
     NULL_TERMINATE_BUFFER(args.home_dir);
 
-#    if defined(X86) || defined(AARCHXX)
+#    if defined(X86) || defined(AARCHXX) || defined(RISCV64)
     regs.REG_SP_FIELD -= REDZONE_SIZE; /* Need to preserve x64 red zone. */
     regs.REG_SP_FIELD -= sizeof(args); /* Allocate space for args. */
     regs.REG_SP_FIELD = ALIGN_BACKWARD(regs.REG_SP_FIELD, REGPARM_END_ALIGN);
