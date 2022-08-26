@@ -488,8 +488,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     machine_cache_sync(gencode->gen_start_pc, gencode->gen_end_pc, true);
 }
 
-static void
-shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void))
+static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void))
 {
     generated_code_t *gencode;
     ibl_branch_type_t branch_type;
@@ -911,8 +910,7 @@ arch_profile_exit()
 #endif /* WINDOWS_PC_SAMPLE */
 
 /* arch-specific atexit cleanup */
-void
-d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
+void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 {
     /* we only need to unprotect shared_code for profile extraction
      * so we do it there to also cover the fast exit path
@@ -1982,8 +1980,7 @@ fcache_return_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
     return (cache_pc)code->fcache_return;
 }
 
-cache_pc
-fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
@@ -1993,8 +1990,7 @@ fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
         return (cache_pc)code->fcache_return_coarse;
 }
 
-cache_pc
-trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
@@ -2769,8 +2765,7 @@ fcache_enter_shared_routine(dcontext_t *dcontext)
         SHARED_GENCODE_MATCH_THREAD(dcontext)->fcache_enter);
 }
 
-cache_pc
-fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());
@@ -2781,8 +2776,7 @@ fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 }
 
 #ifdef TRACE_HEAD_CACHE_INCR
-cache_pc
-trace_head_incr_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc trace_head_incr_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());

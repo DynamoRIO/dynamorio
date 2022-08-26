@@ -4586,7 +4586,7 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
 #ifdef AARCHXX
 #    if defined(MACOS)
         /* TODO i#5383: NYI. */
-        ASSERT_NOT_IMPLEMENTED();
+        ASSERT_NOT_IMPLEMENTED(false);
 #    endif
         /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
         if (f == NULL && sc->SC_R2 != 0)

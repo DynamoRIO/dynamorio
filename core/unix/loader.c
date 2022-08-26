@@ -2198,12 +2198,12 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 void
 relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
 {
-    ASSERT_NOT_IMPLEMENTED();
+    ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
 privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 {
-    ASSERT_NOT_IMPLEMENTED();
+    ASSERT_NOT_IMPLEMENTED(false);
 }
 #endif
