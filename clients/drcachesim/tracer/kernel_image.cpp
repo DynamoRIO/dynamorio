@@ -30,8 +30,7 @@
  * DAMAGE.
  */
 
-#include <gelf.h>
-#include <libelf.h>
+#include <elf.h>
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
@@ -191,70 +190,97 @@ kernel_image_t::read_kallsyms()
 bool
 kernel_image_t::read_kcore()
 {
-    proc_module_t *module = modules_;
-    if (modules_ == nullptr) {
-        return false;
-    }
-
-    elf_version(EV_CURRENT);
     file_t fd = dr_open_file(KCORE_FILE_PATH, DR_FILE_READ);
     if (fd < 0) {
         ASSERT(false, "failed to open" KCORE_FILE_PATH);
         return false;
     }
-    Elf *kcore_elf = elf_begin(fd, ELF_C_READ, nullptr);
-    if (kcore_elf == nullptr) {
-        ASSERT(false, "failed to read kcore elf");
+
+    uint8_t e_ident[EI_NIDENT];
+    if (dr_read_file(fd, e_ident, sizeof(e_ident)) != sizeof(e_ident)) {
+        ASSERT(false, "failed to read the e_ident array of " KCORE_FILE_PATH);
+        dr_close_file(fd);
+        return false;
+    }
+
+    for (int idx = 0; idx < SELFMAG; ++idx) {
+        if (e_ident[idx] != ELFMAG[idx]) {
+            ASSERT(false, KCORE_FILE_PATH " is not an ELF file");
+            dr_close_file(fd);
+            return false;
+        }
+    }
+    if (e_ident[EI_CLASS] != ELFCLASS64) {
+        ASSERT(false, KCORE_FILE_PATH " is not a 64-bit ELF file");
         dr_close_file(fd);
         return false;
     }
 
     /* Read phdrs from kcore. */
-    size_t knumphdr;
-    elf_getphdrnum(kcore_elf, &knumphdr);
-    GElf_Phdr *kphdr = (GElf_Phdr *)dr_global_alloc(knumphdr * sizeof(GElf_Phdr));
-    memset(kphdr, 0, knumphdr * sizeof(GElf_Phdr));
-    for (size_t i = 0; i < knumphdr; i++) {
-        if (!gelf_getphdr(kcore_elf, i, &kphdr[i])) {
-            dr_global_free(kphdr, knumphdr * sizeof(GElf_Phdr));
-            elf_end(kcore_elf);
+    if (!dr_file_seek(fd, 0, DR_SEEK_SET)) {
+        ASSERT(false, "failed to seek to the begin of " KCORE_FILE_PATH);
+        dr_close_file(fd);
+        return false;
+    }
+
+    Elf64_Ehdr ehdr;
+    if (dr_read_file(fd, &ehdr, sizeof(ehdr)) != sizeof(ehdr)) {
+        ASSERT(false, "failed to read the ehdr of " KCORE_FILE_PATH);
+        dr_close_file(fd);
+        return false;
+    }
+    if (LONG_MAX < ehdr.e_phoff) {
+        ASSERT(false, "the ELF header of " KCORE_FILE_PATH " is too big");
+        dr_close_file(fd);
+        return false;
+    }
+
+    if (!dr_file_seek(fd, (long)ehdr.e_phoff, DR_SEEK_SET)) {
+        ASSERT(false, "failed to seek the program header's end of " KCORE_FILE_PATH);
+        dr_close_file(fd);
+        return false;
+    }
+
+    for (Elf64_Half pidx = 0; pidx < ehdr.e_phnum; ++pidx) {
+        Elf64_Phdr phdr;
+        if (dr_read_file(fd, &phdr, sizeof(phdr)) != sizeof(phdr)) {
+            ASSERT(false, "failed to read the Phdr of " KCORE_FILE_PATH);
             dr_close_file(fd);
             return false;
         }
+
+        if (phdr.p_type != PT_LOAD || phdr.p_filesz == 0)
+            continue;
+        /* Read code segment metadata from kcore. */
+        proc_module_t *module = modules_;
+        if (module == nullptr) {
+            ASSERT(false, "no module found in " MODULES_FILE_PATH);
+            dr_close_file(fd);
+            return false;
+        }
+        proc_kcore_code_segment_t *last_kcore_code_segment = kcore_code_segments_;
+        while (module != nullptr) {
+            if (module->start >= phdr.p_vaddr &&
+                module->end < phdr.p_vaddr + phdr.p_filesz) {
+                proc_kcore_code_segment_t *kcore_code_segment =
+                    (proc_kcore_code_segment_t *)dr_global_alloc(
+                        sizeof(proc_kcore_code_segment_t));
+                kcore_code_segment->start = module->start - phdr.p_vaddr + phdr.p_offset;
+                kcore_code_segment->len = module->end - module->start;
+                kcore_code_segment->base = module->start;
+                kcore_code_segment->next = nullptr;
+                if (last_kcore_code_segment == nullptr) {
+                    kcore_code_segments_ = kcore_code_segment;
+                    last_kcore_code_segment = kcore_code_segment;
+                } else {
+                    last_kcore_code_segment->next = kcore_code_segment;
+                    last_kcore_code_segment = kcore_code_segment;
+                }
+            }
+            module = module->next;
+        }
     }
 
-    /* Read code segment metadata from kcore. */
-    proc_kcore_code_segment_t *last_kcore_code_segment = kcore_code_segments_;
-    do {
-        GElf_Phdr *phdr = nullptr;
-        for (size_t i = 0; i < knumphdr; i++) {
-            if (module->start >= kphdr[i].p_vaddr &&
-                module->end < kphdr[i].p_vaddr + kphdr[i].p_filesz) {
-                phdr = &kphdr[i];
-            }
-        }
-        if (phdr == nullptr) {
-            module = module->next;
-            continue;
-        }
-        proc_kcore_code_segment_t *kcore_code_segment =
-            (proc_kcore_code_segment_t *)dr_global_alloc(
-                sizeof(proc_kcore_code_segment_t));
-        kcore_code_segment->start = module->start - phdr->p_vaddr + phdr->p_offset;
-        kcore_code_segment->len = module->end - module->start;
-        kcore_code_segment->base = module->start;
-        kcore_code_segment->next = nullptr;
-        if (last_kcore_code_segment == nullptr) {
-            kcore_code_segments_ = kcore_code_segment;
-            last_kcore_code_segment = kcore_code_segment;
-        } else {
-            last_kcore_code_segment->next = kcore_code_segment;
-            last_kcore_code_segment = kcore_code_segment;
-        }
-    } while ((module = module->next) != nullptr);
-
-    dr_global_free(kphdr, knumphdr * sizeof(GElf_Phdr));
-    elf_end(kcore_elf);
     dr_close_file(fd);
     return true;
 }

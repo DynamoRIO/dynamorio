@@ -1524,6 +1524,8 @@ event_exit(void)
         drpttracer_exit();
         /* Dump kcore to kimage and kimage.metadata, and store the two file to
          * {kernel_pt_logsubdir}.
+         * The Kernel dump function is only invoked at processes exit on the Linux X86_64
+         * platform.
          */
         if (!syscall_pt_trace_t::kernel_image_dump(kernel_pt_logsubdir)) {
             NOTIFY(0, "WARNING: failed to dump kernel image\n");

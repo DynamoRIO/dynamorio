@@ -34,7 +34,6 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string.h>
-#include <inttypes.h>
 #include <errno.h>
 #include <fstream>
 
@@ -417,8 +416,9 @@ pt2ir_t::load_kernel_image(IN std::string &path, IN std::string &metadata_path)
     std::string line;
     while (std::getline(metadata_f, line)) {
         uint64_t offset = 0, len = 0, vaddr = 0;
-        if (sscanf(line.c_str(), "%" PRIx64 " %" PRIx64 " %" PRIx64 " %", &offset, &len,
-                   &vaddr) < 3) {
+        if (sscanf(line.c_str(),
+                   HEX64_FORMAT_STRING " " HEX64_FORMAT_STRING " " HEX64_FORMAT_STRING,
+                   &offset, &len, &vaddr) < 3) {
             ERRMSG("Failed to parse metadata file: %s(%s).\n", metadata_path.c_str(),
                    line.c_str());
             metadata_f.close();
@@ -461,9 +461,10 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
         ERRMSG("Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));
-        ERRMSG("[?, %" PRIx64 "] %s: %s\n", ip, errtype, pt_errstr(pt_errcode(errcode)));
-    } else {
-        ERRMSG("[%" PRIx64 ", IP:%" PRIx64 "] %s: %s\n", pos, ip, errtype,
+        ERRMSG("[?, " HEX64_FORMAT_STRING "] %s: %s\n", ip, errtype,
                pt_errstr(pt_errcode(errcode)));
+    } else {
+        ERRMSG("[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING "] %s: %s\n", pos, ip,
+               errtype, pt_errstr(pt_errcode(errcode)));
     }
 }

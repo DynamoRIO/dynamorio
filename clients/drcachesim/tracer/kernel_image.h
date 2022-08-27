@@ -31,6 +31,7 @@
  */
 
 /* kernel_image.h: header of module for dump kernel code segments to one file.
+ * This is only for Linux x86_64.
  */
 
 #ifndef _KCORE_H_
