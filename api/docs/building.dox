@@ -46,7 +46,7 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
   # Install dependencies for Ubuntu 15+.  Adjust this command as appropriate for
   # other distributions (in particular, use "cmake3" for Ubuntu Trusty).
   $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev libsnappy-dev liblz4-dev
-  # Get sources and initialize the submodule third_party/libipt.
+  # Get sources and initialize the submodules.
   $ git clone --recursive https://github.com/DynamoRIO/dynamorio.git
   # Make a separate build directory.  Building in the source directory is not
   # supported.

@@ -59,6 +59,9 @@
 #    include "common/gzip_istream.h"
 #    include "common/gzip_ostream.h"
 #    include "common/zlib_istream.h"
+#    ifdef HAS_ZIP
+#        include "common/zipfile_ostream.h"
+#    endif
 #endif
 #ifdef HAS_SNAPPY
 #    include "common/snappy_istream.h"
@@ -208,15 +211,22 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
                     DIRSEP, outname, TRACE_SUFFIX) <= 0) {
         return "Failed to compute full path of output file for " + std::string(basename);
     }
-    std::ostream *ofile;
-#ifdef HAS_ZLIB
-    ofile = new gzip_ostream_t(path);
+#ifdef HAS_ZIP
+    archive_ostream_t *ofile = new zipfile_ostream_t(path);
+    out_archives_.push_back(ofile);
+    if (!(*out_archives_.back()))
+        return "Failed to open output file " + std::string(path);
 #else
+    std::ostream *ofile;
+#    ifdef HAS_ZLIB
+    ofile = new gzip_ostream_t(path);
+#    else
     ofile = new std::ofstream(path, std::ofstream::binary);
-#endif
+#    endif
     out_files_.push_back(ofile);
     if (!(*out_files_.back()))
         return "Failed to open output file " + std::string(path);
+#endif
     VPRINT(1, "Opened output file %s\n", path);
     return "";
 }
@@ -400,6 +410,9 @@ raw2trace_directory_t::~raw2trace_directory_t()
     for (std::vector<std::ostream *>::iterator fo = out_files_.begin();
          fo != out_files_.end(); ++fo) {
         delete *fo;
+    }
+    for (auto *archive : out_archives_) {
+        delete archive;
     }
     dr_standalone_exit();
 }

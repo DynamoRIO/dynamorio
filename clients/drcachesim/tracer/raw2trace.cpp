@@ -542,9 +542,7 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
-    int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
-        ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
-        : TRACE_ENTRY_VERSION;
+    int version = offline_version_to_trace_version(tdata->version);
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
@@ -562,6 +560,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
     tdata->tid = tid;
+    tdata->pid = header.pid;
     tdata->cache_line_size = header.cache_line_size;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
@@ -1050,6 +1049,11 @@ raw2trace_t::append_delayed_branch(void *tls)
                reinterpret_cast<const trace_entry_t *>(&contents[0])->addr, tdata->index);
         if (!tdata->out_file->write(&contents[0], contents.size()))
             return "Failed to write to output file";
+        if (tdata->out_archive != nullptr && ++tdata->instr_count >= chunk_instr_count_) {
+            std::string error = open_new_chunk(tdata);
+            if (!error.empty())
+                return error;
+        }
     }
     tdata->delayed_branch.clear();
     return "";
@@ -1062,13 +1066,83 @@ raw2trace_t::get_write_buffer(void *tls)
     return tdata->out_buf.data();
 }
 
-bool
+std::string
+raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
+{
+    // TODO i#5538: Re-emit the header entries and last timestamp from the prior chunk.
+    // On a linear read, skip over these duplicated headers.  On a seek, cache them,
+    // update timestamp and cpu as do linear portion of seek, and then emit them all
+    // at the target point.
+    return "";
+}
+
+std::string
+raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
+{
+    if (tdata->out_archive == nullptr)
+        return "Archive file was not specified";
+
+    log(1, "Creating new chunk #" INT64_FORMAT_STRING "\n", tdata->component_count_);
+
+    // XXX i#5538: Should we emit a footer?
+
+    std::ostringstream stream;
+    stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
+           << tdata->component_count_;
+    std::string error = tdata->out_archive->open_new_component(stream.str());
+    if (!error.empty())
+        return error;
+    tdata->instr_count = 0;
+    ++tdata->component_count_;
+    if (tdata->component_count_ == 1)
+        return "";
+
+    // Re-emit the top-of-file headers so each chunk is self-contained.
+    error = emit_new_chunk_header(tdata);
+    if (!error.empty())
+        return error;
+
+    // TODO i#5520: Once we emit encodings, we need to clear the encoding cache
+    // here so that each chunk is self-contained.
+
+    // TODO i#5538: Add a virtual-to-physical cache and clear it here.
+    // We'll need to add a routine for trace_converter_t to call to query our cache --
+    // or we can put the cache in trace_converter_t and have it clear the cache via
+    // a new new-chunk return value from write() and append_delayed_branch().
+    // Insertion of v2p markers in all but the first chunk will need to prepend
+    // them to the instr after observing its memref: we may want to reserve the
+    // first out_buf slot to avoid a memmove.
+
+    return "";
+}
+
+std::string
 raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    return !!tdata->out_file->write(reinterpret_cast<const char *>(start),
-                                    reinterpret_cast<const char *>(end) -
-                                        reinterpret_cast<const char *>(start));
+    if (tdata->out_archive != nullptr) {
+        for (const trace_entry_t *it = start; it < end; ++it) {
+            if (!type_is_instr(static_cast<trace_type_t>(it->type)))
+                continue;
+            if (++tdata->instr_count > chunk_instr_count_) {
+                if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                            reinterpret_cast<const char *>(it) -
+                                                reinterpret_cast<const char *>(start)))
+                    return "Failed to write to output file";
+                if (it == end)
+                    return "";
+                start = it + 1;
+                std::string error = open_new_chunk(tdata);
+                if (!error.empty())
+                    return error;
+            }
+        }
+    }
+    if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                reinterpret_cast<const char *>(end) -
+                                    reinterpret_cast<const char *>(start)))
+        return "Failed to write to output file";
+    return "";
 }
 
 std::string
@@ -1167,8 +1241,10 @@ raw2trace_t::get_file_type(void *tls)
 raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
                          const std::vector<std::ostream *> &out_files,
+                         const std::vector<archive_ostream_t *> &out_archives,
                          file_t encoding_file, void *dcontext, unsigned int verbosity,
-                         int worker_count, const std::string &alt_module_dir)
+                         int worker_count, const std::string &alt_module_dir,
+                         uint64_t chunk_instr_count)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
@@ -1177,7 +1253,12 @@ raw2trace_t::raw2trace_t(const char *module_map,
     , encoding_file_(encoding_file)
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)
+    , chunk_instr_count_(chunk_instr_count)
 {
+    if (out_files.size() + out_archives.size() != thread_files.size()) {
+        VPRINT(0, "Invalid input and output file lists\n");
+        return;
+    }
     if (dcontext == NULL) {
 #ifdef ARM
         // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
@@ -1189,7 +1270,14 @@ raw2trace_t::raw2trace_t(const char *module_map,
     for (size_t i = 0; i < thread_data_.size(); ++i) {
         thread_data_[i].index = static_cast<int>(i);
         thread_data_[i].thread_file = thread_files[i];
-        thread_data_[i].out_file = out_files[i];
+        if (out_files.empty()) {
+            thread_data_[i].out_archive = out_archives[i];
+            thread_data_[i].out_file = out_archives[i];
+            open_new_chunk(&thread_data_[i]);
+        } else {
+            thread_data_[i].out_archive = nullptr;
+            thread_data_[i].out_file = out_files[i];
+        }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
     // static work assigment.  This won't be as load balanced as a dynamic work
