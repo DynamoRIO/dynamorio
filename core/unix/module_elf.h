@@ -202,6 +202,13 @@
 #    define ELF_R_GLOB_DAT R_RISCV_64             /* Create GOT entry. */
 #    define ELF_R_JUMP_SLOT R_RISCV_JUMP_SLOT     /* Create PLT entry. */
 #    define ELF_R_RELATIVE R_RISCV_RELATIVE       /* Adjust by program base. */
+/* FIXME i#3544: R_RISCV_IRELATIVE was added after libc 2.31 and some distros
+ * don't have it yet (i.e. Ubuntu 20.04). The official number has been defined
+ * here: https://github.com/riscv/riscv-elf-psabi-doc/commit/d21ca40a.
+ */
+#    ifndef R_RISCV_IRELATIVE
+#        define R_RISCV_IRELATIVE 58
+#    endif
 #    define ELF_R_IRELATIVE R_RISCV_IRELATIVE     /* STT_GNU_IFUNC relocation. */
 /* tls related */
 #    define ELF_R_TLS_DTPMOD R_RISCV_TLS_DTPMOD64 /* Module ID. */

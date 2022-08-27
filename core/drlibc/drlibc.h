@@ -49,6 +49,10 @@
 #    include <sys/stat.h>
 #endif
 
+#if defined(MACOS) && defined(AARCH64)
+struct stat64 __DARWIN_STRUCT_STAT64;
+#endif
+
 /* If the caller is using the DR API they'll have our types that way; else we
  * include globals_shared.h.
  */

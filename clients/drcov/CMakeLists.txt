@@ -175,15 +175,20 @@ get_property(dox_targets GLOBAL PROPERTY DynamoRIO_dox_targets)
 set_property(GLOBAL PROPERTY DynamoRIO_dox_targets ${dox_targets} ${doctgt})
 
 add_custom_target(${doctgt} DEPENDS ${gendoc})
-add_custom_command(
-  OUTPUT ${gendoc}
-  DEPENDS ${srcdoc}
-  drcov2lcov
-  COMMAND ${CMAKE_COMMAND}
-  ARGS -D src=${srcdoc}
-       -D dst=${gendoc}
-       -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
-       -D prog=$<TARGET_FILE:drcov2lcov>
-       -D prog_arg=-help_html
-       -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
-  VERBATIM)
+# FIXME i#3544: Re-enable once RISC-V binaries work so that options can be generated.
+if (RISCV64 AND NOT CMAKE_CROSSCOMPILING)
+  file(COPY_FILE ${srcdoc} ${gendoc})
+else ()
+  add_custom_command(
+    OUTPUT ${gendoc}
+    DEPENDS ${srcdoc}
+    drcov2lcov
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -D src=${srcdoc}
+        -D dst=${gendoc}
+        -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
+        -D prog=$<TARGET_FILE:drcov2lcov>
+        -D prog_arg=-help_html
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
+    VERBATIM)
+endif ()

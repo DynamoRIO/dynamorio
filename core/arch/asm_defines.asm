@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -86,6 +86,10 @@
 # error ARM/AArch64 on Windows is not supported
 #endif
 
+#if defined(RISCV64) && defined(WINDOWS)
+# error RISC-V on Windows is not supported
+#endif
+
 #undef WEAK /* avoid conflict with C define */
 
 /* This is the alignment needed by both x64 and 32-bit code except
@@ -99,23 +103,75 @@
 # define START_DATA .data
 # define START_FILE .text
 # define END_FILE /* nothing */
-# define DECLARE_FUNC(symbol) \
+
+# if defined(MACOS) && defined(AARCH64)
+
+#  define DECLARE_FUNC(symbol) \
+.p2align 2 @N@ \
+.globl _##symbol @N@ \
+.private_extern _##symbol @N@ \
+
+#  define DECLARE_EXPORTED_FUNC(symbol) \
+.p2align 2 @N@ \
+.globl _##symbol @N@ \
+
+#  define DECLARE_GLOBAL(symbol) \
+.globl _##symbol @N@\
+.private_extern _##symbol
+
+#  define GLOBAL_LABEL(label) _##label
+#  define GLOBAL_REF(label) _##label
+
+#  define AARCH64_ADRP_GOT(sym, reg) \
+adrp reg, sym@PAGE @N@\
+add reg, reg, sym@PAGEOFF
+
+#  define AARCH64_ADRP_GOT_LDR(sym, reg) \
+adrp reg, sym@PAGE @N@ \
+add  reg, reg, sym@PAGEOFF
+
+#  define SYSNUM_REG w16
+
+# else
+
+#  define DECLARE_FUNC(symbol) \
 .align 0 @N@\
 .global symbol @N@\
 .hidden symbol @N@\
 .type symbol, %function
-# define DECLARE_EXPORTED_FUNC(symbol) \
+
+#  define DECLARE_EXPORTED_FUNC(symbol) \
 .align 0 @N@\
 .global symbol @N@\
 .type symbol, %function
-# define END_FUNC(symbol) /* nothing */
-# define DECLARE_GLOBAL(symbol) \
+
+#  define DECLARE_GLOBAL(symbol) \
 .global symbol @N@\
 .hidden symbol
-# define GLOBAL_LABEL(label) label
+
+#  define GLOBAL_LABEL(label) label
+#  define GLOBAL_REF(label) label
+
+#  define AARCH64_ADRP_GOT(sym, reg) \
+adrp reg, sym @N@ \
+add reg, reg, @P@:lo12:sym
+
+#  define AARCH64_ADRP_GOT_LDR(sym, reg) \
+adrp reg, :got:sym @N@ \
+ldr  reg, [reg, @P@:got_lo12:sym]
+
+#  define SYSNUM_REG w8
+
+# endif
+
+# define END_FUNC(symbol) /* nothing */
+#if defined(MACOS) && defined(AARCH64)
+# define ADDRTAKEN_LABEL(label) _##label
+# define WEAK(name) .weak_definition name
+#else
 # define ADDRTAKEN_LABEL(label) label
-# define GLOBAL_REF(label) label
 # define WEAK(name) .weak name
+#endif
 # ifdef X86
 #  define BYTE byte ptr
 #  define WORD word ptr
@@ -851,6 +907,28 @@ ASSUME fs:_DATA @N@\
         mov      ARG2, p2   @N@\
         mov      ARG1, p1   @N@\
         blx      callee
+#elif defined(RISCV64)
+# define CALLC0(callee)    \
+        call      callee
+/* FIXME i#3544: Handle p1..4 being registers instead of immediates. */
+# define CALLC1(callee, p1)    \
+        li      ARG1, p1   @N@\
+        call      callee
+# define CALLC2(callee, p1, p2)    \
+        li      ARG2, p2   @N@\
+        li      ARG1, p1   @N@\
+        call      callee
+# define CALLC3(callee, p1, p2, p3)    \
+        li      ARG3, p3   @N@\
+        li      ARG2, p2   @N@\
+        li      ARG1, p1   @N@\
+        call      callee
+# define CALLC4(callee, p1, p2, p3, p4)    \
+        li      ARG4, p4   @N@\
+        li      ARG3, p3   @N@\
+        li      ARG2, p2   @N@\
+        li      ARG1, p1   @N@\
+        call      callee
 #endif
 
 /* For stdcall callees */
@@ -903,8 +981,23 @@ ASSUME fs:_DATA @N@\
 # endif
 # define INC(reg) add reg, reg, POUND 1
 # define DEC(reg) sub reg, reg, POUND 1
+#elif defined(RISCV64)
+# define REG_SCRATCH0 REG_A0
+# define REG_SCRATCH1 REG_A1
+# define REG_SCRATCH2 REG_A2
+# define JUMP     j
+# define JUMP_NOT_EQUAL(lhr, rhs) bne lhs, rhs,
+# define RETURN   ret
+# define INC(reg) addi reg, reg, 1
+# define DEC(reg) addi reg, reg, -1
 #endif /* X86/ARM */
 
 # define TRY_CXT_SETJMP_OFFS 0 /* offsetof(try_except_context_t, context) */
+
+#if defined(AARCH64) && defined(MACOS)
+#define HIDDEN(x) .private_extern x
+#else
+#define HIDDEN(x) .hidden x
+#endif
 
 #endif /* _ASM_DEFINES_ASM_ */

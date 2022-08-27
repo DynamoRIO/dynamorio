@@ -209,6 +209,9 @@ frag_flags_from_isa_mode(dr_isa_mode_t mode)
         return FRAG_THUMB;
     ASSERT(mode == DR_ISA_ARM_A32);
     return 0;
+#elif defined(RISCV64)
+    ASSERT(mode == DR_ISA_RV64IMAFDC);
+    return 0;
 #endif
 }
 

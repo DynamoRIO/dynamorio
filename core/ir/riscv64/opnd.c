@@ -37,6 +37,7 @@
 uint
 opnd_immed_float_arch(uint opcode)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }

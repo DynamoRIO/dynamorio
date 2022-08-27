@@ -4578,7 +4578,7 @@ dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slot
 {
     CLIENT_ASSERT(tls_register != NULL, "dr_raw_tls_calloc: tls_register cannot be NULL");
     CLIENT_ASSERT(offset != NULL, "dr_raw_tls_calloc: offset cannot be NULL");
-    *tls_register = IF_X86_ELSE(SEG_TLS, dr_reg_stolen);
+    *tls_register = IF_X86_ELSE(SEG_TLS, IF_RISCV64_ELSE(DR_REG_TP, dr_reg_stolen));
     if (num_slots == 0)
         return true;
     return os_tls_calloc(offset, num_slots, alignment);
@@ -5423,6 +5423,8 @@ static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] =
 #elif defined(AARCHXX)
     /* DR_REG_R0 is not used here. See prepare_for_clean_call. */
     DR_REG_R6, DR_REG_R5, DR_REG_R4, DR_REG_R3, DR_REG_R2, DR_REG_R1
+#elif defined(RISCV64)
+    DR_REG_A6, DR_REG_A5, DR_REG_A4, DR_REG_A3, DR_REG_A2, DR_REG_A1
 #endif /* X86/ARM */
 };
 
@@ -5682,7 +5684,7 @@ DR_API void
 dr_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                     dr_spill_slot_t slot)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     CLIENT_ASSERT(drcontext != NULL, "dr_save_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
@@ -5697,7 +5699,7 @@ DR_API void
 dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                        dr_spill_slot_t slot)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     CLIENT_ASSERT(drcontext != NULL, "dr_restore_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
@@ -5711,7 +5713,7 @@ dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
 DR_API void
 dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     dr_save_arith_flags_to_reg(drcontext, ilist, where, reg);
 }
@@ -5719,7 +5721,7 @@ dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 DR_API void
 dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg);
 }
@@ -5752,7 +5754,12 @@ dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(
         ilist, where,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg), opnd_create_reg(DR_REG_NZCV)));
-#endif /* X86/ARM/AARCH64 */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented. Perhaps float flags should be saved here? */
+    ASSERT_NOT_IMPLEMENTED(false);
+    /* Marking as unused to silence -Wunused-variable. */
+    (void)dcontext;
+#endif /* X86/ARM/AARCH64/RISCV64 */
 }
 
 DR_API void
@@ -5787,7 +5794,12 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
     MINSERT(
         ilist, where,
         INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV), opnd_create_reg(reg)));
-#endif /* X86/ARM/AARCH64 */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented. Perhaps float flags should be restored here? */
+    ASSERT_NOT_IMPLEMENTED(false);
+    /* Marking as unused to silence -Wunused-variable. */
+    (void)dcontext;
+#endif /* X86/ARM/AARCH64/RISCV64 */
 }
 
 DR_API reg_t
@@ -5991,7 +6003,10 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
      * Also, we may want to split these out into arch/{x86,arm}/ files
      */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM/RISCV64 */
 }
 
 /* NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
@@ -6226,7 +6241,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
 #elif defined(ARM)
     /* i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM/RISCV64 */
 }
 
 DR_API void
@@ -7261,7 +7279,7 @@ DR_API
 reg_id_t
 dr_get_stolen_reg()
 {
-    return IF_X86_ELSE(REG_NULL, dr_reg_stolen);
+    return IF_AARCHXX_ELSE(dr_reg_stolen, REG_NULL);
 }
 
 DR_API

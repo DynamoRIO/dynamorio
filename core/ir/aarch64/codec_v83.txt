@@ -1,0 +1,57 @@
+# **********************************************************
+# Copyright (c) 2016-2022 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# See header comments in codec_v80.txt and opnd_defs.txt to understand how
+# instructions are defined for the purposes of decode and encode code
+# generation.
+
+# TODO i#5623: Add the complete set of pointer authentication instructions,
+# along with whatever else is in v8.3.  For now we only include
+# instructions needed for initial M1 support.
+
+# TODO i#5623: Add the INSTR_CREATE_ macros for the opcodes below and
+# add tests for these.
+
+# Instruction definitions:
+
+110110101100000100011101xxxxxxxx  n   690  PAUTH   autdb         : x5 x0
+11010101000000110010001111111111  n   681  PAUTH autibsp         :
+1101011100111111000010xxxxxxxxxx  n   782  PAUTH   blraa  impx30 : x5 x0
+1101011000111111000010xxxxx11111  n   682  PAUTH  blraaz  impx30 : x5
+1101011100011111000010xxxxxxxxxx  n   683  PAUTH    braa         : x5 x0
+1101101011000001000010xxxxxxxxxx  n   687  PAUTH   pacda         : x0 x5
+1101101011000001000000xxxxxxxxxx  n   688  PAUTH   pacia         : x0 x5
+1101101011000001000001xxxxxxxxxx  n   689  PAUTH   pacib         : x0 x5
+11010101000000110010001101111111  n   680  PAUTH pacibsp         :
+110110101100000100100011111xxxxx  n   684  PAUTH  paciza         : x0
+11010110010111110000101111111111  n   679  PAUTH    reta         :
+11010110010111110000111111111111  n   679  PAUTH    reta         :
+110110101100000101000111111xxxxx  n   686  PAUTH   xpacd         : x0
+110110101100000101000011111xxxxx  n   685  PAUTH   xpaci         : x0

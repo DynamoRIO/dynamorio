@@ -68,7 +68,8 @@ is_macho_header(app_pc base, size_t size)
     ASSERT(offsetof(struct mach_header, filetype) ==
            offsetof(struct mach_header_64, filetype));
     if ((hdr->magic == MH_MAGIC && hdr->cputype == CPU_TYPE_X86) ||
-        (hdr->magic == MH_MAGIC_64 && hdr->cputype == CPU_TYPE_X86_64)) {
+        (hdr->magic == MH_MAGIC_64 &&
+         (hdr->cputype == CPU_TYPE_X86_64 || hdr->cputype == CPU_TYPE_ARM64))) {
         /* We shouldn't see MH_PRELOAD as it can't be loaded by the kernel */
         if (hdr->filetype == MH_EXECUTE || hdr->filetype == MH_DYLIB ||
             hdr->filetype == MH_BUNDLE || hdr->filetype == MH_DYLINKER ||
@@ -88,6 +89,7 @@ platform_from_macho(file_t f, dr_platform_t *platform)
     if (!is_macho_header((app_pc)&mach_hdr, sizeof(mach_hdr)))
         return false;
     switch (mach_hdr.cputype) {
+    case CPU_TYPE_ARM64: *platform = DR_PLATFORM_64BIT; break;
     case CPU_TYPE_X86_64: *platform = DR_PLATFORM_64BIT; break;
     case CPU_TYPE_X86: *platform = DR_PLATFORM_32BIT; break;
     default: return false;
