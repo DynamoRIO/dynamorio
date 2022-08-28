@@ -3835,6 +3835,10 @@ if (BUILD_CLIENTS)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.gencode)
       target_link_libraries(tool.drcacheoff.gencode drmemtrace_raw2trace
         drmemtrace_analyzer)
+      if (BUILD_PT_POST_PROCESSOR)
+        # Add the directory containing libipt.so and libipt-sb.so to the linker search path.
+        SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${PROJECT_BINARY_DIR}/lib'")
+      endif (BUILD_PT_POST_PROCESSOR)
       target_include_directories(tool.drcacheoff.gencode PUBLIC
         "${PROJECT_SOURCE_DIR}/clients/drcachesim"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
