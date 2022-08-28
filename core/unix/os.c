@@ -11117,6 +11117,319 @@ os_check_option_compatibility(void)
     return false;
 }
 
+static size_t
+literal_prefix(const char *p, int escape)
+{
+    size_t len = 0;
+    size_t prefix_len = 0;
+    int seen_bracket = 0;
+    char c;
+
+    while ((c = *p++)) {
+        ++len;
+
+        switch (c) {
+        case '\\': {
+            if (!escape) {
+                break;
+            }
+
+            return prefix_len;
+        }
+        case '?':
+        case '*': {
+            return prefix_len;
+        }
+        case '[': {
+            seen_bracket = 1;
+            break;
+        }
+        case ']': {
+            if (seen_bracket) {
+                return prefix_len;
+            }
+
+            break;
+        }
+        case '/': {
+            prefix_len = len;
+            break;
+        }
+        }
+    }
+
+    return len;
+}
+
+static void
+append_path(const char *path, int is_dir, os_glob_t *glob)
+{
+    /* Naive realloc that allocates one extra slot for the path. */
+    char **paths = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char *, glob->gl_pathc + 2,
+                                    ACCT_OTHER, PROTECTED);
+
+    if (glob->gl_pathv) {
+        memcpy(paths, glob->gl_pathv, sizeof(char *) * (glob->gl_pathc + 1));
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, glob->gl_pathv, char *, glob->gl_pathc + 1,
+                        ACCT_OTHER, PROTECTED);
+    }
+
+    glob->gl_pathv = paths;
+
+    char *new_path = NULL;
+
+    if (is_dir) {
+        size_t len = strlen(path);
+
+        if (len >= 1 && path[len - 1] == '/') {
+            new_path = dr_strdup(path HEAPACCT(ACCT_OTHER));
+        } else {
+            /* Allocate extra space for the '/'. */
+            new_path = (char *)heap_alloc(GLOBAL_DCONTEXT, len + 2 HEAPACCT(ACCT_OTHER));
+
+            strncpy(new_path, path, len);
+            new_path[len] = '/';
+            new_path[len + 1] = '\0';
+        }
+    } else {
+        /* Simply duplicate the path. */
+        new_path = dr_strdup(path HEAPACCT(ACCT_OTHER));
+    }
+
+    /* Store the path and NULL-terminate the array. */
+    paths[glob->gl_pathc++] = new_path;
+    paths[glob->gl_pathc] = NULL;
+}
+
+int
+os_match_dir(char *directory, const char *pattern, int flags, os_glob_t *glob)
+{
+    file_t dir;
+    dir_iterator_t iter;
+    size_t len = strlen(directory);
+    int is_dir = 0;
+
+    if (len > 0 && directory[len - 1] != '/') {
+        directory[len] = '/';
+        directory[len + 1] = '\0';
+    }
+
+    /* Iterate over the directory and match against the glob pattern. */
+    dir = os_open_directory(directory, OS_OPEN_READ);
+
+    if (dir == INVALID_FILE) {
+        directory[len] = '\0';
+        return -1;
+    }
+
+    ++len;
+
+    os_dir_iterator_start(&iter, dir);
+
+    while (os_dir_iterator_next(&iter)) {
+        /* Skip references to parent and self. */
+        if (strcmp(iter.name, ".") == 0 || strcmp(iter.name, "..") == 0) {
+            continue;
+        }
+
+        snprintf(directory, 4 * MAXIMUM_PATH, "%s%s", directory, iter.name);
+
+        is_dir = (os_match_dir(directory, pattern, flags, glob) == 0);
+
+        /* Skip if it is not a directory and we are only interested in
+         * directories.
+         */
+        if (!is_dir && flags & OS_GLOB_ONLYDIR) {
+            directory[len] = '\0';
+            continue;
+        }
+
+        /* Match the pattern against the name of the current directory
+         * entry.
+         */
+        if (fnmatch(pattern, directory, 0) != 0) {
+            directory[len] = '\0';
+            continue;
+        }
+
+        /* Append the path to the list. */
+        append_path(directory, is_dir, glob);
+        directory[len] = '\0';
+    }
+
+    /* Ensure there are no reading errors. */
+    ASSERT(iter.end == 0);
+
+    os_close(dir);
+
+    return 0;
+}
+
+void
+os_globfree(os_glob_t *glob)
+{
+    size_t i;
+
+    if (!glob || !glob->gl_pathv) {
+        return;
+    }
+
+    /* Free each path. */
+    for (i = 0; i < glob->gl_pathc; ++i) {
+        dr_strfree(glob->gl_pathv[glob->gl_offs + i] HEAPACCT(ACCT_OTHER));
+    }
+
+    /* Free the array of paths. */
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, glob->gl_pathv, char *, glob->gl_pathc + 1,
+                    ACCT_OTHER, PROTECTED);
+
+    /* Reset the array and count fields. */
+    glob->gl_pathc = 0;
+    glob->gl_pathv = NULL;
+}
+
+/* This is a much simpler implementation of the glob function provided on most
+ * POSIX-compliant systems, since we only use it to either construct a list of
+ * directories or a list of file paths. Therefore, this only supports the
+ * OS_GLOB_ONLYDIR flag for now to optionally skip files.
+ *
+ * This function always appends new paths to the list of paths and does not
+ * clear the list of paths. Use os_globfree if you need the list of paths to be
+ * cleared.
+ *
+ * While fnmatch allows you to disable escaping, this function does not expose
+ * that functionality and always assumes patterns support escaping.
+ *
+ * This function does not support skipping a number of entries in the path list
+ * or sorting.
+ *
+ * Unlike glob, this implementation does not accept an error callback.
+ */
+int
+os_glob(const char *pattern, int flags, os_glob_t *glob)
+{
+    char directory[4 * MAXIMUM_PATH] = { 0 };
+    size_t len;
+    int is_dir = 0;
+
+    /* Determine the literal prefix of the pattern that we can just use as a
+     * path directly.
+     */
+    len = literal_prefix(pattern, 1);
+    strncpy(directory, pattern, len);
+    directory[len] = '\0';
+
+    /* The pattern is not literal. */
+    if (pattern[len] != '\0') {
+        /* Start matching the pattern against the file names. */
+        os_match_dir(directory, pattern, flags, glob);
+
+        return 0;
+    }
+
+    /* Check if the file exists. */
+    if (os_file_exists(directory, true)) {
+        is_dir = 1;
+    } else if (os_file_exists(directory, false)) {
+        is_dir = 0;
+    } else {
+        return 0;
+    }
+
+    if (!is_dir && flags & OS_GLOB_ONLYDIR) {
+        return 0;
+    }
+
+    /* Append the path to the list. */
+    append_path(directory, is_dir, glob);
+
+    return 0;
+}
+
+ssize_t
+os_getdelim(char **lineptr, size_t *n, int delim, file_t file)
+{
+    char *new_line, *line, *pos;
+    char c;
+    ssize_t result, nbytes = 0;
+
+    if (!lineptr || !n) {
+        return -1;
+    }
+
+    if (file == INVALID_FILE) {
+        return -1;
+    }
+
+    line = *lineptr;
+
+    if (!line || *n < 128) {
+        new_line = heap_alloc(GLOBAL_DCONTEXT, 128 HEAPACCT(ACCT_OTHER));
+
+        if (!new_line) {
+            return -1;
+        }
+
+        if (line) {
+            heap_free(GLOBAL_DCONTEXT, line, *n HEAPACCT(ACCT_OTHER));
+            line = NULL;
+        }
+
+        line = new_line;
+        *lineptr = line;
+        *n = 128;
+    }
+
+    pos = line;
+    *pos = '\0';
+
+    while ((result = dr_read_file(file, &c, 1)) > 0) {
+        if (nbytes + 1 >= SSIZE_MAX) {
+            return -1;
+        }
+
+        ++nbytes;
+
+        if (nbytes >= *n - 1) {
+            new_line = heap_alloc(GLOBAL_DCONTEXT, *n + 128 HEAPACCT(ACCT_OTHER));
+
+            if (!new_line) {
+                return -1;
+            }
+
+            if (line) {
+                memcpy(new_line, line, *n);
+                heap_free(GLOBAL_DCONTEXT, line, *n HEAPACCT(ACCT_OTHER));
+            }
+
+            line = new_line;
+            *lineptr = line;
+            *n += 128;
+            pos = line + nbytes - 1;
+        }
+
+        *pos++ = c;
+
+        if (c == delim) {
+            break;
+        }
+    }
+
+    if (result <= 0) {
+        return -1;
+    }
+
+    *pos = '\0';
+
+    return nbytes;
+}
+
+ssize_t
+os_getline(char **lineptr, size_t *n, file_t file)
+{
+    return os_getdelim(lineptr, n, '\n', file);
+}
+
 #ifdef X86_32
 /* Emulate uint64 modulo and division by uint32 on ia32.
  * XXX: Does *not* handle 64-bit divisors!

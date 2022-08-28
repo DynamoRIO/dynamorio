@@ -1130,8 +1130,12 @@ utf16_to_utf8_size(const wchar_t *src, size_t max_chars,
 #    define tolower d_r_tolower
 #    undef strcasecmp
 #    define strcasecmp d_r_strcasecmp
+#    undef strncasecmp
+#    define strncasecmp d_r_strncasecmp
 #    undef strtoul
 #    define strtoul d_r_strtoul
+#    undef fnmatch
+#    define fnmatch d_r_fnmatch
 #endif
 size_t
 strlen(const char *str);
@@ -1159,8 +1163,12 @@ int
 tolower(int c);
 int
 strcasecmp(const char *left, const char *right);
+int
+strncasecmp(const char *left, const char *right, size_t n);
 unsigned long
 strtoul(const char *str, char **end, int base);
+int
+fnmatch(const char *pattern, const char *string, int flags);
 
 /* Code cleanliness rules */
 #ifdef WINDOWS
@@ -1194,5 +1202,25 @@ strtoul(const char *str, char **end, int base);
 #    define time time_forbidden_function
 #    define modify_ldt modify_ldt_forbidden_function
 #endif
+
+#ifdef FNM_NOESCAPE
+#    undef FNM_NOESCAPE
+#endif
+#define FNM_NOESCAPE (1 << 0)
+
+#ifdef FNM_PATHNAME
+#    undef FNM_PATHNAME
+#endif
+#define FNM_PATHNAME (1 << 1)
+
+#ifdef FNM_PERIOD
+#    undef FNM_PERIOD
+#endif
+#define FNM_PERIOD (1 << 2)
+
+#ifdef FNM_NOMATCH
+#    undef FNM_NOMATCH
+#endif
+#define FNM_NOMATCH (-1)
 
 #endif /* _GLOBALS_H_ */

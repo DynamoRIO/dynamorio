@@ -278,6 +278,26 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 bool
 is_sigreturn_syscall_number(int sysnum);
 
+struct os_glob_t {
+    size_t gl_pathc;
+    char **gl_pathv;
+    size_t gl_offs;
+};
+
+typedef struct os_glob_t os_glob_t;
+
+#define OS_GLOB_ONLYDIR (1 << 0)
+
+int
+os_glob(const char *pattern, int flags, os_glob_t *glob);
+void
+os_globfree(os_glob_t *glob);
+
+ssize_t
+os_getdelim(char **lineptr, size_t *n, int delim, file_t file);
+ssize_t
+os_getline(char **lineptr, size_t *n, file_t file);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;

@@ -350,6 +350,7 @@ if (UNIX)
     unix/stackdump.c
     unix/diagnost.c
     unix/loader.c
+    unix/fnmatch.c
     )
   if (LINUX)
     if (ANDROID)

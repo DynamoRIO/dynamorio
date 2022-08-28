@@ -837,6 +837,103 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     return false;
 }
 
+bool
+privload_parse_ld_conf(os_glob_t *search_paths, const char *config_path)
+{
+    file_t file;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t nread;
+
+    /* Ensure the arguments are not NULL. */
+    if (!search_paths || !config_path) {
+        return false;
+    }
+
+    /* Open the config file as read-only. */
+    file = os_open(config_path, OS_OPEN_READ);
+
+    if (file == INVALID_FILE) {
+        return false;
+    }
+
+    while ((nread = os_getline(&line, &len, file)) >= 0) {
+        /* Remove the newline. */
+        char *end = strchr(line, '\n');
+
+        if (end) {
+            *end = '\0';
+        }
+
+        /* Ignore comments. */
+        if (line[0] == '#') {
+            continue;
+        }
+
+        /* Handle the include directive by recursively parsing the included
+         * config file.
+         */
+        size_t nbytes = strlen("include");
+
+        if (nread < nbytes) {
+            nbytes = nread;
+        }
+
+        if (strncasecmp(line, "include", nbytes) == 0) {
+            os_glob_t includes = { 0 };
+
+            /* Locate the path that should be included. */
+            char *include_path = line + nbytes;
+
+            /* Make sure there is some form of whitespace after the include
+             * directive.
+             */
+            include_path = strchr(include_path, ' ');
+
+            if (!include_path) {
+                continue;
+            }
+
+            while (*include_path && *include_path == ' ') {
+                ++include_path;
+            }
+
+            size_t count = 0;
+
+            /* Handle relative paths. */
+            if (*include_path != '/') {
+                /* We have enough room in the string to prefix it with "/etc/". */
+                count = strlen("/etc/");
+                memcpy(include_path - count, "/etc/", count);
+            }
+
+            /* Glob the path. */
+            if (os_glob(include_path - count, 0, &includes) < 0) {
+                continue;
+            }
+
+            /* Recursively parse the included config files. */
+            for (size_t i = 0; i < includes.gl_pathc; ++i) {
+                privload_parse_ld_conf(search_paths, includes.gl_pathv[i]);
+            }
+
+            os_globfree(&includes);
+
+            continue;
+        }
+
+        os_glob(line, OS_GLOB_ONLYDIR, search_paths);
+    }
+
+    if (line) {
+        heap_free(GLOBAL_DCONTEXT, line, len HEAPACCT(ACCT_OTHER));
+    }
+
+    os_close(file);
+
+    return true;
+}
+
 static bool
 privload_locate(const char *name, privmod_t *dep,
                 char *filename OUT /* buffer size is MAXIMUM_PATH */,
@@ -907,7 +1004,38 @@ privload_locate(const char *name, privmod_t *dep,
     if (dep != NULL && privload_search_rpath(dep, true /*runpath*/, name, filename))
         return true;
 
-    /* 5) XXX i#460: We use our system paths instead of /etc/ld.so.cache. */
+    /* 5) Try parsing /etc/ld.so.conf */
+    os_glob_t search_paths = { 0 };
+
+    if (privload_parse_ld_conf(&search_paths, "/etc/ld.so.conf")) {
+        for (i = 0; i < search_paths.gl_pathc; ++i) {
+            /* First try -xarch_root for emulation. */
+            if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
+                string_option_read_lock();
+                snprintf(filename, MAXIMUM_PATH, "%s/%s/%s", DYNAMO_OPTION(xarch_root),
+                         search_paths.gl_pathv[i], name);
+                filename[MAXIMUM_PATH - 1] = '\0';
+                string_option_read_unlock();
+
+                if (os_file_exists(filename, false /*!is_dir*/) &&
+                    module_file_has_module_header(filename)) {
+                    return true;
+                }
+            }
+
+            snprintf(filename, MAXIMUM_PATH, "%s/%s", search_paths.gl_pathv[i], name);
+            /* NULL_TERMINATE_BUFFER(filename) */
+            filename[MAXIMUM_PATH - 1] = 0;
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, filename);
+
+            if (os_file_exists(filename, false /*!is_dir*/) &&
+                module_file_has_module_header(filename)) {
+                return true;
+            }
+        }
+    }
+
+    /* 6) Fallback to the array of fixed system paths. */
     for (i = 0; i < NUM_SYSTEM_LIB_PATHS; i++) {
         /* First try -xarch_root for emulation. */
         if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
