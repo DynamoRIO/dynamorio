@@ -1866,6 +1866,9 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
     char msgbuf[MAX_LOG_LENGTH];
     va_list ap;
     va_start(ap, fmt);
+    /* XXX: the vsnprintf call is not needed in the most common case where
+     * we are going to just os_syslog, but it gets pretty ugly to do that
+     */
     vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
     NULL_TERMINATE_BUFFER(msgbuf); /* always NULL terminate */
     /* not a good idea to assert here since we'll just die and lose original message,
