@@ -223,8 +223,8 @@ endif ()
 # However, there's no simple way to do that.  For now we punt until someone
 # changes one of those.
 #
-# Prefer named version 12.0 from apt.llvm.org.
-find_program(CLANG_FORMAT_DIFF clang-format-diff-12 DOC "clang-format-diff")
+# Prefer named version 14.0 from apt.llvm.org.
+find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
 if (NOT CLANG_FORMAT_DIFF)
   find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
 endif ()
