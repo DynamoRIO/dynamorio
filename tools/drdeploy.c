@@ -1186,12 +1186,12 @@ _tmain(int argc, TCHAR *targv[])
     int exitcode;
 #if defined(DRRUN) || defined(DRINJECT)
     char *pidfile = NULL;
-    bool showstats = false;
-    bool showmem = false;
     bool force_injection = false;
     bool inject = true;
     int limit = 0; /* in seconds */
 #    ifdef WINDOWS
+    bool showstats = false;
+    bool showmem = false;
     time_t start_time, end_time;
 #    else
     bool use_ptrace = false;
@@ -1207,9 +1207,11 @@ _tmain(int argc, TCHAR *targv[])
     bool exit0 = false;
 #endif
     char *drlib_path = NULL;
+#if defined(DRCONFIG) || defined(DRRUN)
     char *drlib_alt_path = NULL;
-    char custom_dll[MAXIMUM_PATH];
     char custom_alt_dll[MAXIMUM_PATH];
+#endif
+    char custom_dll[MAXIMUM_PATH];
     char *dr_toolconfig_dir = NULL;
     char custom_toolconfig_dir[MAXIMUM_PATH];
     int i;
@@ -1328,15 +1330,18 @@ _tmain(int argc, TCHAR *targv[])
             continue;
         }
 #if defined(DRRUN) || defined(DRINJECT)
+#    ifdef WINDOWS
         else if (strcmp(argv[i], "-stats") == 0) {
             showstats = true;
             continue;
         } else if (strcmp(argv[i], "-mem") == 0) {
             showmem = true;
             continue;
-        } else if (strcmp(argv[i], "-no_inject") == 0 ||
-                   /* support old drinjectx param name */
-                   strcmp(argv[i], "-noinject") == 0 || strcmp(argv[i], "-static") == 0) {
+        }
+#    endif
+        else if (strcmp(argv[i], "-no_inject") == 0 ||
+                 /* support old drinjectx param name */
+                 strcmp(argv[i], "-noinject") == 0 || strcmp(argv[i], "-static") == 0) {
             DR_dll_not_needed = true;
             inject = false;
             continue;
@@ -1540,12 +1545,16 @@ _tmain(int argc, TCHAR *targv[])
             get_absolute_path(argv[++i], custom_dll, BUFFER_SIZE_ELEMENTS(custom_dll));
             NULL_TERMINATE_BUFFER(custom_dll);
             drlib_path = custom_dll;
-        } else if (strcmp(argv[i], "-use_alt_dll") == 0) {
+        }
+#if defined(DRCONFIG) || defined(DRRUN)
+        else if (strcmp(argv[i], "-use_alt_dll") == 0) {
             get_absolute_path(argv[++i], custom_alt_dll,
                               BUFFER_SIZE_ELEMENTS(custom_alt_dll));
             NULL_TERMINATE_BUFFER(custom_alt_dll);
             drlib_alt_path = custom_alt_dll;
-        } else if (strcmp(argv[i], "-tool_dir") == 0) {
+        }
+#endif
+        else if (strcmp(argv[i], "-tool_dir") == 0) {
             get_absolute_path(argv[++i], custom_toolconfig_dir,
                               BUFFER_SIZE_ELEMENTS(custom_toolconfig_dir));
             NULL_TERMINATE_BUFFER(custom_toolconfig_dir);

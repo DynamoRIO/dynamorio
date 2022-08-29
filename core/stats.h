@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -143,18 +143,18 @@ extern timestamp_t kstat_ignore_context_switch;
 
 /* ensures statement can safely use ks=stack_kstats and pv=&vars_kstats.name,
  */
-#    define KSTAT_THREAD(name, statement)                                      \
-        KSTAT_THREAD_NO_PV_START(get_thread_private_dcontext())                \
-        kstat_variable_t *pv = &cur_dcontext->thread_kstats->vars_kstats.name; \
-        UNUSED_VARIABLE(pv);                                                   \
-        statement;                                                             \
+#    define KSTAT_THREAD(name, statement)                                             \
+        KSTAT_THREAD_NO_PV_START(get_thread_private_dcontext())                       \
+        kstat_variable_t *pv UNUSED = &cur_dcontext->thread_kstats->vars_kstats.name; \
+        UNUSED_VARIABLE(pv);                                                          \
+        statement;                                                                    \
         KSTAT_THREAD_NO_PV_END()
 
-#    define KSTAT_OTHER_THREAD(dc, name, statement)                            \
-        KSTAT_THREAD_NO_PV_START(dc)                                           \
-        kstat_variable_t *pv = &cur_dcontext->thread_kstats->vars_kstats.name; \
-        UNUSED_VARIABLE(pv);                                                   \
-        statement;                                                             \
+#    define KSTAT_OTHER_THREAD(dc, name, statement)                                   \
+        KSTAT_THREAD_NO_PV_START(dc)                                                  \
+        kstat_variable_t *pv UNUSED = &cur_dcontext->thread_kstats->vars_kstats.name; \
+        UNUSED_VARIABLE(pv);                                                          \
+        statement;                                                                    \
         KSTAT_THREAD_NO_PV_END()
 
 /* makes sure we're matching start/stop */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -643,7 +643,6 @@ ensure_section_readable(app_pc module_base, app_pc seg_start, size_t seg_len,
                         uint seg_chars, OUT uint *old_prot, app_pc view_start,
                         size_t view_len)
 {
-    int ok;
     app_pc intersection_start;
     size_t intersection_len;
 
@@ -681,7 +680,8 @@ ensure_section_readable(app_pc module_base, app_pc seg_start, size_t seg_len,
                                                     * if writable */
 #else
     /* No other flags to preserve, should be no-access, so we ignore old_prot */
-    ok = os_set_protection(intersection_start, intersection_len, MEMPROT_READ);
+    DEBUG_DECLARE(int ok =)
+    os_set_protection(intersection_start, intersection_len, MEMPROT_READ);
     ASSERT(ok);
 #endif
     return false;

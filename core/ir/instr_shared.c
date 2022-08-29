@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1490,7 +1490,7 @@ instr_decode_cti(dcontext_t *dcontext, instr_t *instr)
      */
     if (!instr_opcode_valid(instr) ||
         (instr_is_cti(instr) && !instr_operands_valid(instr))) {
-        byte *next_pc;
+        DEBUG_EXT_DECLARE(byte * next_pc;)
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
         /* decode_cti() will use the dcontext mode, but we want the instr mode */
         dr_isa_mode_t old_mode;
@@ -1498,7 +1498,7 @@ instr_decode_cti(dcontext_t *dcontext, instr_t *instr)
         CLIENT_ASSERT(instr_raw_bits_valid(instr),
                       "instr_decode_cti: raw bits are invalid");
         instr_reuse(dcontext, instr);
-        next_pc = decode_cti(dcontext, instr->bytes, instr);
+        DEBUG_EXT_DECLARE(next_pc =) decode_cti(dcontext, instr->bytes, instr);
         dr_set_isa_mode(dcontext, old_mode, NULL);
         /* ok to be invalid, let caller deal with it */
         CLIENT_ASSERT(next_pc == NULL || (next_pc - instr->bytes == old_len),
@@ -1517,7 +1517,7 @@ void
 instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
 {
     if (!instr_opcode_valid(instr)) {
-        byte *next_pc;
+        DEBUG_EXT_DECLARE(byte * next_pc;)
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
 #ifdef X86
         bool rip_rel_valid = instr_rip_rel_valid(instr);
@@ -1528,7 +1528,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
         CLIENT_ASSERT(instr_raw_bits_valid(instr),
                       "instr_decode_opcode: raw bits are invalid");
         instr_reuse(dcontext, instr);
-        next_pc = decode_opcode(dcontext, instr->bytes, instr);
+        DEBUG_EXT_DECLARE(next_pc =) decode_opcode(dcontext, instr->bytes, instr);
         dr_set_isa_mode(dcontext, old_mode, NULL);
 #ifdef X86
         /* decode_opcode sets raw bits which invalidates rip_rel, but
@@ -1550,7 +1550,7 @@ void
 instr_decode(dcontext_t *dcontext, instr_t *instr)
 {
     if (!instr_operands_valid(instr)) {
-        byte *next_pc;
+        DEBUG_EXT_DECLARE(byte * next_pc;)
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
 #ifdef X86
         bool rip_rel_valid = instr_rip_rel_valid(instr);
@@ -1560,7 +1560,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
         dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
         CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_decode: raw bits are invalid");
         instr_reuse(dcontext, instr);
-        next_pc = decode(dcontext, instr_get_raw_bits(instr), instr);
+        DEBUG_EXT_DECLARE(next_pc =) decode(dcontext, instr_get_raw_bits(instr), instr);
 #ifndef NOT_DYNAMORIO_CORE_PROPER
         if (expand_should_set_translation(dcontext))
             instr_set_translation(instr, instr_get_raw_bits(instr));
@@ -3279,7 +3279,7 @@ instr_create_Ndst_Msrc_varsrc(void *drcontext, int opcode, uint fixed_dsts,
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts, fixed_srcs + var_srcs);
     uint i;
-    reg_id_t prev_reg = REG_NULL;
+    DEBUG_EXT_DECLARE(reg_id_t prev_reg = REG_NULL;)
     bool check_order;
     va_start(ap, var_ord);
     for (i = 0; i < fixed_dsts; i++)
@@ -3298,7 +3298,7 @@ instr_create_Ndst_Msrc_varsrc(void *drcontext, int opcode, uint fixed_dsts,
                       "instr_create_Ndst_Msrc_varsrc: wrong register order in reglist");
         instr_set_src(in, var_ord + i, opnd_add_flags(opnd, DR_OPND_IN_LIST));
         if (check_order)
-            prev_reg = opnd_get_reg(opnd);
+            DEBUG_EXT_DECLARE(prev_reg = opnd_get_reg(opnd));
     }
     va_end(ap);
     return in;
@@ -3312,7 +3312,7 @@ instr_create_Ndst_Msrc_vardst(void *drcontext, int opcode, uint fixed_dsts,
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts + var_dsts, fixed_srcs);
     uint i;
-    reg_id_t prev_reg = REG_NULL;
+    DEBUG_EXT_DECLARE(reg_id_t prev_reg = REG_NULL;)
     bool check_order;
     va_start(ap, var_ord);
     for (i = 0; i < MIN(var_ord, fixed_dsts); i++)
@@ -3331,7 +3331,7 @@ instr_create_Ndst_Msrc_vardst(void *drcontext, int opcode, uint fixed_dsts,
                       "instr_create_Ndst_Msrc_vardst: wrong register order in reglist");
         instr_set_dst(in, var_ord + i, opnd_add_flags(opnd, DR_OPND_IN_LIST));
         if (check_order)
-            prev_reg = opnd_get_reg(opnd);
+            DEBUG_EXT_DECLARE(prev_reg = opnd_get_reg(opnd));
     }
     va_end(ap);
     return in;

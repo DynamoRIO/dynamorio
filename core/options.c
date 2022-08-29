@@ -1127,13 +1127,14 @@ options_enable_code_api_dependences(options_t *options)
      * logic in heap_mmap_reserve_post_stack() to handle sharing the
      * tail end of a multi-64K-region stack.
      */
-    options->stack_size = MAX(options->stack_size, 56 * 1024);
+    options->stack_size = MAX(options->stack_size, ALIGN_FORWARD(56 * 1024, PAGE_SIZE));
 #ifdef UNIX
     /* We assume that clients avoid private library code, within reason, and
      * don't need as much space when handling signals.  We still raise the
      * limit a little while saving some per-thread space.
      */
-    options->signal_stack_size = MAX(options->signal_stack_size, 32 * 1024);
+    options->signal_stack_size =
+        MAX(options->signal_stack_size, ALIGN_FORWARD(32 * 1024, PAGE_SIZE));
 #endif
 
     /* For CI builds we'll disable elision by default since we
@@ -2512,7 +2513,6 @@ int
 synchronize_dynamic_options()
 {
     int updated, retval;
-    bool compatibility_fixup = false;
 
     if (!dynamo_options.dynamic_options)
         return 0;
@@ -2560,7 +2560,10 @@ synchronize_dynamic_options()
     set_dynamo_options_defaults(&temp_options);
     set_dynamo_options(&temp_options, new_option_string);
     updated = update_dynamic_options(&dynamo_options, &temp_options);
-    compatibility_fixup = check_dynamic_option_compatibility();
+#    if defined(EXPOSE_INTERNAL_OPTIONS) && defined(INTERNAL)
+    bool compatibility_fixup =
+#    endif
+        check_dynamic_option_compatibility();
     /* d_r_option_string holds a copy of the last read registry value */
     strncpy(d_r_option_string, new_option_string,
             BUFFER_SIZE_ELEMENTS(d_r_option_string));

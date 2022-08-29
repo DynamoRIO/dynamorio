@@ -1793,10 +1793,9 @@ static void
 intercept_signal_no_longer_ignore(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
 {
     kernel_sigaction_t act;
-    int rc;
     ASSERT(sig <= MAX_SIGNUM);
     set_our_handler_sigact(&act, sig);
-    rc = sigaction_syscall(sig, &act, NULL);
+    DEBUG_DECLARE(int rc =) sigaction_syscall(sig, &act, NULL);
     ASSERT(rc == 0);
 }
 
@@ -3043,11 +3042,13 @@ set_sigcxt_stolen_reg(sigcontext_t *sc, reg_t val)
     *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0)) = val;
 }
 
+#    ifndef MACOS /* TODO i#5383: Add full signal support. */
 static reg_t
 get_sigcxt_stolen_reg(sigcontext_t *sc)
 {
     return *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0));
 }
+#    endif
 
 #    ifndef AARCH64
 static dr_isa_mode_t
@@ -7093,7 +7094,6 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     sigcontext_t *sc = NULL; /* initialize to satisfy Mac clang */
     kernel_ucontext_t *ucxt = NULL;
     int sig = 0;
-    app_pc next_pc;
 #if defined(DEBUG) || !defined(MACOS64)
     /* xsp was put in mcontext prior to pre_system_call() */
     reg_t xsp = get_mcontext(dcontext)->xsp;
@@ -7285,7 +7285,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      */
     dcontext->asynch_target = canonicalize_pc_target(
         dcontext, (app_pc)(sc->SC_XIP IF_ARM(| (TEST(EFLAGS_T, sc->SC_XFLAGS) ? 1 : 0))));
-    next_pc = dcontext->asynch_target;
+    DEBUG_DECLARE(app_pc next_pc = dcontext->asynch_target;)
 
 #ifdef VMX86_SERVER
     /* PR 404712: kernel only restores gp regs so we do it ourselves and avoid
@@ -7657,10 +7657,9 @@ init_itimer(dcontext_t *dcontext, bool first)
     if (first) {
         /* see if app has set up an itimer before we were loaded */
         struct itimerval prev;
-        int rc;
         int which;
         for (which = 0; which < NUM_ITIMERS; which++) {
-            rc = getitimer_syscall(which, &prev);
+            DEBUG_DECLARE(int rc =) getitimer_syscall(which, &prev);
             ASSERT(rc == SUCCESS);
             (*info->itimer)[which].app.interval = timeval_to_usec(&prev.it_interval);
             (*info->itimer)[which].app.value = timeval_to_usec(&prev.it_value);
@@ -7706,7 +7705,6 @@ itimer_new_settings(dcontext_t *dcontext, int which, bool app_changed)
 {
     struct itimerval val;
     bool res = true;
-    int rc;
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     ASSERT(info != NULL && info->itimer != NULL);
     ASSERT(which >= 0 && which < NUM_ITIMERS);
@@ -7734,7 +7732,7 @@ itimer_new_settings(dcontext_t *dcontext, int which, bool app_changed)
              * but, we already set the new requested value (for app or us), so we
              * need to update the actual value so we subtract properly.
              */
-            rc = getitimer_syscall(which, &val);
+            DEBUG_DECLARE(int rc =) getitimer_syscall(which, &val);
             ASSERT(rc == SUCCESS);
             uint64 left = timeval_to_usec(&val.it_value);
             if (!app_changed &&
