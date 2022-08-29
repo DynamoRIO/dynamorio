@@ -1115,19 +1115,21 @@ options_enable_code_api_dependences(options_t *options)
     if (!options->code_api)
         return;
 
-    /* PR 202669: larger stack size since we're saving a 512-byte
-     * buffer on the stack when saving fp state.
-     * Also, C++ RTL initialization (even when a C++
-     * client does little else) can take a lot of stack space.
-     * Furthermore, dbghelp.dll usage via drsyms has been observed
-     * to require 36KB, which is already beyond the minimum to
-     * share gencode in the same 64K alloc as the stack.
-     *
-     * XXX: if we raise this beyond 56KB we should adjust the
-     * logic in heap_mmap_reserve_post_stack() to handle sharing the
-     * tail end of a multi-64K-region stack.
-     */
+        /* PR 202669: larger stack size since we're saving a 512-byte
+         * buffer on the stack when saving fp state.
+         * Also, C++ RTL initialization (even when a C++
+         * client does little else) can take a lot of stack space.
+         * Furthermore, dbghelp.dll usage via drsyms has been observed
+         * to require 36KB, which is already beyond the minimum to
+         * share gencode in the same 64K alloc as the stack.
+         *
+         * XXX: if we raise this beyond 56KB we should adjust the
+         * logic in heap_mmap_reserve_post_stack() to handle sharing the
+         * tail end of a multi-64K-region stack.
+         */
+#ifndef NOT_DYNAMORIO_CORE /* XXX: clumsy fix for Windows */
     options->stack_size = MAX(options->stack_size, ALIGN_FORWARD(56 * 1024, PAGE_SIZE));
+#endif
 #ifdef UNIX
     /* We assume that clients avoid private library code, within reason, and
      * don't need as much space when handling signals.  We still raise the

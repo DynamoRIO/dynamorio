@@ -1684,7 +1684,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             else if (pre_translation + SYSENTER_LENGTH == vsyscall_sysenter_return_pc)
                 mc->pc = get_do_int_syscall_entry(dcontext);
             /* exit stub and subsequent fcache_return will save rest of state */
-            DODEBUG(res =)
+            DEBUG_DECLARE(res =)
             set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
                                        synch_state _IF_X64((void *)mc) _IF_WINDOWS(NULL));
             ASSERT(res);
