@@ -2253,7 +2253,7 @@ d_r_heap_init()
         ASSERT(BLOCK_SIZES[i] > prev_sz);
         /* we assume all of our heap allocs are aligned */
         ASSERT(i == BLOCK_TYPES - 1 || ALIGNED(BLOCK_SIZES[i], HEAP_ALIGNMENT));
-        DODEBUG(prev_sz = BLOCK_SIZES[i];)
+        DODEBUG(prev_sz = BLOCK_SIZES[i];);
         LOG(GLOBAL, LOG_TOP | LOG_HEAP, 2, "\t%d bytes\n", BLOCK_SIZES[i]);
     }
 
@@ -2473,7 +2473,7 @@ heap_low_on_memory()
     u = heapmgt->heap.dead;
     while (u != NULL) {
         next_u = u->next_global;
-        DODEBUG(freed += UNIT_COMMIT_SIZE(u);)
+        DODEBUG(freed += UNIT_COMMIT_SIZE(u););
         /* FIXME: if out of committed pages only, could keep our reservations */
         LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit " PFX "-" PFX " [-" PFX "]\n", u,
             UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));

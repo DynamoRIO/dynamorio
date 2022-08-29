@@ -450,7 +450,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 {
     int flags;
     byte *map;
-#if defined(LINUX) && defined(X64)
+#if defined(LINUX) && !defined(X64)
     uint pg_offs;
     ASSERT_TRUNCATE(pg_offs, uint, offs / PAGE_SIZE);
     pg_offs = (uint)(offs / PAGE_SIZE);

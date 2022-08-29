@@ -1696,7 +1696,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* We don't want to translate, just update the stolen reg values */
                 arch_mcontext_reset_stolen_reg(dcontext, mc);
-                DODEBUG(res =)
+                DEBUG_DECLARE(res =)
                 set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
                                            synch_state _IF_X64((void *)mc)
                                                _IF_WINDOWS(NULL));
@@ -1706,7 +1706,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             }
         });
     } else {
-        DODEBUG(res =) translate_mcontext(tr, mc, true /*restore memory*/, NULL);
+        DEBUG_DECLARE(res =) translate_mcontext(tr, mc, true /*restore memory*/, NULL);
         ASSERT(res);
         if (!thread_synch_successful(tr) || mc->pc == 0) {
             /* Better to risk failure on accessing a freed cache than
@@ -1814,7 +1814,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         swap_peb_pointer(dcontext, false /*to app*/);
 #endif
         /* exit stub and subsequent fcache_return will save rest of state */
-        DODEBUG(res =)
+        DEBUG_DECLARE(res =)
         set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
                                    synch_state _IF_X64((void *)mc) _IF_WINDOWS(NULL));
         ASSERT(res);

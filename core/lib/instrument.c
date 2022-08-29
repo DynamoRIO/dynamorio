@@ -6384,9 +6384,9 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
             /* We'll clear this cache in dr_resume_all_other_threads() */
             mc_xl8 = dcontext->client_data->cur_mc;
         }
-        DODEBUG(res =) thread_get_mcontext(dcontext->thread_record, mc_xl8);
+        DEBUG_DECLARE(res =) thread_get_mcontext(dcontext->thread_record, mc_xl8);
         CLIENT_ASSERT(res, "failed to get mcontext of suspended thread");
-        DODEBUG(res =)
+        DEBUG_DECLARE(res =)
         translate_mcontext(dcontext->thread_record, mc_xl8,
                            false /*do not restore memory*/, NULL);
         CLIENT_ASSERT(res, "failed to xl8 mcontext of suspended thread");

@@ -5504,7 +5504,7 @@ recreate_fragment_done:
         *alloc_res = alloc;
     if (f_res == NULL && alloc)
         fragment_free(dcontext, f);
-    DODEBUG(ok =) dr_set_isa_mode(dcontext, old_mode, NULL);
+    DEBUG_DECLARE(ok =) dr_set_isa_mode(dcontext, old_mode, NULL);
     ASSERT(ok);
     return ilist;
 }

@@ -1175,7 +1175,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
          */
         dr_emit_flags_t emitflags =
             instrument_trace(dcontext, tag, &md->unmangled_ilist, false /*!recreating*/);
-        DODEBUG(externally_mangled = true;)
+        DODEBUG(externally_mangled = true;);
         if (TEST(DR_EMIT_STORE_TRANSLATIONS, emitflags)) {
             /* PR 214962: let client request storage instead of recreation */
             md->trace_flags |= FRAG_HAS_TRANSLATION_INFO;
@@ -1289,7 +1289,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 #    endif
     ) {
         optimize_trace(dcontext, tag, trace);
-        DODEBUG(externally_mangled = true;)
+        DODEBUG(externally_mangled = true;);
     }
 #endif /* INTERNAL */
 

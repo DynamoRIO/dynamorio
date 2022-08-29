@@ -1504,7 +1504,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 (byte *)f->start_pc + f->size, mcontext, just_pc, f->flags);
             STATS_INC(recreate_via_app_ilist);
         }
-        DODEBUG(ok =) dr_set_isa_mode(tdcontext, old_mode, NULL);
+        DEBUG_DECLARE(ok =) dr_set_isa_mode(tdcontext, old_mode, NULL);
         ASSERT(ok);
 
         if (!just_pc)

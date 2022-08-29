@@ -9042,11 +9042,11 @@ vm_area_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     if (!multi) {
         LOG(THREAD, LOG_VMAREAS, 4, "vm_area_remove_fragment: F%d tag=" PFX "\n", f->id,
             f->tag);
-        DODEBUG(match = f;)
+        DODEBUG(match = f;);
     } else {
         /* we do get called for multi-entries from vm_area_destroy_list */
         LOG(THREAD, LOG_VMAREAS, 4, "vm_area_remove_fragment: entry " PFX "\n", f);
-        DODEBUG(match = FRAG_FRAG(f);)
+        DODEBUG(match = FRAG_FRAG(f););
     }
     ASSERT(FRAG_PREV(f) != NULL); /* prev wraps around, should never be null */
 

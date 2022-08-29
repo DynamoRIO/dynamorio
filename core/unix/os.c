@@ -9865,7 +9865,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                                             true, /* i#1589: ld.so relocated .dynamic */
                                             &mod_base, &mod_first_end, &mod_max_end, NULL,
                                             NULL)) {
-                DODEBUG(image_size = mod_max_end - mod_base;)
+                DODEBUG(image_size = mod_max_end - mod_base;);
             } else {
                 ASSERT_NOT_REACHED();
             }

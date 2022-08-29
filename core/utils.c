@@ -2667,7 +2667,7 @@ create_log_dir(int dir_type)
         if (IS_STRING_OPTION_EMPTY(logdir) &&
             (get_config_val_ex(DYNAMORIO_VAR_LOGDIR, NULL, &is_env) == NULL || is_env)) {
             /* use same dir as pre-execve! */
-            DODEBUG(sharing_logdir = true;)
+            DODEBUG(sharing_logdir = true;);
             strncpy(logdir, pre_execve, BUFFER_SIZE_ELEMENTS(logdir));
             NULL_TERMINATE_BUFFER(logdir); /* if max no null */
             logdir_initialized = true;

@@ -3143,7 +3143,7 @@ coarse_remove_outgoing(dcontext_t *dcontext, cache_pc stub, coarse_info_t *src_i
                     LOG(THREAD, LOG_LINKS, 4, "freeing coarse_incoming_t " PFX "\n", e);
                     NONPERSISTENT_HEAP_TYPE_FREE(GLOBAL_DCONTEXT, e, coarse_incoming_t,
                                                  ACCT_COARSE_LINK);
-                    DODEBUG(found = true;)
+                    DODEBUG(found = true;);
                     break;
                 } else
                     prev_e = e;
@@ -3690,7 +3690,7 @@ coarse_update_outgoing(dcontext_t *dcontext, cache_pc old_stub, cache_pc new_stu
                 for (e = target_info->incoming; e != NULL; e = e->next) {
                     if (e->coarse && e->in.stub_pc == old_stub) {
                         e->in.stub_pc = new_stub;
-                        DODEBUG(found = true;)
+                        DODEBUG(found = true;);
                         break;
                     }
                 }

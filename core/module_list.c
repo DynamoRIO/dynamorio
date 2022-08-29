@@ -672,15 +672,15 @@ ensure_section_readable(app_pc module_base, app_pc seg_start, size_t seg_len,
     SYSLOG_INTERNAL_WARNING("unreadable section @" PFX "\n", seg_start);
 #ifdef WINDOWS
     /* Preserve COW flags */
-    ok = protect_virtual_memory(intersection_start, intersection_len, PAGE_READONLY,
-                                old_prot);
+    DEBUG_DECLARE(bool ok =)
+    protect_virtual_memory(intersection_start, intersection_len, PAGE_READONLY, old_prot);
     ASSERT(ok);
     ASSERT_CURIOSITY(*old_prot == PAGE_NOACCESS ||
                      *old_prot == PAGE_WRITECOPY); /* expecting unmodifed even
                                                     * if writable */
 #else
     /* No other flags to preserve, should be no-access, so we ignore old_prot */
-    DEBUG_DECLARE(int ok =)
+    DEBUG_DECLARE(bool ok =)
     os_set_protection(intersection_start, intersection_len, MEMPROT_READ);
     ASSERT(ok);
 #endif
