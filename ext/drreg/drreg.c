@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,9 +52,11 @@
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #    define LOG(dc, mask, level, ...) dr_log(dc, mask, level, __VA_ARGS__)
+#    define IF_DEBUG(x) x
 #else
 #    define ASSERT(x, msg)            /* nothing */
 #    define LOG(dc, mask, level, ...) /* nothing */
+#    define IF_DEBUG(x)               /* nothing */
 #endif
 
 #ifdef WINDOWS
@@ -2039,7 +2041,8 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
     reg_id_t aflags_reg = DR_REG_NULL;
     reg_id_t reg;
     instr_t inst;
-    byte *prev_pc, *pc = info->fragment_info.cache_start_pc;
+    IF_DEBUG(byte * prev_pc;)
+    byte *pc = info->fragment_info.cache_start_pc;
     uint offs;
     bool spill;
     uint slot;
@@ -2053,7 +2056,7 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
     instr_init(drcontext, &inst);
     while (pc < info->raw_mcontext->pc) {
         instr_reset(drcontext, &inst);
-        prev_pc = pc;
+        IF_DEBUG(prev_pc = pc;)
         pc = decode(drcontext, pc, &inst);
         if (is_our_spill_or_restore(drcontext, &inst, &spill, &reg, &slot, &offs)) {
             LOG(drcontext, DR_LOG_ALL, 3,

@@ -185,7 +185,7 @@ typedef struct _callback_list_t {
  */
 #define call_all(vec, type, ...)                          \
     do {                                                  \
-        int dummy;                                        \
+        int dummy UNUSED;                                 \
         call_all_ret(dummy, =, , vec, type, __VA_ARGS__); \
     } while (0)
 
@@ -971,9 +971,9 @@ dr_unregister_exit_event(void (*func)(void))
     return remove_callback(&exit_callbacks, (void (*)(void))func, true);
 }
 
-void dr_register_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                  instrlist_t *bb, bool for_trace,
-                                                  bool translating))
+void
+dr_register_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag, instrlist_t *bb,
+                                             bool for_trace, bool translating))
 {
     if (!INTERNAL_OPTION(code_api)) {
         CLIENT_ASSERT(false, "asking for bb event when code_api is disabled");
@@ -983,16 +983,17 @@ void dr_register_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
     add_callback(&bb_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                    instrlist_t *bb, bool for_trace,
-                                                    bool translating))
+bool
+dr_unregister_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
+                                               instrlist_t *bb, bool for_trace,
+                                               bool translating))
 {
     return remove_callback(&bb_callbacks, (void (*)(void))func, true);
 }
 
-void dr_register_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                     instrlist_t *trace,
-                                                     bool translating))
+void
+dr_register_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
+                                                instrlist_t *trace, bool translating))
 {
     if (!INTERNAL_OPTION(code_api)) {
         CLIENT_ASSERT(false, "asking for trace event when code_api is disabled");
@@ -1002,16 +1003,16 @@ void dr_register_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
     add_callback(&trace_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                       instrlist_t *trace,
-                                                       bool translating))
+bool
+dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
+                                                  instrlist_t *trace, bool translating))
 {
     return remove_callback(&trace_callbacks, (void (*)(void))func, true);
 }
 
-void dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
-                                                                  void *tag,
-                                                                  void *next_tag))
+void
+dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext, void *tag,
+                                                             void *next_tag))
 {
     if (!INTERNAL_OPTION(code_api)) {
         CLIENT_ASSERT(false, "asking for end-trace event when code_api is disabled");
@@ -1021,9 +1022,9 @@ void dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontex
     add_callback(&end_trace_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
-                                                                    void *tag,
-                                                                    void *next_tag))
+bool
+dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext, void *tag,
+                                                               void *next_tag))
 {
     return remove_callback(&end_trace_callbacks, (void (*)(void))func, true);
 }
@@ -1176,14 +1177,16 @@ dr_unregister_exception_event(bool (*func)(void *drcontext, dr_exception_t *excp
     return remove_callback(&exception_callbacks, (bool (*)(void))func, true);
 }
 #else
-void dr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
-                                                         dr_siginfo_t *siginfo))
+void
+dr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                    dr_siginfo_t *siginfo))
 {
     add_callback(&signal_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
-                                                           dr_siginfo_t *siginfo))
+bool
+dr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                      dr_siginfo_t *siginfo))
 {
     return remove_callback(&signal_callbacks, (void (*)(void))func, true);
 }
@@ -6371,7 +6374,7 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
          * context translated lazily here.
          * We cache the result in cur_mc to avoid a translation cost next time.
          */
-        bool res;
+        DEBUG_DECLARE(bool res;)
         priv_mcontext_t *mc_xl8;
         if (mc != NULL)
             mc_xl8 = mc;
@@ -6381,10 +6384,11 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
             /* We'll clear this cache in dr_resume_all_other_threads() */
             mc_xl8 = dcontext->client_data->cur_mc;
         }
-        res = thread_get_mcontext(dcontext->thread_record, mc_xl8);
+        DEBUG_DECLARE(res =) thread_get_mcontext(dcontext->thread_record, mc_xl8);
         CLIENT_ASSERT(res, "failed to get mcontext of suspended thread");
-        res = translate_mcontext(dcontext->thread_record, mc_xl8,
-                                 false /*do not restore memory*/, NULL);
+        DEBUG_DECLARE(res =)
+        translate_mcontext(dcontext->thread_record, mc_xl8,
+                           false /*do not restore memory*/, NULL);
         CLIENT_ASSERT(res, "failed to xl8 mcontext of suspended thread");
         if (mc == NULL && !priv_mcontext_to_dr_mcontext(dmc, mc_xl8))
             return false;

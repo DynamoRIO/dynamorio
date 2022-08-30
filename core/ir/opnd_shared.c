@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1367,7 +1367,7 @@ opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
         bool found = false;
         reg_id_t new_b = ob;
         reg_id_t new_i = oi;
-        reg_id_t new_s = os;
+        IF_X86(reg_id_t new_s = os;)
         if (reg_overlap(old_reg, ob)) {
             found = true;
             new_b = reg_match_size_and_type(new_reg, reg_get_size(ob), ob);
@@ -1378,7 +1378,7 @@ opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
         }
         if (reg_overlap(old_reg, os)) {
             found = true;
-            new_s = reg_match_size_and_type(new_reg, reg_get_size(os), os);
+            IF_X86(new_s = reg_match_size_and_type(new_reg, reg_get_size(os), os);)
         }
         if (found) {
             int disp = opnd_get_disp(*opnd);

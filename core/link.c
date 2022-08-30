@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -907,7 +907,6 @@ is_cbr_of_cbr_fallthrough(linkstub_t *l)
 void
 separate_stub_create(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
-    int emit_sz;
     cache_pc stub_pc;
     ASSERT(LINKSTUB_DIRECT(l->flags));
     ASSERT(DYNAMO_OPTION(separate_private_stubs) || DYNAMO_OPTION(separate_shared_stubs));
@@ -938,7 +937,7 @@ separate_stub_create(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         ASSERT(dl->stub_pc == EXIT_STUB_PC(dcontext, f, l));
         stub_pc = dl->stub_pc;
     }
-    emit_sz = insert_exit_stub(dcontext, f, l, stub_pc);
+    DEBUG_DECLARE(int emit_sz =) insert_exit_stub(dcontext, f, l, stub_pc);
     ASSERT(emit_sz <= SEPARATE_STUB_ALLOC_SIZE(f->flags));
     DOSTATS({
         size_t alloc_size = SEPARATE_STUB_ALLOC_SIZE(f->flags);
@@ -2511,7 +2510,6 @@ static cache_pc
 entrance_stub_create(dcontext_t *dcontext, coarse_info_t *info, fragment_t *f,
                      linkstub_t *l)
 {
-    uint emit_sz;
     cache_pc stub_pc;
     DEBUG_DECLARE(size_t stub_size = COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info));)
     ASSERT(DYNAMO_OPTION(coarse_units));
@@ -2524,7 +2522,7 @@ entrance_stub_create(dcontext_t *dcontext, coarse_info_t *info, fragment_t *f,
     ASSERT((cache_line_size % stub_size) == 0);
     stub_pc = (cache_pc)special_heap_alloc(info->stubs);
     ASSERT(ALIGNED(stub_pc, coarse_stub_alignment(info)));
-    emit_sz = insert_exit_stub(dcontext, f, l, stub_pc);
+    DEBUG_DECLARE(uint emit_sz =) insert_exit_stub(dcontext, f, l, stub_pc);
     LOG(THREAD, LOG_LINKS, 4,
         "created new entrance stub @" PFX " for " PFX " w/ source F%d(" PFX ")." PFX "\n",
         stub_pc, EXIT_TARGET_TAG(dcontext, f, l), f->id, f->tag, FCACHE_ENTRY_PC(f));
@@ -3131,7 +3129,7 @@ coarse_remove_outgoing(dcontext_t *dcontext, cache_pc stub, coarse_info_t *src_i
         ASSERT(target_info != NULL);
         if (target_info != src_info) {
             coarse_incoming_t *e, *prev_e = NULL;
-            bool found = false;
+            DEBUG_DECLARE(bool found = false;)
             unlink_entrance_stub(dcontext, stub, 0, src_info);
             LOG(THREAD, LOG_LINKS, 4, "    removing coarse link " PFX " -> %s " PFX "\n",
                 stub, target_info->module, target_tag);
@@ -3145,7 +3143,7 @@ coarse_remove_outgoing(dcontext_t *dcontext, cache_pc stub, coarse_info_t *src_i
                     LOG(THREAD, LOG_LINKS, 4, "freeing coarse_incoming_t " PFX "\n", e);
                     NONPERSISTENT_HEAP_TYPE_FREE(GLOBAL_DCONTEXT, e, coarse_incoming_t,
                                                  ACCT_COARSE_LINK);
-                    found = true;
+                    DODEBUG(found = true;);
                     break;
                 } else
                     prev_e = e;
@@ -3682,7 +3680,7 @@ coarse_update_outgoing(dcontext_t *dcontext, cache_pc old_stub, cache_pc new_stu
         ASSERT(target_info != NULL);
         if (target_info != src_info) {
             coarse_incoming_t *e;
-            bool found = false;
+            DEBUG_DECLARE(bool found = false;)
             LOG(THREAD, LOG_LINKS, 4,
                 "    %s coarse link [" PFX "=>" PFX "] -> %s " PFX "\n",
                 replace ? "updating" : "adding", old_stub, new_stub, target_info->module,
@@ -3692,7 +3690,7 @@ coarse_update_outgoing(dcontext_t *dcontext, cache_pc old_stub, cache_pc new_stu
                 for (e = target_info->incoming; e != NULL; e = e->next) {
                     if (e->coarse && e->in.stub_pc == old_stub) {
                         e->in.stub_pc = new_stub;
-                        found = true;
+                        DODEBUG(found = true;);
                         break;
                     }
                 }

@@ -1864,12 +1864,12 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
            const char *fmt, ...)
 {
     char msgbuf[MAX_LOG_LENGTH];
-    int size;
     va_list ap;
     va_start(ap, fmt);
-    /* FIXME : the vsnprintf call is not needed in the most common case where
-     * we are going to just os_syslog, but it gets pretty ugly to do that */
-    size = vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
+    /* XXX: the vsnprintf call is not needed in the most common case where
+     * we are going to just os_syslog, but it gets pretty ugly to do that
+     */
+    vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
     NULL_TERMINATE_BUFFER(msgbuf); /* always NULL terminate */
     /* not a good idea to assert here since we'll just die and lose original message,
      * so we don't check size return value and just go ahead and truncate
@@ -2656,7 +2656,7 @@ create_log_dir(int dir_type)
 {
 #ifdef UNIX
     char *pre_execve = getenv(DYNAMORIO_VAR_EXECVE_LOGDIR);
-    bool sharing_logdir = false;
+    DEBUG_DECLARE(bool sharing_logdir = false;)
 #endif
     /* synchronize */
     acquire_recursive_lock(&logdir_mutex);
@@ -2670,7 +2670,7 @@ create_log_dir(int dir_type)
         if (IS_STRING_OPTION_EMPTY(logdir) &&
             (get_config_val_ex(DYNAMORIO_VAR_LOGDIR, NULL, &is_env) == NULL || is_env)) {
             /* use same dir as pre-execve! */
-            sharing_logdir = true;
+            DODEBUG(sharing_logdir = true;);
             strncpy(logdir, pre_execve, BUFFER_SIZE_ELEMENTS(logdir));
             NULL_TERMINATE_BUFFER(logdir); /* if max no null */
             logdir_initialized = true;

@@ -833,7 +833,7 @@ OPTION_DEFAULT(uint_size, stack_size,
                 * 32KB is the max that will still allow sharing per-thread
                 * gencode in the same 64KB alloc as the stack on Windows.
                 */
-               /* XXX i#5383: Evaluate why Mac M1 needs 32K. */
+               /* Mac M1's page size is 16K. */
                IF_MACOSA64_ELSE(32 * 1024, 24 * 1024),
                "size of thread-private stacks, in KB")
 #ifdef UNIX

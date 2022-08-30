@@ -107,7 +107,7 @@ typedef struct {
     bool enable_dup;              /* Denotes whether to duplicate blocks. */
     bool enable_dynamic_handling; /* Denotes whether to dynamically generate cases. */
 #if !defined(RISCV64)
-    bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
+    bool are_flags_dead; /* Denotes whether flags are dead at the start of a bb. */
 #endif
     bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start. */
     reg_id_t scratch_reg;
@@ -1540,12 +1540,12 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             drbbdup_insert_dispatch_end(drcontext, tag, bb, next_instr, manager);
         } else {
             /* We have reached the start of a new bb version (not the last one). */
-            bool found = false;
+            IF_DEBUG(bool found = false;)
             int i;
             for (i = pt->case_index + 1; i < opts.non_default_case_limit; i++) {
                 drbbdup_case = &manager->cases[i];
                 if (drbbdup_case->is_defined) {
-                    found = true;
+                    IF_DEBUG(found = true;)
                     break;
                 }
             }

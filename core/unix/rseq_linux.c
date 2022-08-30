@@ -321,7 +321,6 @@ rseq_analyze_instructions(rseq_region_t *info)
     instr_init(GLOBAL_DCONTEXT, &instr);
     app_pc pc = info->start;
     int i;
-    bool reached_cti = false;
     memset(info->reg_written, 0, sizeof(info->reg_written));
     while (pc < info->end) {
         instr_reset(GLOBAL_DCONTEXT, &instr);
@@ -348,8 +347,6 @@ rseq_analyze_instructions(rseq_region_t *info)
                                         "Rseq sequence contains a call");
             ASSERT_NOT_REACHED();
         }
-        if (instr_is_cti(&instr))
-            reached_cti = true;
         /* We potentially need to preserve any register written anywhere inside
          * the sequence.  We can't limit ourselves to registers clearly live on
          * input, since code *after* the sequence could read them.  We do disallow

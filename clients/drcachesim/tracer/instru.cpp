@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -303,6 +303,10 @@ instru_t::get_cpu_id()
         // this should be pretty rare and we can live without it.
         return -1;
     }
+#elif defined(MACOS)
+    /* TODO i#5383: Add an M1 solution. */
+    DR_ASSERT_MSG(false, "Not implemented for M1");
+    return -1;
 #else
     uint cpu;
     if (syscall(SYS_getcpu, &cpu, NULL, NULL) < 0)

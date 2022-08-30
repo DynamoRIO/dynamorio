@@ -1365,11 +1365,10 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
 #ifdef AARCH64
-    ptr_int_t target, retaddr;
+    ptr_int_t retaddr;
 
     ASSERT(instr_get_opcode(instr) == OP_bl);
     ASSERT(opnd_is_pc(instr_get_target(instr)));
-    target = (ptr_int_t)opnd_get_pc(instr_get_target(instr));
     retaddr = get_call_return_address(dcontext, ilist, instr);
     insert_mov_immed_ptrsz(dcontext, retaddr, opnd_create_reg(DR_REG_X30), ilist, instr,
                            NULL, NULL);

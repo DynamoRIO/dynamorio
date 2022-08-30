@@ -3569,7 +3569,6 @@ os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code)
 void
 os_heap_decommit(void *p, size_t size, heap_error_code_t *error_code)
 {
-    int rc;
     ASSERT(error_code != NULL);
 
     if (!dynamo_exited)
@@ -3577,14 +3576,12 @@ os_heap_decommit(void *p, size_t size, heap_error_code_t *error_code)
 
     *error_code = HEAP_ERROR_SUCCESS;
     /* FIXME: for now do nothing since os_heap_reserve has in fact committed the memory */
-    rc = 0;
     /* TODO:
            p = mmap_syscall(p, size, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
        we should either do a mremap()
        or we can do a munmap() followed 'quickly' by a mmap() -
        also see above the comment that os_heap_reserve() in fact is not so lightweight
     */
-    ASSERT(rc == 0);
 }
 
 bool
@@ -4702,7 +4699,7 @@ void
 os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
           va_list args)
 {
-    int native_priority;
+    int native_priority UNUSED;
     switch (priority) {
     case SYSLOG_INFORMATION: native_priority = LOG_INFO; break;
     case SYSLOG_WARNING: native_priority = LOG_WARNING; break;
@@ -4959,7 +4956,6 @@ make_copy_on_writable(byte *pc, size_t size)
 void
 make_unwritable(byte *pc, size_t size)
 {
-    long res;
     app_pc start_page = (app_pc)PAGE_START(pc);
     size_t prot_size = (size == 0) ? PAGE_SIZE : size;
     uint prot = PROT_EXEC | PROT_READ;
@@ -4981,7 +4977,7 @@ make_unwritable(byte *pc, size_t size)
     /* inc stats before making unwritable, in case messing w/ data segment */
     STATS_INC(protection_change_calls);
     STATS_ADD(protection_change_pages, size / PAGE_SIZE);
-    res = mprotect_syscall((void *)start_page, prot_size, prot);
+    DEBUG_DECLARE(long res =) mprotect_syscall((void *)start_page, prot_size, prot);
     LOG(THREAD_GET, LOG_VMAREAS, 3, "make_unwritable: pc " PFX " -> " PFX "-" PFX "\n",
         pc, start_page, start_page + prot_size);
     ASSERT(res == 0);
@@ -6039,7 +6035,7 @@ handle_execve(dcontext_t *dcontext)
      */
     char *fname;
     bool x64 = IF_X64_ELSE(true, false);
-    bool expect_to_fail = false;
+    bool expect_to_fail UNUSED = false;
     bool should_inject;
     file_t file;
     char *inject_library_path;
@@ -7229,7 +7225,7 @@ pre_system_call(dcontext_t *dcontext)
         size_t len = (size_t)sys_param(dcontext, 1);
         uint prot = (uint)sys_param(dcontext, 2);
         uint old_memprot = MEMPROT_NONE, new_memprot;
-        bool exists = true;
+        bool exists UNUSED = true;
         /* save params in case an undo is needed in post_system_call */
         dcontext->sys_param0 = (reg_t)addr;
         dcontext->sys_param1 = len;
@@ -9384,7 +9380,6 @@ get_dynamo_library_bounds(void)
      * count it is so is_in_dynamo_dll() can be the only exception to the
      * never-execute-from-DR-areas list rule
      */
-    int res;
     app_pc check_start, check_end;
     bool do_memquery = true;
 #ifdef STATIC_LIBRARY
@@ -9436,10 +9431,11 @@ get_dynamo_library_bounds(void)
 #endif /* STATIC_LIBRARY */
 
     if (do_memquery) {
-        res = memquery_library_bounds(
-            NULL, &check_start, &check_end, dynamorio_library_path,
-            BUFFER_SIZE_ELEMENTS(dynamorio_library_path), dynamorio_libname_buf,
-            BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+        DEBUG_DECLARE(int res =)
+        memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
+                                BUFFER_SIZE_ELEMENTS(dynamorio_library_path),
+                                dynamorio_libname_buf,
+                                BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
         ASSERT(res > 0);
 #ifndef STATIC_LIBRARY
         dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
@@ -9846,7 +9842,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
             DODEBUG({ map_type = "ELF SO"; });
         } else if (TEST(MEMPROT_READ, iter->prot) &&
                    module_is_header(iter->vm_start, size)) {
-            size_t image_size = size;
+            DEBUG_DECLARE(size_t image_size = size;)
             app_pc mod_base, mod_first_end, mod_max_end;
             char *exec_match;
             bool found_exec = false;
@@ -9869,7 +9865,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                                             true, /* i#1589: ld.so relocated .dynamic */
                                             &mod_base, &mod_first_end, &mod_max_end, NULL,
                                             NULL)) {
-                image_size = mod_max_end - mod_base;
+                DODEBUG(image_size = mod_max_end - mod_base;);
             } else {
                 ASSERT_NOT_REACHED();
             }

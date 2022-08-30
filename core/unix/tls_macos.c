@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -272,11 +272,10 @@ tls_thread_free(tls_type_t tls_type, int index)
 {
 #ifdef X64
     byte **tls_swap_slot;
-    os_local_state_t *os_tls;
     ASSERT(tls_type == TLS_TYPE_SLOT);
     tls_swap_slot = get_app_tls_swap_slot_addr();
     ASSERT(tls_swap_slot != NULL);
-    os_tls = (os_local_state_t *)*tls_swap_slot;
+    DEBUG_DECLARE(os_local_state_t *os_tls = (os_local_state_t *)*tls_swap_slot;)
     ASSERT(os_tls->self == os_tls);
     *tls_swap_slot = TLS_SLOT_VAL_EXITED;
 #else

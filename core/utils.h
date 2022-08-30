@@ -1567,15 +1567,21 @@ enum { LONGJMP_EXCEPTION = 1 };
 
 #include "stats.h"
 
+#ifdef UNIX
+#    define UNUSED __attribute__((unused))
+#else
+#    define UNUSED
+#endif
+
 /* Use to shut up the compiler about an unused variable when the
  * alternative is a painful modification of more src code. Our
  * standard is to use this macro just after the variable is declared
  * and to use it judiciously.
  */
-#define UNUSED_VARIABLE(pv)           \
-    {                                 \
-        void *unused_pv = (void *)pv; \
-        unused_pv = NULL;             \
+#define UNUSED_VARIABLE(pv)                  \
+    {                                        \
+        void *unused_pv UNUSED = (void *)pv; \
+        unused_pv = NULL;                    \
     }
 
 /* Both release and debug builds share these common stats macros */
@@ -1935,11 +1941,11 @@ enum { LONGJMP_EXCEPTION = 1 };
  * exception flags and messing up our code (i#1213).
  */
 
-#define PRESERVE_FLOATING_POINT_STATE_START()                   \
-    {                                                           \
-        byte fpstate_buf[MAX_FP_STATE_SIZE];                    \
-        byte *fpstate = (byte *)ALIGN_FORWARD(fpstate_buf, 16); \
-        size_t fpstate_junk = proc_save_fpstate(fpstate);       \
+#define PRESERVE_FLOATING_POINT_STATE_START()                    \
+    {                                                            \
+        byte fpstate_buf[MAX_FP_STATE_SIZE];                     \
+        byte *fpstate = (byte *)ALIGN_FORWARD(fpstate_buf, 16);  \
+        size_t fpstate_junk UNUSED = proc_save_fpstate(fpstate); \
         dr_fpu_exception_init()
 
 #define PRESERVE_FLOATING_POINT_STATE_END() \

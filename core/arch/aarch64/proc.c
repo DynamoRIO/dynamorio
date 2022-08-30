@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -60,6 +61,7 @@ read_feature_regs(uint64 isa_features[])
     MRS(ID_AA64DFR0_EL1, AA64DFR0, isa_features);
 }
 
+#    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
 static void
 get_processor_specific_info(void)
 {
@@ -86,6 +88,7 @@ get_processor_specific_info(void)
     cpu_info.features.flags_aa64mmfr1 = isa_features[AA64MMFR1];
     cpu_info.features.flags_aa64dfr0 = isa_features[AA64DFR0];
 }
+#    endif
 
 #    define LOG_FEATURE(feature)       \
         if (proc_has_feature(feature)) \

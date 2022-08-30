@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -275,7 +275,6 @@ new_thread_setup(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
     void *crec;
-    int rc;
     /* this is where a new thread first touches other than the dstack,
      * so we "enter" DR here
      */
@@ -302,7 +301,8 @@ new_thread_setup(priv_mcontext_t *mc)
     set_thread_register_from_clone_record(crec);
 #    endif
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
+    DEBUG_DECLARE(int rc =)
+    dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
