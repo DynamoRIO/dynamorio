@@ -571,23 +571,23 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     // Write the version, arch, and other type flags.
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
-    if (tdata->out_archive != nullptr) {
-        buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
-                                    // 32-bit is limited to 4G.
-                                    static_cast<uintptr_t>(chunk_instr_count_));
-    }
+    buf += trace_metadata_writer_t::write_tid(buf, tid);
+    buf += trace_metadata_writer_t::write_pid(buf, pid);
     // The buffer can only hold 5 entries so write it now.
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
         return "Failed to write to output file";
     buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     buf = buf_base;
-    // Write out the tid, pid, and timestamp.
-    buf += trace_metadata_writer_t::write_tid(buf, tid);
-    buf += trace_metadata_writer_t::write_pid(buf, pid);
+    // Write out further markers.
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                                                  header.cache_line_size);
 
+    // Even if tdata->out_archive == nullptr we write out a (0-valued) marker,
+    // partly to simplify our test output.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
+                                // i#5634: 32-bit is limited to 4G.
+                                static_cast<uintptr_t>(chunk_instr_count_));
     if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
     // We have to write this now before we append any bb entries.
@@ -1398,23 +1398,17 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     if (trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
                                                  nullptr) &&
         error.empty()) {
-        if (size < 5)
-            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-
-        // XXX: Make it easier to add more markers. Iterate over the entries until
-        // the timestamp entry or some non-meta entry is encountered.
-        if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
-            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID ||
-            (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
-             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-             offline_entries[timestamp_pos].extended.valueB !=
-                 TRACE_MARKER_TYPE_CACHE_LINE_SIZE) ||
-            (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
-             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-             offline_entries[timestamp_pos].extended.valueB !=
-                 TRACE_MARKER_TYPE_PAGE_SIZE))
-            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-        ++timestamp_pos;
+        while (timestamp_pos < size &&
+               offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP) {
+            if (timestamp_pos > 15) // Something is wrong if we've gone this far.
+                return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+            // We only expect header-type entries.
+            int type = offline_entries[timestamp_pos].tid.type;
+            if (type != OFFLINE_TYPE_THREAD && type != OFFLINE_TYPE_PID &&
+                type != OFFLINE_TYPE_EXTENDED)
+                return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+            ++timestamp_pos;
+        }
     }
 
     if (offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP)

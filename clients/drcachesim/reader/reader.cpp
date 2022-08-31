@@ -206,8 +206,7 @@ reader_t::operator++()
             cur_ref_.marker.type = (trace_type_t)input_entry_->type;
             if (!online_ &&
                 (input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
-                 input_entry_->size == TRACE_MARKER_TYPE_FILETYPE ||
-                 input_entry_->size == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)) {
+                 input_entry_->size == TRACE_MARKER_TYPE_FILETYPE)) {
                 // Do not carry over a prior thread on a thread switch to a
                 // first-time-seen new thread, whose tid entry is *after* these
                 // markers for offline traces.

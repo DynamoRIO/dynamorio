@@ -325,6 +325,10 @@ view_t::process_memref(const memref_t &memref)
         case TRACE_MARKER_TYPE_PAGE_SIZE:
             std::cerr << "<marker: page size " << memref.marker.marker_value << ">\n";
             break;
+        case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
+            std::cerr << "<marker: chunk instruction count " << memref.marker.marker_value
+                      << ">\n";
+            break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";

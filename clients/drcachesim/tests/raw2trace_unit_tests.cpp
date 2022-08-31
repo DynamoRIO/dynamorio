@@ -302,6 +302,8 @@ test_branch_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
         check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // Both branches should be delayed until after the timestamp+cpu markers:
@@ -409,6 +411,8 @@ test_marker_placement(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
         check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&

@@ -242,6 +242,7 @@ typedef enum {
      * NtSetContextThread on Windows.
      */
     TRACE_MARKER_TYPE_KERNEL_XFER,
+    // XXX i#5634: Add 64-bit marker value support to 32-bit to avoid truncating.
     /**
      * The marker value contains a timestamp for this point in the trace, in units
      * of microseconds since Jan 1, 1601 (the UTC time).  For 32-bit, the value

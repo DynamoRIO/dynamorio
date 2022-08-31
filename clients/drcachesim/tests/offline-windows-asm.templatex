@@ -39,7 +39,7 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-          11 total other markers
+          12 total other markers
 Total windows: 7
 Window #0:
           15 window \(fetched\) instructions
@@ -58,7 +58,7 @@ Window #0:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           5 window other markers
+           6 window other markers
 Window #1:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -184,4 +184,4 @@ Thread [0-9]* counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-           5 other markers
+           6 other markers
