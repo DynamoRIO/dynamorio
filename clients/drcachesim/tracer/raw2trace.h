@@ -1314,6 +1314,7 @@ private:
                 // we handle it in post-processing by delaying a thread-block-final branch
                 // (and its memrefs) to that thread's next block.  This changes the
                 // timestamp of the branch, which we live with.
+                impl()->log(4, "Delaying %d entries\n", buf - buf_start);
                 error = impl()->write_delayed_branches(tls, buf_start, buf);
                 if (!error.empty())
                     return error;

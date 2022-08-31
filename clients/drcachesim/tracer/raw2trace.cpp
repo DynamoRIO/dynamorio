@@ -1061,14 +1061,18 @@ raw2trace_t::append_delayed_branch(void *tls)
     if (tdata->delayed_branch.empty())
         return "";
     for (const auto &entry : tdata->delayed_branch) {
-        VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n", entry.addr,
-               tdata->index);
-        if (!type_is_instr(static_cast<trace_type_t>(entry.type)))
-            continue;
-        if (tdata->out_archive != nullptr && tdata->instr_count++ >= chunk_instr_count_) {
-            std::string error = open_new_chunk(tdata);
-            if (!error.empty())
-                return error;
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n", entry.addr,
+                   tdata->index);
+            if (tdata->out_archive != nullptr &&
+                tdata->instr_count++ >= chunk_instr_count_) {
+                std::string error = open_new_chunk(tdata);
+                if (!error.empty())
+                    return error;
+            }
+        } else {
+            VPRINT(4, "Appending delayed branch tagalong entry type %d for thread %d\n",
+                   entry.type, tdata->index);
         }
         if (!tdata->out_file->write(reinterpret_cast<const char *>(&entry),
                                     sizeof(entry)))
@@ -1154,7 +1158,7 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
                 else if (it->size == TRACE_MARKER_TYPE_CPU_ID)
-                    tdata->last_cpu_ = it->addr;
+                    tdata->last_cpu_ = static_cast<uint>(it->addr);
                 continue;
             }
             if (!type_is_instr(static_cast<trace_type_t>(it->type)))
@@ -1192,7 +1196,7 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
                                     const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    for (const trace_entry_t *it = start; it <= end; ++it)
+    for (const trace_entry_t *it = start; it < end; ++it)
         tdata->delayed_branch.push_back(*it);
     return "";
 }
