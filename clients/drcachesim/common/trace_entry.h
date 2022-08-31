@@ -379,6 +379,12 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_ID,
 
+    /**
+     * This top-level marker identifies the instruction count in each chunk
+     * of the output file.  This is the granularity of a fast seek.
+     */
+    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

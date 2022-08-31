@@ -36,7 +36,7 @@
 #define _ZIPFILE_FILE_READER_H_ 1
 
 #include <zlib.h>
-#include "unzip.h"
+#include "minizip/unzip.h"
 #include "file_reader.h"
 
 typedef file_reader_t<unzFile> zipfile_file_reader_t;

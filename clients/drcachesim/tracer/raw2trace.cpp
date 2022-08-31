@@ -542,7 +542,9 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
-    int version = offline_version_to_trace_version(tdata->version);
+    int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
+        ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
+        : TRACE_ENTRY_VERSION;
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
@@ -560,7 +562,6 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
     tdata->tid = tid;
-    tdata->pid = header.pid;
     tdata->cache_line_size = header.cache_line_size;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
@@ -570,6 +571,14 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     // Write the version, arch, and other type flags.
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
+                                chunk_instr_count_);
+    // The buffer can only hold 5 entries so write it now.
+    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
+        return "Failed to write to output file";
+    buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
+    buf = buf_base;
     // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
@@ -1069,10 +1078,13 @@ raw2trace_t::get_write_buffer(void *tls)
 std::string
 raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
 {
-    // TODO i#5538: Re-emit the header entries and last timestamp from the prior chunk.
-    // On a linear read, skip over these duplicated headers.  On a seek, cache them,
-    // update timestamp and cpu as do linear portion of seek, and then emit them all
-    // at the target point.
+    // TODO i#5538: Re-emit the last timestamp + cpu from the prior chunk.  We don't
+    // need to re-emit the top-level headers to make the chunk self-contained: we'll
+    // need to read them from the first chunk to find the cunk size and we can cache
+    // them there.  We only re-emit the timestamp and cpu.  On a linear read, we skip
+    // over these duplicated headers.  On a seek, cache them, update timestamp and cpu
+    // as do linear portion of seek, and then emit cached top-level headers plus the
+    // last timestamp+cpu at the target point.
     return "";
 }
 
@@ -1097,7 +1109,6 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     if (tdata->component_count_ == 1)
         return "";
 
-    // Re-emit the top-of-file headers so each chunk is self-contained.
     error = emit_new_chunk_header(tdata);
     if (!error.empty())
         return error;

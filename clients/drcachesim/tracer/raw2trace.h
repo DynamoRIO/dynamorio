@@ -1760,7 +1760,6 @@ protected:
         raw2trace_thread_data_t()
             : index(0)
             , tid(0)
-            , pid(0)
             , worker(0)
             , thread_file(nullptr)
             , out_archive(nullptr)
@@ -1779,7 +1778,6 @@ protected:
 
         int index;
         thread_id_t tid;
-        process_id_t pid;
         int worker;
         std::istream *thread_file;
         archive_ostream_t *out_archive; // May be nullptr.
@@ -1788,7 +1786,6 @@ protected:
         int version;
         offline_file_type_t file_type;
         size_t cache_line_size = 0;
-        size_t page_size = 0;
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
@@ -1906,14 +1903,6 @@ private:
 
     std::string
     emit_new_chunk_header(raw2trace_thread_data_t *tdata);
-
-    trace_version_t
-    offline_version_to_trace_version(int offline_version)
-    {
-        return offline_version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
-            ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
-            : TRACE_ENTRY_VERSION;
-    }
 
     std::vector<raw2trace_thread_data_t> thread_data_;
 

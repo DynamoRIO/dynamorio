@@ -40,7 +40,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include "zip.h"
+#include "minizip/zip.h"
 
 /* We need to override the stream buffer class which is where the file
  * writes happen.  We go ahead and use a simple buffer.  The stream

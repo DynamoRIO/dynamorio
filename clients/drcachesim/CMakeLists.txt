@@ -63,25 +63,26 @@ if (ZLIB_FOUND)
 
   # We use minizip, supplied with zlib, to split offline traces into pieces
   # inside zipfiles to support fast seeking.
-  if (NOT EXISTS "${PROJECT_SOURCE_DIR}/third_party/zlib")
+  set(minizip_dir "${PROJECT_SOURCE_DIR}/third_party/zlib/contrib/minizip")
+  if (NOT EXISTS "${minizip_dir}")
     # XXX: Should we make this a fatal error, and build zlib on Windows,
     # to eliminate having to support both .gz and .zip output?
     # Maybe require zlib as well and stop supporting uncompressed output
     # and remove HAS_ZLIB ifdefs from our code?
     message(WARNING
       "third_party/zlib submodule is not initialized: run 'git submodule init'; "
-      "disabling zip output and fast seeking")
+      "until then, disabling zip output and fast seeking")
     set(zip_reader "")
     set(zlib_libs ${ZLIB_LIBRARIES})
   else ()
-    set(minizip_dir "${PROJECT_SOURCE_DIR}/third_party/zlib/contrib/minizip")
     file(GLOB minizip_srcs "${minizip_dir}/*.c")
     if (NOT WIN32)
       list(REMOVE_ITEM minizip_srcs "${minizip_dir}/iowin32.c")
     endif ()
     add_library(minizip STATIC ${minizip_srcs})
     add_definitions(-DHAS_ZIP)
-    include_directories(${minizip_dir})
+    # We add "minizip/" to avoid collisions with system "zip.h" on Mac.
+    include_directories(${minizip_dir}/..)
     DR_export_target(minizip)
     install_exported_target(minizip ${INSTALL_CLIENTS_LIB})
     set(zip_reader reader/zipfile_file_reader.cpp)
