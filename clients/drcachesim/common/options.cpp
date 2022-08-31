@@ -104,7 +104,8 @@ droption_t<bytesize_t> op_chunk_instr_count(
     DROPTION_SCOPE_FRONTEND, "chunk_instr_count", 10 * 1000 * 1000U,
     "Chunk instruction count",
     "Specifies the size in instructions of the chunks into which a trace output file "
-    "is split inside a zipefile.  This is the granularity of a fast seek.");
+    "is split inside a zipefile.  This is the granularity of a fast seek. "
+    "For 32-bit this cannot exceed 4G.");
 
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",

@@ -571,8 +571,11 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     // Write the version, arch, and other type flags.
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
-    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
-                                chunk_instr_count_);
+    if (tdata->out_archive != nullptr) {
+        buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
+                                    // 32-bit is limited to 4G.
+                                    static_cast<uintptr_t>(chunk_instr_count_));
+    }
     // The buffer can only hold 5 entries so write it now.
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
