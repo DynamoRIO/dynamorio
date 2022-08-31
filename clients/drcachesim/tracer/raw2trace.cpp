@@ -107,7 +107,7 @@ int
 trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 {
     return instru.append_marker(buffer, TRACE_MARKER_TYPE_TIMESTAMP,
-                                // Truncated for 32-bit, as documented.
+                                // XXX i#5634: Truncated for 32-bit, as documented.
                                 (uintptr_t)timestamp);
 }
 
@@ -588,8 +588,11 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
                                 // i#5634: 32-bit is limited to 4G.
                                 static_cast<uintptr_t>(chunk_instr_count_));
-    if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
+    if (header.timestamp != 0) {
+        // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
+        tdata->last_timestamp_ = header.timestamp;
+    }
     // We have to write this now before we append any bb entries.
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
@@ -636,6 +639,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             byte *buf = buf_base +
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
+            tdata->last_timestamp_ = entry.timestamp.usec;
             CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
             if (!tdata->out_file->write((char *)buf_base, buf - buf_base)) {
                 tdata->error = "Failed to write to output file";
@@ -1056,16 +1060,19 @@ raw2trace_t::append_delayed_branch(void *tls)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->delayed_branch.empty())
         return "";
-    for (const auto &contents : tdata->delayed_branch) {
-        VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n",
-               reinterpret_cast<const trace_entry_t *>(&contents[0])->addr, tdata->index);
-        if (!tdata->out_file->write(&contents[0], contents.size()))
-            return "Failed to write to output file";
-        if (tdata->out_archive != nullptr && ++tdata->instr_count >= chunk_instr_count_) {
+    for (const auto &entry : tdata->delayed_branch) {
+        VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n", entry.addr,
+               tdata->index);
+        if (!type_is_instr(static_cast<trace_type_t>(entry.type)))
+            continue;
+        if (tdata->out_archive != nullptr && tdata->instr_count++ >= chunk_instr_count_) {
             std::string error = open_new_chunk(tdata);
             if (!error.empty())
                 return error;
         }
+        if (!tdata->out_file->write(reinterpret_cast<const char *>(&entry),
+                                    sizeof(entry)))
+            return "Failed to write to output file";
     }
     tdata->delayed_branch.clear();
     return "";
@@ -1081,13 +1088,20 @@ raw2trace_t::get_write_buffer(void *tls)
 std::string
 raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
 {
-    // TODO i#5538: Re-emit the last timestamp + cpu from the prior chunk.  We don't
+    // Re-emit the last timestamp + cpu from the prior chunk.  We don't
     // need to re-emit the top-level headers to make the chunk self-contained: we'll
     // need to read them from the first chunk to find the cunk size and we can cache
     // them there.  We only re-emit the timestamp and cpu.  On a linear read, we skip
-    // over these duplicated headers.  On a seek, cache them, update timestamp and cpu
-    // as do linear portion of seek, and then emit cached top-level headers plus the
-    // last timestamp+cpu at the target point.
+    // over these duplicated headers.
+    byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
+    byte *buf = buf_base;
+    buf +=
+        trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)tdata->last_timestamp_);
+    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CPU_ID,
+                                                 tdata->last_cpu_);
+    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
+        return "Failed to write to output file";
     return "";
 }
 
@@ -1136,9 +1150,23 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->out_archive != nullptr) {
         for (const trace_entry_t *it = start; it < end; ++it) {
+            if (it->type == TRACE_TYPE_MARKER) {
+                if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
+                    tdata->last_timestamp_ = it->addr;
+                else if (it->size == TRACE_MARKER_TYPE_CPU_ID)
+                    tdata->last_cpu_ = it->addr;
+                continue;
+            }
             if (!type_is_instr(static_cast<trace_type_t>(it->type)))
                 continue;
-            if (++tdata->instr_count > chunk_instr_count_) {
+            // We wait until we're past the final instr to write, to ensure we
+            // get all its memrefs.  (We will put function markers for entry in the
+            // prior chunk too: we live with that.)
+            //
+            // TODO i#5538: Add instruction counts to the view tool and verify we
+            // have the right precise count -- by having an option to not skip the
+            // duplicated timestamp in the reader?
+            if (tdata->instr_count++ >= chunk_instr_count_) {
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
                                             reinterpret_cast<const char *>(it) -
                                                 reinterpret_cast<const char *>(start)))
@@ -1164,9 +1192,8 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
                                     const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    std::vector<char> contents(reinterpret_cast<const char *>(start),
-                               reinterpret_cast<const char *>(end));
-    tdata->delayed_branch.push_back(contents);
+    for (const trace_entry_t *it = start; it <= end; ++it)
+        tdata->delayed_branch.push_back(*it);
     return "";
 }
 

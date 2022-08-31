@@ -1789,7 +1789,7 @@ protected:
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
-        std::vector<std::vector<char>> delayed_branch;
+        std::vector<trace_entry_t> delayed_branch;
 
         // Current trace conversion state.
         bool saw_header;
@@ -1811,6 +1811,8 @@ protected:
 
         uint64 instr_count = 0;
         uint64 component_count_ = 0;
+        uint64 last_timestamp_ = 0;
+        uint last_cpu_ = 0;
     };
 
     virtual std::string
