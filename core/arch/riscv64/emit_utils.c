@@ -33,13 +33,8 @@
 #include "../globals.h"
 #include "arch.h"
 
-#ifdef RISCV_ISA_C
-#    define RAW_NOP_INST 0x0001
-#    define RAW_NOP_INST_SZ 2
-#else
-#    define RAW_NOP_INST 0x00000013
-#    define RAW_NOP_INST_SZ 4
-#endif
+#define RAW_NOP_INST 0x0001
+#define RAW_NOP_INST_SZ 2
 
 /***************************************************************************/
 /*                               EXIT STUB                                 */
