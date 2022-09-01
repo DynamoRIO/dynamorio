@@ -1,1 +1,9 @@
+# macOS specific
 .DS_Store
+
+# IDE project files
+.cache
+.idea
+.vs
+.vscode
+build
