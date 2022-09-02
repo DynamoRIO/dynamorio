@@ -50,6 +50,7 @@
 #include <unordered_map>
 #include "trace_entry.h"
 #include "instru.h"
+#include "archive_ostream.h"
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
@@ -80,10 +81,15 @@
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #ifdef HAS_ZLIB
-#    define TRACE_SUFFIX "trace.gz"
+#    ifdef HAS_ZIP
+#        define TRACE_SUFFIX "trace.zip"
+#    else
+#        define TRACE_SUFFIX "trace.gz"
+#    endif
 #else
 #    define TRACE_SUFFIX "trace"
 #endif
+#define TRACE_CHUNK_PREFIX "chunk."
 
 typedef enum {
     RAW2TRACE_STAT_COUNT_ELIDED,
@@ -635,7 +641,7 @@ struct trace_header_t {
  *  get_write_buffer() may reuse the same buffer after write() or write_delayed_branches()
  * is called.</LI>
  *
- * <LI>bool write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
+ * <LI>std::string write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
  *
  * Writes the converted traces between start and end, where end is past the last
  * item to write. Both start and end are assumed to be pointers inside a buffer
@@ -777,8 +783,10 @@ protected:
                 impl()->log(2, "Thread %d exit\n", (uint)tid);
                 buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
                 *end_of_record = true;
-                if (!impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf)))
-                    return "Failed to write to output file";
+                std::string error =
+                    impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+                if (!error.empty())
+                    return error;
                 // Let the user determine what other actions to take, e.g. account for
                 // the ending of the current thread, etc.
                 return impl()->on_thread_end(tls);
@@ -843,8 +851,10 @@ protected:
         size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
         DR_CHECK((uint)size < WRITE_BUFFER_SIZE, "Too many entries");
         if (size > 0) {
-            if (!impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf)))
-                return "Failed to write to output file";
+            std::string error =
+                impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+            if (!error.empty())
+                return error;
         }
         return "";
     }
@@ -1308,12 +1318,14 @@ private:
                 // we handle it in post-processing by delaying a thread-block-final branch
                 // (and its memrefs) to that thread's next block.  This changes the
                 // timestamp of the branch, which we live with.
+                impl()->log(4, "Delaying %d entries\n", buf - buf_start);
                 error = impl()->write_delayed_branches(tls, buf_start, buf);
                 if (!error.empty())
                     return error;
             } else {
-                if (!impl()->write(tls, buf_start, buf))
-                    return "Failed to write to output file";
+                error = impl()->write(tls, buf_start, buf);
+                if (!error.empty())
+                    return error;
             }
             if (interrupted)
                 break;
@@ -1626,14 +1638,18 @@ private:
  */
 class raw2trace_t : public trace_converter_t<raw2trace_t> {
 public:
+    // Only one of out_files and out_archives should be non-empty: archives support fast
+    // seeking and are preferred but require zlib.
     // module_map, encoding_file, thread_files, and out_files are all owned and
     // opened/closed by the caller.  module_map is not a string and can contain binary
     // data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files,
+                const std::vector<archive_ostream_t *> &out_archives,
                 file_t encoding_file = INVALID_FILE, void *dcontext = nullptr,
                 unsigned int verbosity = 0, int worker_count = -1,
-                const std::string &alt_module_dir = "");
+                const std::string &alt_module_dir = "",
+                uint64_t chunk_instr_count = 10 * 1000 * 1000);
     virtual ~raw2trace_t();
 
     /**
@@ -1751,6 +1767,7 @@ protected:
             , tid(0)
             , worker(0)
             , thread_file(nullptr)
+            , out_archive(nullptr)
             , out_file(nullptr)
             , version(0)
             , file_type(OFFLINE_FILE_TYPE_DEFAULT)
@@ -1768,15 +1785,16 @@ protected:
         thread_id_t tid;
         int worker;
         std::istream *thread_file;
-        std::ostream *out_file;
+        archive_ostream_t *out_archive; // May be nullptr.
+        std::ostream *out_file;         // Always set; for archive, == "out_archive".
         std::string error;
         int version;
         offline_file_type_t file_type;
-        size_t cache_line_size;
+        size_t cache_line_size = 0;
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
-        std::vector<std::vector<char>> delayed_branch;
+        std::vector<trace_entry_t> delayed_branch;
 
         // Current trace conversion state.
         bool saw_header;
@@ -1795,6 +1813,11 @@ protected:
 
         // Statistics on the processing.
         uint64 count_elided = 0;
+
+        uint64 cur_chunk_instr_count = 0;
+        uint64 chunk_count_ = 0;
+        uint64 last_timestamp_ = 0;
+        uint last_cpu_ = 0;
     };
 
     virtual std::string
@@ -1809,6 +1832,9 @@ protected:
 
     std::string
     write_footer(void *tls);
+
+    std::string
+    open_new_chunk(raw2trace_thread_data_t *tdata);
 
     uint64 count_elided_ = 0;
 
@@ -1828,7 +1854,7 @@ private:
     // Non-overridable parts of the interface expected by trace_converter_t.
     trace_entry_t *
     get_write_buffer(void *tls);
-    bool
+    std::string
     write(void *tls, const trace_entry_t *start, const trace_entry_t *end);
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
@@ -1881,6 +1907,9 @@ private:
 
     void
     process_tasks(std::vector<raw2trace_thread_data_t *> *tasks);
+
+    std::string
+    emit_new_chunk_header(raw2trace_thread_data_t *tdata);
 
     std::vector<raw2trace_thread_data_t> thread_data_;
 
@@ -1991,6 +2020,9 @@ private:
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.
     static const int kDefaultJobMax = 16;
+
+    // Chunking for seeking support in compressed files.
+    uint64_t chunk_instr_count_ = 0;
 };
 
 #endif /* _RAW2TRACE_H_ */

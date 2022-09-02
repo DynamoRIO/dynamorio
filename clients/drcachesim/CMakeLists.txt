@@ -54,15 +54,46 @@ if (ARM AND CMAKE_COMPILER_IS_GNUCC)
   endif (GCC_HAS_NO_PSABI)
 endif ()
 
-# i#2277: we use zlib if available to read compressed trace files.
-# XXX: we could ship with a zlib for Windows: today we simply don't support
-# compressed traces on Windows.
+# i#2277: we use zlib if available to write and read compressed trace files,
+# and now to write zipfiles for fast seeking.
 if (ZLIB_FOUND)
   add_definitions(-DHAS_ZLIB)
   include_directories(${ZLIB_INCLUDE_DIRS})
   set(zlib_reader reader/compressed_file_reader.cpp)
+
+  # We use minizip, supplied with zlib, to split offline traces into pieces
+  # inside zipfiles to support fast seeking.
+  set(minizip_dir "${PROJECT_SOURCE_DIR}/third_party/zlib/contrib/minizip")
+  if (NOT EXISTS "${minizip_dir}")
+    # XXX: Should we make this a fatal error, and build zlib on Windows,
+    # to eliminate having to support both .gz and .zip output?
+    # Maybe require zlib as well and stop supporting uncompressed output
+    # and remove HAS_ZLIB ifdefs from our code?
+    message(WARNING
+      "third_party/zlib submodule is not initialized: run 'git submodule init'; "
+      "until then, disabling zip output and fast seeking")
+    set(zip_reader "")
+    set(zlib_libs ${ZLIB_LIBRARIES})
+  else ()
+    file(GLOB minizip_srcs "${minizip_dir}/*.c")
+    if (NOT WIN32)
+      list(REMOVE_ITEM minizip_srcs "${minizip_dir}/iowin32.c")
+    endif ()
+    add_library(minizip STATIC ${minizip_srcs})
+    add_definitions(-DHAS_ZIP)
+    # We add "minizip/" to avoid collisions with system "zip.h" on Mac.
+    include_directories(${minizip_dir}/..)
+    DR_export_target(minizip)
+    install_exported_target(minizip ${INSTALL_CLIENTS_LIB})
+    set(zip_reader reader/zipfile_file_reader.cpp)
+    set(zlib_libs ${ZLIB_LIBRARIES} minizip)
+  endif ()
 else ()
+  # XXX: We could ship with a zlib for Windows, or build the third_party/zlib.
+  # Today we simply don't support compressed traces or fast seeking on Windows.
   set(zlib_reader "")
+  set(zip_reader "")
+  set(zlib_libs "")
 endif()
 
 if (libsnappy)
@@ -165,6 +196,7 @@ set(drcachesim_srcs
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${zip_reader}
   ${snappy_reader}
   reader/ipc_reader.cpp
   simulator/analyzer_interface.cpp
@@ -205,6 +237,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${zip_reader}
   ${snappy_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
@@ -275,14 +308,13 @@ if (NOT APPLE)
   configure_DynamoRIO_static(opcode_mix_launcher)
 endif ()
 
-if (ZLIB_FOUND)
-  target_link_libraries(drcachesim ${ZLIB_LIBRARIES})
-  target_link_libraries(histogram_launcher ${ZLIB_LIBRARIES})
-  target_link_libraries(prefetch_analyzer_launcher ${ZLIB_LIBRARIES})
-  target_link_libraries(drmemtrace_raw2trace ${ZLIB_LIBRARIES})
-  if (NOT AARCH64 AND NOT APPLE)
-    target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
-  endif ()
+target_link_libraries(drcachesim ${zlib_libs})
+target_link_libraries(histogram_launcher ${zlib_libs})
+target_link_libraries(prefetch_analyzer_launcher ${zlib_libs})
+target_link_libraries(drmemtrace_raw2trace ${zlib_libs})
+target_link_libraries(drmemtrace_analyzer ${zlib_libs})
+if (NOT AARCH64 AND NOT APPLE)
+  target_link_libraries(opcode_mix_launcher ${zlib_libs})
 endif ()
 
 macro(add_drmemtrace name type)
@@ -333,9 +365,7 @@ macro(add_drmemtrace name type)
   if (libsnappy)
     target_link_libraries(${name} snappy)
   endif ()
-  if (ZLIB_FOUND)
-    target_link_libraries(${name} ${ZLIB_LIBRARIES})
-  endif ()
+  target_link_libraries(${name} ${zlib_libs})
   if (liblz4)
     target_link_libraries(${name} lz4)
   endif ()
@@ -555,13 +585,8 @@ endif ()
 if (BUILD_TESTS)
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
     tests/cache_replacement_policy_unit_test.cpp)
-  if (ZLIB_FOUND)
-    target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-      drmemtrace_static drmemtrace_analyzer ${ZLIB_LIBRARIES})
-  else ()
-    target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-      drmemtrace_static drmemtrace_analyzer)
-  endif ()
+  target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
+    drmemtrace_static drmemtrace_analyzer ${zlib_libs})
   add_win32_flags(tool.drcachesim.unit_tests)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests)
@@ -590,13 +615,8 @@ if (BUILD_TESTS)
   if (NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
     # Tests for the cache miss analyzer.
     add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
-    if (ZLIB_FOUND)
-      target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
-        drmemtrace_static drmemtrace_analyzer ${ZLIB_LIBRARIES})
-    else ()
-      target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
-        drmemtrace_static drmemtrace_analyzer)
-    endif ()
+    target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
+      drmemtrace_static drmemtrace_analyzer ${zlib_libs})
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,9 @@
 #ifdef HAS_ZLIB
 #    include "reader/compressed_file_reader.h"
 #endif
+#ifdef HAS_ZIP
+#    include "reader/zipfile_file_reader.h"
+#endif
 #ifdef HAS_SNAPPY
 #    include "reader/snappy_file_reader.h"
 #endif
@@ -62,7 +65,7 @@ analyzer_t::analyzer_t()
     /* Nothing else: child class needs to initialize. */
 }
 
-#ifdef HAS_SNAPPY
+#if defined(HAS_SNAPPY) || defined(HAS_ZIP)
 static bool
 ends_with(const std::string &str, const std::string &with)
 {
@@ -76,9 +79,15 @@ ends_with(const std::string &str, const std::string &with)
 static std::unique_ptr<reader_t>
 get_reader(const std::string &path, int verbosity)
 {
-#ifdef HAS_SNAPPY
+#if defined(HAS_SNAPPY) || defined(HAS_ZIP)
+#    ifdef HAS_SNAPPY
     if (ends_with(path, ".sz"))
         return std::unique_ptr<reader_t>(new snappy_file_reader_t(path, verbosity));
+#    endif
+#    ifdef HAS_ZIP
+    if (ends_with(path, ".zip"))
+        return std::unique_ptr<reader_t>(new zipfile_file_reader_t(path, verbosity));
+#    endif
     // If path is a directory, and any file in it ends in .sz, return a snappy reader.
     if (directory_iterator_t::is_directory(path)) {
         directory_iterator_t end;
@@ -89,14 +98,22 @@ get_reader(const std::string &path, int verbosity)
             return nullptr;
         }
         for (; iter != end; ++iter) {
+#    ifdef HAS_SNAPPY
             if (ends_with(*iter, ".sz")) {
                 return std::unique_ptr<reader_t>(
                     new snappy_file_reader_t(path, verbosity));
             }
+#    endif
+#    ifdef HAS_ZIP
+            if (ends_with(*iter, ".zip")) {
+                return std::unique_ptr<reader_t>(
+                    new zipfile_file_reader_t(path, verbosity));
+            }
+#    endif
         }
     }
 #endif
-    // No snappy support, or didn't find a .sz file, try the default reader.
+    // No snappy/zlib support, or didn't find a .sz/.zip file.
     return std::unique_ptr<reader_t>(new default_file_reader_t(path, verbosity));
 }
 

@@ -3597,7 +3597,9 @@ if (BUILD_CLIENTS)
 
     # We could share drcachesim-simple.templatex if we had the launcher fork
     # and print out the "---- <application exited with code 0> ----".
-    torunonly_drcacheoff(simple ${ci_shared_app} "" "" "")
+    torunonly_drcacheoff(simple ${ci_shared_app} ""
+      # We pass a small instr count to test multiple chunks in a zipfile.
+      "@-chunk_instr_count@10K" "")
 
     if (UNIX)
       # Test an app with a fork.
@@ -3955,7 +3957,8 @@ if (BUILD_CLIENTS)
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
-      "" "@-simulator_type@invariant_checker" "")
+      # We pass a small instr count to test multiple chunks in a zipfile.
+      "" "@-chunk_instr_count@10K@-simulator_type@invariant_checker" "")
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
@@ -4014,31 +4017,6 @@ if (BUILD_CLIENTS)
         "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
     endif ()
 
-    find_program(GZIP gzip "gzip compression utility")
-    if (UNIX AND ZLIB_FOUND AND GZIP)
-      # Test the gzip file reader.  It does not work with -indir.
-    set(testname_full "tool.histogram.gzip")
-      torunonly_ci(${testname_full} ${histo_app} drcachesim
-        "histogram-offline.c" "-offline -subdir_prefix ${testname_full}" "" "")
-      set(${testname_full}_toolname "drcachesim")
-      set(${testname_full}_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(${testname_full}_rawtemp ON) # no preprocessor
-      get_target_path_for_execution(histo_path histogram_launcher "${location_suffix}")
-      prefix_cmd_if_necessary(histo_path ON ${histo_path})
-      set(${testname_full}_runcmp
-        "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-      set(${testname_full}_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
-      set(${testname_full}_postcmd
-        "${drcachesim_path}@-indir@${testname_full}.*.dir")
-      set(${testname_full}_postcmd2
-        "${GZIP}@${testname_full}.*.dir/trace/*")
-      set(${testname_full}_postcmd3
-        "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
-    elseif (UNIX)
-      message(STATUS "gzip or zlib not found: disabling ${testname_full} test")
-    endif ()
   endif (NOT ANDROID)
 
   # Test using our exported drmemtrace analysis framework (i#2006).

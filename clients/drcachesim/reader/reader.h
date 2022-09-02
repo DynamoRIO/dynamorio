@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -76,7 +76,8 @@ public:
     virtual bool
     init() = 0;
 
-    virtual const memref_t &operator*();
+    virtual const memref_t &
+    operator*();
 
     // To avoid double-dispatch (requires listing all derived types in the base here)
     // and RTTI in trying to get the right operators called for subclasses, we
@@ -98,7 +99,8 @@ public:
     operator++();
 
     // Supplied for subclasses that may fail in their constructors.
-    virtual bool operator!()
+    virtual bool
+    operator!()
     {
         return false;
     }
@@ -141,6 +143,8 @@ private:
     addr_t prev_instr_addr_ = 0;
     int bundle_idx_ = 0;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
+    uint64_t last_timestamp_ = 0;
+    bool skip_next_cpu_ = false;
 };
 
 #endif /* _READER_H_ */

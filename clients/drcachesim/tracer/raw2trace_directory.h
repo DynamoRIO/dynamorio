@@ -38,6 +38,7 @@
 #include <vector>
 
 #include "dr_api.h"
+#include "archive_ostream.h"
 
 class raw2trace_directory_t {
 public:
@@ -83,6 +84,7 @@ public:
     file_t encoding_file_;
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
+    std::vector<archive_ostream_t *> out_archives_;
 
 private:
     std::string
