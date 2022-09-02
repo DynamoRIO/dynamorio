@@ -329,6 +329,9 @@ view_t::process_memref(const memref_t &memref)
             std::cerr << "<marker: chunk instruction count " << memref.marker.marker_value
                       << ">\n";
             break;
+        case TRACE_MARKER_TYPE_CHUNK_FOOTER:
+            std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
+            break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";

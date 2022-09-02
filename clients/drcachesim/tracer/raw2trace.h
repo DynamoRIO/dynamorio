@@ -81,7 +81,11 @@
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #ifdef HAS_ZLIB
-#    define TRACE_SUFFIX "trace.zip"
+#    ifdef HAS_ZIP
+#        define TRACE_SUFFIX "trace.zip"
+#    else
+#        define TRACE_SUFFIX "trace.gz"
+#    endif
 #else
 #    define TRACE_SUFFIX "trace"
 #endif
@@ -1810,8 +1814,8 @@ protected:
         // Statistics on the processing.
         uint64 count_elided = 0;
 
-        uint64 instr_count = 0;
-        uint64 component_count_ = 0;
+        uint64 cur_chunk_instr_count = 0;
+        uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
     };
@@ -1828,6 +1832,9 @@ protected:
 
     std::string
     write_footer(void *tls);
+
+    std::string
+    open_new_chunk(raw2trace_thread_data_t *tdata);
 
     uint64 count_elided_ = 0;
 
@@ -1900,9 +1907,6 @@ private:
 
     void
     process_tasks(std::vector<raw2trace_thread_data_t *> *tasks);
-
-    std::string
-    open_new_chunk(raw2trace_thread_data_t *tdata);
 
     std::string
     emit_new_chunk_header(raw2trace_thread_data_t *tdata);
@@ -2017,7 +2021,7 @@ private:
     // footprint traces, so we set a cap for the default.
     static const int kDefaultJobMax = 16;
 
-    // Chunking for seeking support in encrypted files.
+    // Chunking for seeking support in compressed files.
     uint64_t chunk_instr_count_ = 0;
 };
 

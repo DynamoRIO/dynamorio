@@ -32,6 +32,10 @@
 
 #include "zipfile_file_reader.h"
 
+// We use minizip, which is in the contrib/minizip directory in the zlib
+// sources.  The docs are the header files:
+// https://github.com/madler/zlib/blob/master/contrib/minizip/unzip.h
+
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
@@ -49,10 +53,10 @@ file_reader_t<unzFile>::open_single_file(const std::string &path)
     unzFile file = unzOpen(path.c_str());
     if (file == nullptr)
         return false;
+    input_files_.push_back(file);
     if (unzGoToFirstFile(file) != UNZ_OK || unzOpenCurrentFile(file) != UNZ_OK)
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_files_.push_back(file);
     return true;
 }
 
@@ -62,12 +66,16 @@ file_reader_t<unzFile>::read_next_thread_entry(size_t thread_index,
                                                OUT trace_entry_t *entry, OUT bool *eof)
 {
     *eof = false;
+    // TODO i#5538: The reading performance for .zip files seems to be up to 60%
+    // slower than .gz files, which is unexpected since both use zlib and the checksum
+    // and header differences make zlib normally faster than gzip.
+    // Do we need to buffer ourselves here by reading many entries at once?
     int num_read = unzReadCurrentFile(input_files_[thread_index], entry, sizeof(*entry));
     if (num_read == 0) {
 #ifdef DEBUG
         if (verbosity_ >= 3) {
             char name[128];
-            name[0] = '\0';
+            name[0] = '\0'; /* Just in case. */
             // This call is expensive if we do it every time.
             unzGetCurrentFileInfo64(input_files_[thread_index], nullptr, name,
                                     sizeof(name), nullptr, 0, nullptr, 0);
@@ -76,6 +84,13 @@ file_reader_t<unzFile>::read_next_thread_entry(size_t thread_index,
                    thread_index, name);
         }
 #endif
+        // read_next_entry() stores the last entry into entry_copy_.
+        if ((entry_copy_.type != TRACE_TYPE_MARKER ||
+             entry_copy_.size != TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+            entry_copy_.type != TRACE_TYPE_FOOTER) {
+            VPRINT(this, 1, "Chunk is missing footer: truncation detection\n");
+            return false;
+        }
         if (unzCloseCurrentFile(input_files_[thread_index]) != UNZ_OK)
             return false;
         int res = unzGoToNextFile(input_files_[thread_index]);
@@ -90,8 +105,11 @@ file_reader_t<unzFile>::read_next_thread_entry(size_t thread_index,
             return false;
         num_read = unzReadCurrentFile(input_files_[thread_index], entry, sizeof(*entry));
     }
-    if (num_read < static_cast<int>(sizeof(*entry)))
+    if (num_read < static_cast<int>(sizeof(*entry))) {
+        VPRINT(this, 1, "Thread #%zd failed to read: returned %d\n", thread_index,
+               num_read);
         return false;
+    }
     VPRINT(this, 4, "Read from thread #%zd: type=%d, size=%d, addr=%zu\n", thread_index,
            entry->type, entry->size, entry->addr);
     return true;

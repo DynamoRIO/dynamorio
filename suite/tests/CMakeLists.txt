@@ -3957,7 +3957,8 @@ if (BUILD_CLIENTS)
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
-      "" "@-simulator_type@invariant_checker" "")
+      # We pass a small instr count to test multiple chunks in a zipfile.
+      "" "@-chunk_instr_count@10K@-simulator_type@invariant_checker" "")
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps

@@ -573,6 +573,8 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
+    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
+                                                 header.cache_line_size);
     // The buffer can only hold 5 entries so write it now.
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
@@ -580,9 +582,6 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     buf = buf_base;
     // Write out further markers.
-    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
-                                                 header.cache_line_size);
-
     // Even if tdata->out_archive == nullptr we write out a (0-valued) marker,
     // partly to simplify our test output.
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
@@ -1065,7 +1064,8 @@ raw2trace_t::append_delayed_branch(void *tls)
             VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n", entry.addr,
                    tdata->index);
             if (tdata->out_archive != nullptr &&
-                tdata->instr_count++ >= chunk_instr_count_) {
+                tdata->cur_chunk_instr_count++ >= chunk_instr_count_) {
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count - 1 == chunk_instr_count_);
                 std::string error = open_new_chunk(tdata);
                 if (!error.empty())
                     return error;
@@ -1094,10 +1094,13 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
 {
     // Re-emit the last timestamp + cpu from the prior chunk.  We don't
     // need to re-emit the top-level headers to make the chunk self-contained: we'll
-    // need to read them from the first chunk to find the cunk size and we can cache
+    // need to read them from the first chunk to find the chunk size and we can cache
     // them there.  We only re-emit the timestamp and cpu.  On a linear read, we skip
     // over these duplicated headers.
-    byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
+    // We can't use get_write_buffer() because we may be in the middle of
+    // processing its contents.
+    std::array<trace_entry_t, WRITE_BUFFER_SIZE> local_out_buf;
+    byte *buf_base = reinterpret_cast<byte *>(local_out_buf.data());
     byte *buf = buf_base;
     buf +=
         trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)tdata->last_timestamp_);
@@ -1115,19 +1118,29 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     if (tdata->out_archive == nullptr)
         return "Archive file was not specified";
 
-    log(1, "Creating new chunk #" INT64_FORMAT_STRING "\n", tdata->component_count_);
+    log(1, "Creating new chunk #" INT64_FORMAT_STRING "\n", tdata->chunk_count_);
 
-    // XXX i#5538: Should we emit a footer?
+    if (tdata->chunk_count_ != 0) {
+        // We emit a chunk footer so we can identify truncation.
+        std::array<trace_entry_t, WRITE_BUFFER_SIZE> local_out_buf;
+        byte *buf_base = reinterpret_cast<byte *>(local_out_buf.data());
+        byte *buf = buf_base;
+        buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CHUNK_FOOTER,
+                                                     tdata->chunk_count_ - 1);
+        CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+        if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
+            return "Failed to write to output file";
+    }
 
     std::ostringstream stream;
     stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
-           << tdata->component_count_;
+           << tdata->chunk_count_;
     std::string error = tdata->out_archive->open_new_component(stream.str());
     if (!error.empty())
         return error;
-    tdata->instr_count = 0;
-    ++tdata->component_count_;
-    if (tdata->component_count_ == 1)
+    tdata->cur_chunk_instr_count = 0;
+    ++tdata->chunk_count_;
+    if (tdata->chunk_count_ == 1)
         return "";
 
     error = emit_new_chunk_header(tdata);
@@ -1170,17 +1183,16 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
             // TODO i#5538: Add instruction counts to the view tool and verify we
             // have the right precise count -- by having an option to not skip the
             // duplicated timestamp in the reader?
-            if (tdata->instr_count++ >= chunk_instr_count_) {
+            if (tdata->cur_chunk_instr_count++ >= chunk_instr_count_) {
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count - 1 == chunk_instr_count_);
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
                                             reinterpret_cast<const char *>(it) -
                                                 reinterpret_cast<const char *>(start)))
                     return "Failed to write to output file";
-                if (it == end)
-                    return "";
-                start = it + 1;
                 std::string error = open_new_chunk(tdata);
                 if (!error.empty())
                     return error;
+                start = it;
             }
         }
     }
@@ -1300,7 +1312,12 @@ raw2trace_t::raw2trace_t(const char *module_map,
     , alt_module_dir_(alt_module_dir)
     , chunk_instr_count_(chunk_instr_count)
 {
-    if (out_files.size() + out_archives.size() != thread_files.size()) {
+    // Exactly one of out_files and out_archives should be non-empty.
+    // If thread_files is not empty it must match the input size.
+    if ((!out_files.empty() && !out_archives.empty()) ||
+        (out_files.empty() && out_archives.empty()) ||
+        (!thread_files.empty() &&
+         out_files.size() + out_archives.size() != thread_files.size())) {
         VPRINT(0, "Invalid input and output file lists\n");
         return;
     }
@@ -1317,6 +1334,7 @@ raw2trace_t::raw2trace_t(const char *module_map,
         thread_data_[i].thread_file = thread_files[i];
         if (out_files.empty()) {
             thread_data_[i].out_archive = out_archives[i];
+            // Set out_file too for code that doesn't care which it writes to.
             thread_data_[i].out_file = out_archives[i];
             open_new_chunk(&thread_data_[i]);
         } else {
@@ -1441,8 +1459,7 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
             ++timestamp_pos;
         }
     }
-
-    if (offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP)
+    if (timestamp_pos == size)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
 
     *timestamp = offline_entries[timestamp_pos].timestamp.usec;

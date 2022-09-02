@@ -218,7 +218,7 @@ reader_t::operator++()
             cur_ref_.marker.tid = cur_tid_;
             cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
             cur_ref_.marker.marker_value = input_entry_->addr;
-            // Look for timestmap+cpu duplicated from the prior chunk.  Skip them on
+            // Look for timestamp+cpu duplicated from the prior chunk.  Skip them on
             // a linear walk.
             //
             // TODO i#5538: On a seek, cache the duplicated headers, and update the

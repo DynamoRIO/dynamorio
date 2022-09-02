@@ -37,9 +37,9 @@
 #include "reader/file_reader.h"
 #ifdef HAS_ZLIB
 #    include "reader/compressed_file_reader.h"
-#    ifdef HAS_ZIP
-#        include "reader/zipfile_file_reader.h"
-#    endif
+#endif
+#ifdef HAS_ZIP
+#    include "reader/zipfile_file_reader.h"
 #endif
 #ifdef HAS_SNAPPY
 #    include "reader/snappy_file_reader.h"

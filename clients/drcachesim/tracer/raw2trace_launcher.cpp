@@ -44,6 +44,9 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
+// XXX: We're duplicating some options from common/options.cpp: we should be
+// able to share?!
+
 static droption_t<std::string>
     op_indir(DROPTION_SCOPE_FRONTEND, "indir", "",
              "[Required] Directory with trace input files",
@@ -59,13 +62,11 @@ static droption_t<std::string> op_alt_module_dir(
     "Specifies a directory to look for binaries needed to post-process "
     "the trace.  This directory takes precedence over the recorded path.");
 
-// XXX: We're duplicating some options from common/options.cpp: we should be
-// able to share?!
 static droption_t<bytesize_t> op_chunk_instr_count(
     DROPTION_SCOPE_FRONTEND, "chunk_instr_count", 10 * 1000 * 1000U,
     "Chunk instruction count",
     "Specifies the size in instructions of the chunks into which a trace output file "
-    "is split inside a zipefile.  This is the granularity of a fast seek. "
+    "is split inside a zipfile.  This is the granularity of a fast seek. "
     "For 32-bit this cannot exceed 4G.");
 
 static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", 0,

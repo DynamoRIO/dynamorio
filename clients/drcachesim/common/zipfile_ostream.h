@@ -30,9 +30,10 @@
  * DAMAGE.
  */
 
-/* zipfile_osetream_t: an instance of archive_ostream_t for zipfiles.
- * It is implemented using minizip, whose sources are in zlib's contrib/ dir.
- */
+// zipfile_osetream_t: an instance of archive_ostream_t for zipfiles.
+// We use minizip, which is in the contrib/minizip directory in the zlib
+// sources.  The docs are the header files:
+// https://github.com/madler/zlib/blob/master/contrib/minizip/zip.h
 
 #ifndef _ZIPFILE_OSTREAM_H_
 #define _ZIPFILE_OSTREAM_H_ 1
@@ -42,11 +43,10 @@
 #include <sstream>
 #include "minizip/zip.h"
 
-/* We need to override the stream buffer class which is where the file
- * writes happen.  We go ahead and use a simple buffer.  The stream
- * buffer base class writes to pbase()..epptr() with the next slot at
- * pptr().
- */
+// We need to override the stream buffer class which is where the file
+// writes happen.  We go ahead and use a simple buffer.  The stream
+// buffer base class writes to pbase()..epptr() with the next slot at
+// pptr().
 class zipfile_streambuf_t : public std::basic_streambuf<char, std::char_traits<char>> {
 public:
     zipfile_streambuf_t(const std::string &path)
@@ -55,6 +55,7 @@ public:
         if (zip_ == nullptr)
             return;
         buf_ = new char[buffer_size_];
+        // We call setp() to set pbase() and epptr() (the buffer bounds).
         // We leave an extra slot for extra_char on overflow.
         setp(buf_, buf_ + buffer_size_ - 1);
         // Caller should invoke open_new_component() for first component.
