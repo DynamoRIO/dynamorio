@@ -1125,8 +1125,9 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
         std::array<trace_entry_t, WRITE_BUFFER_SIZE> local_out_buf;
         byte *buf_base = reinterpret_cast<byte *>(local_out_buf.data());
         byte *buf = buf_base;
-        buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CHUNK_FOOTER,
-                                                     tdata->chunk_count_ - 1);
+        buf += trace_metadata_writer_t::write_marker(
+            buf, TRACE_MARKER_TYPE_CHUNK_FOOTER,
+            static_cast<uintptr_t>(tdata->chunk_count_ - 1));
         CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
         if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
             return "Failed to write to output file";
@@ -1442,22 +1443,22 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     if (size < 1)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
 
-    size_t timestamp_pos = 0;
     std::string error;
-    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
-                                                 nullptr) &&
-        error.empty()) {
-        while (timestamp_pos < size &&
-               offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP) {
-            if (timestamp_pos > 15) // Something is wrong if we've gone this far.
-                return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-            // We only expect header-type entries.
-            int type = offline_entries[timestamp_pos].tid.type;
-            if (type != OFFLINE_TYPE_THREAD && type != OFFLINE_TYPE_PID &&
-                type != OFFLINE_TYPE_EXTENDED)
-                return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-            ++timestamp_pos;
-        }
+    if (!trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
+                                                  nullptr) &&
+        !error.empty())
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    size_t timestamp_pos = 0;
+    while (timestamp_pos < size &&
+           offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP) {
+        if (timestamp_pos > 15) // Something is wrong if we've gone this far.
+            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+        // We only expect header-type entries.
+        int type = offline_entries[timestamp_pos].tid.type;
+        if (type != OFFLINE_TYPE_THREAD && type != OFFLINE_TYPE_PID &&
+            type != OFFLINE_TYPE_EXTENDED)
+            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+        ++timestamp_pos;
     }
     if (timestamp_pos == size)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
