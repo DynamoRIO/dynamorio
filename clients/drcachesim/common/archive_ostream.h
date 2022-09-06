@@ -42,7 +42,7 @@
 
 class archive_ostream_t : public std::ostream {
 public:
-    archive_ostream_t(std::basic_streambuf<char, std::char_traits<char>> *buf)
+    explicit archive_ostream_t(std::basic_streambuf<char, std::char_traits<char>> *buf)
         : std::ostream(buf)
     {
     }
