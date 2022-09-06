@@ -1086,7 +1086,6 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                            dcontext_t *dcontext, instr_t *instr)
 {
     int i;
-    const instr_info_t *info;
     const char *name;
     int name_width = 6;
     bool use_size_sfx = false;
@@ -1104,10 +1103,9 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     } else if (instr_opcode_valid(instr)) {
 #ifdef AARCH64
         /* We do not use instr_info_t encoding info on AArch64. */
-        info = NULL;
         name = get_opcode_name(instr_get_opcode(instr));
 #else
-        info = instr_get_instr_info(instr);
+        const instr_info_t *info = instr_get_instr_info(instr);
         name = info->name;
 #endif
     } else
@@ -1293,9 +1291,9 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
                         ? (TEST(FRAG_TEMP_PRIVATE, f->flags) ? "private temp, "
                                                              : "private, ")
                         : "")),
-            (TEST(FRAG_IS_TRACE, f->flags))
-                ? "trace, "
-                : (TEST(FRAG_IS_TRACE_HEAD, f->flags)) ? "tracehead, " : "",
+            (TEST(FRAG_IS_TRACE, f->flags))            ? "trace, "
+                : (TEST(FRAG_IS_TRACE_HEAD, f->flags)) ? "tracehead, "
+                                                       : "",
             f->size, (TEST(FRAG_CANNOT_BE_TRACE, f->flags)) ? ", cannot be trace" : "",
             (TEST(FRAG_MUST_END_TRACE, f->flags)) ? ", must end trace" : "",
             (TEST(FRAG_CANNOT_DELETE, f->flags)) ? ", cannot delete" : "");

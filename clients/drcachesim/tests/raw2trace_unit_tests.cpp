@@ -96,7 +96,7 @@ public:
     raw2trace_test_t(const std::vector<std::istream *> &input,
                      const std::vector<std::ostream *> &output, instrlist_t &instrs,
                      void *drcontext)
-        : raw2trace_t(nullptr, input, output, INVALID_FILE, drcontext,
+        : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, drcontext,
                       // The sequences are small so we print everything for easier
                       // debugging and viewing of what's going on.
                       4)
@@ -269,7 +269,7 @@ test_branch_delays(void *drcontext)
     std::istringstream raw_in(raw_out.str());
     std::vector<std::istream *> input;
     input.push_back(&raw_in);
-    // We need an ostream to capature out.
+    // We need an ostream to capture out.
     std::ostringstream result_stream;
     std::vector<std::ostream *> output;
     output.push_back(&result_stream);
@@ -302,6 +302,8 @@ test_branch_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
         check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // Both branches should be delayed until after the timestamp+cpu markers:
@@ -376,7 +378,7 @@ test_marker_placement(void *drcontext)
     std::istringstream raw_in(raw_out.str());
     std::vector<std::istream *> input;
     input.push_back(&raw_in);
-    // We need an ostream to capature out.
+    // We need an ostream to capture out.
     std::ostringstream result_stream;
     std::vector<std::ostream *> output;
     output.push_back(&result_stream);
@@ -409,6 +411,8 @@ test_marker_placement(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
         check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&

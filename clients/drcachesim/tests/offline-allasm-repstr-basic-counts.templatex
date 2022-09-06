@@ -27,7 +27,7 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-           4 total other markers
+           5 total other markers
 Thread [0-9]* counts:
           98 \(fetched\) instructions
           26 unique \(fetched\) instructions
@@ -45,4 +45,4 @@ Thread [0-9]* counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-           4 other markers
+           5 other markers

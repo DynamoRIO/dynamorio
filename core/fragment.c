@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2901,7 +2901,6 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
 {
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
     fragment_table_t *table = GET_FTABLE(pt, f->flags);
-    bool resized;
     /* no future frags! */
     ASSERT(!TEST(FRAG_IS_FUTURE, f->flags));
 
@@ -2934,7 +2933,7 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
      * which is a perf hit.  Only the actual hashtable add is a "write".
      */
     TABLE_RWLOCK(table, write, lock);
-    resized = fragment_add_to_hashtable(dcontext, f, table);
+    fragment_add_to_hashtable(dcontext, f, table);
     TABLE_RWLOCK(table, write, unlock);
 
     /* After resizing a table that is targeted by inlined IBL heads
@@ -7097,7 +7096,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     char buf[MAXIMUM_PATH];
 #endif
     stats_int_t trace_num;
-    bool locked_vmareas = false, ok;
+    bool locked_vmareas = false;
     dr_isa_mode_t old_mode;
     ASSERT(SHOULD_OUTPUT_FRAGMENT(f->flags));
     ASSERT(TEST(FRAG_IS_TRACE, f->flags));
@@ -7110,7 +7109,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
 
     LOG(THREAD, LOG_FRAGMENT, 4, "output_trace: F%d(" PFX ")\n", f->id, f->tag);
     /* Recreate in same mode as original fragment */
-    ok = dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+    DEBUG_DECLARE(bool ok =)
+    dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
     ASSERT(ok);
 
     /* xref 8131/8202 if dynamo_resetting we don't need to grab the tracedump
@@ -8525,10 +8525,11 @@ fragment_coarse_entry_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_
     }
     if (pending->link_cti_opnd != NULL) {
         /* fix up incoming link */
-        cache_pc patch_tgt = (cache_pc)(
-            ((ptr_uint_t)(pending->entrance_stub ? freeze_info->stubs_start_pc
-                                                 : freeze_info->cache_start_pc)) +
-            tgt);
+        cache_pc patch_tgt =
+            (cache_pc)(((ptr_uint_t)(pending->entrance_stub
+                                         ? freeze_info->stubs_start_pc
+                                         : freeze_info->cache_start_pc)) +
+                       tgt);
         ASSERT(!pending->trace_head || pending->entrance_stub);
         LOG(THREAD, LOG_FRAGMENT, 4, "  patch link " PFX " => " PFX "." PFX "%s\n",
             pending->link_cti_opnd, pending->tag, patch_tgt,
@@ -8568,7 +8569,6 @@ fragment_coarse_unit_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_i
     pending_freeze_t pending_local;
     pending_freeze_t *pending;
     app_to_cache_t a2c;
-    coarse_table_t *frozen_htable;
     coarse_table_t *htable;
     cache_pc body_pc;
     uint i;
@@ -8585,7 +8585,8 @@ fragment_coarse_unit_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_i
             freeze_info->src_info->module);
         hashtable_coarse_study(dcontext, htable, 0 /*clean state*/);
     });
-    frozen_htable = (coarse_table_t *)freeze_info->dst_info->htable;
+    DEBUG_DECLARE(coarse_table_t *frozen_htable =
+                      (coarse_table_t *)freeze_info->dst_info->htable;)
     /* case 9900: rank order conflict with coarse_info_incoming_lock:
      * do not grab frozen_htable write lock: mark is_local instead and rely
      * on dynamo_all_threads_synched

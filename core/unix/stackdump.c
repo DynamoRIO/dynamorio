@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -223,7 +223,6 @@ d_r_stackdump(void)
         int fd;
         const char *argv[16];
         int i;
-        int execve_errno;
 
         /* Open a temporary file for the input: the "where" command */
         fp = os_open(tmp_name, OS_OPEN_REQUIRE_NEW | OS_OPEN_WRITE);
@@ -280,7 +279,8 @@ d_r_stackdump(void)
         argv[i++] = exec_name;
         argv[i++] = core_name;
         argv[i++] = NULL;
-        execve_errno = execve_syscall("/usr/bin/env", argv, our_environ);
+        DEBUG_DECLARE(int execve_errno =)
+        execve_syscall("/usr/bin/env", argv, our_environ);
         SYSLOG_INTERNAL_ERROR("ERROR: execve failed for debugger: %d", -execve_errno);
         exit_process_syscall(1);
     } else if (pid == -1) {

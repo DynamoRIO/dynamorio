@@ -1835,7 +1835,10 @@ endif ()
 
 if (BUILD_CLIENTS)
   # Must be prior to api/docs
-  add_subdirectory(clients)
+  if (NOT (MACOS AND AARCH64))
+    # TODO i#5383: Add M1 drsyms libraries, needed by drcov2lcov and func_trace.
+    add_subdirectory(clients)
+  endif ()
 endif (BUILD_CLIENTS)
 
 if (BUILD_DOCS)

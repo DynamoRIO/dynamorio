@@ -4656,7 +4656,7 @@ static void
 build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
 {
     instr_t *in;
-    opnd_t jmp_tgt;
+    opnd_t jmp_tgt IF_AARCH64(UNUSED);
 #if defined(X86) && defined(X64)
     bool reachable = rel32_reachable_from_vmcode(bb->start_pc);
 #endif
@@ -5294,7 +5294,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
     fragment_t *f;
     uint flags = 0;
     instrlist_t *ilist;
-    bool alloc = false, ok;
+    bool alloc = false;
     monitor_data_t md = {
         0,
     };
@@ -5335,7 +5335,8 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
     }
 
     /* Recreate in same mode as original fragment */
-    ok = dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+    DEBUG_DECLARE(bool ok =)
+    dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
     ASSERT(ok);
 
     if ((f->flags & FRAG_IS_TRACE) == 0) {
@@ -5503,7 +5504,7 @@ recreate_fragment_done:
         *alloc_res = alloc;
     if (f_res == NULL && alloc)
         fragment_free(dcontext, f);
-    ok = dr_set_isa_mode(dcontext, old_mode, NULL);
+    DEBUG_DECLARE(ok =) dr_set_isa_mode(dcontext, old_mode, NULL);
     ASSERT(ok);
     return ilist;
 }
@@ -7247,7 +7248,9 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
     bool coarse_elided_ubrs = false;
     dr_isa_mode_t old_mode;
     /* for decoding and get_ibl routines we need the dcontext mode set */
-    bool ok = dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+    DEBUG_DECLARE(bool ok =)
+    dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+    ASSERT(ok);
     /* i#1494: Decoding a code fragment from code cache, decode_fragment
      * may mess up the 32-bit/64-bit mode in -x86_to_x64 because 32-bit
      * application code is encoded as 64-bit code fragments into the code cache.
@@ -7909,7 +7912,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
     });
 
-    ok = dr_set_isa_mode(dcontext, old_mode, NULL);
+    DEBUG_DECLARE(ok =) dr_set_isa_mode(dcontext, old_mode, NULL);
     ASSERT(ok);
 
     if (dir_exits != NULL)

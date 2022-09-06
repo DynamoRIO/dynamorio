@@ -1043,8 +1043,8 @@ $ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
 If built with the zlib library, the canonical trace files are
-automatically compressed with gzip.  The trace reader supports reading
-gzip or snappy compressed files.
+automatically compressed with zip or gzip.  The trace reader supports
+reading zip, gzip, or snappy compressed files.
 
 The raw files are also compressed, controlled by the -p raw_compress
 option.  If built with lz4 support and not statically linked with the

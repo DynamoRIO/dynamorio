@@ -488,7 +488,8 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     machine_cache_sync(gencode->gen_start_pc, gencode->gen_end_pc, true);
 }
 
-static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void))
+static void
+shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void))
 {
     generated_code_t *gencode;
     ibl_branch_type_t branch_type;
@@ -610,14 +611,13 @@ arch_reset_stolen_reg(void)
 #    ifdef ARM
     dr_isa_mode_t old_mode;
 #    endif
-    dcontext_t *dcontext;
     if (DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset) == dr_reg_stolen)
         return;
     SYSLOG_INTERNAL_INFO("swapping stolen reg from %s to %s", reg_names[dr_reg_stolen],
                          reg_names[DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset)]);
-    dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
 #    ifdef ARM
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
     dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, &old_mode);
 #    endif
 

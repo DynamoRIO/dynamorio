@@ -1322,11 +1322,7 @@ dynamo_process_exit_cleanup(void)
 {
     /* CAUTION: this should only be invoked after all app threads have stopped */
     if (!dynamo_exited && !INTERNAL_OPTION(nullcalls)) {
-        dcontext_t *dcontext;
-
         APP_EXPORT_ASSERT(dynamo_initialized, "Improper DynamoRIO initialization");
-
-        dcontext = get_thread_private_dcontext();
 
         /* we deliberately do NOT clean up d_r_initstack (which was
          * allocated using a separate mmap and so is not part of some

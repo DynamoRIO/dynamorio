@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2965,7 +2965,7 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *i
     }
 
     if (!absolute) {
-        opnd_t counter_opnd;
+        IF_X86(opnd_t counter_opnd;)
 
         /* get dcontext in register (xdi) */
         insert_shared_get_dcontext(dcontext, ilist, NULL, false /* dead register */);
@@ -2986,18 +2986,22 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *i
                     dcontext, opnd_create_reg(SCRATCH_REG5 /*xdi/r5*/),
                     OPND_CREATE_MEMPTR(SCRATCH_REG5 /*xdi/r5*/,
                                        ibl_code->entry_stats_to_lookup_table_offset)));
+#    ifdef X86
             /* XDI should now have (entry_stats - lookup_table) value,
              * so we need [xdi+xcx] to get an entry reference
              */
             counter_opnd = opnd_create_base_disp(SCRATCH_REG5 /*xdi/r5*/, entry_register,
                                                  1, counter_offset, OPSZ_4);
+#    endif
         } else {
             APP(ilist,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG5 /*xdi/r5*/),
                                   OPND_CREATE_MEMPTR(SCRATCH_REG5 /*xdi/r5*/,
                                                      ibl_code->unprot_stats_offset)));
+#    ifdef X86
             /* XDI now has unprot_stats structure */
             counter_opnd = OPND_CREATE_MEM32(SCRATCH_REG5 /*xdi/r5*/, counter_offset);
+#    endif
         }
 
 #    ifdef X86
@@ -5216,7 +5220,7 @@ byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 {
     instrlist_t ilist;
-    uint offset;
+    IF_NOT_AARCH64(uint offset;)
 
     /* initialize the ilist */
     instrlist_init(&ilist);
@@ -5231,13 +5235,14 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * new_thread_setup() will restore real app xsp.
      * We emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc).
      */
-    offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL, IF_X64_ELSE(16, 4),
-                                       opnd_create_reg(SCRATCH_REG0),
-                                       /* we have to pass in scratch to prevent
-                                        * use of the stolen reg, which would be
-                                        * a race w/ the parent's use of it!
-                                        */
-                                       SCRATCH_REG0 _IF_AARCH64(false));
+    IF_NOT_AARCH64(offset =)
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, IF_X64_ELSE(16, 4),
+                              opnd_create_reg(SCRATCH_REG0),
+                              /* we have to pass in scratch to prevent
+                               * use of the stolen reg, which would be
+                               * a race w/ the parent's use of it!
+                               */
+                              SCRATCH_REG0 _IF_AARCH64(false));
 #    ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == get_clean_call_switch_stack_size());

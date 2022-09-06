@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -716,7 +716,7 @@ static app_pc
 special_ret_stub_create(dcontext_t *dcontext, app_pc tgt)
 {
     instrlist_t ilist;
-    app_pc stub_pc, pc;
+    app_pc stub_pc;
 
     /* alloc and encode special ret stub */
     stub_pc = special_heap_alloc(ret_stub_heap);
@@ -735,7 +735,7 @@ special_ret_stub_create(dcontext_t *dcontext, app_pc tgt)
     APP(&ilist,
         XINST_CREATE_jump(dcontext,
                           opnd_create_pc(get_native_ret_ibl_xfer_entry(dcontext))));
-    pc = instrlist_encode(dcontext, &ilist, stub_pc, false);
+    instrlist_encode(dcontext, &ilist, stub_pc, false);
     instrlist_clear(dcontext, &ilist);
 
     return (app_pc)native_module_htable_add(native_ret_table, ret_stub_heap,

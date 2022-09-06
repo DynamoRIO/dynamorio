@@ -146,7 +146,6 @@ _init(int argc, char *arg0, ...)
 _init(int argc, char **argv, char **envp)
 {
 #endif
-    int init;
     const char *name;
 #if VERBOSE_INIT_FINI
     fprintf(stderr, "preload initialized\n");
@@ -177,7 +176,10 @@ _init(int argc, char **argv, char **envp)
     /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so
      * and only LD_PRELOAD the preload lib itself
      */
-    init = dynamorio_app_init();
+#    if VERBOSE
+    int init =
+#    endif
+        dynamorio_app_init();
     pf("dynamorio_app_init() returned %d\n", init);
     dynamorio_app_take_over();
     pf("dynamo started\n");

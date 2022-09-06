@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -297,8 +297,8 @@ static void HTNAME(hashtable_, NAME_KEY,
 #    endif
 
 /* get size in bytes padded for later cache alignment */
-static inline size_t HTNAME(hashtable_, NAME_KEY,
-                            _table_aligned_size)(uint table_capacity, uint flags)
+static inline size_t
+HTNAME(hashtable_, NAME_KEY, _table_aligned_size)(uint table_capacity, uint flags)
 {
     size_t size;
     /* we assume table size allows 32-bit indices */
@@ -313,8 +313,8 @@ static inline size_t HTNAME(hashtable_, NAME_KEY,
 
 #    ifdef HASHTABLE_USE_LOOKUPTABLE
 /* get size in bytes padded for later cache alignment */
-static inline size_t HTNAME(hashtable_, NAME_KEY,
-                            _lookuptable_aligned_size)(uint table_capacity)
+static inline size_t
+HTNAME(hashtable_, NAME_KEY, _lookuptable_aligned_size)(uint table_capacity)
 {
 
     return table_capacity * sizeof(AUX_ENTRY_TYPE) + proc_get_cache_line_size() -
@@ -323,11 +323,11 @@ static inline size_t HTNAME(hashtable_, NAME_KEY,
 #    endif
 
 /* callers should use either hashtable_init or hashtable_resize instead */
-static void HTNAME(hashtable_, NAME_KEY,
-                   _init_internal)(dcontext_t *dcontext,
-                                   HTNAME(, NAME_KEY, _table_t) * table, uint bits,
-                                   uint load_factor_percent, hash_function_t func,
-                                   uint hash_mask_offset _IFLOOKUP(bool use_lookup))
+static void
+HTNAME(hashtable_, NAME_KEY,
+       _init_internal)(dcontext_t *dcontext, HTNAME(, NAME_KEY, _table_t) * table,
+                       uint bits, uint load_factor_percent, hash_function_t func,
+                       uint hash_mask_offset _IFLOOKUP(bool use_lookup))
 {
     uint i;
     uint sentinel_index;
@@ -512,13 +512,14 @@ static void HTNAME(hashtable_, NAME_KEY,
     (dcontext, table _IFLOOKUP(use_lookup));
 }
 
-static void HTNAME(hashtable_, NAME_KEY,
-                   _init)(dcontext_t *dcontext, HTNAME(, NAME_KEY, _table_t) * table,
-                          uint bits, uint load_factor_percent, hash_function_t func,
-                          uint hash_offset
-                              /* FIXME: turn this bool into a HASHTABLE_ flag */
-                              _IFLOOKUP(bool use_lookup),
-                          uint table_flags _IF_DEBUG(const char *table_name))
+static void
+HTNAME(hashtable_, NAME_KEY, _init)(dcontext_t *dcontext,
+                                    HTNAME(, NAME_KEY, _table_t) * table, uint bits,
+                                    uint load_factor_percent, hash_function_t func,
+                                    uint hash_offset
+                                        /* FIXME: turn this bool into a HASHTABLE_ flag */
+                                        _IFLOOKUP(bool use_lookup),
+                                    uint table_flags _IF_DEBUG(const char *table_name))
 {
 #    ifdef DEBUG
     table->name = table_name;
@@ -542,8 +543,9 @@ static void HTNAME(hashtable_, NAME_KEY,
 }
 
 /* caller is responsible for any needed synchronization */
-static void HTNAME(hashtable_, NAME_KEY, _resize)(dcontext_t *dcontext,
-                                                  HTNAME(, NAME_KEY, _table_t) * table)
+static void
+HTNAME(hashtable_, NAME_KEY, _resize)(dcontext_t *dcontext,
+                                      HTNAME(, NAME_KEY, _table_t) * table)
 {
     HTNAME(hashtable_, NAME_KEY, _init_internal)
     (dcontext, table, table->hash_bits, table->load_factor_percent, table->hash_func,
@@ -552,10 +554,11 @@ static void HTNAME(hashtable_, NAME_KEY, _resize)(dcontext_t *dcontext,
          _IFLOOKUP(table->lookuptable != 0));
 }
 
-static inline void HTNAME(hashtable_, NAME_KEY, _free_table)(
-    dcontext_t *alloc_dc,
-    ENTRY_TYPE *table_unaligned _IFLOOKUP(byte *lookup_table_unaligned), uint flags,
-    uint capacity)
+static inline void
+HTNAME(hashtable_, NAME_KEY,
+       _free_table)(dcontext_t *alloc_dc,
+                    ENTRY_TYPE *table_unaligned _IFLOOKUP(byte *lookup_table_unaligned),
+                    uint flags, uint capacity)
 {
     if (table_unaligned != NULL) {
         TABLE_MEMOP(flags, free)
@@ -573,8 +576,9 @@ static inline void HTNAME(hashtable_, NAME_KEY, _free_table)(
 #    endif
 }
 
-static void HTNAME(hashtable_, NAME_KEY, _free)(dcontext_t *dcontext,
-                                                HTNAME(, NAME_KEY, _table_t) * table)
+static void
+HTNAME(hashtable_, NAME_KEY, _free)(dcontext_t *dcontext,
+                                    HTNAME(, NAME_KEY, _table_t) * table)
 {
     LOG(THREAD, LOG_HTABLE, 1,
         "hashtable_" KEY_STRING "_free %s table=" PFX " bits=%d size=%d "
@@ -616,10 +620,10 @@ static void HTNAME(hashtable_, NAME_KEY, _free)(dcontext_t *dcontext,
  * are expected to target a target_delete_entry.
  */
 #    ifdef DEBUG
-static inline void HTNAME(hashtable_, NAME_KEY,
-                          _check_consistency)(dcontext_t *dcontext,
-                                              HTNAME(, NAME_KEY, _table_t) * htable,
-                                              uint hindex)
+static inline void
+HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext_t *dcontext,
+                                                 HTNAME(, NAME_KEY, _table_t) * htable,
+                                                 uint hindex)
 {
 #        ifdef HASHTABLE_USE_LOOKUPTABLE
     if (htable->lookuptable == NULL) {
@@ -675,8 +679,8 @@ static inline void HTNAME(hashtable_, NAME_KEY,
  */
 /* CHECK this routine is partially specialized, otherwise turn it into a macro */
 static /* want to inline but > limit in fragment_lookup */ ENTRY_TYPE
-    HTNAME(hashtable_, NAME_KEY, _lookup)(dcontext_t *dcontext, ptr_uint_t tag,
-                                          HTNAME(, NAME_KEY, _table_t) * htable)
+HTNAME(hashtable_, NAME_KEY, _lookup)(dcontext_t *dcontext, ptr_uint_t tag,
+                                      HTNAME(, NAME_KEY, _table_t) * htable)
 {
     ENTRY_TYPE e;
     ptr_uint_t ftag;
@@ -738,9 +742,9 @@ static /* want to inline but > limit in fragment_lookup */ ENTRY_TYPE
 }
 
 /* Convenience routine that grabs the read lock and does a lookup */
-static inline ENTRY_TYPE HTNAME(hashtable_, NAME_KEY,
-                                _rlookup)(dcontext_t *dcontext, ptr_uint_t tag,
-                                          HTNAME(, NAME_KEY, _table_t) * htable)
+static inline ENTRY_TYPE
+HTNAME(hashtable_, NAME_KEY, _rlookup)(dcontext_t *dcontext, ptr_uint_t tag,
+                                       HTNAME(, NAME_KEY, _table_t) * htable)
 {
     ENTRY_TYPE e;
     TABLE_RWLOCK(htable, read, lock);
@@ -754,9 +758,9 @@ static inline ENTRY_TYPE HTNAME(hashtable_, NAME_KEY,
  * N.B.: this routine will recursively call itself via check_table_size if the
  * table is resized
  */
-static inline bool HTNAME(hashtable_, NAME_KEY,
-                          _add)(dcontext_t *dcontext, ENTRY_TYPE e,
-                                HTNAME(, NAME_KEY, _table_t) * table)
+static inline bool
+HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
+                                   HTNAME(, NAME_KEY, _table_t) * table)
 {
     uint hindex;
     bool resized;
@@ -913,10 +917,10 @@ static inline bool HTNAME(hashtable_, NAME_KEY,
  * calls fragment_add_to_hashtable, which calls back, but should never
  * trigger another resize.
  */
-static bool HTNAME(hashtable_, NAME_KEY,
-                   _check_size)(dcontext_t *dcontext,
-                                HTNAME(, NAME_KEY, _table_t) * table, uint add_now,
-                                uint add_later)
+static bool
+HTNAME(hashtable_, NAME_KEY, _check_size)(dcontext_t *dcontext,
+                                          HTNAME(, NAME_KEY, _table_t) * table,
+                                          uint add_now, uint add_later)
 {
     dcontext_t *alloc_dc = FRAGMENT_TABLE_ALLOC_DC(dcontext, table->table_flags);
     uint entries;
@@ -1200,8 +1204,10 @@ static bool HTNAME(hashtable_, NAME_KEY,
 
 /* Return pointer to the record for fragment in its collision chain (table or next field)
    or NULL if not found */
-static inline ENTRY_TYPE *HTNAME(hashtable_, NAME_KEY, _lookup_for_removal)(
-    ENTRY_TYPE fr, HTNAME(, NAME_KEY, _table_t) * htable, uint *rhindex)
+static inline ENTRY_TYPE *
+HTNAME(hashtable_, NAME_KEY, _lookup_for_removal)(ENTRY_TYPE fr,
+                                                  HTNAME(, NAME_KEY, _table_t) * htable,
+                                                  uint *rhindex)
 {
     uint hindex = HASH_FUNC(ENTRY_TAG(fr), htable);
     ENTRY_TYPE *pg = &htable->table[hindex];
@@ -1224,9 +1230,9 @@ static inline ENTRY_TYPE *HTNAME(hashtable_, NAME_KEY, _lookup_for_removal)(
 
 #    ifdef HASHTABLE_USE_LOOKUPTABLE
 /* FIXME: figure out what weight function I tipped off so this is too much too inline */
-static INLINE_FORCED void HTNAME(hashtable_, NAME_KEY,
-                                 _update_lookup)(HTNAME(, NAME_KEY, _table_t) * htable,
-                                                 uint hindex)
+static INLINE_FORCED void
+HTNAME(hashtable_, NAME_KEY, _update_lookup)(HTNAME(, NAME_KEY, _table_t) * htable,
+                                             uint hindex)
 {
     if (htable->lookuptable != NULL) {
         AUX_ENTRY_SET_TO_ENTRY(htable->lookuptable[hindex], htable->table[hindex]);
@@ -1247,9 +1253,10 @@ static INLINE_FORCED void HTNAME(hashtable_, NAME_KEY,
  * FIXME: if callers need more info, could return the final hindex, or the final
  * hole.
  */
-static uint HTNAME(hashtable_, NAME_KEY,
-                   _remove_helper_open_address)(HTNAME(, NAME_KEY, _table_t) * htable,
-                                                uint hindex, ENTRY_TYPE *prevg)
+static uint
+HTNAME(hashtable_, NAME_KEY,
+       _remove_helper_open_address)(HTNAME(, NAME_KEY, _table_t) * htable, uint hindex,
+                                    ENTRY_TYPE *prevg)
 {
     bool wrapped = false;
     /* Assumptions:
@@ -1337,9 +1344,9 @@ static uint HTNAME(hashtable_, NAME_KEY,
 }
 
 /* Returns whether it copied from the start of the table to the end (wraparound). */
-static inline bool HTNAME(hashtable_, NAME_KEY,
-                          _remove_helper)(HTNAME(, NAME_KEY, _table_t) * htable,
-                                          uint hindex, ENTRY_TYPE *prevg)
+static inline bool
+HTNAME(hashtable_, NAME_KEY, _remove_helper)(HTNAME(, NAME_KEY, _table_t) * htable,
+                                             uint hindex, ENTRY_TYPE *prevg)
 {
     /* Non-trivial for open addressed scheme */
     /* just setting elements to null will make unreachable any following elements */
@@ -1361,8 +1368,9 @@ static inline bool HTNAME(hashtable_, NAME_KEY,
 /* Removes f from htable (does not delete f)
  * returns true if fragment found and removed
  */
-static inline bool HTNAME(hashtable_, NAME_KEY,
-                          _remove)(ENTRY_TYPE fr, HTNAME(, NAME_KEY, _table_t) * htable)
+static inline bool
+HTNAME(hashtable_, NAME_KEY, _remove)(ENTRY_TYPE fr,
+                                      HTNAME(, NAME_KEY, _table_t) * htable)
 {
     uint hindex;
     ENTRY_TYPE *pg;
@@ -1381,9 +1389,9 @@ static inline bool HTNAME(hashtable_, NAME_KEY,
 /* Replaces a fragment in hashtable assuming tag is preserved
  * returns true if fragment found and removed
  */
-static inline bool HTNAME(hashtable_, NAME_KEY,
-                          _replace)(ENTRY_TYPE old_e, ENTRY_TYPE new_e,
-                                    HTNAME(, NAME_KEY, _table_t) * htable)
+static inline bool
+HTNAME(hashtable_, NAME_KEY, _replace)(ENTRY_TYPE old_e, ENTRY_TYPE new_e,
+                                       HTNAME(, NAME_KEY, _table_t) * htable)
 {
     uint hindex;
     ENTRY_TYPE *pg =
@@ -1417,8 +1425,9 @@ static inline bool HTNAME(hashtable_, NAME_KEY,
 
 /* removes all entries and resets the table but keeps the same capacity */
 /* not static b/c not used by all tables */
-void HTNAME(hashtable_, NAME_KEY, _clear)(dcontext_t *dcontext,
-                                          HTNAME(, NAME_KEY, _table_t) * table)
+void
+HTNAME(hashtable_, NAME_KEY, _clear)(dcontext_t *dcontext,
+                                     HTNAME(, NAME_KEY, _table_t) * table)
 {
     uint i;
     ENTRY_TYPE e;
@@ -1466,11 +1475,11 @@ void HTNAME(hashtable_, NAME_KEY, _clear)(dcontext_t *dcontext,
  * hashtable_reset is not properly moving elements hence can't be used
  * for removing subsets, and is inefficient!
  */
-static uint HTNAME(hashtable_, NAME_KEY,
-                   _range_remove)(dcontext_t *dcontext,
-                                  HTNAME(, NAME_KEY, _table_t) * table,
-                                  ptr_uint_t tag_start, ptr_uint_t tag_end,
-                                  bool (*filter)(ENTRY_TYPE e))
+static uint
+HTNAME(hashtable_, NAME_KEY, _range_remove)(dcontext_t *dcontext,
+                                            HTNAME(, NAME_KEY, _table_t) * table,
+                                            ptr_uint_t tag_start, ptr_uint_t tag_end,
+                                            bool (*filter)(ENTRY_TYPE e))
 {
     int i;
     ENTRY_TYPE e;
@@ -1524,12 +1533,12 @@ static uint HTNAME(hashtable_, NAME_KEY,
 }
 
 /* removes all unlinked entries from table's lookup table */
-static uint HTNAME(hashtable_, NAME_KEY,
-                   _unlinked_remove)(dcontext_t *dcontext,
-                                     HTNAME(, NAME_KEY, _table_t) * table)
+static uint
+HTNAME(hashtable_, NAME_KEY, _unlinked_remove)(dcontext_t *dcontext,
+                                               HTNAME(, NAME_KEY, _table_t) * table)
 {
     int i;
-    ENTRY_TYPE e;
+    ENTRY_TYPE e UNUSED;
     uint entries_removed = 0;
 
     ASSERT(!TEST(HASHTABLE_READ_ONLY, table->table_flags));
@@ -1607,9 +1616,9 @@ static uint HTNAME(hashtable_, NAME_KEY,
 
 /* we should clean the table from entries that are not frequently used
  */
-static void HTNAME(hashtable_, NAME_KEY,
-                   _groom_table)(dcontext_t *dcontext,
-                                 HTNAME(, NAME_KEY, _table_t) * table)
+static void
+HTNAME(hashtable_, NAME_KEY, _groom_table)(dcontext_t *dcontext,
+                                           HTNAME(, NAME_KEY, _table_t) * table)
 {
     DOLOG(1, LOG_STATS, { d_r_print_timestamp(THREAD); });
     LOG(THREAD, LOG_HTABLE, 1, "hashtable_" KEY_STRING "_groom_table %s\n", table->name);
@@ -1651,9 +1660,9 @@ static void HTNAME(hashtable_, NAME_KEY,
     DOLOG(3, LOG_HTABLE, { HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table); });
 }
 
-static inline void HTNAME(hashtable_, NAME_KEY,
-                          _groom_helper)(dcontext_t *dcontext,
-                                         HTNAME(, NAME_KEY, _table_t) * table)
+static inline void
+HTNAME(hashtable_, NAME_KEY, _groom_helper)(dcontext_t *dcontext,
+                                            HTNAME(, NAME_KEY, _table_t) * table)
 {
     /* flush only tables caching data persistent in another table */
     ASSERT(TEST(HASHTABLE_NOT_PRIMARY_STORAGE, table->table_flags));
@@ -1683,15 +1692,15 @@ static inline void HTNAME(hashtable_, NAME_KEY,
  * indcalls_miss_stat includes misses both with and without
  * collisions.
  */
-static void HTNAME(hashtable_, NAME_KEY,
-                   _study)(dcontext_t *dcontext, HTNAME(, NAME_KEY, _table_t) * table,
-                           uint entries_inc /*amnt table->entries was pre-inced*/)
+static void
+HTNAME(hashtable_, NAME_KEY,
+       _study)(dcontext_t *dcontext, HTNAME(, NAME_KEY, _table_t) * table,
+               uint entries_inc /*amnt table->entries was pre-inced*/)
 {
     /* hashtable sparseness study */
     uint i;
     uint max = 0;
     uint num = 0, len = 0, num_collisions = 0;
-    uint colliding_frags = 0;
     uint total_len = 0;
     uint hindex;
     const char *name = table->name;
@@ -1764,7 +1773,6 @@ static void HTNAME(hashtable_, NAME_KEY,
             num++;
             if (len > 1) {
                 num_collisions++;
-                colliding_frags += len;
             }
         }
     }
@@ -1829,8 +1837,9 @@ static void HTNAME(hashtable_, NAME_KEY,
     TABLE_RWLOCK(table, read, unlock);
 }
 
-void HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
-                                               HTNAME(, NAME_KEY, _table_t) * htable)
+void
+HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
+                                          HTNAME(, NAME_KEY, _table_t) * htable)
 {
     uint i;
     bool track_cache_lines;
@@ -1922,9 +1931,9 @@ void HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
 #    endif     /* DEBUG */
 
 #    if defined(DEBUG) && defined(INTERNAL)
-static void HTNAME(hashtable_, NAME_KEY,
-                   _load_statistics)(dcontext_t *dcontext,
-                                     HTNAME(, NAME_KEY, _table_t) * table)
+static void
+HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext_t *dcontext,
+                                               HTNAME(, NAME_KEY, _table_t) * table)
 {
     LOG(THREAD, LOG_HTABLE | LOG_STATS, 1,
         "%s hashtable: %d entries, %d unlinked entries, %d capacity,"
@@ -1936,9 +1945,9 @@ static void HTNAME(hashtable_, NAME_KEY,
 
 #    ifdef HASHTABLE_STATISTICS
 #        ifdef HASHTABLE_ENTRY_STATS
-void HTNAME(hashtable_, NAME_KEY,
-            _dump_entry_stats)(dcontext_t *dcontext,
-                               HTNAME(, NAME_KEY, _table_t) * htable)
+void
+HTNAME(hashtable_, NAME_KEY, _dump_entry_stats)(dcontext_t *dcontext,
+                                                HTNAME(, NAME_KEY, _table_t) * htable)
 {
     /* mostly a copy of dump_table but printing only entries with non 0 stats */
     uint i;
@@ -1996,8 +2005,9 @@ void HTNAME(hashtable_, NAME_KEY,
 #    endif /* HASHTABLE_STATISTICS */
 
 #    ifdef HASHTABLE_SUPPORT_PERSISTENCE
-uint HTNAME(hashtable_, NAME_KEY, _persist_size)(dcontext_t *dcontext,
-                                                 HTNAME(, NAME_KEY, _table_t) * htable)
+uint
+HTNAME(hashtable_, NAME_KEY, _persist_size)(dcontext_t *dcontext,
+                                            HTNAME(, NAME_KEY, _table_t) * htable)
 {
     if (htable == NULL)
         return 0;
@@ -2013,9 +2023,9 @@ uint HTNAME(hashtable_, NAME_KEY, _persist_size)(dcontext_t *dcontext,
  * making COW and having the whole page private: case 9582).
  * Returns true iff all writes succeeded.
  */
-bool HTNAME(hashtable_, NAME_KEY, _persist)(dcontext_t *dcontext,
-                                            HTNAME(, NAME_KEY, _table_t) * htable,
-                                            file_t fd)
+bool
+HTNAME(hashtable_, NAME_KEY, _persist)(dcontext_t *dcontext,
+                                       HTNAME(, NAME_KEY, _table_t) * htable, file_t fd)
 {
     uint size;
     ASSERT(htable != NULL);
@@ -2032,10 +2042,10 @@ bool HTNAME(hashtable_, NAME_KEY, _persist)(dcontext_t *dcontext,
     return true;
 }
 
-static uint HTNAME(hashtable_, NAME_KEY,
-                   _num_unique_entries)(dcontext_t *dcontext,
-                                        HTNAME(, NAME_KEY, _table_t) * src1,
-                                        HTNAME(, NAME_KEY, _table_t) * src2)
+static uint
+HTNAME(hashtable_, NAME_KEY, _num_unique_entries)(dcontext_t *dcontext,
+                                                  HTNAME(, NAME_KEY, _table_t) * src1,
+                                                  HTNAME(, NAME_KEY, _table_t) * src2)
 {
     HTNAME(, NAME_KEY, _table_t) * big, *small;
     uint unique, i;
@@ -2073,9 +2083,10 @@ static uint HTNAME(hashtable_, NAME_KEY,
 }
 
 /* Adds all entries from src to dst */
-static void HTNAME(hashtable_, NAME_KEY,
-                   _add_all)(dcontext_t *dcontext, HTNAME(, NAME_KEY, _table_t) * dst,
-                             HTNAME(, NAME_KEY, _table_t) * src, bool check_dups)
+static void
+HTNAME(hashtable_, NAME_KEY,
+       _add_all)(dcontext_t *dcontext, HTNAME(, NAME_KEY, _table_t) * dst,
+                 HTNAME(, NAME_KEY, _table_t) * src, bool check_dups)
 {
     ENTRY_TYPE e;
     uint i;

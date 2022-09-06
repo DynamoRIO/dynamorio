@@ -71,8 +71,11 @@ jobs:
 
     - name: Create Build Environment
       run: |
+        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+        sudo add-apt-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-14 main'
+        sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev clang-format-12 libunwind-dev
+          liblz4-dev clang-format-14 libunwind-dev
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

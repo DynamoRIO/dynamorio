@@ -1371,7 +1371,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         cache_pc cti_pc;
         instrlist_t *ilist = NULL;
         fragment_t *f = owning_f;
-        bool alloc = false, ok;
+        bool alloc = false;
         dr_isa_mode_t old_mode;
 #ifdef WINDOWS
         bool swap_peb = false;
@@ -1481,7 +1481,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
 
         /* Recreate in same mode as original fragment */
-        ok = dr_set_isa_mode(tdcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+        DEBUG_DECLARE(bool ok =)
+        dr_set_isa_mode(tdcontext, FRAG_ISA_MODE(f->flags), &old_mode);
         ASSERT(ok);
 
         /* now recreate the state */
@@ -1503,7 +1504,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 (byte *)f->start_pc + f->size, mcontext, just_pc, f->flags);
             STATS_INC(recreate_via_app_ilist);
         }
-        ok = dr_set_isa_mode(tdcontext, old_mode, NULL);
+        DEBUG_DECLARE(ok =) dr_set_isa_mode(tdcontext, old_mode, NULL);
         ASSERT(ok);
 
         if (!just_pc)
@@ -1916,11 +1917,11 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     priv_mcontext_t mc;
     bool res;
     cache_pc cpc;
-    instr_t *in, *prev_in = NULL;
+    instr_t *in;
     static const reg_t STRESS_XSP_INIT = 0x08000000; /* arbitrary */
     bool success_so_far = true;
     bool inside_mangle_region = false;
-    bool inside_mangle_epilogue = false;
+    IF_X86(bool inside_mangle_epilogue = false;)
     uint spill_ibreg_outstanding_offs = UINT_MAX;
     reg_id_t reg;
     bool spill;
@@ -1956,13 +1957,12 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             /* reset */
             LOG(THREAD, LOG_INTERP, 3, "  out of mangling region\n");
             inside_mangle_region = false;
-            inside_mangle_epilogue = false;
+            IF_X86(inside_mangle_epilogue = false;)
             xsp_adjust = 0;
             success_so_far = true;
             spill_ibreg_outstanding_offs = UINT_MAX;
             /* go ahead and fall through and ensure we succeed w/ 0 xsp adjust */
         }
-        prev_in = in;
 
         if (instr_is_our_mangling(in)) {
             if (!inside_mangle_region) {
@@ -1973,7 +1973,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                                        instr_is_our_mangling_epilogue(in),
                                    false)) {
                 LOG(THREAD, LOG_INTERP, 3, "  entering mangling epilogue\n");
-                inside_mangle_epilogue = true;
+                IF_X86(inside_mangle_epilogue = true;)
             } else {
                 ASSERT(!TEST(FRAG_IS_TRACE, f->flags) ||
                        IF_X86(instr_is_our_mangling_epilogue(in) ||)

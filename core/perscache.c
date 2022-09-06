@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4111,7 +4111,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
          */
         if (DYNAMO_OPTION(persist_touch_stubs)) {
             app_pc touch_pc = rwx_pc;
-            volatile byte touch_value;
+            volatile byte touch_value UNUSED;
             for (; touch_pc < (app_pc)(map + pers->header_len + pers->data_len);
                  touch_pc += PAGE_SIZE) {
                 touch_value = *touch_pc;

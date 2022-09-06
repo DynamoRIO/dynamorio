@@ -108,9 +108,20 @@ Type cheat sheet (from trace_type_t enum):
 
 type_is_instr: 0xa-0x10 + 0x1e
 
+For .zip files, the data is split into the component files within the archive, in order.
+Each component repeats enough information (the final timestamp + cpu from the prior
+chunk, instruction encodings, etc.) to avoid having to examing prior chunks.
+Extract each component file in turn to view the data.  For example:
+```
+$ unzip -p drmemtrace.app.194439.1516.dir/trace/drmemtrace.app.194439.7393.trace.zip chunk.0000 | hexdump -v -e '"%010_ax | " 6/2 "%04x " "\n"' | awk '{printf "%s %s %s %s %s%s%s%s\n", $1, $2, $3, $4, $8, $7, $6, $5}' | head -3
+0000000000 | 0019 0000 0000000000000004
+000000000c | 001c 000c 0000000000000004
+0000000018 | 001c 0009 0000000000000040
+```
+
 ## Viewing instruction disassembly
 
-You can use the `view` analysis tool with `skip_refs` and `sim_refs` parameters to select a window, or for small traces you can re-post-process with `raw2trace` with high verbosity (`-verbose 4` is good).
+You can use the `view` analysis tool with `skip_refs` and `sim_refs` parameters to select a window, or for small traces you can re-post-process with `drraw2trace` with high verbosity (`-verbose 4` is good).
 
  ****************************************************************************
  */

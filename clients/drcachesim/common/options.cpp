@@ -100,6 +100,28 @@ droption_t<std::string> op_alt_module_dir(
     "analysis tools, or in the raw modules file for post-prcoessing of offline "
     "raw trace files.  This directory takes precedence over the recorded path.");
 
+droption_t<bytesize_t> op_chunk_instr_count(
+    DROPTION_SCOPE_FRONTEND, "chunk_instr_count", bytesize_t(10 * 1000 * 1000U),
+    // We do not support tiny chunks.  We do not support disabling chunks with a 0
+    // value, to simplify testing: although we're still having to support generating
+    // non-zip files for !HAS_ZLIB/!HAS_ZIP!
+    bytesize_t(1000),
+#ifdef X64
+    bytesize_t(1ULL << 63),
+#else
+    // We store this value in a marker which can only hold a pointer-sized value and
+    // thus is limited to 4G.
+    // XXX i#5634: This happens to timestamps too: what we should do is use multiple
+    // markers (need up to 3) to support 64-bit values in 32-bit builds.
+    bytesize_t(UINT_MAX),
+#endif
+    "Chunk instruction count",
+    "Specifies the size in instructions of the chunks into which a trace output file "
+    "is split inside a zipfile.  This is the granularity of a fast seek. "
+    "This only applies when generating .zip-format traces; when built without "
+    "support for writing .zip files, this option is ignored. "
+    "For 32-bit this cannot exceed 4G.");
+
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",
     "Path to function map file for func_view tool",

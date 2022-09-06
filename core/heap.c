@@ -2241,7 +2241,7 @@ void
 d_r_heap_init()
 {
     int i;
-    uint prev_sz = 0;
+    DEBUG_DECLARE(uint prev_sz = 0;)
 
     LOG(GLOBAL, LOG_TOP | LOG_HEAP, 2, "Heap bucket sizes are:\n");
     /* make sure we'll preserve alignment */
@@ -2253,7 +2253,7 @@ d_r_heap_init()
         ASSERT(BLOCK_SIZES[i] > prev_sz);
         /* we assume all of our heap allocs are aligned */
         ASSERT(i == BLOCK_TYPES - 1 || ALIGNED(BLOCK_SIZES[i], HEAP_ALIGNMENT));
-        prev_sz = BLOCK_SIZES[i];
+        DODEBUG(prev_sz = BLOCK_SIZES[i];);
         LOG(GLOBAL, LOG_TOP | LOG_HEAP, 2, "\t%d bytes\n", BLOCK_SIZES[i]);
     }
 
@@ -2455,7 +2455,7 @@ heap_low_on_memory()
 {
     /* free some memory! */
     heap_unit_t *u, *next_u;
-    size_t freed = 0;
+    DEBUG_DECLARE(size_t freed = 0;)
     LOG(GLOBAL, LOG_CACHE | LOG_STATS, 1,
         "heap_low_on_memory: about to free dead list units\n");
     /* WARNING: this routine is called at arbitrary allocation failure points,
@@ -2473,7 +2473,7 @@ heap_low_on_memory()
     u = heapmgt->heap.dead;
     while (u != NULL) {
         next_u = u->next_global;
-        freed += UNIT_COMMIT_SIZE(u);
+        DODEBUG(freed += UNIT_COMMIT_SIZE(u););
         /* FIXME: if out of committed pages only, could keep our reservations */
         LOG(GLOBAL, LOG_HEAP, 1, "\tfreeing dead unit " PFX "-" PFX " [-" PFX "]\n", u,
             UNIT_COMMIT_END(u), UNIT_RESERVED_END(u));
@@ -3595,7 +3595,6 @@ static heap_unit_t *
 heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
 {
     heap_unit_t *u = NULL, *dead = NULL, *prev_dead = NULL;
-    bool new_unit = false;
 
     /* we do not restrict size to unit max as we have to make larger-than-max
      * units for oversized requests
@@ -3645,7 +3644,6 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
         u = (heap_unit_t *)get_guarded_real_memory(size, commit_size,
                                                    MEMPROT_READ | MEMPROT_WRITE, false,
                                                    true, NULL, tu->which _IF_DEBUG(""));
-        new_unit = true;
         /* FIXME: handle low memory conditions by freeing units, + fcache units? */
         ASSERT(u);
         LOG(GLOBAL, LOG_HEAP, 2, "New heap unit: " PFX "-" PFX "\n", u,

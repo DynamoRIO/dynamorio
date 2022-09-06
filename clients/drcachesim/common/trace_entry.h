@@ -158,7 +158,7 @@ typedef enum {
     // match TRACE_ENTRY_VERSION) in the addr field.  Unused for pipes.
     TRACE_TYPE_HEADER,
 
-    // The final entry in an offline file or a pipe.
+    /** The final entry in an offline file or a pipe.  Not exposed to tools. */
     TRACE_TYPE_FOOTER,
 
     /** A hardware-issued prefetch (generated after tracing by a cache simulator). */
@@ -242,6 +242,7 @@ typedef enum {
      * NtSetContextThread on Windows.
      */
     TRACE_MARKER_TYPE_KERNEL_XFER,
+    // XXX i#5634: Add 64-bit marker value support to 32-bit to avoid truncating.
     /**
      * The marker value contains a timestamp for this point in the trace, in units
      * of microseconds since Jan 1, 1601 (the UTC time).  For 32-bit, the value
@@ -378,6 +379,18 @@ typedef enum {
      * specified. The marker value contains a unique system call identifier.
      */
     TRACE_MARKER_TYPE_SYSCALL_ID,
+
+    /**
+     * This top-level marker identifies the instruction count in each chunk
+     * of the output file.  This is the granularity of a fast seek.
+     */
+    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
+
+    /**
+     * Marks the end of a chunk.  The final chunk does not have such a marker
+     * but instead relies on the #TRACE_TYPE_FOOTER entry.
+     */
+    TRACE_MARKER_TYPE_CHUNK_FOOTER,
 
     // ...
     // These values are reserved for future built-in marker types.

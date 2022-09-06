@@ -337,6 +337,12 @@ offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr
         buf_ptr += extra_size;
         val = (uint)val;
     }
+#else
+    // XXX i#5634: We're truncating timestamps and other values by limiting to
+    // pointer-sized payloads: what we should do is use multiple markers (need up to 3)
+    // to support 64-bit values in 32-bit builds.  However, this means we need an
+    // analysis-tool-visible extended-payload marker type, or maybe make the reader
+    // hide that from the user.
 #endif
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->extended.valueA = val;
