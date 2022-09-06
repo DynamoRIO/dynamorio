@@ -49,7 +49,7 @@
 // pptr().
 class zipfile_streambuf_t : public std::basic_streambuf<char, std::char_traits<char>> {
 public:
-    zipfile_streambuf_t(const std::string &path)
+    explicit zipfile_streambuf_t(const std::string &path)
     {
         zip_ = zipOpen2_64(path.c_str(), APPEND_STATUS_CREATE, nullptr, nullptr);
         if (zip_ == nullptr)
@@ -60,7 +60,7 @@ public:
         setp(buf_, buf_ + buffer_size_ - 1);
         // Caller should invoke open_new_component() for first component.
     }
-    virtual ~zipfile_streambuf_t() override
+    ~zipfile_streambuf_t() override
     {
         sync();
         delete[] buf_;
@@ -75,7 +75,7 @@ public:
 #endif
         }
     }
-    virtual int
+    int
     overflow(int extra_char) override
     {
         if (zip_ == nullptr)
@@ -93,7 +93,7 @@ public:
         setp(buf_, buf_ + buffer_size_ - 1);
         return res;
     }
-    virtual int
+    int
     sync() override
     {
         return overflow(traits_type::eof());
@@ -133,7 +133,7 @@ public:
         if (!rdbuf())
             setstate(std::ios::badbit);
     }
-    virtual ~zipfile_ostream_t() override
+    ~zipfile_ostream_t() override
     {
         delete rdbuf();
     }
