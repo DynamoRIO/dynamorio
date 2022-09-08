@@ -75,7 +75,7 @@ test_operators()
         // void operator delete(void *ptr, std::align_val_t al) noexcept;
         delete aligned_class;
         // Some compilers (MSVC) will complain with just "delete".
-        ::operator delete (aligned_int, std::align_val_t { 64 });
+        ::operator delete(aligned_int, std::align_val_t { 64 });
 
         // void *operator new[](std::size_t count, std::align_val_t al);
         auto *class_array = new align64[4];
@@ -92,7 +92,7 @@ test_operators()
         // void operator delete(void *ptr, std::align_val_t al,
         //                      const std::nothrow_t &tag) noexcept;
         ::operator delete(aligned_class, std::nothrow);
-        ::operator delete (aligned_int, std::align_val_t { 64 }, std::nothrow);
+        ::operator delete(aligned_int, std::align_val_t { 64 }, std::nothrow);
         // void *operator new[](std::size_t count, std::align_val_t al,
         //                     const std::nothrow_t &);
         class_array = new (std::nothrow) align64[4];
@@ -108,15 +108,15 @@ test_operators()
         ::operator delete(int_ptr, sizeof(*int_ptr));
         // void operator delete[](void *ptr, std::size_t sz) noexcept;
         int_arr = new int[42];
-        ::operator delete(int_arr, 42 * sizeof(*int_arr));
+        ::operator delete[](int_arr, 42 * sizeof(*int_arr));
 #endif
 #if defined(__cpp_aligned_new) && defined(__cpp_sized_deallocation)
         aligned_class = new align64;
         aligned_int = new (std::align_val_t { 64 }) int;
         // void operator delete(void *ptr, std::size_t sz, std::align_val_t al) noexcept;
-        ::operator delete (aligned_class, sizeof(*aligned_class),
-                           std::align_val_t { alignof(*aligned_class) });
-        ::operator delete (aligned_int, sizeof(*aligned_int), std::align_val_t { 64 });
+        ::operator delete(aligned_class, sizeof(*aligned_class),
+                          std::align_val_t { alignof(*aligned_class) });
+        ::operator delete(aligned_int, sizeof(*aligned_int), std::align_val_t { 64 });
 
         class_array = new align64[4];
         aligned_arr = new (std::align_val_t { 64 }) int[42];

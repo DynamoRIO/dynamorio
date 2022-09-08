@@ -4240,7 +4240,7 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     uint orig_dumpcore_flag = dumpcore_flag;
-    if (init_info.sighand->action != NULL)
+    if (init_info.sighand != NULL)
         info = &init_info; /* use init-time handler */
     ASSERT(info->sighand->action != NULL);
 #endif
