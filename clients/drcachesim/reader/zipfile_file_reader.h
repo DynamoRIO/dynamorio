@@ -39,6 +39,20 @@
 #include "minizip/unzip.h"
 #include "file_reader.h"
 
-typedef file_reader_t<unzFile> zipfile_file_reader_t;
+struct zipfile_reader_t {
+    explicit zipfile_reader_t(unzFile file)
+        : file(file)
+    {
+    }
+    unzFile file;
+    // Without our own buffering, reading one trace_entry_t record at a time
+    // is 60% slower.  This buffer size was picked through experimentation to
+    // perform well without taking up too much memory.
+    trace_entry_t buf[4096];
+    trace_entry_t *cur_buf = buf;
+    trace_entry_t *max_buf = buf;
+};
+
+typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
 
 #endif /* _ZIPFILE_FILE_READER_H_ */

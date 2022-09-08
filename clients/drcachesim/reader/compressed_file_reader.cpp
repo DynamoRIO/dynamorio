@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,36 +35,46 @@
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-file_reader_t<gzFile>::~file_reader_t<gzFile>()
+file_reader_t<gzip_reader_t>::~file_reader_t<gzip_reader_t>()
 {
-    for (auto file : input_files_)
-        gzclose(file);
+    for (auto &gzip : input_files_)
+        gzclose(gzip.file);
     delete[] thread_eof_;
 }
 
 template <>
 bool
-file_reader_t<gzFile>::open_single_file(const std::string &path)
+file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
 {
     gzFile file = gzopen(path.c_str(), "rb");
     if (file == nullptr)
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_files_.push_back(file);
+    input_files_.emplace_back(file);
     return true;
 }
 
 template <>
 bool
-file_reader_t<gzFile>::read_next_thread_entry(size_t thread_index,
-                                              OUT trace_entry_t *entry, OUT bool *eof)
+file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
+                                                     OUT trace_entry_t *entry,
+                                                     OUT bool *eof)
 {
-    int len = gzread(input_files_[thread_index], (char *)entry, sizeof(*entry));
-    // Returns less than asked-for for end of file, or –1 for error.
-    if (len < (int)sizeof(*entry)) {
-        *eof = (len >= 0);
-        return false;
+    gzip_reader_t *gzip = &input_files_[thread_index];
+    if (gzip->cur_buf >= gzip->max_buf) {
+        int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
+        // Returns less than asked-for for end of file, or –1 for error.
+        // We should always get a multiple of the record size.
+        if (len < static_cast<int>(sizeof(*entry)) ||
+            len % static_cast<int>(sizeof(*entry)) != 0) {
+            *eof = (len >= 0);
+            return false;
+        }
+        gzip->cur_buf = gzip->buf;
+        gzip->max_buf = gzip->buf + (len / sizeof(*gzip->max_buf));
     }
+    *entry = *gzip->cur_buf;
+    ++gzip->cur_buf;
     VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
            thread_index, entry->type, entry->size, entry->addr);
     return true;
@@ -72,7 +82,7 @@ file_reader_t<gzFile>::read_next_thread_entry(size_t thread_index,
 
 template <>
 bool
-file_reader_t<gzFile>::is_complete()
+file_reader_t<gzip_reader_t>::is_complete()
 {
     // The gzip reading interface does not support seeking to SEEK_END so there
     // is no efficient way to read the footer.

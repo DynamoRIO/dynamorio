@@ -39,21 +39,21 @@
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-file_reader_t<unzFile>::~file_reader_t<unzFile>()
+file_reader_t<zipfile_reader_t>::~file_reader_t<zipfile_reader_t>()
 {
-    for (auto file : input_files_)
-        unzClose(file);
+    for (auto &zipfile : input_files_)
+        unzClose(zipfile.file);
     delete[] thread_eof_;
 }
 
 template <>
 bool
-file_reader_t<unzFile>::open_single_file(const std::string &path)
+file_reader_t<zipfile_reader_t>::open_single_file(const std::string &path)
 {
     unzFile file = unzOpen(path.c_str());
     if (file == nullptr)
         return false;
-    input_files_.push_back(file);
+    input_files_.emplace_back(file);
     if (unzGoToFirstFile(file) != UNZ_OK || unzOpenCurrentFile(file) != UNZ_OK)
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
@@ -62,54 +62,60 @@ file_reader_t<unzFile>::open_single_file(const std::string &path)
 
 template <>
 bool
-file_reader_t<unzFile>::read_next_thread_entry(size_t thread_index,
-                                               OUT trace_entry_t *entry, OUT bool *eof)
+file_reader_t<zipfile_reader_t>::read_next_thread_entry(size_t thread_index,
+                                                        OUT trace_entry_t *entry,
+                                                        OUT bool *eof)
 {
     *eof = false;
-    // TODO i#5538: The reading performance for .zip files seems to be up to 60%
-    // slower than .gz files, which is unexpected since both use zlib and the checksum
-    // and header differences make zlib normally faster than gzip.
-    // Do we need to buffer ourselves here by reading many entries at once?
-    int num_read = unzReadCurrentFile(input_files_[thread_index], entry, sizeof(*entry));
-    if (num_read == 0) {
+    zipfile_reader_t *zipfile = &input_files_[thread_index];
+    if (zipfile->cur_buf >= zipfile->max_buf) {
+        int num_read =
+            unzReadCurrentFile(zipfile->file, zipfile->buf, sizeof(zipfile->buf));
+        if (num_read == 0) {
 #ifdef DEBUG
-        if (verbosity_ >= 3) {
-            char name[128];
-            name[0] = '\0'; /* Just in case. */
-            // This call is expensive if we do it every time.
-            unzGetCurrentFileInfo64(input_files_[thread_index], nullptr, name,
-                                    sizeof(name), nullptr, 0, nullptr, 0);
-            VPRINT(this, 3,
-                   "Thread #%zd hit end of component %s; opening next component\n",
-                   thread_index, name);
-        }
-#endif
-        // read_next_entry() stores the last entry into entry_copy_.
-        if ((entry_copy_.type != TRACE_TYPE_MARKER ||
-             entry_copy_.size != TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
-            entry_copy_.type != TRACE_TYPE_FOOTER) {
-            VPRINT(this, 1, "Chunk is missing footer: truncation detection\n");
-            return false;
-        }
-        if (unzCloseCurrentFile(input_files_[thread_index]) != UNZ_OK)
-            return false;
-        int res = unzGoToNextFile(input_files_[thread_index]);
-        if (res != UNZ_OK) {
-            if (res == UNZ_END_OF_LIST_OF_FILE) {
-                VPRINT(this, 2, "Thread #%zd hit EOF\n", thread_index);
-                *eof = true;
+            if (verbosity_ >= 3) {
+                char name[128];
+                name[0] = '\0'; /* Just in case. */
+                // This call is expensive if we do it every time.
+                unzGetCurrentFileInfo64(zipfile->file, nullptr, name, sizeof(name),
+                                        nullptr, 0, nullptr, 0);
+                VPRINT(this, 3,
+                       "Thread #%zd hit end of component %s; opening next component\n",
+                       thread_index, name);
             }
+#endif
+            // read_next_entry() stores the last entry into entry_copy_.
+            if ((entry_copy_.type != TRACE_TYPE_MARKER ||
+                 entry_copy_.size != TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+                entry_copy_.type != TRACE_TYPE_FOOTER) {
+                VPRINT(this, 1, "Chunk is missing footer: truncation detected\n");
+                return false;
+            }
+            if (unzCloseCurrentFile(zipfile->file) != UNZ_OK)
+                return false;
+            int res = unzGoToNextFile(zipfile->file);
+            if (res != UNZ_OK) {
+                if (res == UNZ_END_OF_LIST_OF_FILE) {
+                    VPRINT(this, 2, "Thread #%zd hit EOF\n", thread_index);
+                    *eof = true;
+                }
+                return false;
+            }
+            if (unzOpenCurrentFile(zipfile->file) != UNZ_OK)
+                return false;
+            num_read =
+                unzReadCurrentFile(zipfile->file, zipfile->buf, sizeof(zipfile->buf));
+        }
+        if (num_read < static_cast<int>(sizeof(*entry))) {
+            VPRINT(this, 1, "Thread #%zd failed to read: returned %d\n", thread_index,
+                   num_read);
             return false;
         }
-        if (unzOpenCurrentFile(input_files_[thread_index]) != UNZ_OK)
-            return false;
-        num_read = unzReadCurrentFile(input_files_[thread_index], entry, sizeof(*entry));
+        zipfile->cur_buf = zipfile->buf;
+        zipfile->max_buf = zipfile->buf + (num_read / sizeof(*zipfile->max_buf));
     }
-    if (num_read < static_cast<int>(sizeof(*entry))) {
-        VPRINT(this, 1, "Thread #%zd failed to read: returned %d\n", thread_index,
-               num_read);
-        return false;
-    }
+    *entry = *zipfile->cur_buf;
+    ++zipfile->cur_buf;
     VPRINT(this, 4, "Read from thread #%zd: type=%d, size=%d, addr=%zu\n", thread_index,
            entry->type, entry->size, entry->addr);
     return true;
@@ -117,7 +123,7 @@ file_reader_t<unzFile>::read_next_thread_entry(size_t thread_index,
 
 template <>
 bool
-file_reader_t<unzFile>::is_complete()
+file_reader_t<zipfile_reader_t>::is_complete()
 {
     // We could call unzeof() but we need the thread index.
     // XXX: We should remove or change this interface.  It is not used now.
