@@ -638,87 +638,63 @@ disassembling instructions in AT&T, Intel, Arm, or DR format (to see
 disassembly for online traces, pass the `-instr_encodings` option). The
 -skip_refs and -sim_refs flags can be used to
 set a start point and end point for the disassembled view. Note that these
-flags compute the number of instructions which are skipped or displayed which
-is distinct from the number of trace entries.
+flags compute the number of trace entry records which are skipped or displayed which
+is distinct from the number of instruction records.
 
 The tool displays loads and stores, as well as metadata marker entries for
 timestamps, on which core and thread the subsequent instruction sequence was
 executed, and kernel and system call transfers (these correspond to
 signal or event handler interruptions of the regular execution flow).
 
+In its first two columns, the tool displays the trace record ordinal
+and the instruction fetch ordinal.
+
 \code
-$ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
-T80431 <marker: version 3>
-T80431 <marker: filetype 0x40>
-T80431 <marker: cache line size 64>
-T80431 <marker: timestamp 13269546858099127>
-T80431 <marker: tid 80431 on core 1>
-T80431   0x00007f2ae335d090  48 89 e7             mov    %rsp, %rdi
-T80431   0x00007f2ae335d093  e8 48 0d 00 00       call   $0x00007f2ae335dde0
-T80431     write 8 byte(s) @ 0x7ffdf5770ac8
-T80431   0x00007f2ae335dde0  55                   push   %rbp
-T80431     write 8 byte(s) @ 0x7ffdf5770ac0
-T80431   0x00007f2ae335dde1  48 89 e5             mov    %rsp, %rbp
-T80431   0x00007f2ae335dde4  41 57                push   %r15
-T80431     write 8 byte(s) @ 0x7ffdf5770ab8
-T80431   0x00007f2ae335dde6  49 89 ff             mov    %rdi, %r15
-T80431   0x00007f2ae335dde9  41 56                push   %r14
-T80431     write 8 byte(s) @ 0x7ffdf5770ab0
-T80431   0x00007f2ae335ddeb  41 55                push   %r13
-T80431     write 8 byte(s) @ 0x7ffdf5770aa8
-T80431   0x00007f2ae335dded  41 54                push   %r12
-T80431     write 8 byte(s) @ 0x7ffdf5770aa0
-T80431   0x00007f2ae335ddef  53                   push   %rbx
-T80431     write 8 byte(s) @ 0x7ffdf5770a98
-T80431   0x00007f2ae335ddf0  48 83 ec 38          sub    $0x38, %rsp
-T80431   0x00007f2ae335ddf4  0f 31                rdtsc
-T80431   0x00007f2ae335ddf6  48 c1 e2 20          shl    $0x20, %rdx
-T80431   0x00007f2ae335ddfa  48 09 d0             or     %rdx, %rax
-T80431   0x00007f2ae335ddfd  48 8d 15 74 90 02 00 lea    <rel> 0x00007f2ae3386e78, %rdx
-T80431   0x00007f2ae335de04  48 89 05 75 87 02 00 mov    %rax, <rel> 0x00007f2ae3386580
-T80431     write 8 byte(s) @ 0x7f2ae3386580
-T80431   0x00007f2ae335de0b  48 8b 05 66 90 02 00 mov    <rel> 0x00007f2ae3386e78, %rax
-T80431     read  8 byte(s) @ 0x7f2ae3386e78
-T80431   0x00007f2ae335de12  49 89 d4             mov    %rdx, %r12
-T80431   0x00007f2ae335de15  4c 2b 25 e4 91 02 00 sub    <rel> 0x00007f2ae3387000, %r12
-T80431     read  8 byte(s) @ 0x7f2ae3387000
-T80431   0x00007f2ae335de1c  48 89 15 d5 9b 02 00 mov    %rdx, <rel> 0x00007f2ae33879f8
+$ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_refs 20
+Output format:
+<record#> <instr#>: T<tid> <record details>
+------------------------------------------------------------
+        1        0: T3256418 <marker: version 4>
+        2        0: T3256418 <marker: filetype 0x240>
+        3        0: T3256418 <marker: cache line size 64>
+        4        0: T3256418 <marker: chunk instruction count 1024>
+        5        0: T3256418 <marker: page size 4096>
+        6        0: T3256418 <marker: timestamp 13312410768080478>
+        7        0: T3256418 <marker: tid 3256418 on core 7>
+        8        1: T3256418 ifetch       3 byte(s) @ 0x00007fc205a61940 48 89 e7             mov    %rsp, %rdi
+        9        2: T3256418 ifetch       5 byte(s) @ 0x00007fc205a61943 e8 b8 0c 00 00       call   $0x00007fc205a62600
+       10        2: T3256418 write        8 byte(s) @ 0x00007fff9a9e3528 by PC 0x00007fc205a61943
+       11        3: T3256418 ifetch       1 byte(s) @ 0x00007fc205a62600 55                   push   %rbp
+       12        3: T3256418 write        8 byte(s) @ 0x00007fff9a9e3520 by PC 0x00007fc205a62600
+       13        4: T3256418 ifetch       3 byte(s) @ 0x00007fc205a62601 48 89 e5             mov    %rsp, %rbp
+       14        5: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62604 41 57                push   %r15
+       15        5: T3256418 write        8 byte(s) @ 0x00007fff9a9e3518 by PC 0x00007fc205a62604
+       16        6: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62606 41 56                push   %r14
+       17        6: T3256418 write        8 byte(s) @ 0x00007fff9a9e3510 by PC 0x00007fc205a62606
+       18        7: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62608 41 55                push   %r13
+       19        7: T3256418 write        8 byte(s) @ 0x00007fff9a9e3508 by PC 0x00007fc205a62608
+       20        8: T3256418 ifetch       2 byte(s) @ 0x00007fc205a6260a 41 54                push   %r12
 View tool results:
-             20 : total instructions
+              8 : total instructions
 \endcode
 
 An example of thread switches:
 
 \code
 ------------------------------------------------------------
-T342625 <marker: timestamp 13260900247983768>
-T342625 <marker: tid 342625 on core 3>
-T342625   0x0000000000402460  31 ed                xor    %ebp, %ebp
-T342625   0x0000000000402462  49 89 d1             mov    %rdx, %r9
-T342625   0x0000000000402465  5e                   pop    %rsi
-T342625     read  8 byte(s) @ 0x7ffe70dce480
-T342625   0x0000000000402466  48 89 e2             mov    %rsp, %rdx
+       46        0: T3264758 <marker: timestamp 13312413437398055>
+       47        0: T3264758 <marker: tid 3264758 on core 2>
+       48        1: T3264758 ifetch       3 byte(s) @ 0x00007f4ea89e4940 48 89 e7             mov    %rsp, %rdi
+       49        2: T3264758 ifetch       5 byte(s) @ 0x00007f4ea89e4943 e8 b8 0c 00 00       call   $0x00007f4ea89e5600
+       50        2: T3264758 write        8 byte(s) @ 0x00007ffd93a0cf18 by PC 0x00007f4ea89e4943
 ...
-T342625   0x0000000000467c42  4d 89 c8             mov    %r9, %r8
-T342625   0x0000000000467c45  4c 8b 54 24 08       mov    0x08(%rsp), %r10
-T342625     read  8 byte(s) @ 0x7ffe70dce100
-T342625   0x0000000000467c4a  b8 38 00 00 00       mov    $0x00000038, %eax
-T342625   0x0000000000467c4f  0f 05                syscall
+  2854543  2149665: T3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87f8c b8 0e 00 00 00       mov    $0x0000000e, %eax
+  2854544  2149666: T3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87f91 0f 05                syscall
 ------------------------------------------------------------
-T342626 <marker: timestamp 13260900248221723>
-T342626 <marker: tid 342626 on core 0>
-T342626   0x0000000000467c51  48 85 c0             test   %rax, %rax
-T342626   0x0000000000467c54  7c 13                jl     $0x0000000000467c69
-T342626   0x0000000000467c56  74 01                jz     $0x0000000000467c59
-T342626   0x0000000000467c59  31 ed                xor    %ebp, %ebp
-T342626   0x0000000000467c5b  58                   pop    %rax
-T342626     read  8 byte(s) @ 0x7f899f928e70
-T342626   0x0000000000467c5c  5f                   pop    %rdi
-T342626     read  8 byte(s) @ 0x7f899f928e78
-T342626   0x0000000000467c5d  ff d0                call   %rax
-T342626     write 8 byte(s) @ 0x7f899f928e78
-T342626   0x0000000000404a30  41 54                push   %r12
-T342626     write 8 byte(s) @ 0x7f899f928e70
+  2854545  2149666: T3264760 <marker: timestamp 13312413438835999>
+  2854546  2149666: T3264760 <marker: tid 3264760 on core 11>
+  2854547  2149667: T3264760 ifetch       3 byte(s) @ 0x00007f4ea7d0b099 48 85 c0             test   %rax, %rax
+  2854548  2149668: T3264760 ifetch       2 byte(s) @ 0x00007f4ea7d0b09c 7c 18                jl     $0x00007f4ea7d0b0b6
 ...
 \endcode
 
@@ -728,43 +704,40 @@ with metadata showing that the signal was delivered just after a
 non-taken conditional branch:
 
 \code
-T585061   0x00007fdb4e95128f  41 f6 44 24 08 08    test   0x08(%r12), $0x08
-T585061     read  1 byte(s) @ 0x7ffd5af76b08
-T585061   0x00007fdb4e951295  0f 85 28 04 00 00    jnz    $0x00007fdb4e9516c3
-T585061 <marker: kernel xfer from 0x7fdb4e95129b to handler>
-T585061 <marker: timestamp 13269730052517230>
-T585061 <marker: tid 585061 on core 3>
-T585061   0x00007fdb4ace9dba  55                   push   %rbp
-T585061     write 8 byte(s) @ 0x7ffd5af763d0
-T585061   0x00007fdb4ace9dbb  48 89 e5             mov    %rsp, %rbp
-T585061   0x00007fdb4ace9dbe  89 7d fc             mov    %edi, -0x04(%rbp)
-T585061     write 4 byte(s) @ 0x7ffd5af763cc
-T585061   0x00007fdb4ace9dc1  48 89 75 f0          mov    %rsi, -0x10(%rbp)
-T585061     write 8 byte(s) @ 0x7ffd5af763c0
-T585061   0x00007fdb4ace9dc5  48 89 55 e8          mov    %rdx, -0x18(%rbp)
-T585061     write 8 byte(s) @ 0x7ffd5af763b8
-T585061   0x00007fdb4ace9dc9  83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
-T585061     read  4 byte(s) @ 0x7ffd5af763cc
-T585061   0x00007fdb4ace9dcd  75 0f                jnz    $0x00007fdb4ace9dde
-T585061   0x00007fdb4ace9dcf  8b 05 7f 23 20 00    mov    <rel> 0x00007fdb4aeec154, %eax
-T585061     read  4 byte(s) @ 0x7fdb4aeec154
-T585061   0x00007fdb4ace9dd5  83 c0 01             add    $0x01, %eax
-T585061   0x00007fdb4ace9dd8  89 05 76 23 20 00    mov    %eax, <rel> 0x00007fdb4aeec154
-T585061     write 4 byte(s) @ 0x7fdb4aeec154
-T585061   0x00007fdb4ace9dde  90                   nop
-T585061   0x00007fdb4ace9ddf  5d                   pop    %rbp
-T585061     read  8 byte(s) @ 0x7ffd5af763d0
-T585061   0x00007fdb4ace9de0  c3                   ret
-T585061     read  8 byte(s) @ 0x7ffd5af763d8
-T585061   0x00007fdb4e95c140  48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
-T585061   0x00007fdb4e95c147  0f 05                syscall
-T585061 <marker: timestamp 13269730052517239>
-T585061 <marker: tid 585061 on core 3>
-T585061 <marker: syscall xfer from 0x7fdb4e95c149>
-T585061 <marker: timestamp 13269730052520271>
-T585061 <marker: tid 585061 on core 3>
-T585061   0x00007fdb4e95129b  48 8b 1d 8e 40 01 00 mov    <rel> 0x00007fdb4e965330, %rbx
-T585061     read  8 byte(s) @ 0x7fdb4e965330
+  2851502  2147588: T3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87a54 eb 14                jmp    $0x00007f4ea7c87a6a
+  2851503  2147588: T3264758 <marker: kernel xfer from 0x7f4ea7c87a6a to handler>
+  2851504  2147588: T3264758 <marker: timestamp 13312413438786440>
+  2851505  2147588: T3264758 <marker: tid 3264758 on core 8>
+  2851506  2147589: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdba 55                   push   %rbp
+  2851507  2147589: T3264758 write        8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbdba
+  2851508  2147590: T3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbb 48 89 e5             mov    %rsp, %rbp
+  2851509  2147591: T3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbe 89 7d fc             mov    %edi, -0x04(%rbp)
+  2851510  2147591: T3264758 write        4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdbe
+  2851511  2147592: T3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc1 48 89 75 f0          mov    %rsi, -0x10(%rbp)
+  2851512  2147592: T3264758 write        8 byte(s) @ 0x00007ffd93a0be20 by PC 0x00007f4ea47fbdc1
+  2851513  2147593: T3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc5 48 89 55 e8          mov    %rdx, -0x18(%rbp)
+  2851514  2147593: T3264758 write        8 byte(s) @ 0x00007ffd93a0be18 by PC 0x00007f4ea47fbdc5
+  2851515  2147594: T3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc9 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+  2851516  2147594: T3264758 read         4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdc9
+  2851517  2147595: T3264758 ifetch       2 byte(s) @ 0x00007f4ea47fbdcd 75 0f                jnz    $0x00007f4ea47fbdde
+  2851518  2147596: T3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdcf 8b 05 7f 23 20 00    mov    <rel> 0x00007f4ea49fe154, %eax
+  2851519  2147596: T3264758 read         4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdcf
+  2851520  2147597: T3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdd5 83 c0 01             add    $0x01, %eax
+  2851521  2147598: T3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdd8 89 05 76 23 20 00    mov    %eax, <rel> 0x00007f4ea49fe154
+  2851522  2147598: T3264758 write        4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdd8
+  2851523  2147599: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdde 90                   nop
+  2851524  2147600: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbddf 5d                   pop    %rbp
+  2851525  2147600: T3264758 read         8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbddf
+  2851526  2147601: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbde0 c3                   ret
+  2851527  2147601: T3264758 read         8 byte(s) @ 0x00007ffd93a0be38 by PC 0x00007f4ea47fbde0
+  2851528  2147602: T3264758 ifetch       7 byte(s) @ 0x00007f4ea7c3daa0 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+  2851529  2147603: T3264758 ifetch       2 byte(s) @ 0x00007f4ea7c3daa7 0f 05                syscall
+  2851530  2147603: T3264758 <marker: timestamp 13312413438787645>
+  2851531  2147603: T3264758 <marker: tid 3264758 on core 8>
+  2851532  2147603: T3264758 <marker: syscall xfer from 0x7f4ea7c3daa9>
+  2851533  2147603: T3264758 <marker: timestamp 13312413438787652>
+  2851534  2147603: T3264758 <marker: tid 3264758 on core 8>
+  2851535  2147604: T3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87a6a e8 11 8b 07 00       call   $0x00007f4ea7d00580
 \endcode
 
 \section sec_tool_func_view View Function Calls
@@ -1457,6 +1430,14 @@ built-in scheduling markers providing the timestamp and cpu identifier
 on each thread transition.  Other built-in markers indicate
 disruptions in user mode control flow such as signal handler entry and
 exit.
+
+The absolute ordinals for trace records and instruction fetches are
+available via the #memref_stream_t interface passed to the
+initialize() function for serial operation and parallel_shard_init()
+for parallel operation.  If the iterator skips over some records that
+are not passed to the tools, these ordinals will include those skipped
+records.  If a tool wishes to count only those records or instructions
+that it sees, it can add its own counters.
 
 CMake support is provided for including the headers and linking the
 libraries of the \p drmemtrace framework.  A new CMake function is defined

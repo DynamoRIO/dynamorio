@@ -287,8 +287,10 @@ reader_t::operator++()
             at_eof_ = true; // bail
             break;
         }
-        if (have_memref)
+        if (have_memref) {
+            ++cur_ref_count_;
             break;
+        }
     }
 
     return *this;

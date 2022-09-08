@@ -53,11 +53,12 @@ public:
            uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
     std::string
-    initialize() override;
+    initialize(memref_stream_t *serial_query) override;
     bool
     parallel_shard_supported() override;
     void *
-    parallel_shard_init(int shard_index, void *worker_data) override;
+    parallel_shard_init(int shard_index, void *worker_data,
+                        memref_stream_t *shard_query) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
@@ -81,25 +82,26 @@ protected:
     };
 
     bool
-    should_skip(const memref_t &memref);
+    should_skip(memref_stream_t *query, const memref_t &memref);
 
     inline void
     print_header()
     {
-        std::cerr << std::setw(9) << "Output format:\n<record#>"
+        std::cerr << std::setw(9) << "Output format:\n<record#> <instr#>"
                   << ": T<tid> <record details>\n"
                   << "------------------------------------------------------------\n";
     }
 
     inline void
-    print_prefix(const memref_t &memref, int ref_adjust = 0,
+    print_prefix(memref_stream_t *query, const memref_t &memref, int ref_adjust = 0,
                  std::ostream &stream = std::cerr)
     {
         if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
-        stream << std::setw(9) << (num_refs_ + ref_adjust) << ": T" << memref.marker.tid
-               << " ";
+        stream << std::setw(9) << (query->get_record_ordinal() + ref_adjust)
+               << std::setw(9) << query->get_instruction_ordinal() << ": T"
+               << memref.marker.tid << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after
@@ -130,10 +132,10 @@ protected:
     memref_tid_t prev_tid_;
     intptr_t filetype_;
     std::unordered_set<memref_tid_t> printed_header_;
-    uint64_t num_refs_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
     bool has_modules_;
+    memref_stream_t *serial_query_ = nullptr;
 };
 
 #endif /* _VIEW_H_ */

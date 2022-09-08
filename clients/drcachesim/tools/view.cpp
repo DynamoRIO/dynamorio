@@ -70,15 +70,15 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
     , num_disasm_instrs_(0)
     , prev_tid_(-1)
     , filetype_(-1)
-    , num_refs_(0)
     , timestamp_(0)
     , has_modules_(true)
 {
 }
 
 std::string
-view_t::initialize()
+view_t::initialize(memref_stream_t *serial_query)
 {
+    serial_query_ = serial_query;
     print_header();
     dcontext_.dcontext = dr_standalone_init();
     if (module_file_path_.empty()) {
@@ -124,9 +124,10 @@ view_t::parallel_shard_supported()
 }
 
 void *
-view_t::parallel_shard_init(int shard_index, void *worker_data)
+view_t::parallel_shard_init(int shard_index, void *worker_data,
+                            memref_stream_t *shard_query)
 {
-    return nullptr;
+    return shard_query;
 }
 
 bool
@@ -144,15 +145,8 @@ view_t::parallel_shard_error(void *shard_data)
 }
 
 bool
-view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+view_t::should_skip(memref_stream_t *query, const memref_t &memref)
 {
-    return process_memref(memref);
-}
-
-bool
-view_t::should_skip(const memref_t &memref)
-{
-    num_refs_++;
     if (skip_refs_left_ > 0) {
         skip_refs_left_--;
         // I considered printing the version and filetype even when skipped but
@@ -165,7 +159,14 @@ view_t::should_skip(const memref_t &memref)
             return true;
         sim_refs_left_--;
         if (sim_refs_left_ == 0 && timestamp_ > 0) {
-            print_prefix(memref, -1); // Already incremented for timestamp.
+            // Print this timestamp right before the final record.
+            int adjust = -1; // Already incremented for timestamp.
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+                // This is the final record so no adjustment needed.
+                adjust = 0;
+            }
+            print_prefix(query, memref, adjust);
             std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
             timestamp_ = 0;
         }
@@ -176,6 +177,13 @@ view_t::should_skip(const memref_t &memref)
 bool
 view_t::process_memref(const memref_t &memref)
 {
+    return parallel_shard_memref(serial_query_, memref);
+}
+
+bool
+view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    memref_stream_t *query = reinterpret_cast<memref_stream_t *>(shard_data);
     if (knob_thread_ > 0 && memref.data.tid > 0 && memref.data.tid != knob_thread_)
         return true;
     // Even for -skip_refs we need to process the up-front version and type.
@@ -213,7 +221,7 @@ view_t::process_memref(const memref_t &memref)
             // We can't easily reorder and place window markers before timestamps
             // since memref iterators use the timestamps to order buffer units.
             timestamp_ = memref.marker.marker_value;
-            if (should_skip(memref))
+            if (should_skip(query, memref))
                 timestamp_ = 0;
             return true;
         default: break;
@@ -227,21 +235,21 @@ view_t::process_memref(const memref_t &memref)
         printed_header_.find(memref.marker.tid) == printed_header_.end()) {
         printed_header_.insert(memref.marker.tid);
         if (trace_version_ != -1) { // Old versions may not have a version marker.
-            if (!should_skip(memref)) {
-                print_prefix(memref);
+            if (!should_skip(query, memref)) {
+                print_prefix(query, memref, -2);
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
-            if (!should_skip(memref)) {
-                print_prefix(memref);
+            if (!should_skip(query, memref)) {
+                print_prefix(query, memref, -1);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                           << ">\n";
             }
         }
     }
 
-    if (should_skip(memref))
+    if (should_skip(query, memref))
         return true;
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -250,25 +258,26 @@ view_t::process_memref(const memref_t &memref)
             if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
                 std::cerr
                     << "------------------------------------------------------------\n";
-                print_prefix(memref, -1); // Already incremented for timestamp above.
+                print_prefix(query, memref,
+                             -1); // Already incremented for timestamp above.
             }
             if (timestamp_ > 0) {
                 std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
                 timestamp_ = 0;
-                print_prefix(memref);
+                print_prefix(query, memref);
             }
             std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
             last_window_[memref.marker.tid] = memref.marker.marker_value;
         }
         if (timestamp_ > 0) {
-            print_prefix(memref, -1); // Already incremented for timestamp above.
+            print_prefix(query, memref, -1); // Already incremented for timestamp above.
             std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
             timestamp_ = 0;
         }
     }
 
     if (memref.instr.tid != 0) {
-        print_prefix(memref);
+        print_prefix(query, memref);
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -485,7 +494,7 @@ view_t::process_memref(const memref_t &memref)
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
-        print_prefix(memref, 0, prefix);
+        print_prefix(query, memref, 0, prefix);
         std::string skip_name(name_width, ' ');
         disasm.insert(newline + 1,
                       prefix.str() + skip_name + "                               ");

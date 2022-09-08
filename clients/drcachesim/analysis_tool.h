@@ -44,6 +44,7 @@
 // To support installation of headers for analysis tools into a single
 // separate directory we omit common/ here and rely on -I.
 #include "memref.h"
+#include "memref_stream.h"
 #include <string>
 
 /**
@@ -93,17 +94,31 @@ public:
         : success_(true) {};
     virtual ~analysis_tool_t() {}; /**< Destructor. */
     /**
-     * Tools are encouraged to perform any initialization that might fail here rather
-     * than in the constructor.  On an error, this returns an error string.  On success,
-     * it returns "".
+     * \deprecated The version taking in a #memref_stream_t is the version
+     * called by the analyzer; this no-argument version is only called if the default
+     * implementation of the other version is left in place and it calls this version.  On
+     * an error, this returns an error string.  On success, it returns "".
      */
     virtual std::string
     initialize()
     {
         return "";
     }
+    /**
+     * Tools are encouraged to perform any initialization that might fail here rather
+     * than in the constructor.  The \p serial_query interface allows tools to query
+     * details of the underlying trace during serial operation; it is nullptr for
+     * parallel operation (a per-shard version is passed to parallel_shard_init()).  On
+     * an error, this returns an error string.  On success, it returns "".
+     */
+    virtual std::string
+    initialize(memref_stream_t *serial_query)
+    {
+        return initialize();
+    }
     /** Returns whether the tool was created successfully. */
-    virtual bool operator!()
+    virtual bool
+    operator!()
     {
         return !success_;
     }
@@ -136,7 +151,7 @@ public:
     /**
      * Returns whether this tool supports analyzing trace shards concurrently, or
      * whether it needs to see a single thread-interleaved stream of traced
-     * events.
+     * events.  This may be called prior to initialize().
      */
     virtual bool
     parallel_shard_supported()
@@ -168,19 +183,30 @@ public:
         return "";
     }
     /**
-     * Invoked once for each trace shard prior to calling parallel_shard_memref() for
-     * that shard, this allows a tool to create data local to a shard.  The \p
-     * shard_index is a unique identifier allowing shard data to be stored into a
-     * global table if desired (typically for aggregation use in print_results()).
-     * The \p worker_data is the return value of parallel_worker_init() for the
-     * worker thread who will exclusively operate on this shard.  The return value
-     * here will be passed to each invocation of parallel_shard_memref() for that
-     * same shard.
+     * \deprecated The version with a 3rd parameter in a #memref_stream_t is the version
+     * called by the analyzer; this 2-argument version is only called if the default
+     * implementation of the other version is left in place and it calls this version.
      */
     virtual void *
     parallel_shard_init(int shard_index, void *worker_data)
     {
         return nullptr;
+    }
+    /**
+     * Invoked once for each trace shard prior to calling parallel_shard_memref() for
+     * that shard, this allows a tool to create data local to a shard.  The \p
+     * shard_index is a unique identifier allowing shard data to be stored into a global
+     * table if desired (typically for aggregation use in print_results()).  The \p
+     * worker_data is the return value of parallel_worker_init() for the worker thread
+     * who will exclusively operate on this shard.  The \p shard_query allows tools to
+     * query details of the underlying trace shard during parallel operation; it is
+     * valid only until parallel_shard_exit() is called.  The return value here will be
+     * passed to each invocation of parallel_shard_memref() for that same shard.
+     */
+    virtual void *
+    parallel_shard_init(int shard_index, void *worker_data, memref_stream_t *shard_query)
+    {
+        return parallel_shard_init(shard_index, worker_data);
     }
     /**
      * Invoked once when all trace entries for a shard have been processed.  \p

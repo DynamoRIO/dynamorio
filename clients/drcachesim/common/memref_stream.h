@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,34 +30,40 @@
  * DAMAGE.
  */
 
-/* analyzer_multi: represent a memory trace analysis tool that can process
- * a trace from multiple inputs: a file, from a raw file, or over a pipe online.
+/* memref_stream: represent a memory trace analysis tool.
  */
 
-#ifndef _ANALYZER_MULTI_H_
-#define _ANALYZER_MULTI_H_ 1
+#ifndef _MEMREF_STREAM_H_
+#define _MEMREF_STREAM_H_ 1
 
-#include "analyzer.h"
+/**
+ * @file drmemtrace/memref_stream.h
+ * @brief DrMemtrace interface for obtaining information from analysis
+ * tools on the full stream of memory reference records.
+ */
 
-class analyzer_multi_t : public analyzer_t {
+/**
+ * This is an interface for obtaining information from analysis tools
+ * on the full stream of memory reference records.
+ */
+class memref_stream_t {
 public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analyzer_multi_t();
-    virtual ~analyzer_multi_t();
-
-protected:
-    bool
-    create_analysis_tools();
-    bool
-    init_analysis_tools();
-    void
-    destroy_analysis_tools();
-
-    std::unique_ptr<std::istream> serial_schedule_file_;
-    std::unique_ptr<std::istream> cpu_schedule_file_;
-
-    static const int max_num_tools_ = 8;
+    /** Destructor. */
+    virtual ~memref_stream_t()
+    {
+    }
+    /**
+     * Returns the count of #memref_t records from the start of the trace to this point.
+     * This includes records skipped over and not presented to any tool.
+     */
+    virtual uint64_t
+    get_record_ordinal() = 0;
+    /**
+     * Returns the count of instructions from the start of the trace to this point.
+     * This includes instructions skipped over and not presented to any tool.
+     */
+    virtual uint64_t
+    get_instruction_ordinal() = 0;
 };
 
-#endif /* _ANALYZER_MULTI_H_ */
+#endif /* _MEMREF_STREAM_H_ */
