@@ -100,6 +100,35 @@ public:
     virtual bool
     is_complete();
 
+    reader_t &
+    skip_instructions(uint64_t instruction_count) override
+    {
+        if (input_files_.size() > 1) {
+            // TODO i#5538: For fast thread-interleaved (whether serial here or the
+            // forthcoming per-cpu iteration) we need to read in the schedule file(s)
+            // that raw2trace writes out so that we can compute how far to separately
+            // fast-skip in each interleaved thread by calling the per-thread version.
+            // We'll also need to update the memref pid+tid state since we're not
+            // repeating top headers in every thread after a skip.  For now this is a
+            // slow linear walk.
+            return reader_t::skip_instructions(instruction_count);
+        }
+        // If the user asks to skip from the very start, we still need to find the chunk
+        // count marker and drain the header queue.
+        // TODO i#5538: Record all of the header values until the first timestamp
+        // and present them as new memtrace_stream_t interfaces.
+        while (chunk_instr_count_ == 0) {
+            input_entry_ = read_next_entry();
+            process_input_entry();
+        }
+        if (!queues_[0].empty())
+            ERRMSG("Failed to drain header queue\n");
+        bool eof = false;
+        if (!skip_thread_instructions(0, instruction_count, &eof) || eof)
+            at_eof_ = true;
+        return *this;
+    }
+
 protected:
     bool
     read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
@@ -295,6 +324,25 @@ protected:
             return &entry_copy_;
         }
         return nullptr;
+    }
+
+    virtual bool
+    skip_thread_instructions(size_t thread_index, uint64_t instruction_count,
+                             OUT bool *eof)
+    {
+        // Default implementation for file types that have no fast seeking and must do a
+        // linear walk.
+        uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
+        while (cur_instr_count_ < stop_count_) {
+            if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
+                return false;
+            // Update core state.
+            input_entry_ = &entry_copy_;
+            process_input_entry();
+            // TODO i#5538: Remember the last timestamp+cpu and insert it; share
+            // code with the zipfile reader.
+        }
+        return true;
     }
 
 private:

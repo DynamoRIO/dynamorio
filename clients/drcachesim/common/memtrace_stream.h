@@ -37,7 +37,7 @@
  * the record and instruction ordinals within the stream, in the presence of
  * skipping: we could add fields to memref but we'd either have to append
  * and have them at different offsets for each type or we'd have to break
- * compatbility to prepend every time we added more; or we could add parameters
+ * compatibility to prepend every time we added more; or we could add parameters
  * to process_memref().  Passing an interface to the init routines seems
  * the simplest and most flexible.
  */
