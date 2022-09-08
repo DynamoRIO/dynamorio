@@ -88,7 +88,7 @@ file_reader_t<zipfile_reader_t>::read_next_thread_entry(size_t thread_index,
             if ((entry_copy_.type != TRACE_TYPE_MARKER ||
                  entry_copy_.size != TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
                 entry_copy_.type != TRACE_TYPE_FOOTER) {
-                VPRINT(this, 1, "Chunk is missing footer: truncation detection\n");
+                VPRINT(this, 1, "Chunk is missing footer: truncation detected\n");
                 return false;
             }
             if (unzCloseCurrentFile(zipfile->file) != UNZ_OK)

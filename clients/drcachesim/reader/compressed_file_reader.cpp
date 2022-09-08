@@ -64,7 +64,9 @@ file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
     if (gzip->cur_buf >= gzip->max_buf) {
         int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
         // Returns less than asked-for for end of file, or –1 for error.
-        if (len < (int)sizeof(*entry)) {
+        // We should always get a multiple of the record size.
+        if (len < static_cast<int>(sizeof(*entry)) ||
+            len % static_cast<int>(sizeof(*entry)) != 0) {
             *eof = (len >= 0);
             return false;
         }
