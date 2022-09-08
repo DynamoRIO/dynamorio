@@ -38,6 +38,7 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include <memory>
 #include <mutex>
 #include <stack>
 #include <unordered_map>

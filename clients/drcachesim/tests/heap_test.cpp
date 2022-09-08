@@ -108,7 +108,7 @@ test_operators()
         ::operator delete(int_ptr, sizeof(*int_ptr));
         // void operator delete[](void *ptr, std::size_t sz) noexcept;
         int_arr = new int[42];
-        ::operator delete(int_arr, 42 * sizeof(*int_arr));
+        ::operator delete[](int_arr, 42 * sizeof(*int_arr));
 #endif
 #if defined(__cpp_aligned_new) && defined(__cpp_sized_deallocation)
         aligned_class = new align64;
