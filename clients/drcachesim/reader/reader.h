@@ -144,7 +144,7 @@ private:
     int bundle_idx_ = 0;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
     uint64_t cur_instr_count_ = 0;
-    uint64_t chunk_instr_count_ = 0;
+    uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
     uint64_t last_timestamp_instr_count_ = 0;
     bool skip_next_cpu_ = false;
 };
