@@ -880,6 +880,7 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
     int code = (int)info->code;
     /* The order here matters: rep, then repne, then data (i#2431). */
     int idx = (di->rep_prefix ? 1 : (di->repne_prefix ? 3 : (di->data_prefix ? 2 : 0)));
+    ASSERT(!(di->rep_prefix && di->repne_prefix));
     if (di->vex_encoded)
         idx += 4;
     else if (di->evex_encoded)
@@ -1014,9 +1015,11 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
             if (info->code == PREFIX_REP) {
                 /* see if used as part of opcode before considering prefix */
                 di->rep_prefix = true;
+                di->repne_prefix = false;
             } else if (info->code == PREFIX_REPNE) {
                 /* see if used as part of opcode before considering prefix */
                 di->repne_prefix = true;
+                di->rep_prefix = false;
             } else if (REG_START_SEGMENT <= info->code &&
                        info->code <= REG_STOP_SEGMENT) {
                 CLIENT_ASSERT_TRUNCATE(di->seg_override, ushort, info->code,

@@ -2728,6 +2728,30 @@ test_evex_compressed_disp_with_segment_prefix(void *dc)
 #endif
 }
 
+static void
+test_extra_leading_prefixes(void *dc)
+{
+#ifdef X64
+    byte *pc;
+    const byte b1[] = { 0xf3, 0xf2, 0x4b, 0x0f, 0x70, 0x76, 0x00, 0xff };
+    const byte b2[] = { 0xf3, 0xf2, 0x0f, 0xbc, 0xf2 };
+    char dbuf[512];
+    int len;
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b1[0] + sizeof(b1));
+    ASSERT(strcmp(dbuf, "pshuflw 0x00(%r14)[16byte] $0xff -> %xmm6\n") == 0);
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b2[0] + sizeof(b2));
+    ASSERT(strcmp(dbuf, "bsf    %edx -> %esi\n") == 0);
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2816,6 +2840,8 @@ main(int argc, char *argv[])
     test_simd_zeroes_upper(dcontext);
 
     test_evex_compressed_disp_with_segment_prefix(dcontext);
+
+    test_extra_leading_prefixes(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
