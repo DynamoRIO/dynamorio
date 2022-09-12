@@ -2707,6 +2707,27 @@ test_simd_zeroes_upper(void *dc)
     instr_destroy(dc, instr);
 }
 
+static void
+test_evex_compressed_disp_with_segment_prefix(void *dc)
+{
+#ifdef X64
+    byte *pc;
+    const byte b[] = { 0x2e, 0x67, 0x62, 0x01, 0xc5, 0x00, 0xc4, 0x62, 0x21, 0x00 };
+    char dbuf[512];
+    int len;
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b, (byte *)b, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b[0] + sizeof(b));
+    ASSERT(
+        strcmp(
+            dbuf,
+            "addr32 vpinsrw %xmm23[14byte] %cs:0x42(%r10d)[2byte] $0x00 -> %xmm28\n") ==
+        0);
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2793,6 +2814,8 @@ main(int argc, char *argv[])
     test_opnd(dcontext);
 
     test_simd_zeroes_upper(dcontext);
+
+    test_evex_compressed_disp_with_segment_prefix(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
