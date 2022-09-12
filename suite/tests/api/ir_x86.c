@@ -2720,7 +2720,11 @@ test_evex_compressed_disp_with_segment_prefix(void *dc)
         disassemble_to_buffer(dc, (byte *)b, (byte *)b, false /*no pc*/,
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b[0] + sizeof(b));
-    ASSERT(strcmp(dbuf, "addr32 vpinsrw %xmm23[14byte] %cs:0x42(%r10d)[2byte] $0x00 -> %xmm28\n") == 0);
+    ASSERT(
+        strcmp(
+            dbuf,
+            "addr32 vpinsrw %xmm23[14byte] %cs:0x42(%r10d)[2byte] $0x00 -> %xmm28\n") ==
+        0);
 #endif
 }
 
