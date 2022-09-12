@@ -1757,14 +1757,13 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
             compressed_disp_scale = decode_get_compressed_disp_scale(di);
             if (compressed_disp_scale == -1)
                 return false;
-            needs_full_disp = disp % compressed_disp_scale != 0;
+            if (di->mod == 1)
+                disp *= compressed_disp_scale;
+            else
+                needs_full_disp = disp % compressed_disp_scale != 0;
         }
         force_full_disp = !needs_full_disp && di->has_disp && disp >= INT8_MIN &&
             disp <= INT8_MAX && di->mod == 2;
-        if (di->evex_encoded) {
-            if (di->mod == 1)
-                disp *= compressed_disp_scale;
-        }
         if (di->seg_override != REG_NULL) {
             *rm_opnd = opnd_create_far_base_disp_ex(
                 di->seg_override, base_reg, index_reg, scale, disp,
