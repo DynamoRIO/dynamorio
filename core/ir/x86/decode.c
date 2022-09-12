@@ -1761,6 +1761,10 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
         }
         force_full_disp = !needs_full_disp && di->has_disp && disp >= INT8_MIN &&
             disp <= INT8_MAX && di->mod == 2;
+        if (di->evex_encoded) {
+            if (di->mod == 1)
+                disp *= compressed_disp_scale;
+        }
         if (di->seg_override != REG_NULL) {
             *rm_opnd = opnd_create_far_base_disp_ex(
                 di->seg_override, base_reg, index_reg, scale, disp,
@@ -1772,10 +1776,6 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
              * specify a segment selector and address.  The opcode must be
              * examined to know how to interpret those 6 bytes.
              */
-            if (di->evex_encoded) {
-                if (di->mod == 1)
-                    disp *= compressed_disp_scale;
-            }
             *rm_opnd = opnd_create_base_disp_ex(base_reg, index_reg, scale, disp,
                                                 resolve_variable_size(di, opsize, false),
                                                 encode_zero_disp, force_full_disp,
