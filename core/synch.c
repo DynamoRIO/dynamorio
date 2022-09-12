@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -673,14 +673,13 @@ void
 check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_state)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *)dcontext->synch_field;
-    app_pc pc;
     byte cxt[MAX(CONTEXT_HEAP_SIZE_OPAQUE, sizeof(priv_mcontext_t))];
     bool set_context = false;
     bool set_mcontext = false;
     if (tsd->pending_synch_count == 0 || cur_state == THREAD_SYNCH_NONE)
         return;
     ASSERT(tsd->pending_synch_count >= 0);
-    pc = get_mcontext(dcontext)->pc;
+    DEBUG_DECLARE(app_pc pc = get_mcontext(dcontext)->pc;)
     LOG(THREAD, LOG_SYNCH, 2, "waiting for synch with state %d (pc " PFX ")\n", cur_state,
         pc);
     if (cur_state == THREAD_SYNCH_VALID_MCONTEXT) {
@@ -1576,7 +1575,6 @@ resume_all_threads(thread_record_t **threads, const uint num_threads)
 {
     uint i;
     thread_id_t my_tid;
-    bool res;
 
     ASSERT_OWN_MUTEX(true, &all_threads_synch_lock);
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
@@ -1598,7 +1596,7 @@ resume_all_threads(thread_record_t **threads, const uint num_threads)
         /* This routine assumes that each thread in the array was suspended, so
          * each one has to successfully resume.
          */
-        res = os_thread_resume(threads[i]);
+        DEBUG_DECLARE(bool res =) os_thread_resume(threads[i]);
         ASSERT(res);
     }
 }
@@ -1639,7 +1637,6 @@ end_synch_with_all_threads(thread_record_t **threads, uint num_threads, bool res
 void
 translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t synch_state)
 {
-    bool res;
     /* we do not have to align priv_mcontext_t */
     priv_mcontext_t *mc = global_heap_alloc(sizeof(*mc) HEAPACCT(ACCT_OTHER));
     bool free_cxt = true;
@@ -1649,7 +1646,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
     /* FIXME: would like to assert that suspendcount is > 0 but how? */
     ASSERT(thread_synch_successful(tr));
 
-    res = thread_get_mcontext(tr, mc);
+    DEBUG_DECLARE(bool res =) thread_get_mcontext(tr, mc);
     ASSERT(res);
     pre_translation = (app_pc)mc->pc;
     LOG(GLOBAL, LOG_CACHE, 2, "\trecreating address for " PFX "\n", mc->pc);
@@ -1687,9 +1684,9 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             else if (pre_translation + SYSENTER_LENGTH == vsyscall_sysenter_return_pc)
                 mc->pc = get_do_int_syscall_entry(dcontext);
             /* exit stub and subsequent fcache_return will save rest of state */
-            res = set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
-                                             synch_state _IF_X64((void *)mc)
-                                                 _IF_WINDOWS(NULL));
+            DEBUG_DECLARE(res =)
+            set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
+                                       synch_state _IF_X64((void *)mc) _IF_WINDOWS(NULL));
             ASSERT(res);
             /* cxt is freed by set_synched_thread_context() or target thread */
             free_cxt = false;
@@ -1699,16 +1696,17 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* We don't want to translate, just update the stolen reg values */
                 arch_mcontext_reset_stolen_reg(dcontext, mc);
-                res = set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
-                                                 synch_state _IF_X64((void *)mc)
-                                                     _IF_WINDOWS(NULL));
+                DEBUG_DECLARE(res =)
+                set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
+                                           synch_state _IF_X64((void *)mc)
+                                               _IF_WINDOWS(NULL));
                 ASSERT(res);
                 /* cxt is freed by set_synched_thread_context() or target thread */
                 free_cxt = false;
             }
         });
     } else {
-        res = translate_mcontext(tr, mc, true /*restore memory*/, NULL);
+        DEBUG_DECLARE(res =) translate_mcontext(tr, mc, true /*restore memory*/, NULL);
         ASSERT(res);
         if (!thread_synch_successful(tr) || mc->pc == 0) {
             /* Better to risk failure on accessing a freed cache than
@@ -1816,9 +1814,9 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         swap_peb_pointer(dcontext, false /*to app*/);
 #endif
         /* exit stub and subsequent fcache_return will save rest of state */
-        res =
-            set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
-                                       synch_state _IF_X64((void *)mc) _IF_WINDOWS(NULL));
+        DEBUG_DECLARE(res =)
+        set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
+                                   synch_state _IF_X64((void *)mc) _IF_WINDOWS(NULL));
         ASSERT(res);
         /* cxt is freed by set_synched_thread_context() or target thread */
         free_cxt = false;

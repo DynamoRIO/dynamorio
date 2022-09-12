@@ -100,6 +100,28 @@ droption_t<std::string> op_alt_module_dir(
     "analysis tools, or in the raw modules file for post-prcoessing of offline "
     "raw trace files.  This directory takes precedence over the recorded path.");
 
+droption_t<bytesize_t> op_chunk_instr_count(
+    DROPTION_SCOPE_FRONTEND, "chunk_instr_count", bytesize_t(10 * 1000 * 1000U),
+    // We do not support tiny chunks.  We do not support disabling chunks with a 0
+    // value, to simplify testing: although we're still having to support generating
+    // non-zip files for !HAS_ZLIB/!HAS_ZIP!
+    bytesize_t(1000),
+#ifdef X64
+    bytesize_t(1ULL << 63),
+#else
+    // We store this value in a marker which can only hold a pointer-sized value and
+    // thus is limited to 4G.
+    // XXX i#5634: This happens to timestamps too: what we should do is use multiple
+    // markers (need up to 3) to support 64-bit values in 32-bit builds.
+    bytesize_t(UINT_MAX),
+#endif
+    "Chunk instruction count",
+    "Specifies the size in instructions of the chunks into which a trace output file "
+    "is split inside a zipfile.  This is the granularity of a fast seek. "
+    "This only applies when generating .zip-format traces; when built without "
+    "support for writing .zip files, this option is ignored. "
+    "For 32-bit this cannot exceed 4G.");
+
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",
     "Path to function map file for func_view tool",
@@ -208,14 +230,18 @@ droption_t<bool> op_coherence(
     "Writes to cache lines will invalidate other private caches that hold that line.");
 
 droption_t<bool> op_use_physical(
-    DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
-    "If available, the default virtual addresses will be translated to physical.  "
-    "This is not possible from user mode on all platforms.  "
-    "For -offline, the regular trace entries remain virtual, with a pair of markers of "
+    DROPTION_SCOPE_ALL, "use_physical", false, "Use physical addresses if possible",
+    "If available, metadata with virtual-to-physical-address translation information "
+    "is added to the trace.  This is not possible from user mode on all platforms.  "
+    "The regular trace entries remain virtual, with a pair of markers of "
     "types #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
     "inserted at some prior point for each new or changed page mapping to show the "
-    "corresponding physical addresses.  This option may incur significant overhead "
-    "both for the physical translation and as it requires disabling optimizations.");
+    "corresponding physical addresses.  If translation fails, a "
+    "#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted. "
+    "This option may incur significant overhead "
+    "both for the physical translation and as it requires disabling optimizations."
+    "For -offline, this option must be passed to both the tracer (to insert the "
+    "markers) and the simulator (to use the markers).");
 
 droption_t<unsigned int> op_virt2phys_freq(
     DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
@@ -636,3 +662,13 @@ droption_t<bool> op_enable_drstatecmp(
     DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
     "When true, this option enables the drstatecmp library that performs state "
     "comparisons to detect instrumentation-induced bugs due to state clobbering.");
+
+#ifdef BUILD_PT_TRACER
+droption_t<bool> op_enable_kernel_tracing(
+    DROPTION_SCOPE_ALL, "enable_kernel_tracing", false, "Enable Kernel Intel PT tracing.",
+    "By default, offline tracing only records a userspace trace. If this option is "
+    "enabled, offline tracing will record each syscall's Kernel PT and write every "
+    "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
+    "analysis. And this feature is available only on Intel CPUs that support Intel@ "
+    "Processor Trace.");
+#endif

@@ -775,6 +775,11 @@ endif (UNIX)
 # DynamoRIO static core library
 
 # hide_symbols is only honored for UNIX.
+# i#3348, i#5574: Note that hide_symbols is not safe. It leads to confusing
+# behavior where different libraries may see different definitions of exported
+# symbols, without obeying WEAK. E.g. the weakly defined routines in drlibc will
+# not be overriden by their respective strong definitions in core DR, for the
+# callsites in drlibc itself.
 function (configure_static_core_lib name hide_symbols)
   add_library(${name} STATIC
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
@@ -841,35 +846,29 @@ endfunction()
 
 # XXX i#1997: not fully supported on Mac yet
 if (NOT APPLE)
-  configure_static_core_lib(dynamorio_static ON)
-  if (UNIX)
-    # Create a version without hidden symbols to support that model.
-    # The symbol hiding step is complex and for some toolchains it is simpler
-    # to avoid it and count on symbol names preventing collisions (i#3348).
-    # XXX i#5570: Cleanup: rename the following to make it clear that it's the
-    # default variant. Also evaluate which of the static_nohide_api tests we
-    # do not need anymore.
-    configure_static_core_lib(dynamorio_static_nohide OFF)
-
-    if (LINUX AND READELF_EXECUTABLE)
-      # We already located readelf above for the shared lib.
-      # We also already created a loc.cmake file in configure_static_core_lib.
-      set(locvar_name dynamorio_static_nohide_loc)
-      add_custom_command(TARGET dynamorio_static_nohide
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND}
-        ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
-             -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
-             -D CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
-             -D X86=${X86}
-             -D X64=${X64}
-             -D DEBUG=${DEBUG}
-             -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_symbol_check.cmake
-        VERBATIM
-        )
-    endif ()
+  # We do not hide symbols while building dynamorio_static, because it is unsafe
+  # to do so. See comment at configure_static_core_lib for more details.
+  # There are downsides to not hiding symbols that we have to live with,
+  # including pushing our many global symbols into the app namespace. We have
+  # renamed some of the ones that are more likely to collide in #3348.
+  configure_static_core_lib(dynamorio_static OFF)
+  if (LINUX AND READELF_EXECUTABLE)
+    # We already located readelf above for the shared lib.
+    # We also already created a loc.cmake file in configure_static_core_lib.
+    set(locvar_name dynamorio_static_loc)
+    add_custom_command(TARGET dynamorio_static
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
+           -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+           -D CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
+           -D X86=${X86}
+           -D X64=${X64}
+           -D DEBUG=${DEBUG}
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_symbol_check.cmake
+      VERBATIM
+      )
   endif ()
-
 endif (NOT APPLE)
 
 ###########################################################################
@@ -1170,11 +1169,13 @@ DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instrlist_api.h dr_ir_instrlist.
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_opcodes.h dr_ir_opcodes.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/opcode_api.h dr_ir_opcodes_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/opcode_api.h dr_ir_opcodes_arm.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/riscv64/opcode_api.h dr_ir_opcodes_riscv64.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_create_shared_api.h dr_ir_macros.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/instr_create_api.h dr_ir_macros_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/instr_create_api.h dr_ir_macros_arm.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/aarch64/instr_create_api.h
   dr_ir_macros_aarch64.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/riscv64/instr_create_api.h dr_ir_macros_riscv64.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_ir_utils.h dr_ir_utils.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_tools.h dr_tools.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/annotations_api.h dr_annotation.h)

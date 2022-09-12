@@ -37,6 +37,9 @@
 #include "../asm_defines.asm"
 START_FILE
 
+        DECLARE_FUNC(dynamorio_syscall)
+GLOBAL_LABEL(dynamorio_syscall:)
+#ifdef LINUX
 /*
  * ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
  *
@@ -44,8 +47,6 @@ START_FILE
  * - x8: syscall number
  * - x0..x6: syscall arguments
  */
-        DECLARE_FUNC(dynamorio_syscall)
-GLOBAL_LABEL(dynamorio_syscall:)
         cmp      w1, #7
         mov      x8,x0
         mov      x0,x2
@@ -62,15 +63,66 @@ GLOBAL_LABEL(dynamorio_syscall:)
 1:
         svc      #0
         ret
+#elif defined(MACOS)
+/*
+ * x0 = syscall number
+ * x1 = number of arguments
+ * sp+8*n = argument n
+ */
+        mov      x16, x1
+        ldr      x1, [sp]
+        sub      x16, x16, 1
+        cbz      x16, do_svc
+        ldr      x2, [sp, #8]
+        sub      x16, x16, 1
+        cbz      x16, do_svc
+        ldr      x3, [sp, #16]
+        sub      x16, x16, 1
+        cbz      x16, do_svc
+        ldr      x4, [sp, #24]
+        sub      x16, x16, 1
+        cbz      x16, do_svc
+        ldr      x5, [sp, #32]
+        sub      x16, x16, 1
+        cbz      x16, do_svc
+        ldr      x6, [sp, #40]
+        sub      x16, x16, 1
+        cbz      x16, do_svc
+        ldr      x7, [sp, #48]
+        sub      x16, x16, 1
+        cbz      x16, do_svc
+        ldr      x8, [sp, #56]
+do_svc:
+        mov      x16, #0
+        svc      #0x80
+        b.cs     err_cf
+        ret
+err_cf:
+        mov      x1, x0
+        mov      x0, #-1
+        ret
+#endif
+        END_FUNC(dynamorio_syscall)
 
-#define FUNCNAME dr_fpu_exception_init
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
+        DECLARE_FUNC(dr_fpu_exception_init)
+GLOBAL_LABEL(dr_fpu_exception_init:)
         mov      x0, #0
         msr      fpcr, x0
         msr      fpsr, x0
         ret
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
+        END_FUNC(dr_fpu_exception_init)
+
+#ifdef MACOS
+        DECLARE_FUNC(dynamorio_mach_dep_syscall)
+GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
+        /* TODO i#5383: Use proper gateway. */
+        brk 0xc001 /* For now we break with a unique code. */
+        END_FUNC(dynamorio_mach_dep_syscall)
+
+        DECLARE_FUNC(dynamorio_mach_syscall)
+GLOBAL_LABEL(dynamorio_mach_syscall:)
+        b _dynamorio_syscall
+        END_FUNC(dynamorio_mach_syscall)
+#endif
 
 END_FILE

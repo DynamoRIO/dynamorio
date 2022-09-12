@@ -20,7 +20,7 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-           9 total other markers
+          12 total other markers
 Thread 552306 counts:
       101049 \(fetched\) instructions
         6393 unique \(fetched\) instructions
@@ -38,7 +38,7 @@ Thread 552306 counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-           3 other markers
+           4 other markers
 Thread 552323 counts:
         4674 \(fetched\) instructions
         1028 unique \(fetched\) instructions
@@ -56,7 +56,7 @@ Thread 552323 counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-           3 other markers
+           4 other markers
 Thread 552324 counts:
         3482 \(fetched\) instructions
         1008 unique \(fetched\) instructions
@@ -74,7 +74,7 @@ Thread 552324 counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-           3 other markers
+           4 other markers
 #else
 ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.legacy-int-offs/raw/drmemtrace.drmemtrace.signal_invariants..*.raw.gz: Architecture mismatch: trace recorded on x86_64 but tools built for i386
 #endif

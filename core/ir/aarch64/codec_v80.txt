@@ -259,8 +259,8 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 0x1011100x1xxxxx110101xxxxxxxxxx  n   99   BASE      faddp            dq0 : dq5 dq16 sd_sz
 0111111000110000110110xxxxxxxxxx  n   99   BASE      faddp             s0 : d5 sd_sz
 0111111001110000110110xxxxxxxxxx  n   99   BASE      faddp             d0 : q5 sd_sz
-00011110xx1xxxxxxxxx01xxxxx0xxxx  w   100  BASE      fccmp                : float_reg5 float_reg16 nzcv cond
-00011110xx1xxxxxxxxx01xxxxx1xxxx  w   101  BASE     fccmpe                : float_reg5 float_reg16 nzcv cond
+000111100x1xxxxxxxxx01xxxxx0xxxx  w   100  BASE      fccmp        fccm_sd
+000111100x1xxxxxxxxx01xxxxx1xxxx  w   101  BASE     fccmpe        fccm_sd
 0x0011100x1xxxxx111001xxxxxxxxxx  n   102  BASE      fcmeq            dq0 : dq5 dq16 sd_sz
 0x0011101x100000110110xxxxxxxxxx  n   102  BASE      fcmeq            dq0 : dq5 zero_fp_const sd_sz
 0101111010100000110110xxxxxxxxxx  n   102  BASE      fcmeq             s0 : s5 zero_fp_const
@@ -284,15 +284,15 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 0101111010100000111010xxxxxxxxxx  n   106  BASE      fcmlt             s0 : s5 zero_fp_const
 0101111011100000111010xxxxxxxxxx  n   106  BASE      fcmlt             d0 : d5 zero_fp_const
 0x0011101x100000111010xxxxxxxxxx  n   106  BASE      fcmlt            dq0 : dq5 zero_fp_const sd_sz
-00011110xx1xxxxx001000xxxxx00000  w   107  BASE       fcmp                : float_reg5 float_reg16
-0001111000100000001000xxxxx01000  w   107  BASE       fcmp                : s5 zero_fp_const
 0001111001100000001000xxxxx01000  w   107  BASE       fcmp                : d5 zero_fp_const
-00011110xx100000001000xxxxx01000  w   107  BASE       fcmp                : float_reg5 zero_fp_const
-00011110001xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : s5 s16
+0001111000100000001000xxxxx01000  w   107  BASE       fcmp                : s5 zero_fp_const
+00011110011xxxxx001000xxxxx00000  w   107  BASE       fcmp                : d5 d16
+00011110001xxxxx001000xxxxx00000  w   107  BASE       fcmp                : s5 s16
+0001111001100000001000xxxxx11000  w   108  BASE      fcmpe                : d5 zero_fp_const
 0001111000100000001000xxxxx11000  w   108  BASE      fcmpe                : s5 zero_fp_const
 00011110011xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : d5 d16
-0001111001100000001000xxxxx11000  w   108  BASE      fcmpe                : d5 zero_fp_const
-00011110xx1xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel     float_reg0 : float_reg5 float_reg16 cond
+00011110001xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : s5 s16
+000111100x1xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel       fcsel_sd
 0001111000100010110000xxxxxxxxxx  n   110  BASE       fcvt             d0 : s5
 0001111001100010010000xxxxxxxxxx  n   110  BASE       fcvt             s0 : d5
 0001111000100100000000xxxxxxxxxx  n   111  BASE     fcvtas             w0 : s5
@@ -401,16 +401,12 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126  BASE     fcvtzu            wx0 : d5 s
 0x10111010110000111110xxxxxxxxxx  n   140  BASE      fminv             s0 : dq5 s_const_sz
 0x0011100x1xxxxx110011xxxxxxxxxx  n   141  BASE       fmla            dq0 : dq0 dq5 dq16 sd_sz
 0x0011111xxxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla            dq0 : dq0 dq5 dq16 vindex_SD sd_sz
-0101111110xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             s0 : s0 s5 dq16 vindex_SD sd_sz
-0101111111xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             d0 : d0 d5 dq16 vindex_SD sd_sz
-0x001110001xxxxx111011xxxxxxxxxx  n   142  BASE      fmlal            dq0 : dq0 dq5 dq16
-0x101110001xxxxx110011xxxxxxxxxx  n   143  BASE     fmlal2            dq0 : dq0 dq5 dq16
-0x0011111xxxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq5 dq16 vindex_SD sd_sz
+0101111110xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             s0 : s0 s5 q16 vindex_SD sd_sz
+0101111111xxxxxx0001x0xxxxxxxxxx  n   141  BASE       fmla             d0 : d0 d5 q16 vindex_SD sd_sz
+0x0011111xxxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq0 dq5 dq16 vindex_SD sd_sz
 0x0011101x1xxxxx110011xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq0 dq5 dq16 sd_sz
 0101111110xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             s0 : s0 s5 dq16 vindex_SD sd_sz
 0101111111xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             d0 : d0 d5 dq16 vindex_SD sd_sz
-0x001110101xxxxx111011xxxxxxxxxx  n   145  BASE      fmlsl            dq0 : dq0 dq5 dq16
-0x101110101xxxxx110011xxxxxxxxxx  n   146  BASE     fmlsl2            dq0 : dq0 dq5 dq16
 00011110001xxxxxxxx10000000xxxxx  n   147  BASE       fmov             s0 : fpimm13
 00011110011xxxxxxxx10000000xxxxx  n   147  BASE       fmov             d0 : fpimm13
 0001111000100111000000xxxxxxxxxx  n   147  BASE       fmov             s0 : w5

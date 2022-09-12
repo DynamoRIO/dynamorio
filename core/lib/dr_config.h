@@ -732,7 +732,7 @@ DR_EXPORT
  *                              cannot exceed #MAXIMUM_PATH.  The client path may not
  *                              include any semicolons and when combined with
  *                              \p client_options may not include all
- *                              three quote characters (', ", `) simultaneously.
+ *                              three quote characters (\', \", \`) simultaneously.
  *
  * \param[in]   client_options  A NULL-terminated string specifying options that
  *                              are available to the client as arguments of
@@ -740,7 +740,7 @@ DR_EXPORT
  *                              The string length cannot exceed #DR_MAX_OPTIONS_LENGTH.
  *                              The client options may not include any semicolons
  *                              and when combined with \p client_path may not include
- *                              all three quote characters (', ", `) simultaneously.
+ *                              all three quote characters (\', \", \`) simultaneously.
  *
  * \return      A dr_config_status_t code indicating the result of registration.
  */

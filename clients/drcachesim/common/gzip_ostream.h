@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,7 +51,7 @@
  */
 class gzip_streambuf_t : public std::basic_streambuf<char, std::char_traits<char>> {
 public:
-    gzip_streambuf_t(const std::string &path)
+    explicit gzip_streambuf_t(const std::string &path)
     {
         file_ = gzopen(path.c_str(), "wb");
         if (file_ != nullptr) {
@@ -60,14 +60,14 @@ public:
             setp(buf_, buf_ + buffer_size_ - 1);
         }
     }
-    virtual ~gzip_streambuf_t() override
+    ~gzip_streambuf_t() override
     {
         sync();
         delete[] buf_;
         if (file_ != nullptr)
             gzclose(file_);
     }
-    virtual int
+    int
     overflow(int extra_char) override
     {
         if (file_ == nullptr)
@@ -86,7 +86,7 @@ public:
         setp(buf_, buf_ + buffer_size_ - 1);
         return res;
     }
-    virtual int
+    int
     sync() override
     {
         return overflow(traits_type::eof());
@@ -106,7 +106,7 @@ public:
         if (!rdbuf())
             setstate(std::ios::badbit);
     }
-    virtual ~gzip_ostream_t() override
+    ~gzip_ostream_t() override
     {
         delete rdbuf();
     }

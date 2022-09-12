@@ -68,6 +68,7 @@ extern droption_t<std::string> op_infile;
 extern droption_t<std::string> op_indir;
 extern droption_t<std::string> op_module_file;
 extern droption_t<std::string> op_alt_module_dir;
+extern droption_t<bytesize_t> op_chunk_instr_count;
 extern droption_t<std::string> op_funclist_file;
 extern droption_t<unsigned int> op_num_cores;
 extern droption_t<unsigned int> op_line_size;
@@ -141,4 +142,7 @@ extern droption_t<unsigned int> op_miss_count_threshold;
 extern droption_t<double> op_miss_frac_threshold;
 extern droption_t<double> op_confidence_threshold;
 extern droption_t<bool> op_enable_drstatecmp;
+#ifdef BUILD_PT_TRACER
+extern droption_t<bool> op_enable_kernel_tracing;
+#endif
 #endif /* _OPTIONS_H_ */

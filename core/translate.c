@@ -170,7 +170,7 @@ instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
     if (vmvector_empty(d_r_rseq_areas))
         return false;
     /* XXX: Keep this consistent with mangle_rseq_* in mangle_shared.c. */
-    if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_ld, OP_ldr) &&
+    if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_ld, IF_RISCV64_ELSE(OP_l, OP_ldr)) &&
         opnd_is_reg(instr_get_dst(inst, 0)) &&
         opnd_is_base_disp(instr_get_src(inst, 0))) {
         reg_id_t dst = opnd_get_reg(instr_get_dst(inst, 0));
@@ -182,7 +182,8 @@ instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
                 offsetof(dcontext_t, rseq_entry_state) +
                     sizeof(reg_t) * (dst - DR_REG_START_GPR))
             return true;
-    } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_st, OP_str) &&
+    } else if (instr_get_opcode(inst) ==
+                   IF_X86_ELSE(OP_mov_st, IF_RISCV64_ELSE(OP_s, OP_str)) &&
                opnd_is_reg(instr_get_src(inst, 0)) &&
                opnd_is_base_disp(instr_get_dst(inst, 0))) {
         reg_id_t dst = opnd_get_reg(instr_get_src(inst, 0));
@@ -389,6 +390,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
          * comment above for post-mangling traces), and so for local
          * spills like rip-rel and ind branches this is fine.
          */
+#if defined(RISCV64)
+        ASSERT_NOT_IMPLEMENTED(false);
+#endif
         if (instr_is_cti(inst) &&
 #ifdef X86
             /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
@@ -407,6 +411,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
               (!opnd_is_pc(instr_get_target(inst)) ||
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
                 opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
+#elif defined(RISCV64)
+            /* FIXME i#3544: Not implemented */
+            false
 #else
             /* Do not reset for cbnz/bne in ldstex mangling, nor for the b after strex. */
             !(instr_get_opcode(inst) == OP_cbnz ||
@@ -420,6 +427,8 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
         ) {
             /* FIXME i#1551: add ARM version of the series of trace cti checks above */
             IF_ARM(ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces)));
+            /* FIXME i#3544: Implement traces */
+            IF_RISCV64(ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces)));
             /* reset for non-exit non-trace-jecxz cti (i.e., selfmod cti) */
             LOG(THREAD_GET, LOG_INTERP, 4, "\treset spills on cti\n");
             for (r = 0; r < REG_SPILL_NUM; r++)
@@ -1268,7 +1277,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app: no PC translation needed (at vsyscall)\n");
         }
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
         if (!just_pc) {
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app: restoring xdx (at sysenter)\n");
@@ -1362,7 +1371,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         cache_pc cti_pc;
         instrlist_t *ilist = NULL;
         fragment_t *f = owning_f;
-        bool alloc = false, ok;
+        bool alloc = false;
         dr_isa_mode_t old_mode;
 #ifdef WINDOWS
         bool swap_peb = false;
@@ -1472,7 +1481,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
 
         /* Recreate in same mode as original fragment */
-        ok = dr_set_isa_mode(tdcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+        DEBUG_DECLARE(bool ok =)
+        dr_set_isa_mode(tdcontext, FRAG_ISA_MODE(f->flags), &old_mode);
         ASSERT(ok);
 
         /* now recreate the state */
@@ -1494,7 +1504,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 (byte *)f->start_pc + f->size, mcontext, just_pc, f->flags);
             STATS_INC(recreate_via_app_ilist);
         }
-        ok = dr_set_isa_mode(tdcontext, old_mode, NULL);
+        DEBUG_DECLARE(ok =) dr_set_isa_mode(tdcontext, old_mode, NULL);
         ASSERT(ok);
 
         if (!just_pc)
@@ -1907,11 +1917,11 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     priv_mcontext_t mc;
     bool res;
     cache_pc cpc;
-    instr_t *in, *prev_in = NULL;
+    instr_t *in;
     static const reg_t STRESS_XSP_INIT = 0x08000000; /* arbitrary */
     bool success_so_far = true;
     bool inside_mangle_region = false;
-    bool inside_mangle_epilogue = false;
+    IF_X86(bool inside_mangle_epilogue = false;)
     uint spill_ibreg_outstanding_offs = UINT_MAX;
     reg_id_t reg;
     bool spill;
@@ -1947,13 +1957,12 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             /* reset */
             LOG(THREAD, LOG_INTERP, 3, "  out of mangling region\n");
             inside_mangle_region = false;
-            inside_mangle_epilogue = false;
+            IF_X86(inside_mangle_epilogue = false;)
             xsp_adjust = 0;
             success_so_far = true;
             spill_ibreg_outstanding_offs = UINT_MAX;
             /* go ahead and fall through and ensure we succeed w/ 0 xsp adjust */
         }
-        prev_in = in;
 
         if (instr_is_our_mangling(in)) {
             if (!inside_mangle_region) {
@@ -1964,7 +1973,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                                        instr_is_our_mangling_epilogue(in),
                                    false)) {
                 LOG(THREAD, LOG_INTERP, 3, "  entering mangling epilogue\n");
-                inside_mangle_epilogue = true;
+                IF_X86(inside_mangle_epilogue = true;)
             } else {
                 ASSERT(!TEST(FRAG_IS_TRACE, f->flags) ||
                        IF_X86(instr_is_our_mangling_epilogue(in) ||)
@@ -1972,10 +1981,9 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             }
 
             if (spill_ibreg_outstanding_offs != UINT_MAX) {
-                mc.IF_X86_ELSE(xcx, r2) =
-                    (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
+                mc.MC_IBL_REG = (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
             } else {
-                mc.IF_X86_ELSE(xcx, r2) =
+                mc.MC_IBL_REG =
                     (reg_t)d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)) + 1;
             }
             mc.xsp = STRESS_XSP_INIT;
@@ -1992,8 +2000,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                 "  restored res=%d pc=" PFX ", xsp=" PFX " vs " PFX ", ibreg=" PFX
                 " vs " PFX "\n",
                 res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust,
-                mc.IF_X86_ELSE(xcx, r2),
-                d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)));
+                mc.MC_IBL_REG, d_r_get_tls(os_tls_offset((ushort)IBL_TARGET_SLOT)));
             /* We should only have failures at tail end of mangle regions.
              * No instrs after a failing instr should touch app memory.
              */
@@ -2006,8 +2013,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             /* check that xsp and ibreg are adjusted properly */
             ASSERT(mc.xsp == STRESS_XSP_INIT - /*negate*/ xsp_adjust);
             ASSERT(spill_ibreg_outstanding_offs == UINT_MAX ||
-                   mc.IF_X86_ELSE(xcx, r2) ==
-                       (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs));
+                   mc.MC_IBL_REG == (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs));
 
             if (success_so_far && !res)
                 success_so_far = false;

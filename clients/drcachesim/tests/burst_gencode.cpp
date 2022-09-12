@@ -1,0 +1,280 @@
+/* **********************************************************
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+// This application links in drmemtrace_static and acquires a trace during
+// a "burst" of execution that includes generated code.
+
+// This is set globally in CMake for other tests so easier to undef here.
+#undef DR_REG_ENUM_COMPATIBILITY
+
+#include "configure.h"
+#include "dr_api.h"
+#include "drmemtrace/drmemtrace.h"
+#include "drmemtrace/raw2trace.h"
+#include "raw2trace_directory.h"
+#include "analyzer.h"
+#include <assert.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#undef ALIGN_FORWARD // Conflicts with drcachesim utils.h.
+#include "tools.h"   // Included after system headers to avoid printf warning.
+
+namespace {
+
+/***************************************************************************
+ * Code generation.
+ */
+
+// XXX i#2062: Remove this once we have encodings in the final trace.
+static app_pc gencode_start;
+
+class code_generator_t {
+public:
+    explicit code_generator_t(bool verbose = false)
+        : verbose_(verbose)
+    {
+        generate_code();
+    }
+    ~code_generator_t()
+    {
+        free_mem(reinterpret_cast<char *>(map_), map_size_);
+    }
+    void
+    execute_generated_code() const
+    {
+        reinterpret_cast<void (*)()>(map_)();
+    }
+
+    static constexpr int kGencodeMagic1 = 0x742;
+    static constexpr int kGencodeMagic2 = 0x427;
+
+    app_pc
+    get_gencode_start() const
+    {
+        return map_;
+    }
+
+private:
+    byte *map_ = nullptr;
+    size_t map_size_ = 0;
+    bool verbose_ = false;
+
+    void
+    generate_code()
+    {
+        void *dc = dr_standalone_init();
+        assert(dc != nullptr);
+
+        map_size_ = PAGE_SIZE;
+        map_ = reinterpret_cast<byte *>(
+            allocate_mem(map_size_, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE));
+        assert(map_ != nullptr);
+
+        instrlist_t *ilist = instrlist_create(dc);
+        reg_id_t base = IF_X86_ELSE(IF_X64_ELSE(DR_REG_RAX, DR_REG_EAX), DR_REG_R0);
+        reg_id_t base4imm = IF_X86_64_ELSE(reg_64_to_32(base), base);
+        int ptrsz = static_cast<int>(sizeof(void *));
+        // A two-immediate pattern we look for in the trace.
+        instrlist_append(ilist,
+                         XINST_CREATE_load_int(dc, opnd_create_reg(base4imm),
+                                               OPND_CREATE_INT32(kGencodeMagic1)));
+        instrlist_append(ilist,
+                         XINST_CREATE_load_int(dc, opnd_create_reg(base4imm),
+                                               OPND_CREATE_INT32(kGencodeMagic2)));
+        instrlist_append(
+            ilist,
+            XINST_CREATE_move(dc, opnd_create_reg(base), opnd_create_reg(DR_REG_XSP)));
+        instrlist_append(ilist,
+                         XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(base, -ptrsz),
+                                            opnd_create_reg(base)));
+        instrlist_append(ilist, XINST_CREATE_return(dc));
+
+        byte *last_pc = instrlist_encode(dc, ilist, map_, true);
+        assert(last_pc <= map_ + map_size_);
+
+        instrlist_clear_and_destroy(dc, ilist);
+
+        protect_mem(map_, map_size_, ALLOW_EXEC | ALLOW_READ);
+
+        if (verbose_) {
+            std::cerr << "Generated code:\n";
+            byte *start_pc = reinterpret_cast<byte *>(map_);
+            for (byte *pc = start_pc; pc < last_pc;) {
+                pc = disassemble_with_info(dc, pc, STDERR, true, true);
+                assert(pc != nullptr);
+            }
+        }
+
+        dr_standalone_exit();
+    }
+};
+
+/***************************************************************************
+ * Top-level tracing.
+ */
+
+static int
+do_some_work(const code_generator_t &gen)
+{
+    static const int iters = 1000;
+    for (int i = 0; i < iters; ++i) {
+        gen.execute_generated_code();
+    }
+
+    // TODO i#2062: Test code that triggers DR's "selfmod" instrumentation.
+
+    // TODO i#2062: Test modified library code.
+
+    return 1;
+}
+
+static void
+exit_cb(void *)
+{
+    const char *encoding_path;
+    drmemtrace_status_t res = drmemtrace_get_encoding_path(&encoding_path);
+    assert(res == DRMEMTRACE_SUCCESS);
+    std::ifstream stream(encoding_path);
+    assert(stream.good());
+}
+
+static std::string
+post_process()
+{
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    std::string outdir = std::string(raw_dir) + DIRSEP + "post_processed";
+    void *dr_context = dr_standalone_init();
+    // Use a new scope to free raw2trace_directory_t before dr_standalone_exit().
+    {
+        raw2trace_directory_t dir;
+        if (!dr_create_dir(outdir.c_str())) {
+            std::cerr << "Failed to create output dir";
+            assert(false);
+        }
+        std::string dir_err = dir.initialize(raw_dir, outdir);
+        assert(dir_err.empty());
+        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                              dir.out_archives_, dir.encoding_file_, dr_context);
+        std::string error = raw2trace.do_conversion();
+        if (!error.empty()) {
+            std::cerr << "raw2trace failed: " << error << "\n";
+            assert(false);
+        }
+    }
+    dr_standalone_exit();
+    return outdir;
+}
+
+static std::string
+gather_trace()
+{
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+#if defined(LINUX) && defined(X64)
+                   // We pass -satisfy_w_xor_x to further stress that option
+                   // interacting with standalone mode (xref i#5621).
+                   "-satisfy_w_xor_x "
+#endif
+                   "-stderr_mask 0xc -client_lib ';;-offline"))
+        std::cerr << "failed to set env var!\n";
+    code_generator_t gen(false);
+    gencode_start = gen.get_gencode_start();
+    std::cerr << "pre-DR init\n";
+    dr_app_setup();
+    assert(!dr_app_running_under_dynamorio());
+    drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
+    assert(res == DRMEMTRACE_SUCCESS);
+    std::cerr << "pre-DR start\n";
+    dr_app_start();
+    if (do_some_work(gen) < 0)
+        std::cerr << "error in computation\n";
+    std::cerr << "pre-DR detach\n";
+    dr_app_stop_and_cleanup();
+    std::cerr << "all done\n";
+    return post_process();
+}
+
+static int
+look_for_gencode(std::string trace_dir)
+{
+    void *dr_context = dr_standalone_init();
+    analyzer_t analyzer(trace_dir);
+    if (!analyzer) {
+        std::cerr << "Failed to initialize: " << analyzer.get_error_string() << "\n";
+    }
+    bool found_magic1 = false, found_magic2 = false;
+    bool have_instr_encodings = false; // XXX i#5520: See comment below.
+    for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
+        memref_t memref = *iter;
+        if (!type_is_instr(memref.instr.type)) {
+            found_magic1 = false;
+            continue;
+        }
+        app_pc pc = (app_pc)memref.instr.addr;
+        // TODO i#5520: Once we have instruction encodings in the final trace, we want
+        // to perform the decoding below and look for the immediates.
+        // Until then, we just look for the gencode PC.
+        if (pc == gencode_start) {
+            found_magic2 = true;
+        }
+        if (have_instr_encodings) {
+            instr_t instr;
+            instr_init(dr_context, &instr);
+            app_pc next_pc = decode(dr_context, pc, &instr);
+            assert(next_pc != nullptr && instr_valid(&instr));
+            ptr_int_t immed;
+            if (!found_magic1 && instr_is_mov_constant(&instr, &immed) &&
+                immed == code_generator_t::kGencodeMagic1)
+                found_magic1 = true;
+            else if (found_magic1 && instr_is_mov_constant(&instr, &immed) &&
+                     immed == code_generator_t::kGencodeMagic2)
+                found_magic2 = true;
+            else
+                found_magic1 = false;
+            instr_free(dr_context, &instr);
+        }
+    }
+    dr_standalone_exit();
+    assert(found_magic2);
+    return 0;
+}
+
+} // namespace
+
+int
+main(int argc, const char *argv[])
+{
+    std::string trace_dir = gather_trace();
+    return look_for_gencode(trace_dir);
+}

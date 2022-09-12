@@ -450,9 +450,11 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 {
     int flags;
     byte *map;
+#if defined(LINUX) && !defined(X64)
     uint pg_offs;
     ASSERT_TRUNCATE(pg_offs, uint, offs / PAGE_SIZE);
     pg_offs = (uint)(offs / PAGE_SIZE);
+#endif
 #ifdef VMX86_SERVER
     flags = MAP_PRIVATE; /* MAP_SHARED not supported yet */
 #else
@@ -492,6 +494,8 @@ const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS] = {
 #    endif /* 64/32-bit */
 #elif defined(AARCHXX)
     DR_REG_R0, DR_REG_R1, DR_REG_R2, DR_REG_R3, DR_REG_R4, DR_REG_R5,
+#elif defined(RISCV64)
+    DR_REG_A0, DR_REG_A1, DR_REG_A2, DR_REG_A3, DR_REG_A4, DR_REG_A5,
 #endif /* X86/ARM */
 };
 

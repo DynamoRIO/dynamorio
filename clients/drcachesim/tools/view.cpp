@@ -93,6 +93,8 @@ view_t::initialize()
         // not available.
         return "";
     }
+    // Non-module instruction entries will be in the final trace (i#2062,i#5520) so
+    // we do not need the encoding file and leave it as its default INVALID_FILE.
     module_mapper_ =
         module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
                                 nullptr, knob_verbose_, knob_alt_module_dir_);
@@ -322,6 +324,13 @@ view_t::process_memref(const memref_t &memref)
             break;
         case TRACE_MARKER_TYPE_PAGE_SIZE:
             std::cerr << "<marker: page size " << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
+            std::cerr << "<marker: chunk instruction count " << memref.marker.marker_value
+                      << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_CHUNK_FOOTER:
+            std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex

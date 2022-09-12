@@ -874,22 +874,6 @@ macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR pass_opts
     ${pass_opts_via_env})
 endmacro(tobuild_api)
 
-# tobuild_static_nohide_api builds a static API test which uses the
-# dynamorio_static_nohide as a base library. It is a macro so the PARENT_SCOPE
-# in torunonly_api will reach caller of this.
-# XXX: Do we want to support a nicer API for 'nohide' than assuming that
-# add_api_exe adds dynamorio_static and replacing it manually with
-# dynamorio_static_nohide? Punting until there are more uses: it's a lot of
-# plumbing for no clear gain.
-macro(tobuild_static_nohide_api test source dr_ops exe_ops use_decoder)
-  add_api_exe(${test} ${source} ${use_decoder} ON)
-  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder} OFF OFF)
-  get_target_property(lib_list ${test} LINK_LIBRARIES)
-  list(REMOVE_ITEM lib_list dynamorio_static)
-  set_property(TARGET ${test} PROPERTY LINK_LIBRARIES ${lib_list} )
-  target_link_libraries(${test} dynamorio_static_nohide)
-endmacro(tobuild_static_nohide_api)
-
 # run that uses a different build
 function(torunonly test realtest source dr_ops exe_ops)
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
@@ -2600,6 +2584,13 @@ tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdl
 use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
 link_with_pthread(client.drmgr-test)
 
+if (proc_supports_pt)
+  tobuild_ci(client.drpttracer_SUDO-test client-interface/drpttracer_SUDO-test.c "" "" "")
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drpttracer)
+  use_DynamoRIO_extension(client.drpttracer_SUDO-test.dll drmgr)
+  set(client.drpttracer_SUDO-test_sudo ON)
+endif ()
+
 tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
 use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
 use_DynamoRIO_extension(client.drx_buf-test.dll drx)
@@ -3085,27 +3076,25 @@ if (NOT ANDROID AND NOT APPLE)
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
     # checking).
-    tobuild_static_nohide_api(api.static_symbols api/static_symbols.c "" "" OFF)
+
+    tobuild_api(api.static_symbols api/static_symbols.c "" "" OFF ON OFF)
     append_link_flags(api.static_symbols "-Wl,--warn-common -Wl,--fatal-warnings")
 
     # To ensure that the dynamorio_so_start/_end linker variables are actually
     # used in static binaries, we have two tests which run the same "map mixup"
     # logic: one which exits successfully because we provide the linker
     # variables and another which exits with an assertion because we don't.
-    # Both versions utilize the dynamorio_static_nohide as a base because
-    # the variables in dynamorio_static have already been resolved as a part of
-    # the symbol hiding step.
     set(api.static_maps_mixup_yesvars_expectbase
        "static_maps_mixup_yesvars")
-    tobuild_static_nohide_api(api.static_maps_mixup_yesvars
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_yesvars
+       api/static_maps_mixup.c "" "" OFF ON OFF)
     append_link_flags(api.static_maps_mixup_yesvars
         "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
 
     set(api.static_maps_mixup_novars_FLAKY_expectbase
        "static_maps_mixup_novars")
-    tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
-       api/static_maps_mixup.c "" "" OFF)
+    tobuild_api(api.static_maps_mixup_novars_FLAKY
+       api/static_maps_mixup.c "" "" OFF ON OFF)
   endif ()
 
   if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
@@ -3608,7 +3597,9 @@ if (BUILD_CLIENTS)
 
     # We could share drcachesim-simple.templatex if we had the launcher fork
     # and print out the "---- <application exited with code 0> ----".
-    torunonly_drcacheoff(simple ${ci_shared_app} "" "" "")
+    torunonly_drcacheoff(simple ${ci_shared_app} ""
+      # We pass a small instr count to test multiple chunks in a zipfile.
+      "@-chunk_instr_count@10K" "")
 
     if (UNIX)
       # Test an app with a fork.
@@ -3836,6 +3827,26 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys "" "@-simulator_type@basic_counts" "")
     endif ()
 
+    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+      # We specify this executable here as it uses tools.h code.
+      set(tool.drcacheoff.gencode_no_reg_compat)
+      add_api_exe(tool.drcacheoff.gencode
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
+        OFF ON)
+      use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.gencode)
+      target_link_libraries(tool.drcacheoff.gencode drmemtrace_raw2trace
+        drmemtrace_analyzer)
+      target_include_directories(tool.drcacheoff.gencode PUBLIC
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
+      set(tool.drcacheoff.gencode_nodr ON)
+      torunonly_drcacheoff(gencode tool.drcacheoff.gencode
+        "" "@-simulator_type@basic_counts" "")
+    endif ()
+
     # XXX i#1551: startstop API is NYI on ARM
     # XXX i#1997: dynamorio_static is not supported on Mac yet
     # FIXME i#2949: gcc 7.3 fails to link certain configs
@@ -3946,7 +3957,8 @@ if (BUILD_CLIENTS)
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
-      "" "@-simulator_type@invariant_checker" "")
+      # We pass a small instr count to test multiple chunks in a zipfile.
+      "" "@-chunk_instr_count@10K@-simulator_type@invariant_checker" "")
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
@@ -4005,31 +4017,6 @@ if (BUILD_CLIENTS)
         "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
     endif ()
 
-    find_program(GZIP gzip "gzip compression utility")
-    if (UNIX AND ZLIB_FOUND AND GZIP)
-      # Test the gzip file reader.  It does not work with -indir.
-    set(testname_full "tool.histogram.gzip")
-      torunonly_ci(${testname_full} ${histo_app} drcachesim
-        "histogram-offline.c" "-offline -subdir_prefix ${testname_full}" "" "")
-      set(${testname_full}_toolname "drcachesim")
-      set(${testname_full}_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(${testname_full}_rawtemp ON) # no preprocessor
-      get_target_path_for_execution(histo_path histogram_launcher "${location_suffix}")
-      prefix_cmd_if_necessary(histo_path ON ${histo_path})
-      set(${testname_full}_runcmp
-        "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-      set(${testname_full}_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
-      set(${testname_full}_postcmd
-        "${drcachesim_path}@-indir@${testname_full}.*.dir")
-      set(${testname_full}_postcmd2
-        "${GZIP}@${testname_full}.*.dir/trace/*")
-      set(${testname_full}_postcmd3
-        "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
-    elseif (UNIX)
-      message(STATUS "gzip or zlib not found: disabling ${testname_full} test")
-    endif ()
   endif (NOT ANDROID)
 
   # Test using our exported drmemtrace analysis framework (i#2006).
@@ -4087,6 +4074,34 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.legacy-int-offs_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
+
+  if (proc_supports_pt)
+    if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+      get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
+      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
+        set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
+        torunonly_ci(${testname_full} ${exetgt} drcachesim
+          "offline-kernel-${testname}.c" # for templatex basename
+          "-offline -enable_kernel_tracing -subdir_prefix ${testname_full} ${extra_ops}"
+          "" "${app_args}")
+        set(${testname_full}_sudo ON)
+        set(${testname_full}_self_serial ON)
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(${testname_full}_rawtemp ON) # no preprocessor
+        set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        # Each command is assumed to need sudo.
+        set(cmd_pfx "sudo@")
+        set(${testname_full}_precmd
+          "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+        set (${testname_full}_postcmd
+          "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
+        set(${testname_full}_postcmd2
+          "firstglob@${cmd_pfx}${drpt2trace_path}@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata")
+      endmacro ()
+      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
+    endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+  endif (proc_supports_pt)
 
   ###########################################################################
   # drcpusim tests
@@ -4181,8 +4196,8 @@ endif (BUILD_CLIENTS)
 # ##########################################################################
 # drpt2trace tests
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
-if(BUILD_CLIENTS)
-  if(HAVE_LIBIPT)
+if (BUILD_CLIENTS)
+  if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
     set(drpt2trace_commong "-print_trace"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
@@ -4211,8 +4226,8 @@ if(BUILD_CLIENTS)
     torunonly_api(tool.drpt2trace.elf drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_elf_args}" ON OFF)
-  endif(HAVE_LIBIPT)
-endif(BUILD_CLIENTS)
+  endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
+endif (BUILD_CLIENTS)
 
 if (UNIX)
   macro(make_symlink src dst)

@@ -1417,6 +1417,8 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 /* Defined in aarch64.asm. */
 ptr_int_t
 tlsdesc_resolver(struct tlsdesc_t *);
+#    elif defined(RISCV64)
+/* RISC-V does not use TLS descriptors. */
 #    else
 static ptr_int_t
 tlsdesc_resolver(struct tlsdesc_t *arg)
@@ -1504,6 +1506,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
             *r_addr = sym->st_value + addend;
         break;
 #ifndef ANDROID
+#    ifndef RISCV64 /* RISCV64 does not use TLS descriptors */
     case ELF_R_TLS_DESC: {
         /* Provided the client does not invoke dr_load_aux_library after the
          * app has started and might have called clone, TLS descriptors can be
@@ -1515,6 +1518,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         tlsdesc->arg = (void *)(sym->st_value + addend - pd->tls_offset);
         break;
     }
+#    endif
 #    ifndef X64
     case R_386_TLS_TPOFF32:
         /* offset is positive, backward from the thread pointer */
@@ -1554,7 +1558,9 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         return;
     }
     switch (r_type) {
+#ifndef RISCV64 /* FIXME i#3544: Check whether ELF_R_DIRECT with !is_rela is OK */
     case ELF_R_GLOB_DAT:
+#endif
     case ELF_R_JUMP_SLOT: *r_addr = (reg_t)res + addend; break;
     case ELF_R_DIRECT: *r_addr = (reg_t)res + (is_rela ? addend : *r_addr); break;
     case ELF_R_COPY:

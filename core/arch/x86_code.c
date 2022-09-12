@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -65,6 +65,9 @@ get_simd_vals(priv_mcontext_t *mc)
 #elif defined(ARM)
     /* FIXME i#1551: no xmm but SIMD regs on ARM */
     ASSERT_NOT_REACHED();
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif
 }
 
@@ -272,7 +275,6 @@ new_thread_setup(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
     void *crec;
-    int rc;
     /* this is where a new thread first touches other than the dstack,
      * so we "enter" DR here
      */
@@ -289,7 +291,7 @@ new_thread_setup(priv_mcontext_t *mc)
      */
     mc->xsp = get_clone_record_app_xsp(crec);
     /* clear xax/r0 (was used as scratch in gencode, and app expects 0) */
-    mc->IF_X86_ELSE(xax, r0) = 0;
+    mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = 0;
     /* clear pc */
     mc->pc = 0;
 #    ifdef AARCHXX
@@ -299,7 +301,8 @@ new_thread_setup(priv_mcontext_t *mc)
     set_thread_register_from_clone_record(crec);
 #    endif
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
+    DEBUG_DECLARE(int rc =)
+    dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
@@ -322,7 +325,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
-#    ifdef MACOS
+#    if defined(MACOS) && defined(X86)
 /* Called from new_bsdthread_intercept for targeting a bsd thread user function.
  * new_bsdthread_intercept stored the arg to the user thread func in
  * mc->xax.  We're on the app stack -- but this is a temporary solution.

@@ -107,7 +107,7 @@ int
 trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 {
     return instru.append_marker(buffer, TRACE_MARKER_TYPE_TIMESTAMP,
-                                // Truncated for 32-bit, as documented.
+                                // XXX i#5634: Truncated for 32-bit, as documented.
                                 (uintptr_t)timestamp);
 }
 
@@ -124,11 +124,12 @@ module_mapper_t::module_mapper_t(
     const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
     void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
-    const std::string &alt_module_dir)
+    const std::string &alt_module_dir, file_t encoding_file)
     : modmap_(module_map)
     , cached_user_free_(free_cb)
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)
+    , encoding_file_(encoding_file)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
@@ -145,7 +146,10 @@ module_mapper_t::module_mapper_t(
     // It is assumed to be set to 'true' initially.
     has_custom_data_global_ = true;
 
-    last_error_ = do_module_parsing();
+    if (modmap_ != nullptr)
+        last_error_ = do_module_parsing();
+    if (encoding_file_ != INVALID_FILE)
+        last_error_ += do_encoding_parsing();
 
     // capture has_custom_data_global_'s value for this instance.
     has_custom_data_ = has_custom_data_global_;
@@ -274,9 +278,9 @@ std::string
 raw2trace_t::do_module_parsing()
 {
     if (!module_mapper_) {
-        module_mapper_ = module_mapper_t::create(modmap_, user_parse_, user_process_,
-                                                 user_process_data_, user_free_,
-                                                 verbosity_, alt_module_dir_);
+        module_mapper_ = module_mapper_t::create(
+            modmap_, user_parse_, user_process_, user_process_data_, user_free_,
+            verbosity_, alt_module_dir_, encoding_file_);
     }
     return module_mapper_->get_last_error();
 }
@@ -310,6 +314,34 @@ module_mapper_t::do_module_parsing()
 }
 
 std::string
+module_mapper_t::do_encoding_parsing()
+{
+    if (encoding_file_ == INVALID_FILE)
+        return "";
+    uint64 file_size;
+    if (!dr_file_size(encoding_file_, &file_size))
+        return "Failed to obtain size of encoding file";
+    size_t map_size = (size_t)file_size;
+    byte *map_start = reinterpret_cast<byte *>(
+        dr_map_file(encoding_file_, &map_size, 0, NULL, DR_MEMPROT_READ, 0));
+    if (map_start == nullptr || map_size < file_size)
+        return "Failed to map encoding file";
+    if (*reinterpret_cast<uint64_t *>(map_start) != ENCODING_FILE_VERSION)
+        return "Encoding file has invalid version";
+    size_t offs = sizeof(uint64_t);
+    while (offs < file_size) {
+        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_start + offs);
+        if (entry->length < sizeof(encoding_entry_t))
+            return "Encoding file is corrupted";
+        if (offs + entry->length > file_size)
+            return "Encoding file is truncated";
+        encodings_[entry->id] = entry;
+        offs += entry->length;
+    }
+    return "";
+}
+
+std::string
 raw2trace_t::read_and_map_modules()
 {
     if (!module_mapper_) {
@@ -319,6 +351,7 @@ raw2trace_t::read_and_map_modules()
     }
 
     set_modvec_(&module_mapper_->get_loaded_modules());
+    set_modmap_(module_mapper_.get());
     return module_mapper_->get_last_error();
 }
 
@@ -339,6 +372,8 @@ module_mapper_t::read_and_map_modules()
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
         if (custom_data != nullptr && custom_data->contents_size > 0) {
+            // XXX i#2062: We could eliminate this raw bytes in the module data in
+            // favor of the new encoding file used for generated code.
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
                    (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
@@ -536,14 +571,27 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     // Write the version, arch, and other type flags.
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
-    // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                                                  header.cache_line_size);
-
-    if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
+    // The buffer can only hold 5 entries so write it now.
+    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
+        return "Failed to write to output file";
+    buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
+    buf = buf_base;
+    // Write out further markers.
+    // Even if tdata->out_archive == nullptr we write out a (0-valued) marker,
+    // partly to simplify our test output.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
+                                // i#5634: 32-bit is limited to 4G.
+                                static_cast<uintptr_t>(chunk_instr_count_));
+    if (header.timestamp != 0) {
+        // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
+        tdata->last_timestamp_ = header.timestamp;
+    }
     // We have to write this now before we append any bb entries.
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
@@ -568,6 +616,9 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                tdata->file_type);
         if (!tdata->error.empty())
             return tdata->error;
+        // We do not complain if tdata->version >= OFFLINE_FILE_VERSION_ENCODINGS
+        // and encoding_file_ == INVALID_FILE since we have several tests with
+        // that setup.  We do complain during processing about unknown instructions.
         if (tdata->saw_header) {
             tdata->error = process_header(tdata);
             if (!tdata->error.empty())
@@ -587,6 +638,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             byte *buf = buf_base +
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
+            tdata->last_timestamp_ = entry.timestamp.usec;
             CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
             if (!tdata->out_file->write((char *)buf_base, buf - buf_base)) {
                 tdata->error = "Failed to write to output file";
@@ -730,19 +782,23 @@ raw2trace_t::do_conversion()
 }
 
 raw2trace_t::block_summary_t *
-raw2trace_t::lookup_block_summary(void *tls, app_pc block_start)
+raw2trace_t::lookup_block_summary(void *tls, uint64 modidx, uint64 modoffs,
+                                  app_pc block_start)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    if (block_start == tdata->last_decode_block_start) {
+    // There is no sentinel available for modidx+modoffs so we use block_start for that.
+    if (block_start == tdata->last_decode_block_start &&
+        modidx == tdata->last_decode_modidx && modoffs == tdata->last_decode_modoffs) {
         VPRINT(5, "Using last block summary " PFX " for " PFX "\n",
                tdata->last_block_summary, tdata->last_decode_block_start);
         return tdata->last_block_summary;
     }
-    block_summary_t *ret = static_cast<block_summary_t *>(
-        hashtable_lookup(&decode_cache_[tdata->worker], block_start));
+    block_summary_t *ret = decode_cache_[tdata->worker].lookup(modidx, modoffs);
     if (ret != nullptr) {
         DEBUG_ASSERT(ret->start_pc == block_start);
         tdata->last_decode_block_start = block_start;
+        tdata->last_decode_modidx = modidx;
+        tdata->last_decode_modoffs = modoffs;
         tdata->last_block_summary = ret;
         VPRINT(5, "Caching last block summary " PFX " for " PFX "\n",
                tdata->last_block_summary, tdata->last_decode_block_start);
@@ -755,7 +811,7 @@ raw2trace_t::lookup_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
                                   app_pc block_start, int index, app_pc pc,
                                   OUT block_summary_t **block_summary)
 {
-    block_summary_t *block = lookup_block_summary(tls, block_start);
+    block_summary_t *block = lookup_block_summary(tls, modidx, modoffs, block_start);
     if (block_summary != nullptr)
         *block_summary = block;
     if (block == nullptr)
@@ -785,15 +841,23 @@ raw2trace_t::create_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
     if (block == nullptr) {
         block = new block_summary_t(block_start, instr_count);
         DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
-        hashtable_add(&decode_cache_[tdata->worker], block_start, block);
-        VPRINT(5, "Created new block summary " PFX " for " PFX "\n", block, block_start);
+        decode_cache_[tdata->worker].add(modidx, modoffs, block);
+        VPRINT(5,
+               "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
+               " modoffs=" HEX64_FORMAT_STRING "\n",
+               block, block_start, modidx, modoffs);
         tdata->last_decode_block_start = block_start;
+        tdata->last_decode_modidx = modidx;
+        tdata->last_decode_modoffs = modoffs;
         tdata->last_block_summary = block;
     }
     instr_summary_t *desc = &block->instrs[index];
     if (!instr_summary_t::construct(dcontext_, block_start, pc, orig, desc, verbosity_)) {
-        WARN("Encountered invalid/undecodable instr @ %s+" PIFX,
-             modvec_()[static_cast<size_t>(modidx)].path, IF_NOT_X64((uint)) modoffs);
+        WARN("Encountered invalid/undecodable instr @ idx=" INT64_FORMAT_STRING
+             " offs=" INT64_FORMAT_STRING " %s",
+             modidx, modoffs,
+             modidx == PC_MODIDX_INVALID ? "<gencode>"
+                                         : modvec_()[static_cast<size_t>(modidx)].path);
         return nullptr;
     }
     return desc;
@@ -995,10 +1059,23 @@ raw2trace_t::append_delayed_branch(void *tls)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->delayed_branch.empty())
         return "";
-    for (const auto &contents : tdata->delayed_branch) {
-        VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n",
-               reinterpret_cast<const trace_entry_t *>(&contents[0])->addr, tdata->index);
-        if (!tdata->out_file->write(&contents[0], contents.size()))
+    for (const auto &entry : tdata->delayed_branch) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n", entry.addr,
+                   tdata->index);
+            if (tdata->out_archive != nullptr &&
+                tdata->cur_chunk_instr_count++ >= chunk_instr_count_) {
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count - 1 == chunk_instr_count_);
+                std::string error = open_new_chunk(tdata);
+                if (!error.empty())
+                    return error;
+            }
+        } else {
+            VPRINT(4, "Appending delayed branch tagalong entry type %d for thread %d\n",
+                   entry.type, tdata->index);
+        }
+        if (!tdata->out_file->write(reinterpret_cast<const char *>(&entry),
+                                    sizeof(entry)))
             return "Failed to write to output file";
     }
     tdata->delayed_branch.clear();
@@ -1012,13 +1089,119 @@ raw2trace_t::get_write_buffer(void *tls)
     return tdata->out_buf.data();
 }
 
-bool
+std::string
+raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
+{
+    // Re-emit the last timestamp + cpu from the prior chunk.  We don't
+    // need to re-emit the top-level headers to make the chunk self-contained: we'll
+    // need to read them from the first chunk to find the chunk size and we can cache
+    // them there.  We only re-emit the timestamp and cpu.  On a linear read, we skip
+    // over these duplicated headers.
+    // We can't use get_write_buffer() because we may be in the middle of
+    // processing its contents.
+    std::array<trace_entry_t, WRITE_BUFFER_SIZE> local_out_buf;
+    byte *buf_base = reinterpret_cast<byte *>(local_out_buf.data());
+    byte *buf = buf_base;
+    buf +=
+        trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)tdata->last_timestamp_);
+    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CPU_ID,
+                                                 tdata->last_cpu_);
+    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
+        return "Failed to write to output file";
+    return "";
+}
+
+std::string
+raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
+{
+    if (tdata->out_archive == nullptr)
+        return "Archive file was not specified";
+
+    log(1, "Creating new chunk #" INT64_FORMAT_STRING "\n", tdata->chunk_count_);
+
+    if (tdata->chunk_count_ != 0) {
+        // We emit a chunk footer so we can identify truncation.
+        std::array<trace_entry_t, WRITE_BUFFER_SIZE> local_out_buf;
+        byte *buf_base = reinterpret_cast<byte *>(local_out_buf.data());
+        byte *buf = buf_base;
+        buf += trace_metadata_writer_t::write_marker(
+            buf, TRACE_MARKER_TYPE_CHUNK_FOOTER,
+            static_cast<uintptr_t>(tdata->chunk_count_ - 1));
+        CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+        if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
+            return "Failed to write to output file";
+    }
+
+    std::ostringstream stream;
+    stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
+           << tdata->chunk_count_;
+    std::string error = tdata->out_archive->open_new_component(stream.str());
+    if (!error.empty())
+        return error;
+    tdata->cur_chunk_instr_count = 0;
+    ++tdata->chunk_count_;
+    if (tdata->chunk_count_ == 1)
+        return "";
+
+    error = emit_new_chunk_header(tdata);
+    if (!error.empty())
+        return error;
+
+    // TODO i#5520: Once we emit encodings, we need to clear the encoding cache
+    // here so that each chunk is self-contained.
+
+    // TODO i#5538: Add a virtual-to-physical cache and clear it here.
+    // We'll need to add a routine for trace_converter_t to call to query our cache --
+    // or we can put the cache in trace_converter_t and have it clear the cache via
+    // a new new-chunk return value from write() and append_delayed_branch().
+    // Insertion of v2p markers in all but the first chunk will need to prepend
+    // them to the instr after observing its memref: we may want to reserve the
+    // first out_buf slot to avoid a memmove.
+
+    return "";
+}
+
+std::string
 raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    return !!tdata->out_file->write(reinterpret_cast<const char *>(start),
-                                    reinterpret_cast<const char *>(end) -
-                                        reinterpret_cast<const char *>(start));
+    if (tdata->out_archive != nullptr) {
+        for (const trace_entry_t *it = start; it < end; ++it) {
+            if (it->type == TRACE_TYPE_MARKER) {
+                if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
+                    tdata->last_timestamp_ = it->addr;
+                else if (it->size == TRACE_MARKER_TYPE_CPU_ID)
+                    tdata->last_cpu_ = static_cast<uint>(it->addr);
+                continue;
+            }
+            if (!type_is_instr(static_cast<trace_type_t>(it->type)))
+                continue;
+            // We wait until we're past the final instr to write, to ensure we
+            // get all its memrefs.  (We will put function markers for entry in the
+            // prior chunk too: we live with that.)
+            //
+            // TODO i#5538: Add instruction counts to the view tool and verify we
+            // have the right precise count -- by having an option to not skip the
+            // duplicated timestamp in the reader?
+            if (tdata->cur_chunk_instr_count++ >= chunk_instr_count_) {
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count - 1 == chunk_instr_count_);
+                if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                            reinterpret_cast<const char *>(it) -
+                                                reinterpret_cast<const char *>(start)))
+                    return "Failed to write to output file";
+                std::string error = open_new_chunk(tdata);
+                if (!error.empty())
+                    return error;
+                start = it;
+            }
+        }
+    }
+    if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                reinterpret_cast<const char *>(end) -
+                                    reinterpret_cast<const char *>(start)))
+        return "Failed to write to output file";
+    return "";
 }
 
 std::string
@@ -1026,9 +1209,8 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
                                     const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    std::vector<char> contents(reinterpret_cast<const char *>(start),
-                               reinterpret_cast<const char *>(end));
-    tdata->delayed_branch.push_back(contents);
+    for (const trace_entry_t *it = start; it < end; ++it)
+        tdata->delayed_branch.push_back(*it);
     return "";
 }
 
@@ -1116,17 +1298,30 @@ raw2trace_t::get_file_type(void *tls)
 
 raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
-                         const std::vector<std::ostream *> &out_files, void *dcontext,
-                         unsigned int verbosity, int worker_count,
-                         const std::string &alt_module_dir)
+                         const std::vector<std::ostream *> &out_files,
+                         const std::vector<archive_ostream_t *> &out_archives,
+                         file_t encoding_file, void *dcontext, unsigned int verbosity,
+                         int worker_count, const std::string &alt_module_dir,
+                         uint64_t chunk_instr_count)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
     , user_process_data_(nullptr)
     , modmap_(module_map)
+    , encoding_file_(encoding_file)
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)
+    , chunk_instr_count_(chunk_instr_count)
 {
+    // Exactly one of out_files and out_archives should be non-empty.
+    // If thread_files is not empty it must match the input size.
+    if ((!out_files.empty() && !out_archives.empty()) ||
+        (out_files.empty() && out_archives.empty()) ||
+        (!thread_files.empty() &&
+         out_files.size() + out_archives.size() != thread_files.size())) {
+        VPRINT(0, "Invalid input and output file lists\n");
+        return;
+    }
     if (dcontext == NULL) {
 #ifdef ARM
         // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
@@ -1138,7 +1333,15 @@ raw2trace_t::raw2trace_t(const char *module_map,
     for (size_t i = 0; i < thread_data_.size(); ++i) {
         thread_data_[i].index = static_cast<int>(i);
         thread_data_[i].thread_file = thread_files[i];
-        thread_data_[i].out_file = out_files[i];
+        if (out_files.empty()) {
+            thread_data_[i].out_archive = out_archives[i];
+            // Set out_file too for code that doesn't care which it writes to.
+            thread_data_[i].out_file = out_archives[i];
+            open_new_chunk(&thread_data_[i]);
+        } else {
+            thread_data_[i].out_archive = nullptr;
+            thread_data_[i].out_file = out_files[i];
+        }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
     // static work assigment.  This won't be as load balanced as a dynamic work
@@ -1160,35 +1363,14 @@ raw2trace_t::raw2trace_t(const char *module_map,
         }
     } else
         cache_count = 1;
-    decode_cache_.resize(cache_count);
-    for (int i = 0; i < cache_count; ++i) {
-        // We go ahead and start with a reasonably large capacity.
-        // We do not want the built-in mutex: this is per-worker so it can be lockless.
-        hashtable_init_ex(&decode_cache_[i], 16, HASH_INTPTR, false, false, nullptr,
-                          nullptr, nullptr);
-        // We pay a little memory to get a lower load factor, unless we have
-        // many duplicated tables.
-        hashtable_config_t config = { sizeof(config), true,
-                                      worker_count_ <= 8
-                                          ? 40U
-                                          : (worker_count_ <= 16 ? 50U : 60U) };
-        hashtable_configure(&decode_cache_[i], &config);
-    }
+    decode_cache_.reserve(cache_count);
+    for (int i = 0; i < cache_count; ++i)
+        decode_cache_.emplace_back(cache_count);
 }
 
 raw2trace_t::~raw2trace_t()
 {
     module_mapper_.reset();
-    for (size_t i = 0; i < decode_cache_.size(); ++i) {
-        // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
-        // so we have to explicitly free the payloads.
-        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache_[i].table_bits); j++) {
-            for (hash_entry_t *e = decode_cache_[i].table[j]; e != NULL; e = e->next) {
-                delete (static_cast<block_summary_t *>(e->payload));
-            }
-        }
-        hashtable_delete(&decode_cache_[i]);
-    }
 }
 
 bool
@@ -1261,31 +1443,24 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     if (size < 1)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
 
-    size_t timestamp_pos = 0;
     std::string error;
-    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
-                                                 nullptr) &&
-        error.empty()) {
-        if (size < 5)
+    if (!trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
+                                                  nullptr) &&
+        !error.empty())
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    size_t timestamp_pos = 0;
+    while (timestamp_pos < size &&
+           offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP) {
+        if (timestamp_pos > 15) // Something is wrong if we've gone this far.
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-
-        // XXX: Make it easier to add more markers. Iterate over the entries until
-        // the timestamp entry or some non-meta entry is encountered.
-        if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
-            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID ||
-            (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
-             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-             offline_entries[timestamp_pos].extended.valueB !=
-                 TRACE_MARKER_TYPE_CACHE_LINE_SIZE) ||
-            (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
-             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-             offline_entries[timestamp_pos].extended.valueB !=
-                 TRACE_MARKER_TYPE_PAGE_SIZE))
+        // We only expect header-type entries.
+        int type = offline_entries[timestamp_pos].tid.type;
+        if (type != OFFLINE_TYPE_THREAD && type != OFFLINE_TYPE_PID &&
+            type != OFFLINE_TYPE_EXTENDED)
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
         ++timestamp_pos;
     }
-
-    if (offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP)
+    if (timestamp_pos == size)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
 
     *timestamp = offline_entries[timestamp_pos].timestamp.usec;

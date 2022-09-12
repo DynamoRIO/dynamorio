@@ -185,7 +185,7 @@ typedef struct _callback_list_t {
  */
 #define call_all(vec, type, ...)                          \
     do {                                                  \
-        int dummy;                                        \
+        int dummy UNUSED;                                 \
         call_all_ret(dummy, =, , vec, type, __VA_ARGS__); \
     } while (0)
 
@@ -971,9 +971,9 @@ dr_unregister_exit_event(void (*func)(void))
     return remove_callback(&exit_callbacks, (void (*)(void))func, true);
 }
 
-void dr_register_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                  instrlist_t *bb, bool for_trace,
-                                                  bool translating))
+void
+dr_register_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag, instrlist_t *bb,
+                                             bool for_trace, bool translating))
 {
     if (!INTERNAL_OPTION(code_api)) {
         CLIENT_ASSERT(false, "asking for bb event when code_api is disabled");
@@ -983,16 +983,17 @@ void dr_register_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
     add_callback(&bb_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                    instrlist_t *bb, bool for_trace,
-                                                    bool translating))
+bool
+dr_unregister_bb_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
+                                               instrlist_t *bb, bool for_trace,
+                                               bool translating))
 {
     return remove_callback(&bb_callbacks, (void (*)(void))func, true);
 }
 
-void dr_register_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                     instrlist_t *trace,
-                                                     bool translating))
+void
+dr_register_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
+                                                instrlist_t *trace, bool translating))
 {
     if (!INTERNAL_OPTION(code_api)) {
         CLIENT_ASSERT(false, "asking for trace event when code_api is disabled");
@@ -1002,16 +1003,16 @@ void dr_register_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
     add_callback(&trace_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
-                                                       instrlist_t *trace,
-                                                       bool translating))
+bool
+dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *tag,
+                                                  instrlist_t *trace, bool translating))
 {
     return remove_callback(&trace_callbacks, (void (*)(void))func, true);
 }
 
-void dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
-                                                                  void *tag,
-                                                                  void *next_tag))
+void
+dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext, void *tag,
+                                                             void *next_tag))
 {
     if (!INTERNAL_OPTION(code_api)) {
         CLIENT_ASSERT(false, "asking for end-trace event when code_api is disabled");
@@ -1021,9 +1022,9 @@ void dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontex
     add_callback(&end_trace_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
-                                                                    void *tag,
-                                                                    void *next_tag))
+bool
+dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext, void *tag,
+                                                               void *next_tag))
 {
     return remove_callback(&end_trace_callbacks, (void (*)(void))func, true);
 }
@@ -1176,14 +1177,16 @@ dr_unregister_exception_event(bool (*func)(void *drcontext, dr_exception_t *excp
     return remove_callback(&exception_callbacks, (bool (*)(void))func, true);
 }
 #else
-void dr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
-                                                         dr_siginfo_t *siginfo))
+void
+dr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                    dr_siginfo_t *siginfo))
 {
     add_callback(&signal_callbacks, (void (*)(void))func, true);
 }
 
-bool dr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
-                                                           dr_siginfo_t *siginfo))
+bool
+dr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                      dr_siginfo_t *siginfo))
 {
     return remove_callback(&signal_callbacks, (void (*)(void))func, true);
 }
@@ -4578,7 +4581,7 @@ dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slot
 {
     CLIENT_ASSERT(tls_register != NULL, "dr_raw_tls_calloc: tls_register cannot be NULL");
     CLIENT_ASSERT(offset != NULL, "dr_raw_tls_calloc: offset cannot be NULL");
-    *tls_register = IF_X86_ELSE(SEG_TLS, dr_reg_stolen);
+    *tls_register = IF_X86_ELSE(SEG_TLS, IF_RISCV64_ELSE(DR_REG_TP, dr_reg_stolen));
     if (num_slots == 0)
         return true;
     return os_tls_calloc(offset, num_slots, alignment);
@@ -5423,6 +5426,8 @@ static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] =
 #elif defined(AARCHXX)
     /* DR_REG_R0 is not used here. See prepare_for_clean_call. */
     DR_REG_R6, DR_REG_R5, DR_REG_R4, DR_REG_R3, DR_REG_R2, DR_REG_R1
+#elif defined(RISCV64)
+    DR_REG_A6, DR_REG_A5, DR_REG_A4, DR_REG_A3, DR_REG_A2, DR_REG_A1
 #endif /* X86/ARM */
 };
 
@@ -5682,7 +5687,7 @@ DR_API void
 dr_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                     dr_spill_slot_t slot)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     CLIENT_ASSERT(drcontext != NULL, "dr_save_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
@@ -5697,7 +5702,7 @@ DR_API void
 dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                        dr_spill_slot_t slot)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     CLIENT_ASSERT(drcontext != NULL, "dr_restore_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
@@ -5711,7 +5716,7 @@ dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
 DR_API void
 dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     dr_save_arith_flags_to_reg(drcontext, ilist, where, reg);
 }
@@ -5719,7 +5724,7 @@ dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 DR_API void
 dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, IF_RISCV64_ELSE(DR_REG_A0, DR_REG_R0));
     CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg);
 }
@@ -5752,7 +5757,12 @@ dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(
         ilist, where,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg), opnd_create_reg(DR_REG_NZCV)));
-#endif /* X86/ARM/AARCH64 */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented. Perhaps float flags should be saved here? */
+    ASSERT_NOT_IMPLEMENTED(false);
+    /* Marking as unused to silence -Wunused-variable. */
+    (void)dcontext;
+#endif /* X86/ARM/AARCH64/RISCV64 */
 }
 
 DR_API void
@@ -5787,7 +5797,12 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
     MINSERT(
         ilist, where,
         INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV), opnd_create_reg(reg)));
-#endif /* X86/ARM/AARCH64 */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented. Perhaps float flags should be restored here? */
+    ASSERT_NOT_IMPLEMENTED(false);
+    /* Marking as unused to silence -Wunused-variable. */
+    (void)dcontext;
+#endif /* X86/ARM/AARCH64/RISCV64 */
 }
 
 DR_API reg_t
@@ -5991,7 +6006,10 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
      * Also, we may want to split these out into arch/{x86,arm}/ files
      */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM/RISCV64 */
 }
 
 /* NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
@@ -6226,7 +6244,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
 #elif defined(ARM)
     /* i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM/RISCV64 */
 }
 
 DR_API void
@@ -6353,7 +6374,7 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
          * context translated lazily here.
          * We cache the result in cur_mc to avoid a translation cost next time.
          */
-        bool res;
+        DEBUG_DECLARE(bool res;)
         priv_mcontext_t *mc_xl8;
         if (mc != NULL)
             mc_xl8 = mc;
@@ -6363,10 +6384,11 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
             /* We'll clear this cache in dr_resume_all_other_threads() */
             mc_xl8 = dcontext->client_data->cur_mc;
         }
-        res = thread_get_mcontext(dcontext->thread_record, mc_xl8);
+        DEBUG_DECLARE(res =) thread_get_mcontext(dcontext->thread_record, mc_xl8);
         CLIENT_ASSERT(res, "failed to get mcontext of suspended thread");
-        res = translate_mcontext(dcontext->thread_record, mc_xl8,
-                                 false /*do not restore memory*/, NULL);
+        DEBUG_DECLARE(res =)
+        translate_mcontext(dcontext->thread_record, mc_xl8,
+                           false /*do not restore memory*/, NULL);
         CLIENT_ASSERT(res, "failed to xl8 mcontext of suspended thread");
         if (mc == NULL && !priv_mcontext_to_dr_mcontext(dmc, mc_xl8))
             return false;
@@ -7261,7 +7283,7 @@ DR_API
 reg_id_t
 dr_get_stolen_reg()
 {
-    return IF_X86_ELSE(REG_NULL, dr_reg_stolen);
+    return IF_AARCHXX_ELSE(dr_reg_stolen, REG_NULL);
 }
 
 DR_API

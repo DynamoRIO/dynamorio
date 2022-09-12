@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -138,6 +138,8 @@ reader_t::operator++()
                 cur_ref_.instr.addr = cur_pc_;
                 next_pc_ = cur_pc_ + cur_ref_.instr.size;
                 prev_instr_addr_ = input_entry_->addr;
+                if (cur_ref_.instr.type != TRACE_TYPE_INSTR_NO_FETCH)
+                    ++cur_instr_count_;
             }
             break;
         case TRACE_TYPE_INSTR_BUNDLE:
@@ -202,7 +204,6 @@ reader_t::operator++()
             tid2pid_[cur_tid_] = cur_pid_;
             break;
         case TRACE_TYPE_MARKER:
-            have_memref = true;
             cur_ref_.marker.type = (trace_type_t)input_entry_->type;
             if (!online_ &&
                 (input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
@@ -219,6 +220,28 @@ reader_t::operator++()
             cur_ref_.marker.tid = cur_tid_;
             cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
             cur_ref_.marker.marker_value = input_entry_->addr;
+            // Look for timestamp+cpu duplicated from the prior chunk.  Skip them on
+            // a linear walk.
+            //
+            // TODO i#5538: On a seek, cache the duplicated headers, and update the
+            // cached timestamp and cpu as do linear portion of seek, and then emit
+            // cached top-level headers plus the last timestamp+cpu at the target
+            // point.
+            if (chunk_instr_count_ > 0 &&
+                cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP &&
+                cur_instr_count_ / chunk_instr_count_ !=
+                    last_timestamp_instr_count_ / chunk_instr_count_) {
+                skip_next_cpu_ = true;
+            } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
+                       skip_next_cpu_) {
+                skip_next_cpu_ = false;
+            } else {
+                have_memref = true;
+            }
+            if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP)
+                last_timestamp_instr_count_ = cur_instr_count_;
+            else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
+                chunk_instr_count_ = cur_ref_.marker.marker_value;
             break;
         default:
             ERRMSG("Unknown trace entry type %d\n", input_entry_->type);

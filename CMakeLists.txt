@@ -216,14 +216,24 @@ endif ()
 # For cross-compilation this should still work as you're supposed to set this var.
 # X64 mean 64-bit generically, whether AMD64 or AARCH64.
 set(TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}" CACHE STRING "Target architecture")
-if (TARGET_ARCH MATCHES "^arm")
-  set(ARM 1) # This means AArch32.
-  set(X64 OFF)
-  message(STATUS "Building for ARM")
-elseif (TARGET_ARCH MATCHES "^aarch64")
+if (TARGET_ARCH MATCHES "^arm64" OR TARGET_ARCH MATCHES "^aarch64")
   set(AARCH64 1)
   set(X64 1)
   message(STATUS "Building for AArch64")
+elseif (TARGET_ARCH MATCHES "^arm")
+  set(ARM 1) # This means AArch32.
+  set(X64 OFF)
+  message(STATUS "Building for ARM")
+elseif (TARGET_ARCH MATCHES "^riscv64")
+  set(RISCV64 1)
+  set(X64 1)
+  set(RISCV_ISA_I 1)
+  set(RISCV_ISA_M 1)
+  set(RISCV_ISA_A 1)
+  set(RISCV_ISA_F 1)
+  set(RISCV_ISA_D 1)
+  set(RISCV_ISA_C 1)
+  message(STATUS "Building for riscv64")
 else ()
   set(X86 1) # This means IA-32 or AMD64
   message(STATUS "Building for x86")
@@ -250,6 +260,8 @@ elseif (ARM)
   set(ARCH_NAME arm)
 elseif (AARCH64)
   set(ARCH_NAME aarch64)
+elseif (RISCV64)
+  set(ARCH_NAME riscv64)
 else ()
   message(FATAL_ERROR "Unknown architecture target")
 endif ()
@@ -263,16 +275,21 @@ endif ()
 
 # The execution architecture, which might differ from the target for building
 # an AArch64 decoder to execute on x86 machines (i#1684).
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-  set(DR_HOST_ARM 1)
-  set(DR_HOST_ARCH_NAME "arm")
-  set(DR_HOST_AARCHXX 1)
-  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "^arm64")
   set(DR_HOST_AARCH64 1)
   set(DR_HOST_ARCH_NAME "aarch64")
   set(DR_HOST_AARCHXX 1)
   set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+  set(DR_HOST_X64 1)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(DR_HOST_ARM 1)
+  set(DR_HOST_ARCH_NAME "arm")
+  set(DR_HOST_AARCHXX 1)
+  set(DR_HOST_ARCH_NAME_SHARED aarchxx)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv64")
+  set(DR_HOST_RISCV64 1)
+  set(DR_HOST_ARCH_NAME "riscv64")
+  set(DR_HOST_ARCH_NAME_SHARED ${DR_HOST_ARCH_NAME})
   set(DR_HOST_X64 1)
 elseif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(DR_HOST_X86 1)
@@ -298,6 +315,10 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   if (ARM)
     # TODO i#1684: We don't have full support for targeting arm in i386 yet.
     message(FATAL_ERROR "Targeting ARM on i386 is not yet supported: i#1684.")
+  endif ()
+  if (RISCV64)
+    # TODO #1684: We don't have full support for targeting RISC-V in i386 yet.
+    message(FATAL_ERROR "Targeting riscv64 on i386 is not yet supported.")
   endif ()
 endif ()
 
@@ -1217,13 +1238,28 @@ else ()
   set(HAVE_HALF_FLOAT OFF)
 endif ()
 
-# Right now we only build libipt on Linux x86_64.
-# We define a variable to indicate whether DR will build libipt.
+set(BUILD_PT_TRACER OFF)
+set(BUILD_PT_POST_PROCESSOR OFF)
+set(proc_supports_pt OFF)
+# Right now we only build PT related libraries on Linux x86_64.
 if (LINUX AND X86 AND X64)
-  set(HAVE_LIBIPT ON)
-else ()
-  set(HAVE_LIBIPT OFF)
-endif ()
+  # We will always build the PT tracer on Linux X86_64 no matter whether the system
+  # supports PT, because users may want to use the built binaries on a different system
+  # that does not support PT itself.
+  set(BUILD_PT_TRACER ON)
+  # Check if the building machine supports Intel PT. This function only checks if
+  # PT-related tests need to be built. PT-capable binaries can be built on any system.
+  check_intel_pt_support(proc_supports_pt)
+  # libdrpt2ir and drpt2trace depend on libipt. If the libipt submodule is not
+  # initialized, cmake will report a warning here.
+  if (EXISTS "${PROJECT_SOURCE_DIR}/third_party/libipt/.git" )
+    set(BUILD_PT_POST_PROCESSOR ON)
+  else ()
+    message(STATUS "libipt submodule is not initialized. libdrpt2ir and drpt2trace will not be built.")
+  endif ()
+else (LINUX AND X86 AND X64)
+  message(STATUS "PT related libraries only supported on Linux x86_64")
+endif (LINUX AND X86 AND X64)
 
 ###########################################################################
 
@@ -1799,7 +1835,10 @@ endif ()
 
 if (BUILD_CLIENTS)
   # Must be prior to api/docs
-  add_subdirectory(clients)
+  if (NOT (MACOS AND AARCH64))
+    # TODO i#5383: Add M1 drsyms libraries, needed by drcov2lcov and func_trace.
+    add_subdirectory(clients)
+  endif ()
 endif (BUILD_CLIENTS)
 
 if (BUILD_DOCS)

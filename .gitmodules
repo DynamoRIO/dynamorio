@@ -1,3 +1,6 @@
 [submodule "third_party/libipt"]
     path = third_party/libipt
     url = https://github.com/intel/libipt.git
+[submodule "third_party/zlib"]
+    path = third_party/zlib
+    url = https://github.com/madler/zlib.git

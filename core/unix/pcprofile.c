@@ -159,7 +159,6 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
 void
 pcprofile_thread_exit(dcontext_t *dcontext)
 {
-    int size;
     thread_pc_info_t *info = (thread_pc_info_t *)dcontext->pcprofile_field;
     /* don't want any alarms while holding lock for printing results
      * (see notes under pcprofile_cache_flush below)
@@ -167,7 +166,7 @@ pcprofile_thread_exit(dcontext_t *dcontext)
     set_itimer_callback(dcontext, ITIMER_VIRTUAL, 0, NULL, NULL);
 
     pcprofile_results(info);
-    size = HASHTABLE_SIZE(HASH_BITS) * sizeof(pc_profile_entry_t *);
+    DEBUG_DECLARE(int size = HASHTABLE_SIZE(HASH_BITS) * sizeof(pc_profile_entry_t *);)
     pcprofile_reset(info); /* special heap so no fast path */
 #ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */

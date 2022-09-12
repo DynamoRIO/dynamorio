@@ -140,6 +140,7 @@ static size_t tcb_size = IF_X86_ELSE(IF_X64_ELSE(0x900, 0x490), 0x40);
  * - sysdeps/x86_64/nptl/tls.h
  * - sysdeps/i386/nptl/tls.h
  * - sysdeps/arm/nptl/tls.h
+ * - sysdeps/riscv/nptl/tls.h
  */
 typedef struct _tcb_head_t {
 #ifdef X86
@@ -163,6 +164,9 @@ typedef struct _tcb_head_t {
     void *dtv;
     void *private;
     byte padding[2]; /* make it 16-byte align */
+#elif defined(RISCV64)
+    void *dtv;
+    void *private;
 #endif /* X86/ARM */
 } tcb_head_t;
 
@@ -183,6 +187,16 @@ typedef struct _dr_pthread_t {
 #    define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
 #    define LIBC_PTHREAD_SIZE 0x4c0
 #    define LIBC_PTHREAD_TID_OFFSET 0x68
+#elif defined(RISCV64)
+typedef struct _dr_pthread_t {
+    byte data1[0xd0]; /* # of bytes before tid within pthread */
+    process_id_t tid;
+    thread_id_t pid;
+    byte data2[0x6b8]; /* # of bytes after pid within pthread */
+} dr_pthread_t;
+#    define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
+#    define LIBC_PTHREAD_SIZE 0x790
+#    define LIBC_PTHREAD_TID_OFFSET 0xd0
 #endif /* X86/ARM */
 
 #ifdef X86
@@ -204,6 +218,9 @@ typedef struct _dr_pthread_t {
  * On ARM, it seems that TLS variables are not put before the thread pointer
  * as they are on X86.
  */
+#    define APP_LIBC_TLS_SIZE 0
+#elif defined(RISCV64)
+/* FIXME i#3544: Not implemented */
 #    define APP_LIBC_TLS_SIZE 0
 #endif
 
@@ -424,7 +441,10 @@ redirect____tls_get_addr()
     /* XXX: assuming ti is passed via r0? */
     asm("str r0, %0" : "=m"((ti)) : : "r0");
     ASSERT_NOT_REACHED();
-#endif /* X86/ARM */
+#elif defined(RISCV64)
+    /* FIXME i#3544: Check if ti is in a0. */
+    asm("sd a0, %0" : "=m"((ti)) : : "a0");
+#endif /* X86/ARM/RISCV64 */
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n", ti->ti_module,
         ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);

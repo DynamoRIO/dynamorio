@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
 #ifndef _SIMULATOR_H_
 #define _SIMULATOR_H_ 1
 
+#include <assert.h>
 #include <unordered_map>
 #include <vector>
 #include "caching_device_stats.h"
@@ -50,7 +51,7 @@ public:
     }
     simulator_t(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                 double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
-                unsigned int verbose);
+                bool use_physical, unsigned int verbose);
     virtual ~simulator_t() = 0;
     bool
     process_memref(const memref_t &memref) override;
@@ -61,7 +62,7 @@ protected:
     void
     init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
-               unsigned int verbose);
+               bool use_physical, unsigned int verbose);
     void
     print_core(int core) const;
     int
@@ -71,12 +72,28 @@ protected:
     virtual void
     handle_thread_exit(memref_tid_t tid);
 
+    addr_t
+    virt2phys(addr_t virt) const;
+    memref_t
+    memref2phys(memref_t memref) const;
+
+    addr_t
+    page_start(addr_t addr) const
+    {
+        assert(page_size_ > 0);
+        return addr & ~(page_size_ - 1);
+    }
+
+    addr_t
+    synthetic_virt2phys(addr_t virt) const;
+
     unsigned int knob_num_cores_;
     uint64_t knob_skip_refs_;
     uint64_t knob_warmup_refs_;
     double knob_warmup_fraction_;
     uint64_t knob_sim_refs_;
     bool knob_cpu_scheduling_;
+    bool knob_use_physical_;
     unsigned int knob_verbose_;
 
     memref_tid_t last_thread_;
@@ -88,6 +105,11 @@ protected:
     std::vector<int> cpu_counts_;
     std::vector<int> thread_counts_;
     std::vector<int> thread_ever_counts_;
+
+    // For virtual to physical page mappings.
+    size_t page_size_ = 0;
+    std::unordered_map<addr_t, addr_t> virt2phys_;
+    addr_t prior_phys_addr_ = 0;
 };
 
 #endif /* _SIMULATOR_H_ */

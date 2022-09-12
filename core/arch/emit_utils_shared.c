@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -776,6 +776,10 @@ coarse_indirect_stub_jmp_target(cache_pc stub)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return NULL;
 #endif /* X86/ARM */
 }
 
@@ -1001,7 +1005,7 @@ relocate_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *ilis
                 if (opnd_is_near_base_disp(opnd)) {
                     /* indirect through XDI and update displacement */
                     opnd_set_disp(&opnd, (int)patch->entry[cur].value_location_offset);
-                    opnd_replace_reg(&opnd, REG_NULL, SCRATCH_REG5 /*xdi/r5*/);
+                    opnd_replace_reg(&opnd, REG_NULL, SCRATCH_REG5 /*xdi/r5/a5*/);
                 } else if (opnd_is_immed_int(opnd)) {
                     /* indirect through XDI and set displacement */
                     /* converting AND $0x00003fff, %xcx -> %xcx
@@ -2961,7 +2965,7 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *i
     }
 
     if (!absolute) {
-        opnd_t counter_opnd;
+        IF_X86(opnd_t counter_opnd;)
 
         /* get dcontext in register (xdi) */
         insert_shared_get_dcontext(dcontext, ilist, NULL, false /* dead register */);
@@ -2982,18 +2986,22 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *i
                     dcontext, opnd_create_reg(SCRATCH_REG5 /*xdi/r5*/),
                     OPND_CREATE_MEMPTR(SCRATCH_REG5 /*xdi/r5*/,
                                        ibl_code->entry_stats_to_lookup_table_offset)));
+#    ifdef X86
             /* XDI should now have (entry_stats - lookup_table) value,
              * so we need [xdi+xcx] to get an entry reference
              */
             counter_opnd = opnd_create_base_disp(SCRATCH_REG5 /*xdi/r5*/, entry_register,
                                                  1, counter_offset, OPSZ_4);
+#    endif
         } else {
             APP(ilist,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG5 /*xdi/r5*/),
                                   OPND_CREATE_MEMPTR(SCRATCH_REG5 /*xdi/r5*/,
                                                      ibl_code->unprot_stats_offset)));
+#    ifdef X86
             /* XDI now has unprot_stats structure */
             counter_opnd = OPND_CREATE_MEM32(SCRATCH_REG5 /*xdi/r5*/, counter_offset);
+#    endif
         }
 
 #    ifdef X86
@@ -3074,6 +3082,7 @@ instrlist_convert_to_x86(instrlist_t *ilist)
 #endif
 
 #ifndef AARCH64
+/* FIXME i#3544: Check if this works */
 bool
 instr_is_ibl_hit_jump(instr_t *instr)
 {
@@ -3551,6 +3560,10 @@ create_syscall_instr(dcontext_t *dcontext)
 #ifdef AARCHXX
     if (method == SYSCALL_METHOD_SVC || method == SYSCALL_METHOD_UNINITIALIZED) {
         return INSTR_CREATE_svc(dcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+    }
+#elif defined(RISCV64)
+    if (method == SYSCALL_METHOD_ECALL || method == SYSCALL_METHOD_UNINITIALIZED) {
+        return INSTR_CREATE_ecall(dcontext);
     }
 #elif defined(X86)
     if (method == SYSCALL_METHOD_INT || method == SYSCALL_METHOD_UNINITIALIZED) {
@@ -5174,6 +5187,7 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
         if (instr_num_dsts(&instr) > 0 && opnd_is_reg(instr_get_dst(&instr, 0)) &&
             opnd_get_reg(instr_get_dst(&instr, 0)) == SCRATCH_REG0) {
 #ifndef AARCH64 /* FIXME i#1569: recognise "move" on AArch64 */
+#    ifndef RISCV64
             if (instr_get_opcode(&instr) == IF_X86_ELSE(OP_mov_imm, OP_mov)) {
                 IF_X64(ASSERT_TRUNCATE(int, int,
                                        opnd_get_immed_int(instr_get_src(&instr, 0))));
@@ -5181,6 +5195,10 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
                 LOG(GLOBAL, LOG_EMIT, 3, "\tfound syscall num: 0x%x\n", syscall);
                 break;
             } else
+#    else
+            /* FIXME i#3544: Not implemented */
+            ASSERT_NOT_IMPLEMENTED(false);
+#    endif
 #endif
                 break; /* give up gracefully */
         }
@@ -5202,7 +5220,7 @@ byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 {
     instrlist_t ilist;
-    uint offset;
+    IF_NOT_AARCH64(uint offset;)
 
     /* initialize the ilist */
     instrlist_init(&ilist);
@@ -5217,13 +5235,14 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * new_thread_setup() will restore real app xsp.
      * We emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc).
      */
-    offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL, IF_X64_ELSE(16, 4),
-                                       opnd_create_reg(SCRATCH_REG0),
-                                       /* we have to pass in scratch to prevent
-                                        * use of the stolen reg, which would be
-                                        * a race w/ the parent's use of it!
-                                        */
-                                       SCRATCH_REG0 _IF_AARCH64(false));
+    IF_NOT_AARCH64(offset =)
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, IF_X64_ELSE(16, 4),
+                              opnd_create_reg(SCRATCH_REG0),
+                              /* we have to pass in scratch to prevent
+                               * use of the stolen reg, which would be
+                               * a race w/ the parent's use of it!
+                               */
+                              SCRATCH_REG0 _IF_AARCH64(false));
 #    ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == get_clean_call_switch_stack_size());
@@ -5552,6 +5571,12 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
                           opnd_create_reg(DR_REG_XCX)));
     insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_unlinked_tgt)));
+#    elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    /* Marking as unused to silence -Wunused-variable. */
+    (void)ibl_unlinked_tgt;
+    (void)ibl_linked_tgt;
 #    elif defined(AARCHXX)
     /* Reuse SCRATCH_REG5 which contains dcontext currently. */
     APP(&ilist,

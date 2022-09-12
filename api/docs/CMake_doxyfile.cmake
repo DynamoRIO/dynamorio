@@ -56,6 +56,8 @@ endforeach (dir)
 
 # Add drcachesim dirs (i#2006).
 set(ext_dirs ${ext_dirs} "${proj_bindir}/clients/include/drmemtrace")
+# Add drpt2trace dirs
+set(ext_dirs ${ext_dirs} "${proj_srcdir}/clients/drcachesim/drpt2trace")
 
 include("${srcdir}/CMake_doxyutils.cmake")
 set(input_paths srcdir proj_srcdir header_dir gendox_dir outdir)

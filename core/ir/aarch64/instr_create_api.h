@@ -867,6 +867,20 @@
 
 /**
  * Creates an FMOV instruction to move between GPRs and floating point registers.
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMOV    <Wd>, <Hn>
+ *    FMOV    <Wd>, <Sn>
+ *    FMOV    <Xd>, <Dn>
+ *    FMOV    <Xd>, <Hn>
+ *    FMOV    <Dd>, <Xn>
+ *    FMOV    <Hd>, <Wn>
+ *    FMOV    <Hd>, <Xn>
+ *    FMOV    <Sd>, <Wn>
+ *    FMOV    <Dd>, <Dn>
+ *    FMOV    <Hd>, <Hn>
+ *    FMOV    <Sd>, <Sn>
+ * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  * \param Rd   The output register.
  * \param Rn   The first input register.
@@ -1178,16 +1192,48 @@
     instr_create_1dst_3src(dc, OP_fmaxnm, Rd, Rm, Rn, width)
 
 /**
- * Creates a FMLA vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register. The instruction also reads this register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLA    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMLA    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_fmla_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_4src(dc, OP_fmla, Rd, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmla_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_fmla, Rd, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLA    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>]
+ *    FMLA    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Tb>[<index>]
+ *    FMLA    <Hd>, <Hn>, <Hm>.H[<index>]
+ *    FMLA    <V><d>, <V><n>, <Sm>.<Ts>[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register. Can be
+ *             S (singleword, 32 bits), D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fmla_vector_idx(dc, Rd, Rn, Rm, index, Rm_elsz) \
+    instr_create_1dst_5src(dc, OP_fmla, Rd, Rd, Rn, Rm, index, Rm_elsz)
 
 /**
  * Creates a FADD vector instruction.
@@ -1202,38 +1248,180 @@
     instr_create_1dst_3src(dc, OP_fadd, Rd, Rm, Rn, width)
 
 /**
- * Creates a FMULX vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMULX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMULX   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMULX   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_fmulx_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fmulx, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmulx_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fmulx, Rd, Rn, Rm, Rm_elsz)
 
 /**
- * Creates a FCMEQ vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMULX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMULX   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>]
+ *    FMULX   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Tb>[<index>]
+ *    FMULX   <Hd>, <Hn>, <Hm>.H[<index>]
+ *    FMULX   <V><d>, <V><n>, <Sm>.<Ts>[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index     The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_fcmeq_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fcmeq, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmulx_vector_idx(dc, Rd, Rn, Rm, index, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_fmulx, Rd, Rn, Rm, index, Rm_elsz)
 
 /**
- * Creates a FMLAL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register. The instruction also reads this register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
+ * Creates a FMULX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMULX   <Hd>, <Hn>, <Hm>
+ *    FMULX   <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+
  */
-#define INSTR_CREATE_fmlal_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlal, Rd, Rd, Rm, Rn)
+#define INSTR_CREATE_fmulx(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_fmulx, Rd, Rn, Rm)
+
+/**
+ * Creates a FCMEQ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMEQ   <Hd>.<Ts>, <Hn>.<Ts>, #0
+ *    FCMEQ   <Dd>.<Ts>, <Dn>.<Ts>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fcmeq_vector_zero(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_3src(dc, OP_fcmeq, Rd, Rn, opnd_create_immed_float(0), Rn_elsz)
+
+/**
+ * Creates a FCMEQ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMEQ   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FCMEQ   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fcmeq_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fcmeq, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FCMEQ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMEQ   <Hd>, <Hn>, #0
+ *    FCMEQ   <V><d>, <V><n>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_fcmeq_zero(dc, Rd, Rn) \
+    instr_create_1dst_2src(dc, OP_fcmeq, Rd, Rn, opnd_create_immed_float(0))
+
+/**
+ * Creates a FCMEQ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMEQ   <Hd>, <Hn>, <Hm>
+ *    FCMEQ   <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits), S
+ *             (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits), S
+ *             (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_fcmeq(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_fcmeq, Rd, Rn, Rm)
+
+/**
+ * Creates a FMLAL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLAL   <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, S (singleword, 32 bits) or
+ *             D (doubleword, 64 bits)
+ * \param Rm   The third source vector register, S (singleword, 32 bits) or
+ *             D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_fmlal_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_fmlal, Rd, Rd, Rn, Rm, OPND_CREATE_HALF())
+
+/**
+ * Creates a FMLAL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLAL   <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.H[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, S (singleword, 32 bits) or
+ *             D (doubleword, 64 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
+ */
+#define INSTR_CREATE_fmlal_vector_idx(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_fmlal, Rd, Rd, Rn, Rm, index, OPND_CREATE_HALF())
 
 /**
  * Creates a FMAX vector instruction.
@@ -1248,16 +1436,114 @@
     instr_create_1dst_3src(dc, OP_fmax, Rd, Rm, Rn, width)
 
 /**
- * Creates a FRECPS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FRECPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPE  <Hd>.<Ts>, <Hn>.<Ts>
+ *    FRECPE  <Dd>.<Ts>, <Dn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_frecps_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_frecps, Rd, Rm, Rn, width)
+#define INSTR_CREATE_frecpe_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_frecpe, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a FRECPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPE  <Hd>, <Hn>
+ *    FRECPE  <V><d>, <V><n>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frecpe(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frecpe, Rd, Rn)
+
+/**
+ * Creates a FRECPS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPS  <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FRECPS  <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_frecps_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_frecps, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FRECPS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRECPS  <Hd>, <Hn>, <Hm>
+ *    FRECPS  <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frecps(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_frecps, Rd, Rn, Rm)
+
+/**
+ * Creates a FRSQRTE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTE <Hd>.<Ts>, <Hn>.<Ts>
+ *    FRSQRTE <Dd>.<Ts>, <Dn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_frsqrte_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_frsqrte, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a FRSQRTE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTE <Hd>, <Hn>
+ *    FRSQRTE <V><d>, <V><n>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frsqrte(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frsqrte, Rd, Rn)
 
 /**
  * Creates a AND vector instruction.
@@ -1292,16 +1578,48 @@
     instr_create_1dst_3src(dc, OP_fminnm, Rd, Rm, Rn, width)
 
 /**
- * Creates a FMLS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register. The instruction also reads this register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMLS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLS    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMLS    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_fmls_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_4src(dc, OP_fmls, Rd, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmls_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_fmls, Rd, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FMLS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLS    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>]
+ *    FMLS    <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Tb>[<index>]
+ *    FMLS    <Hd>, <Hn>, <Hm>.H[<index>]
+ *    FMLS    <V><d>, <V><n>, <Sm>.<Ts>[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register. Can be
+ *             S (singleword, 32 bits), D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fmls_vector_idx(dc, Rd, Rn, Rm, index, Rm_elsz) \
+    instr_create_1dst_5src(dc, OP_fmls, Rd, Rd, Rn, Rm, index, Rm_elsz)
 
 /**
  * Creates a FSUB vector instruction.
@@ -1323,7 +1641,17 @@
  * \param Rn      The second input register.
  */
 #define INSTR_CREATE_fmlsl_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlsl, Rd, Rd, Rm, Rn)
+    instr_create_1dst_4src(dc, OP_fmlsl, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
+/**
+ * Creates a FMLSL indexed vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register. The instruction also reads this register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ */
+#define INSTR_CREATE_fmlsl_vector_idx(dc, Rd, Rm, Rn, index) \
+    instr_create_1dst_5src(dc, OP_fmlsl, Rd, Rd, Rm, Rn, index, OPND_CREATE_HALF())
 
 /**
  * Creates a FMIN vector instruction.
@@ -1338,16 +1666,44 @@
     instr_create_1dst_3src(dc, OP_fmin, Rd, Rm, Rn, width)
 
 /**
- * Creates a FRSQRTS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FRSQRTS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTS <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FRSQRTS <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+               D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+               D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+               D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_frsqrts_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_frsqrts, Rd, Rm, Rn, width)
+#define INSTR_CREATE_frsqrts_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_frsqrts, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FRSQRTS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FRSQRTS <Hd>, <Hn>, <Hm>
+ *    FRSQRTS <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+               S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+               S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+               S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_frsqrts(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_frsqrts, Rd, Rn, Rm)
 
 /**
  * Creates a ORR vector instruction.
@@ -1681,38 +2037,80 @@
     instr_create_1dst_5src(dc, OP_sqrdmlsh, Rd, Rd, Rm, Rn, index, elsz)
 
 /**
- * Creates a FMAXNMP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMLAL2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLAL2  <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, S (singleword, 32 bits) or
+ *             D (doubleword, 64 bits)
+ * \param Rm   The third source vector register, S (singleword, 32 bits) or
+ *             D (doubleword, 64 bits)
  */
-#define INSTR_CREATE_fmaxnmp_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fmaxnmp, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmlal2_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_fmlal2, Rd, Rd, Rn, Rm, OPND_CREATE_HALF())
 
 /**
- * Creates a FMLAL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register. The instruction also reads this register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
+ * Creates a FMLAL2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLAL2  <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.H[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, S (singleword, 32 bits) or
+ *             D (doubleword, 64 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
  */
-#define INSTR_CREATE_fmlal2_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlal2, Rd, Rd, Rm, Rn)
+#define INSTR_CREATE_fmlal2_vector_idx(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_fmlal2, Rd, Rd, Rn, Rm, index, OPND_CREATE_HALF())
 
 /**
- * Creates a FADDP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FADDP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FADDP   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FADDP   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_faddp_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_faddp, Rd, Rm, Rn, width)
+#define INSTR_CREATE_faddp_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_faddp, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FADDP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FADDP   <Hd>, <Hn>.2H
+ *    FADDP   <V><d>, <Sn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_faddp_scalar(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_faddp, Rd, Rn, Rn_elsz)
 
 /**
  * Creates a FMUL vector instruction.
@@ -1739,28 +2137,196 @@
     instr_create_1dst_3src(dc, OP_fcmge, Rd, Rm, Rn, width)
 
 /**
- * Creates a FACGE vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMAXNMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMAXNMP <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMAXNMP <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_facge_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_facge, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmaxnmp_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fmaxnmp, Rd, Rn, Rm, Rm_elsz)
 
 /**
- * Creates a FMAXP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMAXNMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMAXNMP <Hd>, <Hn>.2H
+ *    FMAXNMP <V><d>, <Sn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source vector register. Can be
+ *             S (singleword, 32 bits), D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_fmaxp_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fmaxp, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fmaxnmp_scalar(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_fmaxnmp, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a FMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMAXP   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMAXP   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fmaxp_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fmaxp, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMAXP   <Hd>, <Hn>.2H
+ *    FMAXP   <V><d>, <Sn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fmaxp_scalar(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_fmaxp, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a FACGE vector instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FACGE   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FACGE   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_facge_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_facge, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FACGE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FACGE   <Hd>, <Hn>, <Hm>
+ *    FACGE   <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_facge(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_facge, Rd, Rn, Rm)
+
+/**
+ * Creates a FCMLE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMLE   <Hd>.<Ts>, <Hn>.<Ts>, #0
+ *    FCMLE   <Dd>.<Ts>, <Dn>.<Ts>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *             OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fcmle_vector_zero(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_3src(dc, OP_fcmle, Rd, Rn, opnd_create_immed_float(0.0), Rn_elsz)
+
+/**
+ * Creates a FCMLE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMLE   <Hd>, <Hn>, #0
+ *    FCMLE   <V><d>, <V><n>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_fcmle_zero(dc, Rd, Rn) \
+    instr_create_1dst_2src(dc, OP_fcmle, Rd, Rn, opnd_create_immed_float(0.0))
+
+/**
+ * Creates a FCMLT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMLT   <Hd>.<Ts>, <Hn>.<Ts>, #0
+ *    FCMLT   <Dd>.<Ts>, <Dn>.<Ts>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *             OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fcmlt_vector_zero(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_3src(dc, OP_fcmlt, Rd, Rn, opnd_create_immed_float(0.0), Rn_elsz)
+
+/**
+ * Creates a FCMLT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMLT   <Hd>, <Hn>, #0
+ *    FCMLT   <V><d>, <V><n>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_fcmlt_zero(dc, Rd, Rn) \
+    instr_create_1dst_2src(dc, OP_fcmlt, Rd, Rn, opnd_create_immed_float(0.0))
 
 /**
  * Creates a FDIV vector instruction.
@@ -1795,16 +2361,63 @@
     instr_create_1dst_2src(dc, OP_bsl, Rd, Rm, Rn)
 
 /**
- * Creates a FMINNMP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FMINNMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMINNMP <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMINNMP <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_fminnmp_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fminnmp, Rd, Rm, Rn, width)
+#define INSTR_CREATE_fminnmp_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fminnmp, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FMINNMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMINNMP <Hd>, <Hn>.2H
+ *    FMINNMP <V><d>, <Sn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source vector register. Can be S (singleword, 32 bits),
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fminnmp_scalar(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_fminnmp, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a FMINNMV instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMINNMV <Hd>, <Hn>.<Ts>
+ *    FMINNMV <Sd>, <Sn>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits) or
+ *             S (singleword, 32 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF() or
+ *                  OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_fminnmv_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_fminnmv, Rd, Rn, Rn_elsz)
 
 /**
  * Creates a FMLSL2 vector instruction.
@@ -1814,7 +2427,17 @@
  * \param Rn      The second input register.
  */
 #define INSTR_CREATE_fmlsl2_vector(dc, Rd, Rm, Rn) \
-    instr_create_1dst_3src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn)
+    instr_create_1dst_4src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
+/**
+ * Creates a FMLSL2 indexed vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register. The instruction also reads this register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param index   The first input register's vector element index.
+ */
+#define INSTR_CREATE_fmlsl2_vector_idx(dc, Rd, Rm, Rn, index) \
+    instr_create_1dst_5src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn, index, OPND_CREATE_HALF())
 
 /**
  * Creates a FABD vector instruction.
@@ -1829,40 +2452,160 @@
     instr_create_1dst_3src(dc, OP_fabd, Rd, Rm, Rn, width)
 
 /**
- * Creates a FCMGT vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
- */
-#define INSTR_CREATE_fcmgt_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fcmgt, Rd, Rm, Rn, width)
-
-/**
  * Creates a FACGT vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FACGT   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FACGT   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
  */
-#define INSTR_CREATE_facgt_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_facgt, Rd, Rm, Rn, width)
+#define INSTR_CREATE_facgt_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_facgt, Rd, Rn, Rm, Rm_elsz)
 
 /**
- * Creates a FMINP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a FACGT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FACGT   <Hd>, <Hn>, <Hm>
+ *    FACGT   <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
  */
-#define INSTR_CREATE_fminp_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fminp, Rd, Rm, Rn, width)
+#define INSTR_CREATE_facgt(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_facgt, Rd, Rn, Rm)
+
+/**
+ * Creates a FCMGT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMGT   <Hd>.<Ts>, <Hn>.<Ts>, #0
+ *    FCMGT   <Dd>.<Ts>, <Dn>.<Ts>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fcmgt_vector_zero(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_3src(dc, OP_fcmgt, Rd, Rn, opnd_create_immed_float(0.0), Rn_elsz)
+
+/**
+ * Creates a FCMGT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMGT   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FCMGT   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fcmgt_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fcmgt, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FCMGT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMGT   <Hd>, <Hn>, #0
+ *    FCMGT   <V><d>, <V><n>, #0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_fcmgt_zero(dc, Rd, Rn) \
+    instr_create_1dst_2src(dc, OP_fcmgt, Rd, Rn, opnd_create_immed_float(0.0))
+
+/**
+ * Creates a FCMGT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMGT   <Hd>, <Hn>, <Hm>
+ *    FCMGT   <V><d>, <V><n>, <V><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rm   The third source register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ */
+#define INSTR_CREATE_fcmgt(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_fcmgt, Rd, Rn, Rm)
+
+/**
+ * Creates a FMINP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMINP   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts>
+ *    FMINP   <Dd>.<Ts>, <Dn>.<Ts>, <Dm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm   The third source vector register. Can be
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fminp_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_fminp, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a FMINP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMINP   <Hd>, <Hn>.2H
+ *    FMINP   <V><d>, <Sn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be H (halfword, 16 bits),
+ *             S (singleword, 32 bits) or D (doubleword, 64 bits)
+ * \param Rn   The second source vector register. Can be
+ *             S (singleword, 32 bits), D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn. Can be OPND_CREATE_HALF(),
+ *                  OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fminp_scalar(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_fminp, Rd, Rn, Rn_elsz)
 
 /**
  * Creates a BIT vector instruction.
@@ -1918,6 +2661,17 @@
     instr_create_1dst_2src(dc, OP_fcvtms, Rd, Rm, width)
 
 /**
+ * Creates an FCVTMU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtmu_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtmu, Rd, Rm, width)
+
+/**
  * Creates an FCVTNS vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
@@ -1927,6 +2681,17 @@
  */
 #define INSTR_CREATE_fcvtns_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtns, Rd, Rm, width)
+
+/**
+ * Creates an FCVTNU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtnu_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtnu, Rd, Rm, width)
 
 /**
  * Creates an FCVTPS vector instruction.
@@ -2016,7 +2781,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
- * or #OPND_CREATE_DOUBLE().
+ * or #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  */
 #define INSTR_CREATE_ucvtf_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_ucvtf, Rd, Rm, width)
@@ -2027,7 +2792,7 @@
  * \param Rd      The output register.
  * \param Rm      The input register.
  * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
- *                #OPND_CREATE_DOUBLE().
+ *                #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  * \param fbits   The number of bits after the binary point in the fixed-point
  *                destination element.
  */
@@ -2040,7 +2805,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
- * or #OPND_CREATE_DOUBLE().
+ * or #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  */
 #define INSTR_CREATE_scvtf_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_scvtf, Rd, Rm, width)
@@ -2051,12 +2816,106 @@
  * \param Rd      The output register.
  * \param Rm      The input register.
  * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
- *                #OPND_CREATE_DOUBLE().
+ *                #OPND_CREATE_DOUBLE() or #OPND_CREATE_HALF().
  * \param fbits   The number of bits after the binary point in the fixed-point
  *                destination element.
  */
 #define INSTR_CREATE_scvtf_vector_fixed(dc, Rd, Rm, width, fbits) \
     instr_create_1dst_3src(dc, OP_scvtf, Rd, Rm, width, fbits)
+
+/**
+ * Creates a SHA512H instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512H <Qd>, <Qn>, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, Q (quadword, 128 bits)
+ * \param Rn   The second source register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512h(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sha512h, Rd, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SHA512H2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512H2 <Qd>, <Qn>, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, Q (quadword, 128 bits)
+ * \param Rn   The second source register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512h2(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sha512h2, Rd, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SHA512SU0 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512SU0 <Dd>.2D, <Dn>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512su0(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_3src(dc, OP_sha512su0, Rd, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a SHA512SU1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SHA512SU1 <Dd>.2D, <Dn>.2D, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_sha512su1(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sha512su1, Rd, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a RAX1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RAX1    <Dd>.2D, <Dn>.2D, <Dm>.2D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_rax1(dc, Rd, Rn, Rm) \
+    instr_create_1dst_3src(dc, OP_rax1, Rd, Rn, Rm, OPND_CREATE_DOUBLE())
+
+/**
+ * Creates a XAR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    XAR     <Dd>.2D, <Dn>.2D, <Dm>.2D, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm6   The immediate imm
+ */
+#define INSTR_CREATE_xar(dc, Rd, Rn, Rm, imm6) \
+    instr_create_1dst_4src(dc, OP_xar, Rd, Rn, Rm, imm6, OPND_CREATE_DOUBLE())
 
 /* -------- Memory Touching instructions ------------------------------- */
 
@@ -2117,6 +2976,17 @@
 #define INSTR_CREATE_fsqrt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fsqrt, Rd, Rm)
 
 /**
+ * Creates a FSQRT instruction.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register. Can be D (doubleword, 64 bits) or Q
+ * (quadword, 128 bits) \param Rn   The second source vector register. Can be D
+ * (doubleword, 64 bits) or Q (quadword, 128 bits) \param Rn_elsz   The element size for
+ * Rn. Can be #OPND_CREATE_HALF(), #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE()
+ */
+#define INSTR_CREATE_fsqrt_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_fsqrt, Rd, Rn, Rn_elsz)
+
+/**
  * Creates an FCVT floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
@@ -2152,6 +3022,15 @@
     instr_create_1dst_1src(dc, OP_fcvtms, Rd, Rm)
 
 /**
+ * Creates an FCVTMU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtmu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtmu, Rd, Rm)
+
+/**
  * Creates an FCVTNS floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
@@ -2159,6 +3038,15 @@
  */
 #define INSTR_CREATE_fcvtns_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_fcvtns, Rd, Rm)
+
+/**
+ * Creates an FCVTNU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtnu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtnu, Rd, Rm)
 
 /**
  * Creates an FCVTPS floating point instruction.
@@ -2266,6 +3154,17 @@
     instr_create_1dst_1src(dc, OP_frintn, Rd, Rm)
 
 /**
+ * Creates a FRINTN vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintn_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintn, Rd, Rm, width)
+
+/**
  * Creates a FRINTP floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2273,6 +3172,17 @@
  */
 #define INSTR_CREATE_frintp_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frintp, Rd, Rm)
+
+/**
+ * Creates a FRINTP vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintp_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintp, Rd, Rm, width)
 
 /**
  * Creates a FRINTM floating point instruction.
@@ -2284,6 +3194,17 @@
     instr_create_1dst_1src(dc, OP_frintm, Rd, Rm)
 
 /**
+ * Creates a FRINTM vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintm_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintm, Rd, Rm, width)
+
+/**
  * Creates a FRINTZ floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2291,6 +3212,17 @@
  */
 #define INSTR_CREATE_frintz_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frintz, Rd, Rm)
+
+/**
+ * Creates a FRINTZ vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintz_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintz, Rd, Rm, width)
 
 /**
  * Creates a FRINTA floating point instruction.
@@ -2302,6 +3234,17 @@
     instr_create_1dst_1src(dc, OP_frinta, Rd, Rm)
 
 /**
+ * Creates a FRINTA vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frinta_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frinta, Rd, Rm, width)
+
+/**
  * Creates a FRINTX floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2311,6 +3254,17 @@
     instr_create_1dst_1src(dc, OP_frintx, Rd, Rm)
 
 /**
+ * Creates a FRINTX vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frintx_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frintx, Rd, Rm, width)
+
+/**
  * Creates a FRINTI floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -2318,6 +3272,17 @@
  */
 #define INSTR_CREATE_frinti_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frinti, Rd, Rm)
+
+/**
+ * Creates a FRINTI vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_HALF()
+ * or #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_frinti_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_frinti, Rd, Rm, width)
 
 /**
  * Creates a LDPSW floating point instruction.
@@ -3543,5 +4508,420 @@
  * \param Rn   The second source register, X (Extended, 64 bits)
  */
 #define INSTR_CREATE_stllrh(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_stllrh, Rt, Rn)
+
+/**
+ * Creates a SM3PARTW1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3PARTW1 <Sd>.4S, <Sn>.4S, <Sm>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3partw1_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_sm3partw1, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SM3PARTW2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3PARTW2 <Sd>.4S, <Sn>.4S, <Sm>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3partw2_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_sm3partw2, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a SM3SS1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3SS1  <Sd>.4S, <Sn>.4S, <Sm>.4S, <Sa>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
+ * \param Ra_elsz   The element size for Ra, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3ss1_vector(dc, Rd, Rn, Rm, Ra, Ra_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3ss1, Rd, Rn, Rm, Ra, Ra_elsz)
+
+/**
+ * Creates a SM3TT1A instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT1A <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt1a_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt1a, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM3TT1B instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT1B <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt1b_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt1b, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM3TT2A instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT2A <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt2a_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt2a, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM3TT2B instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM3TT2B <Sd>.4S, <Sn>.4S, <Sm>.S[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param imm2   The immediate index for Rm
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm3tt2b_vector_indexed(dc, Rd, Rn, Rm, imm2, Rm_elsz) \
+    instr_create_1dst_4src(dc, OP_sm3tt2b, Rd, Rn, Rm, imm2, Rm_elsz)
+
+/**
+ * Creates a SM4E instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM4E    <Sd>.4S, <Sn>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rn_elsz   The element size for Rn, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm4e_vector(dc, Rd, Rn, Rn_elsz) \
+    instr_create_1dst_2src(dc, OP_sm4e, Rd, Rn, Rn_elsz)
+
+/**
+ * Creates a SM4EKEY instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM4EKEY <Sd>.4S, <Sn>.4S, <Sm>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Rm_elsz   The element size for Rm, OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_sm4ekey_vector(dc, Rd, Rn, Rm, Rm_elsz) \
+    instr_create_1dst_3src(dc, OP_sm4ekey, Rd, Rn, Rm, Rm_elsz)
+
+/**
+ * Creates a BCAX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BCAX    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_bcax(dc, Rd, Rn, Rm, Ra) \
+    instr_create_1dst_4src(dc, OP_bcax, Rd, Rn, Rm, Ra, OPND_CREATE_BYTE())
+
+/**
+ * Creates a EOR3 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    EOR3    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination vector register, Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param Ra   The fourth source vector register, Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_eor3(dc, Rd, Rn, Rm, Ra) \
+    instr_create_1dst_4src(dc, OP_eor3, Rd, Rn, Rm, Ra, OPND_CREATE_BYTE())
+
+/**
+ * Creates a ESB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ESB
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_esb(dc) instr_create_0dst_0src(dc, OP_esb)
+
+/**
+ * Creates a PSB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PSB CSYNC
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_psb_csync(dc) instr_create_0dst_0src(dc, OP_psb)
+
+/**
+ * Creates a FCCMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCCMP   <Dn>, <Dm>, #<imm>, <cond>
+ *    FCCMP   <Hn>, <Hm>, #<imm>, <cond>
+ *    FCCMP   <Sn>, <Sm>, #<imm>, <cond>
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn    The first source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm    The second source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
+ *              (use #opnd_create_immed_uint() to create the operand, e.g.
+ *              opnd_create_immed_uint(val, #OPSZ_4b)).
+ * \param condition_code   The comparison condition specified by #dr_pred_type_t,
+ *              e.g. #DR_PRED_EQ.
+ */
+#define INSTR_CREATE_fccmp(dc, Rn, Rm, nzcv, condition_code) \
+    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmp, Rn, Rm, nzcv), (condition_code))
+
+/**
+ * Creates a FCCMPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCCMPE   <Dn>, <Dm>, #<imm>, <cond>
+ *    FCCMPE   <Hn>, <Hm>, #<imm>, <cond>
+ *    FCCMPE   <Sn>, <Sm>, #<imm>, <cond>
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn    The first source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm    The second source register. Can be D (doubleword, 64 bits),
+ *              H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
+ *              (use #opnd_create_immed_uint() to create the operand, e.g.
+ *              opnd_create_immed_uint(val, #OPSZ_4b)).
+ * \param condition_code   The comparison condition specified by #dr_pred_type_t,
+ *              e.g. #DR_PRED_EQ.
+ */
+#define INSTR_CREATE_fccmpe(dc, Rn, Rm, nzcv, condition_code) \
+    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmpe, Rn, Rm, nzcv), (condition_code))
+
+/**
+ * Creates a FCSEL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCSEL   <Dd>, <Dn>, <Dm>, <cond>
+ *    FCSEL   <Hd>, <Hn>, <Hm>, <cond>
+ *    FCSEL   <Sd>, <Sn>, <Sm>, <cond>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first destination register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rn   The second source register. Can be D (doubleword, 64 bits),
+               H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm   The third source register. Can be D (doubleword, 64 bits),
+               H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param condition_code   The comparison condition specified by #dr_pred_type_t,
+ *                         e.g. #DR_PRED_EQ.
+ */
+#define INSTR_CREATE_fcsel(dc, Rd, Rn, Rm, condition_code) \
+    INSTR_PRED(instr_create_1dst_2src(dc, OP_fcsel, Rd, Rn, Rm), (condition_code))
+
+/**
+ * Creates a FCMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMP    <Dn>, #0.0
+ *    FCMP    <Hn>, #0.0
+ *    FCMP    <Sn>, #0.0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmp_zero(dc, Rn) \
+    instr_create_0dst_2src(dc, OP_fcmp, Rn, opnd_create_immed_float(0.0))
+
+/**
+ * Creates a FCMP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMP    <Dn>, <Dm>
+ *    FCMP    <Hn>, <Hm>
+ *    FCMP    <Sn>, <Sm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm   The second source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmp(dc, Rn, Rm) instr_create_0dst_2src(dc, OP_fcmp, Rn, Rm)
+
+/**
+ * Creates a FCMPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMPE   <Dn>, #0.0
+ *    FCMPE   <Hn>, #0.0
+ *    FCMPE   <Sn>, #0.0
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmpe_zero(dc, Rn) \
+    instr_create_0dst_2src(dc, OP_fcmpe, Rn, opnd_create_immed_float(0.0))
+
+/**
+ * Creates a FCMPE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMPE   <Dn>, <Dm>
+ *    FCMPE   <Hn>, <Hm>
+ *    FCMPE   <Sn>, <Sm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ * \param Rm   The second source register. Can be D (doubleword, 64 bits),
+ *             H (halfword, 16 bits) or S (singleword, 32 bits)
+ */
+#define INSTR_CREATE_fcmpe(dc, Rn, Rm) instr_create_0dst_2src(dc, OP_fcmpe, Rn, Rm)
+
+/**
+ * Creates a SDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_sdot_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_sdot, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates a SDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
+ */
+#define INSTR_CREATE_sdot_vector_indexed(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_sdot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
+
+/**
+ * Creates a UDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ */
+#define INSTR_CREATE_udot_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_udot, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates a UDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination vector register,
+ *             D (doubleword, 64 bits) or Q (quadword, 128 bits)
+ * \param Rn   The second source vector register, D (doubleword, 64 bits) or
+ *             Q (quadword, 128 bits)
+ * \param Rm   The third source vector register, Q (quadword, 128 bits)
+ * \param index   The immediate index for Rm
+ */
+#define INSTR_CREATE_udot_vector_indexed(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_udot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
+
+/**
+ * Creates an XPACI instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      Register with PAC bits to remove.
+ */
+#define INSTR_CREATE_xpaci(dc, Rd) instr_create_0dst_1src((dc), OP_xpaci, (Rd))
 
 #endif /* DR_IR_MACROS_AARCH64_H */

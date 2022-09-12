@@ -56,6 +56,7 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 bool
 opc_is_not_a_real_memory_load(int opc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return opc == OP_l;
 }
@@ -84,6 +85,7 @@ instr_branch_type(instr_t *cti_instr)
 const char *
 get_opcode_name(int opc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return "<opcode>";
 }
@@ -91,6 +93,7 @@ get_opcode_name(int opc)
 bool
 instr_is_mov(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -98,6 +101,7 @@ instr_is_mov(instr_t *instr)
 bool
 instr_is_call_arch(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -151,6 +155,7 @@ instr_is_cbr_arch(instr_t *instr)
 bool
 instr_is_mbr_arch(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -158,6 +163,7 @@ instr_is_mbr_arch(instr_t *instr)
 bool
 instr_is_far_cti(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -178,6 +184,7 @@ instr_is_near_ubr(instr_t *instr)
 bool
 instr_is_cti_short(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -185,6 +192,7 @@ instr_is_cti_short(instr_t *instr)
 bool
 instr_is_cti_loop(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -192,6 +200,7 @@ instr_is_cti_loop(instr_t *instr)
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -199,6 +208,7 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 bool
 instr_is_interrupt(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -214,6 +224,7 @@ instr_is_syscall(instr_t *instr)
 bool
 instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -221,6 +232,7 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 bool
 instr_is_prefetch(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -228,6 +240,7 @@ instr_is_prefetch(instr_t *instr)
 bool
 instr_is_string_op(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -235,6 +248,7 @@ instr_is_string_op(instr_t *instr)
 bool
 instr_is_rep_string_op(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -242,6 +256,7 @@ instr_is_rep_string_op(instr_t *instr)
 bool
 instr_saves_float_pc(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -249,6 +264,7 @@ instr_saves_float_pc(instr_t *instr)
 bool
 instr_is_undefined(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -278,6 +294,7 @@ instr_invert_cbr(instr_t *instr)
 bool
 instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -285,6 +302,7 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -298,6 +316,7 @@ instr_predicate_writes_eflags(dr_pred_type_t pred)
 bool
 instr_predicate_is_cond(dr_pred_type_t pred)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -311,6 +330,7 @@ reg_is_gpr(reg_id_t reg)
 bool
 reg_is_simd(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -318,6 +338,7 @@ reg_is_simd(reg_id_t reg)
 bool
 reg_is_vector_simd(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -325,6 +346,7 @@ reg_is_vector_simd(reg_id_t reg)
 bool
 reg_is_opmask(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -332,6 +354,7 @@ reg_is_opmask(reg_id_t reg)
 bool
 reg_is_bnd(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -339,6 +362,7 @@ reg_is_bnd(reg_id_t reg)
 bool
 reg_is_strictly_zmm(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -346,6 +370,7 @@ reg_is_strictly_zmm(reg_id_t reg)
 bool
 reg_is_ymm(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -353,6 +378,7 @@ reg_is_ymm(reg_id_t reg)
 bool
 reg_is_strictly_ymm(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -360,6 +386,7 @@ reg_is_strictly_ymm(reg_id_t reg)
 bool
 reg_is_xmm(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -367,6 +394,7 @@ reg_is_xmm(reg_id_t reg)
 bool
 reg_is_strictly_xmm(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -374,6 +402,7 @@ reg_is_strictly_xmm(reg_id_t reg)
 bool
 reg_is_mmx(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -381,6 +410,7 @@ reg_is_mmx(reg_id_t reg)
 bool
 instr_is_opmask(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -388,6 +418,7 @@ instr_is_opmask(instr_t *instr)
 bool
 reg_is_fp(reg_id_t reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -408,6 +439,7 @@ instr_is_nop(instr_t *instr)
 bool
 opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -415,6 +447,7 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 instr_t *
 instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -423,6 +456,7 @@ DR_API
 bool
 instr_is_exclusive_load(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -431,6 +465,7 @@ DR_API
 bool
 instr_is_exclusive_store(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -439,6 +474,7 @@ DR_API
 bool
 instr_is_scatter(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -447,6 +483,7 @@ DR_API
 bool
 instr_is_gather(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -454,6 +491,7 @@ instr_is_gather(instr_t *instr)
 bool
 instr_is_jump_mem(instr_t *instr)
 {
+    /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
