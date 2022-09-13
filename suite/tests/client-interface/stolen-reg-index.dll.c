@@ -49,6 +49,24 @@ event_exit(void)
     drutil_exit();
 }
 
+void
+check_address(ptr_uint_t addr, ptr_uint_t opnd_top, ptr_uint_t opnd_bottom)
+{
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_INTEGER | DR_MC_CONTROL;
+    if (!dr_get_mcontext(dr_get_current_drcontext(), &mc))
+        DR_ASSERT(false);
+    opnd_t opnd;
+    *(((ptr_uint_t *)&opnd) + 1) = opnd_top;
+    *(ptr_uint_t *)&opnd = opnd_bottom;
+    ptr_uint_t emulated = (ptr_uint_t)opnd_compute_address(opnd, &mc);
+    if (emulated != addr) {
+        dr_printf("%s: instru 0x%lx vs emul 0x%lx\n", __FUNCTION__, addr, emulated);
+        DR_ASSERT(false);
+    }
+}
+
 /* Simply calls drutil_insert_get_mem_addr(). */
 static bool
 insert_get_addr(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t mref)
@@ -65,15 +83,25 @@ insert_get_addr(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t mref
         DR_ASSERT(false);
     }
 
-    /* XXX i#5498: We should check the address in reg_ptr for correctness. A
-     * constant reference address in this client to check for correctness based
-     * on the test binary stolen-reg-index is not a viable approach because
-     * different versions of compiler, linker/loader and OS will produce
-     * different addresses at runtime.
-     */
     if (!drutil_insert_get_mem_addr(drcontext, ilist, instr, mref, reg_ptr, reg_tmp)) {
         dr_printf("drutil_insert_get_mem_addr() failed!\n");
         return false;
+    }
+
+    /* Look for the precise stolen register cases in the test app. */
+    if (opnd_get_base(mref) == DR_REG_X0 &&
+        (opnd_get_index(mref) == dr_get_stolen_reg() ||
+         opnd_get_index(mref) == DR_REG_W28 && opnd_get_base(mref) == DR_REG_X0)) {
+        /* Call out to confirm we got the right address.
+         * DR's clean call args only support pointer-sized so we
+         * deconstruct the opnd_t.
+         */
+        DR_ASSERT(sizeof(mref) <= 2 * sizeof(ptr_uint_t));
+        ptr_uint_t opnd_top = *(((ptr_uint_t *)&mref) + 1);
+        ptr_uint_t opnd_bottom = *(ptr_uint_t *)&mref;
+        dr_insert_clean_call(drcontext, ilist, instr, check_address, false, 3,
+                             opnd_create_reg(reg_ptr), OPND_CREATE_INTPTR(opnd_top),
+                             OPND_CREATE_INTPTR(opnd_bottom));
     }
 
     if (drreg_unreserve_register(drcontext, ilist, instr, reg_tmp) != DRREG_SUCCESS)
