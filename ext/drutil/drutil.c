@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2022      Arm Limited   All rights reserved.
  * **********************************************************/
@@ -459,7 +459,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
              * before replace_stolen_reg() call.
              */
             if (is_index_32bit_stolen)
-                index = reg_64_to_32(stolen);
+                index = reg_64_to_32(index);
 #    endif
         }
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
