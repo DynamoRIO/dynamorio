@@ -6,6 +6,7 @@ create dir .*
 open file .*
 open file .*
 pre-DR start
+open file .*
 0: writing [0-9]+ bytes .*
 1: writing [0-9]+ bytes .*
 restore the write file function
