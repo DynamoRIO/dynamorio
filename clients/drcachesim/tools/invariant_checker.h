@@ -109,7 +109,8 @@ protected:
     // We provide this for subclasses to run these invariants with custom
     // failure reporting.
     virtual void
-    report_if_false(per_shard_t *shard, bool condition, const std::string &message);
+    report_if_false(per_shard_t *shard, bool condition,
+                    const std::string &invariant_name);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
