@@ -58,10 +58,10 @@ public:
 protected:
     void
     report_if_false(per_shard_t *shard, bool condition,
-                    const std::string &message) override
+                    const std::string &invariant_name) override
     {
         if (!condition) {
-            errors.push_back(message);
+            errors.push_back(invariant_name);
             error_tids.push_back(shard->tid);
             error_refs.push_back(shard->ref_count);
         }

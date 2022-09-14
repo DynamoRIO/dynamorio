@@ -57,11 +57,11 @@ invariant_checker_t::~invariant_checker_t()
 
 void
 invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
-                                     const std::string &message)
+                                     const std::string &invariant_name)
 {
     if (!condition) {
         std::cerr << "Trace invariant failure in T" << shard->tid << " at ref # "
-                  << shard->ref_count << ": " << message << "\n";
+                  << shard->ref_count << ": " << invariant_name << "\n";
         abort();
     }
 }
