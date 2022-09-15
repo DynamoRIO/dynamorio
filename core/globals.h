@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -431,6 +431,7 @@ extern bool dynamo_exited_log_and_stats; /* are stats and logfile shut down? */
 #endif
 extern bool dynamo_resetting;           /* in middle of global reset? */
 extern bool dynamo_all_threads_synched; /* are all other threads suspended safely? */
+extern bool dynamo_control_via_attach;  /* Attached (vs launched by DR). */
 /* Not guarded by DR_APP_EXPORTS because later detach implementations might not
  * go through the app interface.
  */

@@ -85,12 +85,27 @@ event_exit(void)
     dr_fprintf(STDERR, "Exit event\n");
 }
 
+static void
+event_post_attach(void)
+{
+    dr_fprintf(STDERR, "in %s\n", __FUNCTION__);
+}
+
+static void
+event_pre_detach(void)
+{
+    dr_fprintf(STDERR, "in %s\n", __FUNCTION__);
+}
+
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     print("in dr_client_main\n");
     dr_register_bb_event(event_bb);
     dr_register_exit_event(event_exit);
+    if (!dr_register_post_attach_event(event_post_attach))
+        print("Failed to register post-attach event");
+    dr_register_pre_detach_event(event_pre_detach);
 
     /* XXX i#975: add some more thorough tests of different events */
 }

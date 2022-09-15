@@ -752,6 +752,7 @@ our_init(int argc, char **argv, char **envp)
     }
 #endif
     if (takeover) {
+        dynamo_control_via_attach = true;
         if (dynamorio_app_init() == 0 /* success */) {
             dynamorio_app_take_over();
         }
