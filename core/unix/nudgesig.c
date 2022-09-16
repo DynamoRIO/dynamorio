@@ -67,7 +67,8 @@ create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask, uint f
     arg->client_arg = client_arg;
 
     /* ensure nudge_arg_t overlays how we expect it to */
-    if (info->si_signo != NUDGESIG_SIGNUM || info->si_code != SI_QUEUE)
+    if (info->si_signo != NUDGESIG_SIGNUM || info->si_code != SI_QUEUE ||
+        info->si_errno == 0)
         return false;
 
     return true;

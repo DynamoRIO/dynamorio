@@ -8329,7 +8329,7 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
 }
 
 static bool
-is_signal_for_us(kernel_siginfo_t *siginfo)
+is_signal_for_us(kernel_siginfo_t *siginfo, int sig_expecting)
 {
     /* Distinguish a nudge/suspend from an app signal.
      * On Linux with SYS_rt_tgsigqueueinfo support, it is much easier, since an
@@ -8346,7 +8346,7 @@ is_signal_for_us(kernel_siginfo_t *siginfo)
      */
     LOG(THREAD_GET, LOG_ASYNCH, 2, "%s T%d: sig=%d code=%d errno=%d\n", __FUNCTION__,
         get_sys_thread_id(), siginfo->si_signo, siginfo->si_code, siginfo->si_errno);
-    if (siginfo->si_signo != NUDGESIG_SIGNUM)
+    if (siginfo->si_signo != sig_expecting)
         return false;
     if (is_sigqueue_supported()) {
         if (siginfo->si_code != SI_QUEUE || siginfo->si_errno == 0)
@@ -8371,7 +8371,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     sig_full_cxt_t sc_full;
     ASSERT(ostd != NULL);
 
-    if (!is_signal_for_us(siginfo))
+    if (!is_signal_for_us(siginfo, SUSPEND_SIGNAL))
         return true; /* pass to app */
 
     if (is_sigqueue_supported() && SUSPEND_SIGNAL == NUDGESIG_SIGNUM) {
@@ -8530,7 +8530,7 @@ handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     instr_t instr;
     char buf[MAX_INSTR_LENGTH];
 
-    if (!is_signal_for_us(siginfo))
+    if (!is_signal_for_us(siginfo, NUDGESIG_SIGNUM))
         return true; /* pass to app */
 #ifndef VMX86_SERVER
     DODEBUG({

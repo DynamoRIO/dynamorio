@@ -900,6 +900,13 @@ detect_unsupported_syscalls()
     ASSERT(sigqueue_errno == -ENOSYS || sigqueue_errno == -EINVAL ||
            sigqueue_errno == -EFAULT);
     is_sigqueueinfo_enosys = sigqueue_errno == -ENOSYS;
+    if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
+        /* XXX i#5651: QEMU clears si_errno when we send our payload!
+         * For now we pretend this syscall doesn't work, to get basic apps
+         * working under QEMU.
+         */
+        is_sigqueueinfo_enosys = true;
+    }
 }
 #endif
 
@@ -950,6 +957,10 @@ d_r_os_init(void)
 
 #ifdef VMX86_SERVER
     vmk_init();
+#endif
+
+#if defined(LINUX)
+    detect_unsupported_syscalls();
 #endif
 
     /* The signal we use to suspend threads.
@@ -1023,9 +1034,6 @@ d_r_os_init(void)
 #endif
 #ifdef MACOS64
     tls_process_init();
-#endif
-#if defined(LINUX)
-    detect_unsupported_syscalls();
 #endif
 }
 
