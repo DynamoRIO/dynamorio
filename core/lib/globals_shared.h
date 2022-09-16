@@ -928,6 +928,7 @@ typedef enum {
  */
 enum {
     NUDGE_IS_INTERNAL = 0x01, /* nudge is internally generated */
+    NUDGE_IS_SUSPEND = 0x02,  /* This is an internal SUSPEND_SIGNAL. */
 #ifdef WINDOWS
     NUDGE_NUDGER_FREE_STACK = 0x02, /* nudger will free the nudge thread's stack so the
                                      * nudge thread itself shouldn't */
