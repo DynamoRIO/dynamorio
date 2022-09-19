@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,6 +67,10 @@ void
 instrument_init(void);
 void
 instrument_exit_event(void);
+void
+instrument_post_attach_event(void);
+void
+instrument_pre_detach_event(void);
 void
 instrument_exit(void);
 bool

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -737,4 +737,15 @@ dr_init(client_id_t id)
         dr_fprintf(STDERR, "failed to unregister for persist rw events");
     if (!dr_unregister_persist_patch(event_persist_patch))
         dr_fprintf(STDERR, "failed to unregister for persist patch event");
+
+#ifdef LINUX
+    /* On Linux, where we have a clear distinction between DR launching the process
+     * with zero threads and a later attach where there are threads, make sure
+     * the post_attach event return value can be used by clients.
+     */
+    if (dr_register_post_attach_event(exit_event1))
+        dr_fprintf(STDERR, "should fail to register for post-attach event");
+    if (dr_unregister_post_attach_event(exit_event1))
+        dr_fprintf(STDERR, "should fail to unregister for post-attach event");
+#endif
 }

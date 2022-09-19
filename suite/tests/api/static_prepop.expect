@@ -6,7 +6,9 @@ bb asm_label2
 bb asm_label3
 bb asm_return
 pre-DR start
+in event_post_attach
 pre-DR detach
+in event_pre_detach
 Exit event
 pre-DR init
 in dr_client_main
@@ -16,6 +18,8 @@ bb asm_label2
 bb asm_label3
 bb asm_return
 pre-DR start
+in event_post_attach
 pre-DR detach with stats
+in event_pre_detach
 Exit event
 all done

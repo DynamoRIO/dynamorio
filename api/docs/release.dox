@@ -169,6 +169,9 @@ Further non-compatibility-affecting changes include:
  - Changed the default drmemtrace offline file format from .gz to .zip and
    added the option -chunk_instr_count to control the split of a file within
    the .zip, which sets the granularity of a fast seek.
+ - Added dr_register_post_attach_event(), dr_unregister_post_attach_event(),
+   dr_register_pre_detach_event(), and dr_unregister_pre_detach_event().
+
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:

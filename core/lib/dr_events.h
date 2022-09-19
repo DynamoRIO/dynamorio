@@ -73,6 +73,62 @@ DR_API
 bool
 dr_unregister_exit_event(void (*func)(void));
 
+DR_API
+/**
+ * Registers a function which is called after all other threads have been taken over
+ * during a process attach event, whether externally triggered or internally triggered
+ * (via dr_app_start() or related functions).  If this process instance was not
+ * initiated by an attach or takeover methodology where multiple application threads may
+ * exist at the time of takeover (such as a process newly created on Linux), this
+ * registration function returns false.
+ *
+ * The attach methodology operates in a staggered fashion, with each thread being taken
+ * over and executed under DR control in turn.  If the application has many threads,
+ * threads taken over early in this process may execute substantial amounts of
+ * instrumented code before the threads taken over last start executing instrumented
+ * code.  The purpose of this event is to provide a single control point where all
+ * threads are known to be under DR control and running instrumented code.
+ */
+bool
+dr_register_post_attach_event(void (*func)(void));
+
+DR_API
+/**
+ * Unregister a callback function for the post-attach event (see
+ * dr_register_post_attach_event()).  \return true if unregistration is successful and
+ * false if it is not (e.g., \p func was not registered).
+ */
+bool
+dr_unregister_post_attach_event(void (*func)(void));
+
+DR_API
+/**
+ * Registers a function which is called at the start of a full detach of DR from the
+ * current process, whether externally triggered or internally triggered (via
+ * dr_app_stop_and_cleanup() or related functions), as well as at the start of DR
+ * sending all threads native but not cleaning up its own state (through dr_app_stop()).
+ *
+ * The detach methodology operates in a staggered fashion, with each thread being
+ * returned to native control in turn.  If the application has many threads, threads
+ * detached late in this process may execute substantial amounts of instrumented code
+ * before the full detach process is complete, while threads detached early are running
+ * natively.  The purpose of this event is to provide a single final control point where
+ * all threads are known to be under DR control and running instrumented code.  The exit
+ * event (see dr_register_exit_event()) is not called until after all other threads have
+ * been detached.
+ */
+void
+dr_register_pre_detach_event(void (*func)(void));
+
+DR_API
+/**
+ * Unregister a callback function for the post-attach event (see
+ * dr_register_pre_detach_event()).  \return true if unregistration is successful and
+ * false if it is not (e.g., \p func was not registered).
+ */
+bool
+dr_unregister_pre_detach_event(void (*func)(void));
+
 /**
  * Flags controlling the behavior of basic blocks and traces when emitted
  * into the code cache.  These flags are bitmasks that can be combined by

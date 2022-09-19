@@ -1874,6 +1874,8 @@ send_all_other_threads_native(void)
     wait_for_outstanding_nudges();
 #endif
 
+    instrument_pre_detach_event();
+
     /* Suspend all threads except those trying to synch with us */
     if (!synch_with_all_threads(desired_state, &threads, &num_threads,
                                 THREAD_SYNCH_NO_LOCKS_NO_XFER,
@@ -1995,6 +1997,8 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
      */
     if (!atomic_compare_exchange(&dynamo_detaching_flag, LOCK_FREE_STATE, LOCK_SET_STATE))
         return;
+
+    instrument_pre_detach_event();
 
     /* Unprotect .data for exit cleanup.
      * XXX: more secure to not do this until we've synched, but then need
