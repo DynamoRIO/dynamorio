@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,7 +50,7 @@
 
 /* shared with tools/nudgeunix.c */
 bool
-create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
+create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask, uint flags,
                             client_id_t client_id, uint64 client_arg)
 {
     nudge_arg_t *arg;
@@ -62,12 +62,16 @@ create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
     arg = (nudge_arg_t *)info;
     arg->version = NUDGE_ARG_CURRENT_VERSION;
     arg->nudge_action_mask = action_mask;
-    arg->flags = 0;
+    /* We only have 2 bits for flags. */
+    if (flags >= 4)
+        return false;
+    arg->flags = flags;
     arg->client_id = client_id;
     arg->client_arg = client_arg;
 
     /* ensure nudge_arg_t overlays how we expect it to */
-    if (info->si_signo != NUDGESIG_SIGNUM || info->si_code != SI_QUEUE)
+    if (info->si_signo != NUDGESIG_SIGNUM || info->si_code != SI_QUEUE ||
+        info->si_errno == 0)
         return false;
 
     return true;
@@ -80,7 +84,7 @@ send_nudge_signal(process_id_t pid, uint action_mask, client_id_t client_id,
 {
     kernel_siginfo_t info;
     int res;
-    if (!create_nudge_signal_payload(&info, action_mask, client_id, client_arg))
+    if (!create_nudge_signal_payload(&info, action_mask, 0, client_id, client_arg))
         return false;
     res = dynamorio_syscall(SYS_rt_sigqueueinfo, 3, pid, NUDGESIG_SIGNUM, &info);
     return (res >= 0);

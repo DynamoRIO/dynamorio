@@ -91,7 +91,7 @@ d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 
 extern bool
 create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask, client_id_t client_id,
-                            uint64 client_arg);
+                            uint flags, uint64 client_arg);
 #endif
 
 /* The minimum option size is 3, e.g., "-x ".  Note that we need the
@@ -2090,7 +2090,7 @@ dr_nudge_pid(process_id_t process_id, client_id_t client_id, uint64 arg, uint ti
     siginfo_t info;
     int res;
     /* construct the payload */
-    if (!create_nudge_signal_payload(&info, NUDGE_GENERIC(client), client_id, arg))
+    if (!create_nudge_signal_payload(&info, NUDGE_GENERIC(client), 0, client_id, arg))
         return DR_FAILURE;
     /* send the nudge */
     res = syscall(SYS_rt_sigqueueinfo, process_id, NUDGESIG_SIGNUM, &info);

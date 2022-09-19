@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.    All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.    All rights reserved.
  * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,7 +50,7 @@
 
 extern bool
 create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask, client_id_t client_id,
-                            uint64 client_arg);
+                            uint flags, uint64 client_arg);
 
 static const char *usage_str =
     "usage: drnudgeunix [-help] [-v] [-pid <pid>] [-type <type>] [-client <ID> <arg>]\n"
@@ -140,7 +140,7 @@ main(int argc, const char *argv[])
         return usage();
 
     /* construct the payload */
-    success = create_nudge_signal_payload(&info, action_mask, client_id, client_arg);
+    success = create_nudge_signal_payload(&info, action_mask, 0, client_id, client_arg);
     assert(success); /* failure means kernel's sigqueueinfo has changed */
 
     /* send the nudge */

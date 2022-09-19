@@ -5993,23 +5993,6 @@ main_signal_handler_C(byte *xsp)
         break;
     }
 
-    /* PR 212090: the signal we use to suspend threads */
-    case SUSPEND_SIGNAL:
-        if (handle_suspend_signal(dcontext, siginfo, ucxt, frame)) {
-            /* i#1921: see comment above */
-            ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext));
-            record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
-        }
-        /* else, don't deliver to app */
-        break;
-
-    /* i#61/PR 211530: the signal we use for nudges */
-    case NUDGESIG_SIGNUM:
-        if (handle_nudge_signal(dcontext, siginfo, ucxt))
-            record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
-        /* else, don't deliver to app */
-        break;
-
     case SIGALRM:
     case SIGVTALRM:
     case SIGPROF:
@@ -6037,6 +6020,26 @@ main_signal_handler_C(byte *xsp)
 #endif
 
     default: {
+        /* Handle nudges and suspends, which may use the same signal. */
+        if (sig == SUSPEND_SIGNAL) {
+            if (handle_suspend_signal(dcontext, siginfo, ucxt, frame)) {
+                /* i#1921: see comment above */
+                ASSERT(tr == NULL || tr->under_dynamo_control ||
+                       IS_CLIENT_THREAD(dcontext));
+                record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
+            }
+            /* else, don't deliver to app */
+            break;
+        }
+        /* This might be the same signal as SUSPEND_SIGNAL in which case this else() won't
+         * be entered (and handle_suspend_signal() will handle nudges too).
+         */
+        else if (sig == NUDGESIG_SIGNUM) {
+            if (handle_nudge_signal(dcontext, siginfo, ucxt))
+                record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
+            /* else, don't deliver to app */
+            break;
+        }
         record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
         break;
     }
@@ -8329,6 +8332,39 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
     ASSERT_NOT_REACHED();
 }
 
+static bool
+is_signal_for_us(kernel_siginfo_t *siginfo, int sig_expecting)
+{
+    /* Distinguish a nudge/suspend from an app signal.
+     * On Linux with SYS_rt_tgsigqueueinfo support, it is much easier, since an
+     * app using libc sigqueue()
+     * will never have its signal mistaken as libc does not expose the kernel_siginfo_t
+     * and always passes 0 for si_errno, so we're only worried beyond our
+     * si_code check about an app using a raw syscall that is deliberately
+     * trying to fool us.
+     * While there is a lot of padding space in kernel_siginfo_t, the kernel doesn't
+     * copy it through on SYS_rt_sigqueueinfo so we don't have room for any
+     * dedicated magic numbers.  The client id could function as a magic
+     * number for client nudges, but I don't think we want to kill the app
+     * if an external nudger types the client id wrong.
+     */
+    LOG(THREAD_GET, LOG_ASYNCH, 2, "%s T%d: sig=%d code=%d errno=%d\n", __FUNCTION__,
+        get_sys_thread_id(), siginfo->si_signo, siginfo->si_code, siginfo->si_errno);
+    if (siginfo->si_signo != sig_expecting)
+        return false;
+    if (is_sigqueue_supported()) {
+        if (siginfo->si_code != SI_QUEUE || siginfo->si_errno == 0)
+            return false;
+    } else {
+        /* Distinguish from a synchronous app signal by looking for
+         * si_code where <=0 means user-sent.
+         */
+        if (siginfo->si_code > 0)
+            return false;
+    }
+    return true;
+}
+
 /* Returns whether to pass on to app */
 static bool
 handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
@@ -8339,14 +8375,19 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     sig_full_cxt_t sc_full;
     ASSERT(ostd != NULL);
 
-    /* Distinguish up front from a synchronous app signal by looking for
-     * si_code where <=0 means user-sent.
-     * We distinguish further below from the rare case of an app sending
-     * SUSPEND_SIGNAL asynchronously by looking for our particular state settings
-     * that correspond to the use of this signal by DR..
-     */
-    if (siginfo->si_code > 0 || siginfo->si_signo != SUSPEND_SIGNAL)
+    if (!is_signal_for_us(siginfo, SUSPEND_SIGNAL))
         return true; /* pass to app */
+
+    if (is_sigqueue_supported() && SUSPEND_SIGNAL == NUDGESIG_SIGNUM) {
+        nudge_arg_t *arg = (nudge_arg_t *)siginfo;
+        if (!TEST(NUDGE_IS_SUSPEND, arg->flags))
+            return handle_nudge_signal(dcontext, siginfo, ucxt);
+    }
+
+    /* We distinguish from an app signal further below from the rare case of an
+     * app sending SUSPEND_SIGNAL asynchronously by looking for our particular
+     * state settings that correspond to the use of this signal by DR.
+     */
 
     if (ostd->terminate) {
         /* PR 297902: exit this thread, without using the dstack */
@@ -8493,25 +8534,8 @@ handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     instr_t instr;
     char buf[MAX_INSTR_LENGTH];
 
-    /* Distinguish a nudge from an app signal.  An app using libc sigqueue()
-     * will never have its signal mistaken as libc does not expose the kernel_siginfo_t
-     * and always passes 0 for si_errno, so we're only worried beyond our
-     * si_code check about an app using a raw syscall that is deliberately
-     * trying to fool us.
-     * While there is a lot of padding space in kernel_siginfo_t, the kernel doesn't
-     * copy it through on SYS_rt_sigqueueinfo so we don't have room for any
-     * dedicated magic numbers.  The client id could function as a magic
-     * number for client nudges, but I don't think we want to kill the app
-     * if an external nudger types the client id wrong.
-     */
-    LOG(THREAD, LOG_ASYNCH, 2, "%s: sig=%d code=%d errno=%d\n", __FUNCTION__,
-        siginfo->si_signo, siginfo->si_code, siginfo->si_errno);
-    if (siginfo->si_signo !=
-        NUDGESIG_SIGNUM
-            /* PR 477454: remove the IF_NOT_VMX86 once we have nudge-arg support */
-            IF_NOT_VMX86(|| siginfo->si_code != SI_QUEUE || siginfo->si_errno == 0)) {
+    if (!is_signal_for_us(siginfo, NUDGESIG_SIGNUM))
         return true; /* pass to app */
-    }
 #ifndef VMX86_SERVER
     DODEBUG({
         if (TEST(NUDGE_GENERIC(client), arg->nudge_action_mask) &&
@@ -8535,7 +8559,8 @@ handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
      * from a real illegal instr: though si_code for that should not be
      * SI_QUEUE.  It's possible a nudge happened to come at a bad instr before
      * it faulted, or maybe the instr after a syscall or other wait spot is
-     * illegal, but we'll live with that risk.
+     * illegal, but we'll live with that risk for nudges; we do not do this for
+     * suspend signals.
      */
     ASSERT(NUDGESIG_SIGNUM == SIGILL); /* else this check makes no sense */
     instr_init(dcontext, &instr);
