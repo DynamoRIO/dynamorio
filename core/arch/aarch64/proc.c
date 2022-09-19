@@ -182,7 +182,7 @@ proc_has_feature(feature_bit_t f)
     uint64 freg_val = 0;
 
     feature_reg_idx_t feat_reg = GET_FEAT_REG(f);
-    if (feat_reg >= AA64ISAR0 && feat_reg <= AA64PFR0) {
+    if (feat_reg >= AA64ISAR0 && feat_reg <= AA64MMFR1) {
         switch (feat_reg) {
         case AA64ISAR0: {
             freg_val = cpu_info.features.flags_aa64isar0;
