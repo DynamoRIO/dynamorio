@@ -78,7 +78,9 @@ DR_API
  * Registers a function which is called after all other threads have been taken over
  * during a process attach event, whether externally triggered or internally triggered
  * (via dr_app_start() or related functions).  If this process instance was not
- * initiated by an attach, this registration function returns false.
+ * initiated by an attach or takeover methodology where multiple application threads may
+ * exist at the time of takeover (such as a process newly created on Linux), this
+ * registration function returns false.
  *
  * The attach methodology operates in a staggered fashion, with each thread being taken
  * over and executed under DR control in turn.  If the application has many threads,
