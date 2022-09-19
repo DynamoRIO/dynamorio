@@ -198,6 +198,12 @@ typedef struct _callback_list_t {
 static callback_list_t exit_callbacks = {
     0,
 };
+static callback_list_t post_attach_callbacks = {
+    0,
+};
+static callback_list_t pre_detach_callbacks = {
+    0,
+};
 static callback_list_t thread_init_callbacks = {
     0,
 };
@@ -816,6 +822,8 @@ static void
 free_all_callback_lists()
 {
     free_callback_list(&exit_callbacks);
+    free_callback_list(&post_attach_callbacks);
+    free_callback_list(&pre_detach_callbacks);
     free_callback_list(&thread_init_callbacks);
     free_callback_list(&thread_exit_callbacks);
 #ifdef UNIX
@@ -867,6 +875,22 @@ instrument_exit_event(void)
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
              NULL);
+}
+
+void
+instrument_post_attach_event(void)
+{
+    if (!dynamo_control_via_attach) {
+        ASSERT(post_attach_callbacks.num == 0);
+        return;
+    }
+    call_all(post_attach_callbacks, int (*)(), NULL);
+}
+
+void
+instrument_pre_detach_event(void)
+{
+    call_all(pre_detach_callbacks, int (*)(), NULL);
 }
 
 void
@@ -969,6 +993,36 @@ bool
 dr_unregister_exit_event(void (*func)(void))
 {
     return remove_callback(&exit_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_register_post_attach_event(void (*func)(void))
+{
+    if (!dynamo_control_via_attach)
+        return false;
+    add_callback(&post_attach_callbacks, (void (*)(void))func, true);
+    return true;
+}
+
+bool
+dr_unregister_post_attach_event(void (*func)(void))
+{
+    return remove_callback(&post_attach_callbacks, (void (*)(void))func, true);
+}
+
+void
+dr_register_pre_detach_event(void (*func)(void))
+{
+    /* We do not want to rule out detaching when there was no attach, so we do
+     * not check dynamo_control_via_attach.
+     */
+    add_callback(&pre_detach_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_unregister_pre_detach_event(void (*func)(void))
+{
+    return remove_callback(&pre_detach_callbacks, (void (*)(void))func, true);
 }
 
 void

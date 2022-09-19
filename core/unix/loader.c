@@ -1607,9 +1607,9 @@ takeover_ptrace(ptrace_stack_args_t *args)
     NULL_TERMINATE_BUFFER(home_var);
     dynamorio_set_envp(fake_envp);
 
-    dynamorio_app_init();
+    dynamo_control_via_attach = true;
 
-    /* FIXME i#37: takeover other threads */
+    dynamorio_app_init();
 
     /* We need to wait until dr_inject_process_run() is called to finish
      * takeover, and this is an easy way to stop and return control to the
