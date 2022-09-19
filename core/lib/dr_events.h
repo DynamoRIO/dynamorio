@@ -106,12 +106,12 @@ DR_API
  * dr_app_stop_and_cleanup() or related functions), as well as at the start of DR
  * sending all threads native but not cleaning up its own state (through dr_app_stop()).
  *
- * The detach methodology operates in a staggered fashion, with each thread being return
- * to native control in turn.  If the application has many threads, threads detached
- * late in this process may execute substantial amounts of instrumented code before the
- * full detach process is complete, while threads detached early are running natively.
- * The purpose of this event is to provide a single final control point where all
- * threads are known to be under DR control and running instrumented code.  The exit
+ * The detach methodology operates in a staggered fashion, with each thread being
+ * returned to native control in turn.  If the application has many threads, threads
+ * detached late in this process may execute substantial amounts of instrumented code
+ * before the full detach process is complete, while threads detached early are running
+ * natively.  The purpose of this event is to provide a single final control point where
+ * all threads are known to be under DR control and running instrumented code.  The exit
  * event (see dr_register_exit_event()) is not called until after all other threads have
  * been detached.
  */

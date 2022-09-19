@@ -99,7 +99,11 @@ bool dynamo_heap_initialized = false;
 bool dynamo_started = false;
 bool automatic_startup = false;
 bool control_all_threads = false;
-bool dynamo_control_via_attach = false;
+/* On Windows we can't really tell attach apart from our default late
+ * injection, and we do see early threads in place which is the point of
+ * this flag: so we always set it.
+ */
+bool dynamo_control_via_attach = IF_WINDOWS_ELSE(true, false);
 #ifdef WINDOWS
 bool dr_early_injected = false;
 int dr_early_injected_location = INJECT_LOCATION_Invalid;

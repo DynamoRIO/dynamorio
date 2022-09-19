@@ -880,8 +880,10 @@ instrument_exit_event(void)
 void
 instrument_post_attach_event(void)
 {
-    if (!dynamo_control_via_attach)
+    if (!dynamo_control_via_attach) {
+        ASSERT(post_attach_callbacks.num == 0);
         return;
+    }
     call_all(post_attach_callbacks, int (*)(), NULL);
 }
 
@@ -1011,6 +1013,9 @@ dr_unregister_post_attach_event(void (*func)(void))
 void
 dr_register_pre_detach_event(void (*func)(void))
 {
+    /* We do not want to rule out detaching when there was no attach, so we do
+     * not check dynamo_control_via_attach.
+     */
     add_callback(&pre_detach_callbacks, (void (*)(void))func, true);
 }
 
