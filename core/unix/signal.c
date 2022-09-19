@@ -6030,7 +6030,11 @@ main_signal_handler_C(byte *xsp)
             }
             /* else, don't deliver to app */
             break;
-        } else if (sig == NUDGESIG_SIGNUM) {
+        }
+        /* This might be the same signal as SUSPEND_SIGNAL in which case this else() won't
+         * be entered (and handle_suspend_signal() will handle nudges too).
+         */
+        else if (sig == NUDGESIG_SIGNUM) {
             if (handle_nudge_signal(dcontext, siginfo, ucxt))
                 record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
             /* else, don't deliver to app */

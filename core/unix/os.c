@@ -512,7 +512,7 @@ our_libc_errno_loc(void)
 typedef int *(*errno_loc_t)(void);
 
 #ifdef LINUX
-/* Stores whether clone3 is unsupported on the system we're running on. */
+/* Stores whether certain syscalls are unsupported on the system we're running on. */
 static bool is_clone3_enosys = false;
 static bool is_sigqueueinfo_enosys = false;
 #endif
@@ -895,6 +895,9 @@ detect_unsupported_syscalls()
         dynamorio_syscall(SYS_clone3, 2, NULL /*clone_args*/, 0 /*clone_args_size*/);
     ASSERT(clone3_errno == -ENOSYS || clone3_errno == -EINVAL);
     is_clone3_enosys = clone3_errno == -ENOSYS;
+    /* We expect sigqueueinfo to fail with EFAULT on the NULL but we allow EINVAL
+     * on the signal number to support kernel variation.
+     */
     int sigqueue_errno = dynamorio_syscall(SYS_rt_tgsigqueueinfo, 4, get_process_id(),
                                            get_sys_thread_id(), -1, NULL);
     ASSERT(sigqueue_errno == -ENOSYS || sigqueue_errno == -EINVAL ||
@@ -3769,8 +3772,11 @@ send_suspend_signal(thread_record_t *tr, pid_t pid, thread_id_t tid)
         return thread_signal(pid, tid, SUSPEND_SIGNAL);
 #else
     if (is_sigqueueinfo_enosys) {
-        /* We won't be able to distinguish a suspend from a nudge, but we don't
-         * support nudges on old Linux kernels anyway (<2.6.31).
+        /* We'd prefer to use sigqueueinfo to better distinguish our signals from app
+         * signals, and to support SUSPEND_SIGNAL == NUDGESIG_SIGNUM.  If sigqueueinfo
+         * is not available and SUSPEND_SIGNAL == NUDGESIG_SIGNUM, we won't be able to
+         * distinguish a suspend from a nudge, but we don't support nudges on old Linux
+         * kernels anyway (<2.6.31).
          */
         if (tr != NULL)
             return known_thread_signal(tr, SUSPEND_SIGNAL);

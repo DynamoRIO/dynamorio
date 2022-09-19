@@ -62,6 +62,9 @@ create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask, uint f
     arg = (nudge_arg_t *)info;
     arg->version = NUDGE_ARG_CURRENT_VERSION;
     arg->nudge_action_mask = action_mask;
+    /* We only have 2 bits for flags. */
+    if (flags >= 4)
+        return false;
     arg->flags = flags;
     arg->client_id = client_id;
     arg->client_arg = client_arg;
