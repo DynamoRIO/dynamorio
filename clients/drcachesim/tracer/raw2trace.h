@@ -797,12 +797,23 @@ protected:
                     return err;
                 buf += trace_metadata_writer_t::write_marker(
                     buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
-                if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-                    impl()->log(4, "Signal/exception between bbs\n");
+                if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_ARG ||
+                    in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_RETADDR ||
+                    in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_RETVAL ||
+                    in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
+                    std::string error = impl()->write_delayed_branches(
+                        tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+                    if (!error.empty())
+                        return error;
+                    return "";
+                } else {
+                    if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                        impl()->log(4, "Signal/exception between bbs\n");
+                    }
+                    impl()->log(3, "Appended marker type %u value " PIFX "\n",
+                                (trace_marker_type_t)in_entry->extended.valueB,
+                                (uintptr_t)in_entry->extended.valueA);
                 }
-                impl()->log(3, "Appended marker type %u value " PIFX "\n",
-                            (trace_marker_type_t)in_entry->extended.valueB,
-                            (uintptr_t)in_entry->extended.valueA);
             } else {
                 std::stringstream ss;
                 ss << "Invalid extension type " << (int)in_entry->extended.ext;
