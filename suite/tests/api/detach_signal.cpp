@@ -64,7 +64,7 @@
 #ifdef MACOS
 #    define DR_SUSPEND_SIGNAL SIGFPE /* DR's takeover signal. */
 #else
-#    define DR_SUSPEND_SIGNAL SIGSTKFLT /* DR's takeover signal. */
+#    define DR_SUSPEND_SIGNAL SIGILL /* DR's takeover signal. */
 #endif
 
 static volatile bool sideline_exit = false;

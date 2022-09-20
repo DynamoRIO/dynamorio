@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,6 +57,9 @@
 static size_t xstate_size;
 static bool xstate_has_extra_fields;
 
+/* We use this early enough during init that we assume there is no confusion
+ * with NUDGESIG_SIGNUM or SUSPEND_SIGNAL as DR's main handler is not set up yet.
+ */
 #define XSTATE_QUERY_SIG SIGILL
 
 /**** floating point support ********************************************/

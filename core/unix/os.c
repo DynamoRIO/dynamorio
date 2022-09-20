@@ -512,9 +512,12 @@ our_libc_errno_loc(void)
 typedef int *(*errno_loc_t)(void);
 
 #ifdef LINUX
-/* Stores whether clone3 is unsupported on the system we're running on. */
+/* Stores whether certain syscalls are unsupported on the system we're running on. */
 static bool is_clone3_enosys = false;
+static bool is_sigqueueinfo_enosys = false;
 #endif
+
+int suspend_signum;
 
 static errno_loc_t
 get_libc_errno_location(bool do_init)
@@ -892,8 +895,29 @@ detect_unsupported_syscalls()
         dynamorio_syscall(SYS_clone3, 2, NULL /*clone_args*/, 0 /*clone_args_size*/);
     ASSERT(clone3_errno == -ENOSYS || clone3_errno == -EINVAL);
     is_clone3_enosys = clone3_errno == -ENOSYS;
+    /* We expect sigqueueinfo to fail with EFAULT on the NULL but we allow EINVAL
+     * on the signal number to support kernel variation.
+     */
+    int sigqueue_errno = dynamorio_syscall(SYS_rt_tgsigqueueinfo, 4, get_process_id(),
+                                           get_sys_thread_id(), -1, NULL);
+    ASSERT(sigqueue_errno == -ENOSYS || sigqueue_errno == -EINVAL ||
+           sigqueue_errno == -EFAULT);
+    is_sigqueueinfo_enosys = sigqueue_errno == -ENOSYS;
+    if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
+        /* XXX i#5651: QEMU clears si_errno when we send our payload!
+         * For now we pretend this syscall doesn't work, to get basic apps
+         * working under QEMU.
+         */
+        is_sigqueueinfo_enosys = true;
+    }
 }
 #endif
+
+bool
+is_sigqueue_supported(void)
+{
+    return IF_LINUX_ELSE(!is_sigqueueinfo_enosys, false);
+}
 
 /* os-specific initializations */
 void
@@ -936,6 +960,31 @@ d_r_os_init(void)
 
 #ifdef VMX86_SERVER
     vmk_init();
+#endif
+
+#if defined(LINUX)
+    detect_unsupported_syscalls();
+#endif
+
+    /* The signal we use to suspend threads.
+     * We choose a normally-synchronous signal for a lower chance that the app has
+     * blocked it when we attach to an already-running app.
+     * On Linux where we have SYS_rt_sigqueueinfo we use
+     * SIGILL and share with nudges, distinguishing via the NUDGE_IS_SUSPEND flag.
+     * (For pre-2.6.31 Linux kernels without SYS_rt_sigqueueinfo nudges are not
+     * supported so there are no collisions there).
+     * (We initially used SIGSTKFLT but gdb has poor support for it.)
+     * Unfortunately, QEMU crashes when we send SIGILL or SIGFPE to its thread trying
+     * to take it over, so we are forced to dynamically vary the number and we switch
+     * to SIGSTKFLT for QEMU where we live with the lack of gdb support.
+     */
+    suspend_signum = IF_MACOS_ELSE(SIGFPE, NUDGESIG_SIGNUM);
+#ifdef LINUX
+    if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
+        /* We assume we're under QEMU. */
+        LOG(GLOBAL, LOG_TOP | LOG_ASYNCH, 1, "switching suspend signal to SIGSTKFLT\n");
+        suspend_signum = SIGSTKFLT;
+    }
 #endif
 
     d_r_signal_init();
@@ -988,9 +1037,6 @@ d_r_os_init(void)
 #endif
 #ifdef MACOS64
     tls_process_init();
-#endif
-#if defined(LINUX)
-    detect_unsupported_syscalls();
 #endif
 }
 
@@ -3620,7 +3666,6 @@ thread_signal(process_id_t pid, thread_id_t tid, int signum)
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #else
-    /* FIXME: for non-NPTL use SYS_kill */
     /* Note that the pid is equivalent to the thread group id.
      * However, we can have threads sharing address space but not pid
      * (if created via CLONE_VM but not CLONE_THREAD), so make sure to
@@ -3642,7 +3687,9 @@ thread_signal_queue(process_id_t pid, thread_id_t tid, int signum, void *value)
     info.si_signo = signum;
     info.si_code = SI_QUEUE;
     info.si_value.sival_ptr = value;
-    /* SYS_rt_sigqueueinfo is on 2.6.31+ so we expect failure on older kernels. */
+    /* SYS_rt_sigqueueinfo is on 2.6.31+ so we expect failure on older kernels.
+     * The caller can use is_sigqueue_supported() to check.
+     */
     return dynamorio_syscall(SYS_rt_tgsigqueueinfo, 4, pid, tid, signum, &info) == 0;
 #endif
 }
@@ -3714,6 +3761,37 @@ os_thread_sleep(uint64 milliseconds)
 #endif
 }
 
+/* For an unknown thread, pass tr==NULL.  Always pass pid and tid. */
+static bool
+send_suspend_signal(thread_record_t *tr, pid_t pid, thread_id_t tid)
+{
+#ifdef MACOS
+    if (tr != NULL)
+        return known_thread_signal(tr, SUSPEND_SIGNAL);
+    else
+        return thread_signal(pid, tid, SUSPEND_SIGNAL);
+#else
+    if (is_sigqueueinfo_enosys) {
+        /* We'd prefer to use sigqueueinfo to better distinguish our signals from app
+         * signals, and to support SUSPEND_SIGNAL == NUDGESIG_SIGNUM.  If sigqueueinfo
+         * is not available and SUSPEND_SIGNAL == NUDGESIG_SIGNUM, we won't be able to
+         * distinguish a suspend from a nudge, but we don't support nudges on old Linux
+         * kernels anyway (<2.6.31).
+         */
+        if (tr != NULL)
+            return known_thread_signal(tr, SUSPEND_SIGNAL);
+        else
+            return thread_signal(pid, tid, SUSPEND_SIGNAL);
+    }
+    kernel_siginfo_t info;
+    if (!create_nudge_signal_payload(&info, 0, NUDGE_IS_SUSPEND, 0, 0))
+        return false;
+    ptr_int_t res =
+        dynamorio_syscall(SYS_rt_tgsigqueueinfo, 4, pid, tid, SUSPEND_SIGNAL, &info);
+    return (res >= 0);
+#endif
+}
+
 bool
 os_thread_suspend(thread_record_t *tr)
 {
@@ -3736,7 +3814,7 @@ os_thread_suspend(thread_record_t *tr)
          * to match Windows behavior.
          */
         ASSERT(ksynch_get_value(&ostd->suspended) == 0);
-        if (!known_thread_signal(tr, SUSPEND_SIGNAL)) {
+        if (!send_suspend_signal(tr, tr->pid, tr->id)) {
             ostd->suspend_count--;
             d_r_mutex_unlock(&ostd->suspend_lock);
             return false;
@@ -3824,7 +3902,7 @@ os_thread_terminate(thread_record_t *tr)
     /* Even if the thread is currently suspended, it's simpler to send it
      * another signal than to resume it.
      */
-    return known_thread_signal(tr, SUSPEND_SIGNAL);
+    return send_suspend_signal(tr, tr->pid, tr->id);
 }
 
 bool
@@ -10703,7 +10781,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 
         /* Signal the other threads. */
         for (i = 0; i < threads_to_signal; i++) {
-            thread_signal(get_process_id(), records[i].tid, SUSPEND_SIGNAL);
+            send_suspend_signal(NULL, get_process_id(), records[i].tid);
         }
         d_r_mutex_unlock(&thread_initexit_lock);
 

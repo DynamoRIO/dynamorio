@@ -78,11 +78,9 @@ the shared library that identifies the debug file.
 
 ## Expected Signals
 
-On Linux, DR sends itself a SIGILL signal during initialization, in order to measure the size of the signal frame used by the kernel.  If you are under gdb, simply continue past this signal.
+On Linux, DR sends itself a SIGILL signal during initialization, in order to measure the size of the signal frame used by the kernel.  If you are under gdb, simply continue past this signal.  SIGILL (SIGFPE on MacOS; SIGSTKFLT inside QEMU where the others crash QEMU (but note the poor support for SIGSTKFLT in gdb)) is also sent to other threads when attaching to a multi-threaded application and to suspend or terminate them later on during execution.
 
 Additionally, DR uses various "safe read" strategies where it may raise a SIGSEGV or SIGBUS while examining application memory.  Load symbols and look for `safe_read` variants on the call stack (such as `safe_read_tls_magic`, `safe_read_asm_pre`, `safe_read_fast`) to identify these.  Just like with the init-time SIGILL, simply continue past these.
-
-One final signal used by DR is SIGSTKFLT (SIGFPE on MacOS), which is sent to other threads to suspend or terminate them.
 
 ## Attaching
 

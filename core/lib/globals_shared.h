@@ -923,12 +923,14 @@ typedef enum {
 #define NUDGE_ARG_VERSION_1 1
 #define NUDGE_ARG_CURRENT_VERSION NUDGE_ARG_VERSION_1
 
-/* nudge_arg_t flags
- * On Linux only 2 bits for these
+/* nudge_arg_t bitfield flags.
+ * On UNIX we only have space for 2 bits for these.
  */
 enum {
-    NUDGE_IS_INTERNAL = 0x01, /* nudge is internally generated */
-#ifdef WINDOWS
+    NUDGE_IS_INTERNAL = 0x01, /* The nudge is internally generated. */
+#ifdef UNIX
+    NUDGE_IS_SUSPEND = 0x02, /* This is an internal SUSPEND_SIGNAL. */
+#else
     NUDGE_NUDGER_FREE_STACK = 0x02, /* nudger will free the nudge thread's stack so the
                                      * nudge thread itself shouldn't */
     NUDGE_FREE_ARG = 0x04,          /* nudge arg is in a separate allocation and should
@@ -952,9 +954,9 @@ typedef struct {
     uint flags : 2;
     int ignored2; /* siginfo_t.si_code: has meaning to kernel so we avoid using */
 #else
-    uint version;           /* version number for future proofing */
-    uint nudge_action_mask; /* drawn from NUDGE_DEFS above */
-    uint flags;             /* flags drawn from above enum */
+    uint version;                   /* version number for future proofing */
+    uint nudge_action_mask;         /* drawn from NUDGE_DEFS above */
+    uint flags;                     /* flags drawn from above enum */
 #endif
     client_id_t client_id; /* unique ID identifying client */
     uint64 client_arg;     /* argument for a client nudge */

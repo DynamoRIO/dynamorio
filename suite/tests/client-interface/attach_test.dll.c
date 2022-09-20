@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -88,6 +88,12 @@ dr_exception_event(void *drcontext, dr_exception_t *excpt)
 }
 #endif
 
+static void
+event_post_attach(void)
+{
+    dr_fprintf(STDERR, "%s\n", __FUNCTION__);
+}
+
 DR_EXPORT
 void
 dr_init(client_id_t id)
@@ -99,5 +105,7 @@ dr_init(client_id_t id)
 #ifdef WINDOWS
     dr_register_exception_event(dr_exception_event);
 #endif
+    if (!dr_register_post_attach_event(event_post_attach))
+        dr_fprintf(STDERR, "Failed to register post-attach event");
     dr_fprintf(STDERR, "thank you for testing attach\n");
 }

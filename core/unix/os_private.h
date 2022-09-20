@@ -85,16 +85,10 @@
 #define MACHINE_TLS_IS_DR_TLS IF_X86_ELSE(INTERNAL_OPTION(mangle_app_seg), true)
 
 /* The signal we use to suspend threads.
- * We choose a normally-synchronous signal for a lower chance that the app has
- * blocked it when we attach to an already-running app.
- * SIGFPE is a good choice, but when running under QEMU, QEMU crashes
- * when we send it, so we use SIGSTKFLT (which does not exist on Mac:
- * there we use SIGFPE).
- * We could conceivably make this a variable controlled by a runtime option,
- * but it has a number of limitations, and the checks for it being user-sent
- * would need to be flexible: it doesn't seem worth the complexity at this point.
+ * It may equal NUDGESIG_SIGNUM.
  */
-#define SUSPEND_SIGNAL IF_MACOS_ELSE(SIGFPE, SIGSTKFLT)
+extern int suspend_signum;
+#define SUSPEND_SIGNAL suspend_signum
 
 #ifdef MACOS
 /* While there is no clone system call, we use the same clone flags to share
@@ -277,6 +271,9 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 
 bool
 is_sigreturn_syscall_number(int sysnum);
+
+bool
+is_sigqueue_supported(void);
 
 /* in signal.c */
 struct _kernel_sigaction_t;
@@ -468,7 +465,7 @@ init_android_version(void);
 
 /* in nudgesig.c */
 bool
-create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
+create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask, uint flags,
                             client_id_t client_id, uint64 client_arg);
 
 #ifdef X86

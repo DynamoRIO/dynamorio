@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -115,6 +115,18 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     return DR_EMIT_DEFAULT;
 }
 
+static void
+event_post_attach(void)
+{
+    print("in %s\n", __FUNCTION__);
+}
+
+static void
+event_pre_detach(void)
+{
+    print("in %s\n", __FUNCTION__);
+}
+
 static volatile bool sideline_exit = false;
 static void *sideline_continue;
 static void *go_native;
@@ -203,6 +215,9 @@ main(void)
      * just using it for testing.
      */
     dr_register_bb_event(event_bb);
+    if (!dr_register_post_attach_event(event_post_attach))
+        print("Failed to register post-attach event");
+    dr_register_pre_detach_event(event_pre_detach);
 
     /* Wait for all the threads to be scheduled */
     VPRINT("waiting for ready\n");
