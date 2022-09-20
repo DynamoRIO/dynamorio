@@ -182,7 +182,7 @@ proc_has_feature(feature_bit_t f)
     uint64 freg_val = 0;
 
     feature_reg_idx_t feat_reg = GET_FEAT_REG(f);
-    if (feat_reg >= AA64ISAR0 && feat_reg <= AA64PFR0) {
+    if (feat_reg >= AA64ISAR0 && feat_reg <= AA64DFR0) {
         switch (feat_reg) {
         case AA64ISAR0: {
             freg_val = cpu_info.features.flags_aa64isar0;
@@ -198,6 +198,10 @@ proc_has_feature(feature_bit_t f)
         }
         case AA64MMFR1: {
             freg_val = cpu_info.features.flags_aa64mmfr1;
+            break;
+        }
+        case AA64DFR0: {
+            freg_val = cpu_info.features.flags_aa64dfr0;
             break;
         }
         default: CLIENT_ASSERT(false, "proc_has_feature: feature register index error");
