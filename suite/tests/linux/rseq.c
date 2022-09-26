@@ -959,6 +959,10 @@ main()
     int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
     if (res == 0) {
 #ifdef RSEQ_TEST_ATTACH
+        /* Set -offline to avoid trying to open a pipe to a missing reader. */
+        if (setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'",
+                   1 /*override*/) != 0)
+            return 1;
         /* Create a thread that sits in the rseq region, to test attaching and detaching
          * from inside the region.
          */
