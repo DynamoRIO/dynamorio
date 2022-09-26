@@ -849,6 +849,11 @@ enum {
     /** Identifies the end of a clean call. */
     /* This is used to allow instrumentation pre-and-post a clean call for i#4128. */
     DR_NOTE_CLEAN_CALL_END,
+    /**
+     * Identifies a point at which clients should restore all registers to
+     * their application values, as required for DR's internal block mangling.
+     */
+    DR_NOTE_REG_BARRIER,
 };
 
 /**

@@ -8298,6 +8298,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (xfer && (entered_rseq || exited_rseq || pc == next_boundary)) {
                 LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
                     "Stopping bb at rseq boundary " PFX "\n", pc);
+                if (exited_rseq)
+                    *flags |= FRAG_HAS_RSEQ_ENDPOINT;
                 result = false;
             }
         }

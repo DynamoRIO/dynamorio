@@ -142,8 +142,13 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* Store the entry into the ptr. */
         "leaq rseq_cs_simple(%%rip), %%rax\n\t"
         "movq %%rax, %[rseq_tls]\n\t"
-        /* Test a register input to the sequence. */
+        /* Test register inputs to the sequence. */
         "movl %[cpu_id], %%eax\n\t"
+        "movq %%rsp, %%rcx\n\t"
+        "movq %%rsp, %%rdx\n\t"
+        "movq %%rsp, %%rbx\n\t"
+        "movq %%rsp, %%rdi\n\t"
+        "movq %%rsp, %%rsi\n\t"
         /* Test "falling into" the rseq region. */
 
         /* Restartable sequence. */
@@ -151,6 +156,15 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "movl %%eax, %[id]\n\t"
         /* Test clobbering an input register. */
         "movl %[cpu_id_uninit], %%eax\n\t"
+        /* Test reading many registers to stress drreg (e.g., i#5668).
+         * This is easier in x86 where we can exhaust drreg's choices.
+         * We do not attempt on aarch64 for simplicity.
+         */
+        "movq (%%rcx), %%rax\n\t"
+        "movq (%%rdx), %%rax\n\t"
+        "movq (%%rbx), %%rax\n\t"
+        "movq (%%rdi), %%rax\n\t"
+        "movq (%%rsi), %%rax\n\t"
         /* Test a restart in the middle of the sequence via ud2a SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
@@ -186,7 +200,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
           [force_restart_write] "=m"(force_restart)
         : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
           [force_restart] "m"(force_restart)
-        : "rax", "memory");
+        : "rax", "rcx", "rdx", "rbx", "rdi", "rsi", "memory");
 #elif defined(AARCH64)
     __asm__ __volatile__(
         RSEQ_ADD_TABLE_ENTRY(simple, 2f, 3f, 4f)
