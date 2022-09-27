@@ -327,6 +327,8 @@ test_marker_placement(void *drcontext)
     //    between the instrs in the block.
     // 2) A block with an implicit memref for the first instr, to reproduce i#5620
     //    where markers should wait for the memref (and subsequent implicit instrs).
+    // 3) A block with an implicit memref for the first instr, to reproduce
+    //    i##5656 where markers (along with branches) should be delayed.
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *move2 =
@@ -341,6 +343,9 @@ test_marker_placement(void *drcontext)
 #endif
     instr_t *move3 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *load2 = XINST_CREATE_load(drcontext, opnd_create_reg(REG1),
+                                       opnd_create_mem_instr(move3, 0, OPSZ_PTR));
+    instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(load2));
     instrlist_append(ilist, nop);
     // Block 1.
     instrlist_append(ilist, move1);
@@ -348,10 +353,18 @@ test_marker_placement(void *drcontext)
     // Block 2.
     instrlist_append(ilist, load1);
     instrlist_append(ilist, move3);
+
+    // Block 3.
+    instrlist_append(ilist, load2);
+    instrlist_append(ilist, jmp);
+
     size_t offs_nop = 0;
     size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
     size_t offs_move2 = offs_move1 + instr_length(drcontext, move1);
     size_t offs_load1 = offs_move2 + instr_length(drcontext, move2);
+    size_t offs_move3 = offs_load1 + instr_length(drcontext, load1);
+    size_t offs_load2 = offs_move3 + instr_length(drcontext, move3);
+    size_t offs_jmp = offs_load2 + instr_length(drcontext, load2);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -367,6 +380,11 @@ test_marker_placement(void *drcontext)
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, 0));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_RETADDR, 4));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 2));
+    raw.push_back(make_block(offs_load2, 1));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, 0));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_RETADDR, 4));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 2));
+    raw.push_back(make_block(offs_jmp, 1));
     raw.push_back(make_exit());
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -424,6 +442,12 @@ test_marker_placement(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }

@@ -797,10 +797,7 @@ protected:
                     return err;
                 buf += trace_metadata_writer_t::write_marker(
                     buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
-                if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_ARG ||
-                    in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_RETADDR ||
-                    in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_RETVAL ||
-                    in_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
+                if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
                     std::string error = impl()->write_delayed_branches(
                         tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
                     if (!error.empty())
@@ -1328,7 +1325,9 @@ private:
                 // than here (and we are ok bailing on doing this for online traces), so
                 // we handle it in post-processing by delaying a thread-block-final branch
                 // (and its memrefs) to that thread's next block.  This changes the
-                // timestamp of the branch, which we live with.
+                // timestamp of the branch, which we live with. To avoid marker
+                // misplacement (e.g. in the middle of a basic block), we also
+                // delay markers.
                 impl()->log(4, "Delaying %d entries\n", buf - buf_start);
                 error = impl()->write_delayed_branches(tls, buf_start, buf);
                 if (!error.empty())
@@ -1435,11 +1434,10 @@ private:
                     // not-inside-a-block main loop.
                 }
             } else {
-                // Other than kernel event markers checked above, markers should be
-                // only at block boundaries, as we cannot figure out where they should go
-                // (and could easily insert them in the middle of this block instead
-                // of between this and the next block, with implicit instructions added).
-                // Thus, we do not append any other markers.
+                // All markers should be only at block boundaries, as we cannot
+                // figure out where they should go (and could easily insert them in the
+                // middle of this block instead of between this and the next block, with
+                // implicit instructions added). Thus, we do not append any other markers.
             }
             if (append) {
                 byte *buf = reinterpret_cast<byte *>(*buf_in);
