@@ -1,0 +1,95 @@
+# **********************************************************
+# Copyright (c) 2022 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Test data for DynamoRIO's AArch64 SVE encoder, decoder and disassembler.
+
+# This file contains colon-separated fields that are used to
+# test the decoder.
+
+# The first field contains the hex encoding of the instruction and
+# its operands.
+
+# The second field is the disassembly of the first field and is not
+# used by testing.
+
+# The optional third field is the expected encoding of the instruction if the
+# re-encoding differs from the initial encoding in the first field. This
+# is usually set if the instruction has "soft bits" which are required
+# to be ignored.
+
+# The fourth field (or third if no expected encoding is present) is the
+# disassembly that is expected to be produced by DynamoRIO. It is both case
+# and white-space sensitive.
+
+# Tests:
+043e0362 : add z2.b, z27.b, z30.b                   : add    %z27 %z30 $0x00 -> %z2
+047e0362 : add z2.h, z27.h, z30.h                   : add    %z27 %z30 $0x01 -> %z2
+04be0362 : add z2.s, z27.s, z30.s                   : add    %z27 %z30 $0x02 -> %z2
+04fe0362 : add z2.d, z27.d, z30.d                   : add    %z27 %z30 $0x03 -> %z2
+
+041a06ff : and z31.b, p1/m, z31.b, z23.b            : and    %p1 %z31 %z23 $0x00 -> %z31
+045a06ff : and z31.h, p1/m, z31.h, z23.h            : and    %p1 %z31 %z23 $0x01 -> %z31
+049a06ff : and z31.s, p1/m, z31.s, z23.s            : and    %p1 %z31 %z23 $0x02 -> %z31
+04da06ff : and z31.d, p1/m, z31.d, z23.d            : and    %p1 %z31 %z23 $0x03 -> %z31
+
+041b0b02 : bic z2.b, p2/m, z2.b, z24.b              : bic    %p2 %z2 %z24 $0x00 -> %z2
+045b0b02 : bic z2.h, p2/m, z2.h, z24.h              : bic    %p2 %z2 %z24 $0x01 -> %z2
+049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
+04db0b02 : bic z2.d, p2/m, z2.d, z24.d              : bic    %p2 %z2 %z24 $0x03 -> %z2
+
+0419105d : eor z29.b, p4/m, z29.b, z2.b             : eor    %p4 %z29 %z2 $0x00 -> %z29
+0459105d : eor z29.h, p4/m, z29.h, z2.h             : eor    %p4 %z29 %z2 $0x01 -> %z29
+0499105d : eor z29.s, p4/m, z29.s, z2.s             : eor    %p4 %z29 %z2 $0x02 -> %z29
+04d9105d : eor z29.d, p4/m, z29.d, z2.d             : eor    %p4 %z29 %z2 $0x03 -> %z29
+
+04181da2 : orr z2.b, p7/m, z2.b, z13.b              : orr    %p7 %z2 %z13 $0x00 -> %z2
+04581da2 : orr z2.h, p7/m, z2.h, z13.h              : orr    %p7 %z2 %z13 $0x01 -> %z2
+04981da2 : orr z2.s, p7/m, z2.s, z13.s              : orr    %p7 %z2 %z13 $0x02 -> %z2
+04d81da2 : orr z2.d, p7/m, z2.d, z13.d              : orr    %p7 %z2 %z13 $0x03 -> %z2
+
+043719e4 : sqsub z4.b, z15.b, z23.b                 : sqsub  %z15 %z23 $0x00 -> %z4
+047719e4 : sqsub z4.h, z15.h, z23.h                 : sqsub  %z15 %z23 $0x01 -> %z4
+04b719e4 : sqsub z4.s, z15.s, z23.s                 : sqsub  %z15 %z23 $0x02 -> %z4
+04f719e4 : sqsub z4.d, z15.d, z23.d                 : sqsub  %z15 %z23 $0x03 -> %z4
+
+043d05a0 : sub z0.b, z13.b, z29.b                   : sub    %z13 %z29 $0x00 -> %z0
+047d05a0 : sub z0.h, z13.h, z29.h                   : sub    %z13 %z29 $0x01 -> %z0
+04bd05a0 : sub z0.s, z13.s, z29.s                   : sub    %z13 %z29 $0x02 -> %z0
+04fd05a0 : sub z0.d, z13.d, z29.d                   : sub    %z13 %z29 $0x03 -> %z0
+
+043417e2 : uqadd z2.b, z31.b, z20.b                 : uqadd  %z31 %z20 $0x00 -> %z2
+047417e2 : uqadd z2.h, z31.h, z20.h                 : uqadd  %z31 %z20 $0x01 -> %z2
+04b417e2 : uqadd z2.s, z31.s, z20.s                 : uqadd  %z31 %z20 $0x02 -> %z2
+04f417e2 : uqadd z2.d, z31.d, z20.d                 : uqadd  %z31 %z20 $0x03 -> %z2
+
+04281f42 : uqsub z2.b, z26.b, z8.b                  : uqsub  %z26 %z8 $0x00 -> %z2
+04681f42 : uqsub z2.h, z26.h, z8.h                  : uqsub  %z26 %z8 $0x01 -> %z2
+04a81f42 : uqsub z2.s, z26.s, z8.s                  : uqsub  %z26 %z8 $0x02 -> %z2
+04e81f42 : uqsub z2.d, z26.d, z8.d                  : uqsub  %z26 %z8 $0x03 -> %z2
