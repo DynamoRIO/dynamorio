@@ -34,6 +34,7 @@
  * by the cache simulator and other analysis tools.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
 #include "dr_api.h"
 #include "drcovlib.h"
 #include "raw2trace.h"
