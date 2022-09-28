@@ -686,6 +686,11 @@ struct trace_header_t {
  * Otherwise, remembers that an encoding is being emitted now, and returns true.
  * </LI>
  *
+ * <LI>void raw2trace_t::rollback_last_encoding(void *tls)
+ *
+ * Removes the record of the last encoding remembered in record_encoding_emitted().
+ * </LI>
+ *
  * <LI>bool raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
  * int index) const
  *
@@ -1445,6 +1450,12 @@ private:
                         // there should be no (other) intra-bb markers not for the store.
                         impl()->log(4, "Rolling back %d entries for rseq abort\n",
                                     *buf_in - buf_start);
+                        for (trace_entry_t *entry = buf_start; entry < *buf_in; ++entry) {
+                            if (entry->type == TRACE_TYPE_ENCODING) {
+                                impl()->rollback_last_encoding(tls);
+                                break;
+                            }
+                        }
                         *buf_in = buf_start;
                     }
                 } else {
@@ -1852,6 +1863,7 @@ protected:
         uint last_cpu_ = 0;
 
         std::set<app_pc> encoding_emitted;
+        app_pc last_encoding_emitted = nullptr;
     };
 
     virtual std::string
@@ -1895,6 +1907,8 @@ private:
                            const trace_entry_t *end);
     bool
     record_encoding_emitted(void *tls, app_pc pc);
+    void
+    rollback_last_encoding(void *tls);
     bool
     instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
                          int index, app_pc pc);

@@ -788,7 +788,15 @@ raw2trace_t::record_encoding_emitted(void *tls, app_pc pc)
     if (tdata->encoding_emitted.find(pc) != tdata->encoding_emitted.end())
         return false;
     tdata->encoding_emitted.insert(pc);
+    tdata->last_encoding_emitted = pc;
     return true;
+}
+
+void
+raw2trace_t::rollback_last_encoding(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    tdata->encoding_emitted.erase(tdata->last_encoding_emitted);
 }
 
 raw2trace_t::block_summary_t *
