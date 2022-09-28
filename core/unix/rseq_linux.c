@@ -99,7 +99,9 @@ typedef struct _rseq_region_t {
     bool reg_written[DR_NUM_GPR_REGS];
 } rseq_region_t;
 
-/* We need to store potentially multiple rseq_cs per fragment. */
+/* We need to store potentially multiple rseq_cs per fragment when clients
+ * make multiple copies of the app code (e.g., drbbdup).
+ */
 typedef struct _rseq_cs_record_t {
     struct rseq_cs rcs;
     void *alloc_ptr;
