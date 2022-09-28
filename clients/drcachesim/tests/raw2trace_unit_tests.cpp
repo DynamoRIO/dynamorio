@@ -309,11 +309,15 @@ test_branch_delays(void *drcontext)
         // Both branches should be delayed until after the timestamp+cpu markers:
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X86_32
-        // An extra encoding entry is needed for the cbr.
+        // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&

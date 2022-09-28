@@ -1361,7 +1361,8 @@ private:
         size_t offs = 0;
         do {
             buf->type = TRACE_TYPE_ENCODING;
-            buf->size = std::min(size_left, sizeof(buf->encoding));
+            buf->size =
+                static_cast<unsigned short>(std::min(size_left, sizeof(buf->encoding)));
             memcpy(buf->encoding, pc + offs, buf->size);
             if (buf->size < sizeof(buf->encoding)) {
                 // We don't have to set the rest to 0 but it is nice.
