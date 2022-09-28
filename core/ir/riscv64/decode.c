@@ -33,6 +33,7 @@
 #include "../globals.h"
 #include "instr.h"
 #include "decode.h"
+#include "codec.h"
 
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
@@ -79,9 +80,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 byte *
 decode(void *drcontext, byte *pc, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return decode_common(drcontext, pc, pc, instr);
 }
 
 byte *
@@ -103,15 +102,14 @@ decode_cti(void *drcontext, byte *pc, instr_t *instr)
 byte *
 decode_next_pc(void *dcontext, byte *pc)
 {
-    /* FIXME i#3544: Compressed instructions may be smaller */
-    return pc + RISCV64_INSTR_SIZE;
+    int width = instruction_width(*(int16_t *)pc);
+    return pc + width;
 }
 
 int
 decode_sizeof(void *drcontext, byte *pc, int *num_prefixes)
 {
-    /* FIXME i#3544: Compressed instructions may be smaller */
-    return RISCV64_INSTR_SIZE;
+    return instruction_width(*(int16_t *)pc);
 }
 
 byte *
@@ -189,9 +187,7 @@ decode_first_opcode_byte(int opcode)
 const instr_info_t *
 opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return get_instruction_info(opc);
 }
 
 DR_API

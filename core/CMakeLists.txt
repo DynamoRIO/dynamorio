@@ -274,6 +274,9 @@ elseif (AARCH64)
   set(DECODER_SRCS ${DECODER_SRCS}
     ir/${ARCH_NAME}/codec.c
     ir/${ARCH_NAME}/build_ldstex.c)
+elseif (RISCV64)
+  set(DECODER_SRCS ${DECODER_SRCS}
+    ir/${ARCH_NAME}/codec.c)
 endif ()
 
 set(ARCH_SRCS
