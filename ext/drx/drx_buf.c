@@ -767,7 +767,7 @@ deduce_buf_ptr(instr_t *instr)
 #endif
     /* drx_buf will only emit these instructions to store a value */
     if (IF_X86_ELSE(opcode == OP_mov_st,
-                    IF_RISCV64_ELSE(opcode == OP_s,
+                    IF_RISCV64_ELSE(opcode == OP_sb || opcode == OP_sw || opcode == OP_sd,
                                     opcode == OP_str || opcode == OP_strb ||
                                         opcode == OP_strh))) {
         int i;

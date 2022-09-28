@@ -170,7 +170,8 @@ instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
     if (vmvector_empty(d_r_rseq_areas))
         return false;
     /* XXX: Keep this consistent with mangle_rseq_* in mangle_shared.c. */
-    if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_ld, IF_RISCV64_ELSE(OP_l, OP_ldr)) &&
+    if (instr_get_opcode(inst) ==
+            IF_X86_ELSE(OP_mov_ld, IF_RISCV64_ELSE(OP_lw, OP_ldr)) &&
         opnd_is_reg(instr_get_dst(inst, 0)) &&
         opnd_is_base_disp(instr_get_src(inst, 0))) {
         reg_id_t dst = opnd_get_reg(instr_get_dst(inst, 0));
@@ -183,7 +184,7 @@ instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
                     sizeof(reg_t) * (dst - DR_REG_START_GPR))
             return true;
     } else if (instr_get_opcode(inst) ==
-                   IF_X86_ELSE(OP_mov_st, IF_RISCV64_ELSE(OP_s, OP_str)) &&
+                   IF_X86_ELSE(OP_mov_st, IF_RISCV64_ELSE(OP_sw, OP_str)) &&
                opnd_is_reg(instr_get_src(inst, 0)) &&
                opnd_is_base_disp(instr_get_dst(inst, 0))) {
         reg_id_t dst = opnd_get_reg(instr_get_src(inst, 0));
