@@ -99,7 +99,16 @@ typedef struct _rseq_region_t {
     bool reg_written[DR_NUM_GPR_REGS];
 } rseq_region_t;
 
-/* We need to store a struct rseq_cs per fragment_t.  To avoid the cost of adding a
+/* We need to store potentially multiple rseq_cs per fragment when clients
+ * make multiple copies of the app code (e.g., drbbdup).
+ */
+typedef struct _rseq_cs_record_t {
+    struct rseq_cs rcs;
+    void *alloc_ptr;
+    struct _rseq_cs_record_t *next;
+} rseq_cs_record_t;
+
+/* We need to store an rseq_cs_record_t per fragment_t.  To avoid the cost of adding a
  * pointer field to every fragment_t, and the complexity of another subclass like
  * trace_t, we store them externally in a hashtable.  The FRAG_HAS_RSEQ_ENDPOINT flag
  * avoids the hashtable lookup on every fragment.
@@ -128,13 +137,18 @@ rseq_area_dup(void *data)
 static inline size_t
 rseq_cs_alloc_size(void)
 {
-    return sizeof(struct rseq) + __alignof(struct rseq_cs);
+    return sizeof(rseq_cs_record_t) + __alignof(struct rseq_cs);
 }
 
 static void
 rseq_cs_free(dcontext_t *dcontext, void *data)
 {
-    global_heap_free(data, rseq_cs_alloc_size() HEAPACCT(ACCT_OTHER));
+    rseq_cs_record_t *record = (rseq_cs_record_t *)data;
+    do {
+        void *tofree = record->alloc_ptr;
+        record = record->next;
+        global_heap_free(tofree, rseq_cs_alloc_size() HEAPACCT(ACCT_OTHER));
+    } while (record != NULL);
 }
 
 void
@@ -244,15 +258,26 @@ void
 rseq_record_rseq_cs(byte *rseq_cs_alloc, fragment_t *f, cache_pc start, cache_pc end,
                     cache_pc abort)
 {
-    struct rseq_cs *target =
-        (struct rseq_cs *)ALIGN_FORWARD(rseq_cs_alloc, __alignof(struct rseq_cs));
+    rseq_cs_record_t *record =
+        (rseq_cs_record_t *)ALIGN_FORWARD(rseq_cs_alloc, __alignof(struct rseq_cs));
+    record->alloc_ptr = rseq_cs_alloc;
+    record->next = NULL;
+    struct rseq_cs *target = &record->rcs;
     target->version = 0;
     target->flags = 0;
     target->start_ip = (ptr_uint_t)start;
     target->post_commit_offset = (ptr_uint_t)(end - start);
     target->abort_ip = (ptr_uint_t)abort;
     TABLE_RWLOCK(rseq_cs_table, write, lock);
-    generic_hash_add(GLOBAL_DCONTEXT, rseq_cs_table, (ptr_uint_t)f, rseq_cs_alloc);
+    rseq_cs_record_t *existing =
+        generic_hash_lookup(GLOBAL_DCONTEXT, rseq_cs_table, (ptr_uint_t)f);
+    if (existing != NULL) {
+        while (existing->next != NULL)
+            existing = existing->next;
+        existing->next = record;
+    } else {
+        generic_hash_add(GLOBAL_DCONTEXT, rseq_cs_table, (ptr_uint_t)f, record);
+    }
     TABLE_RWLOCK(rseq_cs_table, write, unlock);
 }
 

@@ -1404,14 +1404,13 @@ mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
     instr_t *instr, *immed_first = NULL, *immed_last = NULL;
     cache_pc pc = FCACHE_ENTRY_PC(f), immed_start_pc = NULL;
     cache_pc rseq_start = NULL, rseq_end = NULL, rseq_abort = NULL;
+    DEBUG_DECLARE(int label_sets_found = 0;)
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
         if (instr_is_label(instr) &&
             (instr_get_note(instr) == (void *)DR_NOTE_RSEQ ||
              TEST(INSTR_RSEQ_ENDPOINT, instr->flags))) {
             dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
             switch (label_data->data[0]) {
-            case DR_RSEQ_LABEL_START: rseq_start = pc; break;
-            case DR_RSEQ_LABEL_END: rseq_end = pc; break;
             case DR_RSEQ_LABEL_ABORT: rseq_abort = pc; break;
             case DR_RSEQ_LABEL_CS:
                 immed_start_pc = pc;
@@ -1428,26 +1427,43 @@ mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
                     }
                 }
                 break;
+            case DR_RSEQ_LABEL_START: rseq_start = pc; break;
+            case DR_RSEQ_LABEL_END: {
+                rseq_end = pc;
+                /* We assume this is the 4th and last label.  We handle it here,
+                 * so we can start over on a new set if there are multiple rseq
+                 * regions (such as from duplicated app copies by drbbdup).
+                 */
+                IF_DEBUG(++label_sets_found;)
+                ASSERT(rseq_start != NULL && rseq_abort != NULL);
+                byte *rseq_cs_alloc, *rseq_cs;
+                /* The rseq_cs creation and recording is structured like this in two steps
+                 * to provide flexibility in mangling.  Originally the alloc was done in
+                 * mangle_rseq() and passed here in the label data, but to simplify
+                 * freeing we now allocate here and patch the immediates.
+                 */
+                rseq_cs_alloc = rseq_get_rseq_cs_alloc(&rseq_cs);
+                rseq_record_rseq_cs(rseq_cs_alloc, f, rseq_start, rseq_end, rseq_abort);
+                ASSERT(immed_start_pc != NULL && immed_first != NULL);
+                LOG(THREAD, LOG_INTERP, 4, "%s: start=%p, end=%p, abort=%p stored @%p\n",
+                    __FUNCTION__, rseq_start, rseq_end, rseq_abort, rseq_cs);
+                patch_mov_immed_ptrsz(dcontext, (ptr_int_t)rseq_cs, immed_start_pc,
+                                      immed_first, immed_last);
+                DODEBUG({
+                    rseq_abort = NULL;
+                    rseq_start = NULL;
+                    immed_start_pc = NULL;
+                    immed_first = NULL;
+                });
+                break;
+            }
             default: ASSERT_NOT_REACHED();
             }
         }
         pc += instr_length(dcontext, instr);
     }
-    ASSERT(rseq_start != NULL && rseq_end != NULL && rseq_abort != NULL);
-
-    byte *rseq_cs_alloc, *rseq_cs;
-    /* The rseq_cs creation and recording is structured like this in two steps to
-     * provide flexibility in mangling.  Originally the alloc was done in mangle_rseq()
-     * and passed here in the label data, but to simplify freeing we now allocate here
-     * and patch the immediates.
-     */
-    rseq_cs_alloc = rseq_get_rseq_cs_alloc(&rseq_cs);
-    rseq_record_rseq_cs(rseq_cs_alloc, f, rseq_start, rseq_end, rseq_abort);
-    ASSERT(immed_start_pc != NULL && immed_first != NULL);
-    LOG(THREAD, LOG_INTERP, 4, "%s: start=%p, end=%p, abort=%p stored @%p\n",
-        __FUNCTION__, rseq_start, rseq_end, rseq_abort, rseq_cs);
-    patch_mov_immed_ptrsz(dcontext, (ptr_int_t)rseq_cs, immed_start_pc, immed_first,
-                          immed_last);
+    /* We should have found at least one set of labels. */
+    ASSERT(label_sets_found > 0);
 }
 #endif /* LINUX */
 
