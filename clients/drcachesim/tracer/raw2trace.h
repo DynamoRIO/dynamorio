@@ -41,6 +41,7 @@
  * @brief DrMemtrace offline trace post-processing customization.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drcovlib.h"
@@ -1225,7 +1226,8 @@ private:
                 if (!error.empty())
                     return error;
             }
-            // TODO i#1729: make bundles via lazy accum until hit memref/end.
+            // XXX i#1729: make bundles via lazy accum until hit memref/end, if
+            // we don't need encodings.
             buf->type = instr->type();
             if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                 // We want it to look like the original rep string, with just one instr
@@ -1247,6 +1249,7 @@ private:
             buf->size = (ushort)(skip_icache ? 0 : instr->length());
             buf->addr = (addr_t)orig_pc;
             ++buf;
+            impl()->log(4, "Appended instr fetch for original %p\n", orig_pc);
             decode_pc = pc;
             // Check for a signal *after* the instruction.  The trace is recording
             // instruction *fetches*, not instruction retirement, and we want to
@@ -1438,15 +1441,11 @@ private:
                         // includes the rseq committing store before the native rseq
                         // execution hits the native abort.  Pretend the native abort
                         // happened *before* the committing store by walking the store
-                        // backward.
-                        trace_type_t skipped_type;
-                        do {
-                            impl()->log(4, "Rolling back entry for rseq abort\n");
-                            --*buf_in;
-                            skipped_type = static_cast<trace_type_t>((*buf_in)->type);
-                            DR_ASSERT(*buf_in >= buf_start);
-                        } while (!type_is_instr(skipped_type) &&
-                                 skipped_type != TRACE_TYPE_INSTR_NO_FETCH);
+                        // backward.  Everything in the buffer is for the store;
+                        // there should be no (other) intra-bb markers not for the store.
+                        impl()->log(4, "Rolling back %d entries for rseq abort\n",
+                                    *buf_in - buf_start);
+                        *buf_in = buf_start;
                     }
                 } else {
                     // Put it back (below). We do not have a problem with other markers
