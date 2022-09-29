@@ -103,8 +103,9 @@ Type cheat sheet (from trace_type_t enum):
 - 0x0e direct call
 - 0x00 load
 - 0x01 store
-- 0x1d: non-fetched instr
+- 0x1d non-fetched instr
 - 0x1a footer
+- 0x2f instr encoding
 
 type_is_instr: 0xa-0x10 + 0x1e
 

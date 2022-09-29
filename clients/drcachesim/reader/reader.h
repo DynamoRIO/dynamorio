@@ -62,11 +62,13 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t> {
 public:
     reader_t()
     {
+        cur_ref_ = {};
     }
     reader_t(int verbosity, const char *prefix)
         : verbosity_(verbosity)
         , output_prefix_(prefix)
     {
+        cur_ref_ = {};
     }
     virtual ~reader_t()
     {
@@ -134,6 +136,11 @@ protected:
     const char *output_prefix_ = "[reader]";
 
 private:
+    struct encoding_info_t {
+        size_t size = 0;
+        unsigned char bits[MAX_ENCODING_LENGTH];
+    };
+
     trace_entry_t *input_entry_ = nullptr;
     memref_t cur_ref_;
     memref_tid_t cur_tid_ = 0;
@@ -147,6 +154,9 @@ private:
     uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
     uint64_t last_timestamp_instr_count_ = 0;
     bool skip_next_cpu_ = false;
+    bool expect_no_encodings_ = true;
+    encoding_info_t last_encoding_;
+    std::unordered_map<addr_t, encoding_info_t> encodings_;
 };
 
 #endif /* _READER_H_ */

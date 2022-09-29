@@ -41,12 +41,14 @@
  * @brief DrMemtrace offline trace post-processing customization.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drcovlib.h"
 #include <array>
 #include <atomic>
 #include <memory>
+#include <set>
 #include <unordered_map>
 #include "trace_entry.h"
 #include "instru.h"
@@ -678,6 +680,19 @@ struct trace_header_t {
  * Increases the per-thread counter for the statistic identified by stat by value.
  * </LI>
  *
+ * <LI>bool raw2trace_t::record_encoding_emitted(void *tls, app_pc pc)
+ *
+ * Returns false if an encoding was already emitted.
+ * Otherwise, remembers that an encoding is being emitted now, and returns true.
+ * </LI>
+ *
+ * <LI>void raw2trace_t::rollback_last_encoding(void *tls)
+ *
+ * Removes the record of the last encoding remembered in record_encoding_emitted().
+ * This can only be called once between calls to record_encoding_emitted()
+ * and only after record_encoding_emitted() returns true.
+ * </LI>
+ *
  * <LI>bool raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
  * int index) const
  *
@@ -1213,7 +1228,13 @@ private:
                 if (!error.empty())
                     return error;
             }
-            // TODO i#1729: make bundles via lazy accum until hit memref/end.
+            if (!skip_icache && impl()->record_encoding_emitted(tls, decode_pc)) {
+                error = append_encoding(instr, buf, buf_start, decode_pc);
+                if (!error.empty())
+                    return error;
+            }
+            // XXX i#1729: make bundles via lazy accum until hit memref/end, if
+            // we don't need encodings.
             buf->type = instr->type();
             if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                 // We want it to look like the original rep string, with just one instr
@@ -1235,6 +1256,7 @@ private:
             buf->size = (ushort)(skip_icache ? 0 : instr->length());
             buf->addr = (addr_t)orig_pc;
             ++buf;
+            impl()->log(4, "Appended instr fetch for original %p\n", orig_pc);
             decode_pc = pc;
             // Check for a signal *after* the instruction.  The trace is recording
             // instruction *fetches*, not instruction retirement, and we want to
@@ -1334,6 +1356,31 @@ private:
         return "";
     }
 
+    std::string
+    append_encoding(const instr_summary_t *instr, trace_entry_t *&buf,
+                    trace_entry_t *buf_start, app_pc pc)
+    {
+        size_t size_left = instr->length();
+        size_t offs = 0;
+        do {
+            buf->type = TRACE_TYPE_ENCODING;
+            buf->size =
+                static_cast<unsigned short>(std::min(size_left, sizeof(buf->encoding)));
+            memcpy(buf->encoding, pc + offs, buf->size);
+            if (buf->size < sizeof(buf->encoding)) {
+                // We don't have to set the rest to 0 but it is nice.
+                memset(buf->encoding + buf->size, 0, sizeof(buf->encoding) - buf->size);
+            }
+            offs += buf->size;
+            size_left -= buf->size;
+            ++buf;
+            DR_CHECK(static_cast<size_t>(buf - buf_start) < WRITE_BUFFER_SIZE,
+                     "Too many entries for write buffer");
+            impl()->log(4, "Appended encoding entry for %p\n", pc);
+        } while (size_left > 0);
+        return "";
+    }
+
     // Returns true if a kernel interrupt happened at cur_pc.
     // Outputs a kernel interrupt if this is the right location.
     // Outputs any other markers observed if !instrs_are_separate, since they
@@ -1405,15 +1452,23 @@ private:
                         // includes the rseq committing store before the native rseq
                         // execution hits the native abort.  Pretend the native abort
                         // happened *before* the committing store by walking the store
-                        // backward.
-                        trace_type_t skipped_type;
-                        do {
-                            impl()->log(4, "Rolling back entry for rseq abort\n");
-                            --*buf_in;
-                            skipped_type = static_cast<trace_type_t>((*buf_in)->type);
-                            DR_ASSERT(*buf_in >= buf_start);
-                        } while (!type_is_instr(skipped_type) &&
-                                 skipped_type != TRACE_TYPE_INSTR_NO_FETCH);
+                        // backward.  Everything in the buffer is for the store;
+                        // there should be no (other) intra-bb markers not for the store.
+                        impl()->log(4, "Rolling back %d entries for rseq abort\n",
+                                    *buf_in - buf_start);
+                        // If we recorded and emitted an encoding we would not emit
+                        // it next time and be missing the encoding so we must clear
+                        // the cache for that entry.  This will only happen once
+                        // for any new encoding (one synchronous signal/rseq abort
+                        // per instr) so we will satisfy the one-time limit of
+                        // rollback_last_encoding() (it has an assert to verify).
+                        for (trace_entry_t *entry = buf_start; entry < *buf_in; ++entry) {
+                            if (entry->type == TRACE_TYPE_ENCODING) {
+                                impl()->rollback_last_encoding(tls);
+                                break;
+                            }
+                        }
+                        *buf_in = buf_start;
                     }
                 } else {
                     // Put it back (below). We do not have a problem with other markers
@@ -1818,6 +1873,9 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
+
+        std::set<app_pc> encoding_emitted;
+        app_pc last_encoding_emitted = nullptr;
     };
 
     virtual std::string
@@ -1859,6 +1917,12 @@ private:
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
+    bool
+    record_encoding_emitted(void *tls, app_pc pc);
+    // This can only be called once between calls to record_encoding_emitted()
+    // and only after record_encoding_emitted() returns true.
+    void
+    rollback_last_encoding(void *tls);
     bool
     instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs, app_pc block_start,
                          int index, app_pc pc);
