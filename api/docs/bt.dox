@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -913,9 +913,10 @@ that affect inlining.
 \subsection sec_state State Preservation
 
 To facilitate code transformations, DynamoRIO makes available its register
-spill slots and other state preservation functionality.  It exports API
-routines for saving and restoring registers to and from thread-local spill
-slots:
+spill slots and other state preservation functionality.
+The \ref page_drreg Extension Library is recommended to manage registers.
+DynamoRIO's direct interfaces for saving and restoring registers to
+and from thread-local spill slots may also be used:
 
 \code dr_save_reg(), dr_restore_reg(), and dr_reg_spill_slot_opnd() \endcode
 
@@ -923,6 +924,10 @@ The values stored in these spill slots remain valid until the next application
 (i.e. non-meta) instruction and as such can be accessed from clean calls using:
 
 \code dr_read_saved_reg(), dr_write_saved_reg() \endcode
+
+When using DynamoRIO's interfaces instead of drreg, be sure to look
+for the labels #DR_NOTE_ANNOTATION and #DR_NOTE_REG_BARRIER at which
+all application values should be restored to registers.
 
 For longer term persistence DynamoRIO also provides a generic dedicated
 thread-local storage field for use by clients, making it easy to write

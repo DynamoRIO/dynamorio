@@ -3968,6 +3968,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     bb->end_pc = bb->cur_pc;
     BBPRINT(bb, 3, "end_pc = " PFX "\n\n", bb->end_pc);
 
+#ifdef LINUX
+    if (TEST(FRAG_HAS_RSEQ_ENDPOINT, bb->flags)) {
+        instr_t *label = INSTR_CREATE_label(dcontext);
+        instr_set_note(label, (void *)DR_NOTE_REG_BARRIER);
+        instrlist_meta_preinsert(bb->ilist, bb->instr, label);
+    }
+#endif
+
     /* We could put this in check_new_page_jmp where it already checks
      * for native_exec overlap, but selfmod ubrs don't even call that routine
      */

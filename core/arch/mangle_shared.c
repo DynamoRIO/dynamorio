@@ -931,11 +931,8 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
     RSTATS_INC(num_rseq_native_calls_inserted);
     instr_t *insert_at = *next_instr;
 
-    /* We assume that by making this a block end, clients will restore app state
-     * before this native invocation.
-     * TODO i#2350: Take some further action to better guarantee this in the face
-     * of future drreg optimizations, etc.  Do we need new interface features, or
-     * do we live with a fake app jump or sthg?
+    /* We've already inserted a DR_NOTE_REG_BARRIER label to ensure that clients will
+     * restore app state before this native invocation.
      */
 
     /* Create a scratch register. Use slot 1 to avoid conflict with segment
@@ -1358,7 +1355,8 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     int len = instr_length(dcontext, instr);
     if (pc + len >= end) {
         ilist->flags |= INSTR_RSEQ_ENDPOINT;
-        *flags |= FRAG_HAS_RSEQ_ENDPOINT;
+        /* We should already have this flag set by the bb builder. */
+        ASSERT(TEST(FRAG_HAS_RSEQ_ENDPOINT, *flags));
         if (pc + len != end) {
             REPORT_FATAL_ERROR_AND_EXIT(
                 RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),

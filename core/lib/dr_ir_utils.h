@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -108,6 +108,11 @@ DR_API
  * application) instruction. Use dr_insert_write_tls_field() and
  * dr_insert_read_tls_field() for a persistent (but more costly to access)
  * thread-local-storage location.  See also dr_raw_tls_calloc().
+ *
+ * Generally, using the \ref page_drreg Extension Library instead is recommended.
+ * When using custom spills and restores, be sure to look for the labels
+ * #DR_NOTE_ANNOTATION and #DR_NOTE_REG_BARRIER at which all application values
+ * should be restored to registers.
  */
 void
 dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
