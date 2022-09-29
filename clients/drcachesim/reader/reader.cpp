@@ -31,6 +31,7 @@
  */
 
 #include <assert.h>
+#include <string.h>
 #include "reader.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
@@ -104,6 +105,18 @@ reader_t::operator++()
             // use to obtain the PC for subsequent data references.
             cur_ref_.data.pc = cur_pc_;
             break;
+        case TRACE_TYPE_ENCODING:
+            if (last_encoding_.size + input_entry_->size > MAX_ENCODING_LENGTH) {
+                ERRMSG("Invalid too-large encoding size %zu + %d\n", last_encoding_.size,
+                       input_entry_->size);
+                assert(false);
+                at_eof_ = true;
+                break;
+            }
+            memcpy(last_encoding_.bits + last_encoding_.size, input_entry_->encoding,
+                   input_entry_->size);
+            last_encoding_.size += input_entry_->size;
+            break;
         case TRACE_TYPE_INSTR_MAYBE_FETCH:
             // While offline traces can convert rep string per-iter instrs into
             // no-fetch entries, online can't w/o extra work, so we do the work
@@ -140,6 +153,26 @@ reader_t::operator++()
                 prev_instr_addr_ = input_entry_->addr;
                 if (cur_ref_.instr.type != TRACE_TYPE_INSTR_NO_FETCH)
                     ++cur_instr_count_;
+                // Look for encoding bits that belong to this instr.
+                if (last_encoding_.size > 0) {
+                    if (last_encoding_.size != cur_ref_.instr.size) {
+                        ERRMSG("Encoding size %zu != instr size %zu\n",
+                               last_encoding_.size, cur_ref_.instr.size);
+                        assert(false);
+                    }
+                    memcpy(cur_ref_.instr.encoding, last_encoding_.bits,
+                           last_encoding_.size);
+                    encodings_[cur_ref_.instr.addr] = last_encoding_;
+                } else {
+                    const auto &it = encodings_.find(cur_ref_.instr.addr);
+                    if (it != encodings_.end()) {
+                        memcpy(cur_ref_.instr.encoding, it->second.bits, it->second.size);
+                    } else if (!expect_no_encodings_) {
+                        ERRMSG("Missing encoding for 0x%zx\n", cur_ref_.instr.addr);
+                        assert(false);
+                    }
+                }
+                last_encoding_.size = 0;
             }
             break;
         case TRACE_TYPE_INSTR_BUNDLE:
@@ -242,6 +275,9 @@ reader_t::operator++()
                 last_timestamp_instr_count_ = cur_instr_count_;
             else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
                 chunk_instr_count_ = cur_ref_.marker.marker_value;
+            else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE &&
+                     TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, cur_ref_.marker.marker_value))
+                expect_no_encodings_ = false;
             break;
         default:
             ERRMSG("Unknown trace entry type %d\n", input_entry_->type);
