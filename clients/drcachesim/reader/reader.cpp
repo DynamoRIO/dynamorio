@@ -153,11 +153,8 @@ reader_t::operator++()
                 prev_instr_addr_ = input_entry_->addr;
                 if (cur_ref_.instr.type != TRACE_TYPE_INSTR_NO_FETCH)
                     ++cur_instr_count_;
-                // Look for encoding bits.
-                const auto &it = encodings_.find(cur_ref_.instr.addr);
-                if (it != encodings_.end()) {
-                    memcpy(cur_ref_.instr.encoding, it->second.bits, it->second.size);
-                } else if (last_encoding_.size > 0) {
+                // Look for encoding bits that belong to this instr.
+                if (last_encoding_.size > 0) {
                     if (last_encoding_.size != cur_ref_.instr.size) {
                         ERRMSG("Encoding size %zu != instr size %zu\n",
                                last_encoding_.size, cur_ref_.instr.size);
@@ -166,9 +163,14 @@ reader_t::operator++()
                     memcpy(cur_ref_.instr.encoding, last_encoding_.bits,
                            last_encoding_.size);
                     encodings_[cur_ref_.instr.addr] = last_encoding_;
-                } else if (!expect_no_encodings_) {
-                    ERRMSG("Missing encoding for 0x%zx\n", cur_ref_.instr.addr);
-                    assert(false);
+                } else {
+                    const auto &it = encodings_.find(cur_ref_.instr.addr);
+                    if (it != encodings_.end()) {
+                        memcpy(cur_ref_.instr.encoding, it->second.bits, it->second.size);
+                    } else if (!expect_no_encodings_) {
+                        ERRMSG("Missing encoding for 0x%zx\n", cur_ref_.instr.addr);
+                        assert(false);
+                    }
                 }
                 last_encoding_.size = 0;
             }

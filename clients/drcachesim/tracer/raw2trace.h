@@ -689,6 +689,8 @@ struct trace_header_t {
  * <LI>void raw2trace_t::rollback_last_encoding(void *tls)
  *
  * Removes the record of the last encoding remembered in record_encoding_emitted().
+ * This can only be called once between calls to record_encoding_emitted()
+ * and only after record_encoding_emitted() returns true.
  * </LI>
  *
  * <LI>bool raw2trace_t::instr_summary_exists(void *tls, uint64 modidx, uint64 modoffs,
@@ -1227,7 +1229,7 @@ private:
                     return error;
             }
             if (!skip_icache && impl()->record_encoding_emitted(tls, decode_pc)) {
-                error = append_encoding(instr, buf, decode_pc);
+                error = append_encoding(instr, buf, buf_start, decode_pc);
                 if (!error.empty())
                     return error;
             }
@@ -1355,7 +1357,8 @@ private:
     }
 
     std::string
-    append_encoding(const instr_summary_t *instr, trace_entry_t *&buf, app_pc pc)
+    append_encoding(const instr_summary_t *instr, trace_entry_t *&buf,
+                    trace_entry_t *buf_start, app_pc pc)
     {
         size_t size_left = instr->length();
         size_t offs = 0;
@@ -1371,6 +1374,8 @@ private:
             offs += buf->size;
             size_left -= buf->size;
             ++buf;
+            DR_CHECK(static_cast<size_t>(buf - buf_start) < WRITE_BUFFER_SIZE,
+                     "Too many entries for write buffer");
             impl()->log(4, "Appended encoding entry for %p\n", pc);
         } while (size_left > 0);
         return "";
@@ -1451,6 +1456,12 @@ private:
                         // there should be no (other) intra-bb markers not for the store.
                         impl()->log(4, "Rolling back %d entries for rseq abort\n",
                                     *buf_in - buf_start);
+                        // If we recorded and emitted an encoding we would not emit
+                        // it next time and be missing the encoding so we must clear
+                        // the cache for that entry.  This will only happen once
+                        // for any new encoding (one synchronous signal/rseq abort
+                        // per instr) so we will satisfy the one-time limit of
+                        // rollback_last_encoding() (it has an assert to verify).
                         for (trace_entry_t *entry = buf_start; entry < *buf_in; ++entry) {
                             if (entry->type == TRACE_TYPE_ENCODING) {
                                 impl()->rollback_last_encoding(tls);
@@ -1908,6 +1919,8 @@ private:
                            const trace_entry_t *end);
     bool
     record_encoding_emitted(void *tls, app_pc pc);
+    // This can only be called once between calls to record_encoding_emitted()
+    // and only after record_encoding_emitted() returns true.
     void
     rollback_last_encoding(void *tls);
     bool

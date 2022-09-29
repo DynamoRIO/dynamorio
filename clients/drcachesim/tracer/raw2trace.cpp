@@ -793,11 +793,15 @@ raw2trace_t::record_encoding_emitted(void *tls, app_pc pc)
     return true;
 }
 
+// This can only be called once between calls to record_encoding_emitted()
+// and only after record_encoding_emitted() returns true.
 void
 raw2trace_t::rollback_last_encoding(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    DEBUG_ASSERT(tdata->last_encoding_emitted != nullptr);
     tdata->encoding_emitted.erase(tdata->last_encoding_emitted);
+    tdata->last_encoding_emitted = nullptr;
 }
 
 raw2trace_t::block_summary_t *

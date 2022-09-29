@@ -45,6 +45,8 @@ class opcode_mix_t : public analysis_tool_t {
 public:
     // The module_file_path is optional and unused for traces with
     // OFFLINE_FILE_TYPE_ENCODINGS.
+    // XXX: Once we update our toolchains to guarantee C++17 support we could use
+    // std::optional here.
     opcode_mix_t(const std::string &module_file_path, unsigned int verbose,
                  const std::string &alt_module_dir = "");
     virtual ~opcode_mix_t();
@@ -114,6 +116,8 @@ protected:
     dcontext_cleanup_last_t dcontext_;
 
     // These are all optional and unused for OFFLINE_FILE_TYPE_ENCODINGS.
+    // XXX: Once we update our toolchains to guarantee C++17 support we could use
+    // std::optional here.
     std::string module_file_path_;
     std::unique_ptr<module_mapper_t> module_mapper_;
     std::mutex mapper_mutex_;
