@@ -102,6 +102,10 @@ private:
             allocate_mem(map_size_, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE));
         assert(map_ != nullptr);
 
+#ifdef ARM
+        bool res = dr_set_isa_mode(dc, DR_ISA_ARM_A32, nullptr);
+        assert(res);
+#endif
         instrlist_t *ilist = instrlist_create(dc);
         reg_id_t base = IF_X86_ELSE(IF_X64_ELSE(DR_REG_RAX, DR_REG_EAX), DR_REG_R0);
         reg_id_t base4imm = IF_X86_64_ELSE(reg_64_to_32(base), base);
@@ -123,7 +127,13 @@ private:
         instrlist_append(ilist,
                          XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(base, -ptrsz),
                                             opnd_create_reg(base)));
+#ifdef ARM
+        // XXX: Maybe XINST_CREATE_return should create "bx lr" like we need here
+        // instead of the pop into pc which assumes the entry pushed lr?
+        instrlist_append(ilist, INSTR_CREATE_bx(dc, opnd_create_reg(DR_REG_LR)));
+#else
         instrlist_append(ilist, XINST_CREATE_return(dc));
+#endif
 
         byte *last_pc = instrlist_encode(dc, ilist, map_, true);
         assert(last_pc <= map_ + map_size_);
@@ -263,6 +273,10 @@ look_for_gencode(std::string trace_dir)
     }
     bool found_magic1 = false, found_magic2 = false;
     bool have_instr_encodings = false;
+#ifdef ARM
+    // DR will auto-switch locally to Thumb for LSB=1 but not to ARM so we start as ARM.
+    dr_set_isa_mode(dr_context, DR_ISA_ARM_A32, nullptr);
+#endif
     for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
         memref_t memref = *iter;
         if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -281,7 +295,9 @@ look_for_gencode(std::string trace_dir)
         }
         instr_t instr;
         instr_init(dr_context, &instr);
-        app_pc next_pc = decode(dr_context, memref.instr.encoding, &instr);
+        app_pc next_pc =
+            decode_from_copy(dr_context, memref.instr.encoding,
+                             reinterpret_cast<byte *>(memref.instr.addr), &instr);
         assert(next_pc != nullptr && instr_valid(&instr));
         ptr_int_t immed;
         if (!found_magic1 && instr_is_mov_constant(&instr, &immed) &&

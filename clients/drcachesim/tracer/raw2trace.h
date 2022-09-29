@@ -442,7 +442,13 @@ public:
                 reinterpret_cast<app_pc>(entry->start_pc);
         } else {
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
-            return map_pc - modvec_[idx].map_seg_base + modvec_[idx].orig_seg_base;
+            app_pc res = map_pc - modvec_[idx].map_seg_base + modvec_[idx].orig_seg_base;
+#ifdef ARM
+            // Match Thumb vs Arm mode by setting LSB.
+            if (TESTANY(1, modoffs))
+                res = reinterpret_cast<app_pc>(reinterpret_cast<uint64>(res) | 1);
+#endif
+            return res;
         }
     }
 
@@ -1139,7 +1145,9 @@ private:
         app_pc pc, decode_pc = start_pc;
         if (in_entry->pc.modidx == PC_MODIDX_INVALID) {
             impl()->log(3, "Appending %u instrs in bb " PFX " in generated code\n",
-                        instr_count, (ptr_uint_t)start_pc);
+                        instr_count,
+                        reinterpret_cast<ptr_uint_t>(modmap_().get_orig_pc(
+                            in_entry->pc.modidx, in_entry->pc.modoffs)));
         } else if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
                    modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
             if (impl()->get_version(tls) >= OFFLINE_FILE_VERSION_ENCODINGS) {
@@ -1362,6 +1370,10 @@ private:
     {
         size_t size_left = instr->length();
         size_t offs = 0;
+#ifdef ARM
+        // Remove any Thumb LSB.
+        pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, pc);
+#endif
         do {
             buf->type = TRACE_TYPE_ENCODING;
             buf->size =
@@ -1371,12 +1383,13 @@ private:
                 // We don't have to set the rest to 0 but it is nice.
                 memset(buf->encoding + buf->size, 0, sizeof(buf->encoding) - buf->size);
             }
+            impl()->log(4, "Appended encoding entry for %p sz=%zu 0x%08x...\n", pc,
+                        buf->size, *(int *)buf->encoding);
             offs += buf->size;
             size_left -= buf->size;
             ++buf;
             DR_CHECK(static_cast<size_t>(buf - buf_start) < WRITE_BUFFER_SIZE,
                      "Too many entries for write buffer");
-            impl()->log(4, "Appended encoding entry for %p\n", pc);
         } while (size_left > 0);
         return "";
     }
