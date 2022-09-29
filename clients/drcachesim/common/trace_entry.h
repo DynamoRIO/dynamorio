@@ -490,7 +490,7 @@ struct _trace_entry_t {
         // The raw encoding bytes for the subsequent instruction fetch entry.
         // There may be multiple consecutive records to hold long instructions.
         // The reader should keep concatenating these bytes until the subsequent
-        // insruction fetch entry is found.
+        // instruction fetch entry is found.
         unsigned char encoding[sizeof(addr_t)];
     };
 } END_PACKED_STRUCTURE;
