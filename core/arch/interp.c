@@ -3972,6 +3972,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (TEST(FRAG_HAS_RSEQ_ENDPOINT, bb->flags)) {
         instr_t *label = INSTR_CREATE_label(dcontext);
         instr_set_note(label, (void *)DR_NOTE_REG_BARRIER);
+        /* We want the label after the final rseq instruction.  We've
+         * truncated the block after that instruction so bb->instr may
+         * be NULL so we append.
+         */
         instrlist_meta_append(bb->ilist, label);
     }
 #endif
