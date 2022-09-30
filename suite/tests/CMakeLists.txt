@@ -3818,7 +3818,10 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (LINUX AND X64 AND HAVE_RSEQ)
-      torunonly_drcacheoff(rseq linux.rseq ""
+      torunonly_drcacheoff(rseq linux.rseq
+        # Run with -trace_after_instrs to ensure we test the
+        # drbbdup + rseq combo (i#5658, i#5659).
+        "-trace_after_instrs 5K"
         "@${test_mode_flag}@-test_mode_name@rseq_app" "")
     endif ()
 
@@ -4673,6 +4676,8 @@ if (UNIX)
     tobuild_api(api.rseq linux/rseq.c "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
+    use_DynamoRIO_static_client(api.rseq drmemtrace_static)
+    use_DynamoRIO_drmemtrace_tracer(api.rseq)
     set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")

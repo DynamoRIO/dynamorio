@@ -480,9 +480,12 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
          /* Writing just a subset needs to combine with the original unwritten */
          (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
           aflags != 0 /*0 means everything is dead*/) ||
-         /* Annotation handlers require app values (XXX i#5160: Remove special case). */
+         /* Annotation handlers and rseq mangling require app values.
+          * (XXX i#5160: Refactor drreg vs core to remove special cases?)
+          */
          (instr_is_label(inst) &&
-          (ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION) ||
+          ((ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION ||
+           (ptr_uint_t)instr_get_note(inst) == DR_NOTE_REG_BARRIER)) ||
          /* DR slots are not guaranteed across app instrs */
          (pt->aflags.slot != MAX_SPILLS &&
           pt->aflags.slot >= (int)ops.num_spill_slots))) {
@@ -522,9 +525,12 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
             regs_restored[GPR_IDX(reg)] = false;
         if (!pt->reg[GPR_IDX(reg)].native) {
             if (force_restore || instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
-                /* Annotations require app values (XXX i#5160: Remove special case). */
+                /* Annotation handlers and rseq mangling require app values.
+                 * (XXX i#5160: Refactor drreg vs core to remove special cases?)
+                 */
                 (instr_is_label(inst) &&
-                 (ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION) ||
+                 ((ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION ||
+                  (ptr_uint_t)instr_get_note(inst) == DR_NOTE_REG_BARRIER)) ||
                 /* Treat a partial write as a read, to restore rest of reg */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) ||

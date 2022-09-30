@@ -65,9 +65,13 @@ std::string
 opcode_mix_t::initialize()
 {
     serial_shard_.worker = &serial_worker_;
-    if (module_file_path_.empty())
-        return "Module file path is missing";
     dcontext_.dcontext = dr_standalone_init();
+    // The module_file_path is optional and unused for traces with
+    // OFFLINE_FILE_TYPE_ENCODINGS.
+    if (module_file_path_.empty())
+        return "";
+    // Legacy trace support where binaries are needed.
+    // We do not support non-module code for such traces.
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
@@ -134,6 +138,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        shard->filetype = static_cast<offline_file_type_t>(memref.marker.marker_value);
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
             !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
             shard->error = std::string("Architecture mismatch: trace recorded on ") +
@@ -149,44 +154,59 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     ++shard->instr_count;
 
-    app_pc mapped_pc;
+    app_pc decode_pc;
     const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
-    if (trace_pc >= shard->last_trace_module_start &&
-        static_cast<size_t>(trace_pc - shard->last_trace_module_start) <
-            shard->last_trace_module_size) {
-        mapped_pc =
-            shard->last_mapped_module_start + (trace_pc - shard->last_trace_module_start);
+    if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->filetype)) {
+        // The trace has instruction encodings inside it.
+        decode_pc = const_cast<app_pc>(memref.instr.encoding);
     } else {
-        std::lock_guard<std::mutex> guard(mapper_mutex_);
-        mapped_pc = module_mapper_->find_mapped_trace_bounds(
-            trace_pc, &shard->last_mapped_module_start, &shard->last_trace_module_size);
-        if (!module_mapper_->get_last_error().empty()) {
-            shard->last_trace_module_start = nullptr;
-            shard->last_trace_module_size = 0;
-            shard->error = "Failed to find mapped address for " +
-                to_hex_string(memref.instr.addr) + ": " +
-                module_mapper_->get_last_error();
+        // Legacy trace support where we need the binaries.
+        if (!module_mapper_) {
+            shard->error =
+                "Module file path is missing and trace has no embedded encodings";
             return false;
         }
-        shard->last_trace_module_start =
-            trace_pc - (mapped_pc - shard->last_mapped_module_start);
+        if (trace_pc >= shard->last_trace_module_start &&
+            static_cast<size_t>(trace_pc - shard->last_trace_module_start) <
+                shard->last_trace_module_size) {
+            decode_pc = shard->last_mapped_module_start +
+                (trace_pc - shard->last_trace_module_start);
+        } else {
+            std::lock_guard<std::mutex> guard(mapper_mutex_);
+            decode_pc = module_mapper_->find_mapped_trace_bounds(
+                trace_pc, &shard->last_mapped_module_start,
+                &shard->last_trace_module_size);
+            if (!module_mapper_->get_last_error().empty()) {
+                shard->last_trace_module_start = nullptr;
+                shard->last_trace_module_size = 0;
+                shard->error = "Failed to find mapped address for " +
+                    to_hex_string(memref.instr.addr) + ": " +
+                    module_mapper_->get_last_error();
+                return false;
+            }
+            shard->last_trace_module_start =
+                trace_pc - (decode_pc - shard->last_mapped_module_start);
+        }
     }
     int opcode;
-    auto cached_opcode = shard->worker->opcode_cache.find(mapped_pc);
+    // TODO i#2062,i#5520: We need to invalidate opcode_cache on changed app code.
+    // The reader may add markers to help us with that.
+    // For now we assume unchanging code.
+    auto cached_opcode = shard->worker->opcode_cache.find(trace_pc);
     if (cached_opcode != shard->worker->opcode_cache.end()) {
         opcode = cached_opcode->second;
     } else {
         instr_t instr;
         instr_init(dcontext_.dcontext, &instr);
         app_pc next_pc =
-            decode_from_copy(dcontext_.dcontext, mapped_pc, trace_pc, &instr);
+            decode_from_copy(dcontext_.dcontext, decode_pc, trace_pc, &instr);
         if (next_pc == NULL || !instr_valid(&instr)) {
             shard->error =
                 "Failed to decode instruction " + to_hex_string(memref.instr.addr);
             return false;
         }
         opcode = instr_get_opcode(&instr);
-        shard->worker->opcode_cache[mapped_pc] = opcode;
+        shard->worker->opcode_cache[trace_pc] = opcode;
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];

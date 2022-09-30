@@ -111,8 +111,12 @@ Executed instructions are stored in #_memref_instr_t.  The program
 counter and length of the encoded instruction are provided.  The
 length can be used to compute the address of the subsequent instruction.
 
-The instruction records do not contain instruction encodings.  Such
-information can be obtained by disassembling the application and
+The raw encoding of the instruction is provided.  This can be decoded
+using the drdecode decoder or any other decoder.
+
+Older legacy traces may not contain instruction encodings.  For those
+traces, encodings for static code can be obtained by
+disassembling the application and
 library binaries.  The provided interfaces
 module_mapper_t::get_loaded_modules() and
 module_mapper_t::find_mapped_trace_address() facilitate loading in

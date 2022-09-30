@@ -8260,11 +8260,9 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         if (!vmvector_empty(d_r_rseq_areas)) {
             /* XXX i#3798: While for core operation we do not need to end a block at
              * an rseq endpoint, we need clients to treat the endpoint as a barrier and
-             * restore app state.  drreg today treats a block end as a barrier.  If
-             * drreg adds optimizations that cross blocks (such as in traces), we may
-             * need to add some other feature here: a fake app cti?  That affects
-             * clients measuring app behavior, though with rseq fidelity is already not
-             * 100%.  Similarly, we don't really need to not have a block span the start
+             * restore app state (which we do have DR_NOTE_REG_BARRIER for) and we
+             * prefer to simplify the block as much as we can.
+             * Similarly, we don't really need to not have a block span the start
              * of an rseq region.  But, we need to save app values at the start, which
              * is best done prior to drreg storing them elsewhere; plus, it makes it
              * easier to turn on full_decode for simpler mangling.
@@ -8298,6 +8296,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (xfer && (entered_rseq || exited_rseq || pc == next_boundary)) {
                 LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
                     "Stopping bb at rseq boundary " PFX "\n", pc);
+                if (exited_rseq)
+                    *flags |= FRAG_HAS_RSEQ_ENDPOINT;
                 result = false;
             }
         }

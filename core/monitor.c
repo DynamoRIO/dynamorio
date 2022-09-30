@@ -1109,7 +1109,10 @@ get_and_check_add_size(dcontext_t *dcontext, fragment_t *f, uint *res_add_size,
 static inline uint
 trace_flags_from_component_flags(uint flags)
 {
-    return (flags & (FRAG_HAS_SYSCALL | FRAG_HAS_DIRECT_CTI IF_X86_64(| FRAG_32_BIT)));
+    return (flags &
+            (FRAG_HAS_SYSCALL |
+             FRAG_HAS_DIRECT_CTI IF_X86_64(
+                 | FRAG_32_BIT IF_LINUX(| FRAG_HAS_RSEQ_ENDPOINT))));
 }
 
 static inline uint
