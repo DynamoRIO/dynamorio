@@ -65,7 +65,7 @@ typedef struct {
 } rv_instr_info_t;
 
 #if !defined(X64)
-#    error RISC-V codec only supports 64-bit architectures (mask+match -> code).
+#    error RISC-V codec only supports 64-bit architectures: mask+match -> code.
 #endif
 
 /**
