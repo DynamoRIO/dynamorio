@@ -797,20 +797,24 @@ protected:
                     return err;
                 buf += trace_metadata_writer_t::write_marker(
                     buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
+                if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                    impl()->log(4, "Signal/exception between bbs\n");
+                }
+                // Delay most markers since intra-block markers can cause issues
+                // with tools that do not expect markers amid records for a single
+                // instruction or inside a basic block. We don't delay
+                // TRACE_MARKER_TYPE_CPU_ID because it identifies the CPU on
+                // which subsequent records were collected.
                 if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
                     std::string error = impl()->write_delayed_branches(
                         tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
                     if (!error.empty())
                         return error;
                     return "";
-                } else {
-                    if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-                        impl()->log(4, "Signal/exception between bbs\n");
-                    }
-                    impl()->log(3, "Appended marker type %u value " PIFX "\n",
-                                (trace_marker_type_t)in_entry->extended.valueB,
-                                (uintptr_t)in_entry->extended.valueA);
                 }
+                impl()->log(3, "Appended marker type %u value " PIFX "\n",
+                            (trace_marker_type_t)in_entry->extended.valueB,
+                            (uintptr_t)in_entry->extended.valueA);
             } else {
                 std::stringstream ss;
                 ss << "Invalid extension type " << (int)in_entry->extended.ext;
@@ -1347,7 +1351,11 @@ private:
     // Returns true if a kernel interrupt happened at cur_pc.
     // Outputs a kernel interrupt if this is the right location.
     // Outputs any other markers observed if !instrs_are_separate, since they
-    // are part of this block and need to be inserted now.
+    // are part of this block and need to be inserted now. Inserts all
+    // intra-block markers (i.e., the higher level process_offline_entry() will
+    // never insert a marker intra-block) and all inter-block markers are
+    // handled at a higher level (process_offline_entry()) and are never
+    // inserted here.
     std::string
     handle_kernel_interrupt_and_markers(void *tls, INOUT trace_entry_t **buf_in,
                                         uint64_t cur_pc, uint64_t cur_offs,
@@ -1434,10 +1442,11 @@ private:
                     // not-inside-a-block main loop.
                 }
             } else {
-                // All markers should be only at block boundaries, as we cannot
-                // figure out where they should go (and could easily insert them in the
-                // middle of this block instead of between this and the next block, with
-                // implicit instructions added). Thus, we do not append any other markers.
+                // Other than kernel event markers checked above, markers should be
+                // only at block boundaries, as we cannot figure out where they should go
+                // (and could easily insert them in the middle of this block instead
+                // of between this and the next block, with implicit instructions added).
+                // Thus, we do not append any other markers.
             }
             if (append) {
                 byte *buf = reinterpret_cast<byte *>(*buf_in);
