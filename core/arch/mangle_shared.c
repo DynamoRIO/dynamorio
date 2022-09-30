@@ -1372,7 +1372,28 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             ASSERT_NOT_REACHED();
         }
         rseq_set_final_instr_pc(start, pc);
-        mangle_rseq_insert_native_sequence(dcontext, ilist, instr, next_instr, flags,
+        /* We need to insert the native sequence before the barrier label,
+         * as that is where the app code has native values.
+         * It is possible a client inserted code in between so we have to go
+         * and find it.
+         */
+        instr_t *find = *next_instr;
+        while (find != NULL &&
+               !(instr_is_label(find) &&
+                 instr_get_note(find) == (void *)DR_NOTE_REG_BARRIER))
+            find = instr_get_next(find);
+        if (find == NULL) {
+            REPORT_FATAL_ERROR_AND_EXIT(
+                RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                get_application_pid(),
+                "Rseq sequence DR_NOTE_REG_BARRIER must not be deleted");
+            ASSERT_NOT_REACHED();
+        }
+        instr_t *where_next = instr_get_next(find);
+        /* We actually don't need to set next_instr because the inserted native code
+         * is still beyond the next_instr of this app instr.
+         */
+        mangle_rseq_insert_native_sequence(dcontext, ilist, find, &where_next, flags,
                                            start, end, handler, scratch_reg, reg_written,
                                            reg_written_count);
         /* TODO i#2350: We should also invoke the native sequence on a midpoint exit
