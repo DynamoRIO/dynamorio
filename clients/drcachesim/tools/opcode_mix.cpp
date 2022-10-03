@@ -75,8 +75,6 @@ opcode_mix_t::initialize()
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    // Non-module instruction entries will be in the final trace (i#2062,i#5520) so
-    // we do not need the encoding file and leave it as its default INVALID_FILE.
     module_mapper_ =
         module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
                                 nullptr, knob_verbose_, knob_alt_module_dir_);
@@ -159,6 +157,10 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->filetype)) {
         // The trace has instruction encodings inside it.
         decode_pc = const_cast<app_pc>(memref.instr.encoding);
+        if (memref.instr.encoding_is_new) {
+            // The code may have changed: invalidate the cache.
+            shard->worker->opcode_cache.erase(trace_pc);
+        }
     } else {
         // Legacy trace support where we need the binaries.
         if (!module_mapper_) {
@@ -189,9 +191,6 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
     }
     int opcode;
-    // TODO i#2062,i#5520: We need to invalidate opcode_cache on changed app code.
-    // The reader may add markers to help us with that.
-    // For now we assume unchanging code.
     auto cached_opcode = shard->worker->opcode_cache.find(trace_pc);
     if (cached_opcode != shard->worker->opcode_cache.end()) {
         opcode = cached_opcode->second;

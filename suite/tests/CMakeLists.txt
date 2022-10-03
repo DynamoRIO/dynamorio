@@ -3847,7 +3847,8 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
-        "" "@-simulator_type@basic_counts" "")
+        "" "@-simulator_type@opcode_mix" "")
+      unset(tool.drcacheoff.gencode_rawtemp) # Use preprocessor on template.
     endif ()
 
     # XXX i#1551: startstop API is NYI on ARM
