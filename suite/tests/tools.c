@@ -588,11 +588,11 @@ GLOBAL_LABEL(FUNCNAME:)
         bx       lr
 #elif defined(AARCH64)
         mov      x0, ARG1
-        dc       cvau, x0 /* Data Cache Clean by VA to PoU */
-        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
-        ic       ivau, x0 /* Instruction Cache Invalidate by VA to PoU */
-        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
-        isb      /* Instruction Synchronization Barrier */
+        dc       cvau, x0  /* Data Cache Clean by VA to PoU */
+        dsb      ish       /* Data Synchronization Barrier, Inner Shareable */
+        ic       ivau, x0  /* Instruction Cache Invalidate by VA to PoU */
+        dsb      ish       /* Data Synchronization Barrier, Inner Shareable */
+        isb                /* Instruction Synchronization Barrier */
         RETURN
 #endif
         END_FUNC(FUNCNAME)
