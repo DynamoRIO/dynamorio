@@ -540,12 +540,24 @@ test_marker_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER,
                     TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
         // Markers should be delayed along with branches until the end of the
         // basic block.
