@@ -50,12 +50,6 @@
 #cmakedefine AARCH64
 #cmakedefine AARCHXX
 #cmakedefine RISCV64
-#cmakedefine RISCV_ISA_I
-#cmakedefine RISCV_ISA_M
-#cmakedefine RISCV_ISA_A
-#cmakedefine RISCV_ISA_F
-#cmakedefine RISCV_ISA_D
-#cmakedefine RISCV_ISA_C
 #cmakedefine X64
 #cmakedefine WINDOWS
 #cmakedefine LINUX
