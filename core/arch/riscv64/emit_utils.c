@@ -30,16 +30,16 @@
  * DAMAGE.
  */
 
+#include <stdint.h>
+
 #include "../globals.h"
 #include "arch.h"
 
-#ifdef RISCV_ISA_C
-#    define RAW_NOP_INST 0x0001
-#    define RAW_NOP_INST_SZ 2
-#else
-#    define RAW_NOP_INST 0x00000013
-#    define RAW_NOP_INST_SZ 4
-#endif
+#define RAW_NOP_INST 0x00000013
+#define RAW_NOP_INST_SZ 4
+
+#define RAW_C_NOP_INST 0x0001
+#define RAW_C_NOP_INST_SZ 2
 
 /***************************************************************************/
 /*                               EXIT STUB                                 */
@@ -321,13 +321,23 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 bool
 fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 {
+    /* FIXME i#3544: We need to detect if C-extension is available and use
+     * the appropriate NOP encoding.
+     */
+    const size_t nop_sz = RAW_C_NOP_INST_SZ;
     byte *pc;
-    if (!ALIGNED(addr, RAW_NOP_INST_SZ) || !ALIGNED(addr + size, RAW_NOP_INST_SZ)) {
+
+    if (!ALIGNED(addr, nop_sz) || !ALIGNED(addr + size, nop_sz)) {
         ASSERT_NOT_REACHED();
         return false;
     }
-    for (pc = addr; pc < addr + size; pc += RAW_NOP_INST_SZ)
-        *(uint *)pc = RAW_NOP_INST; /* nop */
+    /* Little endian is assumed here as everywhere else. */
+    for (pc = addr; pc < addr + size; pc += nop_sz) {
+        if (nop_sz == RAW_C_NOP_INST_SZ)
+            *(uint16_t *)pc = RAW_C_NOP_INST; /* c.nop */
+        else
+            *(uint32_t *)pc = RAW_NOP_INST; /* nop */
+    }
     return true;
 }
 
