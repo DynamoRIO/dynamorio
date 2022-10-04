@@ -3550,6 +3550,8 @@ if (BUILD_CLIENTS)
     # support by itself for Android.
     get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
     prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+    get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
+    prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
 
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
@@ -3749,6 +3751,13 @@ if (BUILD_CLIENTS)
 
     torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
       "@-simulator_type@opcode_mix" "")
+    # Ensure the tool works without the raw/ subdir.
+    set(tool.drcacheoff.opcode_mix_postcmd
+      "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
+    set(tool.drcacheoff.opcode_mix_postcmd2
+      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
+    set(tool.drcacheoff.opcode_mix_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
 
     torunonly_drcacheoff(view ${ci_shared_app} ""
       "@-simulator_type@view@-sim_refs@16384" "")
