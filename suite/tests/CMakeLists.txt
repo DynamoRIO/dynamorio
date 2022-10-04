@@ -3752,11 +3752,11 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
       "@-simulator_type@opcode_mix" "")
     # Ensure the tool works without the raw/ subdir.
-    set(${testname_full}_postcmd
+    set(tool.drcacheoff.opcode_mix_postcmd
       "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
-    set(${testname_full}_postcmd2
+    set(tool.drcacheoff.opcode_mix_postcmd2
       "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
-    set(${testname_full}_postcmd3
+    set(tool.drcacheoff.opcode_mix_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
 
     torunonly_drcacheoff(view ${ci_shared_app} ""
