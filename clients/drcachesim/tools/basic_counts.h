@@ -83,6 +83,7 @@ protected:
             other_markers += rhs.other_markers;
             icache_flushes += rhs.icache_flushes;
             dcache_flushes += rhs.dcache_flushes;
+            encodings += rhs.encodings;
             for (const uint64_t addr : rhs.unique_pc_addrs) {
                 unique_pc_addrs.insert(addr);
             }
@@ -104,6 +105,9 @@ protected:
         int_least64_t other_markers = 0;
         int_least64_t icache_flushes = 0;
         int_least64_t dcache_flushes = 0;
+        // The encoding entries aren't exposed at the memref_t level, but
+        // we use encoding_is_new as a proxy.
+        int_least64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
     };
     struct per_shard_t {

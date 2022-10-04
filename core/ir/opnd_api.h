@@ -1193,40 +1193,40 @@ enum {
     DR_REG_T4 = DR_REG_X29,  /**< The 5th temporary (x29) register. */
     DR_REG_T5 = DR_REG_X30,  /**< The 6th temporary (x30) register. */
     DR_REG_T6 = DR_REG_X31,  /**< The 7th temporary (x31) register. */
-#    if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
-    DR_REG_F0,               /**< The f0(ft0) floating-point register. */
-    DR_REG_F1,               /**< The f1(ft1) floating-point register. */
-    DR_REG_F2,               /**< The f2(ft2) floating-point register. */
-    DR_REG_F3,               /**< The f3(ft3) floating-point register. */
-    DR_REG_F4,               /**< The f4(ft4) floating-point register. */
-    DR_REG_F5,               /**< The f5(ft5) floating-point register. */
-    DR_REG_F6,               /**< The f6(ft6) floating-point register. */
-    DR_REG_F7,               /**< The f7(ft7) floating-point register. */
-    DR_REG_F8,               /**< The f8(fs0) floating-point register. */
-    DR_REG_F9,               /**< The f9(fs1) floating-point register. */
-    DR_REG_F10,              /**< The f10(fa0) floating-point register. */
-    DR_REG_F11,              /**< The f11(fa1) floating-point register. */
-    DR_REG_F12,              /**< The f12(fa2) floating-point register. */
-    DR_REG_F13,              /**< The f13(fa3) floating-point register. */
-    DR_REG_F14,              /**< The f14(fa4) floating-point register. */
-    DR_REG_F15,              /**< The f15(fa5) floating-point register. */
-    DR_REG_F16,              /**< The f16(fa6) floating-point register. */
-    DR_REG_F17,              /**< The f17(fa7) floating-point register. */
-    DR_REG_F18,              /**< The f18(fs2) floating-point register. */
-    DR_REG_F19,              /**< The f19(fs3) floating-point register. */
-    DR_REG_F20,              /**< The f20(fs4) floating-point register. */
-    DR_REG_F21,              /**< The f21(fs5) floating-point register. */
-    DR_REG_F22,              /**< The f22(fs6) floating-point register. */
-    DR_REG_F23,              /**< The f23(fs7) floating-point register. */
-    DR_REG_F24,              /**< The f24(fs8) floating-point register. */
-    DR_REG_F25,              /**< The f25(fs9) floating-point register. */
-    DR_REG_F26,              /**< The f26(fs10) floating-point register. */
-    DR_REG_F27,              /**< The f27(fs11) floating-point register. */
-    DR_REG_F28,              /**< The f28(ft8) floating-point register. */
-    DR_REG_F29,              /**< The f29(ft9) floating-point register. */
-    DR_REG_F30,              /**< The f30(ft10) floating-point register. */
-    DR_REG_F31,              /**< The f31(ft11) floating-point register. */
-    DR_REG_FCSR,             /**< The floating-point control and status register. */
+    /* Floating point registers */
+    DR_REG_F0,   /**< The f0(ft0) floating-point register. */
+    DR_REG_F1,   /**< The f1(ft1) floating-point register. */
+    DR_REG_F2,   /**< The f2(ft2) floating-point register. */
+    DR_REG_F3,   /**< The f3(ft3) floating-point register. */
+    DR_REG_F4,   /**< The f4(ft4) floating-point register. */
+    DR_REG_F5,   /**< The f5(ft5) floating-point register. */
+    DR_REG_F6,   /**< The f6(ft6) floating-point register. */
+    DR_REG_F7,   /**< The f7(ft7) floating-point register. */
+    DR_REG_F8,   /**< The f8(fs0) floating-point register. */
+    DR_REG_F9,   /**< The f9(fs1) floating-point register. */
+    DR_REG_F10,  /**< The f10(fa0) floating-point register. */
+    DR_REG_F11,  /**< The f11(fa1) floating-point register. */
+    DR_REG_F12,  /**< The f12(fa2) floating-point register. */
+    DR_REG_F13,  /**< The f13(fa3) floating-point register. */
+    DR_REG_F14,  /**< The f14(fa4) floating-point register. */
+    DR_REG_F15,  /**< The f15(fa5) floating-point register. */
+    DR_REG_F16,  /**< The f16(fa6) floating-point register. */
+    DR_REG_F17,  /**< The f17(fa7) floating-point register. */
+    DR_REG_F18,  /**< The f18(fs2) floating-point register. */
+    DR_REG_F19,  /**< The f19(fs3) floating-point register. */
+    DR_REG_F20,  /**< The f20(fs4) floating-point register. */
+    DR_REG_F21,  /**< The f21(fs5) floating-point register. */
+    DR_REG_F22,  /**< The f22(fs6) floating-point register. */
+    DR_REG_F23,  /**< The f23(fs7) floating-point register. */
+    DR_REG_F24,  /**< The f24(fs8) floating-point register. */
+    DR_REG_F25,  /**< The f25(fs9) floating-point register. */
+    DR_REG_F26,  /**< The f26(fs10) floating-point register. */
+    DR_REG_F27,  /**< The f27(fs11) floating-point register. */
+    DR_REG_F28,  /**< The f28(ft8) floating-point register. */
+    DR_REG_F29,  /**< The f29(ft9) floating-point register. */
+    DR_REG_F30,  /**< The f30(ft10) floating-point register. */
+    DR_REG_F31,  /**< The f31(ft11) floating-point register. */
+    DR_REG_FCSR, /**< The floating-point control and status register. */
     /* FPR aliases */
     DR_REG_FT0 = DR_REG_F0, /**< The 1st temporary floating-point (f0) register. */
     DR_REG_FT1 = DR_REG_F1, /**< The 2nd temporary floating-point (f1) register. */
@@ -1262,17 +1262,12 @@ enum {
     DR_REG_FT9 = DR_REG_F29,  /**< The 10th temporary floating-point (f29) register. */
     DR_REG_FT10 = DR_REG_F30, /**< The 11th temporary floating-point (f30) register. */
     DR_REG_FT11 = DR_REG_F31, /**< The 12th temporary floating-point (f31) register. */
-#    endif /* RISCV_ISA_F || RISCV_ISA_D */
-                              /* FIXME i#3544: CCSRs */
-                              /* FIXME i#3544: Ifdefs for different extensions. */
 
-#    if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
+    /* FIXME i#3544: CCSRs */
+
     DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum. */
     DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
-#    else
-    DR_REG_LAST_VALID_ENUM = DR_REG_PC, /**< Last valid register enum. */
-    DR_REG_LAST_ENUM = DR_REG_PC,       /**< Last value of register enums. */
-#    endif
+
     DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit general register enum values. */
     DR_REG_STOP_64 = DR_REG_X31,  /**< End of 64-bit general register enum values. */
     DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit general register enum values. */
