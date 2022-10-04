@@ -40,6 +40,7 @@ Total counts:
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
           12 total other markers
+          21 total encodings
 Total windows: 7
 Window #0:
           15 window \(fetched\) instructions
@@ -59,6 +60,7 @@ Window #0:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            6 window other markers
+          15 window encodings
 Window #1:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -77,6 +79,7 @@ Window #1:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window other markers
+           3 window encodings
 Window #2:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -95,6 +98,7 @@ Window #2:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window other markers
+           0 window encodings
 Window #3:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -113,6 +117,7 @@ Window #3:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window other markers
+           0 window encodings
 Window #4:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -131,6 +136,7 @@ Window #4:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window other markers
+           0 window encodings
 Window #5:
            6 window \(fetched\) instructions
            6 window unique \(fetched\) instructions
@@ -149,6 +155,7 @@ Window #5:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window other markers
+           3 window encodings
 Window #6:
            0 window \(fetched\) instructions
            0 window unique \(fetched\) instructions
@@ -167,6 +174,7 @@ Window #6:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window other markers
+           0 window encodings
 Thread [0-9]* counts:
           15 \(fetched\) instructions
           15 unique \(fetched\) instructions
@@ -185,3 +193,4 @@ Thread [0-9]* counts:
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
            6 other markers
+          15 encodings
