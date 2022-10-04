@@ -2204,6 +2204,14 @@ tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
 if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
+    if (UNIX)
+      # This test deliberately crashes: disable the compiler warning about it.
+      CHECK_C_COMPILER_FLAG("-Wno-array-bounds" noarray_avail)
+      if (noarray_avail)
+        append_property_string(TARGET client.exception.dll
+          COMPILE_FLAGS "-Wno-array-bounds")
+      endif ()
+    endif ()
   endif ()
 endif ()
 
