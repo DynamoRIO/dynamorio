@@ -504,7 +504,9 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
     encoding_entry_t *enc = reinterpret_cast<encoding_entry_t *>(buf_start);
     enc->length = buf - buf_start;
     enc->id = per_block->id;
-    enc->start_pc = reinterpret_cast<uint64_t>(tag_pc);
+    // We put the ARM vs Thumb mode into the modoffs to ensure proper decoding.
+    enc->start_pc = reinterpret_cast<uint64_t>(
+        dr_app_pc_as_jump_target(instr_get_isa_mode(instrlist_first(ilist)), tag_pc));
     log_(2, "%s: Recorded %zu bytes for id " UINT64_FORMAT_STRING " @ %p\n", __FUNCTION__,
          enc->length, enc->id, tag_pc);
 
