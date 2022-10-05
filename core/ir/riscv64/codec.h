@@ -33,21 +33,19 @@
 #ifndef CODEC_H
 #define CODEC_H 1
 
+#include <stdint.h>
+
 #include "decode.h"
 
-/**
- * @file codec.h
- * @brief Interface to the RISC-V instruction codec (encoder/decoder).
+/* Interface to the RISC-V instruction codec (encoder/decoder).
  *
- * Note that encoder does not verify validity of operand values. This is because
- * currently invalid bit encodings are either reserved for future extensions
- * (i.e. C.ADDI or C.SLLI) and execute as NOP or HINT instructions (which might
- * be used as vendor ISA extensions).
+ * Note that the encoder does not verify validity of operand values. This is
+ * because currently invalid bit encodings are either reserved for future
+ * extensions (i.e. C.ADDI or C.SLLI) and execute as NOP or HINT instructions
+ * (which might be used as vendor ISA extensions).
  */
 
-/**
- * List of ISA extensions handled by the codec.
- */
+/* List of ISA extensions handled by the codec. */
 typedef enum {
     RISCV64_ISA_EXT_RV32A,
     RISCV64_ISA_EXT_RV32C,
@@ -82,40 +80,110 @@ typedef enum {
     RISCV64_ISA_EXT_CNT, /* Keep this last */
 } riscv64_isa_ext_t;
 
-/**
- * List of instruction formats handled by the codec.
+/* List of instruction formats handled by the codec.
  *
  * Note that enum names have to match ones defined in the codec.py.
  */
 typedef enum {
-    /* Uncompressed instruction formats */
+    /* Uncompressed instruction formats - Chapter 2.2 in the RISC-V Instruction
+     * Set Manual Volume I: Unprivileged ISA (ver. 20191213).
+     */
+
+    /* R-type format:
+     * |31    25|24   20|19   15|14    12|11   7|6      0|
+     * | funct7 |  rs2  |  rs1  | funct3 |  rd  | opcode |
+     */
     RISCV64_FMT_R = 0,
+    /* R4-type format:
+     * |31 27|26    25|24   20|19   15|14    12|11   7|6      0|
+     * | rs3 | funct2 |  rs2  |  rs1  | funct3 |  rd  | opcode |
+     */
     RISCV64_FMT_R4,
+    /* I-type format:
+     * |31       20|19   15|14    12|11   7|6      0|
+     * | imm[11:0] |  rs1  | funct3 |  rd  | opcode |
+     */
     RISCV64_FMT_I,
+    /* S-type format:
+     * |31       25|24   20|19   15|14    12|11       7|6      0|
+     * | imm[11:5] |  rs2  |  rs1  | funct3 | imm[4:0] | opcode |
+     */
     RISCV64_FMT_S,
+    /* B-type format:
+     * |  31   |30     25|24   20|19   15|14    12|11     8|   7   |6      0|
+     * |imm[12]|imm[10:5]|  rs2  |  rs1  | funct3 |imm[4:1]|imm[11]| opcode |
+     */
     RISCV64_FMT_B,
+    /* U-type format:
+     * |31        12|11   7|6      0|
+     * | imm[31:12] |  rd  | opcode |
+     */
     RISCV64_FMT_U,
+    /* J-type format:
+     * |   31    |30       21|   20    |19        12|11   7|6      0|
+     * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
+     */
     RISCV64_FMT_J,
-    /* Compressed instruction formats */
+    /* Compressed instruction formats - Chapter 16.2 in the RISC-V Instruction
+     * Set Manual Volume I: Unprivileged ISA (ver. 20191213).
+     * Unlike uncompressed formats, the bit layout of immediate fields (imm,
+     * offset) depends on the instruction.
+     */
+
+    /* Compressed Register (CR) format:
+     * |15    12|11     7|6   2|1      0|
+     * | funct4 | rd/rs1 | rs2 | opcode |
+     */
     RISCV64_FMT_CR,
+    /* Compressed Immediate (CI) format:
+     * |15    13|  12 |11     7|6   2|1      0|
+     * | funct3 | imm | rd/rs1 | imm | opcode |
+     */
     RISCV64_FMT_CI,
+    /* Compressed Stack-relative Store (CSS) format:
+     * |15    13|12  7|6   2|1      0|
+     * | funct3 | imm | rs2 | opcode |
+     */
     RISCV64_FMT_CSS,
+    /* Compressed Wide Immediate (CIW) format:
+     * |15    13|12  5|4   2|1      0|
+     * | funct3 | imm | rd' | opcode |
+     */
     RISCV64_FMT_CIW,
+    /* Compressed Load (CL) format:
+     * |15    13|12 10|9    7|6   5|4   2|1      0|
+     * | funct3 | imm | rs1' | imm | rd' | opcode |
+     */
     RISCV64_FMT_CL,
+    /* Compressed Store (CS) format:
+     * |15    13|12 10|9    7|6   5|4    2|1      0|
+     * | funct3 | imm | rs1' | imm | rs2' | opcode |
+     */
     RISCV64_FMT_CS,
+    /* Compressed Arithmetic (CA) format:
+     * |15    10|9        7|6      5|4    2|1      0|
+     * | funct6 | rd'/rs1' | funct2 | rs2' | opcode |
+     */
     RISCV64_FMT_CA,
+    /* Compressed Branch (CB) format:
+     * |15    13|12    10|9    7|6      2|1      0|
+     * | funct3 | offset | rs1' | offset | opcode |
+     */
     RISCV64_FMT_CB,
+    /* Compressed Jump (CJ) format:
+     * |15    13|12          2|1      0|
+     * | funct3 | jump target | opcode |
+     */
     RISCV64_FMT_CJ,
     RISCV64_FMT_CNT, /* Keep this last */
 } riscv64_inst_fmt_t;
 
-/**
- * List of instruction fields handled by the codec.
+/* List of instruction fields handled by the codec.
  *
  * Note that enum names have to match ones defined in the codec.py.
  */
 typedef enum {
-    RISCV64_FLD_NONE = 0, /**< Value indicating lack of a given field. */
+    RISCV64_FLD_NONE = 0, /*< Value indicating lack of a given field. */
     /* Uncompressed instruction fields */
     RISCV64_FLD_RD,
     RISCV64_FLD_RDFP,
@@ -173,31 +241,38 @@ typedef enum {
     RISCV64_FLD_CNT, /* Keep this last */
 } riscv64_fld_t;
 
-/**
- * Calculate instruction width.
+#define BIT(v, b) (((v) >> b) & 1)
+#define GET_FIELD(v, high, low) (((v) >> low) & ((1ULL << (high - low + 1)) - 1))
+#define SIGN_EXTEND(val, val_sz) (((int32_t)(val) << (32 - (val_sz))) >> (32 - (val_sz)))
+
+/* Calculate instruction width.
  *
  * Returns a negative number on an invalid instruction width.
  */
 static inline int
-instruction_width(int16_t lower16b)
+instruction_width(uint16_t lower16b)
 {
-    if ((lower16b & 0b11) < 0b11)
+    /*    xxxxxxxxxxxxxxaa -> 16-bit (aa != 11) */
+    if (!TESTALL(0b11, GET_FIELD(lower16b, 1, 0)))
         return 2;
-    else if ((lower16b & 0b11100) < 0b11100)
+    /* ...xxxxxxxxxxxbbb11 -> 32-bit (bbb != 111) */
+    else if (!TESTALL(0b111, GET_FIELD(lower16b, 4, 2)))
         return 4;
-    else if ((lower16b & 0b011111) == 0b011111)
+    /* ...xxxxxxxxxx011111 -> 48-bit */
+    else if (TESTALL(0b011111, GET_FIELD(lower16b, 5, 0)))
         return 6;
-    else if ((lower16b & 0b0111111) == 0b0111111)
+    /* ...xxxxxxxxx0111111 -> 64-bit */
+    else if (TESTALL(0b0111111, GET_FIELD(lower16b, 6, 0)))
         return 8;
-    else if ((lower16b & 0b111000001111111) < 0b111000001111111)
-        return 80 + 16 * (lower16b >> 12);
+    /* ...xnnnxxxxx1111111 -> nnn != 0b111 */
+    else if (TESTALL(0b1111111, GET_FIELD(lower16b, 6, 0)) &&
+             !TESTALL(0b111, GET_FIELD(lower16b, 14, 12)))
+        return 80 + 16 * GET_FIELD(lower16b, 14, 12);
     else
         return 0;
 }
 
-/**
- * Return instr_info_t for a given opcode.
- */
+/* Return instr_info_t for a given opcode. */
 instr_info_t *
 get_instruction_info(uint opc);
 

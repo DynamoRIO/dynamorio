@@ -2,8 +2,7 @@
  * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
  * **********************************************************/
 
-/*
- * Redistribution and use in source and binary forms, with or without
+/* Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
  * * Redistributions of source code must retain the above copyright notice,
@@ -35,16 +34,14 @@
 #include "../globals.h"
 #include "codec.h"
 
-/**
- * RISC-V extended instruction information structure.
+/* RISC-V extended instruction information structure.
  *
  * Holds extra elements required for encoding/decoding. Since instr_info_t is
- * 48 bytes large, there is 16 bytes available to a single cache-line (assuming
+ * 48 bytes large, there are 16 bytes available to a single cache-line (assuming
  * 64 byte lines).
  */
 typedef struct {
-    /*
-     * The instruction information contains:
+    /* The instruction information contains:
      * - OP_* opcode -> type
      * - N(dst) - there can either by 0 or 1 destination -> opcode[31]
      * - N(src) - there can be up to 4 sources -> opcode[30:28]
@@ -60,26 +57,23 @@ typedef struct {
      * - Match - fixed bits of the instruction -> code[63:32]
      * - Mask - fixed bits mask for encoding validation -> code[31:0]
      */
-    instr_info_t nfo;
-    riscv64_isa_ext_t ext; /**< ISA or extension of this instruction. */
+    instr_info_t info;
+    riscv64_isa_ext_t ext; /* ISA or extension of this instruction. */
 } rv_instr_info_t;
 
 #if !defined(X64)
-#    error RISC-V codec only supports 64-bit architectures: mask+match -> code.
+#    error RISC-V codec only supports 64-bit architectures mask+match -> code.
 #endif
 
-/**
- * A prefix-tree node.
- */
+/* A prefix-tree node. */
 typedef struct {
-    byte mask;      /**< The mask to apply to an instruction after applying shift. */
-    byte shift;     /**< The shift to apply to an instruction before applying mask. */
-    uint16_t index; /**< The index into the trie table. If mask == 0, index is the index
-                        into instr_infos. */
+    byte mask;      /* The mask to apply to an instruction after applying shift. */
+    byte shift;     /* The shift to apply to an instruction before applying mask. */
+    uint16_t index; /* The index into the trie table. If mask == 0, index is the index
+                       into instr_infos. */
 } trie_node_t;
 
-/**
- * Instruction operand decoder function.
+/* Instruction operand decoder function.
  *
  * Decodes an operand from a given instruction into the instr_t structure
  * provided by the caller.
@@ -103,11 +97,6 @@ typedef bool (*opnd_dec_func_t)(dcontext_t *dc, uint32_t inst, int op_sz, byte *
  * Helper functions.
  */
 
-#define ARRAY_SIZE(x) sizeof(x) / sizeof(x[0])
-#define BIT(v, b) (((v) >> b) & 1)
-#define GET_FIELD(v, high, low) (((v) >> low) & ((1 << (high - low + 1)) - 1))
-#define SIGN_EXTEND(val, val_sz) (((int32_t)(val) << (32 - (val_sz))) >> (32 - (val_sz)))
-
 #define INFO_NDST(opcode) GET_FIELD((opcode), 31, 31);
 #define INFO_NSRC(opcode) GET_FIELD((opcode), 30, 28);
 
@@ -115,8 +104,8 @@ typedef bool (*opnd_dec_func_t)(dcontext_t *dc, uint32_t inst, int op_sz, byte *
  * End of helper functions.
  **********************************************************/
 
-/* Include a generated list of rv_instr_info_t and an acompanying trie structure
- * for fast lookup:
+/* Include a generated list of rv_instr_info_t and an accompanying trie
+ * structure for fast lookup:
  * static rv_instr_info_t instr_infos[];
  * static trie_node_t instr_infos_trie[];
  */
@@ -126,8 +115,7 @@ typedef bool (*opnd_dec_func_t)(dcontext_t *dc, uint32_t inst, int op_sz, byte *
  * Format decoding functions.
  */
 
-/**
- * Dummy function for catching invalid operand values. Should never be called.
+/* Dummy function for catching invalid operand values. Should never be called.
  */
 static bool
 decode_none_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
@@ -137,6 +125,12 @@ decode_none_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return false;
 }
 
+/* Decode the destination fixed-point register field:
+ * |31 12|11   7|6      0|
+ * | ... |  rd  | opcode |
+ *        ^----^
+ * Applies to R, R4, I, U and J uncompressed formats.
+ */
 static bool
 decode_rd_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc, int idx,
                instr_t *out)
@@ -147,6 +141,12 @@ decode_rd_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc
     return true;
 }
 
+/* Decode the destination floating-point register field:
+ * |31 12|11   7|6      0|
+ * | ... |  rd  | opcode |
+ *        ^----^
+ * Applies to R, R4, I, U and J uncompressed formats.
+ */
 static bool
 decode_rdfp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -157,6 +157,12 @@ decode_rdfp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode the 1st source fixed-point register field:
+ * |31 20|19   15|14  7|6      0|
+ * | ... |  rs1  | ... | opcode |
+ *        ^-----^
+ * Applies to R, R4, I, S and B uncompressed formats.
+ */
 static bool
 decode_rs1_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                 int idx, instr_t *out)
@@ -167,6 +173,12 @@ decode_rs1_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_p
     return true;
 }
 
+/* Decode the 1st source floating-point register field:
+ * |31 20|19   15|14  7|6      0|
+ * | ... |  rs1  | ... | opcode |
+ *        ^-----^
+ * Applies to R, R4, I, S and B uncompressed formats.
+ */
 static bool
 decode_rs1fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -177,6 +189,12 @@ decode_rs1fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the rs1 field as a base register:
+ * |31 20|19    15|14  7|6      0|
+ * | ... |  base  | ... | opcode |
+ *        ^------^
+ * Applies to instructions of the Zicbom and Zicbop extensions.
+ */
 static bool
 decode_base_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -187,6 +205,12 @@ decode_base_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode the 2nd source fixed-point register field:
+ * |31 25|24   20|19  7|6      0|
+ * | ... |  rs2  | ... | opcode |
+ *        ^-----^
+ * Applies to R, R4, S and B uncompressed formats.
+ */
 static bool
 decode_rs2_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                 int idx, instr_t *out)
@@ -197,6 +221,12 @@ decode_rs2_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_p
     return true;
 }
 
+/* Decode the 2nd source floating-point register field:
+ * |31 25|24   20|19  7|6      0|
+ * | ... |  rs2  | ... | opcode |
+ *        ^-----^
+ * Applies to R, R4, S and B uncompressed formats.
+ */
 static bool
 decode_rs2fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -207,6 +237,12 @@ decode_rs2fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the 3rd source fixed-point register field:
+ * |31 27|26  7|6      0|
+ * | rs3 | ... | opcode |
+ *  ^---^
+ * Applies to the R4 uncompressed format.
+ */
 static bool
 decode_rs3_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                 int idx, instr_t *out)
@@ -217,6 +253,11 @@ decode_rs3_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_p
     return true;
 }
 
+/* Decode the fence mode field of the "fence" instruction:
+ * |31  28| 27 | 26 | 25 | 24 | 23 | 22 | 21 | 20 |19 15|14    12|11 7|6   0|
+ * |  fm  | PI | PO | PR | PW | SI | SO | SR | SW | rs1 | funct3 | rd | 0xF |
+ *  ^----^
+ */
 static bool
 decode_fm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc, int idx,
                instr_t *out)
@@ -227,6 +268,11 @@ decode_fm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc
     return true;
 }
 
+/* Decode all predecessor bits of the "fence" instruction:
+ * |31  28| 27 | 26 | 25 | 24 | 23 | 22 | 21 | 20 |19 15|14    12|11 7|6   0|
+ * |  fm  | PI | PO | PR | PW | SI | SO | SR | SW | rs1 | funct3 | rd | 0xF |
+ *         ^-----------------^
+ */
 static bool
 decode_pred_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -237,6 +283,11 @@ decode_pred_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode all successor bits of the "fence" instruction:
+ * |31  28| 27 | 26 | 25 | 24 | 23 | 22 | 21 | 20 |19 15|14    12|11 7|6   0|
+ * |  fm  | PI | PO | PR | PW | SI | SO | SR | SW | rs1 | funct3 | rd | 0xF |
+ *                             ^-----------------^
+ */
 static bool
 decode_succ_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -247,6 +298,11 @@ decode_succ_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode acquire-release semantics of an atomic instruction (A extension):
+ * |31 27| 26 | 25 |24  7|6      0|
+ * | ... | aq | rl | ... | opcode |
+ *        ^-------^
+ */
 static bool
 decode_aqrl_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -257,6 +313,11 @@ decode_aqrl_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode the CSR number in instructions from the Zicsr extension:
+ * |31 20|19  7|6      0|
+ * | csr | ... | opcode |
+ *  ^---^
+ */
 static bool
 decode_csr_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                 int idx, instr_t *out)
@@ -271,6 +332,13 @@ decode_csr_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_p
     return true;
 }
 
+/* Decode the rounding mode in floating-point instructions:
+ * |31 15|14  12|11  7|6      0|
+ * | ... |  rm  | ... | opcode |
+ *        ^----^
+ * The valid values can be found in Table 11.1 in the RISC-V
+ * Instruction Set Manual Volume I: Unprivileged ISA (ver. 20191213).
+ */
 static bool
 decode_rm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc, int idx,
                instr_t *out)
@@ -281,6 +349,11 @@ decode_rm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc
     return true;
 }
 
+/* Decode the 6-bit (6th bit always 0 in rv32) shift amount:
+ * |31 26|25   20|19  7|6      0|
+ * | ... | shamt | ... | opcode |
+ *        ^-----^
+ */
 static bool
 decode_shamt_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -291,6 +364,11 @@ decode_shamt_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the 5-bit shift amount in rv64:
+ * |31 25|24    20|19  7|6      0|
+ * | ... | shamt5 | ... | opcode |
+ *        ^------^
+ */
 static bool
 decode_shamt5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                    int idx, instr_t *out)
@@ -301,6 +379,11 @@ decode_shamt5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
     return true;
 }
 
+/* Decode the 7-bit (7th bit always 0 in rv64) shift amount in rv64:
+ * |31 27|26    20|19  7|6      0|
+ * | ... | shamt6 | ... | opcode |
+ *        ^------^
+ */
 static bool
 decode_shamt6_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                    int idx, instr_t *out)
@@ -312,6 +395,14 @@ decode_shamt6_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
     return true;
 }
 
+/* Decode the immediate field of the I-type format:
+ * |31       20|19   15|14    12|11   7|6      0|
+ * | imm[11:0] |  rs1  | funct3 |  rd  | opcode |
+ *  ^---------^
+ * Into:
+ * |31       11|10        0|
+ * |  imm[11]  | imm[10:0] |
+ */
 static bool
 decode_i_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -322,6 +413,14 @@ decode_i_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the immediate field of the S-type format:
+ * |31       25|24   20|19   15|14    12|11       7|6      0|
+ * | imm[11:5] |  rs2  |  rs1  | funct3 | imm[4:0] | opcode |
+ *  ^---------^                          ^--------^
+ * Into:
+ * |31       11|10        5|4        0|
+ * |  imm[11]  | imm[10:5] | imm[4:0] |
+ */
 static bool
 decode_s_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -333,6 +432,14 @@ decode_s_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the immediate field of the B-type format as a pc-relative offset:
+ * |  31   |30     25|24   20|19   15|14    12|11     8|   7   |6      0|
+ * |imm[12]|imm[10:5]|  rs2  |  rs1  | funct3 |imm[4:1]|imm[11]| opcode |
+ *  ^---------------^                          ^--------------^
+ * Into:
+ * |31       12|  11   |10        5|4        1| 0 |
+ * |  imm[12]  |imm[11]| imm[10:5] | imm[4:1] | 0 |
+ */
 static bool
 decode_b_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -342,14 +449,20 @@ decode_b_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     imm |= GET_FIELD(inst, 30, 25) << 5;
     imm |= GET_FIELD(inst, 11, 8) << 1;
     imm = SIGN_EXTEND(imm, 13);
-    /* FIXME i#3544: Should PC-relative jumps targets be encoded as mem_instr or
-     * rather rel_addr?
-     */
-    opnd_t opnd = opnd_create_mem_instr(out, imm, op_sz);
-    instr_set_src(out, idx, opnd);
+
+    opnd_t opnd = opnd_create_pc(orig_pc + imm);
+    instr_set_target(out, opnd);
     return true;
 }
 
+/* Decode the immediate field of the U-type format:
+ * |31        12|11   7|6      0|
+ * | imm[31:12] |  rd  | opcode |
+ *  ^----------^
+ * Into:
+ * |31        12|11  0|
+ * | imm[31:12] |  0  |
+ */
 static bool
 decode_u_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -360,6 +473,14 @@ decode_u_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the immediate field of the J-type format as a pc-relative offset:
+ * |   31    |30       21|   20    |19        12|11   7|6      0|
+ * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
+ *  ^------------------------------------------^
+ * Into:
+ * |31     20|19        12|   11    |10        1| 0 |
+ * | imm[20] | imm[19:12] | imm[11] | imm[10:1] | 0 |
+ */
 static bool
 decode_j_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -369,14 +490,18 @@ decode_j_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     imm |= BIT(inst, 20) << 11;
     imm |= GET_FIELD(inst, 30, 21) << 1;
     imm = SIGN_EXTEND(imm, 21);
-    /* FIXME i#3544: Should PC-relative jumps targets be encoded as mem_instr or
-     * rather rel_addr?
-     */
-    opnd_t opnd = opnd_create_mem_instr(out, imm, op_sz);
-    instr_set_src(out, idx, opnd);
+
+    opnd_t opnd = opnd_create_pc(orig_pc + imm);
+    instr_set_target(out, opnd);
     return true;
 }
 
+/* Decode the destination fixed-point register field:
+ * |31 12|11   7|6   2|1      0|
+ * | ... |  rd  | ... | opcode |
+ *        ^----^
+ * Applies to CR and CI compressed formats.
+ */
 static bool
 decode_crd_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                 int idx, instr_t *out)
@@ -387,6 +512,12 @@ decode_crd_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_p
     return true;
 }
 
+/* Decode the destination floating-point register field:
+ * |31 12|11   7|6   2|1      0|
+ * | ... |  rd  | ... | opcode |
+ *        ^----^
+ * Applies to CR and CI compressed formats.
+ */
 static bool
 decode_crdfp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -397,6 +528,12 @@ decode_crdfp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the 1st source fixed-point register field:
+ * |31 12|11   7|6   2|1      0|
+ * | ... |  rd  | ... | opcode |
+ *        ^----^
+ * Applies to CR and CI compressed formats.
+ */
 static bool
 decode_crs1_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -407,6 +544,12 @@ decode_crs1_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode the 2nd source fixed-point register field:
+ * |31  7|6   2|1      0|
+ * | ... | rs2 | opcode |
+ *        ^---^
+ * Applies to CR and CSS compressed formats.
+ */
 static bool
 decode_crs2_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -417,6 +560,12 @@ decode_crs2_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode the 2nd source floating-point register field:
+ * |31  7|6   2|1      0|
+ * | ... | rs2 | opcode |
+ *        ^---^
+ * Applies to CR and CSS compressed formats.
+ */
 static bool
 decode_crs2fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                    int idx, instr_t *out)
@@ -427,6 +576,12 @@ decode_crs2fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
     return true;
 }
 
+/* Decode the limited range (x8-x15) destination fixed-point register field:
+ * |31  5|4   2|1      0|
+ * | ... | rd' | opcode |
+ *        ^---^
+ * Applies to CIW and CL compressed formats.
+ */
 static bool
 decode_crd__opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                  int idx, instr_t *out)
@@ -437,6 +592,12 @@ decode_crd__opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode the limited range (x8-x15) destination floating-point register field:
+ * |31  5|4   2|1      0|
+ * | ... | rd' | opcode |
+ *        ^---^
+ * Applies to CIW and CL compressed formats.
+ */
 static bool
 decode_crd_fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                    int idx, instr_t *out)
@@ -447,6 +608,12 @@ decode_crd_fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
     return true;
 }
 
+/* Decode the limited range (x8-x15) 1st source fixed-point register field:
+ * |31 10|9    7|6   2|1      0|
+ * | ... | rs1' | ... | opcode |
+ *        ^---^
+ * Applies to CL, CS, CA and CB compressed formats.
+ */
 static bool
 decode_crs1__opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -457,6 +624,12 @@ decode_crs1__opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the limited range (x8-x15) 2nd source fixed-point register field:
+ * |31  5|4    2|1      0|
+ * | ... | rs2' | opcode |
+ *        ^---^
+ * Applies to CS and CA compressed formats.
+ */
 static bool
 decode_crs2__opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -467,6 +640,12 @@ decode_crs2__opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the limited range (x8-x15) 2nd source floating-point register field:
+ * |31  5|4    2|1      0|
+ * | ... | rs2' | opcode |
+ *        ^---^
+ * Applies to CS and CA compressed formats.
+ */
 static bool
 decode_crs2_fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
@@ -477,6 +656,12 @@ decode_crs2_fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the limited range (x8-x15) destination fixed-point register field:
+ * |31  5|4   2|1      0|
+ * | ... | rd' | opcode |
+ *        ^---^
+ * Applies to the CA compressed format.
+ */
 static bool
 decode_crd___opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -487,6 +672,11 @@ decode_crd___opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the 6-bit (6th bit always 0 in rv32) shift amount:
+ * |15    13|   12   |11    10|9    7|6        2|1      0|
+ * | funct3 | imm[5] | funct2 | rs1' | imm[4:0] | opcode |
+ *           ^------^                 ^--------^
+ */
 static bool
 decode_cshamt_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                    int idx, instr_t *out)
@@ -497,6 +687,14 @@ decode_cshamt_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
     return true;
 }
 
+/* Decode the CSR immediate in instructions from the Zicsr extension:
+ * |31 20|19      15|14  7|6      0|
+ * | csr | imm[4:0] | ... | opcode |
+ *        ^--------^
+ * Into:
+ * |31  5|4        0|
+ * |  0  | imm[4:0] |
+ */
 static bool
 decode_csr_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
@@ -507,6 +705,14 @@ decode_csr_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the immediate of the caddi16sp instruction:
+ * |15 13|   12   |11  7|6              2|1      0|
+ * | ... | imm[9] | ... | imm[4|6|8:7|5] | opcode |
+ *        ^------^       ^--------------^
+ * Into:
+ * |31     9|8        4|3   0|
+ * | imm[9] | imm[8:4] |  0  |
+ */
 static bool
 decode_caddi16sp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
                           byte *orig_pc, int idx, instr_t *out)
@@ -522,6 +728,14 @@ decode_caddi16sp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     return true;
 }
 
+/* Decode the SP-based immediate offset of c.lwsp and c.flwsp instructions:
+ * |15 13|   12   |11  7|6            2|1      0|
+ * | ... | imm[5] | ... | imm[4:2|7:6] | opcode |
+ *        ^------^       ^------------^
+ * Into:
+ *      |31  8|7        2|3   0|
+ * sp + |  0  | imm[7:2] |  0  |
+ */
 static bool
 decode_clwsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                       int idx, instr_t *out)
@@ -534,6 +748,14 @@ decode_clwsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
     return true;
 }
 
+/* Decode the SP-based immediate offset of c.ldsp and c.fldsp instructions:
+ * |15 13|   12   |11  7|6            2|1      0|
+ * | ... | imm[5] | ... | imm[4:3|8:6] | opcode |
+ *        ^------^       ^------------^
+ * Into:
+ *      |31  9|8        2|3   0|
+ * sp + |  0  | imm[8:3] |  0  |
+ */
 static bool
 decode_cldsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                       int idx, instr_t *out)
@@ -546,6 +768,14 @@ decode_cldsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
     return true;
 }
 
+/* Decode the immediate of the c.lui instruction:
+ * |15 13|   12    |11  7|6          2|1      0|
+ * | ... | imm[17] | ... | imm[16:12] | opcode |
+ *        ^-------^       ^----------^
+ * Into:
+ * |31     17|16        12|11  0|
+ * | imm[17] | imm[16:12] |  0  |
+ */
 static bool
 decode_clui_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                      int idx, instr_t *out)
@@ -556,6 +786,14 @@ decode_clui_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *o
     return true;
 }
 
+/* Decode the SP-based offset immediate of c.swsp and c.fswsp instructions:
+ * |15 13|12           7|6   2|1      0|
+ * | ... | imm[5:2|7:6] | ... | opcode |
+ *        ^------------^
+ * Into:
+ *      |31  8|7        2|1 0|
+ * sp + |  0  | imm[7:2] | 0 |
+ */
 static bool
 decode_cswsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                       int idx, instr_t *out)
@@ -566,6 +804,14 @@ decode_cswsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
     return true;
 }
 
+/* Decode the SP-based offset immediate of c.sdsp and c.fsdsp instructions:
+ * |15 13|12           7|6   2|1      0|
+ * | ... | imm[5:3|8:6] | ... | opcode |
+ *        ^------------^
+ * Into:
+ *      |31  9|8        3|2 0|
+ * sp + |  0  | imm[7:3] | 0 |
+ */
 static bool
 decode_csdsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                       int idx, instr_t *out)
@@ -576,6 +822,14 @@ decode_csdsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
     return true;
 }
 
+/* Decode the immediate of the c.addi4spn instruction:
+ * |15 13|12               5|4   2|1      0|
+ * | ... | imm[5:4|9:6|2|3] | ... | opcode |
+ *        ^----------------^
+ * Into:
+ * |31 10|9        2|1 0|
+ * |  0  | imm[9:2] | 0 |
+ */
 static bool
 decode_ciw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
@@ -589,6 +843,15 @@ decode_ciw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the base register and offset immediate of c.lw and c.flw
+ * instructions:
+ * |15 13|12      10|9   7|6        5|4   2|1      0|
+ * | ... | imm[5:3] | rs1' | imm[2|6] | ... | opcode |
+ *        ^--------^ ^----^ ^--------^
+ * Into:
+ *        |31  7|6        2|1 0|
+ * rs1' + |  0  | imm[6:2] | 0 |
+ */
 static bool
 decode_clw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
@@ -602,6 +865,15 @@ decode_clw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the base register and offset immediate of c.ld and c.fld
+ * instructions:
+ * |15 13|12      10|9    7|6        5|4   2|1      0|
+ * | ... | imm[5:3] | rs1' | imm[7:6] | ... | opcode |
+ *        ^--------^ ^----^ ^--------^
+ * Into:
+ *        |31  8|7        3|2 0|
+ * rs1' + |  0  | imm[7:3] | 0 |
+ */
 static bool
 decode_cld_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
@@ -613,6 +885,15 @@ decode_cld_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the base register and offset immediate of c.sw and c.fsw
+ * instructions:
+ * |15 13|12      10|9    7|6        5|4   2|1      0|
+ * | ... | imm[5:3] | rs1' | imm[2|6] | ... | opcode |
+ *        ^--------^ ^----^ ^--------^
+ * Into:
+ *        |31  7|6        2|1 0|
+ * rs1' + |  0  | imm[6:2] | 0 |
+ */
 static bool
 decode_csw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
@@ -626,6 +907,15 @@ decode_csw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the base register and offset immediate of c.sd and c.fsd
+ * instructions:
+ * |15 13|12      10|9   7|6        5|4   2|1      0|
+ * | ... | imm[5:3] | rs1' | imm[7:6] | ... | opcode |
+ *        ^--------^ ^----^ ^--------^
+ * Into:
+ *        |31  8|7        3|2 0|
+ * rs1' + |  0  | imm[7:3] | 0 |
+ */
 static bool
 decode_csd_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
@@ -637,6 +927,14 @@ decode_csd_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the base immediate of c.addi, c.addiw, c.li, c.andi instructions:
+ * |15 13|   12   |11  7|6        2|1      0|
+ * | ... | imm[5] | ... | imm[4:0] | opcode |
+ *        ^------^       ^--------^
+ * Into:
+ * |31     5|4        0|
+ * | imm[5] | imm[4:0] |
+ */
 static bool
 decode_cimm5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                   int idx, instr_t *out)
@@ -647,6 +945,14 @@ decode_cimm5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the immediate field of the CB-type format as a pc-relative offset:
+ * |15 13|12        10|9   7|6               2|1      0|
+ * | ... | imm[8|4:3] | ... | imm[7:6|2:1|5] | opcode |
+ *        ^----------^       ^--------------^
+ * Into:
+ * |31     8|7        1| 0 |
+ * | imm[8] | imm[7:1] | 0 |
+ */
 static bool
 decode_cb_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                    int idx, instr_t *out)
@@ -657,14 +963,20 @@ decode_cb_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
     imm |= GET_FIELD(inst, 11, 10) << 3;
     imm |= GET_FIELD(inst, 4, 3) << 1;
     imm = SIGN_EXTEND(imm, 9);
-    /* FIXME i#3544: Should PC-relative jumps targets be encoded as mem_instr or
-     * rather rel_addr?
-     */
-    opnd_t opnd = opnd_create_mem_instr(out, imm, op_sz);
-    instr_set_src(out, idx, opnd);
+
+    opnd_t opnd = opnd_create_pc(orig_pc + imm);
+    instr_set_target(out, opnd);
     return true;
 }
 
+/* Decode the immediate field of the CJ-type format as a pc-relative offset:
+ * |15 13|12        10|9   7|6               2|1      0|
+ * | ... | imm[8|4:3] | ... | imm[7:6|2:1|5] | opcode |
+ *        ^----------^       ^--------------^
+ * Into:
+ * |31     8|7        1| 0 |
+ * | imm[8] | imm[7:1] | 0 |
+ */
 static bool
 decode_cj_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                    int idx, instr_t *out)
@@ -678,14 +990,23 @@ decode_cj_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
     imm |= BIT(inst, 11) << 4;
     imm |= GET_FIELD(inst, 5, 3) << 1;
     imm = SIGN_EXTEND(imm, 12);
-    /* FIXME i#3544: Should PC-relative jumps targets be encoded as mem_instr or
-     * rather rel_addr?
-     */
-    opnd_t opnd = opnd_create_mem_instr(out, imm, op_sz);
-    instr_set_src(out, idx, opnd);
+
+    opnd_t opnd = opnd_create_pc(orig_pc + imm);
+    instr_set_target(out, opnd);
     return true;
 }
 
+/* Decode the base register and immediate offset of a virtual load-like field:
+ * |31       20|19   15|14   7|6      0|
+ * | imm[11:0] |  rs1  | ...  | opcode |
+ *  ^---------^ ^-----^
+ * Into:
+ *       |31     11|7         0|
+ * rs1 + | imm[11] | imm[10:0] |
+ *
+ * Note that this is a virtual field injected by codec.py into instructions
+ * which share the immediate field type with other non-base+disp instructions.
+ */
 static bool
 decode_v_l_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
                          byte *orig_pc, int idx, instr_t *out)
@@ -697,6 +1018,17 @@ decode_v_l_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     return true;
 }
 
+/* Decode the base register and immediate offset of a virtual store-like field:
+ * |31       25|24   20|19   15|14    12|11       7|6      0|
+ * | imm[11:5] |  rs2  |  rs1  | funct3 | imm[4:0] | opcode |
+ *  ^---------^         ^-----^          ^--------^
+ * Into:
+ *       |31     11|7         0|
+ * rs1 + | imm[11] | imm[10:0] |
+ *
+ * Note that this is a virtual field injected by codec.py into instructions
+ * which share the immediate field type with other non-base+disp instructions.
+ */
 static bool
 decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
                          byte *orig_pc, int idx, instr_t *out)
@@ -708,8 +1040,8 @@ decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     instr_set_dst(out, idx, opnd);
     return true;
 }
-/**
- * Array of operand decode functions indexed by riscv64_fld_t.
+
+/* Array of operand decode functions indexed by riscv64_fld_t.
  *
  * NOTE: After benchmarking, perhaps this could be placed in the same section as
  *       instr_infos and trie?
@@ -769,6 +1101,11 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_V_S_RS1_DISP] = decode_v_s_rs1_disp_opnd,
 };
 
+/* Decode RVC quadrant 0.
+ *
+ * The values are derived from table 16.5 in the RISC-V Instruction Set Manual
+ * Volume I: Unprivileged ISA (ver. 20191213).
+ */
 static inline rv_instr_info_t *
 match_op_0(int funct, bool rv32, bool rv64)
 {
@@ -782,7 +1119,7 @@ match_op_0(int funct, bool rv32, bool rv64)
         if (rv64)
             return &instr_infos[OP_c_ld];
         return NULL;
-    // 4 is reserived.
+    // 4 is reserved.
     case 5: return &instr_infos[OP_c_fsd];
     case 6: return &instr_infos[OP_c_sw];
     case 7:
@@ -796,6 +1133,11 @@ match_op_0(int funct, bool rv32, bool rv64)
     }
 }
 
+/* Decode RVC quadrant 1.
+ *
+ * The values are derived from table 16.6 in the RISC-V Instruction Set Manual
+ * Volume I: Unprivileged ISA (ver. 20191213).
+ */
 static inline rv_instr_info_t *
 match_op_1(int funct, int funct2, int funct3, int bit11to7, int bit12, bool rv32,
            bool rv64)
@@ -852,6 +1194,11 @@ match_op_1(int funct, int funct2, int funct3, int bit11to7, int bit12, bool rv32
     };
 }
 
+/* Decode RVC quadrant 2
+ *
+ * The values are derived from table 16.7 in the RISC-V Instruction Set Manual
+ * Volume I: Unprivileged ISA (ver. 20191213).
+ */
 static inline rv_instr_info_t *
 match_op_2(int funct, int bit11to7, int bit6to2, int bit12, bool rv32, bool rv64)
 {
@@ -898,17 +1245,17 @@ match_op_2(int funct, int bit11to7, int bit6to2, int bit12, bool rv32, bool rv64
 static rv_instr_info_t *
 get_rvc_instr_info(uint32_t inst, int xlen)
 {
-    /* 0 is an illegal instruction which is often used as a canary */
+    /* 0 is an illegal instruction which is often used as a canary. */
     if (inst == 0)
         return &instr_infos[OP_unimp];
 
-    int op = inst & 0b11;
-    int funct = (inst >> 13) & 0b111;
-    int bit11to7 = (inst >> 7) & 0b11111;
-    int funct2 = (inst >> 10) & 0b11;
-    int bit12 = (inst >> 12) & 0b1;
-    int funct3 = (inst >> 5) & 0b11;
-    int bit6to2 = (inst >> 2) & 0b11111;
+    int op = GET_FIELD(inst, 1, 0);
+    int funct = GET_FIELD(inst, 15, 13);
+    int bit11to7 = GET_FIELD(inst, 11, 7);
+    int funct2 = GET_FIELD(inst, 11, 10);
+    int bit12 = BIT(inst, 12);
+    int funct3 = GET_FIELD(inst, 6, 5);
+    int bit6to2 = GET_FIELD(inst, 6, 2);
     bool rv32 = xlen == 32;
     bool rv64 = xlen == 64;
     rv_instr_info_t *info = NULL;
@@ -922,8 +1269,8 @@ get_rvc_instr_info(uint32_t inst, int xlen)
 
     if (info == NULL)
         return NULL;
-    mask = info->nfo.code & 0xFFFFFFFF;
-    match = (info->nfo.code >> 32) & 0xFFFFFFFF;
+    mask = GET_FIELD(info->info.code, 31, 0);
+    match = GET_FIELD(info->info.code, 63, 32);
 
     if ((inst & mask) != match)
         return NULL;
@@ -938,17 +1285,17 @@ get_rv_instr_info(uint32_t inst, trie_node_t trie[])
     trie_node_t *node;
     size_t index;
 
-    /* We know the first index into trie straight from the instruction */
+    /* We know the first index into trie straight from the instruction. */
     index = (inst & 0x7f) + 1;
     while (index < (int16_t)-1) {
         node = &trie[index];
         ASSERT(node != NULL);
         if (node->mask == 0) {
-            if (node->index >= ARRAY_SIZE(instr_infos))
+            if (node->index >= BUFFER_SIZE_ELEMENTS(instr_infos))
                 return NULL;
             info = &instr_infos[node->index];
-            mask = info->nfo.code & 0xFFFFFFFF;
-            match = (info->nfo.code >> 32) & 0xFFFFFFFF;
+            mask = GET_FIELD(info->info.code, 31, 0);
+            match = GET_FIELD(info->info.code, 63, 32);
             if ((inst & mask) != match)
                 return NULL;
             return info;
@@ -965,17 +1312,17 @@ get_rv_instr_info(uint32_t inst, trie_node_t trie[])
 instr_info_t *
 get_instruction_info(uint opc)
 {
-    if (opc >= ARRAY_SIZE(instr_infos))
+    if (opc >= BUFFER_SIZE_ELEMENTS(instr_infos))
         return NULL;
-    return &instr_infos[opc].nfo;
+    return &instr_infos[opc].info;
 }
 
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
-    /* Decode instruction width from the opcode */
+    /* Decode instruction width from the opcode. */
     int width = instruction_width(*(uint16_t *)pc);
-    /* Start assuming a compressed instructions. Code memory should be 2b aligned. */
+    /* Start assuming a compressed instruction. Code memory should be 2b aligned. */
     uint32_t inst = *(uint16_t *)pc;
     rv_instr_info_t *info = NULL;
     int nsrc = 0, ndst = 0;
@@ -1004,39 +1351,39 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         return NULL;
     }
 
-    nsrc = INFO_NSRC(info->nfo.opcode);
-    ndst = INFO_NDST(info->nfo.opcode);
+    nsrc = INFO_NSRC(info->info.opcode);
+    ndst = INFO_NDST(info->info.opcode);
     CLIENT_ASSERT(ndst >= 0 || ndst <= 1, "Invalid number of destination operands.");
     CLIENT_ASSERT(nsrc >= 0 || nsrc <= 4, "Invalid number of source operands.");
 
-    instr_set_opcode(instr, info->nfo.type);
+    instr_set_opcode(instr, info->info.type);
     instr_set_num_opnds(dcontext, instr, ndst, nsrc);
 
-    CLIENT_ASSERT(info->nfo.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
+    CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
     if (ndst > 0 &&
-        !opnd_decoders[info->nfo.dst1_type](dcontext, inst, info->nfo.dst1_size, pc,
-                                            orig_pc, 0, instr))
+        !opnd_decoders[info->info.dst1_type](dcontext, inst, info->info.dst1_size, pc,
+                                             orig_pc, 0, instr))
         goto decode_failure;
     switch (nsrc) {
     case 4:
-        CLIENT_ASSERT(info->nfo.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
-        if (!opnd_decoders[info->nfo.dst2_type](dcontext, inst, info->nfo.dst2_size, pc,
-                                                orig_pc, 3, instr))
+        CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
+        if (!opnd_decoders[info->info.dst2_type](dcontext, inst, info->info.dst2_size, pc,
+                                                 orig_pc, 3, instr))
             goto decode_failure;
     case 3:
-        CLIENT_ASSERT(info->nfo.src3_type < RISCV64_FLD_CNT, "Invalid src3_type.");
-        if (!opnd_decoders[info->nfo.src3_type](dcontext, inst, info->nfo.src3_size, pc,
-                                                orig_pc, 2, instr))
+        CLIENT_ASSERT(info->info.src3_type < RISCV64_FLD_CNT, "Invalid src3_type.");
+        if (!opnd_decoders[info->info.src3_type](dcontext, inst, info->info.src3_size, pc,
+                                                 orig_pc, 2, instr))
             goto decode_failure;
     case 2:
-        CLIENT_ASSERT(info->nfo.src2_type < RISCV64_FLD_CNT, "Invalid src2_type.");
-        if (!opnd_decoders[info->nfo.src2_type](dcontext, inst, info->nfo.src2_size, pc,
-                                                orig_pc, 1, instr))
+        CLIENT_ASSERT(info->info.src2_type < RISCV64_FLD_CNT, "Invalid src2_type.");
+        if (!opnd_decoders[info->info.src2_type](dcontext, inst, info->info.src2_size, pc,
+                                                 orig_pc, 1, instr))
             goto decode_failure;
     case 1:
-        CLIENT_ASSERT(info->nfo.src1_type < RISCV64_FLD_CNT, "Invalid src1_type.");
-        if (!opnd_decoders[info->nfo.src1_type](dcontext, inst, info->nfo.src1_size, pc,
-                                                orig_pc, 0, instr))
+        CLIENT_ASSERT(info->info.src1_type < RISCV64_FLD_CNT, "Invalid src1_type.");
+        if (!opnd_decoders[info->info.src1_type](dcontext, inst, info->info.src1_size, pc,
+                                                 orig_pc, 0, instr))
             goto decode_failure;
     case 0: break;
     default: ASSERT_NOT_REACHED();
@@ -1044,7 +1391,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 
     if (orig_pc != pc) {
         /* We do not want to copy when encoding and condone an invalid
-         * relative target
+         * relative target.
          * FIXME i#3544: Add re-relativization support without having to re-encode.
          */
         instr_set_raw_bits_valid(instr, false);
