@@ -785,7 +785,7 @@ class IslGenerator:
             .{OPND_TGT[oidx]}_type = RISCV64_FLD_{f.name},
             .{OPND_TGT[oidx]}_size = {f.size_str()},'''
                 instr_infos.append(f'''[OP_{i.formatted_name()}] = {{ /* {i.name}{asm_args} */
-        .nfo = {{
+        .info = {{
             .type = OP_{i.formatted_name()},
             .opcode = 0x{(ndst << 31) | (nsrc << 28):08x}, /* {ndst} dst, {nsrc} src */
             .name = "{i.name}",{''.join(opnds)}
