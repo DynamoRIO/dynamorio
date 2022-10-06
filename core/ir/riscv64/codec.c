@@ -1013,7 +1013,7 @@ decode_v_l_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
 {
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
     int32_t imm = SIGN_EXTEND(GET_FIELD(inst, 31, 20), 12);
-    opnd_t opnd = opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, OPSZ_8);
+    opnd_t opnd = opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, op_sz);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -1036,7 +1036,7 @@ decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
     int32_t imm = (GET_FIELD(inst, 31, 25) << 5) | GET_FIELD(inst, 11, 7);
     imm = SIGN_EXTEND(imm, 12);
-    opnd_t opnd = opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, OPSZ_8);
+    opnd_t opnd = opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, op_sz);
     instr_set_dst(out, idx, opnd);
     return true;
 }
