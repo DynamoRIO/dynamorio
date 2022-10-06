@@ -162,7 +162,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                     error_string_ = std::string("Filetype mismatch");
                     return false;
                 }
-                // Fall through.
+                ANNOTATE_FALLTHROUGH;
             default: ++counters->other_markers; break;
             }
         }
