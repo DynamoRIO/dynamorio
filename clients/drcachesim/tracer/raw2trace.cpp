@@ -1102,6 +1102,7 @@ raw2trace_t::append_delayed_branch(void *tls)
             return "Failed to write to output file";
     }
     tdata->delayed_branch.clear();
+    prior_branch_delay_ = false;
     return "";
 }
 

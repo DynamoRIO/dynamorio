@@ -821,11 +821,15 @@ protected:
                 // TRACE_MARKER_TYPE_CPU_ID because it identifies the CPU on
                 // which subsequent records were collected.
                 if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
-                    std::string error = impl()->write_delayed_branches(
-                        tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
-                    if (!error.empty())
-                        return error;
-                    return "";
+                    // Delay the markers only if there was a prior delayed
+                    // branch.
+                    if (impl()->prior_branch_delay_) {
+                        std::string error = impl()->write_delayed_branches(
+                            tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+                        if (!error.empty())
+                            return error;
+                        return "";
+                    }
                 }
                 impl()->log(3, "Appended marker type %u value " PIFX "\n",
                             (trace_marker_type_t)in_entry->extended.valueB,
@@ -1356,6 +1360,7 @@ private:
                 // delay markers.
                 impl()->log(4, "Delaying %d entries\n", buf - buf_start);
                 error = impl()->write_delayed_branches(tls, buf_start, buf);
+                impl()->prior_branch_delay_ = true;
                 if (!error.empty())
                     return error;
             } else {
@@ -2105,6 +2110,10 @@ private:
 
     // Chunking for seeking support in compressed files.
     uint64_t chunk_instr_count_ = 0;
+
+    // True if there was a prior branch delay. Used to indicate when to also
+    // delay markers along with branches.
+    bool prior_branch_delay_ = false;
 };
 
 #endif /* _RAW2TRACE_H_ */
