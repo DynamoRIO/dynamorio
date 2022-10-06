@@ -3,7 +3,7 @@
 ## Format
 
 ```text
-<name> | <instruction-format> | [field] | <fixedbits>
+<mnemonic> | <instruction-format> | [field] | <fixedbits>
 ```
 
 The file name will become the extension.
@@ -118,16 +118,21 @@ If you want to add a new field:
 
 1. In `codec.py`:
 
-    1. Add new value to the `Field` enum.
-    2. If this is a destination field, update the `Field.is_dest()` function.
-    3. Update stringification functions: `Field.arg_name()` for C-macro argument
-       name and `Field.asm_name()` for assembly syntax comment override (if
-       necessary).
-    4. Add a new entry to the `cmt_str` list in `Field.arg_comment()` used as a
-       doxygen comment when this field is used in a C-macro argument.
-    5. Add a new entry to the `sz_str` list in `Field.size_str()` specifying
-       an `OPSZ_*` value for arguments decoded from this field.
-    6. In case the new field encodes an offset for an explicit GPR field-based
+    1. Add new value to the `Field` enum. The value definition has the following
+       members:
+
+       - `value`: Enum value (keep this in sync with `riscv_fld_t` type in
+         `codec.h`).
+       - `arg_name`: Name to use in instruction creation macros.
+       - `is_dest`: True if it is a destination operand.
+       - `opsz_def`: Operand size (`OPSZ_*` value) or if this field decodes into
+         an operand of a different size depending on instruction - dictionary
+         indexed by instruction mnemonic with operand size values.
+       - `asm_name`: Name used in assembly comments (if different than
+         `arg_name`)
+       - `arg_cmt`: Comment for instruction creation macros for this field.
+
+    2. In case the new field encodes an offset for an explicit GPR field-based
        memory reference, update an appropriate `__fixup_*_inst()` function. See
        the `Field.V_L_RS1_DISP` logic for overriding semantics of a field that
        is used as a normal immediate in other cases.
