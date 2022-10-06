@@ -570,6 +570,35 @@ GLOBAL_LABEL(code_self_mod:)
         END_FUNC(code_self_mod)
 
 #undef FUNCNAME
+#define FUNCNAME icache_sync
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        /* Nothing to do. */
+        ret
+#elif defined(ARM)
+        mov      r0, ARG1     /* start of region to flush */
+        add      r1, r0, #64  /* end of region to flush */
+        mov      r2, #0       /* flags: must be 0 */
+        push     {r7}
+        movw     r7, #0x0002  /* SYS_cacheflush bottom half */
+        movt     r7, #0x000f  /* SYS_cacheflush top half */
+        svc      #0           /* flush icache */
+        pop      {r7}
+        bx       lr
+#elif defined(AARCH64)
+        mov      x0, ARG1
+        dc       cvau, x0  /* Data Cache Clean by VA to PoU */
+        dsb      ish       /* Data Synchronization Barrier, Inner Shareable */
+        ic       ivau, x0  /* Instruction Cache Invalidate by VA to PoU */
+        dsb      ish       /* Data Synchronization Barrier, Inner Shareable */
+        isb                /* Instruction Synchronization Barrier */
+        RETURN
+#endif
+        END_FUNC(FUNCNAME)
+
+
+#undef FUNCNAME
 #define FUNCNAME code_inc
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)

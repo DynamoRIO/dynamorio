@@ -667,12 +667,12 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
             FATAL("Fatal error: failed to unreserve scratch reg.\n");
     }
 
-    reg_id_t reg_tmp = DR_REG_NULL;
+    reg_id_t reg_tmp = DR_REG_NULL, reg_tmp2 = DR_REG_NULL;
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
     reg_id_set_t app_regs_at_skip_thread;
     if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) &&
         thread_filtering_enabled) {
-        insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_thread,
+        insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp2, skip_thread,
                                 short_reaches, app_regs_at_skip_thread);
     }
     MINSERT(ilist, where,
@@ -686,7 +686,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                             DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
     insert_conditional_skip_target(drcontext, ilist, where, skip_call, reg_tmp,
                                    app_regs_at_skip_call);
-    insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_tmp,
+    insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_tmp2,
                                    app_regs_at_skip_thread);
 }
 

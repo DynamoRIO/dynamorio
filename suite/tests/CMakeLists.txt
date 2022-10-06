@@ -2204,6 +2204,14 @@ tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
 if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
+    if (UNIX)
+      # This test deliberately crashes: disable the compiler warning about it.
+      CHECK_C_COMPILER_FLAG("-Wno-array-bounds" noarray_avail)
+      if (noarray_avail)
+        append_property_string(TARGET client.exception.dll
+          COMPILE_FLAGS "-Wno-array-bounds")
+      endif ()
+    endif ()
   endif ()
 endif ()
 
@@ -3550,6 +3558,8 @@ if (BUILD_CLIENTS)
     # support by itself for Android.
     get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
     prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+    get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
+    prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
 
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
@@ -3749,6 +3759,13 @@ if (BUILD_CLIENTS)
 
     torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
       "@-simulator_type@opcode_mix" "")
+    # Ensure the tool works without the raw/ subdir.
+    set(tool.drcacheoff.opcode_mix_postcmd
+      "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
+    set(tool.drcacheoff.opcode_mix_postcmd2
+      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
+    set(tool.drcacheoff.opcode_mix_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
 
     torunonly_drcacheoff(view ${ci_shared_app} ""
       "@-simulator_type@view@-sim_refs@16384" "")
@@ -3847,7 +3864,8 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
-        "" "@-simulator_type@basic_counts" "")
+        "" "@-simulator_type@opcode_mix" "")
+      unset(tool.drcacheoff.gencode_rawtemp) # Use preprocessor on template.
     endif ()
 
     # XXX i#1551: startstop API is NYI on ARM

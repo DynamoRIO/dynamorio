@@ -112,7 +112,10 @@ counter and length of the encoded instruction are provided.  The
 length can be used to compute the address of the subsequent instruction.
 
 The raw encoding of the instruction is provided.  This can be decoded
-using the drdecode decoder or any other decoder.
+using the drdecode decoder or any other decoder.  An additional field
+`encoding_is_new` is provided to indicate when any cached decoding
+information should be invalidated due to possibly changed application
+code.
 
 Older legacy traces may not contain instruction encodings.  For those
 traces, encodings for static code can be obtained by
@@ -1300,7 +1303,8 @@ The \p drcachesim trace format includes information intended for use by
 core simulators as well as pure cache simulators.  For traces that are not
 filtered by an online first-level cache, each data reference is preceded by
 the instruction fetch entry for the instruction that issued the data
-request.  Additionally, on x86, string loop
+request, which includes the instruction encoding with the opcode and operands.
+Additionally, on x86, string loop
 instructions involve a single insruction fetch followed by a loop of loads
 and/or stores.  A \p drcachesim trace includes a special "no-fetch"
 instruction entry per iteration so that core simulators have the
@@ -1326,12 +1330,6 @@ includes the interrupted PC, explicitly providing the branch target.
 Filtered traces (filtered via -L0_filter) include the dynamic (pre-filtered)
 per-thread instruction count in a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at
 each thread buffer boundary and at thread exit.
-
-A final feature that aids core simulators is the pair of interfaces
-module_mapper_t::get_loaded_modules() and
-module_mapper_t::find_mapped_trace_address(), which facilitate reading the raw
-bytes for each instruction in order to obtain the opcode and full operand
-information.
 
 ****************************************************************************
 \page sec_drcachesim_extend Extending the Simulator

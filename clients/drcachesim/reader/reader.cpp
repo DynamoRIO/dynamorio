@@ -162,8 +162,10 @@ reader_t::operator++()
                     }
                     memcpy(cur_ref_.instr.encoding, last_encoding_.bits,
                            last_encoding_.size);
+                    cur_ref_.instr.encoding_is_new = true;
                     encodings_[cur_ref_.instr.addr] = last_encoding_;
                 } else {
+                    cur_ref_.instr.encoding_is_new = false;
                     const auto &it = encodings_.find(cur_ref_.instr.addr);
                     if (it != encodings_.end()) {
                         memcpy(cur_ref_.instr.encoding, it->second.bits, it->second.size);
