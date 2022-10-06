@@ -96,183 +96,411 @@ def cto(n: int) -> int:
     return len(sn) - len(sn.rstrip('1'))
 
 
-@unique
-class Field(Enum):
-    # Fields in uncompressed instructions
-    RD = 1
-    RDFP = 2
-    RS1 = 3
-    RS1FP = 4
-    BASE = 5
-    RS2 = 6
-    RS2FP = 7
-    RS3 = 8
-    FM = 9
-    PRED = 10
-    SUCC = 11
-    AQRL = 12
-    CSR = 13
-    RM = 14
-    SHAMT = 15
-    SHAMT5 = 16
-    SHAMT6 = 17
-    I_IMM = 18
-    S_IMM = 19
-    B_IMM = 20
-    U_IMM = 21
-    J_IMM = 22
-    IMM = 23  # Used only for parsing ISA files. Concatenated into V_RS1_DISP
-    # Fields in compressed instructions
-    CRD = 24
-    CRDFP = 25
-    CRS1 = 26
-    CRS2 = 27
-    CRS2FP = 28
-    CRD_ = 29
-    CRD_FP = 30
-    CRS1_ = 31
-    CRS2_ = 32
-    CRS2_FP = 33
-    CRD__ = 34
-    CSHAMT = 35
-    CSR_IMM = 36
-    CADDI16SP_IMM = 37
-    CLWSP_IMM = 38
-    CLDSP_IMM = 39
-    CLUI_IMM = 40
-    CSWSP_IMM = 41
-    CSDSP_IMM = 42
-    CIW_IMM = 43
-    CLW_IMM = 44
-    CLD_IMM = 45
-    CSW_IMM = 46
-    CSD_IMM = 47
-    CIMM5 = 48
-    CB_IMM = 49
-    CJ_IMM = 50
-    # Virtual fields en/decoding special cases.
-    V_L_RS1_DISP = 51
-    V_S_RS1_DISP = 52
+class Field(str, Enum):
+    arg_name: str
+    _asm_name: str
+    arg_cmt: str
+    # The OPSZ_* definition is either a string in case operand size is common across
+    # instructions or a dictionary indexed by the instruction name. A special entry
+    # at key '' is used for instructions not found in the dictionary.
+    opsz_def: dict[str, str] | str
+    is_dest: bool
 
-    def is_dest(self) -> bool:
-        return self in [Field.RD, Field.RDFP, Field.CRD, Field.CRDFP,
-                        Field.CRD_, Field.CRD_FP, Field.CRD__, Field.CSWSP_IMM, Field.CSDSP_IMM, Field.CSW_IMM, Field.CSD_IMM, Field.V_S_RS1_DISP]
+    def __new__(cls, value: int, arg_name: str, is_dest: bool,
+                opsz_def: dict[str, str] | str, asm_name: str,
+                arg_cmt: str):
+        # Take str as a base object because we need a concrete class. It won't
+        # be used anyway.
+        obj = str.__new__(cls, str(value))
+        obj._value_ = value
+        obj.arg_name = arg_name
+        obj.opsz_def = opsz_def
+        obj._asm_name = asm_name if asm_name != '' else obj.arg_name
+        obj.arg_cmt = arg_cmt
+        obj.is_dest = is_dest
+        return obj
+
+    # Fields in uncompressed instructions
+    RD = (1,
+          'rd',
+          True,
+          'OPSZ_PTR',
+          '',
+          'The output register (inst[11:7]).'
+          )
+    RDFP = (2,
+            'rd',
+            True,
+            'OPSZ_PTR',
+            '',
+            'The output floating-point register (inst[11:7]).'
+            )
+    RS1 = (3,
+           'rs1',
+           False,
+           'OPSZ_PTR',
+           '',
+           'The first input register (inst[19:15]).'
+           )
+    RS1FP = (4,
+             'rs1',
+             False,
+             'OPSZ_PTR',
+             '',
+             'The first input floating-point register (inst[19:15]).'
+             )
+    BASE = (5,
+            'base',
+            False,
+            'OPSZ_0',
+            '',
+            'The `base` field in RISC-V Base Cache Management Operation ISA Extensions (inst[19:15]).'
+            )
+    RS2 = (6,
+           'rs2',
+           False,
+           'OPSZ_PTR',
+           '',
+           'The second input register (inst[24:20]).'
+           )
+    RS2FP = (7,
+             'rs2',
+             False,
+             'OPSZ_PTR',
+             '',
+             'The second input floating-point register (inst[24:20]).'
+             )
+    RS3 = (8,
+           'rs3',
+           False,
+           'OPSZ_PTR',
+           '',
+           'The third input register (inst[31:27]).'
+           )
+    FM = (9,
+          'fm',
+          False,
+          'OPSZ_4b',
+          '',
+          'The fence semantics (inst[31:28]).'
+          )
+    PRED = (10,
+            'pred',
+            False,
+            'OPSZ_4b',
+            '',
+            'The bitmap with predecessor constraints for FENCE (inst[27:24]).'
+            )
+    SUCC = (11,
+            'succ',
+            False,
+            'OPSZ_4b',
+            '',
+            'The bitmap with successor constraints for FENCE (inst[23:20]).'
+            )
+    AQRL = (12,
+            'aqrl',
+            False,
+            'OPSZ_2b',
+            '',
+            'The acquire-release constraint field (inst[26:25]).'
+            )
+    CSR = (13,
+           'csr',
+           False,
+           'OPSZ_PTR',
+           '',
+           'The Configuration/Status Register id (inst[31:20]).'
+           )
+    RM = (14,
+          'rm',
+          False,
+          'OPSZ_3b',
+          '',
+          'The rounding-mode (inst[14:12]).'
+          )
+    SHAMT = (15,
+             'shamt',
+             False,
+             'OPSZ_5b',
+             '',
+             'The `shamt` field (bit range is determined by XLEN).'
+             )
+    SHAMT5 = (16,
+              'shamt',
+              False,
+              'OPSZ_6b',
+              '',
+              'The `shamt` field that uses 5-bits.'
+              )
+    SHAMT6 = (17,
+              'shamt',
+              False,
+              'OPSZ_7b',
+              '',
+              'The `shamt` field that uses 6-bits.'
+              )
+    I_IMM = (18,
+             'imm',
+             False,
+             'OPSZ_12b',
+             '',
+             'The immediate field in the I-type format.'
+             )
+    S_IMM = (19,
+             'imm',
+             False,
+             'OPSZ_12b',
+             '',
+             'The immediate field in the S-type format.'
+             )
+    B_IMM = (20,
+             'pc_rel',
+             False,
+             'OPSZ_2',
+             '',
+             'The immediate field in the B-type format.'
+             )
+    U_IMM = (21,
+             'imm',
+             False,
+             'OPSZ_20b',
+             '',
+             'The 20-bit immediate field in the U-type format.'
+             )
+    J_IMM = (22,
+             'pc_rel',
+             False,
+             'OPSZ_2',
+             '',
+             'The immediate field in the J-type format.'
+             )
+    IMM = (23, # Used only for parsing ISA files. Concatenated into V_RS1_DISP
+           'imm',
+           False,
+           'OPSZ_12b',
+           '',
+           'The immediate field in PREFETCH instructions.'
+           )
+    CRD = (24,
+           'rd',
+           True,
+           'OPSZ_PTR',
+           '',
+           'The output register in `CR`, `CI` RVC formats (inst[11:7])'
+           )
+    CRDFP = (25,
+             'rd',
+             True,
+             'OPSZ_PTR',
+             '',
+             'The output floating-point register in `CR`, `CI` RVC formats (inst[11:7])'
+             )
+    CRS1 = (26,
+            'rs1',
+            False,
+            'OPSZ_PTR',
+            '',
+            'The first input register in `CR`, `CI` RVC formats (inst[11:7]).'
+            )
+    CRS2 = (27,
+            'rs2',
+            False,
+            'OPSZ_PTR',
+            '',
+            'The second input register in `CR`, `CSS` RVC formats (inst[6:2]).'
+            )
+    CRS2FP = (28,
+              'rs2',
+              False,
+              'OPSZ_PTR',
+              '',
+              'The second input floating-point register in `CR`, `CSS` RVC formats (inst[6:2]).'
+              )
+    # Fields in compressed instructions
+    CRD_ = (29,
+            'rd',
+            True,
+            'OPSZ_PTR',
+            '',
+            'The output register in `CIW`, `CL` RVC formats (inst[4:2])'
+            )
+    CRD_FP = (30,
+              'rd',
+              True,
+              'OPSZ_PTR',
+              '',
+              'The output floating-point register in `CIW`, `CL` RVC formats (inst[4:2])'
+              )
+    CRS1_ = (31,
+             'rs1',
+             False,
+             'OPSZ_PTR',
+             '',
+             'The first input register in `CL`, `CS`, `CA`, `CB` RVC formats (inst[9:7]).'
+             )
+    CRS2_ = (32,
+             'rs2',
+             False,
+             'OPSZ_PTR',
+             '',
+             'The second input register in `CS`, `CA` RVC formats (inst[4:2]).'
+             )
+    CRS2_FP = (33,
+               'rs2',
+               False,
+               'OPSZ_PTR',
+               '',
+               'The second input floating-point register in `CS`, `CA` RVC formats (inst[4:2]).'
+               )
+    CRD__ = (34,
+             'rd',
+             True,
+             'OPSZ_PTR',
+             '',
+             'The output register in `CA` RVC format (inst[9:7])'
+             )
+    CSHAMT = (35,
+              'shamt',
+              False,
+              'OPSZ_6b',
+              '',
+              'The `shamt` field in the RVC format.'
+              )
+    CSR_IMM = (36,
+               'imm',
+               False,
+               'OPSZ_5b',
+               '',
+               'The immediate field in a CSR instruction.'
+               )
+    CADDI16SP_IMM = (37,
+                     'imm',
+                     False,
+                     'OPSZ_10b',
+                     '',
+                     'The immediate field in a C.ADDI16SP instruction.'
+                     )
+    CLWSP_IMM = (38,
+                 'sp_offset',
+                 False,
+                 'OPSZ_1',
+                 '',
+                 'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
+                 )
+    CLDSP_IMM = (39,
+                 'sp_offset',
+                 False,
+                 'OPSZ_9b',
+                 '',
+                 'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
+                 )
+    CLUI_IMM = (40,
+                'imm',
+                False,
+                'OPSZ_6b',
+                '',
+                'The immediate field in a C.LUI instruction.'
+                )
+    CSWSP_IMM = (41,
+                 'sp_offset',
+                 True,
+                 'OPSZ_1',
+                 '',
+                 'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
+                 )
+    CSDSP_IMM = (42,
+                 'sp_offset',
+                 True,
+                 'OPSZ_9b',
+                 '',
+                 'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
+                 )
+    CIW_IMM = (43,
+               'imm',
+               False,
+               'OPSZ_10b',
+               '',
+               'The immediate field in a CIW format instruction.'
+               )
+    CLW_IMM = (44,
+               'mem',
+               False,
+               'OPSZ_7b',
+               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
+    CLD_IMM = (45,
+               'mem',
+               False,
+               'OPSZ_1',
+               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
+    CSW_IMM = (46,
+               'mem',
+               True,
+               'OPSZ_7b',
+               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
+    CSD_IMM = (47,
+               'mem',
+               True,
+               'OPSZ_1',
+               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
+    CIMM5 = (48,
+             'imm',
+             False,
+             'OPSZ_6b',
+             '',
+             'The immediate field in a C.ADDI, C.ADDIW, C.LI, and C.ANDI instruction.'
+             )
+    CB_IMM = (49,
+              'pc_rel',
+              False,
+              'OPSZ_2',
+              '',
+              'The immediate field in a a CB format instruction (C.BEQZ and C.BNEZ).'
+              )
+    CJ_IMM = (50,
+              'pc_rel',
+              False,
+              'OPSZ_2',
+              '',
+              'The immediate field in a CJ format instruction.'
+              )
+    # Virtual fields en/decoding special cases.
+    V_L_RS1_DISP = (51,
+                    'mem',
+                    False,
+                    {
+                        '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
+                        'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
+                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8'
+                    },
+                    'im(rs1)',
+                    'The register-relative memory source location (reg+imm).'
+                    )
+    V_S_RS1_DISP = (52,
+                    'mem',
+                    True,
+                    {
+                        '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
+                        'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
+                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8'
+                    },
+                    'im(rs1)',
+                    'The register-relative memory target location (reg+imm).'
+                    )
 
     def __str__(self) -> str:
         return self.name.lower().replace("fp", "(fp)")
 
-    def arg_name(self) -> str:
-        if (self in [Field.RD, Field.RDFP, Field.CRD, Field.CRDFP,
-                     Field.CRD_, Field.CRD_FP, Field.CRD__]):
-            return "rd"
-        if (self in [Field.RS1, Field.RS1FP, Field.CRS1, Field.CRS1_]):
-            return "rs1"
-        if (self in [Field.BASE]):
-            return "base"
-        if (self in [Field.RS2, Field.RS2FP, Field.CRS2, Field.CRS2FP,
-                     Field.CRS2_, Field.CRS2_FP]):
-            return "rs2"
-        if (self in [Field.RS3]):
-            return "rs3"
-        if (self in [Field.FM]):
-            return "fm"
-        if (self in [Field.PRED]):
-            return "pred"
-        if (self in [Field.SUCC]):
-            return "succ"
-        if (self in [Field.AQRL]):
-            return "aqrl"
-        if (self in [Field.CSR]):
-            return "csr"
-        if (self in [Field.RM]):
-            return "rm"
-        if (self in [Field.SHAMT, Field.SHAMT5, Field.SHAMT6, Field.CSHAMT]):
-            return "shamt"
-        if (self in [Field.I_IMM, Field.CSR_IMM, Field.S_IMM, Field.B_IMM,
-                     Field.U_IMM, Field.J_IMM, Field.CADDI16SP_IMM,
-                     Field.CLUI_IMM, Field.CIW_IMM, Field.CIMM5, Field.CB_IMM,
-                     Field.CJ_IMM]):
-            return "imm"
-        if (self in [Field.CSWSP_IMM, Field.CSDSP_IMM,
-                     Field.CLWSP_IMM, Field.CLDSP_IMM]):
-            return "sp_offset"
-        if (self in [Field.CLD_IMM, Field.CLW_IMM, Field.CSD_IMM, Field.CSW_IMM,
-                     Field.V_L_RS1_DISP, Field.V_S_RS1_DISP]):
-            return "mem"
-        return "<invalid>"
-
     def asm_name(self) -> str:
-        if (self in [Field.CLD_IMM, Field.CLW_IMM, Field.CSD_IMM, Field.CSW_IMM,
-                     Field.V_L_RS1_DISP, Field.V_S_RS1_DISP]):
-            return "imm(rs1)"
-        else:
-            return self.arg_name()
+        return self._asm_name if self._asm_name != '' else self.arg_name
 
     def formatted_name(self) -> str:
-        return self.arg_name().capitalize()
+        return self.arg_name.capitalize()
 
     def from_str(fld: str):
         return Field[fld.upper().replace("(FP)", "FP")]
 
-    def arg_comment(self) -> str:
-        cmt_str = [
-            '',
-            'The output register (inst[11:7]).',
-            'The output floating-point register (inst[11:7]).',
-            'The first input register (inst[19:15]).',
-            'The first input floating-point register (inst[19:15]).',
-            'The `base` field in RISC-V Base Cache Management Operation ISA Extensions (inst[19:15]).',
-            'The second input register (inst[24:20]).',
-            'The second input floating-point register (inst[24:20]).',
-            'The third input register (inst[31:27]).',
-            'The fence semantics (inst[31:28]).',
-            'The bitmap with predecessor constraints for FENCE (inst[27:24]).',
-            'The bitmap with successor constraints for FENCE (inst[23:20]).',
-            'The acquire-release constraint field (inst[26:25]).',
-            'The Configuration/Status Register id (inst[31:20]).',
-            'The rounding-mode (inst[14:12]).',
-            'The `shamt` field (bit range is determined by XLEN).',
-            'The `shamt` field that uses 5-bits.',
-            'The `shamt` field that uses 6-bits.',
-            'The immediate field in the I-type format.',
-            'The immediate field in the S-type format.',
-            'The immediate field in the B-type format.',
-            'The 20-bit immediate field in the U-type format.',
-            'The immediate field in the J-type format.',
-            'The immediate field in PREFETCH instructions.',
-            'The output register in `CR`, `CI` RVC formats (inst[11:7])',
-            'The output floating-point register in `CR`, `CI` RVC formats (inst[11:7])',
-            'The first input register in `CR`, `CI` RVC formats (inst[11:7]).',
-            'The second input register in `CR`, `CSS` RVC formats (inst[6:2]).',
-            'The second input floating-point register in `CR`, `CSS` RVC formats (inst[6:2]).',
-            'The output register in `CIW`, `CL` RVC formats (inst[4:2])',
-            'The output floating-point register in `CIW`, `CL` RVC formats (inst[4:2])',
-            'The first input register in `CL`, `CS`, `CA`, `CB` RVC formats (inst[9:7]).',
-            'The second input register in `CS`, `CA` RVC formats (inst[4:2]).',
-            'The second input floating-point register in `CS`, `CA` RVC formats (inst[4:2]).',
-            'The output register in `CA` RVC format (inst[9:7])',
-            'The `shamt` field in the RVC format.',
-            'The immediate field in a CSR instruction.',
-            'The immediate field in a C.ADDI16SP instruction.',
-            'The SP-relative memory location (sp+imm: imm & 0x3 == 0).',
-            'The SP-relative memory location (sp+imm: imm & 0x7 == 0).',
-            'The immediate field in a C.LUI instruction.',
-            'The SP-relative memory location (sp+imm: imm & 0x3 == 0).',
-            'The SP-relative memory location (sp+imm: imm & 0x7 == 0).',
-            'The immediate field in a CIW format instruction.',
-            'The register-relative memory location (reg+imm: imm & 0x3 == 0).',
-            'The register-relative memory location (reg+imm: imm & 0x7 == 0).',
-            'The register-relative memory location (reg+imm: imm & 0x3 == 0).',
-            'The register-relative memory location (reg+imm: imm & 0x7 == 0).',
-            'The immediate field in a C.ADDI, C.ADDIW, C.LI, and C.ANDI instruction.',
-            'The immediate field in a a CB format instruction (C.BEQZ and C.BNEZ).',
-            'The immediate field in a CJ format instruction.',
-            'The register-relative memory source location (reg+imm).',
-            'The register-relative memory target location (reg+imm).',
-        ]
-        return cmt_str[self.value]
-
-    def size_str(self) -> int:
+    def opsz(self, inst_name: str):
         '''
         Return DynamoRIO enum representing operand size.
 
@@ -285,65 +513,13 @@ class Field(Enum):
           full 1-byte offset value, not the top 5 bits of it.
         - BLT's B_IMM is OPSZ_2 because the target address must be 2-byte
           aligned.
-
-        This could be a separate enum but it seems like an overkill.
         '''
-        sz_str = [
-            'OPSZ_NA',  # NONE
-            'OPSZ_PTR',  # RD
-            'OPSZ_PTR',  # RDFP
-            'OPSZ_PTR',  # RS1
-            'OPSZ_PTR',  # RS1FP
-            'OPSZ_0',  # BASE - 0 because cache-line is platform dependent.
-            'OPSZ_PTR',  # RS2
-            'OPSZ_PTR',  # RS2FP
-            'OPSZ_PTR',  # RS3
-            'OPSZ_4b',  # FM
-            'OPSZ_4b',  # PRED
-            'OPSZ_4b',  # SUCC
-            'OPSZ_2b',  # AQRL
-            'OPSZ_PTR',  # CSR
-            'OPSZ_3b',  # RM
-            'OPSZ_5b',  # SHAMT
-            'OPSZ_6b',  # SHAMT5
-            'OPSZ_7b',  # SHAMT6
-            'OPSZ_12b',  # I_IMM
-            'OPSZ_12b',  # S_IMM
-            'OPSZ_2',  # B_IMM
-            'OPSZ_20b',  # U_IMM
-            'OPSZ_2',  # J_IMM
-            'OPSZ_12b',  # IMM
-            'OPSZ_PTR',  # CRD
-            'OPSZ_PTR',  # CRDFP
-            'OPSZ_PTR',  # CRS1
-            'OPSZ_PTR',  # CRS2
-            'OPSZ_PTR',  # CRS2FP
-            'OPSZ_PTR',  # CRD_
-            'OPSZ_PTR',  # CRD_FP
-            'OPSZ_PTR',  # CRS1_
-            'OPSZ_PTR',  # CRS2_
-            'OPSZ_PTR',  # CRS2_FP
-            'OPSZ_PTR',  # CRD__
-            'OPSZ_6b',  # CSHAMT
-            'OPSZ_5b',  # CSR_IMM
-            'OPSZ_10b',  # CADDI16SP_IMM
-            'OPSZ_1',  # CLWSP_IMM
-            'OPSZ_9b',  # CLDSP_IMM
-            'OPSZ_6b',  # CLUI_IMM
-            'OPSZ_1',  # CSWSP_IMM
-            'OPSZ_9b',  # CSDSP_IMM
-            'OPSZ_10b',  # CIW_IMM
-            'OPSZ_7b',  # CLW_IMM
-            'OPSZ_1',  # CLD_IMM
-            'OPSZ_7b',  # CSW_IMM
-            'OPSZ_1',  # CSD_IMM
-            'OPSZ_6b',  # CIMM5
-            'OPSZ_2',  # CB_IMM
-            'OPSZ_2',  # CJ_IMM
-            'OPSZ_12b',  # V_L_RS1_DISP
-            'OPSZ_12b',  # V_S_RS1_DISP
-        ]
-        return sz_str[self.value]
+        if (type(self.opsz_def) is str):
+            return self.opsz_def
+        else:
+            if (inst_name not in self.opsz_def):
+                inst_name = ''
+            return self.opsz_def[inst_name]
 
 
 @unique
@@ -424,35 +600,66 @@ class IslGenerator:
         opc = (inst.match & inst.mask) & 0x3
         funct3 = (inst.match & inst.mask) >> 13
         if (opc == 0 and funct3 not in [0, 0b100]):  # LOAD/STORE instructions
-            dbg(f'{inst.name} {[f.name for f in inst.flds]}')
+            dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             # Immediate argument will handle the base+disp
             inst.flds.pop(1)
-            dbg(f'{" " * len(inst.name)} {[f.name for f in inst.flds]}')
+            dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+        elif (Field.CB_IMM in inst.flds):
+            # Compare-and-branch instructions need their branch operand moved
+            # to the 1st source operand slot as required by instr_set_target().
+            dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
+            cb_imm = inst.flds.pop(0)
+            inst.flds.append(cb_imm)
+            dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
 
     def __fixup_uncompressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x7F
         if (opc in [0b0000011, 0b0000111]):  # LOAD instructions
-            dbg(f'{inst.name} {[f.name for f in inst.flds]}')
+            dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             inst.flds[0] = Field.V_L_RS1_DISP
             inst.flds.pop(1)
-            dbg(f'{" " * len(inst.name)} {[f.name for f in inst.flds]}')
+            dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif (opc in [0b0100011, 0b0100111]):  # STORE instructions
-            dbg(f'{inst.name} {[f.name for f in inst.flds]}')
+            dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             inst.flds[0] = Field.V_S_RS1_DISP
             inst.flds.pop(2)
-            dbg(f'{" " * len(inst.name)} {[f.name for f in inst.flds]}')
+            dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif (inst.mask == 0x1f07fff and inst.match in [0x6013, 0x106013, 0x306013]):
             # prefetch.[irw] instructions
-            dbg(f'{inst.name} {[f.name for f in inst.flds]}')
+            dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             inst.flds[0] = Field.V_S_RS1_DISP
             inst.flds.pop(1)
-            dbg(f'{" " * len(inst.name)} {[f.name for f in inst.flds]}')
+            dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+        elif (Field.B_IMM in inst.flds):
+            # Compare-and-branch instructions need their branch operand moved
+            # to the 1st source operand slot as required by instr_set_target().
+            dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
+            b_imm = inst.flds.pop(0)
+            inst.flds.append(b_imm)
+            dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+
         # FIXME i#3544: Should we fixup the 4B wide NOP (00000013) for the sake
         # of disassembly? Though it might cause issues in encoding because we'd
         # need an extra entry in the instr_infos table since NOP aliases with
         # ADDI (it's an alias).
 
-    def __detect_virt_fields(self):
+    def __fixup_instructions(self):
+        '''
+        Fixup ISL definitions to better match DynamoRIO logic.
+
+        Some instructions may require operand fixups to streamline decoding in
+        the codec.c. I.e.:
+        - LOAD/STORE instructions merge their rs1 + i_imm into a single operand
+          which is later decoded as a base+disp operand. This is needed as i_imm
+          may have immediate semantics in other instructions. On the other hand
+          compressed LOAD/STORE instructions only get their rs1 operand removed
+          as their immediate operand type (clw_imm, cld_imm) is only used in
+          base+disp context.
+        - Instructions utilizing b_imm and cb_imm have those operands put at
+          the end of the operand list to ensure they are the first operand. This
+          is because codec.c is using instr_set_target() which assumes that
+          branch target is the first source operand.
+        '''
         for inst in self.instructions:
             if (inst.is_compressed()):
                 self.__fixup_compressed_inst(inst)
@@ -541,7 +748,7 @@ class IslGenerator:
             res = res and self.__parse_isl_file(f)
             if (not res):
                 break
-        self.__detect_virt_fields()
+        self.__fixup_instructions()
         return res and self.__sanity_check()
 
     def generate_opcodes(self, template_file, out_file) -> bool:
@@ -615,8 +822,8 @@ class IslGenerator:
                                               for f in flds])
                             arg_comments += '\n'
                             arg_comments += '\n'.join(
-                                [f' * \param {f.formatted_name():6}  {f.arg_comment()}' for f in flds])
-                        nd = len([f for f in flds if f.is_dest()])
+                                [f' * \param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
+                        nd = len([f for f in flds if f.is_dest])
                         ns = len(flds) - nd
                         lines.append(
                             f'''/**
@@ -774,7 +981,7 @@ class IslGenerator:
                     asm_args += ', '.join([f.asm_name() for f in flds])
                     isrc = 1
                     for f in flds:
-                        if f.is_dest():
+                        if f.is_dest:
                             oidx = 0
                             ndst += 1
                         else:
@@ -783,7 +990,7 @@ class IslGenerator:
                             nsrc += 1
                         opnds += f'''
             .{OPND_TGT[oidx]}_type = RISCV64_FLD_{f.name},
-            .{OPND_TGT[oidx]}_size = {f.size_str()},'''
+            .{OPND_TGT[oidx]}_size = {f.opsz(i.name)},'''
                 instr_infos.append(f'''[OP_{i.formatted_name()}] = {{ /* {i.name}{asm_args} */
         .info = {{
             .type = OP_{i.formatted_name()},
