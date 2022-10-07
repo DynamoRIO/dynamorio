@@ -86,6 +86,26 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
 typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flags);
 
 /**
+ * Function for extended file open.
+ * The file access mode is set by the \p mode_flags argument which is drawn from
+ * the DR_FILE_* defines ORed together.  Returns INVALID_FILE if unsuccessful.
+ * The example behavior is described in dr_open_file();
+ *
+ * @param[in] fname       The filename to open.
+ * @param[in] mode_flags  The DR_FILE_* flags for file open.
+ * @param[in] thread_id   The application thread id targeted by this file.
+ *   For special files (drmemtrace_get_modlist_path(), drmemtrace_get_funclist_path(),
+ *   drmemtrace_get_encoding_path(), or PT files), this will be 0.
+ * @param[in] window_id   The tracing window id for this file.
+ *   For special files (drmemtrace_get_modlist_path(), drmemtrace_get_funclist_path(),
+ *   drmemtrace_get_encoding_path(), or PT files), this will be -1.
+ *
+ * \return the opened file id.
+ */
+typedef file_t (*drmemtrace_open_file_ex_func_t)(const char *fname, uint mode_flags,
+                                                 thread_id_t thread_id, int64 window_id);
+
+/**
  * Function for file read.
  * Reads up to \p count bytes from file \p file into \p buf.
  * Returns the actual number read.
@@ -148,6 +168,18 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
                             drmemtrace_write_file_func_t write_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func);
+
+DR_EXPORT
+/**
+ * Identical to drmemtrace_replace_file_ops() except its file open function takes
+ * two extra parameters.
+ */
+drmemtrace_status_t
+drmemtrace_replace_file_ops_ex(drmemtrace_open_file_ex_func_t open_file_ex_func,
+                               drmemtrace_read_file_func_t read_file_func,
+                               drmemtrace_write_file_func_t write_file_func,
+                               drmemtrace_close_file_func_t close_file_func,
+                               drmemtrace_create_dir_func_t create_dir_func);
 
 /**
  * Function for buffer handoff.  Rather than writing a buffer to a

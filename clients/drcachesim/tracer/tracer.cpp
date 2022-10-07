@@ -1404,9 +1404,12 @@ init_thread_in_process(void *drcontext)
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        data->syscall_pt_trace.init(drcontext, kernel_pt_logsubdir, MAXIMUM_PATH,
-                                    file_ops_func.open_file, file_ops_func.write_file,
-                                    file_ops_func.close_file);
+        data->syscall_pt_trace.init(
+            drcontext, kernel_pt_logsubdir, MAXIMUM_PATH,
+            [](const char *fname, uint mode_flags) {
+                return file_ops_func.open_file_special(fname, mode_flags);
+            },
+            file_ops_func.write_file, file_ops_func.close_file);
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -1656,19 +1659,19 @@ init_offline_dir(void)
     dr_snprintf(modlist_path, BUFFER_SIZE_ELEMENTS(modlist_path), "%s%s%s", logsubdir,
                 DIRSEP, DRMEMTRACE_MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(modlist_path);
-    module_file = file_ops_func.open_file(
+    module_file = file_ops_func.open_file_special(
         modlist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
     dr_snprintf(funclist_path, BUFFER_SIZE_ELEMENTS(funclist_path), "%s%s%s", logsubdir,
                 DIRSEP, DRMEMTRACE_FUNCTION_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(funclist_path);
-    funclist_file = file_ops_func.open_file(
+    funclist_file = file_ops_func.open_file_special(
         funclist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
     dr_snprintf(encoding_path, BUFFER_SIZE_ELEMENTS(encoding_path), "%s%s%s", logsubdir,
                 DIRSEP, DRMEMTRACE_ENCODING_FILENAME);
     NULL_TERMINATE_BUFFER(encoding_path);
-    encoding_file = file_ops_func.open_file(
+    encoding_file = file_ops_func.open_file_special(
         encoding_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
     return (module_file != INVALID_FILE && funclist_file != INVALID_FILE &&
@@ -1725,6 +1728,28 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
     /* We don't check op_offline b/c option parsing may not have happened yet. */
     if (open_file_func != NULL)
         file_ops_func.open_file = open_file_func;
+    if (read_file_func != NULL)
+        file_ops_func.read_file = read_file_func;
+    if (write_file_func != NULL)
+        file_ops_func.write_file = write_file_func;
+    if (close_file_func != NULL)
+        file_ops_func.close_file = close_file_func;
+    if (create_dir_func != NULL)
+        file_ops_func.create_dir = create_dir_func;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_replace_file_ops_ex(drmemtrace_open_file_ex_func_t open_file_ex_func,
+                               drmemtrace_read_file_func_t read_file_func,
+                               drmemtrace_write_file_func_t write_file_func,
+                               drmemtrace_close_file_func_t close_file_func,
+                               drmemtrace_create_dir_func_t create_dir_func)
+{
+    if (open_file_ex_func != NULL) {
+        file_ops_func.open_file_ex = open_file_ex_func;
+        file_ops_func.open_file = nullptr;
+    }
     if (read_file_func != NULL)
         file_ops_func.read_file = read_file_func;
     if (write_file_func != NULL)

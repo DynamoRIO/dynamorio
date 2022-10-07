@@ -373,7 +373,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                                    suffix, DRX_FILE_SKIP_OPEN, buf,
                                    BUFFER_SIZE_ELEMENTS(buf));
         NULL_TERMINATE_BUFFER(buf);
-        file_t new_file = file_ops_func.open_file(buf, flags);
+        file_t new_file = file_ops_func.call_open_file(
+            buf, flags, dr_get_thread_id(drcontext), window_num);
         if (new_file == INVALID_FILE)
             continue;
         if (new_file == data->file)

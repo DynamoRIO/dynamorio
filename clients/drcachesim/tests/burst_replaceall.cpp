@@ -42,11 +42,17 @@
 #include "drmemtrace/drmemtrace.h"
 #include "drvector.h"
 #include "../../../suite/tests/client_tools.h"
+#include "../../../suite/tests/condvar.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <set>
+
+static void *finished;
+static constexpr int num_threads = 3;
+static void *started[num_threads];
 
 bool
 my_setenv(const char *var, const char *value)
@@ -95,7 +101,8 @@ do_some_work(int i)
 }
 
 static file_t
-local_open_file(const char *fname, uint mode_flags)
+local_open_file(const char *fname, uint mode_flags, thread_id_t thread_id,
+                int64 window_id)
 {
     static bool called;
     if (!called) {
@@ -113,7 +120,7 @@ local_open_file(const char *fname, uint mode_flags)
     if (strncmp(fname, func_name, MAXIMUM_PATH) == 0 ||
         strncmp(fname, enc_name, MAXIMUM_PATH) == 0)
         return (file_t)IGNORE_FILENO;
-    return (file_t)dr_get_thread_id(dr_get_current_drcontext());
+    return (file_t)thread_id;
 }
 
 static ssize_t
@@ -191,6 +198,7 @@ exit_cb(void *arg)
                           modlist_path);
     assert(len > 0);
     NULL_TERMINATE_BUFFER(path);
+    std::set<file_t> tids;
 
     std::cerr << "processing " << all_buffers.entries << " buffers\n";
     drvector_lock(&all_buffers);
@@ -206,14 +214,33 @@ exit_cb(void *arg)
             assert(len > 0);
             NULL_TERMINATE_BUFFER(fname);
             f = dr_open_file(fname, DR_FILE_WRITE_APPEND);
+            tids.insert(entry->id);
         }
         assert(f != INVALID_FILE);
         dr_write_file(f, entry->data, entry->data_size);
         dr_close_file(f);
         dr_raw_mem_free(entry->data, entry->alloc_size);
     }
+    // Ensure we were passed every app thread tid to our file open function.
+    if (tids.size() != num_threads + 1 /*main*/) {
+        std::cerr << "Saw " << tids.size() << " threads but expected "
+                  << (num_threads + 1) << "\n";
+    }
     drvector_unlock(&all_buffers);
     drvector_delete(&all_buffers);
+}
+
+#ifdef WINDOWS
+unsigned int __stdcall
+#else
+void *
+#endif
+    thread_func(void *arg)
+{
+    uintptr_t i = reinterpret_cast<uintptr_t>(arg);
+    signal_cond_var(started[i]);
+    wait_cond_var(finished);
+    return 0;
 }
 
 int
@@ -224,13 +251,30 @@ main(int argc, const char *argv[])
     static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
+    // Create some threads to test the tid arg to file open.
+#ifdef UNIX
+    pthread_t thread[num_threads];
+#else
+    uintptr_t thread[num_threads];
+#endif
+    finished = create_cond_var();
+    for (uint i = 0; i < num_threads; i++) {
+        started[i] = create_cond_var();
+#ifdef UNIX
+        pthread_create(&thread[i], NULL, thread_func, (void *)(uintptr_t)i);
+#else
+        thread[i] = _beginthreadex(NULL, 0, thread_func, (void *)(uintptr_t)i, 0, NULL);
+#endif
+        wait_cond_var(started[i]);
+    }
+
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";
     drmemtrace_status_t res =
-        drmemtrace_replace_file_ops(local_open_file, local_read_file, local_write_file,
-                                    local_close_file, local_create_dir);
+        drmemtrace_replace_file_ops_ex(local_open_file, local_read_file, local_write_file,
+                                       local_close_file, local_create_dir);
     assert(res == DRMEMTRACE_SUCCESS);
     res = drmemtrace_buffer_handoff(handoff_cb, exit_cb, (void *)&all_buffers);
     assert(res == DRMEMTRACE_SUCCESS);
@@ -255,6 +299,14 @@ main(int argc, const char *argv[])
         }
     }
 
+    signal_cond_var(finished);
+    for (uint i = 0; i < num_threads; i++) {
+#ifdef UNIX
+        pthread_join(thread[i], NULL);
+#else
+        WaitForSingleObject((HANDLE)thread[i], INFINITE);
+#endif
+    }
     std::cerr << "all done\n";
     return 0;
 }
