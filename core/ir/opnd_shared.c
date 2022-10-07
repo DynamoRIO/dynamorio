@@ -274,7 +274,10 @@ opnd_size_t
 opnd_get_size(opnd_t opnd)
 {
     switch (opnd.kind) {
-    case REG_kind: return (opnd.size == 0 ? reg_get_size(opnd_get_reg(opnd)) : opnd.size);
+    case REG_kind:
+        return (opnd.size == 0 || ((opnd.aux.flags & DR_OPND_IS_VECTOR) != 0)
+                    ? reg_get_size(opnd_get_reg(opnd))
+                    : opnd.size);
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
     case IMMED_DOUBLE_kind:
@@ -312,6 +315,15 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     case INSTR_kind: opnd->size = newsize; return;
     default: CLIENT_ASSERT(false, "opnd_set_size: unknown opnd type");
     }
+}
+
+opnd_size_t
+opnd_get_vector_element_size(opnd_t opnd)
+{
+    if (opnd.kind != REG_kind || ((opnd.aux.flags & DR_OPND_IS_VECTOR) == 0))
+        return OPSZ_NA;
+
+    return opnd.size;
 }
 
 /* immediate operands */

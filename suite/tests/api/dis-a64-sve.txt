@@ -49,10 +49,10 @@
 # and white-space sensitive.
 
 # Tests:
-043e0362 : add z2.b, z27.b, z30.b                   : add    %z27 %z30 $0x00 -> %z2
-047e0362 : add z2.h, z27.h, z30.h                   : add    %z27 %z30 $0x01 -> %z2
-04be0362 : add z2.s, z27.s, z30.s                   : add    %z27 %z30 $0x02 -> %z2
-04fe0362 : add z2.d, z27.d, z30.d                   : add    %z27 %z30 $0x03 -> %z2
+043e0362 : add z2.b, z27.b, z30.b                   : add    %z27.b %z30.b -> %z2.b
+047e0362 : add z2.h, z27.h, z30.h                   : add    %z27.h %z30.h -> %z2.h
+04be0362 : add z2.s, z27.s, z30.s                   : add    %z27.s %z30.s -> %z2.s
+04fe0362 : add z2.d, z27.d, z30.d                   : add    %z27.d %z30.d -> %z2.d
 
 041a06ff : and z31.b, p1/m, z31.b, z23.b            : and    %p1 %z31 %z23 $0x00 -> %z31
 045a06ff : and z31.h, p1/m, z31.h, z23.h            : and    %p1 %z31 %z23 $0x01 -> %z31

@@ -1096,6 +1096,16 @@
     instr_create_1dst_3src(dc, OP_add, Rd, Rm, Rn, width)
 
 /**
+ * Creates a ADD vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output SVE register (created with opnd_create_reg_element_vector).
+ * \param Rm      The first input SVE register (created with opnd_create_reg_element_vector).
+ * \param Rn      The second input SVE register (created with opnd_create_reg_element_vector).
+ */
+#define INSTR_CREATE_sve_add_vector(dc, Rd, Rm, Rn) \
+    instr_create_1dst_2src(dc, OP_add, Rd, Rm, Rn)
+
+/**
  * Creates a CMTST vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.

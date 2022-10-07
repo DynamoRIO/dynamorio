@@ -40,7 +40,7 @@
 
 # Instruction definitions:
 
-00000100xx1xxxxx000000xxxxxxxxxx  n   9    SVE    add  z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000000xxxxxxxxxx  n   9    SVE    add  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000100xx011010000xxxxxxxxxxxxx  n   21   SVE    and  z0 : p10_low z0 z5 bhsd_sz
 00000100xx011011000xxxxxxxxxxxxx  n   29   SVE    bic  z0 : p10_low z0 z5 bhsd_sz
 00000100xx011001000xxxxxxxxxxxxx  n   90   SVE    eor  z0 : p10_low z0 z5 bhsd_sz
