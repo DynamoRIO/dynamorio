@@ -78,7 +78,7 @@ def err(msg, *args, **kwargs):
 
 
 env_debug = getenv('DEBUG') or '0'
-if (env_debug != '0'):
+if env_debug != '0':
     logger.setLevel(DEBUG)
 
 
@@ -275,7 +275,7 @@ class Field(str, Enum):
              '',
              'The immediate field in the J-type format.'
              )
-    IMM = (23, # Used only for parsing ISA files. Concatenated into V_RS1_DISP
+    IMM = (23,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP
            'imm',
            False,
            'OPSZ_12b',
@@ -514,12 +514,11 @@ class Field(str, Enum):
         - BLT's B_IMM is OPSZ_2 because the target address must be 2-byte
           aligned.
         '''
-        if (type(self.opsz_def) is str):
+        if type(self.opsz_def) is str:
             return self.opsz_def
-        else:
-            if (inst_name not in self.opsz_def):
-                inst_name = ''
-            return self.opsz_def[inst_name]
+        if inst_name not in self.opsz_def:
+            inst_name = ''
+        return self.opsz_def[inst_name]
 
 
 @unique
@@ -599,12 +598,12 @@ class IslGenerator:
     def __fixup_compressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x3
         funct3 = (inst.match & inst.mask) >> 13
-        if (opc == 0 and funct3 not in [0, 0b100]):  # LOAD/STORE instructions
+        if opc == 0 and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             # Immediate argument will handle the base+disp
             inst.flds.pop(1)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
-        elif (Field.CB_IMM in inst.flds):
+        elif Field.CB_IMM in inst.flds:
             # Compare-and-branch instructions need their branch operand moved
             # to the 1st source operand slot as required by instr_set_target().
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
@@ -614,23 +613,23 @@ class IslGenerator:
 
     def __fixup_uncompressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x7F
-        if (opc in [0b0000011, 0b0000111]):  # LOAD instructions
+        if opc in [0b0000011, 0b0000111]:  # LOAD instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             inst.flds[0] = Field.V_L_RS1_DISP
             inst.flds.pop(1)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
-        elif (opc in [0b0100011, 0b0100111]):  # STORE instructions
+        elif opc in [0b0100011, 0b0100111]:  # STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             inst.flds[0] = Field.V_S_RS1_DISP
             inst.flds.pop(2)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
-        elif (inst.mask == 0x1f07fff and inst.match in [0x6013, 0x106013, 0x306013]):
+        elif inst.mask == 0x1f07fff and inst.match in [0x6013, 0x106013, 0x306013]:
             # prefetch.[irw] instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             inst.flds[0] = Field.V_S_RS1_DISP
             inst.flds.pop(1)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
-        elif (Field.B_IMM in inst.flds):
+        elif Field.B_IMM in inst.flds:
             # Compare-and-branch instructions need their branch operand moved
             # to the 1st source operand slot as required by instr_set_target().
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
@@ -661,7 +660,7 @@ class IslGenerator:
           branch target is the first source operand.
         '''
         for inst in self.instructions:
-            if (inst.is_compressed()):
+            if inst.is_compressed():
                 self.__fixup_compressed_inst(inst)
             else:
                 self.__fixup_uncompressed_inst(inst)
@@ -678,7 +677,7 @@ class IslGenerator:
         with open(isl_file, 'r') as f:
             for line in f:
                 line = line.split("#")[0].strip()
-                if (len(line) == 0):
+                if len(line) == 0:
                     continue
                 tokens = [t.strip() for t in line.split('|')]
                 assert (len(tokens) == 4)
@@ -688,8 +687,8 @@ class IslGenerator:
                 mask = 0
                 match = 0
                 shift = len(tokens[3])
-                if (name.startswith("c.") or name == "unimp"):
-                    if (shift != 16):
+                if name.startswith("c.") or name == "unimp":
+                    if shift != 16:
                         err(
                             f"Invalid compressed instruction size: {name} {shift} != 16")
                         return False
@@ -727,7 +726,7 @@ class IslGenerator:
         inst_dict = {}
         for i in self.instructions:
             id = inst_dict.get(i.match)
-            if (id and not i.is_compressed() and id.mask == i.mask):
+            if id and not i.is_compressed() and id.mask == i.mask:
                 err(f'Duplicate instruction: {i}')
                 return False
             inst_dict[i.match] = i
@@ -746,7 +745,7 @@ class IslGenerator:
         res = True
         for f in [f for f in p.iterdir() if f.name.endswith(".txt")]:
             res = res and self.__parse_isl_file(f)
-            if (not res):
+            if not res:
                 break
         self.__fixup_instructions()
         return res and self.__sanity_check()
@@ -765,16 +764,16 @@ class IslGenerator:
         # Replace tmpl_fld in the template_file and save as out_file
         with open(template_file, 'r') as tf, open(out_file, 'w') as of:
             for line in tf:
-                if ('*/ OP_' in line):
+                if '*/ OP_' in line:
                     nmb = re.findall(r'\d+', line)
-                    if (len(nmb) != 1):
+                    if len(nmb) != 1:
                         wrn(
                             f"Template opcode line is missing an index?: '{line}'")
                     idx = int(nmb[0])
-                elif (tmpl_fld in line):
+                elif tmpl_fld in line:
                     found_template_fld = True
 
-                    if (idx == -1):
+                    if idx == -1:
                         wrn("Starting index not found, using 0")
                     idx += 1
                     IslGenerator.OP_TBL_OFFSET = idx
@@ -788,7 +787,7 @@ class IslGenerator:
 
                     line = line.replace(tmpl_fld, '\n'.join(lines))
                 of.write(line)
-        if (not found_template_fld):
+        if not found_template_fld:
             err(f"{tmpl_fld} not found in {template_file}")
         return found_template_fld
 
@@ -804,7 +803,7 @@ class IslGenerator:
         # Replace tmpl_fld in the template_file and save as out_file
         with open(template_file, 'r') as tf, open(out_file, 'w') as of:
             for line in tf:
-                if (tmpl_fld in line):
+                if tmpl_fld in line:
                     found_template_fld = True
 
                     lines = []
@@ -835,7 +834,7 @@ class IslGenerator:
     instr_create_{nd}dst_{ns}src(dc, OP_{i.formatted_name()}{args})\n''')
                     line = line.replace(tmpl_fld, '\n'.join(lines))
                 of.write(line)
-        if (not found_template_fld):
+        if not found_template_fld:
             err(f"{tmpl_fld} not found in {template_file}")
         return found_template_fld
 
@@ -861,14 +860,14 @@ class IslGenerator:
         trie.append(self.TrieNode(0x7f, 0, 1))
         while trie_index < len(trie):
             instructions = trie_buckets.get(trie_index)
-            if (instructions is None):
+            if instructions is None:
                 trie_index += 1
                 continue
             dbg(f'trie_buckets[{trie_index}]:len({len(instructions)}):'
                 f' {[i.name for i in instructions]}')
             mask = trie[trie_index].mask
             shift = trie[trie_index].shift
-            if (mask == 0):  # This denotes a leaf node.
+            if mask == 0:  # This denotes a leaf node.
                 trie_index += 1
                 continue
             bucket_size = mask + 1
@@ -892,7 +891,7 @@ class IslGenerator:
                 assert (imatch < bucket_size)
                 # First all exact-match instructions need to be put into their
                 # search bucket.
-                if (mask == imask):
+                if mask == imask:
                     buckets[imatch].append(instruction)
                 # Non-exact match instructions will be put in all other search
                 # buckets after we know all the positions of exact-match
@@ -900,23 +899,23 @@ class IslGenerator:
                 else:
                     non_exact_match.append(instruction)
             # Finally append the non-exact matches.
-            if (len(non_exact_match) > 0):
+            if len(non_exact_match) > 0:
                 for bucket in buckets:
-                    if (len(bucket) == 0):
+                    if len(bucket) == 0:
                         bucket += non_exact_match
             trie[trie_index].index = len(trie)
             idx = -1
             for bucket in buckets:
                 idx += 1
                 l = len(bucket)
-                if (l != 0):
+                if l != 0:
                     dbg(f'buckets[(i >> {shift}) & 0b{buckets.index(bucket):b}]: \n  ' +
                         '\n  '.join(
                             [f'{i.name:16s}: {i.match:032b} & {i.mask:032b}'
                              for i in bucket]))
-                if (l == 0):
+                if l == 0:
                     trie.append(self.TrieNode(0, 0, maxu(16)))
-                elif (l == 1):
+                elif l == 1:
                     name = bucket[0].name
                     wanted = [i for i in self.instructions if i.name == name][0]
                     wi = op_offset + self.instructions.index(wanted)
@@ -930,7 +929,7 @@ class IslGenerator:
                         common_match &= ~(common_comparator ^
                                           instruction.match) & maxu(32)
                         common_comparator &= common_match
-                    if (mask_anded & ~common_match & maxu(32) == 0):
+                    if mask_anded & ~common_match & maxu(32) == 0:
                         # If mask is 0, it means we've reached the end of the
                         # decoded instruction but there are still more than 1
                         # elements in the search bucket. This means the bucket
@@ -957,7 +956,7 @@ class IslGenerator:
         Generate the instr_info_trie.c file.
 
         Returns true if the output file was written successfully.'''
-        if (op_offset < 0):
+        if op_offset < 0:
             err("Invalid OP_* offset")
             return False
         if len(self.instructions) == 0:
@@ -1027,7 +1026,7 @@ INSTM_FNAME = "instr_create_api.h"
 INSTRINFO_FNAME = "instr_info_trie.h"
 
 if __name__ == '__main__':
-    if (len(argv) < 4):
+    if len(argv) < 4:
         wrn(
             f"Usage: {path.basename(__file__)} <isl-path> <template-path> <output-path>")
         exit(1)
@@ -1037,7 +1036,7 @@ if __name__ == '__main__':
     generator = IslGenerator()
 
     res = generator.parse_isl(isl_path)
-    if (not res):
+    if not res:
         err("Failed to parse Instruction Set Listings")
         exit(2)
 
@@ -1047,18 +1046,18 @@ if __name__ == '__main__':
 
     res = generator.generate_opcodes(path.join(
         template_path, f"{OP_FNAME}.in"), path.join(out_path, OP_FNAME))
-    if (not res):
+    if not res:
         err(f"Failed to generate {OP_FNAME}")
         exit(3)
 
     res = generator.generate_instr_macros(path.join(
         template_path, f"{INSTM_FNAME}.in"), path.join(out_path, INSTM_FNAME))
-    if (not res):
+    if not res:
         err(f"Failed to generate {INSTM_FNAME}")
         exit(4)
 
     res = generator.generate_instr_info_trie(
         path.join(out_path, INSTRINFO_FNAME), IslGenerator.OP_TBL_OFFSET)
-    if (not res):
+    if not res:
         err(f"Failed to generate {INSTRINFO_FNAME}")
         exit(4)
