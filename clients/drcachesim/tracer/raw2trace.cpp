@@ -1102,7 +1102,6 @@ raw2trace_t::append_delayed_branch(void *tls)
             return "Failed to write to output file";
     }
     tdata->delayed_branch.clear();
-    prior_branch_delay_ = false;
     return "";
 }
 
@@ -1237,6 +1236,15 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
     for (const trace_entry_t *it = start; it < end; ++it)
         tdata->delayed_branch.push_back(*it);
     return "";
+}
+
+bool
+raw2trace_t::prior_branch_delayed(void *tls) {
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->delayed_branch.empty()) {
+        return false;
+    }
+    return true;
 }
 
 std::string

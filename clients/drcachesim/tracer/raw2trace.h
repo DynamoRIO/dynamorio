@@ -823,7 +823,7 @@ protected:
                 if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
                     // Delay the markers only if there was a prior delayed
                     // branch.
-                    if (impl()->prior_branch_delay_) {
+                    if (impl()->prior_branch_delayed(tls)) {
                         std::string error = impl()->write_delayed_branches(
                             tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
                         if (!error.empty())
@@ -1360,7 +1360,6 @@ private:
                 // delay markers.
                 impl()->log(4, "Delaying %d entries\n", buf - buf_start);
                 error = impl()->write_delayed_branches(tls, buf_start, buf);
-                impl()->prior_branch_delay_ = true;
                 if (!error.empty())
                     return error;
             } else {
@@ -1941,6 +1940,8 @@ private:
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
     bool
+    prior_branch_delayed(void *tls);
+    bool
     record_encoding_emitted(void *tls, app_pc pc);
     // This can only be called once between calls to record_encoding_emitted()
     // and only after record_encoding_emitted() returns true.
@@ -2110,10 +2111,6 @@ private:
 
     // Chunking for seeking support in compressed files.
     uint64_t chunk_instr_count_ = 0;
-
-    // True if there was a prior branch delay. Used to indicate when to also
-    // delay markers along with branches.
-    bool prior_branch_delay_ = false;
 };
 
 #endif /* _RAW2TRACE_H_ */
