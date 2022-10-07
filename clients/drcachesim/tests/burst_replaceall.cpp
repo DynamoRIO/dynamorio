@@ -49,13 +49,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <set>
-#ifdef WINDOWS
-#    include <process.h>
+#ifndef WINDOWS // XXX i#2040: Static client limitations
+#    ifdef WINDOWS
+#        include <process.h>
+#    endif
 #endif
 
 static void *finished;
+#ifndef WINDOWS // XXX i#2040: Static client limitations
 static constexpr int num_threads = 3;
 static void *started[num_threads];
+#endif
 
 bool
 my_setenv(const char *var, const char *value)
@@ -224,20 +228,23 @@ exit_cb(void *arg)
         dr_close_file(f);
         dr_raw_mem_free(entry->data, entry->alloc_size);
     }
+#ifndef WINDOWS // XXX i#2040: Static client limitations
     // Ensure we were passed every app thread tid to our file open function.
     if (tids.size() != num_threads + 1 /*main*/) {
         std::cerr << "Saw " << tids.size() << " threads but expected "
                   << (num_threads + 1) << "\n";
     }
+#endif
     drvector_unlock(&all_buffers);
     drvector_delete(&all_buffers);
 }
 
-#ifdef WINDOWS
+#ifndef WINDOWS // XXX i#2040: Static client limitations
+#    ifdef WINDOWS
 unsigned int __stdcall
-#else
+#    else
 void *
-#endif
+#    endif
     thread_func(void *arg)
 {
     uintptr_t i = reinterpret_cast<uintptr_t>(arg);
@@ -245,6 +252,7 @@ void *
     wait_cond_var(finished);
     return 0;
 }
+#endif
 
 int
 main(int argc, const char *argv[])
@@ -255,21 +263,25 @@ main(int argc, const char *argv[])
     static int iter_stop = iter_start + 4;
 
     // Create some threads to test the tid arg to file open.
-#ifdef UNIX
+    // XXX i#2040: Static client limitations cause problems on Windows so we
+    // disable this part of the test there.
+#ifndef WINDOWS
+#    ifdef UNIX
     pthread_t thread[num_threads];
-#else
+#    else
     uintptr_t thread[num_threads];
-#endif
+#    endif
     finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
         started[i] = create_cond_var();
-#ifdef UNIX
+#    ifdef UNIX
         pthread_create(&thread[i], NULL, thread_func, (void *)(uintptr_t)i);
-#else
+#    else
         thread[i] = _beginthreadex(NULL, 0, thread_func, (void *)(uintptr_t)i, 0, NULL);
-#endif
+#    endif
         wait_cond_var(started[i]);
     }
+#endif
 
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
@@ -302,14 +314,16 @@ main(int argc, const char *argv[])
         }
     }
 
+#ifndef WINDOWS // XXX i#2040: Static client limitations
     signal_cond_var(finished);
     for (uint i = 0; i < num_threads; i++) {
-#ifdef UNIX
+#    ifdef UNIX
         pthread_join(thread[i], NULL);
-#else
+#    else
         WaitForSingleObject((HANDLE)thread[i], INFINITE);
-#endif
+#    endif
     }
+#endif
     std::cerr << "all done\n";
     return 0;
 }
