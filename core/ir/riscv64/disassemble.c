@@ -61,6 +61,7 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd)
 {
     /* There is no scaled addressing on RISC-V */
+    ASSERT_NOT_REACHED();
 }
 
 static inline const char *
