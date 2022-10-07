@@ -1239,13 +1239,10 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
 }
 
 bool
-raw2trace_t::prior_branch_delayed(void *tls)
+raw2trace_t::delayed_branches_exit(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    if (tdata->delayed_branch.empty()) {
-        return false;
-    }
-    return true;
+    return !tdata->delayed_branch.empty();
 }
 
 std::string

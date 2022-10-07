@@ -656,6 +656,11 @@ struct trace_header_t {
  * are the last values in a record, they belong to the next record of the same
  * thread.</LI>
  *
+ * <LI>bool delayed_branches_exist(void *tls)
+ *
+ * Returns true if there are currently delayed branches that have not been emitted
+ * yet.</LI>
+ *
  * <LI>std::string append_delayed_branch(void *tls)
  *
  * Flush the branches sent to write_delayed_branches().</LI>
@@ -815,15 +820,16 @@ protected:
                 if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                     impl()->log(4, "Signal/exception between bbs\n");
                 }
-                // Delay most markers since intra-block markers can cause issues
-                // with tools that do not expect markers amid records for a single
-                // instruction or inside a basic block. We don't delay
-                // TRACE_MARKER_TYPE_CPU_ID because it identifies the CPU on
-                // which subsequent records were collected.
+                // If there is currently a delayed branch that has not been emitted yet,
+                // delay most markers since intra-block markers can cause issues with
+                // tools that do not expect markers amid records for a single instruction
+                // or inside a basic block. We don't delay TRACE_MARKER_TYPE_CPU_ID which
+                // identifies the CPU on which subsequent records were collected and
+                // OFFLINE_TYPE_TIMESTAMP which is handled at a higher level in
+                // process_next_thread_buffer() so there is no need to have a separate
+                // check for it here.
                 if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
-                    // Delay the markers only if there was a prior delayed
-                    // branch.
-                    if (impl()->prior_branch_delayed(tls)) {
+                    if (impl()->delayed_branches_exit(tls)) {
                         std::string error = impl()->write_delayed_branches(
                             tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
                         if (!error.empty())
@@ -1940,7 +1946,7 @@ private:
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
     bool
-    prior_branch_delayed(void *tls);
+    delayed_branches_exit(void *tls);
     bool
     record_encoding_emitted(void *tls, app_pc pc);
     // This can only be called once between calls to record_encoding_emitted()
