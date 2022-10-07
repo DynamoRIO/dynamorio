@@ -49,6 +49,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <set>
+#ifdef WINDOWS
+#    include <process.h>
+#endif
 
 static void *finished;
 static constexpr int num_threads = 3;
