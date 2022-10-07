@@ -50,7 +50,7 @@ Window #0:
            5 window data stores
            0 window icache flushes
            0 window dcache flushes
-           4 window scheduling markers
+           3 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -158,7 +158,7 @@ Window #6:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           0 window scheduling markers
+           1 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -176,7 +176,7 @@ Thread [0-9]* counts:
            5 data stores
            0 icache flushes
            0 dcache flushes
-           4 scheduling markers
+           3 scheduling markers
            0 transfer markers
            0 function id markers
            0 function return address markers
