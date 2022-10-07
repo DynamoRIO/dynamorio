@@ -33,6 +33,7 @@
 /* instru_online: inserts instrumentation for online traces.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
 #include "dr_api.h"
 #include "drreg.h"
 #include "drutil.h"
@@ -371,6 +372,44 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return (adjust + sizeof(trace_entry_t));
+}
+
+int
+online_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
+                                           instrlist_t *ilist, instr_t *where,
+                                           reg_id_t reg_ptr, int adjust, instr_t *app)
+{
+    DR_ASSERT(instr_is_app(app));
+
+    byte buf[MAX_ENCODING_LENGTH];
+    size_t len = 0;
+    // Most of the time this will be a memcpy, but in some cases we need to encode.
+    byte *end_pc = instr_encode_to_copy(drcontext, app, buf, instr_get_app_pc(app));
+    DR_ASSERT(end_pc != nullptr);
+    len = end_pc - buf;
+    DR_ASSERT(len < sizeof(buf));
+
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+
+    size_t len_left = len;
+    size_t buf_offs = 0;
+    do {
+        size_t len_cur = std::min(len_left, sizeof(((trace_entry_t *)0)->encoding));
+        insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
+                                  TRACE_TYPE_ENCODING, len_cur, adjust);
+        app_pc immed = *(app_pc *)(buf + buf_offs);
+        insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, immed, adjust);
+        buf_offs += len_cur;
+        len_left -= len_cur;
+        adjust += sizeof(trace_entry_t);
+    } while (len_left > 0);
+
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+    return adjust;
 }
 
 int

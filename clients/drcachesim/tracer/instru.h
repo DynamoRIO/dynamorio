@@ -239,6 +239,10 @@ public:
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
                        int num_delay_instrs) = 0;
+    virtual int
+    instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
+                              instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
+                              int adjust, instr_t *app) = 0;
 
     virtual void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
@@ -347,6 +351,10 @@ public:
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
                        int num_delay_instrs) override;
+    int
+    instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
+                              instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
+                              int adjust, instr_t *app) override;
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
@@ -424,6 +432,10 @@ public:
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
                        int num_delay_instrs) override;
+    int
+    instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
+                              instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
+                              int adjust, instr_t *app) override;
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,

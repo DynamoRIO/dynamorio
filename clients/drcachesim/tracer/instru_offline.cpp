@@ -754,6 +754,15 @@ offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_
     return adjust;
 }
 
+int
+offline_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
+                                            instrlist_t *ilist, instr_t *where,
+                                            reg_id_t reg_ptr, int adjust, instr_t *app)
+{
+    // The post-processor fills in all instr info other than our once-per-bb entry.
+    return adjust;
+}
+
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                               instrlist_t *ilist, bool repstr_expanded)

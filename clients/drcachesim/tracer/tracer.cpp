@@ -425,13 +425,24 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
                         instr_t *where, reg_id_t reg_ptr, int adjust)
 {
     // Instrument to add a full instr entry for the first instr.
+    if (op_instr_encodings.get_value()) {
+        adjust = instru->instrument_instr_encoding(drcontext, tag, ud->instru_field,
+                                                   ilist, where, reg_ptr, adjust,
+                                                   ud->delay_instrs[0]);
+    }
     adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                       reg_ptr, adjust, ud->delay_instrs[0]);
-    if (op_use_physical.get_value()) {
+    if (op_use_physical.get_value() || op_instr_encodings.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
-        // cross page bundary.
+        // cross page bundary, and no bundles for encodings so we can easily
+        // insert encoding entries.
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
+            if (op_instr_encodings.get_value()) {
+                adjust = instru->instrument_instr_encoding(
+                    drcontext, tag, ud->instru_field, ilist, where, reg_ptr, adjust,
+                    ud->delay_instrs[i]);
+            }
             adjust =
                 instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                          reg_ptr, adjust, ud->delay_instrs[i]);
@@ -904,6 +915,10 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     }
     if (op_L0I_filter.get_value() || op_L0D_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    if (op_instr_encodings.get_value()) {
+        adjust = instru->instrument_instr_encoding(drcontext, tag, ud->instru_field,
+                                                   ilist, where, reg_ptr, adjust, app);
+    }
     adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                       reg_ptr, adjust, app);
     if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
