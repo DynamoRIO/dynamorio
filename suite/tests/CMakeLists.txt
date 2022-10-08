@@ -3882,6 +3882,7 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_replaceall_nodr ON)
       torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall ""
         "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.burst_replaceall_rawtemp) # use preprocessor
 
       if (X64 AND UNIX)
         set(tool.drcacheoff.burst_noreach_nodr ON)

@@ -8,5 +8,9 @@ all done
 Basic counts tool results:
 Total counts:
 .*
+#ifdef WINDOWS
+           1 total threads
+#else
            4 total threads
+#endif
 .*
