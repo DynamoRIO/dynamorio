@@ -829,7 +829,7 @@ protected:
                 // process_next_thread_buffer() so there is no need to have a separate
                 // check for it here.
                 if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
-                    if (impl()->delayed_branches_exit(tls)) {
+                    if (impl()->delayed_branches_exist(tls)) {
                         std::string error = impl()->write_delayed_branches(
                             tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
                         if (!error.empty())
@@ -1946,7 +1946,7 @@ private:
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
     bool
-    delayed_branches_exit(void *tls);
+    delayed_branches_exist(void *tls);
     bool
     record_encoding_emitted(void *tls, app_pc pc);
     // This can only be called once between calls to record_encoding_emitted()
