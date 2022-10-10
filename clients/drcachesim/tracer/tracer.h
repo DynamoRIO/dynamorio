@@ -201,8 +201,9 @@ struct file_ops_func_t {
             return open_file_ex(fname, mode_flags, thread_id, window_id);
         return open_file(fname, mode_flags);
     }
+    // For process-wide files.
     file_t
-    open_file_special(const char *fname, uint mode_flags)
+    open_process_file(const char *fname, uint mode_flags)
     {
         return call_open_file(fname, mode_flags, 0, -1);
     }

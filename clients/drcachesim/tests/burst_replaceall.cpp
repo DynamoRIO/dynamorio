@@ -49,14 +49,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <set>
-#ifndef WINDOWS // XXX i#2040: Static client limitations
+// XXX i#2040: Static client limitations on Windows prevent the thread
+// aspect of this test from working today.  Once that is fixed we can
+// re-enable by removing all of the "ifndef WINDOWS" with this comment:
+#ifndef WINDOWS // XXX i#2040: Disabled until Windows static limits are fixed.
 #    ifdef WINDOWS
 #        include <process.h>
 #    endif
 #endif
 
+#ifndef WINDOWS // XXX i#2040: Disabled until Windows static limits are fixed.
 static void *finished;
-#ifndef WINDOWS // XXX i#2040: Static client limitations
 static constexpr int num_threads = 3;
 static void *started[num_threads];
 #endif
@@ -228,7 +231,7 @@ exit_cb(void *arg)
         dr_close_file(f);
         dr_raw_mem_free(entry->data, entry->alloc_size);
     }
-#ifndef WINDOWS // XXX i#2040: Static client limitations
+#ifndef WINDOWS // XXX i#2040: Disabled until Windows static limits are fixed.
     // Ensure we were passed every app thread tid to our file open function.
     if (tids.size() != num_threads + 1 /*main*/) {
         std::cerr << "Saw " << tids.size() << " threads but expected "
@@ -239,7 +242,7 @@ exit_cb(void *arg)
     drvector_delete(&all_buffers);
 }
 
-#ifndef WINDOWS // XXX i#2040: Static client limitations
+#ifndef WINDOWS // XXX i#2040: Disabled until Windows static limits are fixed.
 #    ifdef WINDOWS
 unsigned int __stdcall
 #    else
@@ -263,9 +266,7 @@ main(int argc, const char *argv[])
     static int iter_stop = iter_start + 4;
 
     // Create some threads to test the tid arg to file open.
-    // XXX i#2040: Static client limitations cause problems on Windows so we
-    // disable this part of the test there.
-#ifndef WINDOWS
+#ifndef WINDOWS // XXX i#2040: Disabled until Windows static limits are fixed.
 #    ifdef UNIX
     pthread_t thread[num_threads];
 #    else
@@ -287,9 +288,15 @@ main(int argc, const char *argv[])
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";
-    drmemtrace_status_t res =
-        drmemtrace_replace_file_ops_ex(local_open_file, local_read_file, local_write_file,
-                                       local_close_file, local_create_dir);
+    drmemtrace_replace_file_ops_t ops = {
+        sizeof(ops),
+    };
+    ops.open_file_ex_func = local_open_file;
+    ops.read_file_func = local_read_file;
+    ops.write_file_func = local_write_file;
+    ops.close_file_func = local_close_file;
+    ops.create_dir_func = local_create_dir;
+    drmemtrace_status_t res = drmemtrace_replace_file_ops_ex(&ops);
     assert(res == DRMEMTRACE_SUCCESS);
     res = drmemtrace_buffer_handoff(handoff_cb, exit_cb, (void *)&all_buffers);
     assert(res == DRMEMTRACE_SUCCESS);
@@ -314,7 +321,7 @@ main(int argc, const char *argv[])
         }
     }
 
-#ifndef WINDOWS // XXX i#2040: Static client limitations
+#ifndef WINDOWS // XXX i#2040: Disabled until Windows static limits are fixed.
     signal_cond_var(finished);
     for (uint i = 0; i < num_threads; i++) {
 #    ifdef UNIX

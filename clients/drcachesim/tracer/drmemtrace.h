@@ -82,6 +82,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
  * @param[in] mode_flags  The DR_FILE_* flags for file open.
  *
  * \return the opened file id.
+ *
+ * \note For additional parameters with the thread and window identifiers,
+ * use #drmemtrace_open_file_ex_func_t and drmemtrace_replace_file_ops_ex().
  */
 typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flags);
 
@@ -161,6 +164,9 @@ DR_EXPORT
  * \note The caller is responsible for the transparency and isolation of using
  * those functions, which will be called in the middle of arbitrary
  * application code.
+ *
+ * \note For additional file open parameters with the thread and window identifiers,
+ * use drmemtrace_replace_file_ops_ex().
  */
 drmemtrace_status_t
 drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
@@ -168,18 +174,6 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
                             drmemtrace_write_file_func_t write_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func);
-
-DR_EXPORT
-/**
- * Identical to drmemtrace_replace_file_ops() except its file open function takes
- * two extra parameters.
- */
-drmemtrace_status_t
-drmemtrace_replace_file_ops_ex(drmemtrace_open_file_ex_func_t open_file_ex_func,
-                               drmemtrace_read_file_func_t read_file_func,
-                               drmemtrace_write_file_func_t write_file_func,
-                               drmemtrace_close_file_func_t close_file_func,
-                               drmemtrace_create_dir_func_t create_dir_func);
 
 /**
  * Function for buffer handoff.  Rather than writing a buffer to a
@@ -241,6 +235,44 @@ DR_EXPORT
 drmemtrace_status_t
 drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
                           drmemtrace_exit_func_t exit_func, void *exit_func_arg);
+
+/**
+ * Structure holding all the file replacement operations for passing to
+ * drmemtrace_replace_file_ops_ex().
+ */
+typedef struct {
+    /** The user must set this to the size of the structure. */
+    size_t size;
+    /** Replacement for file opening. */
+    drmemtrace_open_file_ex_func_t open_file_ex_func;
+    /** Replacement for file reading. */
+    drmemtrace_read_file_func_t read_file_func;
+    /**
+     * Replacement for file writing.  Only one of this or \p handoff_buf should be set.
+     */
+    drmemtrace_write_file_func_t write_file_func;
+    /** Replacement for file closing. */
+    drmemtrace_close_file_func_t close_file_func;
+    /** Replacement for directory creation. */
+    drmemtrace_create_dir_func_t create_dir_func;
+    /**
+     * Replacement for file writing where a new buffer is used each time.
+     * Only one of this or \p write_file should be set.
+     * See drmemtrace_buffer_handoff().
+     */
+    drmemtrace_handoff_func_t handoff_buf_func;
+    /** Called at process exit and passed \p exit_arg. */
+    drmemtrace_exit_func_t exit_func;
+    void *exit_arg; /**< Argument to \p exit_func. */
+} drmemtrace_replace_file_ops_t;
+
+DR_EXPORT
+/**
+ * Combines drmemtrace_replace_file_ops() and drmemtrace_buffer_handoff() and
+ * provides a file open function which takes two extra parameters.
+ */
+drmemtrace_status_t
+drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops);
 
 DR_EXPORT
 /**
