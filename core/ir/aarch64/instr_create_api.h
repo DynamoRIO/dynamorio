@@ -3730,7 +3730,6 @@
  */
 #define INSTR_CREATE_st1_multi_1(dc, r, q, s) instr_create_1dst_2src(dc, OP_st1, r, q, s)
 
-
 /* -------- Advanced SIMD three different ------------------------------ */
 
 /**
