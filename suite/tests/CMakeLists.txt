@@ -3847,7 +3847,8 @@ if (BUILD_CLIENTS)
 
     if (AARCH64)
       set(tool.drcacheoff.burst_aarch64_sys_nodr ON)
-      torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys "" "@-simulator_type@basic_counts" "")
+      torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys ""
+        "@-simulator_type@basic_counts" "")
     endif ()
 
     if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
@@ -3882,7 +3883,9 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
 
       set(tool.drcacheoff.burst_replaceall_nodr ON)
-      torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "" "")
+      torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall ""
+        "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.burst_replaceall_rawtemp) # use preprocessor
 
       if (X64 AND UNIX)
         set(tool.drcacheoff.burst_noreach_nodr ON)
