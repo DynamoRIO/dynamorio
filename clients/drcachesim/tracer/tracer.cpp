@@ -1286,6 +1286,10 @@ event_post_syscall(void *drcontext, int sysnum)
     /* Write a marker to userspace raw trace. */
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
+    // if (data->syscall_pt_trace.get_last_recorded_syscall_id() < 200) {
+    //     dr_printf("sysnum %d, id %d \n", sysnum, data->syscall_pt_trace.get_last_recorded_syscall_id());
+    // }
+    // dr_printf("sysnum %d, id %d \n", sysnum, data->syscall_pt_trace.get_last_recorded_syscall_id());
     trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_ID;
     uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_id();
     BUF_PTR(data->seg_base) +=

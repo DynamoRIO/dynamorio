@@ -224,6 +224,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
 pt2ir_convert_status_t
 pt2ir_t::convert(OUT instrlist_autoclean_t &ilist)
 {
+    bool append = false;
     /* Initializes an empty instruction list to store all DynamoRIO's IR list converted
      * from PT IR.
      */
@@ -347,8 +348,22 @@ pt2ir_t::convert(OUT instrlist_autoclean_t &ilist)
                 dr_fprintf(STDOUT, ">\n");
 #endif
             }
-            instrlist_append(ilist.data, instr);
+            // dr_printf("" PFX "\n", insn.ip);
+            if (append) {
+                instrlist_append(ilist.data, instr);
+            }
+            if (insn.ip == 0xffffffff8bc00191) {
+                append = !append;
+                if (append == false) {
+                    return PT2IR_CONV_SUCCESS;
+                }
+            }
         }
+    }
+
+    if (append) {
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist.data);
+        ilist.data = nullptr;
     }
     return PT2IR_CONV_SUCCESS;
 }

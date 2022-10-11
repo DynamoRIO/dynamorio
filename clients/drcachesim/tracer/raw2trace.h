@@ -805,9 +805,10 @@ protected:
                     impl()->log(4, "Signal/exception between bbs\n");
                 } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL_ID) {
 #ifdef BUILD_PT_POST_PROCESSOR
-                    if (!impl()->write(tls, buf_base,
-                                       reinterpret_cast<trace_entry_t *>(buf)))
-                        return "Failed to write to output file";
+                    std::string error = impl()->write(tls, buf_base,
+                                       reinterpret_cast<trace_entry_t *>(buf));
+                    if (!error.empty())
+                        return error;
                     append_syscall_pt_trace(tls, tid, marker_val);
                     buf_base = impl()->get_write_buffer(tls);
                     buf = reinterpret_cast<byte *>(buf_base);
@@ -1497,6 +1498,10 @@ private:
             error = "Failed to convert PT raw trace to DR IR";
             return error;
         }
+        if (drir.data == nullptr) {
+            dr_printf("No DR IR instructions to append %d\n", syscall_id);
+            return "";
+        }
 
         std::vector<trace_entry_t> entries;
         ir2trace_convert_status_t ir2trace_convert_status =
@@ -1514,11 +1519,10 @@ private:
             buf += sizeof(trace_entry_t);
             size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
             if (size >= WRITE_BUFFER_SIZE) {
-                if (!impl()->write(tls, buf_base,
-                                   reinterpret_cast<trace_entry_t *>(buf))) {
-                    error = "Failed to write syscall PT trace to output file";
+                error = impl()->write(tls, buf_base,
+                                   reinterpret_cast<trace_entry_t *>(buf));
+                if (!error.empty())
                     break;
-                }
                 impl()->log(4, "Appended %u entries to write buffer\n", size);
                 buf_base = impl()->get_write_buffer(tls);
                 buf = reinterpret_cast<byte *>(buf_base);
@@ -1526,9 +1530,9 @@ private:
         }
 
         if (error.empty()) {
-            if (!impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf))) {
-                error = "Failed to write syscall PT trace to output file";
-            }
+            error = impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+            if (!error.empty())
+                return error;
             impl()->log(4, "Appended %u entries to write buffer\n",
                         reinterpret_cast<trace_entry_t *>(buf) - buf_base);
         }
