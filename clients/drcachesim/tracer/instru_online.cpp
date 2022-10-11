@@ -399,7 +399,8 @@ online_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb_
     do {
         size_t len_cur = std::min(len_left, sizeof(((trace_entry_t *)0)->encoding));
         insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                                  TRACE_TYPE_ENCODING, len_cur, adjust);
+                                  TRACE_TYPE_ENCODING, static_cast<ushort>(len_cur),
+                                  adjust);
         app_pc immed = *(app_pc *)(buf + buf_offs);
         insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, immed, adjust);
         buf_offs += len_cur;
