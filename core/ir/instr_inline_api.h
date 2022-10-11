@@ -263,7 +263,7 @@ opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
 #    ifdef X86
-    CLIENT_ASSERT(subsize == 0 || r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
+    CLIENT_ASSERT(element_size == 0 || r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
 #    endif
     opnd.kind = REG_kind;
