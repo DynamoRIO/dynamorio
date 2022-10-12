@@ -4102,8 +4102,10 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
     if (NOT WIN32)
-      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
-        "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+      if (NOT ANDROID) # Pipes not working on Android yet (i#1874)
+        torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
+          "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+      endif ()
       torunonly_drcacheoff(drstatecmp-delay-simple ${ci_shared_app}
         "-trace_after_instrs 20000 -enable_drstatecmp"
         "@-simulator_type@basic_counts" "")
