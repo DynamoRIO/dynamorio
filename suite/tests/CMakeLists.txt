@@ -4036,6 +4036,19 @@ if (BUILD_CLIENTS)
         "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
     endif ()
 
+    # Stress-test drcachesim with drstatecmp checks.
+    if (AARCH64)
+      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
+        "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+    endif ()
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
+        "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+      torunonly_drcacheoff(drstatecmp-delay-simple ${ci_shared_app}
+        "-trace_after_instrs 20000 -enable_drstatecmp"
+        "@-simulator_type@basic_counts" "")
+    endif (NOT WIN32)
+
   endif (NOT ANDROID)
 
   # Test using our exported drmemtrace analysis framework (i#2006).
@@ -4093,23 +4106,6 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.legacy-int-offs_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
-
-    # Stress-test drcachesim with drstatecmp checks.
-    if (AARCH64)
-      if (NOT ANDROID) # Pipes not working on Android yet (i#1874)
-        torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
-          "-trace_after_instrs 10M -enable_drstatecmp" "" "")
-      endif ()
-    endif ()
-    if (NOT WIN32)
-      if (NOT ANDROID) # Pipes not working on Android yet (i#1874)
-        torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
-          "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
-      endif ()
-      torunonly_drcacheoff(drstatecmp-delay-simple ${ci_shared_app}
-        "-trace_after_instrs 20000 -enable_drstatecmp"
-        "@-simulator_type@basic_counts" "")
-    endif (NOT WIN32)
 
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
