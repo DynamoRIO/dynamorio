@@ -3470,14 +3470,6 @@ if (BUILD_CLIENTS)
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
-    # Stress-test drcachesim with drstatecmp checks.
-    if (AARCH64)
-      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
-    endif ()
-    if (NOT WIN32)
-      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
-    endif (NOT WIN32)
-
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
       torunonly_ci(tool.${testname} ${exetgt} drcachesim
@@ -4101,6 +4093,18 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.legacy-int-offs_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
+
+    # Stress-test drcachesim with drstatecmp checks.
+    if (AARCH64)
+      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+    endif ()
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
+        "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+      torunonly_drcacheoff(drstatecmp-delay-simple ${ci_shared_app}
+        "-trace_after_instrs 20000 -enable_drstatecmp"
+        "@-simulator_type@basic_counts" "")
+    endif (NOT WIN32)
 
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
