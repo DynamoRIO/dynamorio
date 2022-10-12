@@ -4096,7 +4096,10 @@ if (BUILD_CLIENTS)
 
     # Stress-test drcachesim with drstatecmp checks.
     if (AARCH64)
-      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+      if (NOT ANDROID) # Pipes not working on Android yet (i#1874)
+        torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
+          "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+      endif ()
     endif ()
     if (NOT WIN32)
       torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
