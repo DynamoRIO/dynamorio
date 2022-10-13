@@ -48,6 +48,10 @@ multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
+\b News: There are some new features coming to drmemtrace traces:
+embedded instruction encodings and fast seeking.  Please see the
+[slides introducing these features](new-features-encodings-seek.pdf).
+
  - \subpage sec_drcachesim
  - \subpage sec_drcachesim_format
  - \subpage sec_drcachesim_run
