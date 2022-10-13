@@ -754,6 +754,17 @@ offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_
     return adjust;
 }
 
+int
+offline_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
+                                            instrlist_t *ilist, instr_t *where,
+                                            reg_id_t reg_ptr, int adjust, instr_t *app)
+{
+    // We emit non-module-code or modified-module-code encodings separately in
+    // record_instr_encodings().  Encodings for static code are added in the
+    // post-processor.
+    return adjust;
+}
+
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                               instrlist_t *ilist, bool repstr_expanded)

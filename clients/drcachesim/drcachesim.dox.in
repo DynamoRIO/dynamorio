@@ -115,7 +115,9 @@ The raw encoding of the instruction is provided.  This can be decoded
 using the drdecode decoder or any other decoder.  An additional field
 `encoding_is_new` is provided to indicate when any cached decoding
 information should be invalidated due to possibly changed application
-code.
+code.  (For online traces, encodings are not provided unless the
+option `-instr_encodings` is passed, as encodings add overhead and
+are not needed for many tools.)
 
 Older legacy traces may not contain instruction encodings.  For those
 traces, encodings for static code can be obtained by
@@ -586,8 +588,8 @@ to cache simulators.
 The opcode_mix tool uses the non-fetched instruction information along with
 the preserved libraries and binaries from the traced execution to gather
 more information on each executed instruction than was stored in the trace.
-It only supports offline traces, and the \p modules.log file created during
-post-processing of the trace must be preserved.  The results are broken
+To run on online traces, pass the `-instr_encodings` option.
+The results are broken
 down by the opcodes used in DR's IR, where for x86 \p mov is split into a separate
 opcode for load and store but both have the same public string "mov":
 
@@ -628,7 +630,8 @@ Opcode mix tool results:
 \section sec_tool_view Human-Readable View
 
 The view tool prints out the contents of the trace for human viewing, including
-disassembling instructions in AT&T, Intel, Arm, or DR format, for offline traces. The
+disassembling instructions in AT&T, Intel, Arm, or DR format (to see
+disassembly for online traces, pass the `-instr_encodings` option). The
 -skip_refs and -sim_refs flags can be used to
 set a start point and end point for the disassembled view. Note that these
 flags compute the number of instructions which are skipped or displayed which

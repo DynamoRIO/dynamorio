@@ -3564,6 +3564,9 @@ if (BUILD_CLIENTS)
     get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
     prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
 
+    torunonly_drcachesim(opcode_mix ${ci_shared_app}
+      "-instr_encodings -simulator_type opcode_mix" "")
+
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
     # set *before* invoking this macro.
@@ -3979,7 +3982,8 @@ if (BUILD_CLIENTS)
         "" "@-simulator_type@basic_counts" "")
       unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
       torunonly_drcachesim(allasm-repstr-basic-counts allasm_repstr
-        "-simulator_type basic_counts" "")
+        # We test counting encodings for online.
+        "-instr_encodings -simulator_type basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
     endif (UNIX AND X86 AND X64)
 

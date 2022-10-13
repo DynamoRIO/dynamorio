@@ -173,6 +173,12 @@ get_file_type()
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
     }
+    if (op_instr_encodings.get_value()) {
+        // This is generally only for online tracing, as raw2trace adds this
+        // flag during post-processing for offline.
+        file_type =
+            static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_ENCODINGS);
+    }
     file_type = static_cast<offline_file_type_t>(
         file_type |
         IF_X86_ELSE(
@@ -659,7 +665,11 @@ create_v2p_buffer(per_thread_t *data)
 static bool
 is_ok_to_split_before(trace_type_t type)
 {
-    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
+    // We can split before the start of each sequence: we don't want to split
+    // an <encoding, instruction, address> combination.
+    return (op_instr_encodings.get_value()
+                ? type == TRACE_TYPE_ENCODING
+                : (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH)) ||
         type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT ||
         op_L0I_filter.get_value();
 }
