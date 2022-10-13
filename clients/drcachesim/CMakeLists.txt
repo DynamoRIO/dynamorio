@@ -671,6 +671,7 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_replaceall)
     use_DynamoRIO_extension(tool.drcacheoff.burst_replaceall drcontainers)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replaceall)
+    link_with_pthread(tool.drcacheoff.burst_replaceall)
 
     add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)

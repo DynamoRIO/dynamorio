@@ -98,13 +98,15 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
-        if (memref.instr.encoding_is_new)
+        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
+            memref.instr.encoding_is_new)
             ++counters->encodings;
     } else if (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
-        if (memref.instr.encoding_is_new)
+        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
+            memref.instr.encoding_is_new)
             ++counters->encodings;
     } else if (type_is_prefetch(memref.data.type)) {
         ++counters->prefetches;
@@ -151,6 +153,16 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
                 ++counters->phys_unavail_markers;
                 break;
+            case TRACE_MARKER_TYPE_FILETYPE:
+                if (per_shard->filetype_ == -1) {
+                    per_shard->filetype_ =
+                        static_cast<intptr_t>(memref.marker.marker_value);
+                } else if (per_shard->filetype_ !=
+                           static_cast<intptr_t>(memref.marker.marker_value)) {
+                    error_string_ = std::string("Filetype mismatch");
+                    return false;
+                }
+                ANNOTATE_FALLTHROUGH;
             default: ++counters->other_markers; break;
             }
         }
