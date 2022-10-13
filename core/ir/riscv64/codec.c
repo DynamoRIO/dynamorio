@@ -33,6 +33,7 @@
 
 #include "../globals.h"
 #include "codec.h"
+#include "trie.h"
 
 /* RISC-V extended instruction information structure.
  *
@@ -64,14 +65,6 @@ typedef struct {
 #if !defined(X64)
 #    error RISC-V codec only supports 64-bit architectures mask+match -> code.
 #endif
-
-/* A prefix-tree node. */
-typedef struct {
-    byte mask;      /* The mask to apply to an instruction after applying shift. */
-    byte shift;     /* The shift to apply to an instruction before applying mask. */
-    uint16_t index; /* The index into the trie table. If mask == 0, index is the index
-                       into instr_infos. */
-} trie_node_t;
 
 /* Instruction operand decoder function.
  *
@@ -1276,32 +1269,30 @@ get_rvc_instr_info(uint32_t inst, int xlen)
     return info;
 }
 
+#define OPCODE_FLD_MASK 0x7f
+
 static rv_instr_info_t *
 get_rv_instr_info(uint32_t inst, trie_node_t trie[])
 {
     rv_instr_info_t *info;
     uint32_t mask, match;
-    trie_node_t *node;
     size_t index;
 
-    /* We know the first index into trie straight from the instruction. */
-    index = (inst & 0x7f) + 1;
-    while (index < (int16_t)-1) {
-        node = &trie[index];
-        ASSERT(node != NULL);
-        if (node->mask == 0) {
-            if (node->index >= BUFFER_SIZE_ELEMENTS(instr_infos))
-                return NULL;
-            info = &instr_infos[node->index];
-            mask = GET_FIELD(info->info.code, 31, 0);
-            match = GET_FIELD(info->info.code, 63, 32);
-            if ((inst & mask) != match)
-                return NULL;
-            return info;
-        }
-        index = node->index + ((inst >> node->shift) & node->mask);
-    }
-    return NULL;
+    /* The initial lookup loop will always index with the OPCODE field so just skip this
+     * for faster lookup.
+     */
+    index = (inst & OPCODE_FLD_MASK) + 1;
+    index = trie_lookup(trie, inst, index);
+
+    if (index == TRIE_NODE_EMPTY)
+        return NULL;
+    info = &instr_infos[index];
+    mask = GET_FIELD(info->info.code, 31, 0);
+    match = GET_FIELD(info->info.code, 63, 32);
+    /* Don't assert, rather allow for an unknown instruction. */
+    if ((inst & mask) != match)
+        return NULL;
+    return info;
 }
 
 /*
