@@ -1272,8 +1272,7 @@ get_rvc_instr_info(uint32_t inst, int xlen)
     mask = GET_FIELD(info->info.code, 31, 0);
     match = GET_FIELD(info->info.code, 63, 32);
 
-    if ((inst & mask) != match)
-        return NULL;
+    ASSERT_MESSAGE(CHKLVL_DEFAULT, "Malformed matching in RVC", (inst & mask) == match);
     return info;
 }
 
