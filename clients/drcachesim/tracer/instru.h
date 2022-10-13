@@ -364,8 +364,8 @@ public:
 
 private:
     void
-    insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t base,
-                   reg_id_t scratch, app_pc pc, int adjust);
+    insert_save_immed(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t base,
+                      reg_id_t scratch, ptr_int_t immed, int adjust);
     void
     insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                      reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref);

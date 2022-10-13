@@ -759,7 +759,9 @@ offline_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb
                                             instrlist_t *ilist, instr_t *where,
                                             reg_id_t reg_ptr, int adjust, instr_t *app)
 {
-    // The post-processor fills in all instr info other than our once-per-bb entry.
+    // We emit non-module-code or modified-module-code encodings separately in
+    // record_instr_encodings().  Encodings for static code are added in the
+    // post-processor.
     return adjust;
 }
 
