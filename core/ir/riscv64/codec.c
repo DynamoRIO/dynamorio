@@ -946,7 +946,7 @@ decode_cimm5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
 }
 
 /* Decode the immediate field of the CB-type format as a pc-relative offset:
- * |15 13|12        10|9   7|6               2|1      0|
+ * |15 13|12        10|9   7|6              2|1      0|
  * | ... | imm[8|4:3] | ... | imm[7:6|2:1|5] | opcode |
  *        ^----------^       ^--------------^
  * Into:
