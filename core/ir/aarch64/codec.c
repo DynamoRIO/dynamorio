@@ -1260,6 +1260,9 @@ static inline bool
 encode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, opnd_t opnd,
                OUT uint *enc_out)
 {
+    if (!opnd_is_element_vector_reg(opnd))
+        return false;
+
     aarch64_reg_offset size;
     uint reg_number;
     opnd_size_t vec_size = OPSZ_SCALABLE;
