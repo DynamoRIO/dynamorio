@@ -234,7 +234,8 @@ opnd_create_reg(reg_id_t r)
     CLIENT_ASSERT(r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
-    opnd.value.reg = r;
+    opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = OPSZ_NA;
     opnd.size = 0; /* indicates full size of reg */
     opnd.aux.flags = 0;
     return opnd;
@@ -251,7 +252,7 @@ opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
                   "opnd_create_reg_partial: non-multimedia register");
 #    endif
     opnd.kind = REG_kind;
-    opnd.value.reg = r;
+    opnd.value.reg_and_element_size.reg = r;
     opnd.size = subsize;
     opnd.aux.flags = 0;
     return opnd;
@@ -267,8 +268,8 @@ opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
                   "opnd_create_reg: invalid register");
 #    endif
     opnd.kind = REG_kind;
-    opnd.value.reg = r;
-    opnd.size = element_size;
+    opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = element_size;
     opnd.aux.flags = DR_OPND_IS_VECTOR;
     return opnd;
 }
@@ -296,7 +297,7 @@ opnd_create_pc(app_pc pc)
 
 #    define OPND_GET_REG(opnd)                                                          \
         (CLIENT_ASSERT_(opnd_is_reg(opnd), "opnd_get_reg called on non-reg opnd")(opnd) \
-             .value.reg)
+             .value.reg_and_element_size.reg)
 #    define opnd_get_reg OPND_GET_REG
 
 #    if defined(X86) || defined(RISCV64)

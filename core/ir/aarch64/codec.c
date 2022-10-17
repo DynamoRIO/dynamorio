@@ -1264,7 +1264,7 @@ encode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, op
     uint reg_number;
     opnd_size_t vec_size = OPSZ_SCALABLE;
 
-    switch (opnd.size) {
+    switch (opnd_get_vector_element_size(opnd)) {
     case OPSZ_1: size = BYTE_REG; break;
     case OPSZ_2: size = HALF_REG; break;
     case OPSZ_4: size = SINGLE_REG; break;
@@ -1992,6 +1992,21 @@ encode_opnd_extam(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return true;
 }
 
+/* p10_low: P register at bit position 10; P0-P7 */
+
+static inline bool
+decode_opnd_p10_low(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_P0 + extract_uint(enc, 10, 3));
+    return true;
+}
+
+static inline bool
+encode_opnd_p10_low(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_p(10, 7, opnd, enc_out);
+}
+
 /* cmode_h_sz: Operand for 16 bit elements' shift amount */
 
 static inline bool
@@ -2052,21 +2067,6 @@ encode_opnd_imm2idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     if (!opnd_is_immed_int(opnd))
         return false;
     return encode_opnd_int(12, 2, false, 0, 0, opnd, enc_out);
-}
-
-/* p10_low: P register at bit position 10; P0-P7 */
-
-static inline bool
-decode_opnd_p10_low(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    *opnd = opnd_create_reg(DR_REG_P0 + extract_uint(enc, 10, 3));
-    return true;
-}
-
-static inline bool
-encode_opnd_p10_low(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_p(10, 7, opnd, enc_out);
 }
 
 /* cmode_s_sz: Operand for 32 bit elements' shift amount */

@@ -1775,7 +1775,10 @@ struct _opnd_t {
          * above, to save space.
          */
         instr_t *instr; /* INSTR_kind, FAR_INSTR_kind, and MEM_INSTR_kind */
-        reg_id_t reg;   /* REG_kind */
+        struct {
+            reg_id_t reg;   /* REG_kind */
+            ushort element_size;
+        } reg_and_element_size;
         struct {
             /* For ARM, either disp==0 or index_reg==DR_REG_NULL: can't have both */
             int disp;
