@@ -200,6 +200,17 @@ make_core()
 }
 
 offline_entry_t
+make_window_id()
+{
+    offline_entry_t entry;
+    entry.extended.type = OFFLINE_TYPE_EXTENDED;
+    entry.extended.ext = OFFLINE_EXT_TYPE_MARKER;
+    entry.extended.valueA = 1;
+    entry.extended.valueB = TRACE_MARKER_TYPE_WINDOW_ID;
+    return entry;
+}
+
+offline_entry_t
 make_marker(uint64_t type, int64_t value)
 {
     offline_entry_t entry;
@@ -455,20 +466,41 @@ test_marker_delays(void *drcontext)
     instrlist_t *ilist = instrlist_create(drcontext);
     // raw2trace doesn't like offsets of 0 so we shift with a nop.
     instr_t *nop = XINST_CREATE_nop(drcontext);
+    // We test these scenarios:
+    // 1) Ensure that markers are delayed along with branches but timestamps and cpu
+    //    headers are not delayed along with branches.
+    // 2) Ensure that markers are not delayed across timestamp+cpu headers if there is no
+    //    branch also being delayed.
+    // 3) Ensure that markers are not delayed across window boundaries
+    // (TRACE_MARKER_TYPE_WINDOW_ID with a new id).
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(move1));
     instr_t *move2 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move4 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move5 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instrlist_append(ilist, nop);
+    // Block 1.
     instrlist_append(ilist, move1);
     instrlist_append(ilist, jmp);
+    // Block 2.
     instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    // Block 3.
+    instrlist_append(ilist, move4);
+    instrlist_append(ilist, move5);
 
     size_t offs_nop = 0;
     size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
     size_t offs_jmp = offs_move1 + instr_length(drcontext, move1);
     size_t offs_move2 = offs_jmp + instr_length(drcontext, jmp);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+    size_t offs_move4 = offs_move3 + instr_length(drcontext, move3);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -477,10 +509,20 @@ test_marker_delays(void *drcontext)
     raw.push_back(make_pid());
     raw.push_back(make_line_size());
     raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, 0));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_RETADDR, 4));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 2));
-    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_block(offs_move2, 2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, 0));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_RETADDR, 4));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 2));
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move4, 2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, 0));
+    raw.push_back(make_window_id());
     raw.push_back(make_exit());
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -529,6 +571,8 @@ test_marker_delays(void *drcontext)
                     TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X86_32
         // An extra encoding entry is needed.
@@ -542,6 +586,19 @@ test_marker_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
