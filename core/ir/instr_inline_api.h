@@ -253,6 +253,7 @@ opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
 #    endif
     opnd.kind = REG_kind;
     opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = OPSZ_NA;
     opnd.size = subsize;
     opnd.aux.flags = 0;
     return opnd;
