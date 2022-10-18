@@ -3730,60 +3730,6 @@
  */
 #define INSTR_CREATE_st1_multi_1(dc, r, q, s) instr_create_1dst_2src(dc, OP_st1, r, q, s)
 
-/* -------- SVE bitwise logical operations (predicated) ---------------- */
-
-/**
- * Creates an ORR scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
- */
-#define INSTR_CREATE_orr_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_orr, Zd, Pg, Zd_, Zm, width)
-
-/**
- * Creates an EOR scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
- */
-#define INSTR_CREATE_eor_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_eor, Zd, Pg, Zd_, Zm, width)
-
-/**
- * Creates an AND scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
- */
-#define INSTR_CREATE_and_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_and, Zd, Pg, Zd_, Zm, width)
-
-/**
- * Creates a BIC scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
- */
-#define INSTR_CREATE_bic_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_bic, Zd, Pg, Zd_, Zm, width)
-
 /* -------- Advanced SIMD three different ------------------------------ */
 
 /**
@@ -4923,5 +4869,63 @@
  * \param Rd      Register with PAC bits to remove.
  */
 #define INSTR_CREATE_xpaci(dc, Rd) instr_create_0dst_1src((dc), OP_xpaci, (Rd))
+
+/****************************************************************************
+ *                              SVE Instructions                            *
+ ****************************************************************************/
+
+/* -------- SVE bitwise logical operations (predicated) ---------------- */
+
+/**
+ * Creates an ORR scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_orr_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_orr, Zd, Pg, Zd_, Zm, width)
+
+/**
+ * Creates an EOR scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_eor_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_eor, Zd, Pg, Zd_, Zm, width)
+
+/**
+ * Creates an AND scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_and_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_and, Zd, Pg, Zd_, Zm, width)
+
+/**
+ * Creates a BIC scalable vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Zd      The output SVE vector register.
+ * \param Pg      Predicate register for predicated instruction, P0-P7.
+ * \param Zd_     The first input SVE vector register. Must match Zd.
+ * \param Zm      The second input SVE vector register.
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_bic_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
+    instr_create_1dst_4src(dc, OP_bic, Zd, Pg, Zd_, Zm, width)
 
 #endif /* DR_IR_MACROS_AARCH64_H */

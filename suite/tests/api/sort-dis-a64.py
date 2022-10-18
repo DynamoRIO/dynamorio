@@ -52,6 +52,9 @@ def main(dis_a64, rewrite=False):
                 tests.append(current_test)
                 current_test = []
 
+    if current_test:
+        tests.append(current_test)
+
     def sort_fn(test):
         valid_line = next(line for line in test if line and not line.strip().startswith("#"))
         mnemonic = valid_line.split(":")[1].strip().split()[0]
@@ -70,7 +73,6 @@ def main(dis_a64, rewrite=False):
         print(file=out_file)
     if rewrite:
         out_file.close()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

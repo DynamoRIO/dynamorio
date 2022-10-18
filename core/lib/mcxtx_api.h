@@ -412,7 +412,6 @@
      * \note This field is not always set or read by all API routines.
      */
     byte *pc;
-#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
     union {
         reg_t f0;   /**< The f0 register. */
         reg_t ft0;  /**< The 1st temporary floating-point register. */
@@ -541,10 +540,7 @@
         reg_t f31;  /**< The f31 register. */
         reg_t ft11; /**< The 12th temporary floating-point register. */
     };  /**< The anonymous union of alternative names for the f31/ft11 register. */
-#endif
-#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
     reg_t fcsr; /**< Floating-Point Control Register. */
-#endif
     /** The SIMD registers. No support for SIMD on RISC-V so far. */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #else /* RISCV64 */

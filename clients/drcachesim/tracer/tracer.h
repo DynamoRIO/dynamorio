@@ -183,6 +183,7 @@ enum {
 struct file_ops_func_t {
     file_ops_func_t()
         : open_file(dr_open_file)
+        , open_file_ex(nullptr)
         , read_file(dr_read_file)
         , write_file(dr_write_file)
         , close_file(dr_close_file)
@@ -192,7 +193,22 @@ struct file_ops_func_t {
         , exit_arg(nullptr)
     {
     }
+    file_t
+    call_open_file(const char *fname, uint mode_flags, thread_id_t thread_id,
+                   int64 window_id)
+    {
+        if (open_file_ex != nullptr)
+            return open_file_ex(fname, mode_flags, thread_id, window_id);
+        return open_file(fname, mode_flags);
+    }
+    // For process-wide files.
+    file_t
+    open_process_file(const char *fname, uint mode_flags)
+    {
+        return call_open_file(fname, mode_flags, 0, -1);
+    }
     drmemtrace_open_file_func_t open_file;
+    drmemtrace_open_file_ex_func_t open_file_ex;
     drmemtrace_read_file_func_t read_file;
     drmemtrace_write_file_func_t write_file;
     drmemtrace_close_file_func_t close_file;

@@ -1862,6 +1862,7 @@ if (NOT ANDROID)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
   endif (AARCH64)
 endif ()
 
@@ -2204,6 +2205,14 @@ tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
 if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
+    if (UNIX)
+      # This test deliberately crashes: disable the compiler warning about it.
+      CHECK_C_COMPILER_FLAG("-Wno-array-bounds" noarray_avail)
+      if (noarray_avail)
+        append_property_string(TARGET client.exception.dll
+          COMPILE_FLAGS "-Wno-array-bounds")
+      endif ()
+    endif ()
   endif ()
 endif ()
 
@@ -2923,6 +2932,8 @@ elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
   torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
+  torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve.txt" OFF OFF)
   add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
   tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF OFF)
 elseif (X86)
@@ -3459,14 +3470,6 @@ if (BUILD_CLIENTS)
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
-    # Stress-test drcachesim with drstatecmp checks.
-    if (AARCH64)
-      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
-    endif ()
-    if (NOT WIN32)
-      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
-    endif (NOT WIN32)
-
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
       torunonly_ci(tool.${testname} ${exetgt} drcachesim
@@ -3550,6 +3553,11 @@ if (BUILD_CLIENTS)
     # support by itself for Android.
     get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
     prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+    get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
+    prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
+
+    torunonly_drcachesim(opcode_mix ${ci_shared_app}
+      "-instr_encodings -simulator_type opcode_mix" "")
 
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
@@ -3749,6 +3757,13 @@ if (BUILD_CLIENTS)
 
     torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
       "@-simulator_type@opcode_mix" "")
+    # Ensure the tool works without the raw/ subdir.
+    set(tool.drcacheoff.opcode_mix_postcmd
+      "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
+    set(tool.drcacheoff.opcode_mix_postcmd2
+      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
+    set(tool.drcacheoff.opcode_mix_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
 
     torunonly_drcacheoff(view ${ci_shared_app} ""
       "@-simulator_type@view@-sim_refs@16384" "")
@@ -3827,7 +3842,8 @@ if (BUILD_CLIENTS)
 
     if (AARCH64)
       set(tool.drcacheoff.burst_aarch64_sys_nodr ON)
-      torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys "" "@-simulator_type@basic_counts" "")
+      torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys ""
+        "@-simulator_type@basic_counts" "")
     endif ()
 
     if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
@@ -3862,7 +3878,9 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
 
       set(tool.drcacheoff.burst_replaceall_nodr ON)
-      torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "" "")
+      torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall ""
+        "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.burst_replaceall_rawtemp) # use preprocessor
 
       if (X64 AND UNIX)
         set(tool.drcacheoff.burst_noreach_nodr ON)
@@ -3956,7 +3974,8 @@ if (BUILD_CLIENTS)
         "" "@-simulator_type@basic_counts" "")
       unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
       torunonly_drcachesim(allasm-repstr-basic-counts allasm_repstr
-        "-simulator_type basic_counts" "")
+        # We test counting encodings for online.
+        "-instr_encodings -simulator_type basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
     endif (UNIX AND X86 AND X64)
 
@@ -4020,6 +4039,19 @@ if (BUILD_CLIENTS)
       set(${testname_full}_postcmd2
         "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
     endif ()
+
+    # Stress-test drcachesim with drstatecmp checks.
+    if (AARCH64)
+      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
+        "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+    endif ()
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
+        "-trace_after_instrs 20000 -enable_drstatecmp" "")
+      torunonly_drcacheoff(drstatecmp-delay-simple ${ci_shared_app}
+        "-trace_after_instrs 20000 -enable_drstatecmp"
+        "@-simulator_type@basic_counts" "")
+    endif (NOT WIN32)
 
   endif (NOT ANDROID)
 

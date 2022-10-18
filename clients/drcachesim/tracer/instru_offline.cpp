@@ -504,7 +504,9 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
     encoding_entry_t *enc = reinterpret_cast<encoding_entry_t *>(buf_start);
     enc->length = buf - buf_start;
     enc->id = per_block->id;
-    enc->start_pc = reinterpret_cast<uint64_t>(tag_pc);
+    // We put the ARM vs Thumb mode into the modoffs to ensure proper decoding.
+    enc->start_pc = reinterpret_cast<uint64_t>(
+        dr_app_pc_as_jump_target(instr_get_isa_mode(instrlist_first(ilist)), tag_pc));
     log_(2, "%s: Recorded %zu bytes for id " UINT64_FORMAT_STRING " @ %p\n", __FUNCTION__,
          enc->length, enc->id, tag_pc);
 
@@ -749,6 +751,17 @@ offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_
                                      int num_delay_instrs)
 {
     // The post-processor fills in all instr info other than our once-per-bb entry.
+    return adjust;
+}
+
+int
+offline_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
+                                            instrlist_t *ilist, instr_t *where,
+                                            reg_id_t reg_ptr, int adjust, instr_t *app)
+{
+    // We emit non-module-code or modified-module-code encodings separately in
+    // record_instr_encodings().  Encodings for static code are added in the
+    // post-processor.
     return adjust;
 }
 
