@@ -2060,6 +2060,8 @@ drbbdup_thread_init(void *drcontext)
         DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     memset(pt, 0, sizeof(*pt));
 
+    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
+
     pt->tls_seg_base = dr_get_dr_segment_base(tls_raw_reg);
 
     if (is_thread_private) {
@@ -2093,8 +2095,6 @@ drbbdup_thread_init(void *drcontext)
         drbbdup_set_tls_raw_slot_val(drcontext, DRBBDUP_HIT_TABLE_SLOT,
                                      (uintptr_t)pt->hit_counts);
     }
-
-    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 }
 
 static void
