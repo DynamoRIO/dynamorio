@@ -61,6 +61,7 @@
 #    endif
 #    include <ucontext.h>
 #    include <unistd.h>
+#    include <linux/version.h>
 #    include "../../core/unix/os_public.h"
 #    ifdef X64
 /* XCode 10.1 (probably others too) toolchain wants _STRUCT_MCONTEXT
@@ -89,7 +90,7 @@
 #undef PFX
 #define PFX "0x" PFMT
 
-#if defined(AARCH64) && SIGSTKSZ < 16384
+#if defined(UNIX) && defined(AARCH64) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
 /* SIGSTKSZ was incorrectly defined in Linux releases before 4.3. */
 #    undef SIGSTKSZ
 #    define SIGSTKSZ 16384
