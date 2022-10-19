@@ -1232,7 +1232,8 @@ encode_opnd_p(uint pos_start, uint max_reg_num, opnd_t opnd, OUT uint *enc_out)
 }
 
 static inline bool
-decode_single_sized_z(uint pos_start, aarch64_reg_offset bit_size, uint enc, OUT opnd_t *opnd)
+decode_single_sized_z(uint pos_start, aarch64_reg_offset bit_size, uint enc,
+                      OUT opnd_t *opnd)
 {
     opnd_size_t size;
 
@@ -1252,7 +1253,7 @@ decode_single_sized_z(uint pos_start, aarch64_reg_offset bit_size, uint enc, OUT
 
 static inline bool
 encode_single_sized_z(uint pos_start, aarch64_reg_offset bit_size, opnd_t opnd,
-               OUT uint *enc_out)
+                      OUT uint *enc_out)
 {
     if (!opnd_is_element_vector_reg(opnd))
         return false;
@@ -1281,7 +1282,8 @@ encode_single_sized_z(uint pos_start, aarch64_reg_offset bit_size, opnd_t opnd,
 }
 
 static inline bool
-decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, uint enc, byte *pc, OUT opnd_t *opnd)
+decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, uint enc,
+               byte *pc, OUT opnd_t *opnd)
 {
     aarch64_reg_offset bit_size = extract_uint(enc, size_start, 2);
     if (bit_size < min_size)
@@ -1322,7 +1324,6 @@ encode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, op
     *enc_out |= (size << size_start) | (reg_number << pos_start);
     return true;
 }
-
 
 /*******************************************************************************
  * Pairs of functions for decoding and encoding each type of operand, as listed in
