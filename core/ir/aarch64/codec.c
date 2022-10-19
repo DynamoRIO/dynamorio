@@ -1232,15 +1232,8 @@ encode_opnd_p(uint pos_start, uint max_reg_num, opnd_t opnd, OUT uint *enc_out)
 }
 
 static inline bool
-decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, uint enc,
-               int opcode, byte *pc, OUT opnd_t *opnd)
+decode_single_sized_z(uint pos_start, aarch64_reg_offset bit_size, uint enc, OUT opnd_t *opnd)
 {
-    aarch64_reg_offset bit_size = extract_uint(enc, size_start, 2);
-    if (bit_size < min_size)
-        return false;
-    if (bit_size > max_size)
-        return false;
-
     opnd_size_t size;
 
     switch (bit_size) {
@@ -1248,12 +1241,55 @@ decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, ui
     case HALF_REG: size = OPSZ_2; break;
     case SINGLE_REG: size = OPSZ_4; break;
     case DOUBLE_REG: size = OPSZ_8; break;
+    case QUAD_REG: size = OPSZ_16; break;
     default: return false;
     }
 
     *opnd =
         opnd_create_reg_element_vector(DR_REG_Z0 + extract_uint(enc, pos_start, 5), size);
     return true;
+}
+
+static inline bool
+encode_single_sized_z(uint pos_start, aarch64_reg_offset bit_size, opnd_t opnd,
+               OUT uint *enc_out)
+{
+    if (!opnd_is_element_vector_reg(opnd))
+        return false;
+
+    aarch64_reg_offset size;
+    uint reg_number;
+    opnd_size_t vec_size = OPSZ_SCALABLE;
+
+    switch (opnd_get_vector_element_size(opnd)) {
+    case OPSZ_1: size = BYTE_REG; break;
+    case OPSZ_2: size = HALF_REG; break;
+    case OPSZ_4: size = SINGLE_REG; break;
+    case OPSZ_8: size = DOUBLE_REG; break;
+    case OPSZ_16: size = QUAD_REG; break;
+    default: return false;
+    }
+
+    if (bit_size != size)
+        return false;
+
+    if (!encode_vreg(&vec_size, &reg_number, opnd))
+        return false;
+
+    *enc_out |= (reg_number << pos_start);
+    return true;
+}
+
+static inline bool
+decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, uint enc, byte *pc, OUT opnd_t *opnd)
+{
+    aarch64_reg_offset bit_size = extract_uint(enc, size_start, 2);
+    if (bit_size < min_size)
+        return false;
+    if (bit_size > max_size)
+        return false;
+
+    return decode_single_sized_z(pos_start, bit_size, enc, opnd);
 }
 
 static inline bool
@@ -1286,6 +1322,7 @@ encode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, op
     *enc_out |= (size << size_start) | (reg_number << pos_start);
     return true;
 }
+
 
 /*******************************************************************************
  * Pairs of functions for decoding and encoding each type of operand, as listed in
@@ -1683,6 +1720,18 @@ encode_opnd_z0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(0, Z_REG, opnd, enc_out);
 }
 
+static inline bool
+decode_opnd_z_q_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized_z(0, QUAD_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_q_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized_z(0, QUAD_REG, opnd, enc_out);
+}
+
 /* q0p1: as q0 but add 1 mod 32 to reg number */
 
 static inline bool
@@ -1876,6 +1925,18 @@ static inline bool
 encode_opnd_z5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(5, Z_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_q_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized_z(5, QUAD_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_q_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized_z(5, QUAD_REG, opnd, enc_out);
 }
 
 /* mem9qpost: post-indexed mem9q, so offset is zero */
@@ -3018,6 +3079,18 @@ static inline bool
 encode_opnd_z16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(16, Z_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_q_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized_z(16, QUAD_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_q_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized_z(16, QUAD_REG, opnd, enc_out);
 }
 
 /* b16: B register at bit position 16. */
@@ -4209,7 +4282,7 @@ encode_opnd_bhsd_size_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint
 static inline bool
 decode_opnd_z_size_bhsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_sized_z(0, 22, BYTE_REG, DOUBLE_REG, enc, opcode, pc, opnd);
+    return decode_sized_z(0, 22, BYTE_REG, DOUBLE_REG, enc, pc, opnd);
 }
 
 static inline bool
@@ -4259,7 +4332,7 @@ encode_opnd_bhsd_size_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint
 static inline bool
 decode_opnd_z_size_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_sized_z(5, 22, BYTE_REG, DOUBLE_REG, enc, opcode, pc, opnd);
+    return decode_sized_z(5, 22, BYTE_REG, DOUBLE_REG, enc, pc, opnd);
 }
 
 static inline bool
@@ -4322,7 +4395,7 @@ encode_opnd_bhsd_size_reg16(uint enc, int opcode, byte *pc, opnd_t opnd,
 static inline bool
 decode_opnd_z_size_bhsd_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_sized_z(16, 22, BYTE_REG, DOUBLE_REG, enc, opcode, pc, opnd);
+    return decode_sized_z(16, 22, BYTE_REG, DOUBLE_REG, enc, pc, opnd);
 }
 
 static inline bool

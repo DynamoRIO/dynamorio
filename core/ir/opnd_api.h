@@ -1695,13 +1695,14 @@ typedef enum _dr_opnd_flags_t {
     DR_OPND_EXTENDED = 0x20,
     /** This immediate integer operand should be interpreted as an AArch64 extend type. */
     DR_OPND_IS_EXTEND = 0x40,
-    /** Registers with this flag should be considered vectors and have a subsize
-     *  representing their element size. Doubled up with _IS_EXTEND as that can
-     *  only apply to immd values and saves increasing the size of the containing
-     *  structure. */
-    DR_OPND_IS_VECTOR = 0x40,
+
     /** This immediate integer operand should be interpreted as an AArch64 condition. */
     DR_OPND_IS_CONDITION = 0x80,
+    /**
+     * Registers with this flag should be considered vectors and have an element size
+     * representing their element size.
+     */
+    DR_OPND_IS_VECTOR = 0x100,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -1777,6 +1778,7 @@ struct _opnd_t {
         instr_t *instr; /* INSTR_kind, FAR_INSTR_kind, and MEM_INSTR_kind */
         struct {
             reg_id_t reg;
+            /* XXX #5638: Fill in the element size for x86 and aarch32. */
             opnd_size_t element_size;
         } reg_and_element_size; /* REG_kind */
         struct {
@@ -1875,7 +1877,7 @@ DR_API
 INSTR_INLINE
 /**
  * Returns a register operand corresponding to a vector
- * register that uses .size to represent the element size.
+ * register that has an element size.
  */
 opnd_t
 opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size);
@@ -2506,7 +2508,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
 DR_API
 /**
  * Return the element size of \p opnd as a OPSZ_ constant.
- * Returns OPSZ_NA if \p opnd does not have a valid size.
+ * Returns #OPSZ_NA if \p opnd does not have a valid size.
  */
 opnd_size_t
 opnd_get_vector_element_size(opnd_t opnd);

@@ -122,6 +122,32 @@ TEST_INSTR(add_vector)
     return success;
 }
 
+TEST_INSTR(zip2_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z15, DR_REG_Z20, DR_REG_Z30 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z6,  DR_REG_Z11,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z30 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z17, DR_REG_Z22, DR_REG_Z30 };
+    const char *expected_0_0[6] = {
+        "zip2   %z0.q %z0.q -> %z0.q",    "zip2   %z6.q %z7.q -> %z5.q",
+        "zip2   %z11.q %z12.q -> %z10.q", "zip2   %z16.q %z17.q -> %z15.q",
+        "zip2   %z21.q %z22.q -> %z20.q", "zip2   %z30.q %z30.q -> %z30.q",
+    };
+    TEST_LOOP(zip2, zip2_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zd_0_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_16));
+
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -134,6 +160,8 @@ main(int argc, char *argv[])
     bool test_result;
 
     RUN_INSTR_TEST(add_vector);
+
+    RUN_INSTR_TEST(zip2_vector);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

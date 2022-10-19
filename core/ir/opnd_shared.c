@@ -317,7 +317,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
 opnd_size_t
 opnd_get_vector_element_size(opnd_t opnd)
 {
-    if (opnd.kind != REG_kind || ((opnd.aux.flags & DR_OPND_IS_VECTOR) == 0))
+    if (opnd.kind != REG_kind || !TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
         return OPSZ_NA;
 
     return opnd.value.reg_and_element_size.element_size;

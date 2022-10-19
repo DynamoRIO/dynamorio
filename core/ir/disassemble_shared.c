@@ -264,6 +264,7 @@ opnd_size_element_suffix(opnd_t opnd)
     case OPSZ_2: return ".h";
     case OPSZ_4: return ".s";
     case OPSZ_8: return ".d";
+    case OPSZ_16: return ".q";
     }
     return "";
 }
