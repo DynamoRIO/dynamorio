@@ -585,7 +585,11 @@ os_page_size(void)
 size_t
 os_minsigstksz(void)
 {
-#define MINSIGSTKSZ_DEFAULT 2048
+#ifdef AARCH64
+#    define MINSIGSTKSZ_DEFAULT 5120
+#else
+#    define MINSIGSTKSZ_DEFAULT 2048
+#endif
     if (auxv_minsigstksz == 0)
         return MINSIGSTKSZ_DEFAULT;
     return auxv_minsigstksz;
