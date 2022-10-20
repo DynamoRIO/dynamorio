@@ -66,6 +66,8 @@ struct _os_privmod_data_t {
     ELF_RELA_TYPE *rela;
     size_t relasz;
     size_t relaent;
+    ELF_WORD *relr;
+    size_t relrsz;
     app_pc verneed;
     int verneednum;
     int relcount;
