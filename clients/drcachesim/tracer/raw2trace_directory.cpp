@@ -232,6 +232,52 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
 }
 
 std::string
+raw2trace_directory_t::open_serial_schedule_file()
+{
+#ifdef HAS_ZLIB
+    const char *suffix = ".gz";
+#else
+    const char *suffix = "";
+#endif
+    char path[MAXIMUM_PATH];
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s%s", outdir_.c_str(), DIRSEP,
+                    DRMEMTRACE_SERIAL_SCHEDULE_FILENAME, suffix) <= 0) {
+        return "Failed to compute full path for " +
+            std::string(DRMEMTRACE_SERIAL_SCHEDULE_FILENAME);
+    }
+#ifdef HAS_ZLIB
+    serial_schedule_file_ = new gzip_ostream_t(path);
+#else
+    serial_schedule_file_ = new std::ofstream(path, std::ofstream::binary);
+#endif
+    if (!*serial_schedule_file_)
+        return "Failed to open serial schedule file " + std::string(path);
+    VPRINT(1, "Opened serial schedule file %s\n", path);
+    return "";
+}
+
+std::string
+raw2trace_directory_t::open_cpu_schedule_file()
+{
+#ifndef HAS_ZIP
+    // Not supported; just leave cpu_schedule_file_ as nullptr.
+    return "";
+#else
+    char path[MAXIMUM_PATH];
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", outdir_.c_str(), DIRSEP,
+                    DRMEMTRACE_CPU_SCHEDULE_FILENAME) <= 0) {
+        return "Failed to compute full path for " +
+            std::string(DRMEMTRACE_CPU_SCHEDULE_FILENAME);
+    }
+    cpu_schedule_file_ = new zipfile_ostream_t(path);
+    if (!*cpu_schedule_file_)
+        return "Failed to open cpu schedule file " + std::string(path);
+    VPRINT(1, "Opened cpu schedule file %s\n", path);
+    return "";
+#endif
+}
+
+std::string
 raw2trace_directory_t::read_module_file(const std::string &modfilename)
 {
     modfile_ = dr_open_file(modfilename.c_str(), DR_FILE_READ);
@@ -364,6 +410,14 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
             return "Failed to open encoding file " + encoding_filename;
     }
 
+    // Open the schedule output files.
+    err = open_serial_schedule_file();
+    if (!err.empty())
+        return err;
+    err = open_cpu_schedule_file();
+    if (!err.empty())
+        return err;
+
     return open_thread_files();
 }
 
@@ -414,5 +468,9 @@ raw2trace_directory_t::~raw2trace_directory_t()
     for (auto *archive : out_archives_) {
         delete archive;
     }
+    if (serial_schedule_file_ != nullptr)
+        delete serial_schedule_file_;
+    if (cpu_schedule_file_ != nullptr)
+        delete cpu_schedule_file_;
     dr_standalone_exit();
 }

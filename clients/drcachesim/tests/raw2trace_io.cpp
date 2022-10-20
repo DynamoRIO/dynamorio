@@ -148,8 +148,9 @@ test_raw2trace(raw2trace_directory_t *dir)
          * raw2trace::read_and_map_modules().
          */
         raw2trace_t raw2trace(dir->modfile_bytes_, dir->in_files_, dir->out_files_,
-                              dir->out_archives_, dir->encoding_file_, GLOBAL_DCONTEXT,
-                              1);
+                              dir->out_archives_, dir->encoding_file_,
+                              dir->serial_schedule_file_, dir->cpu_schedule_file_,
+                              GLOBAL_DCONTEXT, 1);
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
             std::cerr << "raw2trace failed " << error << "\n";

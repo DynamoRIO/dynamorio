@@ -96,7 +96,8 @@ public:
     raw2trace_test_t(const std::vector<std::istream *> &input,
                      const std::vector<std::ostream *> &output, instrlist_t &instrs,
                      void *drcontext)
-        : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, drcontext,
+        : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
+                      drcontext,
                       // The sequences are small so we print everything for easier
                       // debugging and viewing of what's going on.
                       4)

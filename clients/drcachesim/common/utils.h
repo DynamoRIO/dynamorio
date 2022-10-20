@@ -82,7 +82,7 @@
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -147,6 +147,24 @@ to_hex_string(T integer)
     sstream << "0x" << std::setfill('0') << std::setw(sizeof(T) * 2) << std::hex
             << integer;
     return sstream.str();
+}
+
+static inline bool
+ends_with(const std::string &str, const std::string &with)
+{
+    size_t pos = str.rfind(with);
+    if (pos == std::string::npos)
+        return false;
+    return (pos + with.size() == str.size());
+}
+
+static inline bool
+starts_with(const std::string &str, const std::string &with)
+{
+    size_t pos = str.find(with);
+    if (pos == std::string::npos)
+        return false;
+    return pos == 0;
 }
 
 #endif /* _UTILS_H_ */

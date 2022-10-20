@@ -693,6 +693,25 @@ struct _encoding_entry_t {
 } END_PACKED_STRUCTURE;
 typedef struct _encoding_entry_t encoding_entry_t;
 
+// A thread schedule file is a series of these records.
+// There is no version number here: we increase the version number in
+// the trace files when we change the format of this file.
+START_PACKED_STRUCTURE
+struct schedule_entry_t {
+    schedule_entry_t(uint64_t thread, uint64_t timestamp, uint64_t cpu,
+                     uint64_t instr_count)
+        : thread(thread)
+        , timestamp(timestamp)
+        , cpu(cpu)
+        , instr_count(instr_count)
+    {
+    }
+    uint64_t thread;
+    uint64_t timestamp;
+    uint64_t cpu;
+    uint64_t instr_count;
+} END_PACKED_STRUCTURE;
+
 /**
  * The name of the file in -offline mode where module data is written.
  * Its creation can be customized using drmemtrace_custom_module_data()
@@ -713,5 +732,18 @@ typedef struct _encoding_entry_t encoding_entry_t;
  * are written.  Use drmemtrace_get_encoding_path() to obtain the full path.
  */
 #define DRMEMTRACE_ENCODING_FILENAME "encodings.bin"
+
+/**
+ * The base name of the file in -offline mode where the serial thread schedule
+ * is written during post-processing.  A compression suffix may be appended.
+ */
+#define DRMEMTRACE_SERIAL_SCHEDULE_FILENAME "serial_schedule.bin"
+
+/**
+ * The name of the archive file in -offline mode where the cpu thread schedule
+ * is written during post-processing.  A separate sub-archive is written for
+ * each cpu.
+ */
+#define DRMEMTRACE_CPU_SCHEDULE_FILENAME "cpu_schedule.bin.zip"
 
 #endif /* _TRACE_ENTRY_H_ */
