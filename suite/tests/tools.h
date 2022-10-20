@@ -89,10 +89,13 @@
 #undef PFX
 #define PFX "0x" PFMT
 
-#if defined(AARCH64) && SIGSTKSZ < 16384
+#ifdef LINUX
+#    include <linux/version.h>
+#    if defined(AARCH64) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
 /* SIGSTKSZ was incorrectly defined in Linux releases before 4.3. */
-#    undef SIGSTKSZ
-#    define SIGSTKSZ 16384
+#        undef SIGSTKSZ
+#        define SIGSTKSZ 16384
+#    endif
 #endif
 
 #ifdef __cplusplus
