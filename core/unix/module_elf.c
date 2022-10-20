@@ -1599,7 +1599,7 @@ module_relocate_rel(app_pc modbase, os_privmod_data_t *pd, ELF_REL_TYPE *start,
 {
     ELF_REL_TYPE *rel;
 
-    LOG(GLOBAL, LOG_LOADER, 4, "%s walking rel %p-%p\n", start, end);
+    LOG(GLOBAL, LOG_LOADER, 4, "%s walking rel %p-%p\n", __FUNCTION__, start, end);
     for (rel = start; rel < end; rel++)
         module_relocate_symbol(rel, pd, false);
 }
@@ -1614,7 +1614,7 @@ module_relocate_rela(app_pc modbase, os_privmod_data_t *pd, ELF_RELA_TYPE *start
 {
     ELF_RELA_TYPE *rela;
 
-    LOG(GLOBAL, LOG_LOADER, 4, "%s walking rela %p-%p\n", start, end);
+    LOG(GLOBAL, LOG_LOADER, 4, "%s walking rela %p-%p\n", __FUNCTION__, start, end);
     for (rela = start; rela < end; rela++)
         module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
 }
@@ -1629,16 +1629,18 @@ module_relocate_relr(app_pc modbase, os_privmod_data_t *pd, const ELF_WORD *relr
 {
     ELF_ADDR *r_addr = NULL;
 
-    LOG(GLOBAL, LOG_LOADER, 4, "%s walking relr %p-%p\n", relr, (char *)relr + size);
-    for (; size; relr++, size -= sizeof(ELF_WORD)) {
-        if ((relr[0] & 1) == 0) {
+    LOG(GLOBAL, LOG_LOADER, 4, "%s walking relr %p-%p\n", __FUNCTION__, relr,
+        (char *)relr + size);
+    for (; size != 0; relr++, size -= sizeof(ELF_WORD)) {
+        if (!TEST(1, relr[0])) {
             r_addr = (ELF_ADDR *)(relr[0] + pd->load_delta);
             *r_addr++ += pd->load_delta;
         } else {
             int i = 0;
-            for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1); i++)
-                if (bitmap & 1)
+            for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1) != 0; i++) {
+                if (TEST(1, bitmap))
                     r_addr[i] += pd->load_delta;
+            }
             r_addr += CHAR_BIT * sizeof(ELF_WORD) - 1;
         }
     }
