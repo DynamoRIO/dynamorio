@@ -37,6 +37,11 @@
 #include <elf.h> /* for ELF types */
 #include "../module_shared.h"
 
+#ifndef DT_RELRSZ
+#    define DT_RELRSZ 35
+#    define DT_RELR 36
+#endif
+
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
  * There is no official support for that on Linux or Mac and for now we do
  * not support it either, especially not mixing libraries.
@@ -253,6 +258,10 @@ module_relocate_rel(app_pc modbase, os_privmod_data_t *pd, ELF_REL_TYPE *start,
 void
 module_relocate_rela(app_pc modbase, os_privmod_data_t *pd, ELF_RELA_TYPE *start,
                      ELF_RELA_TYPE *end);
+
+void
+module_relocate_relr(app_pc modbase, os_privmod_data_t *pd, const ELF_WORD *relr,
+                     size_t size);
 
 bool
 module_get_relro(app_pc base, OUT app_pc *relro_base, OUT size_t *relro_size);

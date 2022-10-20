@@ -961,6 +961,8 @@ module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd, ELF_DYNAMIC_ENTRY_T
         case DT_RELA: opd->rela = (ELF_RELA_TYPE *)(dyn->d_un.d_ptr + load_delta); break;
         case DT_RELASZ: opd->relasz = (size_t)dyn->d_un.d_val; break;
         case DT_RELAENT: opd->relaent = (size_t)dyn->d_un.d_val; break;
+        case DT_RELRSZ: opd->relrsz = (size_t)dyn->d_un.d_val; break;
+        case DT_RELR: opd->relr = (ELF_WORD *)(dyn->d_un.d_ptr + load_delta); break;
         case DT_VERNEED: opd->verneed = (app_pc)(dyn->d_un.d_ptr + load_delta); break;
         case DT_VERNEEDNUM: opd->verneednum = dyn->d_un.d_val; break;
         case DT_VERSYM: opd->versym = (ELF_HALF *)(dyn->d_un.d_ptr + load_delta); break;
@@ -1615,4 +1617,29 @@ module_relocate_rela(app_pc modbase, os_privmod_data_t *pd, ELF_RELA_TYPE *start
     LOG(GLOBAL, LOG_LOADER, 4, "%s walking rela %p-%p\n", start, end);
     for (rela = start; rela < end; rela++)
         module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
+}
+
+void
+/* This routine is duplicated in privload_relocate_relr for relocating
+ * dynamorio symbols in a bootstrap stage. Any update here should be also
+ * updated in privload_relocate_relr.
+ */
+module_relocate_relr(app_pc modbase, os_privmod_data_t *pd, const ELF_WORD *relr,
+                     size_t size)
+{
+    ELF_ADDR *r_addr = NULL;
+
+    LOG(GLOBAL, LOG_LOADER, 4, "%s walking relr %p-%p\n", relr, (char *)relr + size);
+    for (; size; relr++, size -= sizeof(ELF_WORD)) {
+        if ((relr[0] & 1) == 0) {
+            r_addr = (ELF_ADDR *)(relr[0] + pd->load_delta);
+            *r_addr++ += pd->load_delta;
+        } else {
+            int i = 0;
+            for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1); i++)
+                if (bitmap & 1)
+                    r_addr[i] += pd->load_delta;
+            r_addr += CHAR_BIT * sizeof(ELF_WORD) - 1;
+        }
+    }
 }
