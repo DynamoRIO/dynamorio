@@ -131,6 +131,11 @@ changes:
  - Changed the drcachesim -use_physical option to not modify the regular trace
    entry virtual addresses but to instead insert metadata containing translation
    information for converting virtual to physical addresses.
+ - Changed the layout of the DR_FAST_IR struct to add an element size property
+   that supports more information about vectors. This changes the method of accessing
+   the register in the structure from struct.value.reg to
+   struct.value.reg_and_element_size.reg. The element size can be accessed directly
+   via struct.value.reg_and_element_size.element_size.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

@@ -148,6 +148,26 @@ TEST_INSTR(zip2_vector)
     return success;
 }
 
+TEST_INSTR(movprfx_vector)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing MOVPRFX <Zd>, <Zn> */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z15, DR_REG_Z20, DR_REG_Z30 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z6,  DR_REG_Z11,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z30 };
+    const char *expected_0_0[6] = {
+        "movprfx %z0 -> %z0",   "movprfx %z6 -> %z5",   "movprfx %z11 -> %z10",
+        "movprfx %z16 -> %z15", "movprfx %z21 -> %z20", "movprfx %z30 -> %z30",
+    };
+    TEST_LOOP(movprfx, movprfx_vector, 6, expected_0_0[i], opnd_create_reg(Zd_0_0[i]),
+              opnd_create_reg(Zn_0_0[i]));
+
+    return success;
+}
 int
 main(int argc, char *argv[])
 {
@@ -162,6 +182,8 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(add_vector);
 
     RUN_INSTR_TEST(zip2_vector);
+
+    RUN_INSTR_TEST(movprfx_vector);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

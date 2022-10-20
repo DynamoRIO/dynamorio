@@ -4956,4 +4956,18 @@
 #define INSTR_CREATE_zip2_vector(dc, Zd, Zn, Zm) \
     instr_create_1dst_2src(dc, OP_zip2, Zd, Zn, Zm)
 
+/**
+ * Creates a MOVPRFX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    MOVPRFX <Zd>, <Zn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_movprfx_vector(dc, Zd, Zn) \
+    instr_create_1dst_1src(dc, OP_movprfx, Zd, Zn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
