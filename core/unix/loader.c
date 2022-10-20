@@ -1132,15 +1132,16 @@ privload_relocate_relr(os_privmod_data_t *opd, const ELF_WORD *relr, size_t size
 {
     ELF_ADDR *r_addr = NULL;
 
-    for (; size; relr++, size -= sizeof(ELF_WORD)) {
-        if ((relr[0] & 1) == 0) {
+    for (; size != 0; relr++, size -= sizeof(ELF_WORD)) {
+        if (!TEST(1, relr[0])) {
             r_addr = (ELF_ADDR *)(relr[0] + opd->load_delta);
             *r_addr++ += opd->load_delta;
         } else {
             int i = 0;
-            for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1); i++)
-                if (bitmap & 1)
+            for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1) != 0; i++) {
+                if (TEST(1, bitmap))
                     r_addr[i] += opd->load_delta;
+            }
             r_addr += CHAR_BIT * sizeof(ELF_WORD) - 1;
         }
     }
