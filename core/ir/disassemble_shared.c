@@ -644,9 +644,10 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         break;
     case REG_kind:
         reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), opnd_get_flags(opnd), "",
-                        IF_AARCHXX(opnd_is_element_vector_reg(opnd)
-                                       ? opnd_size_element_suffix(opnd)
-                                       : ""));
+                        IF_AARCHXX_ELSE(opnd_is_element_vector_reg(opnd)
+                                            ? opnd_size_element_suffix(opnd)
+                                            : "",
+                                        ""));
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
 #if defined(X64) || defined(ARM)
