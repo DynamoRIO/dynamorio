@@ -255,6 +255,8 @@ opnd_size_suffix_intel(opnd_t opnd)
     return "";
 }
 
+#    ifdef AARCHXX
+
 static const char *
 opnd_size_element_suffix(opnd_t opnd)
 {
@@ -268,6 +270,7 @@ opnd_size_element_suffix(opnd_t opnd)
     }
     return "";
 }
+#    endif
 
 static void
 opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
