@@ -1123,6 +1123,30 @@ privload_relocate_rela(os_privmod_data_t *opd, ELF_RELA_TYPE *start, ELF_RELA_TY
         privload_relocate_symbol((ELF_REL_TYPE *)rela, opd, true);
 }
 
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is duplicated from module_relocate_relr for relocating dynamorio. */
+static void
+privload_relocate_relr(os_privmod_data_t *opd, const ELF_WORD *relr, size_t size)
+{
+    ELF_ADDR *r_addr = NULL;
+
+    for (; size != 0; relr++, size -= sizeof(ELF_WORD)) {
+        if (!TEST(1, relr[0])) {
+            r_addr = (ELF_ADDR *)(relr[0] + opd->load_delta);
+            *r_addr++ += opd->load_delta;
+        } else {
+            int i = 0;
+            for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1) != 0; i++) {
+                if (TEST(1, bitmap))
+                    r_addr[i] += opd->load_delta;
+            }
+            r_addr += CHAR_BIT * sizeof(ELF_WORD) - 1;
+        }
+    }
+}
+
 /* XXX: This routine may be called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1135,6 +1159,9 @@ privload_early_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
 
     if (opd->rela != NULL)
         privload_relocate_rela(opd, opd->rela, opd->rela + opd->relasz / opd->relaent);
+
+    if (opd->relr != NULL)
+        privload_relocate_relr(opd, opd->relr, opd->relrsz);
 
     if (opd->jmprel != NULL) {
         if (opd->pltrel == DT_REL) {
@@ -1161,6 +1188,8 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
         module_relocate_rela(mod_base, opd, opd->rela,
                              opd->rela + opd->relasz / opd->relaent);
     }
+    if (opd->relr != NULL)
+        module_relocate_relr(mod_base, opd, opd->relr, opd->relrsz);
     if (opd->jmprel != NULL) {
         app_pc jmprel_start = opd->jmprel;
         app_pc jmprel_end = opd->jmprel + opd->pltrelsz;
