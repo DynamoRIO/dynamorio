@@ -198,7 +198,7 @@ jobs:
         from: Github Action CI
 
   # Ubuntu22 64-bit Linux build with gcc and run tests:
-  x86-64:
+  x86-64-ubuntu22:
     runs-on: ubuntu-22.04
 
     steps:
