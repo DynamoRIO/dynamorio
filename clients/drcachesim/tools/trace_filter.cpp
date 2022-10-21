@@ -39,14 +39,6 @@
 #    include "reader/compressed_file_reader.h"
 #    include "common/gzip_ostream.h"
 #endif
-#ifdef HAS_ZIP
-#    include "archive_ostream.h"
-#    include "common/zipfile_ostream.h"
-#    include "reader/zipfile_file_reader.h"
-#endif
-#ifdef HAS_SNAPPY
-#    include "reader/snappy_file_reader.h"
-#endif
 #include "trace_filter.h"
 
 #ifdef HAS_ZLIB
@@ -68,7 +60,7 @@ trace_filter_t::trace_filter_t(const std::string &trace_dir,
         success_ = false;
 }
 
-#if defined(HAS_SNAPPY) || defined(HAS_ZIP) || defined(HAS_ZLIB)
+#if defined(HAS_ZLIB)
 static bool
 ends_with(const std::string &str, const std::string &with)
 {
@@ -82,22 +74,6 @@ ends_with(const std::string &str, const std::string &with)
 std::unique_ptr<trace_entry_reader_t>
 trace_filter_t::get_reader(const std::string &path, int verbosity)
 {
-#ifdef HAS_SNAPPY
-    if (ends_with(path, trace_filter_t::snappy_suffix)) {
-        VPRINT(this, 1, "Using the snappy reader\n");
-        input_file_format = FILE_FORMAT_SNAPPY;
-        return std::unique_ptr<trace_entry_reader_t>(
-            new snappy_trace_entry_file_reader_t(path, verbosity));
-    }
-#endif
-#ifdef HAS_ZIP
-    if (ends_with(path, trace_filter_t::zip_suffix)) {
-        VPRINT(this, 1, "Using the zip reader\n");
-        input_file_format = FILE_FORMAT_ZIP;
-        return std::unique_ptr<trace_entry_reader_t>(
-            new zipfile_trace_entry_file_reader_t(path, verbosity));
-    }
-#endif
 #ifdef HAS_ZLIB
     if (ends_with(path, trace_filter_t::gzip_suffix)) {
         VPRINT(this, 1, "Using the gzip reader\n");
@@ -117,18 +93,6 @@ std::unique_ptr<std::ostream>
 trace_filter_t::get_writer(const std::string &path, int verbosity)
 {
     std::unique_ptr<std::ostream> ofile;
-#ifdef HAS_SNAPPY
-    if (input_file_format == FILE_FORMAT_SNAPPY) {
-        VPRINT(this, 1, "Using the snappy writer\n");
-        return std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
-    }
-#endif
-#ifdef HAS_ZIP
-    if (input_file_format == FILE_FORMAT_ZIP) {
-        VPRINT(this, 1, "Using the zip writer\n");
-        return std::unique_ptr<std::ostream>(new zipfile_ostream_t(path));
-    }
-#endif
 #ifdef HAS_ZLIB
     if (input_file_format == FILE_FORMAT_GZIP) {
         VPRINT(this, 1, "Using the gzip writer\n");
@@ -171,7 +135,6 @@ trace_filter_t::init_file_reader_writer(const std::string &trace_dir,
             error_string_ = "Could not get a reader for " + trace_path;
             return false;
         }
-        VPRINT(this, 2, "Opened input file %s\n", trace_path.c_str());
 
         std::unique_ptr<std::ostream> writer = get_writer(output_path, verbosity);
         if (!writer) {

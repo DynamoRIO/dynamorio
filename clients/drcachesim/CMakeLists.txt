@@ -133,8 +133,6 @@ add_exported_library(drmemtrace_trace_filter STATIC tools/trace_filter.cpp
   reader/file_reader.cpp
   reader/trace_entry_file_reader.cpp
   ${zlib_reader}
-  ${zip_reader}
-  ${snappy_reader}
 )
 add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
@@ -297,9 +295,6 @@ use_DynamoRIO_extension(prefetch_analyzer_launcher droption)
 add_dependencies(prefetch_analyzer_launcher api_headers)
 
 target_link_libraries(drmemtrace_trace_filter directory_iterator)
-if (libsnappy)
-  target_link_libraries(drmemtrace_trace_filter snappy)
-endif ()
 link_with_pthread(drmemtrace_trace_filter)
 
 add_executable(trace_filter_launcher

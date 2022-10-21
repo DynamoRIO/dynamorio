@@ -119,8 +119,7 @@ private:
     typedef enum {
         FILE_FORMAT_UNKNOWN = 0,
         FILE_FORMAT_GZIP,
-        FILE_FORMAT_ZIP,
-        FILE_FORMAT_SNAPPY
+        // TODO i#5675: Add support for filtering zip files.
     } file_format_t;
 
     int verbosity_;
@@ -133,14 +132,6 @@ private:
     std::unique_ptr<trace_entry_reader_t> trace_end_;
     std::vector<std::vector<shard_data_t *>> worker_tasks_;
     const char *output_prefix_ = "[trace_filter]";
-#ifdef HAS_SNAPPY
-    const char *snappy_suffix = ".sz";
-#endif
-
-#ifdef HAS_ZIP
-    const char *zip_suffix = ".zip";
-#endif
-
 #ifdef HAS_ZLIB
     const char *gzip_suffix = ".gz";
 #endif

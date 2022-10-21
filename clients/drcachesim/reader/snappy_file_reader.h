@@ -48,7 +48,6 @@
 #include <snappy-sinksource.h>
 #include "snappy_consts.h"
 #include "file_reader.h"
-#include "trace_entry_file_reader.h"
 
 class snappy_reader_t : snappy_consts_t {
 public:
@@ -95,6 +94,5 @@ private:
 };
 
 typedef file_reader_t<snappy_reader_t> snappy_file_reader_t;
-typedef trace_entry_file_reader_t<snappy_reader_t> snappy_trace_entry_file_reader_t;
 
 #endif /* _SNAPPY_FILE_READER_H_ */
