@@ -36,9 +36,7 @@ bool
 open_single_file_common(const std::string &path, gzFile &out)
 {
     out = gzopen(path.c_str(), "rb");
-    if (out == nullptr)
-        return false;
-    return true;
+    return out != nullptr;
 }
 
 bool
@@ -129,7 +127,6 @@ trace_entry_file_reader_t<gzip_reader_t>::open_single_file(const std::string &pa
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
     input_file_ = new gzip_reader_t(file);
-    VPRINT(this, 4, "XXX opening input_file_ at %p\n",input_file_);
     return true;
 }
 

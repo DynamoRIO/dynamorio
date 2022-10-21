@@ -30,8 +30,8 @@
  * DAMAGE.
  */
 
-/* trace_entry_reader_t provides access to the stream of trace_entry_t exactly
- * as present in a stored offline trace.
+/* trace_entry_reader_t and trace_entry_file_reader_t provide access to the
+ * stream of trace_entry_t exactly as present in a stored offline trace.
  */
 
 #ifndef _TRACE_ENTRY_FILE_READER_H_
@@ -55,6 +55,10 @@
 #    define VPRINT(reader, level, ...) /* nothing */
 #endif
 
+/* Even though we plan to support only trace_entry_file_reader_t for
+ * reading trace_entry_t (and no ipc reader like ipc_reader_t) we still need
+ * this input-file-type-agnostic trace_entry_reader_t base class.
+ */
 class trace_entry_reader_t
     : public std::iterator<std::input_iterator_tag, trace_entry_t> {
 public:
@@ -137,18 +141,16 @@ public:
         , verbosity_(verbosity)
         , output_prefix_(prefix)
     {
-        input_file_ = nullptr;
     }
     trace_entry_file_reader_t()
     {
-        input_file_ = nullptr;
     }
     virtual ~trace_entry_file_reader_t();
     int verbosity_;
     const char *output_prefix_;
 
 private:
-    T *input_file_;
+    T *input_file_ = nullptr;
     bool
     open_single_file(const std::string &path) override;
     bool

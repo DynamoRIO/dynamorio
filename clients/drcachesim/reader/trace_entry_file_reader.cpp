@@ -30,9 +30,7 @@
  * DAMAGE.
  */
 
-#include <string.h>
 #include <fstream>
-#include "reader.h"
 #include "trace_entry_file_reader.h"
 
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */

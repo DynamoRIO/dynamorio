@@ -37,7 +37,6 @@
 #ifndef _TRACE_FILTER_H_
 #define _TRACE_FILTER_H_ 1
 
-#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -46,16 +45,13 @@
 class trace_filter_t {
 public:
     /**
-     * Usage:
-     */
-    trace_filter_t();
-    virtual ~trace_filter_t() {};
-
-    /**
-     * Filter the trace files present at trace_dir.
+     * Filter the trace files present at trace_dir and write the result to
+     * output_dir.
      */
     trace_filter_t(const std::string &trace_dir, const std::string &output_dir,
                    int worker_count = 0, int verbosity = 0);
+    virtual ~trace_filter_t() {};
+
     /** Launches the process. */
     virtual bool
     run();
@@ -69,19 +65,8 @@ public:
     void
     print_stats()
     {
-        // std::cout << "Trace filter stats:" << std::endl;
+        // TODO i#5675: Print stats about entries that were filtered out.
     }
-#ifdef HAS_SNAPPY
-    const char *snappy_suffix = ".sz";
-#endif
-
-#ifdef HAS_ZIP
-    const char *zip_suffix = ".zip";
-#endif
-
-#ifdef HAS_ZLIB
-    const char *gzip_suffix = ".gz";
-#endif
 
 private:
     // Data for one trace shard.  Our concurrency model has each shard
@@ -119,8 +104,8 @@ private:
     };
 
     bool
-    init_file_reader(const std::string &trace_path, const std::string &output_path,
-                     int verbosity = 0);
+    init_file_reader_writer(const std::string &trace_path, const std::string &output_path,
+                            int verbosity = 0);
 
     void
     process_tasks(std::vector<shard_data_t *> *tasks);
@@ -137,6 +122,7 @@ private:
         FILE_FORMAT_ZIP,
         FILE_FORMAT_SNAPPY
     } file_format_t;
+
     int verbosity_;
     bool success_;
     int worker_count_;
@@ -147,6 +133,17 @@ private:
     std::unique_ptr<trace_entry_reader_t> trace_end_;
     std::vector<std::vector<shard_data_t *>> worker_tasks_;
     const char *output_prefix_ = "[trace_filter]";
+#ifdef HAS_SNAPPY
+    const char *snappy_suffix = ".sz";
+#endif
+
+#ifdef HAS_ZIP
+    const char *zip_suffix = ".zip";
+#endif
+
+#ifdef HAS_ZLIB
+    const char *gzip_suffix = ".gz";
+#endif
 };
 
 #endif /* _TRACE_FILTER_H_ */

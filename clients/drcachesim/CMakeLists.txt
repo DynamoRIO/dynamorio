@@ -304,10 +304,8 @@ link_with_pthread(drmemtrace_trace_filter)
 
 add_executable(trace_filter_launcher
   tools/trace_filter_launcher.cpp)
-target_link_libraries(trace_filter_launcher drmemtrace_trace_filter
-  drfrontendlib)
+target_link_libraries(trace_filter_launcher drmemtrace_trace_filter)
 use_DynamoRIO_extension(trace_filter_launcher droption)
-add_dependencies(drmemtrace_trace_filter api_headers)
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir

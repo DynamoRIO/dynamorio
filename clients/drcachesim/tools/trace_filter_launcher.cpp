@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,9 +34,7 @@
 
 #include "droption.h"
 #include "dr_frontend.h"
-#include "analyzer.h"
 #include "trace_filter.h"
-#include "../tools/invariant_checker.h"
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -53,7 +51,7 @@ static droption_t<std::string>
 static droption_t<std::string>
     op_output_dir(DROPTION_SCOPE_FRONTEND, "output_dir", "",
                   "[Required] Output directory for the filtered trace",
-                  "Specifies the directory where the filtered trace will be output.");
+                  "Specifies the directory where the filtered trace will be written.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -75,10 +73,11 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    trace_filter_t *filter = new trace_filter_t(
-        op_trace_dir.get_value(), op_output_dir.get_value(), 0, op_verbose.get_value());
+    trace_filter_t *filter =
+        new trace_filter_t(op_trace_dir.get_value(), op_output_dir.get_value(),
+                           /*worker_count=*/0, op_verbose.get_value());
     if (!filter->run()) {
-        FATAL_ERROR("failed to run trace filter: %s", filter->get_error_string().c_str());
+        FATAL_ERROR("Failed to run trace filter: %s", filter->get_error_string().c_str());
     }
     filter->print_stats();
     delete filter;
