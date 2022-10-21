@@ -55,7 +55,7 @@ read_next_thread_entry_common(gzip_reader_t *gzip, OUT trace_entry_t *entry,
             return false;
         }
         gzip->cur_buf = gzip->buf;
-        gzip->max_buf = gzip->buf + (len / sizeof(gzip->max_buf));
+        gzip->max_buf = gzip->buf + (len / sizeof(*gzip->max_buf));
     }
     *entry = *gzip->cur_buf;
     ++gzip->cur_buf;
