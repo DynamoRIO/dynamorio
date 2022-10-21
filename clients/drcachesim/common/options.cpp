@@ -122,6 +122,12 @@ droption_t<bytesize_t> op_chunk_instr_count(
     "support for writing .zip files, this option is ignored. "
     "For 32-bit this cannot exceed 4G.");
 
+droption_t<bool> op_instr_encodings(
+    DROPTION_SCOPE_CLIENT, "instr_encodings", false,
+    "Whether to include encodings for online tools",
+    "By default instruction encodings are not sent to online tools, to reduce "
+    "overhead.  (Offline tools have them added by default.)");
+
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",
     "Path to function map file for func_view tool",

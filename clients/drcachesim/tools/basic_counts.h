@@ -120,6 +120,7 @@ protected:
         std::vector<counters_t> counters;
         std::string error;
         intptr_t last_window = -1;
+        intptr_t filetype_ = -1;
     };
 
     static bool

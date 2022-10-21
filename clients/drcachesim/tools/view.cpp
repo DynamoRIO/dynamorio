@@ -418,7 +418,7 @@ view_t::process_memref(const memref_t &memref)
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
               << std::dec << std::setfill(' ');
-    if (!has_modules_) {
+    if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_) && !has_modules_) {
         // We can't disassemble so we provide what info the trace itself contains.
         // XXX i#5486: We may want to store the taken target for conditional
         // branches; if added, we can print it here.

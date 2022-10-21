@@ -1,0 +1,1546 @@
+/* **********************************************************
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* We've upgraded these sections to pages, but kept the "sec_" names to
+ * keep them off the Available Tools top-level menu.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drcachesim Tracing and Analysis Framework
+
+\p drcachesim is a DynamoRIO client that collects instruction and
+memory access traces using its \p drmemtrace component and
+feeds them to either an online or offline tool for analysis.  The default
+analysis tool is a CPU cache simulator, while other provided tools compute
+metrics such as reuse distance.  The trace collector and simulator support
+multiple processes each with multiple threads.  The analysis tool framework
+is extensible, supporting the creation of new tools which can operate both
+online and offline.
+
+\b News: There are some new features coming to drmemtrace traces:
+embedded instruction encodings and fast seeking.  Please see the
+[slides introducing these features](docs/new-features-encodings-seek.pdf).
+
+ - \subpage sec_drcachesim
+ - \subpage sec_drcachesim_format
+ - \subpage sec_drcachesim_run
+ - \subpage sec_drcachesim_tools
+ - \subpage google_workload_traces
+ - \subpage sec_drcachesim_config_file
+ - \subpage sec_drcachesim_offline
+ - \subpage sec_drcachesim_partial
+ - \subpage sec_drcachesim_sim
+ - \subpage sec_drcachesim_analyzer
+ - \subpage sec_drcachesim_phys
+ - \subpage sec_drcachesim_core
+ - \subpage sec_drcachesim_extend
+ - \subpage sec_drcachesim_tracer
+ - \subpage sec_drcachesim_funcs
+ - \subpage sec_drcachesim_newtool
+ - \subpage sec_drcachesim_ops
+ - \subpage sec_drcachesim_limit
+ - \subpage sec_drcachesim_cmp
+
+****************************************************************************
+\page sec_drcachesim Overview
+
+\p drcachesim consists of two components: a tracer \p drmemtrace and an analyzer.
+The tracer collects a memory access trace from each thread within each
+application process.
+The analyzer consumes the traces (online or offline) and performs
+customized analysis.
+It is designed to be extensible, allowing users to easily implement a
+simulator for different devices, such as CPU caches, TLBs, page
+caches, etc. (see \ref sec_drcachesim_extend), or to build arbitrary trace
+analysis tools (see \ref sec_drcachesim_newtool).
+The default analyzer simulates the architectural behavior of caching
+devices for a target application (or multiple applications).
+
+****************************************************************************
+\page sec_drcachesim_format Trace Format
+
+\p drmemtrace traces are records of all user mode retired instructions
+and memory accesses during the traced window.
+
+A trace is presented to analysis tools as a stream of records.  Each
+record entry is of type #memref_t and represents one instruction or
+data reference or a metadata operation such as a thread exit or
+marker.  There are built-in scheduling markers providing the timestamp
+and cpu identifier on each thread transition.  Other built-in markers
+indicate disruptions in user mode control flow such as signal handler
+entry and exit.
+
+Each entry contains the common fields \p type, \p pid, and \p tid. The
+\p type field is used to identify the kind of each entry via a value
+of type #trace_marker_type_t.  The \p pid and \p tid identify the
+process and software thread owning the entry.  By default, all traced
+software threads are interleaved together, but with offline traces
+(see \ref sec_drcachesim_offline) each thread's trace can easily be
+analyzed separately as they are stored in separate files.
+
+\section sec_drcachesim_format_instrs Instruction Records
+
+Executed instructions are stored in #_memref_instr_t.  The program
+counter and length of the encoded instruction are provided.  The
+length can be used to compute the address of the subsequent instruction.
+
+The raw encoding of the instruction is provided.  This can be decoded
+using the drdecode decoder or any other decoder.  An additional field
+`encoding_is_new` is provided to indicate when any cached decoding
+information should be invalidated due to possibly changed application
+code.  (For online traces, encodings are not provided unless the
+option `-instr_encodings` is passed, as encodings add overhead and
+are not needed for many tools.)
+
+Older legacy traces may not contain instruction encodings.  For those
+traces, encodings for static code can be obtained by
+disassembling the application and
+library binaries.  The provided interfaces
+module_mapper_t::get_loaded_modules() and
+module_mapper_t::find_mapped_trace_address() facilitate loading in
+copies of the binaries and reading the raw bytes for each instruction
+in order to obtain the opcode and full operand information.
+See also \ref sec_drcachesim_core.
+
+Branch targets are also not explicitly recorded (a design
+decision). The executed target as well as branch direction can be
+obtained by examining the address of the instruction immediately
+following a branch. If the program flow is changed by the kernel such
+as by signal delivery, the branch target is explicitly recorded in the
+trace in a metadata marker entry of type
+#TRACE_MARKER_TYPE_KERNEL_EVENT.
+
+\section sec_drcachesim_format_data Memory Access Records
+
+Memory accesses (data loads and stores) are stored in #_memref_data_t.
+The program counter of the instruction performing the memory access,
+the virtual address (convertable to physical: see \ref sec_drcachesim_phys), and
+the size are provided.
+
+\section sec_drcachesim_format_other Other Records
+
+Besides instruction and memory records, other trace entry types
+include #_memref_marker_t, #_memref_flush_t, #_memref_thread_exit_t,
+etc. These records provide specific inforamtion about events that can
+alter the program flow or the system's states.
+
+Trace markers are particularly important to allow reconstruction of
+the program execution.  Marker records in #_memref_marker_t provide
+metadata identifying some event that occurred at this point in the
+trace.  Each marker record contains two additional fields:
+
+- \p marker_type - identifies the type of marker
+- \p marker_value - carries the value of the marker
+
+Some of the more important markers are:
+
+- #TRACE_MARKER_TYPE_KERNEL_EVENT - This identifies kernel-initiated control transfers such as signal delivery.  The next instruction record is the start of the handler for a kernel-initiated event.  The value of this type of marker contains the program counter at the kernel interruption point.  If the interruption point is just after a branch, this value is the target of that branch.
+
+- #TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return.
+
+- #TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads. It is used in the sequential analysis of a multi-threaded trace.
+
+- #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution. This marker is written to the header of each trace buffer when the buffer is flushed. Note that if the thread migrates to a different CPU due to preemption by the kernel before a buffer is full, we do not output a separate #TRACE_MARKER_TYPE_CPU_ID marker to capture the previous CPU identifier. However, we expect such cases to be rare.
+
+- #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
+
+- #TRACE_MARKER_TYPE_WINDOW_ID - The marker value contains the ordinal of the trace burst window when the subsequent entries until the next #TRACE_MARKER_TYPE_WINDOW_ID or end-of-trace were collected (see \ref sec_drcachesim_partial).
+
+The full set of markers is listed under the enum #trace_marker_type_t.
+
+****************************************************************************
+\page sec_drcachesim_run Running the Simulator
+
+To launch \p drcachesim, use the \p -t flag to \p drrun:
+
+\code
+$ bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>
+\endcode
+
+The target application will be launched under a DynamoRIO tracer
+client that gathers all of its memory references and passes them to
+the simulator via a pipe.  (See \ref sec_drcachesim_offline for how to dump
+a trace for offline analysis.)
+Any child processes will be followed into and profiled, with their
+memory references passed to the simulator as well.
+
+Here is an example:
+
+\code
+$ bin64/drrun -t drcachesim -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Cache simulation results:
+Core #0 (1 thread(s))
+  L1I stats:
+    Hits:                          258,433
+    Misses:                          1,148
+    Miss rate:                        0.44%
+  L1D stats:
+    Hits:                           93,654
+    Misses:                          2,624
+    Prefetch hits:                     458
+    Prefetch misses:                 2,166
+    Miss rate:                        2.73%
+Core #1 (1 thread(s))
+  L1I stats:
+    Hits:                            8,895
+    Misses:                             99
+    Miss rate:                        1.10%
+  L1D stats:
+    Hits:                            3,448
+    Misses:                            156
+    Prefetch hits:                      26
+    Prefetch misses:                   130
+    Miss rate:                        4.33%
+Core #2 (1 thread(s))
+  L1I stats:
+    Hits:                            4,150
+    Misses:                            101
+    Miss rate:                        2.38%
+  L1D stats:
+    Hits:                            1,578
+    Misses:                            130
+    Prefetch hits:                      25
+    Prefetch misses:                   105
+    Miss rate:                        7.61%
+Core #3 (0 thread(s))
+LL stats:
+    Hits:                            1,414
+    Misses:                          2,844
+    Prefetch hits:                     824
+    Prefetch misses:                 1,577
+    Local miss rate:                 66.79%
+    Child hits:                    370,667
+    Total miss rate:                  0.76%
+\endcode
+
+****************************************************************************
+\page sec_drcachesim_tools Analysis Tool Suite
+
+In addition to a CPU cache simulator, other analysis tools are
+available that operate on memory address traces.  Which tool is used
+can be selected with the \p -simulator_type parameter.  New, custom
+tools can also be created, as described in \ref sec_drcachesim_newtool.
+
+- \ref sec_tool_cache_sim
+- \ref sec_tool_TLB_sim
+- \ref sec_tool_reuse_distance
+- \ref sec_tool_reuse_time
+- \ref sec_tool_basic_counts
+- \ref sec_tool_opcode_mix
+- \ref sec_tool_view
+- \ref sec_tool_func_view
+- \ref sec_tool_histogram
+- \ref sec_tool_invariant_checker
+
+\section sec_tool_cache_sim Cache Simulator
+
+This is the default tool.  Here is an exmample of running it on an offline trace:
+\code
+$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+$ bin64/drrun -t drcachesim -indir drmemtrace.*.dir
+Cache simulation results:
+Core #0 (1 thread(s))
+  L1I stats:
+    Hits:                          258,433
+    Misses:                          1,148
+    Miss rate:                        0.44%
+  L1D stats:
+    Hits:                           93,654
+    Misses:                          2,624
+    Prefetch hits:                     458
+    Prefetch misses:                 2,166
+    Miss rate:                        2.73%
+Core #1 (1 thread(s))
+  L1I stats:
+    Hits:                            8,895
+    Misses:                             99
+    Miss rate:                        1.10%
+  L1D stats:
+    Hits:                            3,448
+    Misses:                            156
+    Prefetch hits:                      26
+    Prefetch misses:                   130
+    Miss rate:                        4.33%
+Core #2 (1 thread(s))
+  L1I stats:
+    Hits:                            4,150
+    Misses:                            101
+    Miss rate:                        2.38%
+  L1D stats:
+    Hits:                            1,578
+    Misses:                            130
+    Prefetch hits:                      25
+    Prefetch misses:                   105
+    Miss rate:                        7.61%
+Core #3 (0 thread(s))
+LL stats:
+    Hits:                            1,414
+    Misses:                          2,844
+    Prefetch hits:                     824
+    Prefetch misses:                 1,577
+    Local miss rate:                 66.79%
+    Child hits:                    370,667
+    Total miss rate:                  0.76%
+\endcode
+
+\section sec_tool_TLB_sim TLB Simulator
+
+To simulate TLB devices instead of caches, pass \p TLB to \p -simulator_type:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type TLB -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+TLB simulation results:
+Core #0 (1 thread(s))
+  L1I stats:
+    Hits:                          252,412
+    Misses:                            401
+    Miss rate:                        0.16%
+  L1D stats:
+    Hits:                           87,132
+    Misses:                          9,127
+    Miss rate:                        9.48%
+  LL stats:
+    Hits:                            9,315
+    Misses:                            213
+    Local miss rate:                  2.24%
+    Child hits:                    339,544
+    Total miss rate:                  0.06%
+Core #1 (1 thread(s))
+  L1I stats:
+    Hits:                            8,709
+    Misses:                             20
+    Miss rate:                        0.23%
+  L1D stats:
+    Hits:                            3,544
+    Misses:                             55
+    Miss rate:                        1.53%
+  LL stats:
+    Hits:                               15
+    Misses:                             60
+    Local miss rate:                 80.00%
+    Child hits:                     12,253
+    Total miss rate:                  0.49%
+Core #2 (1 thread(s))
+  L1I stats:
+    Hits:                            1,622
+    Misses:                             21
+    Miss rate:                        1.28%
+  L1D stats:
+    Hits:                              689
+    Misses:                             35
+    Miss rate:                        4.83%
+  LL stats:
+    Hits:                                3
+    Misses:                             53
+    Local miss rate:                 94.64%
+    Child hits:                      2,311
+    Total miss rate:                  2.24%
+Core #3 (0 thread(s))
+\endcode
+
+\section sec_tool_reuse_distance Reuse Distance
+
+To compute reuse distance metrics:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Reuse distance tool aggregated results:
+Total accesses: 349632
+Unique accesses: 196603
+Unique cache lines accessed: 4235
+
+Reuse distance mean: 14.64
+Reuse distance median: 1
+Reuse distance standard deviation: 104.10
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0      153029   44.36%   44.36%
+       1      101294   29.37%   73.73%
+       2       14116    4.09%   77.82%
+       3       14248    4.13%   81.95%
+       4        8894    2.58%   84.53%
+       5        2733    0.79%   85.32%
+...
+==================================================
+Reuse distance tool results for shard 29327 (thread 29327):
+Total accesses: 335084
+Unique accesses: 187927
+Unique cache lines accessed: 4148
+
+Reuse distance mean: 14.77
+Reuse distance median: 1
+Reuse distance standard deviation: 106.02
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0      147157   44.47%   44.47%
+       1       96820   29.26%   73.72%
+       2       13613    4.11%   77.84%
+       3       13834    4.18%   82.02%
+       4        8666    2.62%   84.64%
+       5        2552    0.77%   85.41%
+...
+    3658          29    0.01%  100.00%
+    3851           1    0.00%  100.00%
+
+Reuse distance threshold = 100 cache lines
+Top 10 frequently referenced cache lines
+        cache line:     #references   #distant refs
+    0x7f2a86b3fd80:        27980,            0
+    0x7f2a86b3fdc0:        18823,            0
+    0x7f2a88388fc0:        16409,          111
+    0x7f2a8838abc0:        15176,            6
+    0x7f2a883884c0:         9930,           20
+    0x7f2a88388480:         7944,           20
+    0x7f2a88388500:         7574,           20
+    0x7f2a88398d00:         7390,          100
+    0x7f2a86b3fd40:         6668,            0
+    0x7f2a88388440:         5717,           20
+Top 10 distant repeatedly referenced cache lines
+        cache line:     #references   #distant refs
+    0x7f2a885a4180:          246,          132
+    0x7f2a87504ec0:          202,          128
+    0x7f2a875044c0:          323,          126
+    0x7f2a885a4480:          220,          126
+    0x7f2a87504f00:          293,          124
+    0x7f2a86fd7e00:          289,          124
+    0x7f2a875049c0:          221,          124
+    0x7f2a875053c0:          270,          122
+    0x7f2a86db9c00:          269,          122
+    0x7f2a875047c0:          201,          122
+
+==================================================
+Reuse distance tool results for shard 29328 (thread 29328):
+Total accesses: 12216
+Unique accesses: 7251
+Unique cache lines accessed: 319
+
+Reuse distance mean: 12.98
+Reuse distance median: 1
+Reuse distance standard deviation: 38.19
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0        4965   41.73%   41.73%
+       1        3758   31.59%   73.32%
+       2         411    3.45%   76.78%
+       3         348    2.93%   79.70%
+       4         179    1.50%   81.21%
+       5         152    1.28%   82.48%
+...
+\endcode
+
+\section sec_tool_reuse_time Reuse Time
+
+A reuse time tool is also provided, which counts the total number of memory
+accesses (without considering uniqueness) between accesses to the same
+address:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type reuse_time -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Reuse time tool aggregated results:
+Total accesses: 88281
+Total instructions: 261315
+Mean reuse time: 433.47
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1       27893   32.84%      32.84%
+       2       10948   12.89%      45.73%
+       3        5789    6.82%      52.54%
+...
+==================================================
+Reuse time tool results for shard 29482 (thread 29482):
+Total accesses: 84194
+Total instructions: 250854
+Mean reuse time: 450.01
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1       26677   32.86%      32.86%
+       2       10508   12.95%      45.81%
+       3        5427    6.69%      52.50%
+...
+==================================================
+Reuse time tool results for shard 29483 (thread 29483):
+Total accesses: 3411
+Total instructions: 8805
+Mean reuse time: 86.36
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1        1014   31.56%      31.56%
+       2         363   11.30%      42.86%
+       3         308    9.59%      52.44%
+\endcode
+
+\section sec_tool_basic_counts Event Counts
+
+To simply see the counts of instructions and memory references broken down
+by thread use the basic counts tool:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type basic_counts -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+      267193 total (fetched) instructions
+         345 total non-fetched instructions
+           0 total prefetches
+       67686 total data loads
+       22503 total data stores
+           3 total threads
+         280 total scheduling markers
+           0 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           0 total physical address + virtual address marker pairs
+           0 total physical address unavailable markers
+           3 total other markers
+Thread 247451 counts:
+      255009 (fetched) instructions
+         345 non-fetched instructions
+           0 prefetches
+       64453 data loads
+       21243 data stores
+         258 scheduling markers
+           0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
+           1 other markers
+Thread 247453 counts:
+        9195 (fetched) instructions
+           0 non-fetched instructions
+           0 prefetches
+        2444 data loads
+         937 data stores
+          12 scheduling markers
+           0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
+           1 other markers
+Thread 247454 counts:
+        2989 (fetched) instructions
+           0 non-fetched instructions
+           0 prefetches
+         789 data loads
+         323 data stores
+          10 scheduling markers
+           0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address + virtual address marker pairs
+           0 physical address unavailable markers
+           1 other markers
+\endcode
+
+The non-fetched instructions are x86 string loop instructions, where
+subsequent iterations do not incur a fetch.  They are included in the trace
+as a different type of trace entry to support core simulators in addition
+to cache simulators.
+
+\section sec_tool_opcode_mix Opcode Mix
+
+The opcode_mix tool uses the non-fetched instruction information along with
+the preserved libraries and binaries from the traced execution to gather
+more information on each executed instruction than was stored in the trace.
+To run on online traces, pass the `-instr_encodings` option.
+The results are broken
+down by the opcodes used in DR's IR, where for x86 \p mov is split into a separate
+opcode for load and store but both have the same public string "mov":
+
+\code
+$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+$ bin64/drrun -t drcachesim -simulator_type opcode_mix -indir drmemtrace.*.dir
+Opcode mix tool results:
+         267271 : total executed instructions
+          36432 :       mov
+          31075 :       mov
+          24715 :       add
+          22579 :      test
+          22539 :       cmp
+          12137 :       lea
+          11136 :       jnz
+          10568 :     movzx
+          10243 :        jz
+           9056 :       and
+           8064 :       jnz
+           7279 :        jz
+           5659 :      push
+           4528 :       sub
+           4357 :       pop
+           4001 :       shr
+           3427 :      jnbe
+           2634 :       mov
+           2469 :       shl
+           2344 :        jb
+           2291 :       ret
+           2178 :       xor
+           2164 :      call
+           2111 :   pcmpeqb
+           1472 :    movdqa
+...
+\endcode
+
+\section sec_tool_view Human-Readable View
+
+The view tool prints out the contents of the trace for human viewing, including
+disassembling instructions in AT&T, Intel, Arm, or DR format (to see
+disassembly for online traces, pass the `-instr_encodings` option). The
+-skip_refs and -sim_refs flags can be used to
+set a start point and end point for the disassembled view. Note that these
+flags compute the number of instructions which are skipped or displayed which
+is distinct from the number of trace entries.
+
+The tool displays loads and stores, as well as metadata marker entries for
+timestamps, on which core and thread the subsequent instruction sequence was
+executed, and kernel and system call transfers (these correspond to
+signal or event handler interruptions of the regular execution flow).
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
+T80431 <marker: version 3>
+T80431 <marker: filetype 0x40>
+T80431 <marker: cache line size 64>
+T80431 <marker: timestamp 13269546858099127>
+T80431 <marker: tid 80431 on core 1>
+T80431   0x00007f2ae335d090  48 89 e7             mov    %rsp, %rdi
+T80431   0x00007f2ae335d093  e8 48 0d 00 00       call   $0x00007f2ae335dde0
+T80431     write 8 byte(s) @ 0x7ffdf5770ac8
+T80431   0x00007f2ae335dde0  55                   push   %rbp
+T80431     write 8 byte(s) @ 0x7ffdf5770ac0
+T80431   0x00007f2ae335dde1  48 89 e5             mov    %rsp, %rbp
+T80431   0x00007f2ae335dde4  41 57                push   %r15
+T80431     write 8 byte(s) @ 0x7ffdf5770ab8
+T80431   0x00007f2ae335dde6  49 89 ff             mov    %rdi, %r15
+T80431   0x00007f2ae335dde9  41 56                push   %r14
+T80431     write 8 byte(s) @ 0x7ffdf5770ab0
+T80431   0x00007f2ae335ddeb  41 55                push   %r13
+T80431     write 8 byte(s) @ 0x7ffdf5770aa8
+T80431   0x00007f2ae335dded  41 54                push   %r12
+T80431     write 8 byte(s) @ 0x7ffdf5770aa0
+T80431   0x00007f2ae335ddef  53                   push   %rbx
+T80431     write 8 byte(s) @ 0x7ffdf5770a98
+T80431   0x00007f2ae335ddf0  48 83 ec 38          sub    $0x38, %rsp
+T80431   0x00007f2ae335ddf4  0f 31                rdtsc
+T80431   0x00007f2ae335ddf6  48 c1 e2 20          shl    $0x20, %rdx
+T80431   0x00007f2ae335ddfa  48 09 d0             or     %rdx, %rax
+T80431   0x00007f2ae335ddfd  48 8d 15 74 90 02 00 lea    <rel> 0x00007f2ae3386e78, %rdx
+T80431   0x00007f2ae335de04  48 89 05 75 87 02 00 mov    %rax, <rel> 0x00007f2ae3386580
+T80431     write 8 byte(s) @ 0x7f2ae3386580
+T80431   0x00007f2ae335de0b  48 8b 05 66 90 02 00 mov    <rel> 0x00007f2ae3386e78, %rax
+T80431     read  8 byte(s) @ 0x7f2ae3386e78
+T80431   0x00007f2ae335de12  49 89 d4             mov    %rdx, %r12
+T80431   0x00007f2ae335de15  4c 2b 25 e4 91 02 00 sub    <rel> 0x00007f2ae3387000, %r12
+T80431     read  8 byte(s) @ 0x7f2ae3387000
+T80431   0x00007f2ae335de1c  48 89 15 d5 9b 02 00 mov    %rdx, <rel> 0x00007f2ae33879f8
+View tool results:
+             20 : total instructions
+\endcode
+
+An example of thread switches:
+
+\code
+------------------------------------------------------------
+T342625 <marker: timestamp 13260900247983768>
+T342625 <marker: tid 342625 on core 3>
+T342625   0x0000000000402460  31 ed                xor    %ebp, %ebp
+T342625   0x0000000000402462  49 89 d1             mov    %rdx, %r9
+T342625   0x0000000000402465  5e                   pop    %rsi
+T342625     read  8 byte(s) @ 0x7ffe70dce480
+T342625   0x0000000000402466  48 89 e2             mov    %rsp, %rdx
+...
+T342625   0x0000000000467c42  4d 89 c8             mov    %r9, %r8
+T342625   0x0000000000467c45  4c 8b 54 24 08       mov    0x08(%rsp), %r10
+T342625     read  8 byte(s) @ 0x7ffe70dce100
+T342625   0x0000000000467c4a  b8 38 00 00 00       mov    $0x00000038, %eax
+T342625   0x0000000000467c4f  0f 05                syscall
+------------------------------------------------------------
+T342626 <marker: timestamp 13260900248221723>
+T342626 <marker: tid 342626 on core 0>
+T342626   0x0000000000467c51  48 85 c0             test   %rax, %rax
+T342626   0x0000000000467c54  7c 13                jl     $0x0000000000467c69
+T342626   0x0000000000467c56  74 01                jz     $0x0000000000467c59
+T342626   0x0000000000467c59  31 ed                xor    %ebp, %ebp
+T342626   0x0000000000467c5b  58                   pop    %rax
+T342626     read  8 byte(s) @ 0x7f899f928e70
+T342626   0x0000000000467c5c  5f                   pop    %rdi
+T342626     read  8 byte(s) @ 0x7f899f928e78
+T342626   0x0000000000467c5d  ff d0                call   %rax
+T342626     write 8 byte(s) @ 0x7f899f928e78
+T342626   0x0000000000404a30  41 54                push   %r12
+T342626     write 8 byte(s) @ 0x7f899f928e70
+...
+\endcode
+
+
+Here is an example of a signal handler interrupting the regular flow,
+with metadata showing that the signal was delivered just after a
+non-taken conditional branch:
+
+\code
+T585061   0x00007fdb4e95128f  41 f6 44 24 08 08    test   0x08(%r12), $0x08
+T585061     read  1 byte(s) @ 0x7ffd5af76b08
+T585061   0x00007fdb4e951295  0f 85 28 04 00 00    jnz    $0x00007fdb4e9516c3
+T585061 <marker: kernel xfer from 0x7fdb4e95129b to handler>
+T585061 <marker: timestamp 13269730052517230>
+T585061 <marker: tid 585061 on core 3>
+T585061   0x00007fdb4ace9dba  55                   push   %rbp
+T585061     write 8 byte(s) @ 0x7ffd5af763d0
+T585061   0x00007fdb4ace9dbb  48 89 e5             mov    %rsp, %rbp
+T585061   0x00007fdb4ace9dbe  89 7d fc             mov    %edi, -0x04(%rbp)
+T585061     write 4 byte(s) @ 0x7ffd5af763cc
+T585061   0x00007fdb4ace9dc1  48 89 75 f0          mov    %rsi, -0x10(%rbp)
+T585061     write 8 byte(s) @ 0x7ffd5af763c0
+T585061   0x00007fdb4ace9dc5  48 89 55 e8          mov    %rdx, -0x18(%rbp)
+T585061     write 8 byte(s) @ 0x7ffd5af763b8
+T585061   0x00007fdb4ace9dc9  83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+T585061     read  4 byte(s) @ 0x7ffd5af763cc
+T585061   0x00007fdb4ace9dcd  75 0f                jnz    $0x00007fdb4ace9dde
+T585061   0x00007fdb4ace9dcf  8b 05 7f 23 20 00    mov    <rel> 0x00007fdb4aeec154, %eax
+T585061     read  4 byte(s) @ 0x7fdb4aeec154
+T585061   0x00007fdb4ace9dd5  83 c0 01             add    $0x01, %eax
+T585061   0x00007fdb4ace9dd8  89 05 76 23 20 00    mov    %eax, <rel> 0x00007fdb4aeec154
+T585061     write 4 byte(s) @ 0x7fdb4aeec154
+T585061   0x00007fdb4ace9dde  90                   nop
+T585061   0x00007fdb4ace9ddf  5d                   pop    %rbp
+T585061     read  8 byte(s) @ 0x7ffd5af763d0
+T585061   0x00007fdb4ace9de0  c3                   ret
+T585061     read  8 byte(s) @ 0x7ffd5af763d8
+T585061   0x00007fdb4e95c140  48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+T585061   0x00007fdb4e95c147  0f 05                syscall
+T585061 <marker: timestamp 13269730052517239>
+T585061 <marker: tid 585061 on core 3>
+T585061 <marker: syscall xfer from 0x7fdb4e95c149>
+T585061 <marker: timestamp 13269730052520271>
+T585061 <marker: tid 585061 on core 3>
+T585061   0x00007fdb4e95129b  48 8b 1d 8e 40 01 00 mov    <rel> 0x00007fdb4e965330, %rbx
+T585061     read  8 byte(s) @ 0x7fdb4e965330
+\endcode
+
+\section sec_tool_func_view View Function Calls
+
+The func_view tool records function argument and return values for
+function names specified at tracing time. See \ref sec_drcachesim_funcs for
+more information.
+
+\code
+$ bin64/drrun -t drcachesim -offline -record_function 'fib|1' -- ~/test/fib 5
+Estimation of pi is 3.142425985001098
+$ bin64/drrun -t drcachesim -simulator_type func_view -indir drmemtrace.*.dir
+0x7fc06d2288eb => common.fib!fib(0x5)
+    0x7fc06d22888e => common.fib!fib(0x4)
+        0x7fc06d22888e => common.fib!fib(0x3)
+            0x7fc06d22888e => common.fib!fib(0x2)
+                0x7fc06d22888e => common.fib!fib(0x1) => 0x1
+                0x7fc06d22889d => common.fib!fib(0x0) => 0x1
+            => 0x2
+            0x7fc06d22889d => common.fib!fib(0x1) => 0x1
+        => 0x3
+        0x7fc06d22889d => common.fib!fib(0x2)
+            0x7fc06d22888e => common.fib!fib(0x1) => 0x1
+            0x7fc06d22889d => common.fib!fib(0x0) => 0x1
+        => 0x2
+    => 0x5
+    0x7fc06d22889d => common.fib!fib(0x3)
+        0x7fc06d22888e => common.fib!fib(0x2)
+            0x7fc06d22888e => common.fib!fib(0x1) => 0x1
+            0x7fc06d22889d => common.fib!fib(0x0) => 0x1
+        => 0x2
+        0x7fc06d22889d => common.fib!fib(0x1) => 0x1
+    => 0x3
+=> 0x8
+Function view tool results:
+Function id=0: common.fib!fib
+       15 calls
+       15 returns
+\endcode
+
+\section sec_tool_histogram Cache Line Histogram
+
+The top referenced cache lines are displayed by the \p histogram tool:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type histogram -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Cache line histogram tool results:
+icache: 1134 unique cache lines
+dcache: 3062 unique cache lines
+icache top 10
+    0x7facdd013780: 30929
+    0x7facdb789fc0: 27664
+    0x7facdb78a000: 18629
+    0x7facdd003e80: 18176
+    0x7facdd003500: 11121
+    0x7facdd0034c0: 9763
+    0x7facdd005940: 8865
+    0x7facdd003480: 8277
+    0x7facdb789f80: 6660
+    0x7facdd003540: 5888
+dcache top 10
+    0x7ffcc35e7d80: 4088
+    0x7ffcc35e7d40: 3497
+    0x7ffcc35e7e00: 3478
+    0x7ffcc35e7f40: 2919
+    0x7ffcc35e7dc0: 2837
+    0x7facdbe2e980: 2452
+    0x7facdbe2ec80: 2273
+    0x7ffcc35e7e80: 2194
+    0x7facdb6625c0: 2016
+    0x7ffcc35e7e40: 1997
+\endcode
+
+\section sec_tool_invariant_checker Invariant Checker
+
+The invariant_checker tool performs sanity checks on a trace, focusing
+on program counter continuity and guarantees around kernel control
+transfer interruptions.  It optionally checks for restricted behavior
+that technically is legal but is not expected to happen in the target
+trace, helping to identify tracing problems and suitability for use of
+a trace for core simulation.
+
+****************************************************************************
+\page google_workload_traces Google Workload Traces
+
+With the rapid growth of internet services and cloud computing,
+workloads on warehouse-scale computers (WSCs) have become an important
+segment of today’s computing market. These workloads differ from
+others in their requirements of on-demand scalability, elasticity and
+availability. They have fundamentally different characteristics from
+traditional benchmarks and require changes to modern computer
+architecture to achieve optimal efficiency.  Google is sharing
+instruction and memory address traces from workloads running in Google
+data centers so that computer architecture researchers can study and
+develop new architecture ideas to improve the performance and
+efficiency of this important class of workloads.
+
+\section sec_google_format Trace Format
+
+The Google workload traces are captured using DynamoRIO's
+[drmemtrace](@ref page_drcachesim).  The traces are records of
+instruction and memory accesses as described at \ref
+sec_drcachesim_format.  We separate instruction and memory access
+records from each software thread into a separate file
+(.memtrace.gz). In addition, for each software thread, we also provide
+a branch_trace which contains execution data (taken/not taken, branch
+target) about each branch instruction (conditional, non-conditional,
+calls, etc.).  Finally, for each workload trace, we provide a thread
+statistics file (.threadstats.csv) which contains the thread ID (tid),
+instruction count, non-fetched instruction count (e.g. implicit
+instructions generated from microcode), load count, store count, and
+prefetch count.
+
+\section sec_google_get Getting the Traces
+
+The Google Workload Traces can be downloaded from:
+
+ - [Google workload trace folder](https://console.cloud.google.com/storage/browser/external-traces)
+
+Directory convention:
+- \verbatim
+  workload/trace-X/
+  \endverbatim
+  where X is sequential starting from 1
+
+Filename convention:
+- Memory trace file:
+  \verbatim
+  <uuid>.<tid>.memtrace.gz
+  \endverbatim
+- Branch trace file:
+  \verbatim
+  <uuid>.branch_trace.<tid>.csv.gz
+  \endverbatim
+- Thread statistics summary:
+  \verbatim
+  <uuid>.threadstats.csv
+  \endverbatim
+
+\section sec_google_help Getting Help and Reporting Bugs
+
+The Google Workload Traces are essentially inputs to drive third party
+tools (such as analyzers or simulators, including those provided here:
+\ref sec_drcachesim_tools).  If you encounter a crash in a tool
+provided by a third party, please locate the issue tracker for the
+tool you are using and report the crash there.  If you believe the
+issue is with the Google Workload Traces or with DynamoRIO or tools
+provided with DynamoRIO, you can file an issue as described at \ref
+page_bug_reporting.
+
+For general questions, or if you are not sure whether the problem you
+hit is a bug in your own code or in provided code, use the
+[DynamoRIO users group mailing list/discussion forum]
+(http://groups.google.com/group/dynamorio-users) rather than
+opening an issue in the tracker. The users list will reach a wider
+audience of people who might have an answer, and it will reach other
+users who may find the information beneficial.
+
+\section sec_google_contrib Contributing
+
+We welcome contributions to the Google workload trace project. The
+goal of providing the Google workload traces is to enable computer
+architecture researchers to develop insights and new architecture
+ideas to improve the performance and efficiency of workloads that run
+on warehouse-scale computers.
+
+You can contribute to the project in many ways:
+
+- Providing suggestions for improving trace formats.
+- Sharing and collaborating on architecture research.
+- Reporting issues: see \ref sec_google_help
+
+****************************************************************************
+\page sec_drcachesim_config_file Configuration File
+
+\p drcachesim supports reconfigurable cache hierarchies defined in
+a configuration file. The configuration file is a text file with the following
+formatting rules.
+
+- A comment starts with two slashes followed by one or more spaces. Anything
+after the '// ' until the end of the line is considered a comment and ignored.
+- A parameter's name and its value are listed consecutively with white space
+(spaces, tabs, or a new line) between them.
+- Parameters must be separated by white space. Including one parameter per line
+helps keep the configuration file more human-readable.
+- A cache's parameters must be enclosed inside braces and preceded by the
+cache's user-chosen unique name.
+- Parameters can be listed in any order.
+- Parameters not included in the configuration file take their default values.
+- String values must not be enclosed in quotations.
+
+Supported common parameters and their value types (each of these parameters
+sets the corresponding option with the same name described in \ref sec_drcachesim_ops):
+- num_cores \<unsigned int\>
+- line_size \<unsigned int\>
+- skip_refs \<unsigned int\>
+- warmup_refs \<unsigned int\>
+- warmup_fraction \<float in [0,1]\>
+- sim_refs \<unsigned int\>
+- cpu_scheduling \<bool\>
+- verbose \<unsigned int\>
+- coherence \<bool\>
+
+Supported cache parameters and their value types:
+- type \<string, one of "instruction", "data", or "unified"\>
+- core \<unsigned int in [0, num_cores)\>
+- size \<unsigned int, power of 2\>
+- assoc \<unsigned int, power of 2\>
+- inclusive \<bool\>
+- parent \<string\>
+- replace_policy \<string, one of "LRU", "LFU", or "FIFO"\>
+- prefetcher \<string, one of "nextline" or "none"\>
+- miss_file \<string\>
+
+Example:
+\code
+// Configuration for a single-core CPU.
+
+// Common params.
+num_cores       1
+line_size       64
+cpu_scheduling  true
+sim_refs        8888888
+warmup_fraction 0.8
+
+// Cache params.
+P0L1I {                        // P0 L1 instruction cache
+  type            instruction
+  core            0
+  size            65536        // 64K
+  assoc           8
+  parent          P0L2
+  replace_policy  LRU
+}
+P0L1D {                        // P0 L1 data cache
+  type            data
+  core            0
+  size            65536        // 64K
+  assoc           8
+  parent          P0L2
+  replace_policy  LRU
+}
+P0L2 {                         // P0 L2 unified cache
+  size            512K
+  assoc           16
+  inclusive       true
+  parent          LLC
+  replace_policy  LRU
+}
+LLC {                          // LLC
+  size            1M
+  assoc           16
+  inclusive       true
+  parent          memory
+  replace_policy  LRU
+  miss_file       misses.txt
+}
+\endcode
+
+****************************************************************************
+\page sec_drcachesim_offline Offline Traces and Analysis
+
+To dump a trace for future offline analysis, use the \p offline parameter:
+\code
+$ bin64/drrun -t drcachesim -offline -- /path/to/target/app <args> <for> <app>
+\endcode
+
+The collected traces will be dumped into a newly created directory,
+which can be passed to drcachesim for offline cache simulation with the \p
+-indir option:
+\code
+$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
+\endcode
+
+The direct results of the \p -offline run are raw, compacted files, stored
+in a \p raw/ subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
+The \p -indir option both converts the data to a canonical trace form and
+passes the resulting data to the cache simulator.  The canonical trace data
+is stored by \p -indir in a \p trace/ subdirectory inside the \p
+drmemtrace.app.pid.xxxx.dir/ directory.  For both the raw and canonical
+data, a separate file per application thread is used.  If the canonical
+data already exists, future runs will use that data rather than
+re-converting it.  Either the top-level directory or the \p trace/
+subdirectory may be pointed at with \p -indir:
+
+\code
+$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
+\endcode
+
+If built with the zlib library, the canonical trace files are
+automatically compressed with zip or gzip.  The trace reader supports
+reading zip, gzip, or snappy compressed files.
+
+The raw files are also compressed, controlled by the -p raw_compress
+option.  If built with lz4 support and not statically linked with the
+application, lz4 is used by default.  Whether compressing the raw
+files is a net reduction in overhead depends on the storage medium and
+compression scheme.  The "lz4" and "snappy_nocrc" schemes are
+generally performnce wins even for an SSD, while "gzip" or "zlib" slow
+things down.  For a spinning disk, any compression should be a net
+win.
+
+Older versions of the simulator produced a single trace file containing all threads
+interleaved.  The \p -infile option supports reading these legacy files:
+\code
+$ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
+$ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
+\endcode
+
+The same analysis tools used online are available for offline: the trace
+format is identical.
+
+For details on the offline trace format and how to diagnose problems
+with offline traces, see \ref page_debug_memtrace.
+
+****************************************************************************
+\page sec_drcachesim_partial Tracing a Subset of Execution
+
+While the cache simulator supports skipping references, for large
+applications the overhead of the tracing itself is too high to conveniently
+trace the entire execution.  There are several methods of tracing only
+during a desired window of execution.
+
+The \p -trace_after_instrs option delays tracing by the specified number of
+dynamic instruction executions.  This can be used to skip initialization
+and arrive at the desired starting point.  The trace's length can be
+limited in several ways:
+
+- The \p -trace_for_instrs option stops tracing after the specified number
+  of dynamic instrutions in the current window (since the last \p
+  -retrace_every_instrs trigger, if set).
+- The \p -retrace_every_instrs option augments -p -trace_for_instrs by
+  executing its specified instruction count without tracing and then
+  re-enabling tracing for \p -trace_for_instrs again, resulting in
+  tracing windows repeated at regular intervals throughout the execution.
+  There are two options for how these windows are stored for offline traces.
+  If the \p -split_windows option is set (which is the default), each window
+  produces a separate set of output files inside a window.NNNN subdirectory.
+  Post-processing by default targets the first window; the others must be explicitly
+  passed to separate post-processing invocations.  If \p -no_split_windows is set,
+  a single trace is created with #TRACE_MARKER_TYPE_WINDOW_ID
+  markers (see \ref sec_drcachesim_format_other) identifying the trace window
+  transitions.
+- The \p -max_global_trace_refs option causes the recording of trace
+  data to cease once the specified threshold is exceeded by the sum of
+  all trace references across all threads.  One trace reference entry
+  equals one recorded address, but due to post-processing expansion a
+  final offline line trace will be larger.  Once recording ceases, the
+  application will continue to run.  Threads that are newly created after
+  the threshold is reached will not appear in the trace.
+- The \p -exit_after_tracing option similarly specifies a global trace
+  reference count, but once it is exceeded, the process is terminated.
+- The \p -max_trace_size option sets a cap on the number of bytes written
+  by each thread.  This is a per-thread limit, and if one thread hits the
+  limit it does not affect the trace recoding of other threads.
+
+If the application can be modified, it can be linked with the \p drcachesim
+tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
+and dr_app_stop_and_cleanup() to delimit the desired trace region.  As an
+example, see <a
+href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/tests/burst_static.cpp">our
+burst_static test application</a>.
+
+****************************************************************************
+\page sec_drcachesim_sim Simulator Details
+
+Generally, the simulator is able to be extended to model a variety of
+caching devices.  Currently, CPU caches and TLBs are implemented.  The type of
+device to simulate can be specified by the parameter
+"-simulator_type" (see \ref sec_drcachesim_ops).
+
+The CPU cache simulator models a configurable number of cores,
+each with an L1 data cache and an L1 instruction cache.
+Currently there is a single shared L2 unified cache, but we would like to
+extend support to arbitrary cache hierarchies (see \ref sec_drcachesim_limit).
+The cache line size and each cache's total size and associativity are
+user-specified (see \ref sec_drcachesim_ops).
+
+The TLB simulator models a configurable number of cores, each with an
+L1 instruction TLB, an L1 data TLB, and an L2 unified TLB.  Each TLB's
+entry number and associativity, and the virtual/physical page size,
+are user-specified (see \ref sec_drcachesim_ops).
+
+Neither simulator has a simple way to know which core any particular thread
+executed on for each of its instructions.  The tracer records which core a
+thread is on each time it writes out a full trace buffer, giving an
+approximation of the actual scheduling (at the granularity of the trace
+buffer size).  By default, these cache and TLB simulators ignore that
+information and schedule threads to simulated cores in a static round-robin
+fashion with load balancing to fill in gaps with new threads after threads
+exit.  The option "-cpu_scheduling" (see \ref sec_drcachesim_ops) can be
+used to instead map each physical cpu to a simulated core and use the
+recorded cpu that each segment of thread execution occurred on to schedule
+execution in a manner that more closely resembles the traced execution on
+the physical machine.  Below is an example of the output using this option
+running an application with many threads on a pysical machine with 8 cpus.
+The 8 cpus are mapped to the 4 simulated cores:
+
+\code
+$ bin64/drrun -t drcachesim -cpu_scheduling -- ~/test/pi_estimator 20
+Estimation of pi is 3.141592653798125
+<Stopping application /home/bruening/dr/test/threadsig (213517)>
+---- <application exited with code 0> ----
+Cache simulation results:
+Core #0 (2 traced CPU(s): #2, #5)
+  L1I stats:
+    Hits:                        2,756,429
+    Misses:                          1,190
+    Miss rate:                        0.04%
+  L1D stats:
+    Hits:                        1,747,822
+    Misses:                         13,511
+    Prefetch hits:                   2,354
+    Prefetch misses:                11,157
+    Miss rate:                        0.77%
+Core #1 (2 traced CPU(s): #4, #0)
+  L1I stats:
+    Hits:                          472,948
+    Misses:                            299
+    Miss rate:                        0.06%
+  L1D stats:
+    Hits:                          895,099
+    Misses:                          1,224
+    Prefetch hits:                     253
+    Prefetch misses:                   971
+    Miss rate:                        0.14%
+Core #2 (2 traced CPU(s): #1, #7)
+  L1I stats:
+    Hits:                          448,581
+    Misses:                            649
+    Miss rate:                        0.14%
+  L1D stats:
+    Hits:                          811,483
+    Misses:                          1,723
+    Prefetch hits:                     378
+    Prefetch misses:                 1,345
+    Miss rate:                        0.21%
+Core #3 (2 traced CPU(s): #6, #3)
+  L1I stats:
+    Hits:                          275,192
+    Misses:                            154
+    Miss rate:                        0.06%
+  L1D stats:
+    Hits:                          522,655
+    Misses:                            850
+    Prefetch hits:                     173
+    Prefetch misses:                   677
+    Miss rate:                        0.16%
+LL stats:
+    Hits:                           12,491
+    Misses:                          7,109
+    Prefetch hits:                   8,922
+    Prefetch misses:                 5,228
+    Local miss rate:                 36.27%
+    Child hits:                  7,933,367
+    Total miss rate:                  0.09%
+\endcode
+
+The memory access traces contain some optimizations that combine references
+for one basic block together.  This may result in not considering some
+thread interleavings that could occur natively.  There are no other
+disruptions to thread ordering, however, and the application runs with all
+of its threads concurrently just like it would natively (although slower).
+
+Once every process has exited, the simulator prints cache miss statistics
+for each cache to stderr.  The simulator is designed to be extensible,
+allowing for different cache studies to be carried out: see \ref
+sec_drcachesim_extend.
+
+For L2 caching devices, the L1 caching devices are considered its _children_.
+Two separate miss rates are computed, one (the "Local miss rate") considering
+just requests that reach L2 while the other (the "Total miss rate")
+includes the child hits.  This generalizes to deeper hierarchies:
+lower level caches are children and reported child hits are cumulative
+across all lower levels.
+
+For memory requests that cross blocks, each block touched is
+considered separately, resulting in separate hit and miss statistics.  This
+can be changed by implementing a custom statistics gatherer (see \ref
+sec_drcachesim_extend).
+
+Software and hardware prefetches are combined in the prefetch hit and miss
+statistics, which are reported separately from regular loads and stores.
+To isolate software prefetch statistics, disable the hardware prefetcher by
+running with "-data_prefetcher none" (see \ref sec_drcachesim_ops).
+While misses from software prefetches are included in cache miss files,
+misses from hardware prefetches are not.
+
+
+****************************************************************************
+\page sec_drcachesim_analyzer Cache Miss Analyzer
+
+The cache simulator can be used to analyze the stream of last-level cache (LLC)
+miss addresses. This can be useful when looking for patterns that can be utilized
+in software prefetching. The current analyzer can only identify simple stride
+patterns, but it can be extended to search for more complex patterns.
+To invoke the miss analyzer, pass \p miss_analyzer to the \p -simulator_type
+parameter. To write the prefetching hints to a file use the \p -LL_miss_file
+parameter to specify the file's path and name.
+
+For example, to run the analyzer on a benchmark called "my_benchmark" and store
+the prefetching recommendations in a file called "rec.csv", run the following:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- my_benchmark
+\endcode
+
+
+****************************************************************************
+\page sec_drcachesim_phys Physical Addresses
+
+The memory access tracing client gathers virtual addresses.  On Linux, if
+the kernel allows user-mode applications access to the \p
+/proc/self/pagemap file or the application can be run with root
+privileges, information to translate virtual addresses to physical addresses may be included in the trace.  This can be
+requested via the \p -use_physical runtime option (see \ref
+sec_drcachesim_ops).  On older kernels the pagemap file was readable without
+privileges:
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce.
+
+When \p -use_physical is enabled, the regular trace entries remain
+virtual, with a pair of markers of types
+#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and
+#TRACE_MARKER_TYPE_VIRTUAL_ADDRESS inserted at some prior point for
+each new page mapping to show the corresponding physical
+addresses.  If translation fails, a
+#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted.
+Limited support for detecting changes in page mappings is provided via
+the \p -virt2phys_freq option to periodically clear cached
+translations.
+
+Each analysis tool must decide whether to use this translation
+information.  The cache and TLB simulators provided are equipped to
+read these markers and they use the marker data when \p -use_physical
+is specified.
+
+****************************************************************************
+\page sec_drcachesim_core Core Simulation Support
+
+The \p drcachesim trace format includes information intended for use by
+core simulators as well as pure cache simulators.  For traces that are not
+filtered by an online first-level cache, each data reference is preceded by
+the instruction fetch entry for the instruction that issued the data
+request, which includes the instruction encoding with the opcode and operands.
+Additionally, on x86, string loop
+instructions involve a single insruction fetch followed by a loop of loads
+and/or stores.  A \p drcachesim trace includes a special "no-fetch"
+instruction entry per iteration so that core simulators have the
+instruction information to go along with each load and store, while cache
+simulators can ignore these "no-fetch" entries and avoid incorrectly
+inflating instruction fetch statistics.
+
+Traces include scheduling markers providing the timestamp and hardware
+thread identifier on each thread transition, allowing a simulator to more
+closely match the actual hardware if so desired.
+
+Traces also include markers indicating disruptions in user mode control
+flow such as signal handler entry and exit.
+
+Offline traces guarantee that a branch target instruction entry in a
+trace must immediately follow the branch instruction with no intervening
+thread switch.  This allows a core simulator to identify the target of a
+branch by looking at the subsequent trace entry.  This guarantee
+does not hold when a kernel event such as a signal is delivered
+immediately after a branch; however, each marker indicating such a kernel transfer
+includes the interrupted PC, explicitly providing the branch target.
+
+Filtered traces (filtered via -L0_filter) include the dynamic (pre-filtered)
+per-thread instruction count in a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at
+each thread buffer boundary and at thread exit.
+
+****************************************************************************
+\page sec_drcachesim_extend Extending the Simulator
+
+The \p drcachesim tool was designed to be extensible, allowing users to
+easily model different caching devices, implement different models, and
+gather custom statistics.
+
+To model different caching devices, subclass the \p simulator_t,
+caching_device_t, caching_device_block_t, caching_device_stats_t classes.
+
+To implement a different cache model, subclass the \p cache_t class and
+override the \p request(), \p access_update(), and/or \p
+replace_which_way() method(s).
+
+Statistics gathering is separated out into the \p caching_device_stats_t
+class.  To implement custom statistics, subclass \p caching_device_stats_t
+and override the \p access(), \p child_access(), \p flush(), and/or
+\p print_stats() methods.
+
+****************************************************************************
+\page sec_drcachesim_tracer Customizing the Tracer
+
+The tracer supports customization for special-purpose i/o via
+drmemtrace_replace_file_ops(), allowing traces to be written to locations
+not supported by simple UNIX file operations.  One option for using this
+function is to create a new client which links with the provided
+drmemtrace_static library, includes the \p drmemtrace/drmemtrace.h header via:
+
+\code
+use_DynamoRIO_drmemtrace_tracer(mytool)
+\endcode
+
+And includes its own dr_client_main() which calls
+drmemtrace_client_main().
+
+The tracer also supports storing custom data with each module (i.e.,
+library or executable) such as a build identifier via
+drmemtrace_custom_module_data().  The custom data may be retrieved by
+creating a custom offline trace post-processor and using the #module_mapper_t
+class.
+
+****************************************************************************
+\page sec_drcachesim_funcs Tracing Function Calls
+
+The tracer supports recording argument and return values for specified
+functions.  This feature is currently limited to offline mode only
+(\ref sec_drcachesim_offline).  The -record_function parameter lists
+which function names to trace.  Requested names will be located per
+library and each instance traced separately.  The number of arguments
+to record is specified for each name, using a bar character to
+separate them.  An ampersand separates functions.  Here is an example:
+
+\code
+$ bin64/drrun -t drcachesim -offline -record_function 'fib|1&calloc|2'
+\endcode
+
+Within the trace, each function is identified by a numeric identifier.
+The list of recorded functions, each with its identifier, is placed
+into a file "funclist.log" in the trace directory, where the sample
+tool \p func_view uses it to provide a linear function call trace as
+well as summary statistics as shown above.
+
+The -record_heap parameter requests recording of a pre-determined set
+of functions related to heap allocation.  The -record_heap_value
+paramter controls the contents of this set.
+
+****************************************************************************
+\page sec_drcachesim_newtool Creating New Analysis Tools
+
+\p drcachesim provides a \p drmemtrace analysis tool framework to make it
+easy to create new trace analysis tools.  A new tool should subclass
+#analysis_tool_t.
+
+Concurrent processing of traces is supported by logically splitting a trace into
+"shards" which are each processed sequentially.  The default shard is a traced
+application thread, but the tool interface can support other divisions.  For tools
+that support concurrent processing of shards and do not need to see a single
+time-sorted interleaved merged trace, the interface functions with the parallel_
+prefix should be overridden, and parallel_shard_supported() should return true.
+parallel_shard_init() will be invoked for each shard prior to invoking
+parallel_shard_memref() for each entry in that shard; the data structure returned
+from parallel_shard_init() will be passed to parallel_shard_memref() for each
+trace entry for that shard.  The concurrency model used guarantees that all
+entries from any one shard are processed by the same single worker thread, so no
+synchronization is needed inside the parallel_ functions.  A single worker thread
+invokes print_results() as well.
+
+For serial operation, process_memref(), operates on a trace entry in a single,
+sorted, interleaved stream of trace entries.  In the default mode of operation,
+the #analyzer_t class iterates over the trace and calls the process_memref()
+function of each tool.  An alternative mode is supported which exposes the
+iterator and allows a separate control infrastructure to be built.  This
+alternative mode does not support parallel operation at this time.
+
+Both parallel and serial operation can be supported by a tool, typically by having
+process_memref() create data on a newly seen traced thread and invoking
+parallel_shard_memref() to do its work.
+
+For both parallel and serial operation, the function print_results() should be
+overridden.  It is called just once after processing all trace data and it should
+present the results of the analysis.  For parallel operation, any desired
+aggregation across the whole trace should occur here as well, while shard-specific
+results can be presented in parallel_shard_exit().
+
+Today, parallel analysis is only supported for offline traces.
+Support for online traces may be added in the future.
+
+In the default mode of operation, the #analyzer_t class iterates over
+the trace and calls the appropriate #analysis_tool_t functions for
+each tool.  An alternative mode is supported which exposes the
+iterator and allows a separate control infrastructure to be built.
+
+As explained in \ref sec_drcachesim_format, each trace entry is of
+type #memref_t and represents one instruction or data reference or a
+metadata operation such as a thread exit or marker.  There are
+built-in scheduling markers providing the timestamp and cpu identifier
+on each thread transition.  Other built-in markers indicate
+disruptions in user mode control flow such as signal handler entry and
+exit.
+
+CMake support is provided for including the headers and linking the
+libraries of the \p drmemtrace framework.  A new CMake function is defined
+in the DynamoRIO package which sets the include directory for using the \p
+drmemtrace/ headers:
+
+\code
+use_DynamoRIO_drmemtrace(mytool)
+\endcode
+
+The \p drmemtrace_analyzer library exported by the DynamoRIO package is the main
+library to link when building a new tool.  The tools described above are also
+exported as the libraries \p drmemtrace_basic_counts, \p drmemtrace_view, \p
+drmemtrace_opcode_mix, \p drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
+drmemtrace_reuse_time, \p drmemtrace_simulator, and \p drmemtrace_func_view and can
+be created using the basic_counts_tool_create(), opcode_mix_tool_create(),
+histogram_tool_create(), reuse_distance_tool_create(), reuse_time_tool_create(),
+view_tool_create(), cache_simulator_create(), tlb_simulator_create(), and
+func_view_create() functions.
+
+****************************************************************************
+\page sec_drcachesim_ops Simulator Parameters
+
+\p drcachesim's behavior can be controlled through options passed after the
+\p -c \p drcachesim but prior to the "--" delimiter on the command line:
+
+\code
+$ bin64/drrun -t drcachesim <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
+\endcode
+
+Boolean options can be disabled using a "-no_" prefix.
+
+The parameters available are described below:
+
+REPLACEME_WITH_OPTION_LIST
+
+
+****************************************************************************
+\page sec_drcachesim_limit Current Limitations
+
+The \p drcachesim tool is a work in progress.  We welcome contributions in
+these areas of missing functionality:
+
+- Multi-process online application simulation on Windows
+  (https://github.com/DynamoRIO/dynamorio/issues/1727)
+- Offline traces do not currently accurately record instruction fetches in
+  dynamically generated code (https://github.com/DynamoRIO/dynamorio/issues/2062).
+  All data references are included, but instruction fetches may be skipped.
+  This problem is limited to offline traces.
+- If an instruction with multiple memory accesses faults on the
+  non-final access, the trace may incorrectly contain subsequent
+  accesses which did not actually happen
+  (https://github.com/DynamoRIO/dynamorio/issues/3958).
+- Online traces may skip instructions immediately prior to
+  non-load-or-store-related kernel transfer events
+  (https://github.com/DynamoRIO/dynamorio/issues/3937).
+- Online traces may include the committing store in the trace when a
+  restartable sequence abort happened prior to that store
+  (https://github.com/DynamoRIO/dynamorio/issues/4041).
+- Application phase marking is not yet implemented
+  (https://github.com/DynamoRIO/dynamorio/issues/2478).
+
+****************************************************************************
+\page sec_drcachesim_cmp Comparison to Other Simulators
+
+\p drcachesim is one of the few simulators to support multiple processes.
+This feature requires an out-of-process simulator and inter-process
+communication.  A single-process design would incur less overhead.  Thus,
+we expect \p drcachesim to pay for its multi-process support with
+potentially unfavorable performance versus single-process simulators.
+
+When comparing cache hits, misses, and miss rates across simulators, the
+details can vary substantially.  For example, some other simulators (such
+as \p cachegrind) do not split memory references that cross cache lines
+into multiple hits or misses, while \p drcachesim does split them.
+Instructions that reference multiple memory words on the same cache line
+(such as \p ldm on ARM) are considered to be single accesses by \p
+drcachesim, while other simulators (such as \p cachegrind) may split the
+accesses into separate pieces.  A final example involves string loop
+instructions on x86.  \p drcachesim considers only the first iteration to
+involve an instruction fetch (presenting subsequent iterations as a
+"non-fetched instruction" which the simulator ignores: the basic_counts
+tool does show these as a separate statistics), while other simulators
+(incorrectly) issue a fetch to the instruction cache on every iteration of
+the string loop.
+
+*/

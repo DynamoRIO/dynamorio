@@ -86,7 +86,9 @@ void *
     thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
-    static const int reattach_iters = 4;
+    // We need the other threads to do enough work to be still executing
+    // code at detach time to stress state restore events.
+    int reattach_iters = (idx == burst_owner) ? 4 : 32;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static const int iter_start = outer_iters / 3;
@@ -165,7 +167,9 @@ main(int argc, const char *argv[])
      * merged result several GB's: too much for a test.  We thus cap each thread.
      */
     if (!my_setenv("DYNAMORIO_OPTIONS",
-                   "-stderr_mask 0xc -client_lib ';;"
+                   // We set -disable_traces to help stress state recreation
+                   // in drbbdup with prefixes on every block.
+                   "-stderr_mask 0xc -disable_traces -client_lib ';;"
                    "-offline -max_trace_size 256K'"))
         std::cerr << "failed to set env var!\n";
 
