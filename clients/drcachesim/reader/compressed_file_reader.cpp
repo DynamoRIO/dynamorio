@@ -32,6 +32,36 @@
 
 #include "compressed_file_reader.h"
 
+bool
+open_single_file_common(const std::string &path, gzFile &out)
+{
+    out = gzopen(path.c_str(), "rb");
+    if (out == nullptr)
+        return false;
+    return true;
+}
+
+bool
+read_next_thread_entry_common(gzip_reader_t *gzip, OUT trace_entry_t *entry,
+                              OUT bool *eof)
+{
+    if (gzip->cur_buf >= gzip->max_buf) {
+        int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
+        // Returns less than asked-for for end of file, or –1 for error.
+        // We should always get a multiple of the record size.
+        if (len < static_cast<int>(sizeof(*entry)) ||
+            len % static_cast<int>(sizeof(*entry)) != 0) {
+            *eof = (len >= 0);
+            return false;
+        }
+        gzip->cur_buf = gzip->buf;
+        gzip->max_buf = gzip->buf + (len / sizeof(gzip->max_buf));
+    }
+    *entry = *gzip->cur_buf;
+    ++gzip->cur_buf;
+    return true;
+}
+
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
@@ -46,8 +76,8 @@ template <>
 bool
 file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
 {
-    gzFile file = gzopen(path.c_str(), "rb");
-    if (file == nullptr)
+    gzFile file;
+    if (!open_single_file_common(path, file))
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
     input_files_.emplace_back(file);
@@ -60,21 +90,8 @@ file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
                                                      OUT trace_entry_t *entry,
                                                      OUT bool *eof)
 {
-    gzip_reader_t *gzip = &input_files_[thread_index];
-    if (gzip->cur_buf >= gzip->max_buf) {
-        int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
-        // Returns less than asked-for for end of file, or –1 for error.
-        // We should always get a multiple of the record size.
-        if (len < static_cast<int>(sizeof(*entry)) ||
-            len % static_cast<int>(sizeof(*entry)) != 0) {
-            *eof = (len >= 0);
-            return false;
-        }
-        gzip->cur_buf = gzip->buf;
-        gzip->max_buf = gzip->buf + (len / sizeof(*gzip->max_buf));
-    }
-    *entry = *gzip->cur_buf;
-    ++gzip->cur_buf;
+    if (!read_next_thread_entry_common(&input_files_[thread_index], entry, eof))
+        return false;
     VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
            thread_index, entry->type, entry->size, entry->addr);
     return true;
@@ -90,4 +107,39 @@ file_reader_t<gzip_reader_t>::is_complete()
     // Currently we are forced to not use this function.
     // XXX: Should we just remove this interface, then?
     return false;
+}
+
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+trace_entry_file_reader_t<gzip_reader_t>::~trace_entry_file_reader_t<gzip_reader_t>()
+{
+    if (input_file_ != nullptr) {
+        gzclose(input_file_->file);
+        delete input_file_;
+    }
+}
+
+template <>
+bool
+trace_entry_file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
+{
+    gzFile file;
+    if (!open_single_file_common(path, file))
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_file_ = new gzip_reader_t(file);
+    VPRINT(this, 4, "XXX opening input_file_ at %p\n",input_file_);
+    return true;
+}
+
+template <>
+bool
+trace_entry_file_reader_t<gzip_reader_t>::read_next_entry()
+{
+    if (!read_next_thread_entry_common(input_file_, &cur_entry_, &eof_))
+        return false;
+    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
+           cur_entry_.size, cur_entry_.addr);
+    return true;
 }

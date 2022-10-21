@@ -202,6 +202,28 @@ snappy_reader_t::read(size_t size, OUT void *to)
     return size - to_read;
 }
 
+bool
+open_single_file_common(const std::string &path, std::ifstream *&file)
+{
+    file = new std::ifstream(path, std::ifstream::binary);
+    if (file == nullptr)
+        return false;
+    return true;
+}
+
+bool
+read_next_thread_entry_common(snappy_reader_t &snappy, OUT trace_entry_t *entry,
+                              OUT bool *eof)
+{
+    int len = snappy.read(sizeof(*entry), entry);
+    // Returns less than asked-for for end of file, or –1 for error.
+    if (len < (int)sizeof(*entry)) {
+        *eof = snappy.eof();
+        return false;
+    }
+    return true;
+}
+
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
@@ -214,8 +236,8 @@ template <>
 bool
 file_reader_t<snappy_reader_t>::open_single_file(const std::string &path)
 {
-    std::ifstream *file = new std::ifstream(path, std::ifstream::binary);
-    if (!*file)
+    std::ifstream *file;
+    if (!open_single_file_common(path, file))
         return false;
     VPRINT(this, 1, "Opened snappy input file %s\n", path.c_str());
     input_files_.emplace_back(file);
@@ -228,12 +250,8 @@ file_reader_t<snappy_reader_t>::read_next_thread_entry(size_t thread_index,
                                                        OUT trace_entry_t *entry,
                                                        OUT bool *eof)
 {
-    int len = input_files_[thread_index].read(sizeof(*entry), entry);
-    // Returns less than asked-for for end of file, or –1 for error.
-    if (len < (int)sizeof(*entry)) {
-        *eof = input_files_[thread_index].eof();
+    if (!read_next_thread_entry_common(input_files_[thread_index], entry, eof))
         return false;
-    }
     VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
            thread_index, entry->type, entry->size, entry->addr);
     return true;
@@ -245,4 +263,36 @@ file_reader_t<snappy_reader_t>::is_complete()
 {
     // Not supported, similar to gzip reader.
     return false;
+}
+
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+trace_entry_file_reader_t<snappy_reader_t>::~trace_entry_file_reader_t<snappy_reader_t>()
+{
+    if (input_file_ != nullptr)
+        delete input_file_;
+}
+
+template <>
+bool
+trace_entry_file_reader_t<snappy_reader_t>::open_single_file(const std::string &path)
+{
+    std::ifstream *file;
+    if (!open_single_file_common(path, file))
+        return false;
+    VPRINT(this, 1, "Opened snappy input file %s\n", path.c_str());
+    input_file_ = new snappy_reader_t(file);
+    return true;
+}
+
+template <>
+bool
+trace_entry_file_reader_t<snappy_reader_t>::read_next_entry()
+{
+    if (!read_next_thread_entry_common(*input_file_, &cur_entry_, &eof_))
+        return false;
+    VPRINT(this, 4, "Read entry: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
+           cur_entry_.size, cur_entry_.addr);
+    return true;
 }

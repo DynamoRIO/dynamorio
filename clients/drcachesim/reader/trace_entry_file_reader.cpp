@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,71 +30,39 @@
  * DAMAGE.
  */
 
-/*
- * snappy_file_reader: reads snappy-compressed files containing memory traces. Files
- * should follow the snappy framing format:
- * https://github.com/google/snappy/blob/master/framing_format.txt
- */
-
-#ifndef _SNAPPY_FILE_READER_H_
-#define _SNAPPY_FILE_READER_H_ 1
-
+#include <string.h>
 #include <fstream>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include <snappy.h>
-#include <snappy-sinksource.h>
-#include "snappy_consts.h"
-#include "file_reader.h"
+#include "reader.h"
 #include "trace_entry_file_reader.h"
 
-class snappy_reader_t : snappy_consts_t {
-public:
-    snappy_reader_t(std::ifstream *stream);
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+trace_entry_file_reader_t<std::ifstream>::~trace_entry_file_reader_t<std::ifstream>()
+{
+    delete input_file_;
+}
 
-    // Read 'size' bytes into the 'to'.
-    int
-    read(size_t size, OUT void *to);
+template <>
+bool
+trace_entry_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
+{
+    std::ifstream *fstream = new std::ifstream(path, std::ifstream::binary);
+    if (!*fstream)
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_file_ = fstream;
+    return true;
+}
 
-    bool
-    eof()
-    {
-        if (!fstream_)
-            return true;
-        return fstream_->eof();
+template <>
+bool
+trace_entry_file_reader_t<std::ifstream>::read_next_entry()
+{
+    if (!input_file_->read((char *)&cur_entry_, sizeof(cur_entry_))) {
+        return false;
     }
-
-private:
-    bool
-    read_new_chunk();
-
-    // Read a new data chunk in uncompressed_buf.
-    bool
-    read_data_chunk(uint32_t size, chunk_type_t type);
-
-    // Have we seen the magic chunk identifying a snappy stream.
-    bool
-    check_magic();
-
-    // Read and verify magic chunk.
-    bool
-    read_magic(uint32_t size);
-
-    // The compressed file we're reading from.
-    std::unique_ptr<std::ifstream> fstream_;
-    // Reader into the decompressed buffer.
-    std::unique_ptr<snappy::Source> src_;
-    // Buffer holding decompressed chunk data.
-    std::vector<char> uncompressed_buf_;
-    // Buffer holding the compressed chunks themselves.
-    std::vector<char> compressed_buf_;
-
-    bool seen_magic_;
-};
-
-typedef file_reader_t<snappy_reader_t> snappy_file_reader_t;
-typedef trace_entry_file_reader_t<snappy_reader_t> snappy_trace_entry_file_reader_t;
-
-#endif /* _SNAPPY_FILE_READER_H_ */
+    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
+           cur_entry_.size, cur_entry_.addr);
+    return true;
+}

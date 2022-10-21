@@ -128,6 +128,14 @@ endmacro ()
 
 add_exported_library(drmemtrace_reuse_distance STATIC tools/reuse_distance.cpp)
 add_exported_library(drmemtrace_histogram STATIC tools/histogram.cpp)
+add_exported_library(drmemtrace_trace_filter STATIC tools/trace_filter.cpp
+  reader/reader.cpp
+  reader/file_reader.cpp
+  reader/trace_entry_file_reader.cpp
+  ${zlib_reader}
+  ${zip_reader}
+  ${snappy_reader}
+)
 add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
@@ -173,6 +181,7 @@ if (libsnappy)
     ${snappy_reader}
     reader/reader.cpp
     reader/file_reader.cpp
+    reader/trace_entry_file_reader.cpp
     )
 endif ()
 add_exported_library(drmemtrace_raw2trace STATIC ${raw2trace_srcs})
@@ -195,6 +204,7 @@ set(drcachesim_srcs
   reader/reader.cpp
   reader/config_reader.cpp
   reader/file_reader.cpp
+  reader/trace_entry_file_reader.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -236,6 +246,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/reader.cpp
   reader/config_reader.cpp
   reader/file_reader.cpp
+  reader/trace_entry_file_reader.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -285,6 +296,18 @@ target_link_libraries(prefetch_analyzer_launcher drmemtrace_analyzer drfrontendl
 use_DynamoRIO_extension(prefetch_analyzer_launcher droption)
 add_dependencies(prefetch_analyzer_launcher api_headers)
 
+target_link_libraries(drmemtrace_trace_filter directory_iterator)
+if (libsnappy)
+  target_link_libraries(drmemtrace_trace_filter snappy)
+endif ()
+link_with_pthread(drmemtrace_trace_filter)
+
+add_executable(trace_filter_launcher
+  tools/trace_filter_launcher.cpp)
+target_link_libraries(trace_filter_launcher drmemtrace_trace_filter
+  drfrontendlib)
+use_DynamoRIO_extension(trace_filter_launcher droption)
+add_dependencies(trace_filter_launcher api_headers)
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
@@ -311,6 +334,7 @@ endif ()
 target_link_libraries(drcachesim ${zlib_libs})
 target_link_libraries(histogram_launcher ${zlib_libs})
 target_link_libraries(prefetch_analyzer_launcher ${zlib_libs})
+target_link_libraries(trace_filter_launcher ${zlib_libs})
 target_link_libraries(drmemtrace_raw2trace ${zlib_libs})
 target_link_libraries(drmemtrace_analyzer ${zlib_libs})
 if (NOT AARCH64 AND NOT APPLE)
@@ -418,12 +442,14 @@ restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
 restore_nonclient_flags(prefetch_analyzer_launcher)
+restore_nonclient_flags(trace_filter_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
 restore_nonclient_flags(drmemtrace_simulator)
 restore_nonclient_flags(drmemtrace_reuse_distance)
 restore_nonclient_flags(drmemtrace_histogram)
+restore_nonclient_flags(drmemtrace_trace_filter)
 restore_nonclient_flags(drmemtrace_reuse_time)
 restore_nonclient_flags(drmemtrace_basic_counts)
 restore_nonclient_flags(drmemtrace_opcode_mix)
@@ -467,6 +493,7 @@ add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
 add_win32_flags(prefetch_analyzer_launcher)
+add_win32_flags(trace_filter_launcher)
 add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
@@ -474,6 +501,7 @@ endif ()
 add_win32_flags(drmemtrace_simulator)
 add_win32_flags(drmemtrace_reuse_distance)
 add_win32_flags(drmemtrace_histogram)
+add_win32_flags(drmemtrace_trace_filter)
 add_win32_flags(drmemtrace_reuse_time)
 add_win32_flags(drmemtrace_basic_counts)
 add_win32_flags(drmemtrace_opcode_mix)

@@ -37,6 +37,7 @@
 
 #include <zlib.h>
 #include "file_reader.h"
+#include "trace_entry_file_reader.h"
 
 struct gzip_reader_t {
     explicit gzip_reader_t(gzFile file)
@@ -55,5 +56,6 @@ struct gzip_reader_t {
 };
 
 typedef file_reader_t<gzip_reader_t> compressed_file_reader_t;
+typedef trace_entry_file_reader_t<gzip_reader_t> compressed_trace_entry_file_reader_t;
 
 #endif /* _COMPRESSED_FILE_READER_H_ */
