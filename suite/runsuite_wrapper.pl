@@ -400,18 +400,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             $issue_no = "#2941";
         }
 
-        # XXX i#5437, i#5431: While we work through Ubuntu22 issues we want our
-        # new GA CI job to not be red so we ignore all failures except a handful
-        # which we keep as a glibc change detector to see if our workarounds so
-        # far break over time.
-        my $ignore_all_but_allowlist = (`ldd --version` =~ /GLIBC 2.3[4-9]/);
-        my %allow = (
-                'code_api|common.broadfun' => 1,
-                'code_api|sample.bbsize' => 1,
-                'code_api|tool.drcachesim.simple' => 1,
-                'code_api|tool.drcacheoff.simple' => 1,
-                );
-
         # Read ahead to examine the test failures:
         $fail = 0;
         my $num_ignore = 0;
@@ -424,8 +412,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # without any '|' in their name) are ignored for all possible
                 # option combinations.
                 $test_base_name = (split '\|', $test)[-1];
-                if (($ignore_all_but_allowlist && !$allow{$test}) ||
-                    ($is_32 && ($ignore_failures_32{$test} ||
+                if (($is_32 && ($ignore_failures_32{$test} ||
                                 $ignore_failures_32{$test_base_name})) ||
                     (!$is_32 && ($ignore_failures_64{$test} ||
                                  $ignore_failures_64{$test_base_name}))) {
