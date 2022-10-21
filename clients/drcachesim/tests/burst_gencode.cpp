@@ -140,7 +140,7 @@ private:
                                           opnd_create_reg(DR_REG_XCX)));
         instrlist_append(ilist, INSTR_CREATE_rep_movs_1(dc));
 #    endif
-        
+
         instrlist_append(ilist, XINST_CREATE_return(dc));
 #endif
 
