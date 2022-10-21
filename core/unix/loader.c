@@ -718,7 +718,7 @@ privload_os_finalize(privmod_t *privmod)
     LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s\n", __FUNCTION__, LIBC_GET_VERSION_NAME);
     const char *ver = (*libc_ver)();
     LOG(GLOBAL, LOG_LOADER, 2, "%s: libc version is |%s|\n", __FUNCTION__, ver);
-    if ((ver[0] == '\0' || ver[0] < '2') || ver[1] != '.' || ver[2] < '3')
+    if ((ver[0] == '\0' || ver[0] < '2') || ver[1] != '.' || ver[2] < '3' || ver[3] < '4')
         return;
     if (privmod_ld_linux == NULL) {
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed ld");
