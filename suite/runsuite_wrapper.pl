@@ -405,7 +405,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
         # which we keep as a glibc change detector to see if our workarounds so
         # far break over time.
         my $ignore_all_but_allowlist = (`ldd --version` =~ /GLIBC 2.3[4-9]/);
-        %allow = (
+        my %allow = (
                 'code_api|common.broadfun' => 1,
                 'code_api|sample.bbsize' => 1,
                 'code_api|tool.drcachesim.simple' => 1,

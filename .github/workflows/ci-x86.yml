@@ -134,10 +134,12 @@ jobs:
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
 
-  # 64-bit Linux build with gcc and run tests:
+  # 64-bit Linux build with gcc and run tests, for Ubuntu 20 and 22.
   x86-64:
-    runs-on: ubuntu-20.04
-
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
       with:
