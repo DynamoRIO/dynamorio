@@ -49,10 +49,10 @@
 # and white-space sensitive.
 
 # Tests:
-043e0362 : add z2.b, z27.b, z30.b                   : add    %z27 %z30 $0x00 -> %z2
-047e0362 : add z2.h, z27.h, z30.h                   : add    %z27 %z30 $0x01 -> %z2
-04be0362 : add z2.s, z27.s, z30.s                   : add    %z27 %z30 $0x02 -> %z2
-04fe0362 : add z2.d, z27.d, z30.d                   : add    %z27 %z30 $0x03 -> %z2
+043e0362 : add z2.b, z27.b, z30.b                   : add    %z27.b %z30.b -> %z2.b
+047e0362 : add z2.h, z27.h, z30.h                   : add    %z27.h %z30.h -> %z2.h
+04be0362 : add z2.s, z27.s, z30.s                   : add    %z27.s %z30.s -> %z2.s
+04fe0362 : add z2.d, z27.d, z30.d                   : add    %z27.d %z30.d -> %z2.d
 
 041a06ff : and z31.b, p1/m, z31.b, z23.b            : and    %p1 %z31 %z23 $0x00 -> %z31
 045a06ff : and z31.h, p1/m, z31.h, z23.h            : and    %p1 %z31 %z23 $0x01 -> %z31
@@ -68,6 +68,24 @@
 0459105d : eor z29.h, p4/m, z29.h, z2.h             : eor    %p4 %z29 %z2 $0x01 -> %z29
 0499105d : eor z29.s, p4/m, z29.s, z2.s             : eor    %p4 %z29 %z2 $0x02 -> %z29
 04d9105d : eor z29.d, p4/m, z29.d, z2.d             : eor    %p4 %z29 %z2 $0x03 -> %z29
+
+# MOVPRFX <Zd>, <Zn> (MOVPRFX-Z.Z-_)
+0420bc00 : movprfx z0, z0                            : movprfx %z0 -> %z0
+0420bc62 : movprfx z2, z3                            : movprfx %z3 -> %z2
+0420bca4 : movprfx z4, z5                            : movprfx %z5 -> %z4
+0420bce6 : movprfx z6, z7                            : movprfx %z7 -> %z6
+0420bd28 : movprfx z8, z9                            : movprfx %z9 -> %z8
+0420bd49 : movprfx z9, z10                           : movprfx %z10 -> %z9
+0420bd8b : movprfx z11, z12                          : movprfx %z12 -> %z11
+0420bdcd : movprfx z13, z14                          : movprfx %z14 -> %z13
+0420be0f : movprfx z15, z16                          : movprfx %z16 -> %z15
+0420be51 : movprfx z17, z18                          : movprfx %z18 -> %z17
+0420be93 : movprfx z19, z20                          : movprfx %z20 -> %z19
+0420bed5 : movprfx z21, z22                          : movprfx %z22 -> %z21
+0420bef6 : movprfx z22, z23                          : movprfx %z23 -> %z22
+0420bf38 : movprfx z24, z25                          : movprfx %z25 -> %z24
+0420bf7a : movprfx z26, z27                          : movprfx %z27 -> %z26
+0420bfde : movprfx z30, z30                          : movprfx %z30 -> %z30
 
 04181da2 : orr z2.b, p7/m, z2.b, z13.b              : orr    %p7 %z2 %z13 $0x00 -> %z2
 04581da2 : orr z2.h, p7/m, z2.h, z13.h              : orr    %p7 %z2 %z13 $0x01 -> %z2
@@ -93,3 +111,22 @@
 04681f42 : uqsub z2.h, z26.h, z8.h                  : uqsub  %z26 %z8 $0x01 -> %z2
 04a81f42 : uqsub z2.s, z26.s, z8.s                  : uqsub  %z26 %z8 $0x02 -> %z2
 04e81f42 : uqsub z2.d, z26.d, z8.d                  : uqsub  %z26 %z8 $0x03 -> %z2
+
+# ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q (ZIP2-Z.ZZ-Q)
+05a00400 : zip2 z0.q, z0.q, z0.q                     : zip2   %z0.q %z0.q -> %z0.q
+05a40462 : zip2 z2.q, z3.q, z4.q                     : zip2   %z3.q %z4.q -> %z2.q
+05a604a4 : zip2 z4.q, z5.q, z6.q                     : zip2   %z5.q %z6.q -> %z4.q
+05a804e6 : zip2 z6.q, z7.q, z8.q                     : zip2   %z7.q %z8.q -> %z6.q
+05aa0528 : zip2 z8.q, z9.q, z10.q                    : zip2   %z9.q %z10.q -> %z8.q
+05ab0549 : zip2 z9.q, z10.q, z11.q                   : zip2   %z10.q %z11.q -> %z9.q
+05ad058b : zip2 z11.q, z12.q, z13.q                  : zip2   %z12.q %z13.q -> %z11.q
+05af05cd : zip2 z13.q, z14.q, z15.q                  : zip2   %z14.q %z15.q -> %z13.q
+05b1060f : zip2 z15.q, z16.q, z17.q                  : zip2   %z16.q %z17.q -> %z15.q
+05b30651 : zip2 z17.q, z18.q, z19.q                  : zip2   %z18.q %z19.q -> %z17.q
+05b50693 : zip2 z19.q, z20.q, z21.q                  : zip2   %z20.q %z21.q -> %z19.q
+05b706d5 : zip2 z21.q, z22.q, z23.q                  : zip2   %z22.q %z23.q -> %z21.q
+05b806f6 : zip2 z22.q, z23.q, z24.q                  : zip2   %z23.q %z24.q -> %z22.q
+05ba0738 : zip2 z24.q, z25.q, z26.q                  : zip2   %z25.q %z26.q -> %z24.q
+05bc077a : zip2 z26.q, z27.q, z28.q                  : zip2   %z27.q %z28.q -> %z26.q
+05be07de : zip2 z30.q, z30.q, z30.q                  : zip2   %z30.q %z30.q -> %z30.q
+

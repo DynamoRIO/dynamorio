@@ -1695,8 +1695,14 @@ typedef enum _dr_opnd_flags_t {
     DR_OPND_EXTENDED = 0x20,
     /** This immediate integer operand should be interpreted as an AArch64 extend type. */
     DR_OPND_IS_EXTEND = 0x40,
+
     /** This immediate integer operand should be interpreted as an AArch64 condition. */
     DR_OPND_IS_CONDITION = 0x80,
+    /**
+     * Registers with this flag should be considered vectors and have an element size
+     * representing their element size.
+     */
+    DR_OPND_IS_VECTOR = 0x100,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -1770,7 +1776,11 @@ struct _opnd_t {
          * above, to save space.
          */
         instr_t *instr; /* INSTR_kind, FAR_INSTR_kind, and MEM_INSTR_kind */
-        reg_id_t reg;   /* REG_kind */
+        struct {
+            reg_id_t reg;
+            /* XXX #5638: Fill in the element size for x86 and aarch32. */
+            opnd_size_t element_size;
+        } reg_and_element_size; /* REG_kind */
         struct {
             /* For ARM, either disp==0 or index_reg==DR_REG_NULL: can't have both */
             int disp;
@@ -1862,6 +1872,15 @@ INSTR_INLINE
  */
 opnd_t
 opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns a register operand corresponding to a vector
+ * register that has an element size.
+ */
+opnd_t
+opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size);
 
 DR_API
 INSTR_INLINE
@@ -2363,6 +2382,12 @@ bool
 opnd_is_far_base_disp(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
+/** Returns true iff \p opnd is a vector reg operand. */
+bool
+opnd_is_element_vector_reg(opnd_t opnd);
+
+DR_API
 /**
  * Returns true iff \p opnd uses vector indexing via a VSIB byte.  This
  * memory addressing form was introduced in Intel AVX2.
@@ -2479,6 +2504,14 @@ DR_API
  */
 void
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
+
+DR_API
+/**
+ * Return the element size of \p opnd as a OPSZ_ constant.
+ * Returns #OPSZ_NA if \p opnd does not have a valid size.
+ */
+opnd_size_t
+opnd_get_vector_element_size(opnd_t opnd);
 
 DR_API
 /**

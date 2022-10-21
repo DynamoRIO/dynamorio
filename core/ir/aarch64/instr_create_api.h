@@ -1096,6 +1096,19 @@
     instr_create_1dst_3src(dc, OP_add, Rd, Rm, Rn, width)
 
 /**
+ * Creates an ADD vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output SVE register (created with
+ *                opnd_create_reg_element_vector).
+ * \param Rm      The first input SVE register (created with
+ *                opnd_create_reg_element_vector).
+ * \param Rn      The second input SVE register (created with
+ *                opnd_create_reg_element_vector).
+ */
+#define INSTR_CREATE_sve_add_vector(dc, Rd, Rm, Rn) \
+    instr_create_1dst_2src(dc, OP_add, Rd, Rm, Rn)
+
+/**
  * Creates a CMTST vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
@@ -4927,5 +4940,34 @@
  */
 #define INSTR_CREATE_bic_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
     instr_create_1dst_4src(dc, OP_bic, Zd, Pg, Zd_, Zm, width)
+
+/**
+ * Creates a ZIP2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The second source vector register, Z (Scalable)
+ * \param Zm   The third source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_zip2_vector(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_zip2, Zd, Zn, Zm)
+
+/**
+ * Creates a MOVPRFX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    MOVPRFX <Zd>, <Zn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_movprfx_vector(dc, Zd, Zn) \
+    instr_create_1dst_1src(dc, OP_movprfx, Zd, Zn)
 
 #endif /* DR_IR_MACROS_AARCH64_H */
