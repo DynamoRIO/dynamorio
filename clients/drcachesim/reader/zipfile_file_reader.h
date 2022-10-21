@@ -55,6 +55,6 @@ struct zipfile_reader_t {
 };
 
 typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
-typedef trace_entry_file_reader<zipfile_reader_t> zipfile_trace_entry_file_reader_t;
+typedef trace_entry_file_reader_t<zipfile_reader_t> zipfile_trace_entry_file_reader_t;
 
 #endif /* _ZIPFILE_FILE_READER_H_ */

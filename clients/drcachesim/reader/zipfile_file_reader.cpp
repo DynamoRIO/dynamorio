@@ -36,11 +36,10 @@
 // sources.  The docs are the header files:
 // https://github.com/madler/zlib/blob/master/contrib/minizip/unzip.h
 
-template <>
 bool
 open_single_file_common(const std::string &path, unzFile &out)
 {
-    unzFile out = unzOpen(path.c_str());
+    out = unzOpen(path.c_str());
     if (out == nullptr)
         return false;
     if (unzGoToFirstFile(out) != UNZ_OK || unzOpenCurrentFile(out) != UNZ_OK) {
@@ -50,31 +49,35 @@ open_single_file_common(const std::string &path, unzFile &out)
     return true;
 }
 
-template <>
+#define TMP_BUF_LEN 200
 bool
 read_next_entry_common(zipfile_reader_t &zipfile, const trace_entry_t &last_entry,
-                       uint thread_index, std::function<void(int, std::string)> vprint,
-                       OUT trace_entry_t *entry, OUT bool *eof)
+                       uint thread_index, int verbosity, OUT trace_entry_t *entry,
+                       OUT bool *eof)
 {
     *eof = false;
     if (zipfile.cur_buf >= zipfile.max_buf) {
         int num_read = unzReadCurrentFile(zipfile.file, zipfile.buf, sizeof(zipfile.buf));
         if (num_read == 0) {
 #ifdef DEBUG
-            if (verbosity_ >= 3) {
+            if (verbosity >= 3) {
                 char name[128];
                 name[0] = '\0'; /* Just in case. */
                 // This call is expensive if we do it every time.
                 unzGetCurrentFileInfo64(zipfile.file, nullptr, name, sizeof(name),
                                         nullptr, 0, nullptr, 0);
-                vprint(3, "Thread #%zd hit end of component %s; opening next component\n",
-                       thread_index, name);
+                /*
+                vprint(
+                    3,
+                    std::format(
+                        "Thread #%zd hit end of component %s; opening next component\n",
+                        thread_index, name));*/
             }
 #endif
             if ((last_entry.type != TRACE_TYPE_MARKER ||
                  last_entry.size != TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
                 last_entry.type != TRACE_TYPE_FOOTER) {
-                vprint(1, "Chunk is missing footer: truncation detected\n");
+                // vprint(1, "Chunk is missing footer: truncation detected\n");
                 return false;
             }
             if (unzCloseCurrentFile(zipfile.file) != UNZ_OK)
@@ -82,7 +85,7 @@ read_next_entry_common(zipfile_reader_t &zipfile, const trace_entry_t &last_entr
             int res = unzGoToNextFile(zipfile.file);
             if (res != UNZ_OK) {
                 if (res == UNZ_END_OF_LIST_OF_FILE) {
-                    vprint(2, "Thread #%zd hit EOF\n", thread_index);
+                    // vprint(2, std::format("Thread #%zd hit EOF\n", thread_index));
                     *eof = true;
                 }
                 return false;
@@ -92,8 +95,10 @@ read_next_entry_common(zipfile_reader_t &zipfile, const trace_entry_t &last_entr
             num_read = unzReadCurrentFile(zipfile.file, zipfile.buf, sizeof(zipfile.buf));
         }
         if (num_read < static_cast<int>(sizeof(*entry))) {
-            vprint(1, "Thread #%zd failed to read: returned %d\n", thread_index,
-                   num_read);
+            /*
+            vprint(1,
+                   std::format("Thread #%zd failed to read: returned %d\n", thread_index,
+                               num_read));*/
             return false;
         }
         zipfile.cur_buf = zipfile.buf;
@@ -101,8 +106,10 @@ read_next_entry_common(zipfile_reader_t &zipfile, const trace_entry_t &last_entr
     }
     *entry = *zipfile.cur_buf;
     ++zipfile.cur_buf;
-    vprint(4, "Read from thread #%zd: type=%d, size=%d, addr=%zu\n", thread_index,
-           entry->type, entry->size, entry->addr);
+    /*
+    vprint(4,
+           std::format("Read from thread #%zd: type=%d, size=%d, addr=%zu\n",
+                       thread_index, entry->type, entry->size, entry->addr));*/
     return true;
 }
 
@@ -134,10 +141,8 @@ file_reader_t<zipfile_reader_t>::read_next_thread_entry(size_t thread_index,
                                                         OUT trace_entry_t *entry,
                                                         OUT bool *eof)
 {
-    return read_next_entry_common(
-        input_files_[thread_index], entry_copy_, thread_index,
-        [this](int level, std::string message) { VPRINT(this, level, message); }, entry,
-        eof);
+    return read_next_entry_common(input_files_[thread_index], entry_copy_, thread_index,
+                                  verbosity_, entry, eof);
 }
 
 template <>
@@ -168,6 +173,7 @@ trace_entry_file_reader_t<zipfile_reader_t>::open_single_file(const std::string 
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
     input_file_ = new zipfile_reader_t(file);
+    return true;
 }
 
 template <>
@@ -176,10 +182,8 @@ trace_entry_file_reader_t<zipfile_reader_t>::read_next_entry()
 {
     // TODO: store last entry somewhere, or can we just pass cur_entry_ (like the other
     // code).
-    return read_next_entry_common(
-        *input_file_, cur_entry_, -1,
-        [this](int level, std::string message) { VPRINT(this, level, message); },
-        &cur_entry_, &eof_);
+    return read_next_entry_common(*input_file_, cur_entry_, -1, verbosity_, &cur_entry_,
+                                  &eof_);
 }
 
 // TODO i#5538: Implement seeking via unzLocateFile.

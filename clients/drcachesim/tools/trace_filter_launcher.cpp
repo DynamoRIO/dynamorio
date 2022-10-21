@@ -82,5 +82,6 @@ _tmain(int argc, const TCHAR *targv[])
     }
     filter->print_stats();
     delete filter;
+    fprintf(stderr, "Done!\n");
     return 0;
 }

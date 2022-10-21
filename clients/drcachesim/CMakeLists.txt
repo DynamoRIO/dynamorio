@@ -307,7 +307,7 @@ add_executable(trace_filter_launcher
 target_link_libraries(trace_filter_launcher drmemtrace_trace_filter
   drfrontendlib)
 use_DynamoRIO_extension(trace_filter_launcher droption)
-add_dependencies(trace_filter_launcher api_headers)
+add_dependencies(drmemtrace_trace_filter api_headers)
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
@@ -334,7 +334,7 @@ endif ()
 target_link_libraries(drcachesim ${zlib_libs})
 target_link_libraries(histogram_launcher ${zlib_libs})
 target_link_libraries(prefetch_analyzer_launcher ${zlib_libs})
-target_link_libraries(trace_filter_launcher ${zlib_libs})
+target_link_libraries(drmemtrace_trace_filter ${zlib_libs})
 target_link_libraries(drmemtrace_raw2trace ${zlib_libs})
 target_link_libraries(drmemtrace_analyzer ${zlib_libs})
 if (NOT AARCH64 AND NOT APPLE)

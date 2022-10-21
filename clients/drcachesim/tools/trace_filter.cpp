@@ -34,13 +34,14 @@
 #include "directory_iterator.h"
 #include "reader/trace_entry_file_reader.h"
 #include "trace_entry.h"
+#include "archive_ostream.h"
 #ifdef HAS_ZLIB
 #    include "reader/compressed_file_reader.h"
 #    include "common/gzip_ostream.h"
 #endif
 #ifdef HAS_ZIP
-#    include "reader/zipfile_file_reader.h"
 #    include "common/zipfile_ostream.h"
+#    include "reader/zipfile_file_reader.h"
 #endif
 #ifdef HAS_SNAPPY
 #    include "reader/snappy_file_reader.h"
