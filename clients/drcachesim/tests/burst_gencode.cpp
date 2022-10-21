@@ -134,7 +134,7 @@ private:
 #else
         instrlist_append(ilist,
                          INSTR_CREATE_xor(dc, opnd_create_reg(DR_REG_RCX),
-                                            opnd_create_reg(DR_REG_RCX)));
+                                          opnd_create_reg(DR_REG_RCX)));
         instrlist_append(ilist, INSTR_CREATE_rep_movs_1(dc));        
         instrlist_append(ilist, XINST_CREATE_return(dc));
 #endif
