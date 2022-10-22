@@ -73,14 +73,17 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    trace_filter_t *filter =
-        new trace_filter_t(op_trace_dir.get_value(), op_output_dir.get_value(),
-                           /*worker_count=*/0, op_verbose.get_value());
-    if (!filter->run()) {
-        FATAL_ERROR("Failed to run trace filter: %s", filter->get_error_string().c_str());
+    {
+        auto trace_filter = std::unique_ptr<trace_filter_t>(
+            new trace_filter_t(op_trace_dir.get_value(), op_output_dir.get_value(),
+                               /*worker_count=*/0, op_verbose.get_value()));
+        if (!trace_filter->run()) {
+            FATAL_ERROR("Failed to run trace filter: %s",
+                        trace_filter->get_error_string().c_str());
+        }
+        trace_filter->print_stats();
+        // Need the trace_filter object to be destroyed for the output to be flushed.
     }
-    filter->print_stats();
-    delete filter;
     fprintf(stderr, "Done!\n");
     return 0;
 }

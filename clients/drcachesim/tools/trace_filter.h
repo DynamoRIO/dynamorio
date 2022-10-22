@@ -46,7 +46,8 @@ class trace_filter_t {
 public:
     /**
      * Filter the trace files present at trace_dir and write the result to
-     * output_dir.
+     * output_dir. Note the the trace_filter_t object should be destroyed
+     * for the output streams to be flushed.
      */
     trace_filter_t(const std::string &trace_dir, const std::string &output_dir,
                    int worker_count = 0, int verbosity = 0);
@@ -73,12 +74,14 @@ private:
     // filtered by a single worker thread, eliminating the need for locks.
     struct shard_data_t {
         shard_data_t(int index, std::unique_ptr<trace_entry_reader_t> iter,
-                     std::unique_ptr<std::ostream> writer, const std::string &trace_file)
+                     std::unique_ptr<std::ostream> writer, const std::string &trace_file,
+                     const std::string &output_file)
             : index(index)
             , worker(0)
             , iter(std::move(iter))
             , writer(std::move(writer))
             , trace_file(trace_file)
+            , output_file(output_file)
         {
         }
         shard_data_t(shard_data_t &&src)
@@ -88,6 +91,7 @@ private:
             iter = std::move(src.iter);
             writer = std::move(src.writer);
             trace_file = std::move(src.trace_file);
+            output_file = std::move(src.output_file);
             error = std::move(src.error);
         }
 
@@ -96,6 +100,7 @@ private:
         std::unique_ptr<trace_entry_reader_t> iter;
         std::unique_ptr<std::ostream> writer;
         std::string trace_file;
+        std::string output_file;
         std::string error;
 
         shard_data_t(const shard_data_t &) = delete;
@@ -123,9 +128,9 @@ private:
     } file_format_t;
 
     int verbosity_;
-    bool success_;
     int worker_count_;
-    std::string trace_dir_, output_dir_;
+    std::string trace_dir_;
+    std::string output_dir_;
     file_format_t input_file_format;
     std::string error_string_;
     std::vector<shard_data_t> thread_data_;

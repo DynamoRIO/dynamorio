@@ -61,10 +61,10 @@ static droption_t<std::string>
                  "[Required] Trace input directory",
                  "Specifies the directory containing the trace files to be filtered.");
 
-static droption_t<std::string>
-    op_output_dir(DROPTION_SCOPE_FRONTEND, "tmp_output_dir", "",
-                  "[Required] Output directory for the filtered trace",
-                  "Specifies the directory where the filtered trace will be written.");
+static droption_t<std::string> op_tmp_output_dir(
+    DROPTION_SCOPE_FRONTEND, "tmp_output_dir", "",
+    "[Required] Output directory for the filtered trace",
+    "Specifies the directory where the filtered trace will be written.");
 
 static bool
 local_create_dir(const char *dir)
@@ -90,21 +90,26 @@ get_basic_counts(const std::string &trace_dir)
     }
     basic_counts_t::counters_t counts =
         ((basic_counts_t *)basic_counts_tool)->get_total_counts();
+    delete basic_counts_tool;
     return counts;
 }
 
 bool
 test_nop_filter()
 {
-    std::string output_dir = op_output_dir.get_value() + "/nop_filter";
+    std::string output_dir = op_tmp_output_dir.get_value() + "/nop_filter";
     if (!local_create_dir(output_dir.c_str())) {
         FATAL_ERROR("Failed to create filtered trace output dir %s", output_dir.c_str());
     }
-    trace_filter_t *filter = new trace_filter_t(op_trace_dir.get_value(), output_dir);
-    if (!filter->run()) {
-        FATAL_ERROR("Failed to run trace_filter %s", filter->get_error_string().c_str());
+    {
+        auto trace_filter = std::unique_ptr<trace_filter_t>(
+            new trace_filter_t(op_trace_dir.get_value(), output_dir));
+        if (!trace_filter->run()) {
+            FATAL_ERROR("Failed to run trace_filter %s",
+                        trace_filter->get_error_string().c_str());
+        }
+        // Need to destroy trace_filter to flush the output.
     }
-    delete filter;
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     basic_counts_t::counters_t c2 = get_basic_counts(output_dir);
     if (memcmp(&c1, &c2, offsetof(basic_counts_t::counters_t, unique_pc_addrs)) != 0)
@@ -120,7 +125,7 @@ main(int argc, const char *argv[])
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||
-        op_trace_dir.get_value().empty() || op_output_dir.get_value().empty()) {
+        op_trace_dir.get_value().empty() || op_tmp_output_dir.get_value().empty()) {
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }

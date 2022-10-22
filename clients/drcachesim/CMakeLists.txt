@@ -179,7 +179,6 @@ if (libsnappy)
     ${snappy_reader}
     reader/reader.cpp
     reader/file_reader.cpp
-    reader/trace_entry_file_reader.cpp
     )
 endif ()
 add_exported_library(drmemtrace_raw2trace STATIC ${raw2trace_srcs})
@@ -434,8 +433,8 @@ endmacro()
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
-restore_nonclient_flags(prefetch_analyzer_launcher)
 restore_nonclient_flags(trace_filter_launcher)
+restore_nonclient_flags(prefetch_analyzer_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
@@ -485,8 +484,8 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
-add_win32_flags(prefetch_analyzer_launcher)
 add_win32_flags(trace_filter_launcher)
+add_win32_flags(prefetch_analyzer_launcher)
 add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
@@ -624,14 +623,14 @@ if (BUILD_TESTS)
   if (X86)
     set(thread_trace_dir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
-  add_executable(tool.drcachesim.trace_filter_unit_tests tests/trace_filter_unit_tests.cpp)
-  configure_DynamoRIO_standalone(tool.drcachesim.trace_filter_unit_tests)
-  target_link_libraries(tool.drcachesim.trace_filter_unit_tests drmemtrace_analyzer
-    drmemtrace_basic_counts drmemtrace_trace_filter)
-  add_win32_flags(tool.drcachesim.trace_filter_unit_tests)
-  add_test(NAME tool.drcachesim.trace_filter_unit_tests
-           COMMAND tool.drcachesim.trace_filter_unit_tests --trace_dir
-                   ${thread_trace_dir} --tmp_output_dir /tmp)
+    add_executable(tool.drcachesim.trace_filter_unit_tests tests/trace_filter_unit_tests.cpp)
+    configure_DynamoRIO_standalone(tool.drcachesim.trace_filter_unit_tests)
+    target_link_libraries(tool.drcachesim.trace_filter_unit_tests drmemtrace_analyzer
+      drmemtrace_basic_counts drmemtrace_trace_filter)
+    add_win32_flags(tool.drcachesim.trace_filter_unit_tests)
+    add_test(NAME tool.drcachesim.trace_filter_unit_tests
+             COMMAND tool.drcachesim.trace_filter_unit_tests --trace_dir
+                     ${thread_trace_dir} --tmp_output_dir /tmp)
   endif ()
 
   if (DR_HOST_AARCH64)

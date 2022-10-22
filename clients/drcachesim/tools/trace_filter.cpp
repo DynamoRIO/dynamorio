@@ -34,30 +34,24 @@
 #include "directory_iterator.h"
 #include "reader/trace_entry_file_reader.h"
 #include "trace_entry.h"
-#include "archive_ostream.h"
 #ifdef HAS_ZLIB
 #    include "reader/compressed_file_reader.h"
 #    include "common/gzip_ostream.h"
 #endif
 #include "trace_filter.h"
 
-#ifdef HAS_ZLIB
-typedef compressed_trace_entry_file_reader_t default_trace_entry_file_reader_t;
-#else
 typedef trace_entry_file_reader_t<std::ifstream> default_trace_entry_file_reader_t;
-#endif
 
 trace_filter_t::trace_filter_t(const std::string &trace_dir,
                                const std::string &output_dir, int worker_count,
                                int verbosity)
     : verbosity_(verbosity)
-    , success_(true)
     , worker_count_(worker_count)
     , trace_dir_(trace_dir)
     , output_dir_(output_dir)
 {
     if (!init_file_reader_writer(trace_dir, output_dir, verbosity))
-        success_ = false;
+        error_string_ = "Could not initialize trace reader and writer";
 }
 
 #if defined(HAS_ZLIB)
@@ -76,15 +70,14 @@ trace_filter_t::get_reader(const std::string &path, int verbosity)
 {
 #ifdef HAS_ZLIB
     if (ends_with(path, trace_filter_t::gzip_suffix)) {
-        VPRINT(this, 1, "Using the gzip reader\n");
+        VPRINT(this, 3, "Using the gzip reader\n");
         input_file_format = FILE_FORMAT_GZIP;
         return std::unique_ptr<trace_entry_reader_t>(
             new compressed_trace_entry_file_reader_t(path, verbosity));
     }
 #endif
-    VPRINT(this, 1, "Using the default reader\n");
+    VPRINT(this, 3, "Using the default reader\n");
     input_file_format = FILE_FORMAT_UNKNOWN;
-    // No snappy/zlib support, or didn't find a .sz/.zip file.
     return std::unique_ptr<trace_entry_reader_t>(
         new default_trace_entry_file_reader_t(path, verbosity));
 }
@@ -95,12 +88,12 @@ trace_filter_t::get_writer(const std::string &path, int verbosity)
     std::unique_ptr<std::ostream> ofile;
 #ifdef HAS_ZLIB
     if (input_file_format == FILE_FORMAT_GZIP) {
-        VPRINT(this, 1, "Using the gzip writer\n");
+        VPRINT(this, 3, "Using the gzip writer\n");
         return std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
     }
 #endif
     assert(input_file_format == FILE_FORMAT_UNKNOWN);
-    VPRINT(this, 1, "Using the default writer\n");
+    VPRINT(this, 3, "Using the default writer\n");
     return std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
 }
 
@@ -145,7 +138,7 @@ trace_filter_t::init_file_reader_writer(const std::string &trace_dir,
 
         thread_data_.push_back(shard_data_t(static_cast<int>(thread_data_.size()),
                                             std::move(reader), std::move(writer),
-                                            trace_path));
+                                            trace_path, output_path));
     }
     // Like raw2trace, we use a simple round-robin static work assigment.  This
     // could be improved later with dynamic work queue for better load balancing.
@@ -184,7 +177,7 @@ trace_filter_t::process_tasks(std::vector<shard_data_t *> *tasks)
             const trace_entry_t &entry = **tdata->iter;
             // TODO i#5675: Filter entries here.
             if (!tdata->writer->write((char *)&entry, sizeof(entry))) {
-                tdata->error = "Failed to write to output file";
+                tdata->error = "Failed to write to output file " + tdata->output_file;
                 return;
             }
         }
@@ -196,6 +189,8 @@ trace_filter_t::process_tasks(std::vector<shard_data_t *> *tasks)
 bool
 trace_filter_t::run()
 {
+    if (error_string_ != "")
+        return false;
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ <= 0) {
         error_string_ = "Invalid worker count: must be > 0";
