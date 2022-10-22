@@ -282,3 +282,15 @@ basic_counts_t::print_results()
 
     return true;
 }
+
+basic_counts_t::counters_t
+basic_counts_t::get_total_counts()
+{
+    counters_t total;
+    for (const auto &shard : shard_map_) {
+        for (const auto &ctr : shard.second->counters) {
+            total += ctr;
+        }
+    }
+    return total;
+}

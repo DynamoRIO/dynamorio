@@ -59,7 +59,6 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
-protected:
     struct counters_t {
         counters_t()
         {
@@ -110,6 +109,11 @@ protected:
         int_least64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
     };
+
+    counters_t
+    get_total_counts();
+
+protected:
     struct per_shard_t {
         per_shard_t()
         {

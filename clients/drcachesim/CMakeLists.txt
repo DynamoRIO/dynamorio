@@ -621,6 +621,19 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcacheoff.raw2trace_unit_tests
     COMMAND tool.drcacheoff.raw2trace_unit_tests)
 
+  if (X86)
+    set(thread_trace_dir
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  add_executable(tool.drcachesim.trace_filter_unit_tests tests/trace_filter_unit_tests.cpp)
+  configure_DynamoRIO_standalone(tool.drcachesim.trace_filter_unit_tests)
+  target_link_libraries(tool.drcachesim.trace_filter_unit_tests drmemtrace_analyzer
+    drmemtrace_basic_counts drmemtrace_trace_filter)
+  add_win32_flags(tool.drcachesim.trace_filter_unit_tests)
+  add_test(NAME tool.drcachesim.trace_filter_unit_tests
+           COMMAND tool.drcachesim.trace_filter_unit_tests --trace_dir
+                   ${thread_trace_dir} --tmp_output_dir /tmp)
+  endif ()
+
   if (DR_HOST_AARCH64)
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)

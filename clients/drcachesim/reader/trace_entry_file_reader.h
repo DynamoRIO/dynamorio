@@ -41,6 +41,7 @@
 #include <iterator>
 #include "trace_entry.h"
 
+#define UNUSED(x) ((void)(x))
 #define OUT /* just a marker */
 
 #ifdef DEBUG
@@ -95,6 +96,7 @@ public:
     {
         bool res = read_next_entry();
         assert(res || eof_);
+        UNUSED(res);
         return *this;
     }
 
