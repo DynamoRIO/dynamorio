@@ -1248,6 +1248,18 @@ _tmain(int argc, TCHAR *targv[])
     native_tool[0] = '\0';
 #endif
 
+    /* Quick pass to set verbose for info() logs before main parsing. */
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-verbose") == 0 || strcmp(argv[i], "-v") == 0) {
+            verbose = true;
+            break;
+        }
+        if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "-t") == 0 ||
+            strcmp(argv[i], "-c32") == 0 || strcmp(argv[i], "-c64") == 0 ||
+            strcmp(argv[i], "--") == 0)
+            break;
+    }
+
     /* default root: we assume this tool is in <root>/bin{32,64}/dr*.exe */
     get_absolute_path(argv[0], buf, BUFFER_SIZE_ELEMENTS(buf));
     NULL_TERMINATE_BUFFER(buf);
@@ -1269,6 +1281,20 @@ _tmain(int argc, TCHAR *targv[])
 
     /* we re-read the tool list if the root, platform or toolconfig dir change */
     read_tool_list(dr_toolconfig_dir, dr_platform);
+
+#if defined(LINUX) && !defined(ANDROID) && (defined(DRCONFIG) || defined(DRRUN))
+    /* XXX i#5431: Workaround for an rseq issue with glibc 2.35 which makes many
+     * apps fail up front.  We expect to remove this once the real fix is in place.
+     */
+#    include <gnu/libc-version.h>
+    const char *libc_ver = gnu_get_libc_version();
+    if (libc_ver[0] != '\0' && libc_ver[0] >= '2' && libc_ver[1] == '.' &&
+        libc_ver[2] >= '3' && libc_ver[3] >= '5') {
+        info("glibc2.35 detected: setting -disable_rseq");
+        add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                         "-disable_rseq");
+    }
+#endif
 
     /* parse command line */
     for (i = 1; i < argc; i++) {
