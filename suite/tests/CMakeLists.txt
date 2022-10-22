@@ -5355,7 +5355,6 @@ endif (NOT ANDROID AND AARCHXX)
 # workarounds so far break over time.
 set_tests_properties(
   code_api|common.broadfun
-  code_api|sample.bbsize
   PROPERTIES LABELS UBUNTU_22)
 if (BUILD_SAMPLES AND NOT ANDROID)
   set_tests_properties(
