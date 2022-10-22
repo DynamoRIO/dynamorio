@@ -5357,6 +5357,11 @@ set_tests_properties(
   code_api|common.broadfun
   code_api|sample.bbsize
   PROPERTIES LABELS UBUNTU_22)
+if (BUILD_SAMPLES AND NOT ANDROID)
+  set_tests_properties(
+    code_api|sample.bbsize
+    PROPERTIES LABELS UBUNTU_22)
+endif ()
 if (BUILD_CLIENTS AND NOT ANDROID)
   set_tests_properties(
     code_api|tool.drcachesim.simple

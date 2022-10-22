@@ -86,6 +86,7 @@ if (UNIX AND NOT APPLE AND NOT ANDROID)
     # XXX i#5437, i#5431: While we work through Ubuntu22 issues we run
     # just a few tests.
     set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
+    set(arg_debug_only ON)
   endif ()
 endif ()
 
