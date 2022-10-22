@@ -5349,3 +5349,21 @@ if (NOT ANDROID AND AARCHXX)
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
 endif (NOT ANDROID AND AARCHXX)
+
+# XXX i#5437, i#5431: While we work through Ubuntu22 issues we want our new GA CI job to
+# just run sanity tests that do pass now as a glibc change detector to see if our
+# workarounds so far break over time.
+set_tests_properties(
+  code_api|common.broadfun
+  PROPERTIES LABELS UBUNTU_22)
+if (BUILD_SAMPLES AND NOT ANDROID)
+  set_tests_properties(
+    code_api|sample.bbsize
+    PROPERTIES LABELS UBUNTU_22)
+endif ()
+if (BUILD_CLIENTS AND NOT ANDROID)
+  set_tests_properties(
+    code_api|tool.drcachesim.simple
+    code_api|tool.drcacheoff.simple
+    PROPERTIES LABELS UBUNTU_22)
+endif ()
