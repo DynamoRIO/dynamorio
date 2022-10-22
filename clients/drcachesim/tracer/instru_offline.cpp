@@ -476,7 +476,7 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
     for (instr_t *instr = instrlist_first(ilist); instr != NULL;
          instr = instr_get_next(instr)) {
         instr_t *to_copy = nullptr;
-        emulated_instr_t emulation_info = {};
+        emulated_instr_t emulation_info = { sizeof(emulation_info), 0 };
         if (in_emulation_region) {
             if (drmgr_is_emulation_end(instr))
                 in_emulation_region = false;

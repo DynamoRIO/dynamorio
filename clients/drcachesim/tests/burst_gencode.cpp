@@ -132,6 +132,15 @@ private:
         // instead of the pop into pc which assumes the entry pushed lr?
         instrlist_append(ilist, INSTR_CREATE_bx(dc, opnd_create_reg(DR_REG_LR)));
 #else
+#    ifdef X86
+        // Zero-iter rep-movs loop for testing emulation-marked code
+        // written to the encoding file.
+        instrlist_append(ilist,
+                         INSTR_CREATE_xor(dc, opnd_create_reg(DR_REG_XCX),
+                                          opnd_create_reg(DR_REG_XCX)));
+        instrlist_append(ilist, INSTR_CREATE_rep_movs_1(dc));
+#    endif
+
         instrlist_append(ilist, XINST_CREATE_return(dc));
 #endif
 
