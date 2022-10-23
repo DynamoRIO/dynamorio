@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <fstream>
 #include <thread>
 #include "directory_iterator.h"
 #include "reader/trace_entry_file_reader.h"
