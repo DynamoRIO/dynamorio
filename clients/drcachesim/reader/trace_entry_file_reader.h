@@ -55,6 +55,8 @@
 #    define VPRINT(reader, level, ...) /* nothing */
 #endif
 
+#define UNUSED(x) ((void)(x))
+
 /* Even though we plan to support only trace_entry_file_reader_t for
  * reading trace_entry_t (and no ipc reader like ipc_reader_t) we still need
  * this input-file-type-agnostic trace_entry_reader_t base class.
@@ -95,6 +97,7 @@ public:
     {
         bool res = read_next_entry();
         assert(res || eof_);
+        UNUSED(res);
         return *this;
     }
 
