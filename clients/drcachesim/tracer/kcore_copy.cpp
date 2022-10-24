@@ -100,8 +100,7 @@ kcore_copy_t::~kcore_copy_t()
     if (kcore_code_segments_ != nullptr) {
         /* Free the kcore code segment metadata array. */
         for (int i = 0; i < kcore_code_segments_num_; i++) {
-            dr_global_free(kcore_code_segments_[i].buf,
-                           kcore_code_segments_[i].len);
+            dr_global_free(kcore_code_segments_[i].buf, kcore_code_segments_[i].len);
         }
         dr_global_free(kcore_code_segments_,
                        sizeof(proc_kcore_code_segment_t) * kcore_code_segments_num_);
