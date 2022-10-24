@@ -52,7 +52,7 @@
 #    define UNUSED(x) ((void)(x))
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED                     /* nothing */
+#    define UNUSED(x)                  /* nothing */
 #endif
 
 typedef trace_entry_file_reader_t<std::ifstream> default_trace_entry_file_reader_t;

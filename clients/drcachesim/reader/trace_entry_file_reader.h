@@ -54,7 +54,7 @@
 #    define UNUSED(x) ((void)(x))
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED                     /* nothing */
+#    define UNUSED(x)                  /* nothing */
 #endif
 
 /* Even though we plan to support only trace_entry_file_reader_t for
