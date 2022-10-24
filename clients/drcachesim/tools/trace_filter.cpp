@@ -41,20 +41,6 @@
 #endif
 #include "trace_filter.h"
 
-#ifdef DEBUG
-#    define VPRINT(reader, level, ...)                            \
-        do {                                                      \
-            if ((reader)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (reader)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                     \
-            }                                                     \
-        } while (0)
-#    define UNUSED(x) ((void)(x))
-#else
-#    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED(x)                  /* nothing */
-#endif
-
 typedef trace_entry_file_reader_t<std::ifstream> default_trace_entry_file_reader_t;
 
 trace_filter_t::trace_filter_t(const std::string &trace_dir,

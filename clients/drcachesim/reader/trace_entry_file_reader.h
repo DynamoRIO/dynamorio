@@ -51,10 +51,10 @@
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
-#    define UNUSED(x) ((void)(x))
+#    define UNUSED(x) /* nothing */
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED(x)                  /* nothing */
+#    define UNUSED(x) ((void)(x))
 #endif
 
 /* Even though we plan to support only trace_entry_file_reader_t for
