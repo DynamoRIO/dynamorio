@@ -112,11 +112,12 @@ test_nop_filter()
     }
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     basic_counts_t::counters_t c2 = get_basic_counts(output_dir);
-    if (memcmp(&c1, &c2, offsetof(basic_counts_t::counters_t, unique_pc_addrs)) != 0)
-        fprintf(stderr, "Nop filter returned different counts\n");
-    else
+    if (c1 == c2) {
         fprintf(stderr, "test_nop_filter passed\n");
-    return true;
+        return true;
+    }
+    fprintf(stderr, "Nop filter returned different counts\n");
+    return false;
 }
 
 int

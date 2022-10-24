@@ -88,6 +88,27 @@ public:
             }
             return *this;
         }
+        bool
+        operator==(const counters_t &rhs)
+        {
+            // memcmp doesn't work with the unordered_set member. Also,
+            // cannot compare till offsetof(basic_counts_t::counters_t, unique_pc_addrs)
+            // as it gives a non-standard-layout type warning on osx.
+            return instrs == rhs.instrs && instrs_nofetch == rhs.instrs_nofetch &&
+                prefetches == rhs.prefetches && loads == rhs.loads &&
+                stores == rhs.stores && sched_markers == rhs.sched_markers &&
+                xfer_markers == rhs.xfer_markers &&
+                func_id_markers == rhs.func_id_markers &&
+                func_retaddr_markers == rhs.func_retaddr_markers &&
+                func_arg_markers == rhs.func_arg_markers &&
+                func_retval_markers == rhs.func_retval_markers &&
+                phys_addr_markers == rhs.phys_addr_markers &&
+                phys_unavail_markers == rhs.phys_unavail_markers &&
+                other_markers == rhs.other_markers &&
+                icache_flushes == rhs.icache_flushes &&
+                dcache_flushes == rhs.dcache_flushes && encodings == rhs.encodings &&
+                unique_pc_addrs == rhs.unique_pc_addrs;
+        }
         int_least64_t instrs = 0;
         int_least64_t instrs_nofetch = 0;
         int_least64_t prefetches = 0;
