@@ -51,11 +51,11 @@
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
+#    define UNUSED(x) ((void)(x))
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
+#    define UNUSED                     /* nothing */
 #endif
-
-#define UNUSED(x) ((void)(x))
 
 /* Even though we plan to support only trace_entry_file_reader_t for
  * reading trace_entry_t (and no ipc reader like ipc_reader_t) we still need

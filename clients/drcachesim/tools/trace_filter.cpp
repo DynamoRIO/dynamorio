@@ -41,6 +41,20 @@
 #endif
 #include "trace_filter.h"
 
+#ifdef DEBUG
+#    define VPRINT(reader, level, ...)                            \
+        do {                                                      \
+            if ((reader)->verbosity_ >= (level)) {                \
+                fprintf(stderr, "%s ", (reader)->output_prefix_); \
+                fprintf(stderr, __VA_ARGS__);                     \
+            }                                                     \
+        } while (0)
+#    define UNUSED(x) ((void)(x))
+#else
+#    define VPRINT(reader, level, ...) /* nothing */
+#    define UNUSED                     /* nothing */
+#endif
+
 typedef trace_entry_file_reader_t<std::ifstream> default_trace_entry_file_reader_t;
 
 trace_filter_t::trace_filter_t(const std::string &trace_dir,
@@ -53,6 +67,8 @@ trace_filter_t::trace_filter_t(const std::string &trace_dir,
 {
     if (!init_file_reader_writer(trace_dir, output_dir, verbosity))
         error_string_ = "Could not initialize trace reader and writer";
+    UNUSED(verbosity_);
+    UNUSED(output_prefix_);
 }
 
 #if defined(HAS_ZLIB)
