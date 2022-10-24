@@ -68,11 +68,9 @@ public:
         : input_path_(path)
     {
         eof_ = false;
-        cur_entry_ = {};
     }
     trace_entry_reader_t()
     {
-        cur_entry_ = {};
     }
     virtual ~trace_entry_reader_t()
     {
@@ -132,7 +130,7 @@ protected:
     // Following typical stream iterator convention, the default constructor
     // produces an EOF object.
     bool eof_ = true;
-    trace_entry_t cur_entry_;
+    trace_entry_t cur_entry_ = {};
     std::string input_path_;
 };
 

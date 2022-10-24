@@ -128,12 +128,6 @@ endmacro ()
 
 add_exported_library(drmemtrace_reuse_distance STATIC tools/reuse_distance.cpp)
 add_exported_library(drmemtrace_histogram STATIC tools/histogram.cpp)
-add_exported_library(drmemtrace_trace_filter STATIC tools/trace_filter.cpp
-  reader/reader.cpp
-  reader/file_reader.cpp
-  reader/trace_entry_file_reader.cpp
-  ${zlib_reader}
-)
 add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
@@ -141,6 +135,15 @@ add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
+
+add_exported_library(drmemtrace_trace_filter STATIC tools/trace_filter.cpp
+  reader/reader.cpp
+  reader/file_reader.cpp
+  reader/trace_entry_file_reader.cpp
+  ${zlib_reader}
+)
+target_link_libraries(drmemtrace_trace_filter directory_iterator)
+link_with_pthread(drmemtrace_trace_filter)
 
 # We combine the cache and TLB simulators as they share code already.
 add_exported_library(drmemtrace_simulator STATIC
@@ -292,9 +295,6 @@ add_executable(prefetch_analyzer_launcher
 target_link_libraries(prefetch_analyzer_launcher drmemtrace_analyzer drfrontendlib)
 use_DynamoRIO_extension(prefetch_analyzer_launcher droption)
 add_dependencies(prefetch_analyzer_launcher api_headers)
-
-target_link_libraries(drmemtrace_trace_filter directory_iterator)
-link_with_pthread(drmemtrace_trace_filter)
 
 add_executable(trace_filter_launcher
   tools/trace_filter_launcher.cpp)
@@ -620,7 +620,7 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcacheoff.raw2trace_unit_tests
     COMMAND tool.drcacheoff.raw2trace_unit_tests)
 
-  # TODO i#5675: add tests for other environments. Currently, the repository does not have
+  # XXX i#5675: add tests for other environments. Currently, the repository does not have
   # a checked-in post-processed trace for x86-32 or AArchXX.
   if (X86 AND X64 AND ZLIB_FOUND)
     set(trace_dir

@@ -32,14 +32,11 @@
 
 /* Unit tests for trace_filter. */
 
-#include <cstring>
 #include "analyzer.h"
 #include "dr_api.h"
 #include "droption.h"
-#include "dr_frontend.h"
 #include "tools/basic_counts.h"
 #include "tools/trace_filter.h"
-#include <iostream>
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -48,12 +45,12 @@
         exit(1);                                            \
     } while (0)
 
-#define CHECK(cond, msg, ...)         \
-    do {                              \
-        if (!(cond)) {                \
-            std::cerr << msg << "\n"; \
-            return false;             \
-        }                             \
+#define CHECK(cond, msg, ...)             \
+    do {                                  \
+        if (!(cond)) {                    \
+            fprintf(stderr, "%s\n", msg); \
+            return false;                 \
+        }                                 \
     } while (0)
 
 static droption_t<std::string>
@@ -69,9 +66,9 @@ static droption_t<std::string> op_tmp_output_dir(
 static bool
 local_create_dir(const char *dir)
 {
-    if (!dr_directory_exists(dir))
-        return dr_create_dir(dir);
-    return true;
+    if (dr_directory_exists(dir))
+        return true;
+    return dr_create_dir(dir);
 }
 
 basic_counts_t::counters_t
@@ -112,12 +109,9 @@ test_nop_filter()
     }
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     basic_counts_t::counters_t c2 = get_basic_counts(output_dir);
-    if (c1 == c2) {
-        fprintf(stderr, "test_nop_filter passed\n");
-        return true;
-    }
-    fprintf(stderr, "Nop filter returned different counts\n");
-    return false;
+    CHECK(c1 == c2, "Nop filter returned different counts\n");
+    fprintf(stderr, "test_nop_filter passed\n");
+    return true;
 }
 
 int

@@ -73,13 +73,13 @@ trace_filter_t::get_reader(const std::string &path, int verbosity)
 {
 #ifdef HAS_ZLIB
     if (ends_with(path, trace_filter_t::gzip_suffix)) {
-        VPRINT(this, 3, "Using the gzip reader\n");
+        VPRINT(this, 3, "Using the gzip reader for %s\n", path.c_str());
         input_file_format = FILE_FORMAT_GZIP;
         return std::unique_ptr<trace_entry_reader_t>(
             new compressed_trace_entry_file_reader_t(path, verbosity));
     }
 #endif
-    VPRINT(this, 3, "Using the default reader\n");
+    VPRINT(this, 3, "Using the default reader for %s\n", path.c_str());
     input_file_format = FILE_FORMAT_UNKNOWN;
     return std::unique_ptr<trace_entry_reader_t>(
         new default_trace_entry_file_reader_t(path, verbosity));
@@ -91,12 +91,12 @@ trace_filter_t::get_writer(const std::string &path, int verbosity)
     std::unique_ptr<std::ostream> ofile;
 #ifdef HAS_ZLIB
     if (input_file_format == FILE_FORMAT_GZIP) {
-        VPRINT(this, 3, "Using the gzip writer\n");
+        VPRINT(this, 3, "Using the gzip writer for %s\n", path.c_str());
         return std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
     }
 #endif
     assert(input_file_format == FILE_FORMAT_UNKNOWN);
-    VPRINT(this, 3, "Using the default writer\n");
+    VPRINT(this, 3, "Using the default writer for %s\n", path.c_str());
     return std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
 }
 
@@ -137,7 +137,6 @@ trace_filter_t::init_file_reader_writer(const std::string &trace_dir,
             error_string_ = "Could not get a writer for " + output_path;
             return false;
         }
-        VPRINT(this, 2, "Opened output file %s\n", output_path.c_str());
 
         thread_data_.push_back(shard_data_t(static_cast<int>(thread_data_.size()),
                                             std::move(reader), std::move(writer),

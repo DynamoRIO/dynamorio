@@ -38,7 +38,8 @@ template <>
 /* clang-format on */
 trace_entry_file_reader_t<std::ifstream>::~trace_entry_file_reader_t<std::ifstream>()
 {
-    delete input_file_;
+    if (input_file_ != nullptr)
+        delete input_file_;
 }
 
 template <>
@@ -57,9 +58,8 @@ template <>
 bool
 trace_entry_file_reader_t<std::ifstream>::read_next_entry()
 {
-    if (!input_file_->read((char *)&cur_entry_, sizeof(cur_entry_))) {
+    if (!input_file_->read((char *)&cur_entry_, sizeof(cur_entry_)))
         return false;
-    }
     VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
            cur_entry_.size, cur_entry_.addr);
     return true;
