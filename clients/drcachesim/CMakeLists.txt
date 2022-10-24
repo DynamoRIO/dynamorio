@@ -620,9 +620,13 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcacheoff.raw2trace_unit_tests
     COMMAND tool.drcacheoff.raw2trace_unit_tests)
 
-  if (X86)
-    set(thread_trace_dir
+  # TODO i#5675: add tests for other environments. Currently, the repository does not have
+  # a checked-in post-processed trace for x86-32 or AArchXX.
+  if (X86 AND X64)
+    set(trace_dir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+    set(tmp_output_dir ${PROJECT_BINARY_DIR}/trace_filter_tests_tmp_output)
+    file(MAKE_DIRECTORY ${tmp_output_dir})
     add_executable(tool.drcachesim.trace_filter_unit_tests tests/trace_filter_unit_tests.cpp)
     configure_DynamoRIO_standalone(tool.drcachesim.trace_filter_unit_tests)
     target_link_libraries(tool.drcachesim.trace_filter_unit_tests drmemtrace_analyzer
@@ -630,7 +634,7 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcachesim.trace_filter_unit_tests)
     add_test(NAME tool.drcachesim.trace_filter_unit_tests
              COMMAND tool.drcachesim.trace_filter_unit_tests --trace_dir
-                     ${thread_trace_dir} --tmp_output_dir /tmp)
+                     ${trace_dir} --tmp_output_dir ${tmp_output_dir})
   endif ()
 
   if (DR_HOST_AARCH64)
