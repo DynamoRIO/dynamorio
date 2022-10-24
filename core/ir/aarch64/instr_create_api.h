@@ -4970,4 +4970,199 @@
 #define INSTR_CREATE_movprfx_vector(dc, Zd, Zn) \
     instr_create_1dst_1src(dc, OP_movprfx, Zd, Zn)
 
+/**
+ * Creates a SQADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQADD   <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ * \param shift   The immediate shiftOp for imm8
+ */
+#define INSTR_CREATE_sqadd_sve_shift(dc, Zdn, imm, shift) \
+    instr_create_1dst_4src(dc, OP_sqadd, Zdn, Zdn, imm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a SQADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQADD   <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sqadd_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sqadd, Zd, Zn, Zm)
+
+/**
+ * Creates a SQSUB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQSUB   <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ * \param shift   The immediate shiftOp for imm8
+ */
+#define INSTR_CREATE_sqsub_sve_shift(dc, Zdn, imm, shift) \
+    instr_create_1dst_4src(dc, OP_sqsub, Zdn, Zdn, imm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a SQSUB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQSUB   <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sqsub_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sqsub, Zd, Zn, Zm)
+
+/**
+ * Creates a SUB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SUB     <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and first destination vector register, Z (Scalable)
+ * \param Pg   The first source vector register, Z (Scalable)
+ * \param Zm   The third source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sub_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sub, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SUB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SUB     <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ * \param shift   The immediate shiftOp for imm8
+ */
+#define INSTR_CREATE_sub_sve_shift(dc, Zdn, imm, shift) \
+    instr_create_1dst_4src(dc, OP_sub, Zdn, Zdn, imm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a SUB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SUB     <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sub_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sub, Zd, Zn, Zm)
+
+/**
+ * Creates a SUBR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SUBR    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and first destination vector register, Z (Scalable)
+ * \param Pg   The first source vector register, Z (Scalable)
+ * \param Zm   The third source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_subr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_subr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SUBR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SUBR    <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ * \param shift   The immediate shiftOp for imm8
+ */
+#define INSTR_CREATE_subr_sve_shift(dc, Zdn, imm, shift) \
+    instr_create_1dst_4src(dc, OP_subr, Zdn, Zdn, imm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a UQADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQADD   <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ * \param shift   The immediate shiftOp for imm8
+ */
+#define INSTR_CREATE_uqadd_sve_shift(dc, Zdn, imm, shift) \
+    instr_create_1dst_4src(dc, OP_uqadd, Zdn, Zdn, imm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a UQADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQADD   <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_uqadd_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uqadd, Zd, Zn, Zm)
+
+/**
+ * Creates a UQSUB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQSUB   <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ * \param shift   The immediate shiftOp for imm8
+ */
+#define INSTR_CREATE_uqsub_sve_shift(dc, Zdn, imm, shift) \
+    instr_create_1dst_4src(dc, OP_uqsub, Zdn, Zdn, imm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a UQSUB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQSUB   <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_uqsub_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uqsub, Zd, Zn, Zm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

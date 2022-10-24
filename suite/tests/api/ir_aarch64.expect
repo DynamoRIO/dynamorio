@@ -643,27 +643,6 @@ bic    %p2 %z2 %z24 $0x01 -> %z2
 bic    %p2 %z2 %z24 $0x02 -> %z2
 bic    %p2 %z2 %z24 $0x03 -> %z2
 test_sve_int_bin_pred_log complete
-sub    %z13 %z29 $0x00 -> %z0
-sub    %z13 %z29 $0x01 -> %z0
-sub    %z13 %z29 $0x02 -> %z0
-sub    %z13 %z29 $0x03 -> %z0
-sqadd  %z17 %z10 $0x00 -> %z31
-sqadd  %z17 %z10 $0x01 -> %z31
-sqadd  %z17 %z10 $0x02 -> %z31
-sqadd  %z17 %z10 $0x03 -> %z31
-uqadd  %z31 %z20 $0x00 -> %z2
-uqadd  %z31 %z20 $0x01 -> %z2
-uqadd  %z31 %z20 $0x02 -> %z2
-uqadd  %z31 %z20 $0x03 -> %z2
-sqsub  %z15 %z23 $0x00 -> %z4
-sqsub  %z15 %z23 $0x01 -> %z4
-sqsub  %z15 %z23 $0x02 -> %z4
-sqsub  %z15 %z23 $0x03 -> %z4
-uqsub  %z26 %z8 $0x00 -> %z2
-uqsub  %z26 %z8 $0x01 -> %z2
-uqsub  %z26 %z8 $0x02 -> %z2
-uqsub  %z26 %z8 $0x03 -> %z2
-test_sve_int_bin_cons_arit_0 complete
 saddl  %d13 %d18 $0x00 -> %q18
 saddl  %d13 %d18 $0x01 -> %q18
 saddl  %d13 %d18 $0x02 -> %q18
