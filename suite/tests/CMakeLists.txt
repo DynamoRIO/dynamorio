@@ -4133,7 +4133,7 @@ if (BUILD_CLIENTS)
         set (${testname_full}_postcmd
           "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
         set(${testname_full}_postcmd2
-          "firstglob@${cmd_pfx}${drpt2trace_path}@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata")
+          "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@SINGLE_IMAGE@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-image_format@KIMAGE@-image@${testname_full}.*.dir/kernel.raw/kimage")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
@@ -4243,6 +4243,7 @@ if (BUILD_CLIENTS)
       "-pt_mtc_freq" "3" "-pt_nom_freq" "37"
       "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308")
     set(drpt2trace_sideband_args ${drpt2trace_commong}
+      "-mode" "SIDEBAND"
       "-primary_sb"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
       "-secondary_sb"
@@ -4257,7 +4258,9 @@ if (BUILD_CLIENTS)
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_sideband_args}" ON OFF)
     set(drpt2trace_elf_args ${drpt2trace_commong}
-      "-elf"
+      "-mode" "SINGLE_IMAGE"
+      "-image_format" "ELF"
+      "-image"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
