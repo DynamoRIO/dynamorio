@@ -176,9 +176,13 @@ Further non-compatibility-affecting changes include:
    the .zip, which sets the granularity of a fast seek.
  - Added dr_register_post_attach_event(), dr_unregister_post_attach_event(),
    dr_register_pre_detach_event(), and dr_unregister_pre_detach_event().
- - Added insruction encodings to drmemtrace offline traces.
+ - Added instruction encodings to drmemtrace offline traces.
  - Added drmemtrace_replace_file_ops_ex().
  - Added -align_endpoints to drmemtrace to avoid uneven attach/detach periods.
+ - Added a method of representing vector registers with element sizes.
+   They can be created with opnd_create_reg_element_vector(), detected with
+   opnd_is_element_vector_reg() and have their element size retrieved by
+   opnd_get_vector_element_size().
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
