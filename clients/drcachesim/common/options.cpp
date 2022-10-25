@@ -288,7 +288,7 @@ droption_t<bytesize_t> op_max_global_trace_refs(
 droption_t<bool> op_align_endpoints(
     // XXX i#2039,i#5686: Make this true by default (and maybe remove it altogether) once
     // robustness issues with drbbdup are fixed (restore state for scatter/gather and
-    // other libs; yet-diagnosed other state restore issues).
+    // other libs; yet-undiagnosed other state restore issues).
     DROPTION_SCOPE_CLIENT, "align_endpoints", false,
     "Nop tracing when partially attached or detached",
     "When using attach/detach to trace a burst, the attach and detach processes are "

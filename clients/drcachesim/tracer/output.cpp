@@ -912,7 +912,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     if (op_offline.get_value() && data->file == INVALID_FILE) {
         // We've delayed opening a new window file to avoid an empty final file.
         DR_ASSERT(has_tracing_windows() || op_trace_after_instrs.get_value() > 0 ||
-                  attached_to_process);
+                  attached_midway);
         open_new_thread_file(drcontext, get_local_window(data));
     }
 

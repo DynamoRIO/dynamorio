@@ -156,7 +156,7 @@ size_t buf_hdr_slots_size;
 static bool (*should_trace_thread_cb)(thread_id_t tid, void *user_data);
 static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
-bool attached_to_process;
+bool attached_midway;
 
 static bool
 bbdup_instr_counting_enabled()
@@ -168,7 +168,7 @@ bbdup_instr_counting_enabled()
 static bool
 bbdup_duplication_enabled()
 {
-    return attached_to_process || bbdup_instr_counting_enabled();
+    return attached_midway || bbdup_instr_counting_enabled();
 }
 
 std::atomic<ptr_int_t> tracing_window;
@@ -251,6 +251,9 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
             DR_ASSERT(res == DRBBDUP_SUCCESS);
         }
+        // XXX i#2039: We have possible future use cases for BBDUP_MODE_FUNC_ONLY
+        // to track functions during no-tracing periods, possibly replacing the
+        // NOP mode for some of those.  For now it is not enabled.
     } else {
         /* Tracing is always on, so we have just one type of instrumentation and
          * do not need block duplication.
@@ -407,7 +410,7 @@ instrumentation_init()
 static void
 event_post_attach()
 {
-    DR_ASSERT(attached_to_process);
+    DR_ASSERT(attached_midway);
     if (!align_attach_detach_endpoints())
         return;
     if (op_trace_after_instrs.get_value() != 0) {
@@ -2054,7 +2057,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif
-    attached_to_process = dr_register_post_attach_event(event_post_attach);
+    attached_midway = dr_register_post_attach_event(event_post_attach);
     dr_register_pre_detach_event(event_pre_detach);
 
     /* We need our thread exit event to run *before* drmodtrack's as we may

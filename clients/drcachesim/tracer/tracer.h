@@ -152,7 +152,7 @@ is_first_nonlabel(void *drcontext, instr_t *instr);
 
 extern std::atomic<ptr_int_t> tracing_mode;
 extern std::atomic<ptr_int_t> tracing_window;
-extern bool attached_to_process;
+extern bool attached_midway;
 
 /* We have multiple modes.  While just 2 results in a more efficient dispatch,
  * the power of extra modes justifies the extra overhead.
@@ -163,10 +163,10 @@ extern bool attached_to_process;
  * lower-cost than counting.
  */
 enum {
-    BBDUP_MODE_TRACE = 0,
-    BBDUP_MODE_COUNT = 1,
-    BBDUP_MODE_FUNC_ONLY = 2,
-    BBDUP_MODE_NOP = 3,
+    BBDUP_MODE_TRACE = 0,     /* Full address tracing. */
+    BBDUP_MODE_COUNT = 1,     /* Instr counting for delayed tracing or trace windows. */
+    BBDUP_MODE_FUNC_ONLY = 2, /* Function tracing during no-full-trace periods. */
+    BBDUP_MODE_NOP = 3,       /* No tracing or counting for pre-attach or post-detach. */
 };
 
 #if defined(X86_64) || defined(AARCH64)
@@ -259,7 +259,7 @@ has_tracing_windows()
 static inline bool
 align_attach_detach_endpoints()
 {
-    return attached_to_process && op_align_endpoints.get_value();
+    return attached_midway && op_align_endpoints.get_value();
 }
 
 } // namespace drmemtrace
