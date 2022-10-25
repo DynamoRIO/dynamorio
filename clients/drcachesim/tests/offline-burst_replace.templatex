@@ -5,14 +5,18 @@ create dir .*
 create dir .*
 open file .*
 open file .*
-pre-DR start
 open file .*
+open file .*
+pre-DR start
 0: writing [0-9]+ bytes .*
 1: writing [0-9]+ bytes .*
 restore the write file function
 pre-DR detach
 close file .*
 2: writing [0-9]+ bytes .*
+3: writing [0-9]+ bytes .*
+close file .*
+close file .*
 close file .*
 all done
 Cache simulation results:
