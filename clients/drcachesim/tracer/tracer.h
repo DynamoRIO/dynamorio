@@ -150,21 +150,23 @@ extern void *mutex;
 bool
 is_first_nonlabel(void *drcontext, instr_t *instr);
 
-extern std::atomic<ptr_int_t> tracing_disabled;
+extern std::atomic<ptr_int_t> tracing_mode;
 extern std::atomic<ptr_int_t> tracing_window;
+extern bool attached_midway;
 
-/* We have two modes: count instructions only, and full trace.
+/* We have multiple modes.  While just 2 results in a more efficient dispatch,
+ * the power of extra modes justifies the extra overhead.
  *
- * XXX i#3995: To implement -max_trace_size with drbbdup cases (with thread-private
- * encodings), or support nudges enabling tracing, or have a single -trace_for_instrs
- * transition to something lower-cost than counting, we will likely add a 3rd mode that
- * has zero instrumentation.  We also would use the 3rd mode for just -trace_for_instrs
- * with no -retrace_every_instrs.  For now we have just 2 as the case dispatch is more
- * efficient that way.
+ * TODO i#3995: Use the new BBDUP_MODE_NOP to implement -max_trace_size with drbbdup
+ * cases (with thread-private encodings), to support nudges enabling tracing, and to
+ * have a single -trace_for_instrs with no -retrace_every_instrs transition to something
+ * lower-cost than counting.
  */
 enum {
-    BBDUP_MODE_TRACE = 0,
-    BBDUP_MODE_COUNT = 1,
+    BBDUP_MODE_TRACE = 0,     /* Full address tracing. */
+    BBDUP_MODE_COUNT = 1,     /* Instr counting for delayed tracing or trace windows. */
+    BBDUP_MODE_FUNC_ONLY = 2, /* Function tracing during no-full-trace periods. */
+    BBDUP_MODE_NOP = 3,       /* No tracing or counting for pre-attach or post-detach. */
 };
 
 #if defined(X86_64) || defined(AARCH64)
@@ -252,6 +254,12 @@ has_tracing_windows()
     // since we rely on having window numbers for the end-of-block buffer output check
     // used for a single-window transition away from tracing.
     return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
+}
+
+static inline bool
+align_attach_detach_endpoints()
+{
+    return attached_midway && op_align_endpoints.get_value();
 }
 
 } // namespace drmemtrace

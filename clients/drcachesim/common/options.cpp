@@ -285,6 +285,19 @@ droption_t<bytesize_t> op_max_global_trace_refs(
     "This is similar to -exit_after_tracing but without terminating the process."
     "The reference count is approximate.");
 
+droption_t<bool> op_align_endpoints(
+    // XXX i#2039,i#5686: Make this true by default (and maybe remove it altogether) once
+    // robustness issues with drbbdup are fixed (restore state for scatter/gather and
+    // other libs; yet-undiagnosed other state restore issues).
+    DROPTION_SCOPE_CLIENT, "align_endpoints", false,
+    "Nop tracing when partially attached or detached",
+    "When using attach/detach to trace a burst, the attach and detach processes are "
+    "staggered, with the set of threads producing trace data incrementally growing or "
+    "shrinking.  This results in uneven thread activity at the start and end of the "
+    "burst.  If this option is enabled, tracing is nop-ed until fully attached to "
+    "all threads and is nop-ed as soon as detach starts, eliminating the unevenness. "
+    "This also allows omitting threads that did nothing during the burst.");
+
 droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
     "Do not start tracing until N instructions",

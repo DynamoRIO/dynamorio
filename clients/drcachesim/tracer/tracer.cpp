@@ -156,12 +156,19 @@ size_t buf_hdr_slots_size;
 static bool (*should_trace_thread_cb)(thread_id_t tid, void *user_data);
 static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
+bool attached_midway;
+
+static bool
+bbdup_instr_counting_enabled()
+{
+    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
+        op_retrace_every_instrs.get_value() > 0;
+}
 
 static bool
 bbdup_duplication_enabled()
 {
-    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
-        op_retrace_every_instrs.get_value() > 0;
+    return attached_midway || bbdup_instr_counting_enabled();
 }
 
 std::atomic<ptr_int_t> tracing_window;
@@ -198,7 +205,7 @@ instru_notify(uint level, const char *fmt, ...)
 /* This holds one of the BBDUP_MODE_ enum values, but drbbdup requires that it
  * be pointer-sized.
  */
-std::atomic<ptr_int_t> tracing_disabled;
+std::atomic<ptr_int_t> tracing_mode;
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
@@ -235,9 +242,18 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
     if (bbdup_duplication_enabled()) {
         *enable_dups = true;
-        drbbdup_status_t res =
-            drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
-        DR_ASSERT(res == DRBBDUP_SUCCESS);
+        drbbdup_status_t res;
+        if (align_attach_detach_endpoints()) {
+            res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_NOP);
+            DR_ASSERT(res == DRBBDUP_SUCCESS);
+        }
+        if (bbdup_instr_counting_enabled()) {
+            res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
+            DR_ASSERT(res == DRBBDUP_SUCCESS);
+        }
+        // XXX i#2039: We have possible future use cases for BBDUP_MODE_FUNC_ONLY
+        // to track functions during no-tracing periods, possibly replacing the
+        // NOP mode for some of those.  For now it is not enabled.
     } else {
         /* Tracing is always on, so we have just one type of instrumentation and
          * do not need block duplication.
@@ -276,6 +292,10 @@ event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     } else if (mode == BBDUP_MODE_COUNT) {
         return event_inscount_bb_analysis(drcontext, tag, bb, for_trace, translating,
                                           analysis_data);
+    } else if (mode == BBDUP_MODE_FUNC_ONLY) {
+        return DR_EMIT_DEFAULT;
+    } else if (mode == BBDUP_MODE_NOP) {
+        return DR_EMIT_DEFAULT;
     } else
         DR_ASSERT(false);
     return DR_EMIT_DEFAULT;
@@ -288,6 +308,10 @@ event_bb_analyze_case_cleanup(void *drcontext, uintptr_t mode, void *user_data,
     if (mode == BBDUP_MODE_TRACE)
         event_bb_analysis_cleanup(drcontext, analysis_data);
     else if (mode == BBDUP_MODE_COUNT)
+        ; /* no cleanup needed */
+    else if (mode == BBDUP_MODE_FUNC_ONLY)
+        ; /* no cleanup needed */
+    else if (mode == BBDUP_MODE_NOP)
         ; /* no cleanup needed */
     else
         DR_ASSERT(false);
@@ -303,9 +327,17 @@ event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         return event_app_instruction(drcontext, tag, bb, instr, where, for_trace,
                                      translating, orig_analysis_data, analysis_data);
     } else if (mode == BBDUP_MODE_COUNT) {
+        // This includes func_trace_disabled_instrument_event() for drwrap cleanup.
         return event_inscount_app_instruction(drcontext, tag, bb, instr, where, for_trace,
                                               translating, orig_analysis_data,
                                               analysis_data);
+    } else if (mode == BBDUP_MODE_FUNC_ONLY) {
+        return func_trace_enabled_instrument_event(drcontext, tag, bb, instr, where,
+                                                   for_trace, translating, NULL);
+    } else if (mode == BBDUP_MODE_NOP) {
+        // We still need drwrap to clean up b/c we're using intrusive optimizations.
+        return func_trace_disabled_instrument_event(drcontext, tag, bb, instr, where,
+                                                    for_trace, translating, NULL);
     } else
         DR_ASSERT(false);
     return DR_EMIT_DEFAULT;
@@ -337,20 +369,21 @@ instrumentation_drbbdup_init()
     opts.analyze_case_ex = event_bb_analyze_case;
     opts.destroy_case_analysis = event_bb_analyze_case_cleanup;
     opts.instrument_instr_ex = event_app_instruction_case;
-    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_disabled, OPSZ_PTR);
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_mode, OPSZ_PTR);
     opts.atomic_load_encoding = true;
-    if (bbdup_duplication_enabled())
-        opts.non_default_case_limit = 1;
-    else {
-        // Save memory by asking drbbdup to not keep per-block bookkeeping.
-        opts.non_default_case_limit = 0;
-    }
+    // Save memory by asking drbbdup to not keep per-block bookkeeping
+    // unless we need it (the cases below).
+    opts.non_default_case_limit = 0;
+    if (align_attach_detach_endpoints())
+        ++opts.non_default_case_limit; // BBDUP_MODE_NOP.
+    if (bbdup_instr_counting_enabled())
+        ++opts.non_default_case_limit; // BBDUP_MODE_COUNT.
     // Save per-thread heap for a feature we do not need.
     opts.never_enable_dynamic_handling = true;
     drbbdup_status_t res = drbbdup_init(&opts);
     DR_ASSERT(res == DRBBDUP_SUCCESS);
     /* We just want barriers and atomic ops: no locks b/c they are not safe. */
-    DR_ASSERT(tracing_disabled.is_lock_free());
+    DR_ASSERT(tracing_mode.is_lock_free());
 }
 
 static void
@@ -364,12 +397,38 @@ instrumentation_init()
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
 
-    if (op_trace_after_instrs.get_value() != 0)
-        tracing_disabled.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    if (align_attach_detach_endpoints())
+        tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
+    else if (op_trace_after_instrs.get_value() != 0)
+        tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
 
 #ifdef DELAYED_CHECK_INLINED
     drx_init();
 #endif
+}
+
+static void
+event_post_attach()
+{
+    DR_ASSERT(attached_midway);
+    if (!align_attach_detach_endpoints())
+        return;
+    if (op_trace_after_instrs.get_value() != 0) {
+        NOTIFY(1, "Switching to counting mode after attach\n");
+        tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    } else {
+        NOTIFY(1, "Switching to tracing mode after attach\n");
+        tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+    }
+}
+
+static void
+event_pre_detach()
+{
+    if (align_attach_detach_endpoints()) {
+        NOTIFY(1, "Switching to no-tracing mode during detach\n");
+        tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
+    }
 }
 
 /***************************************************************************
@@ -1233,7 +1292,7 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
@@ -1278,7 +1337,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
@@ -1313,7 +1372,7 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
     uintptr_t marker_val = 0;
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
@@ -1914,7 +1973,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     event_inscount_init();
     init_io();
 
-    DR_ASSERT(std::atomic_is_lock_free(&tracing_disabled));
+    DR_ASSERT(std::atomic_is_lock_free(&tracing_mode));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_window));
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
@@ -1998,6 +2057,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif
+    attached_midway = dr_register_post_attach_event(event_post_attach);
+    dr_register_pre_detach_event(event_pre_detach);
+
     /* We need our thread exit event to run *before* drmodtrack's as we may
      * need to translate physical addresses for the thread's final buffer.
      */

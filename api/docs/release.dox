@@ -178,6 +178,7 @@ Further non-compatibility-affecting changes include:
    dr_register_pre_detach_event(), and dr_unregister_pre_detach_event().
  - Added insruction encodings to drmemtrace offline traces.
  - Added drmemtrace_replace_file_ops_ex().
+ - Added -align_endpoints to drmemtrace to avoid uneven attach/detach periods.
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
