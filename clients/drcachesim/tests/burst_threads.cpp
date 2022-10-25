@@ -53,11 +53,12 @@
 #include "../../../suite/tests/condvar.h"
 
 static const int num_threads = 8;
-static const int num_idle_threads = 4;
+static const int num_idle_threads = 40;
 static const int burst_owner = 4;
 static bool finished[num_threads];
 static void *burst_owner_starting;
 static void *burst_owner_finished;
+static void *idle_thread_started[num_idle_threads];
 static void *idle_should_exit;
 
 bool
@@ -168,6 +169,8 @@ void *
 #endif
     idle_thread_func(void *arg)
 {
+    unsigned int idx = (unsigned int)(uintptr_t)arg;
+    signal_cond_var(idle_thread_started[idx]);
     wait_cond_var(idle_should_exit);
     return 0;
 }
@@ -177,10 +180,10 @@ main(int argc, const char *argv[])
 {
 #ifdef UNIX
     pthread_t thread[num_threads];
-    pthread_t idle_thread[num_threads];
+    pthread_t idle_thread[num_idle_threads];
 #else
     uintptr_t thread[num_threads];
-    uintptr_t idle_thread[num_threads];
+    uintptr_t idle_thread[num_idle_threads];
 #endif
 
     // While the start/stop thread only runs 4 iters, the other threads end up
@@ -198,6 +201,24 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS", ops.c_str()))
         std::cerr << "failed to set env var!\n";
 
+    // Create some threads that do nothing to test -align_endpoints omitting them.
+    // On Linux, DR's attach wakes these up and the auto-restart SYS_futex runs
+    // one syscall instruction which depending on end-of-attach timing may be
+    // emitted and so the thread will show up.  But with enough threads we can be
+    // pretty sure very few of them will be in the trace.
+    idle_should_exit = create_cond_var();
+    for (uint i = 0; i < num_idle_threads; i++) {
+        idle_thread_started[i] = create_cond_var();
+#ifdef UNIX
+        pthread_create(&idle_thread[i], NULL, idle_thread_func, (void *)(uintptr_t)i);
+#else
+        idle_thread[i] =
+            _beginthreadex(NULL, 0, idle_thread_func, (void *)(uintptr_t)i, 0, NULL);
+#endif
+        wait_cond_var(idle_thread_started[i]);
+    }
+
+    // Create the main thread pool.
     burst_owner_starting = create_cond_var();
     burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
@@ -205,16 +226,6 @@ main(int argc, const char *argv[])
         pthread_create(&thread[i], NULL, thread_func, (void *)(uintptr_t)i);
 #else
         thread[i] = _beginthreadex(NULL, 0, thread_func, (void *)(uintptr_t)i, 0, NULL);
-#endif
-    }
-    // Now create some threads that do nothing to test -align_endpoints omitting them.
-    idle_should_exit = create_cond_var();
-    for (uint i = 0; i < num_idle_threads; i++) {
-#ifdef UNIX
-        pthread_create(&idle_thread[i], NULL, idle_thread_func, (void *)(uintptr_t)i);
-#else
-        idle_thread[i] =
-            _beginthreadex(NULL, 0, idle_thread_func, (void *)(uintptr_t)i, 0, NULL);
 #endif
     }
     for (uint i = 0; i < num_threads; i++) {
@@ -228,6 +239,7 @@ main(int argc, const char *argv[])
         if (!finished[i])
             std::cerr << "thread " << i << " failed to finish\n";
     }
+    // Exit the idle threads.
     signal_cond_var(idle_should_exit);
     for (uint i = 0; i < num_idle_threads; i++) {
 #ifdef UNIX
@@ -235,6 +247,7 @@ main(int argc, const char *argv[])
 #else
         WaitForSingleObject((HANDLE)idle_thread[i], INFINITE);
 #endif
+        destroy_cond_var(idle_thread_started[i]);
     }
     std::cerr << "all done\n";
     destroy_cond_var(burst_owner_starting);
