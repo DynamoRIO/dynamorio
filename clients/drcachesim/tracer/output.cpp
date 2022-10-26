@@ -553,9 +553,11 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
 }
 
 // Should only be called when the trace buffer is empty.
-static void
+// Returns whether it prepended headers.
+static bool
 set_local_window(void *drcontext, ptr_int_t value)
 {
+    bool prepended = false;
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     NOTIFY(3, "%s: T%d %zd (old: %zd)\n", __FUNCTION__, dr_get_thread_id(drcontext),
            value, get_local_window(data));
@@ -592,6 +594,7 @@ set_local_window(void *drcontext, ptr_int_t value)
                     data->init_header_size = header_size;
                 else
                     DR_ASSERT(header_size == data->init_header_size);
+                prepended = true;
             }
             // We delay opening the next window's file to avoid an empty final file.
             // The initial file is opened at thread init.
@@ -600,6 +603,7 @@ set_local_window(void *drcontext, ptr_int_t value)
         }
     }
     *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
+    return prepended;
 }
 
 static void
@@ -936,12 +940,21 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     // We may get called with nothing to write: e.g., on a syscall for
     // -L0I_filter and -L0D_filter.
     if (buf_ptr == data->buf_base + header_size) {
+        ptr_int_t window = -1;
+        bool prepended = false;
         if (has_tracing_windows()) {
             // If there is no data to write, we do not emit an empty header here
             // unless this thread is exiting (set_local_window will also write out
             // entries on a window change for offline; for online multiple windows
             // may pass with no output at all for an idle thread).
-            set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
+            window = tracing_window.load(std::memory_order_acquire);
+            prepended = set_local_window(drcontext, window);
+        }
+        // Refresh header.
+        if (!prepended) {
+            BUF_PTR(data->seg_base) = data->buf_base +
+                append_unit_header(drcontext, data->buf_base, dr_get_thread_id(drcontext),
+                                   window);
         }
         return;
     }
@@ -1035,6 +1048,17 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             memset(redzone, -1, buf_ptr - redzone);
         }
     }
+    ptr_int_t window = -1;
+    bool prepended = false;
+    if (has_tracing_windows()) {
+        window = tracing_window.load(std::memory_order_acquire);
+        prepended = set_local_window(drcontext, window);
+    }
+    if (!prepended) {
+        BUF_PTR(data->seg_base) = data->buf_base +
+            append_unit_header(drcontext, data->buf_base, dr_get_thread_id(drcontext),
+                               window);
+    }
     num_refs_racy += current_num_refs;
     if (op_exit_after_tracing.get_value() > 0 &&
         num_refs_racy > op_exit_after_tracing.get_value()) {
@@ -1051,14 +1075,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         }
         dr_mutex_unlock(mutex);
     }
-    ptr_int_t window = -1;
-    if (has_tracing_windows()) {
-        window = tracing_window.load(std::memory_order_acquire);
-        set_local_window(drcontext, window);
-    }
-    BUF_PTR(data->seg_base) = data->buf_base +
-        append_unit_header(drcontext, data->buf_base, dr_get_thread_id(drcontext),
-                           window);
 }
 
 void
