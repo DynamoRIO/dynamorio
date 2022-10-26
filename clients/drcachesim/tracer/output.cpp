@@ -952,9 +952,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         }
         // Refresh header.
         if (!prepended) {
-            BUF_PTR(data->seg_base) = data->buf_base +
-                append_unit_header(drcontext, data->buf_base, dr_get_thread_id(drcontext),
-                                   window);
+            append_unit_header(drcontext,
+                               data->buf_base + header_size - buf_hdr_slots_size,
+                               dr_get_thread_id(drcontext), window);
         }
         return;
     }
