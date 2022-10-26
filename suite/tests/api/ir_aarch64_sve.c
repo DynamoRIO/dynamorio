@@ -3156,6 +3156,397 @@ TEST_INSTR(facgt_sve_pred)
     return success;
 }
 
+TEST_INSTR(sdiv_sve_pred)
+{
+
+    /* Testing SDIV    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "sdiv   %p0/m %z0.s %z0.s -> %z0.s",    "sdiv   %p2/m %z5.s %z7.s -> %z5.s",
+        "sdiv   %p3/m %z10.s %z12.s -> %z10.s", "sdiv   %p5/m %z16.s %z18.s -> %z16.s",
+        "sdiv   %p6/m %z21.s %z23.s -> %z21.s", "sdiv   %p7/m %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(sdiv, sdiv_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "sdiv   %p0/m %z0.d %z0.d -> %z0.d",    "sdiv   %p2/m %z5.d %z7.d -> %z5.d",
+        "sdiv   %p3/m %z10.d %z12.d -> %z10.d", "sdiv   %p5/m %z16.d %z18.d -> %z16.d",
+        "sdiv   %p6/m %z21.d %z23.d -> %z21.d", "sdiv   %p7/m %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(sdiv, sdiv_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+}
+
+TEST_INSTR(sdivr_sve_pred)
+{
+
+    /* Testing SDIVR   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "sdivr  %p0/m %z0.s %z0.s -> %z0.s",    "sdivr  %p2/m %z5.s %z7.s -> %z5.s",
+        "sdivr  %p3/m %z10.s %z12.s -> %z10.s", "sdivr  %p5/m %z16.s %z18.s -> %z16.s",
+        "sdivr  %p6/m %z21.s %z23.s -> %z21.s", "sdivr  %p7/m %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(sdivr, sdivr_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "sdivr  %p0/m %z0.d %z0.d -> %z0.d",    "sdivr  %p2/m %z5.d %z7.d -> %z5.d",
+        "sdivr  %p3/m %z10.d %z12.d -> %z10.d", "sdivr  %p5/m %z16.d %z18.d -> %z16.d",
+        "sdivr  %p6/m %z21.d %z23.d -> %z21.d", "sdivr  %p7/m %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(sdivr, sdivr_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+}
+
+TEST_INSTR(udiv_sve_pred)
+{
+
+    /* Testing UDIV    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "udiv   %p0/m %z0.s %z0.s -> %z0.s",    "udiv   %p2/m %z5.s %z7.s -> %z5.s",
+        "udiv   %p3/m %z10.s %z12.s -> %z10.s", "udiv   %p5/m %z16.s %z18.s -> %z16.s",
+        "udiv   %p6/m %z21.s %z23.s -> %z21.s", "udiv   %p7/m %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(udiv, udiv_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "udiv   %p0/m %z0.d %z0.d -> %z0.d",    "udiv   %p2/m %z5.d %z7.d -> %z5.d",
+        "udiv   %p3/m %z10.d %z12.d -> %z10.d", "udiv   %p5/m %z16.d %z18.d -> %z16.d",
+        "udiv   %p6/m %z21.d %z23.d -> %z21.d", "udiv   %p7/m %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(udiv, udiv_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+}
+
+TEST_INSTR(udivr_sve_pred)
+{
+
+    /* Testing UDIVR   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "udivr  %p0/m %z0.s %z0.s -> %z0.s",    "udivr  %p2/m %z5.s %z7.s -> %z5.s",
+        "udivr  %p3/m %z10.s %z12.s -> %z10.s", "udivr  %p5/m %z16.s %z18.s -> %z16.s",
+        "udivr  %p6/m %z21.s %z23.s -> %z21.s", "udivr  %p7/m %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(udivr, udivr_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "udivr  %p0/m %z0.d %z0.d -> %z0.d",    "udivr  %p2/m %z5.d %z7.d -> %z5.d",
+        "udivr  %p3/m %z10.d %z12.d -> %z10.d", "udivr  %p5/m %z16.d %z18.d -> %z16.d",
+        "udivr  %p6/m %z21.d %z23.d -> %z21.d", "udivr  %p7/m %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(udivr, udivr_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+}
+
+TEST_INSTR(umax_sve_pred)
+{
+
+    /* Testing UMAX    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "umax   %p0/m %z0.b %z0.b -> %z0.b",    "umax   %p2/m %z5.b %z7.b -> %z5.b",
+        "umax   %p3/m %z10.b %z12.b -> %z10.b", "umax   %p5/m %z16.b %z18.b -> %z16.b",
+        "umax   %p6/m %z21.b %z23.b -> %z21.b", "umax   %p7/m %z31.b %z31.b -> %z31.b",
+    };
+    TEST_LOOP(umax, umax_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_1));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "umax   %p0/m %z0.h %z0.h -> %z0.h",    "umax   %p2/m %z5.h %z7.h -> %z5.h",
+        "umax   %p3/m %z10.h %z12.h -> %z10.h", "umax   %p5/m %z16.h %z18.h -> %z16.h",
+        "umax   %p6/m %z21.h %z23.h -> %z21.h", "umax   %p7/m %z31.h %z31.h -> %z31.h",
+    };
+    TEST_LOOP(umax, umax_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_2));
+
+    reg_id_t Zdn_0_2[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "umax   %p0/m %z0.s %z0.s -> %z0.s",    "umax   %p2/m %z5.s %z7.s -> %z5.s",
+        "umax   %p3/m %z10.s %z12.s -> %z10.s", "umax   %p5/m %z16.s %z18.s -> %z16.s",
+        "umax   %p6/m %z21.s %z23.s -> %z21.s", "umax   %p7/m %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(umax, umax_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zdn_0_2[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_2[i], true),
+              opnd_create_reg_element_vector(Zm_0_2[i], OPSZ_4));
+
+    reg_id_t Zdn_0_3[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_3[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_3[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_3[6] = {
+        "umax   %p0/m %z0.d %z0.d -> %z0.d",    "umax   %p2/m %z5.d %z7.d -> %z5.d",
+        "umax   %p3/m %z10.d %z12.d -> %z10.d", "umax   %p5/m %z16.d %z18.d -> %z16.d",
+        "umax   %p6/m %z21.d %z23.d -> %z21.d", "umax   %p7/m %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(umax, umax_sve_pred, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_3[i], true),
+              opnd_create_reg_element_vector(Zm_0_3[i], OPSZ_8));
+}
+
+TEST_INSTR(umax_sve)
+{
+
+    /* Testing UMAX    <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_0[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_0[6] = {
+        "umax   %z0.b $0x00 -> %z0.b",   "umax   %z5.b $0x2b -> %z5.b",
+        "umax   %z10.b $0x56 -> %z10.b", "umax   %z16.b $0x81 -> %z16.b",
+        "umax   %z21.b $0xab -> %z21.b", "umax   %z31.b $0xff -> %z31.b",
+    };
+    TEST_LOOP(umax, umax_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_1),
+              opnd_create_immed_uint(imm8_0_0[i], OPSZ_1));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_1[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_1[6] = {
+        "umax   %z0.h $0x00 -> %z0.h",   "umax   %z5.h $0x2b -> %z5.h",
+        "umax   %z10.h $0x56 -> %z10.h", "umax   %z16.h $0x81 -> %z16.h",
+        "umax   %z21.h $0xab -> %z21.h", "umax   %z31.h $0xff -> %z31.h",
+    };
+    TEST_LOOP(umax, umax_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_2),
+              opnd_create_immed_uint(imm8_0_1[i], OPSZ_1));
+
+    reg_id_t Zdn_0_2[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_2[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_2[6] = {
+        "umax   %z0.s $0x00 -> %z0.s",   "umax   %z5.s $0x2b -> %z5.s",
+        "umax   %z10.s $0x56 -> %z10.s", "umax   %z16.s $0x81 -> %z16.s",
+        "umax   %z21.s $0xab -> %z21.s", "umax   %z31.s $0xff -> %z31.s",
+    };
+    TEST_LOOP(umax, umax_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zdn_0_2[i], OPSZ_4),
+              opnd_create_immed_uint(imm8_0_2[i], OPSZ_1));
+
+    reg_id_t Zdn_0_3[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_3[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_3[6] = {
+        "umax   %z0.d $0x00 -> %z0.d",   "umax   %z5.d $0x2b -> %z5.d",
+        "umax   %z10.d $0x56 -> %z10.d", "umax   %z16.d $0x81 -> %z16.d",
+        "umax   %z21.d $0xab -> %z21.d", "umax   %z31.d $0xff -> %z31.d",
+    };
+    TEST_LOOP(umax, umax_sve, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
+              opnd_create_immed_uint(imm8_0_3[i], OPSZ_1));
+}
+
+TEST_INSTR(umin_sve_pred)
+{
+
+    /* Testing UMIN    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "umin   %p0/m %z0.b %z0.b -> %z0.b",    "umin   %p2/m %z5.b %z7.b -> %z5.b",
+        "umin   %p3/m %z10.b %z12.b -> %z10.b", "umin   %p5/m %z16.b %z18.b -> %z16.b",
+        "umin   %p6/m %z21.b %z23.b -> %z21.b", "umin   %p7/m %z31.b %z31.b -> %z31.b",
+    };
+    TEST_LOOP(umin, umin_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_1));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "umin   %p0/m %z0.h %z0.h -> %z0.h",    "umin   %p2/m %z5.h %z7.h -> %z5.h",
+        "umin   %p3/m %z10.h %z12.h -> %z10.h", "umin   %p5/m %z16.h %z18.h -> %z16.h",
+        "umin   %p6/m %z21.h %z23.h -> %z21.h", "umin   %p7/m %z31.h %z31.h -> %z31.h",
+    };
+    TEST_LOOP(umin, umin_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_2));
+
+    reg_id_t Zdn_0_2[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "umin   %p0/m %z0.s %z0.s -> %z0.s",    "umin   %p2/m %z5.s %z7.s -> %z5.s",
+        "umin   %p3/m %z10.s %z12.s -> %z10.s", "umin   %p5/m %z16.s %z18.s -> %z16.s",
+        "umin   %p6/m %z21.s %z23.s -> %z21.s", "umin   %p7/m %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(umin, umin_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zdn_0_2[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_2[i], true),
+              opnd_create_reg_element_vector(Zm_0_2[i], OPSZ_4));
+
+    reg_id_t Zdn_0_3[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_3[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zm_0_3[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_3[6] = {
+        "umin   %p0/m %z0.d %z0.d -> %z0.d",    "umin   %p2/m %z5.d %z7.d -> %z5.d",
+        "umin   %p3/m %z10.d %z12.d -> %z10.d", "umin   %p5/m %z16.d %z18.d -> %z16.d",
+        "umin   %p6/m %z21.d %z23.d -> %z21.d", "umin   %p7/m %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(umin, umin_sve_pred, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_3[i], true),
+              opnd_create_reg_element_vector(Zm_0_3[i], OPSZ_8));
+}
+
+TEST_INSTR(umin_sve)
+{
+
+    /* Testing UMIN    <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm> */
+    reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_0[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_0[6] = {
+        "umin   %z0.b $0x00 -> %z0.b",   "umin   %z5.b $0x2b -> %z5.b",
+        "umin   %z10.b $0x56 -> %z10.b", "umin   %z16.b $0x81 -> %z16.b",
+        "umin   %z21.b $0xab -> %z21.b", "umin   %z31.b $0xff -> %z31.b",
+    };
+    TEST_LOOP(umin, umin_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zdn_0_0[i], OPSZ_1),
+              opnd_create_immed_uint(imm8_0_0[i], OPSZ_1));
+
+    reg_id_t Zdn_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_1[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_1[6] = {
+        "umin   %z0.h $0x00 -> %z0.h",   "umin   %z5.h $0x2b -> %z5.h",
+        "umin   %z10.h $0x56 -> %z10.h", "umin   %z16.h $0x81 -> %z16.h",
+        "umin   %z21.h $0xab -> %z21.h", "umin   %z31.h $0xff -> %z31.h",
+    };
+    TEST_LOOP(umin, umin_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_2),
+              opnd_create_immed_uint(imm8_0_1[i], OPSZ_1));
+
+    reg_id_t Zdn_0_2[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_2[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_2[6] = {
+        "umin   %z0.s $0x00 -> %z0.s",   "umin   %z5.s $0x2b -> %z5.s",
+        "umin   %z10.s $0x56 -> %z10.s", "umin   %z16.s $0x81 -> %z16.s",
+        "umin   %z21.s $0xab -> %z21.s", "umin   %z31.s $0xff -> %z31.s",
+    };
+    TEST_LOOP(umin, umin_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zdn_0_2[i], OPSZ_4),
+              opnd_create_immed_uint(imm8_0_2[i], OPSZ_1));
+
+    reg_id_t Zdn_0_3[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                            DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    uint imm8_0_3[6] = { 0, 43, 86, 129, 171, 255 };
+    const char *expected_0_3[6] = {
+        "umin   %z0.d $0x00 -> %z0.d",   "umin   %z5.d $0x2b -> %z5.d",
+        "umin   %z10.d $0x56 -> %z10.d", "umin   %z16.d $0x81 -> %z16.d",
+        "umin   %z21.d $0xab -> %z21.d", "umin   %z31.d $0xff -> %z31.d",
+    };
+    TEST_LOOP(umin, umin_sve, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
+              opnd_create_immed_uint(imm8_0_3[i], OPSZ_1));
+}
 int
 main(int argc, char *argv[])
 {
@@ -3218,6 +3609,15 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(facge_sve_pred);
     RUN_INSTR_TEST(facgt_sve_pred);
+
+    RUN_INSTR_TEST(sdiv_sve_pred);
+    RUN_INSTR_TEST(sdivr_sve_pred);
+    RUN_INSTR_TEST(udiv_sve_pred);
+    RUN_INSTR_TEST(udivr_sve_pred);
+    RUN_INSTR_TEST(umax_sve_pred);
+    RUN_INSTR_TEST(umax_sve);
+    RUN_INSTR_TEST(umin_sve_pred);
+    RUN_INSTR_TEST(umin_sve);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER
