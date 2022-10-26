@@ -3587,6 +3587,258 @@ TEST_INSTR(umin_sve)
 
     return success;
 }
+
+TEST_INSTR(sxtb_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SXTB    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "sxtb   %p0/m %z0.h -> %z0.h",   "sxtb   %p2/m %z7.h -> %z5.h",
+        "sxtb   %p3/m %z12.h -> %z10.h", "sxtb   %p5/m %z18.h -> %z16.h",
+        "sxtb   %p6/m %z23.h -> %z21.h", "sxtb   %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(sxtb, sxtb_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Zd_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "sxtb   %p0/m %z0.s -> %z0.s",   "sxtb   %p2/m %z7.s -> %z5.s",
+        "sxtb   %p3/m %z12.s -> %z10.s", "sxtb   %p5/m %z18.s -> %z16.s",
+        "sxtb   %p6/m %z23.s -> %z21.s", "sxtb   %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(sxtb, sxtb_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Zd_0_2[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "sxtb   %p0/m %z0.d -> %z0.d",   "sxtb   %p2/m %z7.d -> %z5.d",
+        "sxtb   %p3/m %z12.d -> %z10.d", "sxtb   %p5/m %z18.d -> %z16.d",
+        "sxtb   %p6/m %z23.d -> %z21.d", "sxtb   %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(sxtb, sxtb_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], true),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(sxth_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SXTH    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "sxth   %p0/m %z0.s -> %z0.s",   "sxth   %p2/m %z7.s -> %z5.s",
+        "sxth   %p3/m %z12.s -> %z10.s", "sxth   %p5/m %z18.s -> %z16.s",
+        "sxth   %p6/m %z23.s -> %z21.s", "sxth   %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(sxth, sxth_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zd_0_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_4));
+
+    reg_id_t Zd_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "sxth   %p0/m %z0.d -> %z0.d",   "sxth   %p2/m %z7.d -> %z5.d",
+        "sxth   %p3/m %z12.d -> %z10.d", "sxth   %p5/m %z18.d -> %z16.d",
+        "sxth   %p6/m %z23.d -> %z21.d", "sxth   %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(sxth, sxth_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zd_0_1[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(sxtw_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing SXTW    <Zd>.D, <Pg>/M, <Zn>.D */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "sxtw   %p0/m %z0.d -> %z0.d",   "sxtw   %p2/m %z7.d -> %z5.d",
+        "sxtw   %p3/m %z12.d -> %z10.d", "sxtw   %p5/m %z18.d -> %z16.d",
+        "sxtw   %p6/m %z23.d -> %z21.d", "sxtw   %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(sxtw, sxtw_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zd_0_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(uxtb_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing UXTB    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "uxtb   %p0/m %z0.h -> %z0.h",   "uxtb   %p2/m %z7.h -> %z5.h",
+        "uxtb   %p3/m %z12.h -> %z10.h", "uxtb   %p5/m %z18.h -> %z16.h",
+        "uxtb   %p6/m %z23.h -> %z21.h", "uxtb   %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(uxtb, uxtb_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Zd_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "uxtb   %p0/m %z0.s -> %z0.s",   "uxtb   %p2/m %z7.s -> %z5.s",
+        "uxtb   %p3/m %z12.s -> %z10.s", "uxtb   %p5/m %z18.s -> %z16.s",
+        "uxtb   %p6/m %z23.s -> %z21.s", "uxtb   %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(uxtb, uxtb_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Zd_0_2[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "uxtb   %p0/m %z0.d -> %z0.d",   "uxtb   %p2/m %z7.d -> %z5.d",
+        "uxtb   %p3/m %z12.d -> %z10.d", "uxtb   %p5/m %z18.d -> %z16.d",
+        "uxtb   %p6/m %z23.d -> %z21.d", "uxtb   %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(uxtb, uxtb_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], true),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(uxth_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing UXTH    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "uxth   %p0/m %z0.s -> %z0.s",   "uxth   %p2/m %z7.s -> %z5.s",
+        "uxth   %p3/m %z12.s -> %z10.s", "uxth   %p5/m %z18.s -> %z16.s",
+        "uxth   %p6/m %z23.s -> %z21.s", "uxth   %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(uxth, uxth_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zd_0_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_4));
+
+    reg_id_t Zd_0_1[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "uxth   %p0/m %z0.d -> %z0.d",   "uxth   %p2/m %z7.d -> %z5.d",
+        "uxth   %p3/m %z12.d -> %z10.d", "uxth   %p5/m %z18.d -> %z16.d",
+        "uxth   %p6/m %z23.d -> %z21.d", "uxth   %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(uxth, uxth_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zd_0_1[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_1[i], true),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(uxtw_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing UXTW    <Zd>.D, <Pg>/M, <Zn>.D */
+    reg_id_t Zd_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
+                           DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "uxtw   %p0/m %z0.d -> %z0.d",   "uxtw   %p2/m %z7.d -> %z5.d",
+        "uxtw   %p3/m %z12.d -> %z10.d", "uxtw   %p5/m %z18.d -> %z16.d",
+        "uxtw   %p6/m %z23.d -> %z21.d", "uxtw   %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(uxtw, uxtw_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zd_0_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_0[i], true),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_8));
+
+    return success;
+}
 int
 main(int argc, char *argv[])
 {
@@ -3658,6 +3910,13 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(umax_sve);
     RUN_INSTR_TEST(umin_sve_pred);
     RUN_INSTR_TEST(umin_sve);
+
+    RUN_INSTR_TEST(sxtb_sve_pred);
+    RUN_INSTR_TEST(sxth_sve_pred);
+    RUN_INSTR_TEST(sxtw_sve_pred);
+    RUN_INSTR_TEST(uxtb_sve_pred);
+    RUN_INSTR_TEST(uxth_sve_pred);
+    RUN_INSTR_TEST(uxtw_sve_pred);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

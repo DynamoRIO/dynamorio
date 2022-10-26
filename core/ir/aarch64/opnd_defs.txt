@@ -87,6 +87,7 @@
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
 ---------------------------xxxxx  z0         # Z register
+---------------------------xxxxx  z_d_0      # Z register with d size elements
 ---------------------------xxxxx  z_q_0      # Z register with q size elements
 ---------------------------xxxxx  q0p1       # Q register, add 1
 ---------------------------xxxxx  q0p2       # Q register, add 2
@@ -103,6 +104,7 @@
 ----------------------xxxxx-----  d5         # D register
 ----------------------xxxxx-----  q5         # Q register
 ----------------------xxxxx-----  z5         # Z register
+----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures

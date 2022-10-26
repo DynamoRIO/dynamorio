@@ -5747,4 +5747,94 @@
  */
 #define INSTR_CREATE_umin_sve(dc, Zdn, imm) \
     instr_create_1dst_2src(dc, OP_umin, Zdn, Zdn, imm)
+
+/**
+ * Creates a SXTB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SXTB    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sxtb_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_sxtb, Zd, Pg, Zn)
+
+/**
+ * Creates a SXTH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SXTH    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sxth_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_sxth, Zd, Pg, Zn)
+
+/**
+ * Creates a SXTW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SXTW    <Zd>.D, <Pg>/M, <Zn>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sxtw_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_sxtw, Zd, Pg, Zn)
+
+/**
+ * Creates an UXTB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UXTB    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_uxtb_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_uxtb, Zd, Pg, Zn)
+
+/**
+ * Creates an UXTH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UXTH    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_uxth_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_uxth, Zd, Pg, Zn)
+
+/**
+ * Creates an UXTW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UXTW    <Zd>.D, <Pg>/M, <Zn>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_uxtw_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_uxtw, Zd, Pg, Zn)
 #endif /* DR_IR_MACROS_AARCH64_H */
