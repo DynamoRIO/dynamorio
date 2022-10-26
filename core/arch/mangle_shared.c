@@ -834,6 +834,28 @@ enum {
     DR_RSEQ_LABEL_CS = 3,
 };
 
+static inline void
+save_tls_or_dc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
+               uint tls_offs, uint dc_offs)
+{
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, tls_offs));
+    } else {
+        PRE(ilist, where, instr_create_save_to_dcontext(dcontext, reg, dc_offs));
+    }
+}
+
+static inline void
+restore_tls_or_dc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
+                  uint tls_offs, uint dc_offs)
+{
+    if (SCRATCH_ALWAYS_TLS()) {
+        PRE(ilist, where, instr_create_restore_from_tls(dcontext, reg, tls_offs));
+    } else {
+        PRE(ilist, where, instr_create_restore_from_dcontext(dcontext, reg, dc_offs));
+    }
+}
+
 static instr_t *
 mangle_rseq_create_label(dcontext_t *dcontext, int type, ptr_uint_t data)
 {
@@ -855,13 +877,10 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *insert_at, reg_id_t scratch_reg)
 {
     /* We use slot 1 to avoid conflict with segment mangling. */
+    save_tls_or_dc(dcontext, ilist, insert_at, scratch_reg, TLS_REG1_SLOT, REG1_OFFSET);
     if (SCRATCH_ALWAYS_TLS()) {
-        PRE(ilist, insert_at,
-            instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
         insert_get_mcontext_base(dcontext, ilist, insert_at, scratch_reg);
     } else {
-        PRE(ilist, insert_at,
-            instr_create_save_to_dcontext(dcontext, scratch_reg, REG1_OFFSET));
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
                                opnd_create_reg(scratch_reg), ilist, insert_at, NULL,
                                NULL);
@@ -887,13 +906,8 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
     PRE(ilist, insert_at,
         instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
 #    endif
-    if (SCRATCH_ALWAYS_TLS()) {
-        PRE(ilist, insert_at,
-            instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
-    } else {
-        PRE(ilist, insert_at,
-            instr_create_restore_from_dcontext(dcontext, scratch_reg, REG1_OFFSET));
-    }
+    restore_tls_or_dc(dcontext, ilist, insert_at, scratch_reg, TLS_REG1_SLOT,
+                      REG1_OFFSET);
 }
 
 /* May modify next_instr. */
@@ -938,13 +952,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
     /* Create a scratch register. Use slot 1 to avoid conflict with segment
      * mangling below.
      */
-    if (SCRATCH_ALWAYS_TLS()) {
-        PRE(ilist, insert_at,
-            instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
-    } else {
-        PRE(ilist, insert_at,
-            instr_create_save_to_dcontext(dcontext, scratch_reg, REG1_OFFSET));
-    }
+    save_tls_or_dc(dcontext, ilist, insert_at, scratch_reg, TLS_REG1_SLOT, REG1_OFFSET);
     /* Restore the entry state we preserved earlier. */
     if (reg_written_count > 0) {
         if (SCRATCH_ALWAYS_TLS())
@@ -959,6 +967,23 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
             if (reg_written[i]) {
                 /* XXX: Keep this consistent with instr_is_rseq_load() in translate.c. */
                 size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
+#    ifdef AARCH64
+                if (DR_REG_START_GPR + (reg_id_t)i == DR_REG_SP) {
+                    /* Unfortunately SP cannot be directly loaded into. */
+                    reg_id_t scratch2 = scratch_reg == DR_REG_X0 ? DR_REG_X1 : DR_REG_X0;
+                    save_tls_or_dc(dcontext, ilist, insert_at, scratch2, TLS_REG1_SLOT,
+                                   REG1_OFFSET);
+                    PRE(ilist, insert_at,
+                        XINST_CREATE_load(dcontext, opnd_create_reg(scratch2),
+                                          OPND_CREATE_MEMPTR(scratch_reg, offs)));
+                    PRE(ilist, insert_at,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_SP),
+                                          opnd_create_reg(scratch2)));
+                    restore_tls_or_dc(dcontext, ilist, insert_at, scratch2, TLS_REG1_SLOT,
+                                      REG1_OFFSET);
+                    continue;
+                }
+#    endif
                 PRE(ilist, insert_at,
                     XINST_CREATE_load(dcontext,
                                       opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i),
@@ -1068,13 +1093,8 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
 #    endif
 
     /* Restore scratch_reg. */
-    if (SCRATCH_ALWAYS_TLS()) {
-        PRE(ilist, insert_at,
-            instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
-    } else {
-        PRE(ilist, insert_at,
-            instr_create_restore_from_dcontext(dcontext, scratch_reg, REG1_OFFSET));
-    }
+    restore_tls_or_dc(dcontext, ilist, insert_at, scratch_reg, TLS_REG1_SLOT,
+                      REG1_OFFSET);
 
     /* Make a local copy of the rseq code (otherwise we would have to assume that
      * all rseq sequences are callees with a nice return to come back to us, which
@@ -1325,13 +1345,10 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * we're ok for now, but we may want some kind of barrier API in the future.
          */
         instr_t *first = instrlist_first(ilist);
+        save_tls_or_dc(dcontext, ilist, first, scratch_reg, TLS_REG0_SLOT, REG0_OFFSET);
         if (SCRATCH_ALWAYS_TLS()) {
-            PRE(ilist, first,
-                instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
             insert_get_mcontext_base(dcontext, ilist, first, scratch_reg);
         } else {
-            PRE(ilist, first,
-                instr_create_save_to_dcontext(dcontext, scratch_reg, REG0_OFFSET));
             insert_mov_immed_ptrsz(dcontext, (ptr_int_t)dcontext,
                                    opnd_create_reg(scratch_reg), ilist, first, NULL,
                                    NULL);
@@ -1339,18 +1356,31 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             if (reg_written[i]) {
                 size_t offs = offsetof(dcontext_t, rseq_entry_state) + sizeof(reg_t) * i;
+#    ifdef AARCH64
+                if (DR_REG_START_GPR + (reg_id_t)i == DR_REG_SP) {
+                    /* Unfortunately SP cannot be directly stored. */
+                    reg_id_t scratch2 = scratch_reg == DR_REG_X0 ? DR_REG_X1 : DR_REG_X0;
+                    save_tls_or_dc(dcontext, ilist, first, scratch2, TLS_REG1_SLOT,
+                                   REG1_OFFSET);
+                    PRE(ilist, first,
+                        XINST_CREATE_move(dcontext, opnd_create_reg(scratch2),
+                                          opnd_create_reg(DR_REG_SP)));
+                    PRE(ilist, first,
+                        XINST_CREATE_store(dcontext,
+                                           OPND_CREATE_MEMPTR(scratch_reg, offs),
+                                           opnd_create_reg(scratch2)));
+                    restore_tls_or_dc(dcontext, ilist, first, scratch2, TLS_REG1_SLOT,
+                                      REG1_OFFSET);
+                    continue;
+                }
+#    endif
                 PRE(ilist, first,
                     XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(scratch_reg, offs),
                                        opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i)));
             }
         }
-        if (SCRATCH_ALWAYS_TLS()) {
-            PRE(ilist, first,
-                instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG0_SLOT));
-        } else {
-            PRE(ilist, first,
-                instr_create_restore_from_dcontext(dcontext, scratch_reg, REG0_OFFSET));
-        }
+        restore_tls_or_dc(dcontext, ilist, first, scratch_reg, TLS_REG0_SLOT,
+                          REG0_OFFSET);
     }
     int len = instr_length(dcontext, instr);
     if (pc + len >= end) {
