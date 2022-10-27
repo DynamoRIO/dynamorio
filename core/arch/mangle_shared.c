@@ -1016,7 +1016,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
     /* XXX i#2350: This may still have trouble with decode_fragment() if it
      * happens to look like a branch or invalid opcode.
      */
-    instr_t *abort_sig = INSTR_CREATE_nop(dcontext);
+    instr_t *abort_sig = XINST_CREATE_nop(dcontext);
     instr_allocate_raw_bits(dcontext, abort_sig, sizeof(signature));
     instr_set_raw_word(abort_sig, 0, (uint)signature);
 #    endif
