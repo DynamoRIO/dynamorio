@@ -671,6 +671,7 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_replaceall)
     use_DynamoRIO_extension(tool.drcacheoff.burst_replaceall drcontainers)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replaceall)
+    link_with_pthread(tool.drcacheoff.burst_replaceall)
 
     add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
@@ -781,9 +782,11 @@ add_win32_flags(drcachesim_ops)
 use_DynamoRIO_extension(drcachesim_ops droption)
 
 # We then have to insert it into the doxygen files at build time:
-set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcachesim.dox.in)
-set(gendoc ${CMAKE_CURRENT_BINARY_DIR}/drcachesim.dox)
+set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/docs/drcachesim.dox.in)
+set(gendoc ${CMAKE_CURRENT_BINARY_DIR}/docs/drcachesim.dox)
 set(doctgt drcachesim_docs)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/new-features-encodings-seek.pdf
+  ${CMAKE_CURRENT_BINARY_DIR}/docs/new-features-encodings-seek.pdf COPYONLY)
 
 get_property(dox_extras GLOBAL PROPERTY DynamoRIO_dox_extras)
 set_property(GLOBAL PROPERTY DynamoRIO_dox_extras ${dox_extras} ${gendoc})

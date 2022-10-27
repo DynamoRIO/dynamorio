@@ -18,6 +18,7 @@ Total counts:
      .* total function argument markers
      .* total function return value markers
      .* total other markers
+     .* total encodings
 Thread .* counts:
           19 \(fetched\) instructions
           19 unique \(fetched\) instructions
@@ -34,3 +35,4 @@ Thread .* counts:
      .* function argument markers
      .* function return value markers
      .* other markers
+     .* encodings

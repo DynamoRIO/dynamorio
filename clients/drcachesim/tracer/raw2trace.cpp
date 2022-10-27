@@ -1238,6 +1238,13 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
     return "";
 }
 
+bool
+raw2trace_t::delayed_branches_exist(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return !tdata->delayed_branch.empty();
+}
+
 std::string
 raw2trace_t::write_footer(void *tls)
 {
@@ -1281,7 +1288,7 @@ raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
 {
     if (verbosity_ >= level) {
         disassemble_from_copy(dcontext_, decode_pc, orig_pc, STDOUT, true /*pc*/,
-                              false /*bytes*/);
+                              true /*bytes*/);
     }
 }
 
@@ -1346,13 +1353,11 @@ raw2trace_t::raw2trace_t(const char *module_map,
         VPRINT(0, "Invalid input and output file lists\n");
         return;
     }
-    if (dcontext == NULL) {
 #ifdef ARM
-        // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
-        // to trigger Thumb decoding.
-        dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
+    // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
+    // and encoding_file to trigger Thumb decoding.
+    dr_set_isa_mode(dcontext == NULL ? GLOBAL_DCONTEXT : dcontext, DR_ISA_ARM_A32, NULL);
 #endif
-    }
     thread_data_.resize(thread_files.size());
     for (size_t i = 0; i < thread_data_.size(); ++i) {
         thread_data_[i].index = static_cast<int>(i);

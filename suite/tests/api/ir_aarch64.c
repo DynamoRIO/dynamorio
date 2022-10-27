@@ -4538,26 +4538,6 @@ test_neon_sve_int_bin_cons_arit_0(void *dc)
 
     /* SVE integer add/subtract vectors (unpredicated) */
 
-    instr = INSTR_CREATE_add_vector(dc, opnd_create_reg(DR_REG_Z2),
-                                    opnd_create_reg(DR_REG_Z27),
-                                    opnd_create_reg(DR_REG_Z30), OPND_CREATE_BYTE());
-    test_instr_encoding(dc, OP_add, instr);
-
-    instr = INSTR_CREATE_add_vector(dc, opnd_create_reg(DR_REG_Z2),
-                                    opnd_create_reg(DR_REG_Z27),
-                                    opnd_create_reg(DR_REG_Z30), OPND_CREATE_HALF());
-    test_instr_encoding(dc, OP_add, instr);
-
-    instr = INSTR_CREATE_add_vector(dc, opnd_create_reg(DR_REG_Z2),
-                                    opnd_create_reg(DR_REG_Z27),
-                                    opnd_create_reg(DR_REG_Z30), OPND_CREATE_SINGLE());
-    test_instr_encoding(dc, OP_add, instr);
-
-    instr = INSTR_CREATE_add_vector(dc, opnd_create_reg(DR_REG_Z2),
-                                    opnd_create_reg(DR_REG_Z27),
-                                    opnd_create_reg(DR_REG_Z30), OPND_CREATE_DOUBLE());
-    test_instr_encoding(dc, OP_add, instr);
-
     instr = INSTR_CREATE_sub_vector(dc, opnd_create_reg(DR_REG_Z0),
                                     opnd_create_reg(DR_REG_Z13),
                                     opnd_create_reg(DR_REG_Z29), OPND_CREATE_BYTE());
