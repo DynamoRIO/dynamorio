@@ -116,7 +116,7 @@ hit_instr_count_threshold(app_pc next_pc)
     }
 #endif
     dr_mutex_lock(mutex);
-    if (tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
         // Another thread already changed the mode.
         dr_mutex_unlock(mutex);
         return;
@@ -141,8 +141,8 @@ hit_instr_count_threshold(app_pc next_pc)
     // portably safe to take the address of std::atomic, so we rely on our mutex.
     instr_count = 0;
 #endif
-    DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
-    tracing_disabled.store(BBDUP_MODE_TRACE, std::memory_order_release);
+    DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
+    tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
     dr_mutex_unlock(mutex);
 }
 

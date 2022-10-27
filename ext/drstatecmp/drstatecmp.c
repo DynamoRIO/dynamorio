@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -218,7 +218,8 @@ drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
  * golden copy for comparison. There are two options: i) pre-app2app-phase copy, where
  * the code just contains the original app instructions, and ii) post-app2app-phase copy.
  * The first option can catch bugs in app2app passes and it is selected unless any of
- * the original app instructions requires emulation (true emulation). In that case, the
+ * the original app instructions requires emulation (true emulation) or application
+ * instructions were removed from the block.  In the emulation case, the
  * pre-app2app code is not executable, whereas the post-app2app code contains emulation
  * code and thus can be used for state checks with re-execution. Cases that do
  * not require the emulation sequence for re-execution include instruction
@@ -240,6 +241,19 @@ drstatecmp_analyze_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
     data->dead_aflags = drstatecmp_aflags_must_be_dead(bb);
 #endif
 
+    /* We detect truncation by counting app instrs.
+     * XXX: To handle any client we should compare actual instrs but for now
+     * we assume typical clients who do not replace app instrs except when
+     * marked as emulation.
+     */
+    int pre_app2app_count = 0;
+    for (instr_t *inst = instrlist_first(data->pre_app2app_bb); inst != NULL;
+         inst = instr_get_next(inst)) {
+        if (instr_is_app(inst))
+            ++pre_app2app_count;
+    }
+
+    int post_app2app_count = 0;
     for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
         if (drmgr_is_emulation_start(inst)) {
             emulated_instr_t emulated_inst;
@@ -253,6 +267,15 @@ drstatecmp_analyze_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                 return DR_EMIT_DEFAULT;
             }
         }
+        if (instr_is_app(inst))
+            ++post_app2app_count;
+    }
+
+    if (pre_app2app_count != post_app2app_count) {
+        /* The app2app phase truncated or otherwise edited the block. */
+        instrlist_clear_and_destroy(drcontext, data->pre_app2app_bb);
+        data->golden_bb_copy = instrlist_clone(drcontext, bb);
+        return DR_EMIT_DEFAULT;
     }
 
     /* Emulation not required for re-execution and thus it is safe to use the pre-app2app

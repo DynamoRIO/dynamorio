@@ -9320,10 +9320,10 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vsqrtpd, 0x660f5140, "vsqrtpd", Ved, xx, KEb, Wed, xx, mrm|evex|ttfv, x, modx[119][0]},
     {MOD_EXT, 0x660f5150, "(mod ext 119)", xx, xx, xx, xx, xx, mrm|evex, x, 119},
   }, { /* evex_W_ext 266 */
-    {OP_vsqrtss, 0xf30f5100, "vsqrtss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, tevexwb[266][1]},
-    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, KE1b, Hdq, Uss, mrm|evex|er|ttt1s, x, END_LIST},
-    {OP_vsqrtsd, 0xf20f5140, "vsqrtsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, tevexwb[266][3]},
-    {OP_vsqrtsd, 0xf20f5150, "vsqrtsd", Vdq, xx, KE1b, Hdq, Usd, mrm|evex|er|ttt1s, x, END_LIST},
+    {OP_vsqrtss, 0xf30f5100, "vsqrtss", Vdq, xx, KE1b, H12_dq, Wss, mrm|evex|ttt1s, x, tevexwb[266][1]},
+    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, KE1b, H12_dq, Uss, mrm|evex|er|ttt1s, x, END_LIST},
+    {OP_vsqrtsd, 0xf20f5140, "vsqrtsd", Vdq, xx, KE1b, Hsd, Wsd, mrm|evex|ttt1s, x, tevexwb[266][3]},
+    {OP_vsqrtsd, 0xf20f5150, "vsqrtsd", Vdq, xx, KE1b, Hsd, Usd, mrm|evex|er|ttt1s, x, END_LIST},
   }, { /* evex_W_ext 267 */
     {OP_vpdpbusd, 0x66385008, "vpdpbusd", Ve, xx, KEd, He, We, mrm|evex|ttfv|reqp, x, tevexwb[267][1]},
     {OP_vpdpbusd, 0x66385018, "vpdpbusd", Ve, xx, KEd, He, Md, mrm|evex|ttfv|reqp, x, END_LIST},

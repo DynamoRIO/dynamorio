@@ -80,6 +80,31 @@ if (AARCH64)
     ${aarch64_exported_opcodes} VERBATIM)
 endif ()
 
+if (RISCV64)
+  # Required for opcode_api.h and codec headers, which are auto-generated on RISC-V.
+  include(../make/CMake_riscv64_gen_codec.cmake)
+  add_custom_target(gen_riscv64_codec DEPENDS "${RISCV64_CODEC_GEN_SRCS}")
+  include_directories(BEFORE ${PROJECT_BINARY_DIR})
+  # Export the generated headers.  Use a custom target and command to avoid
+  # repeated re-copying (a POST_BUILD with copy_if_different doesn't seem to work how
+  # it should: it still runs the command every time, though it doesn't copy anything).
+  set(riscv64_exported_opcodes ${BUILD_INCLUDE}/dr_ir_opcodes_riscv64.h)
+  set(riscv64_exported_instr ${BUILD_INCLUDE}/dr_ir_macros_riscv64.h)
+  add_custom_target(gen_riscv64_headers DEPENDS
+                                          ${riscv64_exported_opcodes}
+                                          ${riscv64_exported_instr})
+  add_custom_command(OUTPUT ${riscv64_exported_opcodes}
+    DEPENDS ${PROJECT_BINARY_DIR}/opcode_api.h
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${PROJECT_BINARY_DIR}/opcode_api.h
+    ${riscv64_exported_opcodes} VERBATIM)
+  add_custom_command(OUTPUT ${riscv64_exported_instr}
+    DEPENDS ${PROJECT_BINARY_DIR}/instr_create_api.h
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${PROJECT_BINARY_DIR}/instr_create_api.h
+    ${riscv64_exported_instr} VERBATIM)
+endif ()
+
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
@@ -143,6 +168,8 @@ endif ()
 add_gen_events_deps(drlibc)
 if (AARCH64)
   add_dependencies(drlibc gen_aarch64_codec)
+elseif (RISCV64)
+add_dependencies(drlibc gen_riscv64_codec)
 endif (AARCH64)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
@@ -274,6 +301,9 @@ elseif (AARCH64)
   set(DECODER_SRCS ${DECODER_SRCS}
     ir/${ARCH_NAME}/codec.c
     ir/${ARCH_NAME}/build_ldstex.c)
+elseif (RISCV64)
+  set(DECODER_SRCS ${DECODER_SRCS}
+    ir/${ARCH_NAME}/codec.c)
 endif ()
 
 set(ARCH_SRCS
@@ -497,6 +527,8 @@ function (configure_core_lib target)
   add_gen_events_deps(${target})
   if (AARCH64)
     add_dependencies(${target} gen_aarch64_codec)
+  elseif (RISCV64)
+    add_dependencies(${target} gen_riscv64_codec)
   endif()
   if (WIN32)
     # Since we're forced to use link-line flags instead of target_link_libraries
@@ -894,6 +926,8 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
 add_gen_events_deps(${PRELOAD_NAME})
 if (AARCH64)
   add_dependencies(${PRELOAD_NAME} gen_aarch64_codec)
+elseif (RISCV64)
+  add_dependencies(${PRELOAD_NAME} gen_riscv64_codec)
 endif()
 
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -970,6 +1004,8 @@ endif (UNIX)
 add_gen_events_deps(drdecode)
 if (AARCH64)
   add_dependencies(drdecode gen_aarch64_codec)
+elseif (RISCV64)
+  add_dependencies(drdecode gen_riscv64_codec)
 endif()
 target_link_libraries(drdecode drlibc)
 
@@ -1169,13 +1205,11 @@ DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instrlist_api.h dr_ir_instrlist.
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_opcodes.h dr_ir_opcodes.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/opcode_api.h dr_ir_opcodes_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/opcode_api.h dr_ir_opcodes_arm.h)
-DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/riscv64/opcode_api.h dr_ir_opcodes_riscv64.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_create_shared_api.h dr_ir_macros.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/instr_create_api.h dr_ir_macros_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/instr_create_api.h dr_ir_macros_arm.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/aarch64/instr_create_api.h
   dr_ir_macros_aarch64.h)
-DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/riscv64/instr_create_api.h dr_ir_macros_riscv64.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_ir_utils.h dr_ir_utils.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_tools.h dr_tools.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/annotations_api.h dr_annotation.h)

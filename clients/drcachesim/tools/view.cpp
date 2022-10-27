@@ -418,7 +418,7 @@ view_t::process_memref(const memref_t &memref)
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
               << std::dec << std::setfill(' ');
-    if (!has_modules_) {
+    if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_) && !has_modules_) {
         // We can't disassemble so we provide what info the trace itself contains.
         // XXX i#5486: We may want to store the taken target for conditional
         // branches; if added, we can print it here.
@@ -447,6 +447,10 @@ view_t::process_memref(const memref_t &memref)
     if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
         // The trace has instruction encodings inside it.
         decode_pc = const_cast<app_pc>(memref.instr.encoding);
+        if (memref.instr.encoding_is_new) {
+            // The code may have changed: invalidate the cache.
+            disasm_cache_.erase(orig_pc);
+        }
     } else {
         // Legacy trace support where we need the binaries.
         decode_pc = module_mapper_->find_mapped_trace_address(orig_pc);
@@ -459,9 +463,6 @@ view_t::process_memref(const memref_t &memref)
     }
 
     std::string disasm;
-    // TODO i#2062,i#5520: We need to invalidate opcode_cache on changed app code.
-    // The reader may add markers to help us with that.
-    // For now we assume unchanging code.
     auto cached_disasm = disasm_cache_.find(orig_pc);
     if (cached_disasm != disasm_cache_.end()) {
         disasm = cached_disasm->second;

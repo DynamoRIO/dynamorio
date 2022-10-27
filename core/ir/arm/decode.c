@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -2251,12 +2251,10 @@ read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
     di->decorated_pc = pc;
     /* We support auto-decoding an LSB=1 address as Thumb (i#1688).  We don't
      * change the thread mode, just the local mode, and we return an LSB=1 next pc.
+     * We allow either of the copy or orig to have the LSB set and do not require
+     * them to match as some uses cases have a local buffer for pc.
      */
-    if (TEST(0x1, (ptr_uint_t)pc)) {
-        if (!TEST(0x1, (ptr_uint_t)orig_pc)) {
-            CLIENT_ASSERT(false, "must have consistent LSB for decode pc and orig_pc");
-            return NULL;
-        }
+    if (TEST(0x1, (ptr_uint_t)pc) || TEST(0x1, (ptr_uint_t)orig_pc)) {
         di->isa_mode = DR_ISA_ARM_THUMB;
         pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, pc);
         orig_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, orig_pc);

@@ -109,7 +109,7 @@ const char *const reg_names[] = {
     "pmevtyper28_el0", "pmevtyper29_el0", "pmevtyper30_el0", "pmccfiltr_el0",
     "spsr_irq", "spsr_abt", "spsr_und", "spsr_fiq", "tpidr_el0", "tpidrro_el0",
 
-    "z0",  "z1",  "z2",  "q3",  "z4",  "z5",  "z6",  "z7",  "z8",  "z9",
+    "z0",  "z1",  "z2",  "z3",  "z4",  "z5",  "z6",  "z7",  "z8",  "z9",
     "z10", "z11", "z12", "z13", "z14", "z15", "z16", "z17", "z18", "z19",
     "z20", "z21", "z22", "z23", "z24", "z25", "z26", "z27", "z28", "z29",
     "z30", "z31",

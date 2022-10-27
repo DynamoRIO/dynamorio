@@ -1608,7 +1608,7 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst, app_pc
     instrlist_meta_append(bb,
                           INSTR_CREATE_jmp(drcontext, opnd_create_pc(rn->replacement)));
 #endif
-    instrlist_append(bb, INSTR_XL8(INSTR_CREATE_nop(drcontext), pc));
+    instrlist_append(bb, INSTR_XL8(XINST_CREATE_nop(drcontext), pc));
 }
 
 /* event for function replacing */

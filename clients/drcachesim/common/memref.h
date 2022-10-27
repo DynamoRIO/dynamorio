@@ -73,6 +73,13 @@ struct _memref_instr_t {
      * decode into a higher-level instruction representation.
      */
     unsigned char encoding[MAX_ENCODING_LENGTH];
+    /**
+     * Indicates whether the encoding field is the first instance of its kind for this
+     * address.  This can be used to determine when to invalidate cached decoding
+     * information.  This field may be set to true on internal file divisions and
+     * not only when application code actually changed.
+     */
+    bool encoding_is_new;
 };
 
 /** A trace entry representing a software-requested explicit cache flush. */

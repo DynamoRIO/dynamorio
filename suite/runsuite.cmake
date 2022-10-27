@@ -77,6 +77,19 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
 endforeach (arg)
 
+if (UNIX AND NOT APPLE AND NOT ANDROID)
+  execute_process(COMMAND ldd --version
+    RESULT_VARIABLE ldd_result ERROR_VARIABLE ldd_err OUTPUT_VARIABLE ldd_out)
+  if (ldd_result OR ldd_err)
+    # Failed; just move on.
+  elseif (ldd_out MATCHES "GLIBC 2.3[5-9]")
+    # XXX i#5437, i#5431: While we work through Ubuntu22 issues we run
+    # just a few tests.
+    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
+    set(arg_debug_only ON)
+  endif ()
+endif ()
+
 set(build_tests "BUILD_TESTS:BOOL=ON")
 
 if (arg_automated_ci)

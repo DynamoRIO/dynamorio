@@ -1,0 +1,14 @@
+# "A" Standard Extension for Atomic Instructions.
+# Version 2.1
+
+lr.d      | r | aqrl rs1 rd     | 00010..00000.....011.....0101111
+sc.d      | r | aqrl rs2 rs1 rd | 00011............011.....0101111
+amoswap.d | r | aqrl rs2 rs1 rd | 00001............011.....0101111
+amoadd.d  | r | aqrl rs2 rs1 rd | 00000............011.....0101111
+amoxor.d  | r | aqrl rs2 rs1 rd | 00100............011.....0101111
+amoand.d  | r | aqrl rs2 rs1 rd | 01100............011.....0101111
+amoor.d   | r | aqrl rs2 rs1 rd | 01000............011.....0101111
+amomin.d  | r | aqrl rs2 rs1 rd | 10000............011.....0101111
+amomax.d  | r | aqrl rs2 rs1 rd | 10100............011.....0101111
+amominu.d | r | aqrl rs2 rs1 rd | 11000............011.....0101111
+amomaxu.d | r | aqrl rs2 rs1 rd | 11100............011.....0101111

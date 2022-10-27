@@ -1,0 +1,7 @@
+# "Q" Standard Extension for Quad-Precision Floating-Point.
+# Version 2.2
+
+fcvt.l.q  | r | rs1(fp) rm rd | 110001100010.............1010011
+fcvt.lu.q | r | rs1 rm rd     | 110001100011.............1010011
+fcvt.q.l  | r | rs1 rm rd(fp) | 110101100010.............1010011
+fcvt.q.lu | r | rs1 rm rd     | 110101100011.............1010011

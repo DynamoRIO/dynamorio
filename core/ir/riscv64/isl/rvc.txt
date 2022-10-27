@@ -1,0 +1,37 @@
+# "C" Standard Extension for Compressed Instructions.
+# Version 2.0
+
+c.lwsp     | ci  | clwsp_imm crd           | 010...........10
+c.fldsp    | ci  | cldsp_imm crd(fp)       | 001...........10
+c.swsp     | css | cswsp_imm crs2          | 110...........10
+c.fsdsp    | css | csdsp_imm crs2(fp)      | 101...........10
+c.lw       | cl  | clw_imm crs1_ crd_      | 010...........00
+c.fld      | cl  | cld_imm crs1_ crd_(fp)  | 001...........00
+c.sw       | cs  | csw_imm crs1_ crs2_     | 110...........00
+c.fsd      | cs  | csd_imm crs1_ crs2_(fp) | 101...........00
+c.j        | cj  | cj_imm                  | 101...........01
+c.jr       | cr  | crs1 crs2               | 1000.....0000010
+c.jalr     | cr  | crs1 crs2               | 1001.....0000010
+c.beqz     | cb  | cb_imm crs1_            | 110...........01
+c.bnez     | cb  | cb_imm crs1_            | 111...........01
+c.li       | ci  | cimm5 crd               | 010...........01
+c.lui      | ci  | clui_imm crd            | 011...........01
+c.addi     | ci  | cimm5 crd               | 000...........01
+c.addi16sp | ci  | caddi16sp_imm           | 011.00010.....01
+c.addi4spn | ciw | ciw_imm crd_            | 000...........00
+c.slli     | ci  | cshamt crd              | 000...........10
+c.srli     | cb  | cshamt crd__            | 100.00........01
+c.srai     | cb  | cshamt crd__            | 100.01........01
+c.andi     | cb  | cimm5 crd__             | 100.10........01
+c.mv       | cr  | crd crs2                | 1000..........10
+c.add      | cr  | crd crs2                | 1001..........10
+c.and      | ca  | crd__ crs2_             | 100011...11...01
+c.or       | ca  | crd__ crs2_             | 100011...10...01
+c.xor      | ca  | crd__ crs2_             | 100011...01...01
+c.sub      | ca  | crd__ crs2_             | 100011...00...01
+c.nop      | ci  |                         | 0000000000000001
+c.ebreak   | cr  |                         | 1001000000000010
+
+# 0x0 is an illegal instruction by ISA specification. However it is often used
+# as a canary after non-reachable code therefore it's included here.
+unimp      | ci  |                         | 0000000000000000

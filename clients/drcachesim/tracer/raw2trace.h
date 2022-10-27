@@ -442,7 +442,13 @@ public:
                 reinterpret_cast<app_pc>(entry->start_pc);
         } else {
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
-            return map_pc - modvec_[idx].map_seg_base + modvec_[idx].orig_seg_base;
+            app_pc res = map_pc - modvec_[idx].map_seg_base + modvec_[idx].orig_seg_base;
+#ifdef ARM
+            // Match Thumb vs Arm mode by setting LSB.
+            if (TESTANY(1, modoffs))
+                res = reinterpret_cast<app_pc>(reinterpret_cast<uint64>(res) | 1);
+#endif
+            return res;
         }
     }
 
@@ -656,6 +662,11 @@ struct trace_header_t {
  * are the last values in a record, they belong to the next record of the same
  * thread.</LI>
  *
+ * <LI>bool delayed_branches_exist(void *tls)
+ *
+ * Returns true if there are currently delayed branches that have not been emitted
+ * yet.</LI>
+ *
  * <LI>std::string append_delayed_branch(void *tls)
  *
  * Flush the branches sent to write_delayed_branches().</LI>
@@ -814,6 +825,23 @@ protected:
                     buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
                 if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                     impl()->log(4, "Signal/exception between bbs\n");
+                }
+                // If there is currently a delayed branch that has not been emitted yet,
+                // delay most markers since intra-block markers can cause issues with
+                // tools that do not expect markers amid records for a single instruction
+                // or inside a basic block. We don't delay TRACE_MARKER_TYPE_CPU_ID which
+                // identifies the CPU on which subsequent records were collected and
+                // OFFLINE_TYPE_TIMESTAMP which is handled at a higher level in
+                // process_next_thread_buffer() so there is no need to have a separate
+                // check for it here.
+                if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
+                    if (impl()->delayed_branches_exist(tls)) {
+                        std::string error = impl()->write_delayed_branches(
+                            tls, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+                        if (!error.empty())
+                            return error;
+                        return "";
+                    }
                 }
                 impl()->log(3, "Appended marker type %u value " PIFX "\n",
                             (trace_marker_type_t)in_entry->extended.valueB,
@@ -1139,7 +1167,9 @@ private:
         app_pc pc, decode_pc = start_pc;
         if (in_entry->pc.modidx == PC_MODIDX_INVALID) {
             impl()->log(3, "Appending %u instrs in bb " PFX " in generated code\n",
-                        instr_count, (ptr_uint_t)start_pc);
+                        instr_count,
+                        reinterpret_cast<ptr_uint_t>(modmap_().get_orig_pc(
+                            in_entry->pc.modidx, in_entry->pc.modoffs)));
         } else if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
                    modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
             if (impl()->get_version(tls) >= OFFLINE_FILE_VERSION_ENCODINGS) {
@@ -1339,7 +1369,9 @@ private:
                 // than here (and we are ok bailing on doing this for online traces), so
                 // we handle it in post-processing by delaying a thread-block-final branch
                 // (and its memrefs) to that thread's next block.  This changes the
-                // timestamp of the branch, which we live with.
+                // timestamp of the branch, which we live with. To avoid marker
+                // misplacement (e.g. in the middle of a basic block), we also
+                // delay markers.
                 impl()->log(4, "Delaying %d entries\n", buf - buf_start);
                 error = impl()->write_delayed_branches(tls, buf_start, buf);
                 if (!error.empty())
@@ -1362,6 +1394,10 @@ private:
     {
         size_t size_left = instr->length();
         size_t offs = 0;
+#ifdef ARM
+        // Remove any Thumb LSB.
+        pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, pc);
+#endif
         do {
             buf->type = TRACE_TYPE_ENCODING;
             buf->size =
@@ -1371,12 +1407,13 @@ private:
                 // We don't have to set the rest to 0 but it is nice.
                 memset(buf->encoding + buf->size, 0, sizeof(buf->encoding) - buf->size);
             }
+            impl()->log(4, "Appended encoding entry for %p sz=%zu 0x%08x...\n", pc,
+                        buf->size, *(int *)buf->encoding);
             offs += buf->size;
             size_left -= buf->size;
             ++buf;
             DR_CHECK(static_cast<size_t>(buf - buf_start) < WRITE_BUFFER_SIZE,
                      "Too many entries for write buffer");
-            impl()->log(4, "Appended encoding entry for %p\n", pc);
         } while (size_left > 0);
         return "";
     }
@@ -1384,7 +1421,11 @@ private:
     // Returns true if a kernel interrupt happened at cur_pc.
     // Outputs a kernel interrupt if this is the right location.
     // Outputs any other markers observed if !instrs_are_separate, since they
-    // are part of this block and need to be inserted now.
+    // are part of this block and need to be inserted now. Inserts all
+    // intra-block markers (i.e., the higher level process_offline_entry() will
+    // never insert a marker intra-block) and all inter-block markers are
+    // handled at a higher level (process_offline_entry()) and are never
+    // inserted here.
     std::string
     handle_kernel_interrupt_and_markers(void *tls, INOUT trace_entry_t **buf_in,
                                         uint64_t cur_pc, uint64_t cur_offs,
@@ -1917,6 +1958,8 @@ private:
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
+    bool
+    delayed_branches_exist(void *tls);
     bool
     record_encoding_emitted(void *tls, app_pc pc);
     // This can only be called once between calls to record_encoding_emitted()

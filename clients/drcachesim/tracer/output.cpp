@@ -138,8 +138,8 @@ reached_traced_instrs_threshold(void *drcontext)
     tracing_window.fetch_add(1, std::memory_order_release);
     // We delay creating a new ouput dir until tracing is enabled again, to avoid
     // an empty final dir.
-    DR_ASSERT(tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
-    tracing_disabled.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
+    tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     cur_window_instr_count.store(0, std::memory_order_release);
     dr_mutex_unlock(mutex);
 }
@@ -172,6 +172,12 @@ get_file_type()
         (op_L0D_filter.get_value() && op_L0D_size.get_value() == 0)) {
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
+    }
+    if (op_instr_encodings.get_value()) {
+        // This is generally only for online tracing, as raw2trace adds this
+        // flag during post-processing for offline.
+        file_type =
+            static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_ENCODINGS);
     }
     file_type = static_cast<offline_file_type_t>(
         file_type |
@@ -373,7 +379,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                                    suffix, DRX_FILE_SKIP_OPEN, buf,
                                    BUFFER_SIZE_ELEMENTS(buf));
         NULL_TERMINATE_BUFFER(buf);
-        file_t new_file = file_ops_func.open_file(buf, flags);
+        file_t new_file = file_ops_func.call_open_file(
+            buf, flags, dr_get_thread_id(drcontext), window_num);
         if (new_file == INVALID_FILE)
             continue;
         if (new_file == data->file)
@@ -658,7 +665,11 @@ create_v2p_buffer(per_thread_t *data)
 static bool
 is_ok_to_split_before(trace_type_t type)
 {
-    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
+    // We can split before the start of each sequence: we don't want to split
+    // an <encoding, instruction, address> combination.
+    return (op_instr_encodings.get_value()
+                ? type == TRACE_TYPE_ENCODING
+                : (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH)) ||
         type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT ||
         op_L0I_filter.get_value();
 }
@@ -900,7 +911,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
 
     if (op_offline.get_value() && data->file == INVALID_FILE) {
         // We've delayed opening a new window file to avoid an empty final file.
-        DR_ASSERT(has_tracing_windows() || op_trace_after_instrs.get_value() > 0);
+        DR_ASSERT(has_tracing_windows() || op_trace_after_instrs.get_value() > 0 ||
+                  attached_midway);
         open_new_thread_file(drcontext, get_local_window(data));
     }
 
@@ -1076,7 +1088,7 @@ init_thread_io(void *drcontext)
         set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
 
     if (op_offline.get_value()) {
-        if (tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+        if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
             open_new_thread_file(drcontext, get_local_window(data));
         }
         if (!has_tracing_windows()) {
@@ -1104,8 +1116,15 @@ exit_thread_io(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    if (tracing_disabled.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
-        !op_split_windows.get_value()) {
+    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
+        (has_tracing_windows() && !op_split_windows.get_value()) ||
+        // For attach we switch to BBDUP_MODE_NOP but still need to finalize
+        // each thread.  However, we omit threads that did nothing the entire time
+        // we were attached.
+        (align_attach_detach_endpoints() &&
+         (data->bytes_written > 0 ||
+          BUF_PTR(data->seg_base) - data->buf_base >
+              static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size)))) {
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
