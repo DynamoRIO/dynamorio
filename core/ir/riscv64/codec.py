@@ -829,7 +829,7 @@ class IslGenerator:
                         ns = len(flds) - nd
                         lines.append(
                             f'''/**
- * Creates a {i.name} instruction.
+ * Creates a(n) {i.name} instruction.
  *
  * \param dc      The void * dcontext used to allocate memory for the instr_t.{arg_comments}
  */
@@ -880,13 +880,13 @@ class IslGenerator:
             buckets: List[List[Instruction]] = [[]
                                                 for i in range(0, bucket_size)]
             # Each trie bucket contains a list of instructions sharing
-            # (inst.match >> shift) & mask, where mask is a continuous set of 1
+            # (inst.match >> shift) & mask, where mask is a contiguous set of 1
             # bits.
             # There is a special case when trie creation algorithm detects
             # aliased instructions (that is having different inst.mask but the
-            # ame inst.match - i.e. ori and prefetch.[irw]). In that case bucket
-            # will contain exact match instructions (inst.mask == mask) and ones
-            # which may have any other value across the bucket's mask.
+            # same inst.match - i.e. ori and prefetch.[irw]). In that case
+            # bucket will contain exact match instructions (inst.mask == mask)
+            # and ones which may have any other value across the bucket's mask.
             non_exact_match = []
             for instruction in instructions:
                 imatch = (instruction.match >> shift) & mask
