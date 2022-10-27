@@ -1,0 +1,7 @@
+# RISC-V Base Cache Management Operation ISA Extensions
+# Zicbom (Cache-Block Management Instructions)
+# Version 1.0
+
+cbo.clean | i | base | 000000000001.....010000000001111
+cbo.flush | i | base | 000000000010.....010000000001111
+cbo.inval | i | base | 000000000000.....010000000001111
