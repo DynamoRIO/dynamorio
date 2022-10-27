@@ -675,6 +675,16 @@ privload_os_finalize(privmod_t *privmod)
 #ifndef LINUX
     return; /* Nothing to do. */
 #else
+    static privmod_t *privmod_ld_linux;
+    if (strstr(privmod->name, "ld-linux") == privmod->name) {
+        /* We need to first get the libc version before we clobber ld vars.
+         * (We could instead look for versioned symbols with "@GLIBC_2.34" in ld
+         * but we do not have version parsing code in place.)
+         * We assume ld will not be unloaded.
+         */
+        privmod_ld_linux = privmod;
+        return;
+    }
     if (strstr(privmod->name, "libc.so") != privmod->name)
         return;
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
@@ -690,12 +700,54 @@ privload_os_finalize(privmod_t *privmod)
      */
     void (*libc_early_init)(bool) = (void (*)(bool))get_proc_address_from_os_data(
         &opd->os_data, opd->load_delta, LIBC_EARLY_INIT_NAME, NULL);
-    if (libc_early_init != NULL) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s\n", __FUNCTION__,
-            LIBC_EARLY_INIT_NAME);
-        (*libc_early_init)(true);
+    if (libc_early_init == NULL) {
+        return;
     }
-#endif
+    /* XXX i#5437: Temporary workaround to avoid a SIGFPE in glibc 2.34+
+     * __libc_early_init(). As we cannot let ld/libc initialize their own TLS with the
+     * current design, we must explicitly initialize a few variables.  Unfortunately
+     * we have to hardcode their offsets, making this fragile. Long-term we should try
+     * to find a better solution.
+     */
+    /* Do not try to clobber vars unless we have to: get the libc version. */
+#    define LIBC_GET_VERSION_NAME "gnu_get_libc_version"
+    const char *(*libc_ver)(void) = (const char *(*)(void))get_proc_address_from_os_data(
+        &opd->os_data, opd->load_delta, LIBC_GET_VERSION_NAME, NULL);
+    if (libc_ver == NULL)
+        return;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s\n", __FUNCTION__, LIBC_GET_VERSION_NAME);
+    const char *ver = (*libc_ver)();
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: libc version is |%s|\n", __FUNCTION__, ver);
+    if ((ver[0] == '\0' || ver[0] < '2') || ver[1] != '.' || ver[2] < '3' || ver[3] < '4')
+        return;
+    if (privmod_ld_linux == NULL) {
+        SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed ld");
+        return;
+    }
+    os_privmod_data_t *ld_opd = (os_privmod_data_t *)privmod_ld_linux->os_privmod_data;
+    byte *glro = get_proc_address_from_os_data(&ld_opd->os_data, ld_opd->load_delta,
+                                               "_rtld_global_ro", NULL);
+    if (glro == NULL) {
+        SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed glro");
+        return;
+    }
+#    define GLRO_dl_tls_static_size_OFFS 0x2a8
+#    define GLRO_dl_tls_static_align_OFFS 0x2b0
+    size_t val = 4096, written;
+    if (!safe_write_ex(glro + GLRO_dl_tls_static_size_OFFS, sizeof(val), &val,
+                       &written) ||
+        written != sizeof(val) ||
+        !safe_write_ex(glro + GLRO_dl_tls_static_align_OFFS, sizeof(val), &val,
+                       &written) ||
+        written != sizeof(val)) {
+        SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed write");
+    } else {
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: glibc 2.34+ workaround succeeded\n",
+            __FUNCTION__);
+    }
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s\n", __FUNCTION__, LIBC_EARLY_INIT_NAME);
+    (*libc_early_init)(true);
+#endif /* LINUX */
 }
 
 static void
@@ -1123,6 +1175,30 @@ privload_relocate_rela(os_privmod_data_t *opd, ELF_RELA_TYPE *start, ELF_RELA_TY
         privload_relocate_symbol((ELF_REL_TYPE *)rela, opd, true);
 }
 
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is duplicated from module_relocate_relr for relocating dynamorio. */
+static void
+privload_relocate_relr(os_privmod_data_t *opd, const ELF_WORD *relr, size_t size)
+{
+    ELF_ADDR *r_addr = NULL;
+
+    for (; size != 0; relr++, size -= sizeof(ELF_WORD)) {
+        if (!TEST(1, relr[0])) {
+            r_addr = (ELF_ADDR *)(relr[0] + opd->load_delta);
+            *r_addr++ += opd->load_delta;
+        } else {
+            int i = 0;
+            for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1) != 0; i++) {
+                if (TEST(1, bitmap))
+                    r_addr[i] += opd->load_delta;
+            }
+            r_addr += CHAR_BIT * sizeof(ELF_WORD) - 1;
+        }
+    }
+}
+
 /* XXX: This routine may be called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1135,6 +1211,9 @@ privload_early_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
 
     if (opd->rela != NULL)
         privload_relocate_rela(opd, opd->rela, opd->rela + opd->relasz / opd->relaent);
+
+    if (opd->relr != NULL)
+        privload_relocate_relr(opd, opd->relr, opd->relrsz);
 
     if (opd->jmprel != NULL) {
         if (opd->pltrel == DT_REL) {
@@ -1161,6 +1240,8 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
         module_relocate_rela(mod_base, opd, opd->rela,
                              opd->rela + opd->relasz / opd->relaent);
     }
+    if (opd->relr != NULL)
+        module_relocate_relr(mod_base, opd, opd->relr, opd->relrsz);
     if (opd->jmprel != NULL) {
         app_pc jmprel_start = opd->jmprel;
         app_pc jmprel_end = opd->jmprel + opd->pltrelsz;

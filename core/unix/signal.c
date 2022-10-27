@@ -140,9 +140,10 @@ sig_is_alarm_signal(int sig)
     return (sig == SIGALRM || sig == SIGVTALRM || sig == SIGPROF);
 }
 
-/* we do not use SIGSTKSZ b/c for things like code modification
- * we end up calling many core routines and so want more space
- * (though currently non-debug stack size == SIGSTKSZ (8KB))
+/* We do not use SIGSTKSZ b/c for things like code modification
+ * we end up calling many core routines and so want more space.
+ * Also, SIGSTKSZ is now defined as sysconf(_SC_SIGSTKSZ) and we
+ * cannot invoke libc.
  */
 #define SIGSTACK_SIZE (DYNAMO_OPTION(signal_stack_size))
 
@@ -2299,7 +2300,7 @@ handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stac
             local_stack.ss_sp = NULL;
             local_stack.ss_size = 0;
         } else {
-            if (local_stack.ss_size < MINSIGSTKSZ) {
+            if (local_stack.ss_size < os_minsigstksz()) {
                 *result = ENOMEM;
                 return false;
             }
@@ -3508,7 +3509,8 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 sp = cur_sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE;
             }
             if (USE_APP_SIGSTACK(info, sig)) {
-#define APP_ALTSTACK_USAGE (SIGSTKSZ / 2)
+                /* We avoid SIGSTKSZ as it now calls sysconf in libc. */
+#define APP_ALTSTACK_USAGE (4096)
                 if (sp - APP_ALTSTACK_USAGE < (byte *)info->app_sigstack.ss_sp) {
                     /* There's not enough stack space.  The only solution would be to
                      * re-use DR's frame and limit our own stack usage here, which

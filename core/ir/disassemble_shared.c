@@ -255,6 +255,23 @@ opnd_size_suffix_intel(opnd_t opnd)
     return "";
 }
 
+#ifdef AARCHXX
+
+static const char *
+opnd_size_element_suffix(opnd_t opnd)
+{
+    int sz = opnd_get_vector_element_size(opnd);
+    switch (sz) {
+    case OPSZ_1: return ".b";
+    case OPSZ_2: return ".h";
+    case OPSZ_4: return ".s";
+    case OPSZ_8: return ".d";
+    case OPSZ_16: return ".q";
+    }
+    return "";
+}
+#endif
+
 static void
 opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
@@ -630,7 +647,10 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         break;
     case REG_kind:
         reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), opnd_get_flags(opnd), "",
-                        "");
+                        IF_AARCHXX_ELSE(opnd_is_element_vector_reg(opnd)
+                                            ? opnd_size_element_suffix(opnd)
+                                            : "",
+                                        ""));
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
 #if defined(X64) || defined(ARM)

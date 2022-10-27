@@ -314,6 +314,15 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     }
 }
 
+opnd_size_t
+opnd_get_vector_element_size(opnd_t opnd)
+{
+    if (opnd.kind != REG_kind || !TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
+        return OPSZ_NA;
+
+    return opnd.value.reg_and_element_size.element_size;
+}
+
 /* immediate operands */
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
@@ -1534,7 +1543,10 @@ opnd_same(opnd_t op1, opnd_t op2)
         return (op1.value.instr == op2.value.instr && op1.aux.shift == op2.aux.shift &&
                 op1.size == op2.size);
     case FAR_INSTR_kind: return op1.value.instr == op2.value.instr;
-    case REG_kind: return op1.value.reg == op2.value.reg;
+    case REG_kind:
+        return op1.value.reg_and_element_size.reg == op2.value.reg_and_element_size.reg &&
+            op1.value.reg_and_element_size.element_size ==
+            op2.value.reg_and_element_size.element_size;
     case BASE_DISP_kind:
         return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                         op1.value.base_disp.base_reg == op2.value.base_disp.base_reg &&

@@ -643,10 +643,6 @@ bic    %p2 %z2 %z24 $0x01 -> %z2
 bic    %p2 %z2 %z24 $0x02 -> %z2
 bic    %p2 %z2 %z24 $0x03 -> %z2
 test_sve_int_bin_pred_log complete
-add    %z27 %z30 $0x00 -> %z2
-add    %z27 %z30 $0x01 -> %z2
-add    %z27 %z30 $0x02 -> %z2
-add    %z27 %z30 $0x03 -> %z2
 sub    %z13 %z29 $0x00 -> %z0
 sub    %z13 %z29 $0x01 -> %z0
 sub    %z13 %z29 $0x02 -> %z0

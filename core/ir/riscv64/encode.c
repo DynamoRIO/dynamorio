@@ -40,12 +40,10 @@ const char *const reg_names[] = {
     "zero", "ra", "sp", "gp",  "tp",  "t0", "t1", "t2", "s0", "fp", "s1", "a0",
     "a1",   "a2", "a3", "a4",  "a5",  "a6", "a7", "s2", "s3", "s4", "s5", "s6",
     "s7",   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6", "pc",
-#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
     "ft0",  "ft1",  "ft2", "ft3", "ft4", "ft5", "ft6",  "ft7",  "fs0", "fs1",
     "fa0",  "fa1",  "fa2", "fa3", "fa4", "fa5", "fa6",  "fa7",  "fs2", "fs3",
     "fs4",  "fs5",  "fs6", "fs7", "fs8", "fs9", "fs10", "fs11", "ft8", "ft9",
     "ft10", "ft11", "fcsr",
-#endif
 };
 
 
@@ -59,14 +57,12 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
     DR_REG_X18, DR_REG_X19, DR_REG_X20, DR_REG_X21, DR_REG_X22, DR_REG_X23,
     DR_REG_X24, DR_REG_X25, DR_REG_X26, DR_REG_X27, DR_REG_X28, DR_REG_X29,
     DR_REG_X30, DR_REG_X31, DR_REG_PC,
-#if defined(RISCV_ISA_F) || defined(RISCV_ISA_D)
     DR_REG_F0,  DR_REG_F1,  DR_REG_F2,  DR_REG_F3,  DR_REG_F4,  DR_REG_F5,
     DR_REG_F6,  DR_REG_F7,  DR_REG_F8,  DR_REG_F9,  DR_REG_F10, DR_REG_F11,
     DR_REG_F12, DR_REG_F13, DR_REG_F14, DR_REG_F15, DR_REG_F16, DR_REG_F17,
     DR_REG_F18, DR_REG_F19, DR_REG_F20, DR_REG_F21, DR_REG_F22, DR_REG_F23,
     DR_REG_F24, DR_REG_F25, DR_REG_F26, DR_REG_F27, DR_REG_F28, DR_REG_F29,
     DR_REG_F30, DR_REG_F31, DR_REG_FCSR,
-#endif /* RISCV_ISA_F || RISCV_ISA_D */
 };
 /* clang-format on */
 

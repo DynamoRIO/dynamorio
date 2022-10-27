@@ -141,6 +141,13 @@ opnd_is_far_base_disp(opnd_t op)
     return IF_X86_ELSE(op.kind == BASE_DISP_kind && op.aux.segment != DR_REG_NULL, false);
 }
 
+INSTR_INLINE
+bool
+opnd_is_element_vector_reg(opnd_t op)
+{
+    return op.kind == REG_kind && ((op.aux.flags & DR_OPND_IS_VECTOR) != 0);
+}
+
 #    if defined(X64) || defined(ARM)
 #        ifdef X86
 #            define OPND_IS_REL_ADDR(op) ((op).kind == REL_ADDR_kind)
@@ -227,7 +234,8 @@ opnd_create_reg(reg_id_t r)
     CLIENT_ASSERT(r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
-    opnd.value.reg = r;
+    opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = OPSZ_NA;
     opnd.size = 0; /* indicates full size of reg */
     opnd.aux.flags = 0;
     return opnd;
@@ -244,9 +252,26 @@ opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
                   "opnd_create_reg_partial: non-multimedia register");
 #    endif
     opnd.kind = REG_kind;
-    opnd.value.reg = r;
+    opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = OPSZ_NA;
     opnd.size = subsize;
     opnd.aux.flags = 0;
+    return opnd;
+}
+
+INSTR_INLINE
+opnd_t
+opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
+{
+    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+#    ifdef X86
+    CLIENT_ASSERT(element_size == 0 || (r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID),
+                  "opnd_create_reg: invalid register");
+#    endif
+    opnd.kind = REG_kind;
+    opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = element_size;
+    opnd.aux.flags = DR_OPND_IS_VECTOR;
     return opnd;
 }
 
@@ -273,7 +298,7 @@ opnd_create_pc(app_pc pc)
 
 #    define OPND_GET_REG(opnd)                                                          \
         (CLIENT_ASSERT_(opnd_is_reg(opnd), "opnd_get_reg called on non-reg opnd")(opnd) \
-             .value.reg)
+             .value.reg_and_element_size.reg)
 #    define opnd_get_reg OPND_GET_REG
 
 #    if defined(X86) || defined(RISCV64)
