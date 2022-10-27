@@ -445,11 +445,11 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     return opened_new_file;
 }
 
-/* Returns the size of just the thread header, but appends both the thread header
- * and the buffer header.
+/* Appends just the thread header (not the unit/buffer header).
+ * Returns the size of the added thread header.
  */
 static size_t
-prepend_offline_thread_header(void *drcontext, ptr_int_t window = -1)
+prepend_offline_thread_header(void *drcontext)
 {
     DR_ASSERT(op_offline.get_value());
     /* Write initial headers at the top of the first buffer. */
@@ -457,9 +457,6 @@ prepend_offline_thread_header(void *drcontext, ptr_int_t window = -1)
     size_t size = reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
         data->buf_base, dr_get_thread_id(drcontext), get_file_type());
     BUF_PTR(data->seg_base) = data->buf_base + size;
-    BUF_PTR(data->seg_base) += append_unit_header(
-        drcontext, BUF_PTR(data->seg_base), dr_get_thread_id(drcontext),
-        window == -1 ? get_local_window(data) : window);
     data->has_thread_header = true;
     return size;
 }
@@ -553,12 +550,13 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
 }
 
 // Should only be called when the trace buffer is empty.
-// Returns whether it prepended headers.
+// For a new window, appends the thread headers, but not the unit headers;
+// returns true if that happens else returns false.
 static bool
 set_local_window(void *drcontext, ptr_int_t value)
 {
-    bool prepended = false;
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    bool prepended = false;
     NOTIFY(3, "%s: T%d %zd (old: %zd)\n", __FUNCTION__, dr_get_thread_id(drcontext),
            value, get_local_window(data));
     if (op_offline.get_value()) {
@@ -589,7 +587,7 @@ set_local_window(void *drcontext, ptr_int_t value)
             }
             if ((value > 0 && op_split_windows.get_value()) ||
                 data->init_header_size == 0) {
-                size_t header_size = prepend_offline_thread_header(drcontext, value);
+                size_t header_size = prepend_offline_thread_header(drcontext);
                 if (data->init_header_size == 0)
                     data->init_header_size = header_size;
                 else
@@ -931,9 +929,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         size_t stamp_offs =
             header_size > buf_hdr_slots_size ? header_size - buf_hdr_slots_size : 0;
         uint64 min_timestamp = attached_timestamp.load(std::memory_order_acquire);
-        bool found = instru->refresh_unit_header_timestamp(data->buf_base + stamp_offs,
-                                                           min_timestamp);
-        DR_ASSERT(found);
+        instru->refresh_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
 
     buf_ptr = BUF_PTR(data->seg_base);
@@ -941,21 +937,18 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     // -L0I_filter and -L0D_filter.
     if (buf_ptr == data->buf_base + header_size) {
         ptr_int_t window = -1;
-        bool prepended = false;
         if (has_tracing_windows()) {
             // If there is no data to write, we do not emit an empty header here
             // unless this thread is exiting (set_local_window will also write out
             // entries on a window change for offline; for online multiple windows
             // may pass with no output at all for an idle thread).
             window = tracing_window.load(std::memory_order_acquire);
-            prepended = set_local_window(drcontext, window);
+            if (set_local_window(drcontext, window))
+                header_size = data->init_header_size;
         }
         // Refresh header.
-        if (!prepended) {
-            append_unit_header(drcontext,
-                               data->buf_base + header_size - buf_hdr_slots_size,
-                               dr_get_thread_id(drcontext), window);
-        }
+        append_unit_header(drcontext, data->buf_base + header_size - buf_hdr_slots_size,
+                           dr_get_thread_id(drcontext), window);
         return;
     }
 
@@ -1048,17 +1041,14 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             memset(redzone, -1, buf_ptr - redzone);
         }
     }
+    BUF_PTR(data->seg_base) = data->buf_base;
     ptr_int_t window = -1;
-    bool prepended = false;
     if (has_tracing_windows()) {
         window = tracing_window.load(std::memory_order_acquire);
-        prepended = set_local_window(drcontext, window);
+        set_local_window(drcontext, window);
     }
-    if (!prepended) {
-        BUF_PTR(data->seg_base) = data->buf_base +
-            append_unit_header(drcontext, data->buf_base, dr_get_thread_id(drcontext),
-                               window);
-    }
+    BUF_PTR(data->seg_base) += append_unit_header(drcontext, BUF_PTR(data->seg_base),
+                                                  dr_get_thread_id(drcontext), window);
     num_refs_racy += current_num_refs;
     if (op_exit_after_tracing.get_value() > 0 &&
         num_refs_racy > op_exit_after_tracing.get_value()) {
@@ -1130,6 +1120,9 @@ init_thread_io(void *drcontext)
         } else {
             // set_local_window() called prepend_offline_thread_header().
         }
+        BUF_PTR(data->seg_base) +=
+            append_unit_header(drcontext, BUF_PTR(data->seg_base),
+                               dr_get_thread_id(drcontext), get_local_window(data));
     } else {
         /* pass pid and tid to the simulator to register current thread */
         char buf[MAXIMUM_PATH];

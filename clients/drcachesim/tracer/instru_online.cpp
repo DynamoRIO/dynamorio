@@ -200,11 +200,13 @@ bool
 online_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
 {
     trace_entry_t *stamp = reinterpret_cast<trace_entry_t *>(buf_ptr);
-    if (stamp->type != TRACE_TYPE_MARKER || stamp->size != TRACE_MARKER_TYPE_TIMESTAMP)
-        return false;
-    if (stamp->addr < min_timestamp)
-        stamp->addr = static_cast<uintptr_t>(instru_t::get_timestamp());
-    return true;
+    DR_ASSERT(stamp->type == TRACE_TYPE_MARKER &&
+              stamp->size == TRACE_MARKER_TYPE_TIMESTAMP);
+    if (stamp->addr < min_timestamp) {
+        stamp->addr = static_cast<uintptr_t>(min_timestamp);
+        return true;
+    }
+    return false;
 }
 
 void

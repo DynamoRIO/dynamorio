@@ -223,9 +223,9 @@ public:
     // This is a per-buffer-writeout header.
     virtual int
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) = 0;
-    // If the entry at buf_ptr is not a timestamp, returns false.
-    // Else, if the timestamp value is < min_timestamp, replaces it with a
-    // new timestamp (ignoring the frozen timestamp).  Returns true either way.
+    // The entry at buf_ptr must be a timestamp.
+    // If the timestamp value is < min_timestamp, replaces it with min_timestamp
+    // and returns true; else returns false.
     virtual bool
     refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) = 0;
     virtual void

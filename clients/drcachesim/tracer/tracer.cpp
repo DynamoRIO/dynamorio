@@ -430,11 +430,11 @@ event_pre_detach()
 {
     if (align_attach_detach_endpoints()) {
         NOTIFY(1, "Switching to no-tracing mode during detach\n");
-        // Keep all final thread output at the detach timestamp.  We won't add to any
-        // buffers during detach and we now have timestamps added at buffer start
-        // instead of output but a non-omitted thread that is at a wait syscall
-        // and so has an empty buffer would have its thread exit with a post-detach
-        // timestamp without this freeze.
+        // Keep all final thread output at the detach timestamp.
+        // With timestamps added at buffer start instead of output we generally do not
+        // add new timestamps during detach, but for a window being closed and the
+        // thread exit in the new window or similar cases it can happen, so we avoid any
+        // possible post-detach timestamp by freezing.
         instru->set_frozen_timestamp(instru_t::get_timestamp());
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     }
