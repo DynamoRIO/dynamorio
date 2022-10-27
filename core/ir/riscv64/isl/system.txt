@@ -1,0 +1,13 @@
+# Environment Call and Breakpoint
+ecall      | i |         | 00000000000000000000000001110011
+ebreak     | i |         | 00000000000100000000000001110011
+
+# Trap-Return Instructions
+sret       | i |         | 00010000001000000000000001110011
+mret       | i |         | 00110000001000000000000001110011
+
+# Interrupt-Management Instructions
+wfi        | I |         | 00010000010100000000000001110011
+
+# Supervisor Memory-Management Fence Instruction
+sfence.vma | r | rs2 rs1 | 0001001..........000000001110011

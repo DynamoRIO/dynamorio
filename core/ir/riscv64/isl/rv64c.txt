@@ -1,0 +1,10 @@
+# "C" Standard Extension for Compressed Instructions.
+# Version 2.0
+
+c.ldsp   | ci  | cldsp_imm crd       | 011...........10
+c.sdsp   | css | csdsp_imm crs2      | 111...........10
+c.ld     | cl  | cld_imm crs1_ crd_  | 011...........00
+c.sd     | cs  | csd_imm crs1_ crs2_ | 111...........00
+c.addiw  | ci  | cimm5 crd           | 001...........01
+c.addw   | ca  | crd__ crs2_         | 100111...01...01
+c.subw   | ca  | crd__ crs2_         | 100111...00...01

@@ -1,0 +1,7 @@
+# RISC-V Bit-Manipulation extension.
+# Zbc extension (Carry-less multiplication)
+# Version 1.0
+
+clmul  | r | rs2 rs1 rd | 0000101..........001.....0110011
+clmulh | r | rs2 rs1 rd | 0000101..........011.....0110011
+clmulr | r | rs2 rs1 rd | 0000101..........010.....0110011

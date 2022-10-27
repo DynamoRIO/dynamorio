@@ -1,0 +1,11 @@
+# RISC-V Base Cache Management Operation ISA Extensions
+# Zicbop (Cache-Block Prefetch Instructions)
+# Version 1.0
+
+# Cache-block prefetch instructions are encoded as ORI instructions with rd equal to 0b00000;
+# however, for the purposes of effective address calculation, this field is also interpreted as
+# imm[4:0] like a store instruction.
+
+prefetch.i | s | imm base | .......00000.....110000000010011
+prefetch.r | s | imm base | .......00001.....110000000010011
+prefetch.w | s | imm base | .......00011.....110000000010011

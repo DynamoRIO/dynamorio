@@ -1,0 +1,9 @@
+# "Zicsr", Control and Status Register (CSR) Instructions.
+# Version 2.0
+
+csrrw  | i | csr rs1 rd     | .................001.....1110011
+csrrs  | i | csr rs1 rd     | .................010.....1110011
+csrrc  | i | csr rs1 rd     | .................011.....1110011
+csrrwi | i | csr csr_imm rd | .................101.....1110011
+csrrsi | i | csr csr_imm rd | .................110.....1110011
+csrrci | i | csr csr_imm rd | .................111.....1110011

@@ -1,0 +1,12 @@
+# RISC-V Bit-Manipulation extension.
+# Zbs extension (Single-bit instructions)
+# Version 1.0
+
+bclr  | r | rs2 rs1 rd   | 0100100..........001.....0110011
+bclri | i | shamt rs1 rd | 010010...........001.....0010011
+bext  | r | rs2 rs1 rd   | 0100100..........101.....0110011
+bexti | i | shamt rs1 rd | 010010...........101.....0010011
+binv  | r | rs2 rs1 rd   | 0110100..........001.....0110011
+binvi | i | shamt rs1 rd | 011010...........001.....0010011
+bset  | r | rs2 rs1 rd   | 0010100..........001.....0110011
+bseti | i | shamt rs1 rd | 001010...........001.....0010011
