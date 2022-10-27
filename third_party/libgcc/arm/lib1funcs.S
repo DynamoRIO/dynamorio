@@ -1465,7 +1465,7 @@ LSYM(Lover12):
         asr     ah, r2
         sub     r2, #32
         @ If r2 is negative at this point the following step would OR
-        @ the sign bit into all of AL.  That's not what we want...
+        @ the sign bit into all of AL.  That is not what we want...
         bmi     1f
         mov     ip, r3
         asr     r3, r2

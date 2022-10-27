@@ -122,6 +122,12 @@ droption_t<bytesize_t> op_chunk_instr_count(
     "support for writing .zip files, this option is ignored. "
     "For 32-bit this cannot exceed 4G.");
 
+droption_t<bool> op_instr_encodings(
+    DROPTION_SCOPE_CLIENT, "instr_encodings", false,
+    "Whether to include encodings for online tools",
+    "By default instruction encodings are not sent to online tools, to reduce "
+    "overhead.  (Offline tools have them added by default.)");
+
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",
     "Path to function map file for func_view tool",
@@ -278,6 +284,19 @@ droption_t<bytesize_t> op_max_global_trace_refs(
     "Once reached, instrumented execution continues, but no further data is recorded. "
     "This is similar to -exit_after_tracing but without terminating the process."
     "The reference count is approximate.");
+
+droption_t<bool> op_align_endpoints(
+    // XXX i#2039,i#5686: Make this true by default (and maybe remove it altogether) once
+    // robustness issues with drbbdup are fixed (restore state for scatter/gather and
+    // other libs; yet-undiagnosed other state restore issues).
+    DROPTION_SCOPE_CLIENT, "align_endpoints", false,
+    "Nop tracing when partially attached or detached",
+    "When using attach/detach to trace a burst, the attach and detach processes are "
+    "staggered, with the set of threads producing trace data incrementally growing or "
+    "shrinking.  This results in uneven thread activity at the start and end of the "
+    "burst.  If this option is enabled, tracing is nop-ed until fully attached to "
+    "all threads and is nop-ed as soon as detach starts, eliminating the unevenness. "
+    "This also allows omitting threads that did nothing during the burst.");
 
 droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,

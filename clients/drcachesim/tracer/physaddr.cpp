@@ -82,7 +82,7 @@ physaddr_t::physaddr_t()
         ++page_bits_;
         temp >>= 1;
     }
-    NOTIFY(1, "Page size: %zu; bits: %d\n", page_size_, page_bits_);
+    NOTIFY(2, "Page size: %zu; bits: %d\n", page_size_, page_bits_);
 #endif
 }
 

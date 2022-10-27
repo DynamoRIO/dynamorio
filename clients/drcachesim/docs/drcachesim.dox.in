@@ -48,6 +48,10 @@ multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
+\b News: There are some new features coming to drmemtrace traces:
+embedded instruction encodings and fast seeking.  Please see the
+[slides introducing these features](docs/new-features-encodings-seek.pdf).
+
  - \subpage sec_drcachesim
  - \subpage sec_drcachesim_format
  - \subpage sec_drcachesim_run
@@ -112,7 +116,12 @@ counter and length of the encoded instruction are provided.  The
 length can be used to compute the address of the subsequent instruction.
 
 The raw encoding of the instruction is provided.  This can be decoded
-using the drdecode decoder or any other decoder.
+using the drdecode decoder or any other decoder.  An additional field
+`encoding_is_new` is provided to indicate when any cached decoding
+information should be invalidated due to possibly changed application
+code.  (For online traces, encodings are not provided unless the
+option `-instr_encodings` is passed, as encodings add overhead and
+are not needed for many tools.)
 
 Older legacy traces may not contain instruction encodings.  For those
 traces, encodings for static code can be obtained by
@@ -583,8 +592,8 @@ to cache simulators.
 The opcode_mix tool uses the non-fetched instruction information along with
 the preserved libraries and binaries from the traced execution to gather
 more information on each executed instruction than was stored in the trace.
-It only supports offline traces, and the \p modules.log file created during
-post-processing of the trace must be preserved.  The results are broken
+To run on online traces, pass the `-instr_encodings` option.
+The results are broken
 down by the opcodes used in DR's IR, where for x86 \p mov is split into a separate
 opcode for load and store but both have the same public string "mov":
 
@@ -625,7 +634,8 @@ Opcode mix tool results:
 \section sec_tool_view Human-Readable View
 
 The view tool prints out the contents of the trace for human viewing, including
-disassembling instructions in AT&T, Intel, Arm, or DR format, for offline traces. The
+disassembling instructions in AT&T, Intel, Arm, or DR format (to see
+disassembly for online traces, pass the `-instr_encodings` option). The
 -skip_refs and -sim_refs flags can be used to
 set a start point and end point for the disassembled view. Note that these
 flags compute the number of instructions which are skipped or displayed which
@@ -1300,7 +1310,8 @@ The \p drcachesim trace format includes information intended for use by
 core simulators as well as pure cache simulators.  For traces that are not
 filtered by an online first-level cache, each data reference is preceded by
 the instruction fetch entry for the instruction that issued the data
-request.  Additionally, on x86, string loop
+request, which includes the instruction encoding with the opcode and operands.
+Additionally, on x86, string loop
 instructions involve a single insruction fetch followed by a loop of loads
 and/or stores.  A \p drcachesim trace includes a special "no-fetch"
 instruction entry per iteration so that core simulators have the
@@ -1326,12 +1337,6 @@ includes the interrupted PC, explicitly providing the branch target.
 Filtered traces (filtered via -L0_filter) include the dynamic (pre-filtered)
 per-thread instruction count in a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at
 each thread buffer boundary and at thread exit.
-
-A final feature that aids core simulators is the pair of interfaces
-module_mapper_t::get_loaded_modules() and
-module_mapper_t::find_mapped_trace_address(), which facilitate reading the raw
-bytes for each instruction in order to obtain the opcode and full operand
-information.
 
 ****************************************************************************
 \page sec_drcachesim_extend Extending the Simulator

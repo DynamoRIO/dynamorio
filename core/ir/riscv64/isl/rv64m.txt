@@ -1,0 +1,8 @@
+# "M" Standard Extension for Integer Multiplication and Division.
+# Version 2.0
+
+mulw  | r | rs2 rs1 rd | 0000001..........000.....0111011
+divw  | r | rs2 rs1 rd | 0000001..........100.....0111011
+divuw | r | rs2 rs1 rd | 0000001..........101.....0111011
+remw  | r | rs2 rs1 rd | 0000001..........110.....0111011
+remuw | r | rs2 rs1 rd | 0000001..........111.....0111011

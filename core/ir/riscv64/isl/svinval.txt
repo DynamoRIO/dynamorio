@@ -1,0 +1,8 @@
+# "Svinval" Standard Extension for Fine-Grained Address-Translation Cache
+# Invalidation, Version 1.0
+
+sinval.vma      | r | rs2 rs1 | 0001011..........000000001110011
+sfence.w.inval  | i |         | 00011000000000000000000001110011
+sfence.inval.ir | i |         | 00011000000100000000000001110011
+hinval.vvma     | r | rs2 rs1 | 0010011..........000000001110011
+hinval.gvma     | r | rs2 rs1 | 0110011..........000000001110011

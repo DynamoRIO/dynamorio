@@ -96,8 +96,18 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
         counters->unique_pc_addrs.insert(memref.instr.addr);
-    } else if (memref.data.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // The encoding entries aren't exposed at the memref_t level, but
+        // we use encoding_is_new as a proxy.
+        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
+            memref.instr.encoding_is_new)
+            ++counters->encodings;
+    } else if (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
+        // The encoding entries aren't exposed at the memref_t level, but
+        // we use encoding_is_new as a proxy.
+        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
+            memref.instr.encoding_is_new)
+            ++counters->encodings;
     } else if (type_is_prefetch(memref.data.type)) {
         ++counters->prefetches;
     } else if (memref.data.type == TRACE_TYPE_READ) {
@@ -143,6 +153,16 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
                 ++counters->phys_unavail_markers;
                 break;
+            case TRACE_MARKER_TYPE_FILETYPE:
+                if (per_shard->filetype_ == -1) {
+                    per_shard->filetype_ =
+                        static_cast<intptr_t>(memref.marker.marker_value);
+                } else if (per_shard->filetype_ !=
+                           static_cast<intptr_t>(memref.marker.marker_value)) {
+                    error_string_ = std::string("Filetype mismatch");
+                    return false;
+                }
+                ANNOTATE_FALLTHROUGH;
             default: ++counters->other_markers; break;
             }
         }
@@ -217,6 +237,7 @@ basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_thr
     std::cerr << std::setw(12) << counters.phys_unavail_markers << prefix
               << " physical address unavailable markers\n";
     std::cerr << std::setw(12) << counters.other_markers << prefix << " other markers\n";
+    std::cerr << std::setw(12) << counters.encodings << prefix << " encodings\n";
 }
 
 bool

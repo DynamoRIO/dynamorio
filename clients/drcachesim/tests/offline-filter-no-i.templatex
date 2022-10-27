@@ -19,6 +19,7 @@ Total counts:
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
      .* total other markers
+     .* total encodings
 Thread .* counts:
            0 \(fetched\) instructions
            0 unique \(fetched\) instructions
@@ -37,3 +38,4 @@ Thread .* counts:
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
      .* other markers
+     .* encodings

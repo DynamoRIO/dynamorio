@@ -1,0 +1,25 @@
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+all done
+Basic counts tool results:
+Total counts:
+     .* total \(fetched\) instructions
+     .* total unique \(fetched\) instructions
+     .* total non-fetched instructions
+     .* total prefetches
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
+          [ 1][0-9] total threads
+.*

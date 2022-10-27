@@ -92,6 +92,8 @@ get_aux_file_path(std::string option_val, std::string default_filename)
                 std::string(DIRSEP) + default_filename;
         }
     }
+    if (!std::ifstream(file_path.c_str()).good())
+        return "";
     return file_path;
 }
 
@@ -184,8 +186,10 @@ drmemtrace_analysis_tool_create()
         return basic_counts_tool_create(op_verbose.get_value());
     } else if (op_simulator_type.get_value() == OPCODE_MIX) {
         std::string module_file_path = get_module_file_path();
-        if (module_file_path.empty()) {
-            ERRMSG("Usage error: the opcode_mix tool requires offline traces.\n");
+        if (module_file_path.empty() && op_indir.get_value().empty() &&
+            op_infile.get_value().empty() && !op_instr_encodings.get_value()) {
+            ERRMSG("Usage error: the opcode_mix tool requires offline traces, or "
+                   "-instr_encodings for online traces.\n");
             return nullptr;
         }
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value(),

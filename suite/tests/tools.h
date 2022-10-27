@@ -89,10 +89,13 @@
 #undef PFX
 #define PFX "0x" PFMT
 
-#if defined(AARCH64) && SIGSTKSZ < 16384
+#ifdef LINUX
+#    include <linux/version.h>
+#    if defined(AARCH64) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
 /* SIGSTKSZ was incorrectly defined in Linux releases before 4.3. */
-#    undef SIGSTKSZ
-#    define SIGSTKSZ 16384
+#        undef SIGSTKSZ
+#        define SIGSTKSZ 16384
+#    endif
 #endif
 
 #ifdef __cplusplus
@@ -326,9 +329,9 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 #    define NOP_NOP_NOP asm("nop\n nop\n nop\n")
 #    ifdef X86
 #        ifdef MACOS
-#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #            tgt)
+#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #tgt)
 #        else
-#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #            tgt)
+#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 #        endif
 #    elif defined(AARCHXX)
 /* Make sure to mark LR/X30 as clobbered to avoid functions like
@@ -354,6 +357,8 @@ print(const char *fmt, ...);
 /* in tools_asm.asm */
 int
 code_self_mod(int iters);
+void
+icache_sync(void *addr);
 /* these don't need asm, but must be adjacent to code_self_mod and in order */
 int
 code_inc(int foo);

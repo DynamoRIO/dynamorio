@@ -1900,6 +1900,7 @@ instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_m
     client_info.fragment_info.cache_start_pc = NULL;
     client_info.fragment_info.is_trace = false;
     client_info.fragment_info.app_code_consistent = true;
+    client_info.fragment_info.ilist = NULL;
     bool res = instrument_restore_state(dcontext, restore_memory, &client_info);
     dr_mcontext_to_priv_mcontext(mcontext, client_mcontext);
     return res;

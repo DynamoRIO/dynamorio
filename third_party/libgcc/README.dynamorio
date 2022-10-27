@@ -41,6 +41,13 @@ Here are the changes to lib1funcs.S:
 > /*--------------------------------------------------*/
 >
 
+Additionally, a single quote was removed from this comment line in lib1funcs.S
+as it breaks some old assemblers:
+
+<        @ the sign bit into all of AL.  That's not what we want...
+>        @ the sign bit into all of AL.  That is not what we want...
+
+
 For udivmoddi4.c, it contains the __udivmoddi4 and __moddi3 functions extracted from
 libgcc2.c with the following lines added:
 > /* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added: */

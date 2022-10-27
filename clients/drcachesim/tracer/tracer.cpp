@@ -156,12 +156,19 @@ size_t buf_hdr_slots_size;
 static bool (*should_trace_thread_cb)(thread_id_t tid, void *user_data);
 static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
+bool attached_midway;
+
+static bool
+bbdup_instr_counting_enabled()
+{
+    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
+        op_retrace_every_instrs.get_value() > 0;
+}
 
 static bool
 bbdup_duplication_enabled()
 {
-    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
-        op_retrace_every_instrs.get_value() > 0;
+    return attached_midway || bbdup_instr_counting_enabled();
 }
 
 std::atomic<ptr_int_t> tracing_window;
@@ -198,7 +205,7 @@ instru_notify(uint level, const char *fmt, ...)
 /* This holds one of the BBDUP_MODE_ enum values, but drbbdup requires that it
  * be pointer-sized.
  */
-std::atomic<ptr_int_t> tracing_disabled;
+std::atomic<ptr_int_t> tracing_mode;
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
@@ -235,9 +242,18 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
     if (bbdup_duplication_enabled()) {
         *enable_dups = true;
-        drbbdup_status_t res =
-            drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
-        DR_ASSERT(res == DRBBDUP_SUCCESS);
+        drbbdup_status_t res;
+        if (align_attach_detach_endpoints()) {
+            res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_NOP);
+            DR_ASSERT(res == DRBBDUP_SUCCESS);
+        }
+        if (bbdup_instr_counting_enabled()) {
+            res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
+            DR_ASSERT(res == DRBBDUP_SUCCESS);
+        }
+        // XXX i#2039: We have possible future use cases for BBDUP_MODE_FUNC_ONLY
+        // to track functions during no-tracing periods, possibly replacing the
+        // NOP mode for some of those.  For now it is not enabled.
     } else {
         /* Tracing is always on, so we have just one type of instrumentation and
          * do not need block duplication.
@@ -276,6 +292,10 @@ event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     } else if (mode == BBDUP_MODE_COUNT) {
         return event_inscount_bb_analysis(drcontext, tag, bb, for_trace, translating,
                                           analysis_data);
+    } else if (mode == BBDUP_MODE_FUNC_ONLY) {
+        return DR_EMIT_DEFAULT;
+    } else if (mode == BBDUP_MODE_NOP) {
+        return DR_EMIT_DEFAULT;
     } else
         DR_ASSERT(false);
     return DR_EMIT_DEFAULT;
@@ -288,6 +308,10 @@ event_bb_analyze_case_cleanup(void *drcontext, uintptr_t mode, void *user_data,
     if (mode == BBDUP_MODE_TRACE)
         event_bb_analysis_cleanup(drcontext, analysis_data);
     else if (mode == BBDUP_MODE_COUNT)
+        ; /* no cleanup needed */
+    else if (mode == BBDUP_MODE_FUNC_ONLY)
+        ; /* no cleanup needed */
+    else if (mode == BBDUP_MODE_NOP)
         ; /* no cleanup needed */
     else
         DR_ASSERT(false);
@@ -303,9 +327,17 @@ event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         return event_app_instruction(drcontext, tag, bb, instr, where, for_trace,
                                      translating, orig_analysis_data, analysis_data);
     } else if (mode == BBDUP_MODE_COUNT) {
+        // This includes func_trace_disabled_instrument_event() for drwrap cleanup.
         return event_inscount_app_instruction(drcontext, tag, bb, instr, where, for_trace,
                                               translating, orig_analysis_data,
                                               analysis_data);
+    } else if (mode == BBDUP_MODE_FUNC_ONLY) {
+        return func_trace_enabled_instrument_event(drcontext, tag, bb, instr, where,
+                                                   for_trace, translating, NULL);
+    } else if (mode == BBDUP_MODE_NOP) {
+        // We still need drwrap to clean up b/c we're using intrusive optimizations.
+        return func_trace_disabled_instrument_event(drcontext, tag, bb, instr, where,
+                                                    for_trace, translating, NULL);
     } else
         DR_ASSERT(false);
     return DR_EMIT_DEFAULT;
@@ -337,20 +369,21 @@ instrumentation_drbbdup_init()
     opts.analyze_case_ex = event_bb_analyze_case;
     opts.destroy_case_analysis = event_bb_analyze_case_cleanup;
     opts.instrument_instr_ex = event_app_instruction_case;
-    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_disabled, OPSZ_PTR);
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&tracing_mode, OPSZ_PTR);
     opts.atomic_load_encoding = true;
-    if (bbdup_duplication_enabled())
-        opts.non_default_case_limit = 1;
-    else {
-        // Save memory by asking drbbdup to not keep per-block bookkeeping.
-        opts.non_default_case_limit = 0;
-    }
+    // Save memory by asking drbbdup to not keep per-block bookkeeping
+    // unless we need it (the cases below).
+    opts.non_default_case_limit = 0;
+    if (align_attach_detach_endpoints())
+        ++opts.non_default_case_limit; // BBDUP_MODE_NOP.
+    if (bbdup_instr_counting_enabled())
+        ++opts.non_default_case_limit; // BBDUP_MODE_COUNT.
     // Save per-thread heap for a feature we do not need.
     opts.never_enable_dynamic_handling = true;
     drbbdup_status_t res = drbbdup_init(&opts);
     DR_ASSERT(res == DRBBDUP_SUCCESS);
     /* We just want barriers and atomic ops: no locks b/c they are not safe. */
-    DR_ASSERT(tracing_disabled.is_lock_free());
+    DR_ASSERT(tracing_mode.is_lock_free());
 }
 
 static void
@@ -364,12 +397,38 @@ instrumentation_init()
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
 
-    if (op_trace_after_instrs.get_value() != 0)
-        tracing_disabled.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    if (align_attach_detach_endpoints())
+        tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
+    else if (op_trace_after_instrs.get_value() != 0)
+        tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
 
 #ifdef DELAYED_CHECK_INLINED
     drx_init();
 #endif
+}
+
+static void
+event_post_attach()
+{
+    DR_ASSERT(attached_midway);
+    if (!align_attach_detach_endpoints())
+        return;
+    if (op_trace_after_instrs.get_value() != 0) {
+        NOTIFY(1, "Switching to counting mode after attach\n");
+        tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    } else {
+        NOTIFY(1, "Switching to tracing mode after attach\n");
+        tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+    }
+}
+
+static void
+event_pre_detach()
+{
+    if (align_attach_detach_endpoints()) {
+        NOTIFY(1, "Switching to no-tracing mode during detach\n");
+        tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
+    }
 }
 
 /***************************************************************************
@@ -425,13 +484,24 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
                         instr_t *where, reg_id_t reg_ptr, int adjust)
 {
     // Instrument to add a full instr entry for the first instr.
+    if (op_instr_encodings.get_value()) {
+        adjust = instru->instrument_instr_encoding(drcontext, tag, ud->instru_field,
+                                                   ilist, where, reg_ptr, adjust,
+                                                   ud->delay_instrs[0]);
+    }
     adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                       reg_ptr, adjust, ud->delay_instrs[0]);
-    if (op_use_physical.get_value()) {
+    if (op_use_physical.get_value() || op_instr_encodings.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
-        // cross page bundary.
+        // cross page bundary, and no bundles for encodings so we can easily
+        // insert encoding entries.
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
+            if (op_instr_encodings.get_value()) {
+                adjust = instru->instrument_instr_encoding(
+                    drcontext, tag, ud->instru_field, ilist, where, reg_ptr, adjust,
+                    ud->delay_instrs[i]);
+            }
             adjust =
                 instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                          reg_ptr, adjust, ud->delay_instrs[i]);
@@ -667,12 +737,12 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
             FATAL("Fatal error: failed to unreserve scratch reg.\n");
     }
 
-    reg_id_t reg_tmp = DR_REG_NULL;
+    reg_id_t reg_tmp = DR_REG_NULL, reg_tmp2 = DR_REG_NULL;
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
     reg_id_set_t app_regs_at_skip_thread;
     if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) &&
         thread_filtering_enabled) {
-        insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_thread,
+        insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp2, skip_thread,
                                 short_reaches, app_regs_at_skip_thread);
     }
     MINSERT(ilist, where,
@@ -686,7 +756,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                             DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
     insert_conditional_skip_target(drcontext, ilist, where, skip_call, reg_tmp,
                                    app_regs_at_skip_call);
-    insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_tmp,
+    insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_tmp2,
                                    app_regs_at_skip_thread);
 }
 
@@ -904,6 +974,10 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     }
     if (op_L0I_filter.get_value() || op_L0D_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    if (op_instr_encodings.get_value()) {
+        adjust = instru->instrument_instr_encoding(drcontext, tag, ud->instru_field,
+                                                   ilist, where, reg_ptr, adjust, app);
+    }
     adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
                                       reg_ptr, adjust, app);
     if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
@@ -1218,7 +1292,7 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
@@ -1263,7 +1337,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
@@ -1298,7 +1372,7 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
     uintptr_t marker_val = 0;
-    if (tracing_disabled.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
@@ -1404,9 +1478,14 @@ init_thread_in_process(void *drcontext)
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        data->syscall_pt_trace.init(drcontext, kernel_pt_logsubdir, MAXIMUM_PATH,
-                                    file_ops_func.open_file, file_ops_func.write_file,
-                                    file_ops_func.close_file);
+        data->syscall_pt_trace.init(
+            drcontext, kernel_pt_logsubdir, MAXIMUM_PATH,
+            // XXX i#5505: This should be per-thread and per-window; once we've
+            // finalized the PT output scheme we should pass those parameters.
+            [](const char *fname, uint mode_flags) {
+                return file_ops_func.open_process_file(fname, mode_flags);
+            },
+            file_ops_func.write_file, file_ops_func.close_file);
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -1656,19 +1735,19 @@ init_offline_dir(void)
     dr_snprintf(modlist_path, BUFFER_SIZE_ELEMENTS(modlist_path), "%s%s%s", logsubdir,
                 DIRSEP, DRMEMTRACE_MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(modlist_path);
-    module_file = file_ops_func.open_file(
+    module_file = file_ops_func.open_process_file(
         modlist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
     dr_snprintf(funclist_path, BUFFER_SIZE_ELEMENTS(funclist_path), "%s%s%s", logsubdir,
                 DIRSEP, DRMEMTRACE_FUNCTION_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(funclist_path);
-    funclist_file = file_ops_func.open_file(
+    funclist_file = file_ops_func.open_process_file(
         funclist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
     dr_snprintf(encoding_path, BUFFER_SIZE_ELEMENTS(encoding_path), "%s%s%s", logsubdir,
                 DIRSEP, DRMEMTRACE_ENCODING_FILENAME);
     NULL_TERMINATE_BUFFER(encoding_path);
-    encoding_file = file_ops_func.open_file(
+    encoding_file = file_ops_func.open_process_file(
         encoding_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
     return (module_file != INVALID_FILE && funclist_file != INVALID_FILE &&
@@ -1733,6 +1812,34 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
         file_ops_func.close_file = close_file_func;
     if (create_dir_func != NULL)
         file_ops_func.create_dir = create_dir_func;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops)
+{
+    if (ops == nullptr || ops->size != sizeof(drmemtrace_replace_file_ops_t))
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    if (ops->write_file_func != nullptr && ops->handoff_buf_func != nullptr)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    if (ops->open_file_ex_func != nullptr) {
+        file_ops_func.open_file_ex = ops->open_file_ex_func;
+        file_ops_func.open_file = nullptr;
+    }
+    if (ops->read_file_func != nullptr)
+        file_ops_func.read_file = ops->read_file_func;
+    if (ops->write_file_func != nullptr)
+        file_ops_func.write_file = ops->write_file_func;
+    if (ops->close_file_func != nullptr)
+        file_ops_func.close_file = ops->close_file_func;
+    if (ops->create_dir_func != nullptr)
+        file_ops_func.create_dir = ops->create_dir_func;
+    if (ops->handoff_buf_func != nullptr)
+        file_ops_func.handoff_buf = ops->handoff_buf_func;
+    if (ops->exit_func != nullptr) {
+        file_ops_func.exit_cb = ops->exit_func;
+        file_ops_func.exit_arg = ops->exit_arg;
+    }
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -1866,7 +1973,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     event_inscount_init();
     init_io();
 
-    DR_ASSERT(std::atomic_is_lock_free(&tracing_disabled));
+    DR_ASSERT(std::atomic_is_lock_free(&tracing_mode));
     DR_ASSERT(std::atomic_is_lock_free(&tracing_window));
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
@@ -1950,6 +2057,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif
+    attached_midway = dr_register_post_attach_event(event_post_attach);
+    dr_register_pre_detach_event(event_pre_detach);
+
     /* We need our thread exit event to run *before* drmodtrack's as we may
      * need to translate physical addresses for the thread's final buffer.
      */

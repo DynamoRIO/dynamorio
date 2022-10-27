@@ -2,6 +2,15 @@ pre-DR init
 pre-DR start
 pre-DR detach
 all done
-Basic counts tool results:
-Total counts:
+Opcode mix tool results:
+.*
+#ifdef X86
+ *[0-9][0-9][0-9] : *lahf
+#elif defined(AARCH64)
+ *[0-9][0-9][0-9] : *psb
+#elif defined(ARM)
+ *[0-9][0-9][0-9] : *yield
+#else
+NYI
+#endif
 .*

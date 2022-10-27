@@ -228,6 +228,10 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "str x0, %[id]\n\t"
         /* Test clobbering an input register. */
         "mov x0, #%[cpu_id_uninit]\n\t"
+        /* Test clobbering a non-regular-GPR. */
+        "mov x1, sp\n\t"
+        "mov sp, x0\n\t"
+        "mov sp, x1\n\t"
         /* Test a restart in the middle of the sequence via udf SIGILL. */
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
