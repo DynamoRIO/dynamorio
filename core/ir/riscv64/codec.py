@@ -30,8 +30,8 @@
 # DAMAGE.
 
 # This script generates encoder/decoder logic for RISC-V instructions described
-# in core/arch/riscv64/isl/*.txt files. This includes:
-# - opcode_api.h - List of all opcodes supported by the encoder/decoder
+# in core/ir/riscv64/isl/*.txt files. This includes:
+# - opcode_api.h - List of all opcodes supported by the encoder/decoder.
 # - opcode_names.h - Stringified names of all opcodes.
 # - instr_create_api.h - Instruction generation macros.
 # - FIXME i#3544: add a list of generated files here.
@@ -41,7 +41,7 @@
 # - Gather statistics on instruction usage frequency. If there is a small set
 #   of instructions which are used most frequently, then having an
 #   instruction-specific [de]ncoder will utilize branch predictor better and not
-#   cause dramatically higher instruction cache polution than a per-format
+#   cause dramatically higher instruction cache pollution than per-format
 #   decoding functions with per-field branches.
 # - ...
 
@@ -54,7 +54,7 @@ from sys import argv
 from typing import List
 from enum import Enum, unique
 
-# Logging helpers. To enable debug logging set DEBUG=1 environment variable
+# Logging helpers. To enable debug logging set DEBUG=1 environment variable.
 logger = getLogger('rv64-codec')
 log_handler = StreamHandler()
 log_handler.setFormatter(Formatter('%(levelname)s: %(message)s'))
@@ -65,11 +65,11 @@ def dbg(msg, *args, **kwargs):
     logger.debug(msg, *args, **kwargs)
 
 
-def wrn(msg, *args, **kwargs):
+def warn(msg, *args, **kwargs):
     logger.warning(msg, *args, **kwargs)
 
 
-def nfo(msg, *args, **kwargs):
+def info(msg, *args, **kwargs):
     logger.info(msg, *args, **kwargs)
 
 
@@ -82,16 +82,16 @@ if env_debug != '0':
     logger.setLevel(DEBUG)
 
 
-def maxu(bits: int) -> int:
+def max_unsigned(bits: int) -> int:
     return (1 << bits) - 1
 
 
-def ctz(n: int) -> int:
+def count_trailing_zeros(n: int) -> int:
     sn = bin(n)
     return len(sn) - len(sn.rstrip('0'))
 
 
-def cto(n: int) -> int:
+def count_trailing_ones(n: int) -> int:
     sn = bin(n)
     return len(sn) - len(sn.rstrip('1'))
 
@@ -100,9 +100,10 @@ class Field(str, Enum):
     arg_name: str
     _asm_name: str
     arg_cmt: str
-    # The OPSZ_* definition is either a string in case operand size is common across
-    # instructions or a dictionary indexed by the instruction name. A special entry
-    # at key '' is used for instructions not found in the dictionary.
+    # The OPSZ_* definition is either a string in case operand size is common
+    # across instructions or a dictionary indexed by the instruction name. A
+    # special entry at key '' is used for instructions not found in the
+    # dictionary.
     opsz_def: dict[str, str] | str
     is_dest: bool
 
@@ -120,7 +121,7 @@ class Field(str, Enum):
         obj.is_dest = is_dest
         return obj
 
-    # Fields in uncompressed instructions
+    # Fields in uncompressed instructions.
     RD = (1,
           'rd',
           True,
@@ -210,7 +211,7 @@ class Field(str, Enum):
            False,
            'OPSZ_PTR',
            '',
-           'The Configuration/Status Register id (inst[31:20]).'
+           'The configuration/status register id (inst[31:20]).'
            )
     RM = (14,
           'rm',
@@ -231,14 +232,14 @@ class Field(str, Enum):
               False,
               'OPSZ_6b',
               '',
-              'The `shamt` field that uses 5-bits.'
+              'The `shamt` field that uses only 5 bits.'
               )
     SHAMT6 = (17,
               'shamt',
               False,
               'OPSZ_7b',
               '',
-              'The `shamt` field that uses 6-bits.'
+              'The `shamt` field that uses only 6 bits.'
               )
     I_IMM = (18,
              'imm',
@@ -275,7 +276,7 @@ class Field(str, Enum):
              '',
              'The immediate field in the J-type format.'
              )
-    IMM = (23,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP
+    IMM = (23,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP.
            'imm',
            False,
            'OPSZ_12b',
@@ -317,7 +318,7 @@ class Field(str, Enum):
               '',
               'The second input floating-point register in `CR`, `CSS` RVC formats (inst[6:2]).'
               )
-    # Fields in compressed instructions
+    # Fields in compressed instructions.
     CRD_ = (29,
             'rd',
             True,
@@ -523,7 +524,7 @@ class Field(str, Enum):
 
 @unique
 class Format(Enum):
-    # Uncompressed instructions
+    # Uncompressed instructions.
     R = 1
     R4 = 2
     I = 3
@@ -531,7 +532,7 @@ class Format(Enum):
     B = 5
     U = 6
     J = 7
-    # Only compressed instructions below
+    # Only compressed instructions below.
     CR = 8
     CI = 9
     CSS = 10
@@ -600,7 +601,7 @@ class IslGenerator:
         funct3 = (inst.match & inst.mask) >> 13
         if opc == 0 and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
-            # Immediate argument will handle the base+disp
+            # Immediate argument will handle the base+disp.
             inst.flds.pop(1)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif Field.CB_IMM in inst.flds:
@@ -672,7 +673,8 @@ class IslGenerator:
         The file base name is interpreted as an ISA extension name (including the
         base ISA).
 
-        Returns true if parsing succeeded.'''
+        Returns true if parsing succeeded.
+        '''
         ext = path.basename(isl_file).removesuffix('.txt')
         with open(isl_file, 'r') as f:
             for line in f:
@@ -761,24 +763,24 @@ class IslGenerator:
             return False
         found_template_fld = False
         idx = -1
-        # Replace tmpl_fld in the template_file and save as out_file
+        # Replace tmpl_fld in the template_file and save as out_file.
         with open(template_file, 'r') as tf, open(out_file, 'w') as of:
             for line in tf:
                 if '*/ OP_' in line:
                     nmb = re.findall(r'\d+', line)
                     if len(nmb) != 1:
-                        wrn(
+                        warn(
                             f"Template opcode line is missing an index?: '{line}'")
                     idx = int(nmb[0])
                 elif tmpl_fld in line:
                     found_template_fld = True
 
                     if idx == -1:
-                        wrn("Starting index not found, using 0")
+                        warn("Starting index not found, using 0")
                     idx += 1
                     IslGenerator.OP_TBL_OFFSET = idx
                     lines = []
-                    # Generate list of:
+                    # Generate a list of:
                     #    OP_<opcode>,   /**< <extension> <opcode> opcode. */
                     for i in self.instructions:
                         lines.append(
@@ -795,19 +797,20 @@ class IslGenerator:
         '''
         Generate the instr_create_api.h header file.
 
-        Returns true if the output file was written successfully.'''
+        Returns true if the output file was written successfully.
+        '''
         tmpl_fld = '@INSTR_MACROS@'
         if len(self.instructions) == 0:
             return False
         found_template_fld = False
-        # Replace tmpl_fld in the template_file and save as out_file
+        # Replace tmpl_fld in the template_file and save as out_file.
         with open(template_file, 'r') as tf, open(out_file, 'w') as of:
             for line in tf:
                 if tmpl_fld in line:
                     found_template_fld = True
 
                     lines = []
-                    # Generate list of:
+                    # Generate a list of:
                     #    #define INSTR_CREATE_<opcode>(dc, <arguments>) \
                     #      instr_create_<n_dst>dst_<n_src>src(dc, OP_<opcode>, <arguments>)
                     for i in self.instructions:
@@ -914,22 +917,22 @@ class IslGenerator:
                             [f'{i.name:16s}: {i.match:032b} & {i.mask:032b}'
                              for i in bucket]))
                 if l == 0:
-                    trie.append(self.TrieNode(0, 0, maxu(16)))
+                    trie.append(self.TrieNode(0, 0, max_unsigned(16)))
                 elif l == 1:
                     name = bucket[0].name
                     wanted = [i for i in self.instructions if i.name == name][0]
                     wi = op_offset + self.instructions.index(wanted)
                     trie.append(self.TrieNode(0, 0, wi, name))
                 else:
-                    mask_anded = maxu(32)
-                    common_match = maxu(32)
+                    mask_anded = max_unsigned(32)
+                    common_match = max_unsigned(32)
                     common_comparator = bucket[0].match
                     for instruction in bucket:
                         mask_anded &= instruction.mask
                         common_match &= ~(common_comparator ^
-                                          instruction.match) & maxu(32)
+                                          instruction.match) & max_unsigned(32)
                         common_comparator &= common_match
-                    if mask_anded & ~common_match & maxu(32) == 0:
+                    if mask_anded & ~common_match & max_unsigned(32) == 0:
                         # If mask is 0, it means we've reached the end of the
                         # decoded instruction but there are still more than 1
                         # elements in the search bucket. This means the bucket
@@ -939,11 +942,12 @@ class IslGenerator:
                         # handling is done above during search bucket list
                         # creation.
                         dbg('  Bucket with aliased instructions, mask fixed up!')
-                        mask_anded = ~mask_anded & maxu(32)
+                        mask_anded = ~mask_anded & max_unsigned(32)
                     else:
-                        mask_anded &= ~common_match & maxu(32)
-                    next_shift = ctz(mask_anded)
-                    next_mask = (1 << cto(mask_anded >> next_shift)) - 1
+                        mask_anded &= ~common_match & max_unsigned(32)
+                    next_shift = count_trailing_zeros(mask_anded)
+                    next_mask = (1 << count_trailing_ones(
+                        mask_anded >> next_shift)) - 1
                     next_trie_index = len(trie)
                     dbg(f'  trie[{next_trie_index}] <- (i >> {next_shift}) & 0b{next_mask:b}')
                     trie.append(self.TrieNode(next_mask, next_shift, 0))
@@ -955,7 +959,8 @@ class IslGenerator:
         '''
         Generate the instr_info_trie.c file.
 
-        Returns true if the output file was written successfully.'''
+        Returns true if the output file was written successfully.
+        '''
         if op_offset < 0:
             err("Invalid OP_* offset")
             return False
@@ -963,11 +968,11 @@ class IslGenerator:
             return False
         with open(out_file, 'w') as of:
             # Keep the order of fields here in sync with the documentation in
-            # core/ir/riscv64/codec.c
+            # core/ir/riscv64/codec.c.
             OPND_TGT = ['dst1', 'src1', 'src2', 'src3', 'dst2']
             instr_infos = []
             trie = []
-            # Generate rv_instr_info_t list
+            # Generate the rv_instr_info_t list.
             for i in self.instructions:
                 flds = [f for f in i.flds]
                 flds.reverse()
@@ -999,7 +1004,7 @@ class IslGenerator:
         }},
         .ext = {i.formatted_ext()},
     }},''')
-            # Generate trie
+            # Generate the trie.
             trie = self.construct_trie(op_offset)
             trie = [
                 f'{{.mask = {hex(t.mask)}, .shift = {t.shift}, .index = {t.index}}},{f" /* {t.ctx} */" if len(t.ctx) > 0 else ""}' for t in trie]
@@ -1027,7 +1032,7 @@ INSTRINFO_FNAME = "instr_info_trie.h"
 
 if __name__ == '__main__':
     if len(argv) < 4:
-        wrn(
+        warn(
             f"Usage: {path.basename(__file__)} <isl-path> <template-path> <output-path>")
         exit(1)
     isl_path = argv[1]
