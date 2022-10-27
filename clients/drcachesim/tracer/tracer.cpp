@@ -113,6 +113,8 @@ size_t trace_buf_size;
 size_t redzone_size;
 size_t max_buf_size;
 
+std::atomic<uint64> attached_timestamp;
+
 static drvector_t scratch_reserve_vec;
 
 /* per bb user data during instrumentation */
@@ -413,6 +415,7 @@ event_post_attach()
     DR_ASSERT(attached_midway);
     if (!align_attach_detach_endpoints())
         return;
+    attached_timestamp.store(instru_t::get_timestamp(), std::memory_order_release);
     if (op_trace_after_instrs.get_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
@@ -427,6 +430,12 @@ event_pre_detach()
 {
     if (align_attach_detach_endpoints()) {
         NOTIFY(1, "Switching to no-tracing mode during detach\n");
+        // Keep all final thread output at the detach timestamp.
+        // With timestamps added at buffer start instead of output we generally do not
+        // add new timestamps during detach, but for a window being closed and the
+        // thread exit in the new window or similar cases it can happen, so we avoid any
+        // possible post-detach timestamp by freezing.
+        instru->set_frozen_timestamp(instru_t::get_timestamp());
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     }
 }

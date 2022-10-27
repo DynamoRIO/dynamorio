@@ -153,6 +153,7 @@ is_first_nonlabel(void *drcontext, instr_t *instr);
 extern std::atomic<ptr_int_t> tracing_mode;
 extern std::atomic<ptr_int_t> tracing_window;
 extern bool attached_midway;
+extern std::atomic<uint64> attached_timestamp;
 
 /* We have multiple modes.  While just 2 results in a more efficient dispatch,
  * the power of extra modes justifies the extra overhead.
