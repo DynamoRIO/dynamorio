@@ -82,7 +82,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
 static volatile bool rseq_enabled;
 
 /* We require all threads to use the same TLS offset to point at struct rseq. */
-static int rseq_tls_offset;
+static volatile int rseq_tls_offset;
 
 /* The signature is registered per thread, but we require all registrations
  * to be the same.
@@ -159,6 +159,11 @@ rseq_check_glibc_enabled()
 {
 #ifdef GLIBC_RSEQ
     ASSERT(!glibc_rseq_enabled);
+    #ifdef STATIC_LIBRARY
+    ASSERT(rseq_tls_offset == 0);
+    #else
+    /* We may already have initialized rseq_tls_offset in rseq_process_syscall*/
+    #endif
 #    ifndef DEBUG
     /* Already found rseq_tls_offset. No need to keep looking. */
     if (rseq_tls_offset != 0)
@@ -172,15 +177,8 @@ rseq_check_glibc_enabled()
     module_iterator_t *iter = module_iterator_start();
     while (module_iterator_hasnext(iter)) {
         module_area_t *ma = module_iterator_next(iter);
-        const char *modname = GET_MODULE_NAME(&ma->names);
-        if (modname == NULL || strstr(modname, "libc.so") != modname)
-            continue;
         uint *rseq_size_addr =
             (uint *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_size");
-        // if (rseq_size_addr != NULL ) {
-        //    dr_printf("AAA found rseq_size for %s\n",modname);
-        // }
-        // ASSERT(rseq_size_addr != NULL);
         /* __rseq_size is set to zero if the rseq support in glibc is disabled
          * by exporting GLIBC_TUNABLES=glibc.pthread.rseq=0. Or it's possible
          * that we're using early inject and it just hasn't been initialized
@@ -191,9 +189,9 @@ rseq_check_glibc_enabled()
             continue;
         int *rseq_offset_addr =
             (int *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_offset");
-        ASSERT(rseq_offset_addr != NULL);
+        ASSERT(rseq_offset_addr != NULL);;
         if (rseq_tls_offset == 0) {
-            rseq_tls_offset = *rseq_offset_addr;
+            ATOMIC_4BYTE_WRITE(&rseq_tls_offset, *rseq_offset_addr, false);
             bool new_value = true;
             ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
             DODEBUG({
@@ -207,7 +205,9 @@ rseq_check_glibc_enabled()
             });
         } else {
             ASSERT(rseq_tls_offset == *rseq_offset_addr);
+#    ifdef STATIC_LIBRARY
             ASSERT(glibc_rseq_enabled);
+#    endif
         }
     }
     module_iterator_stop(iter);
@@ -245,7 +245,8 @@ d_r_rseq_exit(void)
     /* TODO(abnv): For reattaches, maybe we should retain these. */
     bool new_value = false;
     ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
-    rseq_tls_offset = 0;
+    uint new_offset = 0;
+    ATOMIC_4BYTE_WRITE(&rseq_tls_offset, new_offset, false);
 }
 
 void
