@@ -159,11 +159,14 @@ rseq_check_glibc_enabled()
 {
 #ifdef GLIBC_RSEQ
     ASSERT(!glibc_rseq_enabled);
-    #ifdef STATIC_LIBRARY
+#    ifdef STATIC_LIBRARY
     ASSERT(rseq_tls_offset == 0);
-    #else
-    /* We may already have initialized rseq_tls_offset in rseq_process_syscall*/
-    #endif
+#    else
+    /* For !STATIC_LIBRARY we delay rseq_check_glibc_enabled until we GLIBC is
+     * initialized, so it may happen that rseq_tls_offset is already initialized
+     * by rseq_process_syscall.
+     */
+#    endif
 #    ifndef DEBUG
     /* Already found rseq_tls_offset. No need to keep looking. */
     if (rseq_tls_offset != 0)
@@ -189,7 +192,7 @@ rseq_check_glibc_enabled()
             continue;
         int *rseq_offset_addr =
             (int *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_offset");
-        ASSERT(rseq_offset_addr != NULL);;
+        ASSERT(rseq_offset_addr != NULL);
         if (rseq_tls_offset == 0) {
             ATOMIC_4BYTE_WRITE(&rseq_tls_offset, *rseq_offset_addr, false);
             bool new_value = true;
@@ -808,7 +811,7 @@ rseq_locate_rseq_regions(void)
 {
     if (rseq_enabled)
         return;
-#ifdef GLIBC_RSEQ
+#if defined(GLIBC_RSEQ) && !defined(STATIC_LIBRARY)
     /* We delay locating struct rseq TLS offset and rseq_cs until GLIBC is
      * completely initialized.
      */
