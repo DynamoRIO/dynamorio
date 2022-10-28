@@ -1102,6 +1102,12 @@ raw2trace_t::append_delayed_branch(void *tls)
             return "Failed to write to output file";
     }
     tdata->delayed_branch.clear();
+    if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
+        DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
+        std::string error = open_new_chunk(tdata);
+        if (!error.empty())
+            return error;
+    }
     return "";
 }
 
@@ -1225,6 +1231,14 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
                                 reinterpret_cast<const char *>(end) -
                                     reinterpret_cast<const char *>(start)))
         return "Failed to write to output file";
+    // If we're at the end of a block (minus its delayed branch) we need
+    // to split now to avoid going too far by waiting for the next instr.
+    if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
+        DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
+        std::string error = open_new_chunk(tdata);
+        if (!error.empty())
+            return error;
+    }
     return "";
 }
 

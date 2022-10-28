@@ -104,6 +104,8 @@ protected:
         offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
         uintptr_t last_window_ = 0;
         bool window_transition_ = false;
+        uint64_t chunk_instr_count_ = 0;
+        uint64_t instr_count_ = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom
