@@ -50,7 +50,6 @@
 #include <stddef.h>
 #include "include/syscall.h"
 #include <errno.h>
-
 /* The linux/rseq.h header made a source-breaking change in torvalds/linux@bfdf4e6
  * which broke our build.  To avoid future issues we use our own definitions.
  * Binary breakage is unlikely without long periods of deprecation so this is
@@ -72,6 +71,10 @@ struct rseq {
     uint flags;
 } __attribute__((aligned(4 * sizeof(uint64))));
 #define RSEQ_FLAG_UNREGISTER 1
+
+#ifdef GLIBC_RSEQ
+static volatile bool glibc_rseq_enabled;
+#endif
 
 vm_area_vector_t *d_r_rseq_areas;
 DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
@@ -152,6 +155,66 @@ rseq_cs_free(dcontext_t *dcontext, void *data)
 }
 
 void
+rseq_check_glibc_enabled()
+{
+#ifdef GLIBC_RSEQ
+    ASSERT(!glibc_rseq_enabled);
+#    ifndef DEBUG
+    /* Already found rseq_tls_offset. No need to keep looking. */
+    if (rseq_tls_offset != 0)
+        return;
+#    else
+    /* Even though rseq_tls_offset may already have been found, we still
+     * want to find it again to make sure all modules exporting
+     * __rseq_offset still have the same value.
+     */
+#    endif
+    module_iterator_t *iter = module_iterator_start();
+    while (module_iterator_hasnext(iter)) {
+        module_area_t *ma = module_iterator_next(iter);
+        const char *modname = GET_MODULE_NAME(&ma->names);
+        if (modname == NULL || strstr(modname, "libc.so") != modname)
+            continue;
+        uint *rseq_size_addr =
+            (uint *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_size");
+        // if (rseq_size_addr != NULL ) {
+        //    dr_printf("AAA found rseq_size for %s\n",modname);
+        // }
+        // ASSERT(rseq_size_addr != NULL);
+        /* __rseq_size is set to zero if the rseq support in glibc is disabled
+         * by exporting GLIBC_TUNABLES=glibc.pthread.rseq=0. Or it's possible
+         * that we're using early inject and it just hasn't been initialized
+         * yet. For STATIC_LIBRARY, the caller needs to call this routine just
+         * one time, during d_r_rseq_init.
+         */
+        if (rseq_size_addr == NULL || *rseq_size_addr == 0)
+            continue;
+        int *rseq_offset_addr =
+            (int *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_offset");
+        ASSERT(rseq_offset_addr != NULL);
+        if (rseq_tls_offset == 0) {
+            rseq_tls_offset = *rseq_offset_addr;
+            bool new_value = true;
+            ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
+            DODEBUG({
+                byte *rseq_addr = get_app_segment_base(LIB_SEG_TLS) + rseq_tls_offset;
+                LOG(GLOBAL, LOG_LOADER, 2,
+                    "Found struct rseq registered by glibc @ " PFX " at TLS offset %d\n",
+                    rseq_addr, rseq_tls_offset);
+                int res =
+                    dynamorio_syscall(SYS_rseq, 4, rseq_addr, sizeof(struct rseq), 0, 0);
+                ASSERT(res == -EPERM);
+            });
+        } else {
+            ASSERT(rseq_tls_offset == *rseq_offset_addr);
+            ASSERT(glibc_rseq_enabled);
+        }
+    }
+    module_iterator_stop(iter);
+#endif
+}
+
+void
 d_r_rseq_init(void)
 {
     VMVECTOR_ALLOC_VECTOR(d_r_rseq_areas, GLOBAL_DCONTEXT,
@@ -161,9 +224,16 @@ d_r_rseq_init(void)
     rseq_cs_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_RSEQ_CS_TABLE_SIZE, 80,
                                         HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
                                         rseq_cs_free _IF_DEBUG("rseq_cs table"));
+#ifdef STATIC_LIBRARY
+    rseq_check_glibc_enabled();
     /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
     if (rseq_is_registered_for_current_thread())
         rseq_locate_rseq_regions();
+#else
+    /* For non-static DR (early-inject), we delay enabling rseq till libc is
+     * completely initialized.
+     */
+#endif
 }
 
 void
@@ -172,6 +242,10 @@ d_r_rseq_exit(void)
     generic_hash_destroy(GLOBAL_DCONTEXT, rseq_cs_table);
     vmvector_delete_vector(GLOBAL_DCONTEXT, d_r_rseq_areas);
     DELETE_LOCK(rseq_trigger_lock);
+    /* TODO(abnv): For reattaches, maybe we should retain these. */
+    bool new_value = false;
+    ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
+    rseq_tls_offset = 0;
 }
 
 void
@@ -229,7 +303,7 @@ static void
 rseq_clear_tls_ptr(dcontext_t *dcontext)
 {
     ASSERT(rseq_tls_offset != 0);
-    byte *base = get_segment_base(LIB_SEG_TLS);
+    byte *base = get_app_segment_base(LIB_SEG_TLS);
     struct rseq *app_rseq = (struct rseq *)(base + rseq_tls_offset);
     /* We're directly writing this in the cache, so we do not bother with safe_read
      * or safe_write here either.  We already cannot handle rseq adversarial cases.
@@ -310,6 +384,8 @@ rseq_shared_fragment_flushtime_update(dcontext_t *dcontext)
 bool
 rseq_is_registered_for_current_thread(void)
 {
+    if (glibc_rseq_enabled)
+        return true;
     /* Unfortunately there's no way to query the current rseq struct.
      * For 64-bit we can pass a kernel address and look for EFAULT
      * vs EINVAL, but there is no kernel address for 32-bit.
@@ -627,6 +703,10 @@ rseq_process_module_cleanup:
 static int
 rseq_locate_tls_offset(void)
 {
+    if (glibc_rseq_enabled) {
+        ASSERT(rseq_tls_offset != 0);
+        return rseq_tls_offset;
+    }
     /* We assume (and document) that the loader's static TLS is used, so every thread
      * has a consistent %fs:-offs address.  Unfortunately, using a local copy of the
      * rseq code for our non-instrumented execution requires us to locate the app's
@@ -727,6 +807,14 @@ rseq_locate_rseq_regions(void)
 {
     if (rseq_enabled)
         return;
+#ifdef GLIBC_RSEQ
+    /* We delay locating struct rseq TLS offset and rseq_cs until GLIBC is
+     * completely initialized.
+     */
+    if (!reached_image_entry_yet()) {
+        return;
+    }
+#endif
     /* This is a global operation, but the trigger could be hit by two threads at once,
      * thus requiring synchronization.
      */
@@ -768,6 +856,9 @@ rseq_locate_rseq_regions(void)
 void
 rseq_module_init(module_area_t *ma, bool at_map)
 {
+    /* If !rseq_enabled, the module will simply be processed when we enable
+     * rseq.
+     */
     if (rseq_enabled) {
         rseq_process_module(ma, at_map);
     }

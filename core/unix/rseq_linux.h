@@ -45,6 +45,10 @@
 #    error Rseq is a Linux-only feature
 #endif
 
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 35)
+#    define GLIBC_RSEQ
+#endif
+
 void
 d_r_rseq_init(void);
 
@@ -65,5 +69,8 @@ rseq_module_init(module_area_t *ma, bool at_map);
 
 void
 rseq_process_syscall(dcontext_t *dcontext);
+
+void
+rseq_check_glibc_enabled(void);
 
 #endif /* _RSEQ_H_ */

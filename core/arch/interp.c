@@ -66,6 +66,9 @@
 #include "../native_exec.h"
 #include "../jit_opt.h"
 
+#if !defined(STATIC_LIBRARY) && defined(LINUX)
+#    include "../unix/rseq_linux.h"
+#endif
 #ifdef CHECK_RETURNS_SSE2
 #    include <setjmp.h> /* for warning when see libc setjmp */
 #endif
@@ -373,6 +376,15 @@ set_reached_image_entry()
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     reached_image_entry = true;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#if !defined(STATIC_LIBRARY) && defined(LINUX)
+    /* For enabling rseq on non-static DR, we need to wait till libc is
+     * initialized. This is a good control point.
+     * Note that d_r_rseq_init would already have completed by now.
+     */
+    rseq_check_glibc_enabled();
+    if (rseq_is_registered_for_current_thread())
+        rseq_locate_rseq_regions();
+#endif
 }
 
 bool

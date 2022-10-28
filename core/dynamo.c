@@ -692,7 +692,6 @@ dynamorio_app_init_part_two_finalize(void)
             find_dynamo_library_vm_areas();
             dynamo_vm_areas_unlock();
         }
-
 #ifdef ANNOTATIONS
         annotation_init();
 #endif
