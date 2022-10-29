@@ -245,9 +245,10 @@ d_r_rseq_exit(void)
     generic_hash_destroy(GLOBAL_DCONTEXT, rseq_cs_table);
     vmvector_delete_vector(GLOBAL_DCONTEXT, d_r_rseq_areas);
     DELETE_LOCK(rseq_trigger_lock);
-    /* TODO(abnv): For reattaches, maybe we should retain these. */
+#ifdef GLIBC_RSEQ
     bool new_value = false;
     ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
+#endif
     uint new_offset = 0;
     ATOMIC_4BYTE_WRITE(&rseq_tls_offset, new_offset, false);
 }
@@ -388,8 +389,10 @@ rseq_shared_fragment_flushtime_update(dcontext_t *dcontext)
 bool
 rseq_is_registered_for_current_thread(void)
 {
+#ifdef GLIBC_RSEQ
     if (glibc_rseq_enabled)
         return true;
+#endif
     /* Unfortunately there's no way to query the current rseq struct.
      * For 64-bit we can pass a kernel address and look for EFAULT
      * vs EINVAL, but there is no kernel address for 32-bit.
@@ -707,10 +710,12 @@ rseq_process_module_cleanup:
 static int
 rseq_locate_tls_offset(void)
 {
+#ifdef GLIBC_RSEQ
     if (glibc_rseq_enabled) {
         ASSERT(rseq_tls_offset != 0);
         return rseq_tls_offset;
     }
+#endif
     /* We assume (and document) that the loader's static TLS is used, so every thread
      * has a consistent %fs:-offs address.  Unfortunately, using a local copy of the
      * rseq code for our non-instrumented execution requires us to locate the app's
