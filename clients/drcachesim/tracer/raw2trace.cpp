@@ -1099,8 +1099,9 @@ raw2trace_t::append_delayed_branch(void *tls)
             }
         }
     }
-    std::string error = write(tdata, &tdata->delayed_branch[0],
-                              &tdata->delayed_branch[tdata->delayed_branch.size()]);
+    std::string error =
+        write(tdata, tdata->delayed_branch.data(),
+              tdata->delayed_branch.data() + tdata->delayed_branch.size());
     if (!error.empty())
         return error;
     tdata->delayed_branch.clear();
