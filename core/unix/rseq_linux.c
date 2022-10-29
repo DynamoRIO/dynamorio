@@ -167,16 +167,6 @@ rseq_check_glibc_enabled()
      * by rseq_process_syscall.
      */
 #    endif
-#    ifndef DEBUG
-    /* Already found rseq_tls_offset. No need to keep looking. */
-    if (rseq_tls_offset != 0)
-        return;
-#    else
-    /* Even though rseq_tls_offset may already have been found, we still
-     * want to find it again to make sure all modules exporting
-     * __rseq_offset still have the same value.
-     */
-#    endif
     module_iterator_t *iter = module_iterator_start();
     while (module_iterator_hasnext(iter)) {
         module_area_t *ma = module_iterator_next(iter);
@@ -185,8 +175,7 @@ rseq_check_glibc_enabled()
         /* __rseq_size is set to zero if the rseq support in glibc is disabled
          * by exporting GLIBC_TUNABLES=glibc.pthread.rseq=0. Or it's possible
          * that we're using early inject and it just hasn't been initialized
-         * yet. For STATIC_LIBRARY, the caller needs to call this routine just
-         * one time, during d_r_rseq_init.
+         * yet.
          */
         if (rseq_size_addr == NULL || *rseq_size_addr == 0)
             continue;
@@ -234,7 +223,7 @@ d_r_rseq_init(void)
         rseq_locate_rseq_regions();
 #else
     /* For non-static DR (early-inject), we delay enabling rseq till libc is
-     * completely initialized.
+     * completely initialized, in set_reached_image_entry.
      */
 #endif
 }
