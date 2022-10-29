@@ -383,7 +383,7 @@ set_reached_image_entry()
      */
     rseq_check_glibc_enabled();
     if (rseq_is_registered_for_current_thread())
-        rseq_locate_rseq_regions();
+        rseq_locate_rseq_regions(false);
 #endif
 }
 
