@@ -397,13 +397,25 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t w
     byte *new_buf = buf_ptr;
     offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    entry->timestamp.usec =
-        frozen_timestamp_ != 0 ? frozen_timestamp_ : instru_t::get_timestamp();
+    uint64 frozen = frozen_timestamp_.load(std::memory_order_acquire);
+    entry->timestamp.usec = frozen != 0 ? frozen : instru_t::get_timestamp();
     new_buf += sizeof(*entry);
     if (window >= 0)
         new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
+}
+
+bool
+offline_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
+{
+    offline_entry_t *stamp = reinterpret_cast<offline_entry_t *>(buf_ptr);
+    DR_ASSERT(stamp->timestamp.type == OFFLINE_TYPE_TIMESTAMP);
+    if (stamp->timestamp.usec < min_timestamp) {
+        stamp->timestamp.usec = min_timestamp;
+        return true;
+    }
+    return false;
 }
 
 int

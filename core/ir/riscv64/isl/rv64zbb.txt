@@ -1,0 +1,12 @@
+# RISC-V Bit-Manipulation extension.
+# Zbb extension (Basic bit-manipulation)
+# Version 1.0
+
+clzw   | i | rs1 rd        | 011000000000.....001.....0011011
+ctzw   | i | rs1 rd        | 011000000001.....001.....0011011
+cpopw  | i | rs1 rd        | 011000000010.....001.....0011011
+rolw   | r | rs2 rs1 rd    | 0110000..........001.....0111011
+roriw  | i | shamt5 rs1 rd | 0110000..........101.....0011011
+rorw   | r | rs2 rs1 rd    | 0110000..........101.....0111011
+zext.h | i | rs1 rd        | 000010000000.....100.....0111011
+rev8   | i | rs1 rd        | 011010111000.....101.....0010011

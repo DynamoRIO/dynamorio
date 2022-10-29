@@ -185,15 +185,28 @@ online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, intptr_t win
 {
     byte *new_buf = buf_ptr;
     new_buf += append_tid(new_buf, tid);
-    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_TIMESTAMP,
-                             // Truncated to 32 bits for 32-bit: we live with it.
-                             static_cast<uintptr_t>(frozen_timestamp_ != 0
-                                                        ? frozen_timestamp_
-                                                        : instru_t::get_timestamp()));
+    uint64 frozen = frozen_timestamp_.load(std::memory_order_acquire);
+    new_buf += append_marker(
+        new_buf, TRACE_MARKER_TYPE_TIMESTAMP,
+        // Truncated to 32 bits for 32-bit: we live with it.
+        static_cast<uintptr_t>(frozen != 0 ? frozen : instru_t::get_timestamp()));
     if (window >= 0)
         new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
+}
+
+bool
+online_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
+{
+    trace_entry_t *stamp = reinterpret_cast<trace_entry_t *>(buf_ptr);
+    DR_ASSERT(stamp->type == TRACE_TYPE_MARKER &&
+              stamp->size == TRACE_MARKER_TYPE_TIMESTAMP);
+    if (stamp->addr < min_timestamp) {
+        stamp->addr = static_cast<uintptr_t>(min_timestamp);
+        return true;
+    }
+    return false;
 }
 
 void

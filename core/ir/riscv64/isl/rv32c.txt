@@ -1,0 +1,8 @@
+# "C" Standard Extension for Compressed Instructions.
+# Version 2.0
+
+c.flwsp | ci  | clwsp_imm crd(fp)       | 011...........10
+c.fswsp | css | cswsp_imm crs2(fp)      | 111...........10
+c.flw   | cl  | clw_imm crs1_ crd_(fp)  | 011...........00
+c.fsw   | cs  | csw_imm crs1_ crs2_(fp) | 111...........00
+c.jal   | cj  | cj_imm                  | 001...........01

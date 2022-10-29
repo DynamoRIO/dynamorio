@@ -30,14 +30,21 @@
  * DAMAGE.
  */
 
+#include <stdint.h>
+
 #include "../globals.h"
+#include "globals_shared.h"
+#include "disassemble_api.h"
+#include "codec.h"
 
 int
 print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
                       byte *next_pc, instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
-    print_to_buffer(buf, bufsz, sofar, " %08x   ", *(uint *)pc);
+    if (instruction_width(*(int16_t *)pc) == 2)
+        print_to_buffer(buf, bufsz, sofar, "     %04x   ", *(uint16_t *)pc);
+    else
+        print_to_buffer(buf, bufsz, sofar, " %08x   ", *(uint *)pc);
     return 0;
 }
 
@@ -53,15 +60,35 @@ void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* There is no scaled addressing on RISC-V */
+    ASSERT_NOT_REACHED();
+}
+
+static inline const char *
+immed_prefix(void)
+{
+    return (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))
+                ? ""
+                : (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)) ? "#" : "$"));
 }
 
 bool
 opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    switch (opnd.kind) {
+    case IMMED_INTEGER_kind: {
+        /* Immediates are sign-extended at the decode time. */
+        ptr_int_t val = opnd_get_immed_int(opnd);
+        const char *sign = val < 0 ? "-" : "";
+        if (val < 0)
+            val = -val;
+        /* FIXME i#3544: objdump shows some immediates in decimal (i.e. addi).
+         * Should we try to differentiate those here too?
+         */
+        print_to_buffer(buf, bufsz, sofar, "%s%s0x%x", immed_prefix(), sign, val);
+        return true;
+    }
+    }
     return false;
 }
 
@@ -88,6 +115,5 @@ void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
                   size_t *sofar INOUT)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    print_to_buffer(buf, bufsz, sofar, "%s", name);
 }

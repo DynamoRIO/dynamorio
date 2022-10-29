@@ -1,0 +1,11 @@
+# "M" Standard Extension for Integer Multiplication and Division.
+# Version 2.0
+
+mul    | r | rs2 rs1 rd | 0000001..........000.....0110011
+mulh   | r | rs2 rs1 rd | 0000001..........001.....0110011
+mulhsu | r | rs2 rs1 rd | 0000001..........010.....0110011
+mulhu  | r | rs2 rs1 rd | 0000001..........011.....0110011
+div    | r | rs2 rs1 rd | 0000001..........100.....0110011
+divu   | r | rs2 rs1 rd | 0000001..........101.....0110011
+rem    | r | rs2 rs1 rd | 0000001..........110.....0110011
+remu   | r | rs2 rs1 rd | 0000001..........111.....0110011

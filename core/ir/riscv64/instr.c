@@ -58,7 +58,7 @@ opc_is_not_a_real_memory_load(int opc)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
-    return opc == OP_l;
+    return opc == OP_auipc;
 }
 
 uint
