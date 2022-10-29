@@ -50,6 +50,7 @@
 #include <stddef.h>
 #include "include/syscall.h"
 #include <errno.h>
+
 /* The linux/rseq.h header made a source-breaking change in torvalds/linux@bfdf4e6
  * which broke our build.  To avoid future issues we use our own definitions.
  * Binary breakage is unlikely without long periods of deprecation so this is
@@ -175,7 +176,9 @@ rseq_check_glibc_enabled()
         /* __rseq_size is set to zero if the rseq support in glibc is disabled
          * by exporting GLIBC_TUNABLES=glibc.pthread.rseq=0. Or it's possible
          * that we're using early inject and it just hasn't been initialized
-         * yet.
+         * yet. We prevent the latter from happening by calling this routine
+         * after modules are initialised (on static DR), and after we reach
+         * the image entry (set_reached_image_entry; on non-static DR).
          */
         if (rseq_size_addr == NULL || *rseq_size_addr == 0)
             continue;
@@ -188,18 +191,15 @@ rseq_check_glibc_enabled()
             ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
             DODEBUG({
                 byte *rseq_addr = get_app_segment_base(LIB_SEG_TLS) + rseq_tls_offset;
-                LOG(GLOBAL, LOG_LOADER, 2,
-                    "Found struct rseq registered by glibc @ " PFX " at TLS offset %d\n",
-                    rseq_addr, rseq_tls_offset);
                 int res =
                     dynamorio_syscall(SYS_rseq, 4, rseq_addr, sizeof(struct rseq), 0, 0);
                 ASSERT(res == -EPERM);
+                LOG(GLOBAL, LOG_LOADER, 2,
+                    "Found struct rseq registered by glibc @ " PFX " at TLS offset %d\n",
+                    rseq_addr, rseq_tls_offset);
             });
         } else {
             ASSERT(rseq_tls_offset == *rseq_offset_addr);
-#    ifdef STATIC_LIBRARY
-            ASSERT(glibc_rseq_enabled);
-#    endif
         }
     }
     module_iterator_stop(iter);
@@ -220,7 +220,7 @@ d_r_rseq_init(void)
     rseq_check_glibc_enabled();
     /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
     if (rseq_is_registered_for_current_thread())
-        rseq_locate_rseq_regions();
+        rseq_locate_rseq_regions(false);
 #else
     /* For non-static DR (early-inject), we delay enabling rseq till libc is
      * completely initialized, in set_reached_image_entry.
@@ -234,6 +234,7 @@ d_r_rseq_exit(void)
     generic_hash_destroy(GLOBAL_DCONTEXT, rseq_cs_table);
     vmvector_delete_vector(GLOBAL_DCONTEXT, d_r_rseq_areas);
     DELETE_LOCK(rseq_trigger_lock);
+    /* Better to reset and detect again for reattaches. */
 #ifdef GLIBC_RSEQ
     bool new_value = false;
     ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
@@ -801,7 +802,7 @@ rseq_process_syscall(dcontext_t *dcontext)
  * the app has registered the current thread for rseq.
  */
 void
-rseq_locate_rseq_regions(void)
+rseq_locate_rseq_regions(bool at_syscall)
 {
     if (rseq_enabled)
         return;
@@ -810,6 +811,14 @@ rseq_locate_rseq_regions(void)
      * completely initialized.
      */
     if (!reached_image_entry_yet()) {
+        /* This is likely the initial rseq made by glibc. Since glibc's
+         * rseq support isn't fully initialized yet (the __rseq_size and
+         * __rseq_offset values; assuming glibc rseq support isn't disabled
+         * explicitly by the user), we skip locating rseq regions for now.
+         * We'll do it when the thread reaches the image entry
+         * (in set_reached_image_entry).
+         */
+        ASSERT(at_syscall);
         return;
     }
 #endif

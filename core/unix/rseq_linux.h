@@ -46,7 +46,7 @@
 #endif
 
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 35)
-#    define GLIBC_RSEQ
+#    define GLIBC_RSEQ 1
 #endif
 
 void
