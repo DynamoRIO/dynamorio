@@ -3902,6 +3902,12 @@ if (BUILD_CLIENTS)
           # We test cpu_scheduling for offline traces here.
           "" "@-cpu_scheduling" "")
 
+        set(tool.drcacheoff.burst_threads_counts_nodr ON)
+        torunonly_drcacheoff(burst_threads_counts tool.drcacheoff.burst_threads
+          "" "@-simulator_type@basic_counts"
+          # This test uses the same app as the one above, so set a new dir name.
+          "-subdir_prefix drmemtrace.tool.drcacheoff.burst_threads_counts")
+
         set(tool.drcacheoff.burst_malloc_nodr ON)
         torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
           "" "@-simulator_type@basic_counts" "")

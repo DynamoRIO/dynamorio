@@ -1,0 +1,29 @@
+# "D" Standard Extension for Double-Precision Floating-Point.
+# Version 2.2
+
+fld       | i  | i_imm rs1 rd(fp)              | .................011.....0000111
+fsd       | s  | s_imm rs2(fp) rs1             | .................011.....0100111
+fmadd.d   | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....01..................1000011
+fmsub.d   | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....01..................1000111
+fnmsub.d  | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....01..................1001011
+fnmadd.d  | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....01..................1001111
+fadd.d    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0000001..................1010011
+fsub.d    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0000101..................1010011
+fmul.d    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0001001..................1010011
+fdiv.d    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0001101..................1010011
+fsqrt.d   | r  | rs1(fp) rm rd(fp)             | 010110100000.............1010011
+fsgnj.d   | r  | rs2(fp) rs1(fp) rd(fp)        | 0010001..........000.....1010011
+fsgnjn.d  | r  | rs2(fp) rs1(fp) rd(fp)        | 0010001..........001.....1010011
+fsgnjx.d  | r  | rs2(fp) rs1(fp) rd(fp)        | 0010001..........010.....1010011
+fmin.d    | r  | rs2(fp) rs1(fp) rd(fp)        | 0010101..........000.....1010011
+fmax.d    | r  | rs2(fp) rs1(fp) rd(fp)        | 0010101..........001.....1010011
+fcvt.s.d  | r  | rs1(fp) rm rd(fp)             | 010000000001.............1010011
+fcvt.d.s  | r  | rs1(fp) rm rd(fp)             | 010000100000.............1010011
+feq.d     | r  | rs2(fp) rs1(fp) rd            | 1010001..........010.....1010011
+flt.d     | r  | rs2(fp) rs1(fp) rd            | 1010001..........001.....1010011
+fle.d     | r  | rs2(fp) rs1(fp) rd            | 1010001..........000.....1010011
+fclass.d  | r  | rs1(fp) rd                    | 111000100000.....001.....1010011
+fcvt.w.d  | r  | rs1(fp) rm rd                 | 110000100000.............1010011
+fcvt.wu.d | r  | rs1(fp) rm rd                 | 110000100001.............1010011
+fcvt.d.w  | r  | rs1 rm rd(fp)                 | 110100100000.............1010011
+fcvt.d.wu | r  | rs1 rm rd(fp)                 | 110100100001.............1010011

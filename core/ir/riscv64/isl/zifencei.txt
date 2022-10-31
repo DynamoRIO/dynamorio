@@ -1,0 +1,6 @@
+# "Zifencei" Instruction-Fetch Fence.
+# Version 2.0
+
+# imm[11:0], rs1, and rd, are reserved for finer-grain fences in future extensions.
+# Standard software shall zero these fields.
+fence.i | i | | 00000000000000000001000000001111

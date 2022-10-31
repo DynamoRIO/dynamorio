@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,9 +53,13 @@
 #include "../../../suite/tests/condvar.h"
 
 static const int num_threads = 8;
+static const int num_idle_threads = 40;
 static const int burst_owner = 4;
 static bool finished[num_threads];
+static void *burst_owner_starting;
 static void *burst_owner_finished;
+static void *idle_thread_started[num_idle_threads];
+static void *idle_should_exit;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -105,6 +109,11 @@ void *
     assert(res == 0);
 #endif
 
+    if (idx != burst_owner)
+        wait_cond_var(burst_owner_starting);
+    else
+        signal_cond_var(burst_owner_starting);
+
     /* We use an outer loop to test re-attaching (i#2157). */
     for (int j = 0; j < reattach_iters; ++j) {
         if (idx == burst_owner) {
@@ -153,26 +162,64 @@ void *
     return 0;
 }
 
+#ifdef WINDOWS
+unsigned int __stdcall
+#else
+void *
+#endif
+    idle_thread_func(void *arg)
+{
+    unsigned int idx = (unsigned int)(uintptr_t)arg;
+    signal_cond_var(idle_thread_started[idx]);
+    wait_cond_var(idle_should_exit);
+    return 0;
+}
+
 int
 main(int argc, const char *argv[])
 {
 #ifdef UNIX
     pthread_t thread[num_threads];
+    pthread_t idle_thread[num_idle_threads];
 #else
     uintptr_t thread[num_threads];
+    uintptr_t idle_thread[num_idle_threads];
 #endif
 
-    /* While the start/stop thread only runs 4 iters, the other threads end up
-     * running more and their trace files get up to 65MB or more, with the
-     * merged result several GB's: too much for a test.  We thus cap each thread.
-     */
-    if (!my_setenv("DYNAMORIO_OPTIONS",
-                   // We set -disable_traces to help stress state recreation
-                   // in drbbdup with prefixes on every block.
-                   "-stderr_mask 0xc -disable_traces -client_lib ';;"
-                   "-offline -max_trace_size 256K'"))
+    // While the start/stop thread only runs 4 iters, the other threads end up
+    // running more and their trace files get up to 65MB or more, with the
+    // merged result several GB's: too much for a test.  We thus cap each thread.
+    // We set -disable_traces to help stress state recreation
+    // in drbbdup with prefixes on every block.
+    std::string ops = std::string(
+        "-stderr_mask 0xc -disable_traces -client_lib ';;-offline -align_endpoints "
+        "-max_trace_size 256K ");
+    /* Support passing in extra tracer options. */
+    for (int i = 1; i < argc; ++i)
+        ops += std::string(argv[i]) + " ";
+    ops += "'";
+    if (!my_setenv("DYNAMORIO_OPTIONS", ops.c_str()))
         std::cerr << "failed to set env var!\n";
 
+    // Create some threads that do nothing to test -align_endpoints omitting them.
+    // On Linux, DR's attach wakes these up and the auto-restart SYS_futex runs
+    // one syscall instruction which depending on end-of-attach timing may be
+    // emitted and so the thread will show up.  But with enough threads we can be
+    // pretty sure very few of them will be in the trace.
+    idle_should_exit = create_cond_var();
+    for (uint i = 0; i < num_idle_threads; i++) {
+        idle_thread_started[i] = create_cond_var();
+#ifdef UNIX
+        pthread_create(&idle_thread[i], NULL, idle_thread_func, (void *)(uintptr_t)i);
+#else
+        idle_thread[i] =
+            _beginthreadex(NULL, 0, idle_thread_func, (void *)(uintptr_t)i, 0, NULL);
+#endif
+        wait_cond_var(idle_thread_started[i]);
+    }
+
+    // Create the main thread pool.
+    burst_owner_starting = create_cond_var();
     burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
@@ -192,7 +239,19 @@ main(int argc, const char *argv[])
         if (!finished[i])
             std::cerr << "thread " << i << " failed to finish\n";
     }
+    // Exit the idle threads.
+    signal_cond_var(idle_should_exit);
+    for (uint i = 0; i < num_idle_threads; i++) {
+#ifdef UNIX
+        pthread_join(idle_thread[i], NULL);
+#else
+        WaitForSingleObject((HANDLE)idle_thread[i], INFINITE);
+#endif
+        destroy_cond_var(idle_thread_started[i]);
+    }
     std::cerr << "all done\n";
+    destroy_cond_var(burst_owner_starting);
     destroy_cond_var(burst_owner_finished);
+    destroy_cond_var(idle_should_exit);
     return 0;
 }

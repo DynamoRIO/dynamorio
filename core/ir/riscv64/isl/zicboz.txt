@@ -1,0 +1,5 @@
+# RISC-V Base Cache Management Operation ISA Extensions
+# Zicboz (Cache-Block Zero Instructions)
+# Version 1.0
+
+cbo.zero | i | base | 000000000100.....010000000001111

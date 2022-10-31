@@ -1,0 +1,7 @@
+# "F" Standard Extension for Single-Precision Floating-Point.
+# Version 2.2
+
+fcvt.l.s  | r | rs1(fp) rm rd | 110000000010.............1010011
+fcvt.lu.s | r | rs1 rm rd     | 110000000011.............1010011
+fcvt.s.l  | r | rs1 rm rd(fp) | 110100000010.............1010011
+fcvt.s.lu | r | rs1 rm rd     | 110100000011.............1010011

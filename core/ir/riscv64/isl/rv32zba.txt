@@ -1,0 +1,7 @@
+# RISC-V Bit-Manipulation extension.
+# Zba extension (Address generation instructions)
+# Version 1.0
+
+sh1add | r | rs2 rs1 rd | 0010000..........010.....0110011
+sh2add | r | rs2 rs1 rd | 0010000..........100.....0110011
+sh3add | r | rs2 rs1 rd | 0010000..........110.....0110011

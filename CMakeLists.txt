@@ -1757,6 +1757,8 @@ endif ()
 add_custom_target(api_headers)
 if (AARCH64)
   add_dependencies(api_headers gen_aarch64_codec gen_aarch64_opcodes)
+elseif(RISCV64)
+  add_dependencies(api_headers gen_riscv64_codec gen_riscv64_headers)
 endif()
 
 DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_app.h dr_app.h)
