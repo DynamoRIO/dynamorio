@@ -482,7 +482,8 @@ invariant_checker_t::check_schedule_data()
         while (
             serial_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
             report_if_false(&global,
-                            memcmp(&serial[global.ref_count_], &next, sizeof(next)) == 0,
+                            memcmp(&serial[static_cast<size_t>(global.ref_count_)], &next,
+                                   sizeof(next)) == 0,
                             "Serial schedule entry does not match trace");
             ++global.ref_count_;
         }
@@ -507,7 +508,8 @@ invariant_checker_t::check_schedule_data()
         global.tid_ = next.thread;
         report_if_false(
             &global,
-            memcmp(&cpu2sched[next.cpu][cpu2idx[next.cpu]], &next, sizeof(next)) == 0,
+            memcmp(&cpu2sched[next.cpu][static_cast<size_t>(cpu2idx[next.cpu])], &next,
+                   sizeof(next)) == 0,
             "Cpu schedule entry does not match trace");
         ++cpu2idx[next.cpu];
     }

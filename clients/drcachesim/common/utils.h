@@ -82,7 +82,7 @@
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif

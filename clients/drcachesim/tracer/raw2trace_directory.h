@@ -85,8 +85,8 @@ public:
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
     std::vector<archive_ostream_t *> out_archives_;
-    std::ostream *serial_schedule_file_;
-    archive_ostream_t *cpu_schedule_file_;
+    std::ostream *serial_schedule_file_ = nullptr;
+    archive_ostream_t *cpu_schedule_file_ = nullptr;
 
 private:
     std::string

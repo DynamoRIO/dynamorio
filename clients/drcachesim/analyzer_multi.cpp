@@ -115,7 +115,17 @@ analyzer_multi_t::analyzer_multi_t()
                 error_string_ = "raw2trace failed: " + error;
             }
         }
-        tracedir = raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
+    }
+    // Create the tools after post-processing so we have the schedule files for
+    // test_mode.
+    if (!create_analysis_tools()) {
+        success_ = false;
+        error_string_ = "Failed to create analysis tool: " + error_string_;
+        return;
+    }
+    if (!op_indir.get_value().empty()) {
+        std::string tracedir =
+            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
         if (!init_file_reader(tracedir, op_verbose.get_value()))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
@@ -138,13 +148,6 @@ analyzer_multi_t::analyzer_multi_t()
         // Legacy file.
         if (!init_file_reader(op_infile.get_value(), op_verbose.get_value()))
             success_ = false;
-    }
-    // Create the tools after post-processing so we have the schedule files for
-    // test_mode.
-    if (!create_analysis_tools()) {
-        success_ = false;
-        error_string_ = "Failed to create analysis tool: " + error_string_;
-        return;
     }
     // We can't call serial_trace_iter_->init() here as it blocks for ipc_reader_t.
 }
