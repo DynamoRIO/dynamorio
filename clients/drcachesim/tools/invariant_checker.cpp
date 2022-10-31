@@ -194,6 +194,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->found_page_size_marker_ = true;
     }
 
+    // Invariant: each chunk's instruction count must be identical and equal to
+    // the value in the top-level marker.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) {
         shard->chunk_instr_count_ = memref.marker.marker_value;
