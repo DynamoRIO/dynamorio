@@ -10067,7 +10067,7 @@ find_executable_vm_areas(void)
 
     /* now that we have the modules set up, query libc */
     get_libc_errno_location(true /*force init*/);
-#if !defined(STATIC_LIBRARY) && defined(LINUX)
+#if defined(LINUX)
     /* For rseq on GLIBC >= 2.35, we need to find __rseq_size and __rseq_offset,
      * but we cannot do that here as they wouldn't be initialized yet.
      */

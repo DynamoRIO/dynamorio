@@ -160,14 +160,12 @@ rseq_check_glibc_enabled()
 {
 #ifdef GLIBC_RSEQ
     ASSERT(!glibc_rseq_enabled);
-#    ifdef STATIC_LIBRARY
-    ASSERT(rseq_tls_offset == 0);
-#    else
-    /* For !STATIC_LIBRARY we delay rseq_check_glibc_enabled until we GLIBC is
-     * initialized, so it may happen that rseq_tls_offset is already initialized
-     * by rseq_process_syscall.
+    /* For !dynamo_control_via_attach, we delay rseq_check_glibc_enabled until
+     * GLIBC is initialized, so it may happen that rseq_tls_offset is already
+     * initialized by rseq_process_syscall.
      */
-#    endif
+    ASSERT(!dynamo_control_via_attach || rseq_tls_offset == 0);
+
     module_iterator_t *iter = module_iterator_start();
     while (module_iterator_hasnext(iter)) {
         module_area_t *ma = module_iterator_next(iter);
@@ -216,16 +214,16 @@ d_r_rseq_init(void)
     rseq_cs_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_RSEQ_CS_TABLE_SIZE, 80,
                                         HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
                                         rseq_cs_free _IF_DEBUG("rseq_cs table"));
-#ifdef STATIC_LIBRARY
-    rseq_check_glibc_enabled();
-    /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
-    if (rseq_is_registered_for_current_thread())
-        rseq_locate_rseq_regions(false);
-#else
-    /* For non-static DR (early-inject), we delay enabling rseq till libc is
+
+    /* For the non-attach case, we delay enabling rseq till libc is
      * completely initialized, in set_reached_image_entry.
      */
-#endif
+    if (dynamo_control_via_attach) {
+        rseq_check_glibc_enabled();
+        /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
+        if (rseq_is_registered_for_current_thread())
+            rseq_locate_rseq_regions(false);
+    }
 }
 
 void
@@ -806,11 +804,11 @@ rseq_locate_rseq_regions(bool at_syscall)
 {
     if (rseq_enabled)
         return;
-#if defined(GLIBC_RSEQ) && !defined(STATIC_LIBRARY)
-    /* We delay locating struct rseq TLS offset and rseq_cs until GLIBC is
-     * completely initialized.
+#if defined(GLIBC_RSEQ)
+    /* For the non-attach case, we delay locating struct rseq TLS offset and
+     * rseq_cs until GLIBC is completely initialized.
      */
-    if (!reached_image_entry_yet()) {
+    if (!dynamo_control_via_attach && !reached_image_entry_yet()) {
         /* This is likely the initial rseq made by glibc. Since glibc's
          * rseq support isn't fully initialized yet (the __rseq_size and
          * __rseq_offset values; assuming glibc rseq support isn't disabled
