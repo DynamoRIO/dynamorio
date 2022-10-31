@@ -9363,7 +9363,7 @@ post_system_call(dcontext_t *dcontext)
         /* Lazy rseq handling. */
         if (success) {
             rseq_process_syscall(dcontext);
-            rseq_locate_rseq_regions(true);
+            rseq_locate_rseq_regions();
         }
         break;
 #endif

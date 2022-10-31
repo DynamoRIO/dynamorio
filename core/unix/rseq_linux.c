@@ -74,7 +74,13 @@ struct rseq {
 #define RSEQ_FLAG_UNREGISTER 1
 
 #ifdef GLIBC_RSEQ
-static volatile bool glibc_rseq_enabled;
+/* __tls_init_tp in glibc/sysdeps/nptl/dl-tls_init_tp.c initializes __rseq_size
+ * and __rseq_offset. The former is > 0 iff glibc's rseq support is not disabled
+ * using GLIBC_TUNABLES=glibc.pthread.rseq=0. The latter is defined regardless
+ * and is used by us to determine whether glibc has been initialized yet.
+ */
+static volatile uint glibc_rseq_size;
+static volatile int glibc_rseq_offset;
 #endif
 
 vm_area_vector_t *d_r_rseq_areas;
@@ -159,46 +165,39 @@ void
 rseq_check_glibc_enabled()
 {
 #ifdef GLIBC_RSEQ
-    ASSERT(!glibc_rseq_enabled);
-    /* For !dynamo_control_via_attach, we delay rseq_check_glibc_enabled until
-     * GLIBC is initialized, so it may happen that rseq_tls_offset is already
-     * initialized by rseq_process_syscall.
-     */
-    ASSERT(!dynamo_control_via_attach || rseq_tls_offset == 0);
-
+    /* We have already determined Glibc's rseq support. */
+    if (glibc_rseq_offset > 0)
+        return;
     module_iterator_t *iter = module_iterator_start();
     while (module_iterator_hasnext(iter)) {
         module_area_t *ma = module_iterator_next(iter);
-        uint *rseq_size_addr =
-            (uint *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_size");
-        /* __rseq_size is set to zero if the rseq support in glibc is disabled
-         * by exporting GLIBC_TUNABLES=glibc.pthread.rseq=0. Or it's possible
-         * that we're using early inject and it just hasn't been initialized
-         * yet. We prevent the latter from happening by calling this routine
-         * after modules are initialised (on static DR), and after we reach
-         * the image entry (set_reached_image_entry; on non-static DR).
-         */
-        if (rseq_size_addr == NULL || *rseq_size_addr == 0)
-            continue;
         int *rseq_offset_addr =
             (int *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_offset");
-        ASSERT(rseq_offset_addr != NULL);
-        if (rseq_tls_offset == 0) {
-            ATOMIC_4BYTE_WRITE(&rseq_tls_offset, *rseq_offset_addr, false);
-            bool new_value = true;
-            ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
-            DODEBUG({
-                byte *rseq_addr = get_app_segment_base(LIB_SEG_TLS) + rseq_tls_offset;
-                int res =
-                    dynamorio_syscall(SYS_rseq, 4, rseq_addr, sizeof(struct rseq), 0, 0);
-                ASSERT(res == -EPERM);
-                LOG(GLOBAL, LOG_LOADER, 2,
-                    "Found struct rseq registered by glibc @ " PFX " at TLS offset %d\n",
-                    rseq_addr, rseq_tls_offset);
-            });
-        } else {
-            ASSERT(rseq_tls_offset == *rseq_offset_addr);
-        }
+        /* Glibc's not initialized yet. */
+        if (rseq_offset_addr == NULL || *rseq_offset_addr == 0)
+            continue;
+        /* Verify that the offset has not changed. */
+        ASSERT(glibc_rseq_offset == 0 ||
+               (glibc_rseq_offset == *rseq_offset_addr &&
+                rseq_tls_offset == *rseq_offset_addr));
+        ATOMIC_4BYTE_WRITE(&glibc_rseq_offset, *rseq_offset_addr, false);
+        ATOMIC_4BYTE_WRITE(&rseq_tls_offset, *rseq_offset_addr, false);
+        uint *rseq_size_addr =
+            (uint *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_size");
+        ASSERT(rseq_size_addr != NULL);
+        /* Glibc's rseq support is disabled. */
+        if (*rseq_size_addr == 0)
+            continue;
+        ATOMIC_4BYTE_WRITE(&glibc_rseq_size, *rseq_size_addr, false);
+        DODEBUG({
+            byte *rseq_addr = get_app_segment_base(LIB_SEG_TLS) + glibc_rseq_offset;
+            int res =
+                dynamorio_syscall(SYS_rseq, 4, rseq_addr, sizeof(struct rseq), 0, 0);
+            ASSERT(res == -EPERM);
+            LOG(GLOBAL, LOG_LOADER, 2,
+                "Found struct rseq registered by glibc @ " PFX " at TLS offset %d\n",
+                rseq_addr, rseq_tls_offset);
+        });
     }
     module_iterator_stop(iter);
 #endif
@@ -214,16 +213,10 @@ d_r_rseq_init(void)
     rseq_cs_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_RSEQ_CS_TABLE_SIZE, 80,
                                         HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
                                         rseq_cs_free _IF_DEBUG("rseq_cs table"));
-
-    /* For the non-attach case, we delay enabling rseq till libc is
-     * completely initialized, in set_reached_image_entry.
-     */
-    if (dynamo_control_via_attach) {
-        rseq_check_glibc_enabled();
-        /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
-        if (rseq_is_registered_for_current_thread())
-            rseq_locate_rseq_regions(false);
-    }
+    rseq_check_glibc_enabled();
+    /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
+    if (rseq_is_registered_for_current_thread())
+        rseq_locate_rseq_regions();
 }
 
 void
@@ -233,12 +226,12 @@ d_r_rseq_exit(void)
     vmvector_delete_vector(GLOBAL_DCONTEXT, d_r_rseq_areas);
     DELETE_LOCK(rseq_trigger_lock);
     /* Better to reset and detect again for reattaches. */
+    uint new_value = 0;
+    ATOMIC_4BYTE_WRITE(&rseq_tls_offset, new_value, false);
 #ifdef GLIBC_RSEQ
-    bool new_value = false;
-    ATOMIC_1BYTE_WRITE(&glibc_rseq_enabled, new_value, false);
+    ATOMIC_4BYTE_WRITE(&glibc_rseq_offset, new_value, false);
+    ATOMIC_4BYTE_WRITE(&glibc_rseq_size, new_value, false);
 #endif
-    uint new_offset = 0;
-    ATOMIC_4BYTE_WRITE(&rseq_tls_offset, new_offset, false);
 }
 
 void
@@ -378,7 +371,10 @@ bool
 rseq_is_registered_for_current_thread(void)
 {
 #ifdef GLIBC_RSEQ
-    if (glibc_rseq_enabled)
+    /* If Glibc's rseq support is enabled, the struct rseq is already
+     * registered for all threads.
+     */
+    if (glibc_rseq_size > 0)
         return true;
 #endif
     /* Unfortunately there's no way to query the current rseq struct.
@@ -699,8 +695,9 @@ static int
 rseq_locate_tls_offset(void)
 {
 #ifdef GLIBC_RSEQ
-    if (glibc_rseq_enabled) {
-        ASSERT(rseq_tls_offset != 0);
+    /* If Glibc's rseq support is enabled, we already know the offset. */
+    if (glibc_rseq_size > 0) {
+        ASSERT(rseq_tls_offset > 0);
         return rseq_tls_offset;
     }
 #endif
@@ -800,25 +797,17 @@ rseq_process_syscall(dcontext_t *dcontext)
  * the app has registered the current thread for rseq.
  */
 void
-rseq_locate_rseq_regions(bool at_syscall)
+rseq_locate_rseq_regions()
 {
     if (rseq_enabled)
         return;
 #if defined(GLIBC_RSEQ)
-    /* For the non-attach case, we delay locating struct rseq TLS offset and
-     * rseq_cs until GLIBC is completely initialized.
+    rseq_check_glibc_enabled();
+    /* Glibc's rseq support has not been initialized yet. Return for now and
+     * try again later.
      */
-    if (!dynamo_control_via_attach && !reached_image_entry_yet()) {
-        /* This is likely the initial rseq made by glibc. Since glibc's
-         * rseq support isn't fully initialized yet (the __rseq_size and
-         * __rseq_offset values; assuming glibc rseq support isn't disabled
-         * explicitly by the user), we skip locating rseq regions for now.
-         * We'll do it when the thread reaches the image entry
-         * (in set_reached_image_entry).
-         */
-        ASSERT(at_syscall);
+    if (glibc_rseq_offset == 0)
         return;
-    }
 #endif
     /* This is a global operation, but the trigger could be hit by two threads at once,
      * thus requiring synchronization.

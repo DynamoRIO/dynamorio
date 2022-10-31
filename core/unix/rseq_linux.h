@@ -62,7 +62,7 @@ bool
 rseq_is_registered_for_current_thread(void);
 
 void
-rseq_locate_rseq_regions(bool);
+rseq_locate_rseq_regions();
 
 void
 rseq_module_init(module_area_t *ma, bool at_map);
