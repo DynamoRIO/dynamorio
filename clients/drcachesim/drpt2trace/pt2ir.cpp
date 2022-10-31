@@ -39,12 +39,10 @@
 
 #include "intel-pt.h"
 #include "libipt-sb.h"
+#include "pt2ir.h"
 extern "C" {
 #include "load_elf.h"
 }
-#include "../tracer/kimage.h"
-#include "dr_api.h"
-#include "pt2ir.h"
 
 #define ERRMSG_HEADER()                       \
     do {                                      \
@@ -198,21 +196,13 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         return false;
     }
 
-    if (!pt2ir_config.image_file_path.empty()) {
-        if (pt2ir_config.image_format == PT_IMAGE_FORMAT_ELF) {
-            errcode = load_elf(pt_iscache_, pt_insn_get_image(pt_instr_decoder_),
-                               pt2ir_config.image_file_path.c_str(),
-                               pt2ir_config.image_base, "", 0);
-            if (errcode < 0) {
-                ERRMSG("Failed to load ELF file: %s.\n", pt_errstr(pt_errcode(errcode)));
-                return false;
-            }
-        } else if (pt2ir_config.image_format == PT_IMAGE_FORMAT_KIMAGE) {
-            if (!load_kimage(pt2ir_config.image_file_path)) {
-                ERRMSG("Failed to load kernel image: %s.\n",
-                       pt2ir_config.image_file_path.c_str());
-                return false;
-            }
+    if (!pt2ir_config.elf_file_path.empty()) {
+        errcode =
+            load_elf(pt_iscache_, pt_insn_get_image(pt_instr_decoder_),
+                     pt2ir_config.elf_file_path.c_str(), pt2ir_config.elf_base, "", 0);
+        if (errcode < 0) {
+            ERRMSG("Failed to load ELF file: %s.\n", pt_errstr(pt_errcode(errcode)));
+            return false;
         }
     }
 
@@ -400,48 +390,6 @@ pt2ir_t::load_kcore(IN std::string &path)
                pt_errstr(pt_errcode(errcode)));
         return false;
     }
-    return true;
-}
-
-bool
-pt2ir_t::load_kimage(IN std::string &path)
-{
-    kimage_hdr_t kimage_hdr;
-    std::ifstream f(path, std::ios::binary | std::ios::in);
-    if (!f.is_open()) {
-        ERRMSG("Failed to open kimage file: %s.\n", path.c_str());
-        return false;
-    }
-    f.read(reinterpret_cast<char *>(&kimage_hdr), sizeof(kimage_hdr_t));
-    if (f.fail()) {
-        ERRMSG("Failed to read kimage header form kimage file: %s.\n", path.c_str());
-        f.close();
-        return false;
-    }
-    int code_segments_num = kimage_hdr.code_segments_num;
-    for (int i = 0; i < code_segments_num; i++) {
-        kimage_code_segment_hdr_t code_segment_hdr;
-        f.read(reinterpret_cast<char *>(&code_segment_hdr),
-               sizeof(kimage_code_segment_hdr_t));
-        if (f.fail()) {
-            ERRMSG("Failed to read kimage code segment header form kimage file: %s.\n",
-                   path.c_str());
-            f.close();
-            return false;
-        }
-        /* Add the code segment to the shared image cache. */
-        int errcode = pt_image_add_file(
-            pt_insn_get_image(pt_instr_decoder_), path.c_str(), code_segment_hdr.offset,
-            code_segment_hdr.len, NULL, code_segment_hdr.vaddr);
-        if (errcode < 0) {
-            ERRMSG("Failed to add code segment to shared image cache: %s.\n",
-                   pt_errstr(pt_errcode(errcode)));
-            f.close();
-            return false;
-        }
-    }
-
-    f.close();
     return true;
 }
 

@@ -138,9 +138,6 @@ public:
         return recorded_syscall_count_;
     }
 
-    static bool
-    kernel_image_dump(IN const char *to_dir);
-
     /* Check whether the syscall's PT need to be recorded.
      * It can be used to filter out the syscalls that are not interesting or not
      * supported.

@@ -4133,7 +4133,7 @@ if (BUILD_CLIENTS)
         set (${testname_full}_postcmd
           "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
         set(${testname_full}_postcmd2
-          "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@SINGLE_IMAGE@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-image_format@KIMAGE@-image@${testname_full}.*.dir/kernel.raw/kimage")
+          "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@ELF@-raw_pt@${testname_full}.*.dir/kernel.raw/*.1.pt@-raw_pt_metadata@${testname_full}.*.dir/kernel.raw/*.1.pt.metadata@-elf@${testname_full}.*.dir/kernel.raw/kcore")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
@@ -4258,9 +4258,8 @@ if (BUILD_CLIENTS)
       "../../clients/drcachesim/drpt2trace/test_simple.expect"
       "" "${drpt2trace_sideband_args}" ON OFF)
     set(drpt2trace_elf_args ${drpt2trace_commong}
-      "-mode" "SINGLE_IMAGE"
-      "-image_format" "ELF"
-      "-image"
+      "-mode" "ELF"
+      "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
       "../../clients/drcachesim/drpt2trace/test_simple.expect"

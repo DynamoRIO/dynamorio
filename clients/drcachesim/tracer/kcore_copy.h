@@ -37,14 +37,19 @@
 #ifndef _KCORE_COPY_H_
 #define _KCORE_COPY_H_ 1
 
+#include <elf.h>
+#include "drmemtrace.h"
+
 struct proc_module_t;
 struct proc_kcore_code_segment_t;
 
-/* This class is used to dump kernel code segments and copy kallsyms.
+/* This class is used to copy kernel code segments and copy kallsyms.
  */
 class kcore_copy_t {
 public:
-    kcore_copy_t();
+    kcore_copy_t(drmemtrace_open_file_func_t open_file_func,
+                 drmemtrace_write_file_func_t write_file_func,
+                 drmemtrace_close_file_func_t close_file_func);
     ~kcore_copy_t();
 
     /* This function is used to copy kcore and kallsyms to the directory passed in.
@@ -60,11 +65,12 @@ private:
     bool
     read_code_segments();
 
-    /* Dump the kernel code segments one file.
-     * This function will dump all kernel code segments to one file called kimage.
+    /* Copy the kernel code segments to one file.
+     * This function will copy all kernel code segments to one ELF format file called
+     * kcore.
      */
     bool
-    dump_kimage(const char *to_dir);
+    copy_kcore(const char *to_dir);
 
     /* Copy kallsyms to the directory.
      */
@@ -87,6 +93,15 @@ private:
     bool
     read_kcore();
 
+    /* The shared file open function. */
+    drmemtrace_open_file_func_t open_file_func_;
+
+    /* The shared file write function. */
+    drmemtrace_write_file_func_t write_file_func_;
+
+    /* The shared file close function. */
+    drmemtrace_close_file_func_t close_file_func_;
+
     /* The module list. */
     proc_module_t *modules_;
 
@@ -95,6 +110,9 @@ private:
 
     /* The kernel code segments list. */
     proc_kcore_code_segment_t *kcore_code_segments_;
+
+    /* The ELF header of '/proc/kcore'. */
+    Elf64_Ehdr proc_kcore_ehdr_;
 };
 
 #endif /* _KCORE_COPY_H_ */

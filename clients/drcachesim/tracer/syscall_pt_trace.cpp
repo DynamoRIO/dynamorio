@@ -162,16 +162,6 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
 }
 
 bool
-syscall_pt_trace_t::kernel_image_dump(IN const char *to_dir)
-{
-    std::unique_ptr<kcore_copy_t> kcore_copy(new kcore_copy_t());
-    if (!kcore_copy->copy(to_dir)) {
-        return false;
-    }
-    return true;
-}
-
-bool
 syscall_pt_trace_t::is_syscall_pt_trace_enabled(IN int sysnum)
 {
     /* The following syscall's post syscall callback can't be triggered. So we don't

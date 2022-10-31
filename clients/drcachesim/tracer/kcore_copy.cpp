@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-#include <elf.h>
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,10 +37,8 @@
 
 #include "../common/utils.h"
 #include "dr_api.h"
-#include "kimage.h"
 #include "kcore_copy.h"
 
-#define KIMAGE_FILE_NAME "kimage"
 #define MODULES_FILE_NAME "modules"
 #define MODULES_FILE_PATH "/proc/" MODULES_FILE_NAME
 #define KALLSYMS_FILE_NAME "kallsyms"
@@ -79,8 +76,99 @@ struct proc_kcore_code_segment_t {
     char *buf;
 };
 
-kcore_copy_t::kcore_copy_t()
-    : modules_(nullptr)
+/* This struct type defines wrappers that can customize file manipulation functions. */
+struct file_wrapper_t {
+    file_t fd;
+    drmemtrace_open_file_func_t open_file_func;
+    drmemtrace_read_file_func_t read_file_func;
+    drmemtrace_write_file_func_t write_file_func;
+    drmemtrace_close_file_func_t close_file_func;
+    bool (*seek_file_func)(file_t f, int64 offset, int origin);
+    char file_name[MAXIMUM_PATH];
+
+    file_wrapper_t(const char *file_name, drmemtrace_open_file_func_t open_file_func,
+                   drmemtrace_read_file_func_t read_file_func,
+                   drmemtrace_write_file_func_t write_file_func,
+                   drmemtrace_close_file_func_t close_file_func,
+                   bool (*seek_file_func)(file_t f, int64 offset, int origin))
+        : fd(INVALID_FILE)
+        , open_file_func(open_file_func)
+        , read_file_func(read_file_func)
+        , write_file_func(write_file_func)
+        , close_file_func(close_file_func)
+        , seek_file_func(seek_file_func)
+    {
+        dr_snprintf(this->file_name, BUFFER_SIZE_ELEMENTS(this->file_name), "%s",
+                    file_name);
+        NULL_TERMINATE_BUFFER(this->file_name);
+    }
+
+    ~file_wrapper_t()
+    {
+        close();
+    }
+
+    bool
+    open(int flags)
+    {
+        if (open_file_func == NULL) {
+            return false;
+        }
+
+        if (fd != INVALID_FILE && close_file_func != NULL) {
+            close_file_func(fd);
+            fd = INVALID_FILE;
+        }
+
+        fd = open_file_func(file_name, flags);
+        return fd != INVALID_FILE;
+    }
+
+    bool
+    write(void *buf, size_t count)
+    {
+        if (fd == INVALID_FILE || write_file_func == NULL) {
+            return false;
+        }
+        ssize_t written = write_file_func(fd, buf, count);
+        return written > 0 && (size_t)written == count;
+    }
+
+    ssize_t
+    read(void *buf, size_t count)
+    {
+        if (fd == INVALID_FILE || read_file_func == NULL) {
+            return -1;
+        }
+        return read_file_func(fd, buf, count);
+    }
+
+    bool
+    seek(int64 offset, int origin)
+    {
+        if (fd == INVALID_FILE || seek_file_func == NULL) {
+            return false;
+        }
+        return seek_file_func(fd, offset, origin);
+    }
+
+    void
+    close()
+    {
+        if (fd != INVALID_FILE && close_file_func != NULL) {
+            close_file_func(fd);
+            fd = INVALID_FILE;
+        }
+    }
+};
+
+kcore_copy_t::kcore_copy_t(drmemtrace_open_file_func_t open_file_func,
+                           drmemtrace_write_file_func_t write_file_func,
+                           drmemtrace_close_file_func_t close_file_func)
+    : open_file_func_(open_file_func)
+    , write_file_func_(write_file_func)
+    , close_file_func_(close_file_func)
+    , modules_(nullptr)
     , kcore_code_segments_num_(0)
     , kcore_code_segments_(nullptr)
 {
@@ -111,16 +199,15 @@ kcore_copy_t::~kcore_copy_t()
 bool
 kcore_copy_t::copy(const char *to_dir)
 {
-    kcore_copy_t kcore_copy;
-    if (!kcore_copy.read_code_segments()) {
+    if (!read_code_segments()) {
         ASSERT(false, "failed to read code segments");
         return false;
     }
-    if (!kcore_copy.dump_kimage(to_dir)) {
-        ASSERT(false, "failed to dump kimage");
+    if (!copy_kcore(to_dir)) {
+        ASSERT(false, "failed to copy kcore");
         return false;
     }
-    if (!kcore_copy.copy_kallsyms(to_dir)) {
+    if (!copy_kallsyms(to_dir)) {
         ASSERT(false, "failed to copy kallsyms");
         return false;
     }
@@ -143,95 +230,107 @@ kcore_copy_t::read_code_segments()
 }
 
 bool
-kcore_copy_t::dump_kimage(const char *to_dir)
+kcore_copy_t::copy_kcore(const char *to_dir)
 {
-    char kimage_path[MAXIMUM_PATH];
-    dr_snprintf(kimage_path, BUFFER_SIZE_ELEMENTS(kimage_path), "%s/%s", to_dir,
-                KIMAGE_FILE_NAME);
-    file_t fd = dr_open_file(kimage_path, DR_FILE_WRITE_OVERWRITE);
-    if (fd == INVALID_FILE) {
-        ASSERT(false, "failed to open " KIMAGE_FILE_NAME);
+    char to_kcore_path[MAXIMUM_PATH];
+    dr_snprintf(to_kcore_path, BUFFER_SIZE_ELEMENTS(to_kcore_path), "%s/%s", to_dir,
+                KCORE_FILE_NAME);
+    NULL_TERMINATE_BUFFER(to_kcore_path);
+    /* We use drmemtrace file operations functions to dump out code segments in kcore. */
+    file_wrapper_t fd(to_kcore_path, open_file_func_, nullptr, write_file_func_,
+                      close_file_func_, nullptr /* seek_file_func */);
+
+    if (!fd.open(DR_FILE_WRITE_OVERWRITE)) {
+        ASSERT(false, "failed to open " KCORE_FILE_NAME " for writing");
         return false;
     }
+
+    Elf64_Ehdr to_ehdr;
+    memcpy(&to_ehdr.e_ident, proc_kcore_ehdr_.e_ident, EI_NIDENT);
+    to_ehdr.e_type = proc_kcore_ehdr_.e_type;
+    to_ehdr.e_machine = proc_kcore_ehdr_.e_machine;
+    to_ehdr.e_version = proc_kcore_ehdr_.e_version;
+    to_ehdr.e_entry = 0;
+    to_ehdr.e_shoff = 0;
+    to_ehdr.e_flags = proc_kcore_ehdr_.e_flags;
+    to_ehdr.e_phnum = kcore_code_segments_num_;
+    to_ehdr.e_shentsize = 0;
+    to_ehdr.e_shnum = 0;
+    to_ehdr.e_shstrndx = 0;
+    to_ehdr.e_phoff = sizeof(Elf64_Ehdr);
+    to_ehdr.e_ehsize = sizeof(Elf64_Ehdr);
+    to_ehdr.e_phentsize = sizeof(Elf64_Phdr);
 
     uint64_t offset = 0;
-    kimage_hdr_t hdr;
-    hdr.code_segments_offset = sizeof(kimage_hdr_t);
-    hdr.code_segments_num = kcore_code_segments_num_;
-    if (dr_write_file(fd, &hdr, sizeof(kimage_hdr_t)) != (ssize_t)sizeof(kimage_hdr_t)) {
-        ASSERT(false, "failed to write the kimage header to " KIMAGE_FILE_NAME);
-        dr_close_file(fd);
+    if (!fd.write(&to_ehdr, sizeof(Elf64_Ehdr))) {
+        ASSERT(false, "failed to write " KCORE_FILE_NAME " header");
         return false;
     }
-    offset += sizeof(kimage_hdr_t);
+    offset += sizeof(Elf64_Ehdr);
 
-    kimage_code_segment_hdr_t *code_segment_hdrs =
-        (kimage_code_segment_hdr_t *)dr_global_alloc(sizeof(kimage_code_segment_hdr_t) *
-                                                     kcore_code_segments_num_);
-    uint64_t code_segment_offset =
-        offset + sizeof(kimage_code_segment_hdr_t) * kcore_code_segments_num_;
+    Elf64_Phdr *to_phdrs =
+        (Elf64_Phdr *)dr_global_alloc(sizeof(Elf64_Phdr) * kcore_code_segments_num_);
+    uint64_t code_segment_offset = offset + sizeof(Elf64_Phdr) * kcore_code_segments_num_;
     for (int i = 0; i < kcore_code_segments_num_; ++i) {
-        code_segment_hdrs[i].offset = code_segment_offset;
-        code_segment_hdrs[i].len = kcore_code_segments_[i].len;
-        code_segment_hdrs[i].vaddr = kcore_code_segments_[i].vaddr;
-        code_segment_offset += code_segment_hdrs[i].len;
+        to_phdrs[i].p_type = PT_LOAD;
+        to_phdrs[i].p_offset = code_segment_offset;
+        to_phdrs[i].p_vaddr = kcore_code_segments_[i].vaddr;
+        to_phdrs[i].p_paddr = 0;
+        to_phdrs[i].p_filesz = kcore_code_segments_[i].len;
+        to_phdrs[i].p_memsz = kcore_code_segments_[i].len;
+        to_phdrs[i].p_flags = PF_R | PF_X;
+        to_phdrs[i].p_align = 0;
+        code_segment_offset += to_phdrs[i].p_filesz;
     }
-    if (dr_write_file(fd, code_segment_hdrs,
-                      sizeof(kimage_code_segment_hdr_t) * kcore_code_segments_num_) !=
-        (ssize_t)(sizeof(kimage_code_segment_hdr_t) * kcore_code_segments_num_)) {
-        ASSERT(false,
-               "failed to write the header of all kernel code segments "
-               "to " KIMAGE_FILE_NAME);
-        dr_global_free(code_segment_hdrs,
-                       sizeof(kimage_code_segment_hdr_t) * kcore_code_segments_num_);
-        dr_close_file(fd);
+    if (!fd.write(to_phdrs, sizeof(Elf64_Phdr) * kcore_code_segments_num_)) {
+        ASSERT(false, "failed to write the program header to " KCORE_FILE_NAME);
+        dr_global_free(to_phdrs, sizeof(Elf64_Phdr) * kcore_code_segments_num_);
         return false;
     }
-    dr_global_free(code_segment_hdrs,
-                   sizeof(kimage_code_segment_hdr_t) * kcore_code_segments_num_);
-    offset += sizeof(kimage_code_segment_hdr_t) * kcore_code_segments_num_;
+    dr_global_free(to_phdrs, sizeof(Elf64_Phdr) * kcore_code_segments_num_);
+    offset += sizeof(Elf64_Phdr) * kcore_code_segments_num_;
 
     for (int i = 0; i < kcore_code_segments_num_; ++i) {
-        if (dr_write_file(fd, kcore_code_segments_[i].buf, kcore_code_segments_[i].len) !=
-            (ssize_t)(kcore_code_segments_[i].len)) {
-            ASSERT(false, "failed to write the kernel code segment to " KIMAGE_FILE_NAME);
-            dr_close_file(fd);
+        if (!fd.write(kcore_code_segments_[i].buf, kcore_code_segments_[i].len)) {
+            ASSERT(false, "failed to write the kernel code segment to " KCORE_FILE_NAME);
             return false;
         }
-        offset += kcore_code_segments_[i].len;
     }
 
-    dr_close_file(fd);
     return true;
 }
 
 bool
 kcore_copy_t::copy_kallsyms(const char *to_dir)
 {
+    /* We use DynamoRIO defult file operations functions to open and read /proc/kallsyms.
+     */
+    file_wrapper_t from_kallsyms_fd(KALLSYMS_FILE_PATH, dr_open_file, dr_read_file,
+                                    nullptr, dr_close_file, nullptr /* seek_file_func */);
+    if (!from_kallsyms_fd.open(DR_FILE_READ)) {
+        ASSERT(false, "failed to open " KALLSYMS_FILE_PATH " for reading");
+        return false;
+    }
+
     char to_kallsyms_file_path[MAXIMUM_PATH];
     dr_snprintf(to_kallsyms_file_path, BUFFER_SIZE_ELEMENTS(to_kallsyms_file_path),
                 "%s%s%s", to_dir, DIRSEP, KALLSYMS_FILE_NAME);
     NULL_TERMINATE_BUFFER(to_kallsyms_file_path);
 
-    file_t from_kallsyms_fd = dr_open_file(KALLSYMS_FILE_PATH, DR_FILE_READ);
-    if (from_kallsyms_fd < 0) {
-        ASSERT(false, "failed to open " KALLSYMS_FILE_PATH);
-        return false;
-    }
-    file_t to_kallsyms_fd = dr_open_file(to_kallsyms_file_path, DR_FILE_WRITE_OVERWRITE);
-    if (to_kallsyms_fd < 0) {
-        ASSERT(false, "failed to open kallsyms file");
-        dr_close_file(from_kallsyms_fd);
+    /* We use drmemtrace file operations functions to store the output kallsyms. */
+    file_wrapper_t to_kallsyms_fd(to_kallsyms_file_path, open_file_func_, nullptr,
+                                  write_file_func_, close_file_func_,
+                                  nullptr /* seek_file_func */);
+    if (!to_kallsyms_fd.open(DR_FILE_WRITE_OVERWRITE)) {
+        ASSERT(false, "failed to open " KALLSYMS_FILE_NAME " for writing");
         return false;
     }
 
     char buf[1024];
     ssize_t bytes_read;
-    while ((bytes_read = dr_read_file(from_kallsyms_fd, buf, sizeof(buf))) > 0) {
-        if (dr_write_file(to_kallsyms_fd, buf, bytes_read) != bytes_read) {
-            ASSERT(false, "failed to write kallsyms file");
-            dr_close_file(to_kallsyms_fd);
-            dr_close_file(from_kallsyms_fd);
+    while ((bytes_read = from_kallsyms_fd.read(buf, sizeof(buf))) > 0) {
+        if (!to_kallsyms_fd.write(buf, bytes_read)) {
+            ASSERT(false, "failed to copy data to " KALLSYMS_FILE_NAME);
             return false;
         }
     }
@@ -323,54 +422,43 @@ kcore_copy_t::read_kallsyms()
 bool
 kcore_copy_t::read_kcore()
 {
-    file_t fd = dr_open_file(KCORE_FILE_PATH, DR_FILE_READ);
-    if (fd < 0) {
+    file_wrapper_t fd(KCORE_FILE_PATH, dr_open_file, dr_read_file, nullptr, dr_close_file,
+                      dr_file_seek);
+    if (!fd.open(DR_FILE_READ)) {
         ASSERT(false, "failed to open" KCORE_FILE_PATH);
         return false;
     }
 
     uint8_t e_ident[EI_NIDENT];
-    if (dr_read_file(fd, e_ident, sizeof(e_ident)) != sizeof(e_ident)) {
+    if (fd.read(e_ident, sizeof(e_ident)) != sizeof(e_ident)) {
         ASSERT(false, "failed to read the e_ident array of " KCORE_FILE_PATH);
-        dr_close_file(fd);
         return false;
     }
 
     for (int idx = 0; idx < SELFMAG; ++idx) {
         if (e_ident[idx] != ELFMAG[idx]) {
             ASSERT(false, KCORE_FILE_PATH " is not an ELF file");
-            dr_close_file(fd);
             return false;
         }
     }
     if (e_ident[EI_CLASS] != ELFCLASS64) {
         ASSERT(false, KCORE_FILE_PATH " is not a 64-bit ELF file");
-        dr_close_file(fd);
         return false;
     }
 
     /* Read phdrs from kcore. */
-    if (!dr_file_seek(fd, 0, DR_SEEK_SET)) {
+    if (!fd.seek(0, DR_SEEK_SET)) {
         ASSERT(false, "failed to seek to the begin of " KCORE_FILE_PATH);
-        dr_close_file(fd);
         return false;
     }
 
-    Elf64_Ehdr ehdr;
-    if (dr_read_file(fd, &ehdr, sizeof(ehdr)) != sizeof(ehdr)) {
+    if (fd.read(&proc_kcore_ehdr_, sizeof(Elf64_Ehdr)) != sizeof(Elf64_Ehdr)) {
         ASSERT(false, "failed to read the ehdr of " KCORE_FILE_PATH);
-        dr_close_file(fd);
-        return false;
-    }
-    if (LONG_MAX < ehdr.e_phoff) {
-        ASSERT(false, "the ELF header of " KCORE_FILE_PATH " is too big");
-        dr_close_file(fd);
         return false;
     }
 
-    if (!dr_file_seek(fd, (long)ehdr.e_phoff, DR_SEEK_SET)) {
+    if (!fd.seek((long)proc_kcore_ehdr_.e_phoff, DR_SEEK_SET)) {
         ASSERT(false, "failed to seek the program header's end of " KCORE_FILE_PATH);
-        dr_close_file(fd);
         return false;
     }
 
@@ -378,11 +466,10 @@ kcore_copy_t::read_kcore()
         sizeof(proc_kcore_code_segment_t) * kcore_code_segments_num_);
     int idx = 0;
     /* Read code segment metadata from kcore. */
-    for (Elf64_Half pidx = 0; pidx < ehdr.e_phnum; ++pidx) {
+    for (Elf64_Half pidx = 0; pidx < proc_kcore_ehdr_.e_phnum; ++pidx) {
         Elf64_Phdr phdr;
-        if (dr_read_file(fd, &phdr, sizeof(phdr)) != sizeof(phdr)) {
+        if (fd.read(&phdr, sizeof(phdr)) != sizeof(phdr)) {
             ASSERT(false, "failed to read the Phdr of " KCORE_FILE_PATH);
-            dr_close_file(fd);
             return false;
         }
 
@@ -392,7 +479,6 @@ kcore_copy_t::read_kcore()
         proc_module_t *module = modules_;
         if (module == nullptr) {
             ASSERT(false, "no module found in " MODULES_FILE_PATH);
-            dr_close_file(fd);
             return false;
         }
         while (module != nullptr) {
@@ -415,19 +501,16 @@ kcore_copy_t::read_kcore()
 
     /* Copy code segments from kcore to the buffer in kcore_code_segments_. */
     for (int i = 0; i < kcore_code_segments_num_; ++i) {
-        if (!dr_file_seek(fd, kcore_code_segments_[i].start, DR_SEEK_SET)) {
+        if (!fd.seek(kcore_code_segments_[i].start, DR_SEEK_SET)) {
             ASSERT(false, "failed to seek to the start of a kcore code segment");
-            dr_close_file(fd);
             return false;
         }
-        if (dr_read_file(fd, kcore_code_segments_[i].buf, kcore_code_segments_[i].len) !=
+        if (fd.read(kcore_code_segments_[i].buf, kcore_code_segments_[i].len) !=
             kcore_code_segments_[i].len) {
             ASSERT(false, "failed to read a kcore code segment");
-            dr_close_file(fd);
             return false;
         }
     }
 
-    dr_close_file(fd);
     return true;
 }

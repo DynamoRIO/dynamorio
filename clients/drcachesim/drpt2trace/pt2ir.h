@@ -209,15 +209,6 @@ struct pt_sb_config_t {
 };
 
 /**
- * The image format type in which PT raw bits are stored.
- */
-enum pt_image_format_t {
-    PT_IMAGE_FORMAT_UNKNOWN = 0, /**< The format of the image is unknown. */
-    PT_IMAGE_FORMAT_ELF,         /**< The format of the image is ELF. */
-    PT_IMAGE_FORMAT_KIMAGE       /**< The format of the image is KIMAGE. */
-};
-
-/**
  * The struct pt2ir_config_t is a collection of one PT trace's configurations. drpt2trace
  * and raw2trace can use it to construct pt2ir_t.
  * \note XXX: Multiple PT raw traces for a process will share one kcore dump file. We may
@@ -236,19 +227,14 @@ public:
     std::string raw_file_path;
 
     /**
-     * The format of the image.
+     * The elf file path.
      */
-    pt_image_format_t image_format;
+    std::string elf_file_path;
 
     /**
-     * The file path of the image.
+     * The runtime load address of the elf file.
      */
-    std::string image_file_path;
-
-    /**
-     * The runtime load address of the image.
-     */
-    uint64_t image_base;
+    uint64_t elf_base;
 
     /**
      * The libipt-sb config of PT raw trace.
@@ -276,9 +262,8 @@ public:
     pt2ir_config_t()
     {
         raw_file_path = "";
-        image_format = PT_IMAGE_FORMAT_UNKNOWN;
-        image_file_path = "";
-        image_base = 0;
+        elf_file_path = "";
+        elf_base = 0;
         sb_primary_file_path = "";
         sb_secondary_file_path_list.clear();
         kcore_path = "";
@@ -391,11 +376,6 @@ private:
      */
     bool
     load_kcore(IN std::string &path);
-
-    /* Load the all code segments in kernel image to pt_insn_decoder's image cache.
-     */
-    bool
-    load_kimage(IN std::string &path);
 
     /* Allocate a sideband decoder in the sideband session. The sideband session may
      * allocate many decoders, which mainly work on handling sideband perf records and
