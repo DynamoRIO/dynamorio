@@ -2972,7 +2972,6 @@ test_asimdsame(void *dc)
                                      opnd_create_reg(DR_REG_Q26), OPND_CREATE_DOUBLE());
     test_instr_encoding(dc, OP_fsub, instr);
 
-
     instr = INSTR_CREATE_fmin_vector(dc, opnd_create_reg(DR_REG_D22),
                                      opnd_create_reg(DR_REG_D24),
                                      opnd_create_reg(DR_REG_D31), OPND_CREATE_SINGLE());
@@ -4529,7 +4528,6 @@ test_sve_int_bin_pred_log(void *dc)
         opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_DOUBLE());
     test_instr_encoding(dc, OP_bic, instr);
 }
-
 
 static void
 test_asimddiff(void *dc)
