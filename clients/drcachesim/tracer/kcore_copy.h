@@ -108,7 +108,7 @@ private:
     /* The number of kernel code segments. */
     int kcore_code_segments_num_;
 
-    /* The kernel code segments list. */
+    /* The kernel code segments array. */
     proc_kcore_code_segment_t *kcore_code_segments_;
 
     /* The ELF header of '/proc/kcore'. */

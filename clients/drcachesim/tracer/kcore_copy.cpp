@@ -76,51 +76,54 @@ struct proc_kcore_code_segment_t {
     char *buf;
 };
 
-/* This struct type defines wrappers that can customize file manipulation functions. */
-struct file_wrapper_t {
+/* The auto close wrapper of file_t.
+ * This can ensure the file is closed when it is out of scope. And it is also allowed to
+ * cutomize file manipulation functions.
+ */
+struct file_autoclose_t {
     file_t fd;
     drmemtrace_open_file_func_t open_file_func;
+    drmemtrace_close_file_func_t close_file_func;
     drmemtrace_read_file_func_t read_file_func;
     drmemtrace_write_file_func_t write_file_func;
-    drmemtrace_close_file_func_t close_file_func;
     bool (*seek_file_func)(file_t f, int64 offset, int origin);
-    char file_name[MAXIMUM_PATH];
+    char file_name_buffer[MAXIMUM_PATH];
 
-    file_wrapper_t(const char *file_name, drmemtrace_open_file_func_t open_file_func,
-                   drmemtrace_read_file_func_t read_file_func,
-                   drmemtrace_write_file_func_t write_file_func,
-                   drmemtrace_close_file_func_t close_file_func,
-                   bool (*seek_file_func)(file_t f, int64 offset, int origin))
+    file_autoclose_t(const char *file_name, int flags,
+                     drmemtrace_open_file_func_t open_file,
+                     drmemtrace_close_file_func_t close_file,
+                     drmemtrace_read_file_func_t read_file,
+                     drmemtrace_write_file_func_t write_file,
+                     bool (*seek_file)(file_t f, int64 offset, int origin))
         : fd(INVALID_FILE)
-        , open_file_func(open_file_func)
-        , read_file_func(read_file_func)
-        , write_file_func(write_file_func)
-        , close_file_func(close_file_func)
-        , seek_file_func(seek_file_func)
+        , open_file_func(open_file)
+        , close_file_func(close_file)
+        , read_file_func(read_file)
+        , write_file_func(write_file)
+        , seek_file_func(seek_file)
     {
-        dr_snprintf(this->file_name, BUFFER_SIZE_ELEMENTS(this->file_name), "%s",
+        ASSERT(open_file_func != NULL, "open_file_func cannot be NULL");
+        ASSERT(close_file_func != NULL, "close_file_func cannot be NULL");
+
+        ASSERT(file_name != NULL, "file_name cannot be NULL");
+        dr_snprintf(file_name_buffer, BUFFER_SIZE_ELEMENTS(file_name_buffer), "%s",
                     file_name);
-        NULL_TERMINATE_BUFFER(this->file_name);
+        NULL_TERMINATE_BUFFER(file_name_buffer);
+        fd = open_file_func(file_name_buffer, flags);
     }
 
-    ~file_wrapper_t()
+    ~file_autoclose_t()
     {
-        close();
-    }
-
-    bool
-    open(int flags)
-    {
-        if (open_file_func == NULL) {
-            return false;
-        }
-
-        if (fd != INVALID_FILE && close_file_func != NULL) {
+        ASSERT(close_file_func != NULL, "close_file_func cannot be NULL");
+        if (fd != INVALID_FILE) {
             close_file_func(fd);
             fd = INVALID_FILE;
         }
+    }
 
-        fd = open_file_func(file_name, flags);
+    bool
+    is_open()
+    {
         return fd != INVALID_FILE;
     }
 
@@ -150,15 +153,6 @@ struct file_wrapper_t {
             return false;
         }
         return seek_file_func(fd, offset, origin);
-    }
-
-    void
-    close()
-    {
-        if (fd != INVALID_FILE && close_file_func != NULL) {
-            close_file_func(fd);
-            fd = INVALID_FILE;
-        }
     }
 };
 
@@ -237,10 +231,11 @@ kcore_copy_t::copy_kcore(const char *to_dir)
                 KCORE_FILE_NAME);
     NULL_TERMINATE_BUFFER(to_kcore_path);
     /* We use drmemtrace file operations functions to dump out code segments in kcore. */
-    file_wrapper_t fd(to_kcore_path, open_file_func_, nullptr, write_file_func_,
-                      close_file_func_, nullptr /* seek_file_func */);
+    file_autoclose_t fd(to_kcore_path, DR_FILE_WRITE_OVERWRITE, open_file_func_,
+                        close_file_func_, nullptr /*read_file_func*/, write_file_func_,
+                        nullptr /* seek_file_func */);
 
-    if (!fd.open(DR_FILE_WRITE_OVERWRITE)) {
+    if (!fd.is_open()) {
         ASSERT(false, "failed to open " KCORE_FILE_NAME " for writing");
         return false;
     }
@@ -305,9 +300,10 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
 {
     /* We use DynamoRIO defult file operations functions to open and read /proc/kallsyms.
      */
-    file_wrapper_t from_kallsyms_fd(KALLSYMS_FILE_PATH, dr_open_file, dr_read_file,
-                                    nullptr, dr_close_file, nullptr /* seek_file_func */);
-    if (!from_kallsyms_fd.open(DR_FILE_READ)) {
+    file_autoclose_t from_kallsyms_fd(
+        KALLSYMS_FILE_PATH, DR_FILE_READ, dr_open_file, dr_close_file, dr_read_file,
+        nullptr /* write_file_func */, nullptr /* seek_file_func */);
+    if (!from_kallsyms_fd.is_open()) {
         ASSERT(false, "failed to open " KALLSYMS_FILE_PATH " for reading");
         return false;
     }
@@ -318,10 +314,10 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
     NULL_TERMINATE_BUFFER(to_kallsyms_file_path);
 
     /* We use drmemtrace file operations functions to store the output kallsyms. */
-    file_wrapper_t to_kallsyms_fd(to_kallsyms_file_path, open_file_func_, nullptr,
-                                  write_file_func_, close_file_func_,
-                                  nullptr /* seek_file_func */);
-    if (!to_kallsyms_fd.open(DR_FILE_WRITE_OVERWRITE)) {
+    file_autoclose_t to_kallsyms_fd(
+        to_kallsyms_file_path, DR_FILE_WRITE_OVERWRITE, open_file_func_, close_file_func_,
+        nullptr /* read_file_func */, write_file_func_, nullptr /* seek_file_func */);
+    if (!to_kallsyms_fd.is_open()) {
         ASSERT(false, "failed to open " KALLSYMS_FILE_NAME " for writing");
         return false;
     }
@@ -398,6 +394,7 @@ kcore_copy_t::read_kallsyms()
             continue;
         if (strcmp(name, "_stext") == 0) {
             if (kernel_module != nullptr) {
+                ASSERT(false, "multiple kernel modules found");
                 f.close();
                 return false;
             }
@@ -405,6 +402,7 @@ kcore_copy_t::read_kallsyms()
             kernel_module->start = addr;
         } else if (strcmp(name, "_etext") == 0) {
             if (kernel_module == nullptr) {
+                ASSERT(false, "failed to find kernel module");
                 f.close();
                 return false;
             }
@@ -415,6 +413,7 @@ kcore_copy_t::read_kallsyms()
             kernel_module = nullptr;
         }
     }
+    ASSERT(kernel_module == nullptr, "failed to find kernel module");
     f.close();
     return true;
 }
@@ -422,9 +421,11 @@ kcore_copy_t::read_kallsyms()
 bool
 kcore_copy_t::read_kcore()
 {
-    file_wrapper_t fd(KCORE_FILE_PATH, dr_open_file, dr_read_file, nullptr, dr_close_file,
-                      dr_file_seek);
-    if (!fd.open(DR_FILE_READ)) {
+    ASSERT(modules_ != nullptr,
+           "no module found in " MODULES_FILE_PATH " and " KALLSYMS_FILE_PATH);
+    file_autoclose_t fd(KCORE_FILE_PATH, DR_FILE_READ, dr_open_file, dr_close_file,
+                        dr_read_file, nullptr /* write_file_func */, dr_file_seek);
+    if (!fd.is_open()) {
         ASSERT(false, "failed to open" KCORE_FILE_PATH);
         return false;
     }
@@ -477,13 +478,9 @@ kcore_copy_t::read_kcore()
             continue;
 
         proc_module_t *module = modules_;
-        if (module == nullptr) {
-            ASSERT(false, "no module found in " MODULES_FILE_PATH);
-            return false;
-        }
         while (module != nullptr) {
             if (module->start >= phdr.p_vaddr &&
-                module->end < phdr.p_vaddr + phdr.p_filesz) {
+                module->end <= phdr.p_vaddr + phdr.p_filesz) {
                 kcore_code_segments_[idx].start =
                     module->start - phdr.p_vaddr + phdr.p_offset;
                 kcore_code_segments_[idx].len = module->end - module->start;
