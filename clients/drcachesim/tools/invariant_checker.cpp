@@ -102,6 +102,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     ++shard->ref_count;
     if (shard->tid == -1 && memref.data.tid != 0)
         shard->tid = memref.data.tid;
+    // XXX i#5538: Have the infrastructure provide a common instr and record count.
+    if (type_is_instr(memref.instr.type))
+        ++shard->instr_count_;
 #ifdef UNIX
     if (has_annotations_) {
         // Check conditions specific to the signal_invariants app, where it
@@ -189,6 +192,20 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         shard->found_page_size_marker_ = true;
+    }
+
+    // Invariant: each chunk's instruction count must be identical and equal to
+    // the value in the top-level marker.
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) {
+        shard->chunk_instr_count_ = memref.marker.marker_value;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
+        report_if_false(shard,
+                        shard->chunk_instr_count_ != 0 &&
+                            shard->instr_count_ % shard->chunk_instr_count_ == 0,
+                        "Chunk instruction counts are inconsistent");
     }
 
     // Invariant: a function marker should not appear between an instruction and its
