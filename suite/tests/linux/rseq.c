@@ -95,11 +95,6 @@
 #    define RSEQ_ADD_ARRAY_ENTRY(label) /* Nothing. */
 #endif
 
-static int rseq_tls_offset;
-
-#ifdef GLIBC_RSEQ
-static bool glibc_rseq_enabled;
-#endif
 /* This cannot be a stack-local variable, as the kernel will force SIGSEGV
  * if it can't read this struct.  And for multiple threads it should be in TLS.
  */
@@ -117,12 +112,34 @@ static void *thread_ready;
 
 static volatile int sigill_count;
 
+static bool
+register_rseq()
+{
+#ifdef GLIBC_RSEQ
+    if (__rseq_size > 0) {
+        /* Already registered by Glibc. Assert that it's there. */
+        assert(__rseq_offset > 0);
+        struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;
+        int res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, 0);
+        assert(res == -1 && errno == EPERM);
+    } else {
+#endif
+        rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
+        int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
+        assert(res == 0);
+#ifdef GLIBC_RSEQ
+    }
+#endif
+    /* Linux kernel 4.18+ is required. */
+    return errno != ENOSYS;
+}
+
 static volatile struct rseq *
 get_my_rseq()
 {
 #ifdef GLIBC_RSEQ
-    if (glibc_rseq_enabled)
-        return (struct rseq *)(__builtin_thread_pointer() + rseq_tls_offset);
+    if (__rseq_size > 0)
+        return (struct rseq *)(__builtin_thread_pointer() + __rseq_offset);
 #endif
     return &rseq_tls;
 }
@@ -829,11 +846,9 @@ rseq_thread_loop(void *arg)
      * in this function is close enough: the test already has non-determinism.
      */
     signal_cond_var(thread_ready);
+    bool res = register_rseq();
+    assert(res);
     volatile struct rseq *reg_rseq = get_my_rseq();
-    reg_rseq->cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
-    int res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, RSEQ_SIG);
-    if (res != 0)
-        return NULL;
     static int zero;
 #    ifdef X86
     __asm__ __volatile__(
@@ -1001,24 +1016,8 @@ int
 main()
 {
     intercept_signal(SIGILL, signal_handler, false);
-    int res;
-    int expected_errno;
-#ifdef GLIBC_RSEQ
-    glibc_rseq_enabled = __rseq_size > 0;
-    if (glibc_rseq_enabled) {
-        assert(__rseq_offset > 0);
-        struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;
-        res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, 0);
-        expected_errno = EPERM;
-    } else {
-#endif
-        rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
-        res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
-        expected_errno = 0;
-#ifdef GLIBC_RSEQ
-    }
-#endif
-    if (errno == expected_errno) {
+    bool res = register_rseq();
+    if (res) {
 #ifdef RSEQ_TEST_ATTACH
         /* Set -offline to avoid trying to open a pipe to a missing reader. */
         if (setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'",
@@ -1054,9 +1053,6 @@ main()
         join_thread(mythread);
         destroy_cond_var(thread_ready);
 #endif
-    } else {
-        /* Linux kernel 4.18+ is required. */
-        assert(errno == ENOSYS);
     }
     print("All done\n");
     return 0;
