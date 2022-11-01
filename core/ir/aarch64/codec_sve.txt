@@ -44,11 +44,24 @@
 00000100xx011010000xxxxxxxxxxxxx  n   21   SVE      and             z0 : p10_low z0 z5 bhsd_sz
 00000100xx011011000xxxxxxxxxxxxx  n   29   SVE      bic             z0 : p10_low z0 z5 bhsd_sz
 00000100xx011001000xxxxxxxxxxxxx  n   90   SVE      eor             z0 : p10_low z0 z5 bhsd_sz
-0000010000100000101111xxxxxxxxxx  n   783  BASE movprfx             z0 : z5
+0000010000100000101111xxxxxxxxxx  n   783  SVE  movprfx             z0 : z5
 00000100xx011000000xxxxxxxxxxxxx  n   327  SVE      orr             z0 : p10_low z0 z5 bhsd_sz
 00000100xx1xxxxx000100xxxxxxxxxx  n   403  SVE    sqadd             z0 : z5 z16 bhsd_sz
+00100101xx10010011xxxxxxxxxxxxxx  n   403  SVE    sqadd  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
+00000100xx1xxxxx000100xxxxxxxxxx  n   403  SVE    sqadd  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000100xx1xxxxx000110xxxxxxxxxx  n   425  SVE    sqsub             z0 : z5 z16 bhsd_sz
+00100101xx10011011xxxxxxxxxxxxxx  n   425  SVE    sqsub  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
+00000100xx1xxxxx000110xxxxxxxxxx  n   425  SVE    sqsub  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000100xx1xxxxx000001xxxxxxxxxx  n   470  SVE      sub             z0 : z5 z16 bhsd_sz
+00000100xx000001000xxxxxxxxxxxxx  n   470  SVE      sub  z_size_bhsd_0 : p10_low z_size_bhsd_0 z_size_bhsd_5
+00100101xx10000111xxxxxxxxxxxxxx  n   470  SVE      sub  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
+00000100xx1xxxxx000001xxxxxxxxxx  n   470  SVE      sub  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+00000100xx000011000xxxxxxxxxxxxx  n   784  SVE     subr  z_size_bhsd_0 : p10_low z_size_bhsd_0 z_size_bhsd_5
+00100101xx10001111xxxxxxxxxxxxxx  n   784  SVE     subr  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100xx1xxxxx000101xxxxxxxxxx  n   531  SVE    uqadd             z0 : z5 z16 bhsd_sz
+00100101xx10010111xxxxxxxxxxxxxx  n   531  SVE    uqadd  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
+00000100xx1xxxxx000101xxxxxxxxxx  n   531  SVE    uqadd  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000100xx1xxxxx000111xxxxxxxxxx  n   538  SVE    uqsub             z0 : z5 z16 bhsd_sz
+00100101xx10011111xxxxxxxxxxxxxx  n   538  SVE    uqsub  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
+00000100xx1xxxxx000111xxxxxxxxxx  n   538  SVE    uqsub  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000101101xxxxx000001xxxxxxxxxx  n   566  SVE     zip2          z_q_0 : z_q_5 z_q_16
