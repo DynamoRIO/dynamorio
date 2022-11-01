@@ -85,7 +85,9 @@ analyzer_multi_t::analyzer_multi_t()
             } else {
                 int count = 0;
                 for (; iter != end; ++iter) {
-                    if ((*iter) == "." || (*iter) == "..")
+                    if ((*iter) == "." || (*iter) == ".." ||
+                        starts_with(*iter, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
+                        *iter == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                         continue;
                     ++count;
                     // XXX: It would be nice to call file_reader_t::is_complete()
@@ -183,39 +185,42 @@ analyzer_multi_t::create_analysis_tools()
     }
     num_tools_ = 1;
     if (op_test_mode.get_value()) {
-        // TODO i#5538: Locate and open the schedule files and pass to the
-        // reader(s) for seeking.  For now we only read them for this test.
-        std::string tracedir =
-            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (directory_iterator_t::is_directory(tracedir)) {
-            directory_iterator_t end;
-            directory_iterator_t iter(tracedir);
-            if (!iter) {
-                error_string_ = "Failed to list directory: " + iter.error_string();
-                return false;
-            }
-            for (; iter != end; ++iter) {
-                const std::string fname = *iter;
-                const std::string fpath = tracedir + DIRSEP + fname;
-                if (starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME)) {
-                    if (ends_with(fname, ".gz")) {
+        if (op_offline.get_value()) {
+            // TODO i#5538: Locate and open the schedule files and pass to the
+            // reader(s) for seeking.  For now we only read them for this test.
+            std::string tracedir =
+                raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
+            if (directory_iterator_t::is_directory(tracedir)) {
+                directory_iterator_t end;
+                directory_iterator_t iter(tracedir);
+                if (!iter) {
+                    error_string_ = "Failed to list directory: " + iter.error_string();
+                    return false;
+                }
+                for (; iter != end; ++iter) {
+                    const std::string fname = *iter;
+                    const std::string fpath = tracedir + DIRSEP + fname;
+                    if (starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME)) {
+                        if (ends_with(fname, ".gz")) {
 #ifdef HAS_ZLIB
-                        serial_schedule_file_ =
-                            std::unique_ptr<std::istream>(new gzip_istream_t(fpath));
+                            serial_schedule_file_ =
+                                std::unique_ptr<std::istream>(new gzip_istream_t(fpath));
 #endif
-                    } else {
-                        serial_schedule_file_ = std::unique_ptr<std::istream>(
-                            new std::ifstream(fpath, std::ifstream::binary));
-                    }
-                    if (serial_schedule_file_ && !*serial_schedule_file_) {
-                        error_string_ = "Failed to open serial schedule file " + fpath;
-                        return false;
-                    }
-                } else if (fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME) {
+                        } else {
+                            serial_schedule_file_ = std::unique_ptr<std::istream>(
+                                new std::ifstream(fpath, std::ifstream::binary));
+                        }
+                        if (serial_schedule_file_ && !*serial_schedule_file_) {
+                            error_string_ =
+                                "Failed to open serial schedule file " + fpath;
+                            return false;
+                        }
+                    } else if (fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME) {
 #ifdef HAS_ZIP
-                    cpu_schedule_file_ =
-                        std::unique_ptr<std::istream>(new zipfile_istream_t(fpath));
+                        cpu_schedule_file_ =
+                            std::unique_ptr<std::istream>(new zipfile_istream_t(fpath));
 #endif
+                    }
                 }
             }
         }
