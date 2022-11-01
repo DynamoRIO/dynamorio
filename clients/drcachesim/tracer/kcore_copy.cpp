@@ -78,82 +78,80 @@ struct proc_kcore_code_segment_t {
 
 /* The auto close wrapper of file_t.
  * This can ensure the file is closed when it is out of scope. And it is also allowed to
- * cutomize file manipulation functions.
+ * customize file manipulation functions.
  */
-struct file_autoclose_t {
-    file_t fd;
-    drmemtrace_open_file_func_t open_file_func;
-    drmemtrace_close_file_func_t close_file_func;
-    drmemtrace_read_file_func_t read_file_func;
-    drmemtrace_write_file_func_t write_file_func;
-    bool (*seek_file_func)(file_t f, int64 offset, int origin);
-    char file_name_buffer[MAXIMUM_PATH];
-
+class file_autoclose_t {
+public:
     file_autoclose_t(const char *file_name, int flags,
-                     drmemtrace_open_file_func_t open_file,
-                     drmemtrace_close_file_func_t close_file,
-                     drmemtrace_read_file_func_t read_file,
-                     drmemtrace_write_file_func_t write_file,
-                     bool (*seek_file)(file_t f, int64 offset, int origin))
-        : fd(INVALID_FILE)
-        , open_file_func(open_file)
-        , close_file_func(close_file)
-        , read_file_func(read_file)
-        , write_file_func(write_file)
-        , seek_file_func(seek_file)
+                     drmemtrace_open_file_func_t open_file_func,
+                     drmemtrace_close_file_func_t close_file_func,
+                     drmemtrace_read_file_func_t read_file_func,
+                     drmemtrace_write_file_func_t write_file_func,
+                     bool (*seek_file_func)(file_t f, int64 offset, int origin))
+        : fd_(INVALID_FILE)
+        , open_file_func_(open_file_func)
+        , close_file_func_(close_file_func)
+        , read_file_func_(read_file_func)
+        , write_file_func_(write_file_func)
+        , seek_file_func_(seek_file_func)
     {
-        ASSERT(open_file_func != NULL, "open_file_func cannot be NULL");
-        ASSERT(close_file_func != NULL, "close_file_func cannot be NULL");
+        ASSERT(open_file_func_ != NULL, "open_file_func_ cannot be NULL");
+        ASSERT(close_file_func_ != NULL, "close_file_func_ cannot be NULL");
 
         ASSERT(file_name != NULL, "file_name cannot be NULL");
-        dr_snprintf(file_name_buffer, BUFFER_SIZE_ELEMENTS(file_name_buffer), "%s",
-                    file_name);
-        NULL_TERMINATE_BUFFER(file_name_buffer);
-        fd = open_file_func(file_name_buffer, flags);
+        fd_ = open_file_func_(file_name, flags);
     }
 
     ~file_autoclose_t()
     {
-        ASSERT(close_file_func != NULL, "close_file_func cannot be NULL");
-        if (fd != INVALID_FILE) {
-            close_file_func(fd);
-            fd = INVALID_FILE;
+        ASSERT(close_file_func_ != NULL, "close_file_func_ cannot be NULL");
+        if (fd_ != INVALID_FILE) {
+            close_file_func_(fd_);
+            fd_ = INVALID_FILE;
         }
     }
 
     bool
     is_open()
     {
-        return fd != INVALID_FILE;
+        return fd_ != INVALID_FILE;
     }
 
     bool
-    write(void *buf, size_t count)
+    write(IN const void *buf, IN size_t count)
     {
-        if (fd == INVALID_FILE || write_file_func == NULL) {
+        if (fd_ == INVALID_FILE || write_file_func_ == NULL) {
             return false;
         }
-        ssize_t written = write_file_func(fd, buf, count);
+        ssize_t written = write_file_func_(fd_, buf, count);
         return written > 0 && (size_t)written == count;
     }
 
     ssize_t
-    read(void *buf, size_t count)
+    read(INOUT void *buf, IN size_t count)
     {
-        if (fd == INVALID_FILE || read_file_func == NULL) {
+        if (fd_ == INVALID_FILE || read_file_func_ == NULL) {
             return -1;
         }
-        return read_file_func(fd, buf, count);
+        return read_file_func_(fd_, buf, count);
     }
 
     bool
-    seek(int64 offset, int origin)
+    seek(IN int64 offset, IN int origin)
     {
-        if (fd == INVALID_FILE || seek_file_func == NULL) {
+        if (fd_ == INVALID_FILE || seek_file_func_ == NULL) {
             return false;
         }
-        return seek_file_func(fd, offset, origin);
+        return seek_file_func_(fd_, offset, origin);
     }
+
+private:
+    file_t fd_;
+    drmemtrace_open_file_func_t open_file_func_;
+    drmemtrace_close_file_func_t close_file_func_;
+    drmemtrace_read_file_func_t read_file_func_;
+    drmemtrace_write_file_func_t write_file_func_;
+    bool (*seek_file_func_)(file_t f, int64 offset, int origin);
 };
 
 kcore_copy_t::kcore_copy_t(drmemtrace_open_file_func_t open_file_func,

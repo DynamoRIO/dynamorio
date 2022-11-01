@@ -1611,9 +1611,9 @@ event_exit(void)
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
         /* Copy kcore and kallsyms to {kernel_pt_logsubdir}. */
-        std::unique_ptr<kcore_copy_t> kcore_copy(new kcore_copy_t(
-            file_ops_func.open_file, file_ops_func.write_file, file_ops_func.close_file));
-        if (!kcore_copy->copy(kernel_pt_logsubdir)) {
+        kcore_copy_t kcore_copy(file_ops_func.open_file, file_ops_func.write_file,
+                                file_ops_func.close_file);
+        if (!kcore_copy.copy(kernel_pt_logsubdir)) {
             NOTIFY(0, "WARNING: failed to copy kcore and kallsyms to %s\n",
                    kernel_pt_logsubdir);
         }
