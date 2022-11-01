@@ -65,17 +65,6 @@ analyzer_t::analyzer_t()
     /* Nothing else: child class needs to initialize. */
 }
 
-#if defined(HAS_SNAPPY) || defined(HAS_ZIP)
-static bool
-ends_with(const std::string &str, const std::string &with)
-{
-    size_t pos = str.rfind(with);
-    if (pos == std::string::npos)
-        return false;
-    return (pos + with.size() == str.size());
-}
-#endif
-
 static std::unique_ptr<reader_t>
 get_reader(const std::string &path, int verbosity)
 {
@@ -98,6 +87,11 @@ get_reader(const std::string &path, int verbosity)
             return nullptr;
         }
         for (; iter != end; ++iter) {
+            const std::string fname = *iter;
+            if (fname == "." || fname == ".." ||
+                starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
+                fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
+                continue;
 #    ifdef HAS_SNAPPY
             if (ends_with(*iter, ".sz")) {
                 return std::unique_ptr<reader_t>(
@@ -141,7 +135,9 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity)
         }
         for (; iter != end; ++iter) {
             const std::string fname = *iter;
-            if (fname == "." || fname == "..")
+            if (fname == "." || fname == ".." ||
+                starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
+                fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                 continue;
             const std::string path = trace_path + DIRSEP + fname;
             std::unique_ptr<reader_t> reader = get_reader(path, verbosity);

@@ -220,7 +220,9 @@ post_process()
     std::string dir_err = dir.initialize(raw_dir, "");
     assert(dir_err.empty());
     raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
-                          dir.out_archives_, dir.encoding_file_, dr_context, 0);
+                          dir.out_archives_, dir.encoding_file_,
+                          dir.serial_schedule_file_, dir.cpu_schedule_file_, dr_context,
+                          0);
     std::string error =
         raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
     assert(error.empty());

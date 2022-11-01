@@ -40,7 +40,11 @@
 #include "tracer/raw2trace.h"
 #include "reader/file_reader.h"
 #ifdef HAS_ZLIB
+#    include "common/gzip_istream.h"
 #    include "reader/compressed_file_reader.h"
+#endif
+#ifdef HAS_ZIP
+#    include "common/zipfile_istream.h"
 #endif
 #include "reader/ipc_reader.h"
 #include "tools/invariant_checker.h"
@@ -56,11 +60,6 @@ analyzer_multi_t::analyzer_multi_t()
         parallel_ = false;
     if (!op_indir.get_value().empty() || !op_infile.get_value().empty())
         op_offline.set_value(true); // Some tools check this on post-proc runs.
-    if (!create_analysis_tools()) {
-        success_ = false;
-        error_string_ = "Failed to create analysis tool: " + error_string_;
-        return;
-    }
     // XXX: add a "required" flag to droption to avoid needing this here
     if (op_indir.get_value().empty() && op_infile.get_value().empty() &&
         op_ipc_name.get_value().empty()) {
@@ -86,7 +85,9 @@ analyzer_multi_t::analyzer_multi_t()
             } else {
                 int count = 0;
                 for (; iter != end; ++iter) {
-                    if ((*iter) == "." || (*iter) == "..")
+                    if ((*iter) == "." || (*iter) == ".." ||
+                        starts_with(*iter, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
+                        *iter == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                         continue;
                     ++count;
                     // XXX: It would be nice to call file_reader_t::is_complete()
@@ -107,7 +108,8 @@ analyzer_multi_t::analyzer_multi_t()
             }
             raw2trace_t raw2trace(
                 dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
-                dir.encoding_file_, nullptr, op_verbose.get_value(), op_jobs.get_value(),
+                dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
+                nullptr, op_verbose.get_value(), op_jobs.get_value(),
                 op_alt_module_dir.get_value(), op_chunk_instr_count.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
@@ -115,7 +117,17 @@ analyzer_multi_t::analyzer_multi_t()
                 error_string_ = "raw2trace failed: " + error;
             }
         }
-        tracedir = raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
+    }
+    // Create the tools after post-processing so we have the schedule files for
+    // test_mode.
+    if (!create_analysis_tools()) {
+        success_ = false;
+        error_string_ = "Failed to create analysis tool: " + error_string_;
+        return;
+    }
+    if (!op_indir.get_value().empty()) {
+        std::string tracedir =
+            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
         if (!init_file_reader(tracedir, op_verbose.get_value()))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
@@ -173,9 +185,48 @@ analyzer_multi_t::create_analysis_tools()
     }
     num_tools_ = 1;
     if (op_test_mode.get_value()) {
-        tools_[1] =
-            new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
-                                    op_test_mode_name.get_value());
+        if (op_offline.get_value()) {
+            // TODO i#5538: Locate and open the schedule files and pass to the
+            // reader(s) for seeking. For now we only read them for this test.
+            std::string tracedir =
+                raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
+            if (directory_iterator_t::is_directory(tracedir)) {
+                directory_iterator_t end;
+                directory_iterator_t iter(tracedir);
+                if (!iter) {
+                    error_string_ = "Failed to list directory: " + iter.error_string();
+                    return false;
+                }
+                for (; iter != end; ++iter) {
+                    const std::string fname = *iter;
+                    const std::string fpath = tracedir + DIRSEP + fname;
+                    if (starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME)) {
+                        if (ends_with(fname, ".gz")) {
+#ifdef HAS_ZLIB
+                            serial_schedule_file_ =
+                                std::unique_ptr<std::istream>(new gzip_istream_t(fpath));
+#endif
+                        } else {
+                            serial_schedule_file_ = std::unique_ptr<std::istream>(
+                                new std::ifstream(fpath, std::ifstream::binary));
+                        }
+                        if (serial_schedule_file_ && !*serial_schedule_file_) {
+                            error_string_ =
+                                "Failed to open serial schedule file " + fpath;
+                            return false;
+                        }
+                    } else if (fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME) {
+#ifdef HAS_ZIP
+                        cpu_schedule_file_ =
+                            std::unique_ptr<std::istream>(new zipfile_istream_t(fpath));
+#endif
+                    }
+                }
+            }
+        }
+        tools_[1] = new invariant_checker_t(
+            op_offline.get_value(), op_verbose.get_value(), op_test_mode_name.get_value(),
+            serial_schedule_file_.get(), cpu_schedule_file_.get());
         if (tools_[1] == NULL)
             return false;
         if (!!*tools_[1])

@@ -175,7 +175,9 @@ post_process(const std::string &out_subdir)
         std::string dir_err = dir.initialize(raw_dir, outdir);
         assert(dir_err.empty());
         raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
-                              dir.out_archives_, dir.encoding_file_, dr_context,
+                              dir.out_archives_, dir.encoding_file_,
+                              dir.serial_schedule_file_, dir.cpu_schedule_file_,
+                              dr_context,
                               0
 #    ifdef WINDOWS
                               /* FIXME i#3983: Creating threads in standalone mode

@@ -149,4 +149,22 @@ to_hex_string(T integer)
     return sstream.str();
 }
 
+static inline bool
+ends_with(const std::string &str, const std::string &with)
+{
+    size_t pos = str.rfind(with);
+    if (pos == std::string::npos)
+        return false;
+    return (pos + with.size() == str.size());
+}
+
+static inline bool
+starts_with(const std::string &str, const std::string &with)
+{
+    size_t pos = str.find(with);
+    if (pos == std::string::npos)
+        return false;
+    return pos == 0;
+}
+
 #endif /* _UTILS_H_ */

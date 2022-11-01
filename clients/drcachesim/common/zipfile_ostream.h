@@ -68,7 +68,8 @@ public:
             return;
         // We do not bother with the zipfile comment: it doesn't seem to show
         // up when I do set it anyway ("unzip -z" prints the .zip path instead).
-        if (zipCloseFileInZip(zip_) != ZIP_OK || zipClose(zip_, nullptr) != ZIP_OK) {
+        if ((!first_component_ && zipCloseFileInZip(zip_) != ZIP_OK) ||
+            zipClose(zip_, nullptr) != ZIP_OK) {
 #ifdef DEBUG
             // Let's at least have something visible in debug build.
             std::cerr << "zipfile_ostream failed to close zipfile\n";
