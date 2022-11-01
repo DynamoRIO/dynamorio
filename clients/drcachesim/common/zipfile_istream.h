@@ -31,9 +31,8 @@
  */
 
 /* zipfile_istream_t: provides a std::istream interface for reading components
- * of a zipfile.  It provides a continuous stream that cycles through all
- * components.
- * Supports only limited seeking within the current internal buffer.
+ * of a zipfile. It provides a continuous stream that cycles through all
+ * components. Supports only limited seeking within the current internal buffer.
  */
 
 #ifndef _ZIPFILE_ISTREAM_H_

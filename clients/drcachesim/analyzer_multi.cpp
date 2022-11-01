@@ -187,7 +187,7 @@ analyzer_multi_t::create_analysis_tools()
     if (op_test_mode.get_value()) {
         if (op_offline.get_value()) {
             // TODO i#5538: Locate and open the schedule files and pass to the
-            // reader(s) for seeking.  For now we only read them for this test.
+            // reader(s) for seeking. For now we only read them for this test.
             std::string tracedir =
                 raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
             if (directory_iterator_t::is_directory(tracedir)) {
