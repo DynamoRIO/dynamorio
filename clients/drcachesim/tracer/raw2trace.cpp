@@ -759,10 +759,10 @@ raw2trace_t::do_conversion()
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
-            error = process_thread_file(&thread_data_[i]);
+            error = process_thread_file(thread_data_[i].get());
             if (!error.empty())
                 return error;
-            count_elided_ += thread_data_[i].count_elided;
+            count_elided_ += thread_data_[i]->count_elided;
         }
     } else {
         // The files can be converted concurrently.
@@ -776,9 +776,9 @@ raw2trace_t::do_conversion()
         for (std::thread &thread : threads)
             thread.join();
         for (auto &tdata : thread_data_) {
-            if (!tdata.error.empty())
-                return tdata.error;
-            count_elided_ += tdata.count_elided;
+            if (!tdata->error.empty())
+                return tdata->error;
+            count_elided_ += tdata->count_elided;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -798,8 +798,8 @@ raw2trace_t::aggregate_and_write_schedule_files()
     std::vector<schedule_entry_t> serial;
     std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
     for (auto &tdata : thread_data_) {
-        serial.insert(serial.end(), tdata.sched.begin(), tdata.sched.end());
-        for (auto &keyval : tdata.cpu2sched) {
+        serial.insert(serial.end(), tdata->sched.begin(), tdata->sched.end());
+        for (auto &keyval : tdata->cpu2sched) {
             auto &vec = cpu2sched[keyval.first];
             vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
         }
@@ -1432,16 +1432,18 @@ raw2trace_t::raw2trace_t(const char *module_map,
 #endif
     thread_data_.resize(thread_files.size());
     for (size_t i = 0; i < thread_data_.size(); ++i) {
-        thread_data_[i].index = static_cast<int>(i);
-        thread_data_[i].thread_file = thread_files[i];
+        thread_data_[i] =
+            std::unique_ptr<raw2trace_thread_data_t>(new raw2trace_thread_data_t);
+        thread_data_[i]->index = static_cast<int>(i);
+        thread_data_[i]->thread_file = thread_files[i];
         if (out_files.empty()) {
-            thread_data_[i].out_archive = out_archives[i];
+            thread_data_[i]->out_archive = out_archives[i];
             // Set out_file too for code that doesn't care which it writes to.
-            thread_data_[i].out_file = out_archives[i];
-            open_new_chunk(&thread_data_[i]);
+            thread_data_[i]->out_file = out_archives[i];
+            open_new_chunk(thread_data_[i].get());
         } else {
-            thread_data_[i].out_archive = nullptr;
-            thread_data_[i].out_file = out_files[i];
+            thread_data_[i]->out_archive = nullptr;
+            thread_data_[i]->out_file = out_files[i];
         }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
@@ -1458,8 +1460,8 @@ raw2trace_t::raw2trace_t(const char *module_map,
         int worker = 0;
         for (size_t i = 0; i < thread_data_.size(); ++i) {
             VPRINT(2, "Worker %d assigned trace thread %zd\n", worker, i);
-            worker_tasks_[worker].push_back(&thread_data_[i]);
-            thread_data_[i].worker = worker;
+            worker_tasks_[worker].push_back(thread_data_[i].get());
+            thread_data_[i]->worker = worker;
             worker = (worker + 1) % worker_count_;
         }
     } else

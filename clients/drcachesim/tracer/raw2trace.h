@@ -1947,6 +1947,8 @@ protected:
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
+    std::vector<std::unique_ptr<raw2trace_thread_data_t>> thread_data_;
+
 private:
     friend class trace_converter_t<raw2trace_t>;
 
@@ -2025,8 +2027,6 @@ private:
 
     std::string
     emit_new_chunk_header(raw2trace_thread_data_t *tdata);
-
-    std::vector<raw2trace_thread_data_t> thread_data_;
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
