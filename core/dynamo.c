@@ -695,6 +695,7 @@ dynamorio_app_init_part_two_finalize(void)
             find_dynamo_library_vm_areas();
             dynamo_vm_areas_unlock();
         }
+
 #ifdef LINUX
         /* We need to delay initializing rseq support to after we have
          * initialized modules.
@@ -702,6 +703,7 @@ dynamorio_app_init_part_two_finalize(void)
         if (!standalone_library)
             d_r_rseq_init();
 #endif
+
 #ifdef ANNOTATIONS
         annotation_init();
 #endif
