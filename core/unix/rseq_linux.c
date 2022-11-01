@@ -75,9 +75,10 @@ struct rseq {
 
 #ifdef GLIBC_RSEQ
 /* __tls_init_tp in glibc/sysdeps/nptl/dl-tls_init_tp.c initializes __rseq_size
- * and __rseq_offset. The former is > 0 iff glibc's rseq support is not disabled
- * using GLIBC_TUNABLES=glibc.pthread.rseq=0. The latter is defined regardless
- * and is used by us to determine whether glibc has been initialized yet.
+ * and __rseq_offset. The former is > 0 iff glibc's rseq support is enabled
+ * (that is, not disabled by the user using GLIBC_TUNABLES=glibc.pthread.rseq=0
+ * or due to some issue). The latter is defined regardless and is used by us to
+ * determine whether glibc has been initialized yet.
  */
 static volatile uint glibc_rseq_size;
 static volatile int glibc_rseq_offset;
@@ -162,7 +163,7 @@ rseq_cs_free(dcontext_t *dcontext, void *data)
 }
 
 void
-rseq_check_glibc_enabled()
+rseq_check_glibc_support()
 {
 #ifdef GLIBC_RSEQ
     /* We have already determined Glibc's rseq support. */
@@ -173,7 +174,7 @@ rseq_check_glibc_enabled()
         module_area_t *ma = module_iterator_next(iter);
         int *rseq_offset_addr =
             (int *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_offset");
-        /* Glibc's not initialized yet. */
+        /* Glibc is not completely initialized yet. */
         if (rseq_offset_addr == NULL || *rseq_offset_addr == 0)
             continue;
         /* Verify that the offset has not changed. */
@@ -181,6 +182,7 @@ rseq_check_glibc_enabled()
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         ATOMIC_4BYTE_WRITE(&glibc_rseq_offset, *rseq_offset_addr, false);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+
         uint *rseq_size_addr =
             (uint *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_size");
         ASSERT(rseq_size_addr != NULL);
@@ -192,6 +194,7 @@ rseq_check_glibc_enabled()
         ATOMIC_4BYTE_WRITE(&rseq_tls_offset, *rseq_offset_addr, false);
         ATOMIC_4BYTE_WRITE(&glibc_rseq_size, *rseq_size_addr, false);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+
         DODEBUG({
             byte *rseq_addr = get_app_segment_base(LIB_SEG_TLS) + glibc_rseq_offset;
             int res =
@@ -216,7 +219,7 @@ d_r_rseq_init(void)
     rseq_cs_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_RSEQ_CS_TABLE_SIZE, 80,
                                         HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
                                         rseq_cs_free _IF_DEBUG("rseq_cs table"));
-    rseq_check_glibc_enabled();
+    rseq_check_glibc_support();
     /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
     if (rseq_is_registered_for_current_thread())
         rseq_locate_rseq_regions();
@@ -376,7 +379,7 @@ bool
 rseq_is_registered_for_current_thread(void)
 {
 #ifdef GLIBC_RSEQ
-    /* If Glibc's rseq support is enabled, the struct rseq is already
+    /* If Glibc's rseq support is enabled, a struct rseq is already
      * registered for all threads.
      */
     if (glibc_rseq_size > 0)
@@ -543,6 +546,7 @@ rseq_process_elf_sections(module_area_t *ma, bool at_map,
     bool adjust_entry_offs =
         at_map || (DYNAMO_OPTION(early_inject) && !dr_api_entry && !dynamo_started);
 #ifdef GLIBC_RSEQ
+    /* We want to set entry_offs if glibc has not been initialized yet. */
     adjust_entry_offs |= (glibc_rseq_offset == 0);
 #endif
     if (adjust_entry_offs)
@@ -807,12 +811,12 @@ rseq_process_syscall(dcontext_t *dcontext)
  * the app has registered the current thread for rseq.
  */
 void
-rseq_locate_rseq_regions()
+rseq_locate_rseq_regions(void)
 {
     if (rseq_enabled)
         return;
 #if defined(GLIBC_RSEQ)
-    rseq_check_glibc_enabled();
+    rseq_check_glibc_support();
     /* We should either have determined availability of glibc's rseq support (so that
      * rseq_locate_tls_offset works as expected, or should already have seen an
      * rseq syscall (which would set rseq_tls_offset).

@@ -70,7 +70,4 @@ rseq_module_init(module_area_t *ma, bool at_map);
 void
 rseq_process_syscall(dcontext_t *dcontext);
 
-void
-rseq_check_glibc_enabled(void);
-
 #endif /* _RSEQ_H_ */
