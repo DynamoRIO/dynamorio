@@ -177,18 +177,21 @@ rseq_check_glibc_enabled()
         if (rseq_offset_addr == NULL || *rseq_offset_addr == 0)
             continue;
         /* Verify that the offset has not changed. */
-        ASSERT(glibc_rseq_offset == 0 ||
-               (glibc_rseq_offset == *rseq_offset_addr &&
-                rseq_tls_offset == *rseq_offset_addr));
+        ASSERT(glibc_rseq_offset == 0 || glibc_rseq_offset == *rseq_offset_addr);
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         ATOMIC_4BYTE_WRITE(&glibc_rseq_offset, *rseq_offset_addr, false);
-        ATOMIC_4BYTE_WRITE(&rseq_tls_offset, *rseq_offset_addr, false);
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         uint *rseq_size_addr =
             (uint *)dr_get_proc_address((module_handle_t)ma->start, "__rseq_size");
         ASSERT(rseq_size_addr != NULL);
         /* Glibc's rseq support is disabled. */
         if (*rseq_size_addr == 0)
             continue;
+        ASSERT(rseq_tls_offset == 0 || rseq_tls_offset == *rseq_offset_addr);
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        ATOMIC_4BYTE_WRITE(&rseq_tls_offset, *rseq_offset_addr, false);
         ATOMIC_4BYTE_WRITE(&glibc_rseq_size, *rseq_size_addr, false);
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         DODEBUG({
             byte *rseq_addr = get_app_segment_base(LIB_SEG_TLS) + glibc_rseq_offset;
             int res =
@@ -227,11 +230,13 @@ d_r_rseq_exit(void)
     DELETE_LOCK(rseq_trigger_lock);
     /* Better to reset and detect again for reattaches. */
     uint new_value = 0;
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_4BYTE_WRITE(&rseq_tls_offset, new_value, false);
 #ifdef GLIBC_RSEQ
     ATOMIC_4BYTE_WRITE(&glibc_rseq_offset, new_value, false);
     ATOMIC_4BYTE_WRITE(&glibc_rseq_size, new_value, false);
 #endif
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 }
 
 void
@@ -535,7 +540,12 @@ rseq_process_elf_sections(module_area_t *ma, bool at_map,
      * relocated and only need the offset if relocations have not yet been applied.
      */
     ssize_t entry_offs = 0;
-    if (at_map || (DYNAMO_OPTION(early_inject) && !dr_api_entry && !dynamo_started))
+    bool adjust_entry_offs =
+        at_map || (DYNAMO_OPTION(early_inject) && !dr_api_entry && !dynamo_started);
+#ifdef GLIBC_RSEQ
+    adjust_entry_offs |= (glibc_rseq_offset == 0);
+#endif
+    if (adjust_entry_offs)
         entry_offs = load_offs;
     for (i = 0; i < elf_hdr->e_shnum; i++) {
 #define RSEQ_PTR_ARRAY_SEC_NAME "__rseq_cs_ptr_array"
@@ -697,7 +707,7 @@ rseq_locate_tls_offset(void)
 #ifdef GLIBC_RSEQ
     /* If Glibc's rseq support is enabled, we already know the offset. */
     if (glibc_rseq_size > 0) {
-        ASSERT(rseq_tls_offset > 0);
+        ASSERT(rseq_tls_offset > 0 && glibc_rseq_offset == rseq_tls_offset);
         return rseq_tls_offset;
     }
 #endif
@@ -803,11 +813,11 @@ rseq_locate_rseq_regions()
         return;
 #if defined(GLIBC_RSEQ)
     rseq_check_glibc_enabled();
-    /* Glibc's rseq support has not been initialized yet. Return for now and
-     * try again later.
+    /* We should either have determined availability of glibc's rseq support (so that
+     * rseq_locate_tls_offset works as expected, or should already have seen an
+     * rseq syscall (which would set rseq_tls_offset).
      */
-    if (glibc_rseq_offset == 0)
-        return;
+    ASSERT(glibc_rseq_offset > 0 || rseq_tls_offset > 0);
 #endif
     /* This is a global operation, but the trigger could be hit by two threads at once,
      * thus requiring synchronization.

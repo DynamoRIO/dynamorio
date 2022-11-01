@@ -10729,7 +10729,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 #ifdef LINUX
     /* Check this thread for rseq in between setup and start. */
     if (rseq_is_registered_for_current_thread())
-        rseq_locate_rseq_regions(false);
+        rseq_locate_rseq_regions();
 #endif
 
     /* Find tids for which we have no thread record, meaning they are not under
@@ -10957,7 +10957,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
      * regions as rseq when the rseq syscall is never set up.
      */
     if (rseq_is_registered_for_current_thread()) {
-        rseq_locate_rseq_regions(false);
+        rseq_locate_rseq_regions();
         rseq_thread_attach(dcontext);
     }
 #endif
