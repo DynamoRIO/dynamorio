@@ -817,6 +817,11 @@ rseq_locate_rseq_regions(void)
 {
     if (rseq_enabled)
         return;
+    d_r_mutex_lock(&rseq_trigger_lock);
+    if (rseq_enabled) {
+        d_r_mutex_unlock(&rseq_trigger_lock);
+        return;
+    }
     rseq_check_glibc_support();
     /* We should either have already determined availability of glibc's rseq support
      * (so that rseq_locate_tls_offset properly), or should already have seen an
@@ -826,12 +831,6 @@ rseq_locate_rseq_regions(void)
     /* This is a global operation, but the trigger could be hit by two threads at once,
      * thus requiring synchronization.
      */
-    d_r_mutex_lock(&rseq_trigger_lock);
-    if (rseq_enabled) {
-        d_r_mutex_unlock(&rseq_trigger_lock);
-        return;
-    }
-
     int offset = 0;
     if (rseq_tls_offset == 0) {
         /* Identify the TLS offset of this thread's struct rseq. */
