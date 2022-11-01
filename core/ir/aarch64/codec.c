@@ -2072,6 +2072,20 @@ encode_opnd_p10_low(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_p(10, 7, opnd, enc_out);
 }
 
+/* imm8_5: 8 bit imm at bit 5 */
+
+static inline bool
+decode_opnd_imm8_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(5, 8, false /*signed*/, 0, OPSZ_1, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm8_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(5, 8, false /*signed*/, 0, 0, opnd, enc_out);
+}
+
 /* cmode_h_sz: Operand for 16 bit elements' shift amount */
 
 static inline bool
@@ -2114,6 +2128,28 @@ encode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
 
     opnd = opnd_create_immed_uint(cmode, OPSZ_1b);
     encode_opnd_int(13, 1, false, false, 0, opnd, enc_out);
+    return true;
+}
+
+static inline bool
+decode_opnd_shift1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const int shift_bit = extract_uint(enc, 13, 1);
+    const int shift = shift_bit * 8;
+    *opnd = opnd_create_immed_int(shift, OPSZ_1b);
+    return true;
+}
+
+static inline bool
+encode_opnd_shift1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    const int64 shift = opnd_get_immed_int(opnd);
+    const int shift_bit = shift / 8;
+
+    *enc_out |= shift_bit << 13;
+
     return true;
 }
 
