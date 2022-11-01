@@ -46,7 +46,7 @@
 #include "memref.h"
 #include "directory_iterator.h"
 #include "trace_entry.h"
-#include "common/utils.h"
+#include "utils.h"
 
 #ifndef ZHEX64_FORMAT_STRING
 /* We avoid dr_defines.h to keep this code separated and simpler for using with
