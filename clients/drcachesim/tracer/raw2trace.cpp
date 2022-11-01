@@ -809,7 +809,7 @@ raw2trace_t::aggregate_and_write_schedule_files()
                   return l.timestamp < r.timestamp;
               });
     if (serial_schedule_file_ != nullptr) {
-        if (!serial_schedule_file_->write(reinterpret_cast<const char *>(&serial[0]),
+        if (!serial_schedule_file_->write(reinterpret_cast<const char *>(serial.data()),
                                           serial.size() * sizeof(serial[0])))
             return "Failed to write to serial schedule file";
     }
@@ -825,8 +825,9 @@ raw2trace_t::aggregate_and_write_schedule_files()
         std::string err = cpu_schedule_file_->open_new_component(stream.str());
         if (!err.empty())
             return err;
-        if (!cpu_schedule_file_->write(reinterpret_cast<const char *>(&keyval.second[0]),
-                                       keyval.second.size() * sizeof(keyval.second[0])))
+        if (!cpu_schedule_file_->write(
+                reinterpret_cast<const char *>(keyval.second.data()),
+                keyval.second.size() * sizeof(keyval.second[0])))
             return "Failed to write to cpu schedule file";
     }
     return "";
