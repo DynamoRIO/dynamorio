@@ -1703,6 +1703,12 @@ typedef enum _dr_opnd_flags_t {
      * representing their element size.
      */
     DR_OPND_IS_VECTOR = 0x100,
+    /**
+     * Predicate registers can either be merging, zero or neither. If one of these
+     * are set then they are either a merge or zero otherwise aren't either.
+     */
+    DR_OPND_IS_MERGE_PREDICATE = 0x200,
+    DR_OPND_IS_ZERO_PREDICATE = 0x400,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -1881,6 +1887,15 @@ INSTR_INLINE
  */
 opnd_t
 opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns a register operand corresponding to a vector
+ * register that has an element size.
+ */
+opnd_t
+opnd_create_predicate_reg(reg_id_t r, bool is_merge);
 
 DR_API
 INSTR_INLINE
@@ -2386,6 +2401,24 @@ INSTR_INLINE
 /** Returns true iff \p opnd is a vector reg operand. */
 bool
 opnd_is_element_vector_reg(opnd_t opnd);
+
+DR_API
+INSTR_INLINE
+/** Returns true iff \p opnd is a predicate register. */
+bool
+opnd_is_predicate_reg(opnd_t opnd);
+
+DR_API
+INSTR_INLINE
+/** Returns true iff \p opnd is a merging predicate register. */
+bool
+opnd_is_predicate_merge(opnd_t opnd);
+
+DR_API
+INSTR_INLINE
+/** Returns true iff \p opnd is a zeroing predicate register. */
+bool
+opnd_is_predicate_zero(opnd_t opnd);
 
 DR_API
 /**

@@ -5165,4 +5165,79 @@
 #define INSTR_CREATE_uqsub_sve(dc, Zd, Zn, Zm) \
     instr_create_1dst_2src(dc, OP_uqsub, Zd, Zn, Zm)
 
+/**
+ * Creates a ADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ADD     <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_add_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_add, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a ADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ADD     <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and first destination vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ * \param shift   The immediate shiftOp for imm
+ */
+#define INSTR_CREATE_add_sve_shift(dc, Zdn, imm, shift) \
+    instr_create_1dst_4src(dc, OP_add, Zdn, Zdn, imm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a ADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ADD     <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_add_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_add, Zd, Zn, Zm)
+
+/**
+ * Creates a CPY instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CPY     <Zd>.<Ts>, <Pg>/Z, #<simm>, <shift>
+ *    CPY     <Zd>.<Ts>, <Pg>/M, #<simm>, <shift>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param simm   The signed immediate imm
+ * \param shift   The immediate shiftOp for simm
+ */
+#define INSTR_CREATE_cpy_sve_shift_pred(dc, Zd, Pg, simm, shift) \
+    instr_create_1dst_4src(dc, OP_cpy, Zd, Pg, simm, OPND_CREATE_LSL(), shift)
+
+/**
+ * Creates a PTEST instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PTEST   <Pg>, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Pn   The first source predicate register, P (Predicate)
+ */
+#define INSTR_CREATE_ptest_sve_pred(dc, Pg, Pn) \
+    instr_create_0dst_2src(dc, OP_ptest, Pg, Pn)
 #endif /* DR_IR_MACROS_AARCH64_H */

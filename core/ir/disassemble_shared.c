@@ -256,7 +256,6 @@ opnd_size_suffix_intel(opnd_t opnd)
 }
 
 #ifdef AARCHXX
-
 static const char *
 opnd_size_element_suffix(opnd_t opnd)
 {
@@ -270,6 +269,20 @@ opnd_size_element_suffix(opnd_t opnd)
     }
     return "";
 }
+
+static const char *
+aarch64_reg_opnd_suffix(opnd_t opnd)
+{
+    if (opnd_is_element_vector_reg(opnd))
+        return opnd_size_element_suffix(opnd);
+    if (opnd_is_predicate_merge(opnd))
+        return "/m";
+    if (opnd_is_predicate_zero(opnd))
+        return "/z";
+
+    return "";
+}
+
 #endif
 
 static void
@@ -647,10 +660,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         break;
     case REG_kind:
         reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), opnd_get_flags(opnd), "",
-                        IF_AARCHXX_ELSE(opnd_is_element_vector_reg(opnd)
-                                            ? opnd_size_element_suffix(opnd)
-                                            : "",
-                                        ""));
+                        IF_AARCHXX_ELSE(aarch64_reg_opnd_suffix(opnd), ""));
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
 #if defined(X64) || defined(ARM)
