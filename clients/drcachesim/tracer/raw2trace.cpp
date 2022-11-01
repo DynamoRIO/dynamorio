@@ -550,13 +550,14 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
     entry.addr = version;
-    if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
-        return "Failed to write header to output file";
+    std::string error = write(tdata, &entry, &entry + 1);
+    if (!error.empty())
+        return error;
 
     // First read the tid and pid entries which precede any timestamps.
     trace_header_t header = { static_cast<process_id_t>(INVALID_PROCESS_ID),
                               INVALID_THREAD_ID, 0 };
-    std::string error = read_header(tdata, &header);
+    error = read_header(tdata, &header);
     if (!error.empty())
         return error;
     VPRINT(2, "File %u is thread %u\n", tdata->index, (uint)header.tid);
@@ -578,8 +579,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
                                                  header.cache_line_size);
     // The buffer can only hold 5 entries so write it now.
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
-    if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
-        return "Failed to write to output file";
+    error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
+                  reinterpret_cast<trace_entry_t *>(buf));
+    if (!error.empty())
+        return error;
     buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     buf = buf_base;
     // Write out further markers.
@@ -595,8 +598,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     }
     // We have to write this now before we append any bb entries.
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
-    if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
-        return "Failed to write to output file";
+    error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
+                  reinterpret_cast<trace_entry_t *>(buf));
+    if (!error.empty())
+        return error;
     return "";
 }
 
@@ -641,10 +646,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                                          (uintptr_t)entry.timestamp.usec);
             tdata->last_timestamp_ = entry.timestamp.usec;
             CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
-            if (!tdata->out_file->write((char *)buf_base, buf - buf_base)) {
-                tdata->error = "Failed to write to output file";
+            tdata->error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
+                                 reinterpret_cast<trace_entry_t *>(buf));
+            if (!tdata->error.empty())
                 return tdata->error;
-            }
             continue;
         }
         // Append delayed branches at the end or before xfer or window-change
@@ -1082,25 +1087,23 @@ raw2trace_t::append_delayed_branch(void *tls)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->delayed_branch.empty())
         return "";
-    for (const auto &entry : tdata->delayed_branch) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
-            VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n", entry.addr,
-                   tdata->index);
-            if (tdata->out_archive != nullptr &&
-                tdata->cur_chunk_instr_count++ >= chunk_instr_count_) {
-                DEBUG_ASSERT(tdata->cur_chunk_instr_count - 1 == chunk_instr_count_);
-                std::string error = open_new_chunk(tdata);
-                if (!error.empty())
-                    return error;
+    if (verbosity_ >= 4) {
+        for (const auto &entry : tdata->delayed_branch) {
+            if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+                VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n",
+                       entry.addr, tdata->index);
+            } else {
+                VPRINT(4,
+                       "Appending delayed branch tagalong entry type %d for thread %d\n",
+                       entry.type, tdata->index);
             }
-        } else {
-            VPRINT(4, "Appending delayed branch tagalong entry type %d for thread %d\n",
-                   entry.type, tdata->index);
         }
-        if (!tdata->out_file->write(reinterpret_cast<const char *>(&entry),
-                                    sizeof(entry)))
-            return "Failed to write to output file";
     }
+    std::string error =
+        write(tdata, tdata->delayed_branch.data(),
+              tdata->delayed_branch.data() + tdata->delayed_branch.size());
+    if (!error.empty())
+        return error;
     tdata->delayed_branch.clear();
     return "";
 }
@@ -1186,6 +1189,9 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     return "";
 }
 
+// All writes to out_file go through this function, except new chunk headers
+// and footers (to do so would cause recursion; we assume those do not need
+// extra processing here).
 std::string
 raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
 {
@@ -1225,6 +1231,14 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
                                 reinterpret_cast<const char *>(end) -
                                     reinterpret_cast<const char *>(start)))
         return "Failed to write to output file";
+    // If we're at the end of a block (minus its delayed branch) we need
+    // to split now to avoid going too far by waiting for the next instr.
+    if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
+        DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
+        std::string error = open_new_chunk(tdata);
+        if (!error.empty())
+            return error;
+    }
     return "";
 }
 
@@ -1253,8 +1267,9 @@ raw2trace_t::write_footer(void *tls)
     entry.type = TRACE_TYPE_FOOTER;
     entry.size = 0;
     entry.addr = 0;
-    if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
-        return "Failed to write footer to output file";
+    std::string error = write(tdata, &entry, &entry + 1);
+    if (!error.empty())
+        return error;
     return "";
 }
 
