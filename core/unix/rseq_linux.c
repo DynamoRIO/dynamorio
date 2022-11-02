@@ -73,7 +73,9 @@ struct rseq {
 } __attribute__((aligned(4 * sizeof(uint64))));
 #define RSEQ_FLAG_UNREGISTER 1
 
-/* Could be that the app is using an older glibc, or no glibc at all. */
+/* Could be that the app is using glibc older than 2.35 (which did not provide
+ * rseq support), or no glibc at all.
+ */
 static volatile bool have_glibc_rseq;
 /* __tls_init_tp in glibc/sysdeps/nptl/dl-tls_init_tp.c initializes __rseq_size
  * and __rseq_offset. The former is > 0 iff glibc's rseq support is enabled
@@ -165,7 +167,7 @@ rseq_cs_free(dcontext_t *dcontext, void *data)
 void
 rseq_check_glibc_support()
 {
-    /* We have already determined Glibc's rseq support. */
+    /* We have already determined glibc's rseq support. */
     if (glibc_rseq_offset > 0)
         return;
     module_iterator_t *iter = module_iterator_start();
@@ -384,7 +386,7 @@ rseq_shared_fragment_flushtime_update(dcontext_t *dcontext)
 bool
 rseq_is_registered_for_current_thread(void)
 {
-    /* If Glibc's rseq support is enabled, a struct rseq is already
+    /* If glibc's rseq support is enabled, a struct rseq is already
      * registered for all threads.
      */
     if (glibc_rseq_size > 0)
@@ -712,7 +714,7 @@ rseq_process_module_cleanup:
 static int
 rseq_locate_tls_offset(void)
 {
-    /* If Glibc's rseq support is enabled, we already know the offset. */
+    /* If glibc's rseq support is enabled, we already know the offset. */
     if (glibc_rseq_size > 0) {
         ASSERT(rseq_tls_offset > 0 && glibc_rseq_offset == rseq_tls_offset);
         return rseq_tls_offset;
@@ -826,12 +828,11 @@ rseq_locate_rseq_regions(void)
         return;
     }
     rseq_check_glibc_support();
-    /* If the app's Glibc version supports rseq, then we should either have already
-     * determined availability of Glibc's rseq support (for rseq_locate_tls_offset
-     * to work as intended), or should already have seen an rseq syscall (which
-     * would set rseq_tls_offset).
+    /* If the app's glibc version supports rseq, then we should have already
+     * determined rseq_tls_offset, either by rseq_check_glibc_support or
+     * rseq_process_syscall (for non-attach cases).
      */
-    ASSERT(!have_glibc_rseq || glibc_rseq_offset > 0 || rseq_tls_offset > 0);
+    ASSERT(glibc_rseq_size == 0 || rseq_tls_offset > 0);
     int offset = 0;
     if (rseq_tls_offset == 0) {
         /* Identify the TLS offset of this thread's struct rseq. */
