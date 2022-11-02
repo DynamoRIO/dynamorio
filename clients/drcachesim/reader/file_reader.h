@@ -46,6 +46,7 @@
 #include "memref.h"
 #include "directory_iterator.h"
 #include "trace_entry.h"
+#include "utils.h"
 
 #ifndef ZHEX64_FORMAT_STRING
 /* We avoid dr_defines.h to keep this code separated and simpler for using with
@@ -128,7 +129,9 @@ protected:
             }
             for (; iter != end; ++iter) {
                 std::string fname = *iter;
-                if (fname == "." || fname == "..")
+                if (fname == "." || fname == ".." ||
+                    starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
+                    fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                     continue;
                 // Skip the auxiliary files.
                 if (fname == DRMEMTRACE_MODULE_LIST_FILENAME ||

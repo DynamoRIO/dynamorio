@@ -110,8 +110,9 @@ _tmain(int argc, const TCHAR *targv[])
         FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
     raw2trace_t raw2trace(
         dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
-        dir.encoding_file_, nullptr, op_verbose.get_value(), op_jobs.get_value(),
-        op_alt_module_dir.get_value(), op_chunk_instr_count.get_value());
+        dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_, nullptr,
+        op_verbose.get_value(), op_jobs.get_value(), op_alt_module_dir.get_value(),
+        op_chunk_instr_count.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

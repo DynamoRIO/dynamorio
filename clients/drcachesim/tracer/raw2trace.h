@@ -1736,13 +1736,15 @@ class raw2trace_t : public trace_converter_t<raw2trace_t> {
 public:
     // Only one of out_files and out_archives should be non-empty: archives support fast
     // seeking and are preferred but require zlib.
-    // module_map, encoding_file, thread_files, and out_files are all owned and
-    // opened/closed by the caller.  module_map is not a string and can contain binary
-    // data.
+    // module_map, encoding_file, serial_schedule_file, cpu_schedule_file, thread_files,
+    // and out_files are all owned and opened/closed by the caller.  module_map is not a
+    // string and can contain binary data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files,
                 const std::vector<archive_ostream_t *> &out_archives,
-                file_t encoding_file = INVALID_FILE, void *dcontext = nullptr,
+                file_t encoding_file = INVALID_FILE,
+                std::ostream *serial_schedule_file = nullptr,
+                archive_ostream_t *cpu_schedule_file = nullptr, void *dcontext = nullptr,
                 unsigned int verbosity = 0, int worker_count = -1,
                 const std::string &alt_module_dir = "",
                 uint64_t chunk_instr_count = 10 * 1000 * 1000);
@@ -1917,6 +1919,9 @@ protected:
 
         std::set<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
+
+        std::vector<schedule_entry_t> sched;
+        std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
     };
 
     virtual std::string
@@ -1930,6 +1935,9 @@ protected:
     process_next_thread_buffer(raw2trace_thread_data_t *tdata, OUT bool *end_of_record);
 
     std::string
+    aggregate_and_write_schedule_files();
+
+    std::string
     write_footer(void *tls);
 
     std::string
@@ -1938,6 +1946,8 @@ protected:
     uint64 count_elided_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
+
+    std::vector<std::unique_ptr<raw2trace_thread_data_t>> thread_data_;
 
 private:
     friend class trace_converter_t<raw2trace_t>;
@@ -2017,8 +2027,6 @@ private:
 
     std::string
     emit_new_chunk_header(raw2trace_thread_data_t *tdata);
-
-    std::vector<raw2trace_thread_data_t> thread_data_;
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
@@ -2119,6 +2127,8 @@ private:
 
     const char *modmap_;
     file_t encoding_file_ = INVALID_FILE;
+    std::ostream *serial_schedule_file_ = nullptr;
+    archive_ostream_t *cpu_schedule_file_ = nullptr;
 
     unsigned int verbosity_ = 0;
 

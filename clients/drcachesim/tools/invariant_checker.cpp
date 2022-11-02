@@ -32,6 +32,7 @@
 
 #include "invariant_checker.h"
 #include "invariant_checker_create.h"
+#include <algorithm>
 #include <iostream>
 #include <string.h>
 
@@ -42,10 +43,14 @@ invariant_checker_create(bool offline, unsigned int verbose)
 }
 
 invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
-                                         std::string test_name)
+                                         std::string test_name,
+                                         std::istream *serial_schedule_file,
+                                         std::istream *cpu_schedule_file)
     : knob_offline_(offline)
     , knob_verbose_(verbose)
     , knob_test_name_(test_name)
+    , serial_schedule_file_(serial_schedule_file)
+    , cpu_schedule_file_(cpu_schedule_file)
 {
     if (knob_test_name_ == "kernel_xfer_app" || knob_test_name_ == "rseq_app")
         has_annotations_ = true;
@@ -60,8 +65,8 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                                      const std::string &invariant_name)
 {
     if (!condition) {
-        std::cerr << "Trace invariant failure in T" << shard->tid << " at ref # "
-                  << shard->ref_count << ": " << invariant_name << "\n";
+        std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
+                  << shard->ref_count_ << ": " << invariant_name << "\n";
         abort();
     }
 }
@@ -92,16 +97,16 @@ std::string
 invariant_checker_t::parallel_shard_error(void *shard_data)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    return shard->error;
+    return shard->error_;
 }
 
 bool
 invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    ++shard->ref_count;
-    if (shard->tid == -1 && memref.data.tid != 0)
-        shard->tid = memref.data.tid;
+    ++shard->ref_count_;
+    if (shard->tid_ == -1 && memref.data.tid != 0)
+        shard->tid_ = memref.data.tid;
     // XXX i#5538: Have the infrastructure provide a common instr and record count.
     if (type_is_instr(memref.instr.type))
         ++shard->instr_count_;
@@ -379,11 +384,20 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << " timestamp " << memref.marker.marker_value << "\n";
         }
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+        shard->sched_.emplace_back(shard->tid_, shard->last_timestamp_,
+                                   memref.marker.marker_value, shard->instr_count_);
+        shard->cpu2sched_[memref.marker.marker_value].emplace_back(
+            shard->tid_, shard->last_timestamp_, memref.marker.marker_value,
+            shard->instr_count_);
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up at signal delivery boundaries
@@ -435,15 +449,82 @@ invariant_checker_t::process_memref(const memref_t &memref)
     } else
         per_shard = lookup->second.get();
     if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
-        error_string_ = per_shard->error;
+        error_string_ = per_shard->error_;
         return false;
     }
     return true;
 }
 
+void
+invariant_checker_t::check_schedule_data()
+{
+    if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
+        return;
+    // Check that the scheduling data in the files written by raw2trace match
+    // the data in the trace.
+    per_shard_t global;
+    std::vector<schedule_entry_t> serial;
+    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+    for (auto &shard_keyval : shard_map_) {
+        serial.insert(serial.end(), shard_keyval.second->sched_.begin(),
+                      shard_keyval.second->sched_.end());
+        for (auto &keyval : shard_keyval.second->cpu2sched_) {
+            auto &vec = cpu2sched[keyval.first];
+            vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
+        }
+    }
+    std::sort(serial.begin(), serial.end(),
+              [](const schedule_entry_t &l, const schedule_entry_t &r) {
+                  return l.timestamp < r.timestamp;
+              });
+    if (serial_schedule_file_ != nullptr) {
+        schedule_entry_t next(0, 0, 0, 0);
+        while (
+            serial_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
+            report_if_false(&global,
+                            memcmp(&serial[static_cast<size_t>(global.ref_count_)], &next,
+                                   sizeof(next)) == 0,
+                            "Serial schedule entry does not match trace");
+            ++global.ref_count_;
+        }
+        report_if_false(&global, global.ref_count_ == serial.size(),
+                        "Serial schedule entry count does not match trace");
+    }
+    if (cpu_schedule_file_ == nullptr)
+        return;
+    std::unordered_map<uint64_t, uint64_t> cpu2idx;
+    for (auto &keyval : cpu2sched) {
+        std::sort(keyval.second.begin(), keyval.second.end(),
+                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
+                      return l.timestamp < r.timestamp;
+                  });
+        cpu2idx[keyval.first] = 0;
+    }
+    // The zipfile reader will form a continuous stream from all elements in the
+    // archive.  We figure out which cpu each one is from on the fly.
+    schedule_entry_t next(0, 0, 0, 0);
+    while (cpu_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
+        global.ref_count_ = next.instr_count;
+        global.tid_ = next.thread;
+        report_if_false(
+            &global,
+            memcmp(&cpu2sched[next.cpu][static_cast<size_t>(cpu2idx[next.cpu])], &next,
+                   sizeof(next)) == 0,
+            "Cpu schedule entry does not match trace");
+        ++cpu2idx[next.cpu];
+    }
+    for (auto &keyval : cpu2sched) {
+        global.ref_count_ = 0;
+        global.tid_ = keyval.first;
+        report_if_false(&global, cpu2idx[keyval.first] == keyval.second.size(),
+                        "Cpu schedule entry count does not match trace");
+    }
+}
+
 bool
 invariant_checker_t::print_results()
 {
+    check_schedule_data();
     std::cerr << "Trace invariant checks passed\n";
     return true;
 }

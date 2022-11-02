@@ -759,10 +759,10 @@ raw2trace_t::do_conversion()
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
-            error = process_thread_file(&thread_data_[i]);
+            error = process_thread_file(thread_data_[i].get());
             if (!error.empty())
                 return error;
-            count_elided_ += thread_data_[i].count_elided;
+            count_elided_ += thread_data_[i]->count_elided;
         }
     } else {
         // The files can be converted concurrently.
@@ -776,14 +776,60 @@ raw2trace_t::do_conversion()
         for (std::thread &thread : threads)
             thread.join();
         for (auto &tdata : thread_data_) {
-            if (!tdata.error.empty())
-                return tdata.error;
-            count_elided_ += tdata.count_elided;
+            if (!tdata->error.empty())
+                return tdata->error;
+            count_elided_ += tdata->count_elided;
         }
     }
+    error = aggregate_and_write_schedule_files();
+    if (!error.empty())
+        return error;
     VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n",
            count_elided_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
+    return "";
+}
+
+std::string
+raw2trace_t::aggregate_and_write_schedule_files()
+{
+    if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
+        return "";
+    std::vector<schedule_entry_t> serial;
+    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+    for (auto &tdata : thread_data_) {
+        serial.insert(serial.end(), tdata->sched.begin(), tdata->sched.end());
+        for (auto &keyval : tdata->cpu2sched) {
+            auto &vec = cpu2sched[keyval.first];
+            vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
+        }
+    }
+    std::sort(serial.begin(), serial.end(),
+              [](const schedule_entry_t &l, const schedule_entry_t &r) {
+                  return l.timestamp < r.timestamp;
+              });
+    if (serial_schedule_file_ != nullptr) {
+        if (!serial_schedule_file_->write(reinterpret_cast<const char *>(serial.data()),
+                                          serial.size() * sizeof(serial[0])))
+            return "Failed to write to serial schedule file";
+    }
+    if (cpu_schedule_file_ == nullptr)
+        return "";
+    for (auto &keyval : cpu2sched) {
+        std::sort(keyval.second.begin(), keyval.second.end(),
+                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
+                      return l.timestamp < r.timestamp;
+                  });
+        std::ostringstream stream;
+        stream << keyval.first;
+        std::string err = cpu_schedule_file_->open_new_component(stream.str());
+        if (!err.empty())
+            return err;
+        if (!cpu_schedule_file_->write(
+                reinterpret_cast<const char *>(keyval.second.data()),
+                keyval.second.size() * sizeof(keyval.second[0])))
+            return "Failed to write to cpu schedule file";
+    }
     return "";
 }
 
@@ -1133,6 +1179,8 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CPU_ID,
                                                  tdata->last_cpu_);
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    // We write directly to avoid recursion issues; these duplicated headers do not
+    // need to go into the schedule file.
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
         return "Failed to write to output file";
     return "";
@@ -1201,8 +1249,15 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
             if (it->type == TRACE_TYPE_MARKER) {
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
-                else if (it->size == TRACE_MARKER_TYPE_CPU_ID)
+                else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
+                    tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
+                                              tdata->last_cpu_,
+                                              tdata->cur_chunk_instr_count);
+                    tdata->cpu2sched[it->addr].emplace_back(
+                        tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
+                        tdata->cur_chunk_instr_count);
+                }
                 continue;
             }
             if (!type_is_instr(static_cast<trace_type_t>(it->type)))
@@ -1346,15 +1401,18 @@ raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
                          const std::vector<std::ostream *> &out_files,
                          const std::vector<archive_ostream_t *> &out_archives,
-                         file_t encoding_file, void *dcontext, unsigned int verbosity,
-                         int worker_count, const std::string &alt_module_dir,
-                         uint64_t chunk_instr_count)
+                         file_t encoding_file, std::ostream *serial_schedule_file,
+                         archive_ostream_t *cpu_schedule_file, void *dcontext,
+                         unsigned int verbosity, int worker_count,
+                         const std::string &alt_module_dir, uint64_t chunk_instr_count)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
     , user_process_data_(nullptr)
     , modmap_(module_map)
     , encoding_file_(encoding_file)
+    , serial_schedule_file_(serial_schedule_file)
+    , cpu_schedule_file_(cpu_schedule_file)
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)
     , chunk_instr_count_(chunk_instr_count)
@@ -1375,16 +1433,18 @@ raw2trace_t::raw2trace_t(const char *module_map,
 #endif
     thread_data_.resize(thread_files.size());
     for (size_t i = 0; i < thread_data_.size(); ++i) {
-        thread_data_[i].index = static_cast<int>(i);
-        thread_data_[i].thread_file = thread_files[i];
+        thread_data_[i] =
+            std::unique_ptr<raw2trace_thread_data_t>(new raw2trace_thread_data_t);
+        thread_data_[i]->index = static_cast<int>(i);
+        thread_data_[i]->thread_file = thread_files[i];
         if (out_files.empty()) {
-            thread_data_[i].out_archive = out_archives[i];
+            thread_data_[i]->out_archive = out_archives[i];
             // Set out_file too for code that doesn't care which it writes to.
-            thread_data_[i].out_file = out_archives[i];
-            open_new_chunk(&thread_data_[i]);
+            thread_data_[i]->out_file = out_archives[i];
+            open_new_chunk(thread_data_[i].get());
         } else {
-            thread_data_[i].out_archive = nullptr;
-            thread_data_[i].out_file = out_files[i];
+            thread_data_[i]->out_archive = nullptr;
+            thread_data_[i]->out_file = out_files[i];
         }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
@@ -1401,8 +1461,8 @@ raw2trace_t::raw2trace_t(const char *module_map,
         int worker = 0;
         for (size_t i = 0; i < thread_data_.size(); ++i) {
             VPRINT(2, "Worker %d assigned trace thread %zd\n", worker, i);
-            worker_tasks_[worker].push_back(&thread_data_[i]);
-            thread_data_[i].worker = worker;
+            worker_tasks_[worker].push_back(thread_data_[i].get());
+            thread_data_[i]->worker = worker;
             worker = (worker + 1) % worker_count_;
         }
     } else
