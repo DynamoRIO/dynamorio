@@ -121,12 +121,12 @@ register_rseq()
         assert(__rseq_offset > 0);
         struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;
         int res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, 0);
-        assert(res == -1 && errno == EPERM);
+        assert(res == -1 && (errno == EPERM || errno == ENOSYS));
     } else {
 #endif
         rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
         int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
-        assert(res == 0);
+        assert(res == 0 || (res == -1 && errno == ENOSYS));
 #ifdef GLIBC_RSEQ
     }
 #endif
