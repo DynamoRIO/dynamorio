@@ -337,6 +337,7 @@ macro(add_drmemtrace name type)
   if (BUILD_PT_TRACER)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/syscall_pt_trace.cpp
+      tracer/kcore_copy.cpp
     )
     add_definitions(-DBUILD_PT_TRACER)
   endif ()
