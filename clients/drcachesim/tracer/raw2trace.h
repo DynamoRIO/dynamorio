@@ -1878,6 +1878,10 @@ protected:
             , last_block_summary(nullptr)
         {
         }
+        // Support subclasses extending this struct.
+        virtual ~raw2trace_thread_data_t()
+        {
+        }
 
         int index;
         thread_id_t tid;
