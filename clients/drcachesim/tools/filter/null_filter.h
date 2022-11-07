@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,32 +30,24 @@
  * DAMAGE.
  */
 
-/* compressed_file_reader: reads compressed files containing memory traces. */
+#ifndef _NULL_FILTER_H_
+#define _NULL_FILTER_H_ 1
 
-#ifndef _COMPRESSED_FILE_READER_H_
-#define _COMPRESSED_FILE_READER_H_ 1
+#include "record_filter.h"
+#include <iostream>
 
-#include <zlib.h>
-#include "file_reader.h"
-#include "record_file_reader.h"
-
-struct gzip_reader_t {
-    explicit gzip_reader_t(gzFile file)
-        : file(file)
+class null_filter_t : public record_filter_t::record_filter_func_t {
+public:
+    virtual std::string
+    initialize() override
     {
+        return "";
     }
-    gzFile file;
-    // Adding our own buffering to gzFile provides an 18% speedup.  We use the same
-    // buffer size as zipfile_reader_t.
-    // If more readers want the same buffering we may want to bake this into the shared
-    // template class to avoid duplication: but some readers have good buffering
-    // already.
-    trace_entry_t buf[4096];
-    trace_entry_t *cur_buf = buf;
-    trace_entry_t *max_buf = buf;
+    bool
+    filter(const trace_entry_t &entry) override
+    {
+        return true;
+    }
 };
 
-typedef file_reader_t<gzip_reader_t> compressed_file_reader_t;
-typedef record_file_reader_t<gzip_reader_t> compressed_record_file_reader_t;
-
-#endif /* _COMPRESSED_FILE_READER_H_ */
+#endif /* _NULL_FILTER_H_ */

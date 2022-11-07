@@ -51,11 +51,14 @@
 // file_reader_t's fstream in our measurements, so we always use it when
 // available.
 typedef compressed_file_reader_t default_file_reader_t;
+typedef compressed_record_file_reader_t default_record_file_reader_t;
 #else
 typedef file_reader_t<std::ifstream *> default_file_reader_t;
+typedef record_file_reader_t<std::ifstream> default_record_file_reader_t;
 #endif
 
-analyzer_t::analyzer_t()
+template <typename T, typename U>
+analyzer_tmpl_t<T, U>::analyzer_tmpl_t()
     : success_(true)
     , num_tools_(0)
     , tools_(NULL)
@@ -65,8 +68,16 @@ analyzer_t::analyzer_t()
     /* Nothing else: child class needs to initialize. */
 }
 
-static std::unique_ptr<reader_t>
-get_reader(const std::string &path, int verbosity)
+template <>
+std::unique_ptr<reader_t>
+analyzer_t::get_default_reader()
+{
+    return std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
+}
+
+template <>
+std::unique_ptr<reader_t>
+analyzer_t::get_reader(const std::string &path, int verbosity)
 {
 #if defined(HAS_SNAPPY) || defined(HAS_ZIP)
 #    ifdef HAS_SNAPPY
@@ -111,8 +122,27 @@ get_reader(const std::string &path, int verbosity)
     return std::unique_ptr<reader_t>(new default_file_reader_t(path, verbosity));
 }
 
+template <>
+std::unique_ptr<record_reader_t>
+record_analyzer_t::get_default_reader()
+{
+    return std::unique_ptr<default_record_file_reader_t>(
+        new default_record_file_reader_t());
+}
+
+template <>
+std::unique_ptr<record_reader_t>
+record_analyzer_t::get_reader(const std::string &path, int verbosity)
+{
+    // TODO i#5675: Add support for other file formats, particularly
+    // .zip files.
+    return std::unique_ptr<record_reader_t>(
+        new default_record_file_reader_t(path, verbosity));
+}
+
+template <typename T, typename U>
 bool
-analyzer_t::init_file_reader(const std::string &trace_path, int verbosity)
+analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbosity)
 {
     verbosity_ = verbosity;
     if (trace_path.empty()) {
@@ -140,12 +170,13 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity)
                 fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                 continue;
             const std::string path = trace_path + DIRSEP + fname;
-            std::unique_ptr<reader_t> reader = get_reader(path, verbosity);
+            std::unique_ptr<U> reader = get_reader(path, verbosity);
             if (!reader) {
                 return false;
             }
-            thread_data_.push_back(analyzer_shard_data_t(
-                static_cast<int>(thread_data_.size()), std::move(reader), path));
+            thread_data_.push_back(
+                analyzer_shard_data_t(static_cast<int>(thread_data_.size()),
+                                      std::move(reader), trace_path, fname));
             VPRINT(this, 2, "Opened reader for %s\n", path.c_str());
         }
         // Like raw2trace, we use a simple round-robin static work assigment.  This
@@ -170,12 +201,14 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity)
     }
     // It's ok if trace_end_ is a different type from serial_trace_iter_, they
     // will still compare true if both at EOF.
-    trace_end_ = std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
+    trace_end_ = get_default_reader();
     return true;
 }
 
-analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools,
-                       int num_tools, int worker_count)
+template <typename T, typename U>
+analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path,
+                                       analysis_tool_tmpl_t<T> **tools, int num_tools,
+                                       int worker_count)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
@@ -201,7 +234,8 @@ analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools,
         success_ = false;
 }
 
-analyzer_t::analyzer_t(const std::string &trace_path)
+template <typename T, typename U>
+analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path)
     : success_(true)
     , num_tools_(0)
     , tools_(NULL)
@@ -213,29 +247,36 @@ analyzer_t::analyzer_t(const std::string &trace_path)
         success_ = false;
 }
 
-analyzer_t::~analyzer_t()
+// Work around clang-format bug: no newline after return type for single-char operator.
+// clang-format off
+template <typename T, typename U>
+// clang-format on
+analyzer_tmpl_t<T, U>::~analyzer_tmpl_t()
 {
     // Empty.
 }
 
+template <typename T, typename U>
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 bool
-analyzer_t::operator!()
+analyzer_tmpl_t<T,U>::operator!()
 // clang-format on
 {
     return !success_;
 }
 
+template <typename T, typename U>
 std::string
-analyzer_t::get_error_string()
+analyzer_tmpl_t<T, U>::get_error_string()
 {
     return error_string_;
 }
 
 // Used only for serial iteration.
+template <typename T, typename U>
 bool
-analyzer_t::start_reading()
+analyzer_tmpl_t<T, U>::start_reading()
 {
     if (!serial_trace_iter_->init()) {
         ERRMSG("Failed to read from trace\n");
@@ -244,8 +285,9 @@ analyzer_t::start_reading()
     return true;
 }
 
+template <typename T, typename U>
 void
-analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
+analyzer_tmpl_t<T, U>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
 {
     if (tasks->empty()) {
         VPRINT(this, 1, "Worker has no tasks\n");
@@ -260,17 +302,20 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
         VPRINT(this, 1, "Worker %d starting on trace shard %d\n", tdata->worker,
                tdata->index);
         if (!tdata->iter->init()) {
-            tdata->error = "Failed to read from trace" + tdata->trace_file;
+            tdata->error = "Failed to read from trace" + tdata->trace_dir + DIRSEP +
+                tdata->trace_base_name;
             return;
         }
         std::vector<void *> shard_data(num_tools_);
-        for (int i = 0; i < num_tools_; ++i)
-            shard_data[i] = tools_[i]->parallel_shard_init(tdata->index, worker_data[i]);
+        for (int i = 0; i < num_tools_; ++i) {
+            shard_data[i] = tools_[i]->parallel_shard_init_ex(
+                tdata->index, worker_data[i], tdata->trace_base_name);
+        }
         VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
         for (; *tdata->iter != *trace_end_; ++(*tdata->iter)) {
             for (int i = 0; i < num_tools_; ++i) {
-                const memref_t &memref = **tdata->iter;
-                if (!tools_[i]->parallel_shard_memref(shard_data[i], memref)) {
+                const T &entry = **tdata->iter;
+                if (!tools_[i]->parallel_shard_memref(shard_data[i], entry)) {
                     tdata->error = tools_[i]->parallel_shard_error(shard_data[i]);
                     VPRINT(this, 1,
                            "Worker %d hit shard memref error %s on trace shard %d\n",
@@ -301,8 +346,9 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
     }
 }
 
+template <typename T, typename U>
 bool
-analyzer_t::run()
+analyzer_tmpl_t<T, U>::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (!parallel_) {
@@ -310,10 +356,10 @@ analyzer_t::run()
             return false;
         for (; *serial_trace_iter_ != *trace_end_; ++(*serial_trace_iter_)) {
             for (int i = 0; i < num_tools_; ++i) {
-                memref_t memref = **serial_trace_iter_;
+                T entry = **serial_trace_iter_;
                 // We short-circuit and exit on an error to avoid confusion over
                 // the results and avoid wasted continued work.
-                if (!tools_[i]->process_memref(memref)) {
+                if (!tools_[i]->process_memref(entry)) {
                     error_string_ = tools_[i]->get_error_string();
                     return false;
                 }
@@ -330,7 +376,7 @@ analyzer_t::run()
     threads.reserve(worker_count_);
     for (int i = 0; i < worker_count_; ++i) {
         threads.emplace_back(
-            std::thread(&analyzer_t::process_tasks, this, &worker_tasks_[i]));
+            std::thread(&analyzer_tmpl_t::process_tasks, this, &worker_tasks_[i]));
     }
     for (std::thread &thread : threads)
         thread.join();
@@ -343,8 +389,9 @@ analyzer_t::run()
     return true;
 }
 
+template <typename T, typename U>
 bool
-analyzer_t::print_stats()
+analyzer_tmpl_t<T, U>::print_stats()
 {
     for (int i = 0; i < num_tools_; ++i) {
         // Each tool should reset i/o state, but we reset the format here just in case.
@@ -364,16 +411,18 @@ analyzer_t::print_stats()
 
 // XXX i#3287: Figure out how to support parallel operation with this external
 // iterator interface.
-reader_t &
-analyzer_t::begin()
+template <typename T, typename U>
+U &
+analyzer_tmpl_t<T, U>::begin()
 {
     if (!start_reading())
         return *trace_end_;
     return *serial_trace_iter_;
 }
 
-reader_t &
-analyzer_t::end()
+template <typename T, typename U>
+U &
+analyzer_tmpl_t<T, U>::end()
 {
     return *trace_end_;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,32 +30,60 @@
  * DAMAGE.
  */
 
-/* compressed_file_reader: reads compressed files containing memory traces. */
+#ifndef _RECORD_FILTER_H_
+#define _RECORD_FILTER_H_ 1
 
-#ifndef _COMPRESSED_FILE_READER_H_
-#define _COMPRESSED_FILE_READER_H_ 1
+#include "analysis_tool.h"
+#include <memory>
+#include <vector>
 
-#include <zlib.h>
-#include "file_reader.h"
-#include "record_file_reader.h"
+class record_filter_t : public record_analysis_tool_t {
+public:
+    /**
+     * The base class for a single filter.
+     */
+    class record_filter_func_t {
+    public:
+        record_filter_func_t()
+        {
+        }
+        virtual ~record_filter_func_t() {};
+        virtual std::string
+        initialize() = 0;
+        virtual bool
+        filter(const trace_entry_t &entry) = 0;
+    };
 
-struct gzip_reader_t {
-    explicit gzip_reader_t(gzFile file)
-        : file(file)
-    {
-    }
-    gzFile file;
-    // Adding our own buffering to gzFile provides an 18% speedup.  We use the same
-    // buffer size as zipfile_reader_t.
-    // If more readers want the same buffering we may want to bake this into the shared
-    // template class to avoid duplication: but some readers have good buffering
-    // already.
-    trace_entry_t buf[4096];
-    trace_entry_t *cur_buf = buf;
-    trace_entry_t *max_buf = buf;
+    record_filter_t(const std::string &output_dir,
+                    const std::vector<record_filter_func_t *> &filters,
+                    unsigned int verbose);
+    ~record_filter_t() override;
+    bool
+    process_memref(const trace_entry_t &entry) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init_ex(int shard_index, void *worker_data,
+                           const std::string &shard_suffix) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const trace_entry_t &entry) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
+
+private:
+    struct per_shard_t {
+        std::string output_path;
+        std::unique_ptr<std::ostream> writer;
+        std::string error;
+    };
+
+    std::string output_dir_;
+    std::vector<record_filter_func_t *> filters_;
+    unsigned int verbosity_;
 };
 
-typedef file_reader_t<gzip_reader_t> compressed_file_reader_t;
-typedef record_file_reader_t<gzip_reader_t> compressed_record_file_reader_t;
-
-#endif /* _COMPRESSED_FILE_READER_H_ */
+#endif /* _RECORD_FILTER_H_ */

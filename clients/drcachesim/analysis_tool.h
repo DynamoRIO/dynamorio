@@ -44,6 +44,7 @@
 // To support installation of headers for analysis tools into a single
 // separate directory we omit common/ here and rely on -I.
 #include "memref.h"
+#include "trace_entry.h"
 #include <string>
 
 /**
@@ -56,9 +57,9 @@
  * that support concurrent processing of shards and do not need to see a single
  * thread-interleaved merged trace, the interface functions with the parallel_
  * prefix should be implemented, and parallel_shard_supported() should return true.
- * parallel_shard_init() will be invoked for each shard prior to invoking
+ * parallel_shard_init_ex() will be invoked for each shard prior to invoking
  * parallel_shard_memref() for any entry in that shard; the data structure returned
- * from parallel_shard_init() will be passed to parallel_shard_memref() for each
+ * from parallel_shard_init_ex() will be passed to parallel_shard_memref() for each
  * trace entry for that shard.  The concurrency model used guarantees that all
  * entries from any one shard are processed by the same single worker thread, so no
  * synchronization is needed inside the parallel_ functions.  A single worker thread
@@ -66,7 +67,7 @@
  *
  * For serial operation, process_memref(), operates on a trace entry in a single,
  * sorted, interleaved stream of trace entries.  In the default mode of operation,
- * the #analyzer_t class iterates over the trace and calls the process_memref()
+ * the #analyzer_tmpl_t class iterates over the trace and calls the process_memref()
  * function of each tool.  An alternative mode is supported which exposes the
  * iterator and allows a separate control infrastructure to be built.  This
  * alternative mode does not support parallel operation at this time.
@@ -82,16 +83,16 @@
  * results can be presented in parallel_shard_exit().
  *
  */
-class analysis_tool_t {
+template <typename T> class analysis_tool_tmpl_t {
 public:
     /**
      * Errors encountered during the constructor will set the success flag, which should
      * be queried via operator!.  On an error, get_error_string() provides a descriptive
      * error message.
      */
-    analysis_tool_t()
+    analysis_tool_tmpl_t()
         : success_(true) {};
-    virtual ~analysis_tool_t() {}; /**< Destructor. */
+    virtual ~analysis_tool_tmpl_t() {}; /**< Destructor. */
     /**
      * Tools are encouraged to perform any initialization that might fail here rather
      * than in the constructor.  On an error, this returns an error string.  On success,
@@ -103,7 +104,8 @@ public:
         return "";
     }
     /** Returns whether the tool was created successfully. */
-    virtual bool operator!()
+    virtual bool
+    operator!()
     {
         return !success_;
     }
@@ -122,7 +124,7 @@ public:
      * On failure, get_error_string() returns a descriptive message.
      */
     virtual bool
-    process_memref(const memref_t &memref) = 0;
+    process_memref(const T &entry) = 0;
     /**
      * This routine reports the results of the trace analysis.
      * It should leave the i/o state in a default format (std::dec) to support
@@ -149,8 +151,8 @@ public:
      * cache of data global to the trace that crosses shards.  This data does not
      * need any synchronization as it will only be accessed by this worker thread.
      * The \p worker_index is a unique identifier for this worker.  The return value
-     * here will be passed to the invocation of parallel_shard_init() for each shard
-     * upon which this worker operates.
+     * here will be passed to the invocation of parallel_shard_init_ex() for each
+     * shard upon which this worker operates.
      */
     virtual void *
     parallel_worker_init(int worker_index)
@@ -175,7 +177,18 @@ public:
      * The \p worker_data is the return value of parallel_worker_init() for the
      * worker thread who will exclusively operate on this shard.  The return value
      * here will be passed to each invocation of parallel_shard_memref() for that
-     * same shard.
+     * same shard. The \p shard_suffix uniquely identifies the shard; it is set to
+     * the base name of file on disk that stores the shard's data.
+     */
+    virtual void *
+    parallel_shard_init_ex(int shard_index, void *worker_data,
+                           const std::string &shard_suffix)
+    {
+        /* Ignore shard_suffix by default, for backward compatibility. */
+        return parallel_shard_init(shard_index, worker_data);
+    }
+    /**
+     * Deprecated: Use parallel_shard_init_ex instead.
      */
     virtual void *
     parallel_shard_init(int shard_index, void *worker_data)
@@ -184,7 +197,7 @@ public:
     }
     /**
      * Invoked once when all trace entries for a shard have been processed.  \p
-     * shard_data is the value returned by parallel_shard_init() for this shard.
+     * shard_data is the value returned by parallel_shard_init_ex() for this shard.
      * This allows a tool to clean up its thread data, or to report thread analysis
      * results.  Most tools, however, prefer to aggregate data or at least sort data,
      * and perform nothing here, doing all cleanup in print_results() by storing the
@@ -200,14 +213,14 @@ public:
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry
      * and takes whatever actions the tool needs to perform its analysis. The \p
-     * shard_data parameter is the value returned by parallel_shard_init() for this
+     * shard_data parameter is the value returned by parallel_shard_init_ex() for this
      * shard.  Since each shard is operated upon in its entirety by the same worker
      * thread, no synchronization is needed.  The return value indicates whether this
      * function was successful. On failure, parallel_shard_error() returns a
      * descriptive message.
      */
     virtual bool
-    parallel_shard_memref(void *shard_data, const memref_t &memref)
+    parallel_shard_memref(void *shard_data, const T &entry)
     {
         return false;
     }
@@ -223,4 +236,9 @@ protected:
     std::string error_string_;
 };
 
+template class analysis_tool_tmpl_t<memref_t>;
+typedef analysis_tool_tmpl_t<memref_t> analysis_tool_t;
+
+template class analysis_tool_tmpl_t<trace_entry_t>;
+typedef analysis_tool_tmpl_t<trace_entry_t> record_analysis_tool_t;
 #endif /* _ANALYSIS_TOOL_H_ */

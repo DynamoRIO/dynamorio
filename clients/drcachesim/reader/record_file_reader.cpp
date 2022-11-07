@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,32 +30,37 @@
  * DAMAGE.
  */
 
-/* compressed_file_reader: reads compressed files containing memory traces. */
-
-#ifndef _COMPRESSED_FILE_READER_H_
-#define _COMPRESSED_FILE_READER_H_ 1
-
-#include <zlib.h>
-#include "file_reader.h"
+#include <fstream>
 #include "record_file_reader.h"
 
-struct gzip_reader_t {
-    explicit gzip_reader_t(gzFile file)
-        : file(file)
-    {
-    }
-    gzFile file;
-    // Adding our own buffering to gzFile provides an 18% speedup.  We use the same
-    // buffer size as zipfile_reader_t.
-    // If more readers want the same buffering we may want to bake this into the shared
-    // template class to avoid duplication: but some readers have good buffering
-    // already.
-    trace_entry_t buf[4096];
-    trace_entry_t *cur_buf = buf;
-    trace_entry_t *max_buf = buf;
-};
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+record_file_reader_t<std::ifstream>::~record_file_reader_t<std::ifstream>()
+{
+    if (input_file_ != nullptr)
+        delete input_file_;
+}
 
-typedef file_reader_t<gzip_reader_t> compressed_file_reader_t;
-typedef record_file_reader_t<gzip_reader_t> compressed_record_file_reader_t;
+template <>
+bool
+record_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
+{
+    std::ifstream *fstream = new std::ifstream(path, std::ifstream::binary);
+    if (!*fstream)
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_file_ = fstream;
+    return true;
+}
 
-#endif /* _COMPRESSED_FILE_READER_H_ */
+template <>
+bool
+record_file_reader_t<std::ifstream>::read_next_entry()
+{
+    if (!input_file_->read((char *)&cur_entry_, sizeof(cur_entry_)))
+        return false;
+    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
+           cur_entry_.size, cur_entry_.addr);
+    return true;
+}
