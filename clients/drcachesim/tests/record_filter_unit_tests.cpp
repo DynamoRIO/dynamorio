@@ -122,11 +122,12 @@ test_null_filter()
         FATAL_ERROR("Failed to run record filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
-    delete record_filter;
     delete null_filter;
+    delete record_filter;
 
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     basic_counts_t::counters_t c2 = get_basic_counts(output_dir);
+    CHECK(c1.instrs != 0, "Bad input trace\n");
     CHECK(c1 == c2, "Null filter returned different counts\n");
     fprintf(stderr, "test_null_filter passed\n");
     return true;

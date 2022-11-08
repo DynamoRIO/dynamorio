@@ -111,6 +111,9 @@ file_reader_t<gzip_reader_t>::is_complete()
     return false;
 }
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
@@ -144,3 +147,6 @@ record_file_reader_t<gzip_reader_t>::read_next_entry()
            cur_entry_.size, cur_entry_.addr);
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

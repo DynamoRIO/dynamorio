@@ -38,7 +38,6 @@
 #    include "common/gzip_ostream.h"
 #endif
 #include "record_filter.h"
-// #include "../common/utils.h"
 
 #ifdef DEBUG
 #    define VPRINT(reader, level, ...)                            \
@@ -132,6 +131,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
     // we can simply run the tool multiple times, but it can be made more efficient.
     if (output && !per_shard->writer->write((char *)&entry, sizeof(entry))) {
         per_shard->error = "Failed to write to output file " + per_shard->output_path;
+        success_ = false;
         return false;
     }
     return true;
@@ -140,7 +140,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
 bool
 record_filter_t::process_memref(const trace_entry_t &memref)
 {
-    // Serial analysis not supported. We want each shard to be processed separately.
+    // XXX i#5675: Serial analysis is not yet supported. Each shard is processed
+    // independently of the others. A cache filter may want to use a global cache.
     return false;
 }
 

@@ -34,18 +34,12 @@
 #define _NULL_FILTER_H_ 1
 
 #include "record_filter.h"
-#include <iostream>
 
 namespace dynamorio {
 namespace drmemtrace {
 
 class null_filter_t : public record_filter_t::record_filter_func_t {
 public:
-    virtual std::string
-    initialize() override
-    {
-        return "";
-    }
     bool
     filter(const trace_entry_t &entry) override
     {

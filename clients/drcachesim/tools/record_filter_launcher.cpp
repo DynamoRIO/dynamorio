@@ -90,16 +90,16 @@ _tmain(int argc, const TCHAR *targv[])
     record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
                                       (int)tools.size());
     if (!record_analyzer) {
-        FATAL_ERROR("failed to initialize trace filter: %s",
+        FATAL_ERROR("Failed to initialize trace filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
     if (!record_analyzer.run()) {
-        FATAL_ERROR("failed to run trace filter: %s",
+        FATAL_ERROR("Failed to run trace filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
     record_analyzer.print_stats();
-    delete record_filter;
     delete null_filter;
+    delete record_filter;
 
     fprintf(stderr, "Done!\n");
     return 0;

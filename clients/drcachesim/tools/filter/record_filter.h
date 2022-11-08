@@ -40,6 +40,12 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+/**
+ * Analysis tool that filters the trace_entry_t records of an offline
+ * trace. Streams through each shard independenty and parallelly, and
+ * writes the filtered version to the output directory with the same
+ * base name. Serial mode is not yet supported.
+ */
 class record_filter_t : public record_analysis_tool_t {
 public:
     /**
@@ -50,9 +56,9 @@ public:
         record_filter_func_t()
         {
         }
-        virtual ~record_filter_func_t() {};
-        virtual std::string
-        initialize() = 0;
+        virtual ~record_filter_func_t()
+        {
+        }
         virtual bool
         filter(const trace_entry_t &entry) = 0;
     };

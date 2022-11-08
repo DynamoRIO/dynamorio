@@ -51,11 +51,12 @@
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
-#    define UNUSED(x)                  /* nothing */
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED(x) ((void)(x))
 #endif
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /* Even though we plan to support only record_file_reader_t for
  * reading trace_entry_t (and no ipc reader like ipc_reader_t) we still need
@@ -94,7 +95,6 @@ public:
     {
         bool res = read_next_entry();
         assert(res || eof_);
-        UNUSED(res);
         return *this;
     }
 
@@ -156,5 +156,8 @@ private:
     bool
     read_next_entry() override;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _RECORD_FILE_READER_H_ */

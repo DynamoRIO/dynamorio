@@ -54,7 +54,8 @@ typedef compressed_file_reader_t default_file_reader_t;
 typedef compressed_record_file_reader_t default_record_file_reader_t;
 #else
 typedef file_reader_t<std::ifstream *> default_file_reader_t;
-typedef record_file_reader_t<std::ifstream> default_record_file_reader_t;
+typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
+    default_record_file_reader_t;
 #endif
 
 template <typename T, typename U>
@@ -123,7 +124,7 @@ analyzer_t::get_reader(const std::string &path, int verbosity)
 }
 
 template <>
-std::unique_ptr<record_reader_t>
+std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
 record_analyzer_t::get_default_reader()
 {
     return std::unique_ptr<default_record_file_reader_t>(
@@ -131,12 +132,12 @@ record_analyzer_t::get_default_reader()
 }
 
 template <>
-std::unique_ptr<record_reader_t>
+std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
 record_analyzer_t::get_reader(const std::string &path, int verbosity)
 {
     // TODO i#5675: Add support for other file formats, particularly
     // .zip files.
-    return std::unique_ptr<record_reader_t>(
+    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
         new default_record_file_reader_t(path, verbosity));
 }
 

@@ -181,6 +181,7 @@ protected:
 template class analyzer_tmpl_t<memref_t, reader_t>;
 typedef analyzer_tmpl_t<memref_t, reader_t> analyzer_t;
 
-template class analyzer_tmpl_t<trace_entry_t, record_reader_t>;
-typedef analyzer_tmpl_t<trace_entry_t, record_reader_t> record_analyzer_t;
+template class analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>;
+typedef analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
+    record_analyzer_t;
 #endif /* _ANALYZER_H_ */
