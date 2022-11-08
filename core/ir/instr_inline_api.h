@@ -160,7 +160,8 @@ INSTR_INLINE
 bool
 opnd_is_predicate_merge(opnd_t op)
 {
-    return opnd_is_predicate_reg(op) && ((op.aux.flags & DR_OPND_IS_MERGE_PREDICATE) != 0);
+    return opnd_is_predicate_reg(op) &&
+        ((op.aux.flags & DR_OPND_IS_MERGE_PREDICATE) != 0);
 }
 
 INSTR_INLINE
