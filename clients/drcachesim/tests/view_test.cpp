@@ -137,11 +137,11 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
             std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
             // Run the tool.
             for (const auto &memref : memrefs_) {
-                if (!view_.process_memref(memref))
-                    std::cout << "Hit error: " << view_.get_error_string() << "\n";
                 ++ref_count_;
                 if (type_is_instr(memref.instr.type))
                     ++instr_count_;
+                if (!view_.process_memref(memref))
+                    std::cout << "Hit error: " << view_.get_error_string() << "\n";
             }
             // Return the result.
             std::string res = capture.str();
@@ -253,7 +253,8 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     ss >> prefix;
     if (prefix != 1 + skip_memrefs) {
         std::cerr << "Expect to start after skip count " << skip_memrefs << " but found "
-                  << prefix << "\n";
+                  << prefix << "\n"
+                  << res << "\n";
         return false;
     }
     return true;
