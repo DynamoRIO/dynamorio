@@ -55,9 +55,9 @@ static droption_t<std::string>
                   "[Required] Output directory for the filtered trace",
                   "Specifies the directory where the filtered trace will be written.");
 
-droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
-                                    "Verbosity level",
-                                    "Verbosity level for notifications.");
+static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
+                                           "Verbosity level",
+                                           "Verbosity level for notifications.");
 
 int
 _tmain(int argc, const TCHAR *targv[])
@@ -75,12 +75,14 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    record_filter_t::record_filter_func_t *null_filter = new null_filter_t();
-    std::vector<record_filter_t::record_filter_func_t *> filter_funcs;
+    dynamorio::drmemtrace::record_filter_t::record_filter_func_t *null_filter =
+        new dynamorio::drmemtrace::null_filter_t();
+    std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
+        filter_funcs;
     filter_funcs.push_back(null_filter);
     // TODO i#5675: Add other filters.
 
-    record_analysis_tool_t *record_filter = new record_filter_t(
+    record_analysis_tool_t *record_filter = new dynamorio::drmemtrace::record_filter_t(
         op_output_dir.get_value(), filter_funcs, op_verbose.get_value());
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter);

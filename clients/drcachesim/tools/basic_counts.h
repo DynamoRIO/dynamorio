@@ -59,6 +59,7 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // i#3068: We use the following struct to also export the counters.
     struct counters_t {
         counters_t()
         {
@@ -130,7 +131,6 @@ public:
         int_least64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
     };
-
     counters_t
     get_total_counts();
 

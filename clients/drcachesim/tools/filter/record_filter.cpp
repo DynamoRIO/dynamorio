@@ -52,7 +52,9 @@
 #    define VPRINT(reader, level, ...) /* nothing */
 #endif
 
-static std::unique_ptr<std::ostream>
+namespace {
+
+std::unique_ptr<std::ostream>
 get_writer(const std::string &path)
 {
 #ifdef HAS_ZLIB
@@ -64,6 +66,10 @@ get_writer(const std::string &path)
     VPRINT(this, 3, "Using the default writer for %s\n", path.c_str());
     return std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
 }
+} // namespace
+
+namespace dynamorio {
+namespace drmemtrace {
 
 record_filter_t::record_filter_t(const std::string &output_dir,
                                  const std::vector<record_filter_func_t *> &filters,
@@ -121,6 +127,9 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
         if (!f->filter(entry))
             output = false;
     }
+    // XXX i#5675: Currently we support writing to a single output file, but we may
+    // want to write to multiple in the same run; e.g. splitting a trace. For now,
+    // we can simply run the tool multiple times, but it can be made more efficient.
     if (output && !per_shard->writer->write((char *)&entry, sizeof(entry))) {
         per_shard->error = "Failed to write to output file " + per_shard->output_path;
         return false;
@@ -141,3 +150,6 @@ record_filter_t::print_results()
     // TODO i#5675: Print stats about filtered entries.
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

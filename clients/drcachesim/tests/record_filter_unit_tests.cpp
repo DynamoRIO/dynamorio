@@ -102,11 +102,14 @@ test_null_filter()
         FATAL_ERROR("Failed to create filtered trace output dir %s", output_dir.c_str());
     }
 
-    record_filter_t::record_filter_func_t *null_filter = new null_filter_t();
-    std::vector<record_filter_t::record_filter_func_t *> filter_funcs;
+    dynamorio::drmemtrace::record_filter_t::record_filter_func_t *null_filter =
+        new dynamorio::drmemtrace::null_filter_t();
+    std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
+        filter_funcs;
     filter_funcs.push_back(null_filter);
     record_analysis_tool_t *record_filter =
-        new record_filter_t(output_dir, filter_funcs, /*verbosity=*/0);
+        new dynamorio::drmemtrace::record_filter_t(output_dir, filter_funcs,
+                                                   /*verbosity=*/0);
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter);
     record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],

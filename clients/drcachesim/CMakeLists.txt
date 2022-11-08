@@ -294,6 +294,7 @@ add_executable(record_filter_launcher
   tools/record_filter_launcher.cpp)
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
 use_DynamoRIO_extension(record_filter_launcher droption)
+
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir

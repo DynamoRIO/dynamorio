@@ -37,6 +37,9 @@
 #include <memory>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class record_filter_t : public record_analysis_tool_t {
 public:
     /**
@@ -86,4 +89,6 @@ private:
     unsigned int verbosity_;
 };
 
+} // namespace drmemtrace
+} // namespace dynamorio
 #endif /* _RECORD_FILTER_H_ */

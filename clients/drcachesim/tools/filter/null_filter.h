@@ -36,6 +36,9 @@
 #include "record_filter.h"
 #include <iostream>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class null_filter_t : public record_filter_t::record_filter_func_t {
 public:
     virtual std::string
@@ -50,4 +53,6 @@ public:
     }
 };
 
+} // namespace drmemtrace
+} // namespace dynamorio
 #endif /* _NULL_FILTER_H_ */

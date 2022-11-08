@@ -32,6 +32,8 @@
 
 #include "compressed_file_reader.h"
 
+namespace {
+
 bool
 open_single_file_common(const std::string &path, gzFile &out)
 {
@@ -59,6 +61,8 @@ read_next_thread_entry_common(gzip_reader_t *gzip, OUT trace_entry_t *entry,
     ++gzip->cur_buf;
     return true;
 }
+
+} // namespace
 
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
