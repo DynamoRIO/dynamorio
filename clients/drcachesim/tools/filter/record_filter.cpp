@@ -47,8 +47,12 @@
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
+// clang-format off
+#    define UNUSED(x) /* nothing */
+// clang-format on
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
+#    define UNUSED(x) ((void)(x))
 #endif
 
 namespace dynamorio {
@@ -61,6 +65,8 @@ record_filter_t::record_filter_t(const std::string &output_dir,
     , filters_(filters)
     , verbosity_(verbose)
 {
+    UNUSED(verbosity_);
+    UNUSED(output_prefix_);
 }
 
 record_filter_t::~record_filter_t()

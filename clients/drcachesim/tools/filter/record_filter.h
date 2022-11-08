@@ -101,4 +101,5 @@ private:
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
 #endif /* _RECORD_FILTER_H_ */

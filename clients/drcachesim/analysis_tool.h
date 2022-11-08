@@ -236,9 +236,6 @@ protected:
     std::string error_string_;
 };
 
-template class analysis_tool_tmpl_t<memref_t>;
 typedef analysis_tool_tmpl_t<memref_t> analysis_tool_t;
-
-template class analysis_tool_tmpl_t<trace_entry_t>;
 typedef analysis_tool_tmpl_t<trace_entry_t> record_analysis_tool_t;
 #endif /* _ANALYSIS_TOOL_H_ */
