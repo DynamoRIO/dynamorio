@@ -196,7 +196,7 @@ analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools,
                 error_string_ += ": " + tools_[i]->get_error_string();
             return;
         }
-        const std::string error = tools_[i]->initialize(serial_trace_iter_.get());
+        const std::string error = tools_[i]->initialize_stream(serial_trace_iter_.get());
         if (!error.empty()) {
             success_ = false;
             error_string_ = "Tool failed to initialize: " + error;
@@ -269,8 +269,8 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
         }
         std::vector<void *> shard_data(num_tools_);
         for (int i = 0; i < num_tools_; ++i) {
-            shard_data[i] = tools_[i]->parallel_shard_init(tdata->index, worker_data[i],
-                                                           tdata->iter.get());
+            shard_data[i] = tools_[i]->parallel_shard_init_stream(
+                tdata->index, worker_data[i], tdata->iter.get());
         }
         VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
         for (; *tdata->iter != *trace_end_; ++(*tdata->iter)) {

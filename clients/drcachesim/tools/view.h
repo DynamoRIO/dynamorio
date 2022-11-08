@@ -53,12 +53,12 @@ public:
            uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
     std::string
-    initialize(memref_stream_t *serial_query) override;
+    initialize_stream(memref_stream_t *serial_stream) override;
     bool
     parallel_shard_supported() override;
     void *
-    parallel_shard_init(int shard_index, void *worker_data,
-                        memref_stream_t *shard_query) override;
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memref_stream_t *shard_stream) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
@@ -135,7 +135,7 @@ protected:
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
     bool has_modules_;
-    memref_stream_t *serial_query_ = nullptr;
+    memref_stream_t *serial_stream_ = nullptr;
 };
 
 #endif /* _VIEW_H_ */

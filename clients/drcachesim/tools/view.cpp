@@ -76,9 +76,9 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
 }
 
 std::string
-view_t::initialize(memref_stream_t *serial_query)
+view_t::initialize_stream(memref_stream_t *serial_stream)
 {
-    serial_query_ = serial_query;
+    serial_stream_ = serial_stream;
     print_header();
     dcontext_.dcontext = dr_standalone_init();
     if (module_file_path_.empty()) {
@@ -124,10 +124,10 @@ view_t::parallel_shard_supported()
 }
 
 void *
-view_t::parallel_shard_init(int shard_index, void *worker_data,
-                            memref_stream_t *shard_query)
+view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                   memref_stream_t *shard_stream)
 {
-    return shard_query;
+    return shard_stream;
 }
 
 bool
@@ -177,7 +177,7 @@ view_t::should_skip(memref_stream_t *query, const memref_t &memref)
 bool
 view_t::process_memref(const memref_t &memref)
 {
-    return parallel_shard_memref(serial_query_, memref);
+    return parallel_shard_memref(serial_stream_, memref);
 }
 
 bool

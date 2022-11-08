@@ -243,7 +243,7 @@ analyzer_multi_t::create_analysis_tools()
 bool
 analyzer_multi_t::init_analysis_tools()
 {
-    std::string tool_error = tools_[0]->initialize(serial_trace_iter_.get());
+    std::string tool_error = tools_[0]->initialize_stream(serial_trace_iter_.get());
     if (!tool_error.empty()) {
         error_string_ = "Tool failed to initialize: " + tool_error;
         delete tools_[0];
@@ -251,7 +251,7 @@ analyzer_multi_t::init_analysis_tools()
         return false;
     }
     if (op_test_mode.get_value()) {
-        tools_[1]->initialize(serial_trace_iter_.get());
+        tools_[1]->initialize_stream(serial_trace_iter_.get());
         if (!*tools_[1]) {
             error_string_ = tools_[1]->get_error_string();
             delete tools_[1];

@@ -131,7 +131,7 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
         std::string
         run()
         {
-            view_.initialize(this);
+            view_.initialize_stream(this);
             // Capture cerr.
             std::stringstream capture;
             std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());

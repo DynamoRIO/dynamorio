@@ -1390,7 +1390,7 @@ application thread, but the tool interface can support other divisions.  For too
 that support concurrent processing of shards and do not need to see a single
 time-sorted interleaved merged trace, the interface functions with the parallel_
 prefix should be overridden, and parallel_shard_supported() should return true.
-parallel_shard_init() will be invoked for each shard prior to invoking
+parallel_shard_init_stream() will be invoked for each shard prior to invoking
 parallel_shard_memref() for each entry in that shard; the data structure returned
 from parallel_shard_init() will be passed to parallel_shard_memref() for each
 trace entry for that shard.  The concurrency model used guarantees that all
@@ -1433,11 +1433,12 @@ exit.
 
 The absolute ordinals for trace records and instruction fetches are
 available via the #memref_stream_t interface passed to the
-initialize() function for serial operation and parallel_shard_init()
-for parallel operation.  If the iterator skips over some records that
-are not passed to the tools, these ordinals will include those skipped
-records.  If a tool wishes to count only those records or instructions
-that it sees, it can add its own counters.
+initialize_stream() function for serial operation and
+parallel_shard_init_stream() for parallel operation.  If the iterator
+skips over some records that are not passed to the tools, these
+ordinals will include those skipped records.  If a tool wishes to
+count only those records or instructions that it sees, it can add its
+own counters.
 
 CMake support is provided for including the headers and linking the
 libraries of the \p drmemtrace framework.  A new CMake function is defined

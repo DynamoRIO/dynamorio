@@ -94,10 +94,10 @@ public:
         : success_(true) {};
     virtual ~analysis_tool_t() {}; /**< Destructor. */
     /**
-     * \deprecated The version taking in a #memref_stream_t is the version
-     * called by the analyzer; this no-argument version is only called if the default
-     * implementation of the other version is left in place and it calls this version.  On
-     * an error, this returns an error string.  On success, it returns "".
+     * \deprecated The initialize_stream() function is called by the analyzer; this
+     * function is only called if the default implementation of initialize_stream() is
+     * left in place and it calls this version.  On an error, this returns an error
+     * string.  On success, it returns "".
      */
     virtual std::string
     initialize()
@@ -106,13 +106,13 @@ public:
     }
     /**
      * Tools are encouraged to perform any initialization that might fail here rather
-     * than in the constructor.  The \p serial_query interface allows tools to query
+     * than in the constructor.  The \p serial_stream interface allows tools to query
      * details of the underlying trace during serial operation; it is nullptr for
-     * parallel operation (a per-shard version is passed to parallel_shard_init()).  On
-     * an error, this returns an error string.  On success, it returns "".
+     * parallel operation (a per-shard version is passed to parallel_shard_init_stream()).
+     * On an error, this returns an error string.  On success, it returns "".
      */
     virtual std::string
-    initialize(memref_stream_t *serial_query)
+    initialize_stream(memref_stream_t *serial_stream)
     {
         return initialize();
     }
@@ -183,9 +183,9 @@ public:
         return "";
     }
     /**
-     * \deprecated The version with a 3rd parameter in a #memref_stream_t is the version
-     * called by the analyzer; this 2-argument version is only called if the default
-     * implementation of the other version is left in place and it calls this version.
+     * \deprecated The parallel_shard_init_stream() is what is called by the analyzer;
+     * this function is only called if the default implementation of
+     * parallel_shard_init_stream() is left in place and it calls this version.
      */
     virtual void *
     parallel_shard_init(int shard_index, void *worker_data)
@@ -198,13 +198,14 @@ public:
      * shard_index is a unique identifier allowing shard data to be stored into a global
      * table if desired (typically for aggregation use in print_results()).  The \p
      * worker_data is the return value of parallel_worker_init() for the worker thread
-     * who will exclusively operate on this shard.  The \p shard_query allows tools to
+     * who will exclusively operate on this shard.  The \p shard_stream allows tools to
      * query details of the underlying trace shard during parallel operation; it is
      * valid only until parallel_shard_exit() is called.  The return value here will be
      * passed to each invocation of parallel_shard_memref() for that same shard.
      */
     virtual void *
-    parallel_shard_init(int shard_index, void *worker_data, memref_stream_t *shard_query)
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memref_stream_t *shard_stream)
     {
         return parallel_shard_init(shard_index, worker_data);
     }
