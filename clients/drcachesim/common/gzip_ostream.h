@@ -49,7 +49,11 @@
  * buffer base class writes to pbase()..epptr() with the next slot at
  * pptr().
  */
-class gzip_streambuf_t : public std::basic_streambuf<char, std::char_traits<char>> {
+// Work-around clang-format bug on consecutive '>' characters showing up on osx.
+// clang-format off
+class gzip_streambuf_t : public std::basic_streambuf<char, std::char_traits<char>>
+// clang-format on
+{
 public:
     explicit gzip_streambuf_t(const std::string &path)
     {

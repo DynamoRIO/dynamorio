@@ -51,8 +51,10 @@
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
+#    define UNUSED(x)                  /* nothing */
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
+#    define UNUSED(x) ((void)(x))
 #endif
 
 namespace dynamorio {
@@ -95,6 +97,7 @@ public:
     {
         bool res = read_next_entry();
         assert(res || eof_);
+        UNUSED(res);
         return *this;
     }
 
