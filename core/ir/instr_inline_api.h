@@ -303,8 +303,10 @@ opnd_t
 opnd_create_predicate_reg(reg_id_t r, bool is_merge)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+#    ifdef AARCH64
     CLIENT_ASSERT(r >= DR_REG_P0 && r <= DR_REG_P15,
                   "opnd_create_predicate_reg: invalid predicate register");
+#    endif
     opnd.kind = REG_kind;
     opnd.value.reg_and_element_size.reg = r;
     opnd.aux.flags = is_merge ? DR_OPND_IS_MERGE_PREDICATE : DR_OPND_IS_ZERO_PREDICATE;
