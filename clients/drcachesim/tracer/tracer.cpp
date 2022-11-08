@@ -210,6 +210,8 @@ instru_notify(uint level, const char *fmt, ...)
  */
 std::atomic<ptr_int_t> tracing_mode;
 
+bool need_l0_filter_mode;
+
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void **user_data);
@@ -219,7 +221,7 @@ event_bb_analysis_cleanup(void *drcontext, void *user_data);
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                      instr_t *where, bool for_trace, bool translating,
+                      instr_t *where, bool for_trace, bool translating, uintptr_t mode,
                       void *orig_analysis_data, void *user_data);
 
 static dr_emit_flags_t
@@ -245,6 +247,7 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
     if (bbdup_duplication_enabled()) {
         *enable_dups = true;
+        /* make sure to update opts.non_default_case_limit if adding an encoding here */
         drbbdup_status_t res;
         if (align_attach_detach_endpoints()) {
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_NOP);
@@ -252,6 +255,10 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
         }
         if (bbdup_instr_counting_enabled()) {
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
+            DR_ASSERT(res == DRBBDUP_SUCCESS);
+        }
+        if (need_l0_filter_mode) {
+            res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_L0_FILTER);
             DR_ASSERT(res == DRBBDUP_SUCCESS);
         }
         // XXX i#2039: We have possible future use cases for BBDUP_MODE_FUNC_ONLY
@@ -289,7 +296,7 @@ event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
                       bool translating, uintptr_t mode, void *user_data,
                       void *orig_analysis_data, void **analysis_data)
 {
-    if (mode == BBDUP_MODE_TRACE) {
+    if (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER) {
         return event_bb_analysis(drcontext, tag, bb, for_trace, translating,
                                  analysis_data);
     } else if (mode == BBDUP_MODE_COUNT) {
@@ -308,7 +315,7 @@ static void
 event_bb_analyze_case_cleanup(void *drcontext, uintptr_t mode, void *user_data,
                               void *orig_analysis_data, void *analysis_data)
 {
-    if (mode == BBDUP_MODE_TRACE)
+    if (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER)
         event_bb_analysis_cleanup(drcontext, analysis_data);
     else if (mode == BBDUP_MODE_COUNT)
         ; /* no cleanup needed */
@@ -326,9 +333,10 @@ event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                            uintptr_t mode, void *user_data, void *orig_analysis_data,
                            void *analysis_data)
 {
-    if (mode == BBDUP_MODE_TRACE) {
+    if (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER) {
         return event_app_instruction(drcontext, tag, bb, instr, where, for_trace,
-                                     translating, orig_analysis_data, analysis_data);
+                                     translating, mode, orig_analysis_data,
+                                     analysis_data);
     } else if (mode == BBDUP_MODE_COUNT) {
         // This includes func_trace_disabled_instrument_event() for drwrap cleanup.
         return event_inscount_app_instruction(drcontext, tag, bb, instr, where, for_trace,
@@ -381,6 +389,8 @@ instrumentation_drbbdup_init()
         ++opts.non_default_case_limit; // BBDUP_MODE_NOP.
     if (bbdup_instr_counting_enabled())
         ++opts.non_default_case_limit; // BBDUP_MODE_COUNT.
+    if (need_l0_filter_mode)
+        ++opts.non_default_case_limit; // BBDUP_MODE_COUNT.
     // Save per-thread heap for a feature we do not need.
     opts.never_enable_dynamic_handling = true;
     drbbdup_status_t res = drbbdup_init(&opts);
@@ -404,6 +414,8 @@ instrumentation_init()
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     else if (op_trace_after_instrs.get_value() != 0)
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    else if (need_l0_filter_mode)
+        tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
 
 #ifdef DELAYED_CHECK_INLINED
     drx_init();
@@ -1021,7 +1033,7 @@ is_last_instr(void *drcontext, instr_t *instr)
  */
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                      instr_t *where, bool for_trace, bool translating,
+                      instr_t *where, bool for_trace, bool translating, uintptr_t mode,
                       void *orig_analysis_data, void *user_data)
 {
     int i, adjust = 0;
@@ -1029,6 +1041,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     reg_id_t reg_ptr;
     drvector_t rvec;
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
+    bool is_l0_filter = (op_L0I_filter.get_value() || op_L0D_filter.get_value());
+    if (need_l0_filter_mode)
+        is_l0_filter = (mode == BBDUP_MODE_L0_FILTER && is_l0_filter);
 
     // We need drwrap's instrumentation to go first so that function trace
     // entries will not be appended to the middle of a BB's PC and Memory Access
@@ -1040,8 +1055,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     drmgr_disable_auto_predication(drcontext, bb);
 
-    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && ud->repstr &&
-        is_first_nonlabel(drcontext, instr)) {
+    if (is_l0_filter && ud->repstr && is_first_nonlabel(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the
         // aflags spill for the memref, yet it hits the lazily-delayed aflags
         // restore.  We don't have a great solution (repstr violates drreg's
@@ -1118,7 +1132,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         // flow and other complications that could cause us to skip an instruction.
         !drmgr_in_emulation_region(drcontext, NULL) &&
         // We can't bundle with a filter.
-        !(op_L0I_filter.get_value() || op_L0D_filter.get_value()) &&
+        !is_l0_filter &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
         ud->delay_instrs[ud->num_delay_instrs++] = instr_fetch;
@@ -1149,7 +1163,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     instr_t *skip_instru = INSTR_CREATE_label(drcontext);
     reg_id_t reg_skip = DR_REG_NULL;
     reg_id_set_t app_regs_at_skip;
-    if (!(op_L0I_filter.get_value() || op_L0D_filter.get_value())) {
+    if (!is_l0_filter) {
         insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         if (thread_filtering_enabled) {
             bool short_reaches = false;
@@ -1225,7 +1239,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      * assuming the clean call does not need the two register values.
      */
     if (is_last_instr(drcontext, instr)) {
-        if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
+        if (is_l0_filter)
             insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         instrument_clean_call(drcontext, bb, where, reg_ptr);
     }
@@ -1302,7 +1316,8 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE &&
+        tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_L0_FILTER)
         return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
@@ -1347,7 +1362,8 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE &&
+        tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_L0_FILTER)
         return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
@@ -1382,7 +1398,8 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
     uintptr_t marker_val = 0;
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE &&
+        tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_L0_FILTER)
         return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */

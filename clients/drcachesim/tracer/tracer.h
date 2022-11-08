@@ -154,6 +154,7 @@ extern std::atomic<ptr_int_t> tracing_mode;
 extern std::atomic<ptr_int_t> tracing_window;
 extern bool attached_midway;
 extern std::atomic<uint64> attached_timestamp;
+extern bool need_l0_filter_mode;
 
 /* We have multiple modes.  While just 2 results in a more efficient dispatch,
  * the power of extra modes justifies the extra overhead.
@@ -168,6 +169,7 @@ enum {
     BBDUP_MODE_COUNT = 1,     /* Instr counting for delayed tracing or trace windows. */
     BBDUP_MODE_FUNC_ONLY = 2, /* Function tracing during no-full-trace periods. */
     BBDUP_MODE_NOP = 3,       /* No tracing or counting for pre-attach or post-detach. */
+    BBDUP_MODE_L0_FILTER = 4, /* Full address tracing with L0_filter */
 };
 
 #if defined(X86_64) || defined(AARCH64)

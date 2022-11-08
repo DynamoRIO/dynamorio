@@ -138,7 +138,8 @@ reached_traced_instrs_threshold(void *drcontext)
     tracing_window.fetch_add(1, std::memory_order_release);
     // We delay creating a new ouput dir until tracing is enabled again, to avoid
     // an empty final dir.
-    DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
+    DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
+              tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_L0_FILTER);
     tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     cur_window_instr_count.store(0, std::memory_order_release);
     dr_mutex_unlock(mutex);
@@ -1112,7 +1113,8 @@ init_thread_io(void *drcontext)
         set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
 
     if (op_offline.get_value()) {
-        if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+        if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
+            tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_L0_FILTER) {
             open_new_thread_file(drcontext, get_local_window(data));
         }
         if (!has_tracing_windows()) {
@@ -1146,6 +1148,7 @@ exit_thread_io(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
+        tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_L0_FILTER ||
         (has_tracing_windows() && !op_split_windows.get_value()) ||
         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
         // each thread.  However, we omit threads that did nothing the entire time

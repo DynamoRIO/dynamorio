@@ -97,6 +97,7 @@ instr_count_threshold()
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
+    uintptr_t mode;
     if (!has_instr_count_threshold_to_enable_tracing())
         return;
 #ifdef DELAYED_CHECK_INLINED
@@ -116,7 +117,8 @@ hit_instr_count_threshold(app_pc next_pc)
     }
 #endif
     dr_mutex_lock(mutex);
-    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
+        tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_L0_FILTER) {
         // Another thread already changed the mode.
         dr_mutex_unlock(mutex);
         return;
@@ -142,7 +144,12 @@ hit_instr_count_threshold(app_pc next_pc)
     instr_count = 0;
 #endif
     DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
-    tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+
+    if (need_l0_filter_mode)
+        mode = BBDUP_MODE_L0_FILTER;
+    else
+        mode = BBDUP_MODE_TRACE;
+    tracing_mode.store(mode, std::memory_order_release);
     dr_mutex_unlock(mutex);
 }
 
