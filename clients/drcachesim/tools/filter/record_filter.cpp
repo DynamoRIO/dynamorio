@@ -51,22 +51,6 @@
 #    define VPRINT(reader, level, ...) /* nothing */
 #endif
 
-namespace {
-
-std::unique_ptr<std::ostream>
-get_writer(const std::string &path)
-{
-#ifdef HAS_ZLIB
-    if (ends_with(path, ".gz")) {
-        VPRINT(this, 3, "Using the gzip writer for %s\n", path.c_str());
-        return std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
-    }
-#endif
-    VPRINT(this, 3, "Using the default writer for %s\n", path.c_str());
-    return std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
-}
-} // namespace
-
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -87,6 +71,19 @@ bool
 record_filter_t::parallel_shard_supported()
 {
     return true;
+}
+
+std::unique_ptr<std::ostream>
+record_filter_t::get_writer(const std::string &path)
+{
+#ifdef HAS_ZLIB
+    if (ends_with(path, ".gz")) {
+        VPRINT(this, 3, "Using the gzip writer for %s\n", path.c_str());
+        return std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
+    }
+#endif
+    VPRINT(this, 3, "Using the default writer for %s\n", path.c_str());
+    return std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
 }
 
 void *

@@ -90,9 +90,13 @@ private:
         std::string error;
     };
 
+    std::unique_ptr<std::ostream>
+    get_writer(const std::string &path);
+
     std::string output_dir_;
     std::vector<record_filter_func_t *> filters_;
     unsigned int verbosity_;
+    const char *output_prefix_ = "[record_filter]";
 };
 
 } // namespace drmemtrace
