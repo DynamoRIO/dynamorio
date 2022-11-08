@@ -1145,6 +1145,21 @@ exit_thread_io(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
+#ifdef LINUX
+    /**
+     * On Linux, the thread exit event may be invoked twice for the same thread
+     * if that thread is alive during a process fork, but doesn't call the fork
+     * itself.  The first time the event callback is executed from the fork child
+     * immediately after the fork, the second time it is executed during the
+     * regular thread exit.
+     * data->file could be already closed. Write file operation is fail
+     * and it is asserted.
+     */
+    if (dr_get_process_id() != dr_get_process_id_from_drcontext(drcontext)) {
+        return;
+    }
+#endif
+
     if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
         (has_tracing_windows() && !op_split_windows.get_value()) ||
         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
