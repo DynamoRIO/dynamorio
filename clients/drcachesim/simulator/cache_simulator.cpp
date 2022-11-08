@@ -421,7 +421,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return true;
 
     // The references after warmup and simulated ones are dropped.
-    if (check_warmed_up() && knobs_.sim_refs == 0)
+    if (is_warmed_up_ && knobs_.sim_refs == 0)
         return true;
 
     // Both warmup and simulated references are simulated.
@@ -654,9 +654,9 @@ cache_simulator_t::create_cache(const std::string &policy)
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
         policy == REPLACE_POLICY_LRU)             // set to LRU
         return new cache_lru_t;
-    if (policy == REPLACE_POLICY_LFU) // set to LFU
+    if (policy == REPLACE_POLICY_LFU)             // set to LFU
         return new cache_t;
-    if (policy == REPLACE_POLICY_FIFO) // set to FIFO
+    if (policy == REPLACE_POLICY_FIFO)            // set to FIFO
         return new cache_fifo_t;
 
     // undefined replacement policy
