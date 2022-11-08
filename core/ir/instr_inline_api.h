@@ -309,7 +309,8 @@ opnd_create_predicate_reg(reg_id_t r, bool is_merge)
 #    endif
     opnd.kind = REG_kind;
     opnd.value.reg_and_element_size.reg = r;
-    opnd.aux.flags = is_merge ? DR_OPND_IS_MERGE_PREDICATE : DR_OPND_IS_ZERO_PREDICATE;
+    opnd.aux.flags =
+        (ushort)(is_merge ? DR_OPND_IS_MERGE_PREDICATE : DR_OPND_IS_ZERO_PREDICATE);
     return opnd;
 }
 
