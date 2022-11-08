@@ -427,3 +427,6 @@ analyzer_tmpl_t<T, U>::end()
 {
     return *trace_end_;
 }
+
+template class analyzer_tmpl_t<memref_t, reader_t>;
+template class analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>;

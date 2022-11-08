@@ -51,7 +51,9 @@
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
-#    define UNUSED(x)                  /* nothing */
+// clang-format off
+#    define UNUSED(x) /* nothing */
+// clang-format on
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
 #    define UNUSED(x) ((void)(x))
