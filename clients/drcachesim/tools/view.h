@@ -53,12 +53,12 @@ public:
            uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
     std::string
-    initialize_stream(memref_stream_t *serial_stream) override;
+    initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
     parallel_shard_supported() override;
     void *
     parallel_shard_init_stream(int shard_index, void *worker_data,
-                               memref_stream_t *shard_stream) override;
+                               memtrace_stream_t *shard_stream) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
@@ -82,7 +82,7 @@ protected:
     };
 
     bool
-    should_skip(memref_stream_t *query, const memref_t &memref);
+    should_skip(memtrace_stream_t *memstream, const memref_t &memref);
 
     inline void
     print_header()
@@ -93,14 +93,14 @@ protected:
     }
 
     inline void
-    print_prefix(memref_stream_t *query, const memref_t &memref, int ref_adjust = 0,
+    print_prefix(memtrace_stream_t *memstream, const memref_t &memref, int ref_adjust = 0,
                  std::ostream &stream = std::cerr)
     {
         if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
-        stream << std::setw(9) << (query->get_record_ordinal() + ref_adjust)
-               << std::setw(9) << query->get_instruction_ordinal() << ": T"
+        stream << std::setw(9) << (memstream->get_record_ordinal() + ref_adjust)
+               << std::setw(9) << memstream->get_instruction_ordinal() << ": T"
                << memref.marker.tid << " ";
     }
 
@@ -135,7 +135,7 @@ protected:
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
     bool has_modules_;
-    memref_stream_t *serial_stream_ = nullptr;
+    memtrace_stream_t *serial_stream_ = nullptr;
 };
 
 #endif /* _VIEW_H_ */

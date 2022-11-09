@@ -42,7 +42,7 @@
 #include <unordered_map>
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
-#include "memref_stream.h"
+#include "memtrace_stream.h"
 #include "utils.h"
 
 #define OUT /* just a marker */
@@ -60,7 +60,7 @@
 #endif
 
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
-                 public memref_stream_t {
+                 public memtrace_stream_t {
 public:
     reader_t()
     {

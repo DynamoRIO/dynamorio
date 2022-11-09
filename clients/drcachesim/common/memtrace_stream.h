@@ -30,14 +30,23 @@
  * DAMAGE.
  */
 
-/* memref_stream: represent a memory trace analysis tool.
+/* memtrace_stream: an interface to access aspects of the full stream of memory
+ * trace records.
+ *
+ * We had considered other avenues for analysis_tool_t to obtain things like
+ * the record and instruction ordinals within the stream, in the presence of
+ * skipping: we could add fields to memref but we'd either have to append
+ * and have them at different offsets for each type or we'd have to break
+ * compatbility to prepend every time we added more; or we could add parameters
+ * to process_memref().  Passing an interface to the init routines seems
+ * the simplest and most flexible.
  */
 
-#ifndef _MEMREF_STREAM_H_
-#define _MEMREF_STREAM_H_ 1
+#ifndef _MEMTRACE_STREAM_H_
+#define _MEMTRACE_STREAM_H_ 1
 
 /**
- * @file drmemtrace/memref_stream.h
+ * @file drmemtrace/memtrace_stream.h
  * @brief DrMemtrace interface for obtaining information from analysis
  * tools on the full stream of memory reference records.
  */
@@ -46,10 +55,10 @@
  * This is an interface for obtaining information from analysis tools
  * on the full stream of memory reference records.
  */
-class memref_stream_t {
+class memtrace_stream_t {
 public:
     /** Destructor. */
-    virtual ~memref_stream_t()
+    virtual ~memtrace_stream_t()
     {
     }
     /**
@@ -66,4 +75,4 @@ public:
     get_instruction_ordinal() = 0;
 };
 
-#endif /* _MEMREF_STREAM_H_ */
+#endif /* _MEMTRACE_STREAM_H_ */

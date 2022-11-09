@@ -1432,7 +1432,7 @@ disruptions in user mode control flow such as signal handler entry and
 exit.
 
 The absolute ordinals for trace records and instruction fetches are
-available via the #memref_stream_t interface passed to the
+available via the #memtrace_stream_t interface passed to the
 initialize_stream() function for serial operation and
 parallel_shard_init_stream() for parallel operation.  If the iterator
 skips over some records that are not passed to the tools, these

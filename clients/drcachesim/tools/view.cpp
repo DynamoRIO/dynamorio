@@ -76,7 +76,7 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
 }
 
 std::string
-view_t::initialize_stream(memref_stream_t *serial_stream)
+view_t::initialize_stream(memtrace_stream_t *serial_stream)
 {
     serial_stream_ = serial_stream;
     print_header();
@@ -125,7 +125,7 @@ view_t::parallel_shard_supported()
 
 void *
 view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
-                                   memref_stream_t *shard_stream)
+                                   memtrace_stream_t *shard_stream)
 {
     return shard_stream;
 }
@@ -145,7 +145,7 @@ view_t::parallel_shard_error(void *shard_data)
 }
 
 bool
-view_t::should_skip(memref_stream_t *query, const memref_t &memref)
+view_t::should_skip(memtrace_stream_t *memstream, const memref_t &memref)
 {
     if (skip_refs_left_ > 0) {
         skip_refs_left_--;
@@ -166,7 +166,7 @@ view_t::should_skip(memref_stream_t *query, const memref_t &memref)
                 // This is the final record so no adjustment needed.
                 adjust = 0;
             }
-            print_prefix(query, memref, adjust);
+            print_prefix(memstream, memref, adjust);
             std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
             timestamp_ = 0;
         }
@@ -183,7 +183,7 @@ view_t::process_memref(const memref_t &memref)
 bool
 view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
-    memref_stream_t *query = reinterpret_cast<memref_stream_t *>(shard_data);
+    memtrace_stream_t *memstream = reinterpret_cast<memtrace_stream_t *>(shard_data);
     if (knob_thread_ > 0 && memref.data.tid > 0 && memref.data.tid != knob_thread_)
         return true;
     // Even for -skip_refs we need to process the up-front version and type.
@@ -221,7 +221,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // We can't easily reorder and place window markers before timestamps
             // since memref iterators use the timestamps to order buffer units.
             timestamp_ = memref.marker.marker_value;
-            if (should_skip(query, memref))
+            if (should_skip(memstream, memref))
                 timestamp_ = 0;
             return true;
         default: break;
@@ -235,21 +235,21 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         printed_header_.find(memref.marker.tid) == printed_header_.end()) {
         printed_header_.insert(memref.marker.tid);
         if (trace_version_ != -1) { // Old versions may not have a version marker.
-            if (!should_skip(query, memref)) {
-                print_prefix(query, memref, -2);
+            if (!should_skip(memstream, memref)) {
+                print_prefix(memstream, memref, -2);
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
-            if (!should_skip(query, memref)) {
-                print_prefix(query, memref, -1);
+            if (!should_skip(memstream, memref)) {
+                print_prefix(memstream, memref, -1);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                           << ">\n";
             }
         }
     }
 
-    if (should_skip(query, memref))
+    if (should_skip(memstream, memref))
         return true;
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -258,26 +258,27 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
                 std::cerr
                     << "------------------------------------------------------------\n";
-                print_prefix(query, memref,
+                print_prefix(memstream, memref,
                              -1); // Already incremented for timestamp above.
             }
             if (timestamp_ > 0) {
                 std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
                 timestamp_ = 0;
-                print_prefix(query, memref);
+                print_prefix(memstream, memref);
             }
             std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
             last_window_[memref.marker.tid] = memref.marker.marker_value;
         }
         if (timestamp_ > 0) {
-            print_prefix(query, memref, -1); // Already incremented for timestamp above.
+            print_prefix(memstream, memref,
+                         -1); // Already incremented for timestamp above.
             std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
             timestamp_ = 0;
         }
     }
 
     if (memref.instr.tid != 0) {
-        print_prefix(query, memref);
+        print_prefix(memstream, memref);
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -494,7 +495,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
-        print_prefix(query, memref, 0, prefix);
+        print_prefix(memstream, memref, 0, prefix);
         std::string skip_name(name_width, ' ');
         disasm.insert(newline + 1,
                       prefix.str() + skip_name + "                               ");

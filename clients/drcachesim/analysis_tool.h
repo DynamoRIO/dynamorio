@@ -44,7 +44,7 @@
 // To support installation of headers for analysis tools into a single
 // separate directory we omit common/ here and rely on -I.
 #include "memref.h"
-#include "memref_stream.h"
+#include "memtrace_stream.h"
 #include <string>
 
 /**
@@ -112,7 +112,7 @@ public:
      * On an error, this returns an error string.  On success, it returns "".
      */
     virtual std::string
-    initialize_stream(memref_stream_t *serial_stream)
+    initialize_stream(memtrace_stream_t *serial_stream)
     {
         return initialize();
     }
@@ -205,7 +205,7 @@ public:
      */
     virtual void *
     parallel_shard_init_stream(int shard_index, void *worker_data,
-                               memref_stream_t *shard_stream)
+                               memtrace_stream_t *shard_stream)
     {
         return parallel_shard_init(shard_index, worker_data);
     }

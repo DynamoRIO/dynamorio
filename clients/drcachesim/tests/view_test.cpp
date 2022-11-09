@@ -120,7 +120,7 @@ public:
 std::string
 run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
 {
-    class local_stream_t : public memref_stream_t {
+    class local_stream_t : public memtrace_stream_t {
     public:
         local_stream_t(view_t &view, const std::vector<memref_t> &memrefs)
             : view_(view)

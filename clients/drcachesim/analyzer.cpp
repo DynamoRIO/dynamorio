@@ -45,7 +45,7 @@
 #    include "reader/snappy_file_reader.h"
 #endif
 #include "common/utils.h"
-#include "memref_stream.h"
+#include "memtrace_stream.h"
 
 #ifdef HAS_ZLIB
 // Even if the file is uncompressed, zlib's gzip interface is faster than
