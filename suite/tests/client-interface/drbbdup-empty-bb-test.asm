@@ -34,8 +34,8 @@
 // Must include nop instructions as they are assumed by the test.
 
 .section .text
-        .global main
-main:
+        .global _start
+_start:
         or eax,eax
         nop
         nop
