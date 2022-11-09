@@ -103,14 +103,22 @@ record_filter_t::parallel_shard_init_ex(int shard_index, void *worker_data,
         per_shard->error = "Could not open a writer for " + per_shard->output_path;
         success_ = false;
     }
+    for (record_filter_func_t *f : filters_) {
+        filter_shard_data_.push_back(f->parallel_shard_init());
+    }
     return reinterpret_cast<void *>(per_shard);
 }
 
 bool
 record_filter_t::parallel_shard_exit(void *shard_data)
 {
+    bool res = true;
+    for (uint i = 0; i < filters_.size(); ++i) {
+        if (!filters_[i]->parallel_shard_exit(filter_shard_data_[i]))
+            res = false;
+    }
     delete reinterpret_cast<per_shard_t *>(shard_data);
-    return true;
+    return res;
 }
 
 std::string
@@ -125,8 +133,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     bool output = true;
-    for (record_filter_func_t *f : filters_) {
-        if (!f->filter(entry))
+    for (uint i = 0; i < filters_.size(); ++i) {
+        if (!filters_[i]->parallel_shard_filter(entry, filter_shard_data_[i]))
             output = false;
     }
     // XXX i#5675: Currently we support writing to a single output file, but we may

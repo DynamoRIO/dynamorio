@@ -40,8 +40,18 @@ namespace drmemtrace {
 
 class null_filter_t : public record_filter_t::record_filter_func_t {
 public:
+    void *
+    parallel_shard_init() override
+    {
+        return nullptr;
+    }
     bool
-    filter(const trace_entry_t &entry) override
+    parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override
+    {
+        return true;
+    }
+    bool
+    parallel_shard_exit(void *shard_data) override
     {
         return true;
     }

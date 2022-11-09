@@ -59,8 +59,30 @@ public:
         virtual ~record_filter_func_t()
         {
         }
+        /**
+         * Invoked for each shard prior to calling filter on any entry.
+         * The returned pointer is passed to all invocations of
+         * parallel_shard_filter() and parallel_shard_exit().
+         * record_filter_func_t can use this routine to initialize state
+         * for each shard.
+         */
+        virtual void *
+        parallel_shard_init() = 0;
+        /**
+         * Invoked for each trace_entry_t in the shard. It returns
+         * whether or not this \p entry should be included in the result
+         * trace. \p shard_data is same as what was returned by
+         * parallel_shard_init().
+         */
         virtual bool
-        filter(const trace_entry_t &entry) = 0;
+        parallel_shard_filter(const trace_entry_t &entry, void *shard_data) = 0;
+        /**
+         * Invoked when all trace_entry_t in a shard have been processed
+         * by parallel_shard_filter. \p shard_data is same as what was
+         * returned by parallel_shard_init().
+         */
+        virtual bool
+        parallel_shard_exit(void *shard_data) = 0;
     };
 
     record_filter_t(const std::string &output_dir,
@@ -95,6 +117,7 @@ private:
 
     std::string output_dir_;
     std::vector<record_filter_func_t *> filters_;
+    std::vector<void *> filter_shard_data_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
 };
