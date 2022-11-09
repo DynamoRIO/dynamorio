@@ -44,6 +44,7 @@
 // To support installation of headers for analysis tools into a single
 // separate directory we omit common/ here and rely on -I.
 #include "memref.h"
+#include "memtrace_stream.h"
 #include "trace_entry.h"
 #include <string>
 
@@ -94,14 +95,27 @@ public:
         : success_(true) {};
     virtual ~analysis_tool_tmpl_t() {}; /**< Destructor. */
     /**
-     * Tools are encouraged to perform any initialization that might fail here rather
-     * than in the constructor.  On an error, this returns an error string.  On success,
-     * it returns "".
+     * \deprecated The initialize_stream() function is called by the analyzer; this
+     * function is only called if the default implementation of initialize_stream() is
+     * left in place and it calls this version.  On an error, this returns an error
+     * string.  On success, it returns "".
      */
     virtual std::string
     initialize()
     {
         return "";
+    }
+    /**
+     * Tools are encouraged to perform any initialization that might fail here rather
+     * than in the constructor.  The \p serial_stream interface allows tools to query
+     * details of the underlying trace during serial operation; it is nullptr for
+     * parallel operation (a per-shard version is passed to parallel_shard_init_stream()).
+     * On an error, this returns an error string.  On success, it returns "".
+     */
+    virtual std::string
+    initialize_stream(memtrace_stream_t *serial_stream)
+    {
+        return initialize();
     }
     /** Returns whether the tool was created successfully. */
     virtual bool
@@ -138,7 +152,7 @@ public:
     /**
      * Returns whether this tool supports analyzing trace shards concurrently, or
      * whether it needs to see a single thread-interleaved stream of traced
-     * events.
+     * events.  This may be called prior to initialize().
      */
     virtual bool
     parallel_shard_supported()
@@ -170,30 +184,31 @@ public:
         return "";
     }
     /**
-     * Invoked once for each trace shard prior to calling parallel_shard_memref() for
-     * that shard, this allows a tool to create data local to a shard.  The \p
-     * shard_index is a unique identifier allowing shard data to be stored into a
-     * global table if desired (typically for aggregation use in print_results()).
-     * The \p worker_data is the return value of parallel_worker_init() for the
-     * worker thread who will exclusively operate on this shard.  The return value
-     * here will be passed to each invocation of parallel_shard_memref() for that
-     * same shard. The \p shard_suffix uniquely identifies the shard; it is set to
-     * the base name of file on disk that stores the shard's data.
-     */
-    virtual void *
-    parallel_shard_init_ex(int shard_index, void *worker_data,
-                           const std::string &shard_suffix)
-    {
-        /* Ignore shard_suffix by default, for backward compatibility. */
-        return parallel_shard_init(shard_index, worker_data);
-    }
-    /**
-     * Deprecated: Use parallel_shard_init_ex instead.
+     * \deprecated The parallel_shard_init_stream() is what is called by the analyzer;
+     * this function is only called if the default implementation of
+     * parallel_shard_init_stream() is left in place and it calls this version.
      */
     virtual void *
     parallel_shard_init(int shard_index, void *worker_data)
     {
         return nullptr;
+    }
+    /**
+     * Invoked once for each trace shard prior to calling parallel_shard_memref() for
+     * that shard, this allows a tool to create data local to a shard.  The \p
+     * shard_index is a unique identifier allowing shard data to be stored into a global
+     * table if desired (typically for aggregation use in print_results()).  The \p
+     * worker_data is the return value of parallel_worker_init() for the worker thread
+     * who will exclusively operate on this shard.  The \p shard_stream allows tools to
+     * query details of the underlying trace shard during parallel operation; it is
+     * valid only until parallel_shard_exit() is called.  The return value here will be
+     * passed to each invocation of parallel_shard_memref() for that same shard.
+     */
+    virtual void *
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *shard_stream)
+    {
+        return parallel_shard_init(shard_index, worker_data);
     }
     /**
      * Invoked once when all trace entries for a shard have been processed.  \p
