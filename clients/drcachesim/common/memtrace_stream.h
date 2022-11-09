@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,34 +30,49 @@
  * DAMAGE.
  */
 
-/* analyzer_multi: represent a memory trace analysis tool that can process
- * a trace from multiple inputs: a file, from a raw file, or over a pipe online.
+/* memtrace_stream: an interface to access aspects of the full stream of memory
+ * trace records.
+ *
+ * We had considered other avenues for analysis_tool_t to obtain things like
+ * the record and instruction ordinals within the stream, in the presence of
+ * skipping: we could add fields to memref but we'd either have to append
+ * and have them at different offsets for each type or we'd have to break
+ * compatbility to prepend every time we added more; or we could add parameters
+ * to process_memref().  Passing an interface to the init routines seems
+ * the simplest and most flexible.
  */
 
-#ifndef _ANALYZER_MULTI_H_
-#define _ANALYZER_MULTI_H_ 1
+#ifndef _MEMTRACE_STREAM_H_
+#define _MEMTRACE_STREAM_H_ 1
 
-#include "analyzer.h"
+/**
+ * @file drmemtrace/memtrace_stream.h
+ * @brief DrMemtrace interface for obtaining information from analysis
+ * tools on the full stream of memory reference records.
+ */
 
-class analyzer_multi_t : public analyzer_t {
+/**
+ * This is an interface for obtaining information from analysis tools
+ * on the full stream of memory reference records.
+ */
+class memtrace_stream_t {
 public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analyzer_multi_t();
-    virtual ~analyzer_multi_t();
-
-protected:
-    bool
-    create_analysis_tools();
-    bool
-    init_analysis_tools();
-    void
-    destroy_analysis_tools();
-
-    std::unique_ptr<std::istream> serial_schedule_file_;
-    std::unique_ptr<std::istream> cpu_schedule_file_;
-
-    static const int max_num_tools_ = 8;
+    /** Destructor. */
+    virtual ~memtrace_stream_t()
+    {
+    }
+    /**
+     * Returns the count of #memref_t records from the start of the trace to this point.
+     * This includes records skipped over and not presented to any tool.
+     */
+    virtual uint64_t
+    get_record_ordinal() = 0;
+    /**
+     * Returns the count of instructions from the start of the trace to this point.
+     * This includes instructions skipped over and not presented to any tool.
+     */
+    virtual uint64_t
+    get_instruction_ordinal() = 0;
 };
 
-#endif /* _ANALYZER_MULTI_H_ */
+#endif /* _MEMTRACE_STREAM_H_ */
