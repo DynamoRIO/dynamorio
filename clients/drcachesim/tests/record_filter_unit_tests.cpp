@@ -109,7 +109,7 @@ test_null_filter()
     filter_funcs.push_back(null_filter);
     record_analysis_tool_t *record_filter =
         new dynamorio::drmemtrace::record_filter_t(output_dir, filter_funcs,
-                                                   /*verbosity=*/0);
+                                                   /*verbosity=*/4);
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter);
     record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],

@@ -55,8 +55,7 @@ struct gzip_reader_t {
     trace_entry_t *max_buf = buf;
 };
 
-typedef file_reader_t<gzip_reader_t> compressed_file_reader_t;
-typedef dynamorio::drmemtrace::record_file_reader_t<gzip_reader_t>
-    compressed_record_file_reader_t;
+typedef file_reader_tmpl_t<gzip_reader_t, memref_t> compressed_file_reader_t;
+typedef file_reader_tmpl_t<gzip_reader_t, trace_entry_t> compressed_record_file_reader_t;
 
 #endif /* _COMPRESSED_FILE_READER_H_ */

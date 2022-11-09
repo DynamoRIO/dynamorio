@@ -32,19 +32,29 @@
 
 #include "compressed_file_reader.h"
 
-namespace {
-
-bool
-open_single_file_common(const std::string &path, gzFile &out)
+void
+destroy_gzip_file_reader_common(std::vector<gzip_reader_t> &input_files, bool *thread_eof)
 {
-    out = gzopen(path.c_str(), "rb");
-    return out != nullptr;
+    for (auto &gzip : input_files)
+        gzclose(gzip.file);
+    delete[] thread_eof;
 }
 
 bool
-read_next_thread_entry_common(gzip_reader_t *gzip, OUT trace_entry_t *entry,
-                              OUT bool *eof)
+open_single_file_common(const std::string &path, std::vector<gzip_reader_t> &input_files)
 {
+    gzFile file = gzopen(path.c_str(), "rb");
+    if (file == nullptr)
+        return false;
+    input_files.emplace_back(file);
+    return true;
+}
+
+bool
+read_next_thread_entry_common(size_t thread_index, OUT trace_entry_t *entry,
+                              OUT bool *eof, std::vector<gzip_reader_t> &input_files)
+{
+    gzip_reader_t *gzip = &input_files[thread_index];
     if (gzip->cur_buf >= gzip->max_buf) {
         int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
         // Returns less than asked-for for end of file, or –1 for error.
@@ -62,46 +72,8 @@ read_next_thread_entry_common(gzip_reader_t *gzip, OUT trace_entry_t *entry,
     return true;
 }
 
-} // namespace
-
-/* clang-format off */ /* (make vera++ newline-after-type check happy) */
-template <>
-/* clang-format on */
-file_reader_t<gzip_reader_t>::~file_reader_t<gzip_reader_t>()
-{
-    for (auto &gzip : input_files_)
-        gzclose(gzip.file);
-    delete[] thread_eof_;
-}
-
-template <>
 bool
-file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
-{
-    gzFile file;
-    if (!open_single_file_common(path, file))
-        return false;
-    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_files_.emplace_back(file);
-    return true;
-}
-
-template <>
-bool
-file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
-                                                     OUT trace_entry_t *entry,
-                                                     OUT bool *eof)
-{
-    if (!read_next_thread_entry_common(&input_files_[thread_index], entry, eof))
-        return false;
-    VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
-           thread_index, entry->type, entry->size, entry->addr);
-    return true;
-}
-
-template <>
-bool
-file_reader_t<gzip_reader_t>::is_complete()
+is_complete_common()
 {
     // The gzip reading interface does not support seeking to SEEK_END so there
     // is no efficient way to read the footer.
@@ -111,42 +83,82 @@ file_reader_t<gzip_reader_t>::is_complete()
     return false;
 }
 
-namespace dynamorio {
-namespace drmemtrace {
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+file_reader_tmpl_t<gzip_reader_t, memref_t>::~file_reader_tmpl_t<gzip_reader_t,
+                                                                 memref_t>()
+{
+    destroy_gzip_file_reader_common(input_files_, thread_eof_);
+}
+
+template <>
+bool
+file_reader_tmpl_t<gzip_reader_t, memref_t>::open_single_file(const std::string &path)
+{
+    if (!open_single_file_common(path, input_files_))
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    return true;
+}
+
+template <>
+bool
+file_reader_tmpl_t<gzip_reader_t, memref_t>::read_next_thread_entry(
+    size_t thread_index, OUT trace_entry_t *entry, OUT bool *eof)
+{
+    if (!read_next_thread_entry_common(thread_index, entry, eof, input_files_))
+        return false;
+    VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
+           thread_index, entry->type, entry->size, entry->addr);
+    return true;
+}
+
+template <>
+bool
+file_reader_tmpl_t<gzip_reader_t, memref_t>::is_complete()
+{
+    return is_complete_common();
+}
 
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-record_file_reader_t<gzip_reader_t>::~record_file_reader_t<gzip_reader_t>()
+file_reader_tmpl_t<gzip_reader_t, trace_entry_t>::~file_reader_tmpl_t<gzip_reader_t,
+                                                                      trace_entry_t>()
 {
-    if (input_file_ != nullptr) {
-        gzclose(input_file_->file);
-        delete input_file_;
-    }
+    destroy_gzip_file_reader_common(input_files_, thread_eof_);
 }
 
 template <>
 bool
-record_file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
+file_reader_tmpl_t<gzip_reader_t, trace_entry_t>::open_single_file(
+    const std::string &path)
 {
-    gzFile file;
-    if (!open_single_file_common(path, file))
+    if (!open_single_file_common(path, input_files_))
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_file_ = new gzip_reader_t(file);
     return true;
 }
 
 template <>
 bool
-record_file_reader_t<gzip_reader_t>::read_next_entry()
+file_reader_tmpl_t<gzip_reader_t, trace_entry_t>::read_next_thread_entry(
+    size_t thread_index, OUT trace_entry_t *entry, OUT bool *eof)
 {
-    if (!read_next_thread_entry_common(input_file_, &cur_entry_, &eof_))
+    if (!read_next_thread_entry_common(thread_index, entry, eof, input_files_))
         return false;
-    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
-           cur_entry_.size, cur_entry_.addr);
+    VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
+           thread_index, entry->type, entry->size, entry->addr);
     return true;
 }
 
-} // namespace drmemtrace
-} // namespace dynamorio
+template <>
+bool
+file_reader_tmpl_t<gzip_reader_t, trace_entry_t>::is_complete()
+{
+    return is_complete_common();
+}
+
+template class file_reader_tmpl_t<gzip_reader_t, memref_t>;
+template class file_reader_tmpl_t<gzip_reader_t, trace_entry_t>;

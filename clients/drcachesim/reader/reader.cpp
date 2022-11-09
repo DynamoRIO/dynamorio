@@ -30,23 +30,47 @@
  * DAMAGE.
  */
 
+#include <iostream>
 #include <assert.h>
 #include <string.h>
 #include "reader.h"
 #include "../common/memref.h"
+#include "../common/trace_entry.h"
 #include "../common/utils.h"
 
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
+template<>
+const trace_entry_t &
+reader_tmpl_t<trace_entry_t>::operator*()
+// clang-format on
+{
+    std::cerr << "AAA returning " << input_entry_->type
+              << " " << input_entry_->size << "\n";
+    return *input_entry_;
+}
+
+template <>
+reader_tmpl_t<trace_entry_t> &
+reader_tmpl_t<trace_entry_t>::operator++()
+{
+    input_entry_ = read_next_entry();
+    return *this;
+}
+
+// Work around clang-format bug: no newline after return type for single-char operator.
+// clang-format off
+template<>
 const memref_t &
-reader_t::operator*()
+reader_tmpl_t<memref_t>::operator*()
 // clang-format on
 {
     return cur_ref_;
 }
 
-reader_t &
-reader_t::operator++()
+template <>
+reader_tmpl_t<memref_t> &
+reader_tmpl_t<memref_t>::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
@@ -293,3 +317,6 @@ reader_t::operator++()
 
     return *this;
 }
+
+template class reader_tmpl_t<memref_t>;
+template class reader_tmpl_t<trace_entry_t>;

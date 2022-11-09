@@ -58,19 +58,20 @@
 #    define VPRINT(reader, level, ...) /* nothing */
 #endif
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t> {
+template <typename T>
+class reader_tmpl_t : public std::iterator<std::input_iterator_tag, T> {
 public:
-    reader_t()
+    reader_tmpl_t()
     {
         cur_ref_ = {};
     }
-    reader_t(int verbosity, const char *prefix)
+    reader_tmpl_t(int verbosity, const char *prefix)
         : verbosity_(verbosity)
         , output_prefix_(prefix)
     {
         cur_ref_ = {};
     }
-    virtual ~reader_t()
+    virtual ~reader_tmpl_t()
     {
     }
 
@@ -78,7 +79,7 @@ public:
     virtual bool
     init() = 0;
 
-    virtual const memref_t &
+    virtual const T &
     operator*();
 
     // To avoid double-dispatch (requires listing all derived types in the base here)
@@ -87,17 +88,17 @@ public:
     // and a bool field is not enough we can change this to invoke a virtual
     // method is_at_eof().
     virtual bool
-    operator==(const reader_t &rhs) const
+    operator==(const reader_tmpl_t<T> &rhs) const
     {
         return BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
     virtual bool
-    operator!=(const reader_t &rhs) const
+    operator!=(const reader_tmpl_t<T> &rhs) const
     {
         return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
     }
 
-    virtual reader_t &
+    virtual reader_tmpl_t<T> &
     operator++();
 
     // Supplied for subclasses that may fail in their constructors.
@@ -158,5 +159,8 @@ private:
     encoding_info_t last_encoding_;
     std::unordered_map<addr_t, encoding_info_t> encodings_;
 };
+
+typedef reader_tmpl_t<memref_t> reader_t;
+typedef reader_tmpl_t<trace_entry_t> record_reader_t;
 
 #endif /* _READER_H_ */

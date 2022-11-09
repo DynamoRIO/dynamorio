@@ -93,6 +93,6 @@ private:
     bool seen_magic_;
 };
 
-typedef file_reader_t<snappy_reader_t> snappy_file_reader_t;
+typedef file_reader_tmpl_t<snappy_reader_t, memref_t> snappy_file_reader_t;
 
 #endif /* _SNAPPY_FILE_READER_H_ */

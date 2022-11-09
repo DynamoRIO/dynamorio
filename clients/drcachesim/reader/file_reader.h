@@ -68,29 +68,30 @@
  * interface and add gzip_istream_t (paralleling gzip_ostream_t used for
  * raw2trace).
  */
-template <typename T> class file_reader_t : public reader_t {
+template <typename T, typename U> class file_reader_tmpl_t : public reader_tmpl_t<U> {
 public:
-    file_reader_t()
+    file_reader_tmpl_t()
     {
-        online_ = false;
+        this->online_ = false;
     }
-    file_reader_t(const std::string &path, int verbosity = 0)
-        : reader_t(verbosity, "[file_reader]")
+    file_reader_tmpl_t(const std::string &path, int verbosity = 0)
+        : reader_tmpl_t<U>(verbosity, "[file_reader]")
         , input_path_(path)
     {
-        online_ = false;
+        this->online_ = false;
     }
-    explicit file_reader_t(const std::vector<std::string> &path_list, int verbosity = 0)
-        : reader_t(verbosity, "[file_reader]")
+    explicit file_reader_tmpl_t(const std::vector<std::string> &path_list,
+                                int verbosity = 0)
+        : reader_tmpl_t<U>(verbosity, "[file_reader]")
         , input_path_list_(path_list)
     {
-        online_ = false;
+        this->online_ = false;
     }
-    virtual ~file_reader_t();
+    virtual ~file_reader_tmpl_t();
     bool
     init() override
     {
-        at_eof_ = false;
+        this->at_eof_ = false;
         if (!open_input_files())
             return false;
         ++*this;
@@ -272,7 +273,7 @@ protected:
                     --thread_count_;
                     if (thread_count_ == 0) {
                         VPRINT(this, 2, "All threads at eof\n");
-                        at_eof_ = true;
+                        this->at_eof_ = true;
                         break;
                     }
                     times_[index_] = 0;
@@ -312,5 +313,9 @@ private:
     std::vector<uint64_t> times_;
     bool *thread_eof_ = nullptr;
 };
+
+template <typename T> using file_reader_t = file_reader_tmpl_t<T, memref_t>;
+
+template <typename T> using record_file_reader_t = file_reader_tmpl_t<T, trace_entry_t>;
 
 #endif /* _FILE_READER_H_ */

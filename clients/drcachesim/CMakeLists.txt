@@ -198,7 +198,6 @@ set(drcachesim_srcs
   reader/reader.cpp
   reader/config_reader.cpp
   reader/file_reader.cpp
-  reader/record_file_reader.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -240,7 +239,6 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/reader.cpp
   reader/config_reader.cpp
   reader/file_reader.cpp
-  reader/record_file_reader.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -256,7 +254,6 @@ install_client_nonDR_header(drmemtrace common/utils.h)
 install_client_nonDR_header(drmemtrace common/trace_entry.h)
 install_client_nonDR_header(drmemtrace common/memref.h)
 install_client_nonDR_header(drmemtrace reader/reader.h)
-install_client_nonDR_header(drmemtrace reader/record_file_reader.h)
 install_client_nonDR_header(drmemtrace analysis_tool.h)
 install_client_nonDR_header(drmemtrace analyzer.h)
 install_client_nonDR_header(drmemtrace tools/reuse_distance_create.h)

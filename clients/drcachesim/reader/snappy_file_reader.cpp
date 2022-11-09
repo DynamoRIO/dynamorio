@@ -205,14 +205,14 @@ snappy_reader_t::read(size_t size, OUT void *to)
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-file_reader_t<snappy_reader_t>::~file_reader_t<snappy_reader_t>()
+snappy_file_reader_t::~snappy_file_reader_t()
 {
     // Empty.
 }
 
 template <>
 bool
-file_reader_t<snappy_reader_t>::open_single_file(const std::string &path)
+snappy_file_reader_t::open_single_file(const std::string &path)
 {
     std::ifstream *file = new std::ifstream(path, std::ifstream::binary);
     if (!*file)
@@ -224,9 +224,8 @@ file_reader_t<snappy_reader_t>::open_single_file(const std::string &path)
 
 template <>
 bool
-file_reader_t<snappy_reader_t>::read_next_thread_entry(size_t thread_index,
-                                                       OUT trace_entry_t *entry,
-                                                       OUT bool *eof)
+snappy_file_reader_t::read_next_thread_entry(size_t thread_index,
+                                             OUT trace_entry_t *entry, OUT bool *eof)
 {
     int len = input_files_[thread_index].read(sizeof(*entry), entry);
     // Returns less than asked-for for end of file, or –1 for error.
@@ -241,8 +240,10 @@ file_reader_t<snappy_reader_t>::read_next_thread_entry(size_t thread_index,
 
 template <>
 bool
-file_reader_t<snappy_reader_t>::is_complete()
+snappy_file_reader_t::is_complete()
 {
     // Not supported, similar to gzip reader.
     return false;
 }
+
+template class file_reader_tmpl_t<snappy_reader_t, memref_t>;

@@ -53,13 +53,12 @@
 typedef compressed_file_reader_t default_file_reader_t;
 typedef compressed_record_file_reader_t default_record_file_reader_t;
 #else
-typedef file_reader_t<std::ifstream *> default_file_reader_t;
-typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
-    default_record_file_reader_t;
+typedef file_reader_tmpl_t<std::ifstream *, memref_t> default_file_reader_t;
+typedef file_reader_tmpl_t<std::ifstream *, trace_entry_t> default_record_file_reader_t;
 #endif
 
-template <typename T, typename U>
-analyzer_tmpl_t<T, U>::analyzer_tmpl_t()
+template <typename T>
+analyzer_tmpl_t<T>::analyzer_tmpl_t()
     : success_(true)
     , num_tools_(0)
     , tools_(NULL)
@@ -124,7 +123,7 @@ analyzer_t::get_reader(const std::string &path, int verbosity)
 }
 
 template <>
-std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
+std::unique_ptr<record_reader_t>
 record_analyzer_t::get_default_reader()
 {
     return std::unique_ptr<default_record_file_reader_t>(
@@ -132,18 +131,18 @@ record_analyzer_t::get_default_reader()
 }
 
 template <>
-std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
+std::unique_ptr<record_reader_t>
 record_analyzer_t::get_reader(const std::string &path, int verbosity)
 {
     // TODO i#5675: Add support for other file formats, particularly
     // .zip files.
-    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+    return std::unique_ptr<record_reader_t>(
         new default_record_file_reader_t(path, verbosity));
 }
 
-template <typename T, typename U>
+template <typename T>
 bool
-analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbosity)
+analyzer_tmpl_t<T>::init_file_reader(const std::string &trace_path, int verbosity)
 {
     verbosity_ = verbosity;
     if (trace_path.empty()) {
@@ -171,7 +170,7 @@ analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbo
                 fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                 continue;
             const std::string path = trace_path + DIRSEP + fname;
-            std::unique_ptr<U> reader = get_reader(path, verbosity);
+            std::unique_ptr<reader_tmpl_t<T>> reader = get_reader(path, verbosity);
             if (!reader) {
                 return false;
             }
@@ -206,10 +205,10 @@ analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbo
     return true;
 }
 
-template <typename T, typename U>
-analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path,
-                                       analysis_tool_tmpl_t<T> **tools, int num_tools,
-                                       int worker_count)
+template <typename T>
+analyzer_tmpl_t<T>::analyzer_tmpl_t(const std::string &trace_path,
+                                    analysis_tool_tmpl_t<T> **tools, int num_tools,
+                                    int worker_count)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
@@ -235,8 +234,8 @@ analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path,
         success_ = false;
 }
 
-template <typename T, typename U>
-analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path)
+template <typename T>
+analyzer_tmpl_t<T>::analyzer_tmpl_t(const std::string &trace_path)
     : success_(true)
     , num_tools_(0)
     , tools_(NULL)
@@ -250,34 +249,34 @@ analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path)
 
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
-template <typename T, typename U>
+template <typename T>
 // clang-format on
-analyzer_tmpl_t<T, U>::~analyzer_tmpl_t()
+analyzer_tmpl_t<T>::~analyzer_tmpl_t()
 {
     // Empty.
 }
 
-template <typename T, typename U>
+template <typename T>
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 bool
-analyzer_tmpl_t<T,U>::operator!()
+analyzer_tmpl_t<T>::operator!()
 // clang-format on
 {
     return !success_;
 }
 
-template <typename T, typename U>
+template <typename T>
 std::string
-analyzer_tmpl_t<T, U>::get_error_string()
+analyzer_tmpl_t<T>::get_error_string()
 {
     return error_string_;
 }
 
 // Used only for serial iteration.
-template <typename T, typename U>
+template <typename T>
 bool
-analyzer_tmpl_t<T, U>::start_reading()
+analyzer_tmpl_t<T>::start_reading()
 {
     if (!serial_trace_iter_->init()) {
         ERRMSG("Failed to read from trace\n");
@@ -286,9 +285,9 @@ analyzer_tmpl_t<T, U>::start_reading()
     return true;
 }
 
-template <typename T, typename U>
+template <typename T>
 void
-analyzer_tmpl_t<T, U>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
+analyzer_tmpl_t<T>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
 {
     if (tasks->empty()) {
         VPRINT(this, 1, "Worker has no tasks\n");
@@ -347,9 +346,9 @@ analyzer_tmpl_t<T, U>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks
     }
 }
 
-template <typename T, typename U>
+template <typename T>
 bool
-analyzer_tmpl_t<T, U>::run()
+analyzer_tmpl_t<T>::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (!parallel_) {
@@ -390,9 +389,9 @@ analyzer_tmpl_t<T, U>::run()
     return true;
 }
 
-template <typename T, typename U>
+template <typename T>
 bool
-analyzer_tmpl_t<T, U>::print_stats()
+analyzer_tmpl_t<T>::print_stats()
 {
     for (int i = 0; i < num_tools_; ++i) {
         // Each tool should reset i/o state, but we reset the format here just in case.
@@ -412,21 +411,21 @@ analyzer_tmpl_t<T, U>::print_stats()
 
 // XXX i#3287: Figure out how to support parallel operation with this external
 // iterator interface.
-template <typename T, typename U>
-U &
-analyzer_tmpl_t<T, U>::begin()
+template <typename T>
+reader_tmpl_t<T> &
+analyzer_tmpl_t<T>::begin()
 {
     if (!start_reading())
         return *trace_end_;
     return *serial_trace_iter_;
 }
 
-template <typename T, typename U>
-U &
-analyzer_tmpl_t<T, U>::end()
+template <typename T>
+reader_tmpl_t<T> &
+analyzer_tmpl_t<T>::end()
 {
     return *trace_end_;
 }
 
-template class analyzer_tmpl_t<memref_t, reader_t>;
-template class analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>;
+template class analyzer_tmpl_t<memref_t>;
+template class analyzer_tmpl_t<trace_entry_t>;

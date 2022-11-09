@@ -57,7 +57,7 @@
  * trace and calls the process_memref() routine of each tool, or it exposes
  * an iteration interface to external control code.
  */
-template <typename T, typename U> class analyzer_tmpl_t {
+template <typename T> class analyzer_tmpl_t {
 public:
     /**
      * Usage: errors encountered during a constructor will set a flag that should
@@ -105,16 +105,16 @@ public:
      * model supports only a single user of the iterator: the multi-tool model above
      * should be used if multiple tools are involved.
      */
-    virtual U &
+    virtual reader_tmpl_t<T> &
     begin();
-    virtual U &
+    virtual reader_tmpl_t<T> &
     end(); /** End iterator for the external-iterator usage model. */
 
 protected:
     // Data for one trace shard.  Our concurrency model has each shard
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_shard_data_t {
-        analyzer_shard_data_t(int index, std::unique_ptr<U> iter,
+        analyzer_shard_data_t(int index, std::unique_ptr<reader_tmpl_t<T>> iter,
                               const std::string &trace_dir,
                               const std::string &trace_base_name)
             : index(index)
@@ -136,7 +136,7 @@ protected:
 
         int index;
         int worker;
-        std::unique_ptr<U> iter;
+        std::unique_ptr<reader_tmpl_t<T>> iter;
         std::string trace_dir;
         std::string trace_base_name;
         std::string error;
@@ -150,10 +150,10 @@ protected:
     bool
     init_file_reader(const std::string &trace_path, int verbosity = 0);
 
-    std::unique_ptr<U>
+    std::unique_ptr<reader_tmpl_t<T>>
     get_reader(const std::string &path, int verbosity);
 
-    std::unique_ptr<U>
+    std::unique_ptr<reader_tmpl_t<T>>
     get_default_reader();
 
     // This finalizes the trace_iter setup.  It can block and is meant to be
@@ -167,8 +167,8 @@ protected:
     bool success_;
     std::string error_string_;
     std::vector<analyzer_shard_data_t> thread_data_;
-    std::unique_ptr<U> serial_trace_iter_;
-    std::unique_ptr<U> trace_end_;
+    std::unique_ptr<reader_tmpl_t<T>> serial_trace_iter_;
+    std::unique_ptr<reader_tmpl_t<T>> trace_end_;
     int num_tools_;
     analysis_tool_tmpl_t<T> **tools_;
     bool parallel_;
@@ -178,7 +178,6 @@ protected:
     const char *output_prefix_ = "[analyzer]";
 };
 
-typedef analyzer_tmpl_t<memref_t, reader_t> analyzer_t;
-typedef analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
-    record_analyzer_t;
+typedef analyzer_tmpl_t<memref_t> analyzer_t;
+typedef analyzer_tmpl_t<trace_entry_t> record_analyzer_t;
 #endif /* _ANALYZER_H_ */
