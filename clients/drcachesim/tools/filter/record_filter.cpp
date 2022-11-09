@@ -113,7 +113,7 @@ bool
 record_filter_t::parallel_shard_exit(void *shard_data)
 {
     bool res = true;
-    for (uint i = 0; i < filters_.size(); ++i) {
+    for (int i = 0; i < (int)filters_.size(); ++i) {
         if (!filters_[i]->parallel_shard_exit(filter_shard_data_[i]))
             res = false;
     }
@@ -133,7 +133,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     bool output = true;
-    for (uint i = 0; i < filters_.size(); ++i) {
+    for (int i = 0; i < (int)filters_.size(); ++i) {
         if (!filters_[i]->parallel_shard_filter(entry, filter_shard_data_[i]))
             output = false;
     }
