@@ -39,7 +39,6 @@
 
 #include <assert.h>
 #include <iterator>
-#include "directory_iterator.h"
 #include "memtrace_stream.h"
 #include "trace_entry.h"
 
@@ -215,8 +214,6 @@ private:
     open_input_file() override
     {
         if (!input_path_.empty()) {
-            if (directory_iterator_t::is_directory(input_path_))
-                return false;
             if (!open_single_file(input_path_)) {
                 ERRMSG("Failed to open %s\n", input_path_.c_str());
                 return false;
