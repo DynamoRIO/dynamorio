@@ -375,7 +375,7 @@ private:
      * information.
      */
     bool
-    load_kernel_image(IN std::string &path);
+    load_kcore(IN std::string &path);
 
     /* Allocate a sideband decoder in the sideband session. The sideband session may
      * allocate many decoders, which mainly work on handling sideband perf records and

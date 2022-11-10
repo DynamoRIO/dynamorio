@@ -85,6 +85,8 @@ public:
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
     std::vector<archive_ostream_t *> out_archives_;
+    std::ostream *serial_schedule_file_ = nullptr;
+    archive_ostream_t *cpu_schedule_file_ = nullptr;
 
 private:
     std::string
@@ -93,6 +95,10 @@ private:
     open_thread_files();
     std::string
     open_thread_log_file(const char *basename);
+    std::string
+    open_serial_schedule_file();
+    std::string
+    open_cpu_schedule_file();
     file_t modfile_;
     std::string indir_;
     std::string outdir_;

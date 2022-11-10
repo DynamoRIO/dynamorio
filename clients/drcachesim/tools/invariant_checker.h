@@ -42,11 +42,14 @@
 #include <mutex>
 #include <stack>
 #include <unordered_map>
+#include <vector>
 
 class invariant_checker_t : public analysis_tool_t {
 public:
     invariant_checker_t(bool offline = true, unsigned int verbose = 0,
-                        std::string test_name = "");
+                        std::string test_name = "",
+                        std::istream *serial_schedule_file = nullptr,
+                        std::istream *cpu_schedule_file = nullptr);
     virtual ~invariant_checker_t();
     bool
     process_memref(const memref_t &memref) override;
@@ -93,10 +96,10 @@ protected:
         bool found_instr_count_marker_ = false;
         bool found_page_size_marker_ = false;
         uint64_t last_instr_count_marker_ = 0;
-        std::string error;
+        std::string error_;
         // Track the location of errors.
-        memref_tid_t tid = -1;
-        uint64_t ref_count = 0;
+        memref_tid_t tid_ = -1;
+        uint64_t ref_count_ = 0;
         // We do not expect these to vary by thread but it is simpler to keep
         // separate values per thread as we discover their values during parallel
         // operation.
@@ -106,6 +109,9 @@ protected:
         bool window_transition_ = false;
         uint64_t chunk_instr_count_ = 0;
         uint64_t instr_count_ = 0;
+        uint64_t last_timestamp_ = 0;
+        std::vector<schedule_entry_t> sched_;
+        std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -113,6 +119,8 @@ protected:
     virtual void
     report_if_false(per_shard_t *shard, bool condition,
                     const std::string &invariant_name);
+    virtual void
+    check_schedule_data();
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
@@ -124,6 +132,9 @@ protected:
     unsigned int knob_verbose_;
     std::string knob_test_name_;
     bool has_annotations_ = false;
+
+    std::istream *serial_schedule_file_ = nullptr;
+    std::istream *cpu_schedule_file_ = nullptr;
 };
 
 #endif /* _INVARIANT_CHECKER_H_ */

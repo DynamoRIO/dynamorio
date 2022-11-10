@@ -39,8 +39,9 @@
 #include "drutil.h"
 #include "instru.h"
 #include "../common/trace_entry.h"
-#include <limits.h> /* for USHRT_MAX */
-#include <stddef.h> /* for offsetof */
+#include <limits.h>  /* for USHRT_MAX */
+#include <stddef.h>  /* for offsetof */
+#include <algorithm> /* for std::min */
 
 #define MAX_IMM_DISP_STUR 255
 

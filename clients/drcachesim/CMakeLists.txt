@@ -250,6 +250,7 @@ link_with_pthread(drmemtrace_analyzer)
 install_client_nonDR_header(drmemtrace common/utils.h)
 install_client_nonDR_header(drmemtrace common/trace_entry.h)
 install_client_nonDR_header(drmemtrace common/memref.h)
+install_client_nonDR_header(drmemtrace common/memtrace_stream.h)
 install_client_nonDR_header(drmemtrace reader/reader.h)
 install_client_nonDR_header(drmemtrace analysis_tool.h)
 install_client_nonDR_header(drmemtrace analyzer.h)
@@ -337,6 +338,7 @@ macro(add_drmemtrace name type)
   if (BUILD_PT_TRACER)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/syscall_pt_trace.cpp
+      tracer/kcore_copy.cpp
     )
     add_definitions(-DBUILD_PT_TRACER)
   endif ()

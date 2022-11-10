@@ -40,6 +40,7 @@
 
 #include "../common/utils.h"
 #include "dr_api.h"
+#include "drmemtrace.h"
 #include "drpttracer.h"
 
 /* The auto cleanup wrapper of pttracer handle.
@@ -108,9 +109,9 @@ public:
      */
     bool
     init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_size,
-         file_t (*open_file_func)(const char *fname, uint mode_flags),
-         ssize_t (*write_file_func)(file_t file, const void *data, size_t count),
-         void (*close_file_func)(file_t file));
+         drmemtrace_open_file_func_t open_file_func,
+         drmemtrace_write_file_func_t write_file_func,
+         drmemtrace_close_file_func_t close_file_func);
 
     /* Start the PT tracing for current syscall and store the sysnum of the syscall. */
     bool
@@ -137,9 +138,6 @@ public:
         return recorded_syscall_count_;
     }
 
-    static bool
-    kernel_image_dump(IN const char *to_dir);
-
     /* Check whether the syscall's PT need to be recorded.
      * It can be used to filter out the syscalls that are not interesting or not
      * supported.
@@ -153,13 +151,13 @@ private:
     trace_data_dump(drpttracer_output_autoclean_t &output);
 
     /* The shared file open function. */
-    file_t (*open_file_func_)(const char *fname, uint mode_flags);
+    drmemtrace_open_file_func_t open_file_func_;
 
     /* The shared file write function. */
-    ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
+    drmemtrace_write_file_func_t write_file_func_;
 
     /* The shared file close function. */
-    void (*close_file_func_)(file_t file);
+    drmemtrace_close_file_func_t close_file_func_;
 
     /* The pttracer handle held by this instance. */
     drpttracer_handle_autoclean_t pttracer_handle_;

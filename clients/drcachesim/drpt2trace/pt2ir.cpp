@@ -34,7 +34,6 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string.h>
-#include <inttypes.h>
 #include <errno.h>
 #include <fstream>
 
@@ -157,7 +156,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
 
     /* Load kcore to sideband kernel image cache. */
     if (!pt2ir_config.kcore_path.empty()) {
-        if (!load_kernel_image(pt2ir_config.kcore_path)) {
+        if (!load_kcore(pt2ir_config.kcore_path)) {
             ERRMSG("Failed to load kernel image: %s\n", pt2ir_config.kcore_path.c_str());
             return false;
         }
@@ -378,7 +377,7 @@ pt2ir_t::load_pt_raw_file(IN std::string &path)
 }
 
 bool
-pt2ir_t::load_kernel_image(IN std::string &path)
+pt2ir_t::load_kcore(IN std::string &path)
 {
     /* Load all ELF sections in kcore to the shared image cache.
      * XXX: load_elf() is implemented in libipt's client ptxed. Currently we directly use
@@ -418,9 +417,10 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
         ERRMSG("Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));
-        ERRMSG("[?, %" PRIx64 "] %s: %s\n", ip, errtype, pt_errstr(pt_errcode(errcode)));
-    } else {
-        ERRMSG("[%" PRIx64 ", IP:%" PRIx64 "] %s: %s\n", pos, ip, errtype,
+        ERRMSG("[?, " HEX64_FORMAT_STRING "] %s: %s\n", ip, errtype,
                pt_errstr(pt_errcode(errcode)));
+    } else {
+        ERRMSG("[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING "] %s: %s\n", pos, ip,
+               errtype, pt_errstr(pt_errcode(errcode)));
     }
 }

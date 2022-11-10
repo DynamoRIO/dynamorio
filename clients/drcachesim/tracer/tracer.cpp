@@ -69,6 +69,7 @@
 #ifdef BUILD_PT_TRACER
 #    include "drpttracer.h"
 #    include "syscall_pt_trace.h"
+#    include "kcore_copy.h"
 #endif
 
 /* Make sure we export function name as the symbol name without mangling. */
@@ -1609,9 +1610,12 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        /* Dump kcore and kallsyms to {kernel_pt_logsubdir}. */
-        if (!syscall_pt_trace_t::kernel_image_dump(kernel_pt_logsubdir)) {
-            NOTIFY(0, "WARNING: failed to run shellscript to dump kernel image\n");
+        /* Copy kcore and kallsyms to {kernel_pt_logsubdir}. */
+        kcore_copy_t kcore_copy(file_ops_func.open_file, file_ops_func.write_file,
+                                file_ops_func.close_file);
+        if (!kcore_copy.copy(kernel_pt_logsubdir)) {
+            NOTIFY(0, "WARNING: failed to copy kcore and kallsyms to %s\n",
+                   kernel_pt_logsubdir);
         }
     }
 #endif

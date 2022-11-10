@@ -38,6 +38,7 @@
 #include "../../../core/unix/include/syscall_linux_x86.h"
 #include "dr_api.h"
 #include "drpttracer.h"
+#include "kcore_copy.h"
 #include "syscall_pt_trace.h"
 
 #ifndef BUILD_PT_TRACER
@@ -65,10 +66,9 @@ syscall_pt_trace_t::~syscall_pt_trace_t()
 
 bool
 syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_size,
-                         file_t (*open_file_func)(const char *fname, uint mode_flags),
-                         ssize_t (*write_file_func)(file_t file, const void *data,
-                                                    size_t count),
-                         void (*close_file_func)(file_t file))
+                         drmemtrace_open_file_func_t open_file_func,
+                         drmemtrace_write_file_func_t write_file_func,
+                         drmemtrace_close_file_func_t close_file_func)
 {
     drcontext_ = drcontext;
     memcpy(pt_dir_name_, pt_dir_name, pt_dir_name_size);
@@ -158,37 +158,6 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
         open_file_func_(pt_metadata_filename, DR_FILE_WRITE_OVERWRITE);
     write_file_func_(pt_metadata_file, &data->metadata, sizeof(pt_metadata_t));
     close_file_func_(pt_metadata_file);
-    return true;
-}
-
-bool
-syscall_pt_trace_t::kernel_image_dump(IN const char *to_dir)
-{
-    /* TODO i#5505: Using the perf command to get kcore and kallsyms is not a good
-     * solution. There are three issues:
-     * 1. The perf may not be installed on the system.
-     * 2. The $PATH of system may not contain the perf command.
-     * 3. The following script will clobber/remove the user's local data.
-     * These issues may cause unexpected behaviors.
-     *
-     * We need to implement the kcore_copy() in syscall_pt_trace_t.
-     */
-#define SHELLSCRIPT_FMT                                                          \
-    "perf record --kcore -e intel_pt/cyc,noretcomp/k echo '' >/dev/null 2>&1 \n" \
-    "chmod 755 -R perf.data \n"                                                  \
-    "cp perf.data/kcore_dir/kcore %s/ \n"                                        \
-    "cp perf.data/kcore_dir/kallsyms %s/ \n"                                     \
-    "rm -rf perf.data \n"
-#define SHELLSCRIPT_MAX_LEN 512 + MAXIMUM_PATH * 2
-    char shellscript[SHELLSCRIPT_MAX_LEN];
-    dr_snprintf(shellscript, BUFFER_SIZE_ELEMENTS(shellscript), SHELLSCRIPT_FMT, to_dir,
-                to_dir);
-    NULL_TERMINATE_BUFFER(shellscript);
-    int ret = system(shellscript);
-    if (ret != 0) {
-        ASSERT(false, "failed to run shellscript to dump kcore and kallsyms");
-        return false;
-    }
     return true;
 }
 

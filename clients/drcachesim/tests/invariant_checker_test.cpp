@@ -62,8 +62,8 @@ protected:
     {
         if (!condition) {
             errors.push_back(invariant_name);
-            error_tids.push_back(shard->tid);
-            error_refs.push_back(shard->ref_count);
+            error_tids.push_back(shard->tid_);
+            error_refs.push_back(shard->ref_count_);
         }
     }
 };
