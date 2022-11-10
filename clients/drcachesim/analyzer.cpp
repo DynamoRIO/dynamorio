@@ -125,6 +125,13 @@ analyzer_t::get_reader(const std::string &path, int verbosity)
 }
 
 template <>
+bool
+analyzer_t::serial_mode_supported()
+{
+    return true;
+}
+
+template <>
 std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
 record_analyzer_t::get_default_reader()
 {
@@ -140,6 +147,15 @@ record_analyzer_t::get_reader(const std::string &path, int verbosity)
     // .zip files.
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
         new default_record_file_reader_t(path, verbosity));
+}
+
+template <>
+bool
+record_analyzer_t::serial_mode_supported()
+{
+    // TODO i#5727: Add support in record_file_reader_t to interleave
+    // multiple traces and create a single trace stream.
+    return false;
 }
 
 template <typename T, typename U>
@@ -283,6 +299,10 @@ template <typename T, typename U>
 bool
 analyzer_tmpl_t<T, U>::start_reading()
 {
+    if (!serial_mode_supported()) {
+        ERRMSG("Serial mode not supported by this analyzer\n");
+        return false;
+    }
     if (!serial_trace_iter_->init()) {
         ERRMSG("Failed to read from trace\n");
         return false;

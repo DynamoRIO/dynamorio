@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -176,6 +176,10 @@ protected:
     std::vector<std::vector<analyzer_shard_data_t *>> worker_tasks_;
     int verbosity_ = 0;
     const char *output_prefix_ = "[analyzer]";
+
+private:
+    bool
+    serial_mode_supported();
 };
 
 typedef analyzer_tmpl_t<memref_t, reader_t> analyzer_t;
