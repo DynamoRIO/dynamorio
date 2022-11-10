@@ -67,14 +67,14 @@ namespace drmemtrace {
 /**
  * Trace reader that provides the stream of trace_entry_t exactly as present
  * in an offline trace stored on disk. The public API is similar to reader_t,
- * except that it is an iterator over trace_entry_t entries instead of memref_t.
+ * except that it is an iterator over trace_entry_t entries instead of #memref_t.
  * This does not yet support iteration over a serialized stream of multiple traces.
  *
  * TODO i#5727: Convert reader_t and file_reader_t into templates:
- * reader_tmpl_t<U> and file_reader_tmpl_t<T, U> where T is one of {gzip_reader_t,
- * zipfile_reader_t, snappy_reader_t, std::ifstream*}, and U is one of {memref_t,
- * trace_entry_t}. Then, typedef the trace_entry_t specializations as record_reader_t and
- * record_file_reader_t<T> respectively. This will allow significant code reuse,
+ * `reader_tmpl_t<U>` and file_reader_tmpl_t<T, U> where T is one of gzip_reader_t,
+ * zipfile_reader_t, snappy_reader_t, std::ifstream*, and U is one of #memref_t,
+ * trace_entry_t. Then, typedef the trace_entry_t specializations as record_reader_t
+ * and record_file_reader_t<T> respectively. This will allow significant code reuse,
  * particularly for serializing multiple thread traces into a single stream.
  *
  * Since the current file_reader_t is already a template on T, adding the second template
@@ -85,12 +85,12 @@ namespace drmemtrace {
  *
  * We have two options:
  * 1. For each member function specialized for some T, duplicate the definition for
- *    file_reader_tmpl<T, memref_t> and file_reader_tmpl<T, trace_entry_t>. This has
+ *    file_reader_tmpl<T, #memref_t> and file_reader_tmpl<T, trace_entry_t>. This has
  *    the obvious disadvantage of code duplication, which can be mitigated to some
  *    extent by extracting common logic in static routines.
  * 2. For each specialization of T, create a subclass on template U that inherits
  *    from file_reader_tmpl<_, U>. E.g. for T = gzip_reader_t, create
- *    class gzip_file_reader_t<U>: public file_reader_tmpl<gzip_reader_t, U>
+ *    class `gzip_file_reader_t<U>`: public file_reader_tmpl<gzip_reader_t, U>
  *    This has the disadvantage of breaking backward-compatibility of the existing
  *    reader interface. Users that define their own readers outside DR will need to
  *    adapt to this change. The advantage of this approach is that it is somewhat
