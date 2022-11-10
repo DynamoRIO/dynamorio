@@ -92,7 +92,7 @@ To build 64-bit DynamoRIO in release mode, launch the `Visual Studio 2019 > x64 
   $ bin32\drrun.exe notepad.exe
   ```
 
-If you need a 32-bit build, choose `x32 Native Tools Command Prompt` and pass `-G"Visual Studio 16" -A x86` to cmake.
+If you need a 32-bit build, choose `x86 Native Tools Command Prompt` and pass `-G"Visual Studio 16 2019" -A Win32` to cmake.
 
 An alternative to the command prompt is to execute the appropriate vcvars.bat command for your compiler in your shell of choice.
 
@@ -112,7 +112,7 @@ $ make -j
 
 or on Windows:
 ```
-$ cmake -G"Visual Studio 16" .. -DDEBUG=ON
+$ cmake -G"Visual Studio 16 2019" .. -DDEBUG=ON
 $ cmake --build . --config Debug
 ```
 
@@ -121,7 +121,7 @@ produce a debug build currently.
 
 For 64-bit build on Windows:
 ```
-$ cmake -G"Visual Studio 16 Win64" .. -DDEBUG=ON
+$ cmake -G"Visual Studio 16 x64" .. -DDEBUG=ON
 $ cmake --build . --config Debug
 ```
 
