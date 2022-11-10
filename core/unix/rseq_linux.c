@@ -73,10 +73,6 @@ struct rseq {
 } __attribute__((aligned(4 * sizeof(uint64))));
 #define RSEQ_FLAG_UNREGISTER 1
 
-#ifdef X86
-#    define GLIBC_RSEQ_OFFSET 2464
-#endif
-
 vm_area_vector_t *d_r_rseq_areas;
 DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
                       INIT_LOCK_FREE(rseq_trigger_lock));
@@ -682,11 +678,12 @@ rseq_locate_tls_offset(void)
         /* For x86, static TLS is at a negative offset from the app library segment
          * base, while for aarchxx it is positive.
          */
-        for (i = 0; IF_X86_ELSE(addr - i * alignment >= seg_bottom,
-                                addr + i * alignment < seg_bottom + seg_size);
-             i++) {
-            byte *try_addr = IF_X86_ELSE(addr - i * alignment, addr + i * alignment);
-            ASSERT(try_addr >= seg_bottom); /* For loop guarantees this. */
+        ASSERT(seg_bottom <= addr && addr < seg_bottom + seg_size);
+        for (i = (seg_bottom - addr) / alignment;
+             addr + i * alignment < seg_bottom + seg_size; ++i) {
+            byte *try_addr = addr + i * alignment;
+            ASSERT(seg_bottom <= try_addr &&
+                   try_addr < seg_bottom + seg_size); /* For loop guarantees this. */
             /* Our strategy is to check all of the aligned static TLS addresses to
              * find the registered one.  Our caller is not supposed to call here
              * until the app has registered the current thread.
@@ -695,23 +692,11 @@ rseq_locate_tls_offset(void)
                 LOG(GLOBAL, LOG_LOADER, 2,
                     "Found struct rseq @ " PFX " for thread => %s:%s0x%x\n", try_addr,
                     get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""), i * alignment);
-                offset = IF_X86_ELSE(-i * alignment, i * alignment);
+                offset = i * alignment;
                 break;
             }
         }
     }
-#ifdef X86
-    if (offset == 0) {
-        if (try_struct_rseq(addr + GLIBC_RSEQ_OFFSET)) {
-            offset = GLIBC_RSEQ_OFFSET;
-        }
-        /* TODO i#5431: Sweep aligned positive offsets for the struct rseq instead of
-         * hard-coding the expected offset, since it may change in future.
-         */
-    }
-#else
-    /* TODO i#5431: Add support glibc 2.35+ on non-x86. */
-#endif
     return offset;
 }
 
@@ -721,19 +706,15 @@ rseq_process_syscall(dcontext_t *dcontext)
     byte *seg_base = get_app_segment_base(LIB_SEG_TLS);
     byte *app_addr = (byte *)dcontext->sys_param0;
     bool constant_offset = false;
-#ifdef X86
-    bool first_rseq_reg = false;
-#endif
+    bool first_rseq_registration = false;
     if (rseq_tls_offset == 0) {
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         int offset = app_addr - seg_base;
         /* To handle races here, we use an atomic_exchange. */
         int prior = atomic_exchange_int(&rseq_tls_offset, offset);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-#ifdef X86
         if (prior == 0)
-            first_rseq_reg = true;
-#endif
+            first_rseq_registration = true;
         constant_offset = (prior == 0 || prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
             "Observed struct rseq @ " PFX " for thread => %s:%s0x%x\n", app_addr,
@@ -748,11 +729,11 @@ rseq_process_syscall(dcontext_t *dcontext)
         ASSERT_NOT_REACHED();
     }
     /* The struct rseq registered by glibc 2.35+ is inside struct pthread, which is
-     * at a positive offset from thread pointer, unlike the static TLS used by manual
-     * application registration.
+     * at a positive offset from thread pointer on x86 and negative offset on AArch64,
+     * both unlike the static TLS used by manual app registration.
      */
-    rseq_locate_rseq_regions(
-        IF_X86_ELSE(first_rseq_reg && rseq_tls_offset == GLIBC_RSEQ_OFFSET, false));
+    rseq_locate_rseq_regions(first_rseq_registration &&
+                             IF_X86_ELSE(rseq_tls_offset > 0, rseq_tls_offset < 0));
 }
 
 /* Restartable sequence region identification.

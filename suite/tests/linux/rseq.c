@@ -117,8 +117,17 @@ register_rseq()
 {
 #ifdef GLIBC_RSEQ
     if (__rseq_size > 0) {
+        /* Our glibc rseq handling in rseq_linux.c does not depend on the exact
+         * offset, but it does depend on it being in struct pthread, therefore
+         * the sign of __rseq_offset. Nevertheless, we check for the exact
+         * offset here so that we know if glibc changes how it handles rseq.
+         */
+#    ifdef X86
+        assert(__rseq_offset == 2464);
+#    else
+        assert(__rseq_offset == -32);
+#    endif
         /* Already registered by glibc. Verify that it's there. */
-        assert(__rseq_offset > 0);
         struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;
         int res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, 0);
         assert(res == -1 && (errno == EPERM || errno == ENOSYS));
