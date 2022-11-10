@@ -152,6 +152,7 @@ INSTR_INLINE
 bool
 opnd_is_predicate_reg(opnd_t op)
 {
+    /* TODO i#5488: support for x86 AVC512 mask registers */
     return IF_AARCH64_ELSE(op.kind == REG_kind &&
                                op.value.reg_and_element_size.reg >= DR_REG_P0 &&
                                op.value.reg_and_element_size.reg <= DR_REG_P15,
