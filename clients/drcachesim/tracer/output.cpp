@@ -1145,8 +1145,9 @@ exit_thread_io(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-#ifdef LINUX
+#ifdef UNIX
     /**
+     * i#2384:
      * On Linux, the thread exit event may be invoked twice for the same thread
      * if that thread is alive during a process fork, but doesn't call the fork
      * itself.  The first time the event callback is executed from the fork child
