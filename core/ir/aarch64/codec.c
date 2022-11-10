@@ -592,7 +592,7 @@ encode_vreg(INOUT opnd_size_t *x, OUT uint *r, opnd_t opnd)
         sz = OPSZ_SCALABLE;
     } else if ((uint)(reg - DR_REG_P0) < 16) {
         n = reg - DR_REG_P0;
-        sz = OPSZ_SCALABLE;
+        sz = OPSZ_SCALABLE_PRED;
     } else
         return false;
     if (*x == OPSZ_NA)
@@ -1817,7 +1817,7 @@ encode_opnd_p_b_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 {
     if (!opnd_is_predicate_reg(opnd))
         return false;
-    return encode_single_sized(OPSZ_SCALABLE, 5, BYTE_REG, opnd, enc_out);
+    return encode_single_sized(OPSZ_SCALABLE_PRED, 5, BYTE_REG, opnd, enc_out);
 }
 
 /* w5: W register or WZR at bit position 5 */
