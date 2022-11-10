@@ -93,11 +93,11 @@ record_filter_t::get_writer(const std::string &path)
 }
 
 void *
-record_filter_t::parallel_shard_init_ex(int shard_index, void *worker_data,
-                                        const std::string &shard_suffix)
+record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                            memtrace_stream_t *shard_stream)
 {
     auto per_shard = new per_shard_t;
-    per_shard->output_path = output_dir_ + DIRSEP + shard_suffix;
+    per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
     per_shard->writer = get_writer(per_shard->output_path);
     if (!per_shard->writer) {
         per_shard->error = "Could not open a writer for " + per_shard->output_path;

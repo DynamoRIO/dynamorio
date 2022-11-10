@@ -65,7 +65,7 @@ ipc_reader_t::operator!()
 }
 
 std::string
-ipc_reader_t::get_pipe_name() const
+ipc_reader_t::get_stream_name()
 {
     return pipe_.get_name();
 }

@@ -96,8 +96,8 @@ public:
     bool
     parallel_shard_supported() override;
     void *
-    parallel_shard_init_ex(int shard_index, void *worker_data,
-                           const std::string &shard_suffix) override;
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *shard_stream) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool

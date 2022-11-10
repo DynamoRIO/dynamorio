@@ -39,6 +39,7 @@
 
 #include <assert.h>
 #include <iterator>
+#include "memtrace_stream.h"
 #include "trace_entry.h"
 
 #define OUT /* just a marker */
@@ -66,12 +67,14 @@ namespace drmemtrace {
  * reading trace_entry_t (and no ipc reader like ipc_reader_t) we still need
  * this input-file-type-agnostic record_reader_t base class.
  */
-class record_reader_t : public std::iterator<std::input_iterator_tag, trace_entry_t> {
+class record_reader_t : public std::iterator<std::input_iterator_tag, trace_entry_t>,
+                        public memtrace_stream_t {
 public:
-    record_reader_t(const std::string &path)
-        : input_path_(path)
+    record_reader_t(int verbosity, const char *prefix)
+        : verbosity_(verbosity)
+        , output_prefix_(prefix)
+        , eof_(false)
     {
-        eof_ = false;
     }
     record_reader_t()
     {
@@ -100,7 +103,21 @@ public:
         bool res = read_next_entry();
         assert(res || eof_);
         UNUSED(res);
+        ++cur_ref_count_;
+        if (type_is_instr((trace_type_t)cur_entry_.type))
+            ++cur_instr_count_;
         return *this;
+    }
+
+    uint64_t
+    get_record_ordinal() override
+    {
+        return cur_ref_count_;
+    }
+    uint64_t
+    get_instruction_ordinal() override
+    {
+        return cur_instr_count_;
     }
 
     virtual bool
@@ -119,9 +136,44 @@ protected:
     read_next_entry() = 0;
     virtual bool
     open_single_file(const std::string &input_path) = 0;
+    virtual bool
+    open_input_file() = 0;
 
+    trace_entry_t cur_entry_ = {};
+    int verbosity_;
+    const char *output_prefix_;
+    // Following typical stream iterator convention, the default constructor
+    // produces an EOF object.
+    bool eof_ = true;
+
+private:
+    uint64_t cur_ref_count_ = 0;
+    uint64_t cur_instr_count_ = 0;
+};
+
+template <typename T> class record_file_reader_t : public record_reader_t {
+public:
+    record_file_reader_t(const std::string &path, int verbosity = 0,
+                         const char *prefix = "[record_file_reader_t]")
+        : record_reader_t(verbosity, prefix)
+        , input_path_(path)
+    {
+    }
+    record_file_reader_t()
+    {
+    }
+    std::string
+    get_stream_name() override
+    {
+        size_t ind = input_path_.find_last_of(DIRSEP);
+        assert(ind != std::string::npos);
+        return input_path_.substr(ind + 1);
+    }
+    virtual ~record_file_reader_t();
+
+private:
     bool
-    open_input_file()
+    open_input_file() override
     {
         if (!input_path_.empty()) {
             if (!open_single_file(input_path_)) {
@@ -131,31 +183,10 @@ protected:
         }
         return true;
     }
-    // Following typical stream iterator convention, the default constructor
-    // produces an EOF object.
-    bool eof_ = true;
-    trace_entry_t cur_entry_ = {};
-    std::string input_path_;
-};
 
-template <typename T> class record_file_reader_t : public record_reader_t {
-public:
-    record_file_reader_t(const std::string &path, int verbosity = 0,
-                         const char *prefix = "[record_file_reader_t]")
-        : record_reader_t(path)
-        , verbosity_(verbosity)
-        , output_prefix_(prefix)
-    {
-    }
-    record_file_reader_t()
-    {
-    }
-    virtual ~record_file_reader_t();
-    int verbosity_;
-    const char *output_prefix_;
-
-private:
     T *input_file_ = nullptr;
+    std::string input_path_;
+
     bool
     open_single_file(const std::string &path) override;
     bool

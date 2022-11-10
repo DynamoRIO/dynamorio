@@ -73,6 +73,14 @@ public:
      */
     virtual uint64_t
     get_instruction_ordinal() = 0;
+
+    /**
+     * Returns a name for the memtrace stream. For stored offline traces, this
+     * is the base name of the trace on disk. For online traces, this is the name
+     * of the pipe.
+     */
+    virtual std::string
+    get_stream_name() = 0;
 };
 
 #endif /* _MEMTRACE_STREAM_H_ */

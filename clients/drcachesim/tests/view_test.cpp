@@ -159,6 +159,11 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
         {
             return instr_count_;
         }
+        std::string
+        get_stream_name() override
+        {
+            return "";
+        }
 
     private:
         view_t &view_;

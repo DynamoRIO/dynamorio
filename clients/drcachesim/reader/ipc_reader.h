@@ -48,12 +48,13 @@ public:
     ipc_reader_t();
     ipc_reader_t(const char *ipc_name, int verbosity);
     virtual ~ipc_reader_t();
-    bool operator!() override;
+    bool
+    operator!() override;
     // This potentially blocks.
     bool
     init() override;
     std::string
-    get_pipe_name() const;
+    get_stream_name() override;
 
 protected:
     trace_entry_t *

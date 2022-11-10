@@ -100,6 +100,14 @@ public:
     virtual bool
     is_complete();
 
+    std::string
+    get_stream_name() override
+    {
+        size_t ind = input_path_.find_last_of(DIRSEP);
+        assert(ind != std::string::npos);
+        return input_path_.substr(ind + 1);
+    }
+
 protected:
     bool
     read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
