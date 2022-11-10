@@ -192,9 +192,8 @@ analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbo
             if (!reader) {
                 return false;
             }
-            thread_data_.push_back(
-                analyzer_shard_data_t(static_cast<int>(thread_data_.size()),
-                                      std::move(reader), trace_path, fname));
+            thread_data_.push_back(analyzer_shard_data_t(
+                static_cast<int>(thread_data_.size()), std::move(reader), path));
             VPRINT(this, 2, "Opened reader for %s\n", path.c_str());
         }
         // Like raw2trace, we use a simple round-robin static work assigment.  This
@@ -327,8 +326,7 @@ analyzer_tmpl_t<T, U>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks
         VPRINT(this, 1, "Worker %d starting on trace shard %d\n", tdata->worker,
                tdata->index);
         if (!tdata->iter->init()) {
-            tdata->error = "Failed to read from trace" + tdata->trace_dir + DIRSEP +
-                tdata->trace_base_name;
+            tdata->error = "Failed to read from trace" + tdata->trace_file;
             return;
         }
         std::vector<void *> shard_data(num_tools_);

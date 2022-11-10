@@ -58,9 +58,9 @@
  * that support concurrent processing of shards and do not need to see a single
  * thread-interleaved merged trace, the interface functions with the parallel_
  * prefix should be implemented, and parallel_shard_supported() should return true.
- * parallel_shard_init_ex() will be invoked for each shard prior to invoking
+ * parallel_shard_init_stream() will be invoked for each shard prior to invoking
  * parallel_shard_memref() for any entry in that shard; the data structure returned
- * from parallel_shard_init_ex() will be passed to parallel_shard_memref() for each
+ * from parallel_shard_init_stream() will be passed to parallel_shard_memref() for each
  * trace entry for that shard.  The concurrency model used guarantees that all
  * entries from any one shard are processed by the same single worker thread, so no
  * synchronization is needed inside the parallel_ functions.  A single worker thread
@@ -165,7 +165,7 @@ public:
      * cache of data global to the trace that crosses shards.  This data does not
      * need any synchronization as it will only be accessed by this worker thread.
      * The \p worker_index is a unique identifier for this worker.  The return value
-     * here will be passed to the invocation of parallel_shard_init_ex() for each
+     * here will be passed to the invocation of parallel_shard_init_stream() for each
      * shard upon which this worker operates.
      */
     virtual void *
@@ -212,7 +212,7 @@ public:
     }
     /**
      * Invoked once when all trace entries for a shard have been processed.  \p
-     * shard_data is the value returned by parallel_shard_init_ex() for this shard.
+     * shard_data is the value returned by parallel_shard_init_stream() for this shard.
      * This allows a tool to clean up its thread data, or to report thread analysis
      * results.  Most tools, however, prefer to aggregate data or at least sort data,
      * and perform nothing here, doing all cleanup in print_results() by storing the
@@ -228,7 +228,7 @@ public:
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry
      * and takes whatever actions the tool needs to perform its analysis. The \p
-     * shard_data parameter is the value returned by parallel_shard_init_ex() for this
+     * shard_data parameter is the value returned by parallel_shard_init_stream() for this
      * shard.  Since each shard is operated upon in its entirety by the same worker
      * thread, no synchronization is needed.  The return value indicates whether this
      * function was successful. On failure, parallel_shard_error() returns a

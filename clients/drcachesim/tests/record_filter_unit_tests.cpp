@@ -39,7 +39,7 @@
 #include "tools/filter/null_filter.h"
 #include "tools/filter/record_filter.h"
 
-#include <algorithm>
+#include <vector>
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -122,8 +122,8 @@ test_null_filter()
         FATAL_ERROR("Failed to run record filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
-    delete null_filter;
     delete record_filter;
+    delete null_filter;
 
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     basic_counts_t::counters_t c2 = get_basic_counts(output_dir);

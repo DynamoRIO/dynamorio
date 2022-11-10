@@ -115,13 +115,11 @@ protected:
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_shard_data_t {
         analyzer_shard_data_t(int index, std::unique_ptr<U> iter,
-                              const std::string &trace_dir,
-                              const std::string &trace_base_name)
+                              const std::string &trace_file)
             : index(index)
             , worker(0)
             , iter(std::move(iter))
-            , trace_dir(trace_dir)
-            , trace_base_name(trace_base_name)
+            , trace_file(trace_file)
         {
         }
         analyzer_shard_data_t(analyzer_shard_data_t &&src)
@@ -129,16 +127,14 @@ protected:
             index = src.index;
             worker = src.worker;
             iter = std::move(src.iter);
-            trace_dir = std::move(src.trace_dir);
-            trace_base_name = std::move(src.trace_base_name);
+            trace_file = std::move(src.trace_file);
             error = std::move(src.error);
         }
 
         int index;
         int worker;
         std::unique_ptr<U> iter;
-        std::string trace_dir;
-        std::string trace_base_name;
+        std::string trace_file;
         std::string error;
 
     private:

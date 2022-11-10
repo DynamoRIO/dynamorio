@@ -60,11 +60,10 @@ public:
         {
         }
         /**
-         * Invoked for each shard prior to calling filter on any entry.
-         * The returned pointer is passed to all invocations of
+         * Invoked for each shard prior to calling parallel_shard_filter on
+         * any entry. The returned pointer is passed to all invocations of
          * parallel_shard_filter() and parallel_shard_exit().
-         * record_filter_func_t can use this routine to initialize state
-         * for each shard.
+         * This routine can be used to initialize state for each shard.
          */
         virtual void *
         parallel_shard_init() = 0;
@@ -72,7 +71,8 @@ public:
          * Invoked for each trace_entry_t in the shard. It returns
          * whether or not this \p entry should be included in the result
          * trace. \p shard_data is same as what was returned by
-         * parallel_shard_init().
+         * parallel_shard_init(). The given \p entry is included in the result
+         * trace iff all provided record_filter_func_t return true.
          */
         virtual bool
         parallel_shard_filter(const trace_entry_t &entry, void *shard_data) = 0;
