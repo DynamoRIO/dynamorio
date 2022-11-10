@@ -42,6 +42,7 @@
 #include <unordered_map>
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
+#include "memtrace_stream.h"
 #include "utils.h"
 
 #define OUT /* just a marker */
@@ -58,7 +59,8 @@
 #    define VPRINT(reader, level, ...) /* nothing */
 #endif
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t> {
+class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
+                 public memtrace_stream_t {
 public:
     reader_t()
     {
@@ -113,6 +115,17 @@ public:
     // 2) It is difficult to implement for file_reader_t as streams do not
     //    have a copy constructor.
 
+    uint64_t
+    get_record_ordinal() override
+    {
+        return cur_ref_count_;
+    }
+    uint64_t
+    get_instruction_ordinal() override
+    {
+        return cur_instr_count_;
+    }
+
 protected:
     // This reads the next entry from the stream of entries from all threads interleaved
     // in timestamp order.
@@ -150,6 +163,7 @@ private:
     addr_t prev_instr_addr_ = 0;
     int bundle_idx_ = 0;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
+    uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
     uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
     uint64_t last_timestamp_instr_count_ = 0;

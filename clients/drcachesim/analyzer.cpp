@@ -45,6 +45,7 @@
 #    include "reader/snappy_file_reader.h"
 #endif
 #include "common/utils.h"
+#include "memtrace_stream.h"
 
 #ifdef HAS_ZLIB
 // Even if the file is uncompressed, zlib's gzip interface is faster than
@@ -182,6 +183,11 @@ analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools,
     , parallel_(true)
     , worker_count_(worker_count)
 {
+    if (!init_file_reader(trace_path)) {
+        success_ = false;
+        error_string_ = "Failed to create reader";
+        return;
+    }
     for (int i = 0; i < num_tools; ++i) {
         if (tools_[i] == NULL || !*tools_[i]) {
             success_ = false;
@@ -190,15 +196,13 @@ analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools,
                 error_string_ += ": " + tools_[i]->get_error_string();
             return;
         }
-        const std::string error = tools_[i]->initialize();
+        const std::string error = tools_[i]->initialize_stream(serial_trace_iter_.get());
         if (!error.empty()) {
             success_ = false;
             error_string_ = "Tool failed to initialize: " + error;
             return;
         }
     }
-    if (!init_file_reader(trace_path))
-        success_ = false;
 }
 
 analyzer_t::analyzer_t(const std::string &trace_path)
@@ -264,8 +268,10 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
             return;
         }
         std::vector<void *> shard_data(num_tools_);
-        for (int i = 0; i < num_tools_; ++i)
-            shard_data[i] = tools_[i]->parallel_shard_init(tdata->index, worker_data[i]);
+        for (int i = 0; i < num_tools_; ++i) {
+            shard_data[i] = tools_[i]->parallel_shard_init_stream(
+                tdata->index, worker_data[i], tdata->iter.get());
+        }
         VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
         for (; *tdata->iter != *trace_end_; ++(*tdata->iter)) {
             for (int i = 0; i < num_tools_; ++i) {
