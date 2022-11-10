@@ -1031,6 +1031,10 @@ d_r_os_init(void)
      */
     init_android_version();
 #endif
+#ifdef LINUX
+    if (!standalone_library)
+        d_r_rseq_init();
+#endif
 #ifdef MACOS64
     tls_process_init();
 #endif
@@ -1437,6 +1441,10 @@ os_slow_exit(void)
 {
 #ifdef MACOS64
     tls_process_exit();
+#endif
+#ifdef LINUX
+    if (!standalone_library)
+        d_r_rseq_exit();
 #endif
     d_r_signal_exit();
     memquery_exit();

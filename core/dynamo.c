@@ -92,9 +92,6 @@ portable and to avoid frequency scaling."
 #    endif
 #endif
 
-#ifdef LINUX
-#    include "rseq_linux.h"
-#endif
 /* global thread-shared variables */
 bool dynamo_initialized = false;
 static bool dynamo_options_initialized = false;
@@ -696,14 +693,6 @@ dynamorio_app_init_part_two_finalize(void)
             dynamo_vm_areas_unlock();
         }
 
-#ifdef LINUX
-        /* Rseq support should be initialized only after modules have been
-         * initialized too.
-         */
-        if (!standalone_library)
-            d_r_rseq_init();
-#endif
-
 #ifdef ANNOTATIONS
         annotation_init();
 #endif
@@ -1179,10 +1168,6 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     os_fast_exit();
     os_slow_exit();
     native_exec_exit(); /* before vm_areas_exit for using dynamo_areas */
-#ifdef LINUX
-    if (!standalone_library)
-        d_r_rseq_exit();
-#endif
     vm_areas_exit();
     perscache_slow_exit(); /* fast called in dynamo_process_exit_with_thread_info() */
     modules_exit();        /* after aslr_exit() from os_slow_exit(),
