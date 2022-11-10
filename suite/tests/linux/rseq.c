@@ -1025,8 +1025,7 @@ int
 main()
 {
     intercept_signal(SIGILL, signal_handler, false);
-    bool res = register_rseq();
-    if (res) {
+    if (register_rseq()) {
 #ifdef RSEQ_TEST_ATTACH
         /* Set -offline to avoid trying to open a pipe to a missing reader. */
         if (setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'",

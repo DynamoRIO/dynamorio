@@ -675,8 +675,12 @@ rseq_locate_tls_offset(void)
         /* struct rseq_cs is aligned to 32. */
         int alignment = __alignof(struct rseq_cs);
         int i;
-        /* For x86, static TLS is at a negative offset from the app library segment
-         * base, while for aarchxx it is positive.
+        /* When rseq support is enabled in glibc 2.35+, the glibc-registered struct rseq
+         * is present in the struct pthread, which is at a positive offset from the
+         * app library segment base on x86, and negative on aarchxx. However, in the
+         * absence of rseq support from glibc, the app manually registers its own
+         * struct rseq which is present in static TLS, which is at a negative offset
+         * from the app library segment base on x86, and positive on aarchxx.
          */
         ASSERT(seg_bottom <= addr && addr < seg_bottom + seg_size);
         for (i = (seg_bottom - addr) / alignment;
