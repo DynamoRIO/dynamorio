@@ -112,7 +112,7 @@ $ make -j
 
 or on Windows:
 ```
-$ cmake -G"Visual Studio 16 2019" .. -DDEBUG=ON
+$ cmake -G"Visual Studio 16" -A Win32 .. -DDEBUG=ON
 $ cmake --build . --config Debug
 ```
 
@@ -121,7 +121,7 @@ produce a debug build currently.
 
 For 64-bit build on Windows:
 ```
-$ cmake -G"Visual Studio 16 x64" .. -DDEBUG=ON
+$ cmake -G"Visual Studio 16" -A x64 .. -DDEBUG=ON
 $ cmake --build . --config Debug
 ```
 
