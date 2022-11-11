@@ -117,10 +117,10 @@ register_rseq()
 {
 #ifdef GLIBC_RSEQ
     if (__rseq_size > 0) {
-        /* Our glibc rseq handling in rseq_linux.c does not depend on the exact
-         * offset, but it does depend on it being in struct pthread, therefore
-         * the sign of __rseq_offset. Nevertheless, we check for the exact
-         * offset here so that we know if glibc changes how it handles rseq.
+        /* Our glibc rseq handling in rseq_linux.c checks the following offset
+         * first for the glibc-registered struct rseq. Though we do have a
+         * fallback that does a wider search, it would be good to keep the
+         * expected offset in sync with glibc changes.
          */
 #    ifdef X86
         assert(__rseq_offset == 2464);

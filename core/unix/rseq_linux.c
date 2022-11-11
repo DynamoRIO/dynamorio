@@ -78,6 +78,18 @@ DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
                       INIT_LOCK_FREE(rseq_trigger_lock));
 static volatile bool rseq_enabled;
 
+/* The struct rseq registered by glibc is present in the struct pthread.
+ * As of glibc 2.35, it is present at the following offset from the app
+ * lib seg base. We check these offsets first and then fall back to a
+ * wider search. The linux.rseq test helps detect changes in these
+ * offsets in future glibc versions.
+ */
+#ifdef X86
+#    define GLIBC_RSEQ_OFFSET 2464
+#else
+#    define GLIBC_RSEQ_OFFSET -32
+#endif
+
 /* We require all threads to use the same TLS offset to point at struct rseq. */
 static int rseq_tls_offset;
 
@@ -667,6 +679,19 @@ rseq_locate_tls_offset(void)
      */
     int offset = 0;
     byte *addr = get_app_segment_base(LIB_SEG_TLS);
+    if (addr > 0) {
+        byte *try_glibc_addr = addr + GLIBC_RSEQ_OFFSET;
+        if (try_struct_rseq(try_glibc_addr)) {
+            LOG(GLOBAL, LOG_LOADER, 2,
+                "Found glibc struct rseq @ " PFX " for thread => %s:%s0x%x\n",
+                try_glibc_addr, get_register_name(LIB_SEG_TLS),
+                (GLIBC_RSEQ_OFFSET < 0 ? "-" : ""), abs(GLIBC_RSEQ_OFFSET));
+            return GLIBC_RSEQ_OFFSET;
+        }
+    }
+    /* Either the app's glibc does not have rseq support (old glibc or disabled by app)
+     * or the offset of glibc's struct rseq has changed. We do a wider search now.
+     */
     byte *seg_bottom;
     size_t seg_size;
     if (addr > 0 && get_memory_info(addr, &seg_bottom, &seg_size, NULL)) {
