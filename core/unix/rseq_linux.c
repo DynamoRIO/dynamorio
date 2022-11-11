@@ -688,14 +688,15 @@ rseq_locate_tls_offset(void)
             byte *try_addr = addr + i * alignment;
             ASSERT(seg_bottom <= try_addr &&
                    try_addr < seg_bottom + seg_size); /* For loop guarantees this. */
-            /* Our strategy is to check all of the aligned static TLS addresses to
-             * find the registered one.  Our caller is not supposed to call here
-             * until the app has registered the current thread.
+            /* Our strategy is to check all of the aligned addresses to find the
+             * registered one.  Our caller is not supposed to call here until the app
+             * has registered the current thread (either manually or using glibc).
              */
             if (try_struct_rseq(try_addr)) {
                 LOG(GLOBAL, LOG_LOADER, 2,
                     "Found struct rseq @ " PFX " for thread => %s:%s0x%x\n", try_addr,
-                    get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""), i * alignment);
+                    get_register_name(LIB_SEG_TLS), (i < 0 ? "-" : ""),
+                    abs(i) * alignment);
                 offset = i * alignment;
                 break;
             }
