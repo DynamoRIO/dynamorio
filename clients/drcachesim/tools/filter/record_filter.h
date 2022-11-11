@@ -41,7 +41,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 /**
- * Analysis tool that filters the trace_entry_t records of an offline
+ * Analysis tool that filters the #trace_entry_t records of an offline
  * trace. Streams through each shard independenty and parallelly, and
  * writes the filtered version to the output directory with the same
  * base name. Serial mode is not yet supported.
@@ -60,7 +60,7 @@ public:
         {
         }
         /**
-         * Invoked for each shard prior to calling parallel_shard_filter on
+         * Invoked for each shard prior to calling parallel_shard_filter() on
          * any entry. The returned pointer is passed to all invocations of
          * parallel_shard_filter() and parallel_shard_exit().
          * This routine can be used to initialize state for each shard.
@@ -68,17 +68,17 @@ public:
         virtual void *
         parallel_shard_init() = 0;
         /**
-         * Invoked for each trace_entry_t in the shard. It returns
+         * Invoked for each #trace_entry_t in the shard. It returns
          * whether or not this \p entry should be included in the result
          * trace. \p shard_data is same as what was returned by
          * parallel_shard_init(). The given \p entry is included in the result
-         * trace iff all provided record_filter_func_t return true.
+         * trace iff all provided #record_filter_func_t return true.
          */
         virtual bool
         parallel_shard_filter(const trace_entry_t &entry, void *shard_data) = 0;
         /**
-         * Invoked when all trace_entry_t in a shard have been processed
-         * by parallel_shard_filter. \p shard_data is same as what was
+         * Invoked when all #trace_entry_t in a shard have been processed
+         * by parallel_shard_filter(). \p shard_data is same as what was
          * returned by parallel_shard_init().
          */
         virtual bool

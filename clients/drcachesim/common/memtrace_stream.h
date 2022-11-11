@@ -66,13 +66,13 @@ public:
      * This includes records skipped over and not presented to any tool.
      */
     virtual uint64_t
-    get_record_ordinal() = 0;
+    get_record_ordinal() const = 0;
     /**
      * Returns the count of instructions from the start of the trace to this point.
      * This includes instructions skipped over and not presented to any tool.
      */
     virtual uint64_t
-    get_instruction_ordinal() = 0;
+    get_instruction_ordinal() const = 0;
 
     /**
      * Returns a name for the memtrace stream. For stored offline traces, this
@@ -80,7 +80,7 @@ public:
      * of the pipe.
      */
     virtual std::string
-    get_stream_name() = 0;
+    get_stream_name() const = 0;
 };
 
 #endif /* _MEMTRACE_STREAM_H_ */

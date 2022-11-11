@@ -150,17 +150,17 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
         }
 
         uint64_t
-        get_record_ordinal() override
+        get_record_ordinal() const override
         {
             return ref_count_;
         }
         uint64_t
-        get_instruction_ordinal() override
+        get_instruction_ordinal() const override
         {
             return instr_count_;
         }
         std::string
-        get_stream_name() override
+        get_stream_name() const override
         {
             return "";
         }

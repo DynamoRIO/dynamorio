@@ -1382,7 +1382,7 @@ paramter controls the contents of this set.
 
 \p drcachesim provides a \p drmemtrace analysis tool framework to make it
 easy to create new trace analysis tools.  A new tool should subclass
-#analysis_tool_tmpl_t.
+#analysis_tool_t.
 
 Concurrent processing of traces is supported by logically splitting a trace into
 "shards" which are each processed sequentially.  The default shard is a traced
@@ -1400,7 +1400,7 @@ invokes print_results() as well.
 
 For serial operation, process_memref(), operates on a trace entry in a single,
 sorted, interleaved stream of trace entries.  In the default mode of operation,
-the #analyzer_tmpl_t class iterates over the trace and calls the process_memref()
+the #analyzer_t class iterates over the trace and calls the process_memref()
 function of each tool.  An alternative mode is supported which exposes the
 iterator and allows a separate control infrastructure to be built.  This
 alternative mode does not support parallel operation at this time.
@@ -1418,8 +1418,8 @@ results can be presented in parallel_shard_exit().
 Today, parallel analysis is only supported for offline traces.
 Support for online traces may be added in the future.
 
-In the default mode of operation, the #analyzer_tmpl_t class iterates over
-the trace and calls the appropriate #analysis_tool_tmpl_t functions for
+In the default mode of operation, the #analyzer_t class iterates over
+the trace and calls the appropriate #analysis_tool_t functions for
 each tool.  An alternative mode is supported which exposes the
 iterator and allows a separate control infrastructure to be built.
 
@@ -1439,6 +1439,12 @@ skips over some records that are not passed to the tools, these
 ordinals will include those skipped records.  If a tool wishes to
 count only those records or instructions that it sees, it can add its
 own counters.
+
+In some cases, a tool may want to observe the exact sequence of
+#trace_entry_t in an offline trace stored on disk. To support such use cases,
+the #trace_entry_t specialization of #analysis_tool_tmpl_t and
+#analyzer_tmpl_t can be used. Specifically, such tools should subclass
+#record_analysis_tool_t, and use the #record_analyzer_t class.
 
 CMake support is provided for including the headers and linking the
 libraries of the \p drmemtrace framework.  A new CMake function is defined

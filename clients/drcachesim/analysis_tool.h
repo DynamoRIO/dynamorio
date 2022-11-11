@@ -83,6 +83,14 @@
  * aggregation across the whole trace should occur here as well, while shard-specific
  * results can be presented in parallel_shard_exit().
  *
+ * T is the type of entry that is analyzed by the tool. Currently, we support #memref_t
+ * and #trace_entry_t. analysis_tool_tmpl_t<#memref_t> is the primary type of analysis
+ * tool and is used for most purposes. analysis_tool_tmpl_t≤#trace_entry_t> is used in
+ * special cases where an offline trace needs to be observed exactly as stored on disk,
+ * without hiding any internal entries.
+ *
+ * Analysis tools can subclass either of the specialized analysis_tool_tmpl_t<#memref_t>
+ * or analysis_tool_tmpl_t<#trace_entry_t>, or analysis_tool_tmpl_t itself, as required.
  */
 template <typename T> class analysis_tool_tmpl_t {
 public:
@@ -251,6 +259,9 @@ protected:
     std::string error_string_;
 };
 
+/** See #analysis_tool_tmpl_t. */
 typedef analysis_tool_tmpl_t<memref_t> analysis_tool_t;
+
+/** See #analysis_tool_tmpl_t. */
 typedef analysis_tool_tmpl_t<trace_entry_t> record_analysis_tool_t;
 #endif /* _ANALYSIS_TOOL_H_ */

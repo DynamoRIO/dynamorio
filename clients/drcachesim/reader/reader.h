@@ -59,6 +59,12 @@
 #    define VPRINT(reader, level, ...) /* nothing */
 #endif
 
+/**
+ * Iterator over #memref_t trace entries. This class converts a trace
+ * (offline or online) into a stream of #memref_t entries. It also
+ * provides more information about the trace using the
+ * #memtrace_stream_t API.
+ */
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
                  public memtrace_stream_t {
 public:
@@ -116,12 +122,12 @@ public:
     //    have a copy constructor.
 
     uint64_t
-    get_record_ordinal() override
+    get_record_ordinal() const override
     {
         return cur_ref_count_;
     }
     uint64_t
-    get_instruction_ordinal() override
+    get_instruction_ordinal() const override
     {
         return cur_instr_count_;
     }

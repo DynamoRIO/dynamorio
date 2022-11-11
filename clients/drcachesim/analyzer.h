@@ -56,6 +56,24 @@
  * It supports two different modes of operation: either it iterates over the
  * trace and calls the process_memref() routine of each tool, or it exposes
  * an iteration interface to external control code.
+ *
+ * T is the type of entry to be analyzed: #memref_t or #trace_entry_t. U is the reader
+ * that allows reading entries of type T: #reader_t or
+ * #dynamorio::drmemtrace::record_reader_t respectively.
+ *
+ * #analyzer_tmpl_t<#memref_t, #reader_t> is the primary type of analyzer, which is used
+ * for most purposes. It uses tools of type #analysis_tool_tmpl_t<#memref_t>. This
+ * analyzer provides various features to support trace analysis, e.g. processing the
+ * instruction encoding entries and making it available to the tool inside #memref_t.
+ *
+ * #analyzer_tmpl_t<#trace_entry_t, #dynamorio::drmemtrace::record_reader_t> is used
+ * in special cases where an offline trace needs to be observed exactly as stored on
+ * disk, without hiding any internal entries. It uses tools of type
+ * #analysis_tool_tmpl_t<#trace_entry_t>.
+ *
+ * TODO i#5727: When we convert #reader_t into a template on T, we can remove the
+ * second template parameter to #analyzer_tmpl_t, and simply use reader_tmpl_t<T>
+ * instead.
  */
 template <typename T, typename U> class analyzer_tmpl_t {
 public:
@@ -178,7 +196,10 @@ private:
     serial_mode_supported();
 };
 
+/** See #analyzer_tmpl_t. */
 typedef analyzer_tmpl_t<memref_t, reader_t> analyzer_t;
+
+/** See #analyzer_tmpl_t. */
 typedef analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
     record_analyzer_t;
 #endif /* _ANALYZER_H_ */

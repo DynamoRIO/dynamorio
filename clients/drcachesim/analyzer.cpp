@@ -59,16 +59,9 @@ typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
     default_record_file_reader_t;
 #endif
 
-template <typename T, typename U>
-analyzer_tmpl_t<T, U>::analyzer_tmpl_t()
-    : success_(true)
-    , num_tools_(0)
-    , tools_(NULL)
-    , parallel_(true)
-    , worker_count_(0)
-{
-    /* Nothing else: child class needs to initialize. */
-}
+/****************************************************************
+ * Specializations for analyzer_tmpl_t<reader_t>, aka analyzer_t.
+ */
 
 template <>
 std::unique_ptr<reader_t>
@@ -131,6 +124,10 @@ analyzer_t::serial_mode_supported()
     return true;
 }
 
+/******************************************************************************
+ * Specializations for analyzer_tmpl_t<record_reader_t>, aka record_analyzer_t.
+ */
+
 template <>
 std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
 record_analyzer_t::get_default_reader()
@@ -156,6 +153,21 @@ record_analyzer_t::serial_mode_supported()
     // TODO i#5727: Add support in record_file_reader_t to interleave
     // multiple traces and create a single trace stream.
     return false;
+}
+
+/********************************************************************
+ * Other analyzer_tmpl_t routines that do not need to be specialized.
+ */
+
+template <typename T, typename U>
+analyzer_tmpl_t<T, U>::analyzer_tmpl_t()
+    : success_(true)
+    , num_tools_(0)
+    , tools_(NULL)
+    , parallel_(true)
+    , worker_count_(0)
+{
+    /* Nothing else: child class needs to initialize. */
 }
 
 template <typename T, typename U>

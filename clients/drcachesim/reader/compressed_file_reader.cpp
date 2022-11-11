@@ -34,6 +34,11 @@
 
 namespace {
 
+/**************************************************************************
+ * Common logic used in the gzip_reader_t specializations for file_reader_t
+ * and record_file_reader_t.
+ */
+
 bool
 open_single_file_common(const std::string &path, gzFile &out)
 {
@@ -63,6 +68,10 @@ read_next_thread_entry_common(gzip_reader_t *gzip, OUT trace_entry_t *entry,
 }
 
 } // namespace
+
+/**************************************************
+ * gzip_reader_t specializations for file_reader_t.
+ */
 
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
@@ -113,6 +122,10 @@ file_reader_t<gzip_reader_t>::is_complete()
 
 namespace dynamorio {
 namespace drmemtrace {
+
+/*********************************************************
+ * gzip_reader_t specializations for record_file_reader_t.
+ */
 
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>

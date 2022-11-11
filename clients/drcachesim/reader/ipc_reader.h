@@ -54,7 +54,7 @@ public:
     bool
     init() override;
     std::string
-    get_stream_name() override;
+    get_stream_name() const override;
 
 protected:
     trace_entry_t *
