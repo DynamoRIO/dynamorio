@@ -93,6 +93,7 @@ static volatile bool rseq_enabled;
 #        define GLIBC_RSEQ_OFFSET 1312
 #    endif
 #else
+/* This was verified on AArch64, but not on AArch32. */
 #    define GLIBC_RSEQ_OFFSET -32
 #endif
 
