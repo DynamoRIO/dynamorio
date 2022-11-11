@@ -723,8 +723,8 @@ rseq_process_syscall(dcontext_t *dcontext)
         constant_offset = (prior == 0 || prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
             "Observed struct rseq @ " PFX " for thread => %s:%s0x%x\n", app_addr,
-            get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""),
-            IF_X86_ELSE(-rseq_tls_offset, rseq_tls_offset));
+            get_register_name(LIB_SEG_TLS), (rseq_tls_offset < 0 ? "-" : ""),
+            abs(rseq_tls_offset));
     } else
         constant_offset = (seg_base + rseq_tls_offset == app_addr);
     if (!constant_offset) {
