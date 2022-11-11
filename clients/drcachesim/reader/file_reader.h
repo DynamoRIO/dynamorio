@@ -38,6 +38,7 @@
 #ifndef _FILE_READER_H_
 #define _FILE_READER_H_ 1
 
+#include <inttypes.h>
 #include <string.h>
 #include <fstream>
 #include <queue>
@@ -55,12 +56,7 @@
 #    ifdef WINDOWS
 #        define ZHEX64_FORMAT_STRING "%016I64x"
 #    else
-#        if defined(__i386__) || defined(__arm__) || \
-            (defined(__APPLE__) && !defined(__LP64__))
-#            define ZHEX64_FORMAT_STRING "%016llx"
-#        else
-#            define ZHEX64_FORMAT_STRING "%016lx"
-#        endif
+#        define ZHEX64_FORMAT_STRING "%" PRIx64
 #    endif
 #endif
 
