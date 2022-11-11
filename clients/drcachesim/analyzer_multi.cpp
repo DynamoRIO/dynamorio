@@ -144,7 +144,7 @@ analyzer_multi_t::analyzer_multi_t()
             // XXX: Even better would be to propagate the mkfifo errno here.
             error_string_ = "try removing stale pipe file " +
                 reinterpret_cast<ipc_reader_t *>(serial_trace_iter_.get())
-                    ->get_pipe_name();
+                    ->get_stream_name();
 #endif
         }
     } else {

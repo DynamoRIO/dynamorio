@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,55 +30,33 @@
  * DAMAGE.
  */
 
-/* ipc_reader: obtains memory streams from DR clients running in
- * application processes and presents them via an interator interface
- * to the cache simulator.
- */
+#ifndef _NULL_FILTER_H_
+#define _NULL_FILTER_H_ 1
 
-#ifndef _IPC_READER_H_
-#define _IPC_READER_H_ 1
+#include "record_filter.h"
 
-#include "reader.h"
-#include "../common/memref.h"
-#include "../common/named_pipe.h"
-#include "../common/trace_entry.h"
+namespace dynamorio {
+namespace drmemtrace {
 
-class ipc_reader_t : public reader_t {
+class null_filter_t : public record_filter_t::record_filter_func_t {
 public:
-    ipc_reader_t();
-    ipc_reader_t(const char *ipc_name, int verbosity);
-    virtual ~ipc_reader_t();
-    bool
-    operator!() override;
-    // This potentially blocks.
-    bool
-    init() override;
-    std::string
-    get_stream_name() const override;
-
-protected:
-    trace_entry_t *
-    read_next_entry() override;
-
-    bool
-    read_next_thread_entry(size_t, trace_entry_t *, bool *) override
+    void *
+    parallel_shard_init() override
     {
-        // Only an interleaved stream is supported.
-        return false;
+        return nullptr;
     }
-
-private:
-    named_pipe_t pipe_;
-    bool creation_success_;
-
-    // For efficiency we want to read large chunks at a time.
-    // The atomic write size for a pipe on Linux is 4096 bytes but
-    // we want to go ahead and read as much data as we can at one
-    // time.
-    static const int BUF_SIZE = 16 * 1024;
-    trace_entry_t buf_[BUF_SIZE];
-    trace_entry_t *cur_buf_;
-    trace_entry_t *end_buf_;
+    bool
+    parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override
+    {
+        return true;
+    }
+    bool
+    parallel_shard_exit(void *shard_data) override
+    {
+        return true;
+    }
 };
 
-#endif /* _IPC_READER_H_ */
+} // namespace drmemtrace
+} // namespace dynamorio
+#endif /* _NULL_FILTER_H_ */

@@ -135,6 +135,9 @@ add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
+add_exported_library(drmemtrace_record_filter STATIC
+  tools/filter/record_filter.cpp
+  tools/filter/null_filter.h)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
 
@@ -197,6 +200,7 @@ set(drcachesim_srcs
   reader/reader.cpp
   reader/config_reader.cpp
   reader/file_reader.cpp
+  reader/record_file_reader.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -238,6 +242,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/reader.cpp
   reader/config_reader.cpp
   reader/file_reader.cpp
+  reader/record_file_reader.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -254,6 +259,7 @@ install_client_nonDR_header(drmemtrace common/trace_entry.h)
 install_client_nonDR_header(drmemtrace common/memref.h)
 install_client_nonDR_header(drmemtrace common/memtrace_stream.h)
 install_client_nonDR_header(drmemtrace reader/reader.h)
+install_client_nonDR_header(drmemtrace reader/record_file_reader.h)
 install_client_nonDR_header(drmemtrace analysis_tool.h)
 install_client_nonDR_header(drmemtrace analyzer.h)
 install_client_nonDR_header(drmemtrace tools/reuse_distance_create.h)
@@ -287,6 +293,11 @@ add_executable(prefetch_analyzer_launcher
 target_link_libraries(prefetch_analyzer_launcher drmemtrace_analyzer drfrontendlib)
 use_DynamoRIO_extension(prefetch_analyzer_launcher droption)
 add_dependencies(prefetch_analyzer_launcher api_headers)
+
+add_executable(record_filter_launcher
+  tools/record_filter_launcher.cpp)
+target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
+use_DynamoRIO_extension(record_filter_launcher droption)
 
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
@@ -421,6 +432,7 @@ endmacro()
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
+restore_nonclient_flags(record_filter_launcher)
 restore_nonclient_flags(prefetch_analyzer_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
@@ -433,6 +445,7 @@ restore_nonclient_flags(drmemtrace_basic_counts)
 restore_nonclient_flags(drmemtrace_opcode_mix)
 restore_nonclient_flags(drmemtrace_view)
 restore_nonclient_flags(drmemtrace_func_view)
+restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
@@ -470,6 +483,7 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
+add_win32_flags(record_filter_launcher)
 add_win32_flags(prefetch_analyzer_launcher)
 add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
@@ -483,6 +497,7 @@ add_win32_flags(drmemtrace_basic_counts)
 add_win32_flags(drmemtrace_opcode_mix)
 add_win32_flags(drmemtrace_view)
 add_win32_flags(drmemtrace_func_view)
+add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(directory_iterator)
 if (WIN32 AND DEBUG)
@@ -603,6 +618,23 @@ if (BUILD_TESTS)
   use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
   add_test(NAME tool.drcacheoff.raw2trace_unit_tests
     COMMAND tool.drcacheoff.raw2trace_unit_tests)
+
+  # XXX i#5675: add tests for other environments. Currently, the repository does not have
+  # a checked-in post-processed trace for x86-32 or AArchXX.
+  if (X86 AND X64 AND ZLIB_FOUND)
+    set(trace_dir
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+    set(tmp_output_dir ${PROJECT_BINARY_DIR}/record_filter_tests_tmp_output)
+    file(MAKE_DIRECTORY ${tmp_output_dir})
+    add_executable(tool.drcacheoff.record_filter_unit_tests
+                   tests/record_filter_unit_tests.cpp)
+    configure_DynamoRIO_standalone(tool.drcacheoff.record_filter_unit_tests)
+    target_link_libraries(tool.drcacheoff.record_filter_unit_tests drmemtrace_analyzer
+      drmemtrace_basic_counts drmemtrace_record_filter)
+    add_test(NAME tool.drcacheoff.record_filter_unit_tests
+             COMMAND tool.drcacheoff.record_filter_unit_tests --trace_dir
+                     ${trace_dir} --tmp_output_dir ${tmp_output_dir})
+  endif ()
 
   if (DR_HOST_AARCH64)
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)

@@ -60,7 +60,8 @@
 #    endif
 #endif
 
-/* We templatize on the file type itself for specializing for compression and
+/**
+ * We templatize on the file type itself for specializing for compression and
  * other different types.  An alternative would be to require a std::istream
  * interface and add gzip_istream_t (paralleling gzip_ostream_t used for
  * raw2trace).
@@ -96,6 +97,15 @@ public:
 
     virtual bool
     is_complete();
+
+    std::string
+    get_stream_name() const override
+    {
+        size_t ind = input_path_.find_last_of(DIRSEP);
+        if (ind == std::string::npos)
+            return input_path_;
+        return input_path_.substr(ind + 1);
+    }
 
     reader_t &
     skip_instructions(uint64_t instruction_count) override

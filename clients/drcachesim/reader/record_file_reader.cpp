@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,55 +30,43 @@
  * DAMAGE.
  */
 
-/* ipc_reader: obtains memory streams from DR clients running in
- * application processes and presents them via an interator interface
- * to the cache simulator.
- */
+#include <fstream>
+#include "record_file_reader.h"
 
-#ifndef _IPC_READER_H_
-#define _IPC_READER_H_ 1
+namespace dynamorio {
+namespace drmemtrace {
 
-#include "reader.h"
-#include "../common/memref.h"
-#include "../common/named_pipe.h"
-#include "../common/trace_entry.h"
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+record_file_reader_t<std::ifstream>::~record_file_reader_t<std::ifstream>()
+{
+    if (input_file_ != nullptr)
+        delete input_file_;
+}
 
-class ipc_reader_t : public reader_t {
-public:
-    ipc_reader_t();
-    ipc_reader_t(const char *ipc_name, int verbosity);
-    virtual ~ipc_reader_t();
-    bool
-    operator!() override;
-    // This potentially blocks.
-    bool
-    init() override;
-    std::string
-    get_stream_name() const override;
-
-protected:
-    trace_entry_t *
-    read_next_entry() override;
-
-    bool
-    read_next_thread_entry(size_t, trace_entry_t *, bool *) override
-    {
-        // Only an interleaved stream is supported.
+template <>
+bool
+record_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
+{
+    std::ifstream *fstream = new std::ifstream(path, std::ifstream::binary);
+    if (!*fstream)
         return false;
-    }
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_file_ = fstream;
+    return true;
+}
 
-private:
-    named_pipe_t pipe_;
-    bool creation_success_;
+template <>
+bool
+record_file_reader_t<std::ifstream>::read_next_entry()
+{
+    if (!input_file_->read((char *)&cur_entry_, sizeof(cur_entry_)))
+        return false;
+    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
+           cur_entry_.size, cur_entry_.addr);
+    return true;
+}
 
-    // For efficiency we want to read large chunks at a time.
-    // The atomic write size for a pipe on Linux is 4096 bytes but
-    // we want to go ahead and read as much data as we can at one
-    // time.
-    static const int BUF_SIZE = 16 * 1024;
-    trace_entry_t buf_[BUF_SIZE];
-    trace_entry_t *cur_buf_;
-    trace_entry_t *end_buf_;
-};
-
-#endif /* _IPC_READER_H_ */
+} // namespace drmemtrace
+} // namespace dynamorio
