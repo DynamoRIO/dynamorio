@@ -68,7 +68,7 @@
  *
  * For serial operation, process_memref(), operates on a trace entry in a single,
  * sorted, interleaved stream of trace entries.  In the default mode of operation,
- * the #analyzer_tmpl_t class iterates over the trace and calls the process_memref()
+ * the #analyzer_t class iterates over the trace and calls the process_memref()
  * function of each tool.  An alternative mode is supported which exposes the
  * iterator and allows a separate control infrastructure to be built.  This
  * alternative mode does not support parallel operation at this time.
