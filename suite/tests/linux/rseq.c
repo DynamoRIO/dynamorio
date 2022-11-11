@@ -123,7 +123,11 @@ register_rseq()
          * expected offset in sync with glibc changes.
          */
 #    ifdef X86
+#        ifdef X64
         assert(__rseq_offset == 2464);
+#        else
+        assert(__rseq_offset == 1312);
+#        endif
 #    else
         assert(__rseq_offset == -32);
 #    endif

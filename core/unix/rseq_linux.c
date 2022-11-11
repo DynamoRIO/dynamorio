@@ -51,6 +51,8 @@
 #include "include/syscall.h"
 #include <errno.h>
 
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
 /* The linux/rseq.h header made a source-breaking change in torvalds/linux@bfdf4e6
  * which broke our build.  To avoid future issues we use our own definitions.
  * Binary breakage is unlikely without long periods of deprecation so this is
@@ -85,7 +87,11 @@ static volatile bool rseq_enabled;
  * offsets in future glibc versions.
  */
 #ifdef X86
-#    define GLIBC_RSEQ_OFFSET 2464
+#    ifdef X64
+#        define GLIBC_RSEQ_OFFSET 2464
+#    else
+#        define GLIBC_RSEQ_OFFSET 1312
+#    endif
 #else
 #    define GLIBC_RSEQ_OFFSET -32
 #endif
@@ -685,7 +691,7 @@ rseq_locate_tls_offset(void)
             LOG(GLOBAL, LOG_LOADER, 2,
                 "Found glibc struct rseq @ " PFX " for thread => %s:%s0x%x\n",
                 try_glibc_addr, get_register_name(LIB_SEG_TLS),
-                (GLIBC_RSEQ_OFFSET < 0 ? "-" : ""), abs(GLIBC_RSEQ_OFFSET));
+                (GLIBC_RSEQ_OFFSET < 0 ? "-" : ""), ABS(GLIBC_RSEQ_OFFSET));
             return GLIBC_RSEQ_OFFSET;
         }
     }
@@ -721,7 +727,7 @@ rseq_locate_tls_offset(void)
                 LOG(GLOBAL, LOG_LOADER, 2,
                     "Found struct rseq @ " PFX " for thread => %s:%s0x%x\n", try_addr,
                     get_register_name(LIB_SEG_TLS), (i < 0 ? "-" : ""),
-                    abs(i) * alignment);
+                    ABS(i) * alignment);
                 offset = i * alignment;
                 break;
             }
@@ -749,7 +755,7 @@ rseq_process_syscall(dcontext_t *dcontext)
         LOG(GLOBAL, LOG_LOADER, 2,
             "Observed struct rseq @ " PFX " for thread => %s:%s0x%x\n", app_addr,
             get_register_name(LIB_SEG_TLS), (rseq_tls_offset < 0 ? "-" : ""),
-            abs(rseq_tls_offset));
+            ABS(rseq_tls_offset));
     } else
         constant_offset = (seg_base + rseq_tls_offset == app_addr);
     if (!constant_offset) {
