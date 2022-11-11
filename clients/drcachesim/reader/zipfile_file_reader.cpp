@@ -152,10 +152,11 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
     // We assume our unzGoToNextFile loop is plenty performant and we don't need to
     // know the chunk names to use with a single unzLocateFile.
     uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
-    VPRINT(this, 2, "stop=%ld cur=%ld chunk=%ld est=%ld\n", stop_count_, cur_instr_count_,
-           chunk_instr_count_,
+    VPRINT(this, 2,
+           "stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64 " est=%" PRIi64 "\n",
+           stop_count_, cur_instr_count_, chunk_instr_count_,
            cur_instr_count_ +
-               (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_))); // NOCHECK
+               (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
     while (cur_instr_count_ +
                (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)) <
            stop_count_) {
@@ -174,11 +175,12 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         cur_instr_count_ += chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_);
         VPRINT(this, 2, "Thread #%zd at %" PRIi64 " instrs at start of new chunk\n",
                thread_index, cur_instr_count_);
-        VPRINT(this, 2, "zip chunk stop=%ld cur=%ld chunk=%ld est=%ld\n", stop_count_,
-               cur_instr_count_, chunk_instr_count_,
+        VPRINT(this, 2,
+               "zip chunk stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64 " est=%" PRIi64
+               "\n",
+               stop_count_, cur_instr_count_, chunk_instr_count_,
                cur_instr_count_ +
-                   (chunk_instr_count_ -
-                    (cur_instr_count_ % chunk_instr_count_))); // NOCHECK
+                   (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
         // Clear cached data from the prior chunk.
         zipfile->cur_buf = zipfile->max_buf;
     }
@@ -189,8 +191,6 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
     while (cur_instr_count_ < stop_count_) {
         if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
             return false;
-        VPRINT(this, 2, "zip linear walk read type %d size %d addr 0x%zx\n",
-               entry_copy_.type, entry_copy_.size, entry_copy_.addr); // NOCHECK
         // We need to pass up memrefs for the final skipped instr, but we don't
         // want to process_input_entry() on the first unskipped instr so we can
         // insert the timestamp+cpu first.
