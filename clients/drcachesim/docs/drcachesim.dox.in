@@ -1440,6 +1440,12 @@ ordinals will include those skipped records.  If a tool wishes to
 count only those records or instructions that it sees, it can add its
 own counters.
 
+In some cases, a tool may want to observe the exact sequence of
+#trace_entry_t in an offline trace stored on disk. To support such use cases,
+the #trace_entry_t specialization of #analysis_tool_tmpl_t and
+#analyzer_tmpl_t can be used. Specifically, such tools should subclass
+#record_analysis_tool_t, and use the #record_analyzer_t class.
+
 CMake support is provided for including the headers and linking the
 libraries of the \p drmemtrace framework.  A new CMake function is defined
 in the DynamoRIO package which sets the include directory for using the \p

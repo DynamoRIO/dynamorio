@@ -93,6 +93,7 @@
 ---------------------------xxxxx  q0p3       # Q register, add 3
 ---------------------------xxxxx  prfop      # prefetch operation
 ------------------------xxx-----  op2        # 3 bit immediate from 5-7
+-----------------------xxxx-----  p_b_5      # P register with a byte element size
 ----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
 ----------------------xxxxx-----  x5sp       # X register or XSP
@@ -109,11 +110,15 @@
                                              # CRm field for SYS and SYSL
 -------------------x------------  cmode4_s_sz_msl # MSL bit for 32 bit element shifts
 -------------------xxx----------  extam      # extend amount
--------------------xxx----------  p10_low    # SVE predicate registers p0-p7
+-------------------xxx----------  p10_lo     # SVE predicate registers p0-p7
+-------------------xxx----------  p10_zer_lo # SVE predicate registers p0-p7, zeroing
+-------------------xxx----------  p10_mrg_lo # SVE predicate registers p0-p7, merging
 -------------------xxxxxxxx-----  imm8_5     # 8 bit imm at pos 5
+-------------------xxxxxxxx-----  simm8_5    # signed 8 bit imm at pos 5
 ------------------x-------------  cmode_h_sz # Vector shift for 16 bit elements
 ------------------x-------------  shift1     # LSL #0 or #8 depending on bit 13
 ------------------xx------------  imm2idx    # imm from 13-12, used as an index
+------------------xxxx----------  p10        # SVE predicate registers p0-p15
 -----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
 -----------------xx-------------  len        # imm2 len
 -----------------xxxx-----------  imm4idx    # imm4 from 11-14
@@ -133,6 +138,8 @@
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:9
 -------------xxx------xxxxx-----  exp_imm8   # expanded immediate from 16:18 and 5:9
+------------xxxx----------------  p16_mrg    # merging P register at position 16
+------------xxxx----------------  p16_zer    # zeroing P register at position 16
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5

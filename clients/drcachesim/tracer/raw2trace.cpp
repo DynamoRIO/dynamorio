@@ -1225,6 +1225,7 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     // We need to clear the encoding cache so that each chunk is self-contained
     // and repeats all encodings used inside it.
     tdata->encoding_emitted.clear();
+    tdata->last_encoding_emitted = nullptr;
 
     // TODO i#5538: Add a virtual-to-physical cache and clear it here.
     // We'll need to add a routine for trace_converter_t to call to query our cache --

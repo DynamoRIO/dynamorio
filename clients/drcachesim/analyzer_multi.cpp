@@ -52,6 +52,7 @@
 analyzer_multi_t::analyzer_multi_t()
 {
     worker_count_ = op_jobs.get_value();
+    skip_instrs_ = op_skip_instrs.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
     // of using single-file readers but use them sequentially, as opposed to
     // the every-file interleaving reader, but the user can specify -jobs 1, so
@@ -143,7 +144,7 @@ analyzer_multi_t::analyzer_multi_t()
             // XXX: Even better would be to propagate the mkfifo errno here.
             error_string_ = "try removing stale pipe file " +
                 reinterpret_cast<ipc_reader_t *>(serial_trace_iter_.get())
-                    ->get_pipe_name();
+                    ->get_stream_name();
 #endif
         }
     } else {

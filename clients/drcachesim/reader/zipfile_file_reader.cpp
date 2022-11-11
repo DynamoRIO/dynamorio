@@ -31,6 +31,7 @@
  */
 
 #include "zipfile_file_reader.h"
+#include <inttypes.h>
 
 // We use minizip, which is in the contrib/minizip directory in the zlib
 // sources.  The docs are the header files:
@@ -130,4 +131,103 @@ file_reader_t<zipfile_reader_t>::is_complete()
     return false;
 }
 
-// TODO i#5538: Implement seeking via unzLocateFile.
+template <>
+bool
+file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
+                                                          uint64_t instruction_count,
+                                                          OUT bool *eof)
+{
+    if (instruction_count == 0)
+        return true;
+    VPRINT(this, 2, "Thread #%zd skipping %" PRIi64 " instrs\n", thread_index,
+           instruction_count);
+    trace_entry_t timestamp = {};
+    trace_entry_t cpu = {};
+    const memref_t &memref = **this;
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        timestamp = entry_copy_;
+    }
+    zipfile_reader_t *zipfile = &input_files_[thread_index];
+    // We assume our unzGoToNextFile loop is plenty performant and we don't need to
+    // know the chunk names to use with a single unzLocateFile.
+    uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
+    VPRINT(this, 2,
+           "stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64 " est=%" PRIi64 "\n",
+           stop_count_, cur_instr_count_, chunk_instr_count_,
+           cur_instr_count_ +
+               (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
+    // First, quickly skip over chunks to reach the chunk containing the target.
+    while (cur_instr_count_ +
+               (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)) <
+           stop_count_) {
+        if (unzCloseCurrentFile(zipfile->file) != UNZ_OK)
+            return false;
+        int res = unzGoToNextFile(zipfile->file);
+        if (res != UNZ_OK) {
+            if (res == UNZ_END_OF_LIST_OF_FILE) {
+                VPRINT(this, 2, "Thread #%zd hit EOF\n", thread_index);
+                *eof = true;
+            }
+            return false;
+        }
+        if (unzOpenCurrentFile(zipfile->file) != UNZ_OK)
+            return false;
+        cur_instr_count_ += chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_);
+        VPRINT(this, 2, "Thread #%zd at %" PRIi64 " instrs at start of new chunk\n",
+               thread_index, cur_instr_count_);
+        VPRINT(this, 2,
+               "zip chunk stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64
+               " end-of-chunk=%" PRIi64 "\n",
+               stop_count_, cur_instr_count_, chunk_instr_count_,
+               cur_instr_count_ +
+                   (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
+        // Clear cached data from the prior chunk.
+        zipfile->cur_buf = zipfile->max_buf;
+    }
+    // We have to linearly walk the last mile.
+    // We need to present a timestamp+cpu so we reset this field so process_input_entry()
+    // will not skip the first pair in this new chunk.
+    last_timestamp_instr_count_ = cur_instr_count_;
+    while (cur_instr_count_ < stop_count_) { // End condition is never reached.
+        if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
+            return false;
+        // We need to pass up memrefs for the final skipped instr, but we don't
+        // want to process_input_entry() on the first unskipped instr so we can
+        // insert the timestamp+cpu first.
+        if (cur_instr_count_ + 1 == stop_count_ &&
+            type_is_instr(static_cast<trace_type_t>(entry_copy_.type)))
+            break;
+        // Update core state.
+        input_entry_ = &entry_copy_;
+        if (!process_input_entry())
+            continue;
+        const memref_t &memref = **this;
+        if (memref.marker.type == TRACE_TYPE_MARKER) {
+            if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP)
+                timestamp = entry_copy_;
+            else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
+                cpu = entry_copy_;
+        }
+        // TODO i#5538: Have raw2trace insert a record ordinal marker at chunk entry
+        // and use it here to udpate the memtrace_stream_t.
+    }
+    if (timestamp.type == TRACE_TYPE_MARKER && cpu.type == TRACE_TYPE_MARKER) {
+        // Insert the two markers.
+        // TODO i#5538: These end up with record ordinals that belong to different
+        // records in the unskipped trace: we should instead not print them out
+        // at all, somehow.
+        trace_entry_t instr = entry_copy_;
+        entry_copy_ = timestamp;
+        process_input_entry();
+        queues_[thread_index].push(cpu);
+        queues_[thread_index].push(instr);
+    } else {
+        // We missed the markers somehow; fall back to just process the instr.
+        // TODO i#5538: For skipping from the middle we need to have the
+        // base reader cache the last timestamp,cpu.
+        VPRINT(this, 1, "Skip failed to find both timestamp and cpu\n");
+        process_input_entry();
+    }
+    return true;
+}

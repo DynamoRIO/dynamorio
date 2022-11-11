@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,38 +30,33 @@
  * DAMAGE.
  */
 
-/* zipfile_file_reader: reads zipfile files containing memory traces. */
+#ifndef _NULL_FILTER_H_
+#define _NULL_FILTER_H_ 1
 
-#ifndef _ZIPFILE_FILE_READER_H_
-#define _ZIPFILE_FILE_READER_H_ 1
+#include "record_filter.h"
 
-#include <zlib.h>
-#include "minizip/unzip.h"
-#include "file_reader.h"
+namespace dynamorio {
+namespace drmemtrace {
 
-struct zipfile_reader_t {
-    explicit zipfile_reader_t(unzFile file)
-        : file(file)
+class null_filter_t : public record_filter_t::record_filter_func_t {
+public:
+    void *
+    parallel_shard_init() override
     {
+        return nullptr;
     }
-    unzFile file;
-    // Without our own buffering, reading one trace_entry_t record at a time
-    // is 60% slower.  This buffer size was picked through experimentation to
-    // perform well without taking up too much memory.
-    trace_entry_t buf[4096];
-    trace_entry_t *cur_buf = buf;
-    trace_entry_t *max_buf = buf;
+    bool
+    parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override
+    {
+        return true;
+    }
+    bool
+    parallel_shard_exit(void *shard_data) override
+    {
+        return true;
+    }
 };
 
-typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
-
-/* Declare this so the compiler knows not to use the default implementation in the
- * class declaration.
- */
-template <>
-bool
-file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
-                                                          uint64_t instruction_count,
-                                                          OUT bool *eof);
-
-#endif /* _ZIPFILE_FILE_READER_H_ */
+} // namespace drmemtrace
+} // namespace dynamorio
+#endif /* _NULL_FILTER_H_ */
