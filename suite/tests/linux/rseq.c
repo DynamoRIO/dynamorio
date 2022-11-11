@@ -129,8 +129,13 @@ register_rseq()
 #    endif
         /* Already registered by glibc. Verify that it's there. */
         struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;
-        int res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, 0);
-        assert(res == -1 && (errno == EPERM || errno == ENOSYS));
+        /* Glibc uses RSEQ_SIG as the signature. The following will return
+         * EBUSY if reg_rseq is the registered struct rseq and EINVAL otherwise.
+         * FTR: if we use some other value as signature (like zero),  this
+         * becomes an EPERM vs EINVAL check.
+         */
+        int res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, RSEQ_SIG);
+        assert(res == -1 && (errno == EBUSY || errno == ENOSYS));
     } else {
 #endif
         rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
