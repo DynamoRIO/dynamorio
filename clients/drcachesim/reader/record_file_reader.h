@@ -141,9 +141,11 @@ public:
         bool res = read_next_entry();
         assert(res || eof_);
         UNUSED(res);
-        ++cur_ref_count_;
-        if (type_is_instr(static_cast<trace_type_t>(cur_entry_.type)))
-            ++cur_instr_count_;
+        if (!eof_) {
+            ++cur_ref_count_;
+            if (type_is_instr(static_cast<trace_type_t>(cur_entry_.type)))
+                ++cur_instr_count_;
+        }
         return *this;
     }
 
@@ -167,6 +169,16 @@ public:
     operator!=(const record_reader_t &rhs) const
     {
         return !BOOLS_MATCH(eof_, rhs.eof_);
+    }
+
+    virtual record_reader_t &
+    skip_instructions(uint64_t instruction_count)
+    {
+        uint64_t stop_count = cur_instr_count_ + instruction_count + 1;
+        while (cur_instr_count_ < stop_count) {
+            ++(*this);
+        }
+        return *this;
     }
 
 protected:

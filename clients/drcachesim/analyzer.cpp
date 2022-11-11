@@ -405,7 +405,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
             (*serial_trace_iter_) = (*serial_trace_iter_).skip_instructions(skip_instrs_);
         }
         for (; *serial_trace_iter_ != *trace_end_; ++(*serial_trace_iter_)) {
-            RecordType entry = **serial_trace_iter_;
+            const RecordType entry = **serial_trace_iter_;
             for (int i = 0; i < num_tools_; ++i) {
                 // We short-circuit and exit on an error to avoid confusion over
                 // the results and avoid wasted continued work.
