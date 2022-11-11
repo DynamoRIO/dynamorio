@@ -93,7 +93,10 @@ static volatile bool rseq_enabled;
 #        define GLIBC_RSEQ_OFFSET 1312
 #    endif
 #else
-/* This was verified on AArch64, but not on AArch32. */
+/* This was verified on AArch64, but not on AArch32.
+ * XXX: To improve struct rseq offset detection on AArch32, find the offset
+ * on an AArch32 machine running glibc 2.35+ and add here.
+ */
 #    define GLIBC_RSEQ_OFFSET -32
 #endif
 
