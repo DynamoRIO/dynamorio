@@ -624,13 +624,13 @@ if (BUILD_TESTS)
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
     set(tmp_output_dir ${PROJECT_BINARY_DIR}/record_filter_tests_tmp_output)
     file(MAKE_DIRECTORY ${tmp_output_dir})
-    add_executable(tool.drcachesim.record_filter_unit_tests
+    add_executable(tool.drcacheoff.record_filter_unit_tests
                    tests/record_filter_unit_tests.cpp)
-    configure_DynamoRIO_standalone(tool.drcachesim.record_filter_unit_tests)
-    target_link_libraries(tool.drcachesim.record_filter_unit_tests drmemtrace_analyzer
+    configure_DynamoRIO_standalone(tool.drcacheoff.record_filter_unit_tests)
+    target_link_libraries(tool.drcacheoff.record_filter_unit_tests drmemtrace_analyzer
       drmemtrace_basic_counts drmemtrace_record_filter)
-    add_test(NAME tool.drcachesim.record_filter_unit_tests
-             COMMAND tool.drcachesim.record_filter_unit_tests --trace_dir
+    add_test(NAME tool.drcacheoff.record_filter_unit_tests
+             COMMAND tool.drcacheoff.record_filter_unit_tests --trace_dir
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
   endif ()
 
