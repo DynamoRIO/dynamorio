@@ -96,9 +96,15 @@ protected:
     print_prefix(memtrace_stream_t *memstream, const memref_t &memref, int ref_adjust = 0,
                  std::ostream &stream = std::cerr)
     {
-        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
+        if ((prev_tid_ != -1 && prev_tid_ != memref.instr.tid) ||
+            // Print a divider for a skip_instructions gap too.
+            (prev_record_ != 0 &&
+             prev_record_ + 1 < memstream->get_record_ordinal() + ref_adjust))
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
+        // TODO i#5538: After skipping across a chunk, the record ordinal is
+        // incorrect.  We need raw2trace to insert a record ordinal at chunk entry.
+        prev_record_ = memstream->get_record_ordinal() + ref_adjust;
         stream << std::setw(9) << (memstream->get_record_ordinal() + ref_adjust)
                << std::setw(9) << memstream->get_instruction_ordinal() << ": T"
                << memref.marker.tid << " ";
@@ -130,6 +136,7 @@ protected:
     uint64_t num_disasm_instrs_;
     std::unordered_map<app_pc, std::string> disasm_cache_;
     memref_tid_t prev_tid_;
+    uint64_t prev_record_ = 0;
     intptr_t filetype_;
     std::unordered_set<memref_tid_t> printed_header_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;

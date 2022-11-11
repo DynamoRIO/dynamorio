@@ -104,7 +104,7 @@ public:
      */
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
-                    int worker_count = 0);
+                    int worker_count = 0, uint64_t skip_instrs = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -191,6 +191,7 @@ protected:
     std::vector<std::vector<analyzer_shard_data_t *>> worker_tasks_;
     int verbosity_ = 0;
     const char *output_prefix_ = "[analyzer]";
+    uint64_t skip_instrs_ = 0;
 
 private:
     bool
