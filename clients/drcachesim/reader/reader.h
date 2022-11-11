@@ -107,6 +107,10 @@ public:
     // to first observe those before skipping, if needed.  For interleaved-thread
     // iteration, top-level headers in other threads will be skipped as well
     // (but generally speaking these are identical to the initial thread).
+    // TODO i#5538: Add access to these header values from #memtrace_stream_t
+    // and document it here.
+    // TODO i#5538: Skipping from the middle will not always duplicate the
+    // last timestamp,cpu.
     virtual reader_t &
     skip_instructions(uint64_t instruction_count);
 

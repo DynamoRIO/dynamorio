@@ -107,13 +107,27 @@ test_skip_initial()
                   res.find("chunk instruction count 20") != std::string::npos,
               "expecting chunk size of 20 in test trace");
         std::stringstream res_stream(res);
+        // Example output for -skip_instrs 49:
+        //    Output format:
+        //    <record#> <instr#>: T<tid> <record details>
+        //    ------------------------------------------------------------
+        //           18       49: T3854659 <marker: timestamp 13312570674112282>
+        //           19       49: T3854659 <marker: tid 3854659 on core 3>
+        //           20       50: T3854659 ifetch       2 byte(s) @ 0x0000000000401030 75
+        //           d9                jnz    $0x000000000040100b
         std::string line;
+        // First we expect "Output format:"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "Output format"), "missing header");
+        // Next we expect "<record#> <instr#>: T<tid> <record details>"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "<record#> <instr#>"), "missing 2nd header");
+        // Next we expect "------------------------------------------------------------"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "------"), "missing divider line");
+        // Next we expect the timestamp entry with the instruction count before
+        // a colon: "       18       49: T3854659 <marker: timestamp 13312570674112282>"
+        // We expect the count to equal the -skip_instrs value.
         std::getline(res_stream, line, '\n');
         std::stringstream expect_stream;
         expect_stream << skip_instrs << ":";
@@ -122,9 +136,11 @@ test_skip_initial()
         // is > the instr count or other sanity checks.
         CHECK(skip_instrs == 0 || line.find("timestamp") != std::string::npos,
               "missing timestamp");
+        // Next we expect the cpuid entry.
         std::getline(res_stream, line, '\n');
         CHECK(skip_instrs == 0 || line.find("on core") != std::string::npos,
               "missing cpuid");
+        // Next we expect the target instruction fetch.
         std::getline(res_stream, line, '\n');
         CHECK(skip_instrs == 0 || line.find("ifetch") != std::string::npos,
               "missing ifetch");
@@ -146,6 +162,8 @@ main(int argc, const char *argv[])
     }
     if (!test_skip_initial())
         return 1;
+    // TODO i#5538: Add tests that skip from the middle once we have full support
+    // for duplicating the timestamp,cpu in that scenario.
     fprintf(stderr, "Success\n");
     return 0;
 }

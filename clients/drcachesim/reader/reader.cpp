@@ -302,7 +302,7 @@ reader_t &
 reader_t::skip_instructions(uint64_t instruction_count)
 {
     // This base class has no fast seeking and must do a linear walk.
-    // We have +1 because we need to pass up the memrefs of the final skipped
+    // We have +1 because we need to skip the memrefs of the final skipped
     // instr, so we look for the 1st unskipped instr.
     uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
     while (cur_instr_count_ < stop_count_) {

@@ -157,6 +157,7 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
            stop_count_, cur_instr_count_, chunk_instr_count_,
            cur_instr_count_ +
                (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
+    // First, quickly skip over chunks to reach the chunk containing the target.
     while (cur_instr_count_ +
                (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)) <
            stop_count_) {
@@ -176,8 +177,8 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         VPRINT(this, 2, "Thread #%zd at %" PRIi64 " instrs at start of new chunk\n",
                thread_index, cur_instr_count_);
         VPRINT(this, 2,
-               "zip chunk stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64 " est=%" PRIi64
-               "\n",
+               "zip chunk stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64
+               " end-of-chunk=%" PRIi64 "\n",
                stop_count_, cur_instr_count_, chunk_instr_count_,
                cur_instr_count_ +
                    (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
@@ -188,7 +189,7 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
     // We need to present a timestamp+cpu so we reset this field so process_input_entry()
     // will not skip the first pair in this new chunk.
     last_timestamp_instr_count_ = cur_instr_count_;
-    while (cur_instr_count_ < stop_count_) {
+    while (cur_instr_count_ < stop_count_) { // End condition is never reached.
         if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
             return false;
         // We need to pass up memrefs for the final skipped instr, but we don't
@@ -223,6 +224,8 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         queues_[thread_index].push(instr);
     } else {
         // We missed the markers somehow; fall back to just process the instr.
+        // TODO i#5538: For skipping from the middle we need to have the
+        // base reader cache the last timestamp,cpu.
         VPRINT(this, 1, "Skip failed to find both timestamp and cpu\n");
         process_input_entry();
     }
