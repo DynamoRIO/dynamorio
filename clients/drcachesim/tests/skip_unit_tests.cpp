@@ -32,7 +32,6 @@
 
 /* Unit tests for the skip feature. */
 
-#include "dr_api.h"
 #include "droption.h"
 #include "zipfile_file_reader.h"
 #include "tools/view_create.h"
