@@ -102,6 +102,18 @@ public:
     virtual reader_t &
     operator++();
 
+    // Skips records until "count" instruction records have been passed.
+    // This will skip top-level headers for a thread; it is up to the caller
+    // to first observe those before skipping, if needed.  For interleaved-thread
+    // iteration, top-level headers in other threads will be skipped as well
+    // (but generally speaking these are identical to the initial thread).
+    // TODO i#5538: Add access to these header values from #memtrace_stream_t
+    // and document it here.
+    // TODO i#5538: Skipping from the middle will not always duplicate the
+    // last timestamp,cpu.
+    virtual reader_t &
+    skip_instructions(uint64_t instruction_count);
+
     // Supplied for subclasses that may fail in their constructors.
     virtual bool
     operator!()
@@ -137,6 +149,10 @@ protected:
     virtual bool
     read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
                            OUT bool *eof) = 0;
+    // This updates internal state for the just-read input_entry_.
+    // Returns whether a new memref record is now available.
+    virtual bool
+    process_input_entry();
 
     // Following typical stream iterator convention, the default constructor
     // produces an EOF object.
@@ -147,6 +163,11 @@ protected:
     int verbosity_ = 0;
     bool online_ = true;
     const char *output_prefix_ = "[reader]";
+    uint64_t cur_ref_count_ = 0;
+    uint64_t cur_instr_count_ = 0;
+    uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
+    uint64_t last_timestamp_instr_count_ = 0;
+    trace_entry_t *input_entry_ = nullptr;
 
 private:
     struct encoding_info_t {
@@ -154,7 +175,6 @@ private:
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
 
-    trace_entry_t *input_entry_ = nullptr;
     memref_t cur_ref_;
     memref_tid_t cur_tid_ = 0;
     memref_pid_t cur_pid_ = 0;
@@ -163,10 +183,6 @@ private:
     addr_t prev_instr_addr_ = 0;
     int bundle_idx_ = 0;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
-    uint64_t cur_ref_count_ = 0;
-    uint64_t cur_instr_count_ = 0;
-    uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
-    uint64_t last_timestamp_instr_count_ = 0;
     bool skip_next_cpu_ = false;
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;

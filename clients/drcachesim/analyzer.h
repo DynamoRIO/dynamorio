@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -66,7 +66,8 @@ public:
     analyzer_t();
     virtual ~analyzer_t(); /**< Destructor. */
     /** Returns whether the analyzer was created successfully. */
-    virtual bool operator!();
+    virtual bool
+    operator!();
     /** Returns further information on an error in initializing the analyzer. */
     virtual std::string
     get_error_string();
@@ -83,7 +84,7 @@ public:
      * The analyzer calls the initialize() function on each tool before use.
      */
     analyzer_t(const std::string &trace_path, analysis_tool_t **tools, int num_tools,
-               int worker_count = 0);
+               int worker_count = 0, uint64_t skip_instrs = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -164,6 +165,7 @@ protected:
     std::vector<std::vector<analyzer_shard_data_t *>> worker_tasks_;
     int verbosity_ = 0;
     const char *output_prefix_ = "[analyzer]";
+    uint64_t skip_instrs_ = 0;
 };
 
 #endif /* _ANALYZER_H_ */

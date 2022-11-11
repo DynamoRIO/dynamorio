@@ -74,6 +74,7 @@ if (ZLIB_FOUND)
       "until then, disabling zip output and fast seeking")
     set(zip_reader "")
     set(zlib_libs ${ZLIB_LIBRARIES})
+    set(ZIP_FOUND OFF)
   else ()
     file(GLOB minizip_srcs "${minizip_dir}/*.c")
     if (NOT WIN32)
@@ -81,6 +82,7 @@ if (ZLIB_FOUND)
     endif ()
     add_library(minizip STATIC ${minizip_srcs})
     add_definitions(-DHAS_ZIP)
+    set(ZIP_FOUND ON)
     # We add "minizip/" to avoid collisions with system "zip.h" on Mac.
     include_directories(${minizip_dir}/..)
     DR_export_target(minizip)
@@ -767,6 +769,21 @@ if (BUILD_TESTS)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
     use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
 
+  endif ()
+
+  if (X86 AND X64 AND ZIP_FOUND)
+    # XXX i#5538: Add trace files for other arches.
+    set(zip_path
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
+    add_executable(tool.drcacheoff.skip_unit_tests tests/skip_unit_tests.cpp)
+    configure_DynamoRIO_standalone(tool.drcacheoff.skip_unit_tests)
+    target_link_libraries(tool.drcacheoff.skip_unit_tests drmemtrace_analyzer
+      drmemtrace_view drmemtrace_raw2trace)
+    use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drreg_static)
+    use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drcovlib_static)
+    use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drdecode)
+    add_test(NAME tool.drcacheoff.skip_unit_tests
+             COMMAND tool.drcacheoff.skip_unit_tests --trace_file ${zip_path})
   endif ()
 endif ()
 

@@ -55,4 +55,13 @@ struct zipfile_reader_t {
 
 typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
 
+/* Declare this so the compiler knows not to use the default implementation in the
+ * class declaration.
+ */
+template <>
+bool
+file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
+                                                          uint64_t instruction_count,
+                                                          OUT bool *eof);
+
 #endif /* _ZIPFILE_FILE_READER_H_ */

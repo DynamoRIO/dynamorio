@@ -176,12 +176,13 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity)
 }
 
 analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools,
-                       int num_tools, int worker_count)
+                       int num_tools, int worker_count, uint64_t skip_instrs)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
     , parallel_(true)
     , worker_count_(worker_count)
+    , skip_instrs_(skip_instrs)
 {
     if (!init_file_reader(trace_path)) {
         success_ = false;
@@ -273,9 +274,17 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
                 tdata->index, worker_data[i], tdata->iter.get());
         }
         VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
+        if (skip_instrs_ > 0) {
+            // We skip in each thread.
+            // TODO i#5538: Add top-level header data to memtrace_stream_t for
+            // access by tools, since we're skipping it here.  We considered
+            // not skipping until we see the 1st timestamp but the stream access
+            // approach has other benefits and seems cleaner.
+            (*tdata->iter) = (*tdata->iter).skip_instructions(skip_instrs_);
+        }
         for (; *tdata->iter != *trace_end_; ++(*tdata->iter)) {
+            const memref_t &memref = **tdata->iter;
             for (int i = 0; i < num_tools_; ++i) {
-                const memref_t &memref = **tdata->iter;
                 if (!tools_[i]->parallel_shard_memref(shard_data[i], memref)) {
                     tdata->error = tools_[i]->parallel_shard_error(shard_data[i]);
                     VPRINT(this, 1,
@@ -314,9 +323,13 @@ analyzer_t::run()
     if (!parallel_) {
         if (!start_reading())
             return false;
+        if (skip_instrs_ > 0) {
+            // TODO i#5538: Add top-level header data to memtrace_stream_t; see above.
+            (*serial_trace_iter_) = (*serial_trace_iter_).skip_instructions(skip_instrs_);
+        }
         for (; *serial_trace_iter_ != *trace_end_; ++(*serial_trace_iter_)) {
+            const memref_t &memref = **serial_trace_iter_;
             for (int i = 0; i < num_tools_; ++i) {
-                memref_t memref = **serial_trace_iter_;
                 // We short-circuit and exit on an error to avoid confusion over
                 // the results and avoid wasted continued work.
                 if (!tools_[i]->process_memref(memref)) {
