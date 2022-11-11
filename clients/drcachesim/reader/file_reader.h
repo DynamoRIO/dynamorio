@@ -55,7 +55,8 @@
 #    ifdef WINDOWS
 #        define ZHEX64_FORMAT_STRING "%016I64x"
 #    else
-#        if defined(__i386__) || defined(__arm__) || defined(__APPLE__)
+#        if defined(__i386__) || defined(__arm__) || \
+            (defined(__APPLE__) && !defined(__LP64__))
 #            define ZHEX64_FORMAT_STRING "%016llx"
 #        else
 #            define ZHEX64_FORMAT_STRING "%016lx"
