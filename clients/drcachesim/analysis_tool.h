@@ -83,16 +83,16 @@
  * aggregation across the whole trace should occur here as well, while shard-specific
  * results can be presented in parallel_shard_exit().
  *
- * T is the type of entry that is analyzed by the tool. Currently, we support #memref_t
- * and #trace_entry_t. analysis_tool_tmpl_t<#memref_t> is the primary type of analysis
- * tool and is used for most purposes. analysis_tool_tmpl_t≤#trace_entry_t> is used in
- * special cases where an offline trace needs to be observed exactly as stored on disk,
- * without hiding any internal entries.
+ * RecordType is the type of entry that is analyzed by the tool. Currently, we support
+ * #memref_t and #trace_entry_t. analysis_tool_tmpl_t<#memref_t> is the primary type of
+ * analysis tool and is used for most purposes. analysis_tool_tmpl_t≤#trace_entry_t> is
+ * used in special cases where an offline trace needs to be observed exactly as stored on
+ * disk, without hiding any internal entries.
  *
  * Analysis tools can subclass either of the specialized analysis_tool_tmpl_t<#memref_t>
  * or analysis_tool_tmpl_t<#trace_entry_t>, or analysis_tool_tmpl_t itself, as required.
  */
-template <typename T> class analysis_tool_tmpl_t {
+template <typename RecordType> class analysis_tool_tmpl_t {
 public:
     /**
      * Errors encountered during the constructor will set the success flag, which should
@@ -146,7 +146,7 @@ public:
      * On failure, get_error_string() returns a descriptive message.
      */
     virtual bool
-    process_memref(const T &entry) = 0;
+    process_memref(const RecordType &entry) = 0;
     /**
      * This routine reports the results of the trace analysis.
      * It should leave the i/o state in a default format (std::dec) to support
@@ -243,7 +243,7 @@ public:
      * descriptive message.
      */
     virtual bool
-    parallel_shard_memref(void *shard_data, const T &entry)
+    parallel_shard_memref(void *shard_data, const RecordType &entry)
     {
         return false;
     }

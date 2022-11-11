@@ -159,8 +159,8 @@ record_analyzer_t::serial_mode_supported()
  * Other analyzer_tmpl_t routines that do not need to be specialized.
  */
 
-template <typename T, typename U>
-analyzer_tmpl_t<T, U>::analyzer_tmpl_t()
+template <typename RecordType, typename ReaderType>
+analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t()
     : success_(true)
     , num_tools_(0)
     , tools_(NULL)
@@ -170,9 +170,10 @@ analyzer_tmpl_t<T, U>::analyzer_tmpl_t()
     /* Nothing else: child class needs to initialize. */
 }
 
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbosity)
+analyzer_tmpl_t<RecordType, ReaderType>::init_file_reader(const std::string &trace_path,
+                                                          int verbosity)
 {
     verbosity_ = verbosity;
     if (trace_path.empty()) {
@@ -200,7 +201,7 @@ analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbo
                 fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                 continue;
             const std::string path = trace_path + DIRSEP + fname;
-            std::unique_ptr<U> reader = get_reader(path, verbosity);
+            std::unique_ptr<ReaderType> reader = get_reader(path, verbosity);
             if (!reader) {
                 return false;
             }
@@ -234,10 +235,10 @@ analyzer_tmpl_t<T, U>::init_file_reader(const std::string &trace_path, int verbo
     return true;
 }
 
-template <typename T, typename U>
-analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path,
-                                       analysis_tool_tmpl_t<T> **tools, int num_tools,
-                                       int worker_count)
+template <typename RecordType, typename ReaderType>
+analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
+    const std::string &trace_path, analysis_tool_tmpl_t<RecordType> **tools,
+    int num_tools, int worker_count)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
@@ -266,8 +267,8 @@ analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path,
     }
 }
 
-template <typename T, typename U>
-analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path)
+template <typename RecordType, typename ReaderType>
+analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(const std::string &trace_path)
     : success_(true)
     , num_tools_(0)
     , tools_(NULL)
@@ -281,34 +282,34 @@ analyzer_tmpl_t<T, U>::analyzer_tmpl_t(const std::string &trace_path)
 
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 // clang-format on
-analyzer_tmpl_t<T, U>::~analyzer_tmpl_t()
+analyzer_tmpl_t<RecordType, ReaderType>::~analyzer_tmpl_t()
 {
     // Empty.
 }
 
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 bool
-analyzer_tmpl_t<T,U>::operator!()
+analyzer_tmpl_t<RecordType,ReaderType>::operator!()
 // clang-format on
 {
     return !success_;
 }
 
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 std::string
-analyzer_tmpl_t<T, U>::get_error_string()
+analyzer_tmpl_t<RecordType, ReaderType>::get_error_string()
 {
     return error_string_;
 }
 
 // Used only for serial iteration.
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<T, U>::start_reading()
+analyzer_tmpl_t<RecordType, ReaderType>::start_reading()
 {
     if (!serial_mode_supported()) {
         ERRMSG("Serial mode not supported by this analyzer\n");
@@ -321,9 +322,10 @@ analyzer_tmpl_t<T, U>::start_reading()
     return true;
 }
 
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 void
-analyzer_tmpl_t<T, U>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
+analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(
+    std::vector<analyzer_shard_data_t *> *tasks)
 {
     if (tasks->empty()) {
         VPRINT(this, 1, "Worker has no tasks\n");
@@ -349,7 +351,7 @@ analyzer_tmpl_t<T, U>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks
         VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
         for (; *tdata->iter != *trace_end_; ++(*tdata->iter)) {
             for (int i = 0; i < num_tools_; ++i) {
-                const T &entry = **tdata->iter;
+                const RecordType &entry = **tdata->iter;
                 if (!tools_[i]->parallel_shard_memref(shard_data[i], entry)) {
                     tdata->error = tools_[i]->parallel_shard_error(shard_data[i]);
                     VPRINT(this, 1,
@@ -381,9 +383,9 @@ analyzer_tmpl_t<T, U>::process_tasks(std::vector<analyzer_shard_data_t *> *tasks
     }
 }
 
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<T, U>::run()
+analyzer_tmpl_t<RecordType, ReaderType>::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (!parallel_) {
@@ -391,7 +393,7 @@ analyzer_tmpl_t<T, U>::run()
             return false;
         for (; *serial_trace_iter_ != *trace_end_; ++(*serial_trace_iter_)) {
             for (int i = 0; i < num_tools_; ++i) {
-                T entry = **serial_trace_iter_;
+                RecordType entry = **serial_trace_iter_;
                 // We short-circuit and exit on an error to avoid confusion over
                 // the results and avoid wasted continued work.
                 if (!tools_[i]->process_memref(entry)) {
@@ -424,9 +426,9 @@ analyzer_tmpl_t<T, U>::run()
     return true;
 }
 
-template <typename T, typename U>
+template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<T, U>::print_stats()
+analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
 {
     for (int i = 0; i < num_tools_; ++i) {
         // Each tool should reset i/o state, but we reset the format here just in case.
@@ -446,18 +448,18 @@ analyzer_tmpl_t<T, U>::print_stats()
 
 // XXX i#3287: Figure out how to support parallel operation with this external
 // iterator interface.
-template <typename T, typename U>
-U &
-analyzer_tmpl_t<T, U>::begin()
+template <typename RecordType, typename ReaderType>
+ReaderType &
+analyzer_tmpl_t<RecordType, ReaderType>::begin()
 {
     if (!start_reading())
         return *trace_end_;
     return *serial_trace_iter_;
 }
 
-template <typename T, typename U>
-U &
-analyzer_tmpl_t<T, U>::end()
+template <typename RecordType, typename ReaderType>
+ReaderType &
+analyzer_tmpl_t<RecordType, ReaderType>::end()
 {
     return *trace_end_;
 }

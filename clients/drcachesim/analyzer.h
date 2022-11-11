@@ -57,8 +57,8 @@
  * trace and calls the process_memref() routine of each tool, or it exposes
  * an iteration interface to external control code.
  *
- * T is the type of entry to be analyzed: #memref_t or #trace_entry_t. U is the reader
- * that allows reading entries of type T: #reader_t or
+ * RecordType is the type of entry to be analyzed: #memref_t or #trace_entry_t.
+ * ReaderType is the reader that allows reading entries of type T: #reader_t or
  * #dynamorio::drmemtrace::record_reader_t respectively.
  *
  * #analyzer_tmpl_t<#memref_t, #reader_t> is the primary type of analyzer, which is used
@@ -71,11 +71,11 @@
  * disk, without hiding any internal entries. It uses tools of type
  * #analysis_tool_tmpl_t<#trace_entry_t>.
  *
- * TODO i#5727: When we convert #reader_t into a template on T, we can remove the
- * second template parameter to #analyzer_tmpl_t, and simply use reader_tmpl_t<T>
+ * TODO i#5727: When we convert #reader_t into a template on RecordType, we can remove the
+ * second template parameter to #analyzer_tmpl_t, and simply use reader_tmpl_t<RecordType>
  * instead.
  */
-template <typename T, typename U> class analyzer_tmpl_t {
+template <typename RecordType, typename ReaderType> class analyzer_tmpl_t {
 public:
     /**
      * Usage: errors encountered during a constructor will set a flag that should
@@ -102,8 +102,9 @@ public:
      * The user must free them afterward.
      * The analyzer calls the initialize() function on each tool before use.
      */
-    analyzer_tmpl_t(const std::string &trace_path, analysis_tool_tmpl_t<T> **tools,
-                    int num_tools, int worker_count = 0);
+    analyzer_tmpl_t(const std::string &trace_path,
+                    analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
+                    int worker_count = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -123,16 +124,16 @@ public:
      * model supports only a single user of the iterator: the multi-tool model above
      * should be used if multiple tools are involved.
      */
-    virtual U &
+    virtual ReaderType &
     begin();
-    virtual U &
+    virtual ReaderType &
     end(); /** End iterator for the external-iterator usage model. */
 
 protected:
     // Data for one trace shard.  Our concurrency model has each shard
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_shard_data_t {
-        analyzer_shard_data_t(int index, std::unique_ptr<U> iter,
+        analyzer_shard_data_t(int index, std::unique_ptr<ReaderType> iter,
                               const std::string &trace_file)
             : index(index)
             , worker(0)
@@ -151,7 +152,7 @@ protected:
 
         int index;
         int worker;
-        std::unique_ptr<U> iter;
+        std::unique_ptr<ReaderType> iter;
         std::string trace_file;
         std::string error;
 
@@ -164,10 +165,10 @@ protected:
     bool
     init_file_reader(const std::string &trace_path, int verbosity = 0);
 
-    std::unique_ptr<U>
+    std::unique_ptr<ReaderType>
     get_reader(const std::string &path, int verbosity);
 
-    std::unique_ptr<U>
+    std::unique_ptr<ReaderType>
     get_default_reader();
 
     // This finalizes the trace_iter setup.  It can block and is meant to be
@@ -181,10 +182,10 @@ protected:
     bool success_;
     std::string error_string_;
     std::vector<analyzer_shard_data_t> thread_data_;
-    std::unique_ptr<U> serial_trace_iter_;
-    std::unique_ptr<U> trace_end_;
+    std::unique_ptr<ReaderType> serial_trace_iter_;
+    std::unique_ptr<ReaderType> trace_end_;
     int num_tools_;
-    analysis_tool_tmpl_t<T> **tools_;
+    analysis_tool_tmpl_t<RecordType> **tools_;
     bool parallel_;
     int worker_count_;
     std::vector<std::vector<analyzer_shard_data_t *>> worker_tasks_;
