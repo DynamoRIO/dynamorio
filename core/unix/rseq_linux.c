@@ -757,15 +757,15 @@ rseq_process_syscall(dcontext_t *dcontext)
             first_rseq_registration = true;
         constant_offset = (prior == 0 || prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
-            "Observed struct rseq @ " PFX " for thread => %s:%s0x%x\n", app_addr,
-            get_register_name(LIB_SEG_TLS), (rseq_tls_offset < 0 ? "-" : ""),
+            "Observed struct rseq at syscall @ " PFX " for thread => %s:%s0x%x\n",
+            app_addr, get_register_name(LIB_SEG_TLS), (rseq_tls_offset < 0 ? "-" : ""),
             ABS(rseq_tls_offset));
     } else
         constant_offset = (seg_base + rseq_tls_offset == app_addr);
     if (!constant_offset) {
-        REPORT_FATAL_ERROR_AND_EXIT(
-            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(), get_application_pid(),
-            "struct rseq is not always in static thread-local storage");
+        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "struct rseq is not always at the same offset");
         ASSERT_NOT_REACHED();
     }
     /* The struct rseq registered by glibc 2.35+ is inside struct pthread, which is
