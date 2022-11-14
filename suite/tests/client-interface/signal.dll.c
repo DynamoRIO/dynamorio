@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,7 +47,10 @@ static app_pc redirect_tag;
 static void *child_alive;
 static void *child_dead;
 static void *sigchld_received;
-static pid_t child_pid, child_tid;
+static pid_t child_pid;
+#ifdef LINUX
+static pid_t child_tid;
+#endif
 
 static void
 redirect_xfer(void)
@@ -137,7 +140,9 @@ thread_func(void *arg)
     int fd = (int)(long)arg;
     char buf[16];
     child_pid = getpid();
+#ifdef LINUX
     child_tid = syscall(SYS_gettid);
+#endif
     dr_event_signal(child_alive);
     dr_mark_safe_to_suspend(dr_get_current_drcontext(), true);
     int res = read(fd, buf, 2);
