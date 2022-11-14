@@ -5303,7 +5303,7 @@ decode_opnds_ccm(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
     instr_set_src(instr, 0, rn);
 
     opnd_t rm;
-    if (TEST(1U << 11, enc))                       /* imm5 */
+    if (TEST(1U << 11, enc)) /* imm5 */
         instr_set_src(instr, 1, opnd_create_immed_int(extract_uint(enc, 16, 5), OPSZ_5b));
     else if (!decode_opnd_rn(false, 16, enc, &rm)) /* Rm */
         return false;
