@@ -67,6 +67,7 @@
     } while (0)
 
 // We fflush for Windows cygwin where stderr is not flushed.
+#undef VPRINT
 #define VPRINT(level, ...)                 \
     do {                                   \
         if (this->verbosity_ >= (level)) { \
@@ -1174,6 +1175,9 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
     std::array<trace_entry_t, WRITE_BUFFER_SIZE> local_out_buf;
     byte *buf_base = reinterpret_cast<byte *>(local_out_buf.data());
     byte *buf = buf_base;
+    // Add 1 to the ref count to include this marker.
+    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_RECORD_ORDINAL,
+                                                 tdata->cur_chunk_ref_count + 1);
     buf +=
         trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)tdata->last_timestamp_);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CPU_ID,
@@ -1183,6 +1187,8 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
     // need to go into the schedule file.
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
         return "Failed to write to output file";
+    // These didn't go through tdata->memref_counter so we manually add.
+    tdata->cur_chunk_ref_count += (buf - buf_base) / sizeof(trace_entry_t);
     return "";
 }
 
@@ -1205,6 +1211,8 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
         CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
         if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
             return "Failed to write to output file";
+        // This didn't go through tdata->memref_counter so we manually add.
+        tdata->cur_chunk_ref_count += (buf - buf_base) / sizeof(trace_entry_t);
     }
 
     std::ostringstream stream;
@@ -1247,6 +1255,7 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->out_archive != nullptr) {
         for (const trace_entry_t *it = start; it < end; ++it) {
+            tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             if (it->type == TRACE_TYPE_MARKER) {
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
@@ -1266,10 +1275,6 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs.  (We will put function markers for entry in the
             // prior chunk too: we live with that.)
-            //
-            // TODO i#5538: Add instruction counts to the view tool and verify we
-            // have the right precise count -- by having an option to not skip the
-            // duplicated timestamp in the reader?
             if (tdata->cur_chunk_instr_count++ >= chunk_instr_count_) {
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count - 1 == chunk_instr_count_);
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(start),

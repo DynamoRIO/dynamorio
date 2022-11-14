@@ -92,13 +92,13 @@ typedef enum {
     // assume we don't need the opcode.
 
     // These entries describe a memory reference as data:
-    TRACE_TYPE_READ,  /**< A data load. */
-    TRACE_TYPE_WRITE, /**< A data store. */
+    TRACE_TYPE_READ,     /**< A data load. */
+    TRACE_TYPE_WRITE,    /**< A data store. */
 
     TRACE_TYPE_PREFETCH, /**< A general prefetch. */
 
     // X86 specific prefetch
-    TRACE_TYPE_PREFETCHT0, /**< An x86 prefetch to all levels of the cache. */
+    TRACE_TYPE_PREFETCHT0,     /**< An x86 prefetch to all levels of the cache. */
     TRACE_TYPE_PREFETCH_READ_L1 =
         TRACE_TYPE_PREFETCHT0, /**< Load prefetch to L1 cache. */
     TRACE_TYPE_PREFETCHT1,     /**< An x86 prefetch to level 2 cache and higher. */
@@ -120,7 +120,8 @@ typedef enum {
     // The trace_entry_t stream always has the instr fetch prior to data refs,
     // which the reader can use to obtain the PC for data references.
     // For memref_t, the instruction address is in the addr field.
-    // An instruction *not* of the types below:
+    // The base type is an instruction *not* of the other sub-types.
+    // Enum value == 10.
     TRACE_TYPE_INSTR, /**< A non-branch instruction. */
     // Particular categories of instructions:
     TRACE_TYPE_INSTR_DIRECT_JUMP,      /**< A direct unconditional jump instruction. */
@@ -147,6 +148,7 @@ typedef enum {
     // The _END entries are hidden by reader_t as memref_t has space for the size.
     TRACE_TYPE_INSTR_FLUSH, /**< An instruction cache flush. */
     TRACE_TYPE_INSTR_FLUSH_END,
+    // Enum value == 20.
     TRACE_TYPE_DATA_FLUSH, /**< A data cache flush. */
     TRACE_TYPE_DATA_FLUSH_END,
 
@@ -188,6 +190,7 @@ typedef enum {
     TRACE_TYPE_INSTR_NO_FETCH,
     // An internal value used for online traces and turned by reader_t into
     // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
+    // Enum value == 30.
     TRACE_TYPE_INSTR_MAYBE_FETCH,
 
     /**
@@ -198,9 +201,9 @@ typedef enum {
     TRACE_TYPE_INSTR_SYSENTER,
 
     // Architecture-agnostic trace entry types for prefetch instructions.
-    TRACE_TYPE_PREFETCH_READ_L1_NT, /**< Non-temporal load prefetch to L1 cache. */
-    TRACE_TYPE_PREFETCH_READ_L2_NT, /**< Non-temporal load prefetch to L2 cache. */
-    TRACE_TYPE_PREFETCH_READ_L3_NT, /**< Non-temporal load prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_READ_L1_NT,  /**< Non-temporal load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_READ_L2_NT,  /**< Non-temporal load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_READ_L3_NT,  /**< Non-temporal load prefetch to L3 cache. */
 
     TRACE_TYPE_PREFETCH_INSTR_L1,    /**< Instr prefetch to L1 cache. */
     TRACE_TYPE_PREFETCH_INSTR_L1_NT, /**< Non-temporal instr prefetch to L1 cache. */
@@ -407,6 +410,13 @@ typedef enum {
      * but instead relies on the #TRACE_TYPE_FOOTER entry.
      */
     TRACE_MARKER_TYPE_CHUNK_FOOTER,
+
+    /**
+     * Indicates the record ordinal for this point in the trace.  This is used
+     * to identify the visible record ordinal when skipping over chunks, and can
+     * generally be ignored by tools.
+     */
+    TRACE_MARKER_TYPE_RECORD_ORDINAL,
 
     // ...
     // These values are reserved for future built-in marker types.
