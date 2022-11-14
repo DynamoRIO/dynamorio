@@ -283,7 +283,7 @@ string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents
 string(REGEX MATCH "\t" match "${diff_notabs}")
 if (NOT "${match}" STREQUAL "")
   string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
-  message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+#NOCHECKIN disable for .patch: message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
 endif ()
 
 # Check for NOCHECKIN
