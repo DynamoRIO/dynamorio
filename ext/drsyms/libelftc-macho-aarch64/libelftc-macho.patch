@@ -53,7 +53,7 @@ Index: libdwarf/_libdwarf.h
  #include "_elftc.h"
  
 +#ifdef __APPLE__
-+//NOCHECK
++// Relocs not supported.
 +#define SHT_PROGBITS 0
 +#endif
 +
@@ -518,7 +518,7 @@ Index: libdwarf/libdwarf_macho_init.c
 +	dbg->dbg_iface = iface;
 +
 +        /* XXX: not supporting relocation right now which is what this is used for */
-+        dbg->dbg_machine = 0;//NOCHECK EM_NONE;
++        dbg->dbg_machine = 0;
 +
 +        /* We need two passes: one to count the sections we care about and
 +         * the second to fill in the data.
