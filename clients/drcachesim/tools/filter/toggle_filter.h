@@ -41,7 +41,8 @@ namespace drmemtrace {
 /**
  * Filter that starts off either enabled (outputting all entries) or
  * disabled (skipping all entries), and toggles its behavior when the
- * given instruction count is reached.
+ * given instruction count is reached. This is useful for shortening
+ * or splitting a trace.
  */
 class toggle_filter_t : public record_filter_t::record_filter_func_t {
 public:

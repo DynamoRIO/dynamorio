@@ -140,6 +140,7 @@ test_toggle_filter()
         bool in_half[2];
     };
 
+#define SPLIT_AT_INSTR_COUNT 5
     std::vector<struct expected_output> entries = {
         /* Trace shard header. */
         { { TRACE_TYPE_HEADER, 0, 1 }, { true, true } },
@@ -165,7 +166,7 @@ test_toggle_filter()
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 18 }, { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, 19 }, { true, true } },
         { { TRACE_TYPE_INSTR, 4, 20 }, { true, false } },
-        /* First half supposed to end here. */
+        /* First half supposed to end here. See SPLIT_AT_INSTR_COUNT. */
         { { TRACE_TYPE_INSTR, 4, 21 }, { false, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, 22 }, { false, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, 23 },
@@ -186,7 +187,7 @@ test_toggle_filter()
     /* Check each half. */
     for (int k = 0; k < 2; ++k) {
         dynamorio::drmemtrace::record_filter_t::record_filter_func_t *toggle_filter =
-            new dynamorio::drmemtrace::toggle_filter_t(5, k == 0);
+            new dynamorio::drmemtrace::toggle_filter_t(SPLIT_AT_INSTR_COUNT, k == 0);
         test_record_filter_t *record_filter = new test_record_filter_t({ toggle_filter });
         void *shard_data = record_filter->parallel_shard_init_stream(0, nullptr, nullptr);
         for (int i = 0; i < (int)entries.size(); ++i) {
@@ -211,6 +212,7 @@ test_toggle_filter()
                     fprintf(stderr, "\n");
                     return false;
                 }
+                // We do not verify encoding content for instructions.
                 if (memcmp(&half[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
                     fprintf(stderr, "Wrong filter result for half %d. Expected: ", k);
                     print_entry(entries[i].entry);

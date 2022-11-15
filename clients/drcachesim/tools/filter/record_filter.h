@@ -77,8 +77,9 @@ public:
          * should be truncated at the current point (plus necessary entries
          * like the footer etc). This helps the record_filter tool omit
          * auxillary entries like encodings and v2p entries, which are
-         * otherwise emitted always. Setting *\p stop to false is undefined
-         * behavior.
+         * otherwise emitted always. Since there may be other filters too,
+         * setting *\p stop does not guarantee that nothing else will be
+         * output. Setting *\p stop to false is undefined behavior.
          */
         virtual bool
         parallel_shard_filter(const trace_entry_t &entry, void *shard_data,
@@ -119,7 +120,6 @@ protected:
         std::string error;
         std::vector<void *> filter_shard_data;
         std::vector<bool> filter_stop;
-        /* We want to always output everything in the trace header. */
         bool in_shard_header;
         std::vector<trace_entry_t> last_filtered_unit_header;
         uint64_t input_entry_count;
@@ -137,6 +137,8 @@ private:
     std::vector<record_filter_func_t *> filters_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
+    uint64_t input_entry_count_;
+    uint64_t output_entry_count_;
 };
 
 } // namespace drmemtrace

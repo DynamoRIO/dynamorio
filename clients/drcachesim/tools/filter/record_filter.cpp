@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <iostream>
 #include <fstream>
 #include <memory>
 #include <vector>
@@ -64,6 +65,8 @@ record_filter_t::record_filter_t(const std::string &output_dir,
     : output_dir_(output_dir)
     , filters_(filters)
     , verbosity_(verbose)
+    , input_entry_count_(0)
+    , output_entry_count_(0)
 {
     UNUSED(verbosity_);
     UNUSED(output_prefix_);
@@ -116,6 +119,8 @@ bool
 record_filter_t::parallel_shard_exit(void *shard_data)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    input_entry_count_ += per_shard->input_entry_count;
+    output_entry_count_ += per_shard->output_entry_count;
     bool res = true;
     for (int i = 0; i < (int)filters_.size(); ++i) {
         if (!filters_[i]->parallel_shard_exit(per_shard->filter_shard_data[i]))
@@ -206,13 +211,16 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
             // must be retained if there's a chance we'll output more entries
             // later. These are not really tied to a unit header, so to save
             // space we do not output their unit's header unless some other
-            // instr/memref is output for that unit header. We decided against
-            // buffering them since there may be many of these.
+            // instr/memref is output from the same unit. We decided against
+            // buffering them since there may be too many of these.
+            // XXX: This list needs to be kept in sync with our trace format.
             switch (entry.size) {
             case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
             case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
             case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
+                // TODO i#5675: The value of the TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT
+                // marker should be adjusted based on the count of instrs skipped.
             case TRACE_MARKER_TYPE_CHUNK_FOOTER: output = true;
             }
         }
@@ -236,7 +244,8 @@ record_filter_t::process_memref(const trace_entry_t &memref)
 bool
 record_filter_t::print_results()
 {
-    // TODO i#5675: Print stats about filtered entries.
+    std::cerr << "Outputted " << output_entry_count_ << " entries from "
+              << input_entry_count_ << " entries.\n";
     return true;
 }
 
