@@ -35,6 +35,7 @@
 #include "analyzer.h"
 #include "droption.h"
 #include "dr_frontend.h"
+#include "tools/filter/toggle_filter.h"
 #include "tools/filter/null_filter.h"
 #include "tools/filter/record_filter.h"
 
@@ -54,6 +55,18 @@ static droption_t<std::string>
     op_output_dir(DROPTION_SCOPE_FRONTEND, "output_dir", "",
                   "[Required] Output directory for the filtered trace",
                   "Specifies the directory where the filtered trace will be written.");
+
+static droption_t<uint64_t> op_end_at_instr(
+    DROPTION_SCOPE_FRONTEND, "end_at_instr", 0,
+    "[Optional] Removes entries on or after the given instruction ordinal in each "
+    "thread's trace",
+    "Removes entries on or after the given instruction ordinal in each thread's trace");
+
+static droption_t<uint64_t> op_start_at_instr(
+    DROPTION_SCOPE_FRONTEND, "start_at_instr", 0,
+    "[Optional] Removes entries before the given instruction ordinal in each "
+    "thread's trace",
+    "Removes entries before the given instruction ordinal in each thread's trace");
 
 static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                            "Verbosity level",
@@ -75,11 +88,22 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    dynamorio::drmemtrace::record_filter_t::record_filter_func_t *null_filter =
-        new dynamorio::drmemtrace::null_filter_t();
     std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
         filter_funcs;
-    filter_funcs.push_back(null_filter);
+    if (op_end_at_instr.get_value() != 0) {
+        dynamorio::drmemtrace::record_filter_t::record_filter_func_t *trunc_filter =
+            new dynamorio::drmemtrace::toggle_filter_t(op_end_at_instr.get_value(), true);
+        filter_funcs.push_back(trunc_filter);
+    } else if (op_start_at_instr.get_value() != 0) {
+        dynamorio::drmemtrace::record_filter_t::record_filter_func_t *delay_filter =
+            new dynamorio::drmemtrace::toggle_filter_t(op_start_at_instr.get_value(),
+                                                       false);
+        filter_funcs.push_back(delay_filter);
+    } else {
+        dynamorio::drmemtrace::record_filter_t::record_filter_func_t *null_filter =
+            new dynamorio::drmemtrace::null_filter_t();
+        filter_funcs.push_back(null_filter);
+    }
     // TODO i#5675: Add other filters.
 
     record_analysis_tool_t *record_filter = new dynamorio::drmemtrace::record_filter_t(
@@ -98,7 +122,9 @@ _tmain(int argc, const TCHAR *targv[])
                     record_analyzer.get_error_string().c_str());
     }
     record_analyzer.print_stats();
-    delete null_filter;
+    for (auto f : filter_funcs) {
+        delete f;
+    }
     delete record_filter;
 
     fprintf(stderr, "Done!\n");

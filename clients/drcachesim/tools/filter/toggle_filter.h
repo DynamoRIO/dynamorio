@@ -46,7 +46,7 @@ namespace drmemtrace {
  */
 class toggle_filter_t : public record_filter_t::record_filter_func_t {
 public:
-    toggle_filter_t(uint64 instr_count_toggle, bool enable_write)
+    toggle_filter_t(uint64_t instr_count_toggle, bool enable_write)
         : instr_count_toggle_(instr_count_toggle)
         , enable_write_(enable_write)
     {
@@ -83,9 +83,9 @@ public:
 
 private:
     struct per_shard_t {
-        uint64 instr_count;
+        uint64_t instr_count;
     };
-    uint64 instr_count_toggle_;
+    uint64_t instr_count_toggle_;
     bool enable_write_;
 };
 
