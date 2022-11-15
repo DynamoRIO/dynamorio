@@ -141,52 +141,52 @@ test_toggle_filter()
     };
 
 #define SPLIT_AT_INSTR_COUNT 5
-    // Work-around clang asking for braces around subobject even though they're
-    // already there.
-    // clang-format off
     std::vector<struct expected_output> entries = {
         /* Trace shard header. */
-        { { TRACE_TYPE_HEADER, 0, 1 }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, 2 }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, 3 }, { true, true } },
-        { { TRACE_TYPE_THREAD, 0, 4 }, { true, true } },
-        { { TRACE_TYPE_PID, 0, 5 }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 6 }, { true, true } },
+        { { TRACE_TYPE_HEADER, 0, { 1 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 2 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 3 } }, { true, true } },
+        { { TRACE_TYPE_THREAD, 0, { 4 } }, { true, true } },
+        { { TRACE_TYPE_PID, 0, { 5 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 6 } },
+          { true, true } },
         /* Unit header. */
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 7 }, { true, false } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, 8 }, { true, false } },
-        { { TRACE_TYPE_INSTR, 4, 9 }, { true, false } },
-        { { TRACE_TYPE_WRITE, 4, 10 }, { true, false } },
-        { { TRACE_TYPE_INSTR, 4, 11 }, { true, false } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, 12 }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 13 }, { true, true } },
-        { { TRACE_TYPE_READ, 4, 14 }, { true, false } },
-        { { TRACE_TYPE_INSTR, 4, 15 }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 7 } }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 8 } }, { true, false } },
+        { { TRACE_TYPE_INSTR, 4, { 9 } }, { true, false } },
+        { { TRACE_TYPE_WRITE, 4, { 10 } }, { true, false } },
+        { { TRACE_TYPE_INSTR, 4, { 11 } }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, { 12 } },
+          { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, { 13 } },
+          { true, true } },
+        { { TRACE_TYPE_READ, 4, { 14 } }, { true, false } },
+        { { TRACE_TYPE_INSTR, 4, { 15 } }, { true, false } },
         /* Unit header. */
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 16 }, { true, false } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, 17 }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 16 } }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 17 } }, { true, false } },
         /* Unit header. */
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 18 }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, 19 }, { true, true } },
-        { { TRACE_TYPE_INSTR, 4, 20 }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 18 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 19 } }, { true, true } },
+        { { TRACE_TYPE_INSTR, 4, { 20 } }, { true, false } },
         /* First half supposed to end here. See SPLIT_AT_INSTR_COUNT. */
-        { { TRACE_TYPE_INSTR, 4, 21 }, { false, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, 22 }, { false, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, 23 },
+        { { TRACE_TYPE_INSTR, 4, { 21 } }, { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, { 22 } },
           { false, true } },
-        { { TRACE_TYPE_READ, 4, 24 }, { false, true } },
-        { { TRACE_TYPE_WRITE, 4, 25 }, { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, { 23 } },
+          { false, true } },
+        { { TRACE_TYPE_READ, 4, { 24 } }, { false, true } },
+        { { TRACE_TYPE_WRITE, 4, { 25 } }, { false, true } },
         /* Unit header. */
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 26 }, { false, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, 27 }, { false, true } },
-        { { TRACE_TYPE_INSTR, 4, 28 }, { false, true } },
-        { { TRACE_TYPE_READ, 4, 29 }, { false, true } },
-        { { TRACE_TYPE_WRITE, 4, 30 }, { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 26 } }, { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 27 } }, { false, true } },
+        { { TRACE_TYPE_INSTR, 4, { 28 } }, { false, true } },
+        { { TRACE_TYPE_READ, 4, { 29 } }, { false, true } },
+        { { TRACE_TYPE_WRITE, 4, { 30 } }, { false, true } },
         /* Trace shard footer. */
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, 31 }, { true, true } },
-        { { TRACE_TYPE_FOOTER, 0, 32 }, { true, true } }
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 31 } }, { true, true } },
+        { { TRACE_TYPE_FOOTER, 0, { 32 } }, { true, true } }
     };
-    // clang-format on
 
     /* Check each half. */
     for (int k = 0; k < 2; ++k) {
