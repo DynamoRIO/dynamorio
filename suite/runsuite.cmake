@@ -283,7 +283,7 @@ string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents
 string(REGEX MATCH "\t" match "${diff_notabs}")
 if (NOT "${match}" STREQUAL "")
   string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
-#TOREVERT disable for .patch: message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+  message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
 endif ()
 
 # Check for NOCHECKIN
@@ -304,7 +304,7 @@ string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   # Get more context
   string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
-#TOREVERT disable for .patch: message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
+  message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
 endif ()
 
 ##################################################
