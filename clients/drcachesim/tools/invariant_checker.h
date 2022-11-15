@@ -62,6 +62,8 @@ public:
     void *
     parallel_shard_init_stream(int shard_index, void *worker_data,
                                memtrace_stream_t *shard_stream) override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool

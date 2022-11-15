@@ -203,6 +203,7 @@ reader_t::process_input_entry()
         cur_pc_ = next_pc_;
         cur_ref_.instr.addr = cur_pc_;
         next_pc_ = cur_pc_ + cur_ref_.instr.size;
+        ++cur_instr_count_;
         // input_entry_->size stores the number of instrs in this bundle
         assert(input_entry_->size <= sizeof(input_entry_->length));
         if (bundle_idx_ == input_entry_->size)

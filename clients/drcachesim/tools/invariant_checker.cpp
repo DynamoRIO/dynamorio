@@ -97,6 +97,13 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     return res;
 }
 
+// We have no stream interface in invariant_checker_test unit tests.
+void *
+invariant_checker_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    return parallel_shard_init_stream(shard_index, worker_data, nullptr);
+}
+
 bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
@@ -117,14 +124,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (shard->tid_ == -1 && memref.data.tid != 0)
         shard->tid_ = memref.data.tid;
     // We check the memtrace_stream_t counts with our own, unless there was an
-    // instr skip from the start where we cannot compare.
+    // instr skip from the start where we cannot compare, or we're in a unit
+    // test with no stream interface, or we're in serial mode (since we want
+    // per-shard counts for error reporting; XXX: we could add global local counts).
     ++shard->ref_count_;
     if (type_is_instr(memref.instr.type))
         ++shard->instr_count_;
-    if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ &&
+    if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && shard->stream != nullptr &&
         shard->stream->get_instruction_ordinal() > 1)
         shard->skipped_instrs_ = true;
-    if (!shard->skipped_instrs_) {
+    if (!shard->skipped_instrs_ && shard->stream != nullptr &&
+        (shard->stream != serial_stream_ || shard_map_.size() == 1)) {
         report_if_false(shard, shard->ref_count_ == shard->stream->get_record_ordinal(),
                         "Stream record ordinal inaccurate");
         report_if_false(shard,
@@ -202,7 +212,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         shard->file_type_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
-        report_if_false(shard, shard->file_type_ == shard->stream->get_filetype(),
+        report_if_false(shard,
+                        shard->stream == nullptr ||
+                            shard->file_type_ == shard->stream->get_filetype(),
                         "Stream interface filetype != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -216,20 +228,25 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
         shard->found_cache_line_size_marker_ = true;
-        report_if_false(
-            shard, memref.marker.marker_value == shard->stream->get_cache_line_size(),
-            "Stream interface cache line size != trace marker");
+        report_if_false(shard,
+                        shard->stream == nullptr ||
+                            memref.marker.marker_value ==
+                                shard->stream->get_cache_line_size(),
+                        "Stream interface cache line size != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         shard->found_page_size_marker_ = true;
         report_if_false(shard,
-                        memref.marker.marker_value == shard->stream->get_page_size(),
+                        shard->stream == nullptr ||
+                            memref.marker.marker_value == shard->stream->get_page_size(),
                         "Stream interface page size != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_VERSION) {
-        report_if_false(shard, memref.marker.marker_value == shard->stream->get_version(),
+        report_if_false(shard,
+                        shard->stream == nullptr ||
+                            memref.marker.marker_value == shard->stream->get_version(),
                         "Stream interface version != trace marker");
     }
 
@@ -238,9 +255,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) {
         shard->chunk_instr_count_ = memref.marker.marker_value;
-        report_if_false(
-            shard, shard->chunk_instr_count_ == shard->stream->get_chunk_instr_count(),
-            "Stream interface chunk instr count != trace marker");
+        report_if_false(shard,
+                        shard->stream == nullptr ||
+                            shard->chunk_instr_count_ ==
+                                shard->stream->get_chunk_instr_count(),
+                        "Stream interface chunk instr count != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
@@ -280,16 +299,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                  shard->file_type_) ||
                             shard->found_instr_count_marker_,
                         "Missing instr count markers");
-        report_if_false(
-            shard,
-            shard->found_cache_line_size_marker_ ||
-                (shard->skipped_instrs_ && shard->stream->get_cache_line_size() > 0),
-            "Missing cache line marker");
-        report_if_false(
-            shard,
-            shard->found_page_size_marker_ ||
-                (shard->skipped_instrs_ && shard->stream->get_page_size() > 0),
-            "Missing page size marker");
+        report_if_false(shard,
+                        shard->found_cache_line_size_marker_ ||
+                            (shard->skipped_instrs_ && shard->stream != nullptr &&
+                             shard->stream->get_cache_line_size() > 0),
+                        "Missing cache line marker");
+        report_if_false(shard,
+                        shard->found_page_size_marker_ ||
+                            (shard->skipped_instrs_ && shard->stream != nullptr &&
+                             shard->stream->get_page_size() > 0),
+                        "Missing page size marker");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
