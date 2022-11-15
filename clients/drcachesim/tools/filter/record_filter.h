@@ -73,9 +73,16 @@ public:
          * trace. \p shard_data is same as what was returned by
          * parallel_shard_init(). The given \p entry is included in the result
          * trace iff all provided #record_filter_func_t return true.
+         * The user should set *\p stop to true to indicate that the trace
+         * should be truncated at the current point (plus necessary entries
+         * like the footer etc). This helps the record_filter tool omit
+         * auxillary entries like encodings and v2p entries, which are
+         * otherwise emitted always. Setting *\p stop to false is undefined
+         * behavior.
          */
         virtual bool
-        parallel_shard_filter(const trace_entry_t &entry, void *shard_data) = 0;
+        parallel_shard_filter(const trace_entry_t &entry, void *shard_data,
+                              bool *stop) = 0;
         /**
          * Invoked when all #trace_entry_t in a shard have been processed
          * by parallel_shard_filter(). \p shard_data is same as what was
@@ -105,19 +112,29 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
-private:
+protected:
     struct per_shard_t {
         std::string output_path;
         std::unique_ptr<std::ostream> writer;
         std::string error;
+        std::vector<void *> filter_shard_data;
+        std::vector<bool> filter_stop;
+        /* We want to always output everything in the trace header. */
+        bool in_shard_header;
+        std::vector<trace_entry_t> last_filtered_unit_header;
+        uint64_t input_entry_count;
+        uint64_t output_entry_count;
     };
 
-    std::unique_ptr<std::ostream>
-    get_writer(const std::string &path);
+private:
+    virtual bool
+    write_trace_entry(per_shard_t *shard, const trace_entry_t &entry);
+
+    virtual std::unique_ptr<std::ostream>
+    get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
 
     std::string output_dir_;
     std::vector<record_filter_func_t *> filters_;
-    std::vector<void *> filter_shard_data_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
 };

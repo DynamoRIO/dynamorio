@@ -137,6 +137,7 @@ add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/record_filter.cpp
+  tools/filter/toggle_filter.h
   tools/filter/null_filter.h)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
