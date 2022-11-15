@@ -110,6 +110,8 @@ public:
     reader_t &
     skip_instructions(uint64_t instruction_count) override
     {
+        if (instruction_count == 0)
+            return *this;
         if (input_files_.size() > 1) {
             // TODO i#5538: For fast thread-interleaved (whether serial here or the
             // forthcoming per-cpu iteration) we need to read in the schedule file(s)
@@ -121,10 +123,8 @@ public:
             return reader_t::skip_instructions(instruction_count);
         }
         // If the user asks to skip from the very start, we still need to find the chunk
-        // count marker and drain the header queue.
-        // TODO i#5538: Record all of the header values until the first timestamp
-        // and present them as new memtrace_stream_t interfaces.
-        while (chunk_instr_count_ == 0) {
+        // count marker and drain the header queue and populate the stream header values.
+        while (chunk_instr_count_ == 0 || page_size_ == 0) {
             input_entry_ = read_next_entry();
             process_input_entry();
         }
@@ -221,6 +221,7 @@ protected:
                 return false;
             }
             // Read the meta entries until we hit the pid.
+            std::queue<trace_entry_t> marker_queue;
             while (read_next_thread_entry(index_, &next, &thread_eof_[index_])) {
                 if (next.type == TRACE_TYPE_PID) {
                     // We assume the pid entry is the last, right before the timestamp.
@@ -229,7 +230,7 @@ protected:
                 } else if (next.type == TRACE_TYPE_THREAD)
                     tids_[index_] = next;
                 else if (next.type == TRACE_TYPE_MARKER)
-                    queues_[index_].push(next);
+                    marker_queue.push(next);
                 else {
                     ERRMSG("Unexpected trace sequence for input file #%zu\n", index_);
                     return false;
@@ -241,6 +242,10 @@ protected:
             // the first entry.
             queues_[index_].push(tids_[index_]);
             queues_[index_].push(pid);
+            while (!marker_queue.empty()) {
+                queues_[index_].push(marker_queue.front());
+                marker_queue.pop();
+            }
         }
         index_ = input_files_.size();
 

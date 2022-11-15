@@ -186,6 +186,9 @@ Further non-compatibility-affecting changes include:
  - Deprecated the drmemtrace analysis tool functions initialize() and
    parallel_shard_init(), replacing them with initialize_stream() and
    parallel_shard_init_stream().  The old versions will continue to work.
+   The stream interface passed to analysis tools provides tools with the
+   record and instruction ordinals along with the values of top-level
+   headers.
  - Added #record_analyzer_t and #record_analysis_tool_t for analyzing the
    sequence of #trace_entry_t exactly as present in a stored offline trace.
 

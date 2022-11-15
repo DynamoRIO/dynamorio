@@ -248,17 +248,7 @@ reader_t::process_input_entry()
         break;
     case TRACE_TYPE_MARKER:
         cur_ref_.marker.type = (trace_type_t)input_entry_->type;
-        if (!online_ &&
-            (input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
-             input_entry_->size == TRACE_MARKER_TYPE_FILETYPE)) {
-            // Do not carry over a prior thread on a thread switch to a
-            // first-time-seen new thread, whose tid entry is *after* these
-            // markers for offline traces.
-            cur_pid_ = 0;
-            cur_tid_ = 0;
-        } else {
-            assert(cur_tid_ != 0 && cur_pid_ != 0);
-        }
+        assert(cur_tid_ != 0 && cur_pid_ != 0);
         cur_ref_.marker.pid = cur_pid_;
         cur_ref_.marker.tid = cur_tid_;
         cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
@@ -281,11 +271,18 @@ reader_t::process_input_entry()
         }
         if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP)
             last_timestamp_instr_count_ = cur_instr_count_;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
+            version_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+            filetype_ = cur_ref_.marker.marker_value;
+            if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_))
+                expect_no_encodings_ = false;
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE)
+            cache_line_size_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE)
+            page_size_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
             chunk_instr_count_ = cur_ref_.marker.marker_value;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE &&
-                 TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, cur_ref_.marker.marker_value))
-            expect_no_encodings_ = false;
         break;
     default:
         ERRMSG("Unknown trace entry type %d\n", input_entry_->type);
