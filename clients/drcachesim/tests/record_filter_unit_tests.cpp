@@ -141,6 +141,9 @@ test_toggle_filter()
     };
 
 #define SPLIT_AT_INSTR_COUNT 5
+    // Work-around clang asking for braces around subobject even though they're
+    // already there.
+    // clang-format off
     std::vector<struct expected_output> entries = {
         /* Trace shard header. */
         { { TRACE_TYPE_HEADER, 0, 1 }, { true, true } },
@@ -181,8 +184,9 @@ test_toggle_filter()
         { { TRACE_TYPE_WRITE, 4, 30 }, { false, true } },
         /* Trace shard footer. */
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, 31 }, { true, true } },
-        { { TRACE_TYPE_FOOTER, 0, 32 }, { true, true } },
+        { { TRACE_TYPE_FOOTER, 0, 32 }, { true, true } }
     };
+    // clang-format on
 
     /* Check each half. */
     for (int k = 0; k < 2; ++k) {

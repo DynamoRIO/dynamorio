@@ -194,8 +194,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
 
     // Since we're outputing something from this unit, output its header.
     if (output) {
-        for (trace_entry_t &entry : per_shard->last_filtered_unit_header) {
-            if (!write_trace_entry(per_shard, entry))
+        for (trace_entry_t &unit_header_entry : per_shard->last_filtered_unit_header) {
+            if (!write_trace_entry(per_shard, unit_header_entry))
                 return false;
         }
         per_shard->last_filtered_unit_header.clear();
