@@ -1775,8 +1775,8 @@ public:
             ++it;
             list_.insert(it, *entry);
             int count = 0;
-            for (auto &entry : list_) {
-                input_entry_ = &entry;
+            for (auto &next : list_) {
+                input_entry_ = &next;
                 if (process_input_entry())
                     ++count;
             }
