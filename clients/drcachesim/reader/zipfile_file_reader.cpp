@@ -186,10 +186,6 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         zipfile->cur_buf = zipfile->max_buf;
     }
     // We have to linearly walk the last mile.
-    // We need to present a timestamp+cpu so we reset this field so process_input_entry()
-    // will not skip the first pair in this new chunk.
-    last_timestamp_instr_count_ = cur_instr_count_;
-    bool at_chunk_header = false;
     while (cur_instr_count_ < stop_count_) { // End condition is never reached.
         if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
             return false;
@@ -199,27 +195,20 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         if (cur_instr_count_ + 1 == stop_count_ &&
             type_is_instr(static_cast<trace_type_t>(entry_copy_.type)))
             break;
+        // To examine the produced memrefs we'd have to have the base reader
+        // expose these hidden entries.  It is simpler for use to read the
+        // trace_entry_t directly prior to processing by the base class.
+        if (entry_copy_.type == TRACE_TYPE_MARKER) {
+            if (entry_copy_.size == TRACE_MARKER_TYPE_RECORD_ORDINAL)
+                cur_ref_count_ = entry_copy_.addr;
+            else if (entry_copy_.size == TRACE_MARKER_TYPE_TIMESTAMP)
+                timestamp = entry_copy_;
+            else if (entry_copy_.size == TRACE_MARKER_TYPE_CPU_ID)
+                cpu = entry_copy_;
+        }
         // Update core state.
         input_entry_ = &entry_copy_;
-        if (!process_input_entry())
-            continue;
-        const memref_t &memref = **this;
-        if (memref.marker.type == TRACE_TYPE_MARKER) {
-            if (memref.marker.marker_type == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
-                cur_ref_count_ = memref.marker.marker_value;
-                at_chunk_header = true;
-            } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-                timestamp = entry_copy_;
-                if (at_chunk_header)
-                    cur_ref_count_--; // Invisible.
-            } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
-                cpu = entry_copy_;
-                if (at_chunk_header) {
-                    cur_ref_count_--; // Invisible.
-                    at_chunk_header = false;
-                }
-            }
-        }
+        process_input_entry();
     }
     if (timestamp.type == TRACE_TYPE_MARKER && cpu.type == TRACE_TYPE_MARKER) {
         // Insert the two markers.
@@ -227,7 +216,6 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         entry_copy_ = timestamp;
         // These synthetic entries are not real records in the unskipped trace, so we
         // do not associate record counts with them.
-        // at all, somehow.
         suppress_ref_count_ = 2;
         process_input_entry();
         queues_[thread_index].push(cpu);

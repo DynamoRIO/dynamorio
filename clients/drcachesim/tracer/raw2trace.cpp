@@ -1175,10 +1175,9 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
     std::array<trace_entry_t, WRITE_BUFFER_SIZE> local_out_buf;
     byte *buf_base = reinterpret_cast<byte *>(local_out_buf.data());
     byte *buf = buf_base;
-    // Add 1 to the ref count to include this marker.
     buf += trace_metadata_writer_t::write_marker(
         buf, TRACE_MARKER_TYPE_RECORD_ORDINAL,
-        static_cast<uintptr_t>(tdata->cur_chunk_ref_count + 1));
+        static_cast<uintptr_t>(tdata->cur_chunk_ref_count));
     buf +=
         trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)tdata->last_timestamp_);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CPU_ID,

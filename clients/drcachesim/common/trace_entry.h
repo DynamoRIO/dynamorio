@@ -413,8 +413,8 @@ typedef enum {
 
     /**
      * Indicates the record ordinal for this point in the trace.  This is used
-     * to identify the visible record ordinal when skipping over chunks, and can
-     * generally be ignored by tools.
+     * to identify the visible record ordinal when skipping over chunks, and is
+     * not exposed to analysis tools.
      */
     TRACE_MARKER_TYPE_RECORD_ORDINAL,
 

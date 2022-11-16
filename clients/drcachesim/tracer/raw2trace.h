@@ -1759,7 +1759,7 @@ public:
     {
         // Mirror file_reader_t::open_input_files().
         // In particular, we need to skip TRACE_TYPE_HEADER and to pass the
-        // tid and tid to the reader before the 2 markers in front of them.
+        // tid and pid to the reader before the 2 markers in front of them.
         if (!saw_pid_) {
             if (entry->type == TRACE_TYPE_HEADER)
                 return 0;
