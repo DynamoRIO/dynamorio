@@ -176,11 +176,11 @@ set(raw2trace_srcs
   tracer/instru.cpp
   tracer/instru_online.cpp
   tracer/instru_offline.cpp
+  reader/reader.cpp
   )
 if (libsnappy)
   set(raw2trace_srcs ${raw2trace_srcs}
     ${snappy_reader}
-    reader/reader.cpp
     reader/file_reader.cpp
     )
 endif ()

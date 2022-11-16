@@ -136,6 +136,8 @@ public:
     uint64_t
     get_record_ordinal() const override
     {
+        if (suppress_ref_count_ >= 0)
+            return 0;
         return cur_ref_count_;
     }
     uint64_t
@@ -195,6 +197,7 @@ protected:
     bool online_ = true;
     const char *output_prefix_ = "[reader]";
     uint64_t cur_ref_count_ = 0;
+    int64_t suppress_ref_count_ = -1;
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_instr_count_ = 0;
     trace_entry_t *input_entry_ = nullptr;

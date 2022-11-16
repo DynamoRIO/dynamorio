@@ -31,6 +31,7 @@
  */
 
 #include <assert.h>
+#include <inttypes.h>
 #include <string.h>
 #include "reader.h"
 #include "../common/memref.h"
@@ -267,6 +268,8 @@ reader_t::process_input_entry()
                    skip_next_cpu_) {
             VPRINT(this, 2, "skipping start-of-chunk dup cpu\n");
             skip_next_cpu_ = false;
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
+            // Not exposed to tools.
         } else {
             have_memref = true;
         }
@@ -291,8 +294,18 @@ reader_t::process_input_entry()
         at_eof_ = true; // bail
         break;
     }
-    if (have_memref)
-        ++cur_ref_count_;
+    if (have_memref) {
+        if (suppress_ref_count_ > 0) {
+            VPRINT(this, 4, "suppressing %" PRIu64 " ref counts\n", suppress_ref_count_);
+            --suppress_ref_count_;
+        } else {
+            if (suppress_ref_count_ == 0) {
+                // Ensure get_record_ordinal() ignores it.
+                suppress_ref_count_ = -1;
+            }
+            ++cur_ref_count_;
+        }
+    }
     return have_memref;
 }
 
