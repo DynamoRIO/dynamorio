@@ -160,13 +160,7 @@ view_t::should_skip(memtrace_stream_t *memstream, const memref_t &memref)
         sim_refs_left_--;
         if (sim_refs_left_ == 0 && timestamp_ > 0) {
             // Print this timestamp right before the final record.
-            int adjust = -1; // Already incremented for timestamp.
-            if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-                // This is the final record so no adjustment needed.
-                adjust = 0;
-            }
-            print_prefix(memstream, memref, adjust);
+            print_prefix(memstream, memref, timestamp_record_ord_);
             std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
             timestamp_ = 0;
         }
@@ -191,18 +185,20 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_VERSION:
             // We delay printing until we know the tid.
-            if (trace_version_ == -1)
+            if (trace_version_ == -1) {
                 trace_version_ = static_cast<int>(memref.marker.marker_value);
-            else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
+                version_record_ord_ = memstream->get_record_ordinal();
+            } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
                 error_string_ = std::string("Version mismatch across files");
                 return false;
             }
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_FILETYPE:
             // We delay printing until we know the tid.
-            if (filetype_ == -1)
+            if (filetype_ == -1) {
                 filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
-            else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
+                filetype_record_ord_ = memstream->get_record_ordinal();
+            } else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
                 error_string_ = std::string("Filetype mismatch across files");
                 return false;
             }
@@ -221,6 +217,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // We can't easily reorder and place window markers before timestamps
             // since memref iterators use the timestamps to order buffer units.
             timestamp_ = memref.marker.marker_value;
+            timestamp_record_ord_ = memstream->get_record_ordinal();
             if (should_skip(memstream, memref))
                 timestamp_ = 0;
             return true;
@@ -236,13 +233,13 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         printed_header_.insert(memref.marker.tid);
         if (trace_version_ != -1) { // Old versions may not have a version marker.
             if (!should_skip(memstream, memref)) {
-                print_prefix(memstream, memref, -2);
+                print_prefix(memstream, memref, version_record_ord_);
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
             if (!should_skip(memstream, memref)) {
-                print_prefix(memstream, memref, -1);
+                print_prefix(memstream, memref, filetype_record_ord_);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                           << ">\n";
             }
@@ -270,8 +267,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             last_window_[memref.marker.tid] = memref.marker.marker_value;
         }
         if (timestamp_ > 0) {
-            print_prefix(memstream, memref,
-                         -1); // Already incremented for timestamp above.
+            print_prefix(memstream, memref, timestamp_record_ord_);
             std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
             timestamp_ = 0;
         }
@@ -367,6 +363,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             break;
         case TRACE_MARKER_TYPE_FUNC_RETVAL:
             std::cerr << "<marker: function return value 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_RECORD_ORDINAL:
+            std::cerr << "<marker: record ordinal 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
         default:
@@ -495,7 +495,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
-        print_prefix(memstream, memref, 0, prefix);
+        print_prefix(memstream, memref, -1, prefix);
         std::string skip_name(name_width, ' ');
         disasm.insert(newline + 1,
                       prefix.str() + skip_name + "                               ");
