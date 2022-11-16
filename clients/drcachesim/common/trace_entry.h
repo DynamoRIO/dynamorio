@@ -120,7 +120,8 @@ typedef enum {
     // The trace_entry_t stream always has the instr fetch prior to data refs,
     // which the reader can use to obtain the PC for data references.
     // For memref_t, the instruction address is in the addr field.
-    // An instruction *not* of the types below:
+    // The base type is an instruction *not* of the other sub-types.
+    // Enum value == 10.
     TRACE_TYPE_INSTR, /**< A non-branch instruction. */
     // Particular categories of instructions:
     TRACE_TYPE_INSTR_DIRECT_JUMP,      /**< A direct unconditional jump instruction. */
@@ -147,6 +148,7 @@ typedef enum {
     // The _END entries are hidden by reader_t as memref_t has space for the size.
     TRACE_TYPE_INSTR_FLUSH, /**< An instruction cache flush. */
     TRACE_TYPE_INSTR_FLUSH_END,
+    // Enum value == 20.
     TRACE_TYPE_DATA_FLUSH, /**< A data cache flush. */
     TRACE_TYPE_DATA_FLUSH_END,
 
@@ -188,6 +190,7 @@ typedef enum {
     TRACE_TYPE_INSTR_NO_FETCH,
     // An internal value used for online traces and turned by reader_t into
     // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
+    // Enum value == 30.
     TRACE_TYPE_INSTR_MAYBE_FETCH,
 
     /**
@@ -407,6 +410,13 @@ typedef enum {
      * but instead relies on the #TRACE_TYPE_FOOTER entry.
      */
     TRACE_MARKER_TYPE_CHUNK_FOOTER,
+
+    /**
+     * Indicates the record ordinal for this point in the trace.  This is used
+     * to identify the visible record ordinal when skipping over chunks, and is
+     * not exposed to analysis tools.
+     */
+    TRACE_MARKER_TYPE_RECORD_ORDINAL,
 
     // ...
     // These values are reserved for future built-in marker types.

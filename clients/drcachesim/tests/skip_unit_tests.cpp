@@ -111,10 +111,10 @@ test_skip_initial()
         //    Output format:
         //    <record#> <instr#>: T<tid> <record details>
         //    ------------------------------------------------------------
-        //           18       49: T3854659 <marker: timestamp 13312570674112282>
-        //           19       49: T3854659 <marker: tid 3854659 on core 3>
-        //           20       50: T3854659 ifetch       2 byte(s) @ 0x0000000000401030 75
-        //           d9                jnz    $0x000000000040100b
+        //            0       49: T3854659 <marker: timestamp 13312570674112282>
+        //            0       49: T3854659 <marker: tid 3854659 on core 3>
+        //           62       50: T3854659 ifetch       2 byte(s) @ 0x0000000000401030 75
+        //                                   d9                jnz    $0x000000000040100b
         std::string line;
         // First we expect "Output format:"
         std::getline(res_stream, line, '\n');
@@ -126,24 +126,31 @@ test_skip_initial()
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "------"), "missing divider line");
         // Next we expect the timestamp entry with the instruction count before
-        // a colon: "       18       49: T3854659 <marker: timestamp 13312570674112282>"
-        // We expect the count to equal the -skip_instrs value.
+        // a colon: "        0       49: T3854659 <marker: timestamp 13312570674112282>"
+        // We expect the count to equal the -skip_instrs value, with a 0 ref count.
         std::getline(res_stream, line, '\n');
         std::stringstream expect_stream;
         expect_stream << skip_instrs << ":";
+        CHECK(skip_instrs == 0 || line.find(" 0 ") != std::string::npos,
+              "bad ref ordinal");
         CHECK(line.find(expect_stream.str()) != std::string::npos, "bad instr ordinal");
-        // TODO i#5538: Once we fix the record count, check it too to ensure it
-        // is > the instr count or other sanity checks.
         CHECK(skip_instrs == 0 || line.find("timestamp") != std::string::npos,
               "missing timestamp");
-        // Next we expect the cpuid entry.
+        // Next we expect the cpuid entry, with a 0 ref count too.
         std::getline(res_stream, line, '\n');
         CHECK(skip_instrs == 0 || line.find("on core") != std::string::npos,
               "missing cpuid");
+        CHECK(skip_instrs == 0 || line.find(" 0 ") != std::string::npos,
+              "bad ref ordinal");
         // Next we expect the target instruction fetch.
         std::getline(res_stream, line, '\n');
         CHECK(skip_instrs == 0 || line.find("ifetch") != std::string::npos,
               "missing ifetch");
+        // We don't know the precise record count but ensure it's > instr count.
+        int64_t ref_count;
+        std::istringstream ref_in(line);
+        ref_in >> ref_count;
+        CHECK(ref_count > skip_instrs, "invalid ref count");
         // Reset cerr.
         std::cerr.rdbuf(prior);
     }

@@ -93,21 +93,21 @@ protected:
     }
 
     inline void
-    print_prefix(memtrace_stream_t *memstream, const memref_t &memref, int ref_adjust = 0,
-                 std::ostream &stream = std::cerr)
+    print_prefix(memtrace_stream_t *memstream, const memref_t &memref,
+                 int64_t record_ord_subst = -1, std::ostream &stream = std::cerr)
     {
+        uint64_t record_ord = record_ord_subst > -1
+            ? static_cast<uint64_t>(record_ord_subst)
+            : memstream->get_record_ordinal();
         if ((prev_tid_ != -1 && prev_tid_ != memref.instr.tid) ||
             // Print a divider for a skip_instructions gap too.
-            (prev_record_ != 0 &&
-             prev_record_ + 1 < memstream->get_record_ordinal() + ref_adjust))
+            (prev_record_ != 0 && prev_record_ + 1 < record_ord))
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
-        // TODO i#5538: After skipping across a chunk, the record ordinal is
-        // incorrect.  We need raw2trace to insert a record ordinal at chunk entry.
-        prev_record_ = memstream->get_record_ordinal() + ref_adjust;
-        stream << std::setw(9) << (memstream->get_record_ordinal() + ref_adjust)
-               << std::setw(9) << memstream->get_instruction_ordinal() << ": T"
-               << memref.marker.tid << " ";
+        prev_record_ = record_ord;
+        stream << std::setw(9) << record_ord << std::setw(9)
+               << memstream->get_instruction_ordinal() << ": T" << memref.marker.tid
+               << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after
@@ -141,6 +141,9 @@ protected:
     std::unordered_set<memref_tid_t> printed_header_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
+    int64_t timestamp_record_ord_ = -1;
+    int64_t version_record_ord_ = -1;
+    int64_t filetype_record_ord_ = -1;
     bool has_modules_;
     memtrace_stream_t *serial_stream_ = nullptr;
 };
