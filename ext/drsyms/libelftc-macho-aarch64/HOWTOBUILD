@@ -1,0 +1,41 @@
+How To Build libelftc.a and libdwarf.a for Mach-O AArch64
+by Derek Bruening
+
+Relocation support is disabled by the patch.
+
+XXX i#5383: Functionality has not yet been fully tested: this is a
+first pass to get things depending on drsyms to configure and build.
+
+===========================================================================
+64-bit:
+
+I built on Mac OS X 12.6.1.
+
+I have XCode 14 and this version of clang:
+$ cc -v
+Apple clang version 14.0.0 (clang-1400.0.29.202)
+Target: arm64-apple-darwin21.6.0
+Thread model: posix
+InstalledDir: /Library/Developer/CommandLineTools/usr/bin
+
+Install bsdmake and svn:
+$ brew install bsdmake svn
+
+Check out the sources.
+$ svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk src
+
+Apply the libelftc-macho.patch.
+$ cd src
+$ patch -p0 < <path-to-DR>/ext/drsyms/libelftc-macho-aarch64/libelftc-macho.patch
+
+Now build 64-bit:
+% REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
+% cd libdwarf
+% bsdmake EXTRA_CFLAGS="-O2 -g -fPIC ${REDIR} -Wno-system-headers -mmacosx-version-min=11.7" libdwarf.a
+% cd ../libelftc
+% bsdmake EXTRA_CFLAGS="-O2 -g -fPIC ${REDIR} -Wno-system-headers -mmacosx-version-min=11.7" libelftc.a
+
+Then copy the resulting libelftc.a and libdwarf.a into the DR source tree
+in ext/drsyms/libelftc-macho-aarch64/lib64/.
+
+===========================================================================

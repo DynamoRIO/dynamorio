@@ -120,19 +120,60 @@ public:
 std::string
 run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
 {
-    view.initialize();
-    // Capture cerr.
-    std::stringstream capture;
-    std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
-    // Run the tool.
-    for (const auto &memref : memrefs) {
-        if (!view.process_memref(memref))
-            std::cout << "Hit error: " << view.get_error_string() << "\n";
-    }
-    // Return the result.
-    std::string res = capture.str();
-    std::cerr.rdbuf(prior);
-    return res;
+    class local_stream_t : public memtrace_stream_t {
+    public:
+        local_stream_t(view_t &view, const std::vector<memref_t> &memrefs)
+            : view_(view)
+            , memrefs_(memrefs)
+        {
+        }
+
+        std::string
+        run()
+        {
+            view_.initialize_stream(this);
+            // Capture cerr.
+            std::stringstream capture;
+            std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
+            // Run the tool.
+            for (const auto &memref : memrefs_) {
+                ++ref_count_;
+                if (type_is_instr(memref.instr.type))
+                    ++instr_count_;
+                if (!view_.process_memref(memref))
+                    std::cout << "Hit error: " << view_.get_error_string() << "\n";
+            }
+            // Return the result.
+            std::string res = capture.str();
+            std::cerr.rdbuf(prior);
+            return res;
+        }
+
+        uint64_t
+        get_record_ordinal() const override
+        {
+            return ref_count_;
+        }
+        uint64_t
+        get_instruction_ordinal() const override
+        {
+            return instr_count_;
+        }
+        std::string
+        get_stream_name() const override
+        {
+            return "";
+        }
+
+    private:
+        view_t &view_;
+        const std::vector<memref_t> &memrefs_;
+        uint64_t ref_count_ = 0;
+        uint64_t instr_count_ = 0;
+    };
+
+    local_stream_t stream(view, memrefs);
+    return stream.run();
 }
 
 bool
@@ -217,7 +258,8 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     ss >> prefix;
     if (prefix != 1 + skip_memrefs) {
         std::cerr << "Expect to start after skip count " << skip_memrefs << " but found "
-                  << prefix << "\n";
+                  << prefix << "\n"
+                  << res << "\n";
         return false;
     }
     return true;

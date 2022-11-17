@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,38 +30,43 @@
  * DAMAGE.
  */
 
-/* zipfile_file_reader: reads zipfile files containing memory traces. */
+#include <fstream>
+#include "record_file_reader.h"
 
-#ifndef _ZIPFILE_FILE_READER_H_
-#define _ZIPFILE_FILE_READER_H_ 1
+namespace dynamorio {
+namespace drmemtrace {
 
-#include <zlib.h>
-#include "minizip/unzip.h"
-#include "file_reader.h"
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+record_file_reader_t<std::ifstream>::~record_file_reader_t<std::ifstream>()
+{
+    if (input_file_ != nullptr)
+        delete input_file_;
+}
 
-struct zipfile_reader_t {
-    explicit zipfile_reader_t(unzFile file)
-        : file(file)
-    {
-    }
-    unzFile file;
-    // Without our own buffering, reading one trace_entry_t record at a time
-    // is 60% slower.  This buffer size was picked through experimentation to
-    // perform well without taking up too much memory.
-    trace_entry_t buf[4096];
-    trace_entry_t *cur_buf = buf;
-    trace_entry_t *max_buf = buf;
-};
-
-typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
-
-/* Declare this so the compiler knows not to use the default implementation in the
- * class declaration.
- */
 template <>
 bool
-file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
-                                                          uint64_t instruction_count,
-                                                          OUT bool *eof);
+record_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
+{
+    std::ifstream *fstream = new std::ifstream(path, std::ifstream::binary);
+    if (!*fstream)
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_file_ = fstream;
+    return true;
+}
 
-#endif /* _ZIPFILE_FILE_READER_H_ */
+template <>
+bool
+record_file_reader_t<std::ifstream>::read_next_entry()
+{
+    if (!input_file_->read((char *)&cur_entry_, sizeof(cur_entry_)))
+        return false;
+    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
+           cur_entry_.size, cur_entry_.addr);
+    return true;
+}
+
+} // namespace drmemtrace
+} // namespace dynamorio

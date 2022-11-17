@@ -44,6 +44,8 @@
 // To support installation of headers for analysis tools into a single
 // separate directory we omit common/ here and rely on -I.
 #include "memref.h"
+#include "memtrace_stream.h"
+#include "trace_entry.h"
 #include <string>
 
 /**
@@ -56,9 +58,9 @@
  * that support concurrent processing of shards and do not need to see a single
  * thread-interleaved merged trace, the interface functions with the parallel_
  * prefix should be implemented, and parallel_shard_supported() should return true.
- * parallel_shard_init() will be invoked for each shard prior to invoking
+ * parallel_shard_init_stream() will be invoked for each shard prior to invoking
  * parallel_shard_memref() for any entry in that shard; the data structure returned
- * from parallel_shard_init() will be passed to parallel_shard_memref() for each
+ * from parallel_shard_init_stream() will be passed to parallel_shard_memref() for each
  * trace entry for that shard.  The concurrency model used guarantees that all
  * entries from any one shard are processed by the same single worker thread, so no
  * synchronization is needed inside the parallel_ functions.  A single worker thread
@@ -81,29 +83,51 @@
  * aggregation across the whole trace should occur here as well, while shard-specific
  * results can be presented in parallel_shard_exit().
  *
+ * RecordType is the type of entry that is analyzed by the tool. Currently, we support
+ * #memref_t and #trace_entry_t. analysis_tool_tmpl_t<#memref_t> is the primary type of
+ * analysis tool and is used for most purposes. analysis_tool_tmpl_t≤#trace_entry_t> is
+ * used in special cases where an offline trace needs to be observed exactly as stored on
+ * disk, without hiding any internal entries.
+ *
+ * Analysis tools can subclass either of the specialized analysis_tool_tmpl_t<#memref_t>
+ * or analysis_tool_tmpl_t<#trace_entry_t>, or analysis_tool_tmpl_t itself, as required.
  */
-class analysis_tool_t {
+template <typename RecordType> class analysis_tool_tmpl_t {
 public:
     /**
      * Errors encountered during the constructor will set the success flag, which should
      * be queried via operator!.  On an error, get_error_string() provides a descriptive
      * error message.
      */
-    analysis_tool_t()
+    analysis_tool_tmpl_t()
         : success_(true) {};
-    virtual ~analysis_tool_t() {}; /**< Destructor. */
+    virtual ~analysis_tool_tmpl_t() {}; /**< Destructor. */
     /**
-     * Tools are encouraged to perform any initialization that might fail here rather
-     * than in the constructor.  On an error, this returns an error string.  On success,
-     * it returns "".
+     * \deprecated The initialize_stream() function is called by the analyzer; this
+     * function is only called if the default implementation of initialize_stream() is
+     * left in place and it calls this version.  On an error, this returns an error
+     * string.  On success, it returns "".
      */
     virtual std::string
     initialize()
     {
         return "";
     }
+    /**
+     * Tools are encouraged to perform any initialization that might fail here rather
+     * than in the constructor.  The \p serial_stream interface allows tools to query
+     * details of the underlying trace during serial operation; it is nullptr for
+     * parallel operation (a per-shard version is passed to parallel_shard_init_stream()).
+     * On an error, this returns an error string.  On success, it returns "".
+     */
+    virtual std::string
+    initialize_stream(memtrace_stream_t *serial_stream)
+    {
+        return initialize();
+    }
     /** Returns whether the tool was created successfully. */
-    virtual bool operator!()
+    virtual bool
+    operator!()
     {
         return !success_;
     }
@@ -122,7 +146,7 @@ public:
      * On failure, get_error_string() returns a descriptive message.
      */
     virtual bool
-    process_memref(const memref_t &memref) = 0;
+    process_memref(const RecordType &entry) = 0;
     /**
      * This routine reports the results of the trace analysis.
      * It should leave the i/o state in a default format (std::dec) to support
@@ -136,7 +160,7 @@ public:
     /**
      * Returns whether this tool supports analyzing trace shards concurrently, or
      * whether it needs to see a single thread-interleaved stream of traced
-     * events.
+     * events.  This may be called prior to initialize().
      */
     virtual bool
     parallel_shard_supported()
@@ -149,8 +173,8 @@ public:
      * cache of data global to the trace that crosses shards.  This data does not
      * need any synchronization as it will only be accessed by this worker thread.
      * The \p worker_index is a unique identifier for this worker.  The return value
-     * here will be passed to the invocation of parallel_shard_init() for each shard
-     * upon which this worker operates.
+     * here will be passed to the invocation of parallel_shard_init_stream() for each
+     * shard upon which this worker operates.
      */
     virtual void *
     parallel_worker_init(int worker_index)
@@ -168,14 +192,9 @@ public:
         return "";
     }
     /**
-     * Invoked once for each trace shard prior to calling parallel_shard_memref() for
-     * that shard, this allows a tool to create data local to a shard.  The \p
-     * shard_index is a unique identifier allowing shard data to be stored into a
-     * global table if desired (typically for aggregation use in print_results()).
-     * The \p worker_data is the return value of parallel_worker_init() for the
-     * worker thread who will exclusively operate on this shard.  The return value
-     * here will be passed to each invocation of parallel_shard_memref() for that
-     * same shard.
+     * \deprecated The parallel_shard_init_stream() is what is called by the analyzer;
+     * this function is only called if the default implementation of
+     * parallel_shard_init_stream() is left in place and it calls this version.
      */
     virtual void *
     parallel_shard_init(int shard_index, void *worker_data)
@@ -183,8 +202,25 @@ public:
         return nullptr;
     }
     /**
+     * Invoked once for each trace shard prior to calling parallel_shard_memref() for
+     * that shard, this allows a tool to create data local to a shard.  The \p
+     * shard_index is a unique identifier allowing shard data to be stored into a global
+     * table if desired (typically for aggregation use in print_results()).  The \p
+     * worker_data is the return value of parallel_worker_init() for the worker thread
+     * who will exclusively operate on this shard.  The \p shard_stream allows tools to
+     * query details of the underlying trace shard during parallel operation; it is
+     * valid only until parallel_shard_exit() is called.  The return value here will be
+     * passed to each invocation of parallel_shard_memref() for that same shard.
+     */
+    virtual void *
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *shard_stream)
+    {
+        return parallel_shard_init(shard_index, worker_data);
+    }
+    /**
      * Invoked once when all trace entries for a shard have been processed.  \p
-     * shard_data is the value returned by parallel_shard_init() for this shard.
+     * shard_data is the value returned by parallel_shard_init_stream() for this shard.
      * This allows a tool to clean up its thread data, or to report thread analysis
      * results.  Most tools, however, prefer to aggregate data or at least sort data,
      * and perform nothing here, doing all cleanup in print_results() by storing the
@@ -200,14 +236,14 @@ public:
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry
      * and takes whatever actions the tool needs to perform its analysis. The \p
-     * shard_data parameter is the value returned by parallel_shard_init() for this
+     * shard_data parameter is the value returned by parallel_shard_init_stream() for this
      * shard.  Since each shard is operated upon in its entirety by the same worker
      * thread, no synchronization is needed.  The return value indicates whether this
      * function was successful. On failure, parallel_shard_error() returns a
      * descriptive message.
      */
     virtual bool
-    parallel_shard_memref(void *shard_data, const memref_t &memref)
+    parallel_shard_memref(void *shard_data, const RecordType &entry)
     {
         return false;
     }
@@ -223,4 +259,9 @@ protected:
     std::string error_string_;
 };
 
+/** See #analysis_tool_tmpl_t. */
+typedef analysis_tool_tmpl_t<memref_t> analysis_tool_t;
+
+/** See #analysis_tool_tmpl_t. */
+typedef analysis_tool_tmpl_t<trace_entry_t> record_analysis_tool_t;
 #endif /* _ANALYSIS_TOOL_H_ */

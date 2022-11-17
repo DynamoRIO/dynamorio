@@ -49,6 +49,8 @@ public:
 protected:
     bool
     create_analysis_tools();
+    bool
+    init_analysis_tools();
     void
     destroy_analysis_tools();
 

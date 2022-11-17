@@ -183,6 +183,14 @@ Further non-compatibility-affecting changes include:
    They can be created with opnd_create_reg_element_vector(), detected with
    opnd_is_element_vector_reg() and have their element size retrieved by
    opnd_get_vector_element_size().
+ - Deprecated the drmemtrace analysis tool functions initialize() and
+   parallel_shard_init(), replacing them with initialize_stream() and
+   parallel_shard_init_stream().  The old versions will continue to work.
+ - Added #record_analyzer_t and #record_analysis_tool_t for analyzing the
+   sequence of #trace_entry_t exactly as present in a stored offline trace.
+
+**************************************************
+<hr>
 
 The changes between version 9.0.1 and 9.0.0 include the following compatibility
 changes:
@@ -207,6 +215,9 @@ Further non-compatibility-affecting changes include:
    bitwidth path, when configuring target processes.
  - Added -tool_dir drrun/drconfig parameter to control where to look for tool
    config files.
+
+**************************************************
+<hr>
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:

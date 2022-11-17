@@ -131,6 +131,7 @@ that is not needed outside of its own file.
 -# Do not shadow global variables (or variables in containing scopes) by using
 local variables of the same name: choose a distinct name for the local variable.
 
+-# Template parameters in C++ should have a descriptive CamelCase identifier.
 
 # Types
 

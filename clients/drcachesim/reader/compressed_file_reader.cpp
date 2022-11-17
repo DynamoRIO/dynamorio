@@ -32,35 +32,24 @@
 
 #include "compressed_file_reader.h"
 
-/* clang-format off */ /* (make vera++ newline-after-type check happy) */
-template <>
-/* clang-format on */
-file_reader_t<gzip_reader_t>::~file_reader_t<gzip_reader_t>()
+namespace {
+
+/**************************************************************************
+ * Common logic used in the gzip_reader_t specializations for file_reader_t
+ * and record_file_reader_t.
+ */
+
+bool
+open_single_file_common(const std::string &path, gzFile &out)
 {
-    for (auto &gzip : input_files_)
-        gzclose(gzip.file);
-    delete[] thread_eof_;
+    out = gzopen(path.c_str(), "rb");
+    return out != nullptr;
 }
 
-template <>
 bool
-file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
+read_next_thread_entry_common(gzip_reader_t *gzip, OUT trace_entry_t *entry,
+                              OUT bool *eof)
 {
-    gzFile file = gzopen(path.c_str(), "rb");
-    if (file == nullptr)
-        return false;
-    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_files_.emplace_back(file);
-    return true;
-}
-
-template <>
-bool
-file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
-                                                     OUT trace_entry_t *entry,
-                                                     OUT bool *eof)
-{
-    gzip_reader_t *gzip = &input_files_[thread_index];
     if (gzip->cur_buf >= gzip->max_buf) {
         int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
         // Returns less than asked-for for end of file, or –1 for error.
@@ -75,6 +64,45 @@ file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
     }
     *entry = *gzip->cur_buf;
     ++gzip->cur_buf;
+    return true;
+}
+
+} // namespace
+
+/**************************************************
+ * gzip_reader_t specializations for file_reader_t.
+ */
+
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+file_reader_t<gzip_reader_t>::~file_reader_t<gzip_reader_t>()
+{
+    for (auto &gzip : input_files_)
+        gzclose(gzip.file);
+    delete[] thread_eof_;
+}
+
+template <>
+bool
+file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
+{
+    gzFile file;
+    if (!open_single_file_common(path, file))
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_files_.emplace_back(file);
+    return true;
+}
+
+template <>
+bool
+file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
+                                                     OUT trace_entry_t *entry,
+                                                     OUT bool *eof)
+{
+    if (!read_next_thread_entry_common(&input_files_[thread_index], entry, eof))
+        return false;
     VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
            thread_index, entry->type, entry->size, entry->addr);
     return true;
@@ -91,3 +119,47 @@ file_reader_t<gzip_reader_t>::is_complete()
     // XXX: Should we just remove this interface, then?
     return false;
 }
+
+namespace dynamorio {
+namespace drmemtrace {
+
+/*********************************************************
+ * gzip_reader_t specializations for record_file_reader_t.
+ */
+
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
+record_file_reader_t<gzip_reader_t>::~record_file_reader_t<gzip_reader_t>()
+{
+    if (input_file_ != nullptr) {
+        gzclose(input_file_->file);
+        delete input_file_;
+    }
+}
+
+template <>
+bool
+record_file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
+{
+    gzFile file;
+    if (!open_single_file_common(path, file))
+        return false;
+    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
+    input_file_ = new gzip_reader_t(file);
+    return true;
+}
+
+template <>
+bool
+record_file_reader_t<gzip_reader_t>::read_next_entry()
+{
+    if (!read_next_thread_entry_common(input_file_, &cur_entry_, &eof_))
+        return false;
+    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
+           cur_entry_.size, cur_entry_.addr);
+    return true;
+}
+
+} // namespace drmemtrace
+} // namespace dynamorio

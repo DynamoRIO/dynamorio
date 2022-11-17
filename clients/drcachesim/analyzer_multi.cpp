@@ -52,6 +52,7 @@
 analyzer_multi_t::analyzer_multi_t()
 {
     worker_count_ = op_jobs.get_value();
+    skip_instrs_ = op_skip_instrs.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
     // of using single-file readers but use them sequentially, as opposed to
     // the every-file interleaving reader, but the user can specify -jobs 1, so
@@ -143,13 +144,17 @@ analyzer_multi_t::analyzer_multi_t()
             // XXX: Even better would be to propagate the mkfifo errno here.
             error_string_ = "try removing stale pipe file " +
                 reinterpret_cast<ipc_reader_t *>(serial_trace_iter_.get())
-                    ->get_pipe_name();
+                    ->get_stream_name();
 #endif
         }
     } else {
         // Legacy file.
         if (!init_file_reader(op_infile.get_value(), op_verbose.get_value()))
             success_ = false;
+    }
+    if (!init_analysis_tools()) {
+        success_ = false;
+        return;
     }
     // We can't call serial_trace_iter_->init() here as it blocks for ipc_reader_t.
 }
@@ -170,14 +175,10 @@ analyzer_multi_t::create_analysis_tools()
     tools_[0] = drmemtrace_analysis_tool_create();
     if (tools_[0] == NULL)
         return false;
-    std::string tool_error;
     if (!*tools_[0]) {
-        tool_error = tools_[0]->get_error_string();
+        std::string tool_error = tools_[0]->get_error_string();
         if (tool_error.empty())
             tool_error = "no error message provided.";
-    } else
-        tool_error = tools_[0]->initialize();
-    if (!tool_error.empty()) {
         error_string_ = "Tool failed to initialize: " + tool_error;
         delete tools_[0];
         tools_[0] = NULL;
@@ -229,8 +230,6 @@ analyzer_multi_t::create_analysis_tools()
             serial_schedule_file_.get(), cpu_schedule_file_.get());
         if (tools_[1] == NULL)
             return false;
-        if (!!*tools_[1])
-            tools_[1]->initialize();
         if (!*tools_[1]) {
             error_string_ = tools_[1]->get_error_string();
             delete tools_[1];
@@ -238,6 +237,28 @@ analyzer_multi_t::create_analysis_tools()
             return false;
         }
         num_tools_ = 2;
+    }
+    return true;
+}
+
+bool
+analyzer_multi_t::init_analysis_tools()
+{
+    std::string tool_error = tools_[0]->initialize_stream(serial_trace_iter_.get());
+    if (!tool_error.empty()) {
+        error_string_ = "Tool failed to initialize: " + tool_error;
+        delete tools_[0];
+        tools_[0] = NULL;
+        return false;
+    }
+    if (op_test_mode.get_value()) {
+        tools_[1]->initialize_stream(serial_trace_iter_.get());
+        if (!*tools_[1]) {
+            error_string_ = tools_[1]->get_error_string();
+            delete tools_[1];
+            tools_[1] = NULL;
+            return false;
+        }
     }
     return true;
 }

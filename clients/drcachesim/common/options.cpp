@@ -105,7 +105,7 @@ droption_t<bytesize_t> op_chunk_instr_count(
     // We do not support tiny chunks.  We do not support disabling chunks with a 0
     // value, to simplify testing: although we're still having to support generating
     // non-zip files for !HAS_ZLIB/!HAS_ZIP!
-    bytesize_t(1000),
+    bytesize_t(10),
 #ifdef X64
     bytesize_t(1ULL << 63),
 #else
@@ -487,12 +487,22 @@ droption_t<int>
                    "For simulator types that support it, limits analyis to the single "
                    "thread with the given identifier.  0 enables all threads.");
 
+droption_t<bytesize_t> op_skip_instrs(
+    DROPTION_SCOPE_FRONTEND, "skip_instrs", 0, "Number of instructions to skip",
+    "Specifies the number of instructions to skip in the beginning of the trace "
+    "analysis.  For serial iteration, this number is "
+    "computed just once across the interleaving sequence of all threads; for parallel "
+    "iteration, each thread skips this many insructions.  When built with zipfile "
+    "support, this skipping is optimized and large instruction counts can be quickly "
+    "skipped; this is not the case for -skip_refs.");
+
 droption_t<bytesize_t>
     op_skip_refs(DROPTION_SCOPE_FRONTEND, "skip_refs", 0,
                  "Number of memory references to skip",
-                 "Specifies the number of references to skip "
-                 "in the beginning of the application execution. "
-                 "These memory references are dropped instead of being simulated.");
+                 "Specifies the number of references to skip in the beginning of the "
+                 "application execution. These memory references are dropped instead "
+                 "of being simulated.  This skipping may be slow for large skip values; "
+                 "consider -skip_instrs for a faster method of skipping.");
 
 droption_t<bytesize_t> op_L0_warmup_refs(
     DROPTION_SCOPE_CLIENT, "L0_warmup_refs", 0,

@@ -181,6 +181,9 @@ endif()
 # The target OS:
 if (APPLE)
   set(MACOS 1)
+  # Ensure our binaries can run on older OSX but only as far back as is
+  # officially supported by Apple.
+  set(OLDEST_OSX_SUPPPORTED "11.7")
 elseif (UNIX)
   set(LINUX 1)
 endif (APPLE)
@@ -843,12 +846,7 @@ if (UNIX)
     endif (X64)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
-    # Ensure our binaries can run on older OSX
-    # We're building our release package on 10.14, and that XCode does not
-    # supply C++ libraries for below 10.9, causing drcachesim to fail to build.
-    # Thus we have abandoned support for below 10.9.
-    # If this is updated, update drcachesim's as well.
-    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.9")
+    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=${OLDEST_OSX_SUPPPORTED}")
   endif ()
   if (APPLE)
     set(ld_entry_flag "-e")
@@ -1806,6 +1804,23 @@ function (link_with_pthread target)
   endif ()
 endfunction ()
 
+function (mac_add_inc_and_lib header lib)
+  # Locate include and lib directories on MacOS.
+  # TODO: Write proper package for snappy and lz4 lookup.
+  find_path(INCLUDE_DIR ${header} HINTS /usr/local/include /opt/homebrew/include)
+  if (INCLUDE_DIR)
+    include_directories(${INCLUDE_DIR})
+  else ()
+    message(WARNING "Failed to locate header ${header}")
+  endif ()
+  find_path(LIB_DIR ${lib} HINTS /usr/local/lib /opt/homebrew/lib)
+  if (LIB_DIR)
+    link_directories(${LIB_DIR})
+  else ()
+    message(WARNING "Failed to locate lib ${lib}")
+  endif ()
+endfunction ()
+
 # zlib, snappy, and lz4 are used for some clients/ and tests.
 find_package(ZLIB)
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
@@ -1813,28 +1828,22 @@ if (UNIX AND X64)
   find_library(libsnappy snappy)
   if (libsnappy)
     message(STATUS "Found snappy: ${libsnappy}")
+    if (APPLE)
+      mac_add_inc_and_lib(snappy.h libsnappy.a)
+    endif ()
   endif ()
-  # Locate non-standard snappy directories on macOS.
-  # TODO: Write proper package for snappy lookup.
-  if (libsnappy AND APPLE)
-    find_path(SNAPPY_INCLUDE_DIR snappy.h HINTS /usr/local/include)
-    find_path(SNAPPY_LIB_DIR libsnappy.a HINTS /usr/local/lib)
-    include_directories(${SNAPPY_INCLUDE_DIR})
-    link_directories(${SNAPPY_LIB_DIR})
-  endif ()
-
   find_library(liblz4 lz4)
   if (liblz4)
     message(STATUS "Found liblz4: ${liblz4}")
+    if (APPLE)
+      mac_add_inc_and_lib(lz4.h liblz4.a)
+    endif ()
   endif ()
 endif ()
 
 if (BUILD_CLIENTS)
   # Must be prior to api/docs
-  if (NOT (MACOS AND AARCH64))
-    # TODO i#5383: Add M1 drsyms libraries, needed by drcov2lcov and func_trace.
-    add_subdirectory(clients)
-  endif ()
+  add_subdirectory(clients)
 endif (BUILD_CLIENTS)
 
 if (BUILD_DOCS)
