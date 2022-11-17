@@ -51,12 +51,17 @@ public:
                         std::istream *serial_schedule_file = nullptr,
                         std::istream *cpu_schedule_file = nullptr);
     virtual ~invariant_checker_t();
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
     process_memref(const memref_t &memref) override;
     bool
     print_results() override;
     bool
     parallel_shard_supported() override;
+    void *
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *shard_stream) override;
     void *
     parallel_shard_init(int shard_index, void *worker_data) override;
     bool
@@ -77,6 +82,7 @@ protected:
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
             last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
+        memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
@@ -112,6 +118,7 @@ protected:
         uint64_t last_timestamp_ = 0;
         std::vector<schedule_entry_t> sched_;
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
+        bool skipped_instrs_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -135,6 +142,8 @@ protected:
 
     std::istream *serial_schedule_file_ = nullptr;
     std::istream *cpu_schedule_file_ = nullptr;
+
+    memtrace_stream_t *serial_stream_ = nullptr;
 };
 
 #endif /* _INVARIANT_CHECKER_H_ */

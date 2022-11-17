@@ -81,6 +81,42 @@ public:
      */
     virtual std::string
     get_stream_name() const = 0;
+
+    /**
+     * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
+     * in the trace header.
+     */
+    virtual uint64_t
+    get_version() const = 0;
+
+    /**
+     * Returns the OFFLINE_FILE_TYPE_* bitfields of type #offline_file_type_t
+     * identifying the architecture and other key high-level attributes of the trace
+     * from the #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+     */
+    virtual uint64_t
+    get_filetype() const = 0;
+
+    /**
+     * Returns the cache line size from the #TRACE_MARKER_TYPE_CACHE_LINE_SIZE record in
+     * the trace header.
+     */
+    virtual uint64_t
+    get_cache_line_size() const = 0;
+
+    /**
+     * Returns the chunk instruction count from the #TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT
+     * record in the trace header.
+     */
+    virtual uint64_t
+    get_chunk_instr_count() const = 0;
+
+    /**
+     * Returns the page size from the #TRACE_MARKER_TYPE_PAGE_SIZE record in
+     * the trace header.
+     */
+    virtual uint64_t
+    get_page_size() const = 0;
 };
 
 #endif /* _MEMTRACE_STREAM_H_ */
